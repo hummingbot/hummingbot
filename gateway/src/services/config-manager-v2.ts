@@ -1,6 +1,7 @@
 import Ajv from 'ajv';
 import { ValidateFunction, DefinedError } from 'ajv';
 import fs from 'fs';
+import fse from 'fs-extra';
 import path from 'path';
 import yaml from 'js-yaml';
 import * as migrations from './config-migration/migrations';
@@ -449,4 +450,11 @@ export class ConfigManagerV2 {
       );
     }
   }
+}
+
+export function resolveDBPath(oldPath: string): string {
+  if (oldPath.charAt(0) === '/') return oldPath;
+  const dbDir: string = path.join(rootPath(), 'db/');
+  fse.mkdirSync(dbDir, { recursive: true });
+  return path.join(dbDir, oldPath);
 }

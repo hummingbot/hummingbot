@@ -1,6 +1,7 @@
 import { BigNumber } from 'ethers';
 import {
   bigNumberWithDecimalToStr,
+  floatStringWithDecimalToBigNumber,
   gasCostInEthString,
   countDecimals,
   fromFractionString,
@@ -67,4 +68,36 @@ test('toFractionString', () => {
   expect(toFractionString('0.2')).toEqual('1/5');
   expect(toFractionString('hello')).toEqual(null);
   expect(toFractionString('0abc')).toEqual(null);
+});
+
+test('floatStringWithDecimalToBigNumber', () => {
+  expect(floatStringWithDecimalToBigNumber('1.0', 1)).toEqual(
+    BigNumber.from(10)
+  );
+  expect(floatStringWithDecimalToBigNumber('1.00', 1)).toEqual(
+    BigNumber.from(10)
+  );
+  expect(floatStringWithDecimalToBigNumber('0.00100', 5)).toEqual(
+    BigNumber.from(100)
+  );
+  expect(floatStringWithDecimalToBigNumber('0.0010', 5)).toEqual(
+    BigNumber.from(100)
+  );
+  expect(floatStringWithDecimalToBigNumber('0.001', 5)).toEqual(
+    BigNumber.from(100)
+  );
+  expect(floatStringWithDecimalToBigNumber('123', 11)).toEqual(
+    BigNumber.from('12300000000000')
+  );
+  expect(floatStringWithDecimalToBigNumber('0.010123', 11)).toEqual(
+    BigNumber.from('1012300000')
+  );
+  expect(floatStringWithDecimalToBigNumber('5.05', 18)).toEqual(
+    BigNumber.from('5050000000000000000')
+  );
+  expect(floatStringWithDecimalToBigNumber('5.0505', 2)).toEqual(
+    BigNumber.from('505')
+  );
+  expect(floatStringWithDecimalToBigNumber('blah', 1)).toEqual(null);
+  expect(floatStringWithDecimalToBigNumber('23', -1)).toEqual(null);
 });

@@ -107,7 +107,10 @@ describe('Test EVMNonceManager', () => {
     });
 
     await evmNonceManager.init(
-      new providers.StaticJsonRpcProvider('https://kovan.infura.io/v3/')
+      async (address) =>
+        (await new providers.StaticJsonRpcProvider(
+          'https://mainnet.infura.io/v3/'
+        ).getTransactionCount(address)) - 1
     );
 
     const nonce = await evmNonceManager.getNonce(address1);
@@ -160,9 +163,19 @@ describe('Test EVMNonceManager', () => {
       return Promise.resolve(51);
     });
 
-    await ethereumNonceManager.init(new providers.StaticJsonRpcProvider(''));
+    await ethereumNonceManager.init(
+      async (address) =>
+        (await new providers.StaticJsonRpcProvider('').getTransactionCount(
+          address
+        )) - 1
+    );
 
-    await avalancheNonceManager.init(new providers.StaticJsonRpcProvider(''));
+    await avalancheNonceManager.init(
+      async (address) =>
+        (await new providers.StaticJsonRpcProvider('').getTransactionCount(
+          address
+        )) - 1
+    );
 
     const ethereumNonce1 = await ethereumNonceManager.getNextNonce(address1);
     const avalancheNonce1 = await avalancheNonceManager.getNextNonce(address1);

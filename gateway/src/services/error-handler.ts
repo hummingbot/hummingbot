@@ -102,6 +102,7 @@ export const INCOMPLETE_REQUEST_PARAM_CODE = 1014;
 export const ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_CODE = 1015;
 export const ACCOUNT_NOT_SPECIFIED_CODE = 1016;
 export const UNKNOWN_ERROR_ERROR_CODE = 1099;
+export const AMOUNT_NOT_SUPPORTED_ERROR_CODE = 1016;
 
 export const NETWORK_ERROR_MESSAGE =
   'Network error. Please check your node URL, API key, and Internet connection.';
@@ -113,6 +114,9 @@ export const TOKEN_NOT_SUPPORTED_ERROR_MESSAGE = 'Token not supported: ';
 export const TRADE_FAILED_ERROR_MESSAGE = 'Trade query failed: ';
 export const INCOMPLETE_REQUEST_PARAM = 'Incomplete request parameters.';
 export const INVALID_NONCE_ERROR_MESSAGE = 'Invalid Nonce provided: ';
+export const AMOUNT_NOT_SUPPORTED_ERROR_MESSAGE =
+  'Amount provided in an unexpected format';
+
 export const SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE = (
   price: any,
   limitPrice: any

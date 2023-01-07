@@ -1,28 +1,22 @@
-import { Solanaish } from '../chains/solana/solana';
-import { Serumish } from '../connectors/serum/serum';
-import * as serumControllers from '../connectors/serum/serum.controllers';
-import { ResponseWrapper } from '../services/common-interfaces';
+/* eslint-disable prettier/prettier */
+import { EstimateGasResponse } from '../amm/amm.requests';
+import { NetworkSelectionRequest } from '../services/common-interfaces';
 import { getChain, getConnector } from '../services/connection-manager';
 import {
-  ClobDeleteOrdersRequest,
-  ClobDeleteOrdersResponse,
-  ClobGetFilledOrdersRequest,
-  ClobGetFilledOrdersResponse,
-  ClobGetMarketsRequest,
-  ClobGetMarketsResponse,
-  ClobGetOpenOrdersRequest,
-  ClobGetOpenOrdersResponse,
-  ClobGetOrderBooksRequest,
-  ClobGetOrderBooksResponse,
-  ClobGetOrdersRequest,
-  ClobGetOrdersResponse,
-  ClobGetTickersRequest,
-  ClobGetTickersResponse,
-  ClobPostOrdersRequest,
-  ClobPostOrdersResponse,
-  ClobPostSettleFundsRequest,
-  ClobPostSettleFundsResponse,
+  ClobDeleteOrderRequest,
+  ClobDeleteOrderResponse,
+  ClobGetOrderRequest,
+  ClobGetOrderResponse,
+  ClobMarketResponse,
+  ClobMarketsRequest,
+  ClobOrderbookRequest,
+  ClobOrderbookResponse,
+  ClobPostOrderRequest,
+  ClobPostOrderResponse,
+  ClobTickerRequest,
+  ClobTickerResponse,
 } from './clob.requests';
+import { latency } from '../services/base';
 
 /**
  * GET /clob/markets
@@ -30,19 +24,22 @@ import {
  * @param request
  */
 export async function getMarkets(
-  request: ClobGetMarketsRequest
-): Promise<ResponseWrapper<ClobGetMarketsResponse>> {
-  const chain: Solanaish = await getChain<Solanaish>(
-    request.chain,
-    request.network
-  );
-  const connector: Serumish = await getConnector<Serumish>(
+  request: ClobMarketsRequest
+): Promise<ClobMarketResponse> {
+  const startTimestamp: number = Date.now();
+  await getChain(request.chain, request.network);
+  const connector: any = await getConnector(
     request.chain,
     request.network,
     request.connector
   );
-
-  return serumControllers.getMarkets(chain, connector, request);
+  const result = await connector.markets(request);
+  return {
+    network: request.network,
+    timestamp: startTimestamp,
+    latency: latency(startTimestamp, Date.now()),
+    ...result,
+  };
 }
 
 /**
@@ -51,19 +48,22 @@ export async function getMarkets(
  * @param request
  */
 export async function getOrderBooks(
-  request: ClobGetOrderBooksRequest
-): Promise<ResponseWrapper<ClobGetOrderBooksResponse>> {
-  const chain: Solanaish = await getChain<Solanaish>(
-    request.chain,
-    request.network
-  );
-  const connector: Serumish = await getConnector<Serumish>(
+  request: ClobOrderbookRequest
+): Promise<ClobOrderbookResponse> {
+  const startTimestamp: number = Date.now();
+   await getChain(request.chain, request.network);
+   const connector: any = await getConnector(
     request.chain,
     request.network,
     request.connector
-  );
-
-  return serumControllers.getOrderBooks(chain, connector, request);
+   );
+   const result = await connector.orderBook(request);
+   return {
+     network: request.network,
+     timestamp: startTimestamp,
+     latency: latency(startTimestamp, Date.now()),
+     ...result,
+   };
 }
 
 /**
@@ -72,19 +72,22 @@ export async function getOrderBooks(
  * @param request
  */
 export async function getTickers(
-  request: ClobGetTickersRequest
-): Promise<ResponseWrapper<ClobGetTickersResponse>> {
-  const chain: Solanaish = await getChain<Solanaish>(
-    request.chain,
-    request.network
-  );
-  const connector: Serumish = await getConnector<Serumish>(
+  request: ClobTickerRequest
+): Promise<ClobTickerResponse> {
+  const startTimestamp: number = Date.now();
+   await getChain(request.chain, request.network);
+   const connector: any = await getConnector(
     request.chain,
     request.network,
     request.connector
-  );
-
-  return serumControllers.getTickers(chain, connector, request);
+   );
+   const result = await connector.ticker(request);
+   return {
+     network: request.network,
+     timestamp: startTimestamp,
+     latency: latency(startTimestamp, Date.now()),
+     ...result,
+   };
 }
 
 /**
@@ -93,19 +96,22 @@ export async function getTickers(
  * @param request
  */
 export async function getOrders(
-  request: ClobGetOrdersRequest
-): Promise<ResponseWrapper<ClobGetOrdersResponse>> {
-  const chain: Solanaish = await getChain<Solanaish>(
-    request.chain,
-    request.network
-  );
-  const connector: Serumish = await getConnector<Serumish>(
+  request: ClobGetOrderRequest
+): Promise<ClobGetOrderResponse> {
+  const startTimestamp: number = Date.now();
+   await getChain(request.chain, request.network);
+   const connector: any = await getConnector(
     request.chain,
     request.network,
     request.connector
-  );
-
-  return serumControllers.getOrders(chain, connector, request);
+   );
+   const result = await connector.orders(request);
+   return {
+     network: request.network,
+     timestamp: startTimestamp,
+     latency: latency(startTimestamp, Date.now()),
+     ...result,
+   };
 }
 
 /**
@@ -113,20 +119,23 @@ export async function getOrders(
  *
  * @param request
  */
-export async function createOrders(
-  request: ClobPostOrdersRequest
-): Promise<ResponseWrapper<ClobPostOrdersResponse>> {
-  const chain: Solanaish = await getChain<Solanaish>(
-    request.chain,
-    request.network
-  );
-  const connector: Serumish = await getConnector<Serumish>(
+export async function postOrder(
+  request: ClobPostOrderRequest
+): Promise<ClobPostOrderResponse> {
+  const startTimestamp: number = Date.now();
+   await getChain(request.chain, request.network);
+   const connector: any = await getConnector(
     request.chain,
     request.network,
     request.connector
-  );
-
-  return serumControllers.createOrders(chain, connector, request);
+   );
+   const result = await connector.postOrder(request);
+   return {
+     network: request.network,
+     timestamp: startTimestamp,
+     latency: latency(startTimestamp, Date.now()),
+     ...result,
+   };
 }
 
 /**
@@ -134,83 +143,47 @@ export async function createOrders(
  *
  * @param request
  */
-export async function cancelOrders(
-  request: ClobDeleteOrdersRequest
-): Promise<ResponseWrapper<ClobDeleteOrdersResponse>> {
-  const chain: Solanaish = await getChain<Solanaish>(
-    request.chain,
-    request.network
-  );
-  const connector: Serumish = await getConnector<Serumish>(
+export async function deleteOrder(
+  request: ClobDeleteOrderRequest
+): Promise<ClobDeleteOrderResponse> {
+  const startTimestamp: number = Date.now();
+   await getChain(request.chain, request.network);
+   const connector: any = await getConnector(
     request.chain,
     request.network,
     request.connector
-  );
-
-  return serumControllers.cancelOrders(chain, connector, request);
+   );
+   const result = await connector.deleteOrder(request);
+   return {
+     network: request.network,
+     timestamp: startTimestamp,
+     latency: latency(startTimestamp, Date.now()),
+     ...result,
+   };
 }
 
 /**
- * GET /clob/orders/open
+ * Estimate gas for a typical clob transaction.
+ *
+ * POST /clob/estimateGas
  *
  * @param request
  */
-export async function getOpenOrders(
-  request: ClobGetOpenOrdersRequest
-): Promise<ResponseWrapper<ClobGetOpenOrdersResponse>> {
-  const chain: Solanaish = await getChain<Solanaish>(
-    request.chain,
-    request.network
-  );
-  const connector: Serumish = await getConnector<Serumish>(
+export async function estimateGas(
+  request: NetworkSelectionRequest
+): Promise<EstimateGasResponse> {
+  const startTimestamp: number = Date.now();
+  await getChain(request.chain, request.network);
+  const connector: any = await getConnector(
     request.chain,
     request.network,
     request.connector
   );
-
-  return serumControllers.getOpenOrders(chain, connector, request);
-}
-
-/**
- * GET /clob/orders/filled
- *
- * @param request
- */
-export async function getFilledOrders(
-  request: ClobGetFilledOrdersRequest
-): Promise<ResponseWrapper<ClobGetFilledOrdersResponse>> {
-  const chain: Solanaish = await getChain<Solanaish>(
-    request.chain,
-    request.network
-  );
-  const connector: Serumish = await getConnector<Serumish>(
-    request.chain,
-    request.network,
-    request.connector
-  );
-
-  return serumControllers.getFilledOrders(chain, connector, request);
-}
-
-/**
- * Settle funds for one or more markets.
- *
- * POST /clob/settleFunds
- *
- * @param request
- */
-export async function settleFunds(
-  request: ClobPostSettleFundsRequest
-): Promise<ResponseWrapper<ClobPostSettleFundsResponse>> {
-  const chain: Solanaish = await getChain<Solanaish>(
-    request.chain,
-    request.network
-  );
-  const connector: Serumish = await getConnector<Serumish>(
-    request.chain,
-    request.network,
-    request.connector
-  );
-
-  return serumControllers.settleFunds(chain, connector, request);
+  const gasEstimates = await connector.estimateGas(request);
+  return {
+    network: request.network,
+    timestamp: startTimestamp,
+    latency: latency(startTimestamp, Date.now()),
+    ...gasEstimates,
+  } as EstimateGasResponse;
 }

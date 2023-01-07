@@ -122,7 +122,10 @@ export class EthereumBase {
   async init(): Promise<void> {
     if (!this.ready() && !this._initializing) {
       this._initializing = true;
-      await this._nonceManager.init(this.provider);
+      await this._nonceManager.init(
+        async (address) =>
+          (await this.provider.getTransactionCount(address)) - 1
+      );
       await this.loadTokens(this.tokenListSource, this.tokenListType);
       this._ready = true;
       this._initializing = false;

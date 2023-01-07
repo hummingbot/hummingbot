@@ -111,3 +111,11 @@ configurations:
   $namespace pancakeswap:
     configurationPath: pancakeswap.yml
     schemaPath: pangolin-schema.json
+
+  $namespace injectiveCLOB:
+     configurationPath: injectiveCLOB.yml
+     schemaPath: injective-clob-schema.json
+
+  $namespace injective:
+     configurationPath: injective.yml
+     schemaPath: injective-schema.json

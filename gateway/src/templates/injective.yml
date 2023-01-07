@@ -1,0 +1,12 @@
+networks:
+   mainnet:
+     chainId: mainnet
+     nodeURL: https://tm.injective.network
+   testnet:
+     chainId: testnet
+     nodeURL: https://k8s.testnet.tm.injective.network
+   devnet:
+     chainId: devnet
+     nodeURL: https://devnet.tm.injective.dev
+
+nativeCurrencySymbol: INJ  

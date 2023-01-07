@@ -3,6 +3,7 @@ export interface AddWalletRequest {
   network: string;
   privateKey: string;
   address?: string;
+  accountId?: number;
 }
 
 export interface AddWalletResponse {

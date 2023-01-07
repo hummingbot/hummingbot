@@ -6,9 +6,11 @@ import {
   invalidAddressError,
   validateChain,
   validateAddress,
+  validateAccountID,
   isSolPrivateKey,
   invalidSolPrivateKeyError,
   isNearPrivateKey,
+  invalidAccountIDError,
 } from '../../../src/services/wallet/wallet.validators';
 
 import { missingParameter } from '../../../src/services/validators';
@@ -301,5 +303,25 @@ describe('validateAddress', () => {
         address: 1,
       })
     ).toEqual([invalidAddressError]);
+  });
+});
+
+describe('validateAccountID', () => {
+  it('valid when account ID is a string', () => {
+    expect(
+      validateAccountID({
+        accountId: '0x000000000000000000000000000000000000000',
+      })
+    ).toEqual([]);
+  });
+
+  it('valid when account ID is not specified', () => {
+    expect(validateAccountID({})).toEqual([]);
+  });
+
+  it('return error when req.accountId is not a string', () => {
+    expect(validateAccountID({ accountId: 1 })).toEqual([
+      invalidAccountIDError,
+    ]);
   });
 });

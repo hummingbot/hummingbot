@@ -5,6 +5,16 @@ import { isFractionString, isFloatString } from './validators';
 // the type of information source for tokens
 export type TokenListType = 'FILE' | 'URL';
 
+// represent a token any chain, it may require some work arounds
+export interface TokenInfo {
+  address: string;
+  chainId: number; // not all chains have chainId as a number, if it does not, come up with an internal number system.
+  decimals: number;
+  denom?: string; // this is a concept for injective, if it does not exist in a chain, set it to be the same as address or ignore it.
+  name: string;
+  symbol: string;
+}
+
 // insert a string into another string at an index
 const stringInsert = (str: string, val: string, index: number) => {
   if (index > 0) {
@@ -111,4 +121,26 @@ export const toFractionString = (value: number | string): string | null => {
     }
   }
   return null;
+};
+
+export const floatStringWithDecimalToBigNumber = (
+  floatString: string,
+  d: number
+): BigNumber | null => {
+  if (d < 0) {
+    return null;
+  }
+  const split = floatString.split('.');
+  const left = split[0];
+  let right: string;
+  if (split.length === 2) {
+    right = split[1].slice(0, d).padEnd(d, '0');
+  } else {
+    right = ''.padEnd(d, '0');
+  }
+  try {
+    return BigNumber.from(left + right);
+  } catch (_e) {
+    return null;
+  }
 };
