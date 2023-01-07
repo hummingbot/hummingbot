@@ -639,7 +639,7 @@ class MQTTExternalEvents:
                  hb_app: "HummingbotApplication",
                  mqtt_node: Node,
                  topic: str = '') -> None:
-        self._node: Node = mqtt_node
+        self._mqtt_node: Node = mqtt_node
         self._hb_app: 'HummingbotApplication' = hb_app
         self._ev_loop: asyncio.AbstractEventLoop = self._hb_app.ev_loop
 
@@ -649,7 +649,7 @@ class MQTTExternalEvents:
         )
         self._topic = f'{topic_prefix}{TopicSpecs.EXTERNAL_EVENTS}'
 
-        self._node.create_psubscriber(
+        self._mqtt_node.create_psubscriber(
             topic=self._topic,
             msg_type=ExternalEventMessage,
             on_message=self._on_event_arrived

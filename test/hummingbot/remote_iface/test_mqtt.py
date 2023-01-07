@@ -625,7 +625,8 @@ class RemoteIfaceMQTTTests(TestCase):
                                     mock_mqtt):
         self.start_mqtt(mock_mqtt=mock_mqtt)
         self.assertTrue(self.gateway is not None)
-        subscribed_mqtt_topics = sorted(list([f"hbot/{self.instance_id}/{topic}" for topic in self.command_topics]))
+        subscribed_mqtt_topics = sorted(list([f"hbot/{self.instance_id}/{topic}"
+                                              for topic in (self.command_topics + ['external/events/*'])]))
         self.assertEqual(subscribed_mqtt_topics, sorted(list(self.fake_mqtt_broker.subscriptions.keys())))
 
     @patch("hummingbot.remote_iface.mqtt.mqtts_logger", None)
