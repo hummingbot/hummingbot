@@ -1,0 +1,89 @@
+paths:
+   /injective/balances:
+     post:
+       tags:
+         - 'injective'
+       summary: 'Get the balances of an injective public key'
+       operationId: 'balances'
+       consumes:
+         - 'application/json'
+       produces:
+         - 'application/json'
+       parameters:
+         - in: 'body'
+           name: 'body'
+           required: true
+           schema:
+             $ref: '#/definitions/BalancesRequest'
+       responses:
+         '200':
+           schema:
+             $ref: '#/definitions/InjectiveBalancesResponse'
+
+   /injective/block/current:
+     post:
+       tags:
+         - 'injective'
+       summary: 'Get the current block number for an injective network'
+       parameters:
+         - in: 'body'
+           name: 'body'
+           required: true
+           schema:
+             $ref: '#/definitions/NetworkSelectionRequest'
+       produces:
+         - 'application/json'          
+       responses:
+         '200'
+
+   /injective/poll:
+     post:
+       tags:
+         - 'injective'
+       summary: 'Poll the status of a transaction'
+       consumes:
+         - 'application/json'
+       produces:
+         - 'application/json'
+       parameters:
+         - in: 'body'
+           name: 'body'
+           required: true
+           schema:
+             $ref: '#/definitions/InjectivePollRequest'
+       responses:
+         '200':
+           schema:
+             $ref: '#/definitions/InjectivePollResponse'
+
+   /injective/transfer/to/bank:
+     post:
+       tags:
+         - 'injective'
+       summary: 'Transfer subaccount balance to bank'
+       parameters:
+         - in: 'body'
+           name: 'body'
+           required: true
+           schema:
+             $ref: '#/definitions/TransferToSubAccountRequest'
+       produces:
+         - 'application/json'          
+       responses:
+         '200'
+
+   /injective/transfer/to/sub:
+     post:
+       tags:
+         - 'injective'
+       summary: 'Transfer bank balance to subaccount balance'
+       parameters:
+         - in: 'body'
+           name: 'body'
+           required: true
+           schema:
+             $ref: '#/definitions/TransferToSubAccountRequest'
+       produces:
+         - 'application/json'          
+       responses:
+         '200'

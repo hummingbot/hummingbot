@@ -6,7 +6,7 @@ import { StatusCodes } from 'http-status-codes';
 import 'jest-extended';
 import request from 'supertest';
 import { Solana } from '../../src/chains/solana/solana';
-import { ClobRoutes } from '../../src/clob/clob.routes';
+import { CLOBRoutes } from '../../src/clob/clob.routes';
 import { Serum } from '../../src/connectors/serum/serum';
 import { getNotNullOrThrowError } from '../../src/connectors/serum/serum.helpers';
 import {
@@ -50,7 +50,7 @@ beforeAll(async () => {
   app = express();
   app.use(express.json());
 
-  app.use('/clob', ClobRoutes.router);
+  app.use('/clob', CLOBRoutes.router);
 
   solana = await Solana.getInstance(config.serum.network);
   serum = await Serum.getInstance(config.serum.chain, config.serum.network);

@@ -83,7 +83,11 @@ describe('uninitiated EVMNodeService', () => {
     nonceManager2.declareOwnership(handle);
 
     try {
-      await expect(nonceManager2.init(provider)).rejects.toThrow(
+      await expect(
+        nonceManager2.init(
+          async (address) => (await provider.getTransactionCount(address)) - 1
+        )
+      ).rejects.toThrow(
         new InitializationError(
           SERVICE_UNITIALIZED_ERROR_MESSAGE(
             'EVMNonceManager.init localNonceTTL must be greater than or equal to zero.'
@@ -105,7 +109,11 @@ describe('uninitiated EVMNodeService', () => {
     nonceManager2.declareOwnership(handle);
 
     try {
-      await expect(nonceManager2.init(provider)).rejects.toThrow(
+      await expect(
+        nonceManager2.init(
+          async (address) => (await provider.getTransactionCount(address)) - 1
+        )
+      ).rejects.toThrow(
         new InitializationError(
           SERVICE_UNITIALIZED_ERROR_MESSAGE(
             'EVMNonceManager.init pendingNonceTTL must be greater than or equal to zero.'
@@ -133,7 +141,9 @@ describe('EVMNodeService', () => {
     );
     nonceManager = new EVMNonceManager('ethereum', 43, dbPath, 0, 0);
     nonceManager.declareOwnership(handle);
-    await nonceManager.init(provider);
+    await nonceManager.init(
+      async (address) => (await provider.getTransactionCount(address)) - 1
+    );
     await nonceManager.commitNonce(exampleAddress, 0);
   });
 
@@ -143,9 +153,7 @@ describe('EVMNodeService', () => {
   });
 
   const patchGetTransactionCount = () => {
-    if (nonceManager._provider) {
-      patch(nonceManager._provider, 'getTransactionCount', () => 11);
-    }
+    patch(nonceManager, '_getTransactionCount', () => 11);
   };
 
   const patchDropExpiredPendingNonces = () => {
@@ -172,9 +180,7 @@ describe('EVMNodeService', () => {
   });
 
   it('mergeNonceFromEVMNode should update with nonce from EVM node (local<node)', async () => {
-    if (nonceManager._provider) {
-      patch(nonceManager._provider, 'getTransactionCount', () => 20);
-    }
+    patch(nonceManager, '_getTransactionCount', () => 20);
 
     await nonceManager.commitNonce(exampleAddress, 8);
     jest.advanceTimersByTime(300000);
@@ -289,14 +295,18 @@ describe("EVMNodeService was previously a singleton. Let's prove that it no long
       'https://ethereum.node.com'
     );
     nonceManager1.declareOwnership(handle);
-    await nonceManager1.init(provider1);
+    await nonceManager1.init(
+      async (address) => (await provider1.getTransactionCount(address)) - 1
+    );
 
     nonceManager2 = new EVMNonceManager('avalanche', 56, dbPath, 60, 60);
     nonceManager2.declareOwnership(handle);
     const provider2 = new providers.StaticJsonRpcProvider(
       'https://avalanche.node.com'
     );
-    await nonceManager2.init(provider2);
+    await nonceManager2.init(
+      async (address) => (await provider2.getTransactionCount(address)) - 1
+    );
   });
 
   afterAll(async () => {
@@ -306,12 +316,8 @@ describe("EVMNodeService was previously a singleton. Let's prove that it no long
   });
 
   it('commitNonce with a provided txNonce will only update current nonce if txNonce > currentNonce', async () => {
-    if (nonceManager1._provider) {
-      patch(nonceManager1._provider, 'getTransactionCount', () => 11);
-    }
-    if (nonceManager2._provider) {
-      patch(nonceManager2._provider, 'getTransactionCount', () => 24);
-    }
+    patch(nonceManager1, '_getTransactionCount', () => 11);
+    patch(nonceManager2, '_getTransactionCount', () => 24);
 
     await nonceManager1.commitNonce(exampleAddress, 10);
     jest.advanceTimersByTime(300000);

@@ -1,4 +1,6 @@
-import { Router } from 'express';
+/* eslint-disable no-inner-declarations */
+/* eslint-disable @typescript-eslint/ban-types */
+import { Router, Response } from 'express';
 import { asyncHandler } from '../services/error-handler';
 import { DefiraConfig } from './defira/defira.config';
 import { DefikingdomsConfig } from './defikingdoms/defikingdoms.config';
@@ -14,13 +16,15 @@ import { UniswapConfig } from './uniswap/uniswap.config';
 import { VVSConfig } from './vvs/vvs.config';
 import { RefConfig } from './ref/ref.config';
 import { PancakeSwapConfig } from './pancakeswap/pancakeswap.config';
+import { InjectiveCLOBConfig } from './injective/injective.clob.config';
+import { ConnectorsResponse } from './connectors.request';
 
 export namespace ConnectorsRoutes {
   export const router = Router();
 
   router.get(
     '/',
-    asyncHandler(async (_req, res) => {
+    asyncHandler(async (_req, res: Response<ConnectorsResponse, {}>) => {
       res.status(200).json({
         connectors: [
           {
@@ -100,6 +104,15 @@ export namespace ConnectorsRoutes {
             name: 'pancakeswap',
             trading_type: PancakeSwapConfig.config.tradingTypes,
             available_networks: PancakeSwapConfig.config.availableNetworks,
+          },
+          {
+            name: 'injective',
+            trading_type: InjectiveCLOBConfig.config.tradingTypes('spot'),
+            available_networks: InjectiveCLOBConfig.config.availableNetworks,
+            additional_add_wallet_prompts: {
+              accountId:
+                'Enter your injective sub account id wallet key (input 0 if unsure) >>> ',
+            },
           },
         ],
       });

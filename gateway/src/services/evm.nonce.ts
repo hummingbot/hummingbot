@@ -1,4 +1,3 @@
-import ethers from 'ethers';
 import {
   InitializationError,
   InvalidNonceError,
@@ -172,7 +171,13 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
   #db: NonceLocalStorage;
 
   // These variables should be private but then we will not be able to mock it otherwise.
-  public _provider: ethers.providers.Provider | null = null;
+  // public _provider: ethers.providers.Provider | null = null;
+
+  // this function should come from a blockchain and give the total number of
+  // transactions that have been performed by an address. This only considers
+  // transactions included in the main chain, it does not include transactions
+  // from the mempool.
+  public _getTransactionCount: (address: string) => Promise<number>;
   public _localNonceTTL: number;
   public _pendingNonceTTL: number;
 
@@ -191,11 +196,16 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
     this.#db = NonceLocalStorage.getInstance(dbPath, this.handle);
     this._localNonceTTL = localNonceTTL;
     this._pendingNonceTTL = pendingNonceTTL;
+
+    // this is a dummy value until initialized
+    this._getTransactionCount = () => Promise.resolve(0);
   }
 
   // init can be called many times and generally should always be called
   // getInstance, but it only applies the values the first time it is called
-  public async init(provider: ethers.providers.Provider): Promise<void> {
+  public async init(
+    getTransactionCount: (address: string) => Promise<number>
+  ): Promise<void> {
     if (this._localNonceTTL < 0) {
       throw new InitializationError(
         SERVICE_UNITIALIZED_ERROR_MESSAGE(
@@ -214,11 +224,9 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
       );
     }
 
-    if (!this._provider) {
-      this._provider = provider;
-    }
-
     if (!this.#initialized) {
+      this._getTransactionCount = getTransactionCount;
+
       await this.#db.init();
       const addressToLeadingNonce: Record<string, NonceInfo> =
         await this.#db.getLeadingNonces(this.#chainName, this.#chainId);
@@ -255,7 +263,7 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
     If time period of the last stored nonce exceeds the localNonceTTL, we update the nonce using the getTransactionCount
     call.
     */
-    if (this._provider != null && (intializationPhase || this.#initialized)) {
+    if (intializationPhase || this.#initialized) {
       // only run the logic below if the leading nonce does not exist or it has expired
       const leadingNonceExpiryTimestamp: number = this.#addressToLeadingNonce[
         ethAddress
@@ -268,7 +276,7 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
       }
 
       const externalNonce: number =
-        (await this._provider.getTransactionCount(ethAddress, 'latest')) - 1;
+        (await this._getTransactionCount(ethAddress)) - 1;
 
       // update the address's leading nonce to the latest nonce from the block chain
       this.#addressToLeadingNonce[ethAddress] = new NonceInfo(
@@ -318,9 +326,9 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
   }
 
   async getNonceFromNode(ethAddress: string): Promise<number> {
-    if (this.#initialized && this._provider != null) {
+    if (this.#initialized) {
       const externalNonce: number =
-        (await this._provider.getTransactionCount(ethAddress)) - 1;
+        (await this._getTransactionCount(ethAddress)) - 1;
 
       const now: number = new Date().getTime();
       this.#addressToLeadingNonce[ethAddress] = new NonceInfo(
@@ -477,6 +485,23 @@ export class EVMNonceManager extends ReferenceCountingCloseable {
 
       throw err;
     }
+  }
+
+  async overridePendingNonce(
+    ethAddress: string,
+    newNonceValue: number
+  ): Promise<void> {
+    const now: number = new Date().getTime();
+
+    const newNonce = new NonceInfo(newNonceValue, now + this._pendingNonceTTL);
+    this.#addressToPendingNonces[ethAddress] = [newNonce];
+    await this.#db.savePendingNonces(
+      this.#chainName,
+      this.#chainId,
+      `${ethAddress}`,
+      this.#addressToPendingNonces[ethAddress]
+    );
+    return;
   }
 
   async commitNonce(ethAddress: string, txNonce: number): Promise<void> {

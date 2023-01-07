@@ -14,7 +14,7 @@ import {
   getOrders,
   getTickers,
   settleFunds,
-} from '../../src/clob/clob.controllers';
+} from '../../src/connectors/serum/serum.controllers';
 import { getNotNullOrThrowError } from '../../src/connectors/serum/serum.helpers';
 import {
   CancelOrderResponse,
@@ -31,12 +31,12 @@ import {
 import { ConfigManagerV2 } from '../../src/services/config-manager-v2';
 import { HttpException } from '../../src/services/error-handler';
 import { unpatch } from '../services/patch';
-import { default as config } from '../../test/chains/solana/serum/fixtures/config';
+import { default as config } from '../chains/solana/serum/fixtures/config';
 import { getNewCandidateOrdersTemplates } from '../chains/solana/serum/fixtures/helpers';
 import {
   default as patchesCreator,
   enablePatches,
-} from '../../test/chains/solana/serum/fixtures/patches/patches';
+} from '../chains/solana/serum/fixtures/patches/patches';
 
 enablePatches();
 
@@ -135,7 +135,7 @@ it('getMarket ["SOL/USDT"]', async () => {
     ...commonParameters,
     name: marketName,
   };
-  response = await getMarkets(request);
+  response = await getMarkets(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -164,7 +164,7 @@ it('getMarkets ["SOL/USDT", "SOL/USDC"]', async () => {
     ...commonParameters,
     names: targetMarkets,
   };
-  response = await getMarkets(request);
+  response = await getMarkets(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -200,7 +200,7 @@ it('getMarkets (all)', async () => {
   request = {
     ...commonParameters,
   };
-  response = await getMarkets(request);
+  response = await getMarkets(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -240,7 +240,7 @@ it('getOrderBook ["SOL/USDT"]', async () => {
     ...commonParameters,
     marketName: marketName,
   };
-  response = await getOrderBooks(request);
+  response = await getOrderBooks(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -282,7 +282,7 @@ it('getOrderBooks ["SOL/USDT", "SOL/USDC"]', async () => {
     ...commonParameters,
     marketNames: targetMarkets,
   };
-  response = await getOrderBooks(request);
+  response = await getOrderBooks(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -330,7 +330,7 @@ it('getOrderBooks (all)', async () => {
   request = {
     ...commonParameters,
   };
-  response = await getOrderBooks(request);
+  response = await getOrderBooks(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -374,7 +374,7 @@ it('getTicker ["SOL/USDT"]', async () => {
     ...commonParameters,
     marketName: marketName,
   };
-  response = await getTickers(request);
+  response = await getTickers(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -398,7 +398,7 @@ it('getTickers ["SOL/USDT", "SOL/USDC"]', async () => {
     ...commonParameters,
     marketNames: targetMarkets,
   };
-  response = await getTickers(request);
+  response = await getTickers(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -431,7 +431,7 @@ it('getTickers (all)', async () => {
   request = {
     ...commonParameters,
   };
-  response = await getTickers(request);
+  response = await getTickers(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -468,7 +468,7 @@ it('cancelOrders (all)', async () => {
     ...commonParameters,
     ownerAddress: config.solana.wallet.owner.publicKey,
   };
-  response = await cancelOrders(request);
+  response = await cancelOrders(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -490,7 +490,7 @@ it('getOpenOrders (all)', async () => {
     ...commonParameters,
     ownerAddress: config.solana.wallet.owner.publicKey,
   };
-  response = await getOpenOrders(request);
+  response = await getOpenOrders(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -522,7 +522,7 @@ it('createOrder [0]', async () => {
     ...commonParameters,
     order: candidateOrders[0],
   };
-  response = await createOrders(request);
+  response = await createOrders(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -550,7 +550,7 @@ it('createOrders [1, 2, 3, 4, 5, 6, 7]', async () => {
     ...commonParameters,
     orders: candidateOrders.slice(1, 8),
   };
-  response = await createOrders(request);
+  response = await createOrders(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -592,7 +592,7 @@ it('getOpenOrder [0]', async () => {
       ownerAddress: config.solana.wallet.owner.publicKey,
     },
   };
-  response = await getOpenOrders(request);
+  response = await getOpenOrders(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -623,7 +623,7 @@ it('getOrder [1]', async () => {
       ownerAddress: config.solana.wallet.owner.publicKey,
     },
   };
-  response = await getOrders(request);
+  response = await getOrders(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -657,7 +657,7 @@ it('getOpenOrders [2, 3]', async () => {
       },
     ],
   };
-  response = await getOpenOrders(request);
+  response = await getOpenOrders(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -699,7 +699,7 @@ it('getOrders [4, 5]', async () => {
       },
     ],
   };
-  response = await getOrders(request);
+  response = await getOrders(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -735,7 +735,7 @@ it('getOpenOrders (all)', async () => {
     ...commonParameters,
     ownerAddress: config.solana.wallet.owner.publicKey,
   };
-  response = await getOpenOrders(request);
+  response = await getOpenOrders(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -783,7 +783,7 @@ it('getOrders (all)', async () => {
     ...commonParameters,
     ownerAddress: config.solana.wallet.owner.publicKey,
   };
-  response = await getOrders(request);
+  response = await getOrders(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -831,7 +831,7 @@ it('cancelOrders [0]', async () => {
       marketName: marketName,
     },
   };
-  response = await cancelOrders(request);
+  response = await cancelOrders(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -869,7 +869,7 @@ it('getOpenOrders [0]', async () => {
   };
 
   await expect(async () => {
-    await getOpenOrders(request);
+    await getOpenOrders(solana, serum, request);
   }).rejects.toThrowError(
     new HttpException(
       StatusCodes.NOT_FOUND,
@@ -892,7 +892,7 @@ it('getFilledOrders [1]', async () => {
   };
 
   await expect(async () => {
-    await getFilledOrders(request);
+    await getFilledOrders(solana, serum, request);
   }).rejects.toThrowError(
     new HttpException(
       StatusCodes.NOT_FOUND,
@@ -917,7 +917,7 @@ it('getFilledOrders [2, 3]', async () => {
   };
 
   await expect(async () => {
-    await getFilledOrders(request);
+    await getFilledOrders(solana, serum, request);
   }).rejects.toThrowError(
     new HttpException(StatusCodes.NOT_FOUND, 'No filled orders found.')
   );
@@ -932,7 +932,7 @@ it('getFilledOrders (all)', async () => {
     ...commonParameters,
     ownerAddress: config.solana.wallet.owner.publicKey,
   };
-  response = await getFilledOrders(request);
+  response = await getFilledOrders(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -971,7 +971,7 @@ it('cancelOrders [4, 5]', async () => {
       },
     ],
   };
-  response = await cancelOrders(request);
+  response = await cancelOrders(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -1017,7 +1017,7 @@ it('getOrders [4, 5]', async () => {
   };
 
   await expect(async () => {
-    await getOrders(request);
+    await getOrders(solana, serum, request);
   }).rejects.toThrowError(
     new HttpException(StatusCodes.NOT_FOUND, 'No orders found.')
   );
@@ -1035,7 +1035,7 @@ it('cancelOrders (all)', async () => {
     ...commonParameters,
     ownerAddress: config.solana.wallet.owner.publicKey,
   };
-  response = await cancelOrders(request);
+  response = await cancelOrders(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -1074,7 +1074,7 @@ it('getOpenOrders (all)', async () => {
     ...commonParameters,
     ownerAddress: config.solana.wallet.owner.publicKey,
   };
-  response = await getOpenOrders(request);
+  response = await getOpenOrders(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -1108,7 +1108,7 @@ it('getOrders (all)', async () => {
     ...commonParameters,
     ownerAddress: config.solana.wallet.owner.publicKey,
   };
-  response = await getOrders(request);
+  response = await getOrders(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -1138,7 +1138,7 @@ it('createOrders [8, 9]', async () => {
     ...commonParameters,
     orders: candidateOrders.slice(8, 10),
   };
-  response = await createOrders(request);
+  response = await createOrders(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -1182,7 +1182,7 @@ it('getOpenOrders (all)', async () => {
     ...commonParameters,
     ownerAddress: config.solana.wallet.owner.publicKey,
   };
-  response = await getOpenOrders(request);
+  response = await getOpenOrders(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -1230,7 +1230,7 @@ it('getOrders (all)', async () => {
     ...commonParameters,
     ownerAddress: config.solana.wallet.owner.publicKey,
   };
-  response = await getOrders(request);
+  response = await getOrders(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -1276,7 +1276,7 @@ it('cancelOrders (all)', async () => {
     ...commonParameters,
     ownerAddress: config.solana.wallet.owner.publicKey,
   };
-  response = await cancelOrders(request);
+  response = await cancelOrders(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -1315,7 +1315,7 @@ it('getOpenOrders (all)', async () => {
     ...commonParameters,
     ownerAddress: config.solana.wallet.owner.publicKey,
   };
-  response = await getOpenOrders(request);
+  response = await getOpenOrders(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -1349,7 +1349,7 @@ it('getOrders (all)', async () => {
     ...commonParameters,
     ownerAddress: config.solana.wallet.owner.publicKey,
   };
-  response = await getOrders(request);
+  response = await getOrders(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -1383,7 +1383,7 @@ it('settleFunds ["SOL/USDT"]', async () => {
     marketName: marketName,
     ownerAddress: config.solana.wallet.owner.publicKey,
   };
-  response = await settleFunds(request);
+  response = await settleFunds(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -1402,7 +1402,7 @@ it('settleFunds ["SOL/USDT", "SOL/USDC"]', async () => {
     marketNames: targetMarkets,
     ownerAddress: config.solana.wallet.owner.publicKey,
   };
-  response = await settleFunds(request);
+  response = await settleFunds(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 
@@ -1420,7 +1420,7 @@ it('settleFunds (all)', async () => {
     ...commonParameters,
     ownerAddress: config.solana.wallet.owner.publicKey,
   };
-  response = await settleFunds(request);
+  response = await settleFunds(solana, serum, request);
 
   expect(response.status).toBe(StatusCodes.OK);
 

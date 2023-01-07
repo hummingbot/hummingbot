@@ -16,6 +16,14 @@ export const patchEVMNonceManager = (nonceManager: EVMNonceManager): void => {
     return Promise.resolve(12);
   });
 
+  patch(
+    nonceManager,
+    'commitNonce',
+    async (_: string, __: number): Promise<void> => {
+      return;
+    }
+  );
+
   patch(nonceManager, 'getNextNonce', (_ethAddress: string) => {
     return Promise.resolve(13);
   });

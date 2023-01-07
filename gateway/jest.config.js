@@ -11,6 +11,7 @@ module.exports = {
     'src/chains/ethereum/ethereum.ts',
     'src/chains/avalanche/avalanche.ts',
     'src/chains/avalanche/pangolin/pangolin.ts',
+    'src/chains/injective/injective.mappers.ts',
     'src/chains/solana/solana.ts',
     'src/chains/near/near.ts',
     'src/chains/near/near.base.ts',
@@ -35,4 +36,7 @@ module.exports = {
   setupFilesAfterEnv: ['<rootDir>/test/setupTests.js'],
   globalSetup: '<rootDir>/test/setup.ts',
   globalTeardown: '<rootDir>/test/teardown.ts',
+  moduleNameMapper: {
+    eccrypto: '<rootDir>/test/mock/eccrypto-mock.js',
+  },
 };

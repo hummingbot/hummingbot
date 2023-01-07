@@ -1,0 +1,6 @@
+{
+    "privateKey": "$ETH_PRIVATE_KEY",
+    "chain": "injective",
+    "network": "mainnet",
+    "accountId": "0"
+  }

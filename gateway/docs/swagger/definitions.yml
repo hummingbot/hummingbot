@@ -150,6 +150,71 @@ definitions:
             type: 'string'
         example: '{"ETH": "1.5", "WETH": "100","DAI": "300"}'
 
+  InjectiveBankBalance:
+    type: 'object'
+    required:
+      - 'token'
+      - 'amount'
+    properties:
+      token:
+        type: 'string'
+        example: 'inj'
+      amount:
+        type: 'string'
+        example: '1.25'
+
+  InjectiveSubaccountBalanceSub:
+    type: 'object'
+    required:
+      - 'token'
+      - 'totalBalance'
+      - 'availableBalance'
+    properties:
+      token:
+        type: 'string'
+        example: 'inj'
+      totalBalance:
+        type: 'string'
+        example: '100.0'
+      availableBalance:
+        type: 'string'
+        example: '15.0'
+
+  InjectiveSubaccountBalancesWithId:
+    type: 'object'
+    required:
+      - 'subaccountId'
+      - 'balances'
+    properties:
+      subaccountId:
+        type: 'string'
+        example: '0'
+      balances:
+        type: 'array'
+        item:
+          $ref: '#/definitions/InjectiveSubaccountBalanceSub'
+        example: '{"token": "inj", "tokenBalance": "100.0", "availableBalance": "15.0"}'
+
+
+  InjectiveBalancesResponse:
+    type: 'object'
+    required:
+      - 'injectiveAddress'
+      - 'balances'
+      - 'subaccounts'
+    properties:
+      injectiveAddress:
+        type: 'string'
+        example: 'inj1l2sjl5gzl6rz8jffn3etq0j9zpljwu44ed7zuc'
+      balances:
+        type: 'array'
+        item:
+          $ref: '#/definitions/InjectiveBankBalance'
+      subaccoutns:
+        type: 'array'
+        item:
+          $ref: '#/definitions/InjectiveSubaccountBalancesWithId'
+
   ApproveRequest:
     type: 'object'
     required:
@@ -223,6 +288,53 @@ definitions:
       approval:
         type: 'object'
         example: '{"type": 2,"chainId": 42,"nonce": 129,"maxPriorityFeePerGas": "94000000000","maxFeePerGas": "94000000000","gasPrice": null,"gasLimit": "100000","to": "0xd0A1E359811322d97991E03f863a0C30C2cF029C","value": "0","data": "0x095ea7b30000000000000000000000007a250d5630b4cf539739df2c5dacb4c659f2488dffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","accessList": [],"hash": "0xa321bbe8888c3bc88ecb1ad4f03f22a71e6f5715dfcb19e0a2dca9036c981b6d","v": 1,"r": "0x47c517271885b7041d81bcd65cd050a5d6be3fbd67a8f1660ac8d7e68fc8221f","s": "0x7c62e114b2cb0eae6236b597fb4aacb01c51e56afd7f734e6039d83aa400ba82","from": "0xFaA12FD102FE8623C9299c72B03E45107F2772B5","confirmations": 0}'  # noqa: documentation
+
+  InjectivePollResponse:
+     type: 'object'
+     required:
+       - 'blockNumber'
+       - 'hash'
+       - 'gasWanted'
+       - 'gasLimit'
+       - 'gasUsed'
+       - 'sequences'
+     properties:
+       blockNumber:
+         type: 'number'
+         example: 123456
+       hash:
+         type: 'string'
+         example: '0xaaaaaaaaaabbbb'
+       gasWanted:
+         type: 'number'
+         example: 1000000
+       gasLimit:
+         type: 'number'
+         example: 2000000
+       gasUsed:
+         type: 'number'
+         example: 1000000
+       sequences:
+         type: 'array'
+         items: 'number'
+         example: [1,2]
+
+  InjectivePollRequest:
+    type: 'object'
+    required:
+      - 'txHash'
+      - 'chain'
+      - 'network'
+    properties:
+      txHash:
+        type: 'string'
+        example: '0xa321bbe8888c3bc88ecb1ad4f03f22a71e6f5715dfcb19e0a2dca9036c981b6d'  # noqa: documentation
+      chain:
+        type: 'string'
+        example: 'injective'
+      network:
+        type: 'string'
+        example: 'mainnet'
 
   PollRequest:
     type: 'object'
@@ -688,8 +800,7 @@ definitions:
         example: 112646487
       transaction:
         type: 'object'
-        example: '
-        {
+        example: '{
           "message": {
             "accountKeys": [
               "3UVYmECPPMZSCqWKfENfuoTv51fTDTWicX9xmBD2euKe",
@@ -719,12 +830,10 @@ definitions:
           },
           "signatures": [
             "2nBhEBYYvfaAe16UMNqRHre4YNSskvuYgx3M6E4JP1oDYvZEJHvoPzyUidNgNX5r9sTyN1J9UxtbCXy2rqYcuyuv"
-          ]
-        }'
+          ]}'
       meta:
         type: 'object'
-        example: '
-        {
+        example: '{
           "err": null,
           "fee": 5000,
           "innerInstructions": [],
@@ -746,8 +855,7 @@ definitions:
           "preTokenBalances": [],
           "status": {
             "Ok": null
-          }
-        }'
+          }}'
       blockTime:
         type: 'integer'
         example: 1641891662
@@ -789,8 +897,7 @@ definitions:
     properties:
       tokens:
         type: 'object'
-        example: '
-        {
+        example: '{
           tokens: [
             {
               "address": "0x006BeA43Baa3f7A6f765F14f10A1a1b08334EF45",
@@ -808,8 +915,7 @@ definitions:
               "decimals": "18",
               "logoURI": "https://tokens.1inch.io/0x0327112423f3a68efdf1fcf402f6c5cb9f7c33fd.png"
             }
-          ]
-        }'
+          ]}'
 
   NetworkSelectionRequest:
     type: 'object'
@@ -2390,6 +2496,317 @@ definitions:
         type: 'string'
       txHash:
         type: 'string'
+
+  ClobMarketsRequest:
+    type: 'object'
+    required:
+      - 'chain'
+      - 'network'
+      - 'connector'
+    properties:
+      market:
+        type: 'string'
+        example: 'AAVE-USDT'
+      chain:
+        type: 'string'
+        example: 'injective'
+      network:
+        type: 'string'
+        example: 'mainnet'
+      connector:
+        type: 'string'
+        example: 'injective'
+
+  ClobMarketResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'markets'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 0.5
+      markets:
+        type: 'object'
+        example: '[{market info}, ...]'
+
+  ClobTickerRequest:
+    type: 'object'
+    required:
+      - 'chain'
+      - 'network'
+      - 'connector'
+    properties:
+      market:
+        type: 'string'
+        example: 'AAVE-USDT'
+      chain:
+        type: 'string'
+        example: 'injective'
+      network:
+        type: 'string'
+        example: 'mainnet'
+      connector:
+        type: 'string'
+        example: 'injective'
+
+  ClobTickerResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'markets'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 0.5
+      markets:
+        type: 'object'
+        example: '[{market info}, ...]'
+
+  ClobOrderbookRequest:
+    type: 'object'
+    required:
+      - 'market'
+      - 'chain'
+      - 'network'
+      - 'connector'
+    properties:
+      market:
+        type: 'string'
+        example: 'AAVE-USDT'
+      chain:
+        type: 'string'
+        example: 'injective'
+      network:
+        type: 'string'
+        example: 'mainnet'
+      connector:
+        type: 'string'
+        example: 'injective'
+
+  ClobOrderbookResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'orderbook'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 0.5
+      orderbook:
+        type: 'object'
+        example: '{bids: [[price, amount]...], asks: [[price, amount]...]}'
+
+  ClobGetOrderRequest:
+    type: 'object'
+    required:
+      - 'market'
+      - 'chain'
+      - 'network'
+      - 'connector'
+      - 'address'
+    properties:
+      market:
+        type: 'string'
+        example: 'AAVE-USDT'
+      orderId:
+        type: 'string'
+        example: 'Buy-21342453'
+      chain:
+        type: 'string'
+        example: 'injective'
+      network:
+        type: 'string'
+        example: 'mainnet'
+      connector:
+        type: 'string'
+        example: 'injective'
+      address:
+        type: 'string'
+        example: '0x...'
+
+  ClobGetOrderResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'orderbook'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 0.5
+      orders:
+        type: 'object'
+        example: '[{order info}, ...]'
+
+  ClobPostOrderRequest:
+    type: 'object'
+    required:
+      - 'chain'
+      - 'network'
+      - 'connector'
+      - 'market'
+      - 'side'
+      - 'orderType'
+      - 'price'
+      - 'amount'
+      - 'address'
+    properties:
+      market:
+        type: 'string'
+        example: 'AAVE-USDT'
+      chain:
+        type: 'string'
+        example: 'injective'
+      network:
+        type: 'string'
+        example: 'mainnet'
+      connector:
+        type: 'string'
+        example: 'injective'
+      address:
+        type: 'string'
+        example: '0x...'
+      side:
+        type: 'string'
+        example: 'BUY'
+      orderType:
+        type: 'string'
+        example: 'LIMIT_MAKER'
+      price:
+        type: 'string'
+        example: '102'
+      amount:
+        type: 'string'
+        example: '1'
+
+  ClobPostOrderResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'txHash'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 0.5
+      txHash:
+        type: 'string'
+        example: '0x...'
+
+  ClobDeleteOrderRequest:
+    type: 'object'
+    required:
+      - 'chain'
+      - 'network'
+      - 'connector'
+      - 'address'
+      - 'market'
+      - 'orderId'
+    properties:
+      market:
+        type: 'string'
+        example: 'AAVE-USDT'
+      chain:
+        type: 'string'
+        example: 'injective'
+      network:
+        type: 'string'
+        example: 'mainnet'
+      connector:
+        type: 'string'
+        example: 'injective'
+      address:
+        type: 'string'
+        example: '0x...'
+      orderId:
+        type: 'string'
+        example: '0x...'
+
+  ClobDeleteOrderResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'txHash'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 0.5
+      txHash:
+        type: 'string'
+        example: '0x...'
+
+  TransferToSubAccountRequest:
+    type: 'object'
+    required:
+      - 'chain'
+      - 'network'
+      - 'address'
+      - 'subaccountId'
+      - 'amount'
+      - 'token'
+    properties:
+      chain:
+        type: 'string'
+        example: 'injective'
+      network:
+        type: 'string'
+        example: 'mainnet'        
+      address:
+        type: 'string'
+        example: '0x...'
+      amount:
+        type: 'string'
+        example: '10'
+      token:
+        type: 'string'
+        example: 'inj'
 
   NearBalancesRequest:
     type: 'object'

@@ -1,105 +1,86 @@
-import { Request, Response, Router } from 'express';
-import { StatusCodes } from 'http-status-codes';
-import { Serumish } from '../connectors/serum/serum';
-import { getConnector } from '../services/connection-manager';
+/* eslint-disable no-inner-declarations */
+/* eslint-disable @typescript-eslint/ban-types */
+import { Router, Request, Response } from 'express';
+import { EstimateGasResponse } from '../amm/amm.requests';
+import { validateEstimateGasRequest } from '../amm/amm.validators';
+import { NetworkSelectionRequest } from '../services/common-interfaces';
 import { asyncHandler } from '../services/error-handler';
 import {
-  cancelOrders,
-  createOrders,
-  getFilledOrders,
   getMarkets,
-  getOpenOrders,
   getOrderBooks,
-  getOrders,
   getTickers,
-  settleFunds,
+  getOrders,
+  postOrder,
+  deleteOrder,
+  estimateGas,
 } from './clob.controllers';
 import {
-  ClobDeleteOrdersRequest,
-  ClobDeleteOrdersResponse,
-  ClobGetFilledOrdersRequest,
-  ClobGetFilledOrdersResponse,
-  ClobGetMarketsRequest,
-  ClobGetMarketsResponse,
-  ClobGetOpenOrdersRequest,
-  ClobGetOpenOrdersResponse,
-  ClobGetOrderBooksRequest,
-  ClobGetOrderBooksResponse,
-  ClobGetOrdersRequest,
-  ClobGetOrdersResponse,
-  ClobGetTickersRequest,
-  ClobGetTickersResponse,
-  ClobPostOrdersRequest,
-  ClobPostOrdersResponse,
-  ClobPostSettleFundsRequest,
-  ClobPostSettleFundsResponse,
+  ClobDeleteOrderRequest,
+  ClobDeleteOrderResponse,
+  ClobGetOrderRequest,
+  ClobGetOrderResponse,
+  ClobMarketResponse,
+  ClobMarketsRequest,
+  ClobOrderbookRequest,
+  ClobOrderbookResponse,
+  ClobPostOrderRequest,
+  ClobPostOrderResponse,
+  ClobTickerRequest,
+  ClobTickerResponse,
 } from './clob.requests';
+import {
+  validateBasicRequest,
+  validateMarketRequest,
+  validatePostOrderRequest,
+  validateOrderRequest,
+} from './clob.validators';
 
-export namespace ClobRoutes {
+export namespace CLOBRoutes {
   export const router = Router();
-
-  router.get(
-    '/',
-    asyncHandler(
-      async (request: Request<any>, response: Response<any, any>) => {
-        const connector = await getConnector<Serumish>(
-          request.body.chain,
-          request.body.network,
-          request.body.connector
-        );
-
-        response.status(StatusCodes.OK).json({
-          chain: connector.chain,
-          network: connector.network,
-          connector: connector.connector,
-          connection: connector.ready(),
-          timestamp: Date.now(),
-        });
-      }
-    )
-  );
 
   router.get(
     '/markets',
     asyncHandler(
       async (
-        request: Request<any, any, ClobGetMarketsRequest>,
-        response: Response<ClobGetMarketsResponse, any>
+        req: Request<{}, {}, ClobMarketsRequest>,
+        res: Response<ClobMarketResponse | string, {}>
       ) => {
-        const result = await getMarkets(request.body);
-
-        response.status(result.status).send(result.body);
-      }
-    )
-  );
-
-  /**
-   * Returns the last traded prices.
-   */
-  router.get(
-    '/tickers',
-    asyncHandler(
-      async (
-        request: Request<any, any, ClobGetTickersRequest>,
-        response: Response<ClobGetTickersResponse, any>
-      ) => {
-        const result = await getTickers(request.body);
-
-        response.status(result.status).json(result.body);
+        validateBasicRequest(req.query);
+        res
+          .status(200)
+          .json(await getMarkets(req.query as unknown as ClobMarketsRequest));
       }
     )
   );
 
   router.get(
-    '/orderBooks',
+    '/orderBook',
     asyncHandler(
       async (
-        request: Request<any, any, ClobGetOrderBooksRequest>,
-        response: Response<ClobGetOrderBooksResponse, any>
+        req: Request<{}, {}, ClobOrderbookRequest>,
+        res: Response<ClobOrderbookResponse | string, {}>
       ) => {
-        const result = await getOrderBooks(request.body);
+        validateMarketRequest(req.query);
+        res
+          .status(200)
+          .json(
+            await getOrderBooks(req.query as unknown as ClobOrderbookRequest)
+          );
+      }
+    )
+  );
 
-        response.status(result.status).json(result.body);
+  router.get(
+    '/ticker',
+    asyncHandler(
+      async (
+        req: Request<{}, {}, ClobTickerRequest>,
+        res: Response<ClobTickerResponse | string, {}>
+      ) => {
+        validateBasicRequest(req.query);
+        res
+          .status(200)
+          .json(await getTickers(req.query as unknown as ClobTickerRequest));
       }
     )
   );
@@ -108,12 +89,13 @@ export namespace ClobRoutes {
     '/orders',
     asyncHandler(
       async (
-        request: Request<any, any, ClobGetOrdersRequest>,
-        response: Response<ClobGetOrdersResponse, any>
+        req: Request<{}, {}, ClobGetOrderRequest>,
+        res: Response<ClobGetOrderResponse | string, {}>
       ) => {
-        const result = await getOrders(request.body);
-
-        response.status(result.status).json(result.body);
+        validateOrderRequest(req.query);
+        res
+          .status(200)
+          .json(await getOrders(req.query as unknown as ClobGetOrderRequest));
       }
     )
   );
@@ -122,12 +104,11 @@ export namespace ClobRoutes {
     '/orders',
     asyncHandler(
       async (
-        request: Request<any, any, ClobPostOrdersRequest>,
-        response: Response<ClobPostOrdersResponse, any>
+        req: Request<{}, {}, ClobPostOrderRequest>,
+        res: Response<ClobPostOrderResponse | string, {}>
       ) => {
-        const result = await createOrders(request.body);
-
-        response.status(result.status).json(result.body);
+        validatePostOrderRequest(req.body);
+        res.status(200).json(await postOrder(req.body));
       }
     )
   );
@@ -136,54 +117,28 @@ export namespace ClobRoutes {
     '/orders',
     asyncHandler(
       async (
-        request: Request<any, any, ClobDeleteOrdersRequest>,
-        response: Response<ClobDeleteOrdersResponse, any>
+        req: Request<{}, {}, ClobDeleteOrderRequest>,
+        res: Response<ClobDeleteOrderResponse | string, {}>
       ) => {
-        const result = await cancelOrders(request.body);
-
-        response.status(result.status).json(result.body);
+        validateOrderRequest(req.body);
+        res.status(200).json(await deleteOrder(req.body));
       }
     )
   );
 
   router.get(
-    '/orders/open',
+    '/estimateGas',
     asyncHandler(
       async (
-        request: Request<any, any, ClobGetOpenOrdersRequest>,
-        response: Response<ClobGetOpenOrdersResponse, any>
+        req: Request<{}, {}, NetworkSelectionRequest>,
+        res: Response<EstimateGasResponse | string, {}>
       ) => {
-        const result = await getOpenOrders(request.body);
-
-        response.status(result.status).json(result.body);
-      }
-    )
-  );
-
-  router.get(
-    '/orders/filled',
-    asyncHandler(
-      async (
-        request: Request<any, any, ClobGetFilledOrdersRequest>,
-        response: Response<ClobGetFilledOrdersResponse, any>
-      ) => {
-        const result = await getFilledOrders(request.body);
-
-        response.status(result.status).json(result.body);
-      }
-    )
-  );
-
-  router.post(
-    '/settleFunds',
-    asyncHandler(
-      async (
-        request: Request<any, any, ClobPostSettleFundsRequest>,
-        response: Response<ClobPostSettleFundsResponse, any>
-      ) => {
-        const result = await settleFunds(request.body);
-
-        response.status(result.status).json(result.body);
+        validateEstimateGasRequest(req.query);
+        res
+          .status(200)
+          .json(
+            await estimateGas(req.query as unknown as NetworkSelectionRequest)
+          );
       }
     )
   );

@@ -1,0 +1,11 @@
+{
+    "chain": "injective",
+    "network": "mainnet",
+    "connector": "injective",
+    "address": "$INJECTIVE_SUBACCOUNTID",
+    "market": "INJ-USDT",
+    "price": "2",
+    "amount": "0.10",
+    "side": "SELL",
+    "orderType": "LIMIT"
+  }
