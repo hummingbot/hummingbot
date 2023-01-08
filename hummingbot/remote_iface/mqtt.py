@@ -270,7 +270,7 @@ class MQTTCommands:
         return response
 
 
-class MQTTMarketEvents:
+class MQTTMarketEventForwarder:
     EVENT_URI = '/$instance_id/events'
 
     @classmethod
@@ -285,7 +285,7 @@ class MQTTMarketEvents:
                  mqtt_node: Node):
         if threading.current_thread() != threading.main_thread():  # pragma: no cover
             raise EnvironmentError(
-                "MQTTMarketEvents can only be initialized from the main thread."
+                "MQTTMarketEventForwarder can only be initialized from the main thread."
             )
         self._hb_app = hb_app
         self._mqtt_node = mqtt_node
@@ -436,7 +436,7 @@ class MQTTGateway(Node):
         self._health = False
         self._stop_event_async = asyncio.Event()
         self._notifier: MQTTNotifier = None
-        self._market_events: MQTTMarketEvents = None
+        self._market_events: MQTTMarketEventForwarder = None
         self._commands: MQTTCommands = None
         self._logh: MQTTLogHandler = None
         self._hb_app: "HummingbotApplication" = hb_app
@@ -524,10 +524,12 @@ class MQTTGateway(Node):
             self.logger().info('Starting MQTT Remote Commands')
             self._commands = MQTTCommands(self._hb_app, self)
 
-    def start_market_events(self):
+    def start_market_events_fw(self):
+        # Must be called after loading the strategy.
+        # HummingbotApplication._initialize_markets must be be called before
         if self._hb_app.client_config_map.mqtt_bridge.mqtt_events:
             self.logger().info('Starting MQTT Remote Events')
-            self._market_events = MQTTMarketEvents(self._hb_app, self)
+            self._market_events = MQTTMarketEventForwarder(self._hb_app, self)
             if self.state == NodeState.RUNNING:
                 self._market_events.event_fw_pub.run()
 
