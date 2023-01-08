@@ -320,7 +320,7 @@ class HummingbotApplication(*commands):
         )
         self.markets_recorder.start()
         if self._mqtt is not None:
-            self._mqtt.start_event_fw()
+            self._mqtt.start_market_events_fw()
 
     def _initialize_notifiers(self):
         self.notifiers.extend(
