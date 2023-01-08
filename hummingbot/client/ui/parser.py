@@ -157,7 +157,7 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingA
                              help="Subcommand (start/stop/restart)")
     mqtt_parser.add_argument("-t",
                              "--timeout",
-                             default=2.0,
+                             default=30.0,
                              type=float,
                              dest="timeout",
                              help="Connection timeout in seconds")
