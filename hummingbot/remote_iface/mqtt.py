@@ -16,13 +16,13 @@ if TYPE_CHECKING:  # pragma: no cover
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
     from hummingbot.core.event.event_listener import EventListener  # noqa: F401
 
-from commlib.node import Node
+from commlib.node import Node, NodeState
 from commlib.transports.mqtt import ConnectionParameters as MQTTConnectionParameters
 
 from hummingbot.core.event import events
 from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
 from hummingbot.core.pubsub import PubSub
-from hummingbot.core.utils.async_utils import call_sync
+from hummingbot.core.utils.async_utils import call_sync, safe_ensure_future
 from hummingbot.notifier.notifier_base import NotifierBase
 from hummingbot.remote_iface.messages import (
     MQTT_STATUS_CODE,
@@ -270,7 +270,7 @@ class MQTTCommands:
         return response
 
 
-class MQTTEventForwarder:
+class MQTTMarketEvents:
     EVENT_URI = '/$instance_id/events'
 
     @classmethod
@@ -285,7 +285,7 @@ class MQTTEventForwarder:
                  mqtt_node: Node):
         if threading.current_thread() != threading.main_thread():  # pragma: no cover
             raise EnvironmentError(
-                "MQTTEventForwarder can only be initialized from the main thread."
+                "MQTTMarketEvents can only be initialized from the main thread."
             )
         self._hb_app = hb_app
         self._mqtt_node = mqtt_node
@@ -314,7 +314,6 @@ class MQTTEventForwarder:
             (events.MarketEvent.RangePositionFeeCollected, self._mqtt_fowarder),
             (events.MarketEvent.RangePositionClosed, self._mqtt_fowarder),
         ]
-        self._app_event_pairs: List[Tuple[int, EventListener]] = []
 
         self.event_fw_pub = self._mqtt_node.create_publisher(
             topic=self.EVENT_URI, msg_type=EventMessage
@@ -383,15 +382,11 @@ class MQTTEventForwarder:
                 self.logger().info(
                     f'Created MQTT bridge for event: {event_pair[0]}, {event_pair[1]}'
                 )
-        for event_pair in self._app_event_pairs:
-            self._hb_app.app.add_listener(event_pair[0], event_pair[1])
 
     def stop_event_listener(self):
         for market in self._markets:
             for event_pair in self._market_event_pairs:
                 market.remove_listener(event_pair[0], event_pair[1])
-        for event_pair in self._app_event_pairs:
-            self._hb_app.app.remove_listener(event_pair[0], event_pair[1])
 
 
 class MQTTNotifier(NotifierBase):
@@ -441,7 +436,7 @@ class MQTTGateway(Node):
         self._health = False
         self._stop_event_async = asyncio.Event()
         self._notifier: MQTTNotifier = None
-        self._event_forwarder: MQTTEventForwarder = None
+        self._market_events: MQTTMarketEvents = None
         self._commands: MQTTCommands = None
         self._logh: MQTTLogHandler = None
         self._hb_app: "HummingbotApplication" = hb_app
@@ -466,7 +461,7 @@ class MQTTGateway(Node):
     def health(self):
         return self._health
 
-    def stop_logger(self):
+    def _stop_logger(self):
         loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
         log_conf = get_logging_conf()
         if 'loggers' not in log_conf:
@@ -478,7 +473,7 @@ class MQTTGateway(Node):
                     if log in logger.name:
                         self.remove_log_handler(logger)
 
-    def start_logger(self):
+    def _start_logger(self):
         self._logh = MQTTLogHandler(self._hb_app, self)
         self.patch_loggers()
 
@@ -518,21 +513,23 @@ class MQTTGateway(Node):
         for logger in loggers:
             self.add_log_handler(logger)
 
-    def start_notifier(self):
+    def _start_notifier(self):
         if self._hb_app.client_config_map.mqtt_bridge.mqtt_notifier:
             self.logger().info('Starting MQTT Notifier')
             self._notifier = MQTTNotifier(self._hb_app, self)
             self._hb_app.notifiers.append(self._notifier)
 
-    def start_commands(self):
+    def _start_commands(self):
         if self._hb_app.client_config_map.mqtt_bridge.mqtt_commands:
             self.logger().info('Starting MQTT Remote Commands')
             self._commands = MQTTCommands(self._hb_app, self)
 
-    def start_event_fw(self):
+    def start_market_events(self):
         if self._hb_app.client_config_map.mqtt_bridge.mqtt_events:
             self.logger().info('Starting MQTT Remote Events')
-            self._event_forwarder = MQTTEventForwarder(self._hb_app, self)
+            self._market_events = MQTTMarketEvents(self._hb_app, self)
+            if self.state == NodeState.RUNNING:
+                self._market_events.event_fw_pub.run()
 
     def _create_mqtt_params_from_conf(self):
         host = self._hb_app.client_config_map.mqtt_bridge.mqtt_host
@@ -565,33 +562,33 @@ class MQTTGateway(Node):
         return True
 
     def _start_check_health_loop(self):
+        if threading.current_thread() != threading.main_thread():  # pragma: no cover
+            self._ev_loop.call_soon_threadsafe(self._start_check_health_loop)
+            return
         self._stop_event_async.clear()
-        asyncio.run_coroutine_threadsafe(self._monitor_health_loop(),
-                                         self._ev_loop)
+        safe_ensure_future(self._monitor_health_loop(),
+                           loop=self._ev_loop)
 
     async def _monitor_health_loop(self):
+        # Maybe we can include more checks here to determine the health!
         while not self._stop_event_async.is_set():
             self._health = await self._ev_loop.run_in_executor(None, self._check_connections)
             await asyncio.sleep(1)
 
-    def _force_stop_monitor_health_loop(self):
+    def _stop_monitor_health_loop(self):
         self._stop_event_async.set()
 
     def start(self) -> None:
-        if threading.current_thread() != threading.main_thread():  # pragma: no cover
-            self._ev_loop.call_soon_threadsafe(self.start)
-            return
-        self.start_logger()
-        self.start_notifier()
-        self.start_commands()
-        self.start_event_fw()
-        self.run()
+        self._start_logger()
+        self._start_notifier()
+        self._start_commands()
         self._start_check_health_loop()
+        self.run()
 
     def stop(self):
         super().stop()
-        self.stop_logger()
-        self._force_stop_monitor_health_loop()
+        self._stop_logger()
+        self._stop_monitor_health_loop()
 
 
 class MQTTLogHandler(logging.Handler):
