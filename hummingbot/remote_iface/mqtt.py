@@ -500,10 +500,10 @@ class MQTTGateway(Node):
     def _get_root_logger(self):
         return logging.getLogger()
 
-    def remove_log_handler(self, logger):
+    def remove_log_handler(self, logger: HummingbotLogger):
         logger.removeHandler(self._logh)
 
-    def add_log_handler(self, logger):
+    def add_log_handler(self, logger: HummingbotLogger):
         logger.addHandler(self._logh)
 
     def add_log_handler_to_strategy(self):
@@ -591,6 +591,9 @@ class MQTTGateway(Node):
         super().stop()
         self._stop_logger()
         self._stop_monitor_health_loop()
+
+    def __del__(self):
+        self.stop()
 
 
 class MQTTLogHandler(logging.Handler):
