@@ -64,6 +64,8 @@ class RemoteIfaceMQTTTests(TestCase):
         super().setUp()
         # self.async_run_with_timeout(read_system_configs_from_yml())
         self.gateway = MQTTGateway(self.hbapp)
+        # Do not patch loggers in TESTING
+        self.gateway.patch_loggers = lambda: None
         self.test_market: MockPaperExchange = MockPaperExchange(
             client_config_map=self.client_config_map)
         self.hbapp.markets = {
