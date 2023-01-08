@@ -31,6 +31,9 @@ class MQTTCommand:
         elif subcommand == 'stop':
             safe_ensure_future(self.stop_mqtt_async(timeout=timeout),
                                loop=self.ev_loop)
+        elif subcommand == 'restart':
+            safe_ensure_future(self.restart_mqtt_async(timeout=timeout),
+                               loop=self.ev_loop)
 
     async def start_mqtt_async(self,  # type: HummingbotApplication
                                timeout: float = 2.0
@@ -74,3 +77,9 @@ class MQTTCommand:
         else:
             self.logger().error("MQTT is already stopped!")
             self.notify('MQTT Bridge is already stopped!')
+
+    async def restart_mqtt_async(self,  # type: HummingbotApplication
+                                 timeout: float = 2.0
+                                 ):
+        await self.stop_mqtt_async(timeout)
+        await self.start_mqtt_async(timeout)
