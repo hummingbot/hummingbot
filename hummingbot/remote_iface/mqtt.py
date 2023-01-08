@@ -438,6 +438,8 @@ class MQTTGateway(Node):
     def __init__(self,
                  hb_app: "HummingbotApplication",
                  *args, **kwargs):
+        self._health = False
+        self._stop_event_async = asyncio.Event()
         self._notifier: MQTTNotifier = None
         self._event_forwarder: MQTTEventForwarder = None
         self._commands: MQTTCommands = None
@@ -459,6 +461,10 @@ class MQTTGateway(Node):
             *args,
             **kwargs
         )
+
+    @property
+    def health(self):
+        return self._health
 
     def stop_logger(self):
         loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
@@ -543,7 +549,7 @@ class MQTTGateway(Node):
         )
         return conn_params
 
-    def check_health(self) -> bool:
+    def _check_connections(self) -> bool:
         for c in self._subscribers:
             if not c._transport.is_connected:
                 return False
@@ -558,6 +564,19 @@ class MQTTGateway(Node):
                 return False
         return True
 
+    def _start_check_health_loop(self):
+        self._stop_event_async.clear()
+        asyncio.run_coroutine_threadsafe(self._monitor_health_loop(),
+                                         self._ev_loop)
+
+    async def _monitor_health_loop(self):
+        while not self._stop_event_async.is_set():
+            self._health = await self._ev_loop.run_in_executor(None, self._check_connections)
+            await asyncio.sleep(1)
+
+    def _force_stop_monitor_health_loop(self):
+        self._stop_event_async.set()
+
     def start(self) -> None:
         if threading.current_thread() != threading.main_thread():  # pragma: no cover
             self._ev_loop.call_soon_threadsafe(self.start)
@@ -567,10 +586,12 @@ class MQTTGateway(Node):
         self.start_commands()
         self.start_event_fw()
         self.run()
+        self._start_check_health_loop()
 
     def stop(self):
         super().stop()
         self.stop_logger()
+        self._force_stop_monitor_health_loop()
 
 
 class MQTTLogHandler(logging.Handler):

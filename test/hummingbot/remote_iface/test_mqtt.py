@@ -689,22 +689,24 @@ class RemoteIfaceMQTTTests(TestCase):
     @patch("commlib.transports.mqtt.MQTTTransport")
     def test_mqtt_gateway_check_health(self,
                                        mock_mqtt):
-        self.assertTrue(self.gateway.check_health())
+        tmp = self.gateway._start_check_health_loop
+        self.gateway._start_check_health_loop = lambda: None
         self.start_mqtt(mock_mqtt=mock_mqtt)
-        self.assertTrue(self.gateway.check_health())
+        self.assertTrue(self.gateway._check_connections())
         self.gateway._rpc_services[0]._transport._connected = False
-        self.assertFalse(self.gateway.check_health())
+        self.assertFalse(self.gateway._check_connections())
         self.gateway._rpc_services[0]._transport._connected = True
         s = self.gateway.create_subscriber(topic='TEST', on_message=lambda x: {})
         s.run()
-        self.assertTrue(self.gateway.check_health())
+        self.assertTrue(self.gateway._check_connections())
         s._transport._connected = False
-        self.assertFalse(self.gateway.check_health())
+        self.assertFalse(self.gateway._check_connections())
         prev_pub = self.gateway._publishers
         prev__sub = self.gateway._subscribers
         self.gateway._publishers = []
         self.gateway._subscribers = []
         self.gateway._rpc_services[0]._transport._connected = False
-        self.assertFalse(self.gateway.check_health())
+        self.assertFalse(self.gateway._check_connections())
         self.gateway._publishers = prev_pub
         self.gateway._subscribers = prev__sub
+        self.gateway._start_check_health_loop = tmp
