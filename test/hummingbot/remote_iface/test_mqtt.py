@@ -17,7 +17,7 @@ from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketEvent, Orde
 from hummingbot.core.mock_api.mock_mqtt_server import FakeMQTTBroker
 from hummingbot.model.order import Order
 from hummingbot.model.trade_fill import TradeFill
-from hummingbot.remote_iface.mqtt import MQTTEventForwarder, MQTTGateway
+from hummingbot.remote_iface.mqtt import MQTTGateway, MQTTMarketEventForwarder
 
 
 class RemoteIfaceMQTTTests(TestCase):
@@ -76,7 +76,6 @@ class RemoteIfaceMQTTTests(TestCase):
     def tearDown(self):
         self.fake_mqtt_broker._transport._received_msgs = {}
         self.fake_mqtt_broker._transport._subscriptions = {}
-        self.gateway._event_forwarder.stop_event_listener()
         self.gateway.stop()
         super().tearDown()
 
@@ -109,6 +108,7 @@ class RemoteIfaceMQTTTests(TestCase):
                    mock_mqtt):
         mock_mqtt.side_effect = self.fake_mqtt_broker.create_transport
         self.gateway.start()
+        self.gateway.start_market_events_fw()
 
     def get_topic_for(self,
                       topic):
@@ -634,7 +634,7 @@ class RemoteIfaceMQTTTests(TestCase):
     @patch("commlib.transports.mqtt.MQTTTransport")
     def test_mqtt_eventforwarder_logger(self,
                                         mock_mqtt):
-        self.assertTrue(MQTTEventForwarder.logger() is not None)
+        self.assertTrue(MQTTMarketEventForwarder.logger() is not None)
         self.start_mqtt(mock_mqtt=mock_mqtt)
 
     @patch("commlib.transports.mqtt.MQTTTransport")
@@ -642,9 +642,9 @@ class RemoteIfaceMQTTTests(TestCase):
                                                 mock_mqtt):
         self.start_mqtt(mock_mqtt=mock_mqtt)
         test_evt = {"unknown": "you don't know me"}
-        self.gateway._event_forwarder._send_mqtt_event(event_tag=999,
-                                                       pubsub=None,
-                                                       event=test_evt)
+        self.gateway._market_events._send_mqtt_event(event_tag=999,
+                                                     pubsub=None,
+                                                     event=test_evt)
 
         events_topic = f"hbot/{self.instance_id}/events"
 
@@ -654,24 +654,12 @@ class RemoteIfaceMQTTTests(TestCase):
         self.assertTrue(self.is_msg_received(events_topic, test_evt, msg_key = 'data'))
 
     @patch("commlib.transports.mqtt.MQTTTransport")
-    def test_mqtt_eventforwarder_app_event_listener(self,
-                                                    mock_mqtt):
-        self.start_mqtt(mock_mqtt=mock_mqtt)
-        self.gateway._event_forwarder.stop_event_listener()
-        self.assertEqual(len(self.gateway._event_forwarder._app_event_pairs), 0)
-        self.gateway._event_forwarder._app_event_pairs = [
-            (MarketEvent.BuyOrderCreated, self.gateway._event_forwarder._mqtt_fowarder)
-        ]
-        self.gateway._event_forwarder.start_event_listener()
-        self.assertEqual(len(self.gateway._event_forwarder._app_event_pairs), 1)
-
-    @patch("commlib.transports.mqtt.MQTTTransport")
     def test_mqtt_eventforwarder_invalid_events(self,
                                                 mock_mqtt):
         self.start_mqtt(mock_mqtt=mock_mqtt)
-        self.gateway._event_forwarder._send_mqtt_event(event_tag=999,
-                                                       pubsub=None,
-                                                       event="i feel empty")
+        self.gateway._market_events._send_mqtt_event(event_tag=999,
+                                                     pubsub=None,
+                                                     event="i feel empty")
 
         events_topic = f"hbot/{self.instance_id}/events"
 
@@ -691,22 +679,24 @@ class RemoteIfaceMQTTTests(TestCase):
     @patch("commlib.transports.mqtt.MQTTTransport")
     def test_mqtt_gateway_check_health(self,
                                        mock_mqtt):
-        self.assertTrue(self.gateway.check_health())
+        tmp = self.gateway._start_check_health_loop
+        self.gateway._start_check_health_loop = lambda: None
         self.start_mqtt(mock_mqtt=mock_mqtt)
-        self.assertTrue(self.gateway.check_health())
+        self.assertTrue(self.gateway._check_connections())
         self.gateway._rpc_services[0]._transport._connected = False
-        self.assertFalse(self.gateway.check_health())
+        self.assertFalse(self.gateway._check_connections())
         self.gateway._rpc_services[0]._transport._connected = True
         s = self.gateway.create_subscriber(topic='TEST', on_message=lambda x: {})
         s.run()
-        self.assertTrue(self.gateway.check_health())
+        self.assertTrue(self.gateway._check_connections())
         s._transport._connected = False
-        self.assertFalse(self.gateway.check_health())
+        self.assertFalse(self.gateway._check_connections())
         prev_pub = self.gateway._publishers
         prev__sub = self.gateway._subscribers
         self.gateway._publishers = []
         self.gateway._subscribers = []
         self.gateway._rpc_services[0]._transport._connected = False
-        self.assertFalse(self.gateway.check_health())
+        self.assertFalse(self.gateway._check_connections())
         self.gateway._publishers = prev_pub
         self.gateway._subscribers = prev__sub
+        self.gateway._start_check_health_loop = tmp
