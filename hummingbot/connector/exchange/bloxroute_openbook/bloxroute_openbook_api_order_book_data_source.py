@@ -4,6 +4,7 @@ from abc import ABC
 from typing import TYPE_CHECKING, Any, AsyncGenerator, Dict, List, Optional
 
 from bxsolana.provider import WsProvider
+from bxsolana_trader_proto import GetOrderbooksStreamResponse
 
 from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_constants import OPENBOOK_PROJECT
 from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_order_book import BloxrouteOpenbookOrderBook
@@ -35,7 +36,7 @@ class BloxrouteOpenbookAPIOrderBookDataSource(OrderBookTrackerDataSource, ABC):
 
         self._ws_provider = ws_provider
         self._connector = connector
-        self._orderbook_stream: Optional[AsyncGenerator] = None
+        self._orderbook_stream: Optional[AsyncGenerator[GetOrderbooksStreamResponse, None]] = None
 
     def validate_trading_pairs(self, trading_pairs):
         for trading_pair in trading_pairs:
@@ -120,7 +121,7 @@ class BloxrouteOpenbookAPIOrderBookDataSource(OrderBookTrackerDataSource, ABC):
     async def _handle_order_book_updates(self):
         orderbook_queue = self._message_queue[self._snapshot_messages_queue_key]
         async for orderbook_event in self._orderbook_stream:
-            orderbook_queue.put_nowait(orderbook_event)
+            orderbook_queue.put_nowait(orderbook_event.to_dict(include_default_values=True))
 
     @property
     async def process_order_book_events_task(self):
