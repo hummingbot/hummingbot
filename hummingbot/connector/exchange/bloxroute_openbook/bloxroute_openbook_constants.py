@@ -3,7 +3,7 @@
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.in_flight_order import OrderState
 
-EXCHANGE_NAME = "bloxroute"
+EXCHANGE_NAME = "bloxroute_openbook"
 REST_URL = "https://virginia.solana.dex.blxrbdn.com"
 WSS_PUBLIC_URL = "wss://virginia.solana.dex.blxrbdn.com/ws"
 WSS_PRIVATE_URL = "wss://virginia.solana.dex.blxrbdn.com/ws"

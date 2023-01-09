@@ -1,24 +1,36 @@
 from typing import Dict
+import json
+
+from bxsolana import provider
 
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSRequest
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
 
 
 class BloxrouteOpenbookAuth(AuthBase):
-    def __init__(self, auth_header: str):
+    """
+    Auth class required to use bloxRoute Labs Solana Trader API
+    Needed for web assistants factory
+    """
+
+    def __init__(self, auth_header: str, time_provider: TimeSynchronizer):
         self.auth_header = auth_header
+        self.time_provider: TimeSynchronizer = time_provider
 
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
         """
         Adds the Bloxroute authentication header to the HTTP request
         """
 
-
         headers = {}
         if request.headers is not None:
             headers.update(request.headers)
         headers.update(self.authentication_headers(request=request))
         request.headers = headers
+
+        print("blox route auth header")
+        print(self.auth_header)
 
         return request
 
@@ -29,21 +41,3 @@ class BloxrouteOpenbookAuth(AuthBase):
         """
 
         return request  # pass-through
-
-    def authentication_headers(self, request: RESTRequest) -> Dict[str, Any]:
-        timestamp = str(int(self.time_provider.time() * 1e3))
-
-        params = json.dumps(request.params) if request.params is not None else request.data
-
-        sign = self._generate_signature(timestamp=timestamp, body=params)
-
-        header = {
-            "X-BM-KEY": self.api_key,
-            "X-BM-SIGN": sign,
-            "X-BM-TIMESTAMP": timestamp,
-            "X-BM-BROKER-ID": CONSTANTS.BROKER_ID,
-        }
-
-        return header
-
-

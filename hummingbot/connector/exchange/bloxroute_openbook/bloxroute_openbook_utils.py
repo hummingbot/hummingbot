@@ -17,7 +17,6 @@ DEFAULT_FEES = TradeFeeSchema(
     taker_percent_fee_decimal=Decimal("0.002"),
 )
 
-
 def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     """
     Verifies if a trading pair is enabled to operate with based on its exchange information
@@ -30,11 +29,11 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
 
 
 class BloxRouteConnectorMap(BaseConnectorConfigMap):
-    connector: str = Field(default="bloxRoute", client_data=None)
-    bloxRoute_api_key: SecretStr = Field(
+    connector: str = Field(default="bloxroute_openbook", client_data=None)
+    bloxroute_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
-            prompt=lambda cm: "Enter bloxRoute Labs auth header",
+            prompt=lambda cm: "Enter bloxroute Labs authorization header",
             is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,
@@ -62,25 +61,23 @@ class BloxRouteConnectorMap(BaseConnectorConfigMap):
     )
 
     class Config:
-        title = "bloxRouteLabs"
-
+        title = "bloxroute_openbook"
 
 KEYS = BloxRouteConnectorMap.construct()
 
-
-def TradeTypeToSide(type: TradeType) -> api.Side:
-    if type.value == type.BUY:
-        return api.Side.S_BID
-    elif type.value == type.SELL:
-        return api.Side.S_ASK
-    else:
-        return api.Side.S_UNKNOWN
-
-
-def OrderTypeToBlxrOrderType(orderType: OrderType) -> api.OrderType:
-    if orderType.value == orderType.MARKET:
-        return api.OrderType.OT_MARKET
-    elif orderType.value == orderType.LIMIT:
-        return api.OrderType.OT_LIMIT
-    else:
-        raise Exception(f"unknown order type ${orderType.value}")  # TODO need unknown value
+# def TradeTypeToSide(type: TradeType) -> api.Side:
+#     if type.value == type.BUY:
+#         return api.Side.S_BID
+#     elif type.value == type.SELL:
+#         return api.Side.S_ASK
+#     else:
+#         return api.Side.S_UNKNOWN
+#
+#
+# def OrderTypeToBlxrOrderType(orderType: OrderType) -> api.OrderType:
+#     if orderType.value == orderType.MARKET:
+#         return api.OrderType.OT_MARKET
+#     elif orderType.value == orderType.LIMIT:
+#         return api.OrderType.OT_LIMIT
+#     else:
+#         raise Exception(f"unknown order type ${orderType.value}")  # TODO need unknown value

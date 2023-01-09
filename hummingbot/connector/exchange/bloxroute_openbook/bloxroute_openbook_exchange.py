@@ -13,17 +13,11 @@ from hummingbot.connector.exchange.bloxroute_openbook import (
     bloxroute_openbook_web_utils as web_utils,
 )
 
-from hummingbot.connector.exchange.bitmart import (
-    bitmart_constants as CONSTANTS,
-    bitmart_utils,
-    bitmart_web_utils as web_utils,
-)
-
 from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_auth import BloxrouteOpenbookAuth
-from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_utils import (
-    OrderTypeToBlxrOrderType,
-    TradeTypeToSide,
-)
+# from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_utils import (
+#     OrderTypeToBlxrOrderType,
+#     TradeTypeToSide,
+# )
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
@@ -39,24 +33,23 @@ if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 
-class TradingPair():
-    def __init__(self, baseToken: str, quoteToken: str):
-        self.baseToken = baseToken
-        self.quoteToken = quoteToken
-
-    @classmethod
-    def fromString(self, trading_pair: str) -> 'TradingPair':
-        tokens = trading_pair.split("-")
-        if len(tokens) != 2:
-            raise Exception("trading pair had more than three tokens")
-        return TradingPair(baseToken=tokens[0], quoteToken=tokens[1])
+# class TradingPair():
+#     def __init__(self, baseToken: str, quoteToken: str):
+#         self.baseToken = baseToken
+#         self.quoteToken = quoteToken
+#
+#     @classmethod
+#     def fromString(self, trading_pair: str) -> 'TradingPair':
+#         tokens = trading_pair.split("-")
+#         if len(tokens) != 2:
+#             raise Exception("trading pair had more than three tokens")
+#         return TradingPair(baseToken=tokens[0], quoteToken=tokens[1])
 
 class BloxrouteOpenbookExchange(ExchangePyBase):
     """
     BloxrouteOpenbookExchange connects with BloxRoute Labs Solana Trader API provides order book pricing, user account tracking and
     trading functionality.
     """
-
     API_CALL_TIMEOUT = 10.0
     POLL_INTERVAL = 1.0
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
@@ -66,11 +59,11 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
 
     def __init__(self,
                  client_config_map: "ClientConfigAdapter",
-                 provider: provider.Provider,
-                 auth_header: str,
-                 private_key: str,
-                 trading_pairs_to_payer_address: Optional[Dict[str, str]] = None,
-                 trading_required: bool = True,
+                 bloxroute_api_key: str,
+                 solana_wallet_public_key: str,
+                 solana_wallet_private_key: str,
+                 # trading_pairs_to_payer_address: Optional[Dict[str, str]] = None,
+                 # trading_required: bool = True,
                  ):
         """
         :param auth_header: The bloxRoute Labs authorization header to connect with solana trader api
@@ -78,14 +71,21 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         :param trading_pairs: The market trading pairs which to track order book data.
         :param trading_required: Whether actual trading is needed.
         """
-        self._auth_header: str = auth_header
+
+        self.logger().exception("creating blox route exchange")
+        self.logger().exception("api key is" + bloxroute_api_key)
+        self.logger().exception("pub key is" + solana_wallet_public_key)
+        self.logger().exception("private key is" + solana_wallet_private_key)
+
+        self._auth_header: str = bloxroute_api_key
+        self._sol_wallet_public_key = solana_wallet_public_key
+        self._sol_wallet_private_key = solana_wallet_private_key
         self._provider = provider
-        self._private_key: str = private_key
-        self._trading_required = trading_required
-        self._trading_pairs_to_payer_address = trading_pairs_to_payer_address
+        # self._trading_required = trading_required
+        # self._trading_pairs_to_payer_address = trading_pairs_to_payer_address
 
         super().__init__(client_config_map)
-        self.real_time_balance_update = False # TODO
+        self.real_time_balance_update = False # TODO add functionality for this
 
     @property
     def authenticator(self):
@@ -95,7 +95,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
 
     @property
     def name(self) -> str:
-        return CONSTANTS.EXCHANGE_NAME
+        return "bloxroute_openbook"
 
     @property
     def rate_limits_rules(self):
@@ -108,8 +108,8 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
     @property
     def client_order_id_max_length(self):
         return CONSTANTS.MAX_ORDER_ID_LEN
-
     @property
+
     def client_order_id_prefix(self):
         return CONSTANTS.HBOT_ORDER_ID_PREFIX
 
@@ -231,7 +231,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         raise Exception("request order update not yet implmented")
 
     async def _request_order_fills(self, order: InFlightOrder) -> Dict[str, Any]:
-        raise Exception("request order fills not yet implemented")
+        raise Exception("request order fills not yet impgit lemented")
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         raise Exception("all trade updates for order not yet implemented")
