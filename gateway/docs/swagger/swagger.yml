@@ -31,6 +31,10 @@ tags:
     description: 'Interact with the Solana blockchain'
   - name: 'serum'
     description: 'Interact with Serum to operate on Solana blockchain'
+  - name: 'cosmos'
+    description: 'Interact with the Cosmos blockchain'
+  - name: 'near'
+    description: 'Interact with the Near blockchain'
 
 schemes:
   - 'http'

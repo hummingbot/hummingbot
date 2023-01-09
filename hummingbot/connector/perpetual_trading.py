@@ -58,6 +58,7 @@ class PerpetualTrading:
         return self._funding_info_stream
 
     def set_position(self, pos_key: str, position: Position):
+        self.logger().debug(f"Setting position {pos_key} to {Position}")
         self._account_positions[pos_key] = position
 
     def remove_position(self, post_key: str) -> Optional[Position]:
