@@ -172,6 +172,9 @@ class AutoRebalance(ScriptStrategyBase):
     # Set active order or not
     mm_mode = True
 
+    # Set user define market making or not
+    udefine_mm = False
+
     # Set market making threshold
     mm_threshold = Decimal('0.50')
 
@@ -270,23 +273,44 @@ class AutoRebalance(ScriptStrategyBase):
                              Decimal(exchange.get_price(pair, False) * Decimal('0.9999')).quantize(Decimal('1.0000')))
 
             if self.mm_mode is True:
-                if self.status == "rebalancing":
-                    try:
-                        self.active_orders_df()
-                    except ValueError:
-                        self.status = "market making"
+                if self.udefine_mm is True:
+                    if self.status == "rebalancing":
+                        try:
+                            self.active_orders_df()
+                        except ValueError:
+                            self.status = "market making"
 
-                # If not run rebalancing then do market making
-                if self.status == "market making":
-                    for coin in self.coins:
-                        sell_order_amount, buy_order_amount = self.m_order_amount(coin)
-                        pair = coin + "-" + self.hold_asset
-                        self.sell(self.connector_name, pair, sell_order_amount, OrderType.LIMIT,
-                                  Decimal(exchange.get_price(pair, True) * (1 + (self.mm_threshold / 100)))
-                                  .quantize(Decimal('1.0000')))
-                        self.buy(self.connector_name, pair, buy_order_amount, OrderType.LIMIT,
-                                 Decimal(exchange.get_price(pair, False) * (1 - (self.mm_threshold / 100)))
-                                 .quantize(Decimal('1.0000')))
+                    # If not run rebalancing then do market making
+                    if self.status == "market making":
+                        for coin in self.coins:
+                            sell_order_amount, buy_order_amount = self.m_order_amount(coin)
+                            pair = coin + "-" + self.hold_asset
+                            self.sell(self.connector_name, pair, sell_order_amount, OrderType.LIMIT,
+                                      Decimal(exchange.get_price(pair, True) * (1 + (self.mm_threshold / 100)))
+                                      .quantize(Decimal('1.0000')))
+                            self.buy(self.connector_name, pair, buy_order_amount, OrderType.LIMIT,
+                                     Decimal(exchange.get_price(pair, False) * (1 - (self.mm_threshold / 100)))
+                                     .quantize(Decimal('1.0000')))
+                else:
+                    self.mm_threshold = self.threshold
+                    if self.status == "rebalancing":
+                        try:
+                            self.active_orders_df()
+                        except ValueError:
+                            self.status = "market making"
+
+                    # If not run rebalancing then do market making
+                    if self.status == "market making":
+                        for coin in self.coins:
+                            sell_order_amount, buy_order_amount = self.m_order_amount(coin)
+                            pair = coin + "-" + self.hold_asset
+                            self.sell(self.connector_name, pair, sell_order_amount, OrderType.LIMIT,
+                                      Decimal(exchange.get_price(pair, True) * (1 + (self.mm_threshold / 100)))
+                                      .quantize(Decimal('1.0000')))
+                            self.buy(self.connector_name, pair, buy_order_amount, OrderType.LIMIT,
+                                     Decimal(exchange.get_price(pair, False) * (1 - (self.mm_threshold / 100)))
+                                     .quantize(Decimal('1.0000')))
+
             # Set timestamp
             self.last_ordered_ts = self.current_timestamp
 
