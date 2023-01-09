@@ -1,7 +1,7 @@
 import asyncio
 import time
 from abc import ABC
-from typing import Any, AsyncGenerator, Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, AsyncGenerator, Dict, List, Optional
 
 from bxsolana.provider import WsProvider
 
