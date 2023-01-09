@@ -26,12 +26,14 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState,
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod
+from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
+from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
+s_logger = None
 
 # class TradingPair():
 #     def __init__(self, baseToken: str, quoteToken: str):
@@ -53,7 +55,6 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
     API_CALL_TIMEOUT = 10.0
     POLL_INTERVAL = 1.0
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
-    UPDATE_TRADE_STATUS_MIN_INTERVAL = 10.0
 
     web_utils = web_utils
 
@@ -80,7 +81,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         self._auth_header: str = bloxroute_api_key
         self._sol_wallet_public_key = solana_wallet_public_key
         self._sol_wallet_private_key = solana_wallet_private_key
-        self._provider = provider
+        self._provider = WsProvider(auth_header=auth_header, private_key=secret_key)
         # self._trading_required = trading_required
         # self._trading_pairs_to_payer_address = trading_pairs_to_payer_address
 
@@ -90,12 +91,13 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
     @property
     def authenticator(self):
         return BloxrouteOpenbookAuth(
-            auth_header=self._auth_header
+            auth_header=self._bloxroute_auth_header
         )
+
 
     @property
     def name(self) -> str:
-        return "bloxroute_openbook"
+        return "bloxroute-openbook"
 
     @property
     def rate_limits_rules(self):
@@ -103,7 +105,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
 
     @property
     def domain(self):
-        return CONSTANTS.DEFAULT_DOMAIN
+        return self._domain
 
     @property
     def client_order_id_max_length(self):
@@ -115,15 +117,15 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
 
     @property
     def trading_rules_request_path(self):
-        return CONSTANTS.GET_TRADING_RULES_PATH_URL
+        return CONSTANTS.EXCHANGE_INFO_PATH_URL
 
     @property
     def trading_pairs_request_path(self):
-        return CONSTANTS.GET_TRADING_RULES_PATH_URL
+        return CONSTANTS.EXCHANGE_INFO_PATH_URL
 
     @property
     def check_network_request_path(self):
-        return CONSTANTS.CHECK_NETWORK_PATH_URL
+        return CONSTANTS.PING_PATH_URL
 
     @property
     def trading_pairs(self):
@@ -151,7 +153,12 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         raise Exception("not yet implemented")
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
-        raise Exception("not yet implemented")
+        return BloxrouteOpenbookAPIOrderBookDataSource(
+            ws_provider=self._ws_provider,
+            trading_pairs=self._trading_pairs,
+            connector=self,
+            message_queue=self._message_queue
+        )
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
         raise Exception("not yet implemented")
@@ -185,35 +192,30 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         raise Exception("place cancel not yet implemented")
 
-    async def _format_trading_rules(self, symbols_details: Dict[str, Any]) -> List[TradingRule]:
+    async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
         """
-        Converts json API response into a dictionary of trading rules.
-        :param symbols_details: The json API response
-        :return A dictionary of trading rules.
-        Response Example:
+        Example:
         {
-            "code": 1000,
-            "trace":"886fb6ae-456b-4654-b4e0-d681ac05cea1",
-            "message": "OK",
-            "data": {
-                "symbols": [
-                    {
-                        "symbol":"GXC_BTC",
-                         "symbol_id":1024,
-                         "base_currency":"GXC",
-                         "quote_currency":"BTC",
-                         "quote_increment":"1.00000000",
-                         "base_min_size":"1.00000000",
-                         "base_max_size":"10000000.00000000",
-                         "price_min_precision":6,
-                         "price_max_precision":8,
-                         "expiration":"NA",
-                         "min_buy_amount":"0.00010000",
-                         "min_sell_amount":"0.00010000"
-                    },
-                    ...
-                ]
-            }
+            "symbol": "ETHBTC",
+            "baseAssetPrecision": 8,
+            "quotePrecision": 8,
+            "orderTypes": ["LIMIT", "MARKET"],
+            "filters": [
+                {
+                    "filterType": "PRICE_FILTER",
+                    "minPrice": "0.00000100",
+                    "maxPrice": "100000.00000000",
+                    "tickSize": "0.00000100"
+                }, {
+                    "filterType": "LOT_SIZE",
+                    "minQty": "0.00100000",
+                    "maxQty": "100000.00000000",
+                    "stepSize": "0.00100000"
+                }, {
+                    "filterType": "MIN_NOTIONAL",
+                    "minNotional": "0.00100000"
+                }
+            ]
         }
         """
         raise Exception("format trading rules not yet implemented")

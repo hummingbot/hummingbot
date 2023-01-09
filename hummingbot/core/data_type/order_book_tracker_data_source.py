@@ -16,14 +16,14 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
 
     _logger: Optional[HummingbotLogger] = None
 
-    def __init__(self, trading_pairs: List[str]):
+    def __init__(self, trading_pairs: List[str], message_queue: Dict[str, asyncio.Queue] = None):
         self._trade_messages_queue_key = "trade"
         self._diff_messages_queue_key = "order_book_diff"
         self._snapshot_messages_queue_key = "order_book_snapshot"
 
         self._trading_pairs: List[str] = trading_pairs
         self._order_book_create_function = lambda: OrderBook()
-        self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
+        self._message_queue: Dict[str, asyncio.Queue] = message_queue or defaultdict(asyncio.Queue)
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -230,6 +230,7 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
         pass
 
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
+
         async for ws_response in websocket_assistant.iter_messages():
             data: Dict[str, Any] = ws_response.data
             if data is not None:  # data will be None when the websocket is disconnected
