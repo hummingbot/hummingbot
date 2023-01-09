@@ -461,7 +461,7 @@ class MQTTGateway(Node):
     def health(self):
         return self._health
 
-    def _stop_logger(self):
+    def _remove_log_handlers(self):
         loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
         log_conf = get_logging_conf()
         if 'loggers' not in log_conf:
@@ -472,8 +472,9 @@ class MQTTGateway(Node):
                 for log in logs:
                     if log in logger.name:
                         self.remove_log_handler(logger)
+        self._logh = None
 
-    def _start_logger(self):
+    def _init_logger(self):
         self._logh = MQTTLogHandler(self._hb_app, self)
         self.patch_loggers()
 
@@ -489,7 +490,8 @@ class MQTTGateway(Node):
         if 'loggers' not in log_conf:
             return
         log_conf_names = [key for key, val in log_conf.get('loggers').items()]
-        loggers_filtered = [logger for logger in loggers if logger.name in log_conf_names]
+        loggers_filtered = [logger for logger in loggers if
+                            logger.name in log_conf_names]
         loggers_filtered = [logger for logger in loggers_filtered if
                             log_conf.get('loggers').get(logger.name).get('mqtt', False)]
 
@@ -513,25 +515,33 @@ class MQTTGateway(Node):
         for logger in loggers:
             self.add_log_handler(logger)
 
-    def _start_notifier(self):
+    def _init_notifier(self):
         if self._hb_app.client_config_map.mqtt_bridge.mqtt_notifier:
             self.logger().info('Starting MQTT Notifier')
             self._notifier = MQTTNotifier(self._hb_app, self)
             self._hb_app.notifiers.append(self._notifier)
 
-    def _start_commands(self):
+    def _remove_notifier(self):
+        self._hb_app.notifiers.remove(self._notifier) if self._notifier \
+            in self._hb_app.notifiers else None
+
+    def _init_commands(self):
         if self._hb_app.client_config_map.mqtt_bridge.mqtt_commands:
             self.logger().info('Starting MQTT Remote Commands')
             self._commands = MQTTCommands(self._hb_app, self)
 
     def start_market_events_fw(self):
         # Must be called after loading the strategy.
-        # HummingbotApplication._initialize_markets must be be called before
+        # HummingbotApplication._initialize_markets() must be be called before
         if self._hb_app.client_config_map.mqtt_bridge.mqtt_events:
             self.logger().info('Starting MQTT Remote Events')
             self._market_events = MQTTMarketEventForwarder(self._hb_app, self)
             if self.state == NodeState.RUNNING:
                 self._market_events.event_fw_pub.run()
+
+    def _stop_market_events_fw(self):
+        self._market_events.event_fw_pub.stop()
+        self._market_events = None
 
     def _create_mqtt_params_from_conf(self):
         host = self._hb_app.client_config_map.mqtt_bridge.mqtt_host
@@ -563,34 +573,36 @@ class MQTTGateway(Node):
                 return False
         return True
 
-    def _start_check_health_loop(self):
+    def _start_health_monitoring_loop(self):
         if threading.current_thread() != threading.main_thread():  # pragma: no cover
-            self._ev_loop.call_soon_threadsafe(self._start_check_health_loop)
+            self._ev_loop.call_soon_threadsafe(self.start_check_health_loop)
             return
         self._stop_event_async.clear()
         safe_ensure_future(self._monitor_health_loop(),
                            loop=self._ev_loop)
 
-    async def _monitor_health_loop(self):
+    async def _monitor_health_loop(self, period: float = 1.0):
         # Maybe we can include more checks here to determine the health!
         while not self._stop_event_async.is_set():
-            self._health = await self._ev_loop.run_in_executor(None, self._check_connections)
-            await asyncio.sleep(1)
+            self._health = await self._ev_loop.run_in_executor(
+                None, self._check_connections)
+            await asyncio.sleep(period)
 
-    def _stop_monitor_health_loop(self):
+    def _stop_health_monitorint_loop(self):
         self._stop_event_async.set()
 
     def start(self) -> None:
-        self._start_logger()
-        self._start_notifier()
-        self._start_commands()
-        self._start_check_health_loop()
+        self._init_logger()
+        self._init_notifier()
+        self._init_commands()
+        self._start_health_monitoring_loop()
         self.run()
 
     def stop(self):
         super().stop()
-        self._stop_logger()
-        self._stop_monitor_health_loop()
+        self._remove_notifier()
+        self._remove_log_handlers()
+        self._stop_health_monitorint_loop()
 
     def __del__(self):
         self.stop()
