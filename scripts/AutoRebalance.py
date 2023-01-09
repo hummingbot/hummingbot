@@ -173,7 +173,7 @@ class AutoRebalance(ScriptStrategyBase):
     mm_mode = True
 
     # Set user define market making or not
-    udefine_mm = False
+    udefine_mm = True
 
     # Set market making threshold
     mm_threshold = Decimal('0.50')
