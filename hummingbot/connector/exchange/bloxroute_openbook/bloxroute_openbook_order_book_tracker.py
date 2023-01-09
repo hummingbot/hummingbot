@@ -28,6 +28,10 @@ class BloxrouteOpenbookOrderBookTracker(OrderBookTracker):
                 message: OrderBookMessage = await tracking_message_queue.get()
                 if message.type is OrderBookMessageType.SNAPSHOT:
                     order_book.apply_snapshot(bids=message.bids, asks=message.asks, update_id=message.update_id)
+                elif message.type is OrderBookMessageType.DIFF:
+                    raise Exception(f"Bloxroute Openbook does not use orderbook diff updates")
+                elif message.type is OrderBookMessageType.TRADE:
+                    raise Exception(f"Bloxroute Openbook does not use trade updates")
             except asyncio.CancelledError:
                 raise
             except Exception:
