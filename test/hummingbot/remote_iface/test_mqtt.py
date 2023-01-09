@@ -679,8 +679,8 @@ class RemoteIfaceMQTTTests(TestCase):
     @patch("commlib.transports.mqtt.MQTTTransport")
     def test_mqtt_gateway_check_health(self,
                                        mock_mqtt):
-        tmp = self.gateway._start_check_health_loop
-        self.gateway._start_check_health_loop = lambda: None
+        tmp = self.gateway._start_health_monitoring_loop
+        self.gateway._start_health_monitoring_loop = lambda: None
         self.start_mqtt(mock_mqtt=mock_mqtt)
         self.assertTrue(self.gateway._check_connections())
         self.gateway._rpc_services[0]._transport._connected = False
@@ -699,4 +699,4 @@ class RemoteIfaceMQTTTests(TestCase):
         self.assertFalse(self.gateway._check_connections())
         self.gateway._publishers = prev_pub
         self.gateway._subscribers = prev__sub
-        self.gateway._start_check_health_loop = tmp
+        self.gateway._start_health_monitoring_loop = tmp
