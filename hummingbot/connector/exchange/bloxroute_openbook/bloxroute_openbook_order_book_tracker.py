@@ -4,12 +4,12 @@ from typing import List, Optional
 from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_api_order_book_data_source import (
     BloxrouteOpenbookAPIOrderBookDataSource,
 )
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 
-from hummingbot.core.data_type.order_book import OrderBook
 
 class BloxrouteOpenbookOrderBookTracker(OrderBookTracker):
 

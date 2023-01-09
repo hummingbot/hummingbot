@@ -5,6 +5,8 @@ from bxsolana_trader_proto import GetOrderbookResponse
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
+from hummingbot.core.data_type.order_book_row import OrderBookRow
+from bxsolana_trader_proto.api import OrderbookItem
 
 class BloxrouteOpenbookOrderBook(OrderBook):
 
@@ -33,3 +35,14 @@ class BloxrouteOpenbookOrderBook(OrderBook):
             }, timestamp=timestamp)
         else:
             raise Exception(f"orderbook snapshot update did not contain `orderbook` field: {msg}")
+
+    def orders_to_orderbook_rows(self, orders: list[OrderbookItem]) -> list[OrderBookRow]:
+        for order in orders:
+            yield self.order_to_orderbook_row(order)
+
+    def order_to_orderbook_row(self, order: OrderbookItem) -> OrderBookRow:
+        return OrderBookRow(
+            price=order.price,
+            amount=order.size,
+            update_id=order.order_i_d
+        )
