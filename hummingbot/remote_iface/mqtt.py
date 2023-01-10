@@ -209,7 +209,7 @@ class MQTTCommands:
             )
             response.msg = res if res is not None else ''
         except asyncio.exceptions.TimeoutError:
-            response.msg = f'Strategy import command timed out after {timeout} seconds'
+            response.msg = f'Hummingbot import command timed out after {timeout} seconds'
             response.status = MQTT_STATUS_CODE.ERROR
         except Exception as e:
             response.status = MQTT_STATUS_CODE.ERROR
@@ -224,14 +224,17 @@ class MQTTCommands:
             response.msg = 'No strategy is currently running!'
             return response
         try:
-            res = call_sync(
-                self._hb_app.strategy_status(),
-                loop=self._ev_loop,
-                timeout=timeout
-            )
-            response.msg = res if res is not None else ''
+            if msg.async_backend:
+                self._hb_app.status()
+            else:
+                res = call_sync(
+                    self._hb_app.strategy_status(),
+                    loop=self._ev_loop,
+                    timeout=timeout
+                )
+                response.msg = res if res is not None else ''
         except asyncio.exceptions.TimeoutError:
-            response.msg = f'Strategy status command timed out after {timeout} seconds'
+            response.msg = f'Hummingbot status command timed out after {timeout} seconds'
             response.status = MQTT_STATUS_CODE.ERROR
         except Exception as e:
             response.status = MQTT_STATUS_CODE.ERROR
