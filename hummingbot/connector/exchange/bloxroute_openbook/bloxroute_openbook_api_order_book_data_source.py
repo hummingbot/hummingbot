@@ -27,7 +27,6 @@ class BloxrouteOpenbookAPIOrderBookDataSource(OrderBookTrackerDataSource, ABC):
     _logger: Optional[HummingbotLogger] = None
 
     def __init__(self, ws_provider: WsProvider, trading_pairs: List[str], connector: 'BloxrouteOpenbookExchange'):
-        self.validate_trading_pairs(trading_pairs)
         super().__init__(trading_pairs)
 
         self._ws_provider = ws_provider
@@ -45,8 +44,16 @@ class BloxrouteOpenbookAPIOrderBookDataSource(OrderBookTrackerDataSource, ABC):
     async def get_last_traded_prices(self,
                                      trading_pairs: List[str],
                                      domain: Optional[str] = None) -> Dict[str, float]:
-        price_response = await self._ws_provider.get_price()  # TODO we need to create an endpoint for trading_pairs
+        price_response = await self._ws_provider.get_quotes(
+
+        )
         return price_response.to_dict()
+    async def _request_order_book_snapshots(self, output: asyncio.Queue):
+        pass
+
+    async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
+        orderbook = await self._ws_provider.get_orderbook(market=trading_pair, project=OPENBOOK_PROJECT)
+        return orderbook.to_dict()
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
         """
