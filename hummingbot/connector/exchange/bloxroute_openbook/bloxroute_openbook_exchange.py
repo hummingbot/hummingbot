@@ -1,5 +1,6 @@
 import asyncio
 import math
+import os
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
@@ -35,18 +36,6 @@ if TYPE_CHECKING:
 
 s_logger = None
 
-# class TradingPair():
-#     def __init__(self, baseToken: str, quoteToken: str):
-#         self.baseToken = baseToken
-#         self.quoteToken = quoteToken
-#
-#     @classmethod
-#     def fromString(self, trading_pair: str) -> 'TradingPair':
-#         tokens = trading_pair.split("-")
-#         if len(tokens) != 2:
-#             raise Exception("trading pair had more than three tokens")
-#         return TradingPair(baseToken=tokens[0], quoteToken=tokens[1])
-
 class BloxrouteOpenbookExchange(ExchangePyBase):
     """
     BloxrouteOpenbookExchange connects with BloxRoute Labs Solana Trader API provides order book pricing, user account tracking and
@@ -80,8 +69,11 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         self._sol_wallet_private_key = solana_wallet_private_key
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
-        # self._provider = WsProvider(auth_header=auth_header, private_key=secret_key)
-        # self._trading_pairs_to_payer_address = trading_pairs_to_payer_address
+
+        os.environ["AUTH_HEADER"] = self._auth_header
+        os.environ["PUBLIC_KEY"] = self._sol_wallet_public_key
+        os.environ["PRIVATE_KEY"] = self._sol_wallet_private_key
+        self._provider = provider.WsProvider()
 
         super().__init__(client_config_map)
         self.real_time_balance_update = False # TODO add functionality for this
@@ -103,7 +95,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
 
     @property
     def domain(self):
-        return self._domain
+        return CONSTANTS.DEFAULT_DOMAIN
 
     @property
     def client_order_id_max_length(self):
@@ -127,7 +119,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
 
     @property
     def trading_pairs(self):
-        raise Exception("not yet implemented")
+        return self._trading_pairs
 
     @property
     def is_cancel_request_in_exchange_synchronous(self) -> bool:
@@ -135,7 +127,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
 
     @property
     def is_trading_required(self) -> bool:
-        raise Exception("not yet implemented")
+        raise self._trading_required
 
     def supported_order_types(self) -> List[OrderType]:
         """
@@ -161,7 +153,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         pass
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
-        raise Exception("not yet implemented")
+        pass
 
     def _get_fee(self,
                  base_currency: str,
