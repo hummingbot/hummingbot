@@ -4,7 +4,7 @@ from abc import ABC
 from typing import TYPE_CHECKING, Any, AsyncGenerator, Dict, List, Optional
 
 from bxsolana.provider import WsProvider
-from bxsolana_trader_proto import GetOrderbooksStreamResponse
+from bxsolana_trader_proto import GetOrderbookResponse, GetOrderbooksStreamResponse
 
 from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_constants import OPENBOOK_PROJECT
 from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_order_book import BloxrouteOpenbookOrderBook
@@ -44,18 +44,13 @@ class BloxrouteOpenbookAPIOrderBookDataSource(OrderBookTrackerDataSource, ABC):
     async def get_last_traded_prices(self,
                                      trading_pairs: List[str],
                                      domain: Optional[str] = None) -> Dict[str, float]:
-        price_response = await self._ws_provider.get_quotes(
+        return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
-        )
-        return price_response.to_dict()
     async def _request_order_book_snapshots(self, output: asyncio.Queue):
-        pass
+        for trading_pair in self._trading_pairs:
+            output.put_nowait(await self._order_book_snapshot(trading_pair))
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
-        orderbook = await self._ws_provider.get_orderbook(market=trading_pair, project=OPENBOOK_PROJECT)
-        return orderbook.to_dict()
-
-    async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
         """
         Retrieves a copy of the full order book from the exchange, for a particular trading pair.
 
@@ -65,7 +60,11 @@ class BloxrouteOpenbookAPIOrderBookDataSource(OrderBookTrackerDataSource, ABC):
         """
 
         orderbook = await self._ws_provider.get_orderbook(market=trading_pair, project=OPENBOOK_PROJECT)
-        return orderbook.to_dict()
+        return BloxrouteOpenbookOrderBook.snapshot_message_from_exchange(
+            orderbook.to_dict(include_default_values=True),
+            time.time(),
+            {"trading_pair": trading_pair}
+        )
 
     async def _subscribe_channels(self, ws: WSAssistant):
         """
@@ -73,7 +72,8 @@ class BloxrouteOpenbookAPIOrderBookDataSource(OrderBookTrackerDataSource, ABC):
         :param ws: the websocket assistant used to connect to the exchange
         """
         try:
-            self._orderbook_stream = self._ws_provider.get_orderbooks_stream(markets=self._trading_pairs, project=OPENBOOK_PROJECT)
+            self._orderbook_stream = self._ws_provider.get_orderbooks_stream(markets=self._trading_pairs,
+                                                                             project=OPENBOOK_PROJECT)
             self.logger().info("Subscribed to orderbook channel")
         except asyncio.CancelledError:
             raise
@@ -100,12 +100,11 @@ class BloxrouteOpenbookAPIOrderBookDataSource(OrderBookTrackerDataSource, ABC):
             market=trading_pair,
             project=OPENBOOK_PROJECT
         )
-        order_book_message: OrderBookMessage = BloxrouteOpenbookOrderBook.snapshot_message_from_exchange(
+        return BloxrouteOpenbookOrderBook.snapshot_message_from_exchange(
             order_book.to_dict(include_default_values=True),
             time.time(),
             {"trading_pair": trading_pair}
         )
-        return order_book_message
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         raise Exception("Bloxroute Openbook does not use trade updates")
