@@ -26,7 +26,7 @@ from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTr
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
-
+from bxsolana_trader_proto.api import Market
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
@@ -171,33 +171,29 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         raise Exception("place cancel not yet implemented")
 
-    async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
-        """
-        Example:
-        {
-            "symbol": "ETHBTC",
-            "baseAssetPrecision": 8,
-            "quotePrecision": 8,
-            "orderTypes": ["LIMIT", "MARKET"],
-            "filters": [
-                {
-                    "filterType": "PRICE_FILTER",
-                    "minPrice": "0.00000100",
-                    "maxPrice": "100000.00000000",
-                    "tickSize": "0.00000100"
-                }, {
-                    "filterType": "LOT_SIZE",
-                    "minQty": "0.00100000",
-                    "maxQty": "100000.00000000",
-                    "stepSize": "0.00100000"
-                }, {
-                    "filterType": "MIN_NOTIONAL",
-                    "minNotional": "0.00100000"
-                }
-            ]
-        }
-        """
-        raise Exception("format trading rules not yet implemented")
+    async def _format_trading_rules(self, markets_by_name: Dict[str, Market]) -> List[TradingRule]:
+        trading_rules = []
+        for market_name in markets_by_name:
+            market = markets_by_name[market_name]
+            try:
+                quantity_precision = market.base_decimals
+                price_precision = market.quote_decimals
+                min_order_size = Decimal(str(10 ** -quantity_precision))
+                min_quote_amount = Decimal(str(10 ** -price_precision))
+                trading_rules.append(
+                    TradingRule(
+                        trading_pair=market_name,
+                        min_order_size=min_order_size,
+                        min_order_value=min_order_size * min_quote_amount,
+                        max_price_significant_digits=Decimal(str(price_precision)),
+                        min_base_amount_increment=min_order_size,
+                        min_quote_amount_increment=min_quote_amount,
+                        min_price_increment=min_quote_amount,
+                    )
+                )
+            except Exception as e:
+                raise Exception(f"Error parsing the trading pair rule {market.to_dict()}: {e}")
+        return trading_rules
 
     async def _update_trading_fees(self):
         """
@@ -206,7 +202,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         raise Exception("update trading fees not yet implemented")
 
     async def _update_balances(self):
-       raise Exception("update balances not yet implemented")
+        raise Exception("update balances not yet implemented")
 
     async def _request_order_update(self, order: InFlightOrder) -> Dict[str, Any]:
         raise Exception("request order update not yet implmented")
@@ -234,3 +230,14 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         raise Exception("get last traded price not yet implemented")
+
+    def _update_trading_rules(self):
+        markets_response: GetMarketsResponse = await self._ws_provider.get_markets()
+        markets_by_name = markets_response.markets
+
+        trading_rules_list = await self._format_trading_rules(markets_by_name)
+        self._trading_rules.clear()
+        for trading_rule in trading_rules_list:
+            self._trading_rules[trading_rule.trading_pair] = trading_rule
+
+        self._initialize_trading_pair_symbols_from_exchange_info(markets_by_name=markets_by_name)
