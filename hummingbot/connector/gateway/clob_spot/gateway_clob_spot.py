@@ -90,6 +90,7 @@ class GatewayCLOBSPOT(ExchangePyBase):
     def authenticator(self) -> Optional[AuthBase]:
         return None
 
+    @property
     def rate_limits_rules(self) -> List[RateLimit]:
         return []
 
@@ -376,7 +377,4 @@ class GatewayCLOBSPOT(ExchangePyBase):
             self._account_available_balances[balance_event.asset_name] = balance_event.available_balance
 
     def _create_web_assistants_factory(self) -> Optional[WebAssistantsFactory]:
-        return None
-
-    def _connector_throttler(self, limits_share_percentage: Optional[Decimal] = None) -> Optional:
         return None

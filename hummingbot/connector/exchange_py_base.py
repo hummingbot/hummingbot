@@ -176,8 +176,7 @@ class ExchangePyBase(ExchangeBase, ABC):
             "order_books_initialized": self.order_book_tracker.ready,
             "account_balance": not self.is_trading_required or len(self._account_balances) > 0,
             "trading_rule_initialized": len(self._trading_rules) > 0 if self.is_trading_required else True,
-            "user_stream_initialized":
-                self._user_stream_tracker.data_source.last_recv_time > 0 if self.is_trading_required else True,
+            "user_stream_initialized": self._is_user_stream_initialized(),
         }
 
     @property
@@ -1061,7 +1060,7 @@ class ExchangePyBase(ExchangeBase, ABC):
 
     async def _initialize_trading_pair_symbol_map(self):
         try:
-            exchange_info = await self._api_get(path_url=self.trading_pairs_request_path)
+            exchange_info = await self._make_trading_pairs_request()
             self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
         except Exception:
             self.logger().exception("There was an error requesting exchange info.")
@@ -1076,3 +1075,6 @@ class ExchangePyBase(ExchangeBase, ABC):
     async def _make_trading_pairs_request(self) -> Any:
         exchange_info = await self._api_get(path_url=self.trading_pairs_request_path)
         return exchange_info
+
+    def _is_user_stream_initialized(self):
+        return (self._user_stream_tracker.data_source.last_recv_time > 0 or not self.is_trading_required)

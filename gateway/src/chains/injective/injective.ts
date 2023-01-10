@@ -529,6 +529,11 @@ export class Injective {
     ).toAccountDetails();
   }
 
+  // returns the current block number
+  async getCurrentBlockNumber(): Promise<number> {
+    return await this.currentBlockNumber();
+  }
+
   public async close() {
     const instance = Injective._instances.get(this._network);
     if (instance !== undefined) {
