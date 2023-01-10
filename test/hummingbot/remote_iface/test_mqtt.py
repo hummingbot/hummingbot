@@ -65,6 +65,7 @@ class RemoteIfaceMQTTTests(TestCase):
         # self.async_run_with_timeout(read_system_configs_from_yml())
         self.gateway = MQTTGateway(self.hbapp)
         # Do not patch loggers in TESTING
+        self._patch_loggers_default = self.gateway.patch_loggers
         self.gateway.patch_loggers = lambda: None
         self.test_market: MockPaperExchange = MockPaperExchange(
             client_config_map=self.client_config_map)
@@ -117,8 +118,11 @@ class RemoteIfaceMQTTTests(TestCase):
     def build_fake_strategy(self,
                             status_check_all_mock: MagicMock,
                             load_strategy_config_map_from_file: MagicMock,
-                            invalid_strategy: bool = True):
-        if invalid_strategy:
+                            invalid_strategy: bool = True,
+                            empty_name: bool = False):
+        if empty_name:
+            strategy_name = ''
+        elif invalid_strategy:
             strategy_name = "some_strategy"
         else:
             strategy_name = "avellaneda_market_making"
@@ -131,12 +135,16 @@ class RemoteIfaceMQTTTests(TestCase):
     def send_fake_import_cmd(self,
                              status_check_all_mock: MagicMock,
                              load_strategy_config_map_from_file: MagicMock,
-                             invalid_strategy: bool = True):
+                             invalid_strategy: bool = True,
+                             empty_name: bool = False):
         import_topic = self.get_topic_for(self.IMPORT_URI)
 
-        strategy_name = self.build_fake_strategy(status_check_all_mock=status_check_all_mock,
-                                                 load_strategy_config_map_from_file=load_strategy_config_map_from_file,
-                                                 invalid_strategy=invalid_strategy)
+        strategy_name = self.build_fake_strategy(
+            status_check_all_mock=status_check_all_mock,
+            load_strategy_config_map_from_file=load_strategy_config_map_from_file,
+            invalid_strategy=invalid_strategy,
+            empty_name=empty_name
+        )
 
         self.fake_mqtt_broker.publish_to_subscription(import_topic, {'strategy': strategy_name})
 
@@ -364,8 +372,8 @@ class RemoteIfaceMQTTTests(TestCase):
         self.assertTrue(self.is_msg_received(notify_topic, notify_msg))
 
     @patch("commlib.transports.mqtt.MQTTTransport")
-    def test_mqtt_command_config_updates(self,
-                                         mock_mqtt):
+    def test_mqtt_command_config_updates_single_param(self,
+                                                      mock_mqtt):
         self.start_mqtt(mock_mqtt=mock_mqtt)
 
         topic = self.get_topic_for(self.CONFIG_URI)
@@ -376,6 +384,23 @@ class RemoteIfaceMQTTTests(TestCase):
             ]
         }
 
+        self.fake_mqtt_broker.publish_to_subscription(topic, config_msg)
+        notify_topic = f"hbot/{self.instance_id}/notify"
+        notify_msg = "\nGlobal Configurations:"
+        self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, notify_msg))
+        self.assertTrue(self.is_msg_received(notify_topic, notify_msg))
+
+    @patch("commlib.transports.mqtt.MQTTTransport")
+    def test_mqtt_command_config_updates_multiple_params(self,
+                                                         mock_mqtt):
+        self.start_mqtt(mock_mqtt=mock_mqtt)
+        topic = self.get_topic_for(self.CONFIG_URI)
+        config_msg = {
+            'params': [
+                ('instance_id', self.instance_id),
+                ('mqtt_bridge.mqtt_port', 1888),
+            ]
+        }
         self.fake_mqtt_broker.publish_to_subscription(topic, config_msg)
         notify_topic = f"hbot/{self.instance_id}/notify"
         notify_msg = "\nGlobal Configurations:"
@@ -409,13 +434,19 @@ class RemoteIfaceMQTTTests(TestCase):
 
         topic = self.get_topic_for(self.HISTORY_URI)
 
-        self.fake_mqtt_broker.publish_to_subscription(topic, {})
+        self.fake_mqtt_broker.publish_to_subscription(topic, {"async_backend": 0})
+        history_topic = f"test_reply/hbot/{self.instance_id}/history"
+        history_msg = {'status': 200, 'msg': '', 'trades': fake_trades}
+        self.ev_loop.run_until_complete(self.wait_for_rcv(history_topic, history_msg, msg_key='data'))
+        self.assertTrue(self.is_msg_received(history_topic, history_msg, msg_key='data'))
+
+        self.fake_mqtt_broker.publish_to_subscription(topic, {"async_backend": 1})
         notify_topic = f"hbot/{self.instance_id}/notify"
         notify_msg = "\n  Please first import a strategy config file of which to show historical performance."
         self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, notify_msg))
         self.assertTrue(self.is_msg_received(notify_topic, notify_msg))
         history_topic = f"test_reply/hbot/{self.instance_id}/history"
-        history_msg = {'status': 200, 'msg': '', 'trades': fake_trades}
+        history_msg = {'status': 200, 'msg': '', 'trades': []}
         self.ev_loop.run_until_complete(self.wait_for_rcv(history_topic, history_msg, msg_key='data'))
         self.assertTrue(self.is_msg_received(history_topic, history_msg, msg_key='data'))
 
@@ -469,7 +500,26 @@ class RemoteIfaceMQTTTests(TestCase):
                                   invalid_strategy=False)
 
         topic = f"test_reply/hbot/{self.instance_id}/import"
-        msg = {'status': 400, 'msg': ''}
+        msg = {'status': 400, 'msg': 'Some error'}
+        self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
+
+    @patch("hummingbot.client.command.import_command.load_strategy_config_map_from_file")
+    @patch("hummingbot.client.command.status_command.StatusCommand.status_check_all")
+    @patch("hummingbot.client.command.import_command.ImportCommand.import_config_file", new_callable=AsyncMock)
+    @patch("commlib.transports.mqtt.MQTTTransport")
+    def test_mqtt_command_import_empty_strategy(self,
+                                                mock_mqtt,
+                                                import_mock: AsyncMock,
+                                                status_check_all_mock: MagicMock,
+                                                load_strategy_config_map_from_file: MagicMock):
+        import_mock.side_effect = self._create_exception_and_unlock_test_with_event_async
+        topic = f"test_reply/hbot/{self.instance_id}/import"
+        msg = {'status': 400, 'msg': 'Empty strategy_name given!'}
+        self.start_mqtt(mock_mqtt=mock_mqtt)
+        self.send_fake_import_cmd(status_check_all_mock=status_check_all_mock,
+                                  load_strategy_config_map_from_file=load_strategy_config_map_from_file,
+                                  invalid_strategy=False,
+                                  empty_name=True)
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
     @patch("hummingbot.client.command.import_command.load_strategy_config_map_from_file")
@@ -679,8 +729,8 @@ class RemoteIfaceMQTTTests(TestCase):
     @patch("commlib.transports.mqtt.MQTTTransport")
     def test_mqtt_gateway_check_health(self,
                                        mock_mqtt):
-        tmp = self.gateway._start_check_health_loop
-        self.gateway._start_check_health_loop = lambda: None
+        tmp = self.gateway._start_health_monitoring_loop
+        self.gateway._start_health_monitoring_loop = lambda: None
         self.start_mqtt(mock_mqtt=mock_mqtt)
         self.assertTrue(self.gateway._check_connections())
         self.gateway._rpc_services[0]._transport._connected = False
@@ -699,4 +749,25 @@ class RemoteIfaceMQTTTests(TestCase):
         self.assertFalse(self.gateway._check_connections())
         self.gateway._publishers = prev_pub
         self.gateway._subscribers = prev__sub
-        self.gateway._start_check_health_loop = tmp
+        self.gateway._start_health_monitoring_loop = tmp
+
+    @patch("commlib.transports.mqtt.MQTTTransport")
+    def test_mqtt_gateway_stop(self,
+                               mock_mqtt):
+        self.start_mqtt(mock_mqtt=mock_mqtt)
+        self.assertTrue(self.gateway._check_connections())
+        self.gateway.stop()
+        self.assertFalse(self.gateway._check_connections())
+
+    # @patch("commlib.transports.mqtt.MQTTTransport")
+    # def test_mqtt_gateway_patch_loggers(self,
+    #                                     mock_mqtt):
+    #     import logging
+    #     self.gateway.patch_loggers = self._patch_loggers_default
+    #     self.start_mqtt(mock_mqtt=mock_mqtt)
+    #     for handler in logging.getLogger().handlers:
+    #         if handler.name == 'MQTTLogHandler':
+    #             self.assertTrue(1)
+    #             return
+    #     self.assertTrue(0)
+    #     self.gateway.stop()
