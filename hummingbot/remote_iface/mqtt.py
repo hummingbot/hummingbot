@@ -272,10 +272,12 @@ class MQTTCommands:
     def _on_cmd_history(self, msg: HistoryCommandMessage.Request):
         response = HistoryCommandMessage.Response()
         try:
-            self._hb_app.history(msg.days, msg.verbose, msg.precision)
-            trades = self._hb_app.get_history_trades_json(msg.days)
-            if trades:
-                response.trades = trades
+            if msg.async_backend:
+                self._hb_app.history(msg.days, msg.verbose, msg.precision)
+            else:
+                trades = self._hb_app.get_history_trades_json(msg.days)
+                if trades:
+                    response.trades = trades
         except Exception as e:
             response.status = MQTT_STATUS_CODE.ERROR
             response.msg = str(e)
