@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from bxsolana_trader_proto import GetOrderbookResponse
 from bxsolana_trader_proto.api import OrderbookItem
@@ -36,7 +36,7 @@ class BloxrouteOpenbookOrderBook(OrderBook):
         else:
             raise Exception(f"orderbook snapshot update did not contain `orderbook` field: {msg}")
 
-    def orders_to_orderbook_rows(self, orders: list[OrderbookItem]) -> list[OrderBookRow]:
+    def orders_to_orderbook_rows(self, orders: List[OrderbookItem]) -> List[OrderBookRow]:
         for order in orders:
             yield self.order_to_orderbook_row(order)
 
