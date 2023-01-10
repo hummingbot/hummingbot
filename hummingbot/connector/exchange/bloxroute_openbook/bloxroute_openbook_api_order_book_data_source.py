@@ -34,10 +34,13 @@ class BloxrouteOpenbookAPIOrderBookDataSource(OrderBookTrackerDataSource, ABC):
         self._connector = connector
         self._orderbook_stream: Optional[AsyncGenerator[GetOrderbooksStreamResponse, None]] = None
 
-    def validate_trading_pairs(self, trading_pairs):
+    async def validate_trading_pairs(self, trading_pairs):
+        markets_response = await self._ws_provider.get_markets()
+        valid_trading_pairs = [market for market in markets_response.markets]
+
         for trading_pair in trading_pairs:
-            if "-" not in trading_pair:
-                raise Exception(f"trading pair ${trading_pair} does not have a dash between its two tokens")
+            if trading_pair not in valid_trading_pairs:
+                raise Exception(f"{trading_pair} is not valid")
 
     async def get_last_traded_prices(self,
                                      trading_pairs: List[str],
