@@ -80,12 +80,12 @@ class ImportCommandMessage(RPCMessage):
 
 class StatusCommandMessage(RPCMessage):
     class Request(RPCMessage.Request):
-        pass
+        async_backend: bool = True
 
     class Response(RPCMessage.Response):
         status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
         msg: Optional[str] = ''
-        data: Optional[str] = ''
+        data: Optional[Any] = ''
 
 
 class HistoryCommandMessage(RPCMessage):
