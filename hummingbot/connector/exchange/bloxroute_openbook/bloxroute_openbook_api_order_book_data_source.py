@@ -26,13 +26,9 @@ class BloxrouteOpenbookAPIOrderBookDataSource(OrderBookTrackerDataSource, ABC):
 
     _logger: Optional[HummingbotLogger] = None
 
-    def __init__(self,
-                 ws_provider: WsProvider,
-                 trading_pairs: List[str],
-                 connector: 'BloxrouteOpenbookExchange',
-                 message_queue: Dict[str, asyncio.Queue] = None):
+    def __init__(self, ws_provider: WsProvider, trading_pairs: List[str], connector: 'BloxrouteOpenbookExchange'):
         self.validate_trading_pairs(trading_pairs)
-        super().__init__(trading_pairs, message_queue)
+        super().__init__(trading_pairs)
 
         self._ws_provider = ws_provider
         self._connector = connector
