@@ -149,13 +149,29 @@ class MQTTCommands:
 
     def _on_cmd_start(self, msg: StartCommandMessage.Request):
         response = StartCommandMessage.Response()
+        timeout = 30
         try:
-            self._hb_app.start(
-                log_level=msg.log_level,
-                restore=msg.restore,
-                script=msg.script,
-                is_quickstart=msg.is_quickstart
-            )
+            if self._hb_app.strategy_name is None:
+                raise Exception('Strategy check: Please import or create a strategy.')
+            if self._hb_app.strategy is not None:
+                raise Exception('The bot is already running - please run "stop" first')
+            if msg.async_backend:
+                self._hb_app.start(
+                    log_level=msg.log_level,
+                    restore=msg.restore,
+                    script=msg.script,
+                    is_quickstart=msg.is_quickstart
+                )
+            else:
+                res = call_sync(
+                    self._hb_app.start_check(),
+                    loop=self._ev_loop,
+                    timeout=timeout
+                )
+                response.msg = res if res is not None else ''
+        except asyncio.exceptions.TimeoutError:
+            response.msg = f'Hummingbot start command timed out after {timeout} seconds'
+            response.status = MQTT_STATUS_CODE.ERROR
         except Exception as e:
             response.status = MQTT_STATUS_CODE.ERROR
             response.msg = str(e)
