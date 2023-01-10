@@ -631,69 +631,33 @@ class GatewayCommand(GatewayChainApiManager):
         """
         Allow the user to approve tokens for spending.
         """
+        # get connector specs
         conf: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(connector_chain_network)
         if conf is None:
             self.notify(f"'{connector_chain_network}' is not available. You can add and review available gateway connectors with the command 'gateway connect'.")
         else:
             self.logger().info(f"Connector {conf['connector']} Tokens {tokens} will now be approved for spending for '{connector_chain_network}'.")
             # get wallets for the selected chain
-            try:
-                wallets_response: List[Dict[str, Any]] = await self._get_gateway_instance().get_wallets()
-                matching_wallets: List[Dict[str, Any]] = [w for w in wallets_response if w["chain"] == conf['chain']]
-                wallets: List[str]
-                self.logger().info(f"Wallets {matching_wallets[0]['walletAddresses']} with length {len(matching_wallets[0]['walletAddresses'])}")
-                if len(matching_wallets[0]['walletAddresses']) < 1:
-                    self.logger().warning(f"No wallets found for chain '{conf['chain']}'.")
-                    return
-                elif len(matching_wallets[0]['walletAddresses']) > 1:
-                    self.logger().info(f"Multiple wallets found for chain '{conf['chain']}-{conf['network']}'.")
-                    native_token: str = native_tokens[conf['chain']]
-                    wallet_table: List[Dict[str, Any]] = []
-                    for w in matching_wallets[0]['walletAddresses']:
-                        balances: Dict[str, Any] = await self._get_gateway_instance().get_balances(
-                            conf['chain'], conf['network'], w, [native_token]
-                        )
-                        wallet_table.append({"balance": balances['balances'][native_token], "address": w})
-                    wallet_df: pd.DataFrame = build_wallet_display(native_token, wallet_table)
-                    self.notify(wallet_df.to_string(index=False))
-                    with begin_placeholder_mode(self):
-                        while True:
-                            wallet_address: str = await self.app.prompt(prompt="Select a gateway wallet for approval >>> ")
-                            self.app.clear_input()
-                            if self.app.to_stop_config:
-                                return
-                            if wallet_address in matching_wallets[0]['walletAddresses']:
-                                wallets = [wallet_address]
-                                self.notify(f"You have selected {wallet_address} to be used for approval.")
-                                break
-                            self.notify("Error: Invalid wallet address")
-                else:
-                    wallets = matching_wallets[0]['walletAddresses']
-            except Exception as e:
-                self.logger().error(f"Error getting wallets: {str(e)}")
+            gateway_connections_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
+            if len(gateway_connections_conf) < 1:
+                self.notify("No existing wallet.\n")
                 return
+            connector_wallet: List[Dict[str, Any]] = [w for w in gateway_connections_conf if w["chain"] == conf['chain'] and w["connector"] == conf['connector'] and w["network"] == conf['network']]
             try:
-                resp: Dict[str, Any] = await self._get_gateway_instance().approve_token(conf['chain'], conf['network'], wallets[0], tokens, conf['connector'])
+                resp: Dict[str, Any] = await self._get_gateway_instance().approve_token(conf['chain'], conf['network'], connector_wallet[0]['wallet_address'], tokens, conf['connector'])
                 transaction_hash: Optional[str] = resp.get("approval", {}).get("hash")
                 displayed_pending: bool = False
-                pollCount: int = 0
                 while True:
-                    await asyncio.sleep(2)
                     pollResp: Dict[str, Any] = await self._get_gateway_instance().get_transaction_status(conf['chain'], conf['network'], transaction_hash)
                     transaction_status: Optional[str] = pollResp.get("txStatus")
-                    pollCount += 1
-                    # self.logger().info(f"Transaction status: {pollResp}")
-                    if pollCount > 30:
-                        self.logger().info(f"Tokens {tokens} approval is taking longer than expected. Please track transaction hash {transaction_hash} manually for status.")
-                        self.notify(f"Tokens {tokens} approval is taking longer than expected. Please track transaction hash {transaction_hash} manually for status.")
-                        break
+                    await asyncio.sleep(2)
                     if transaction_status == 1:
-                        self.logger().info(f"Tokens {tokens} is approved for spending for '{conf['connector']}' for Wallets: {wallets[0]}.")
-                        self.notify(f"Tokens {tokens} is approved for spending for '{conf['connector']}' for Wallets: {wallets[0]}.")
+                        self.logger().info(f"Token {tokens} is approved for spending for '{conf['connector']}' for Wallet: {connector_wallet[0]['wallet_address']}.")
+                        self.notify(f"Token {tokens} is approved for spending for '{conf['connector']}' for Wallet: {connector_wallet[0]['wallet_address']}.")
                         break
                     elif transaction_status == 2:
                         if not displayed_pending:
-                            self.logger().info(f"Tokens {tokens} approval transaction is pending.")
+                            self.logger().info(f"Token {tokens} approval transaction is pending. Transaction hash: {transaction_hash}")
                             displayed_pending = True
                         continue
                     else:
