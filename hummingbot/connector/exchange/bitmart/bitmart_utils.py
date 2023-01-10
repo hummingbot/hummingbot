@@ -16,7 +16,6 @@ DEFAULT_FEES = TradeFeeSchema(
     taker_percent_fee_decimal=Decimal("0.0025"),
 )
 
-
 def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     """
     Verifies if a trading pair is enabled to operate with based on its exchange information
