@@ -22,7 +22,7 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 from hummingbot.user.user_balances import UserBalances
 
 if TYPE_CHECKING:
-    from hummingbot.client.hummingbot_application import HummingbotApplication
+    from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
 
 
 GATEWAY_READY_TIMEOUT = 300  # seconds
