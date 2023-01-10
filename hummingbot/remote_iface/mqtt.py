@@ -179,10 +179,22 @@ class MQTTCommands:
 
     def _on_cmd_stop(self, msg: StopCommandMessage.Request):
         response = StopCommandMessage.Response()
+        timeout = 30
         try:
-            self._hb_app.stop(
-                skip_order_cancellation=msg.skip_order_cancellation
-            )
+            if msg.async_backend:
+                self._hb_app.stop(
+                    skip_order_cancellation=msg.skip_order_cancellation
+                )
+            else:
+                res = call_sync(
+                    self._hb_app.stop_loop(),
+                    loop=self._ev_loop,
+                    timeout=timeout
+                )
+                response.msg = res if res is not None else ''
+        except asyncio.exceptions.TimeoutError:
+            response.msg = f'Hummingbot start command timed out after {timeout} seconds'
+            response.status = MQTT_STATUS_CODE.ERROR
         except Exception as e:
             response.status = MQTT_STATUS_CODE.ERROR
             response.msg = str(e)

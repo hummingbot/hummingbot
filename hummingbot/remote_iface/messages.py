@@ -44,6 +44,7 @@ class StartCommandMessage(RPCMessage):
 class StopCommandMessage(RPCMessage):
     class Request(RPCMessage.Request):
         skip_order_cancellation: Optional[bool] = False
+        async_backend: bool = True
 
     class Response(RPCMessage.Response):
         status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
