@@ -68,7 +68,7 @@ class GatewayEVMAMM(ConnectorBase):
     _chain_info: Dict[str, Any]
     _status_polling_task: Optional[asyncio.Task]
     _get_chain_info_task: Optional[asyncio.Task]
-    _auto_approve_task: Optional[asyncio.Task]
+    _update_allowances: Optional[asyncio.Task]
     _poll_notifier: Optional[asyncio.Event]
     _native_currency: str
     _amount_quantum_dict: Dict[str, Decimal]
@@ -109,7 +109,6 @@ class GatewayEVMAMM(ConnectorBase):
         self._chain_info = {}
         self._status_polling_task = None
         self._get_chain_info_task = None
-        self._auto_approve_task = None
         self._get_gas_estimate_task = None
         self._poll_notifier = None
         self._native_currency = None
@@ -289,16 +288,6 @@ class GatewayEVMAMM(ConnectorBase):
                 exc_info=True,
                 app_warning_msg=str(e)
             )
-
-    async def auto_approve(self):
-        """
-        Automatically approves trading pair tokens for contract(s).
-        It first checks if there are any already approved amount (allowance)
-        """
-        await self.update_allowances()
-        for token, amount in self._allowances.items():
-            if amount <= s_decimal_0 and not self.is_pending_approval(token):
-                await self.approve_token(token)
 
     async def approve_token(self, token_symbol: str, **request_args) -> Optional[EVMInFlightOrder]:
         """
@@ -851,9 +840,6 @@ class GatewayEVMAMM(ConnectorBase):
         Checks if all tokens have allowance (an amount approved)
         """
         allowances_available = all(amount > s_decimal_0 for amount in self._allowances.values())
-        if not allowances_available and self._auto_approve_task is not None and self._auto_approve_task.done():
-            # we need to attempt approval
-            self._auto_approve_task = safe_ensure_future(self.auto_approve())
         return ((len(self._allowances.values()) == len(self._tokens)) and
                 (allowances_available))
 
@@ -861,7 +847,7 @@ class GatewayEVMAMM(ConnectorBase):
     def status_dict(self) -> Dict[str, bool]:
         return {
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
-            "allowances": self.has_allowances() if self._trading_required else True,
+            "allowances: use trading interface to do manual approval.": self.has_allowances() if self._trading_required else True,
             "native_currency": self._native_currency is not None,
             "network_transaction_fee": self.network_transaction_fee is not None if self._trading_required else True,
         }
@@ -869,7 +855,7 @@ class GatewayEVMAMM(ConnectorBase):
     async def start_network(self):
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
-            self._auto_approve_task = safe_ensure_future(self.auto_approve())
+            self._update_allowances = safe_ensure_future(self.update_allowances())
             self._get_gas_estimate_task = safe_ensure_future(self.get_gas_estimate())
         self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
 
@@ -877,9 +863,9 @@ class GatewayEVMAMM(ConnectorBase):
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
             self._status_polling_task = None
-        if self._auto_approve_task is not None:
-            self._auto_approve_task.cancel()
-            self._auto_approve_task = None
+        if self._update_allowances is not None:
+            self._update_allowances.cancel()
+            self._update_allowances = None
         if self._get_chain_info_task is not None:
             self._get_chain_info_task.cancel()
             self._get_chain_info_task = None
