@@ -1,10 +1,12 @@
 from bxsolana.provider import constants
-from bxsolana_trader_proto import api
+from bxsolana_trader_proto import Project
 
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.data_type.in_flight_order import OrderState
 
 EXCHANGE_NAME = "bloxroute_openbook"
+OPENBOOK_PROJECT = Project.P_OPENBOOK
+
 REST_URL = "https://virginia.solana.dex.blxrbdn.com"
 WSS_PUBLIC_URL = "wss://virginia.solana.dex.blxrbdn.com/ws"
 WSS_PRIVATE_URL = "wss://virginia.solana.dex.blxrbdn.com/ws"
