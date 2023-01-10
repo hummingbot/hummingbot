@@ -494,7 +494,7 @@ class RemoteIfaceMQTTTests(TestCase):
                                   invalid_strategy=False)
 
         topic = f"test_reply/hbot/{self.instance_id}/import"
-        msg = {'status': 400, 'msg': ''}
+        msg = {'status': 400, 'msg': 'Some error'}
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
     @patch("hummingbot.client.command.import_command.load_strategy_config_map_from_file")
