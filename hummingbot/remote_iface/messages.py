@@ -34,6 +34,7 @@ class StartCommandMessage(RPCMessage):
         restore: Optional[bool] = False
         script: Optional[str] = None
         is_quickstart: Optional[bool] = False
+        async_backend: bool = True
 
     class Response(RPCMessage.Response):
         status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
