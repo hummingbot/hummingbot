@@ -34,7 +34,7 @@ class StartCommandMessage(RPCMessage):
         restore: Optional[bool] = False
         script: Optional[str] = None
         is_quickstart: Optional[bool] = False
-        async_backend: bool = True
+        async_backend: Optional[bool] = True
 
     class Response(RPCMessage.Response):
         status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
@@ -44,7 +44,7 @@ class StartCommandMessage(RPCMessage):
 class StopCommandMessage(RPCMessage):
     class Request(RPCMessage.Request):
         skip_order_cancellation: Optional[bool] = False
-        async_backend: bool = True
+        async_backend: Optional[bool] = True
 
     class Response(RPCMessage.Response):
         status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
@@ -82,7 +82,7 @@ class ImportCommandMessage(RPCMessage):
 
 class StatusCommandMessage(RPCMessage):
     class Request(RPCMessage.Request):
-        async_backend: bool = True
+        async_backend: Optional[bool] = True
 
     class Response(RPCMessage.Response):
         status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
@@ -95,6 +95,7 @@ class HistoryCommandMessage(RPCMessage):
         days: Optional[float] = 0
         verbose: Optional[bool] = False
         precision: Optional[int] = None
+        async_backend: Optional[bool] = True
 
     class Response(RPCMessage.Response):
         status: Optional[int] = MQTT_STATUS_CODE.SUCCESS

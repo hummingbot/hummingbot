@@ -434,13 +434,19 @@ class RemoteIfaceMQTTTests(TestCase):
 
         topic = self.get_topic_for(self.HISTORY_URI)
 
-        self.fake_mqtt_broker.publish_to_subscription(topic, {})
+        self.fake_mqtt_broker.publish_to_subscription(topic, {"async_backend": 0})
+        history_topic = f"test_reply/hbot/{self.instance_id}/history"
+        history_msg = {'status': 200, 'msg': '', 'trades': fake_trades}
+        self.ev_loop.run_until_complete(self.wait_for_rcv(history_topic, history_msg, msg_key='data'))
+        self.assertTrue(self.is_msg_received(history_topic, history_msg, msg_key='data'))
+
+        self.fake_mqtt_broker.publish_to_subscription(topic, {"async_backend": 1})
         notify_topic = f"hbot/{self.instance_id}/notify"
         notify_msg = "\n  Please first import a strategy config file of which to show historical performance."
         self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, notify_msg))
         self.assertTrue(self.is_msg_received(notify_topic, notify_msg))
         history_topic = f"test_reply/hbot/{self.instance_id}/history"
-        history_msg = {'status': 200, 'msg': '', 'trades': fake_trades}
+        history_msg = {'status': 200, 'msg': '', 'trades': []}
         self.ev_loop.run_until_complete(self.wait_for_rcv(history_topic, history_msg, msg_key='data'))
         self.assertTrue(self.is_msg_received(history_topic, history_msg, msg_key='data'))
 
