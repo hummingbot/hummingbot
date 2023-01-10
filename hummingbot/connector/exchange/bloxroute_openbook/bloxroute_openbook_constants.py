@@ -15,10 +15,6 @@ MAX_ORDER_ID_LEN = 32
 HBOT_ORDER_ID_PREFIX = ""
 BROKER_ID = "hummingbotfound"
 
-PUBLIC_TRADE_CHANNEL_NAME = "spot/trade"
-PUBLIC_DEPTH_CHANNEL_NAME = "spot/depth50"
-PRIVATE_ORDER_PROGRESS_CHANNEL_NAME = "spot/user/order"
-
 # Base URL
 WSS_URL = constants.MAINNET_API_WS
 
@@ -26,13 +22,7 @@ WSS_URL = constants.MAINNET_API_WS
 WS_CONNECT = "WSConnect"
 WS_SUBSCRIBE = "WSSubscribe"
 
-# Public API endpoints or BinanceClient function
-TICKER_PRICE_CHANGE_PATH_URL = "/ticker/24hr"
-TICKER_BOOK_PATH_URL = "/ticker/bookTicker"
-EXCHANGE_INFO_PATH_URL = "/exchangeInfo"
-PING_PATH_URL = "/ping"
-SNAPSHOT_PATH_URL = "/depth"
-SERVER_TIME_PATH_URL = "/time"
+SERVER_TIME_PATH = "/api/v1/system/time"
 
 # Private API endpoints or BinanceClient function
 ACCOUNTS_PATH_URL = "/account"
@@ -80,41 +70,41 @@ ORDER_STATE = {
 
 RATE_LIMITS = [
     # Pools
-    RateLimit(limit_id=REQUEST_WEIGHT, limit=1200, time_interval=ONE_MINUTE),
-    RateLimit(limit_id=ORDERS, limit=50, time_interval=10 * ONE_SECOND),
-    RateLimit(limit_id=ORDERS_24HR, limit=160000, time_interval=ONE_DAY),
-    RateLimit(limit_id=RAW_REQUESTS, limit=6100, time_interval= 5 * ONE_MINUTE),
-    # Weighted Limits
-    RateLimit(limit_id=TICKER_PRICE_CHANGE_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 40),
-                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
-    RateLimit(limit_id=TICKER_BOOK_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 2),
-                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
-    RateLimit(limit_id=EXCHANGE_INFO_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 10),
-                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
-    RateLimit(limit_id=SNAPSHOT_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 50),
-                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
-    RateLimit(limit_id=BINANCE_USER_STREAM_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1),
-                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
-    RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1),
-                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
-    RateLimit(limit_id=PING_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1),
-                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
-    RateLimit(limit_id=ACCOUNTS_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 10),
-                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
-    RateLimit(limit_id=MY_TRADES_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 10),
-                             LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
-    RateLimit(limit_id=ORDER_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 2),
-                             LinkedLimitWeightPair(ORDERS, 1),
-                             LinkedLimitWeightPair(ORDERS_24HR, 1),
-                             LinkedLimitWeightPair(RAW_REQUESTS, 1)])
+    # RateLimit(limit_id=REQUEST_WEIGHT, limit=1200, time_interval=ONE_MINUTE),
+    # RateLimit(limit_id=ORDERS, limit=50, time_interval=10 * ONE_SECOND),
+    # RateLimit(limit_id=ORDERS_24HR, limit=160000, time_interval=ONE_DAY),
+    # RateLimit(limit_id=RAW_REQUESTS, limit=6100, time_interval= 5 * ONE_MINUTE),
+    # # Weighted Limits
+    # RateLimit(limit_id=TICKER_PRICE_CHANGE_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+    #           linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 40),
+    #                          LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
+    # RateLimit(limit_id=TICKER_BOOK_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+    #           linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 2),
+    #                          LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
+    # RateLimit(limit_id=EXCHANGE_INFO_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+    #           linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 10),
+    #                          LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
+    # RateLimit(limit_id=SNAPSHOT_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+    #           linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 50),
+    #                          LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
+    # RateLimit(limit_id=BINANCE_USER_STREAM_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+    #           linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1),
+    #                          LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
+    # RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+    #           linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1),
+    #                          LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
+    # RateLimit(limit_id=PING_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+    #           linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1),
+    #                          LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
+    # RateLimit(limit_id=ACCOUNTS_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+    #           linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 10),
+    #                          LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
+    # RateLimit(limit_id=MY_TRADES_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+    #           linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 10),
+    #                          LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
+    # RateLimit(limit_id=ORDER_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+    #           linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 2),
+    #                          LinkedLimitWeightPair(ORDERS, 1),
+    #                          LinkedLimitWeightPair(ORDERS_24HR, 1),
+    #                          LinkedLimitWeightPair(RAW_REQUESTS, 1)])
 ]

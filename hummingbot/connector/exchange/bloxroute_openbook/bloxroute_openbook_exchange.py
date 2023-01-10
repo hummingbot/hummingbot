@@ -52,9 +52,6 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
     BloxrouteOpenbookExchange connects with BloxRoute Labs Solana Trader API provides order book pricing, user account tracking and
     trading functionality.
     """
-    API_CALL_TIMEOUT = 10.0
-    POLL_INTERVAL = 1.0
-    UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
 
     web_utils = web_utils
 
@@ -63,8 +60,8 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
                  bloxroute_api_key: str,
                  solana_wallet_public_key: str,
                  solana_wallet_private_key: str,
-                 # trading_pairs_to_payer_address: Optional[Dict[str, str]] = None,
-                 # trading_required: bool = True,
+                 trading_pairs: Optional[List[str]] = None,
+                 trading_required: bool = True,
                  ):
         """
         :param auth_header: The bloxRoute Labs authorization header to connect with solana trader api
@@ -81,8 +78,9 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         self._auth_header: str = bloxroute_api_key
         self._sol_wallet_public_key = solana_wallet_public_key
         self._sol_wallet_private_key = solana_wallet_private_key
-        self._provider = WsProvider(auth_header=auth_header, private_key=secret_key)
-        # self._trading_required = trading_required
+        self._trading_required = trading_required
+        self._trading_pairs = trading_pairs
+        # self._provider = WsProvider(auth_header=auth_header, private_key=secret_key)
         # self._trading_pairs_to_payer_address = trading_pairs_to_payer_address
 
         super().__init__(client_config_map)
@@ -90,9 +88,9 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
 
     @property
     def authenticator(self):
-        return BloxrouteOpenbookAuth(
-            auth_header=self._bloxroute_auth_header
-        )
+        return BloxrouteOpenbookAuth(api_key=self._auth_header,
+                        secret_key=self._sol_wallet_private_key,
+                        time_provider=self._time_synchronizer)
 
 
     @property
@@ -150,15 +148,17 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         raise Exception("not yet implemented")
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
-        raise Exception("not yet implemented")
-
-    def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
-        return BloxrouteOpenbookAPIOrderBookDataSource(
-            ws_provider=self._ws_provider,
-            trading_pairs=self._trading_pairs,
-            connector=self,
-            message_queue=self._message_queue
+        return web_utils.build_api_factory(
+            throttler=self._throttler, time_synchronizer=self._time_synchronizer, auth=self._auth
         )
+    def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
+        # return BloxrouteOpenbookAPIOrderBookDataSource(
+        #     ws_provider=self._ws_provider,
+        #     trading_pairs=self._trading_pairs,
+        #     connector=self,
+        #     message_queue=self._message_queue
+        # )
+        pass
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
         raise Exception("not yet implemented")
