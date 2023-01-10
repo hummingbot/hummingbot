@@ -7,6 +7,7 @@ import {
   mkSelectingValidator,
 } from '../validators';
 import bs58 from 'bs58';
+const { fromBase64 } = require('@cosmjs/encoding');
 
 export const invalidEthPrivateKeyError: string =
   'The privateKey param is not a valid Ethereum private key (64 hexadecimal characters).';
@@ -16,6 +17,9 @@ export const invalidSolPrivateKeyError: string =
 
 export const invalidNearPrivateKeyError: string =
   'The privateKey param is not a valid Near private key.';
+
+export const invalidCosmosPrivateKeyError: string =
+  'The privateKey param is not a valid Cosmos private key.';
 
 // test if a string matches the shape of an Ethereum private key
 export const isEthPrivateKey = (str: string): boolean => {
@@ -31,6 +35,16 @@ export const isSolPrivateKey = (str: string): boolean => {
 export const isNearPrivateKey = (str: string): boolean => {
   const parts = str.split(':');
   return parts.length === 2;
+};
+
+export const isCosmosPrivateKey = (str: string): boolean => {
+  try {
+    fromBase64(str);
+
+    return true;
+  } catch {
+    return false;
+  }
 };
 
 // given a request, look for a key called privateKey that is an Ethereum private key
@@ -68,6 +82,11 @@ export const validatePrivateKey: Validator = mkSelectingValidator(
       invalidNearPrivateKeyError,
       (val) => typeof val === 'string' && isNearPrivateKey(val)
     ),
+    cosmos: mkValidator(
+      'privateKey',
+      invalidCosmosPrivateKeyError,
+      (val) => typeof val === 'string' && isCosmosPrivateKey(val)
+    ),
     polygon: mkValidator(
       'privateKey',
       invalidEthPrivateKeyError,
@@ -87,7 +106,7 @@ export const validatePrivateKey: Validator = mkSelectingValidator(
 );
 
 export const invalidChainError: string =
-  'chain must be "ethereum", "solana", "avalanche", "near", "harmony", "binance-smart-chain" or "injective"';
+  'chain must be "ethereum", "solana", "avalanche", "near", "harmony", "cosmos", "binance-smart-chain" or "injective"';
 
 export const invalidNetworkError: string =
   'expected a string for the network key';
@@ -108,6 +127,7 @@ export const validateChain: Validator = mkValidator(
       val == 'near' ||
       val === 'harmony' ||
       val === 'cronos' ||
+      val === 'cosmos' ||
       val === 'binance-smart-chain' ||
       val === 'injective')
 );

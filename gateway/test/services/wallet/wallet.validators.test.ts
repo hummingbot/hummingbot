@@ -10,6 +10,8 @@ import {
   isSolPrivateKey,
   invalidSolPrivateKeyError,
   isNearPrivateKey,
+  isCosmosPrivateKey,
+  invalidCosmosPrivateKeyError,
   invalidAccountIDError,
 } from '../../../src/services/wallet/wallet.validators';
 
@@ -60,6 +62,24 @@ describe('isSolPrivateKey', () => {
     expect(
       isSolPrivateKey(
         '5r1MuqBa3L9gpXHqULS3u2B142c5jA8szrEiL8cprvhjJDe6S2xz9Q4uppgaLegmuPpq4ftBpcMw7NNoJHO0O0O0'
+      )
+    ).toEqual(false);
+  });
+});
+
+describe('isCosmosPrivateKey', () => {
+  it('pass against a well formed private key', () => {
+    expect(
+      isCosmosPrivateKey(
+        '218507defde7d91a9eba858437115b8aea68e3cbc7a4b68b3edac53d5ec89515' // noqa: mock
+      )
+    ).toEqual(true);
+  });
+
+  it('fail against a string that is invalid', () => {
+    expect(
+      isCosmosPrivateKey(
+        '218507defde7d91a9eba858437115b8aea68e3cbc7a4b68b3edac53d5ec8951' // noqa: mock
       )
     ).toEqual(false);
   });
@@ -160,6 +180,16 @@ describe('validatePrivateKey', () => {
     ).toEqual([]);
   });
 
+  it('valid when req.privateKey is a cosmos key', () => {
+    expect(
+      validatePrivateKey({
+        chain: 'cosmos',
+        privateKey:
+          '218507defde7d91a9eba858437115b8aea68e3cbc7a4b68b3edac53d5ec89516', // noqa: mock
+      })
+    ).toEqual([]);
+  });
+
   it('return error when req.privateKey does not exist', () => {
     expect(
       validatePrivateKey({
@@ -203,6 +233,15 @@ describe('validatePrivateKey', () => {
         privateKey: 'someErroneousPrivateKey',
       })
     ).toEqual([invalidEthPrivateKeyError]);
+  });
+
+  it('return error when req.privateKey is invalid cosmos key', () => {
+    expect(
+      validatePrivateKey({
+        chain: 'cosmos',
+        privateKey: 'someErroneousPrivateKey',
+      })
+    ).toEqual([invalidCosmosPrivateKeyError]);
   });
 });
 
@@ -259,6 +298,14 @@ describe('validateChain', () => {
     expect(
       validateChain({
         chain: 'binance-smart-chain',
+      })
+    ).toEqual([]);
+  });
+
+  it('valid when chain is cosmos', () => {
+    expect(
+      validateChain({
+        chain: 'cosmos',
       })
     ).toEqual([]);
   });
