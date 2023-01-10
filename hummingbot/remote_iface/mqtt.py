@@ -194,6 +194,7 @@ class MQTTCommands:
 
     def _on_cmd_import(self, msg: ImportCommandMessage.Request):
         response = ImportCommandMessage.Response()
+        timeout = 30  # seconds
         strategy_name = msg.strategy
         if strategy_name in (None, ''):
             response.status = MQTT_STATUS_CODE.ERROR
@@ -201,39 +202,38 @@ class MQTTCommands:
             return response
         strategy_file_name = f'{strategy_name}.yml'
         try:
-            fut = call_sync(
+            res = call_sync(
                 self._hb_app.import_config_file(strategy_file_name),
-                self._ev_loop
+                loop=self._ev_loop,
+                timeout=timeout
             )
-            res = fut.result(5)
-            exc = fut.exception()
-            if exc is not None:
-                raise exc
             response.msg = res if res is not None else ''
+        except asyncio.exceptions.TimeoutError:
+            response.msg = f'Strategy import command timed out after {timeout} seconds'
+            response.status = MQTT_STATUS_CODE.ERROR
         except Exception as e:
-            self._hb_app.logger().error(e)
             response.status = MQTT_STATUS_CODE.ERROR
             response.msg = str(e)
         return response
 
     def _on_cmd_status(self, msg: StatusCommandMessage.Request):
         response = StatusCommandMessage.Response()
+        timeout = 30  # seconds
         if self._hb_app.strategy is None:
             response.status = MQTT_STATUS_CODE.ERROR
             response.msg = 'No strategy is currently running!'
             return response
         try:
-            fut = call_sync(
+            res = call_sync(
                 self._hb_app.strategy_status(),
-                self._ev_loop
+                loop=self._ev_loop,
+                timeout=timeout
             )
-            res = fut.result(5)
-            exc = fut.exception()
-            if exc is not None:
-                raise exc
             response.msg = res if res is not None else ''
+        except asyncio.exceptions.TimeoutError:
+            response.msg = f'Strategy status command timed out after {timeout} seconds'
+            response.status = MQTT_STATUS_CODE.ERROR
         except Exception as e:
-            self._hb_app.logger().error(e)
             response.status = MQTT_STATUS_CODE.ERROR
             response.msg = str(e)
         return response
