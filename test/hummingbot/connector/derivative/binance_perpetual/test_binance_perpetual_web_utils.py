@@ -2,8 +2,8 @@ import asyncio
 import unittest
 from typing import Awaitable
 
+import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_web_utils as web_utils
-import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_web_utils import (
     BinancePerpetualRESTPreProcessor,
 )
