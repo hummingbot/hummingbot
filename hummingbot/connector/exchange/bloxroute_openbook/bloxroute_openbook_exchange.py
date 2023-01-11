@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 from bidict import bidict
 from bxsolana.provider import WsProvider
 from bxsolana_trader_proto import GetMarketsResponse
+from bxsolana_trader_proto.api import GetQuotesResponse, Market
 
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.bloxroute_openbook import (
@@ -17,7 +18,6 @@ from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_api_ord
 )
 from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_auth import BloxrouteOpenbookAuth
 from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_constants import OPENBOOK_PROJECT
-
 
 # from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_utils import (
 #     OrderTypeToBlxrOrderType,
@@ -31,7 +31,7 @@ from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTr
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
-from bxsolana_trader_proto.api import GetQuotesResponse, Market
+
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
