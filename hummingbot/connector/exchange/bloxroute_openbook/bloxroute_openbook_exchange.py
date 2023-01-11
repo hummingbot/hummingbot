@@ -57,7 +57,6 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         bloxroute_api_key: str,
         solana_wallet_public_key: str,
         solana_wallet_private_key: str,
-        open_orders_address: str,
         trading_pairs: Optional[List[str]] = None,
         trading_required: bool = True,
     ):
@@ -68,7 +67,6 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         :param trading_required: Whether actual trading is needed.
         """
 
-        trading_pairs = ["SOL/USDC"]
         self.logger().exception("creating blox route exchange")
         self.logger().exception("api key is " + bloxroute_api_key)
         self.logger().exception("pub key is " + solana_wallet_public_key)
@@ -77,44 +75,28 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         self._auth_header = bloxroute_api_key
         self._sol_wallet_public_key = solana_wallet_public_key
         self._sol_wallet_private_key = solana_wallet_private_key
-        self._open_orders_address = open_orders_address
         self._trading_required = trading_required
-
-        self._ws_provider: WsProvider = WsProvider(auth_header=bloxroute_api_key, private_key=solana_wallet_private_key)
-        asyncio.ensure_future(self._ws_provider.connect())
-
         self._trading_pairs = trading_pairs
 
+        self._ws_provider: WsProvider = WsProvider(auth_header=bloxroute_api_key, private_key=solana_wallet_private_key)
+        asyncio.create_task(self.connect())
+
+        self._real_time_balance_update = False
+
         super().__init__(client_config_map)
-        self.real_time_balance_update = True @ property
+
+    async def connect(self):
+        await self._ws_provider.connect()
 
     def authenticator(self):
         return BloxrouteOpenbookAuth(
             api_key=self._auth_header, secret_key=self._sol_wallet_private_key, time_provider=self._time_synchronizer
         )
 
-    async def start_network(self):
-        self.order_book_tracker.start()
-        self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
-        if self.is_trading_required:
-            self._status_polling_task = safe_ensure_future(self._status_polling_loop())
-
-    async def stop_network(self):
-        self.order_book_tracker.stop()
-        if self._status_polling_task is not None:
-            self._status_polling_task.cancel()
-            self._status_polling_task = None
-        if self._trading_rules_polling_task is not None:
-            self._trading_rules_polling_task.cancel()
-            self._trading_rules_polling_task = None
-
     @property
     def name(self) -> str:
         return "bloxroute-openbook"
 
-    # @property
-    # def ready(self) -> bool:
-    #     return True
     @property
     def status_dict(self) -> Dict[str, bool]:
         return {
@@ -148,7 +130,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
 
     @property
     def check_network_request_path(self):
-        return CONSTANTS.PING_PATH_URL
+        pass
 
     @property
     def trading_pairs(self):
@@ -229,6 +211,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
 
         side = api.Side.S_BID if trade_type == TradeType.BUY else api.Side.S_ASK
         type = api.OrderType.OT_LIMIT if order_type == OrderType.LIMIT else api.OrderType.OT_MARKET
+
         submit_order_response = await self._ws_provider.submit_order(
             owner_address=self._sol_wallet_public_key,
             payer_address=self._sol_wallet_public_key,
@@ -237,11 +220,9 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
             types=[type],
             amount=float(amount),
             price=float(price),
-            open_orders_address=self._open_orders_address,
             project=OPENBOOK_PROJECT,
             skip_pre_flight=True,
         )
-
 
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):

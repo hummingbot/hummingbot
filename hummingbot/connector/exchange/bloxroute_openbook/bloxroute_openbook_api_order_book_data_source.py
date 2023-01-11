@@ -16,7 +16,6 @@ from hummingbot.logger import HummingbotLogger
 if TYPE_CHECKING:
     from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_exchange import BloxrouteOpenbookExchange
 
-
 class BloxrouteOpenbookAPIOrderBookDataSource(OrderBookTrackerDataSource, ABC):
     HEARTBEAT_TIME_INTERVAL = 30.0
     TRADE_STREAM_ID = 1

@@ -13,7 +13,6 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 class BloxrouteOpenbookOrderBookTracker(OrderBookTracker):
-
     def __init__(self, data_source: OrderBookTrackerDataSource, trading_pairs: List[str], domain: Optional[str] = None):
         if not isinstance(data_source, BloxrouteOpenbookAPIOrderBookDataSource):
             raise
