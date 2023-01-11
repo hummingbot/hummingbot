@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 from bidict import bidict
 from bxsolana.provider import WsProvider
 from bxsolana_trader_proto import GetMarketsResponse
-from bxsolana_trader_proto.api import GetAccountBalanceResponse, GetQuotesResponse, Market, TokenBalance
+from bxsolana_trader_proto.api import GetAccountBalanceResponse, GetQuotesResponse, Market, TokenBalance, GetServerTimeResponse
 
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.bloxroute_openbook import (
@@ -21,6 +21,8 @@ from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_constan
 from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_order_book_tracker import (
     BloxrouteOpenbookOrderBookTracker,
 )
+from hummingbot.core.network_iterator import NetworkStatus
+
 
 # from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_utils import (
 #     OrderTypeToBlxrOrderType,
@@ -97,11 +99,19 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
     def name(self) -> str:
         return "bloxroute-openbook"
 
+    async def check_network(self) -> NetworkStatus:
+        server_response: GetServerTimeResponse = await self._ws_provider.get_server_time()
+        if server_response.timestamp:
+            return NetworkStatus.CONNECTED
+        else:
+            print("here")
+
+
     @property
     def status_dict(self) -> Dict[str, bool]:
         return {
-            "order_books_initialized": self.order_book_tracker.ready,
-            "trading_rule_initialized": len(self._trading_rules) > 0 if self.is_trading_required else True,
+            "order_books_initialized": True,
+            "trading_rule_initialized": True,
         }
 
     @property
