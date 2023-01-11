@@ -4,7 +4,7 @@ import time
 from asyncio import Lock
 from decimal import Decimal
 from math import floor
-from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from bidict import bidict
 from grpc.aio import UnaryStreamCall
@@ -134,16 +134,11 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         self._denom_to_token_meta: Dict[str, TokenMeta] = {}
         self._markets_update_task: Optional[asyncio.Task] = None
 
-        self._trades_stream: Optional[UnaryStreamCall] = None
-        self._trades_listener: Optional[asyncio.Task] = None
-        self._order_streams: Dict[str, UnaryStreamCall] = {}
+        self._trades_stream_listener: Optional[asyncio.Task] = None
         self._order_listeners: Dict[str, asyncio.Task] = {}
-        self._order_book_stream: Optional[UnaryStreamCall] = None
-        self._order_book_listener: Optional[asyncio.Task] = None
-        self._account_balance_stream: Optional[UnaryStreamCall] = None
-        self._account_balance_listener: Optional[asyncio.Task] = None
-        self._transactions_stream: Optional[UnaryStreamCall] = None
-        self._transactions_listener: Optional[asyncio.Task] = None
+        self._order_books_stream_listener: Optional[asyncio.Task] = None
+        self._account_balances_stream_listener: Optional[asyncio.Task] = None
+        self._transactions_stream_listener: Optional[asyncio.Task] = None
 
         self._order_placement_lock = Lock()
 
@@ -155,11 +150,9 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         )
         await self._update_markets()  # required for the streams
         await self._start_streams()
-        await self._start_stream_listeners()
 
     async def stop(self):
         """Stops the event streaming."""
-        await self._stop_stream_listeners()
         await self._stop_streams()
         self._markets_update_task and self._markets_update_task.cancel()
 
@@ -510,75 +503,47 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
             self._denom_to_token_meta[market.quote_denom] = market.quote_token_meta
 
     async def _start_streams(self):
-        market_ids = [
-            self._trading_pair_to_active_spot_markets[trading_pair].market_id
-            for trading_pair in self._trading_pairs
-        ]
-
-        self._trades_stream = self._trades_stream or await self._client.stream_spot_trades(market_ids=market_ids)
+        self._trades_stream_listener = (
+            self._trades_stream_listener or safe_ensure_future(coro=self._listen_to_trades_stream())
+        )
+        market_ids = self._get_market_ids()
         for market_id in market_ids:
-            if market_id not in self._order_streams:
-                self._order_streams[market_id] = await self._client.stream_historical_spot_orders(market_id=market_id)
-        self._order_book_stream = (
-            self._order_book_listener or await self._client.stream_spot_orderbooks(market_ids=market_ids)
-        )
-        self._account_balance_stream = (
-            self._account_balance_stream
-            or await self._client.stream_subaccount_balance(subaccount_id=self._sub_account_id)
-        )
-        self._transactions_stream = self._transactions_stream or await self._client.stream_txs()
-
-    async def _start_stream_listeners(self):
-        self._trades_listener = self._trades_listener or safe_ensure_future(
-            coro=self._run_listener_with_error_handling(listener_fn=self._listen_to_trades_stream),
-        )
-        for market_id, stream in self._order_streams.items():
             if market_id not in self._order_listeners:
                 self._order_listeners[market_id] = safe_ensure_future(
-                    coro=self._run_listener_with_error_handling(listener_fn=self._listen_to_orders_stream, stream=stream),
+                    coro=self._listen_to_orders_stream(market_id=market_id)
                 )
-        self._order_book_listener = (
-            self._order_book_listener or safe_ensure_future(
-                coro=self._run_listener_with_error_handling(listener_fn=self._listen_to_order_book_stream),
-            )
+        self._order_books_stream_listener = (
+            self._order_books_stream_listener or safe_ensure_future(coro=self._listen_to_order_books_stream())
         )
-        self._account_balance_listener = (
-            self._account_balance_listener or safe_ensure_future(
-                coro=self._run_listener_with_error_handling(listener_fn=self._listen_to_account_balance_stream)
-            )
+        self._account_balances_stream_listener = (
+            self._account_balances_stream_listener or safe_ensure_future(coro=self._listen_to_account_balances_stream())
         )
-        self._transactions_listener = self._transactions_listener or safe_ensure_future(
-            coro=self._run_listener_with_error_handling(listener_fn=self._listen_to_transactions_stream)
+        self._transactions_stream_listener = self._transactions_stream_listener or safe_ensure_future(
+            coro=self._listen_to_transactions_stream()
         )
 
     async def _stop_streams(self):
-        self._trades_stream and self._trades_stream.cancel()
-        for stream in self._order_streams.values():
-            stream.cancel()
-        self._order_book_stream and self._order_book_stream.cancel()
-        self._account_balance_stream and self._account_balance_stream.cancel()
-        self._transactions_stream and self._trades_stream.cancel()
-
-    async def _stop_stream_listeners(self):
-        self._trades_listener and self._trades_listener.cancel()
+        self._trades_stream_listener and self._trades_stream_listener.cancel()
         for listener in self._order_listeners.values():
             listener.cancel()
-        self._order_book_listener and self._order_book_listener.cancel()
-        self._account_balance_listener and self._account_balance_listener.cancel()
-        self._transactions_listener and self._transactions_listener.cancel()
+        self._order_books_stream_listener and self._order_books_stream_listener.cancel()
+        self._account_balances_stream_listener and self._account_balances_stream_listener.cancel()
+        self._transactions_stream_listener and self._transactions_stream_listener.cancel()
 
-    async def _run_listener_with_error_handling(self, listener_fn: Callable, *args, **kwargs):
+    async def _listen_to_trades_stream(self):
         while True:
+            market_ids = self._get_market_ids()
+            stream: UnaryStreamCall = await self._client.stream_spot_trades(market_ids=market_ids)
             try:
-                await listener_fn(*args, **kwargs)
+                async for trade in stream:
+                    self._parse_trade_event(trade=trade)
             except asyncio.CancelledError:
                 raise
             except Exception:
                 self.logger().exception("Unexpected error in user stream listener loop.")
-
-    async def _listen_to_trades_stream(self):
-        async for trade in self._trades_stream:
-            self._parse_trade_event(trade=trade)
+            finally:
+                self.logger().info("Restarting trades stream.")
+                stream.cancel()
 
     def _parse_trade_event(self, trade: StreamTradesResponse):
         """Injective fires two trade updates per transaction.
@@ -636,9 +601,19 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         )
         self._publisher.trigger_event(event_tag=MarketEvent.TradeUpdate, message=trade_update)
 
-    async def _listen_to_orders_stream(self, stream: UnaryStreamCall):
-        async for order in stream:
-            self._parse_order_stream_update(order=order)
+    async def _listen_to_orders_stream(self, market_id: str):
+        while True:
+            stream: UnaryStreamCall = await self._client.stream_historical_spot_orders(market_id=market_id)
+            try:
+                async for order in stream:
+                    self._parse_order_stream_update(order=order)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().exception("Unexpected error in user stream listener loop.")
+            finally:
+                self.logger().info("Restarting orders stream.")
+                stream.cancel()
 
     def _parse_order_stream_update(self, order: StreamOrdersResponse):
         """
@@ -675,11 +650,22 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
             )
             self._publisher.trigger_event(event_tag=MarketEvent.OrderUpdate, message=order_update)
 
-    async def _listen_to_order_book_stream(self):
-        async for orders in self._order_book_stream:
-            self._parse_order_book_event(orders=orders)
+    async def _listen_to_order_books_stream(self):
+        while True:
+            market_ids = self._get_market_ids()
+            stream: UnaryStreamCall = await self._client.stream_spot_orderbooks(market_ids=market_ids)
+            try:
+                async for order_book_update in stream:
+                    self._parse_order_book_event(order_book_update=order_book_update)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().exception("Unexpected error in user stream listener loop.")
+            finally:
+                self.logger().info("Restarting order books stream.")
+                stream.cancel()
 
-    def _parse_order_book_event(self, orders: StreamOrderbookResponse):
+    def _parse_order_book_event(self, order_book_update: StreamOrderbookResponse):
         """
         Orderbook update example:
 
@@ -699,15 +685,19 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         timestamp: 1669192836000
         market_id: "0xd1956e20d74eeb1febe31cd37060781ff1cb266f49e0512b446a5fafa9a16034"  # noqa: documentation
         """
-        udpate_timestamp_ms = orders.timestamp
-        market_id = orders.market_id
+        udpate_timestamp_ms = order_book_update.timestamp
+        market_id = order_book_update.market_id
         trading_pair = self._get_trading_pair_from_market_id(market_id=market_id)
         market = self._market_id_to_active_spot_markets[market_id]
         price_scale = self._get_backend_price_scaler(market=market)
         size_scale = self._get_backend_denom_scaler(denom_meta=market.base_token_meta)
-        bids = [(Decimal(bid.price) * price_scale, Decimal(bid.quantity) * size_scale) for bid in orders.orderbook.buys]
+        bids = [
+            (Decimal(bid.price) * price_scale, Decimal(bid.quantity) * size_scale)
+            for bid in order_book_update.orderbook.buys
+        ]
         asks = [
-            (Decimal(ask.price) * price_scale, Decimal(ask.quantity) * size_scale) for ask in orders.orderbook.sells
+            (Decimal(ask.price) * price_scale, Decimal(ask.quantity) * size_scale)
+            for ask in order_book_update.orderbook.sells
         ]
         snapshot_msg = OrderBookMessage(
             message_type=OrderBookMessageType.SNAPSHOT,
@@ -721,9 +711,19 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         )
         self._publisher.trigger_event(event_tag=OrderBookDataSourceEvent.SNAPSHOT_EVENT, message=snapshot_msg)
 
-    async def _listen_to_account_balance_stream(self):
-        async for balance in self._account_balance_stream:
-            self._parse_balance_event(balance=balance)
+    async def _listen_to_account_balances_stream(self):
+        while True:
+            stream: UnaryStreamCall = await self._client.stream_subaccount_balance(subaccount_id=self._sub_account_id)
+            try:
+                async for balance in stream:
+                    self._parse_balance_event(balance=balance)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().exception("Unexpected error in user stream listener loop.")
+            finally:
+                self.logger().info("Restarting account balances stream.")
+                stream.cancel()
 
     def _parse_balance_event(self, balance):
         """
@@ -841,8 +841,18 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         return trade_update
 
     async def _listen_to_transactions_stream(self):
-        async for transaction in self._transactions_stream:
-            await self._parse_transaction_event(transaction=transaction)
+        while True:
+            stream: UnaryStreamCall = await self._client.stream_txs()
+            try:
+                async for transaction in stream:
+                    await self._parse_transaction_event(transaction=transaction)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().exception("Unexpected error in user stream listener loop.")
+            finally:
+                self.logger().info("Restarting transactions stream.")
+                stream.cancel()
 
     async def _parse_transaction_event(self, transaction: StreamTxsResponse):
         order = self._gateway_order_tracker.get_fillable_order_by_hash(hash=transaction.hash)
@@ -880,6 +890,13 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
     async def _get_transaction_by_hash(self, transaction_hash: str) -> GetTxByTxHashResponse:
         return await self._client.get_tx_by_hash(tx_hash=transaction_hash)
+
+    def _get_market_ids(self) -> List[str]:
+        market_ids = [
+            self._trading_pair_to_active_spot_markets[trading_pair].market_id
+            for trading_pair in self._trading_pairs
+        ]
+        return market_ids
 
     @staticmethod
     async def _check_if_order_failed_based_on_transaction(
