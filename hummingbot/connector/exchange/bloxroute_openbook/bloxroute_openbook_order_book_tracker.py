@@ -57,3 +57,8 @@ class BloxrouteOpenbookOrderBookTracker(OrderBookTracker):
             self._order_book_snapshot_router()
         )
 
+    def _order_book_diff_router(self):
+        pass
+
+    def _emit_trade_event_loop(self):
+        pass
