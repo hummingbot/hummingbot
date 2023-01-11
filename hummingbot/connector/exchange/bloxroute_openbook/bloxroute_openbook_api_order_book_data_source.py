@@ -58,8 +58,8 @@ class BloxrouteOpenbookAPIOrderBookDataSource(OrderBookTrackerDataSource, ABC):
 
         :return: the response from the exchange (JSON dictionary)
         """
-
         orderbook = await self._ws_provider.get_orderbook(market=trading_pair, project=OPENBOOK_PROJECT)
+    
         return BloxrouteOpenbookOrderBook.snapshot_message_from_exchange(
             orderbook.to_dict(include_default_values=True),
             time.time(),

@@ -3,7 +3,9 @@ import os
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
+from bidict import bidict
 from bxsolana.provider import WsProvider
+from bxsolana_trader_proto import GetMarketsResponse
 
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.bloxroute_openbook import (
@@ -14,6 +16,8 @@ from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_api_ord
     BloxrouteOpenbookAPIOrderBookDataSource,
 )
 from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_auth import BloxrouteOpenbookAuth
+from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_constants import OPENBOOK_PROJECT
+
 
 # from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_utils import (
 #     OrderTypeToBlxrOrderType,
@@ -27,7 +31,7 @@ from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTr
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
-from bxsolana_trader_proto.api import Market
+from bxsolana_trader_proto.api import GetQuotesResponse, Market
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
@@ -103,11 +107,11 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
 
     @property
     def trading_rules_request_path(self):
-        return CONSTANTS.EXCHANGE_INFO_PATH_URL
+        return CONSTANTS.MARKET_PATH
 
     @property
     def trading_pairs_request_path(self):
-        return CONSTANTS.EXCHANGE_INFO_PATH_URL
+        return CONSTANTS.MARKET_PATH
 
     @property
     def check_network_request_path(self):
@@ -123,7 +127,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
 
     @property
     def is_trading_required(self) -> bool:
-        raise self._trading_required
+        return self._trading_required
 
     def supported_order_types(self) -> List[OrderType]:
         """
@@ -215,7 +219,8 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         """
         Update fees information from the exchange
         """
-        raise Exception("update trading fees not yet implemented")
+        # implementation is not required for bloxroute openbook at this time 1/10/2023
+        pass
 
     async def _update_balances(self):
         raise Exception("update balances not yet implemented")
@@ -239,13 +244,36 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         raise Exception("create order update not yet implemented")
 
     async def _user_stream_event_listener(self):
-        raise Exception("user stream event listener not yet implemented")
+        pass
 
-    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
-        raise Exception("initialize trading pair symbols from exchange info not yet implemented")
+    def _initialize_trading_pair_symbols_from_exchange_info(self, markets_by_name: Dict[str, Market]):
+        mapping = bidict()
+
+        for market_name in markets_by_name:
+            tokens = market_name.split("/")
+            base = tokens[0]
+            quote = tokens[1]
+            trading_pair = f"{base}-{quote}"
+
+            mapping[market_name] = trading_pair
+
+        self._set_trading_pair_symbol_map(mapping)
+
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
-        raise Exception("get last traded price not yet implemented")
+        split_token = trading_pair.split("/")
+        in_token = split_token[0]
+        out_token = split_token[1]
+
+        quotes_response: GetQuotesResponse = await self._ws_provider.get_quotes(in_token=in_token,
+                                                                                out_token=out_token,
+                                                                                in_amount=1,
+                                                                                slippage=0.05,
+                                                                                limit=1,
+                                                                                projects=[OPENBOOK_PROJECT])
+        quotes = quotes_response.quotes[len(quotes_response.quotes) - 1]
+        routes = quotes.routes[len(quotes.routes) - 1]
+        return routes.out_amount # this is the price
 
     async def _update_trading_rules(self):
         markets_response: GetMarketsResponse = await self._ws_provider.get_markets()

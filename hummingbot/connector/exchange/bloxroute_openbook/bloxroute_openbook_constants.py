@@ -25,6 +25,7 @@ WS_CONNECT = "WSConnect"
 WS_SUBSCRIBE = "WSSubscribe"
 
 SERVER_TIME_PATH = "/api/v1/system/time"
+MARKET_PATH = "/api/v1/market/markets"
 
 # Private API endpoints or BinanceClient function
 ACCOUNTS_PATH_URL = "/account"
