@@ -1,16 +1,15 @@
 import asyncio
 import time
 from abc import ABC
-from typing import TYPE_CHECKING, Any, AsyncGenerator, Dict, List, Optional
+from typing import Any, AsyncGenerator, Dict, List, Optional, TYPE_CHECKING
 
 from bxsolana.provider import WsProvider
-from bxsolana_trader_proto import GetOrderbookResponse, GetOrderbooksStreamResponse
+from bxsolana_trader_proto import GetOrderbooksStreamResponse
 
 from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_constants import OPENBOOK_PROJECT
 from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_order_book import BloxrouteOpenbookOrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
@@ -33,14 +32,6 @@ class BloxrouteOpenbookAPIOrderBookDataSource(OrderBookTrackerDataSource, ABC):
         self._connector = connector
         self._orderbook_stream: Optional[AsyncGenerator[GetOrderbooksStreamResponse, None]] = None
 
-    async def validate_trading_pairs(self, trading_pairs):
-        markets_response = await self._ws_provider.get_markets()
-        valid_trading_pairs = [market for market in markets_response.markets]
-
-        for trading_pair in trading_pairs:
-            if trading_pair not in valid_trading_pairs:
-                raise Exception(f"{trading_pair} is not valid")
-
     async def get_last_traded_prices(self,
                                      trading_pairs: List[str],
                                      domain: Optional[str] = None) -> Dict[str, float]:
@@ -59,12 +50,16 @@ class BloxrouteOpenbookAPIOrderBookDataSource(OrderBookTrackerDataSource, ABC):
         :return: the response from the exchange (JSON dictionary)
         """
         orderbook = await self._ws_provider.get_orderbook(market=trading_pair, project=OPENBOOK_PROJECT)
-    
+
         return BloxrouteOpenbookOrderBook.snapshot_message_from_exchange(
             orderbook.to_dict(include_default_values=True),
             time.time(),
             {"trading_pair": trading_pair}
         )
+
+    async def _connected_websocket_assistant(self) -> WSAssistant:
+        await self._ws_provider.connect()
+        return WSAssistant()
 
     async def _subscribe_channels(self, ws: WSAssistant):
         """
@@ -84,9 +79,13 @@ class BloxrouteOpenbookAPIOrderBookDataSource(OrderBookTrackerDataSource, ABC):
             )
             raise
 
-    async def _connected_websocket_assistant(self) -> WSAssistant:
-        await self._ws_provider.connect()
-        return WSAssistant()
+    def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
+        raise Exception("Bloxroute Openbook does not use `_channel_originating_message`")
+
+    async def _process_websocket_messages(self, _: WSAssistant):
+        orderbook_queue = self._message_queue[self._snapshot_messages_queue_key]
+        async for orderbook_event in self._orderbook_stream:
+            orderbook_queue.put_nowait(orderbook_event.to_dict(include_default_values=True))
 
     async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         order_book_message: OrderBookMessage = BloxrouteOpenbookOrderBook.snapshot_message_from_exchange(
@@ -95,39 +94,18 @@ class BloxrouteOpenbookAPIOrderBookDataSource(OrderBookTrackerDataSource, ABC):
         )
         message_queue.put_nowait(order_book_message)
 
-    async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
-        order_book = await self._ws_provider.get_orderbook(
-            market=trading_pair,
-            project=OPENBOOK_PROJECT
-        )
-        return BloxrouteOpenbookOrderBook.snapshot_message_from_exchange(
-            order_book.to_dict(include_default_values=True),
-            time.time(),
-            {"trading_pair": trading_pair}
-        )
+    async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
+        raise Exception("Bloxroute Openbook does not use orderbook diffs")
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         raise Exception("Bloxroute Openbook does not use trade updates")
 
-    async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        raise Exception("Bloxroute Openbook does not use orderbook diffs")
-
-    def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
-        raise Exception("Bloxroute Openbook does not use `_channel_originating_message`")
 
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         raise Exception("Bloxroute Openbook does not use orderbook diffs")
 
-    async def _process_websocket_messages(self, _: WSAssistant):
-        self._process_order_book_events_task = safe_ensure_future(
-            self._handle_order_book_updates()
-        )
+    async def listen_for_trades(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
+        raise Exception("Bloxroute Openbook does not use trades")
 
-    async def _handle_order_book_updates(self):
-        orderbook_queue = self._message_queue[self._snapshot_messages_queue_key]
-        async for orderbook_event in self._orderbook_stream:
-            orderbook_queue.put_nowait(orderbook_event.to_dict(include_default_values=True))
-
-    @property
-    async def process_order_book_events_task(self):
-        return self._process_order_book_events_task
+    async def _on_order_stream_interruption(self, websocket_assistant: Optional[WSAssistant] = None):
+        self._ws_provider and await self._ws_provider.close()
