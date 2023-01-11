@@ -1,3 +1,4 @@
+import asyncio
 import os
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
@@ -82,6 +83,9 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         return "bloxroute-openbook"
 
     @property
+    def ready(self) -> bool:
+        return True
+    @property
     def rate_limits_rules(self):
         return CONSTANTS.RATE_LIMITS
 
@@ -141,7 +145,19 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
                                                        connector=self)
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
-        pass
+        raise NotImplementedError
+
+    def _is_user_stream_initialized(self):
+        return True
+
+    def _create_user_stream_tracker(self):
+        return None
+
+    def _create_user_stream_tracker_task(self):
+        return None
+
+
+
 
     def _get_fee(self,
                  base_currency: str,
@@ -231,7 +247,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         raise Exception("get last traded price not yet implemented")
 
-    def _update_trading_rules(self):
+    async def _update_trading_rules(self):
         markets_response: GetMarketsResponse = await self._ws_provider.get_markets()
         markets_by_name = markets_response.markets
 

@@ -28,21 +28,23 @@ class BloxrouteOpenbookOrderBook(OrderBook):
                 msg.update(metadata)
             orderbook: GetOrderbookResponse = msg["orderbook"]
             return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-                "market": orderbook.market,
-                "market_address": orderbook.market_address,
-                "bids": orderbook.bids,
-                "asks": orderbook.asks
+                "trading_pair": orderbook.market,
+                "trade_id": timestamp,
+                "bids": orders_to_orderbook_rows(orderbook.bids),
+                "asks": orders_to_orderbook_rows(orderbook.asks)
             }, timestamp=timestamp)
         else:
             raise Exception(f"orderbook snapshot update did not contain `orderbook` field: {msg}")
 
-    def orders_to_orderbook_rows(self, orders: List[OrderbookItem]) -> List[OrderBookRow]:
-        for order in orders:
-            yield self.order_to_orderbook_row(order)
 
-    def order_to_orderbook_row(self, order: OrderbookItem) -> OrderBookRow:
-        return OrderBookRow(
-            price=order.price,
-            amount=order.size,
-            update_id=order.order_i_d
-        )
+def orders_to_orderbook_rows(self, orders: List[OrderbookItem]) -> List[OrderBookRow]:
+    for order in orders:
+        yield self.order_to_orderbook_row(order)
+
+
+def order_to_orderbook_row(self, order: OrderbookItem) -> OrderBookRow:
+    return OrderBookRow(
+        price=order.price,
+        amount=order.size,
+        update_id=order.order_i_d
+    )
