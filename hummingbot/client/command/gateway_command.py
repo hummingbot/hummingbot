@@ -75,6 +75,8 @@ class GatewayCommand(GatewayChainApiManager):
     def gateway_approve_tokens(self, connector_chain_network: Optional[str], tokens: Optional[str]):
         if connector_chain_network is not None and tokens is not None:
             safe_ensure_future(self._update_gateway_approve_tokens(connector_chain_network, tokens), loop=self.ev_loop)
+        else:
+            self.notify("\nPlease specify the connector_chain_network and a token to approve.\n")
 
     def generate_certs(self):
         safe_ensure_future(self._generate_certs(), loop=self.ev_loop)
@@ -650,7 +652,6 @@ class GatewayCommand(GatewayChainApiManager):
                 while True:
                     pollResp: Dict[str, Any] = await self._get_gateway_instance().get_transaction_status(conf['chain'], conf['network'], transaction_hash)
                     transaction_status: Optional[str] = pollResp.get("txStatus")
-                    await asyncio.sleep(2)
                     if transaction_status == 1:
                         self.logger().info(f"Token {tokens} is approved for spending for '{conf['connector']}' for Wallet: {connector_wallet[0]['wallet_address']}.")
                         self.notify(f"Token {tokens} is approved for spending for '{conf['connector']}' for Wallet: {connector_wallet[0]['wallet_address']}.")
@@ -659,6 +660,7 @@ class GatewayCommand(GatewayChainApiManager):
                         if not displayed_pending:
                             self.logger().info(f"Token {tokens} approval transaction is pending. Transaction hash: {transaction_hash}")
                             displayed_pending = True
+                            await asyncio.sleep(2)
                         continue
                     else:
                         self.logger().info(f"Tokens {tokens} is not approved for spending. Please use manual approval.")
