@@ -9,15 +9,26 @@ import {
   removeWallet,
 } from '../../../src/services/wallet/wallet.controllers';
 import {
+  ACCOUNT_NOT_SPECIFIED_CODE,
+  ACCOUNT_NOT_SPECIFIED_ERROR_MESSAGE,
   HttpException,
   UNKNOWN_CHAIN_ERROR_CODE,
   UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE,
 } from '../../../src/services/error-handler';
 
 import { ConfigManagerCertPassphrase } from '../../../src/services/config-manager-cert-passphrase';
+import { BinanceSmartChain } from '../../../src/chains/binance-smart-chain/binance-smart-chain';
+import { Cronos } from '../../../src/chains/cronos/cronos';
+import { Near } from '../../../src/chains/near/near';
+import { Cosmos } from '../../../src/chains/cosmos/cosmos';
+
 let avalanche: Avalanche;
+let cronos: Cronos;
 let eth: Ethereum;
 let harmony: Harmony;
+let bsc: BinanceSmartChain;
+let near: Near;
+let cosmos: Cosmos;
 
 beforeAll(async () => {
   patch(ConfigManagerCertPassphrase, 'readPassphrase', () => 'a');
@@ -25,6 +36,10 @@ beforeAll(async () => {
   avalanche = Avalanche.getInstance('fuji');
   eth = Ethereum.getInstance('kovan');
   harmony = Harmony.getInstance('testnet');
+  bsc = BinanceSmartChain.getInstance('testnet');
+  cronos = Cronos.getInstance('testnet');
+  near = Near.getInstance('testnet');
+  cosmos = Cosmos.getInstance('testnet');
 });
 
 beforeEach(() =>
@@ -35,6 +50,10 @@ afterAll(async () => {
   await avalanche.close();
   await eth.close();
   await harmony.close();
+  await bsc.close();
+  await cronos.close();
+  await near.close();
+  await cosmos.close();
 });
 
 afterEach(() => unpatch());
@@ -64,6 +83,21 @@ const encodedPrivateKey = {
     },
     mac: '0cea1492f67ed43234b69100d873e17b4a289dd508cf5e866a3b18599ff0a5fc', // noqa: mock
   },
+};
+
+const cosmosAddress = 'cosmos18nadm9qd4pz8pgffhvehc0dthuhpgevp4l3nar';
+const cosmosPrivateKey =
+  '218507defde7d91a9eba858437115b8aea68e3cbc7a4b68b3edac53d5ec89516'; // noqa: mock
+const encodedCosmosPrivateKey = {
+  keyAlgorithm: {
+    name: 'PBKDF2',
+    salt: 'PkkhCEpSae+dYup0Q2ZKpA==',
+    iterations: 500000,
+    hash: 'SHA-256',
+  },
+  cipherAlgorithm: { name: 'AES-GCM', iv: '1mBtuYgYHJ/xkkA7xdU1QQ==' },
+  ciphertext:
+    'F7M1ic/dSNHbD1MrU3gQlv9RCiHaSeyk1Rb63NkKSuOuIE1WeCvVLGha5LujsAJAkQ++Mts+h2Ub2OGCdoFkHRO1BMYF0djNDFmwJlKzd68=',
 };
 
 describe('addWallet and getWallets', () => {
@@ -145,6 +179,85 @@ describe('addWallet and getWallets', () => {
     expect(addresses[0]).toContain(oneAddress);
   });
 
+  it('add a Binance Smart Chain wallet', async () => {
+    patch(bsc, 'getWallet', () => {
+      return {
+        address: oneAddress,
+      };
+    });
+
+    patch(bsc, 'encrypt', () => {
+      return JSON.stringify(encodedPrivateKey);
+    });
+
+    await addWallet({
+      privateKey: onePrivateKey,
+      chain: 'binance-smart-chain',
+      network: 'testnet',
+    });
+
+    const wallets = await getWallets();
+
+    const addresses: string[][] = wallets
+      .filter((wallet) => wallet.chain === 'binance-smart-chain')
+      .map((wallet) => wallet.walletAddresses);
+
+    expect(addresses[0]).toContain(oneAddress);
+  });
+
+  it('add a Cronos wallet', async () => {
+    patch(cronos, 'getWallet', () => {
+      return {
+        address: oneAddress,
+      };
+    });
+
+    patch(cronos, 'encrypt', () => {
+      return JSON.stringify(encodedPrivateKey);
+    });
+
+    await addWallet({
+      privateKey: onePrivateKey,
+      chain: 'cronos',
+      network: 'testnet',
+    });
+
+    const wallets = await getWallets();
+
+    const addresses: string[][] = wallets
+      .filter((wallet) => wallet.chain === 'cronos')
+      .map((wallet) => wallet.walletAddresses);
+
+    expect(addresses[0]).toContain(oneAddress);
+  });
+
+  it('add a Cosmos wallet', async () => {
+    patch(cosmos, 'getWallet', () => {
+      return {
+        address: cosmosAddress,
+        prefix: 'cosmos',
+      };
+    });
+
+    patch(cosmos, 'encrypt', () => {
+      return JSON.stringify(encodedCosmosPrivateKey);
+    });
+
+    await addWallet({
+      privateKey: cosmosPrivateKey,
+      chain: 'cosmos',
+      network: 'testnet',
+    });
+
+    const wallets = await getWallets();
+
+    const addresses: string[][] = wallets
+      .filter((wallet) => wallet.chain === 'cosmos')
+      .map((wallet) => wallet.walletAddresses);
+
+    expect(addresses[0]).toContain(cosmosAddress);
+  });
+
   it('fail to add a wallet to unknown chain', async () => {
     await expect(
       addWallet({
@@ -156,8 +269,23 @@ describe('addWallet and getWallets', () => {
       new HttpException(
         500,
         UNKNOWN_KNOWN_CHAIN_ERROR_MESSAGE('shibainu'),
-
         UNKNOWN_CHAIN_ERROR_CODE
+      )
+    );
+  });
+
+  it('fail to add a wallet if account is not specified when adding near wallet', async () => {
+    await expect(
+      addWallet({
+        privateKey: onePrivateKey,
+        chain: 'near',
+        network: 'testnet',
+      })
+    ).rejects.toThrow(
+      new HttpException(
+        500,
+        ACCOUNT_NOT_SPECIFIED_ERROR_MESSAGE(),
+        ACCOUNT_NOT_SPECIFIED_CODE
       )
     );
   });
@@ -173,6 +301,12 @@ describe('addWallet and removeWallets', () => {
 
     patch(eth, 'encrypt', () => {
       return JSON.stringify(encodedPrivateKey);
+    });
+
+    patch(eth, 'getWalletFromPrivateKey', () => {
+      return {
+        address: oneAddress,
+      };
     });
 
     await addWallet({
@@ -218,5 +352,34 @@ describe('addWallet and removeWallets', () => {
       .map((wallet) => wallet.walletAddresses);
 
     expect(addresses[0]).not.toContain(oneAddress);
+  });
+
+  it('remove a Cosmos wallet', async () => {
+    patch(cosmos, 'getWallet', () => {
+      return {
+        address: cosmosAddress,
+        prefix: 'cosmos',
+      };
+    });
+
+    patch(cosmos, 'encrypt', () => {
+      return JSON.stringify(encodedCosmosPrivateKey);
+    });
+
+    await addWallet({
+      privateKey: cosmosPrivateKey,
+      chain: 'cosmos',
+      network: 'testnet',
+    });
+
+    await removeWallet({ chain: 'cosmos', address: cosmosAddress });
+
+    const wallets = await getWallets();
+
+    const addresses: string[][] = wallets
+      .filter((wallet) => wallet.chain === 'cosmos')
+      .map((wallet) => wallet.walletAddresses);
+
+    expect(addresses[0]).not.toContain(cosmosAddress);
   });
 });

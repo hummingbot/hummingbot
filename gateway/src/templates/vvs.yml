@@ -1,0 +1,14 @@
+# how much the execution price is allowed to move unfavorably from the trade
+# execution price. It uses a rational number for precision.
+allowedSlippage: '1/100'
+
+# the maximum gas used to estimate gasCost for a VSS trade.
+gasLimitEstimate: 150688
+
+# how long a trade is valid in seconds. After time passes Mad Meerkat will not
+# perform the trade, but the gas will still be spent.
+ttl: 300
+
+contractAddresses:
+  mainnet:
+    routerAddress: '0x145863Eb42Cf62847A6Ca784e6416C1682b1b2Ae'

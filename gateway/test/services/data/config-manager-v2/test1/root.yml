@@ -28,6 +28,10 @@ configurations:
     configurationPath: ethereum-gas-station.yml
     schemaPath: ethereum-gas-station-schema.json
 
+  $namespace defira:
+    configurationPath: defira.yml
+    schemaPath: defira-schema.json
+
   $namespace logging:
     configurationPath: logging.yml
     schemaPath: logging-schema.json

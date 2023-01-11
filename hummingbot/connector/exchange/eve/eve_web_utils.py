@@ -10,7 +10,7 @@ class EveURLCreator(OMSConnectorURLCreatorBase):
         self._ws_base_url = ws_base_url
 
     def get_rest_url(self, path_url: str) -> str:
-        base_url = f"{self._rest_base_url}/{CONSTANTS.VERSION_PATH}"
+        base_url = f"{self._rest_base_url}/{CONSTANTS.VERSION_PATH}/"
         return urljoin(base_url, path_url)
 
     def get_ws_url(self) -> str:

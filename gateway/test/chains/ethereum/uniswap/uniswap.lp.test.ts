@@ -225,14 +225,14 @@ describe('verify UniswapLP Nft functions', () => {
       BigNumber.from(5),
       '6'
     );
-    expect(overrides.gasLimit).toEqual('1');
+    expect(overrides.gasLimit).toEqual(BigNumber.from('1'));
     expect(overrides.gasPrice).toBeUndefined();
-    expect(overrides.nonce).toEqual(3);
+    expect(overrides.nonce).toEqual(BigNumber.from(3));
     expect(overrides.maxFeePerGas as BigNumber).toEqual(BigNumber.from(4));
     expect(overrides.maxPriorityFeePerGas as BigNumber).toEqual(
       BigNumber.from(5)
     );
-    expect(overrides.value).toEqual('6');
+    expect(overrides.value).toEqual(BigNumber.from('6'));
   });
 
   it('reducePosition should work', async () => {
