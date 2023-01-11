@@ -1,25 +1,21 @@
 import asyncio
 import logging
 import time
-
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 import aiohttp
 import pandas as pd
+
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.logger import HummingbotLogger
+
 from .hitbtc_active_order_tracker import HitbtcActiveOrderTracker
 from .hitbtc_constants import Constants
 from .hitbtc_order_book import HitbtcOrderBook
-from .hitbtc_utils import (
-    api_call_with_retries,
-    HitbtcAPIError,
-    str_date_to_ts,
-    translate_asset,
-)
+from .hitbtc_utils import HitbtcAPIError, api_call_with_retries, str_date_to_ts, translate_asset
 from .hitbtc_websocket import HitbtcWebsocket
 
 
@@ -250,3 +246,11 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
             except Exception:
                 self.logger().error("Unexpected error.", exc_info=True)
                 await asyncio.sleep(5.0)
+
+    async def listen_for_subscriptions(self):
+        """
+        Connects to the trade events and order diffs websocket endpoints and listens to the messages sent by the
+        exchange. Each message is stored in its own queue.
+        """
+        # This connector does not use this base class method and needs a refactoring
+        pass

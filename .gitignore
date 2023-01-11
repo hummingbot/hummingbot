@@ -86,6 +86,7 @@ coverage.xml
 # configuration files
 /gateway/conf/*
 /gateway_conf
+/conf/encrypted_default.json
 # except the examples, template and migration files in /gateway/conf/
 !/gateway/conf/*-example.yml
 # these are database files create by the level library

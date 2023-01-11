@@ -37,6 +37,20 @@ export namespace UniswapConfig {
         chain: 'ethereum',
         networks: Object.keys(
           ConfigManagerV2.getInstance().get('uniswap.contractAddresses')
+        ).filter((network) =>
+          Object.keys(
+            ConfigManagerV2.getInstance().get('ethereum.networks')
+          ).includes(network)
+        ),
+      },
+      {
+        chain: 'polygon',
+        networks: Object.keys(
+          ConfigManagerV2.getInstance().get('uniswap.contractAddresses')
+        ).filter((network) =>
+          Object.keys(
+            ConfigManagerV2.getInstance().get('polygon.networks')
+          ).includes(network)
         ),
       },
     ],

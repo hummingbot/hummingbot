@@ -4,7 +4,7 @@ from typing import Dict, Optional, Union
 
 from pydantic import Field, root_validator, validator
 
-from hummingbot.client.config.config_data_types import BaseClientModel, BaseTradingStrategyConfigMap, ClientFieldData
+from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
 from hummingbot.client.config.config_validators import (
     validate_bool,
     validate_datetime_iso_string,
@@ -12,6 +12,7 @@ from hummingbot.client.config.config_validators import (
     validate_int,
     validate_time_iso_string,
 )
+from hummingbot.client.config.strategy_config_data_types import BaseTradingStrategyConfigMap
 from hummingbot.client.settings import required_exchanges
 from hummingbot.connector.utils import split_hb_trading_pair
 

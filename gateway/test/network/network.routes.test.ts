@@ -1,20 +1,27 @@
 import request from 'supertest';
 import { gatewayApp } from '../../src/app';
-import { patch, unpatch } from '../services/patch';
+import { Avalanche } from '../../src/chains/avalanche/avalanche';
+import { Cronos } from '../../src/chains/cronos/cronos';
 import { Ethereum } from '../../src/chains/ethereum/ethereum';
 import { Harmony } from '../../src/chains/harmony/harmony';
-import { Avalanche } from '../../src/chains/avalanche/avalanche';
 import { Polygon } from '../../src/chains/polygon/polygon';
 import { patchEVMNonceManager } from '../evm.nonce.mock';
+import { patch, unpatch } from '../services/patch';
 let eth: Ethereum;
+let goerli: Ethereum;
 let avalanche: Avalanche;
 let harmony: Harmony;
 let polygon: Polygon;
+let cronos: Cronos;
 
 beforeAll(async () => {
   eth = Ethereum.getInstance('kovan');
   patchEVMNonceManager(eth.nonceManager);
   await eth.init();
+
+  goerli = Ethereum.getInstance('goerli');
+  patchEVMNonceManager(goerli.nonceManager);
+  await goerli.init();
 
   avalanche = Avalanche.getInstance('fuji');
   patchEVMNonceManager(avalanche.nonceManager);
@@ -25,12 +32,18 @@ beforeAll(async () => {
 
   polygon = Polygon.getInstance('mumbai');
   await polygon.init();
+
+  cronos = Cronos.getInstance('testnet');
+  await cronos.init();
 });
 
 beforeEach(() => {
   patchEVMNonceManager(eth.nonceManager);
+  patchEVMNonceManager(goerli.nonceManager);
   patchEVMNonceManager(avalanche.nonceManager);
+  patchEVMNonceManager(harmony.nonceManager);
   patchEVMNonceManager(polygon.nonceManager);
+  patchEVMNonceManager(cronos.nonceManager);
 });
 
 afterEach(async () => {
@@ -39,9 +52,11 @@ afterEach(async () => {
 
 afterAll(async () => {
   await eth.close();
+  await goerli.close();
   await avalanche.close();
   await harmony.close();
   await polygon.close();
+  await cronos.close();
 });
 
 describe('GET /network/status', () => {
@@ -93,6 +108,30 @@ describe('GET /network/status', () => {
       .expect((res) => expect(res.body.currentBlockNumber).toBeDefined());
   });
 
+  it('should return 200 when asking for goerli network status', async () => {
+    patch(goerli, 'chain', () => {
+      return 'goerli';
+    });
+    patch(goerli, 'rpcUrl', 'http://...');
+    patch(goerli, 'chainId', 5);
+    patch(goerli, 'getCurrentBlockNumber', () => {
+      return 1;
+    });
+
+    await request(gatewayApp)
+      .get(`/network/status`)
+      .query({
+        chain: 'ethereum',
+        network: 'goerli',
+      })
+      .expect('Content-Type', /json/)
+      .expect(200)
+      .expect((res) => expect(res.body.chain).toBe('goerli'))
+      .expect((res) => expect(res.body.chainId).toBeDefined())
+      .expect((res) => expect(res.body.rpcUrl).toBeDefined())
+      .expect((res) => expect(res.body.currentBlockNumber).toBeDefined());
+  });
+
   it('should return 200 when asking for avalance network status', async () => {
     patch(avalanche, 'chain', () => {
       return 'fuji';
@@ -117,7 +156,7 @@ describe('GET /network/status', () => {
       .expect((res) => expect(res.body.currentBlockNumber).toBeDefined());
   });
 
-  it('should return 200 when asking for avalance network status', async () => {
+  it('should return 200 when asking for polygon network status', async () => {
     patch(polygon, 'chain', () => {
       return 'mumbai';
     });
@@ -136,6 +175,30 @@ describe('GET /network/status', () => {
       .expect('Content-Type', /json/)
       .expect(200)
       .expect((res) => expect(res.body.chain).toBe('mumbai'))
+      .expect((res) => expect(res.body.chainId).toBeDefined())
+      .expect((res) => expect(res.body.rpcUrl).toBeDefined())
+      .expect((res) => expect(res.body.currentBlockNumber).toBeDefined());
+  });
+
+  it('should return 200 when asking for cronos network status', async () => {
+    patch(cronos, 'chain', () => {
+      return 'testnet';
+    });
+    patch(cronos, 'rpcUrl', 'http://...');
+    patch(cronos, 'chainId', 338);
+    patch(cronos, 'getCurrentBlockNumber', () => {
+      return 2;
+    });
+
+    await request(gatewayApp)
+      .get(`/network/status`)
+      .query({
+        chain: 'cronos',
+        network: 'testnet',
+      })
+      .expect('Content-Type', /json/)
+      .expect(200)
+      .expect((res) => expect(res.body.chain).toBe('testnet'))
       .expect((res) => expect(res.body.chainId).toBeDefined())
       .expect((res) => expect(res.body.rpcUrl).toBeDefined())
       .expect((res) => expect(res.body.currentBlockNumber).toBeDefined());
@@ -180,7 +243,7 @@ describe('GET /network/config', () => {
 });
 
 describe('GET /network/tokens', () => {
-  it('should return 200 when retrieving tokens', async () => {
+  it('should return 200 when retrieving ethereum-kovan tokens, tokenSymbols parameter not provided', async () => {
     await request(gatewayApp)
       .get(`/network/tokens`)
       .query({
@@ -190,7 +253,8 @@ describe('GET /network/tokens', () => {
       .expect('Content-Type', /json/)
       .expect(200);
   });
-  it('should return 200 when retrieving specific tokens', async () => {
+
+  it('should return 200 when retrieving ethereum-kovan tokens, s parameter provided', async () => {
     await request(gatewayApp)
       .get(`/network/tokens`)
       .query({
@@ -201,7 +265,42 @@ describe('GET /network/tokens', () => {
       .expect('Content-Type', /json/)
       .expect(200);
   });
-  it('should return 200 when retrieving specific tokens', async () => {
+
+  it('should return 200 when retrieving ethereum-goerli tokens, tokenSymbols parameter not provided', async () => {
+    await request(gatewayApp)
+      .get(`/network/tokens`)
+      .query({
+        chain: 'ethereum',
+        network: 'goerli',
+      })
+      .expect('Content-Type', /json/)
+      .expect(200);
+  });
+
+  it('should return 200 when retrieving ethereum-goerli tokens, tokenSymbols parameter provided', async () => {
+    await request(gatewayApp)
+      .get(`/network/tokens`)
+      .query({
+        chain: 'ethereum',
+        network: 'goerli',
+        tokenSymbols: ['WETH', 'DAI'],
+      })
+      .expect('Content-Type', /json/)
+      .expect(200);
+  });
+
+  it('should return 200 when retrieving polygon-mumbai tokens, tokenSymbols parameter not provided', async () => {
+    await request(gatewayApp)
+      .get(`/network/tokens`)
+      .query({
+        chain: 'polygon',
+        network: 'mumbai',
+      })
+      .expect('Content-Type', /json/)
+      .expect(200);
+  });
+
+  it('should return 200 when retrieving polygon-mumbai tokens, tokenSymbols parameter provided', async () => {
     await request(gatewayApp)
       .get(`/network/tokens`)
       .query({
@@ -212,6 +311,30 @@ describe('GET /network/tokens', () => {
       .expect('Content-Type', /json/)
       .expect(200);
   });
+
+  it('should return 200 when retrieving cronos-testnet tokens, tokenSymbols parameter not provided', async () => {
+    await request(gatewayApp)
+      .get(`/network/tokens`)
+      .query({
+        chain: 'cronos',
+        network: 'testnet',
+      })
+      .expect('Content-Type', /json/)
+      .expect(200);
+  });
+
+  it('should return 200 when retrieving cronos-testnet tokens, tokenSymbols parameter provided', async () => {
+    await request(gatewayApp)
+      .get(`/network/tokens`)
+      .query({
+        chain: 'cronos',
+        network: 'testnet',
+        tokenSymbols: ['WCRO', 'WETH'],
+      })
+      .expect('Content-Type', /json/)
+      .expect(200);
+  });
+
   it('should return 500 when retrieving tokens for invalid chain', async () => {
     await request(gatewayApp)
       .get(`/network/tokens`)

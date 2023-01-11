@@ -14,6 +14,7 @@ from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
@@ -52,12 +53,12 @@ class ExchangePyBase(ExchangeBase, ABC):
         self._trading_rules = {}
         self._trading_fees = {}
 
-        self._status_polling_task = None
-        self._user_stream_tracker_task = None
-        self._user_stream_event_listener_task = None
-        self._trading_rules_polling_task = None
-        self._trading_fees_polling_task = None
-        self._lost_orders_update_task = None
+        self._status_polling_task: Optional[asyncio.Task] = None
+        self._user_stream_tracker_task: Optional[asyncio.Task] = None
+        self._user_stream_event_listener_task: Optional[asyncio.Task] = None
+        self._trading_rules_polling_task: Optional[asyncio.Task] = None
+        self._trading_fees_polling_task: Optional[asyncio.Task] = None
+        self._lost_orders_update_task: Optional[asyncio.Task] = None
 
         self._time_synchronizer = TimeSynchronizer()
         self._throttler = AsyncThrottler(
@@ -77,9 +78,7 @@ class ExchangePyBase(ExchangeBase, ABC):
             domain=self.domain))
 
         # init UserStream Data Source and Tracker
-        self._userstream_ds = self._create_user_stream_data_source()
-        self._user_stream_tracker = UserStreamTracker(
-            data_source=self._userstream_ds)
+        self._user_stream_tracker = self._create_user_stream_tracker()
 
         self._order_tracker: ClientOrderTracker = ClientOrderTracker(connector=self)
 
@@ -91,47 +90,52 @@ class ExchangePyBase(ExchangeBase, ABC):
 
     @property
     @abstractmethod
-    def authenticator(self):
+    def name(self) -> str:
         raise NotImplementedError
 
     @property
     @abstractmethod
-    def rate_limits_rules(self):
+    def authenticator(self) -> AuthBase:
         raise NotImplementedError
 
     @property
     @abstractmethod
-    def domain(self):
+    def rate_limits_rules(self) -> List[RateLimit]:
         raise NotImplementedError
 
     @property
     @abstractmethod
-    def client_order_id_max_length(self):
+    def domain(self) -> str:
         raise NotImplementedError
 
     @property
     @abstractmethod
-    def client_order_id_prefix(self):
+    def client_order_id_max_length(self) -> int:
         raise NotImplementedError
 
     @property
     @abstractmethod
-    def trading_rules_request_path(self):
+    def client_order_id_prefix(self) -> str:
         raise NotImplementedError
 
     @property
     @abstractmethod
-    def trading_pairs_request_path(self):
+    def trading_rules_request_path(self) -> str:
         raise NotImplementedError
 
     @property
     @abstractmethod
-    def check_network_request_path(self):
+    def trading_pairs_request_path(self) -> str:
         raise NotImplementedError
 
     @property
     @abstractmethod
-    def trading_pairs(self):
+    def check_network_request_path(self) -> str:
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def trading_pairs(self) -> List[str]:
         raise NotImplementedError
 
     @property
@@ -170,8 +174,7 @@ class ExchangePyBase(ExchangeBase, ABC):
             "order_books_initialized": self.order_book_tracker.ready,
             "account_balance": not self.is_trading_required or len(self._account_balances) > 0,
             "trading_rule_initialized": len(self._trading_rules) > 0 if self.is_trading_required else True,
-            "user_stream_initialized":
-                self._user_stream_tracker.data_source.last_recv_time > 0 if self.is_trading_required else True,
+            "user_stream_initialized": self._is_user_stream_initialized(),
         }
 
     @property
@@ -202,7 +205,7 @@ class ExchangePyBase(ExchangeBase, ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
+    def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception) -> bool:
         raise NotImplementedError
 
     # === Price logic ===
@@ -272,7 +275,10 @@ class ExchangePyBase(ExchangeBase, ABC):
         Includes the logic that has to be processed every time a new tick happens in the bot. Particularly it enables
         the execution of the status update polling loop using an event.
         """
-        last_recv_diff = timestamp - self._user_stream_tracker.last_recv_time
+        last_user_stream_message_time = (
+            0 if self._user_stream_tracker is None else self._user_stream_tracker.last_recv_time
+        )
+        last_recv_diff = timestamp - last_user_stream_message_time
         poll_interval = (self.SHORT_POLL_INTERVAL
                          if last_recv_diff > self.TICK_INTERVAL_LIMIT
                          else self.LONG_POLL_INTERVAL)
@@ -312,7 +318,8 @@ class ExchangePyBase(ExchangeBase, ABC):
             trading_pair=trading_pair,
             amount=amount,
             order_type=order_type,
-            price=price))
+            price=price,
+            **kwargs))
         return order_id
 
     def sell(self,
@@ -341,7 +348,8 @@ class ExchangePyBase(ExchangeBase, ABC):
             trading_pair=trading_pair,
             amount=amount,
             order_type=order_type,
-            price=price))
+            price=price,
+            **kwargs))
         return order_id
 
     def get_fee(self,
@@ -353,9 +361,9 @@ class ExchangePyBase(ExchangeBase, ABC):
                 price: Decimal = s_decimal_NaN,
                 is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         """
-        Calculates the fee to pay based on the fee information provided by the exchange for the account and the token pair.
-        If exchange info is not available it calculates the estimated fee an order would pay based on the connector
-            configuration
+        Calculates the fee to pay based on the fee information provided by the exchange for
+        the account and the token pair. If exchange info is not available it calculates the estimated
+        fee an order would pay based on the connector configuration.
 
         :param base_currency: the order base currency
         :param quote_currency: the order quote currency
@@ -419,9 +427,10 @@ class ExchangePyBase(ExchangeBase, ABC):
                             trading_pair: str,
                             amount: Decimal,
                             order_type: OrderType,
-                            price: Optional[Decimal] = None):
+                            price: Optional[Decimal] = None,
+                            **kwargs):
         """
-        Creates a an order in the exchange using the parameters to configure it
+        Creates an order in the exchange using the parameters to configure it
 
         :param trade_type: the side of the order (BUY of SELL)
         :param order_id: the id that should be assigned to the order (the client id)
@@ -447,7 +456,8 @@ class ExchangePyBase(ExchangeBase, ABC):
             order_type=order_type,
             trade_type=trade_type,
             price=price,
-            amount=amount
+            amount=amount,
+            **kwargs,
         )
 
         if order_type not in self.supported_order_types():
@@ -465,6 +475,7 @@ class ExchangePyBase(ExchangeBase, ABC):
                                   f"minimum notional size {trading_rule.min_notional_size}. "
                                   "The order will not be created.")
             self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
+            return
 
         try:
             exchange_order_id, update_timestamp = await self._place_order(
@@ -473,7 +484,9 @@ class ExchangePyBase(ExchangeBase, ABC):
                 amount=amount,
                 trade_type=trade_type,
                 order_type=order_type,
-                price=price)
+                price=price,
+                **kwargs,
+            )
 
             order_update: OrderUpdate = OrderUpdate(
                 client_order_id=order_id,
@@ -563,7 +576,8 @@ class ExchangePyBase(ExchangeBase, ABC):
                              trade_type: TradeType,
                              price: Decimal,
                              amount: Decimal,
-                             order_type: OrderType):
+                             order_type: OrderType,
+                             **kwargs):
         """
         Starts tracking an order by adding it to the order tracker.
 
@@ -602,10 +616,6 @@ class ExchangePyBase(ExchangeBase, ABC):
     # === Implementation-specific methods ===
 
     @abstractmethod
-    def name(self):
-        raise NotImplementedError
-
-    @abstractmethod
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         raise NotImplementedError
 
@@ -616,10 +626,12 @@ class ExchangePyBase(ExchangeBase, ABC):
                            amount: Decimal,
                            trade_type: TradeType,
                            order_type: OrderType,
-                           price: Decimal
+                           price: Decimal,
+                           **kwargs,
                            ) -> Tuple[str, float]:
         raise NotImplementedError
 
+    @abstractmethod
     def _get_fee(self,
                  base_currency: str,
                  quote_currency: str,
@@ -650,7 +662,7 @@ class ExchangePyBase(ExchangeBase, ABC):
         self._trading_fees_polling_task = safe_ensure_future(self._trading_fees_polling_loop())
         if self.is_trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
-            self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
+            self._user_stream_tracker_task = self._create_user_stream_tracker_task()
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
             self._lost_orders_update_task = safe_ensure_future(self._lost_orders_update_polling_loop())
 
@@ -818,6 +830,15 @@ class ExchangePyBase(ExchangeBase, ABC):
                 self.logger().exception("Error while reading user events queue. Retrying in 1s.")
                 await self._sleep(1.0)
 
+    def _is_user_stream_initialized(self):
+        return self._user_stream_tracker.data_source.last_recv_time > 0 or not self.is_trading_required
+
+    def _create_user_stream_tracker(self):
+        return UserStreamTracker(data_source=self._create_user_stream_data_source())
+
+    def _create_user_stream_tracker_task(self):
+        return safe_ensure_future(self._user_stream_tracker.start())
+
     # === Exchange / Trading logic methods that call the API ===
 
     async def _update_trading_rules(self):
@@ -844,21 +865,31 @@ class ExchangePyBase(ExchangeBase, ABC):
         kwargs["method"] = RESTMethod.DELETE
         return await self._api_request(*args, **kwargs)
 
-    async def _api_request(self,
-                           path_url,
-                           method: RESTMethod = RESTMethod.GET,
-                           params: Optional[Dict[str, Any]] = None,
-                           data: Optional[Dict[str, Any]] = None,
-                           is_auth_required: bool = False,
-                           return_err: bool = False,
-                           limit_id: Optional[str] = None) -> Dict[str, Any]:
-
-        last_exception = None
-        rest_assistant = await self._web_assistants_factory.get_rest_assistant()
+    async def _api_request_url(self, path_url: str, is_auth_required: bool = False) -> str:
         if is_auth_required:
             url = self.web_utils.private_rest_url(path_url, domain=self.domain)
         else:
             url = self.web_utils.public_rest_url(path_url, domain=self.domain)
+
+        return url
+
+    async def _api_request(
+            self,
+            path_url,
+            overwrite_url: Optional[str] = None,
+            method: RESTMethod = RESTMethod.GET,
+            params: Optional[Dict[str, Any]] = None,
+            data: Optional[Dict[str, Any]] = None,
+            is_auth_required: bool = False,
+            return_err: bool = False,
+            limit_id: Optional[str] = None,
+            **kwargs,
+    ) -> Dict[str, Any]:
+
+        last_exception = None
+        rest_assistant = await self._web_assistants_factory.get_rest_assistant()
+
+        url = overwrite_url or await self._api_request_url(path_url=path_url, is_auth_required=is_auth_required)
 
         for _ in range(2):
             try:
@@ -871,6 +902,7 @@ class ExchangePyBase(ExchangeBase, ABC):
                     return_err=return_err,
                     throttler_limit_id=limit_id if limit_id else path_url,
                 )
+
                 return request_result
             except IOError as request_exception:
                 last_exception = request_exception
@@ -888,7 +920,7 @@ class ExchangePyBase(ExchangeBase, ABC):
         Called by _status_polling_loop, which executes after each tick() is executed
         """
         await safe_gather(
-            self._update_balances(),
+            self._update_all_balances(),
             self._update_order_status(),
         )
 
@@ -930,7 +962,6 @@ class ExchangePyBase(ExchangeBase, ABC):
                 self.logger().network(
                     f"Error fetching status update for the order {order.client_order_id}: {request_error}.",
                     app_warning_msg=f"Failed to fetch status update for the order {order.client_order_id}.",
-                    exc_info=True
                 )
                 await self._order_tracker.process_order_not_found(order.client_order_id)
 

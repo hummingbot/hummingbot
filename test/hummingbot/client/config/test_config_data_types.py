@@ -1,22 +1,15 @@
-import asyncio
 import json
 import unittest
 from datetime import date, datetime, time
 from decimal import Decimal
-from typing import Awaitable, Dict, Union
-from unittest.mock import patch
+from typing import Union
 
 from pydantic import Field, SecretStr
 from pydantic.fields import FieldInfo
 
 from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
-from hummingbot.client.config.config_data_types import (
-    BaseClientModel,
-    BaseTradingStrategyConfigMap,
-    ClientConfigEnum,
-    ClientFieldData,
-)
-from hummingbot.client.config.config_helpers import ClientConfigAdapter, ConfigTraversalItem, ConfigValidationError
+from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
+from hummingbot.client.config.config_helpers import ClientConfigAdapter, ConfigTraversalItem
 from hummingbot.client.config.security import Security
 
 
@@ -224,77 +217,3 @@ secret_attr: """
 
     def _nested_config_adapter(self):
         return ClientConfigAdapter(DummyModel())
-
-
-class BaseStrategyConfigMapTest(unittest.TestCase):
-    def test_generate_yml_output_dict_title(self):
-        class DummyStrategy(BaseClientModel):
-            class Config:
-                title = "pure_market_making"
-
-            strategy: str = "pure_market_making"
-
-        instance = ClientConfigAdapter(DummyStrategy())
-        res_str = instance.generate_yml_output_str_with_comments()
-
-        expected_str = """\
-#####################################
-###   pure_market_making config   ###
-#####################################
-
-strategy: pure_market_making
-"""
-
-        self.assertEqual(expected_str, res_str)
-
-
-class BaseTradingStrategyConfigMapTest(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls) -> None:
-        super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
-        cls.exchange = "binance"
-        cls.base_asset = "COINALPHA"
-        cls.quote_asset = "HBOT"
-        cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
-
-    def setUp(self) -> None:
-        super().setUp()
-        config_settings = self.get_default_map()
-        self.config_map = ClientConfigAdapter(BaseTradingStrategyConfigMap(**config_settings))
-
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
-        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
-
-    def get_default_map(self) -> Dict[str, str]:
-        config_settings = {
-            "strategy": "pure_market_making",
-            "exchange": self.exchange,
-            "market": self.trading_pair,
-        }
-        return config_settings
-
-    @patch(
-        "hummingbot.client.config.config_data_types.validate_market_trading_pair"
-    )
-    def test_validators(self, validate_market_trading_pair_mock):
-        with self.assertRaises(ConfigValidationError) as e:
-            self.config_map.exchange = "test-exchange"
-
-        error_msg = "Invalid exchange, please choose value from "
-        self.assertTrue(str(e.exception).startswith(error_msg))
-
-        alt_pair = "ETH-USDT"
-        error_msg = "Failed"
-        validate_market_trading_pair_mock.side_effect = (
-            lambda m, v: None if v in [self.trading_pair, alt_pair] else error_msg
-        )
-
-        self.config_map.market = alt_pair
-        self.assertEqual(alt_pair, self.config_map.market)
-
-        with self.assertRaises(ConfigValidationError) as e:
-            self.config_map.market = "XXX-USDT"
-
-        self.assertTrue(str(e.exception).startswith(error_msg))

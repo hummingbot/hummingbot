@@ -9,9 +9,10 @@ from unittest.mock import MagicMock, patch
 from pydantic import Field
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_data_types import BaseClientModel, BaseStrategyConfigMap, ClientFieldData
+from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
 from hummingbot.client.config.config_helpers import ClientConfigAdapter, read_system_configs_from_yml
 from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.client.config.strategy_config_data_types import BaseStrategyConfigMap
 from hummingbot.client.hummingbot_application import HummingbotApplication
 
 
@@ -69,15 +70,17 @@ class ConfigCommandTest(unittest.TestCase):
                            "    | pmm_script_mode          | pmm_script_disabled  |\n"
                            "    | gateway                  |                      |\n"
                            "    | ∟ gateway_api_host       | localhost            |\n"
-                           "    | ∟ gateway_api_port       | 5000                 |\n"
+                           "    | ∟ gateway_api_port       | 15888                |\n"
                            "    | rate_oracle_source       | binance              |\n"
                            "    | global_token             |                      |\n"
+                           "    | ∟ global_token_name      | USD                  |\n"
                            "    | ∟ global_token_symbol    | $                    |\n"
                            "    | rate_limits_share_pct    | 100                  |\n"
                            "    | commands_timeout         |                      |\n"
                            "    | ∟ create_command_timeout | 10                   |\n"
                            "    | ∟ other_commands_timeout | 30                   |\n"
                            "    | tables_format            | psql                 |\n"
+                           "    | tick_size                | 1.0                  |\n"
                            "    +--------------------------+----------------------+")
 
         self.assertEqual(df_str_expected, captures[1])

@@ -10,6 +10,7 @@ from pydantic import SecretStr
 
 from hummingbot import get_strategy_list, root_path
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
+from hummingbot.core.utils.gateway_config_utils import SUPPORTED_CHAINS
 
 if TYPE_CHECKING:
     from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
@@ -41,6 +42,8 @@ SCRIPT_STRATEGIES_MODULE = "scripts"
 SCRIPT_STRATEGIES_PATH = root_path() / SCRIPT_STRATEGIES_MODULE
 CERTS_PATH = root_path() / "certs"
 
+GATEWAY_SSL_CONF_FILE = root_path() / "gateway" / "conf" / "ssl.yml"
+
 # Certificates for securely communicating with the gateway api
 GATEAWAY_CA_CERT_PATH = CERTS_PATH / "ca_cert.pem"
 GATEAWAY_CLIENT_CERT_PATH = CERTS_PATH / "client_cert.pem"
@@ -63,7 +66,10 @@ class ConnectorType(Enum):
     """
 
     EVM_AMM = "EVM_AMM"
+    EVM_Perpetual = "EVM_Perpetual"
     EVM_AMM_LP = "EVM_AMM_LP"
+    SOL_CLOB = "SOL_CLOB"
+    NEAR_AMM = "NEAR_AMM"
     Connector = "connector"
     Exchange = "exchange"
     Derivative = "derivative"
@@ -106,11 +112,11 @@ class GatewayConnectionSetting:
 
     @staticmethod
     def get_connector_spec_from_market_name(market_name: str) -> Optional[Dict[str, str]]:
-        vals = market_name.split("_")
-        if len(vals) == 3:
-            return GatewayConnectionSetting.get_connector_spec(vals[0], vals[1], vals[2])
-        else:
-            return None
+        for chain in SUPPORTED_CHAINS:
+            if chain in market_name:
+                connector, network = market_name.split(f"_{chain}_")
+                return GatewayConnectionSetting.get_connector_spec(connector, chain, network)
+        return None
 
     @staticmethod
     def upsert_connector_spec(connector_name: str, chain: str, network: str, trading_type: str, wallet_address: str, additional_spenders: List[str]):
@@ -134,9 +140,8 @@ class GatewayConnectionSetting:
             connectors_conf.append(new_connector_spec)
         GatewayConnectionSetting.save(connectors_conf)
 
-    @staticmethod
-    def upsert_connector_spec_tokens(connector_chain_network: str, tokens: str):
-        updated_connector: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(connector_chain_network)
+    def upsert_connector_spec_tokens(connector_chain_network: str, tokens: List[str]):
+        updated_connector: Optional[Dict[str, Any]] = GatewayConnectionSetting.get_connector_spec_from_market_name(connector_chain_network)
         updated_connector['tokens'] = tokens
 
         connectors_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
@@ -174,7 +179,12 @@ class ConnectorSetting(NamedTuple):
     def module_name(self) -> str:
         # returns connector module name, e.g. binance_exchange
         if self.uses_gateway_generic_connector():
-            return f"gateway_{self.type.name}"
+            if self.type in [ConnectorType.EVM_AMM, ConnectorType.EVM_Perpetual, ConnectorType.NEAR_AMM, ConnectorType.EVM_AMM_LP]:
+                return f"gateway.amm.gateway_{self.type.name.lower()}"
+            elif ConnectorType.SOL_CLOB == self.type:
+                return f"gateway.clob.gateway_{self.type.name.lower()}"
+            else:
+                raise ValueError(f"Unsupported connector type: {self.type}")
         return f"{self.base_name()}_{self.type.name.lower()}"
 
     def module_path(self) -> str:
@@ -186,8 +196,13 @@ class ConnectorSetting(NamedTuple):
     def class_name(self) -> str:
         # return connector class name, e.g. BinanceExchange
         if self.uses_gateway_generic_connector():
-            splited_name = self.module_name().split('_')
-            splited_name[0] = splited_name[0].capitalize()
+            file_name = self.module_name().split('.')[-1]
+            splited_name = file_name.split('_')
+            for i in range(len(splited_name)):
+                if splited_name[i] in ['evm', 'amm', 'clob', 'lp', 'sol']:
+                    splited_name[i] = splited_name[i].upper()
+                else:
+                    splited_name[i] = splited_name[i].capitalize()
             return "".join(splited_name)
         return "".join([o.capitalize() for o in self.module_name().split("_")])
 
@@ -272,6 +287,8 @@ class AllConnectorSettings:
             if f.is_dir() and f.name not in CONNECTOR_SUBMODULES_THAT_ARE_NOT_TYPES
         ]
         for type_dir in type_dirs:
+            if type_dir.name == 'gateway':
+                continue
             connector_dirs: List[DirEntry] = [
                 cast(DirEntry, f) for f in scandir(type_dir.path)
                 if f.is_dir() and exists(join(f.path, "__init__.py"))
@@ -368,23 +385,6 @@ class AllConnectorSettings:
                 cls.all_connector_settings.update({f"{e}_paper_trade": paper_trade_settings})
 
     @classmethod
-    def get_all_connectors(cls) -> List[str]:
-        """Avoids circular import problems introduced by `create_connector_settings`."""
-        connector_names = PAPER_TRADE_EXCHANGES.copy()
-        type_dirs: List[DirEntry] = [
-            cast(DirEntry, f) for f in
-            scandir(f"{root_path() / 'hummingbot' / 'connector'}")
-            if f.is_dir()
-        ]
-        for type_dir in type_dirs:
-            connector_dirs: List[DirEntry] = [
-                cast(DirEntry, f) for f in scandir(type_dir.path)
-                if f.is_dir() and exists(join(f.path, "__init__.py"))
-            ]
-            connector_names.extend([connector_dir.name for connector_dir in connector_dirs])
-        return connector_names
-
-    @classmethod
     def get_connector_settings(cls) -> Dict[str, ConnectorSetting]:
         if len(cls.all_connector_settings) == 0:
             cls.all_connector_settings = cls.create_connector_settings()
@@ -415,16 +415,16 @@ class AllConnectorSettings:
     @classmethod
     def get_exchange_names(cls) -> Set[str]:
         return {
-            cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Exchange
+            cs.name for cs in cls.get_connector_settings().values() if cs.type is ConnectorType.Exchange
         }.union(set(PAPER_TRADE_EXCHANGES))
 
     @classmethod
     def get_derivative_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Derivative}
+        return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Derivative or cs.type is ConnectorType.EVM_Perpetual}
 
     @classmethod
     def get_derivative_dex_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Derivative and not cs.centralised}
+        return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.EVM_Perpetual}
 
     @classmethod
     def get_other_connector_names(cls) -> Set[str]:
@@ -435,12 +435,16 @@ class AllConnectorSettings:
         return {cs.name for cs in cls.all_connector_settings.values() if cs.use_ethereum_wallet}
 
     @classmethod
-    def get_gateway_evm_amm_connector_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.all_connector_settings.values() if cs.type == ConnectorType.EVM_AMM}
+    def get_gateway_amm_connector_names(cls) -> Set[str]:
+        return {cs.name for cs in cls.get_connector_settings().values() if cs.type in [ConnectorType.EVM_AMM, ConnectorType.NEAR_AMM]}
 
     @classmethod
     def get_gateway_evm_amm_lp_connector_names(cls) -> Set[str]:
         return {cs.name for cs in cls.all_connector_settings.values() if cs.type == ConnectorType.EVM_AMM_LP}
+
+    @classmethod
+    def get_gateway_clob_connector_names(cls) -> Set[str]:
+        return {cs.name for cs in cls.all_connector_settings.values() if cs.type == ConnectorType.SOL_CLOB}
 
     @classmethod
     def get_example_pairs(cls) -> Dict[str, str]:

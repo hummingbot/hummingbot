@@ -444,7 +444,7 @@ class BinanceExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         request_params = request_call.kwargs["params"]
         self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
                          request_params["symbol"])
-        self.assertEqual(order.exchange_order_id, request_params["orderId"])
+        self.assertEqual(order.exchange_order_id, str(request_params["orderId"]))
 
     def configure_successful_cancelation_response(
             self,
@@ -1046,7 +1046,7 @@ class BinanceExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         self.assertTrue(order.is_failure)
         self.assertTrue(order.is_done)
 
-    @patch("hummingbot.connector.utils.get_tracking_nonce_low_res")
+    @patch("hummingbot.connector.utils.get_tracking_nonce")
     def test_client_order_id_on_order(self, mocked_nonce):
         mocked_nonce.return_value = 7
 
@@ -1080,7 +1080,7 @@ class BinanceExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
 
         self.assertEqual(result, expected_client_order_id)
 
-    def test_time_synchronizer_related_reqeust_error_detection(self):
+    def test_time_synchronizer_related_request_error_detection(self):
         exception = IOError("Error executing request POST https://api.binance.com/api/v3/order. HTTP status is 400. "
                             "Error: {'code':-1021,'msg':'Timestamp for this request is outside of the recvWindow.'}")
         self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))

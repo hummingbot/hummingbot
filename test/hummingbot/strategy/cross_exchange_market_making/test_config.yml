@@ -1,6 +1,6 @@
 strategy: cross_exchange_market_making
-maker_market: binance
-taker_market: kucoin
+maker_market: mock_paper_exchange
+taker_market: mock_paper_exchange
 maker_market_trading_pair: COINALPHA-HBOT
 taker_market_trading_pair: COINALPHA-HBOT
 min_profitability: 0

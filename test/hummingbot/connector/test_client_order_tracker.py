@@ -844,7 +844,7 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
         trade_update: TradeUpdate = TradeUpdate(
             trade_id="1",
             client_order_id=order.client_order_id,
-            exchange_order_id=order.exchange_order_id,
+            exchange_order_id="someExchangeOrderId",
             trading_pair=order.trading_pair,
             fill_price=Decimal("1100"),
             fill_base_amount=order.amount,

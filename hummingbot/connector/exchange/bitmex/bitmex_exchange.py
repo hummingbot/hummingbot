@@ -726,7 +726,8 @@ class BitmexExchange(ExchangeBase):
             "side": order_side,
             "orderQty": str(float(amount)),
             "clOrdID": client_order_id,
-            "ordType": bitmex_order_type
+            "ordType": bitmex_order_type,
+            "text": CONSTANTS.BROKER_ID
         }
 
         if bitmex_order_type == "Limit":
