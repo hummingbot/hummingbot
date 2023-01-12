@@ -182,6 +182,7 @@ class OrderBookTracker:
             await asyncio.sleep(1)
         self._order_books_initialized.set()
 
+
     async def _order_book_diff_router(self):
         """
         Routes the real-time order book diff messages to the correct order book.

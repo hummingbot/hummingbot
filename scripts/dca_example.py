@@ -17,7 +17,7 @@ class DCAExample(ScriptStrategyBase):
     This example shows how to set up a simple strategy to buy a token on fixed (dollar) amount on a regular basis
     """
     #: Define markets to instruct Hummingbot to create connectors on the exchanges and markets you need
-    markets = {"bloxroute_openbook": {"SOL/USDC"}}
+    markets = {"bloxroute_openbook": {"SOL-USDC"}}
     #: The last time the strategy places a buy order
     last_ordered_ts = 0.
     #: Buying interval (in seconds)
@@ -29,9 +29,9 @@ class DCAExample(ScriptStrategyBase):
         # Check if it is time to buy
         if self.last_ordered_ts < (self.current_timestamp - self.buy_interval):
             # Lets set the order price to the best bid
-            price = self.connectors["bloxroute_openbook"].get_price("SOL/USDC", False)
+            price = self.connectors["bloxroute_openbook"].get_price("SOL-USDC", False)
             amount = self.buy_quote_amount / price
-            self.buy("bloxroute_openbook", "BTC-USDT", amount, OrderType.LIMIT, price)
+            self.buy("bloxroute_openbook", "SOL-USDC", amount, OrderType.LIMIT, price)
             self.last_ordered_ts = self.current_timestamp
 
     def did_create_buy_order(self, event: BuyOrderCreatedEvent):

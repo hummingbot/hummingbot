@@ -9,15 +9,14 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage, Order
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 class BloxrouteOpenbookOrderBookTracker(OrderBookTracker):
-
     def __init__(self, data_source: OrderBookTrackerDataSource, trading_pairs: List[str], domain: Optional[str] = None):
         if not isinstance(data_source, BloxrouteOpenbookAPIOrderBookDataSource):
             raise
         super().__init__(data_source, trading_pairs, domain)
-        self.process_order_book_events_task = data_source.process_order_book_events_task
 
     async def _track_single_book(self, trading_pair: str):
         order_book: OrderBook = self._order_books[trading_pair]
@@ -42,10 +41,23 @@ class BloxrouteOpenbookOrderBookTracker(OrderBookTracker):
                 )
                 await asyncio.sleep(5.0)
 
-    def stop(self):
-        super().stop()
+    def start(self):
+        self.stop()
+        self._init_order_books_task = safe_ensure_future(
+            self._init_order_books()
+        )
+        self._order_book_snapshot_listener_task = safe_ensure_future(
+            self._data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
+        )
+        self._order_book_stream_listener_task = safe_ensure_future(
+            self._data_source.listen_for_subscriptions()
+        )
+        self._order_book_snapshot_router_task = safe_ensure_future(
+            self._order_book_snapshot_router()
+        )
 
-        if self.process_order_book_events_task is not None:
-            self.process_order_book_events_task.close()
-            self.process_order_book_events_task = None
+    def _order_book_diff_router(self):
+        pass
 
+    def _emit_trade_event_loop(self):
+        pass
