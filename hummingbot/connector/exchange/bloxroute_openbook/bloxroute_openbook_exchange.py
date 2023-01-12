@@ -260,7 +260,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         quote_addr = CONSTANTS.TOKENPAIRTOWALLETADDR[quote]
 
         submit_order_response = await self._provider_1.submit_order(
-            owner_address=self._sol_wallet_public_key,
+            owner_address=base_addr,
             payer_address=quote_addr,
             market=trading_pair,
             side=side,
@@ -353,9 +353,6 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         raise Exception("all trade updates for order not yet implemented")
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
-
-
-
 
     def _create_order_fill_updates(self, order: InFlightOrder, fill_update: Dict[str, Any]) -> List[TradeUpdate]:
         raise Exception("create order fill updates not yet implemented")
