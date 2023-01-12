@@ -66,26 +66,14 @@ class BloxrouteOpenbookAPIOrderBookDataSource(OrderBookTrackerDataSource):
         )
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
-        await self._provider.connect()
-        return WSAssistant()
+        raise "connected websocket assistant not yet supported"
 
     async def _subscribe_channels(self, ws: WSAssistant):
         """
         Subscribes to the trade events and diff orders events through the provided websocket connection.
         :param ws: the websocket assistant used to connect to the exchange
         """
-        try:
-            self._orderbook_stream = self._provider.get_orderbooks_stream(markets=self._trading_pairs,
-                                                                             project=OPENBOOK_PROJECT)
-            self.logger().info("Subscribed to orderbook channel")
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            self.logger().error(
-                "Unexpected error occurred subscribing to order book trading and delta streams...",
-                exc_info=True
-            )
-            raise
+        raise "subscribe channels not yet supported"
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
         raise Exception("Bloxroute Openbook does not use `_channel_originating_message`")

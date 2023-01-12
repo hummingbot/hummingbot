@@ -23,7 +23,7 @@ class DCAExample(ScriptStrategyBase):
     #: Buying interval (in seconds)
     buy_interval = 10.
     #: Buying amount (in dollars - USDT)
-    buy_quote_amount = Decimal("100")
+    buy_quote_amount = Decimal("0.1")
 
     def on_tick(self):
         # Check if it is time to buy
