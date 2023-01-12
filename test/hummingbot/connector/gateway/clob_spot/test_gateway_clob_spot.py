@@ -1625,7 +1625,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
         )
 
         self.assertEqual(self.quote_asset, fee.percent_token)
-        self.assertEqual(Decimal("0.00006"), fee.percent)
+        self.assertEqual(Decimal("-0.00006"), fee.percent)  # factoring in Injective service-provider rebate
 
         fee = self.exchange.get_fee(
             base_currency=self.base_asset,
