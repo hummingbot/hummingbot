@@ -1,16 +1,19 @@
-from datetime import time
-from typing import Union
+import logging
+from typing import List, Tuple, Union
 
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide
+from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
+    MarketEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
 )
+from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 from hummingbot.strategy.smart_components.position_executor.data_types import (
     PositionConfig,
@@ -20,15 +23,44 @@ from hummingbot.strategy.smart_components.position_executor.data_types import (
 
 
 class PositionExecutor:
-    def __init__(self, position_config: PositionConfig, strategy: ScriptStrategyBase):
-        self._position_config = position_config
-        self._strategy = strategy
+    _logger = None
+
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        if cls._logger is None:
+            cls._logger = logging.getLogger(__name__)
+        return cls._logger
+
+    def __init__(self,
+                 position_config: PositionConfig,
+                 strategy: ScriptStrategyBase):
+        self._position_config: PositionConfig = position_config
+        self._strategy: ScriptStrategyBase = strategy
         self._status: PositionExecutorStatus = PositionExecutorStatus.NOT_STARTED
         self._open_order: TrackedOrder = TrackedOrder()
         self._take_profit_order: TrackedOrder = TrackedOrder()
         self._time_limit_order: TrackedOrder = TrackedOrder()
         self._stop_loss_order: TrackedOrder = TrackedOrder()
         self._close_timestamp = None
+
+        self._cancel_order_forwarder = SourceInfoEventForwarder(self.process_order_canceled_event)
+        self._create_buy_order_forwarder = SourceInfoEventForwarder(self.process_order_created_event)
+        self._create_sell_order_forwarder = SourceInfoEventForwarder(self.process_order_created_event)
+
+        self._fill_order_forwarder = SourceInfoEventForwarder(self.process_order_filled_event)
+
+        self._complete_buy_order_forwarder = SourceInfoEventForwarder(self.process_order_completed_event)
+        self._complete_sell_order_forwarder = SourceInfoEventForwarder(self.process_order_completed_event)
+
+        self._event_pairs: List[Tuple[MarketEvent, SourceInfoEventForwarder]] = [
+            (MarketEvent.OrderCancelled, self._cancel_order_forwarder),
+            (MarketEvent.BuyOrderCreated, self._create_buy_order_forwarder),
+            (MarketEvent.SellOrderCreated, self._complete_buy_order_forwarder),
+            (MarketEvent.OrderFilled, self._complete_sell_order_forwarder),
+            (MarketEvent.BuyOrderCompleted, self._complete_buy_order_forwarder),
+            (MarketEvent.SellOrderCompleted, self._complete_sell_order_forwarder)
+        ]
+        self.register_events()
 
     @property
     def position_config(self):
@@ -182,7 +214,7 @@ class PositionExecutor:
             ):
                 pass
             else:
-                self._strategy.logger().info(f"Take profit order status: {self.take_profit_order.order.current_state}")
+                self.logger().info(f"Take profit order status: {self.take_profit_order.order.current_state}")
                 self.remove_take_profit()
 
     def remove_take_profit(self):
@@ -191,7 +223,7 @@ class PositionExecutor:
             trading_pair=self.trading_pair,
             order_id=self._take_profit_order.order_id
         )
-        self._strategy.logger().info("Removing take profit since the position is not longer available")
+        self.logger().info("Removing take profit since the position is not longer available")
 
     def control_open_order(self):
         if not self.open_order.order_id:
@@ -266,47 +298,69 @@ class PositionExecutor:
                 self._time_limit_order.order_id = order_id
                 self._status = PositionExecutorStatus.CLOSE_PLACED
 
-    def process_order_completed_event(self, event: Union[BuyOrderCompletedEvent, SellOrderCompletedEvent]):
+    def process_order_completed_event(self,
+                                      event_tag: int,
+                                      market: ConnectorBase,
+                                      event: Union[BuyOrderCompletedEvent, SellOrderCompletedEvent]):
         if self.open_order.order_id == event.order_id:
             self.status = PositionExecutorStatus.ACTIVE_POSITION
         elif self.stop_loss_order.order_id == event.order_id:
-            self._strategy.logger().info("Closed by Stop loss")
             self.remove_take_profit()
             self.status = PositionExecutorStatus.CLOSED_BY_STOP_LOSS
-            self.close_timestamp = time.time()
+            self.close_timestamp = event.timestamp
+            self.logger().info("Closed by Stop loss")
         elif self.time_limit_order.order_id == event.order_id:
-            self._strategy.logger().info("Closed by Time Limit")
             self.remove_take_profit()
             self.status = PositionExecutorStatus.CLOSED_BY_TIME_LIMIT
-            self.close_timestamp = time.time()
+            self.close_timestamp = event.timestamp
+            self.logger().info("Closed by Time Limit")
         elif self.take_profit_order.order_id == event.order_id:
-            self._strategy.logger().info("Closed by Take Profit")
             self.status = PositionExecutorStatus.CLOSED_BY_TAKE_PROFIT
-            self.close_timestamp = time.time()
+            self.close_timestamp = event.timestamp
+            self.logger().info("Closed by Take Profit")
 
-    def process_order_created_event(self, event: Union[BuyOrderCreatedEvent, SellOrderCreatedEvent]):
+    def process_order_created_event(self,
+                                    event_tag: int,
+                                    market: ConnectorBase,
+                                    event: Union[BuyOrderCreatedEvent, SellOrderCreatedEvent]):
         if self.open_order.order_id == event.order_id:
             self.open_order.order = self.get_order(event.order_id)
             self.status = PositionExecutorStatus.ORDER_PLACED
         elif self.take_profit_order.order_id == event.order_id:
             self.take_profit_order.order = self.get_order(event.order_id)
-            self._strategy.logger().info("Take profit Created")
+            self.logger().info("Take profit Created")
         elif self.stop_loss_order.order_id == event.order_id:
-            self._strategy.logger().info("Stop loss Created")
+            self.logger().info("Stop loss Created")
             self.stop_loss_order.order = self.get_order(event.order_id)
         elif self.time_limit_order.order_id == event.order_id:
-            self._strategy.logger().info("Time Limit Created")
+            self.logger().info("Time Limit Created")
             self.time_limit_order.order = self.get_order(event.order_id)
 
-    def process_order_canceled_event(self, event: OrderCancelledEvent):
+    def process_order_canceled_event(self,
+                                     event_tag: int,
+                                     market: ConnectorBase,
+                                     event: OrderCancelledEvent):
         if self.open_order.order_id == event.order_id:
             self.status = PositionExecutorStatus.CANCELED_BY_TIME_LIMIT
-            self.close_timestamp = time.time()
+            self.close_timestamp = event.timestamp
 
-    def process_order_filled_event(self, event: OrderFilledEvent):
+    def process_order_filled_event(self,
+                                   event_tag: int,
+                                   market: ConnectorBase,
+                                   event: OrderFilledEvent):
         if self.open_order.order_id == event.order_id:
             if self.status == PositionExecutorStatus.ACTIVE_POSITION:
-                self._strategy.logger().info("Position incremented, updating take profit.")
+                self.logger().info("Position incremented, updating take profit.")
             else:
                 self.status = PositionExecutorStatus.ACTIVE_POSITION
-                self._strategy.logger().info("Position taken, placing take profit next tick.")
+                self.logger().info("Position taken, placing take profit next tick.")
+
+    def register_events(self):
+        """Start listening to events from the given market."""
+        for event_pair in self._event_pairs:
+            self.connector.add_listener(event_pair[0], event_pair[1])
+
+    def unregister_events(self):
+        """Stop listening to events from the given market."""
+        for event_pair in self._event_pairs:
+            self.connector.remove_listener(event_pair[0], event_pair[1])
