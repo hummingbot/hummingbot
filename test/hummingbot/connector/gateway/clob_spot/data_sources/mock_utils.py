@@ -142,7 +142,7 @@ class InjectiveClientMock:
 
     @property
     def maker_fee_rate(self) -> Decimal:
-        return Decimal("0.0001")
+        return Decimal("-0.0001")
 
     @property
     def taker_fee_rate(self) -> Decimal:
@@ -1018,7 +1018,7 @@ class InjectiveClientMock:
             base_token_meta=base_token_meta,
             quote_denom=self.quote_denom,
             quote_token_meta=quote_token_meta,
-            maker_fee_rate=str(-self.maker_fee_rate),
+            maker_fee_rate=str(self.maker_fee_rate),
             taker_fee_rate=str(self.taker_fee_rate),
             service_provider_fee="0.4",
             min_price_tick_size=min_price_tick_size,
@@ -1036,7 +1036,7 @@ class InjectiveClientMock:
             base_token_meta=inj_token_meta,
             quote_denom=self.quote_denom,
             quote_token_meta=quote_token_meta,
-            maker_fee_rate=str(-self.maker_fee_rate),
+            maker_fee_rate=str(self.maker_fee_rate),
             taker_fee_rate=str(self.taker_fee_rate),
             service_provider_fee="0.4",
             min_price_tick_size=inj_pair_min_price_tick_size,

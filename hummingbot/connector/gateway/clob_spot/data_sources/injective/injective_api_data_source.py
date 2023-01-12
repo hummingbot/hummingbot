@@ -407,7 +407,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         trading_fees = {}
         for trading_pair, market in self._trading_pair_to_active_spot_markets.items():
             fee_scaler = Decimal("1") - Decimal(market.service_provider_fee)
-            maker_fee = - (Decimal(market.maker_fee_rate) * fee_scaler)
+            maker_fee = Decimal(market.maker_fee_rate) * fee_scaler
             taker_fee = Decimal(market.taker_fee_rate) * fee_scaler
             trading_fees[trading_pair] = MakerTakerExchangeFeeRates(
                 maker=maker_fee, taker=taker_fee, maker_flat_fees=[], taker_flat_fees=[]
@@ -541,9 +541,8 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
                 raise
             except Exception:
                 self.logger().exception("Unexpected error in user stream listener loop.")
-            finally:
-                self.logger().info("Restarting trades stream.")
-                stream.cancel()
+            self.logger().info("Restarting trades stream.")
+            stream.cancel()
 
     def _parse_trade_event(self, trade: StreamTradesResponse):
         """Injective fires two trade updates per transaction.
@@ -611,9 +610,8 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
                 raise
             except Exception:
                 self.logger().exception("Unexpected error in user stream listener loop.")
-            finally:
-                self.logger().info("Restarting orders stream.")
-                stream.cancel()
+            self.logger().info("Restarting orders stream.")
+            stream.cancel()
 
     def _parse_order_stream_update(self, order: StreamOrdersResponse):
         """
@@ -661,9 +659,8 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
                 raise
             except Exception:
                 self.logger().exception("Unexpected error in user stream listener loop.")
-            finally:
-                self.logger().info("Restarting order books stream.")
-                stream.cancel()
+            self.logger().info("Restarting order books stream.")
+            stream.cancel()
 
     def _parse_order_book_event(self, order_book_update: StreamOrderbookResponse):
         """
@@ -721,9 +718,8 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
                 raise
             except Exception:
                 self.logger().exception("Unexpected error in user stream listener loop.")
-            finally:
-                self.logger().info("Restarting account balances stream.")
-                stream.cancel()
+            self.logger().info("Restarting account balances stream.")
+            stream.cancel()
 
     def _parse_balance_event(self, balance):
         """
@@ -825,7 +821,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         fee = TradeFeeBase.new_spot_fee(
             fee_schema=TradeFeeSchema(),
             trade_type=trade_type,
-            flat_fees=[TokenAmount(amount=abs(fee_amount), token=quote)]
+            flat_fees=[TokenAmount(amount=fee_amount, token=quote)]
         )
         trade_update = TradeUpdate(
             trade_id=backend_trade.trade_id,
@@ -850,9 +846,8 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
                 raise
             except Exception:
                 self.logger().exception("Unexpected error in user stream listener loop.")
-            finally:
-                self.logger().info("Restarting transactions stream.")
-                stream.cancel()
+            self.logger().info("Restarting transactions stream.")
+            stream.cancel()
 
     async def _parse_transaction_event(self, transaction: StreamTxsResponse):
         order = self._gateway_order_tracker.get_fillable_order_by_hash(hash=transaction.hash)
