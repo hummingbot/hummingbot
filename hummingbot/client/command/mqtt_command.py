@@ -14,26 +14,31 @@ SUBCOMMANDS = ['start', 'stop', 'restart']
 
 
 class MQTTCommand:
-    def mqtt_command(self,  # type: HummingbotApplication
-                     subcommand: str,
+    def mqtt_start(self,  # type: HummingbotApplication
+                   timeout: float = 30.0
+                   ):
+        if threading.current_thread() != threading.main_thread():
+            self.ev_loop.call_soon_threadsafe(self.mqtt_start, timeout)
+            return
+        safe_ensure_future(self.start_mqtt_async(timeout=timeout),
+                           loop=self.ev_loop)
+
+    def mqtt_stop(self,  # type: HummingbotApplication
+                  ):
+        if threading.current_thread() != threading.main_thread():
+            self.ev_loop.call_soon_threadsafe(self.mqtt_stop)
+            return
+        safe_ensure_future(self.stop_mqtt_async(),
+                           loop=self.ev_loop)
+
+    def mqtt_restart(self,  # type: HummingbotApplication
                      timeout: float = 30.0
                      ):
         if threading.current_thread() != threading.main_thread():
-            self.ev_loop.call_soon_threadsafe(self.mqtt_command,
-                                              subcommand,
-                                              timeout)
+            self.ev_loop.call_soon_threadsafe(self.mqtt_restart, timeout)
             return
-        if subcommand not in ('start', 'stop', 'restart'):
-            raise ValueError(f'Subcommand <{subcommand}> does not exist!')
-        elif subcommand == 'start':
-            safe_ensure_future(self.start_mqtt_async(timeout=timeout),
-                               loop=self.ev_loop)
-        elif subcommand == 'stop':
-            safe_ensure_future(self.stop_mqtt_async(),
-                               loop=self.ev_loop)
-        elif subcommand == 'restart':
-            safe_ensure_future(self.restart_mqtt_async(timeout=timeout),
-                               loop=self.ev_loop)
+        safe_ensure_future(self.restart_mqtt_async(timeout=timeout),
+                           loop=self.ev_loop)
 
     async def start_mqtt_async(self,  # type: HummingbotApplication
                                timeout: float = 30.0
