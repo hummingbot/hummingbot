@@ -68,6 +68,7 @@ class HummingbotCompleter(Completer):
         self._py_file_completer = WordCompleter(file_name_list(str(PMM_SCRIPTS_PATH), "py"))
         self._script_strategy_completer = WordCompleter(file_name_list(str(SCRIPT_STRATEGIES_PATH), "py"))
         self._rate_oracle_completer = WordCompleter(list(RATE_ORACLE_SOURCES.keys()), ignore_case=True)
+        self._mqtt_completer = WordCompleter(["start", "stop", "restart"], ignore_case=True)
         self._gateway_chains = []
         self._gateway_networks = []
         self._list_gateway_wallets_parameters = {"wallets": [], "chain": ""}
@@ -237,6 +238,10 @@ class HummingbotCompleter(Completer):
     def _complete_rate_oracle_source(self, document: Document):
         return all(x in self.prompt_text for x in ("source", "rate oracle"))
 
+    def _complete_mqtt_arguments(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return text_before_cursor.startswith("mqtt ")
+
     def get_completions(self, document: Document, complete_event: CompleteEvent):
         """
         Get completions for the current scope. This is the defining function for the completer
@@ -371,6 +376,10 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_rate_oracle_source(document):
             for c in self._rate_oracle_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_mqtt_arguments(document):
+            for c in self._mqtt_completer.get_completions(document, complete_event):
                 yield c
 
         else:
