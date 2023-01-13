@@ -11,7 +11,7 @@ from bxsolana_trader_proto import GetOrderbookResponse, GetOrderbooksStreamRespo
 
 from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_constants import OPENBOOK_PROJECT
 from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_orderbook_manager import (
-    BloxrouteOpenbookOrderbookManager,
+    BloxrouteOpenbookOrderManager,
 )
 
 
@@ -29,7 +29,7 @@ class TestOrderbookManager(aiounittest.AsyncTestCase):
             asks=asks,
         )
 
-        ob_manager = BloxrouteOpenbookOrderbookManager(provider, ["SOLUSDC"])
+        ob_manager = BloxrouteOpenbookOrderManager(provider, ["SOLUSDC"])
         await ob_manager.start()
 
         ob = ob_manager.get_order_book("SOLUSDC")
@@ -61,7 +61,7 @@ class TestOrderbookManager(aiounittest.AsyncTestCase):
         new_asks = orders([(14, 3), (16, 4)])
         orderbook_stream_mock.return_value = async_generator("SOLUSDC", new_bids, new_asks)
 
-        ob_manager = BloxrouteOpenbookOrderbookManager(provider, ["SOLUSDC"])
+        ob_manager = BloxrouteOpenbookOrderManager(provider, ["SOLUSDC"])
         await ob_manager.start()
         await asyncio.sleep(0.1)
 

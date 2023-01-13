@@ -29,7 +29,7 @@ from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_api_ord
 from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_auth import BloxrouteOpenbookAuth
 from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_constants import OPENBOOK_PROJECT
 from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_orderbook_manager import (
-    BloxrouteOpenbookOrderbookManager,
+    BloxrouteOpenbookOrderManager,
 )
 
 # from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_utils import (
@@ -94,7 +94,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         asyncio.create_task(self.connect())
 
         self._trading_pairs = trading_pairs
-        self._order_book_manager: BloxrouteOpenbookOrderbookManager = BloxrouteOpenbookOrderbookManager(
+        self._order_book_manager: BloxrouteOpenbookOrderManager = BloxrouteOpenbookOrderManager(
             self._provider_2, self._trading_pairs
         )
         self._order_book_manager_connected = False
