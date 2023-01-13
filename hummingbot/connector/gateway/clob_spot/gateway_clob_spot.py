@@ -341,10 +341,6 @@ class GatewayCLOBSPOT(ExchangePyBase):
         """Not used."""
         return False
 
-    def _is_request_result_an_error_related_to_time_synchronizer(self, request_result: Dict[str, Any]) -> bool:
-        """Not used."""
-        return False
-
     async def _user_stream_event_listener(self):
         self._api_data_source.add_forwarder(event_tag=MarketEvent.TradeUpdate, receiver=self._process_trade_update)
         self._api_data_source.add_forwarder(event_tag=MarketEvent.OrderUpdate, receiver=self._process_order_update)
