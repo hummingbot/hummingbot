@@ -99,7 +99,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
 
         self._trading_pairs = trading_pairs
         self._order_book_manager: BloxrouteOpenbookOrderManager = BloxrouteOpenbookOrderManager(
-            self._provider_2, self._trading_pairs
+            self._provider_2, self._trading_pairs, self._sol_wallet_public_key
         )
         self._order_book_manager_connected = False
         asyncio.create_task(self.initialize_order_books())
@@ -275,6 +275,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
             amount=float(amount),
             price=float(price),
             project=OPENBOOK_PROJECT,
+            client_order_id=convert_hummingbot_to_blxr_client_order_id(order_id),
             skip_pre_flight=True,
         )
 

@@ -70,12 +70,11 @@ KEYS = BloxRouteConnectorMap.construct()
 
 
 def convert_hummingbot_to_blxr_client_order_id(client_order_id: str):
-    return convert_from_number(client_order_id)
+    return convert_to_number(client_order_id)
 
 
-def convert_from_number(self, n: int):
-    return n.to_bytes(math.ceil(n.bit_length() / 8), "little").decode()
-
+def convert_to_number(s):
+    return int.from_bytes(s.encode(), 'little')
 
 def convert_blxr_to_hummingbot_order_status(order_status: api.OrderStatus) -> OrderState:
     if order_status == api.OrderStatus.OS_OPEN:
