@@ -78,9 +78,7 @@ class ExchangePyBase(ExchangeBase, ABC):
             domain=self.domain))
 
         # init UserStream Data Source and Tracker
-        self._userstream_ds = self._create_user_stream_data_source()
-        self._user_stream_tracker = UserStreamTracker(
-            data_source=self._userstream_ds)
+        self._user_stream_tracker = self._create_user_stream_tracker()
 
         self._order_tracker: ClientOrderTracker = self._create_order_tracker()
 
@@ -277,7 +275,9 @@ class ExchangePyBase(ExchangeBase, ABC):
         Includes the logic that has to be processed every time a new tick happens in the bot. Particularly it enables
         the execution of the status update polling loop using an event.
         """
-        last_recv_diff = timestamp - self._user_stream_tracker.last_recv_time
+        last_user_stream_message_time = (0 if self._user_stream_tracker is None
+                                         else self._user_stream_tracker.last_recv_time)
+        last_recv_diff = timestamp - last_user_stream_message_time
         poll_interval = (self.SHORT_POLL_INTERVAL
                          if last_recv_diff > self.TICK_INTERVAL_LIMIT
                          else self.LONG_POLL_INTERVAL)
@@ -694,7 +694,7 @@ class ExchangePyBase(ExchangeBase, ABC):
         self._trading_fees_polling_task = safe_ensure_future(self._trading_fees_polling_loop())
         if self.is_trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
-            self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
+            self._user_stream_tracker_task = self._create_user_stream_tracker_task()
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
             self._lost_orders_update_task = safe_ensure_future(self._lost_orders_update_polling_loop())
 
@@ -861,6 +861,13 @@ class ExchangePyBase(ExchangeBase, ABC):
             except Exception:
                 self.logger().exception("Error while reading user events queue. Retrying in 1s.")
                 await self._sleep(1.0)
+
+    def _create_user_stream_tracker(self):
+        return UserStreamTracker(
+            data_source=self._create_user_stream_data_source())
+
+    def _create_user_stream_tracker_task(self):
+        return safe_ensure_future(self._user_stream_tracker.start())
 
     # === Exchange / Trading logic methods that call the API ===
 
