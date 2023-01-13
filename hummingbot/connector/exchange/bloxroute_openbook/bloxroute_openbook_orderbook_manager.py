@@ -92,22 +92,21 @@ class BloxrouteOpenbookOrderManager:
         if self._order_status_polling_task is not None:
             self._order_status_polling_task.cancel()
             self._order_status_polling_task = None
+        await self._provider.close()
 
     async def _initialize_order_books(self):
         await self._provider.connect()
         for trading_pair in self._trading_pairs:
-            orderbook: GetOrderbookResponse = await self._provider.get_orderbook(market=trading_pair, limit=5)
+            orderbook: GetOrderbookResponse = await self._provider.get_orderbook(market=trading_pair, limit=5, project=OPENBOOK_PROJECT)
             self._apply_order_book_update(orderbook)
 
     async def _initialize_order_status_streams(self):
+        await self._provider.connect()
         for trading_pair in self._trading_pairs:
             async for os_update in self._provider.get_order_status_stream(
                 market=trading_pair, owner_address=self._owner_address, project=OPENBOOK_PROJECT
             ):
                 self._order_status_updates.put_nowait(os_update)
-
-    async def _initialize_order_status_stream(self, trading_pair: str):
-        await self._provider.connect()
 
     async def _poll_order_book_updates(self):
         await self._provider.connect()
