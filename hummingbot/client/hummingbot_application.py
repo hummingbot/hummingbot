@@ -125,7 +125,7 @@ class HummingbotApplication(*commands):
         self._init_gateway_monitor()
         # MQTT Bridge
         if self.client_config_map.mqtt_bridge.mqtt_autostart:
-            self.mqtt_command('start')
+            self.mqtt_start()
 
     @property
     def instance_id(self) -> str:
