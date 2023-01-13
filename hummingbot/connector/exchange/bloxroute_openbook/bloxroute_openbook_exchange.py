@@ -1,4 +1,5 @@
 import asyncio
+import math
 import os
 import time
 from decimal import Decimal
@@ -258,10 +259,11 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
 
         base_addr = CONSTANTS.TOKENPAIRTOWALLETADDR[base]
         quote_addr = CONSTANTS.TOKENPAIRTOWALLETADDR[quote]
+        payer_addr = base_addr if trade_type == TradeType.SELL else quote_addr
 
         submit_order_response = await self._provider_1.submit_order(
-            owner_address=base_addr,
-            payer_address=quote_addr,
+            owner_address=self._sol_wallet_public_key,
+            payer_address=payer_addr,
             market=trading_pair,
             side=side,
             types=[type],
@@ -289,6 +291,12 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         )
 
         self.logger().info(f"cancelled order f{cancel_order_response}")
+
+    def convertToNumber(s: str):
+        return int.from_bytes(s.encode(), 'little')
+
+    def convertFromNumber(n: int):
+        return n.to_bytes(math.ceil(n.bit_length() / 8), 'little').decode()
 
     async def _format_trading_rules(self, markets_by_name: Dict[str, Market]) -> List[TradingRule]:
         trading_rules = []
@@ -353,6 +361,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         raise Exception("all trade updates for order not yet implemented")
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
+        pass
 
     def _create_order_fill_updates(self, order: InFlightOrder, fill_update: Dict[str, Any]) -> List[TradeUpdate]:
         raise Exception("create order fill updates not yet implemented")
