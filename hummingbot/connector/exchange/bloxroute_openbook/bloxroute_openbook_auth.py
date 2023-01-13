@@ -1,11 +1,12 @@
-from typing import Dict, Any, Optional
-import hmac
 import hashlib
+import hmac
+from typing import Any, Dict, Optional
+from urllib.parse import urlencode, urlsplit
 
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSRequest
-from urllib.parse import urlencode, urlsplit
+
 
 class BloxrouteOpenbookAuth(AuthBase):
     def __init__(self, api_key: str, secret_key: str, time_provider: TimeSynchronizer):
@@ -55,10 +56,7 @@ class BloxrouteOpenbookAuth(AuthBase):
         return header
 
     def _sign(self, payload: str):
-        signature = hmac.new(
-            self.secret_key.encode(),
-            payload.encode(),
-            hashlib.sha256).hexdigest()
+        signature = hmac.new(self.secret_key.encode(), payload.encode(), hashlib.sha256).hexdigest()
         return signature
 
     def _generate_signature(self, timestamp: str, method: str, path_url: str, body: Optional[str] = None) -> str:

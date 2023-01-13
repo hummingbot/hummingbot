@@ -1,12 +1,13 @@
-import bxsolana_trader_proto.api as api
-
-from hummingbot.core.data_type.common import OrderType, TradeType
+import math
 from decimal import Decimal
 from typing import Any, Dict
 
+import bxsolana_trader_proto.api as api
 from pydantic import Field, SecretStr
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.in_flight_order import OrderState
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 EXAMPLE_PAIR = "SOL/USDC"
@@ -16,6 +17,7 @@ DEFAULT_FEES = TradeFeeSchema(
     maker_percent_fee_decimal=Decimal("0.002"),
     taker_percent_fee_decimal=Decimal("0.002"),
 )
+
 
 def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     """
@@ -37,7 +39,7 @@ class BloxRouteConnectorMap(BaseConnectorConfigMap):
             is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,
-        )
+        ),
     )
 
     solana_wallet_public_key: SecretStr = Field(
@@ -47,7 +49,7 @@ class BloxRouteConnectorMap(BaseConnectorConfigMap):
             is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,
-        )
+        ),
     )
 
     solana_wallet_private_key: SecretStr = Field(
@@ -57,13 +59,36 @@ class BloxRouteConnectorMap(BaseConnectorConfigMap):
             is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,
-        )
+        ),
     )
 
     class Config:
         title = "bloxroute_openbook"
 
+
 KEYS = BloxRouteConnectorMap.construct()
+
+
+def convert_hummingbot_to_blxr_client_order_id(client_order_id: str):
+    return convert_from_number(client_order_id)
+
+
+def convert_from_number(self, n: int):
+    return n.to_bytes(math.ceil(n.bit_length() / 8), "little").decode()
+
+
+def convert_blxr_to_hummingbot_order_status(order_status: api.OrderStatus) -> OrderState:
+    if order_status == api.OrderStatus.OS_OPEN:
+        return OrderState.OPEN
+    elif order_status == api.OrderStatus.OS_PARTIAL_FILL:
+        return OrderState.PARTIALLY_FILLED
+    elif order_status == api.OrderStatus.OS_FILLED:
+        return OrderState.FILLED
+    elif order_status == api.OrderStatus.OS_CANCELLED:
+        return OrderState.CANCELED
+    else:
+        return OrderState.UNKNOWN
+
 
 # def TradeTypeToSide(type: TradeType) -> api.Side:
 #     if type.value == type.BUY:

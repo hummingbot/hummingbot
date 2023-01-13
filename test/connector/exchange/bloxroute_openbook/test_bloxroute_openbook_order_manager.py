@@ -1,12 +1,10 @@
 import asyncio
 from collections.abc import AsyncGenerator
-from time import time
 from typing import List, Tuple
 from unittest.mock import AsyncMock, patch
 
 import aiounittest
 import bxsolana.provider.grpc
-from bxsolana.provider.constants import TESTNET_API_GRPC_HOST, TESTNET_API_GRPC_PORT
 from bxsolana_trader_proto import (
     GetOrderbookResponse,
     GetOrderbooksStreamResponse,
@@ -17,7 +15,6 @@ from bxsolana_trader_proto import (
     Side,
 )
 
-from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_constants import OPENBOOK_PROJECT
 from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_orderbook_manager import (
     BloxrouteOpenbookOrderManager,
 )
@@ -111,11 +108,13 @@ class TestOrderManager(aiounittest.AsyncTestCase):
         await os_manager.start()
         await asyncio.sleep(0.1)
 
-        os = os_manager.get_order_status("SOLUSDC", 123)
-        self.assertEqual(os, OrderStatus.OS_FILLED)
+        os1 = os_manager.get_order_status("SOLUSDC", 123)
+        self.assertEqual(os1.order_status, OrderStatus.OS_FILLED)
+        self.assertGreater(os1.timestamp, 0)
 
-        os = os_manager.get_order_status("BTCUSDC", 456)
-        self.assertEqual(os, OrderStatus.OS_PARTIAL_FILL)
+        os2 = os_manager.get_order_status("BTCUSDC", 456)
+        self.assertEqual(os2.order_status, OrderStatus.OS_PARTIAL_FILL)
+        self.assertGreater(os2.timestamp, os1.timestamp)
 
         await os_manager.stop()
 
@@ -146,7 +145,8 @@ class TestOrderManager(aiounittest.AsyncTestCase):
         await asyncio.sleep(0.1)
 
         os = os_manager.get_order_status("SOLUSDC", 123)
-        self.assertEqual(os, OrderStatus.OS_FILLED)
+        self.assertEqual(os.order_status, OrderStatus.OS_FILLED)
+        self.assertGreater(os.timestamp, 0)
 
         await os_manager.stop()
 
