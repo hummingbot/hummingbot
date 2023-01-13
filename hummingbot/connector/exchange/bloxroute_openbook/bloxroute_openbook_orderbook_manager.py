@@ -113,12 +113,18 @@ class BloxrouteOpenbookOrderManager:
             self._apply_order_book_update(orderbook)
 
     async def _initialize_order_status_streams(self):
-        await self._provider.connect()
         for trading_pair in self._trading_pairs:
-            async for os_update in self._provider.get_order_status_stream(
-                market=trading_pair, owner_address=self._owner_address, project=OPENBOOK_PROJECT
-            ):
-                self._order_status_updates.put_nowait(os_update)
+            normalized_trading_pair = normalize_trading_pair(trading_pair)
+            self._markets_to_order_statuses.update({normalized_trading_pair: {}})
+
+            asyncio.create_task(self._initialize_order_status_stream(trading_pair=trading_pair))
+
+    async def _initialize_order_status_stream(self, trading_pair: str):
+        await self._provider.connect()
+        async for os_update in self._provider.get_order_status_stream(
+            market=trading_pair, owner_address=self._owner_address, project=OPENBOOK_PROJECT
+        ):
+            self._order_status_updates.put_nowait(os_update)
 
     async def _poll_order_book_updates(self):
         await self._provider.connect()

@@ -96,14 +96,21 @@ class TestOrderManager(aiounittest.AsyncTestCase):
         orderbook_stream_mock: AsyncMock,
         order_status_stream_mock: AsyncMock,
     ):
-        provider = bxsolana.provider.GrpcProvider(auth_header="", private_key=test_private_key)
-        order_status_stream_mock.return_value = async_generator_order_status_stream(
-            [
-                ("SOL/USDC", 123, OrderStatus.OS_FILLED, Side.S_ASK),
-                ("BTC-USDC", 456, OrderStatus.OS_PARTIAL_FILL, Side.S_BID),
-            ]
-        )
+        def side_effect_function(**kwargs):
+            self.assertIn("market", kwargs)
+            market = kwargs["market"]
 
+            if market == "SOLUSDC":
+                return async_generator_order_status_stream([
+                    ("SOL/USDC", 123, OrderStatus.OS_FILLED, Side.S_ASK)
+                ])
+            elif market == "BTCUSDC":
+                return async_generator_order_status_stream([
+                    ("BTC-USDC", 456, OrderStatus.OS_PARTIAL_FILL, Side.S_BID),
+                ])
+        order_status_stream_mock.side_effect = side_effect_function
+
+        provider = bxsolana.provider.GrpcProvider(auth_header="", private_key=test_private_key)
         os_manager = BloxrouteOpenbookOrderManager(provider, ["SOLUSDC", "BTCUSDC"], "OWNER_ADDRESS")
         await os_manager.start()
         await asyncio.sleep(0.1)
