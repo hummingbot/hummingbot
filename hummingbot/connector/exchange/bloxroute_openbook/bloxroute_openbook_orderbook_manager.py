@@ -56,6 +56,7 @@ class BloxrouteOpenbookOrderManager:
         self._is_ready = False
 
         self._orderbook_polling_task: Optional[Task] = None
+        self._order_status_running_task: Optional[Task] = None
         self._order_status_polling_task: Optional[Task] = None
 
         self._order_status_updates = asyncio.Queue()
@@ -75,9 +76,9 @@ class BloxrouteOpenbookOrderManager:
         if not self._started:
             self._started = True
             await self._initialize_order_books()
-            await self._initialize_order_status_streams()
-
             self._orderbook_polling_task = asyncio.create_task(self._poll_order_book_updates())
+
+            self._order_status_running_task = asyncio.create_task(self._initialize_order_status_streams())
             self._order_status_polling_task = asyncio.create_task(self._poll_order_status_updates())
             self._is_ready = True
 
@@ -85,6 +86,9 @@ class BloxrouteOpenbookOrderManager:
         if self._orderbook_polling_task is not None:
             self._orderbook_polling_task.cancel()
             self._orderbook_polling_task = None
+        if self._order_status_running_task is not None:
+            self._order_status_running_task.cancel()
+            self._order_status_running_task = None
         if self._order_status_polling_task is not None:
             self._order_status_polling_task.cancel()
             self._order_status_polling_task = None
@@ -97,14 +101,13 @@ class BloxrouteOpenbookOrderManager:
 
     async def _initialize_order_status_streams(self):
         for trading_pair in self._trading_pairs:
-            asyncio.create_task(self._initialize_order_status_stream(trading_pair=trading_pair))
+            async for os_update in self._provider.get_order_status_stream(
+                market=trading_pair, owner_address=self._owner_address, project=OPENBOOK_PROJECT
+            ):
+                self._order_status_updates.put_nowait(os_update)
 
     async def _initialize_order_status_stream(self, trading_pair: str):
         await self._provider.connect()
-        async for os_update in self._provider.get_order_status_stream(
-            market=trading_pair, owner_address=self._owner_address, project=OPENBOOK_PROJECT
-        ):
-            self._order_status_updates.put_nowait(os_update)
 
     async def _poll_order_book_updates(self):
         await self._provider.connect()

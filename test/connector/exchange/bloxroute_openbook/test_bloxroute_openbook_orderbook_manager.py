@@ -14,11 +14,12 @@ from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_orderbo
     BloxrouteOpenbookOrderManager,
 )
 
-
+test_private_key = "3771ddf5dd1d38ff72334b9763dc3cbc6fc3196f23e651f391fe65e31e466e3d"
+test_owner_address = "OWNER_ADDRESS"
 class TestOrderbookManager(aiounittest.AsyncTestCase):
     @patch('bxsolana.provider.GrpcProvider.get_orderbook')
     async def test_initalize_orderbook(self, mock: AsyncMock):
-        provider = bxsolana.provider.GrpcProvider()
+        provider = bxsolana.provider.GrpcProvider(auth_header="", private_key=test_private_key)
 
         bids = orders([(5, 2), (6, 7)])
         asks = orders([(7, 4), (8, 4)])
@@ -29,7 +30,7 @@ class TestOrderbookManager(aiounittest.AsyncTestCase):
             asks=asks,
         )
 
-        ob_manager = BloxrouteOpenbookOrderManager(provider, ["SOLUSDC"])
+        ob_manager = BloxrouteOpenbookOrderManager(provider, ["SOLUSDC"], test_owner_address)
         await ob_manager.start()
 
         ob = ob_manager.get_order_book("SOLUSDC")
@@ -44,7 +45,7 @@ class TestOrderbookManager(aiounittest.AsyncTestCase):
     @patch('bxsolana.provider.GrpcProvider.get_orderbooks_stream')
     @patch('bxsolana.provider.GrpcProvider.get_orderbook')
     async def test_apply_update(self, orderbook_mock: AsyncMock, orderbook_stream_mock: AsyncMock):
-        provider = bxsolana.provider.GrpcProvider()
+        provider = bxsolana.provider.GrpcProvider(auth_header="", private_key=test_private_key)
 
         # same as first test
         bids = orders([(5, 2), (6, 7)])
@@ -61,7 +62,7 @@ class TestOrderbookManager(aiounittest.AsyncTestCase):
         new_asks = orders([(14, 3), (16, 4)])
         orderbook_stream_mock.return_value = async_generator("SOLUSDC", new_bids, new_asks)
 
-        ob_manager = BloxrouteOpenbookOrderManager(provider, ["SOLUSDC"])
+        ob_manager = BloxrouteOpenbookOrderManager(provider, ["SOLUSDC"], test_owner_address)
         await ob_manager.start()
         await asyncio.sleep(0.1)
 
