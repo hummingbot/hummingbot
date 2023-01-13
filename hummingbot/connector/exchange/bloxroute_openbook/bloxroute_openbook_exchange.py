@@ -1,5 +1,6 @@
 import asyncio
 import os
+import time
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
@@ -191,7 +192,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         :return a list of OrderType supported by this connector.
         Note that Market order type is no longer required and will not be used.
         """
-        raise Exception("not yet implemented")
+        return [OrderType.LIMIT, OrderType.MARKET]
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         raise Exception("not yet implemented")
@@ -249,9 +250,19 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         side = api.Side.S_BID if trade_type == TradeType.BUY else api.Side.S_ASK
         type = api.OrderType.OT_LIMIT if order_type == OrderType.LIMIT else api.OrderType.OT_MARKET
 
+        tokens = trading_pair.split("-")
+        base = tokens[0]
+        quote = tokens[1]
+
+        # this is temporarily hard coded to a single solana wallet
+
+        base_addr = CONSTANTS.TOKEN_PAIR_TO_WALLET_ADDR[base]
+        quote_addr = CONSTANTS.TOKEN_PAIR_TO_WALLET_ADDR[quote]
+        payer_address = base_addr if side == api.Side.S_ASK else quote_addr
+
         submit_order_response = await self._provider_1.submit_order(
             owner_address=self._sol_wallet_public_key,
-            payer_address=self._sol_wallet_public_key,
+            payer_address=payer_address,
             market=trading_pair,
             side=side,
             types=[type],
@@ -262,6 +273,9 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         )
 
         self.logger().info(f"placed order f{submit_order_response}")
+
+        return submit_order_response, time.time()
+
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         side = api.Side.S_BID if tracked_order.trade_type == TradeType.BUY else api.Side.S_ASK
@@ -325,7 +339,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         pass
 
     async def _update_balances(self):
-        account_balance: GetAccountBalanceResponse = await self._provider_1.get_account_balance()
+        account_balance: GetAccountBalanceResponse = await self._provider_1.get_account_balance(owner_address=self._sol_wallet_public_key)
         for token_info in account_balance.tokens:
             self._account_balances[token_info.symbol] = token_info.wallet_amount + token_info.unsettled_amount
             self._account_available_balances[token_info.symbol] = token_info.wallet_amount
@@ -340,7 +354,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         raise Exception("all trade updates for order not yet implemented")
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
-        raise Exception("request order status not yet implemented")
+        raise Exception("request_order_status not implemented")
 
     def _create_order_fill_updates(self, order: InFlightOrder, fill_update: Dict[str, Any]) -> List[TradeUpdate]:
         raise Exception("create order fill updates not yet implemented")
@@ -363,7 +377,10 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
             quote = tokens[1]
             trading_pair = f"{base}/{quote}"
 
-            mapping[market_name] = trading_pair
+            try:
+                mapping[market_name] = trading_pair
+            except Exception:
+                pass
 
         self._set_trading_pair_symbol_map(mapping)
 

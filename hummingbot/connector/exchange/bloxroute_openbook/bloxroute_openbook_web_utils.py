@@ -16,7 +16,7 @@ def public_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> st
     :param domain: not required for CI-EX. Added only for compatibility.
     :return: the full URL to the endpoint
     """
-    return urljoin(CONSTANTS.CIEX_BASE_URL, path_url)
+    return urljoin(CONSTANTS.REST_URL, path_url)
 
 
 def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
@@ -29,7 +29,7 @@ def build_api_factory(
         auth: Optional[AuthBase] = None, ) -> WebAssistantsFactory:
     throttler = throttler or create_throttler()
     time_synchronizer = time_synchronizer or TimeSynchronizer()
-    time_provider = time_provider or (lambda: get_current_server_time(throttler=throttler))
+    time_provider = time_provider
     api_factory = WebAssistantsFactory(
         throttler=throttler,
         auth=auth,

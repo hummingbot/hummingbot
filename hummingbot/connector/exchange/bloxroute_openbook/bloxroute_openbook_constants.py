@@ -4,6 +4,16 @@ from bxsolana_trader_proto import Project
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.data_type.in_flight_order import OrderState
 
+TOKEN_PAIR_TO_WALLET_ADDR = {
+    "INV": "8U7VYzRnwLgKMXtp5bweXoDrzmQ1rF48a8qoD3rrc3uU",
+    "SOL": "BZYcWxuhyZqWYbo6UPEEnYzrXGCe7tjcRQvZzz7cxqhq",
+    "USDC": "HmvqBfBSRjNzjzKmjvefBe9NX9y2oSyiFLn77DwaH6v9",
+    "mSOL": "SX4fHc9uL9x8VU6Ag2X8GR22bXPTwDjAcWFu7BfH2qg",
+    "FIDA": "4aDUpyixMgbPzVcNdgxnw94chyoeMHe35W3dPCtXoY37",
+    "RAY": "4aDUpyixMgbPzVcNdgxnw94chyoeMHe35W3dPCtXoY37",
+    "WETH": "F2djfvy9ujH9mS4yf8zfHh1WHhGzNYJLxEKhEFbULgDv"
+}
+
 EXCHANGE_NAME = "bloxroute_openbook"
 OPENBOOK_PROJECT = Project.P_OPENBOOK
 
