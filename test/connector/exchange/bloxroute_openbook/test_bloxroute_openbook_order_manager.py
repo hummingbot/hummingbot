@@ -119,6 +119,36 @@ class TestOrderManager(aiounittest.AsyncTestCase):
 
         await os_manager.stop()
 
+    @patch("bxsolana.provider.GrpcProvider.get_order_status_stream")
+    @patch("bxsolana.provider.GrpcProvider.get_orderbooks_stream")
+    @patch(
+        "hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_orderbook_manager"
+        ".BloxrouteOpenbookOrderManager._initialize_order_books"
+    )
+    @patch("bxsolana.provider.GrpcProvider.get_orderbook")
+    async def test_apply_order_status_update_on_existing_order(
+        self,
+        orderbook_mock: AsyncMock,
+        initialize_order_book_mock: AsyncMock,
+        orderbook_stream_mock: AsyncMock,
+        order_status_stream_mock: AsyncMock,
+    ):
+        provider = bxsolana.provider.GrpcProvider(auth_header="", private_key=test_private_key)
+        order_status_stream_mock.return_value = async_generator_order_status_stream(
+            [
+                ("SOL/USDC", 123, OrderStatus.OS_PARTIAL_FILL, Side.S_ASK),
+                ("SOL/USDC", 123, OrderStatus.OS_FILLED, Side.S_ASK),
+            ]
+        )
+
+        os_manager = BloxrouteOpenbookOrderManager(provider, ["SOLUSDC", "BTCUSDC"], "OWNER_ADDRESS")
+        await os_manager.start()
+        await asyncio.sleep(0.1)
+
+        os = os_manager.get_order_status("SOLUSDC", 123)
+        self.assertEqual(os, OrderStatus.OS_FILLED)
+
+        await os_manager.stop()
 
 def orders(price_and_sizes: List[Tuple[int, int]]) -> List[OrderbookItem]:
     orderbook_items = []
