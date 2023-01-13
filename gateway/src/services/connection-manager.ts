@@ -110,7 +110,7 @@ export async function getConnector<T>(
     connectorInstance = Perp.getInstance(chain, network, address);
   } else if (chain === 'avalanche' && connector === 'pangolin') {
     connectorInstance = Pangolin.getInstance(chain, network);
-  } else if (chain === 'avalanche' && connector === 'openocean') {
+  } else if (connector === 'openocean') {
     connectorInstance = Openocean.getInstance(chain, network);
   } else if (chain === 'avalanche' && connector === 'traderjoe') {
     connectorInstance = Traderjoe.getInstance(chain, network);
