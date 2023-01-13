@@ -7,6 +7,7 @@ import { getHarmonyConfig } from './harmony.config';
 import { Provider } from '@ethersproject/abstract-provider';
 import { Ethereumish } from '../../services/common-interfaces';
 import { ConfigManagerV2 } from '../../services/config-manager-v2';
+import { OpenoceanConfig } from '../../connectors/openocean/openocean.config';
 
 export class Harmony extends EthereumBase implements Ethereumish {
   private static _instances: { [name: string]: Harmony };
@@ -146,6 +147,8 @@ export class Harmony extends EthereumBase implements Ethereumish {
       spender = '0x24ad62502d1C652Cc7684081169D04896aC20f30';
     } else if (reqSpender === 'defira') {
       spender = '0x3C8BF7e25EbfAaFb863256A4380A8a93490d8065';
+    } else if (reqSpender === 'openocean') {
+      spender = OpenoceanConfig.config.routerAddress('harmony', this._chain);
     } else {
       spender = reqSpender;
     }

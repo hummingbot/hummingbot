@@ -6,7 +6,7 @@ export namespace OpenoceanConfig {
     allowedSlippage: string;
     gasLimitEstimate: number;
     ttl: number;
-    routerAddress: (network: string) => string;
+    routerAddress: (chain: string, network: string) => string;
     tradingTypes: Array<string>;
     availableNetworks: Array<AvailableNetworks>;
   }
@@ -16,14 +16,23 @@ export namespace OpenoceanConfig {
       'openocean.allowedSlippage'
     ),
     gasLimitEstimate: ConfigManagerV2.getInstance().get(
-      `pangolin.gasLimitEstimate`
+      `polygon.gasLimitEstimate`
     ),
     ttl: ConfigManagerV2.getInstance().get('openocean.ttl'),
-    routerAddress: (network: string) =>
+    routerAddress: (chain: string, network: string) =>
       ConfigManagerV2.getInstance().get(
-        'openocean.contractAddresses.' + network + '.routerAddress'
+        'openocean.contractAddresses.' +
+        chain +
+        '.' +
+        network +
+        '.routerAddress'
       ),
     tradingTypes: ['EVM_AMM'],
-    availableNetworks: [{ chain: 'avalanche', networks: ['avalanche'] }],
+    availableNetworks: [
+      { chain: 'avalanche', networks: ['avalanche'] },
+      { chain: 'ethereum', networks: ['mainnet'] },
+      { chain: 'polygon', networks: ['mainnet'] },
+      { chain: 'harmony', networks: ['mainnet'] },
+    ],
   };
 }

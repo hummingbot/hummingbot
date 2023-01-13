@@ -6,35 +6,35 @@ import { Openocean } from '../../../../src/connectors/openocean/openocean';
 import { UniswapishPriceError } from '../../../../src/services/error-handler';
 import { Token } from '@uniswap/sdk';
 import { BigNumber } from 'ethers';
-import { Avalanche } from '../../../../src/chains/avalanche/avalanche';
+import { Harmony } from '../../../../src/chains/harmony/harmony';
 
-let avalanche: Avalanche;
+let harmony: Harmony;
 let openocean: Openocean;
 
 const USDC = new Token(
-  43114,
-  '0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E',
+  1666600000,
+  '0x985458e523db3d53125813ed68c274899e9dfab4',
   6,
-  'USDC'
+  '1USDC'
 );
-const WAVAX = new Token(
-  43114,
-  '0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7',
+const DAI = new Token(
+  1666600000,
+  '0xef977d2f931c1978db5f6747666fa1eacb0d0339',
   18,
-  'WAVAX'
+  '1DAI'
 );
-const bDAI = new Token(
-  43114,
-  '0x6807eD4369d9399847F306D7d835538915fA749d',
+const mooOneBIFI = new Token(
+  1666600000,
+  '0x6207536011918f1a0d8a53bc426f4fd54df2e5a8',
   18,
-  'bDAI'
+  'mooOneBIFI'
 );
 
 beforeAll(async () => {
-  avalanche = Avalanche.getInstance('avalanche');
-  patchEVMNonceManager(avalanche.nonceManager);
-  await avalanche.init();
-  openocean = Openocean.getInstance('avalanche', 'avalanche');
+  harmony = Harmony.getInstance('mainnet');
+  patchEVMNonceManager(harmony.nonceManager);
+  await harmony.init();
+  openocean = Openocean.getInstance('harmony', 'mainnet');
   await openocean.init();
 });
 
@@ -42,7 +42,7 @@ describe('verify Openocean estimateSellTrade', () => {
   it('Should return an ExpectedTrade when available', async () => {
     const expectedTrade = await openocean.estimateSellTrade(
       USDC,
-      WAVAX,
+      DAI,
       BigNumber.from((10 ** USDC.decimals).toString())
     );
     expect(expectedTrade).toHaveProperty('trade');
@@ -53,7 +53,7 @@ describe('verify Openocean estimateSellTrade', () => {
     await expect(async () => {
       await openocean.estimateSellTrade(
         USDC,
-        bDAI,
+        mooOneBIFI,
         BigNumber.from((10 ** USDC.decimals).toString())
       );
     }).rejects.toThrow(UniswapishPriceError);
@@ -64,8 +64,8 @@ describe('verify Openocean estimateBuyTrade', () => {
   it('Should return an ExpectedTrade when available', async () => {
     const expectedTrade = await openocean.estimateBuyTrade(
       USDC,
-      WAVAX,
-      BigNumber.from((10 ** WAVAX.decimals).toString())
+      DAI,
+      BigNumber.from((10 ** DAI.decimals).toString())
     );
     expect(expectedTrade).toHaveProperty('trade');
     expect(expectedTrade).toHaveProperty('expectedAmount');
@@ -75,8 +75,8 @@ describe('verify Openocean estimateBuyTrade', () => {
     await expect(async () => {
       await openocean.estimateBuyTrade(
         USDC,
-        bDAI,
-        BigNumber.from((10 ** bDAI.decimals).toString())
+        mooOneBIFI,
+        BigNumber.from((10 ** mooOneBIFI.decimals).toString())
       );
     }).rejects.toThrow(UniswapishPriceError);
   });

@@ -10,10 +10,16 @@
       "patternProperties": {
         "^\\w+$": {
           "type": "object",
-          "properties": {
-            "routerAddress": { "type": "string" }
+          "patternProperties": {
+            "^\\w+$": {
+              "type": "object",
+              "properties": {
+                "routerAddress": { "type": "string" }
+              },
+              "required": ["routerAddress"],
+              "additionalProperties": false
+            }
           },
-          "required": ["routerAddress"],
           "additionalProperties": false
         }
       },
