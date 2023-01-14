@@ -51,6 +51,35 @@ class TestOrderManager(aiounittest.AsyncTestCase):
 
     @patch("bxsolana.provider.GrpcProvider.get_orderbooks_stream")
     @patch("bxsolana.provider.GrpcProvider.get_orderbook")
+    async def test_apply_orderbook_update_with_empty_side(
+        self, orderbook_mock: AsyncMock, orderbook_stream_mock: AsyncMock
+    ):
+        provider = bxsolana.provider.GrpcProvider(auth_header="", private_key=test_private_key)
+
+        bids = orders([])
+        asks = orders([])
+        orderbook_mock.return_value = GetOrderbookResponse(
+            market="SOLUSDC",
+            market_address="SOL_USDC_Market",
+            bids=bids,
+            asks=asks,
+        )
+
+        ob_manager = BloxrouteOpenbookOrderManager(provider, ["SOLUSDC"], test_owner_address)
+        await ob_manager.start()
+        await asyncio.sleep(0.1)
+
+        ob = ob_manager.get_order_book("SOLUSDC")
+        self.assertListEqual(bids, ob.bids)
+        self.assertListEqual(asks, ob.asks)
+
+        self.assertEqual((0, 0), ob_manager.get_price_with_opportunity_size("SOLUSDC", True))
+        self.assertEqual((0, 0), ob_manager.get_price_with_opportunity_size("SOLUSDC", False))
+
+        await ob_manager.stop()
+
+    @patch("bxsolana.provider.GrpcProvider.get_orderbooks_stream")
+    @patch("bxsolana.provider.GrpcProvider.get_orderbook")
     async def test_apply_orderbook_update(self, orderbook_mock: AsyncMock, orderbook_stream_mock: AsyncMock):
         provider = bxsolana.provider.GrpcProvider(auth_header="", private_key=test_private_key)
 
