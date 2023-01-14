@@ -65,7 +65,7 @@ def tr(data):
 def atr(data, period):
     data['tr'] = tr(data)
     _atr = data['tr'].rolling(period).mean()
-
+    data.drop(columns=['previous_close', 'high-low', 'high-pc', 'low-pc', 'tr'])
     return _atr
 
 
@@ -113,24 +113,24 @@ class AutoRebalance(ScriptStrategyBase):
 
     # Set a list of coins configurations
     ut_coin_config = {
-        "BTC": Decimal('25.00'),
-        "ETH": Decimal('20.00'),
+        "BTC": Decimal('20.00'),
+        "ETH": Decimal('15.00'),
         "BNB": Decimal('15.00'),
-        "AVAX": Decimal('10.00'),
-        "MATIC": Decimal('10.00')
+        "AVAX": Decimal('15.00'),
+        "MATIC": Decimal('15.00')
     }
     dt_coin_config = {
-        "BTC": Decimal('20.00'),
+        "BTC": Decimal('10.00'),
         "ETH": Decimal('10.00'),
         "BNB": Decimal('10.00'),
-        "AVAX": Decimal('5.00'),
-        "MATIC": Decimal('5.00')
+        "AVAX": Decimal('10.00'),
+        "MATIC": Decimal('10.00')
     }
     coin_config = ut_coin_config  # Initialize coin_config
 
     # Set rebalance threshold
-    ut_threshold = Decimal('2.00')
-    dt_threshold = Decimal('1.00')
+    ut_threshold = Decimal('1.00')
+    dt_threshold = Decimal('0.50')
     threshold = dt_threshold  # Initialize threshold
 
     # Abstract coin name and Make coin list
@@ -146,17 +146,32 @@ class AutoRebalance(ScriptStrategyBase):
 
     # Set klines configuration
     last_data_ts = 0.
-    data_interval = 900  # Should be equal to interval
+    # Not binance only accept intervals >> 1m, 3m, 5m ,15m, 30m, 1h, 2h, 4h, 6h, 8h, 12h, 1d, 3d, 1w
     interval = "15m"
+    if "m" in interval:
+        data_interval = interval.replace("m", "")
+        data_interval = int(data_interval)
+        data_interval = data_interval * 60
+    elif "h" in interval:
+        data_interval = interval.replace("h", "")
+        data_interval = int(data_interval)
+        data_interval = data_interval * 60 * 60
+    elif "d" in interval:
+        data_interval = interval.replace("d", "")
+        data_interval = int(data_interval)
+        data_interval = data_interval * 60 * 60 * 24
+    elif "w" in interval:
+        data_interval = interval.replace("w", "")
+        data_interval = int(data_interval)
+        data_interval = data_interval * 60 * 60 * 24 * 7
+
     limit = 60  # Should be more than l_atr_period
 
     # Set long and short atr configuration
     s_atr_period = 13
     l_atr_period = 34
-    s_atr_list = []  # Placeholder
-    l_atr_list = []  # Placeholder
-    s_atr_mean = 0.  # Placeholder
-    l_atr_mean = 0.  # Placeholder
+    s_atr = 0.
+    l_atr = 0.
     is_volatile = True  # Initialize is_volatile
 
     # Set SuperTrend configuration
@@ -173,7 +188,7 @@ class AutoRebalance(ScriptStrategyBase):
     mm_mode = True
 
     # Set user define market making or not
-    udefine_mm = True
+    udefine_mm = False
 
     # Set market making threshold
     mm_threshold = Decimal('0.50')
@@ -191,33 +206,28 @@ class AutoRebalance(ScriptStrategyBase):
         if self.last_data_ts < (self.current_timestamp - self.data_interval):
             self.logger().info("Time to get new data !!!")
             df_all = pd.DataFrame()
+            kline_df = pd.DataFrame()
 
-            for coin in self.coins:
-                pair = coin + "-" + self.hold_asset
-                all_df = get_klines(pair, self.interval, self.limit)
+            for pair in self.pairs:
+                kline_df = get_klines(pair, self.interval, self.limit)
 
-                # ATR indicator
-                # Calculate long and short ATR
-                all_df['s_atr'] = atr(all_df, self.s_atr_period)
-                s_atr = all_df.iloc[-1]['s_atr']
-                self.s_atr_list.append(s_atr)
-                all_df['l_atr'] = atr(all_df, self.l_atr_period)
-                l_atr = all_df.iloc[-1]['l_atr']
-                self.l_atr_list.append(l_atr)
+                #  Blend all coins data as a index
+                df = kline_df.select_dtypes(exclude=["datetime"])
+                df_all = df_all.add(df, fill_value=0)
+                kline_df[df.columns] = df.add(df_all)
 
-                # Prepare df for supertrend
-                s_df = all_df.select_dtypes(exclude=["datetime"])
-                df_all = df_all.add(s_df, fill_value=0)
-                all_df[s_df.columns] = s_df.add(df_all)
-                self._supertrend = supertrend(all_df, self.trend_atr_period, self.atr_mult)
-
-            s_atr_sum = sum(self.s_atr_list)
-            self.s_atr_mean = s_atr_sum / len(self.s_atr_list)
-            l_atr_sum = sum(self.l_atr_list)
-            self.l_atr_mean = l_atr_sum / len(self.l_atr_list)
-            self.is_volatile = bool(self.s_atr_mean > self.l_atr_mean)
+            # Volatility indicator
+            kline_df['s_atr'] = atr(kline_df, self.s_atr_period)
+            self.s_atr = kline_df.iloc[-1]['s_atr']
+            kline_df = kline_df.drop(columns=['previous_close', 'high-low', 'high-pc', 'low-pc', 'tr'])
+            kline_df['l_atr'] = atr(kline_df, self.l_atr_period)
+            self.l_atr = kline_df.iloc[-1]['l_atr']
+            kline_df = kline_df.drop(columns=['previous_close', 'high-low', 'high-pc', 'low-pc', 'tr'])
+            self.is_volatile = bool(self.s_atr > self.l_atr)
 
             # SuperTrend indicator
+            self._supertrend = supertrend(kline_df, self.trend_atr_period, self.atr_mult)
+            self._supertrend = self._supertrend.drop(columns=['high-low', 'high-pc', 'low-pc', 'tr'])
             self.upperband = self._supertrend.iloc[-1]['upperband']
             self.lowerband = self._supertrend.iloc[-1]['lowerband']
             self.preclose = self._supertrend.iloc[-1]['previous_close']
@@ -483,8 +493,8 @@ class AutoRebalance(ScriptStrategyBase):
         lines.extend(["", "  Trend Info:\n"])
         lines.extend([f" | ATR Short period: {np.round(self.s_atr_period, 4)}     |" +
                       f" ATR Long period: {np.round(self.l_atr_period, 4)}     |"])
-        lines.extend([f" | Short period ATR: {np.round(self.s_atr_mean, 4)} |" +
-                      f" Long period ATR: {np.round(self.l_atr_mean, 4)} |" + f" Is volatile: {self.is_volatile} |\n"] +
+        lines.extend([f" | Short period ATR: {np.round(self.s_atr, 4)} |" +
+                      f" Long period ATR: {np.round(self.l_atr, 4)} |" + f" Is volatile: {self.is_volatile} |\n"] +
                      [f" | SuperTrend ATR period: {self.trend_atr_period} |" +
                       f" SuperTrend ATR multiplier: {self.atr_mult} |"] +
                      [f" | SuperTrend is Uptrend ? {self.is_uptrend}     |"] +
