@@ -3,8 +3,8 @@ from asyncio import Task
 from time import time
 from typing import Dict, List, Optional
 
-from bxsolana.provider import Provider, WsProvider
-from bxsolana_trader_proto.api import GetOrderbookResponse, GetOrderStatusStreamResponse, OrderbookItem, OrderStatus
+from bxsolana.provider import Provider
+from bxsolana_trader_proto.api import GetOrderStatusStreamResponse, GetOrderbookResponse, OrderStatus, OrderbookItem
 
 from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_constants import OPENBOOK_PROJECT
 
@@ -93,6 +93,7 @@ class BloxrouteOpenbookOrderManager:
             self._is_ready = True
 
     async def stop(self):
+        await self._provider.close()
         if self._orderbook_polling_task is not None:
             self._orderbook_polling_task.cancel()
             self._orderbook_polling_task = None
@@ -102,14 +103,11 @@ class BloxrouteOpenbookOrderManager:
         if self._order_status_polling_task is not None:
             self._order_status_polling_task.cancel()
             self._order_status_polling_task = None
-        await self._provider.close()
 
     async def _initialize_order_books(self):
         await self._provider.connect()
         for trading_pair in self._trading_pairs:
-            orderbook: GetOrderbookResponse = await self._provider.get_orderbook(
-                market=trading_pair, limit=5, project=OPENBOOK_PROJECT
-            )
+            orderbook = await self._provider.get_orderbook(market=trading_pair, limit=5, project=OPENBOOK_PROJECT)
             self._apply_order_book_update(orderbook)
 
     async def _initialize_order_status_streams(self):
@@ -121,10 +119,11 @@ class BloxrouteOpenbookOrderManager:
 
     async def _initialize_order_status_stream(self, trading_pair: str):
         await self._provider.connect()
-        async for os_update in self._provider.get_order_status_stream(
+        order_status_stream = self._provider.get_order_status_stream(
             market=trading_pair, owner_address=self._owner_address, project=OPENBOOK_PROJECT
-        ):
-            self._order_status_updates.put_nowait(os_update)
+        )
+        async for order_status_update in order_status_stream:
+            self._order_status_updates.put_nowait(order_status_update)
 
     async def _poll_order_book_updates(self):
         await self._provider.connect()
@@ -147,8 +146,8 @@ class BloxrouteOpenbookOrderManager:
     def _apply_order_book_update(self, update: GetOrderbookResponse):
         normalized_trading_pair = normalize_trading_pair(update.market)
 
-        best_ask = update.asks[0]
-        best_bid = update.bids[-1]
+        best_ask = update.asks[0] if update.asks else OrderbookItem(price=0, size=0)
+        best_bid = update.bids[-1] if update.bids else OrderbookItem(price=0, size=0)
 
         best_ask_price = best_ask.price
         best_ask_size = best_ask.size
@@ -171,9 +170,11 @@ class BloxrouteOpenbookOrderManager:
 
     def _apply_order_status_update(self, market: str, client_order_i_d: int, order_status: OrderStatus):
         normalized_trading_pair = normalize_trading_pair(market)
-        self._markets_to_order_statuses.update(
-            {normalized_trading_pair: {client_order_i_d: OrderStatusInfo(order_status=order_status, timestamp=time())}}
-        )
+        if normalized_trading_pair not in self._markets_to_order_statuses:
+            raise Exception(f"order manager does not support updates for ${normalized_trading_pair}")
+
+        order_statuses = self._markets_to_order_statuses[normalized_trading_pair]
+        order_statuses.update({client_order_i_d: OrderStatusInfo(order_status=order_status, timestamp=time())})
 
     def get_order_book(self, trading_pair: str) -> Orderbook:
         normalized_trading_pair = normalize_trading_pair(trading_pair)
