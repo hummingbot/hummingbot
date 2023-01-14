@@ -198,7 +198,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         :return a list of OrderType supported by this connector.
         Note that Market order type is no longer required and will not be used.
         """
-        return [OrderType.LIMIT, OrderType.MARKET]
+        return [OrderType.LIMIT]
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         raise Exception("not yet implemented")
@@ -262,13 +262,13 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
 
         # this is temporarily hard coded to a single solana wallet
 
-        base_addr = CONSTANTS.TOKENPAIRTOWALLETADDR[base]
-        quote_addr = CONSTANTS.TOKENPAIRTOWALLETADDR[quote]
-        payer_addr = base_addr if trade_type == TradeType.SELL else quote_addr
+        base_addr = CONSTANTS.TOKEN_PAIR_TO_WALLET_ADDR[base]
+        quote_addr = CONSTANTS.TOKEN_PAIR_TO_WALLET_ADDR[quote]
+        payer_address = base_addr if side == api.Side.S_ASK else quote_addr
 
         submit_order_response = await self._provider_1.submit_order(
             owner_address=self._sol_wallet_public_key,
-            payer_address=payer_addr,
+            payer_address=payer_address,
             market=trading_pair,
             side=side,
             types=[type],
@@ -307,8 +307,8 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
 
             quantity_precision = market.base_decimals
             price_precision = market.quote_decimals
-            min_order_size = Decimal(str(10**-quantity_precision))
-            min_quote_amount = Decimal(str(10**-price_precision))
+            min_order_size = Decimal(str(10 ** -quantity_precision))
+            min_quote_amount = Decimal(str(10 ** -price_precision))
             trading_rules.append(
                 TradingRule(
                     trading_pair=trading_pair,
