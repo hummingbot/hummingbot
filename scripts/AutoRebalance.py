@@ -65,7 +65,7 @@ def tr(data):
 def atr(data, period):
     data['tr'] = tr(data)
     _atr = data['tr'].rolling(period).mean()
-    data.drop(columns=['previous_close', 'high-low', 'high-pc', 'low-pc', 'tr'])
+
     return _atr
 
 
