@@ -245,10 +245,10 @@ class WhitebitExchange(ExchangePyBase):
                 self.logger().exception("Unexpected error in user stream listener loop.")
                 await self._sleep(5.0)
 
-    async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
+    async def _format_trading_rules(self, exchange_info: List[Any]) -> List[TradingRule]:
         trading_rules = []
 
-        for info in exchange_info_dict.get("result", []):
+        for info in exchange_info:
             try:
                 if utils.is_exchange_information_valid(exchange_info=info):
                     trading_rules.append(
@@ -420,9 +420,9 @@ class WhitebitExchange(ExchangePyBase):
             auth=self._auth, trading_pairs=self._trading_pairs, connector=self, api_factory=self._web_assistants_factory
         )
 
-    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
+    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: List[Any]):
         mapping = bidict()
-        for symbol_data in filter(utils.is_exchange_information_valid, exchange_info["result"]):
+        for symbol_data in filter(utils.is_exchange_information_valid, exchange_info):
             mapping[symbol_data["name"]] = combine_to_hb_trading_pair(
                 base=symbol_data["stock"], quote=symbol_data["money"]
             )

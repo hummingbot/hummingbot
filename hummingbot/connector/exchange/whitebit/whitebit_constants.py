@@ -10,7 +10,7 @@ WHITEBIT_BASE_URL = "https://whitebit.com/"
 # Public Endpoints
 WHITEBIT_SERVER_STATUS_PATH = "api/v4/public/ping"
 WHITEBIT_SERVER_TIME_PATH = "api/v4/public/time"
-WHITEBIT_INSTRUMENTS_PATH = "api/v2/public/markets"
+WHITEBIT_INSTRUMENTS_PATH = "api/v4/public/markets"
 WHITEBIT_TICKER_PATH = "api/v4/public/ticker"
 WHITEBIT_ORDER_BOOK_PATH = "api/v4/public/orderbook"
 
