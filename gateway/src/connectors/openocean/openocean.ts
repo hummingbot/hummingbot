@@ -90,8 +90,9 @@ export class Openocean implements Uniswapish {
       return Polygon.getInstance(network);
     } else if (this._chain === 'harmony') {
       return Harmony.getInstance(network);
+    } else {
+      throw new Error('unsupported chain');
     }
-    return Avalanche.getInstance(network);
   }
 
   /**

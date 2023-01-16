@@ -16,7 +16,7 @@ export namespace OpenoceanConfig {
       'openocean.allowedSlippage'
     ),
     gasLimitEstimate: ConfigManagerV2.getInstance().get(
-      `polygon.gasLimitEstimate`
+      `openocean.gasLimitEstimate`
     ),
     ttl: ConfigManagerV2.getInstance().get('openocean.ttl'),
     routerAddress: (chain: string, network: string) =>
