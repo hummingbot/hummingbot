@@ -275,8 +275,9 @@ class ExchangePyBase(ExchangeBase, ABC):
         Includes the logic that has to be processed every time a new tick happens in the bot. Particularly it enables
         the execution of the status update polling loop using an event.
         """
-        last_user_stream_message_time = (0 if self._user_stream_tracker is None
-                                         else self._user_stream_tracker.last_recv_time)
+        last_user_stream_message_time = (
+            0 if self._user_stream_tracker is None else self._user_stream_tracker.last_recv_time
+        )
         last_recv_diff = timestamp - last_user_stream_message_time
         poll_interval = (self.SHORT_POLL_INTERVAL
                          if last_recv_diff > self.TICK_INTERVAL_LIMIT
@@ -862,9 +863,11 @@ class ExchangePyBase(ExchangeBase, ABC):
                 self.logger().exception("Error while reading user events queue. Retrying in 1s.")
                 await self._sleep(1.0)
 
+    def _is_user_stream_initialized(self):
+        return self._user_stream_tracker.data_source.last_recv_time > 0 or not self.is_trading_required
+
     def _create_user_stream_tracker(self):
-        return UserStreamTracker(
-            data_source=self._create_user_stream_data_source())
+        return UserStreamTracker(data_source=self._create_user_stream_data_source())
 
     def _create_user_stream_tracker_task(self):
         return safe_ensure_future(self._user_stream_tracker.start())
@@ -1082,6 +1085,3 @@ class ExchangePyBase(ExchangeBase, ABC):
     async def _make_trading_pairs_request(self) -> Any:
         exchange_info = await self._api_get(path_url=self.trading_pairs_request_path)
         return exchange_info
-
-    def _is_user_stream_initialized(self):
-        return (self._user_stream_tracker.data_source.last_recv_time > 0 or not self.is_trading_required)
