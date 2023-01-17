@@ -158,7 +158,6 @@ class MQTTCommands:
             if msg.async_backend:
                 self._hb_app.start(
                     log_level=msg.log_level,
-                    restore=msg.restore,
                     script=msg.script,
                     is_quickstart=msg.is_quickstart
                 )

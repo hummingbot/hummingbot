@@ -31,7 +31,6 @@ class LogMessage(PubSubMessage):
 class StartCommandMessage(RPCMessage):
     class Request(RPCMessage.Request):
         log_level: Optional[str] = None
-        restore: Optional[bool] = False
         script: Optional[str] = None
         is_quickstart: Optional[bool] = False
         async_backend: Optional[bool] = True
