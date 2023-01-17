@@ -3,6 +3,7 @@ import express from 'express';
 import { Request, Response, NextFunction } from 'express';
 import { ConfigRoutes } from './services/config/config.routes';
 import { SolanaRoutes } from './chains/solana/solana.routes';
+import { CosmosRoutes } from './chains/cosmos/cosmos.routes';
 import { WalletRoutes } from './services/wallet/wallet.routes';
 import { logger } from './services/logger';
 import { addHttps } from './https';
@@ -32,6 +33,7 @@ import { SerumRoutes } from './connectors/serum/serum.routes';
 import { SushiswapConfig } from './connectors/sushiswap/sushiswap.config';
 import { DefikingdomsConfig } from './connectors/defikingdoms/defikingdoms.config';
 import { SerumConfig } from './connectors/serum/serum.config';
+import { PancakeSwapConfig } from './connectors/pancakeswap/pancakeswap.config';
 
 import swaggerUi from 'swagger-ui-express';
 import { NearRoutes } from './chains/near/near.routes';
@@ -69,6 +71,7 @@ gatewayApp.use('/clob', ClobRoutes.router);
 gatewayApp.use('/wallet', WalletRoutes.router);
 gatewayApp.use('/solana', SolanaRoutes.router);
 gatewayApp.use('/serum', SerumRoutes.router);
+gatewayApp.use('/cosmos', CosmosRoutes.router);
 gatewayApp.use('/near', NearRoutes.router);
 
 // a simple route to test that the server is running
@@ -94,6 +97,7 @@ gatewayApp.get(
       serum: SerumConfig.config.availableNetworks,
       mad_meerkat: MadMeerkatConfig.config.availableNetworks,
       vvs: VVSConfig.config.availableNetworks,
+      pancakeswap: PancakeSwapConfig.config.availableNetworks,
     });
   })
 );
@@ -137,6 +141,7 @@ export const swaggerDocument = SwaggerManager.generateSwaggerJson(
     './docs/swagger/near-routes.yml',
     './docs/swagger/clob-routes.yml',
     './docs/swagger/serum-routes.yml',
+    './docs/swagger/cosmos-routes.yml',
   ]
 );
 

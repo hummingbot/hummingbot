@@ -2,8 +2,5 @@
   "chain": "solana",
   "network": "mainnet-beta",
   "connector": "serum",
-  "names": [
-    "SOL/USDT",
-    "SOL/USDC"
-  ]
+  "names": ["SOL/USDT", "SOL/USDC"]
 }

@@ -8,6 +8,7 @@ import {
   ethers,
 } from 'ethers';
 import { EthereumBase } from './ethereum-base';
+import { CosmosBase } from './cosmos-base';
 import { Provider } from '@ethersproject/abstract-provider';
 import { CurrencyAmount, Token, Trade as TradeUniswap } from '@uniswap/sdk';
 import { Trade } from '@uniswap/router-sdk';
@@ -79,6 +80,12 @@ import {
   SwapParameters as VVSSwapParameters,
 } from 'vvs-sdk';
 import { Trade as DefiraTrade } from '@zuzu-cat/defira-sdk';
+import {
+  Token as PancakeSwapToken,
+  CurrencyAmount as PancakeSwapCurrencyAmount,
+  Trade as PancakeSwapTrade,
+  Fraction as PancakeSwapFraction,
+} from '@pancakeswap/sdk';
 import { PerpPosition } from '../connectors/perp/perp';
 import { NearBase } from '../chains/near/near.base';
 import { Account, Contract as NearContract } from 'near-api-js';
@@ -96,6 +103,7 @@ export type Tokenish =
   | UniswapCoreToken
   | SushiToken
   | TokenDefikingdoms
+  | PancakeSwapToken
   | MMFToken
   | VVSToken;
 
@@ -118,6 +126,7 @@ export type UniswapishTrade =
   | TradeUniswap
   | TradeDefikingdoms
   | DefiraTrade<UniswapCoreToken, UniswapCoreToken, TradeType>
+  | PancakeSwapTrade
   | MMFTrade
   | VVSTrade;
 
@@ -137,6 +146,7 @@ export type UniswapishAmount =
   | CurrencyAmountTraderjoe
   | SushiCurrencyAmount<SushiCurrency | SushiToken>
   | CurrencyAmountDefikingdoms
+  | PancakeSwapCurrencyAmount
   | CurrencyAmountMMF
   | CurrencyAmountVVS;
 
@@ -147,6 +157,7 @@ export type Fractionish =
   | TraderjoeFraction
   | SushiFraction
   | DefikingdomsFraction
+  | PancakeSwapFraction
   | FractionMMF
   | FractionVVS;
 
@@ -610,6 +621,11 @@ export interface Ethereumish extends BasicChainMethods, EthereumBase {
 export interface Nearish extends BasicChainMethods, NearBase {
   cancelTx(account: Account, nonce: number): Promise<string>;
   getContract(tokenAddress: string, account: Account): NearContract;
+}
+export interface Cosmosish extends CosmosBase {
+  gasPrice: number;
+  nativeTokenSymbol: string;
+  chain: string;
 }
 
 export interface NetworkSelectionRequest {
