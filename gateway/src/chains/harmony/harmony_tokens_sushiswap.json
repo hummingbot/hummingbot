@@ -16,9 +16,7 @@
       "name": "Ambertaffy",
       "decimals": 0,
       "logoURI": "https://dfk-hv.b-cdn.net/art-assets/items/ambertaffy.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -27,9 +25,7 @@
       "name": "Anti-blinding Potion",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/blindness-potion.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -38,9 +34,7 @@
       "name": "Anti-poison Potion",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/antipoison-potion.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -49,9 +43,7 @@
       "name": "Atonement Crystal",
       "decimals": 0,
       "logoURI": "https://dfk-hv.b-cdn.net/art-assets/items/atonement-crystal-greater.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -60,9 +52,7 @@
       "name": "Bloater",
       "decimals": 0,
       "logoURI": "https://dfk-hv.b-cdn.net/art-assets/items/bloater.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -71,9 +61,7 @@
       "name": "Blue Pet Egg",
       "decimals": 0,
       "logoURI": "https://dfk-hv.b-cdn.net/art-assets/items/pet-egg-blue.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -82,9 +70,7 @@
       "name": "Blue Stem",
       "decimals": 0,
       "logoURI": "https://dfk-hv.b-cdn.net/art-assets/items/bluestem.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -93,9 +79,7 @@
       "name": "Darkweed",
       "decimals": 0,
       "logoURI": "https://dfk-hv.b-cdn.net/art-assets/items/darkweed.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -104,9 +88,7 @@
       "name": "Full Health",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/health-potion-large.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -115,9 +97,7 @@
       "name": "Full Mana Potion",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/mana-potion-large.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -126,9 +106,7 @@
       "name": "Greater Atonement Crystal",
       "decimals": 0,
       "logoURI": "https://dfk-hv.b-cdn.net/art-assets/items/atonement-crystal-greater.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -137,9 +115,7 @@
       "name": "Goldvein",
       "decimals": 0,
       "logoURI": "https://dfk-hv.b-cdn.net/art-assets/items/goldvein.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -148,9 +124,7 @@
       "name": "Gold",
       "decimals": 3,
       "logoURI": "https://dfk-hv.b-cdn.net/art-assets/items/gold-bag.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -159,9 +133,7 @@
       "name": "Golden Egg",
       "decimals": 0,
       "logoURI": "https://dfk-hv.b-cdn.net/art-assets/items/pet-egg-golden.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -170,9 +142,7 @@
       "name": "Green Pet Egg",
       "decimals": 0,
       "logoURI": "https://dfk-hv.b-cdn.net/art-assets/items/pet-egg-green.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -181,9 +151,7 @@
       "name": "Grey Pet Egg",
       "decimals": 0,
       "logoURI": "https://dfk-hv.b-cdn.net/art-assets/items/pet-egg-grey.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -192,9 +160,7 @@
       "name": "Health",
       "decimals": 0,
       "logoURI": "https://dfk-hv.b-cdn.net/art-assets/items/health-potion.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -203,9 +169,7 @@
       "name": "Ironscale",
       "decimals": 0,
       "logoURI": "https://dfk-hv.b-cdn.net/art-assets/items/ironscale.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -214,9 +178,7 @@
       "name": "Lantern-Eye",
       "decimals": 0,
       "logoURI": "https://dfk-hv.b-cdn.net/art-assets/items/lanterneye.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -225,9 +187,7 @@
       "name": "Lesser Atonement Crystal",
       "decimals": 0,
       "logoURI": "https://dfk-hv.b-cdn.net/art-assets/items/atonement-crystal-lesser.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -236,9 +196,7 @@
       "name": "Magic Resistance Potion",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/magic-resist-potion.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -247,9 +205,7 @@
       "name": "Milk Weed",
       "decimals": 0,
       "logoURI": "https://dfk-hv.b-cdn.net/art-assets/items/milkweed.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -258,9 +214,7 @@
       "name": "Mana Vial",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/mana-potion.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -269,9 +223,7 @@
       "name": "Rockroot",
       "decimals": 0,
       "logoURI": "https://dfk-hv.b-cdn.net/art-assets/items/rockroot.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -280,9 +232,7 @@
       "name": "Redleaf",
       "decimals": 0,
       "logoURI": "https://dfk-hv.b-cdn.net/art-assets/items/redleaf.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -291,9 +241,7 @@
       "name": "Redgill",
       "decimals": 0,
       "logoURI": "https://dfk-hv.b-cdn.net/art-assets/items/redgill.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -302,9 +250,7 @@
       "name": "Ragweed",
       "decimals": 0,
       "logoURI": "https://dfk-hv.b-cdn.net/art-assets/items/ragweed.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -313,9 +259,7 @@
       "name": "Sailfish",
       "decimals": 0,
       "logoURI": "https://dfk-hv.b-cdn.net/art-assets/items/sailfish.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -324,9 +268,7 @@
       "name": "ShimmerSkin",
       "decimals": 0,
       "logoURI": "https://dfk-hv.b-cdn.net/art-assets/items/shimmerskin.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -335,9 +277,7 @@
       "name": "Shvas Rune",
       "decimals": 0,
       "logoURI": "https://dfk-hv.b-cdn.net/art-assets/items/shvas-rune.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -346,9 +286,7 @@
       "name": "Silverfin",
       "decimals": 0,
       "logoURI": "https://dfk-hv.b-cdn.net/art-assets/items/silverfin.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -357,9 +295,7 @@
       "name": "Spider Fruit",
       "decimals": 0,
       "logoURI": "https://dfk-hv.b-cdn.net/art-assets/items/spider-fruit.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -368,9 +304,7 @@
       "name": "Stamina Vial",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/stamina-potion.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -379,9 +313,7 @@
       "name": "Swift-Thistle",
       "decimals": 0,
       "logoURI": "https://dfk-hv.b-cdn.net/art-assets/items/swift-thistle.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -390,9 +322,7 @@
       "name": "Swiftness Potion",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/swiftness-potion.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -401,9 +331,7 @@
       "name": "Gaia's Tears",
       "decimals": 0,
       "logoURI": "https://dfk-hv.b-cdn.net/art-assets/items/gaias-tear.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -412,9 +340,7 @@
       "name": "Toughness Potion",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/toughness-potion.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -423,9 +349,7 @@
       "name": "Yellow Pet Egg",
       "decimals": 0,
       "logoURI": "https://dfk-hv.b-cdn.net/art-assets/items/pet-egg-yellow.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -434,9 +358,7 @@
       "name": "Jewel",
       "decimals": 18,
       "logoURI": "https://beta.defikingdoms.com/static/media/jewel-logo.88468185.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -445,9 +367,7 @@
       "name": "Moksha Rune",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/moksha-rune.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -456,9 +376,7 @@
       "name": "Chaos Crystal",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/chaos-crystal.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -467,9 +385,7 @@
       "name": "Lesser Chaos Crystal",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/chaos-crystal-lesser.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -478,9 +394,7 @@
       "name": "Chaos Stone",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/chaos-stone.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -489,9 +403,7 @@
       "name": "Lesser Chaos Stone",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/chaos-stone-lesser.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -500,9 +412,7 @@
       "name": "Finesse Crystal",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/finesse-crystal.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -511,9 +421,7 @@
       "name": "Lesser Finesse Crystal",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/finesse-crystal-lesser.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -522,9 +430,7 @@
       "name": "Finesse Stone",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/finesse-stone.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -533,9 +439,7 @@
       "name": "Lesser Finesse Stone",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/finesse-stone-lesser.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -544,9 +448,7 @@
       "name": "Fortitude Crystal",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/fortitude-crystal.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -555,9 +457,7 @@
       "name": "Lesser Fortitude Crystal",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/fortitude-crystal-lesser.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -566,9 +466,7 @@
       "name": "Fortitude Stone",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/fortitude-stone.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -577,9 +475,7 @@
       "name": "Lesser Fortitude Stone",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/fortitude-stone-lesser.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -588,9 +484,7 @@
       "name": "Fortune Crystal",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/fortune-crystal.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -599,9 +493,7 @@
       "name": "Lesser Fortune Crystal",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/fortune-crystal-lesser.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -610,9 +502,7 @@
       "name": "Fortune Stone",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/fortune-stone.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -621,9 +511,7 @@
       "name": "Lesser Fortune Stone",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/fortune-stone-lesser.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -632,9 +520,7 @@
       "name": "Insight Crystal",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/insight-crystal.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -643,9 +529,7 @@
       "name": "Lesser Insight Crystal",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/insight-crystal-lesser.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -654,9 +538,7 @@
       "name": "Insight Stone",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/insight-stone.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -665,9 +547,7 @@
       "name": "Lesser Insight Stone",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/insight-stone-lesser.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -676,9 +556,7 @@
       "name": "Might Crystal",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/might-crystal.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -687,9 +565,7 @@
       "name": "Lesser Might Crystal",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/might-crystal-lesser.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -698,9 +574,7 @@
       "name": "Might Stone",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/might-stone.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -709,9 +583,7 @@
       "name": "Lesser Might Stone",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/might-stone-lesser.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -720,9 +592,7 @@
       "name": "Swiftness Crystal",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/swiftness-crystal.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -731,9 +601,7 @@
       "name": "Lesser Swiftness Crystal",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/swiftness-crystal-lesser.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -742,9 +610,7 @@
       "name": "Swiftness Stone",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/swiftness-stone.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -753,9 +619,7 @@
       "name": "Lesser Swiftness Stone",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/swiftness-stone-lesser.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -764,9 +628,7 @@
       "name": "Vigor Crystal",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/vigor-crystal.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -775,9 +637,7 @@
       "name": "Lesser Vigor Crystal",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/vigor-crystal-lesser.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -786,9 +646,7 @@
       "name": "Vigor Stone",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/vigor-stone.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -797,9 +655,7 @@
       "name": "Lesser Vigor Stone",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/vigor-stone-lesser.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -808,9 +664,7 @@
       "name": "Wit Crystal",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/wit-crystal.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -819,9 +673,7 @@
       "name": "Lesser Wit Crystal",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/wit-crystal-lesser.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -830,9 +682,7 @@
       "name": "Wit Stone",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/wit-stone.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -841,9 +691,7 @@
       "name": "Lesser Wit Stone",
       "decimals": 0,
       "logoURI": "https://defi-kingdoms.b-cdn.net/art-assets/items/wit-stone-lesser.gif",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -852,9 +700,7 @@
       "name": "xJewels",
       "decimals": 18,
       "logoURI": "https://beta.defikingdoms.com/static/media/jewel-logo.88468185.png",
-      "tags": [
-        "harmony"
-      ]
+      "tags": ["harmony"]
     },
     {
       "chainId": 1666600000,
@@ -1202,4 +1048,3 @@
     }
   ]
 }
-

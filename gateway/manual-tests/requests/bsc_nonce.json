@@ -1,0 +1,5 @@
+{
+  "chain": "binance-smart-chain",
+  "network": "testnet",
+  "address": "$BSC_ADDRESS"
+}

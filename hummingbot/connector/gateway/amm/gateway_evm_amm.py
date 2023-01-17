@@ -68,7 +68,7 @@ class GatewayEVMAMM(ConnectorBase):
     _chain_info: Dict[str, Any]
     _status_polling_task: Optional[asyncio.Task]
     _get_chain_info_task: Optional[asyncio.Task]
-    _auto_approve_task: Optional[asyncio.Task]
+    _update_allowances: Optional[asyncio.Task]
     _poll_notifier: Optional[asyncio.Event]
     _native_currency: str
     _amount_quantum_dict: Dict[str, Decimal]
@@ -109,7 +109,6 @@ class GatewayEVMAMM(ConnectorBase):
         self._chain_info = {}
         self._status_polling_task = None
         self._get_chain_info_task = None
-        self._auto_approve_task = None
         self._get_gas_estimate_task = None
         self._poll_notifier = None
         self._native_currency = None
@@ -290,16 +289,6 @@ class GatewayEVMAMM(ConnectorBase):
                 app_warning_msg=str(e)
             )
 
-    async def auto_approve(self):
-        """
-        Automatically approves trading pair tokens for contract(s).
-        It first checks if there are any already approved amount (allowance)
-        """
-        await self.update_allowances()
-        for token, amount in self._allowances.items():
-            if amount <= s_decimal_0 and not self.is_pending_approval(token):
-                await self.approve_token(token)
-
     async def approve_token(self, token_symbol: str, **request_args) -> Optional[EVMInFlightOrder]:
         """
         Approves contract as a spender for a token.
@@ -307,7 +296,7 @@ class GatewayEVMAMM(ConnectorBase):
         """
         approval_id: str = self.create_approval_order_id(token_symbol)
 
-        self.logger().info(f"Innitiating approval for {token_symbol}.")
+        self.logger().info(f"Initiating approval for {token_symbol}.")
 
         self.start_tracking_order(order_id=approval_id,
                                   trading_pair=token_symbol,
@@ -360,6 +349,58 @@ class GatewayEVMAMM(ConnectorBase):
             ret_val[token] = Decimal(str(amount))
         return ret_val
 
+    def parse_price_response(
+        self,
+        base: str,
+        quote: str,
+        amount: Decimal,
+        side: TradeType,
+        price_response: Dict[str, Any],
+        process_exception: bool = True
+    ) -> Optional[Decimal]:
+        """
+        Parses price response
+        :param base: The base asset
+        :param quote: The quote asset
+        :param amount: amount
+        :param side: trade side
+        :param price_response: Price response from Gateway.
+        :param process_exception: Flag to trigger error on exception
+        """
+        required_items = ["price", "gasLimit", "gasPrice", "gasCost", "gasPriceToken"]
+        if any(item not in price_response.keys() for item in required_items):
+            if "info" in price_response.keys():
+                self.logger().info(f"Unable to get price. {price_response['info']}")
+            else:
+                self.logger().info(f"Missing data from price result. Incomplete return result for ({price_response.keys()})")
+        else:
+            gas_price_token: str = price_response["gasPriceToken"]
+            gas_cost: Decimal = Decimal(price_response["gasCost"])
+            price: Decimal = Decimal(price_response["price"])
+            self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
+            if process_exception is True:
+                gas_limit: int = int(price_response["gasLimit"])
+                exceptions: List[str] = check_transaction_exceptions(
+                    allowances=self._allowances,
+                    balances=self._account_balances,
+                    base_asset=base,
+                    quote_asset=quote,
+                    amount=amount,
+                    side=side,
+                    gas_limit=gas_limit,
+                    gas_cost=gas_cost,
+                    gas_asset=gas_price_token,
+                    swaps_count=len(price_response.get("swaps", []))
+                )
+                for index in range(len(exceptions)):
+                    self.logger().warning(
+                        f"Warning! [{index + 1}/{len(exceptions)}] {side} order - {exceptions[index]}"
+                    )
+                if len(exceptions) > 0:
+                    return None
+            return Decimal(str(price))
+        return None
+
     @async_ttl_cache(ttl=5, maxsize=10)
     async def get_quote_price(
             self,
@@ -411,40 +452,7 @@ class GatewayEVMAMM(ConnectorBase):
             resp: Dict[str, Any] = await self._get_gateway_instance().get_price(
                 self.chain, self.network, self.connector_name, base, quote, amount, side
             )
-            required_items = ["price", "gasLimit", "gasPrice", "gasCost", "gasPriceToken"]
-            if any(item not in resp.keys() for item in required_items):
-                if "info" in resp.keys():
-                    self.logger().info(f"Unable to get price. {resp['info']}")
-                else:
-                    self.logger().info(f"Missing data from price result. Incomplete return result for ({resp.keys()})")
-            else:
-                gas_limit: int = int(resp["gasLimit"])
-                gas_price_token: str = resp["gasPriceToken"]
-                gas_cost: Decimal = Decimal(resp["gasCost"])
-                price: Decimal = Decimal(resp["price"])
-                self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
-                exceptions: List[str] = check_transaction_exceptions(
-                    allowances=self._allowances,
-                    balances=self._account_balances,
-                    base_asset=base,
-                    quote_asset=quote,
-                    amount=amount,
-                    side=side,
-                    gas_limit=gas_limit,
-                    gas_cost=gas_cost,
-                    gas_asset=gas_price_token,
-                    swaps_count=len(resp.get("swaps", []))
-                )
-                for index in range(len(exceptions)):
-                    self.logger().warning(
-                        f"Warning! [{index + 1}/{len(exceptions)}] {side} order - {exceptions[index]}"
-                    )
-
-                if price is not None and len(exceptions) == 0:
-                    return Decimal(str(price))
-
-            # Didn't pass all the checks - no price available.
-            return None
+            return self.parse_price_response(base, quote, amount, side, price_response=resp)
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -734,6 +742,25 @@ class GatewayEVMAMM(ConnectorBase):
                                                f"{self.connector_name} has been canceled.")
                             self.stop_tracking_order(tracked_order.client_order_id)
 
+    def processs_trade_fill_update(self, tracked_order: EVMInFlightOrder, fee: Decimal):
+        trade_fee: TradeFeeBase = AddedToCostTradeFee(
+            flat_fees=[TokenAmount(tracked_order.fee_asset, fee)]
+        )
+
+        trade_update: TradeUpdate = TradeUpdate(
+            trade_id=tracked_order.exchange_order_id,
+            client_order_id=tracked_order.client_order_id,
+            exchange_order_id=tracked_order.exchange_order_id,
+            trading_pair=tracked_order.trading_pair,
+            fill_timestamp=self.current_timestamp,
+            fill_price=tracked_order.price,
+            fill_base_amount=tracked_order.amount,
+            fill_quote_amount=tracked_order.amount * tracked_order.price,
+            fee=trade_fee
+        )
+
+        self._order_tracker.process_trade_update(trade_update)
+
     async def update_order_status(self, tracked_orders: List[EVMInFlightOrder]):
         """
         Calls REST API to get status update for each in-flight amm orders.
@@ -772,22 +799,7 @@ class GatewayEVMAMM(ConnectorBase):
                 gas_price: Decimal = tracked_order.gas_price
                 fee: Decimal = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e9))
 
-                trade_fee: TradeFeeBase = AddedToCostTradeFee(
-                    flat_fees=[TokenAmount(tracked_order.fee_asset, Decimal(str(fee)))]
-                )
-                trade_update: TradeUpdate = TradeUpdate(
-                    trade_id=tracked_order.exchange_order_id,
-                    client_order_id=tracked_order.client_order_id,
-                    exchange_order_id=tracked_order.exchange_order_id,
-                    trading_pair=tracked_order.trading_pair,
-                    fill_timestamp=self.current_timestamp,
-                    fill_price=tracked_order.price,
-                    fill_base_amount=tracked_order.amount,
-                    fill_quote_amount=tracked_order.amount * tracked_order.price,
-                    fee=trade_fee
-                )
-
-                self._order_tracker.process_trade_update(trade_update)
+                self.processs_trade_fill_update(tracked_order=tracked_order, fee=fee)
 
                 order_update: OrderUpdate = OrderUpdate(
                     client_order_id=tracked_order.client_order_id,
@@ -828,9 +840,6 @@ class GatewayEVMAMM(ConnectorBase):
         Checks if all tokens have allowance (an amount approved)
         """
         allowances_available = all(amount > s_decimal_0 for amount in self._allowances.values())
-        if not allowances_available and self._auto_approve_task is not None and self._auto_approve_task.done():
-            # we need to attempt approval
-            self._auto_approve_task = safe_ensure_future(self.auto_approve())
         return ((len(self._allowances.values()) == len(self._tokens)) and
                 (allowances_available))
 
@@ -838,7 +847,7 @@ class GatewayEVMAMM(ConnectorBase):
     def status_dict(self) -> Dict[str, bool]:
         return {
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
-            "allowances": self.has_allowances() if self._trading_required else True,
+            "allowances: use trading interface to do manual approval.": self.has_allowances() if self._trading_required else True,
             "native_currency": self._native_currency is not None,
             "network_transaction_fee": self.network_transaction_fee is not None if self._trading_required else True,
         }
@@ -846,7 +855,7 @@ class GatewayEVMAMM(ConnectorBase):
     async def start_network(self):
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
-            self._auto_approve_task = safe_ensure_future(self.auto_approve())
+            self._update_allowances = safe_ensure_future(self.update_allowances())
             self._get_gas_estimate_task = safe_ensure_future(self.get_gas_estimate())
         self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
 
@@ -854,9 +863,9 @@ class GatewayEVMAMM(ConnectorBase):
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
             self._status_polling_task = None
-        if self._auto_approve_task is not None:
-            self._auto_approve_task.cancel()
-            self._auto_approve_task = None
+        if self._update_allowances is not None:
+            self._update_allowances.cancel()
+            self._update_allowances = None
         if self._get_chain_info_task is not None:
             self._get_chain_info_task.cancel()
             self._get_chain_info_task = None
@@ -911,7 +920,7 @@ class GatewayEVMAMM(ConnectorBase):
             except Exception as e:
                 self.logger().error(str(e), exc_info=True)
 
-    async def update_balances(self, on_interval=False):
+    async def update_balances(self, on_interval: bool = False):
         """
         Calls Eth API to update total and available balances.
         """
@@ -924,19 +933,21 @@ class GatewayEVMAMM(ConnectorBase):
             self._last_balance_poll_timestamp = current_tick
             local_asset_names = set(self._account_balances.keys())
             remote_asset_names = set()
+            token_list = list(self._tokens) + [self._native_currency] + connector_tokens
             resp_json: Dict[str, Any] = await self._get_gateway_instance().get_balances(
-                self.chain, self.network, self.address, list(self._tokens) + [self._native_currency] + connector_tokens
+                chain=self.chain,
+                network=self.network,
+                address=self.address,
+                token_symbols=token_list
             )
             for token, bal in resp_json["balances"].items():
                 self._account_available_balances[token] = Decimal(str(bal))
                 self._account_balances[token] = Decimal(str(bal))
                 remote_asset_names.add(token)
-
             asset_names_to_remove = local_asset_names.difference(remote_asset_names)
             for asset_name in asset_names_to_remove:
                 del self._account_available_balances[asset_name]
                 del self._account_balances[asset_name]
-
             self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self._order_tracker.all_orders.items()}
             self._in_flight_orders_snapshot_timestamp = self.current_timestamp
 

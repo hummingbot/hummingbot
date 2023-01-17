@@ -1,0 +1,19 @@
+# list the BSC networks available to gateway
+networks:
+  mainnet: 
+    chainID: 56
+    nodeURL: 'https://bsc-dataseed1.binance.org/'
+    tokenListType: FILE
+    tokenListSource: src/chains/binance-smart-chain/bep20_tokens_mainnet.json
+    nativeCurrencySymbol: 'BNB'
+    gasPriceRefreshInterval: 60
+  testnet: 
+    chainID: 97
+    nodeURL: 'https://data-seed-prebsc-1-s1.binance.org:8545/'
+    tokenListType: 'FILE'
+    tokenListSource: 'src/chains/binance-smart-chain/bep20_tokens_testnet.json'
+    nativeCurrencySymbol: 'BNB'
+    gasPriceRefreshInterval: 60
+
+manualGasPrice: 100
+gasLimitTransaction: 3000000
