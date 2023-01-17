@@ -70,6 +70,13 @@ class PositionExecutor:
     def status(self):
         return self._status
 
+    @property
+    def is_closed(self):
+        return self.status in [PositionExecutorStatus.CLOSED_BY_TIME_LIMIT,
+                               PositionExecutorStatus.CLOSED_BY_STOP_LOSS,
+                               PositionExecutorStatus.CLOSED_BY_TAKE_PROFIT,
+                               PositionExecutorStatus.CANCELED_BY_TIME_LIMIT]
+
     @status.setter
     def status(self, status: PositionExecutorStatus):
         self._status = status
@@ -239,7 +246,7 @@ class PositionExecutor:
             self._open_order.order_id = order_id
 
     def control_cancel_order_by_time_limit(self):
-        if self.timestamp / 1000 + self.time_limit >= self._strategy.current_timestamp:
+        if self.end_time >= self._strategy.current_timestamp:
             self._strategy.cancel(
                 connector_name=self.exchange,
                 trading_pair=self.trading_pair,
@@ -364,3 +371,6 @@ class PositionExecutor:
         """Stop listening to events from the given market."""
         for event_pair in self._event_pairs:
             self.connector.remove_listener(event_pair[0], event_pair[1])
+
+    def place_order(self):
+        pass
