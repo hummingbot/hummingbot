@@ -368,8 +368,6 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         )
 
         new_order_status = convert_blxr_to_hummingbot_order_status(order_status_info.order_status)
-        new_order_status = new_order_status if new_order_status is not OrderState.UNKNOWN else tracked_order.current_state
-
         return OrderUpdate(
             trading_pair=tracked_order.trading_pair,
             update_timestamp=order_status_info.timestamp,

@@ -86,7 +86,7 @@ def convert_blxr_to_hummingbot_order_status(order_status: api.OrderStatus) -> Or
     elif order_status == api.OrderStatus.OS_CANCELLED:
         return OrderState.CANCELED
     else:
-        return OrderState.UNKNOWN
+        return OrderState.FAILED
 
 
 # def TradeTypeToSide(type: TradeType) -> api.Side:
