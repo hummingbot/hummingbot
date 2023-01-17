@@ -64,6 +64,23 @@ def build_connector_display(connectors: List[Dict[str, Any]]) -> pd.DataFrame:
 
     return pd.DataFrame(data=data, columns=columns)
 
+def build_list_display(connectors: List[Dict[str, Any]]) -> pd.DataFrame:
+    """
+    Display connector information as a table
+    """
+    columns = ["Exchange", "Chain", "Network", "Tier"]
+    data = []
+    for connector_spec in connectors:
+        data.extend([
+            [
+                connector_spec["connector"],
+                f"{connector_spec['chain']} - {connector_spec['network']}",
+                connector_spec["wallet_address"],
+            ]
+        ])
+
+    return pd.DataFrame(data=data, columns=columns)
+
 
 def build_connector_tokens_display(connectors: List[Dict[str, Any]]) -> pd.DataFrame:
     """

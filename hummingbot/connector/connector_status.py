@@ -37,7 +37,22 @@ connector_status = {
     'okx': 'bronze',
     'perpetual_finance': 'bronze',
     'probit': 'bronze',
-    'whitebit': 'bronze'
+    'whitebit': 'bronze',
+    'uniswap': 'gold',
+    'uniswapLP': 'gold',
+    'pancakeswap': 'silver',
+    'sushiswap': 'silver',
+    'traderjoe': 'bronze',
+    'quickswap': 'bronze',
+    'perp': 'bronze',
+    'openocean': 'bronze',
+    'pangolin': 'bronze',
+    'defikingdoms': 'bronze',
+    'defira': 'bronze',
+    'mad_meerkat': 'bronze',
+    'vvs': 'bronze',
+    'ref': 'bronze',
+
 }
 
 warning_messages = {
