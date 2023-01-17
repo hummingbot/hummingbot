@@ -4,7 +4,7 @@ from time import time
 from typing import Dict, List, Optional
 
 from bxsolana.provider import Provider
-from bxsolana_trader_proto.api import GetOrderStatusStreamResponse, GetOrderbookResponse, OrderStatus, OrderbookItem
+from bxsolana_trader_proto.api import GetOrderbookResponse, GetOrderStatusStreamResponse, OrderbookItem, OrderStatus
 
 from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_constants import OPENBOOK_PROJECT
 
@@ -66,7 +66,7 @@ class BloxrouteOpenbookOrderManager:
         self._is_ready = False
 
         self._orderbook_polling_task: Optional[Task] = None
-        self._order_status_running_task: Optional[Task] = None
+        self._order_status_running_tasks: List[Task] = []
         self._order_status_polling_task: Optional[Task] = None
 
         self._order_status_updates = asyncio.Queue()
@@ -88,8 +88,11 @@ class BloxrouteOpenbookOrderManager:
             await self._initialize_order_books()
             self._orderbook_polling_task = asyncio.create_task(self._poll_order_book_updates())
 
-            self._order_status_running_task = asyncio.create_task(self._initialize_order_status_streams())
+            await self._initialize_order_status_streams()
             self._order_status_polling_task = asyncio.create_task(self._poll_order_status_updates())
+
+            await asyncio.sleep(10)
+
             self._is_ready = True
 
     async def stop(self):
@@ -97,9 +100,10 @@ class BloxrouteOpenbookOrderManager:
         if self._orderbook_polling_task is not None:
             self._orderbook_polling_task.cancel()
             self._orderbook_polling_task = None
-        if self._order_status_running_task is not None:
-            self._order_status_running_task.cancel()
-            self._order_status_running_task = None
+        for task in self._order_status_running_tasks:
+            if task is not None:
+                task.cancel()
+        self._order_status_running_tasks.clear()
         if self._order_status_polling_task is not None:
             self._order_status_polling_task.cancel()
             self._order_status_polling_task = None
@@ -115,13 +119,17 @@ class BloxrouteOpenbookOrderManager:
             normalized_trading_pair = normalize_trading_pair(trading_pair)
             self._markets_to_order_statuses.update({normalized_trading_pair: {}})
 
-            asyncio.create_task(self._initialize_order_status_stream(trading_pair=trading_pair))
+            initialize_order_stream_task = asyncio.create_task(self._initialize_order_status_stream(trading_pair=trading_pair))
+            self._order_status_running_tasks.append(initialize_order_stream_task)
 
     async def _initialize_order_status_stream(self, trading_pair: str):
         await self._provider.connect()
         order_status_stream = self._provider.get_order_status_stream(
             market=trading_pair, owner_address=self._owner_address, project=OPENBOOK_PROJECT
         )
+
+        first_response = await order_status_stream.__anext__()
+        self._order_status_updates.put_nowait(first_response)
         async for order_status_update in order_status_stream:
             self._order_status_updates.put_nowait(order_status_update)
 
