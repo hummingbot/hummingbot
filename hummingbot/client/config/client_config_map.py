@@ -87,7 +87,7 @@ class ColorConfigMap(BaseClientModel):
         ),
     )
     primary_label: str = Field(
-        default="#5FFFD7",
+        default="#FFD700",
         client_data=ClientFieldData(
             prompt=lambda cm: "What is the background color for primary label?",
         ),
@@ -111,7 +111,7 @@ class ColorConfigMap(BaseClientModel):
         ),
     )
     info_label: str = Field(
-        default="#5FD7FF",
+        default="#C0C0C0",
         client_data=ClientFieldData(
             prompt=lambda cm: "What is the background color for info label?",
         ),

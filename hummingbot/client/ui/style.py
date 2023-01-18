@@ -159,10 +159,9 @@ def hex_to_ansi(color_hex):
 
 
 text_ui_style = {
-    "&cGREEN": "success_label",
-    "&cYELLOW": "warning_label",
-    "&cRED": "error_label",
-    "&cMISSING_AND_REQUIRED": "error_label",
+    "&cGOLD": "success_label",
+    "&cSILVER": "info_label",
+    "&cBRONZE": "warning_label",
 }
 
 default_ui_style = {

@@ -50,8 +50,7 @@ class HistoryCommand:
                 return
             if verbose:
                 self.list_trades(start_time)
-            if self.strategy_name != "celo_arb":
-                safe_ensure_future(self.history_report(start_time, trades, precision))
+            safe_ensure_future(self.history_report(start_time, trades, precision))
 
     async def history_report(self,  # type: HummingbotApplication
                              start_time: float,
@@ -214,9 +213,6 @@ class HistoryCommand:
                 session=session,
                 number_of_rows=MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT + 1,
                 config_file_path=self.strategy_file_name)
-            if self.strategy_name == "celo_arb":
-                celo_trades = self.strategy.celo_orders_to_trade_fills()
-                queried_trades = queried_trades + celo_trades
             df: pd.DataFrame = TradeFill.to_pandas(queried_trades)
 
         if len(df) > 0:

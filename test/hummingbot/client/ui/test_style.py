@@ -163,11 +163,11 @@ class StyleTest(unittest.TestCase):
                 "button": "bg:#000000",
                 "text-area": "bg:#000000 #5FFFD7",
                 # Label bg and font color
-                "primary_label": "bg:#5FFFD7 #262626",
+                "primary_label": "bg:#FFD700 #262626",
                 "secondary_label": "bg:#FFFFFF #262626",
                 "success_label": "bg:#5FFFD7 #262626",
                 "warning_label": "bg:#FFFF00 #262626",
-                "info_label": "bg:#5FD7FF #262626",
+                "info_label": "bg:#C0C0C0 #262626",
                 "error_label": "bg:#FF0000 #262626"
             }
         )
