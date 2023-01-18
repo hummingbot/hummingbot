@@ -33,6 +33,7 @@ from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_clien
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
+from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
@@ -42,7 +43,6 @@ from hummingbot.core.event.events import (
     AccountEvent,
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
-    FundingInfo,
     MarketEvent,
     MarketOrderFailureEvent,
     OrderCancelledEvent,
@@ -162,7 +162,7 @@ class BitmexPerpetualDerivative(ExchangeBase, PerpetualTrading):
         self._ws_assistant: Optional[WSAssistant] = None
 
         ExchangeBase.__init__(self, client_config_map=client_config_map)
-        PerpetualTrading.__init__(self)
+        PerpetualTrading.__init__(self, trading_pairs=trading_pairs)
 
         self._user_stream_tracker = BitmexPerpetualUserStreamTracker(
             auth=self._auth,

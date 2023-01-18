@@ -69,7 +69,6 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingA
     config_parser.set_defaults(func=hummingbot.config)
 
     start_parser = subparsers.add_parser("start", help="Start the current bot")
-    start_parser.add_argument("--restore", default=False, action="store_true", dest="restore", help="Restore and maintain any active orders.")
     # start_parser.add_argument("--log-level", help="Level of logging")
     start_parser.add_argument("--script", type=str, dest="script", help="Script strategy file name")
 
@@ -107,8 +106,13 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingA
 
     gateway_connector_tokens_parser = gateway_subparsers.add_parser("connector-tokens", help="Report token balances for gateway connectors")
     gateway_connector_tokens_parser.add_argument("connector_chain_network", nargs="?", default=None, help="Name of connector you want to edit reported tokens for")
-    gateway_connector_tokens_parser.add_argument("new_tokens", nargs="?", default=None, help="Report balance of these tokens")
+    gateway_connector_tokens_parser.add_argument("new_tokens", nargs="?", default=None, help="Report balance of these tokens - separate multiple tokens with commas (,)")
     gateway_connector_tokens_parser.set_defaults(func=hummingbot.gateway_connector_tokens)
+
+    gateway_approve_tokens_parser = gateway_subparsers.add_parser("approve-tokens", help="Approve tokens for gateway connectors")
+    gateway_approve_tokens_parser.add_argument("connector_chain_network", nargs="?", default=None, help="Name of connector you want to approve tokens for")
+    gateway_approve_tokens_parser.add_argument("tokens", nargs="?", default=None, help="Approve these tokens")
+    gateway_approve_tokens_parser.set_defaults(func=hummingbot.gateway_approve_tokens)
 
     gateway_cert_parser = gateway_subparsers.add_parser("generate-certs", help="Create ssl certifcate for gateway")
     gateway_cert_parser.set_defaults(func=hummingbot.generate_certs)
@@ -126,7 +130,7 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingA
     gateway_test_parser.set_defaults(func=hummingbot.test_connection)
 
     exit_parser = subparsers.add_parser("exit", help="Exit and cancel all outstanding orders")
-    exit_parser.add_argument("-f", "--force", "--suspend", action="store_true", help="Force exit without canceling outstanding orders",
+    exit_parser.add_argument("-f", "--force", action="store_true", help="Force exit without canceling outstanding orders",
                              default=False)
     exit_parser.set_defaults(func=hummingbot.exit)
 
@@ -161,9 +165,9 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingA
 
     rate_parser = subparsers.add_parser('rate', help="Show rate of a given trading pair")
     rate_parser.add_argument("-p", "--pair", default=None,
-                             dest="pair", help="The market trading pair you want to see rate.")
+                             dest="pair", help="The market trading pair for which you want to get a rate.")
     rate_parser.add_argument("-t", "--token", default=None,
-                             dest="token", help="The token you want to see its value.")
+                             dest="token", help="The token who's value you want to get.")
     rate_parser.set_defaults(func=hummingbot.rate)
 
     for name, command_tab in command_tabs.items():

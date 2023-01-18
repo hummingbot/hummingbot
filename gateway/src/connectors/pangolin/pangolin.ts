@@ -4,6 +4,7 @@ import {
   BigNumber,
   Contract,
   ContractInterface,
+  ContractTransaction,
   Transaction,
   Wallet,
 } from 'ethers';
@@ -28,7 +29,7 @@ export class Pangolin implements Uniswapish {
   private avalanche: Avalanche;
   private _router: string;
   private _routerAbi: ContractInterface;
-  private _gasLimit: number;
+  private _gasLimitEstimate: number;
   private _ttl: number;
   private chainId;
   private tokenList: Record<string, Token> = {};
@@ -41,7 +42,7 @@ export class Pangolin implements Uniswapish {
     this._router = config.routerAddress(network);
     this._ttl = config.ttl;
     this._routerAbi = routerAbi.abi;
-    this._gasLimit = this.avalanche.gasLimit;
+    this._gasLimitEstimate = config.gasLimitEstimate;
   }
 
   public static getInstance(chain: string, network: string): Pangolin {
@@ -102,8 +103,8 @@ export class Pangolin implements Uniswapish {
   /**
    * Default gas limit for swap transactions.
    */
-  public get gasLimit(): number {
-    return this._gasLimit;
+  public get gasLimitEstimate(): number {
+    return this._gasLimitEstimate;
   }
 
   /**
@@ -264,29 +265,31 @@ export class Pangolin implements Uniswapish {
     });
 
     const contract = new Contract(pangolinRouter, abi, wallet);
-    if (!nonce) {
-      nonce = await this.avalanche.nonceManager.getNextNonce(wallet.address);
-    }
-    let tx;
-    if (maxFeePerGas || maxPriorityFeePerGas) {
-      tx = await contract[result.methodName](...result.args, {
-        gasLimit: gasLimit,
-        value: result.value,
-        nonce: nonce,
-        maxFeePerGas,
-        maxPriorityFeePerGas,
-      });
-    } else {
-      tx = await contract[result.methodName](...result.args, {
-        gasPrice: (gasPrice * 1e9).toFixed(0),
-        gasLimit: gasLimit.toFixed(0),
-        value: result.value,
-        nonce: nonce,
-      });
-    }
+    return this.avalanche.nonceManager.provideNonce(
+      nonce,
+      wallet.address,
+      async (nextNonce) => {
+        let tx: ContractTransaction;
+        if (maxFeePerGas || maxPriorityFeePerGas) {
+          tx = await contract[result.methodName](...result.args, {
+            gasLimit: gasLimit,
+            value: result.value,
+            nonce: nextNonce,
+            maxFeePerGas,
+            maxPriorityFeePerGas,
+          });
+        } else {
+          tx = await contract[result.methodName](...result.args, {
+            gasPrice: (gasPrice * 1e9).toFixed(0),
+            gasLimit: gasLimit.toFixed(0),
+            value: result.value,
+            nonce: nextNonce,
+          });
+        }
 
-    logger.info(tx);
-    await this.avalanche.nonceManager.commitNonce(wallet.address, nonce);
-    return tx;
+        logger.info(JSON.stringify(tx));
+        return tx;
+      }
+    );
   }
 }

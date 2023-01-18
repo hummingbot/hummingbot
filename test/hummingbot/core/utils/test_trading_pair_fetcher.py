@@ -90,7 +90,9 @@ class TestTradingPairFetcher(unittest.TestCase):
 
     @aioresponses()
     @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher._all_connector_settings")
-    def test_fetch_all(self, mock_api, all_connector_settings_mock):
+    @patch("hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_perp_markets")
+    @patch("hummingbot.client.settings.GatewayConnectionSetting.get_connector_spec_from_market_name")
+    def test_fetch_all(self, mock_api, con_spec_mock, perp_market_mock, all_connector_settings_mock, ):
         all_connector_settings_mock.return_value = {
             "binance": ConnectorSetting(
                 name='binance',
@@ -108,6 +110,24 @@ class TestTradingPairFetcher(unittest.TestCase):
                 config_keys={
                     'binance_api_key': ConfigVar(key='binance_api_key', prompt=""),
                     'binance_api_secret': ConfigVar(key='binance_api_secret', prompt="")},
+                is_sub_domain=False,
+                parent_name=None,
+                domain_parameter=None,
+                use_eth_gas_lookup=False),
+            "perp_ethereum_optimism": ConnectorSetting(
+                name='perp_ethereum_optimism',
+                type=ConnectorType.EVM_Perpetual,
+                example_pair='ZRX-ETH',
+                centralised=False,
+                use_ethereum_wallet=False,
+                trade_fee_schema=TradeFeeSchema(
+                    percent_fee_token=None,
+                    maker_percent_fee_decimal=Decimal('0.001'),
+                    taker_percent_fee_decimal=Decimal('0.001'),
+                    buy_percent_fee_deducted_from_returns=False,
+                    maker_fixed_fees=[],
+                    taker_fixed_fees=[]),
+                config_keys=None,
                 is_sub_domain=False,
                 parent_name=None,
                 domain_parameter=None,
@@ -209,16 +229,27 @@ class TestTradingPairFetcher(unittest.TestCase):
         }
 
         mock_api.get(url, body=json.dumps(mock_response))
+        perp_market_mock.return_value = {"pairs": ["ABCUSD"]}
+        con_spec_mock.return_value = {
+            "connector": "perp",
+            "chain": "optimism",
+            "network": "ethereum",
+            "wallet_address": "0x..."
+        }
 
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         fetcher = TradingPairFetcher(client_config_map)
         asyncio.get_event_loop().run_until_complete(fetcher._fetch_task)
         trading_pairs = fetcher.trading_pairs
 
-        self.assertEqual(1, len(trading_pairs.keys()))
+        self.assertEqual(2, len(trading_pairs.keys()))
         self.assertIn("binance", trading_pairs)
         binance_pairs = trading_pairs["binance"]
         self.assertEqual(2, len(binance_pairs))
         self.assertIn("ETH-BTC", binance_pairs)
         self.assertIn("LTC-BTC", binance_pairs)
         self.assertNotIn("BNB-BTC", binance_pairs)
+        perp_pairs = trading_pairs["perp_ethereum_optimism"]
+        self.assertEqual(1, len(perp_pairs))
+        self.assertIn("ABC-USD", perp_pairs)
+        self.assertNotIn("WETH-USDT", perp_pairs)
