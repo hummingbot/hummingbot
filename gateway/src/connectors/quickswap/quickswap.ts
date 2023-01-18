@@ -28,7 +28,7 @@ export class Quickswap implements Uniswapish {
   private polygon: Polygon;
   private _router: string;
   private _routerAbi: ContractInterface;
-  private _gasLimit: number;
+  private _gasLimitEstimate: number;
   private _ttl: number;
   private chainId;
   private tokenList: Record<string, Token> = {};
@@ -41,7 +41,7 @@ export class Quickswap implements Uniswapish {
     this._router = config.routerAddress(network);
     this._ttl = config.ttl;
     this._routerAbi = routerAbi.abi;
-    this._gasLimit = config.gasLimit;
+    this._gasLimitEstimate = config.gasLimitEstimate;
   }
 
   public static getInstance(chain: string, network: string): Quickswap {
@@ -100,10 +100,10 @@ export class Quickswap implements Uniswapish {
   }
 
   /**
-   * Default gas limit for swap transactions.
+   * Default gas limit used to estimate cost for swap transactions.
    */
-  public get gasLimit(): number {
-    return this._gasLimit;
+  public get gasLimitEstimate(): number {
+    return this._gasLimitEstimate;
   }
 
   /**
@@ -264,29 +264,31 @@ export class Quickswap implements Uniswapish {
     });
 
     const contract = new Contract(quickswapRouter, abi, wallet);
-    if (!nonce) {
-      nonce = await this.polygon.nonceManager.getNextNonce(wallet.address);
-    }
-    let tx;
-    if (maxFeePerGas || maxPriorityFeePerGas) {
-      tx = await contract[result.methodName](...result.args, {
-        gasLimit: gasLimit,
-        value: result.value,
-        nonce: nonce,
-        maxFeePerGas,
-        maxPriorityFeePerGas,
-      });
-    } else {
-      tx = await contract[result.methodName](...result.args, {
-        gasPrice: (gasPrice * 1e9).toFixed(0),
-        gasLimit: gasLimit.toFixed(0),
-        value: result.value,
-        nonce: nonce,
-      });
-    }
+    return this.polygon.nonceManager.provideNonce(
+      nonce,
+      wallet.address,
+      async (nextNonce) => {
+        let tx;
+        if (maxFeePerGas || maxPriorityFeePerGas) {
+          tx = await contract[result.methodName](...result.args, {
+            gasLimit: gasLimit.toFixed(0),
+            value: result.value,
+            nonce: nextNonce,
+            maxFeePerGas,
+            maxPriorityFeePerGas,
+          });
+        } else {
+          tx = await contract[result.methodName](...result.args, {
+            gasPrice: (gasPrice * 1e9).toFixed(0),
+            gasLimit: gasLimit.toFixed(0),
+            value: result.value,
+            nonce: nextNonce,
+          });
+        }
 
-    logger.info(tx);
-    await this.polygon.nonceManager.commitNonce(wallet.address, nonce);
-    return tx;
+        logger.info(JSON.stringify(tx));
+        return tx;
+      }
+    );
   }
 }

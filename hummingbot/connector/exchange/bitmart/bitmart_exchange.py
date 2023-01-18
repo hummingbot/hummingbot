@@ -22,7 +22,6 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState,
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
@@ -124,6 +123,12 @@ class BitmartExchange(ExchangePyBase):
         """
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
+    def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
+        error_description = str(request_exception)
+        is_time_synchronizer_related = ("Header X-BM-TIMESTAMP" in error_description
+                                        and ("30007" in error_description or "30008" in error_description))
+        return is_time_synchronizer_related
+
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
             throttler=self._throttler,
@@ -166,7 +171,8 @@ class BitmartExchange(ExchangePyBase):
                            amount: Decimal,
                            trade_type: TradeType,
                            order_type: OrderType,
-                           price: Decimal) -> Tuple[str, float]:
+                           price: Decimal,
+                           **kwargs) -> Tuple[str, float]:
 
         api_params = {"symbol": await self.exchange_symbol_associated_to_pair(trading_pair),
                       "side": trade_type.name.lower(),
@@ -283,45 +289,31 @@ class BitmartExchange(ExchangePyBase):
                 "order_id": await order.get_exchange_order_id()},
             is_auth_required=True)
 
-    async def _update_order_status(self):
-        """
-        Calls REST API to get status update for each in-flight order.
-        """
-        tracked_orders: List[InFlightOrder] = list(self.in_flight_orders.values())
-        order_update_tasks = []
-        order_fill_tasks = []
-        for tracked_order in tracked_orders:
-            order_fill_tasks.append(asyncio.create_task(self._request_order_fills(order=tracked_order)))
-            order_update_tasks.append(asyncio.create_task(self._request_order_update(order=tracked_order)))
-        self.logger().debug(f"Polling for order status updates of {len(order_update_tasks)} orders.")
+    async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
+        trade_updates = []
 
-        order_updates = await safe_gather(*order_update_tasks, return_exceptions=True)
-        order_fills = await safe_gather(*order_fill_tasks, return_exceptions=True)
-        for order_update, order_fill, tracked_order in zip(order_updates, order_fills, tracked_orders):
-            if tracked_order.is_cancelled or tracked_order.is_failure:
-                # If the order is already cancelled of failed, the requests must have failed.
-                # We should not process the results, they will just produce unnecessary warnings in the logs
-                continue
+        try:
+            if order.exchange_order_id is not None:
+                all_fills_response = await self._request_order_fills(order=order)
+                updates = self._create_order_fill_updates(order=order, fill_update=all_fills_response)
+                trade_updates.extend(updates)
+        except asyncio.CancelledError:
+            raise
+        except Exception as ex:
+            is_error_caused_by_unexistent_order = '"code":50005' in str(ex)
+            if not is_error_caused_by_unexistent_order:
+                raise
 
-            if isinstance(order_fill, Exception):
-                is_error_caused_by_unexistent_order = '"code":50005' in str(order_fill)
-                if not is_error_caused_by_unexistent_order:
-                    self.logger().warning(
-                        f"Error fetching order fills for the order {tracked_order.client_order_id}: {order_fill}.")
-            else:
-                await self._process_order_fill_update(order=tracked_order, fill_update=order_fill)
+        return trade_updates
 
-            if tracked_order.is_open:
-                if isinstance(order_update, Exception):
-                    self.logger().network(
-                        f"Error fetching status update for the order {tracked_order.client_order_id}: {order_update}.",
-                        app_warning_msg=f"Failed to fetch status update for the order {tracked_order.client_order_id}."
-                    )
-                    await self._order_tracker.process_order_not_found(tracked_order.client_order_id)
-                else:
-                    await self._process_order_update(order=tracked_order, order_update=order_update)
+    async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
+        updated_order_data = await self._request_order_update(order=tracked_order)
 
-    async def _process_order_fill_update(self, order: InFlightOrder, fill_update: Dict[str, Any]):
+        order_update = self._create_order_update(order=tracked_order, order_update=updated_order_data)
+        return order_update
+
+    def _create_order_fill_updates(self, order: InFlightOrder, fill_update: Dict[str, Any]) -> List[TradeUpdate]:
+        updates = []
         fills_data = fill_update["data"]["trades"]
 
         for fill_data in fills_data:
@@ -342,9 +334,11 @@ class BitmartExchange(ExchangePyBase):
                 fill_price=Decimal(fill_data["price_avg"]),
                 fill_timestamp=int(fill_data["create_time"]) * 1e-3,
             )
-            self._order_tracker.process_trade_update(trade_update)
+            updates.append(trade_update)
 
-    async def _process_order_update(self, order: InFlightOrder, order_update: Dict[str, Any]):
+        return updates
+
+    def _create_order_update(self, order: InFlightOrder, order_update: Dict[str, Any]) -> OrderUpdate:
         order_data = order_update["data"]
         new_state = CONSTANTS.ORDER_STATE[order_data["status"]]
         update = OrderUpdate(
@@ -354,7 +348,7 @@ class BitmartExchange(ExchangePyBase):
             update_timestamp=self.current_timestamp,
             new_state=new_state,
         )
-        self._order_tracker.process_order_update(update)
+        return update
 
     async def _user_stream_event_listener(self):
         async for event_message in self._iter_user_event_queue():
@@ -367,27 +361,33 @@ class BitmartExchange(ExchangePyBase):
                     for each_event in execution_data:
                         try:
                             client_order_id: Optional[str] = each_event.get("client_order_id")
-                            tracked_order = self._order_tracker.fetch_order(client_order_id=client_order_id)
+                            fillable_order = self._order_tracker.all_fillable_orders.get(client_order_id)
+                            updatable_order = self._order_tracker.all_updatable_orders.get(client_order_id)
 
-                            if tracked_order is not None:
-                                new_state = CONSTANTS.ORDER_STATE[each_event["state"]]
-                                event_timestamp = int(each_event["ms_t"]) * 1e-3
-                                is_fill_candidate_by_state = new_state in [OrderState.PARTIALLY_FILLED, OrderState.FILLED]
-                                is_fill_candidate_by_amount = tracked_order.executed_amount_base < Decimal(
+                            new_state = CONSTANTS.ORDER_STATE[each_event["state"]]
+                            event_timestamp = int(each_event["ms_t"]) * 1e-3
+
+                            if fillable_order is not None:
+                                is_fill_candidate_by_state = new_state in [OrderState.PARTIALLY_FILLED,
+                                                                           OrderState.FILLED]
+                                is_fill_candidate_by_amount = fillable_order.executed_amount_base < Decimal(
                                     each_event["filled_size"])
-
                                 if is_fill_candidate_by_state and is_fill_candidate_by_amount:
                                     try:
-                                        trade_fills: Dict[str, Any] = await self._request_order_fills(tracked_order)
-                                        await self._process_order_fill_update(order=tracked_order, fill_update=trade_fills)
+                                        trade_fills: Dict[str, Any] = await self._request_order_fills(fillable_order)
+                                        trade_updates = self._create_order_fill_updates(
+                                            order=fillable_order,
+                                            fill_update=trade_fills)
+                                        for trade_update in trade_updates:
+                                            self._order_tracker.process_trade_update(trade_update)
                                     except asyncio.CancelledError:
                                         raise
                                     except Exception:
                                         self.logger().exception("Unexpected error requesting order fills for "
-                                                                f"{tracked_order.client_order_id}")
-
+                                                                f"{fillable_order.client_order_id}")
+                            if updatable_order is not None:
                                 order_update = OrderUpdate(
-                                    trading_pair=tracked_order.trading_pair,
+                                    trading_pair=updatable_order.trading_pair,
                                     update_timestamp=event_timestamp,
                                     new_state=new_state,
                                     client_order_id=client_order_id,

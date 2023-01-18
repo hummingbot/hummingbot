@@ -55,7 +55,7 @@ export class UniswapLPHelper {
     this._router =
       UniswapConfig.config.uniswapV3SmartOrderRouterAddress(network);
     this._nftManager = UniswapConfig.config.uniswapV3NftManagerAddress(network);
-    this._ttl = UniswapConfig.config.ttl(3);
+    this._ttl = UniswapConfig.config.ttl;
     this._routerAbi =
       require('@uniswap/v3-periphery/artifacts/contracts/SwapRouter.sol/SwapRouter.json').abi;
     this._nftAbi =
@@ -133,7 +133,7 @@ export class UniswapLPHelper {
   }
 
   getSlippagePercentage(): Percent {
-    const allowedSlippage = UniswapConfig.config.allowedSlippage(3);
+    const allowedSlippage = UniswapConfig.config.allowedSlippage;
     const nd = allowedSlippage.match(percentRegexp);
     if (nd) return new Percent(nd[1], nd[2]);
     throw new Error(
@@ -226,7 +226,7 @@ export class UniswapLPHelper {
     period: number = 1,
     interval: number = 1
   ): Promise<string[]> {
-    const fetchPrice = [];
+    const fetchPriceTime = [];
     const prices = [];
     const poolContract = new Contract(
       uniV3.Pool.getAddress(token0, token1, tier),
@@ -235,43 +235,30 @@ export class UniswapLPHelper {
     );
     for (
       let x = Math.ceil(period / interval) * interval;
-      x > 0;
+      x >= 0;
       x -= interval
     ) {
-      if (x - interval >= 0) {
-        fetchPrice.push(poolContract.observe([x, x - interval]));
-      }
+      fetchPriceTime.push(x);
     }
-    const request = await Promise.allSettled(fetchPrice);
-    const rejected = request.filter(
-      (r) => r.status === 'rejected'
-    ) as PromiseRejectedResult[];
-    if (rejected.length > 0)
-      throw new Error('Unable to fetch some price data from oracle.');
-    const response = (
-      request.filter(
-        (r) => r.status === 'fulfilled'
-      ) as PromiseFulfilledResult<any>[]
-    ).map((r) => r.value);
-    for (let twap = 0; twap < response.length; twap++) {
-      prices.push(
-        uniV3
-          .tickToPrice(
-            token0,
-            token1,
-            Math.ceil(
-              response[twap].tickCumulatives[1].sub(
-                response[twap].tickCumulatives[0].toNumber()
-              ) / interval
+    try {
+      const response = await poolContract.observe(fetchPriceTime);
+      for (let twap = 0; twap < response.tickCumulatives.length - 1; twap++) {
+        prices.push(
+          uniV3
+            .tickToPrice(
+              token0,
+              token1,
+              Math.ceil(
+                response.tickCumulatives[twap + 1].sub(
+                  response.tickCumulatives[twap].toNumber()
+                ) / interval
+              )
             )
-          )
-          .toFixed(8)
-      );
-    }
-    if (prices.length === 0) {
-      throw new Error(
-        'Unable to fetch price(s), try again with a lesser period and/or interval'
-      );
+            .toFixed(8)
+        );
+      }
+    } catch (e) {
+      return ['0'];
     }
     return prices;
   }
@@ -324,6 +311,11 @@ export class UniswapLPHelper {
     upperPrice: number,
     tokenId: number = 0
   ): Promise<AddPosReturn> {
+    if (token1.sortsBefore(token0)) {
+      [token0, token1] = [token1, token0];
+      [amount0, amount1] = [amount1, amount0];
+      [lowerPrice, upperPrice] = [1 / upperPrice, 1 / lowerPrice];
+    }
     const lowerPriceInFraction = math.fraction(lowerPrice) as math.Fraction;
     const upperPriceInFraction = math.fraction(upperPrice) as math.Fraction;
     const poolData = await this.getPoolState(

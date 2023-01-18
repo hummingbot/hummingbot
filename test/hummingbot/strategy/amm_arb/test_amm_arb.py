@@ -84,10 +84,10 @@ class MockAMM(ConnectorBase):
         self._account_balances[token] = Decimal(str(balance))
         self._account_available_balances[token] = Decimal(str(balance))
 
-    def buy(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal):
+    def buy(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal, **kwargs):
         return self.place_order(True, trading_pair, amount, price)
 
-    def sell(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal):
+    def sell(self, trading_pair: str, amount: Decimal, order_type: OrderType, price: Decimal, **kwargs):
         return self.place_order(False, trading_pair, amount, price)
 
     def place_order(self, is_buy: bool, trading_pair: str, amount: Decimal, price: Decimal):

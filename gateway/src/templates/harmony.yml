@@ -2,7 +2,7 @@
 networks:
   mainnet: 
     chainID: 1666600000
-    nodeURL: 'https://api.s0.t.hmny.io/'
+    nodeURL: https://rpc.ankr.com/harmony
     tokenListType: 'FILE'
     tokenListSource: 'src/chains/harmony/harmony_tokens_sushiswap.json'
     nativeCurrencySymbol: 'ONE'
@@ -17,4 +17,4 @@ network: 'harmony'
 autoGasPrice: true
 manualGasPrice: 30
 gasPricerefreshTime: 60
-gasLimit: 3000000
+gasLimitTransaction: 3000000

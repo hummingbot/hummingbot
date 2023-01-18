@@ -9,8 +9,8 @@ import pandas as pd
 from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.connector.gateway_EVM_AMM import GatewayEVMAMM
-from hummingbot.connector.gateway_price_shim import GatewayPriceShim
+from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
+from hummingbot.connector.gateway.gateway_price_shim import GatewayPriceShim
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
@@ -162,7 +162,11 @@ class AmmArbStrategy(StrategyPyBase):
     @staticmethod
     @lru_cache(maxsize=10)
     def is_gateway_market(market_info: MarketTradingPairTuple) -> bool:
-        return market_info.market.name in AllConnectorSettings.get_gateway_evm_amm_connector_names()
+        return market_info.market.name in sorted(
+            AllConnectorSettings.get_gateway_amm_connector_names().union(
+                AllConnectorSettings.get_gateway_clob_connector_names()
+            )
+        )
 
     def tick(self, timestamp: float):
         """
@@ -221,7 +225,7 @@ class AmmArbStrategy(StrategyPyBase):
                                    "\n".join(self.short_proposal_msg(self._all_arb_proposals, False)))
                 self._last_no_arb_reported = self.current_timestamp
             return
-        self.apply_slippage_buffers(profitable_arb_proposals)
+        await self.apply_slippage_buffers(profitable_arb_proposals)
         self.apply_budget_constraint(profitable_arb_proposals)
         await self.execute_arb_proposals(profitable_arb_proposals)
 
@@ -237,7 +241,7 @@ class AmmArbStrategy(StrategyPyBase):
         for gateway in gateway_connectors:
             await gateway.cancel_outdated_orders(self._gateway_transaction_cancel_interval)
 
-    def apply_slippage_buffers(self, arb_proposals: List[ArbProposal]):
+    async def apply_slippage_buffers(self, arb_proposals: List[ArbProposal]):
         """
         Updates arb_proposals by adjusting order price for slipper buffer percentage.
         E.g. if it is a buy order, for an order price of 100 and 1% slipper buffer, the new order price is 101,
@@ -398,7 +402,7 @@ class AmmArbStrategy(StrategyPyBase):
     def quotes_rate_df(self):
         columns = ["Quotes pair", "Rate"]
         quotes_pair: str = f"{self._market_info_2.quote_asset}-{self._market_info_1.quote_asset}"
-        data = [[quotes_pair, PerformanceMetrics.smart_round(self._rate_source.rate(quotes_pair))]]
+        data = [[quotes_pair, PerformanceMetrics.smart_round(self._rate_source.get_pair_rate(quotes_pair))]]
 
         return pd.DataFrame(data=data, columns=columns)
 

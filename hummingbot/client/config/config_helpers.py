@@ -9,8 +9,8 @@ from datetime import date, datetime, time
 from decimal import Decimal
 from os import listdir, scandir, unlink
 from os.path import isfile, join
-from pathlib import Path, PosixPath
-from typing import Any, Callable, Dict, Generator, List, Optional, Type, Union
+from pathlib import Path, PosixPath, PureWindowsPath
+from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Type, Union
 
 import ruamel.yaml
 import yaml
@@ -24,12 +24,14 @@ from hummingbot.client.config.client_config_map import ClientConfigMap, CommandS
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map, init_fee_overrides_config
+from hummingbot.client.config.gateway_ssl_config_map import SSLConfigMap
 from hummingbot.client.settings import (
     CLIENT_CONFIG_PATH,
     CONF_DIR_PATH,
     CONF_POSTFIX,
     CONF_PREFIX,
     CONNECTORS_CONF_DIR_PATH,
+    GATEWAY_SSL_CONF_FILE,
     STRATEGIES_CONF_DIR_PATH,
     TEMPLATE_PATH,
     TRADE_FEES_CONFIG_PATH,
@@ -176,7 +178,14 @@ class ClientConfigAdapter:
                 printable_value = "&cMISSING_AND_REQUIRED"
                 client_field_data = self.get_client_data(attr)
             yield ConfigTraversalItem(
-                depth, attr, attr, value, printable_value, client_field_data, field_info, type_
+                depth=depth,
+                config_path=attr,
+                attr=attr,
+                value=value,
+                printable_value=printable_value,
+                client_field_data=client_field_data,
+                field_info=field_info,
+                type_=type_,
             )
             if isinstance(value, ClientConfigAdapter):
                 for traversal_item in value.traverse():
@@ -212,6 +221,17 @@ class ClientConfigAdapter:
         if isinstance(default, type(Ellipsis)):
             default = None
         return default
+
+    def get_default_str_repr(self, attr_name: str) -> str:
+        """Used to generate default strings for config prompts."""
+        default = self.get_default(attr_name=attr_name)
+        if default is None:
+            default_str = ""
+        elif isinstance(default, (List, Tuple)):
+            default_str = ",".join(default)
+        else:
+            default_str = str(default)
+        return default_str
 
     def get_type(self, attr_name: str) -> Type:
         return self._hb_config.__fields__[attr_name].type_
@@ -324,7 +344,10 @@ class ClientConfigAdapter:
             value = getattr(self, attribute)
             if isinstance(value, ClientConfigAdapter):
                 value = value._dict_in_conf_order()
-            conf_as_dictionary = {attribute: value}
+            if isinstance(traversal_item.value, PureWindowsPath):
+                conf_as_dictionary = {attribute: traversal_item.printable_value}
+            else:
+                conf_as_dictionary = {attribute: value}
             self._encrypt_secrets(conf_as_dictionary)
 
             yaml_config = yaml.safe_dump(conf_as_dictionary, sort_keys=False)
@@ -589,6 +612,27 @@ def load_client_config_map_from_file() -> ClientConfigAdapter:
     if len(config_validation_errors) > 0:
         all_errors = "\n".join(config_validation_errors)
         raise ConfigValidationError(f"There are errors in the client global configuration (\n{all_errors})")
+    save_to_yml(yml_path, config_map)
+
+    return config_map
+
+
+def load_ssl_config_map_from_file() -> ClientConfigAdapter:
+    yml_path = GATEWAY_SSL_CONF_FILE
+    if yml_path.exists():
+        config_data = read_yml_file(yml_path)
+    else:
+        config_data = {}
+    ssl_config = SSLConfigMap()
+    config_map = ClientConfigAdapter(ssl_config)
+    config_validation_errors = _load_yml_data_into_map(config_data, config_map)
+
+    if len(config_validation_errors) > 0:
+        all_errors = "\n".join(config_validation_errors)
+        raise ConfigValidationError(f"There are errors in the ssl certs configuration (\n{all_errors})")
+
+    if yml_path.exists():
+        save_to_yml(yml_path, config_map)
 
     return config_map
 

@@ -4,7 +4,7 @@ import { AvailableNetworks } from '../../services/config-manager-types';
 export namespace QuickswapConfig {
   export interface NetworkConfig {
     allowedSlippage: string;
-    gasLimit: number;
+    gasLimitEstimate: number;
     ttl: number;
     routerAddress: (network: string) => string;
     tradingTypes: Array<string>;
@@ -15,7 +15,9 @@ export namespace QuickswapConfig {
     allowedSlippage: ConfigManagerV2.getInstance().get(
       'quickswap.allowedSlippage'
     ),
-    gasLimit: ConfigManagerV2.getInstance().get('quickswap.gasLimit'),
+    gasLimitEstimate: ConfigManagerV2.getInstance().get(
+      'quickswap.gasLimitEstimate'
+    ),
     ttl: ConfigManagerV2.getInstance().get('quickswap.ttl'),
     routerAddress: (network: string) =>
       ConfigManagerV2.getInstance().get(

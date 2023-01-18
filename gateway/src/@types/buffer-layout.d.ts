@@ -1,4 +1,8 @@
-// buffer-layout.d.ts
 declare module 'buffer-layout' {
-  export class Layout {}
+  export class Blob {}
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  export class Layout<U> {}
+  export class Structure {}
+  export class UInt {}
+  export class Union {}
 }

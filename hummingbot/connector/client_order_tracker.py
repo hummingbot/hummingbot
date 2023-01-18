@@ -30,7 +30,6 @@ class ClientOrderTracker:
 
     MAX_CACHE_SIZE = 1000
     CACHED_ORDER_TTL = 30.0  # seconds
-    ORDER_NOT_FOUND_COUNT_LIMIT = 10
     TRADE_FILLS_WAIT_TIMEOUT = 5  # seconds
 
     @classmethod
@@ -40,7 +39,7 @@ class ClientOrderTracker:
             cot_logger = logging.getLogger(__name__)
         return cot_logger
 
-    def __init__(self, connector: ConnectorBase) -> None:
+    def __init__(self, connector: ConnectorBase, lost_order_count_limit: int = 3) -> None:
         """
         Provides utilities for connectors to update in-flight orders and also handle order errors.
         Also it maintains cached orders to allow for additional updates to occur after the original order is determined to
@@ -51,8 +50,10 @@ class ClientOrderTracker:
         (3) Error thrown by exchange when fetching order status
         """
         self._connector: ConnectorBase = connector
+        self._lost_order_count_limit = lost_order_count_limit
         self._in_flight_orders: Dict[str, InFlightOrder] = {}
         self._cached_orders: TTLCache = TTLCache(maxsize=self.MAX_CACHE_SIZE, ttl=self.CACHED_ORDER_TTL)
+        self._lost_orders: Dict[str, InFlightOrder] = {}
 
         self._order_tracking_task: Optional[asyncio.Task] = None
         self._last_poll_timestamp: int = -1
@@ -80,11 +81,32 @@ class ClientOrderTracker:
         return {**self.active_orders, **self.cached_orders}
 
     @property
+    def all_fillable_orders(self) -> Dict[str, InFlightOrder]:
+        """
+        Returns all orders that could still be impacted by trades: active orders, cached orders and lost orders
+        """
+        return {**self.active_orders, **self.cached_orders, **self.lost_orders}
+
+    @property
+    def all_updatable_orders(self) -> Dict[str, InFlightOrder]:
+        """
+        Returns all orders that could receive status updates
+        """
+        return {**self.active_orders, **self.lost_orders}
+
+    @property
     def current_timestamp(self) -> int:
         """
         Returns current timestamp in seconds.
         """
         return self._connector.current_timestamp
+
+    @property
+    def lost_orders(self) -> Dict[str, InFlightOrder]:
+        """
+        Returns a dictionary of all orders marked as failed after not being found more times than the configured limit
+        """
+        return {client_order_id: order for client_order_id, order in self._lost_orders.items()}
 
     def start_tracking_order(self, order: InFlightOrder):
         self._in_flight_orders[order.client_order_id] = order
@@ -124,6 +146,89 @@ class ClientOrderTracker:
 
         return found_order
 
+    def process_order_update(self, order_update: OrderUpdate):
+        return safe_ensure_future(self._process_order_update(order_update))
+
+    def process_trade_update(self, trade_update: TradeUpdate):
+        client_order_id: str = trade_update.client_order_id
+
+        tracked_order: Optional[InFlightOrder] = self.all_fillable_orders.get(client_order_id)
+
+        if tracked_order:
+            previous_executed_amount_base: Decimal = tracked_order.executed_amount_base
+
+            updated: bool = tracked_order.update_with_trade_update(trade_update)
+            if updated:
+                self._trigger_order_fills(
+                    tracked_order=tracked_order,
+                    prev_executed_amount_base=previous_executed_amount_base,
+                    fill_amount=trade_update.fill_base_amount,
+                    fill_price=trade_update.fill_price,
+                    fill_fee=trade_update.fee,
+                    trade_id=trade_update.trade_id)
+
+    async def process_order_not_found(self, client_order_id: str):
+        """
+        Increments and checks if the order specified has exceeded the order_not_found_count_limit.
+        A failed event is triggered if necessary.
+
+        :param client_order_id: Client order id of an order.
+        :type client_order_id: str
+        """
+        # Only concerned with active orders.
+        tracked_order: Optional[InFlightOrder] = self.fetch_tracked_order(client_order_id=client_order_id)
+
+        if tracked_order is None:
+            self.logger().debug(f"Order is not/no longer being tracked ({client_order_id})")
+        else:
+            self._order_not_found_records[client_order_id] += 1
+            if self._order_not_found_records[client_order_id] > self._lost_order_count_limit:
+                # Only mark the order as failed if it has not been marked as done already asynchronously
+                if not tracked_order.is_done:
+                    order_update: OrderUpdate = OrderUpdate(
+                        client_order_id=client_order_id,
+                        trading_pair=tracked_order.trading_pair,
+                        update_timestamp=self.current_timestamp,
+                        new_state=OrderState.FAILED,
+                    )
+                    await self._process_order_update(order_update)
+                    del self._cached_orders[client_order_id]
+                    self._lost_orders[tracked_order.client_order_id] = tracked_order
+
+    async def _process_order_update(self, order_update: OrderUpdate):
+        if not order_update.client_order_id and not order_update.exchange_order_id:
+            self.logger().error("OrderUpdate does not contain any client_order_id or exchange_order_id", exc_info=True)
+            return
+
+        tracked_order: Optional[InFlightOrder] = self.fetch_order(
+            order_update.client_order_id, order_update.exchange_order_id
+        )
+
+        if tracked_order:
+            if order_update.new_state == OrderState.FILLED and not tracked_order.is_done:
+                try:
+                    await asyncio.wait_for(
+                        tracked_order.wait_until_completely_filled(),
+                        timeout=self.TRADE_FILLS_WAIT_TIMEOUT)
+                except asyncio.TimeoutError:
+                    self.logger().warning(
+                        f"The order fill updates did not arrive on time for {tracked_order.client_order_id}. "
+                        f"The complete update will be processed with incomplete information.")
+
+            previous_state: OrderState = tracked_order.current_state
+
+            updated: bool = tracked_order.update_with_order_update(order_update)
+            if updated:
+                self._trigger_order_creation(tracked_order, previous_state, order_update.new_state)
+                self._trigger_order_completion(tracked_order, order_update)
+
+        elif order_update.client_order_id in self._lost_orders:
+            if order_update.new_state in [OrderState.CANCELED, OrderState.FILLED]:
+                # If the order officially reaches a final state after being lost it should be removed from the lost list
+                del self._lost_orders[order_update.client_order_id]
+        else:
+            self.logger().debug(f"Order is not/no longer being tracked ({order_update})")
+
     def _trigger_created_event(self, order: InFlightOrder):
         event_tag = MarketEvent.BuyOrderCreated if order.trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
         event_class: Callable = BuyOrderCreatedEvent if order.trade_type is TradeType.BUY else SellOrderCreatedEvent
@@ -138,6 +243,8 @@ class ClientOrderTracker:
                 order.client_order_id,
                 order.creation_timestamp,
                 exchange_order_id=order.exchange_order_id,
+                leverage=order.leverage,
+                position=order.position.value,
             ),
         )
 
@@ -171,7 +278,7 @@ class ClientOrderTracker:
                 trade_fee=fill_fee,
                 exchange_trade_id=trade_id,
                 leverage=int(order.leverage),
-                position=order.position.name,
+                position=order.position.value,
             ),
         )
 
@@ -206,10 +313,7 @@ class ClientOrderTracker:
 
     def _trigger_order_creation(self, tracked_order: InFlightOrder, previous_state: OrderState, new_state: OrderState):
         if previous_state == OrderState.PENDING_CREATE and new_state == OrderState.OPEN:
-            self.logger().info(
-                f"Created {tracked_order.order_type.name.upper()} {tracked_order.trade_type.name.upper()} order "
-                f"{tracked_order.client_order_id} for {tracked_order.amount} {tracked_order.trading_pair}."
-            )
+            self.logger().info(tracked_order.build_order_created_message())
             self._trigger_created_event(tracked_order)
 
     def _trigger_order_fills(self,
@@ -251,80 +355,3 @@ class ClientOrderTracker:
             self.logger().info(f"Order {tracked_order.client_order_id} has failed. Order Update: {order_update}")
 
         self.stop_tracking_order(tracked_order.client_order_id)
-
-    async def _process_order_update(self, order_update: OrderUpdate):
-        if not order_update.client_order_id and not order_update.exchange_order_id:
-            self.logger().error("OrderUpdate does not contain any client_order_id or exchange_order_id", exc_info=True)
-            return
-
-        tracked_order: Optional[InFlightOrder] = self.fetch_order(
-            order_update.client_order_id, order_update.exchange_order_id
-        )
-
-        if tracked_order:
-            if order_update.new_state == OrderState.FILLED and not tracked_order.is_done:
-                try:
-                    await asyncio.wait_for(
-                        tracked_order.wait_until_completely_filled(),
-                        timeout=self.TRADE_FILLS_WAIT_TIMEOUT)
-                except asyncio.TimeoutError:
-                    self.logger().warning(
-                        f"The order fill updates did not arrive on time for {tracked_order.client_order_id}. "
-                        f"The complete update will be processed with incomplete information.")
-
-            previous_state: OrderState = tracked_order.current_state
-
-            updated: bool = tracked_order.update_with_order_update(order_update)
-            if updated:
-                self._trigger_order_creation(tracked_order, previous_state, order_update.new_state)
-                self._trigger_order_completion(tracked_order, order_update)
-
-        else:
-            self.logger().debug(f"Order is not/no longer being tracked ({order_update})")
-
-    def process_order_update(self, order_update: OrderUpdate):
-        return safe_ensure_future(self._process_order_update(order_update))
-
-    def process_trade_update(self, trade_update: TradeUpdate):
-        client_order_id: str = trade_update.client_order_id
-
-        tracked_order: Optional[InFlightOrder] = self.fetch_order(client_order_id)
-
-        if tracked_order:
-            previous_executed_amount_base: Decimal = tracked_order.executed_amount_base
-
-            updated: bool = tracked_order.update_with_trade_update(trade_update)
-            if updated:
-                self._trigger_order_fills(
-                    tracked_order=tracked_order,
-                    prev_executed_amount_base=previous_executed_amount_base,
-                    fill_amount=trade_update.fill_base_amount,
-                    fill_price=trade_update.fill_price,
-                    fill_fee=trade_update.fee,
-                    trade_id=trade_update.trade_id)
-
-    async def process_order_not_found(self, client_order_id: str):
-        """
-        Increments and checks if the order specified has exceeded the ORDER_NOT_FOUND_COUNT_LIMIT.
-        A failed event is triggered if necessary.
-
-        :param client_order_id: Client order id of an order.
-        :type client_order_id: str
-        """
-        # Only concerned with active orders.
-        tracked_order: Optional[InFlightOrder] = self.fetch_tracked_order(client_order_id=client_order_id)
-
-        if tracked_order is None:
-            self.logger().debug(f"Order is not/no longer being tracked ({client_order_id})")
-        else:
-            self._order_not_found_records[client_order_id] += 1
-            if self._order_not_found_records[client_order_id] > self.ORDER_NOT_FOUND_COUNT_LIMIT:
-                # Only mark the order as failed if it has not been marked as done already asynchronously
-                if not tracked_order.is_done:
-                    order_update: OrderUpdate = OrderUpdate(
-                        client_order_id=client_order_id,
-                        trading_pair=tracked_order.trading_pair,
-                        update_timestamp=self.current_timestamp,
-                        new_state=OrderState.FAILED,
-                    )
-                    await self._process_order_update(order_update)

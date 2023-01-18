@@ -59,6 +59,9 @@ const patchPosition = () => {
       getTakerPositionByTickerSymbol() {
         return;
       },
+      getTotalPendingFundingPayments() {
+        return {};
+      },
     };
   });
 };
@@ -91,6 +94,9 @@ const patchCH = () => {
             confirmations: 0,
           },
         };
+      },
+      async getAccountValue() {
+        return new Big('10');
       },
     };
   });
@@ -128,10 +134,11 @@ describe('verify perp position', () => {
     const pos = await perp.getPositions('AAVEUSD');
     expect(pos).toHaveProperty('positionAmt');
     expect(pos).toHaveProperty('positionSide');
-    expect(pos).toHaveProperty('unRealizedProfit');
+    expect(pos).toHaveProperty('unrealizedProfit');
     expect(pos).toHaveProperty('leverage');
     expect(pos).toHaveProperty('entryPrice');
     expect(pos).toHaveProperty('tickerSymbol');
+    expect(pos).toHaveProperty('pendingFundingPayment');
   });
 });
 
@@ -139,10 +146,17 @@ describe('verify perp open/close position', () => {
   it('openPosition should return', async () => {
     patchCH();
 
-    const pos = await perp.openPosition(true, 'AAVEUSD', '0.01');
+    const pos = await perp.openPosition(true, 'AAVEUSD', '0.01', '1/10');
     expect(pos.hash).toEqual(
       '0x75f98675a8f64dcf14927ccde9a1d59b67fa09b72cc2642ad055dae4074853d9' // noqa: mock
     );
+  });
+
+  it('getAccountValue should return', async () => {
+    patchCH();
+
+    const bal = await perp.getAccountValue();
+    expect(bal.toString()).toEqual('10');
   });
 
   it('closePosition should throw', async () => {
@@ -150,7 +164,7 @@ describe('verify perp open/close position', () => {
     patchCH();
 
     await expect(async () => {
-      await perp.closePosition('AAVEUSD');
+      await perp.closePosition('AAVEUSD', '1/10');
     }).rejects.toThrow(new Error(`No active position on AAVEUSD.`));
   });
 });

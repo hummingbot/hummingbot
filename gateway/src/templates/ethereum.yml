@@ -1,26 +1,38 @@
 networks:
+  arbitrum_one:
+    chainID: 42161
+    nodeURL: https://rpc.ankr.com/arbitrum
+    tokenListType: FILE
+    tokenListSource: src/chains/ethereum/arbitrum_one_tokens.json
+    nativeCurrencySymbol: ETH
+    gasPriceRefreshInterval: 60
+  arbitrum_rinkeby:
+    chainID: 421611
+    nodeURL: https://arbitrum-rinkeby.infura.io/v3/
+    tokenListType: FILE
+    tokenListSource: src/chains/ethereum/arbitrum_rinkeby_tokens.json
+    nativeCurrencySymbol: ETH
+    gasPriceRefreshInterval: 60
   mainnet:
     chainID: 1
-    nodeURL: https://main-rpc.linkpool.io/
-    tokenListType: URL
+    nodeURL: https://rpc.ankr.com/eth
+    tokenListType: FILE
     nativeCurrencySymbol: ETH
-    tokenListSource: >-
-      https://wispy-bird-88a7.uniswap.workers.dev/?url=http://tokens.1inch.eth.link
+    tokenListSource: src/chains/ethereum/erc20_tokens_mainnet.json
     gasPriceRefreshInterval: 60
   ropsten:
     chainID: 3
-    nodeURL: https://ropsten.infura.io/v3/
+    nodeURL: https://rpc.ankr.com/eth_ropsten
     tokenListType: FILE
     tokenListSource: src/chains/ethereum/erc20_tokens_ropsten.json  
     nativeCurrencySymbol: ETH
     gasPriceRefreshInterval: 60
   optimism:
     chainID: 10
-    nodeURL: https://optimism-mainnet.infura.io/v3/
-    tokenListType: URL
-    tokenListSource: >-
-      https://raw.githubusercontent.com/ethereum-optimism/ethereum-optimism.github.io/master/optimism.tokenlist.json
-    nativeCurrencySymbol: ETH
+    nodeURL: https://rpc.ankr.com/optimism
+    tokenListType: FILE
+    tokenListSource: src/chains/ethereum/optimism_tokens.json
+    nativeCurrencySymbol: OETH
     gasPriceRefreshInterval: 60
   kovan:
     chainID: 42
@@ -29,5 +41,13 @@ networks:
     tokenListSource: src/chains/ethereum/erc20_tokens_kovan.json
     nativeCurrencySymbol: ETH
     gasPriceRefreshInterval: 60
-gasLimit: 3000000
+  goerli:
+    chainID: 5
+    nodeURL: https://rpc.ankr.com/eth_goerli
+    tokenListType: FILE
+    tokenListSource: src/chains/ethereum/erc20_tokens_goerli.json
+    nativeCurrencySymbol: ETH
+    gasPriceRefreshInterval: 60
+
+gasLimitTransaction: 3000000
 manualGasPrice: 110
