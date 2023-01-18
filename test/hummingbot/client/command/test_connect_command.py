@@ -186,7 +186,6 @@ class ConnectCommandTest(unittest.TestCase):
             columns=pd.Index(['Exchange', '  Keys Added', '  Keys Confirmed', '  Status'], dtype='object'),
             data=[
                 ["ascend_ex", "Yes", "Yes", "&cYELLOW"],
-                ["beaxy", "Yes", "Yes", "&cGREEN"]
             ]
         )
         connection_df_mock.return_value = (connections_df, [])
@@ -201,7 +200,6 @@ class ConnectCommandTest(unittest.TestCase):
             "\n    | Exchange   |   Keys Added   |   Keys Confirmed   |   Status   |"
             "\n    |------------+----------------+--------------------+------------|"
             "\n    | ascend_ex  | Yes            | Yes                | &cYELLOW   |"
-            "\n    | beaxy      | Yes            | Yes                | &cGREEN    |"
             "\n    +------------+----------------+--------------------+------------+"
         )
 
