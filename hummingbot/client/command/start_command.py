@@ -188,6 +188,8 @@ class StartCommand(GatewayChainApiManager):
 
         # We always start the RateOracle. It is required for PNL calculation.
         RateOracle.get_instance().start()
+        if self._mqtt:
+            self._mqtt.patch_loggers()
 
     def start_script_strategy(self):
         script_strategy = ScriptStrategyBase.load_script_class(self.strategy_file_name)
