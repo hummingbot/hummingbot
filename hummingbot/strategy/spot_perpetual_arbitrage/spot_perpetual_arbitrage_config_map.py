@@ -60,7 +60,7 @@ spot_perpetual_arbitrage_config_map = {
         default="spot_perpetual_arbitrage"),
     "spot_connector": ConfigVar(
         key="spot_connector",
-        prompt="Enter a spot connector (Exchange/AMM) >>> ",
+        prompt="Enter a spot connector (Exchange/AMM/CLOB) >>> ",
         prompt_on_new=True,
         validator=validate_connector,
         on_validated=exchange_on_validated),
@@ -72,7 +72,7 @@ spot_perpetual_arbitrage_config_map = {
         on_validated=spot_market_on_validated),
     "perpetual_connector": ConfigVar(
         key="perpetual_connector",
-        prompt="Enter a derivative name (Exchange/AMM) >>> ",
+        prompt="Enter a derivative connector >>> ",
         prompt_on_new=True,
         validator=validate_derivative,
         on_validated=exchange_on_validated),

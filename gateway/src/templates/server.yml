@@ -1,5 +1,5 @@
 # The port to expose the gateway server on.
-port: 5000
+port: 15888
 
 # The IPs allowed to access gateway. localhost is allowed by default.
 ipWhitelist: []

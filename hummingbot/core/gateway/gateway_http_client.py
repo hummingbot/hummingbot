@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 import aiohttp
 
 from hummingbot.client.config.security import Security
+from hummingbot.core.data_type.common import PositionSide
 from hummingbot.core.event.events import TradeType
-from hummingbot.core.gateway import get_gateway_paths
 from hummingbot.logger import HummingbotLogger
 
 if TYPE_CHECKING:
@@ -62,7 +62,7 @@ class GatewayHttpClient:
         api_port = client_config_map.gateway.gateway_api_port
         if GatewayHttpClient.__instance is None:
             self._base_url = f"https://{api_host}:{api_port}"
-        self._client_confi_map = client_config_map
+        self._client_config_map = client_config_map
         GatewayHttpClient.__instance = self
 
     @classmethod
@@ -77,7 +77,7 @@ class GatewayHttpClient:
         :returns Shared client session instance
         """
         if cls._shared_client is None or re_init:
-            cert_path = get_gateway_paths(client_config_map).local_certs_path.as_posix()
+            cert_path = client_config_map.certs.path
             ssl_ctx = ssl.create_default_context(cafile=f"{cert_path}/ca_cert.pem")
             ssl_ctx.load_cert_chain(certfile=f"{cert_path}/client_cert.pem",
                                     keyfile=f"{cert_path}/client_key.pem",
@@ -138,12 +138,27 @@ class GatewayHttpClient:
             elif error_code == GatewayError.UnknownError.value:
                 self.logger().network("An unknown error has occurred on gateway. Please send your logs to dev@hummingbot.io")
 
+    @staticmethod
+    def is_timeout_error(e) -> bool:
+        """
+        It is hard to consistently return a timeout error from gateway
+        because it uses many different libraries to communicate with the
+        chains with their own idiosyncracies and they do not necessarilly
+        return HTTP status code 504 when there is a timeout error. It is
+        easier to rely on the presence of the word 'timeout' in the error.
+        """
+        error_string = str(e)
+        if re.search('timeout', error_string, re.IGNORECASE):
+            return True
+        return False
+
     async def api_request(
             self,
             method: str,
             path_url: str,
             params: Dict[str, Any] = {},
-            fail_silently: bool = False
+            fail_silently: bool = False,
+            use_body: bool = False,
     ) -> Optional[Union[Dict[str, Any], List[Dict[str, Any]]]]:
         """
         Sends an aiohttp request and waits for a response.
@@ -151,20 +166,28 @@ class GatewayHttpClient:
         :param path_url: The path url or the API end point
         :param params: A dictionary of required params for the end point
         :param fail_silently: used to determine if errors will be raise or silently ignored
+        :param use_body: used to determine if the request should sent the parameters in the body or as query string
         :returns A response in json format.
         """
         url = f"{self.base_url}/{path_url}"
-        client = self._http_client(self._client_confi_map)
+        client = self._http_client(self._client_config_map)
 
         parsed_response = {}
         try:
             if method == "get":
                 if len(params) > 0:
-                    response = await client.get(url, params=params)
+                    if use_body:
+                        response = await client.get(url, json=params)
+                    else:
+                        response = await client.get(url, params=params)
                 else:
                     response = await client.get(url)
             elif method == "post":
                 response = await client.post(url, json=params)
+            elif method == 'put':
+                response = await client.put(url, json=params)
+            elif method == 'delete':
+                response = await client.delete(url, json=params)
             else:
                 raise ValueError(f"Unsupported request method {method}")
             if not fail_silently and response.status == 504:
@@ -194,20 +217,6 @@ class GatewayHttpClient:
                 raise e
 
         return parsed_response
-
-    @staticmethod
-    def is_timeout_error(e) -> bool:
-        """
-        It is hard to consistently return a timeout error from gateway
-        because it uses many different libraries to communicate with the
-        chains with their own idiosyncracies and they do not necessarilly
-        return HTTP status code 504 when there is a timeout error. It is
-        easier to rely on the presence of the word 'timeout' in the error.
-        """
-        error_string = str(e)
-        if re.search('timeout', error_string, re.IGNORECASE):
-            return True
-        return False
 
     async def ping_gateway(self) -> bool:
         try:
@@ -247,11 +256,14 @@ class GatewayHttpClient:
     async def get_wallets(self, fail_silently: bool = False) -> List[Dict[str, Any]]:
         return await self.api_request("get", "wallet", fail_silently=fail_silently)
 
-    async def add_wallet(self, chain: str, network: str, private_key: str) -> Dict[str, Any]:
+    async def add_wallet(self, chain: str, network: str, private_key: str, id: Optional[str] = None) -> Dict[str, Any]:
+        request = {"chain": chain, "network": network, "privateKey": private_key}
+        if id:
+            request["address"] = id
         return await self.api_request(
             "post",
             "wallet/add",
-            {"chain": chain, "network": network, "privateKey": private_key}
+            request
         )
 
     async def get_configuration(self, fail_silently: bool = False) -> Dict[str, Any]:
@@ -267,7 +279,8 @@ class GatewayHttpClient:
     ) -> Dict[str, Any]:
         if isinstance(token_symbols, list):
             token_symbols = [x for x in token_symbols if isinstance(x, str) and x.strip() != '']
-            return await self.api_request("post", "network/balances", {
+            network_path = "near" if chain == "near" else "network"
+            return await self.api_request("post", f"{network_path}/balances", {
                 "chain": chain,
                 "network": network,
                 "address": address,
@@ -282,7 +295,8 @@ class GatewayHttpClient:
             network: str,
             fail_silently: bool = True
     ) -> Dict[str, Any]:
-        return await self.api_request("get", "network/tokens", {
+        network_path = "near" if chain == "near" else "network"
+        return await self.api_request("get", f"{network_path}/tokens", {
             "chain": chain,
             "network": network
         }, fail_silently=fail_silently)
@@ -377,13 +391,21 @@ class GatewayHttpClient:
             chain: str,
             network: str,
             transaction_hash: str,
+            connector: Optional[str] = None,
+            address: Optional[str] = None,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
-        return await self.api_request("post", "network/poll", {
+        request = {
             "chain": chain,
             "network": network,
             "txHash": transaction_hash
-        }, fail_silently=fail_silently)
+        }
+        if connector:
+            request["connector"] = connector
+        if address:
+            request["address"] = address
+        network_path = "near" if chain == "near" else "network"
+        return await self.api_request("post", f"{network_path}/poll", request, fail_silently=fail_silently)
 
     async def get_evm_nonce(
             self,
@@ -459,3 +481,826 @@ class GatewayHttpClient:
             "network": network,
             "connector": connector,
         })
+
+    # perp endpoints
+    async def get_perp_markets(
+            self,
+            chain: str,
+            network: str,
+            connector: str,
+            fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        return await self.api_request("post", "amm/perp/pairs", {
+            "chain": chain,
+            "network": network,
+            "connector": connector
+        }, fail_silently=fail_silently)
+
+    async def get_perp_market_status(
+            self,
+            chain: str,
+            network: str,
+            connector: str,
+            base_asset: str,
+            quote_asset: str,
+            fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        return await self.api_request("post", "amm/perp/market-status", {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "base": base_asset,
+            "quote": quote_asset,
+        }, fail_silently=fail_silently)
+
+    async def get_perp_market_price(
+            self,
+            chain: str,
+            network: str,
+            connector: str,
+            base_asset: str,
+            quote_asset: str,
+            amount: Decimal,
+            side: PositionSide,
+            fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        if side not in [PositionSide.LONG, PositionSide.SHORT]:
+            raise ValueError("Only LONG and SHORT order prices are supported.")
+
+        return await self.api_request("post", "amm/perp/market-prices", {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "base": base_asset,
+            "quote": quote_asset,
+            "amount": f"{amount:.18f}",
+            "side": side.name,
+            "allowedSlippage": "0/1",  # hummingbot applies slippage itself
+        }, fail_silently=fail_silently)
+
+    async def get_perp_position(
+            self,
+            chain: str,
+            network: str,
+            connector: str,
+            address: str,
+            base_asset: str,
+            quote_asset: str,
+            fail_silently: bool = False
+    ) -> Dict[str, Any]:
+        return await self.api_request("post", "amm/perp/position", {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "address": address,
+            "base": base_asset,
+            "quote": quote_asset,
+        }, fail_silently=fail_silently)
+
+    async def amm_perp_open(
+            self,
+            chain: str,
+            network: str,
+            connector: str,
+            address: str,
+            base_asset: str,
+            quote_asset: str,
+            side: PositionSide,
+            amount: Decimal,
+            price: Decimal,
+            nonce: Optional[int] = None,
+            max_fee_per_gas: Optional[int] = None,
+            max_priority_fee_per_gas: Optional[int] = None
+    ) -> Dict[str, Any]:
+        if side not in [PositionSide.LONG, PositionSide.SHORT]:
+            raise ValueError("Only LONG and SHORT order prices are supported.")
+
+        request_payload: Dict[str, Any] = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "address": address,
+            "base": base_asset,
+            "quote": quote_asset,
+            "side": side.name,
+            "amount": f"{amount:.18f}",
+            "allowedSlippage": "0/1",  # hummingbot applies slippage itself
+        }
+        if nonce is not None:
+            request_payload["nonce"] = int(nonce)
+        if max_fee_per_gas is not None:
+            request_payload["maxFeePerGas"] = str(max_fee_per_gas)
+        if max_priority_fee_per_gas is not None:
+            request_payload["maxPriorityFeePerGas"] = str(max_priority_fee_per_gas)
+        return await self.api_request("post", "amm/perp/open", request_payload)
+
+    async def amm_perp_close(
+            self,
+            chain: str,
+            network: str,
+            connector: str,
+            address: str,
+            base_asset: str,
+            quote_asset: str,
+            nonce: Optional[int] = None,
+            max_fee_per_gas: Optional[int] = None,
+            max_priority_fee_per_gas: Optional[int] = None
+    ) -> Dict[str, Any]:
+        # XXX(martin_kou): The amount is always output with 18 decimal places.
+        request_payload: Dict[str, Any] = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "address": address,
+            "base": base_asset,
+            "quote": quote_asset,
+            "allowedSlippage": "0/1",  # hummingbot applies slippage itself
+        }
+        if nonce is not None:
+            request_payload["nonce"] = int(nonce)
+        if max_fee_per_gas is not None:
+            request_payload["maxFeePerGas"] = str(max_fee_per_gas)
+        if max_priority_fee_per_gas is not None:
+            request_payload["maxPriorityFeePerGas"] = str(max_priority_fee_per_gas)
+        return await self.api_request("post", "amm/perp/close", request_payload)
+
+    async def amm_perp_balance(
+            self,
+            chain: str,
+            network: str,
+            connector: str,
+            address: str,
+    ) -> Dict[str, Any]:
+        request_payload: Dict[str, Any] = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "address": address,
+        }
+        return await self.api_request("post", "amm/perp/balance", request_payload)
+
+    async def amm_perp_estimate_gas(
+            self,
+            chain: str,
+            network: str,
+            connector: str,
+    ) -> Dict[str, Any]:
+        return await self.api_request("post", "amm/perp/estimateGas", {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        })
+
+    # LP endpoints
+    async def amm_lp_add(
+            self,
+            chain: str,
+            network: str,
+            connector: str,
+            address: str,
+            token0: str,
+            token1: str,
+            amount0: Decimal,
+            amount1: Decimal,
+            fee: str,
+            lowerPrice: Decimal,
+            upperPrice: Decimal,
+            token_id: Optional[int] = None,
+            nonce: Optional[int] = None,
+            max_fee_per_gas: Optional[int] = None,
+            max_priority_fee_per_gas: Optional[int] = None
+    ) -> Dict[str, Any]:
+        request_payload: Dict[str, Any] = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "address": address,
+            "token0": token0,
+            "token1": token1,
+            "amount0": f"{amount0:.18f}",
+            "amount1": f"{amount1:.18f}",
+            "fee": fee,
+            "lowerPrice": str(lowerPrice),
+            "upperPrice": str(upperPrice),
+            "tokenId": token_id,
+            "nonce": nonce,
+        }
+        if token_id is not None:
+            request_payload["tokenId"] = int(token_id)
+        if nonce is not None:
+            request_payload["nonce"] = int(nonce)
+        if max_fee_per_gas is not None:
+            request_payload["maxFeePerGas"] = str(max_fee_per_gas)
+        if max_priority_fee_per_gas is not None:
+            request_payload["maxPriorityFeePerGas"] = str(max_priority_fee_per_gas)
+        return await self.api_request("post", "amm/liquidity/add", request_payload)
+
+    async def amm_lp_remove(
+            self,
+            chain: str,
+            network: str,
+            connector: str,
+            address: str,
+            token_id: int,
+            decreasePercent: Optional[int] = None,
+            nonce: Optional[int] = None,
+            max_fee_per_gas: Optional[int] = None,
+            max_priority_fee_per_gas: Optional[int] = None
+    ) -> Dict[str, Any]:
+        request_payload: Dict[str, Any] = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "address": address,
+            "tokenId": token_id,
+            "decreasePercent": decreasePercent,
+            "nonce": nonce,
+        }
+        if decreasePercent is not None:
+            request_payload["decreasePercent"] = int(decreasePercent)
+        if nonce is not None:
+            request_payload["nonce"] = int(nonce)
+        if max_fee_per_gas is not None:
+            request_payload["maxFeePerGas"] = str(max_fee_per_gas)
+        if max_priority_fee_per_gas is not None:
+            request_payload["maxPriorityFeePerGas"] = str(max_priority_fee_per_gas)
+        return await self.api_request("post", "amm/liquidity/remove", request_payload)
+
+    async def amm_lp_collect_fees(
+            self,
+            chain: str,
+            network: str,
+            connector: str,
+            address: str,
+            token_id: int,
+            nonce: Optional[int] = None,
+            max_fee_per_gas: Optional[int] = None,
+            max_priority_fee_per_gas: Optional[int] = None
+    ) -> Dict[str, Any]:
+        request_payload: Dict[str, Any] = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "address": address,
+            "tokenId": token_id,
+            "nonce": nonce,
+        }
+        if nonce is not None:
+            request_payload["nonce"] = int(nonce)
+        if max_fee_per_gas is not None:
+            request_payload["maxFeePerGas"] = str(max_fee_per_gas)
+        if max_priority_fee_per_gas is not None:
+            request_payload["maxPriorityFeePerGas"] = str(max_priority_fee_per_gas)
+        return await self.api_request("post", "amm/liquidity/collect_fees", request_payload)
+
+    async def amm_lp_position(
+            self,
+            chain: str,
+            network: str,
+            connector: str,
+            token_id: int,
+    ) -> Dict[str, Any]:
+        request_payload: Dict[str, Any] = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "tokenId": token_id,
+        }
+        return await self.api_request("post", "amm/liquidity/position", request_payload)
+
+    async def amm_lp_price(
+            self,
+            chain: str,
+            network: str,
+            connector: str,
+            token_0: str,
+            token_1: str,
+            fee: str,
+            period: Optional[int] = 1,
+            interval: Optional[int] = 1,
+    ) -> Dict[str, Any]:
+        request_payload: Dict[str, Any] = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "token0": token_0,
+            "token1": token_1,
+            "fee": fee,
+            "period": period,
+            "interval": interval,
+        }
+        return await self.api_request("post", "amm/liquidity/price", request_payload)
+
+    async def solana_post_root(
+        self,
+        network: str
+    ) -> Dict[str, Any]:
+        return await self.api_request("get", "solana", {
+            "network": network
+        }, use_body=True)
+
+    async def solana_get_balances(
+        self,
+        network: str,
+        address: str,
+        token_symbols: List[str]
+    ) -> Dict[str, Any]:
+        return await self.api_request("get", "solana/balances", {
+            "network": network,
+            "address": address,
+            "tokenSymbols": token_symbols
+        }, use_body=True)
+
+    async def solana_get_token(
+        self,
+        network: str,
+        address: str,
+        token: str
+    ) -> Dict[str, Any]:
+        return await self.api_request("get", "solana/token", {
+            "network": network,
+            "address": address,
+            "token": token
+        }, use_body=True)
+
+    async def solana_post_token(
+        self,
+        network: str,
+        address: str,
+        token: str
+    ) -> Dict[str, Any]:
+        return await self.api_request("post", "solana/token", {
+            "network": network,
+            "address": address,
+            "token": token
+        })
+
+    async def solana_post_poll(
+        self,
+        network: str,
+        tx_hash: str
+    ) -> Dict[str, Any]:
+        return await self.api_request("post", "solana/poll", {
+            "network": network,
+            "txHash": tx_hash
+        })
+
+    async def clob_get_root(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+    ) -> Dict[str, Any]:
+        return await self.api_request("get", "clob", {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }, use_body=True)
+
+    async def clob_get_markets(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        name: str = None,
+        names: List[str] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if name is not None:
+            request["name"] = name
+
+        if names is not None:
+            request["names"] = names
+
+        return await self.api_request("get", "clob/markets", request, use_body=True)
+
+    async def clob_get_order_books(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        market_name: str = None,
+        market_names: List[str] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if market_name is not None:
+            request["marketName"] = market_name
+
+        if market_names is not None:
+            request["marketNames"] = market_names
+
+        return await self.api_request("get", "clob/orderBooks", request, use_body=True)
+
+    async def clob_get_tickers(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        market_name: str = None,
+        market_names: List[str] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if market_name is not None:
+            request["marketName"] = market_name
+
+        if market_names is not None:
+            request["marketNames"] = market_names
+
+        return await self.api_request("get", "clob/tickers", request, use_body=True)
+
+    async def clob_get_orders(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        owner_address: str = None,
+        order: Dict[str, Any] = None,
+        orders: List[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if owner_address is not None:
+            request["ownerAddress"] = owner_address
+
+        if order is not None:
+            request["order"] = order
+
+        if orders is not None:
+            request["orders"] = orders
+
+        return await self.api_request("get", "clob/orders", request, use_body=True)
+
+    async def clob_post_orders(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        order: Dict[str, Any] = None,
+        orders: List[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if order is not None:
+            request["order"] = order
+
+        if orders is not None:
+            request["orders"] = orders
+
+        return await self.api_request("post", "clob/orders", request)
+
+    async def clob_delete_orders(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        owner_address: str = None,
+        order: Dict[str, Any] = None,
+        orders: List[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if owner_address is not None:
+            request["ownerAddress"] = owner_address
+
+        if order is not None:
+            request["order"] = order
+
+        if orders is not None:
+            request["orders"] = orders
+
+        return await self.api_request("delete", "clob/orders", request)
+
+    async def clob_get_open_orders(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        owner_address: str = None,
+        order: Dict[str, Any] = None,
+        orders: List[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if owner_address is not None:
+            request["ownerAddress"] = owner_address
+
+        if order is not None:
+            request["order"] = order
+
+        if orders is not None:
+            request["orders"] = orders
+
+        return await self.api_request("get", "clob/orders/open", request, use_body=True)
+
+    async def clob_get_filled_orders(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        owner_address: str = None,
+        order: Dict[str, Any] = None,
+        orders: List[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if owner_address is not None:
+            request["ownerAddress"] = owner_address
+
+        if order is not None:
+            request["order"] = order
+
+        if orders is not None:
+            request["orders"] = orders
+
+        return await self.api_request("get", "clob/orders/filled", request, use_body=True)
+
+    async def clob_post_settle_funds(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        owner_address: str = None,
+        market_name: str = None,
+        market_names: List[str] = None
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if owner_address is not None:
+            request["ownerAddress"] = owner_address
+
+        if market_name is not None:
+            request["market_name"] = market_name
+
+        if market_names is not None:
+            request["orders"] = market_names
+
+        return await self.api_request("post", "clob/settleFunds", request)
+
+    async def serum_get_root(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+    ) -> Dict[str, Any]:
+        return await self.api_request("get", "serum", {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }, use_body=True)
+
+    async def serum_get_markets(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        name: str = None,
+        names: List[str] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if name is not None:
+            request["name"] = name
+
+        if names is not None:
+            request["names"] = names
+
+        return await self.api_request("get", "serum/markets", request, use_body=True)
+
+    async def serum_get_order_books(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        market_name: str = None,
+        market_names: List[str] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if market_name is not None:
+            request["marketName"] = market_name
+
+        if market_names is not None:
+            request["marketNames"] = market_names
+
+        return await self.api_request("get", "serum/orderBooks", request, use_body=True)
+
+    async def serum_get_tickers(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        market_name: str = None,
+        market_names: List[str] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if market_name is not None:
+            request["marketName"] = market_name
+
+        if market_names is not None:
+            request["marketNames"] = market_names
+
+        return await self.api_request("get", "serum/tickers", request, use_body=True)
+
+    async def serum_get_orders(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        owner_address: str = None,
+        order: Dict[str, Any] = None,
+        orders: List[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if owner_address is not None:
+            request["ownerAddress"] = owner_address
+
+        if order is not None:
+            request["order"] = order
+
+        if orders is not None:
+            request["orders"] = orders
+
+        return await self.api_request("get", "serum/orders", request, use_body=True)
+
+    async def serum_post_orders(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        order: Dict[str, Any] = None,
+        orders: List[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if order is not None:
+            request["order"] = order
+
+        if orders is not None:
+            request["orders"] = orders
+
+        return await self.api_request("post", "serum/orders", request)
+
+    async def serum_delete_orders(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        owner_address: str = None,
+        order: Dict[str, Any] = None,
+        orders: List[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if owner_address is not None:
+            request["ownerAddress"] = owner_address
+
+        if order is not None:
+            request["order"] = order
+
+        if orders is not None:
+            request["orders"] = orders
+
+        return await self.api_request("delete", "serum/orders", request)
+
+    async def serum_get_open_orders(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        owner_address: str = None,
+        order: Dict[str, Any] = None,
+        orders: List[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if owner_address is not None:
+            request["ownerAddress"] = owner_address
+
+        if order is not None:
+            request["order"] = order
+
+        if orders is not None:
+            request["orders"] = orders
+
+        return await self.api_request("get", "serum/orders/open", request, use_body=True)
+
+    async def serum_get_filled_orders(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        owner_address: str = None,
+        order: Dict[str, Any] = None,
+        orders: List[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if owner_address is not None:
+            request["ownerAddress"] = owner_address
+
+        if order is not None:
+            request["order"] = order
+
+        if orders is not None:
+            request["orders"] = orders
+
+        return await self.api_request("get", "serum/orders/filled", request, use_body=True)
+
+    async def serum_post_settle_funds(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        owner_address: str = None,
+        market_name: str = None,
+        market_names: List[str] = None
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if owner_address is not None:
+            request["ownerAddress"] = owner_address
+
+        if market_name is not None:
+            request["market_name"] = market_name
+
+        if market_names is not None:
+            request["orders"] = market_names
+
+        return await self.api_request("post", "serum/settleFunds", request)

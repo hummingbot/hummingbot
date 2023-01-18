@@ -12,6 +12,12 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent,
     FundingPaymentCompletedEvent,
     PositionModeChangeEvent,
+    RangePositionLiquidityAddedEvent,
+    RangePositionLiquidityRemovedEvent,
+    RangePositionUpdateEvent,
+    RangePositionUpdateFailureEvent,
+    RangePositionFeeCollectedEvent,
+    RangePositionClosedEvent
 )
 
 
@@ -106,14 +112,38 @@ cdef class StrategyPyBase(StrategyBase):
     def did_change_position_mode_fail(self, position_mode_changed_event: PositionModeChangeEvent):
         pass
 
-    cdef c_did_create_range_position_order(self, object order_created_event):
-        self.did_create_range_position_order(order_created_event)
+    cdef c_did_add_liquidity(self, object add_liquidity_event):
+        self.did_add_liquidity(add_liquidity_event)
 
-    def did_create_range_position_order(self, order_created_event):
+    def did_add_liquidity(self, add_liquidity_event: RangePositionLiquidityAddedEvent):
         pass
 
-    cdef c_did_remove_range_position_order(self, object order_completed_event):
-        self.did_remove_range_position_order(order_completed_event)
+    cdef c_did_remove_liquidity(self, object remove_liquidity_event):
+        self.did_remove_liquidity(remove_liquidity_event)
 
-    def did_remove_range_position_order(self, order_completed_event):
+    def did_remove_liquidity(self, remove_liquidity_event: RangePositionLiquidityRemovedEvent):
+        pass
+
+    cdef c_did_update_lp_order(self, object update_lp_event):
+        self.did_update_lp_order(update_lp_event)
+
+    def did_update_lp_order(self, update_lp_event: RangePositionUpdateEvent):
+        pass
+
+    cdef c_did_fail_lp_update(self, object fail_lp_update_event):
+        self.did_fail_lp_update(fail_lp_update_event)
+
+    def did_fail_lp_update(self, fail_lp_update_event: RangePositionUpdateFailureEvent):
+        pass
+
+    cdef c_did_collect_fee(self, object collect_fee_event):
+        self.did_collect_fee(collect_fee_event)
+
+    def did_collect_fee(self, collect_fee_event: RangePositionFeeCollectedEvent):
+        pass
+
+    cdef c_did_close_position(self, object closed_position_event):
+        self.did_close_position(closed_position_event)
+
+    def did_close_position(self, closed_position_event: RangePositionClosedEvent):
         pass

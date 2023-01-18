@@ -156,7 +156,7 @@ jobs:
       - name: Use Node.js
         uses: actions/setup-node@v1
         with:
-          node-version: '16.x'
+          node-version: '18.x'
 
       - name: Get yarn cache directory path
         id: yarn-cache-dir-path
@@ -183,15 +183,19 @@ jobs:
       - name: Build project
         run: yarn --cwd ./gateway build
 
-      - name: Setup config and run unit test
+      - name: Replace testnet nodeURL for local hardhat node, and run unit test
         run: |
           cd gateway
           mkdir conf db
           cp src/templates/* conf
           sed -i 's/https:\/\/kovan.infura.io\/v3\//http:\/\/127.0.0.1:8545\//g' ./conf/ethereum.yml
-          sed -i 's/https:\/\/optimism-mainnet.infura.io\/v3\//http:\/\/127.0.0.1:8545\//g' ./conf/ethereum.yml
-          sed -i 's/https:\/\/speedy-nodes-nyc.moralis.io\/{}\/avalanche\/testnet/http:\/\/127.0.0.1:8545\//g' ./conf/avalanche.yml
+          sed -i 's/https:\/\/rpc.ankr.com\/optimism/http:\/\/127.0.0.1:8545\//g' ./conf/ethereum.yml
+          sed -i 's/https:\/\/rpc.ankr.com\/avalanche_fuji/http:\/\/127.0.0.1:8545\//g' ./conf/avalanche.yml
+          sed -i 's/https:\/\/rpc.ankr.com\/polygon_mumbai/http:\/\/127.0.0.1:8545\//g' ./conf/polygon.yml
           sed -i 's/https:\/\/api.s0.b.hmny.io/http:\/\/127.0.0.1:8545\//g' ./conf/harmony.yml
+          sed -i 's/https:\/\/api.s0.t.hmny.io/http:\/\/127.0.0.1:8545\//g' ./conf/harmony.yml
+          sed -i 's/https:\/\/bsc-dataseed1.binance.org/http:\/\/127.0.0.1:8545\//g' ./conf/binance-smart-chain.yml
+          sed -i 's/https:\/\/data-seed-prebsc-1-s1.binance.org:8545/http:\/\/127.0.0.1:8545\//g' ./conf/binance-smart-chain.yml
           yarn test:unit 
 
       - name: Run unit test coverage

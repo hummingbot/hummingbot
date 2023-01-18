@@ -1,0 +1,29 @@
+{
+  "name": "Defira Token List",
+  "logoURI": "https://sushi.com/static/media/logo.dec926df.png",
+  "version": {
+    "major": 0,
+    "minor": 1,
+    "patch": 1
+  },
+  "keywords": [],
+  "timestamp": "2022-01-30T00:00:00+00:00",
+  "tokens": [
+    {
+      "chainId": 1666700000,
+      "name": "OneETH",
+      "address": "0x1E120B3b4aF96e7F394ECAF84375b1C661830013",
+      "symbol": "1ETH",
+      "decimals": 18,
+      "logoURI": "https://assets.coingecko.com/coins/images/279/small/ethereum.png"
+    },
+    {
+      "chainId": 1666700000,
+      "name": "Wrapped ONE",
+      "address": "0x7466d7d0C21Fa05F32F5a0Fa27e12bdC06348Ce2",
+      "symbol": "WONE74",
+      "decimals": 18,
+      "logoURI": "https://assets.coingecko.com/coins/images/4344/small/Y88JAze.png"
+    }
+  ]
+}

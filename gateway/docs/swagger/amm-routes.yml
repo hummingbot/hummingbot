@@ -139,6 +139,26 @@ paths:
         '200':
           schema:
             $ref: '#/definitions/PerpPositionResponse'
+  /amm/perp/balance:
+    post:
+      tags:
+        - 'amm'
+      summary: 'Get account value'
+      operationId: 'perpBalance'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/PerpBalanceRequest'
+      responses:
+        '200':
+          schema:
+            $ref: '#/definitions/PerpBalanceResponse'
   /amm/perp/open:
     post:
       tags:
