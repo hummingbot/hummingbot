@@ -109,6 +109,11 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingA
     gateway_connector_tokens_parser.add_argument("new_tokens", nargs="?", default=None, help="Report balance of these tokens - separate multiple tokens with commas (,)")
     gateway_connector_tokens_parser.set_defaults(func=hummingbot.gateway_connector_tokens)
 
+    gateway_approve_tokens_parser = gateway_subparsers.add_parser("approve-tokens", help="Approve tokens for gateway connectors")
+    gateway_approve_tokens_parser.add_argument("connector_chain_network", nargs="?", default=None, help="Name of connector you want to approve tokens for")
+    gateway_approve_tokens_parser.add_argument("tokens", nargs="?", default=None, help="Approve these tokens")
+    gateway_approve_tokens_parser.set_defaults(func=hummingbot.gateway_approve_tokens)
+
     gateway_cert_parser = gateway_subparsers.add_parser("generate-certs", help="Create ssl certifcate for gateway")
     gateway_cert_parser.set_defaults(func=hummingbot.generate_certs)
 
