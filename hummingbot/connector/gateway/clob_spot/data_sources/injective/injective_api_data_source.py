@@ -119,12 +119,8 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         self._network = network
         self._sub_account_id = address
         self._account_address: Optional[str] = None
-        if self._network == "mainnet":  # todo: update once injective team deploys tx stream fix on k8s node
-            self._network_obj = getattr(Network, self._network)(node="sentry2")
-            self._client = AsyncClient(network=self._network_obj, insecure=True)
-        else:
-            self._network_obj = getattr(Network, self._network)
-            self._client = AsyncClient(network=self._network_obj)
+        self._network_obj = getattr(Network, self._network)()
+        self._client = AsyncClient(network=self._network_obj)
         self._composer = ProtoMsgComposer(network=self._network_obj.string())
         self._order_hash_manager: Optional[OrderHashManager] = None
         self._client_config = client_config_map
