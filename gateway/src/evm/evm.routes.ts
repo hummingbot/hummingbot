@@ -1,6 +1,7 @@
 /* eslint-disable no-inner-declarations */
 /* eslint-disable @typescript-eslint/ban-types */
 import { Router, Request, Response } from 'express';
+import { Ethereumish } from '../services/common-interfaces';
 import { asyncHandler } from '../services/error-handler';
 import {
   approve,
@@ -39,7 +40,10 @@ export namespace EVMRoutes {
         res: Response<NonceResponse | string, {}>
       ) => {
         validateNonceRequest(req.body);
-        const chain = await getChain(req.body.chain, req.body.network);
+        const chain = await getChain<Ethereumish>(
+          req.body.chain,
+          req.body.network
+        );
         res.status(200).json(await nextNonce(chain, req.body));
       }
     )
@@ -53,7 +57,10 @@ export namespace EVMRoutes {
         res: Response<NonceResponse | string, {}>
       ) => {
         validateNonceRequest(req.body);
-        const chain = await getChain(req.body.chain, req.body.network);
+        const chain = await getChain<Ethereumish>(
+          req.body.chain,
+          req.body.network
+        );
         res.status(200).json(await nonce(chain, req.body));
       }
     )
@@ -67,7 +74,10 @@ export namespace EVMRoutes {
         res: Response<AllowancesResponse | string, {}>
       ) => {
         validateAllowancesRequest(req.body);
-        const chain = await getChain(req.body.chain, req.body.network);
+        const chain = await getChain<Ethereumish>(
+          req.body.chain,
+          req.body.network
+        );
         res.status(200).json(await allowances(chain, req.body));
       }
     )
@@ -81,7 +91,10 @@ export namespace EVMRoutes {
         res: Response<ApproveResponse | string, {}>
       ) => {
         validateApproveRequest(req.body);
-        const chain = await getChain(req.body.chain, req.body.network);
+        const chain = await getChain<Ethereumish>(
+          req.body.chain,
+          req.body.network
+        );
         res.status(200).json(await approve(chain, req.body));
       }
     )
@@ -95,7 +108,10 @@ export namespace EVMRoutes {
         res: Response<CancelResponse, {}>
       ) => {
         validateCancelRequest(req.body);
-        const chain = await getChain(req.body.chain, req.body.network);
+        const chain = await getChain<Ethereumish>(
+          req.body.chain,
+          req.body.network
+        );
         res.status(200).json(await cancel(chain, req.body));
       }
     )

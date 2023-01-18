@@ -1,9 +1,9 @@
 import asyncio
-import statistics
-
 from typing import Awaitable
 from unittest import TestCase
 from unittest.mock import patch
+
+import numpy.ma
 
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 
@@ -67,6 +67,11 @@ class TimeSynchronizerTests(TestCase):
         third_expected_offset = third_time - (13 + 11) / 2
         expected_offsets = [first_expected_offset, second_expected_offset, third_expected_offset]
         seconds_difference_when_calculating_current_time = 25
-        self.assertEqual(
-            statistics.median(expected_offsets) + seconds_difference_when_calculating_current_time,
-            synchronized_time)
+
+        calculated_median = numpy.median(expected_offsets)
+        calculated_weighted_average = numpy.average(
+            expected_offsets,
+            weights=range(1, len(expected_offsets) * 2 + 1, 2))
+        calculated_offset = numpy.mean([calculated_median, calculated_weighted_average])
+
+        self.assertEqual(calculated_offset + seconds_difference_when_calculating_current_time, synchronized_time)

@@ -5,7 +5,7 @@
 template_version: 2
 strategy: null
 
-# The following configuations are only required for the
+# The following configurations are only required for the
 # simple trade strategy
 
 # Exchange and token parameters

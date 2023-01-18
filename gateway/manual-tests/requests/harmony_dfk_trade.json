@@ -1,0 +1,10 @@
+{
+  "address": "$ETH_ADDRESS",
+  "quote": "WONE",
+  "base": "ETH",
+  "amount": "0.01",
+  "side": "SELL",
+  "chain": "harmony",
+  "network": "mainnet",
+  "connector": "defikingdoms"
+}

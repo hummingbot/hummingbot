@@ -167,7 +167,7 @@ export class ConfigurationNamespace {
             );
           } else {
             throw new Error(
-              `${this.id} config file seems to be outdated/broken due to "${err.keyword}" - ${err.message}. Kindly fix manually.`
+              `${this.id} config file seems to be outdated/broken due to "${err.keyword}" in "${err.instancePath}" - ${err.message}. Kindly fix manually.`
             );
           }
         }

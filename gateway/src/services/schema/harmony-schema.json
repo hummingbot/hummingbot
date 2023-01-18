@@ -30,7 +30,7 @@
     "autoGasPrice": { "type": "boolean" },
     "manualGasPrice": { "type": "integer" },
     "gasPricerefreshTime": { "type": "integer" },
-    "gasLimit": { "type": "integer" }
+    "gasLimitTransaction": { "type": "integer" }
   },
   "additionalProperties": false
 }

@@ -14,7 +14,6 @@ from bidict import bidict
 import hummingbot.connector.exchange.latoken.latoken_web_utils as web_utils
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.exchange.latoken import latoken_constants as CONSTANTS
 from hummingbot.connector.exchange.latoken.latoken_api_order_book_data_source import LatokenAPIOrderBookDataSource
 from hummingbot.connector.exchange.latoken.latoken_exchange import LatokenExchange
@@ -102,6 +101,8 @@ class LatokenExchangeTests(TestCase):
         LatokenAPIOrderBookDataSource._trading_pair_symbol_map = {
             self.domain: bidict({f"{self.base_asset}/{self.quote_asset}": self.trading_pair})
         }
+        self.exchange._set_trading_pair_symbol_map(
+            bidict({f"{self.base_asset}/{self.quote_asset}": self.trading_pair}))
 
     def tearDown(self) -> None:
         self.test_task and self.test_task.cancel()
@@ -897,7 +898,7 @@ class LatokenExchangeTests(TestCase):
 
         mock_api.get(regex_url, status=401)
 
-        for i in range(ClientOrderTracker.ORDER_NOT_FOUND_COUNT_LIMIT + 1):
+        for i in range(self.exchange._order_tracker._lost_order_count_limit + 1):
             self.async_run_with_timeout(self.exchange._update_order_status())
 
         failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
@@ -1026,7 +1027,7 @@ class LatokenExchangeTests(TestCase):
         self.assertNotIn("OID3", self.exchange.in_flight_orders)
         self.assertNotIn("OID4", self.exchange.in_flight_orders)
 
-    @patch("hummingbot.connector.utils.get_tracking_nonce_low_res")
+    @patch("hummingbot.connector.utils.get_tracking_nonce")
     def test_client_order_id_on_order(self, mocked_nonce):
         mocked_nonce.return_value = 7
 

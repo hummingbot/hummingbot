@@ -1,0 +1,257 @@
+paths:
+  /serum:
+    get:
+      tags:
+        - 'serum'
+      summary: 'Verify Serum Routes Status'
+      description: 'Verify if the Serum routes are ready to use and show some other useful information. '
+      operationId: 'serum.root'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: 'Request body.'
+          required: true
+          schema:
+            $ref: '#/definitions/SerumRootRequest'
+      responses:
+        '200':
+          description: 'Successful response.'
+          schema:
+            $ref: '#/definitions/SerumRootResponse'
+  /serum/markets:
+    get:
+      tags:
+        - 'serum'
+      summary: 'Get One or More Markets'
+      description: 'Get the information of one, several or all available markets.'
+      operationId: 'serum.markets'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: 'Request body.'
+          required: true
+          schema:
+            $ref: '#/definitions/SerumGetMarketsRequest'
+      responses:
+        '200':
+          description: 'Successful response.'
+          schema:
+            $ref: '#/definitions/SerumGetMarketsResponse'
+        '404':
+          description: 'Not found response.'
+  /serum/orderBooks:
+    get:
+      tags:
+        - 'serum'
+      summary: 'Get One or More Order Books'
+      description: 'Get the information of one, several or all available order books.'
+      operationId: 'serum.orderBooks'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: 'Request body.'
+          required: true
+          schema:
+            $ref: '#/definitions/SerumGetOrderBooksRequest'
+      responses:
+        '200':
+          description: 'Successful response.'
+          schema:
+            $ref: '#/definitions/SerumGetOrderBooksResponse'
+        '404':
+          description: 'Not found response.'
+  /serum/tickers:
+    get:
+      tags:
+        - 'serum'
+      summary: 'Get One or More Tickers'
+      description: 'Get the information of one, several or all available tickers.'
+      operationId: 'serum.tickers'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: 'Request body.'
+          required: true
+          schema:
+            $ref: '#/definitions/SerumGetTickersRequest'
+      responses:
+        '200':
+          description: 'Successful response.'
+          schema:
+            $ref: '#/definitions/SerumGetTickersResponse'
+        '404':
+          description: 'Not found response.'
+  /serum/orders:
+    post:
+      tags:
+        - 'serum'
+      summary: 'Create One Or More Orders'
+      description: 'Create one or more orders.'
+      operationId: 'serum.createOrders'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: 'Request body.'
+          required: true
+          schema:
+            $ref: '#/definitions/SerumPostCreateOrdersRequest'
+      responses:
+        '200':
+          description: 'Successful response.'
+          schema:
+            $ref: '#/definitions/SerumPostCreateOrdersResponse'
+        '400':
+          description: 'Bad request response.'
+    get:
+      tags:
+        - 'serum'
+      summary: 'Get One Or More Orders'
+      description: 'Get the information of one, several or all orders.'
+      operationId: 'serum.getOrders'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: 'Request body.'
+          required: true
+          schema:
+            $ref: '#/definitions/SerumGetOrdersRequest'
+      responses:
+        '200':
+          description: 'Successful response.'
+          schema:
+            $ref: '#/definitions/SerumGetOrdersResponse'
+        '400':
+          description: 'Bad request response.'
+        '404':
+          description: 'Not found response.'
+    delete:
+      tags:
+        - 'serum'
+      summary: 'Cancel One Or More Orders Open Orders'
+      description: 'Cancel one, several or all open orders.'
+      operationId: 'serum.cancelOrders'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: 'Request body.'
+          required: true
+          schema:
+            $ref: '#/definitions/SerumDeleteCancelOrdersRequest'
+      responses:
+        '200':
+          description: 'Successful response.'
+          schema:
+            $ref: '#/definitions/SerumDeleteCancelOrdersResponse'
+        '400':
+          description: 'Bad request response.'
+        '404':
+          description: 'Not found response.'
+  /serum/orders/open:
+    get:
+      tags:
+        - 'serum'
+      summary: 'Get One Or More Open Orders'
+      description: 'Get the information of one, several or all open orders.'
+      operationId: 'serum.getOpenOrders'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: 'Request body.'
+          required: true
+          schema:
+            $ref: '#/definitions/SerumGetOpenOrdersRequest'
+      responses:
+        '200':
+          description: 'Successful response.'
+          schema:
+            $ref: '#/definitions/SerumGetOpenOrdersResponse'
+        '400':
+          description: 'Bad request response.'
+        '404':
+          description: 'Not found response.'
+  /serum/orders/filled:
+    get:
+      tags:
+        - 'serum'
+      summary: 'Get One Or More Filled Orders'
+      description: 'Get the information of one, several or all filled orders.'
+      operationId: 'serum.getFilledOrders'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: 'Request body.'
+          required: true
+          schema:
+            $ref: '#/definitions/SerumGetFilledOrdersRequest'
+      responses:
+        '200':
+          description: 'Successful response.'
+          schema:
+            $ref: '#/definitions/SerumGetFilledOrdersResponse'
+        '400':
+          description: 'Bad request response.'
+        '404':
+          description: 'Not found response.'
+  /serum/settleFunds:
+    get:
+      tags:
+        - 'serum'
+      summary: 'Settle Funds of One or More Markets'
+      description: 'Settle funds of one, several or all markets.'
+      operationId: 'serum.settleFunds'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: 'Request body.'
+          required: true
+          schema:
+            $ref: '#/definitions/SerumPostSettleFundsRequest'
+      responses:
+        '200':
+          description: 'Successful response.'
+          schema:
+            $ref: '#/definitions/SerumPostSettleFundsResponse'
+        '400':
+          description: 'Bad request response.'
+        '404':
+          description: 'Not found response.'

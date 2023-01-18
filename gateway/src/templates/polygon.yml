@@ -2,16 +2,16 @@
 networks:
   mainnet:
     chainID: 137
-    nodeURL: https://polygon-rpc.com
-    tokenListType: 'URL'
-    tokenListSource: 'https://raw.githubusercontent.com/SetProtocol/uniswap-tokenlist/main/set.polygon.tokenlist.json'
+    nodeURL: https://rpc.ankr.com/polygon
+    tokenListType: 'FILE'
+    tokenListSource: 'src/chains/polygon/polygon_tokens_mainnet.json'
     nativeCurrencySymbol: 'MATIC'  
   mumbai:
     chainID: 80001
-    nodeURL: https://matic-mumbai.chainstacklabs.com
+    nodeURL: https://rpc.ankr.com/polygon_mumbai
     tokenListType: 'FILE'
     tokenListSource: 'src/chains/polygon/polygon_tokens_mumbai.json'
     nativeCurrencySymbol: 'MATIC'
 
 manualGasPrice: 100
-gasLimit: 3000000
+gasLimitTransaction: 3000000

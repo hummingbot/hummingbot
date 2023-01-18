@@ -16,8 +16,8 @@ from bin.docker_connection import fork_and_start
 from bin.hummingbot import UIStartListener, detect_available_port
 from hummingbot import init_logging
 from hummingbot.client.config.config_crypt import BaseSecretsManager, ETHKeyFileSecretManger
-from hummingbot.client.config.config_data_types import BaseStrategyConfigMap
 from hummingbot.client.config.config_helpers import (
+    ClientConfigAdapter,
     all_configs_complete,
     create_yml_files_legacy,
     load_client_config_map_from_file,
@@ -75,7 +75,7 @@ def autofix_permissions(user_group_spec: str):
 
 async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsManager):
     config_file_name = args.config_file_name
-    client_config = load_client_config_map_from_file()
+    client_config_map = load_client_config_map_from_file()
 
     if args.auto_set_permissions is not None:
         autofix_permissions(args.auto_set_permissions)
@@ -86,12 +86,12 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
 
     await Security.wait_til_decryption_done()
     await create_yml_files_legacy()
-    init_logging("hummingbot_logs.yml", client_config)
+    init_logging("hummingbot_logs.yml", client_config_map)
     await read_system_configs_from_yml()
 
-    AllConnectorSettings.initialize_paper_trade_settings(client_config.paper_trade.paper_trade_exchanges)
+    AllConnectorSettings.initialize_paper_trade_settings(client_config_map.paper_trade.paper_trade_exchanges)
 
-    hb = HummingbotApplication.main_application()
+    hb = HummingbotApplication.main_application(client_config_map=client_config_map)
     # Todo: validate strategy and config_file_name before assinging
 
     strategy_config = None
@@ -102,7 +102,7 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
         )
         hb.strategy_name = (
             strategy_config.strategy
-            if isinstance(strategy_config, BaseStrategyConfigMap)
+            if isinstance(strategy_config, ClientConfigAdapter)
             else strategy_config.get("strategy").value
         )
         hb.strategy_config_map = strategy_config
@@ -113,11 +113,11 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
 
     # The listener needs to have a named variable for keeping reference, since the event listener system
     # uses weak references to remove unneeded listeners.
-    start_listener: UIStartListener = UIStartListener(hb)
+    start_listener: UIStartListener = UIStartListener(hb, is_quickstart=True)
     hb.app.add_listener(HummingbotUIEvent.Start, start_listener)
 
-    tasks: List[Coroutine] = [hb.run(), start_existing_gateway_container(client_config)]
-    if client_config.debug_console:
+    tasks: List[Coroutine] = [hb.run(), start_existing_gateway_container(client_config_map)]
+    if client_config_map.debug_console:
         management_port: int = detect_available_port(8211)
         tasks.append(start_management_console(locals(), host="localhost", port=management_port))
 

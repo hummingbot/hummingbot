@@ -1,6 +1,8 @@
 ![Hummingbot](https://i.ibb.co/X5zNkKw/blacklogo-with-text.png)
+
 # Hummingbot Gateway
-----
+
+---
 
 Hummingbot Gateway is a REST API that exposes connections to various blockchains (wallet, node & chain interaction) and decentralized exchanges (pricing, trading & liquidity provision). It is written in Typescript and takes advantage of existing blockchain and DEX SDKs. The advantage of using gateway is it provideds a programming language agnostic approach to interacting with blockchains and DEXs.
 
@@ -10,10 +12,20 @@ Gateway may be used alongside the main Hummingbot client to enable trading on DE
 
 This is a list of DEX connections currently supported by Gateway.
 
-| Connector   | Blockchain | Trading Interface |
-|-------------|------------|-------------------|
-| UniswapV2   | Ethereum   | AMM               |
-| Pangolin    | Avalanche  | AMM               |
+| Connector   | Blockchain          | Trading Interface |
+| ----------- | ------------------- | ----------------- |
+| UniswapV2   | Ethereum            | AMM               |
+| Sushiswap   | Ethereum   | AMM               |
+| UniswapV3   | Ethereum   | EVM_Range_AMM     |
+| Pangolin    | Avalanche           | AMM               |
+| PancakeSwap | Binance Smart Chain | AMM               |
+| Traderjoe   | Avalanche  | AMM               |
+| Quickswap   | Polygon    | AMM               |
+| Perp        | Ethereum   | EVM_Perpetual     |
+| Serum       | Solana     | CLOB              |
+| Mad Meerkat | Cronos     | AMM               |
+| VVS         | Cronos     | AMM               |
+
 
 ## Contributing
 
@@ -36,8 +48,6 @@ There are a number of ways to contribute to gateway.
 Before running gateway, you need to setup some configs. You can start by copying all of the yml files from [src/templates](./src/templates) to [conf](./conf). The format of this files are dictated by [src/services/config-manager-v2.ts](./src/services/config-manager-v2.ts) and the corresponding schema files in [src/services/schema](./src/services/schema) .
 
 ### Useful configuration options
-
-- If you want to use Ethereum, add your Infura API key to [conf/ethereum.yml](./conf/ethereum.yml). 
 
 - If you want to turn off `https`, set `unsafeDevModeWithHTTP` to `true` in [conf/server.yml](./conf/server.yml). 
 
@@ -99,7 +109,7 @@ yarn jest test/app.test.ts
 
 #### Manual tests
 
-We have found it is useful to test individual endpoints with `curl` commands. We have a collection of prepared curl calls. POST bodies are stored in JSON files. Take a look at the [curl calls for gateway](./manual_tests/curl.sh). Note that some environment variables are expected.
+We have found it is useful to test individual endpoints with `curl` commands. We have a collection of prepared curl calls. POST bodies are stored in JSON files. Take a look at the [curl calls for gateway](./manual-tests/curl.sh). Note that some environment variables are expected.
 
 ## Linting
 

@@ -4,16 +4,19 @@ import re
 import unittest
 from decimal import Decimal
 from typing import Any, Awaitable, Dict, List
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses.core import aioresponses
 from bidict import bidict
 
-import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
+import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_constants as CONSTANTS
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.binance_perpetual import binance_perpetual_web_utils as web_utils
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_api_order_book_data_source import (
     BinancePerpetualAPIOrderBookDataSource,
 )
+from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_derivative import BinancePerpetualDerivative
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.data_type.funding_info import FundingInfo
@@ -43,9 +46,19 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
-        self.data_source = BinancePerpetualAPIOrderBookDataSource(
-            time_synchronizer=self.time_synchronizer,
+        client_config_map = ClientConfigAdapter(ClientConfigMap())
+        self.connector = BinancePerpetualDerivative(
+            client_config_map,
+            binance_perpetual_api_key="",
+            binance_perpetual_api_secret="",
             trading_pairs=[self.trading_pair],
+            trading_required=False,
+            domain=self.domain,
+        )
+        self.data_source = BinancePerpetualAPIOrderBookDataSource(
+            trading_pairs=[self.trading_pair],
+            connector=self.connector,
+            api_factory=self.connector._web_assistants_factory,
             domain=self.domain,
         )
 
@@ -57,6 +70,9 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {
             self.domain: bidict({self.ex_trading_pair: self.trading_pair})
         }
+
+        self.connector._set_trading_pair_symbol_map(
+            bidict({f"{self.base_asset}{self.quote_asset}": self.trading_pair}))
 
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()
@@ -142,117 +158,6 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         return resp
 
     @aioresponses()
-    def test_get_last_traded_prices(self, mock_api):
-        url = web_utils.rest_url(CONSTANTS.SERVER_TIME_PATH_URL, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        response = {"serverTime": 1640000003000}
-
-        mock_api.get(regex_url,
-                     body=json.dumps(response))
-
-        url = web_utils.rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_URL, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        mock_response: Dict[str, Any] = {
-            # Truncated responses
-            "lastPrice": "10.0",
-        }
-        mock_api.get(regex_url, body=json.dumps(mock_response))
-
-        result: Dict[str, Any] = self.async_run_with_timeout(
-            self.data_source.get_last_traded_prices(trading_pairs=[self.trading_pair], domain=self.domain)
-        )
-        self.assertTrue(self.trading_pair in result)
-        self.assertEqual(10.0, result[self.trading_pair])
-
-    @aioresponses()
-    def test_init_trading_pair_symbols_failure(self, mock_api):
-        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {}
-        url = web_utils.rest_url(path_url=CONSTANTS.EXCHANGE_INFO_URL, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        mock_api.get(regex_url, status=400, body=json.dumps(["ERROR"]))
-
-        map = self.async_run_with_timeout(self.data_source.trading_pair_symbol_map(
-            domain=self.domain,
-            time_synchronizer=self.data_source._time_synchronizer))
-        self.assertEqual(0, len(map))
-
-    @aioresponses()
-    def test_init_trading_pair_symbols_successful(self, mock_api):
-        url = web_utils.rest_url(path_url=CONSTANTS.EXCHANGE_INFO_URL, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        mock_response: Dict[str, Any] = {
-            # Truncated Responses
-            "symbols": [
-                {
-                    "symbol": self.ex_trading_pair,
-                    "pair": self.ex_trading_pair,
-                    "baseAsset": self.base_asset,
-                    "quoteAsset": self.quote_asset,
-                    "status": "TRADING",
-                },
-                {"symbol": "INACTIVEMARKET", "status": "INACTIVE"},
-            ],
-        }
-        mock_api.get(regex_url, status=200, body=json.dumps(mock_response))
-        self.async_run_with_timeout(self.data_source.init_trading_pair_symbols(
-            domain=self.domain,
-            time_synchronizer=self.data_source._time_synchronizer))
-        self.assertEqual(1, len(self.data_source._trading_pair_symbol_map))
-
-    @aioresponses()
-    def test_trading_pair_symbol_map_dictionary_not_initialized(self, mock_api):
-        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {}
-        url = web_utils.rest_url(path_url=CONSTANTS.EXCHANGE_INFO_URL, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        mock_response: Dict[str, Any] = {
-            # Truncated Responses
-            "symbols": [
-                {
-                    "symbol": self.ex_trading_pair,
-                    "pair": self.ex_trading_pair,
-                    "baseAsset": self.base_asset,
-                    "quoteAsset": self.quote_asset,
-                    "status": "TRADING",
-                },
-            ]
-        }
-        mock_api.get(regex_url, status=200, body=json.dumps(mock_response))
-        self.async_run_with_timeout(self.data_source.trading_pair_symbol_map(
-            domain=self.domain,
-            time_synchronizer=self.data_source._time_synchronizer))
-        self.assertEqual(1, len(self.data_source._trading_pair_symbol_map))
-
-    def test_trading_pair_symbol_map_dictionary_initialized(self):
-        result = self.async_run_with_timeout(self.data_source.trading_pair_symbol_map(
-            domain=self.domain,
-            time_synchronizer=self.data_source._time_synchronizer))
-        self.assertEqual(1, len(result))
-
-    def test_convert_from_exchange_trading_pair_not_found(self):
-        unknown_pair = "UNKNOWN-PAIR"
-        with self.assertRaisesRegex(ValueError, f"There is no symbol mapping for exchange trading pair {unknown_pair}"):
-            self.async_run_with_timeout(
-                self.data_source.convert_from_exchange_trading_pair(unknown_pair, domain=self.domain))
-
-    def test_convert_from_exchange_trading_pair_successful(self):
-        result = self.async_run_with_timeout(
-            self.data_source.convert_from_exchange_trading_pair(self.ex_trading_pair, domain=self.domain))
-        self.assertEqual(result, self.trading_pair)
-
-    def test_convert_to_exchange_trading_pair_not_found(self):
-        unknown_pair = "UNKNOWN-PAIR"
-        with self.assertRaisesRegex(ValueError, f"There is no symbol mapping for trading pair {unknown_pair}"):
-            self.async_run_with_timeout(
-                self.data_source.convert_to_exchange_trading_pair(unknown_pair, domain=self.domain))
-
-    def test_convert_to_exchange_trading_pair_successful(self):
-        result = self.async_run_with_timeout(
-            self.data_source.convert_to_exchange_trading_pair(self.trading_pair, domain=self.domain))
-        self.assertEqual(result, self.ex_trading_pair)
-
-    @aioresponses()
     def test_get_snapshot_exception_raised(self, mock_api):
         url = web_utils.rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -260,10 +165,8 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         with self.assertRaises(IOError) as context:
             self.async_run_with_timeout(
-                self.data_source.get_snapshot(
-                    trading_pair=self.trading_pair,
-                    domain=self.domain,
-                    time_synchronizer=self.data_source._time_synchronizer)
+                self.data_source._order_book_snapshot(
+                    trading_pair=self.trading_pair)
             )
 
         self.assertEqual("Error executing request GET /depth. HTTP status is 400. Error: [\"ERROR\"]",
@@ -283,10 +186,8 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         mock_api.get(regex_url, status=200, body=json.dumps(mock_response))
 
         result: Dict[str, Any] = self.async_run_with_timeout(
-            self.data_source.get_snapshot(
-                trading_pair=self.trading_pair,
-                domain=self.domain,
-                time_synchronizer=self.data_source._time_synchronizer)
+            self.data_source._request_order_book_snapshot(
+                trading_pair=self.trading_pair)
         )
         self.assertEqual(mock_response, result)
 
@@ -307,17 +208,6 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(1027024, result.snapshot_uid)
 
     @aioresponses()
-    def test_get_funding_info_from_exchange_error_response(self, mock_api):
-        url = web_utils.rest_url(CONSTANTS.MARK_PRICE_URL, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        mock_api.get(regex_url, status=400)
-
-        result = self.async_run_with_timeout(self.data_source._get_funding_info_from_exchange(self.trading_pair))
-        self.assertIsNone(result)
-        self._is_logged("ERROR", f"Unable to fetch FundingInfo for {self.trading_pair}. Error: None")
-
-    @aioresponses()
     def test_get_funding_info_from_exchange_successful(self, mock_api):
         url = web_utils.rest_url(CONSTANTS.MARK_PRICE_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -334,7 +224,7 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         }
         mock_api.get(regex_url, body=json.dumps(mock_response))
 
-        result = self.async_run_with_timeout(self.data_source._get_funding_info_from_exchange(self.trading_pair))
+        result = self.async_run_with_timeout(self.data_source.get_funding_info(self.trading_pair))
 
         self.assertIsInstance(result, FundingInfo)
         self.assertEqual(result.trading_pair, self.trading_pair)
@@ -345,8 +235,6 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_get_funding_info(self, mock_api):
-        self.assertNotIn(self.trading_pair, self.data_source._funding_info)
-
         url = web_utils.rest_url(CONSTANTS.MARK_PRICE_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -384,33 +272,61 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_subscriptions_logs_exception(self, mock_ws, *_):
-        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
-        mock_ws.close.return_value = None
-        incomplete_resp = {
-            "m": 1,
-            "i": 2,
-        }
-        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, json.dumps(incomplete_resp))
-        self.mocking_assistant.add_websocket_aiohttp_message(
-            mock_ws.return_value, json.dumps(self._orderbook_update_event())
-        )
+    def test_listen_for_subscriptions_logs_exception_details(self, mock_ws, sleep_mock):
+        sleep_mock.side_effect = asyncio.CancelledError
+        mock_ws.side_effect = Exception("TEST ERROR.")
 
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
-
-        try:
+        with self.assertRaises(asyncio.CancelledError):
+            self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
             self.async_run_with_timeout(self.listening_task)
-        except asyncio.exceptions.TimeoutError:
-            pass
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error with Websocket connection. Retrying after 30 seconds...")
+            self._is_logged("ERROR",
+                            "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds...")
         )
+
+    def test_subscribe_to_channels_raises_cancel_exception(self):
+        mock_ws = MagicMock()
+        mock_ws.send.side_effect = asyncio.CancelledError
+
+        with self.assertRaises(asyncio.CancelledError):
+            self.listening_task = self.ev_loop.create_task(
+                self.data_source._subscribe_channels(mock_ws)
+            )
+            self.async_run_with_timeout(self.listening_task)
+
+    def test_subscribe_to_channels_raises_exception_and_logs_error(self):
+        mock_ws = MagicMock()
+        mock_ws.send.side_effect = Exception("Test Error")
+
+        with self.assertRaises(Exception):
+            self.listening_task = self.ev_loop.create_task(
+                self.data_source._subscribe_channels(mock_ws)
+            )
+            self.async_run_with_timeout(self.listening_task)
+
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error occurred subscribing to order book trading and delta streams...")
+        )
+
+    def test_channel_originating_message_returns_correct(self):
+        event_type = self._orderbook_update_event()
+        event_message = self.data_source._channel_originating_message(event_type)
+        self.assertEqual(self.data_source._diff_messages_queue_key, event_message)
+
+        event_type = self._funding_info_event()
+        event_message = self.data_source._channel_originating_message(event_type)
+        self.assertEqual(self.data_source._funding_info_messages_queue_key, event_message)
+
+        event_type = self._orderbook_trade_event()
+        event_message = self.data_source._channel_originating_message(event_type)
+        self.assertEqual(self.data_source._trade_messages_queue_key, event_message)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_subscriptions_successful(self, mock_ws):
         msg_queue_diffs: asyncio.Queue = asyncio.Queue()
         msg_queue_trades: asyncio.Queue = asyncio.Queue()
+        msg_queue_funding: asyncio.Queue = asyncio.Queue()
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
         mock_ws.close.return_value = None
 
@@ -431,7 +347,8 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.listening_task_trades = self.ev_loop.create_task(
             self.data_source.listen_for_trades(self.ev_loop, msg_queue_trades)
         )
-        self.listening_task_funding_info = self.ev_loop.create_task(self.data_source.listen_for_funding_info())
+        self.listening_task_funding_info = self.ev_loop.create_task(
+            self.data_source.listen_for_funding_info(msg_queue_funding))
 
         result: OrderBookMessage = self.async_run_with_timeout(msg_queue_diffs.get())
         self.assertIsInstance(result, OrderBookMessage)
@@ -450,16 +367,6 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(self.trading_pair, result.content["trading_pair"])
 
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
-
-        self.assertIn(self.trading_pair, self.data_source.funding_info)
-
-        funding_info: FundingInfo = self.data_source.funding_info[self.trading_pair]
-        self.assertTrue(self.data_source.is_funding_info_initialized)
-        self.assertEqual(funding_info.trading_pair, self.trading_pair)
-        self.assertEqual(funding_info.index_price, Decimal(self._funding_info_event()["data"]["i"]))
-        self.assertEqual(funding_info.mark_price, Decimal(self._funding_info_event()["data"]["p"]))
-        self.assertEqual(funding_info.next_funding_utc_timestamp, int(self._funding_info_event()["data"]["T"]))
-        self.assertEqual(funding_info.rate, Decimal(self._funding_info_event()["data"]["r"]))
 
     @aioresponses()
     def test_listen_for_order_book_snapshots_cancelled_error_raised(self, mock_api):
@@ -528,57 +435,10 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(result.update_id, 1027024)
         self.assertEqual(self.trading_pair, result.content["trading_pair"])
 
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_funding_info_invalid_trading_pair(self, mock_ws):
-
-        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
-        mock_ws.close.return_value = None
-
-        mock_response = {
-            "stream": "unknown_pair@markPrice",
-            "data": {
-                "e": "markPriceUpdate",
-                "E": 1641288864000,
-                "s": "unknown_pair",
-                "p": "46353.99600757",
-                "P": "46507.47845460",
-                "i": "46358.63622407",
-                "r": "0.00010000",
-                "T": 1641312000000,
-            },
-        }
-
-        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, json.dumps(mock_response))
-
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
-
-        self.listening_task_funding_info = self.ev_loop.create_task(self.data_source.listen_for_funding_info())
-
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
-
-        self.assertNotIn(self.trading_pair, self.data_source.funding_info)
-
     def test_listen_for_funding_info_cancelled_error_raised(self):
-
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.CancelledError
         self.data_source._message_queue[CONSTANTS.FUNDING_INFO_STREAM_ID] = mock_queue
 
         with self.assertRaises(asyncio.CancelledError):
-            self.async_run_with_timeout(self.data_source.listen_for_funding_info())
-
-    @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
-    def test_listen_for_funding_info_logs_exception(self, mock_sleep):
-
-        mock_sleep.side_effect = lambda _: (self.ev_loop.run_until_complete(asyncio.sleep(0.5)))
-
-        mock_queue = AsyncMock()
-        mock_queue.get.side_effect = lambda: (self._raise_exception_and_unlock_test_with_event(Exception("TEST ERROR")))
-        self.data_source._message_queue[CONSTANTS.FUNDING_INFO_STREAM_ID] = mock_queue
-
-        self.listening_task_funding_info = self.ev_loop.create_task(self.data_source.listen_for_funding_info())
-        self.async_run_with_timeout(self.resume_test_event.wait())
-
-        self._is_logged(
-            "ERROR", "Unexpected error occured updating funding information. Retrying in 5 seconds... Error: TEST ERROR"
-        )
+            self.async_run_with_timeout(self.data_source.listen_for_funding_info(mock_queue))

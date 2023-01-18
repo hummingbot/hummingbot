@@ -1,4 +1,4 @@
-FROM node:16.3.0
+FROM node:18.10.0
 
 # Set labels
 LABEL application="gateway-v2"
@@ -31,9 +31,9 @@ RUN chown -R hummingbot /var/lib/gateway
 COPY . .
 
 # install dependencies
-RUN yarn
+RUN yarn install --frozen-lockfile
 
-EXPOSE 5000
+EXPOSE 15888
 
 RUN yarn build
 
