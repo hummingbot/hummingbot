@@ -30,9 +30,10 @@ class DCAExample(ScriptStrategyBase):
         if self.last_ordered_ts < (self.current_timestamp - self.buy_interval):
             # Lets set the order price to the best bid
             price = self.connectors["bloxroute_openbook"].get_price("SOL-USDC", False)
-            amount = self.buy_quote_amount / price
-            self.buy("bloxroute_openbook", "SOL-USDC", amount, OrderType.LIMIT, price)
-            self.last_ordered_ts = self.current_timestamp
+            if price != 0:
+                amount = self.buy_quote_amount / price
+                self.buy("bloxroute_openbook", "SOL-USDC", amount, OrderType.LIMIT, price)
+                self.last_ordered_ts = self.current_timestamp
 
     def did_create_buy_order(self, event: BuyOrderCreatedEvent):
         """

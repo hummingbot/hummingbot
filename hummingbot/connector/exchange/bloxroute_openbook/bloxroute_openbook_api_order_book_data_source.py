@@ -15,6 +15,7 @@ from hummingbot.logger import HummingbotLogger
 if TYPE_CHECKING:
     from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_exchange import BloxrouteOpenbookExchange
 
+
 class BloxrouteOpenbookAPIOrderBookDataSource(OrderBookTrackerDataSource):
     HEARTBEAT_TIME_INTERVAL = 30.0
     TRADE_STREAM_ID = 1
@@ -23,21 +24,21 @@ class BloxrouteOpenbookAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     _logger: Optional[HummingbotLogger] = None
 
-    def __init__(self, provider: Provider, trading_pairs: List[str], connector: 'BloxrouteOpenbookExchange'):
+    def __init__(self, provider: Provider, trading_pairs: List[str], connector: "BloxrouteOpenbookExchange"):
         super().__init__(trading_pairs)
 
         self._provider = provider
         self._connector = connector
         self._orderbook_stream: Optional[AsyncGenerator[GetOrderbooksStreamResponse, None]] = None
 
-    async def get_last_traded_prices(self,
-                                     trading_pairs: List[str],
-                                     domain: Optional[str] = None) -> Dict[str, float]:
+    async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def _request_order_book_snapshots(self, output: asyncio.Queue):
-        raise Exception("""this function is not needed for bloxroute_openbook data source
-                           the request is handled in the _order_book_snapshot func""")
+        raise Exception(
+            """this function is not needed for bloxroute_openbook data source
+                           the request is handled in the _order_book_snapshot func"""
+        )
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         """
@@ -47,9 +48,9 @@ class BloxrouteOpenbookAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         :return: the response from the exchange (JSON dictionary)
         """
-        orderbook: GetOrderbookResponse = await self._provider.get_orderbook(market=trading_pair,
-                                                                             limit=1,
-                                                                             project=OPENBOOK_PROJECT)
+        orderbook: GetOrderbookResponse = await self._provider.get_orderbook(
+            market=trading_pair, limit=1, project=OPENBOOK_PROJECT
+        )
 
         snapshot_timestamp: float = time.time()
 
@@ -57,13 +58,9 @@ class BloxrouteOpenbookAPIOrderBookDataSource(OrderBookTrackerDataSource):
             "trading_pair": trading_pair,
             "update_id": int(time.time()),
             "bids": [(bid.price, bid.size) for bid in orderbook.bids],
-            "asks": [(ask.price, ask.size) for ask in orderbook.asks]
+            "asks": [(ask.price, ask.size) for ask in orderbook.asks],
         }
-        return OrderBookMessage(
-            OrderBookMessageType.SNAPSHOT,
-            order_book_message_content,
-            snapshot_timestamp
-        )
+        return OrderBookMessage(OrderBookMessageType.SNAPSHOT, order_book_message_content, snapshot_timestamp)
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         raise "connected websocket assistant not yet supported"
@@ -101,5 +98,6 @@ class BloxrouteOpenbookAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def listen_for_trades(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         pass
+
     async def _on_order_stream_interruption(self, websocket_assistant: Optional[WSAssistant] = None):
         raise

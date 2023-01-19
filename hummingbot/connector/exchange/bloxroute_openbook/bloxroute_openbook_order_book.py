@@ -9,12 +9,10 @@ from hummingbot.core.data_type.order_book_row import OrderBookRow
 
 
 class BloxrouteOpenbookOrderBook(OrderBook):
-
     @classmethod
-    def snapshot_message_from_exchange(cls,
-                                       msg: Dict[str, any],
-                                       timestamp: float,
-                                       metadata: Optional[Dict] = None) -> OrderBookMessage:
+    def snapshot_message_from_exchange(
+        cls, msg: Dict[str, any], timestamp: float, metadata: Optional[Dict] = None
+    ) -> OrderBookMessage:
         """
         Creates a snapshot message with the order book snapshot message
         :param msg: the response from the exchange when requesting the order book snapshot
@@ -27,12 +25,16 @@ class BloxrouteOpenbookOrderBook(OrderBook):
             if metadata:
                 msg.update(metadata)
             orderbook: GetOrderbookResponse = msg["orderbook"]
-            return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-                "trading_pair": orderbook.market,
-                "trade_id": timestamp,
-                "bids": orders_to_orderbook_rows(orderbook.bids),
-                "asks": orders_to_orderbook_rows(orderbook.asks)
-            }, timestamp=timestamp)
+            return OrderBookMessage(
+                OrderBookMessageType.SNAPSHOT,
+                {
+                    "trading_pair": orderbook.market,
+                    "trade_id": timestamp,
+                    "bids": orders_to_orderbook_rows(orderbook.bids),
+                    "asks": orders_to_orderbook_rows(orderbook.asks),
+                },
+                timestamp=timestamp,
+            )
         else:
             raise Exception(f"orderbook snapshot update did not contain `orderbook` field: {msg}")
 
@@ -46,8 +48,4 @@ def orders_to_orderbook_rows(orders: List[OrderbookItem]) -> List[OrderBookRow]:
 
 
 def order_to_orderbook_row(order: OrderbookItem) -> OrderBookRow:
-    return OrderBookRow(
-        price=order.price,
-        amount=order.size,
-        update_id=order.order_i_d
-    )
+    return OrderBookRow(price=order.price, amount=order.size, update_id=order.order_i_d)

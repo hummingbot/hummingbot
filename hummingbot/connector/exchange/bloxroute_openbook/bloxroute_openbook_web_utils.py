@@ -31,7 +31,7 @@ def build_api_factory(
         throttler: Optional[AsyncThrottler] = None,
         time_synchronizer: Optional[TimeSynchronizer] = None,
         time_provider: Optional[Callable] = None,
-        auth: Optional[AuthBase] = None) -> WebAssistantsFactory:
+        auth: Optional[AuthBase] = None, ) -> WebAssistantsFactory:
     throttler = throttler or create_throttler()
     time_synchronizer = time_synchronizer or TimeSynchronizer()
     time_provider = time_provider
@@ -56,8 +56,8 @@ def create_throttler() -> AsyncThrottler:
 
 
 async def get_current_server_time(
-        throttler: Optional[AsyncThrottler] = None,
-        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+    throttler: Optional[AsyncThrottler] = None,
+    domain: str = CONSTANTS.DEFAULT_DOMAIN,
 ) -> float:
     # TODO: use provider server time
     return time.time()
