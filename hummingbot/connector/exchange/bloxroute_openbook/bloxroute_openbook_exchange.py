@@ -32,10 +32,6 @@ from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_constan
 from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_orderbook_manager import (
     BloxrouteOpenbookOrderManager,
 )
-from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_utils import (
-    convert_blxr_to_hummingbot_order_status,
-    convert_hummingbot_to_blxr_client_order_id,
-)
 
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
@@ -232,6 +228,23 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         maker order.
         """
         raise Exception("get fee not yet implemented")
+    def convert_hummingbot_to_blxr_client_order_id(client_order_id: str):
+        return convert_to_number(client_order_id)
+
+    def convert_to_number(s):
+        return int.from_bytes(s.encode(), 'little')
+
+    def convert_blxr_to_hummingbot_order_status(order_status: api.OrderStatus) -> OrderState:
+        if order_status == api.OrderStatus.OS_OPEN:
+            return OrderState.OPEN
+        elif order_status == api.OrderStatus.OS_PARTIAL_FILL:
+            return OrderState.PARTIALLY_FILLED
+        elif order_status == api.OrderStatus.OS_FILLED:
+            return OrderState.FILLED
+        elif order_status == api.OrderStatus.OS_CANCELLED:
+            return OrderState.CANCELED
+        else:
+            return OrderState.FAILED
 
     async def _place_order(
             self,
