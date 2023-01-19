@@ -22,7 +22,6 @@ omit =
         hummingbot/connector/exchange/bitfinex*
         hummingbot/connector/exchange/coinbase_pro*
         hummingbot/connector/exchange/hitbtc*
-        hummingbot/connector/exchange/k2*
         hummingbot/connector/exchange/loopring*
         hummingbot/connector/exchange/paper_trade*
         hummingbot/connector/exchange/probit*
