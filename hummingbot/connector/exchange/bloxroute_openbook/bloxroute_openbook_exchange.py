@@ -89,8 +89,8 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
 
         self._server_response = GetServerTimeResponse
 
-        self._provider_1: Provider = WsProvider(auth_header="ZDIxYzE0NmItZWYxNi00ZmFmLTg5YWUtMzYwMTk4YzUyZmM4OjEwOWE5MzEzZDc2Yjg3MzczYjdjZDdhNmZkZGE3ZDg5", private_key="2jXkY1f2KkN8o21Y9irSf24hadmxbiVuQdZ1GcVfu7FMm83mGy6RVE9nK5Xez1DL3oQQYPWJiAYPr9uUxMGqMoDi")
-        self._provider_2: Provider = WsProvider(auth_header="ZDIxYzE0NmItZWYxNi00ZmFmLTg5YWUtMzYwMTk4YzUyZmM4OjEwOWE5MzEzZDc2Yjg3MzczYjdjZDdhNmZkZGE3ZDg5", private_key="2jXkY1f2KkN8o21Y9irSf24hadmxbiVuQdZ1GcVfu7FMm83mGy6RVE9nK5Xez1DL3oQQYPWJiAYPr9uUxMGqMoDi")
+        self._provider_1: Provider = WsProvider(auth_header=self._auth_header, private_key=self._sol_wallet_private_key)
+        self._provider_2: Provider = WsProvider(auth_header=self._auth_header, private_key=self._sol_wallet_private_key)
         asyncio.create_task(self.connect())
 
         self._trading_pairs = trading_pairs
@@ -361,7 +361,20 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         raise Exception("all trade updates for order not yet implemented")
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
-        pass
+        self.logger().info(f"looking for order with id ${tracked_order.client_order_id}")
+        blxr_client_order_id = convert_hummingbot_to_blxr_client_order_id(tracked_order.client_order_id)
+        order_status_info = self._order_book_manager.get_order_status(
+            trading_pair=tracked_order.trading_pair, client_order_id=blxr_client_order_id
+        )
+
+        new_order_status = convert_blxr_to_hummingbot_order_status(order_status_info.order_status)
+        return OrderUpdate(
+            trading_pair=tracked_order.trading_pair,
+            update_timestamp=order_status_info.timestamp,
+            new_state=new_order_status,
+            client_order_id=tracked_order.client_order_id,
+            exchange_order_id=tracked_order.exchange_order_id,
+        )
 
     def _create_order_fill_updates(self, order: InFlightOrder, fill_update: Dict[str, Any]) -> List[TradeUpdate]:
         raise Exception("create order fill updates not yet implemented")
