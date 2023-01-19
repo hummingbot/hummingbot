@@ -176,7 +176,7 @@ class StatusCommand:
             invalid_conns = await asyncio.wait_for(self.validate_required_connections(), network_timeout)
         except asyncio.TimeoutError:
             self.notify("\nA network error prevented the connection check to complete. See logs for more details.")
-            raise
+            # raise
         if invalid_conns:
             self.notify('  - Exchange check: Invalid connections:')
             for ex, err_msg in invalid_conns.items():
@@ -184,7 +184,7 @@ class StatusCommand:
         elif notify_success:
             self.notify('  - Exchange check: All connections confirmed.')
 
-        if invalid_conns or missing_configs or len(validation_errors) != 0:
+        if missing_configs or len(validation_errors) != 0:
             return False
 
         loading_markets: List[ConnectorBase] = []

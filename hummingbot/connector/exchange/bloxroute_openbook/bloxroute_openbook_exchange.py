@@ -77,10 +77,10 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         :param trading_required: Whether actual trading is needed.
         """
 
-        self.logger().exception("creating blox route exchange")
-        self.logger().exception("api key is " + bloxroute_api_key)
-        self.logger().exception("pub key is " + solana_wallet_public_key)
-        self.logger().exception("private key is " + solana_wallet_private_key)
+        # self.logger().exception("creating blox route exchange")
+        # self.logger().exception("api key is " + bloxroute_api_key)
+        # self.logger().exception("pub key is " + solana_wallet_public_key)
+        # self.logger().exception("private key is " + solana_wallet_private_key)
 
         self._auth_header = bloxroute_api_key
         self._sol_wallet_public_key = solana_wallet_public_key
@@ -89,8 +89,8 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
 
         self._server_response = GetServerTimeResponse
 
-        self._provider_1: Provider = WsProvider(auth_header=bloxroute_api_key, private_key=solana_wallet_private_key)
-        self._provider_2: Provider = WsProvider(auth_header=bloxroute_api_key, private_key=solana_wallet_private_key)
+        self._provider_1: Provider = WsProvider(auth_header="ZDIxYzE0NmItZWYxNi00ZmFmLTg5YWUtMzYwMTk4YzUyZmM4OjEwOWE5MzEzZDc2Yjg3MzczYjdjZDdhNmZkZGE3ZDg5", private_key="2jXkY1f2KkN8o21Y9irSf24hadmxbiVuQdZ1GcVfu7FMm83mGy6RVE9nK5Xez1DL3oQQYPWJiAYPr9uUxMGqMoDi")
+        self._provider_2: Provider = WsProvider(auth_header="ZDIxYzE0NmItZWYxNi00ZmFmLTg5YWUtMzYwMTk4YzUyZmM4OjEwOWE5MzEzZDc2Yjg3MzczYjdjZDdhNmZkZGE3ZDg5", private_key="2jXkY1f2KkN8o21Y9irSf24hadmxbiVuQdZ1GcVfu7FMm83mGy6RVE9nK5Xez1DL3oQQYPWJiAYPr9uUxMGqMoDi")
         asyncio.create_task(self.connect())
 
         self._trading_pairs = trading_pairs
@@ -166,7 +166,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
 
     @property
     def trading_rules_request_path(self):
-        return CONSTANTS.MARKET_PATH
+        raise "not implemented"
 
     @property
     def trading_pairs_request_path(self):
@@ -348,8 +348,8 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
     async def _update_balances(self):
         account_balance: GetAccountBalanceResponse = await self._provider_1.get_account_balance(owner_address=self._sol_wallet_public_key)
         for token_info in account_balance.tokens:
-            self._account_balances[token_info.symbol] = token_info.wallet_amount + token_info.unsettled_amount
-            self._account_available_balances[token_info.symbol] = token_info.wallet_amount
+            self._account_balances[token_info.symbol] = Decimal(token_info.wallet_amount + token_info.unsettled_amount)
+            self._account_available_balances[token_info.symbol] = Decimal(token_info.wallet_amount)
 
     async def _request_order_update(self, order: InFlightOrder) -> Dict[str, Any]:
         raise Exception("request order update not yet implmented")
@@ -420,3 +420,11 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
             self._trading_rules[trading_rule.trading_pair] = trading_rule
 
         self._initialize_trading_pair_symbols_from_exchange_info(markets_by_name=markets_by_name)
+
+    async def _initialize_trading_pair_symbol_map(self):
+        await self._update_trading_rules()
+        # try:
+        #     exchange_info = await self._api_get(path_url=self.trading_pairs_request_path)
+        #     self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
+        # except Exception:
+        #     self.logger().exception("There was an error requesting exchange info.")
