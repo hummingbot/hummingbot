@@ -61,7 +61,7 @@ warning_messages = {
 
 def get_connector_status(connector_name: str) -> str:
     """
-    Indicator for the connector tier: GOLD / SILVER / BRONZE / UNKNOWN 
+    Indicator for the connector tier: GOLD / SILVER / BRONZE / UNKNOWN
     """
     if connector_name not in connector_status.keys():
         status = "UNKNOWN"

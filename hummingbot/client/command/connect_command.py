@@ -12,7 +12,7 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.user.user_balances import UserBalances
 
 if TYPE_CHECKING:
-    from hummingbot.client.hummingbot_application import HummingbotApplication
+    from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
 
 OPTIONS = {cs.name for cs in AllConnectorSettings.get_connector_settings().values()
            if not cs.use_ethereum_wallet and not cs.uses_gateway_generic_connector()}
@@ -141,7 +141,6 @@ class ConnectCommand:
             self.app.to_stop_config = False
             return
         Security.update_secure_config(connector_config)
-        
         err_msg = await self.validate_n_connect_connector(connector_name)
         if err_msg is None:
             self.notify(f"\nYou are now connected to {connector_name}.")
