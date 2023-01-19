@@ -37,7 +37,8 @@ connector_status = {
     'okx': 'bronze',
     'perpetual_finance': 'bronze',
     'probit': 'bronze',
-    'whitebit': 'bronze'
+    'whitebit': 'bronze',
+    'ciex': 'bronze'
 }
 
 warning_messages = {
