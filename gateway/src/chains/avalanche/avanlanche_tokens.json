@@ -1107,6 +1107,14 @@
       },
       {
         "chainId": 43114,
+        "address": "0x152b9d0FdC40C096757F570A51E494bd4b943E50",
+        "decimals": 8,
+        "name": "Bitcoin",
+        "symbol": "BTC.b",
+        "logoURI": "https://raw.githubusercontent.com/traderjoe-xyz/joe-tokenlists/main/logos/0x152b9d0FdC40C096757F570A51E494bd4b943E50/logo.png"
+      },
+      {
+        "chainId": 43114,
         "address": "0x49D5c2BdFfac6CE2BFdB6640F4F80f226bc10bAB",
         "decimals": 18,
         "name": "Wrapped Ether",
