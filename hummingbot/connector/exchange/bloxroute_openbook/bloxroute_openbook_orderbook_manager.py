@@ -91,7 +91,7 @@ class BloxrouteOpenbookOrderManager:
             await self._initialize_order_status_streams()
             self._order_status_polling_task = asyncio.create_task(self._poll_order_status_updates())
 
-            await asyncio.sleep(10)
+            await asyncio.sleep(5)
 
             self._is_ready = True
 
