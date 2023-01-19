@@ -86,7 +86,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
 
         self._provider_1: Provider = WsProvider(auth_header=self._auth_header, private_key=self._sol_wallet_private_key)
         self._provider_2: Provider = WsProvider(auth_header=self._auth_header, private_key=self._sol_wallet_private_key)
-        asyncio.create_task(self.connect())
+        asyncio.create_task(self._initialize_order_manager())
 
         self._trading_pairs = trading_pairs
         self._order_manager: BloxrouteOpenbookOrderManager = BloxrouteOpenbookOrderManager(
@@ -228,23 +228,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         maker order.
         """
         raise Exception("get fee not yet implemented")
-    def convert_hummingbot_to_blxr_client_order_id(client_order_id: str):
-        return convert_to_number(client_order_id)
 
-    def convert_to_number(s):
-        return int.from_bytes(s.encode(), 'little')
-
-    def convert_blxr_to_hummingbot_order_status(order_status: api.OrderStatus) -> OrderState:
-        if order_status == api.OrderStatus.OS_OPEN:
-            return OrderState.OPEN
-        elif order_status == api.OrderStatus.OS_PARTIAL_FILL:
-            return OrderState.PARTIALLY_FILLED
-        elif order_status == api.OrderStatus.OS_FILLED:
-            return OrderState.FILLED
-        elif order_status == api.OrderStatus.OS_CANCELLED:
-            return OrderState.CANCELED
-        else:
-            return OrderState.FAILED
 
     async def _place_order(
             self,
@@ -256,7 +240,6 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
             price: Decimal,
             **kwargs,
     ) -> Tuple[str, float]:
-
         side = api.Side.S_BID if trade_type == TradeType.BUY else api.Side.S_ASK
         type = api.OrderType.OT_LIMIT if order_type == OrderType.LIMIT else api.OrderType.OT_MARKET
 
@@ -436,3 +419,21 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
 
     async def _initialize_trading_pair_symbol_map(self):
         await self._update_trading_rules()
+
+def convert_hummingbot_to_blxr_client_order_id(client_order_id: str):
+    return convert_to_number(client_order_id)
+
+def convert_to_number(s):
+    return int.from_bytes(s.encode(), 'little')
+
+def convert_blxr_to_hummingbot_order_status(order_status: api.OrderStatus) -> OrderState:
+    if order_status == api.OrderStatus.OS_OPEN:
+        return OrderState.OPEN
+    elif order_status == api.OrderStatus.OS_PARTIAL_FILL:
+        return OrderState.PARTIALLY_FILLED
+    elif order_status == api.OrderStatus.OS_FILLED:
+        return OrderState.FILLED
+    elif order_status == api.OrderStatus.OS_CANCELLED:
+        return OrderState.CANCELED
+    else:
+        return OrderState.FAILED
