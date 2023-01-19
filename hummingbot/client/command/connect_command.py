@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
 
 OPTIONS = {cs.name for cs in AllConnectorSettings.get_connector_settings().values()
-           if not cs.use_ethereum_wallet and not cs.uses_gateway_generic_connector()}
+           if not cs.use_ethereum_wallet and not cs.uses_gateway_generic_connector() if cs.name != "probit_kr"}
 
 
 class ConnectCommand:
