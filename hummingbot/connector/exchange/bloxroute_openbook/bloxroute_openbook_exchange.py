@@ -81,6 +81,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         self._sol_wallet_public_key = solana_wallet_public_key
         self._sol_wallet_private_key = solana_wallet_private_key
         self._trading_required = trading_required
+        self._hummingbot_to_solana_id = {}
 
         self._server_response = GetServerTimeResponse
 
@@ -229,6 +230,8 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         """
         raise Exception("get fee not yet implemented")
 
+    def truncate(self, num, n):
+        return num // 10 ** (int(math.log(num, 10)) - n + 1)
 
     async def _place_order(
             self,
@@ -253,6 +256,9 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         payer_address = base_addr if side == api.Side.S_ASK else quote_addr
 
         blxr_client_order_id = convert_hummingbot_to_blxr_client_order_id(order_id)
+        client_order_id = self.truncate(blxr_client_order_id, 7)
+        self._hummingbot_to_solana_id[order_id] = client_order_id
+
         submit_order_response = await self._provider_1.submit_order(
             owner_address=self._sol_wallet_public_key,
             payer_address=payer_address,
@@ -262,7 +268,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
             amount=float(amount),
             price=float(price),
             project=OPENBOOK_PROJECT,
-            client_order_id=blxr_client_order_id,
+            client_order_id=client_order_id,
             skip_pre_flight=True,
         )
 
@@ -273,9 +279,13 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         side = api.Side.S_BID if tracked_order.trade_type == TradeType.BUY else api.Side.S_ASK
 
-        cancel_order_response = await self._provider_1.submit_cancel_order(
-            order_i_d=order_id,
-            side=side,
+        if self._hummingbot_to_solana_id.get(order_id) is not None:
+            client_order_id = self._hummingbot_to_solana_id[order_id]
+        else:
+            raise Exception("placed order not found")
+
+        cancel_order_response = await self._provider_1.submit_cancel_by_client_order_i_d(
+            client_order_i_d=client_order_id,
             market_address=tracked_order.trading_pair,
             owner_address=self._sol_wallet_public_key,
             project=OPENBOOK_PROJECT,
