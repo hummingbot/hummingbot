@@ -211,6 +211,24 @@ class ColorConfigMap(BaseClientModel):
             prompt=lambda cm: "What is the background color for error label?",
         ),
     )
+    gold_label: str = Field(
+        default="#FFD700",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "What is the background color for gold label?",
+        ),
+    )
+    silver_label: str = Field(
+        default="#C0C0C0",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "What is the background color for silver label?",
+        ),
+    )
+    bronze_label: str = Field(
+        default="#CD7F32",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "What is the background color for bronze label?",
+        ),
+    )
 
     @validator(
         "top_pane",
@@ -225,6 +243,9 @@ class ColorConfigMap(BaseClientModel):
         "warning_label",
         "info_label",
         "error_label",
+        "gold_label",
+        "silver_label",
+        "bronze_label",
         pre=True,
     )
     def validate_color(cls, v: str):
