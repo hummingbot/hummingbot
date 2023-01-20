@@ -80,7 +80,7 @@ class K2OrderBookTracker(OrderBookTracker):
                     bids, asks = convert_diff_message_to_order_book_row(message)
                     order_book.apply_diffs(bids, asks, message.update_id)
                     pass_diffs_window.append(message)
-                    while(len(pass_diffs_window) > self.PAST_DIFF_WINDOW_SIZE):
+                    while len(pass_diffs_window) > self.PAST_DIFF_WINDOW_SIZE:
                         pass_diffs_window.popleft()
                     diff_messages_accepted += 1
 
