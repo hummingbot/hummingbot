@@ -782,6 +782,86 @@ definitions:
       txData:
         $ref: '#/definitions/SolanaTransaction'
 
+  CosmosConfigResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'rpcUrl'
+      - 'connection'
+      - 'timestamp'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      rpcUrl:
+        type: 'string'
+        example: 'https://rpc.cosmos.network/'
+      connection:
+        type: 'boolean'
+        example: true
+      timestamp:
+        type: 'integer'
+        example: 1641889489132
+
+  CosmosBalanceRequest:
+    type: 'object'
+    required:
+      - 'address'
+      - 'tokenSymbols'
+    properties:
+      address:
+        type: 'string'
+        example: 'cosmos1pc8m5m7n0z8xe7sx2tawkvc0v6qkjql83js0dr'
+      tokenSymbols:
+        type: 'array'
+        items: 'string'
+        example: ['ATOM', 'NETA']
+
+  CosmosPollRequest:
+    type: 'object'
+    required:
+      - 'txHash'
+    properties:
+      txHash:
+        type: 'string'
+        example: 'E0E02A6C27A75F4442B0746676BDAF5F66AFF1E71928C54624A35B48D5A4B3AF'
+
+  CosmosPollResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'txHash'
+      - 'currentBlock'
+      - 'txBlock'
+      - 'gasUsed'
+      - 'gasWanted'
+      - 'txData'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      currentBlock:
+        type: 'integer'
+        example: 112646487
+      txHash:
+        type: 'string'
+        example: 'oaMWkrYr1g9JBcDUPRqz21cJBxowM4CEbDy2FsCgNK569CjZSr4wa51d4k9DpTRJU8GUHfp3e9YX2pGXaBS5Tta'
+      txBlock:
+        type: 'number'
+        example: 11581899
+      gasUsed:
+        type: 'number'
+        example: 89054
+      gasWanted:
+        type: 'number'
+        example: 130000
+      txData:
+        $ref: '#/definitions/CosmosTransaction'
+
   TokensResponse:
     type: 'object'
     required:
@@ -2390,4 +2470,101 @@ definitions:
         type: 'string'
       txHash:
         type: 'string'
+
+  NearBalancesRequest:
+    type: 'object'
+    required:
+      - 'address'
+      - 'tokenSymbols'
+      - 'chain'
+      - 'network'
+    properties:
+      privateKey:
+        type: 'string'
+        example: 'hummingbot.near'
+      tokenSymbols:
+        type: 'array'
+        items: 'string'
+        example: ["NEAR", "ETH", "AURORA"]
+      chain:
+        type: 'string'
+        example: 'near'
+      network:
+        type: 'string'
+        example: 'testnet'
+
+  NearBalancesResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'balances'
+    properties:
+      network:
+        type: 'string'
+        example: 'testnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 0.5
+      balances:
+        type: 'object'
+        properties:
+          id:
+            type: 'string'
+          name:
+            type: 'string'
+        example: '{"NEAR": "1.5", "ETH": "100", "AURORA": "300"}'
+
+  NearPollRequest:
+    type: 'object'
+    required:
+      - 'address'
+      - 'txHash'
+      - 'chain'
+      - 'network'
+    properties:
+      address:
+        type: 'string'
+        example: 'hummingbot.near'
+      txHash:
+        type: 'string'
+        example: 'HnpRwb8PjrtLjExxz4YxdiyJ2AwuRFhZHKa9WUASwyxk'
+      chain:
+        type: 'string'
+        example: 'near'
+      network:
+        type: 'string'
+        example: 'testnet'
+
+  NearPollResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'currentBlock'
+      - 'txHash'
+      - 'txStatus'
+      - 'txReceipt'
+    properties:
+      network:
+        type: 'string'
+        example: 'testnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      currentBlock:
+        type: 'integer'
+        example: 28243911
+      txHash:
+        type: 'string'
+        example: 'HnpRwb8PjrtLjExxz4YxdiyJ2AwuRFhZHKa9WUASwyxk'
+      txStatus:
+        type: 'number'
+        example: 1
+      txReceipt:
+        type: 'object'
 

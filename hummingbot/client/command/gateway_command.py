@@ -9,7 +9,12 @@ import pandas as pd
 from hummingbot.client.command.gateway_api_manager import GatewayChainApiManager, begin_placeholder_mode
 from hummingbot.client.config.config_helpers import refresh_trade_fees_config, save_to_yml
 from hummingbot.client.config.security import Security
-from hummingbot.client.settings import CLIENT_CONFIG_PATH, AllConnectorSettings, GatewayConnectionSetting
+from hummingbot.client.settings import (
+    CLIENT_CONFIG_PATH,
+    GATEWAY_SSL_CONF_FILE,
+    AllConnectorSettings,
+    GatewayConnectionSetting,
+)
 from hummingbot.client.ui.completer import load_completer
 from hummingbot.core.gateway import (
     GATEWAY_DOCKER_REPO,
@@ -20,6 +25,7 @@ from hummingbot.core.gateway import (
     get_default_gateway_port,
     get_gateway_container_name,
     get_gateway_paths,
+    is_inside_docker,
     start_gateway,
     stop_gateway,
 )
@@ -37,7 +43,7 @@ from hummingbot.core.utils.gateway_config_utils import (
 from hummingbot.core.utils.ssl_cert import certs_files_exist, create_self_sign_certs
 
 if TYPE_CHECKING:
-    from hummingbot.client.hummingbot_application import HummingbotApplication
+    from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
 
 
 class GatewayCommand(GatewayChainApiManager):
@@ -65,6 +71,12 @@ class GatewayCommand(GatewayChainApiManager):
             safe_ensure_future(self._update_gateway_connector_tokens(connector_chain_network, new_tokens), loop=self.ev_loop)
         else:
             safe_ensure_future(self._show_gateway_connector_tokens(connector_chain_network), loop=self.ev_loop)
+
+    def gateway_approve_tokens(self, connector_chain_network: Optional[str], tokens: Optional[str]):
+        if connector_chain_network is not None and tokens is not None:
+            safe_ensure_future(self._update_gateway_approve_tokens(connector_chain_network, tokens), loop=self.ev_loop)
+        else:
+            self.notify("\nPlease specify the connector_chain_network and a token to approve.\n")
 
     def generate_certs(self):
         safe_ensure_future(self._generate_certs(), loop=self.ev_loop)
@@ -94,9 +106,40 @@ class GatewayCommand(GatewayChainApiManager):
 
     async def _generate_certs(
             self,       # type: HummingbotApplication
-            from_client_password: bool = False
+            from_client_password: bool = False,
+            bypass_source_check: bool = False
     ):
+
+        if not is_inside_docker and not bypass_source_check:
+            with begin_placeholder_mode(self):
+                while True:
+                    docker_check = await self.app.prompt(
+                        prompt="This command is designed to generate Gateway certificates. "
+                        "When you have installed Hummingbot from source, "
+                        "Do you want to continue? (Yes/No) >>> ",
+                    )
+                    if self.app.to_stop_config:
+                        return
+                    if docker_check in ["Y", "y", "Yes", "yes"]:
+                        break
+                    if docker_check in ["N", "n", "No", "no"]:
+                        return
+                    self.notify("Invalid input. Please try again or exit config [CTRL + x].\n")
+
         cert_path: str = get_gateway_paths(self.client_config_map).local_certs_path.as_posix()
+        current_path: str = self.client_config_map.certs.path
+        if not GATEWAY_SSL_CONF_FILE.exists() and not bypass_source_check:
+            self.notify("\nSSL configuration file not found. Please use `gateway/setup/generate_conf.sh` to generate it.")
+        elif GATEWAY_SSL_CONF_FILE.exists():
+            self.ssl_config_map.caCertificatePath = cert_path + "/ca_cert.pem"
+            self.ssl_config_map.certificatePath = cert_path + "/server_cert.pem"
+            self.ssl_config_map.keyPath = cert_path + "/server_key.pem"
+            save_to_yml(GATEWAY_SSL_CONF_FILE, self.ssl_config_map)  # Update SSL config file
+
+        if current_path != cert_path:
+            self.client_config_map.certs.path = cert_path
+            save_to_yml(CLIENT_CONFIG_PATH, self.client_config_map)  # Update config file
+
         if not from_client_password:
             if certs_files_exist(self.client_config_map):
                 self.notify(f"Gateway SSL certification files exist in {cert_path}.")
@@ -141,6 +184,21 @@ class GatewayCommand(GatewayChainApiManager):
     async def _create_gateway(
         self  # type: HummingbotApplication
     ):
+        if is_inside_docker:
+            with begin_placeholder_mode(self):
+                while True:
+                    docker_check = await self.app.prompt(
+                        prompt="This command is designed to automate Gateway setup when you have installed Hummingbot using Docker,"
+                        " Do you want to continue?” (Yes/No) >>>"
+                    )
+                    if self.app.to_stop_config:
+                        return
+                    if docker_check in ["Y", "y", "Yes", "yes"]:
+                        break
+                    if docker_check in ["N", "n", "No", "no"]:
+                        return
+                    self.notify("Invalid input. Please try again or exit config [CTRL + x].\n")
+
         gateway_paths: GatewayPaths = get_gateway_paths(self.client_config_map)
         gateway_container_name: str = get_gateway_container_name(self.client_config_map)
         gateway_conf_mount_path: str = gateway_paths.mount_conf_path.as_posix()
@@ -165,7 +223,7 @@ class GatewayCommand(GatewayChainApiManager):
         except Exception:
             pass  # silently ignore exception
 
-        await self._generate_certs(from_client_password=True)  # create cert
+        await self._generate_certs(from_client_password = True, bypass_source_check = True)  # create cert
 
         if await self.check_gateway_image(GATEWAY_DOCKER_REPO, GATEWAY_DOCKER_TAG):
             self.notify("Found Gateway docker image. No image pull needed.")
@@ -335,6 +393,8 @@ class GatewayCommand(GatewayChainApiManager):
             self,           # type: HummingbotApplication
             connector: str = None
     ):
+        wallet_account_id: Optional[str] = None
+
         with begin_placeholder_mode(self):
             gateway_connections_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
             if connector is None:
@@ -407,7 +467,7 @@ class GatewayCommand(GatewayChainApiManager):
                     wallets = matching_wallets[0]['walletAddresses']
 
                 # if the user has no wallet, ask them to select one
-                if len(wallets) < 1:
+                if len(wallets) < 1 or chain == "near":
                     self.app.clear_input()
                     self.placeholder_mode = True
                     wallet_private_key = await self.app.prompt(
@@ -417,8 +477,17 @@ class GatewayCommand(GatewayChainApiManager):
                     self.app.clear_input()
                     if self.app.to_stop_config:
                         return
+
+                    if chain == "near":
+                        wallet_account_id: str = await self.app.prompt(
+                            prompt=f"Enter your {chain}-{network} account Id >>> ",
+                        )
+                        self.app.clear_input()
+                        if self.app.to_stop_config:
+                            return
+
                     response: Dict[str, Any] = await self._get_gateway_instance().add_wallet(
-                        chain, network, wallet_private_key
+                        chain, network, wallet_private_key, id=wallet_account_id
                     )
                     wallet_address: str = response["address"]
 
@@ -472,8 +541,16 @@ class GatewayCommand(GatewayChainApiManager):
                                 if self.app.to_stop_config:
                                     return
 
+                                if chain == "near":
+                                    wallet_account_id: str = await self.app.prompt(
+                                        prompt=f"Enter your {chain}-{network} account Id >>> ",
+                                    )
+                                    self.app.clear_input()
+                                    if self.app.to_stop_config:
+                                        return
+
                                 response: Dict[str, Any] = await self._get_gateway_instance().add_wallet(
-                                    chain, network, wallet_private_key
+                                    chain, network, wallet_private_key, id=wallet_account_id
                                 )
                                 wallet_address = response["address"]
 
@@ -547,6 +624,52 @@ class GatewayCommand(GatewayChainApiManager):
         else:
             GatewayConnectionSetting.upsert_connector_spec_tokens(connector_chain_network, new_tokens)
             self.notify(f"The 'balance' command will now report token balances {new_tokens} for '{connector_chain_network}'.")
+
+    async def _update_gateway_approve_tokens(
+            self,           # type: HummingbotApplication
+            connector_chain_network: str,
+            tokens: str,
+    ):
+        """
+        Allow the user to approve tokens for spending.
+        """
+        # get connector specs
+        conf: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(connector_chain_network)
+        if conf is None:
+            self.notify(f"'{connector_chain_network}' is not available. You can add and review available gateway connectors with the command 'gateway connect'.")
+        else:
+            self.logger().info(f"Connector {conf['connector']} Tokens {tokens} will now be approved for spending for '{connector_chain_network}'.")
+            # get wallets for the selected chain
+            gateway_connections_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
+            if len(gateway_connections_conf) < 1:
+                self.notify("No existing wallet.\n")
+                return
+            connector_wallet: List[Dict[str, Any]] = [w for w in gateway_connections_conf if w["chain"] == conf['chain'] and w["connector"] == conf['connector'] and w["network"] == conf['network']]
+            try:
+                resp: Dict[str, Any] = await self._get_gateway_instance().approve_token(conf['chain'], conf['network'], connector_wallet[0]['wallet_address'], tokens, conf['connector'])
+                transaction_hash: Optional[str] = resp.get("approval", {}).get("hash")
+                displayed_pending: bool = False
+                while True:
+                    pollResp: Dict[str, Any] = await self._get_gateway_instance().get_transaction_status(conf['chain'], conf['network'], transaction_hash)
+                    transaction_status: Optional[str] = pollResp.get("txStatus")
+                    if transaction_status == 1:
+                        self.logger().info(f"Token {tokens} is approved for spending for '{conf['connector']}' for Wallet: {connector_wallet[0]['wallet_address']}.")
+                        self.notify(f"Token {tokens} is approved for spending for '{conf['connector']}' for Wallet: {connector_wallet[0]['wallet_address']}.")
+                        break
+                    elif transaction_status == 2:
+                        if not displayed_pending:
+                            self.logger().info(f"Token {tokens} approval transaction is pending. Transaction hash: {transaction_hash}")
+                            displayed_pending = True
+                            await asyncio.sleep(2)
+                        continue
+                    else:
+                        self.logger().info(f"Tokens {tokens} is not approved for spending. Please use manual approval.")
+                        self.notify(f"Tokens {tokens} is not approved for spending. Please use manual approval.")
+                        break
+
+            except Exception as e:
+                self.logger().error(f"Error approving tokens: {e}")
+                return
 
     def _get_gateway_instance(
         self  # type: HummingbotApplication

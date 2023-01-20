@@ -13,7 +13,7 @@ from tabulate import tabulate_formats
 
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
 from hummingbot.client.config.config_methods import using_exchange as using_exchange_pointer
-from hummingbot.client.config.config_validators import validate_bool
+from hummingbot.client.config.config_validators import validate_bool, validate_float
 from hummingbot.client.settings import DEFAULT_LOG_FILE_PATH, PMM_SCRIPTS_PATH, AllConnectorSettings
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.connector_metrics_collector import (
@@ -47,6 +47,95 @@ def generate_client_id() -> str:
 
 def using_exchange(exchange: str) -> Callable:
     return using_exchange_pointer(exchange)
+
+
+class MQTTBridgeConfigMap(BaseClientModel):
+    mqtt_host: str = Field(
+        default="localhost",
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Set the MQTT hostname to connect to (e.g. localhost)"
+            ),
+        ),
+    )
+    mqtt_port: int = Field(
+        default=1883,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Set the MQTT port to connect to (e.g. 1883)"
+            ),
+        ),
+    )
+    mqtt_username: str = Field(
+        default="",
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Set the username for connecting to the MQTT broker"
+            ),
+        ),
+    )
+    mqtt_password: str = Field(
+        default="",
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Set the password for connecting to the MQTT broker"
+            ),
+        ),
+    )
+    mqtt_namespace: str = Field(
+        default='hbot',
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Set the mqtt uri namespace (Default='hbot')"
+            ),
+        ),
+    )
+    mqtt_ssl: bool = Field(
+        default=False,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Enable/Disable SSL for MQTT connections"
+            ),
+        ),
+    )
+    mqtt_logger: bool = Field(
+        default=True
+    )
+    mqtt_notifier: bool = Field(
+        default=True,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Enable/Disable MQTT Notifier"
+            ),
+        ),
+    )
+    mqtt_commands: bool = Field(
+        default=True,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Enable/Disable MQTT Commands"
+            ),
+        ),
+    )
+    mqtt_events: bool = Field(
+        default=True,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Enable/Disable Events forwarding to MQTT broker"
+            ),
+        ),
+    )
+    mqtt_autostart: bool = Field(
+        default=False,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Enable/Disable autostart"
+            ),
+        ),
+    )
+
+    class Config:
+        title = "mqtt_bridge"
 
 
 class ColorConfigMap(BaseClientModel):
@@ -438,6 +527,18 @@ class GatewayConfigMap(BaseClientModel):
         title = "gateway"
 
 
+class CertsConfigMap(BaseClientModel):
+    path: str = Field(
+        default="",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Please enter the path for your certificate files",
+        ),
+    )
+
+    class Config:
+        title = "certs"
+
+
 class GlobalTokenConfigMap(BaseClientModel):
     global_token_name: str = Field(
         default="USD",
@@ -656,11 +757,23 @@ class KuCoinRateSourceMode(ExchangeRateSourceModeBase):
         title = "kucoin"
 
 
+class GateIoRateSourceMode(ExchangeRateSourceModeBase):
+    name: str = Field(
+        default="gate_io",
+        const=True,
+        client_data=None,
+    )
+
+    class Config:
+        title: str = "gate_io"
+
+
 RATE_SOURCE_MODES = {
     AscendExRateSourceMode.Config.title: AscendExRateSourceMode,
     BinanceRateSourceMode.Config.title: BinanceRateSourceMode,
     CoinGeckoRateSourceMode.Config.title: CoinGeckoRateSourceMode,
     KuCoinRateSourceMode.Config.title: KuCoinRateSourceMode,
+    GateIoRateSourceMode.Config.title: GateIoRateSourceMode,
 }
 
 
@@ -672,7 +785,12 @@ class CommandShortcutModel(BaseModel):
 
 
 class ClientConfigMap(BaseClientModel):
-    instance_id: str = Field(default=generate_client_id())
+    instance_id: str = Field(
+        default=generate_client_id(),
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Instance UID of the bot",
+        ),
+    )
     log_level: str = Field(default="INFO")
     debug_console: bool = Field(default=False)
     strategy_report_interval: float = Field(default=900)
@@ -705,6 +823,10 @@ class ClientConfigMap(BaseClientModel):
         client_data=ClientFieldData(
             prompt=lambda cm: f"Select the desired telegram mode ({'/'.join(list(TELEGRAM_MODES.keys()))})"
         )
+    )
+    mqtt_bridge: MQTTBridgeConfigMap = Field(
+        default=MQTTBridgeConfigMap(),
+        description=('MQTT Bridge configuration.'),
     )
     send_error_logs: bool = Field(
         default=True,
@@ -762,6 +884,12 @@ class ClientConfigMap(BaseClientModel):
         description=("Gateway API Configurations"
                      "\ndefault host to only use localhost"
                      "\nPort need to match the final installation port for Gateway"),
+    )
+    certs: CertsConfigMap = Field(
+        default=CertsConfigMap(),
+        description=("Certs Configurations"
+                     "\ndefault: use the client generated certs"
+                     "\nPort need to match the certifactes for Gateway"),
     )
     anonymized_metrics_mode: Union[tuple(METRICS_MODES.values())] = Field(
         default=AnonymizedMetricsEnabledMode(),
@@ -827,6 +955,18 @@ class ClientConfigMap(BaseClientModel):
     )
     paper_trade: PaperTradeConfigMap = Field(default=PaperTradeConfigMap())
     color: ColorConfigMap = Field(default=ColorConfigMap())
+    tick_size: float = Field(
+        default=1.0,
+        ge=0.1,
+        description="The tick size is the frequency with which the clock notifies the time iterators by calling the"
+                    "\nc_tick() method, that means for example that if the tick size is 1, the logic of the strategy"
+                    " \nwill run every second.",
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "What tick size (in seconds) do you want to use? (Enter 0.5 to indicate 0.5 seconds)"
+            ),
+        ),
+    )
 
     class Config:
         title = "client_config_map"
@@ -933,6 +1073,14 @@ class ClientConfigMap(BaseClientModel):
     def validate_decimals(cls, v: str, field: Field):
         """Used for client-friendly error output."""
         return super().validate_decimal(v, field)
+
+    @validator("tick_size", pre=True)
+    def validate_tick_size(cls, v: float):
+        """Used for client-friendly error output."""
+        ret = validate_float(v, min_value=0.1)
+        if ret is not None:
+            raise ValueError(ret)
+        return v
 
     # === post-validations ===
 

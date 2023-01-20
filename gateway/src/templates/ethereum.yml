@@ -2,26 +2,23 @@ networks:
   arbitrum_one:
     chainID: 42161
     nodeURL: https://rpc.ankr.com/arbitrum
-    tokenListType: URL
-    tokenListSource: >-
-      https://bridge.arbitrum.io/token-list-42161.json
+    tokenListType: FILE
+    tokenListSource: src/chains/ethereum/arbitrum_one_tokens.json
     nativeCurrencySymbol: ETH
     gasPriceRefreshInterval: 60
   arbitrum_rinkeby:
     chainID: 421611
     nodeURL: https://arbitrum-rinkeby.infura.io/v3/
-    tokenListType: URL
-    tokenListSource: >-
-      https://bridge.arbitrum.io/token-list-421611.json
+    tokenListType: FILE
+    tokenListSource: src/chains/ethereum/arbitrum_rinkeby_tokens.json
     nativeCurrencySymbol: ETH
     gasPriceRefreshInterval: 60
   mainnet:
     chainID: 1
     nodeURL: https://rpc.ankr.com/eth
-    tokenListType: URL
+    tokenListType: FILE
     nativeCurrencySymbol: ETH
-    tokenListSource: >-
-      https://tokens.coingecko.com/uniswap/all.json
+    tokenListSource: src/chains/ethereum/erc20_tokens_mainnet.json
     gasPriceRefreshInterval: 60
   ropsten:
     chainID: 3
@@ -33,16 +30,22 @@ networks:
   optimism:
     chainID: 10
     nodeURL: https://rpc.ankr.com/optimism
-    tokenListType: URL
-    tokenListSource: >-
-      https://raw.githubusercontent.com/ethereum-optimism/ethereum-optimism.github.io/master/optimism.tokenlist.json
-    nativeCurrencySymbol: ETH
+    tokenListType: FILE
+    tokenListSource: src/chains/ethereum/optimism_tokens.json
+    nativeCurrencySymbol: OETH
     gasPriceRefreshInterval: 60
   kovan:
     chainID: 42
     nodeURL: https://kovan.infura.io/v3/
     tokenListType: FILE
     tokenListSource: src/chains/ethereum/erc20_tokens_kovan.json
+    nativeCurrencySymbol: ETH
+    gasPriceRefreshInterval: 60
+  goerli:
+    chainID: 5
+    nodeURL: https://rpc.ankr.com/eth_goerli
+    tokenListType: FILE
+    tokenListSource: src/chains/ethereum/erc20_tokens_goerli.json
     nativeCurrencySymbol: ETH
     gasPriceRefreshInterval: 60
 

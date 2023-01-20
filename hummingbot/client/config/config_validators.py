@@ -32,8 +32,11 @@ def validate_connector(value: str) -> Optional[str]:
     """
     Restrict valid derivatives to the connector file names
     """
+    from hummingbot.client import settings
     from hummingbot.client.settings import AllConnectorSettings
-    if value not in AllConnectorSettings.get_connector_settings() and value != "celo":
+    if (value not in AllConnectorSettings.get_connector_settings()
+            and value not in settings.PAPER_TRADE_EXCHANGES
+            and value != "celo"):
         return f"Invalid connector, please choose value from {AllConnectorSettings.get_connector_settings().keys()}"
 
 
@@ -119,6 +122,32 @@ def validate_int(value: str, min_value: int = None, max_value: int = None, inclu
         elif min_value is not None and not int_value > min_value:
             return f"Value must be more than {min_value}."
         elif max_value is not None and not int_value < max_value:
+            return f"Value must be less than {max_value}."
+
+
+def validate_float(value: str, min_value: float = None, max_value: float = None, inclusive=True) -> Optional[str]:
+    """
+    Parse an float value from a string. This value can also be clamped.
+    """
+    try:
+        float_value = float(value)
+    except Exception:
+        return f"{value} is not in integer format."
+    if inclusive:
+        if min_value is not None and max_value is not None:
+            if not (min_value <= float_value <= max_value):
+                return f"Value must be between {min_value} and {max_value}."
+        elif min_value is not None and not float_value >= min_value:
+            return f"Value cannot be less than {min_value}."
+        elif max_value is not None and not float_value <= max_value:
+            return f"Value cannot be more than {max_value}."
+    else:
+        if min_value is not None and max_value is not None:
+            if not (min_value < float_value < max_value):
+                return f"Value must be between {min_value} and {max_value} (exclusive)."
+        elif min_value is not None and not float_value > min_value:
+            return f"Value must be more than {min_value}."
+        elif max_value is not None and not float_value < max_value:
             return f"Value must be less than {max_value}."
 
 

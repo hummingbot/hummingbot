@@ -1,3 +1,4 @@
+import json
 import unittest
 from decimal import Decimal
 from pathlib import Path
@@ -6,9 +7,10 @@ from unittest.mock import patch
 
 import yaml
 
+from hummingbot.client import settings
 from hummingbot.client.config.config_helpers import ClientConfigAdapter, ConfigValidationError
 from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.settings import ConnectorSetting, ConnectorType
+from hummingbot.client.settings import AllConnectorSettings, ConnectorSetting, ConnectorType
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.strategy.cross_exchange_market_making.cross_exchange_market_making_config_map_pydantic import (
     ActiveOrderRefreshMode,
@@ -29,6 +31,9 @@ class CrossExchangeMarketMakingConfigMapPydanticTest(unittest.TestCase):
 
         cls.maker_exchange = "mock_paper_exchange"
         cls.taker_exchange = "mock_paper_exchange"
+
+        # Reset the list of connectors (there could be changes introduced by other tests when running the suite
+        AllConnectorSettings.create_connector_settings()
 
     @patch("hummingbot.client.settings.AllConnectorSettings.get_exchange_names")
     @patch("hummingbot.client.settings.AllConnectorSettings.get_connector_settings")
@@ -99,9 +104,7 @@ class CrossExchangeMarketMakingConfigMapPydanticTest(unittest.TestCase):
 
         self.assertEqual(expected, prompt)
 
-    @patch(
-        "hummingbot.client.config.config_data_types.validate_market_trading_pair"
-    )
+    @patch("hummingbot.client.config.strategy_config_data_types.validate_market_trading_pair")
     def test_validators(self, _):
         self.config_map.order_refresh_mode = "active_order_refresh"
         self.assertIsInstance(self.config_map.order_refresh_mode.hb_config, ActiveOrderRefreshMode)
@@ -151,3 +154,39 @@ class CrossExchangeMarketMakingConfigMapPydanticTest(unittest.TestCase):
         loaded_config_map = ClientConfigAdapter(CrossExchangeMarketMakingConfigMap(**data))
 
         self.assertEqual(self.config_map, loaded_config_map)
+
+    def test_maker_field_jason_schema_includes_all_connectors_for_exchange_field(self):
+        schema = CrossExchangeMarketMakingConfigMap.schema_json()
+        schema_dict = json.loads(schema)
+
+        self.assertIn("MakerMarkets", schema_dict["definitions"])
+        expected_connectors = {connector_setting.name for connector_setting in
+                               AllConnectorSettings.get_connector_settings().values()
+                               if connector_setting.type is ConnectorType.Exchange}
+        print(expected_connectors)
+        expected_connectors = list(expected_connectors.union(settings.PAPER_TRADE_EXCHANGES))
+        expected_connectors.sort()
+        print(expected_connectors)
+        print(schema_dict["definitions"]["MakerMarkets"]["enum"])
+        self.assertEqual(expected_connectors, schema_dict["definitions"]["MakerMarkets"]["enum"])
+
+    def test_taker_field_jason_schema_includes_all_connectors_for_exchange_field(self):
+        # Reset the list of connectors (there could be changes introduced by other tests when running the suite
+        AllConnectorSettings.create_connector_settings()
+
+        # force reset the list of possible connectors
+        self.config_map.taker_market = settings.PAPER_TRADE_EXCHANGES[0]
+
+        schema = CrossExchangeMarketMakingConfigMap.schema_json()
+        schema_dict = json.loads(schema)
+
+        self.assertIn("TakerMarkets", schema_dict["definitions"])
+        expected_connectors = {connector_setting.name for connector_setting in
+                               AllConnectorSettings.get_connector_settings().values()
+                               if connector_setting.type in [
+                                   ConnectorType.Exchange,
+                                   ConnectorType.EVM_AMM]
+                               }
+        expected_connectors = list(expected_connectors.union(settings.PAPER_TRADE_EXCHANGES))
+        expected_connectors.sort()
+        self.assertEqual(expected_connectors, schema_dict["definitions"]["TakerMarkets"]["enum"])

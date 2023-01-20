@@ -17,11 +17,6 @@ import { EvmTxStorage } from './evm.tx-storage';
 import fse from 'fs-extra';
 import { ConfigManagerCertPassphrase } from './config-manager-cert-passphrase';
 import { logger } from './logger';
-import {
-  HttpException,
-  INVALID_NONCE_ERROR_MESSAGE,
-  INVALID_NONCE_ERROR_CODE,
-} from './error-handler';
 import { ReferenceCountingCloseable } from './refcounting-closeable';
 
 // information about an Ethereum token
@@ -179,7 +174,7 @@ export class EthereumBase {
   // getTokenList, we can read the stored tokenList value from when the
   // object was initiated.
   public get storedTokenList(): TokenInfo[] {
-    return this.tokenList;
+    return Object.values(this._tokenMap);
   }
 
   // return the Token object for a symbol
@@ -316,35 +311,23 @@ export class EthereumBase {
         wallet.address +
         '.'
     );
-    if (!nonce) {
-      nonce = await this.nonceManager.getNextNonce(wallet.address);
-    } else {
-      const isValid: boolean = await this.nonceManager.isValidNonce(
-        wallet.address,
-        nonce
-      );
-
-      if (!isValid) {
-        throw new HttpException(
-          500,
-          INVALID_NONCE_ERROR_MESSAGE + nonce,
-          INVALID_NONCE_ERROR_CODE
-        );
+    return this.nonceManager.provideNonce(
+      nonce,
+      wallet.address,
+      async (nextNonce) => {
+        const params: any = {
+          gasLimit: this._gasLimitTransaction,
+          nonce: nextNonce,
+        };
+        if (maxFeePerGas || maxPriorityFeePerGas) {
+          params.maxFeePerGas = maxFeePerGas;
+          params.maxPriorityFeePerGas = maxPriorityFeePerGas;
+        } else if (gasPrice) {
+          params.gasPrice = (gasPrice * 1e9).toFixed(0);
+        }
+        return contract.approve(spender, amount, params);
       }
-    }
-    const params: any = {
-      gasLimit: this._gasLimitTransaction,
-      nonce: nonce,
-    };
-    if (maxFeePerGas || maxPriorityFeePerGas) {
-      params.maxFeePerGas = maxFeePerGas;
-      params.maxPriorityFeePerGas = maxPriorityFeePerGas;
-    } else if (gasPrice) {
-      params.gasPrice = (gasPrice * 1e9).toFixed(0);
-    }
-    const response = await contract.approve(spender, amount, params);
-    await this.nonceManager.commitNonce(wallet.address, nonce);
-    return response;
+    );
   }
 
   public getTokenBySymbol(tokenSymbol: string): TokenInfo | undefined {
@@ -366,18 +349,23 @@ export class EthereumBase {
     nonce: number,
     gasPrice: number
   ): Promise<Transaction> {
-    const tx = {
-      from: wallet.address,
-      to: wallet.address,
-      value: utils.parseEther('0'),
-      nonce: nonce,
-      gasPrice: (gasPrice * 1e9).toFixed(0),
-    };
-    const response = await wallet.sendTransaction(tx);
-    await this.nonceManager.commitNonce(wallet.address, nonce);
-    logger.info(response);
+    return this.nonceManager.provideNonce(
+      nonce,
+      wallet.address,
+      async (nextNonce) => {
+        const tx = {
+          from: wallet.address,
+          to: wallet.address,
+          value: utils.parseEther('0'),
+          nonce: nextNonce,
+          gasPrice: (gasPrice * 1e9).toFixed(0),
+        };
+        const response = await wallet.sendTransaction(tx);
+        logger.info(response);
 
-    return response;
+        return response;
+      }
+    );
   }
 
   /**

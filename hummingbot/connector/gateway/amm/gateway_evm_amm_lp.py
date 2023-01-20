@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Type, Union, c
 
 from async_timeout import timeout
 
+from hummingbot.client.settings import GatewayConnectionSetting
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway.amm.gateway_in_flight_lp_order import GatewayInFlightLPOrder
 from hummingbot.core.data_type.cancellation_result import CancellationResult
@@ -77,6 +78,7 @@ class GatewayEVMAMMLP(ConnectorBase):
     _poll_notifier: Optional[asyncio.Event]
     _nonce: Optional[int]
     _native_currency: str
+    _amount_quantum_dict: Dict[str, Decimal]
 
     def __init__(self,
                  client_config_map: "ClientConfigAdapter",
@@ -122,6 +124,8 @@ class GatewayEVMAMMLP(ConnectorBase):
         self._nonce: Optional[int] = None
         self._native_currency = None
         self._network_transaction_fee: Optional[TokenAmount] = None
+        self._amount_quantum_dict = {}
+        safe_ensure_future(self.load_token_data())
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -232,6 +236,11 @@ class GatewayEVMAMMLP(ConnectorBase):
             for order_id in self._in_flight_orders.keys()
         ]
         return True if spender_token in pending_approval_tokens else False
+
+    async def load_token_data(self):
+        tokens = await GatewayHttpClient.get_instance().get_tokens(self.chain, self.network)
+        for t in tokens.get("tokens", []):
+            self._amount_quantum_dict[t["symbol"]] = Decimal(str(10 ** -t["decimals"]))
 
     async def get_chain_info(self):
         """
@@ -1007,7 +1016,8 @@ class GatewayEVMAMMLP(ConnectorBase):
         return Decimal("1e-15")
 
     def get_order_size_quantum(self, trading_pair: str, order_size: Decimal) -> Decimal:
-        return Decimal("1e-15")
+        base, quote = trading_pair.split("-")
+        return max(self._amount_quantum_dict[base], self._amount_quantum_dict[quote])
 
     @property
     def ready(self):
@@ -1104,6 +1114,7 @@ class GatewayEVMAMMLP(ConnectorBase):
         """
         if self._native_currency is None:
             await self.get_chain_info()
+        connector_tokens = GatewayConnectionSetting.get_connector_spec_from_market_name(self._name).get("tokens", "").split(",")
         last_tick = self._last_balance_poll_timestamp
         current_tick = self.current_timestamp
         if not on_interval or (current_tick - last_tick) > self.UPDATE_BALANCE_INTERVAL:
@@ -1111,7 +1122,7 @@ class GatewayEVMAMMLP(ConnectorBase):
             local_asset_names = set(self._account_balances.keys())
             remote_asset_names = set()
             resp_json: Dict[str, Any] = await self._get_gateway_instance().get_balances(
-                self.chain, self.network, self.address, list(self._tokens) + [self._native_currency]
+                self.chain, self.network, self.address, list(self._tokens) + [self._native_currency] + connector_tokens
             )
             for token, bal in resp_json["balances"].items():
                 self._account_available_balances[token] = Decimal(str(bal))

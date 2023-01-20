@@ -361,6 +361,7 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         self.assertEqual("testAPIKey", request_headers["X-BM-KEY"])
         self.assertIn("X-BM-TIMESTAMP", request_headers)
         self.assertIn("X-BM-SIGN", request_headers)
+        self.assertIn("X-BM-BROKER-ID", request_headers)
 
     def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = json.loads(request_call.kwargs["data"])
