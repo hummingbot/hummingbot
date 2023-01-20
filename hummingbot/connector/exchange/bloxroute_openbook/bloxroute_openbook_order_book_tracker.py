@@ -37,24 +37,18 @@ class BloxrouteOpenbookOrderBookTracker(OrderBookTracker):
                 self.logger().network(
                     f"Unexpected error tracking order book for {trading_pair}.",
                     exc_info=True,
-                    app_warning_msg="Unexpected error tracking order book. Retrying after 5 seconds."
+                    app_warning_msg="Unexpected error tracking order book. Retrying after 5 seconds.",
                 )
                 await asyncio.sleep(5.0)
 
     def start(self):
         self.stop()
-        self._init_order_books_task = safe_ensure_future(
-            self._init_order_books()
-        )
+        self._init_order_books_task = safe_ensure_future(self._init_order_books())
         self._order_book_snapshot_listener_task = safe_ensure_future(
             self._data_source.listen_for_order_book_snapshots(self._ev_loop, self._order_book_snapshot_stream)
         )
-        self._order_book_stream_listener_task = safe_ensure_future(
-            self._data_source.listen_for_subscriptions()
-        )
-        self._order_book_snapshot_router_task = safe_ensure_future(
-            self._order_book_snapshot_router()
-        )
+        self._order_book_stream_listener_task = safe_ensure_future(self._data_source.listen_for_subscriptions())
+        self._order_book_snapshot_router_task = safe_ensure_future(self._order_book_snapshot_router())
 
     def _order_book_diff_router(self):
         pass
