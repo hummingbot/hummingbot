@@ -181,6 +181,37 @@ def _migrate_global_config_modes(client_config_map: ClientConfigAdapter, data: D
         client_config_map.gateway, data, "gateway_api_port"
     )
 
+    _migrate_global_config_field(
+        client_config_map.mqtt_bridge, data, "mqtt_host"
+    )
+    _migrate_global_config_field(
+        client_config_map.mqtt_bridge, data, "mqtt_port"
+    )
+    _migrate_global_config_field(
+        client_config_map.mqtt_bridge, data, "mqtt_username"
+    )
+    _migrate_global_config_field(
+        client_config_map.mqtt_bridge, data, "mqtt_password"
+    )
+    _migrate_global_config_field(
+        client_config_map.mqtt_bridge, data, "mqtt_ssl"
+    )
+    _migrate_global_config_field(
+        client_config_map.mqtt_bridge, data, "mqtt_logger"
+    )
+    _migrate_global_config_field(
+        client_config_map.mqtt_bridge, data, "mqtt_notifier"
+    )
+    _migrate_global_config_field(
+        client_config_map.mqtt_bridge, data, "mqtt_commands"
+    )
+    _migrate_global_config_field(
+        client_config_map.mqtt_bridge, data, "mqtt_events"
+    )
+    _migrate_global_config_field(
+        client_config_map.mqtt_bridge, data, "mqtt_autostart"
+    )
+
     anonymized_metrics_enabled = data.pop("anonymized_metrics_enabled")
     anonymized_metrics_interval_min = data.pop("anonymized_metrics_interval_min")
     if anonymized_metrics_enabled:
