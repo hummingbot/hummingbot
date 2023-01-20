@@ -9,6 +9,7 @@ from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
     MarketEvent,
+    MarketOrderFailureEvent,
     OrderCancelledEvent,
     OrderFilledEvent,
     SellOrderCompletedEvent,
@@ -53,13 +54,16 @@ class PositionExecutor:
         self._complete_buy_order_forwarder = SourceInfoEventForwarder(self.process_order_completed_event)
         self._complete_sell_order_forwarder = SourceInfoEventForwarder(self.process_order_completed_event)
 
+        self._failed_order_forwarder = SourceInfoEventForwarder(self.process_order_failed_event)
+
         self._event_pairs: List[Tuple[MarketEvent, SourceInfoEventForwarder]] = [
             (MarketEvent.OrderCancelled, self._cancel_order_forwarder),
             (MarketEvent.BuyOrderCreated, self._create_buy_order_forwarder),
             (MarketEvent.SellOrderCreated, self._create_sell_order_forwarder),
             (MarketEvent.OrderFilled, self._fill_order_forwarder),
             (MarketEvent.BuyOrderCompleted, self._complete_buy_order_forwarder),
-            (MarketEvent.SellOrderCompleted, self._complete_sell_order_forwarder)
+            (MarketEvent.SellOrderCompleted, self._complete_sell_order_forwarder),
+            (MarketEvent.OrderFailure, self._failed_order_forwarder),
         ]
         self.register_events()
 
@@ -374,6 +378,58 @@ class PositionExecutor:
             else:
                 self.status = PositionExecutorStatus.ACTIVE_POSITION
                 self.logger().info("Position taken, placing take profit next tick.")
+
+    def process_order_failed_event(self,
+                                   event_tag: int,
+                                   market: ConnectorBase,
+                                   event: MarketOrderFailureEvent):
+        if self.open_order.order_id == event.order_id:
+            order_id = self.place_order(
+                connector_name=self.exchange,
+                trading_pair=self.trading_pair,
+                amount=self.amount,
+                price=self.entry_price,
+                order_type=self.open_order_type,
+                position_action=PositionAction.OPEN,
+                position_side=self.side
+            )
+            self._open_order.order_id = order_id
+            self.status = PositionExecutorStatus.NOT_STARTED
+        elif self.stop_loss_order.order_id == event.order_id:
+            current_price = self.connector.get_mid_price(self.trading_pair)
+            order_id = self.place_order(
+                connector_name=self.exchange,
+                trading_pair=self.trading_pair,
+                amount=self.open_order.order.executed_amount_base,
+                price=current_price,
+                order_type=OrderType.MARKET,
+                position_action=PositionAction.CLOSE,
+                position_side=PositionSide.LONG if self.side == PositionSide.SHORT else PositionSide.SHORT
+            )
+            self.stop_loss_order.order_id = order_id
+        elif self.time_limit_order.order_id == event.order_id:
+            current_price = self.connector.get_mid_price(self.trading_pair)
+            order_id = self.place_order(
+                connector_name=self.exchange,
+                trading_pair=self.trading_pair,
+                amount=self.open_order.order.executed_amount_base,
+                price=current_price,
+                order_type=OrderType.MARKET,
+                position_action=PositionAction.CLOSE,
+                position_side=PositionSide.LONG if self.side == PositionSide.SHORT else PositionSide.SHORT
+            )
+            self.time_limit_order.order_id = order_id
+        elif self.take_profit_order.order_id == event.order_id:
+            order_id = self.place_order(
+                connector_name=self._position_config.exchange,
+                trading_pair=self._position_config.trading_pair,
+                amount=self.open_order.order.executed_amount_base,
+                price=self.take_profit_price,
+                order_type=OrderType.LIMIT,
+                position_action=PositionAction.CLOSE,
+                position_side=PositionSide.LONG if self.side == PositionSide.SHORT else PositionSide.SHORT
+            )
+            self.take_profit_order.order_id = order_id
 
     def register_events(self):
         """Start listening to events from the given market."""
