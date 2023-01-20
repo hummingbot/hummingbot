@@ -41,7 +41,7 @@ class K2OrderBookTracker(OrderBookTracker):
         self._process_msg_deque_task: Optional[asyncio.Task] = None
         self._past_diff_windows: Dict[str, Deque] = {}
         self._saved_message_queues: Dict[str, Deque[K2OrderBookMessage]] = \
-            defaultdict(lambda: Deque(maxlen=1000))
+            defaultdict(lambda: deque(maxlen=1000))
 
         self._order_book_diff_listener_task: Optional[asyncio.Task] = None
         self._order_book_trade_listner_task: Optional[asyncio.Task] = None
