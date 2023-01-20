@@ -108,6 +108,24 @@ def chdir_to_data_directory():
     set_prefix_path(app_data_dir)
 
 
+def get_logging_conf(conf_filename: str = 'hummingbot_logs.yml'):
+    import io
+    from os.path import join
+    from typing import Dict
+
+    from ruamel.yaml import YAML
+
+    file_path: str = join(prefix_path(), "conf", conf_filename)
+    yaml_parser: YAML = YAML()
+    if not path.exists(file_path):
+        return {}
+    with open(file_path) as fd:
+        yml_source: str = fd.read()
+        io_stream: io.StringIO = io.StringIO(yml_source)
+        config_dict: Dict = yaml_parser.load(io_stream)
+        return config_dict
+
+
 def init_logging(conf_filename: str,
                  client_config_map: "_ClientConfigAdapter",
                  override_log_level: Optional[str] = None,

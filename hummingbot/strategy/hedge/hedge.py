@@ -84,14 +84,18 @@ class HedgeStrategy(StrategyPyBase):
         self._status_report_interval = status_report_interval
         self._all_markets = self._hedge_market_pairs + self._market_pairs
         self._last_timestamp = 0
+        self._last_hedge_check_timestamp = 0
         self._all_markets_ready = False
         self._max_order_age = max_order_age
+        self._status_messages = []
         if config_map.value_mode:
             self.hedge = self.hedge_by_value
             self._hedge_market_pair = hedge_market_pairs[0]
+            self.logger().info(f"Hedge market pair: {self._hedge_market_pair}")
         else:
             self.hedge = self.hedge_by_amount
             self._market_pair_by_asset = self.get_market_pair_by_asset()
+            self.logger().info(f"Market pair by asset: {self._market_pair_by_asset}")
 
         derivative_markets = AllConnectorSettings.get_derivative_names()
         self._derivatives_list = [
@@ -111,9 +115,11 @@ class HedgeStrategy(StrategyPyBase):
         sort market pair belonging to the same market as hedge market together
         :return: market pair belonging to the same market as hedge market together
         """
+        self.logger().info(f"Market pairs: {self._market_pairs}")
         return {
             hedge_pair: [
-                market_pair for market_pair in self._market_pairs if market_pair.trading_pair == hedge_pair.trading_pair
+                market_pair for market_pair in self._market_pairs
+                if market_pair.trading_pair.split("-")[0] == hedge_pair.trading_pair.split("-")[0]
             ]
             for hedge_pair in self._hedge_market_pairs
         }
@@ -186,32 +192,38 @@ class HedgeStrategy(StrategyPyBase):
         """
         Format the status of the strategy.
         """
-        lines = []
-        warning_lines = []
-        warning_lines.extend(self.network_warning(self._all_markets))
-        wallet_df = self.wallet_balance_data_frame(self._all_markets)
-        lines.extend(["", "  Wallet:"] + ["    " + line for line in str(wallet_df).split("\n")])
-        assets_df = self.wallet_df()
-        lines.extend(["", "  Assets:"] + ["    " + line for line in str(assets_df).split("\n")])
-        positions_df = self.active_positions_df()
-        if not positions_df.empty:
-            lines.extend(["", "  Positions:"] + ["    " + line for line in str(positions_df).split("\n")])
-        else:
-            lines.extend(["", "  No positions."])
-        # See if there're any open orders.
-        if self.active_orders:
-            orders = [order[1] for order in self.active_orders]
-            df = LimitOrder.to_pandas(orders)
-            df_lines = str(df).split("\n")
-            lines.extend(["", "  Active orders:"] + ["    " + line for line in df_lines])
-        else:
-            lines.extend(["", "  No active maker orders."])
-        if self._value_mode:
+        def get_wallet_status_str() -> List[str]:
+            wallet_df = self.wallet_balance_data_frame(self._all_markets)
+            return ["", "  Wallet:"] + ["    " + line for line in str(wallet_df).split("\n")]
+
+        def get_asset_status_str() -> List[str]:
+            assets_df = self.wallet_df()
+            return ["", "  Assets:"] + ["    " + line for line in str(assets_df).split("\n")]
+
+        def get_position_status_str() -> List[str]:
+            positions_df = self.active_positions_df()
+            if not positions_df.empty:
+                return ["", "  Positions:"] + ["    " + line for line in str(positions_df).split("\n")]
+            return ["", "  No positions."]
+
+        def get_order_status_str() -> List[str]:
+            if self.active_orders:
+                orders = [order[1] for order in self.active_orders]
+                df = LimitOrder.to_pandas(orders)
+                df_lines = str(df).split("\n")
+                return ["", "  Active orders:"] + ["    " + line for line in df_lines]
+            return ["", "  No active maker orders."]
+
+        def get_value_mode_status_str(value_mode: bool) -> List[str]:
+            if not value_mode:
+                return []
+
+            lines = []
             total_value = sum(self.get_base_value(market_pair) for market_pair in self._market_pairs)
             hedge_value = self.get_base_value(self._hedge_market_pair)
             is_buy, value_to_hedge = self.get_hedge_direction_and_value()
             price, amount = self.calculate_hedge_price_and_amount(is_buy, value_to_hedge)
-            lines.extend(["", f"   Value Mode: {self._value_mode} Total value: {total_value:.6g}, Hedge value: {hedge_value:.6g}"])
+            lines.extend(["", f"   Mode: Value, Total value: {total_value:.6g}, Hedge value: {hedge_value:.6g}"])
             if amount > 0:
                 lines.extend(
                     [
@@ -219,7 +231,56 @@ class HedgeStrategy(StrategyPyBase):
                         f"   Next Hedge direction: {'buy' if is_buy else 'sell'}, Hedge price: {price:.6g}, Hedge amount: {amount:.6g}",
                     ]
                 )
-        return "\n".join(lines) + "\n" + "\n".join(warning_lines)
+            return lines
+
+        def get_amount_mode_status_str(value_mode: bool) -> List[str]:
+            if value_mode:
+                return []
+            lines = ["", "   Mode: Amount"]
+            data = []
+            for hedge_market, market_list in self._market_pair_by_asset.items():
+                hedge_market_name = hedge_market.market.name
+                asset = hedge_market.trading_pair.split("-")[0]
+                market_names = ", ".join([market.market.name for market in market_list])
+                total_amount = sum(self.get_base_amount(market_pair) for market_pair in market_list)
+                hedge_amount = self.get_base_amount(hedge_market)
+                net_amount = total_amount * self._hedge_ratio + hedge_amount
+                data.append([
+                    hedge_market_name,
+                    asset,
+                    total_amount,
+                    hedge_amount,
+                    net_amount,
+                    market_names,
+                ])
+
+            df = pd.DataFrame(data=data, columns=["Hedge Market", "Asset", "Total Amount", "Hedge Amount", "Net Amount", "Markets"])
+            lines.extend(["    " + line for line in str(df).split("\n")])
+            return lines
+
+        def get_last_checked_seconds_str() -> List[str]:
+            if self._last_timestamp == 0:
+                return ["  Last checked: Not started."]
+            return [f"  Last checked {self.current_timestamp - self._last_hedge_check_timestamp} seconds ago."]
+
+        def get_status_messages() -> List[str]:
+            if self._status_messages:
+                return ["", "  Status Messages:"] + ["    " + line for line in self._status_messages]
+            return []
+
+        lines = (
+            get_wallet_status_str()
+            + get_asset_status_str()
+            + get_position_status_str()
+            + get_order_status_str()
+            + get_value_mode_status_str(self._value_mode)
+            + get_amount_mode_status_str(self._value_mode)
+            + get_last_checked_seconds_str()
+            + get_status_messages()
+            + [""]
+            + self.network_warning(self._all_markets)
+        )
+        return "\n".join(lines)
 
     def start(self, clock: Clock, timestamp: float) -> None:
         """
@@ -236,11 +297,12 @@ class HedgeStrategy(StrategyPyBase):
         """
         if not self.is_derivative(self._hedge_market_pairs[0]):
             return
+        position_mode = "ONEWAY" if self._position_mode == PositionMode.ONEWAY else "HEDGE"
         msg = (
             f"Please ensure that the position mode on {self._hedge_market_pairs[0].market.name} "
-            f"is set to {self._position_mode.value}. "
-            f"The bot will try to automatically set position mode to {self._position_mode.value}. "
-            f"You may ignore the message if the position mode is already set to {self._position_mode.value}.")
+            f"is set to {position_mode}. "
+            f"The bot will try to automatically set position mode to {position_mode}. "
+            f"You may ignore the message if the position mode is already set to {position_mode}.")
         self.notify_hb_app(msg)
         self.logger().warning(msg)
         for market_pair in self._hedge_market_pairs:
@@ -278,6 +340,8 @@ class HedgeStrategy(StrategyPyBase):
             self.logger().info("Active orders present.")
             return
         self.logger().debug("Checking hedge conditions...")
+        self._status_messages = []
+        self._last_hedge_check_timestamp = timestamp
         self.hedge()
 
     def get_positions(self, market_pair: MarketTradingPairTuple, position_side: PositionSide = None) -> List[Position]:
@@ -320,6 +384,7 @@ class HedgeStrategy(StrategyPyBase):
         :returns: The amount of the base asset of the market pair.
         """
         if self.is_derivative(market_pair):
+            self.logger().debug(f"Getting derivative base amount for {market_pair.trading_pair}")
             return self.get_derivative_base_amount(market_pair)
         return market_pair.base_balance + self._offsets[market_pair]
 
@@ -377,6 +442,7 @@ class HedgeStrategy(StrategyPyBase):
         price, amount = self.calculate_hedge_price_and_amount(is_buy, value_to_hedge)
         if amount == Decimal("0"):
             self.logger().debug("No hedge required.")
+            self._status_messages.append("No hedge required.")
             return
         self.logger().info(
             f"Hedging by value. Hedge direction: {'buy' if is_buy else 'sell'}. "
@@ -385,6 +451,7 @@ class HedgeStrategy(StrategyPyBase):
         order_candidates = self.get_order_candidates(self._hedge_market_pair, is_buy, amount, price)
         if not order_candidates:
             self.logger().info("No order candidates.")
+            self._status_messages.append("No order candidates.")
             return
         self.place_orders(self._hedge_market_pair, order_candidates)
 
@@ -397,11 +464,17 @@ class HedgeStrategy(StrategyPyBase):
         :params market_list: The list of markets to get the amount of the base asset of.
         :returns: The direction to hedge (buy/sell) and the amount of the base asset of the market pair.
         """
-        total_amount = sum(self.get_base_amount(market_pair) for market_pair in market_list)
+        total_amount = 0
+        for market_pair in market_list:
+            amount = self.get_base_amount(market_pair)
+            total_amount += self.get_base_amount(market_pair)
+            self.logger().debug("Market pair: %s amount: %s, total_amount: %s", market_pair, amount, total_amount)
+
         hedge_amount = self.get_base_amount(hedge_pair)
         net_amount = total_amount * self._hedge_ratio + hedge_amount
         is_buy = net_amount < 0
         amount_to_hedge = abs(net_amount)
+        self.logger().debug("Hedge direction: %s, amount to hedge: %s net amount: %s", is_buy, amount_to_hedge, net_amount)
         return is_buy, amount_to_hedge
 
     def hedge_by_amount(self) -> None:
@@ -410,14 +483,22 @@ class HedgeStrategy(StrategyPyBase):
         """
         for hedge_market, market_list in self._market_pair_by_asset.items():
             is_buy, amount_to_hedge = self.get_hedge_direction_and_amount_by_asset(hedge_market, market_list)
-            self.logger().debug("Hedge by amount: %s %s", amount_to_hedge, hedge_market.trading_pair)
+            asset = hedge_market.trading_pair.split("-")[0]
+            self.logger().debug("Hedge by amount for %s: %s", asset, amount_to_hedge)
+            self._status_messages.append(f"Hedge by amount for {asset}: {amount_to_hedge}")
             if amount_to_hedge == 0:
+                self.logger().debug("No hedge required for %s.", asset)
+                self._status_messages.append(f"No hedge required for {asset}.")
                 continue
-            price = hedge_market.get_vwap_for_volume(is_buy, amount_to_hedge).result_price * self.get_slippage_ratio(
-                is_buy
+            price = hedge_market.get_mid_price() * self.get_slippage_ratio(is_buy)
+            self.logger().info(
+                "Hedge by amount. Mid price: %s Hedge direction: %s. Hedge price: %s. Hedge amount: %s",
+                hedge_market.get_mid_price(), is_buy, price, amount_to_hedge
             )
             order_candidates = self.get_order_candidates(hedge_market, is_buy, amount_to_hedge, price)
             if not order_candidates:
+                self.logger().info("Difference in hedge_amount found but no order candidates for %s is available. “This is either due to insufficient balance to perform hedge or min trade size not reached or minimum exchange trade size not met", asset)
+                self._status_messages.append(f"No order candidates for {asset}.")
                 continue
             self.place_orders(hedge_market, order_candidates)
 
@@ -432,7 +513,7 @@ class HedgeStrategy(StrategyPyBase):
         """
         self.logger().info("Checking perpetual order candidates for %s %s %s %s", market_pair, "buy" if is_buy else "sell", amount, price)
 
-        def get_closing_order_candidate(is_buy: bool, amount: Decimal, price: Decimal) -> PerpetualOrderCandidate:
+        def get_closing_order_candidate(is_buy: bool, amount: Decimal, price: Decimal) -> Union[PerpetualOrderCandidate, None]:
             opp_position_side = PositionSide.SHORT if is_buy else PositionSide.LONG
             opp_position_list = self.get_positions(market_pair, opp_position_side)
             # opp_position_list should only have 1 position
@@ -507,7 +588,7 @@ class HedgeStrategy(StrategyPyBase):
         return []
 
     def place_orders(
-        self, market_pair: MarketTradingPairTuple, orders: List[Union[OrderCandidate, PerpetualOrderCandidate]]
+        self, market_pair: MarketTradingPairTuple, orders: Union[List[OrderCandidate], List[PerpetualOrderCandidate]]
     ) -> None:
         """
         Place an order refering the order candidates.
