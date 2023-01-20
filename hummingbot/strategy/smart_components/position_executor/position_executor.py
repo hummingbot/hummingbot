@@ -56,8 +56,8 @@ class PositionExecutor:
         self._event_pairs: List[Tuple[MarketEvent, SourceInfoEventForwarder]] = [
             (MarketEvent.OrderCancelled, self._cancel_order_forwarder),
             (MarketEvent.BuyOrderCreated, self._create_buy_order_forwarder),
-            (MarketEvent.SellOrderCreated, self._complete_buy_order_forwarder),
-            (MarketEvent.OrderFilled, self._complete_sell_order_forwarder),
+            (MarketEvent.SellOrderCreated, self._create_sell_order_forwarder),
+            (MarketEvent.OrderFilled, self._fill_order_forwarder),
             (MarketEvent.BuyOrderCompleted, self._complete_buy_order_forwarder),
             (MarketEvent.SellOrderCompleted, self._complete_sell_order_forwarder)
         ]
@@ -100,9 +100,7 @@ class PositionExecutor:
 
     @property
     def entry_price(self):
-        if self.status in [PositionExecutorStatus.NOT_STARTED,
-                           PositionExecutorStatus.ORDER_PLACED,
-                           PositionExecutorStatus.CANCELED_BY_TIME_LIMIT]:
+        if not self.open_order.order:
             entry_price = self.position_config.entry_price
             price = entry_price if entry_price else self.connector.get_mid_price(self.trading_pair)
         else:
@@ -111,11 +109,11 @@ class PositionExecutor:
 
     @property
     def close_price(self):
-        if self.status == PositionExecutorStatus.CLOSED_BY_STOP_LOSS:
+        if self.status == PositionExecutorStatus.CLOSED_BY_STOP_LOSS and self.stop_loss_order.order:
             return self.stop_loss_order.order.average_executed_price
-        elif self.status == PositionExecutorStatus.CLOSED_BY_TAKE_PROFIT:
+        elif self.status == PositionExecutorStatus.CLOSED_BY_TAKE_PROFIT and self.take_profit_order.order:
             return self.take_profit_order.order.average_executed_price
-        elif self.status == PositionExecutorStatus.CLOSED_BY_TIME_LIMIT:
+        elif self.status == PositionExecutorStatus.CLOSED_BY_TIME_LIMIT and self.take_profit_order.order:
             return self.time_limit_order.order.average_executed_price
         else:
             return None
@@ -173,7 +171,7 @@ class PositionExecutor:
         return take_profit_price
 
     def get_order(self, order_id: str):
-        order = self.connector._client_order_tracker.fetch_order(client_order_id=order_id)
+        order = self.connector._order_tracker.fetch_order(client_order_id=order_id)
         return order
 
     @property
@@ -208,7 +206,8 @@ class PositionExecutor:
 
     def control_close_order(self):
         current_price = self.connector.get_mid_price(self.trading_pair)
-        if self.stop_loss_order.order_id and self.stop_loss_order.order.is_failure:
+        if self.stop_loss_order.order_id and self.stop_loss_order.order \
+                and self.stop_loss_order.order.is_failure:
             order_id = self.place_order(
                 connector_name=self.exchange,
                 trading_pair=self.trading_pair,
@@ -219,7 +218,8 @@ class PositionExecutor:
                 position_side=PositionSide.LONG if self.side == PositionSide.SHORT else PositionSide.SHORT
             )
             self.stop_loss_order.order_id = order_id
-        elif self.time_limit_order.order_id and self.time_limit_order.order.is_failure:
+        elif self.time_limit_order.order_id and self.time_limit_order.order \
+                and self.time_limit_order.order.is_failure:
             order_id = self.place_order(
                 connector_name=self.exchange,
                 trading_pair=self.trading_pair,
@@ -232,7 +232,7 @@ class PositionExecutor:
             self.time_limit_order.order_id = order_id
 
     def clean_executor(self):
-        if self.take_profit_order and self.take_profit_order.order.is_open:
+        if self.take_profit_order.order and self.take_profit_order.order.is_open:
             self.logger().info(f"Take profit order status: {self.take_profit_order.order.current_state}")
             self.remove_take_profit()
 
@@ -269,7 +269,7 @@ class PositionExecutor:
             )
 
     def control_take_profit(self):
-        if not self.take_profit_order.order_id:
+        if not self.take_profit_order.order_id and self.open_order.order:
             order_id = self.place_order(
                 connector_name=self._position_config.exchange,
                 trading_pair=self._position_config.trading_pair,
@@ -290,7 +290,7 @@ class PositionExecutor:
             trigger_stop_loss = True
 
         if trigger_stop_loss:
-            if not self.stop_loss_order.order_id:
+            if not self.stop_loss_order.order_id and self.open_order.order:
                 order_id = self.place_order(
                     connector_name=self.exchange,
                     trading_pair=self.trading_pair,
@@ -306,7 +306,7 @@ class PositionExecutor:
     def control_time_limit(self):
         position_expired = self.end_time < self._strategy.current_timestamp
         if position_expired:
-            if not self._time_limit_order.order_id:
+            if not self._time_limit_order.order_id and self.open_order.order:
                 price = self.connector.get_mid_price(self.trading_pair)
                 order_id = self.place_order(
                     connector_name=self.exchange,
