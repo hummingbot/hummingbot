@@ -122,6 +122,12 @@ huobi_maker_percent_fee:
 huobi_percent_fee_token:
 huobi_taker_fixed_fees:
 huobi_taker_percent_fee:
+k2_buy_percent_fee_deducted_from_returns:
+k2_maker_fixed_fees:
+k2_maker_percent_fee:
+k2_percent_fee_token:
+k2_taker_fixed_fees:
+k2_taker_percent_fee:
 kraken_buy_percent_fee_deducted_from_returns:
 kraken_maker_fixed_fees:
 kraken_maker_percent_fee:
