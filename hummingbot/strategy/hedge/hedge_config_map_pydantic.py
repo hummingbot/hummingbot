@@ -248,9 +248,10 @@ class HedgeConfigMap(BaseStrategyConfigMap):
         """prompts for the markets to hedge"""
         exchange = mi.hedge_connector
         if mi.value_mode:
-            return f"Enter the trading pair you would like to hedge on {exchange}. (Example: BTC-USDT)"
-        return f"Enter the list of trading pair you would like to hedge on {exchange}. comma seperated. \
-            (Example: BTC-USDT,ETH-USDT) Only markets with the same base as the hedge markets will be hedged."
+            return f"Value mode: Enter the trading pair you would like to hedge on {exchange}. (Example: BTC-USDT)"
+        return f"Amount mode: Enter the list of trading pair you would like to hedge on {exchange}. comma seperated. \
+            (Example: BTC-USDT,ETH-USDT) Only markets with the same base as the hedge markets will be hedged." \
+                "WARNING: currently only supports hedging of base assets."
 
     @staticmethod
     def hedge_offsets_prompt(mi: "HedgeConfigMap") -> str:
