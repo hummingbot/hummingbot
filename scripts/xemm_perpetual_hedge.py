@@ -17,20 +17,19 @@ class XEMMPerpetualHedge(ScriptStrategyBase):
     on the maker and taker exchanges with a perpetual short position.
     """
 
-    maker_exchange = 'mexc'  # "kucoin_paper_trade"
-    maker_pair = "BONK-USDT"
-    taker_exchange = 'gate_io'  # "binance_paper_trade"
-    taker_pair = "BONK-USDT"
-    perpetual_exchange = 'gate_io_perpetual'  # "binance_perpetual_testnet"
-    perpetual_pair = "BONK-USDT"
+    maker_exchange = "kucoin_paper_trade"
+    maker_pair = "ETH-USDT"
+    taker_exchange = "binance_paper_trade"
+    taker_pair = "ETH-USDT"
+    perpetual_exchange = "binance_perpetual_testnet"
+    perpetual_pair = "ETH-USDT"
 
-    order_amount = 6000000  # 0.1                  # amount for each order
+    order_amount = 0.1                  # amount for each order
     spread_bps = 10                     # bot places maker orders at this spread to taker price
     min_spread_bps = 5                  # bot refreshes order if spread is lower than min-spread
     slippage_buffer_spread_bps = 100    # buffer applied to limit taker hedging trades on taker exchange
     max_order_age = 120                 # bot refreshes orders after this age
-    min_hedge_notional_amount = 0      # min amount for perpetual orders in quote asset
-    rate_oracle_source = "gate_io"
+    min_hedge_notional_amount = 10      # min amount for perpetual orders in quote asset
 
     markets = {maker_exchange: {maker_pair}, taker_exchange: {taker_pair}, perpetual_exchange: {perpetual_pair}}
 
