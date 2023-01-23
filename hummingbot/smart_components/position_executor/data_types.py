@@ -52,3 +52,17 @@ class TrackedOrder:
     @order.setter
     def order(self, order: InFlightOrder):
         self._order = order
+
+    @property
+    def average_executed_price(self):
+        if self.order:
+            return self.order.average_executed_price
+        else:
+            return None
+
+    @property
+    def executed_amount_base(self):
+        if self.order:
+            return self.order.executed_amount_base
+        else:
+            return Decimal("0")

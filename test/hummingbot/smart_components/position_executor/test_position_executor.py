@@ -6,12 +6,12 @@ from hummingbot.core.data_type.common import OrderType, PositionSide, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, TradeUpdate
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.event.events import BuyOrderCompletedEvent, OrderFilledEvent
-from hummingbot.strategy.smart_components.position_executor.data_types import (
+from hummingbot.smart_components.position_executor.data_types import (
     PositionConfig,
     PositionExecutorStatus,
     TrackedOrder,
 )
-from hummingbot.strategy.smart_components.position_executor.position_executor import PositionExecutor
+from hummingbot.smart_components.position_executor.position_executor import PositionExecutor
 
 
 class TestPositionExecutor(unittest.TestCase):
@@ -485,3 +485,13 @@ class TestPositionExecutor(unittest.TestCase):
         position_executor.status = PositionExecutorStatus.ACTIVE_POSITION
         position_executor.process_order_filled_event("102", market, event)
         self.assertEqual(position_executor.status, PositionExecutorStatus.ACTIVE_POSITION)
+
+    def test_to_format_status(self):
+        position_config = self.get_position_config_market_long()
+        type(self.strategy).current_timestamp = PropertyMock(return_value=1234567890)
+        self.strategy.connectors[position_config.exchange].get_mid_price.return_value = Decimal(101)
+        position_executor = PositionExecutor(position_config, self.strategy)
+        position_executor.status = PositionExecutorStatus.ACTIVE_POSITION
+        status = position_executor.to_format_status()
+        self.assertIn("Trading Pair: ETH-USDT", status[0])
+        self.assertIn("PNL: 1.00%", status[0])
