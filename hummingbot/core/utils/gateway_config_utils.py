@@ -64,6 +64,7 @@ def build_connector_display(connectors: List[Dict[str, Any]]) -> pd.DataFrame:
 
     return pd.DataFrame(data=data, columns=columns)
 
+
 def build_list_display(connectors: List[Dict[str, Any]]) -> pd.DataFrame:
     """
     Display connector information as a table
@@ -80,6 +81,7 @@ def build_list_display(connectors: List[Dict[str, Any]]) -> pd.DataFrame:
         ])
 
     return pd.DataFrame(data=data, columns=columns)
+
 
 def build_connector_tokens_display(connectors: List[Dict[str, Any]]) -> pd.DataFrame:
     """
