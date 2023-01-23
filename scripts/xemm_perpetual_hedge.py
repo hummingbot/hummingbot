@@ -198,14 +198,15 @@ class XEMMPerpetualHedge(ScriptStrategyBase):
             self._decrease_perpetual_hedge_if_required(abs(perpetual_discrepancy))
 
     def _calculate_perpetual_discrepancy(self) -> Decimal:
-        perpetual_pair = self.perpetual_pair.replace('-', '')
+        perpetual_pair = self.perpetual_pair.replace('-', '').upper()
         base_asset = self.taker_pair.split('-')[0]
         maker_base_balance = self.connectors[self.maker_exchange].get_balance(base_asset)
         taker_base_balance = self.connectors[self.taker_exchange].get_balance(base_asset)
         total_base_balance = maker_base_balance + taker_base_balance
         open_positions = self.connectors[self.perpetual_exchange].account_positions
+        open_positions = {k.replace('-', '').upper(): v for k, v in open_positions.items()}
         open_position_amount = 0
-        if open_positions.get(perpetual_pair):
+        if perpetual_pair in open_positions:
             open_position = open_positions[perpetual_pair]
             open_position_amount = open_position._amount
         return total_base_balance + open_position_amount
@@ -216,7 +217,10 @@ class XEMMPerpetualHedge(ScriptStrategyBase):
             False,
             amount,
         )
-        sell_price_with_slippage = perpetual_sell_result.result_price * Decimal(
+        result_price = perpetual_sell_result.result_price
+        if str(result_price) == 'NaN':
+            result_price = self.connectors[self.perpetual_exchange].get_mid_price(self.perpetual_pair)
+        sell_price_with_slippage = result_price * Decimal(
             1 - self.slippage_buffer_spread_bps / 10000
         )
         sell_order = PerpetualOrderCandidate(
@@ -247,7 +251,10 @@ class XEMMPerpetualHedge(ScriptStrategyBase):
             True,
             amount,
         )
-        buy_price_with_slippage = perpetual_buy_result.result_price * Decimal(
+        result_price = perpetual_buy_result.result_price
+        if str(result_price) == 'NaN':
+            result_price = self.connectors[self.perpetual_exchange].get_mid_price(self.perpetual_pair)
+        buy_price_with_slippage = result_price * Decimal(
             1 + self.slippage_buffer_spread_bps / 10000
         )
         buy_order = PerpetualOrderCandidate(
