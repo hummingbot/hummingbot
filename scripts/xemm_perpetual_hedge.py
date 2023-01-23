@@ -17,23 +17,25 @@ class XEMMPerpetualHedge(ScriptStrategyBase):
     on the maker and taker exchanges with a perpetual short position.
     """
 
-    maker_exchange = "kucoin_paper_trade"
-    maker_pair = "ETH-USDT"
-    taker_exchange = "binance_paper_trade"
-    taker_pair = "ETH-USDT"
-    perpetual_exchange = "binance_perpetual_testnet"
-    perpetual_pair = "ETH-USDT"
+    maker_exchange = 'mexc'  # "kucoin_paper_trade"
+    maker_pair = "BONK-USDT"
+    taker_exchange = 'gate_io'  # "binance_paper_trade"
+    taker_pair = "BONK-USDT"
+    perpetual_exchange = 'gate_io_perpetual'  # "binance_perpetual_testnet"
+    perpetual_pair = "BONK-USDT"
 
-    order_amount = 0.1                  # amount for each order
+    order_amount = 6000000  # 0.1                  # amount for each order
     spread_bps = 10                     # bot places maker orders at this spread to taker price
     min_spread_bps = 5                  # bot refreshes order if spread is lower than min-spread
     slippage_buffer_spread_bps = 100    # buffer applied to limit taker hedging trades on taker exchange
     max_order_age = 120                 # bot refreshes orders after this age
-    min_hedge_notional_amount = 10      # min amount for perpetual orders in quote asset
+    min_hedge_notional_amount = 0      # min amount for perpetual orders in quote asset
+    rate_oracle_source = "gate_io"
 
     markets = {maker_exchange: {maker_pair}, taker_exchange: {taker_pair}, perpetual_exchange: {perpetual_pair}}
 
     initialized = False
+    hedging_in_progress = False
 
     buy_order_placed = False
     sell_order_placed = False
@@ -59,7 +61,7 @@ class XEMMPerpetualHedge(ScriptStrategyBase):
             self.place_taker_sell_order(event)
         elif event.trade_type == TradeType.SELL and self.is_active_maker_order(event):
             self.place_taker_buy_order(event)
-        elif event.order_id == self.taker_order_id:
+        elif event.order_id == self.taker_order_id and not self.hedging_in_progress:
             self.adjust_perpetual_hedge_if_required()
             self.taker_order_id = ''
 
@@ -119,8 +121,10 @@ class XEMMPerpetualHedge(ScriptStrategyBase):
     def cancel_orders_if_invalidated(
         self, taker_buy_result: ClientOrderBookQueryResult, taker_sell_result: ClientOrderBookQueryResult
     ):
+        cancel_timestamps = []
         for order in self.get_active_orders(connector_name=self.maker_exchange):
             cancel_timestamp = order.creation_timestamp / 1000000 + self.max_order_age
+            cancel_timestamps.append(cancel_timestamp)
             if order.is_buy:
                 buy_cancel_threshold = taker_sell_result.result_price * Decimal(1 - self.min_spread_bps / 10000)
                 if order.price > buy_cancel_threshold or cancel_timestamp < self.current_timestamp:
@@ -133,6 +137,8 @@ class XEMMPerpetualHedge(ScriptStrategyBase):
                     self.logger().info(f"Cancelling sell order: {order.client_order_id}")
                     self.cancel(self.maker_exchange, order.trading_pair, order.client_order_id)
                     self.sell_order_placed = False
+        if max(cancel_timestamps) < self.current_timestamp and not self.hedging_in_progress:
+            self.adjust_perpetual_hedge_if_required()
 
     def get_taker_buy_budget(self) -> float:
         balance = self.connectors[self.taker_exchange].get_available_balance(self.taker_pair.split('-')[0])
@@ -188,14 +194,20 @@ class XEMMPerpetualHedge(ScriptStrategyBase):
         self.buy_order_placed = False
 
     def adjust_perpetual_hedge_if_required(self):
-        perpetual_discrepancy = self._calculate_perpetual_discrepancy()
-        minimum_amount = self.connectors[self.perpetual_exchange].get_order_size_quantum(self.perpetual_pair, 0)
-        mid_price = self.connectors[self.perpetual_exchange].get_mid_price(self.perpetual_pair)
-        perpetual_discrepancy_quote = abs(perpetual_discrepancy) * mid_price
-        if perpetual_discrepancy > minimum_amount and perpetual_discrepancy_quote > self.min_hedge_notional_amount:
-            self._increase_perpetual_hedge_if_required(abs(perpetual_discrepancy))
-        elif perpetual_discrepancy < -minimum_amount and perpetual_discrepancy_quote > self.min_hedge_notional_amount:
-            self._decrease_perpetual_hedge_if_required(abs(perpetual_discrepancy))
+        try:
+            self.hedging_in_progress = True
+            perpetual_discrepancy = self._calculate_perpetual_discrepancy()
+            minimum_amount = self.connectors[self.perpetual_exchange].get_order_size_quantum(self.perpetual_pair, 0)
+            mid_price = self.connectors[self.perpetual_exchange].get_mid_price(self.perpetual_pair)
+            perpetual_discrepancy_quote = abs(perpetual_discrepancy) * mid_price
+            if perpetual_discrepancy > minimum_amount and perpetual_discrepancy_quote > self.min_hedge_notional_amount:
+                self._increase_perpetual_hedge_if_required(abs(perpetual_discrepancy))
+            elif perpetual_discrepancy < -minimum_amount \
+                    and perpetual_discrepancy_quote > self.min_hedge_notional_amount:
+                self._decrease_perpetual_hedge_if_required(abs(perpetual_discrepancy))
+        except Exception as e:
+            self.logger().error(e)
+        self.hedging_in_progress = False
 
     def _calculate_perpetual_discrepancy(self) -> Decimal:
         perpetual_pair = self.perpetual_pair.replace('-', '').upper()
