@@ -2,27 +2,21 @@
 import asyncio
 import bisect
 import logging
-import hummingbot.connector.exchange.k2.k2_constants as constants
 import time
-
 from collections import defaultdict, deque
-from typing import (
-    Dict,
-    Deque,
-    List,
-    Optional,
-)
+from typing import Deque, Dict, List, Optional
 
-from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
-from hummingbot.core.data_type.order_book_message import OrderBookMessageType
-from hummingbot.logger import HummingbotLogger
+import hummingbot.connector.exchange.k2.k2_constants as constants
 from hummingbot.connector.exchange.k2.k2_api_order_book_data_source import K2APIOrderBookDataSource
 from hummingbot.connector.exchange.k2.k2_order_book import K2OrderBook
 from hummingbot.connector.exchange.k2.k2_order_book_message import K2OrderBookMessage
 from hummingbot.connector.exchange.k2.k2_utils import (
     convert_diff_message_to_order_book_row,
-    convert_snapshot_message_to_order_book_row
+    convert_snapshot_message_to_order_book_row,
 )
+from hummingbot.core.data_type.order_book_message import OrderBookMessageType
+from hummingbot.core.data_type.order_book_tracker import OrderBookTracker
+from hummingbot.logger import HummingbotLogger
 
 
 class K2OrderBookTracker(OrderBookTracker):
@@ -47,7 +41,7 @@ class K2OrderBookTracker(OrderBookTracker):
         self._process_msg_deque_task: Optional[asyncio.Task] = None
         self._past_diff_windows: Dict[str, Deque] = {}
         self._saved_message_queues: Dict[str, Deque[K2OrderBookMessage]] = \
-            defaultdict(lambda: Deque(maxlen=1000))
+            defaultdict(lambda: deque(maxlen=1000))
 
         self._order_book_diff_listener_task: Optional[asyncio.Task] = None
         self._order_book_trade_listner_task: Optional[asyncio.Task] = None
@@ -86,7 +80,7 @@ class K2OrderBookTracker(OrderBookTracker):
                     bids, asks = convert_diff_message_to_order_book_row(message)
                     order_book.apply_diffs(bids, asks, message.update_id)
                     pass_diffs_window.append(message)
-                    while(len(pass_diffs_window) > self.PAST_DIFF_WINDOW_SIZE):
+                    while len(pass_diffs_window) > self.PAST_DIFF_WINDOW_SIZE:
                         pass_diffs_window.popleft()
                     diff_messages_accepted += 1
 
