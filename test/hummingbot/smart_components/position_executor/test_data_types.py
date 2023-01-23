@@ -3,7 +3,7 @@ from unittest import TestCase
 
 from hummingbot.core.data_type.common import OrderType, PositionSide, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
-from hummingbot.strategy.smart_components.position_executor.data_types import (
+from hummingbot.smart_components.position_executor.data_types import (
     PositionConfig,
     PositionExecutorStatus,
     TrackedOrder,
