@@ -4,7 +4,7 @@ import pandas as pd
 
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.order_book_query_result import ClientOrderBookQueryResult
-from hummingbot.core.data_type.order_candidate import OrderCandidate
+from hummingbot.core.data_type.order_candidate import OrderCandidate, PerpetualOrderCandidate
 from hummingbot.core.event.events import OrderFilledEvent
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
@@ -193,49 +193,83 @@ class XEMMPerpetualHedge(ScriptStrategyBase):
         mid_price = self.connectors[self.perpetual_exchange].get_mid_price(self.perpetual_pair)
         perpetual_discrepancy_quote = abs(perpetual_discrepancy) * mid_price
         if perpetual_discrepancy > minimum_amount and perpetual_discrepancy_quote > self.min_hedge_notional_amount:
-            self._increase_perpetual_hedge_if_required(perpetual_discrepancy)
+            self._increase_perpetual_hedge_if_required(abs(perpetual_discrepancy))
         elif perpetual_discrepancy < -minimum_amount and perpetual_discrepancy_quote > self.min_hedge_notional_amount:
-            self._decrease_perpetual_hedge_if_required(perpetual_discrepancy)
+            self._decrease_perpetual_hedge_if_required(abs(perpetual_discrepancy))
 
     def _calculate_perpetual_discrepancy(self) -> Decimal:
+        perpetual_pair = self.perpetual_pair.replace('-', '')
         base_asset = self.taker_pair.split('-')[0]
         maker_base_balance = self.connectors[self.maker_exchange].get_balance(base_asset)
         taker_base_balance = self.connectors[self.taker_exchange].get_balance(base_asset)
         total_base_balance = maker_base_balance + taker_base_balance
         open_positions = self.connectors[self.perpetual_exchange].account_positions
         open_position_amount = 0
-        if open_positions.get(self.perpetual_pair):
-            open_position = open_positions[self.perpetual_pair]
+        if open_positions.get(perpetual_pair):
+            open_position = open_positions[perpetual_pair]
             open_position_amount = open_position._amount
         return total_base_balance + open_position_amount
 
-    def _increase_perpetual_hedge_if_required(self, perpetual_discrepancy: Decimal):
-        perpetual_sell_result = self.connectors[self.perpetual_exchange].get_price_for_volume(self.perpetual_pair,
-                                                                                              False, self.order_amount)
+    def _increase_perpetual_hedge_if_required(self, amount: Decimal):
+        perpetual_sell_result = self.connectors[self.perpetual_exchange].get_price_for_volume(
+            self.perpetual_pair,
+            False,
+            amount,
+        )
         sell_price_with_slippage = perpetual_sell_result.result_price * Decimal(
-            1 + self.slippage_buffer_spread_bps / 10000)
-        sell_order = OrderCandidate(trading_pair=self.perpetual_pair, is_maker=False, order_type=OrderType.MARKET,
-                                    order_side=TradeType.BUY, amount=abs(perpetual_discrepancy),
-                                    price=sell_price_with_slippage)
+            1 - self.slippage_buffer_spread_bps / 10000
+        )
+        sell_order = PerpetualOrderCandidate(
+            trading_pair=self.perpetual_pair,
+            is_maker=False,
+            order_type=OrderType.LIMIT,
+            order_side=TradeType.SELL,
+            amount=amount,
+            price=sell_price_with_slippage,
+            leverage=Decimal(1),
+        )
         sell_order_adjusted = self.connectors[self.perpetual_exchange].budget_checker.adjust_candidate(
-            sell_order, all_or_none=False)
-        self.logger().info(f'Increasing hedge position by {abs(perpetual_discrepancy)}')
-        self.sell(self.perpetual_exchange, self.perpetual_pair, sell_order_adjusted.amount,
-                  sell_order_adjusted.order_type, sell_order_adjusted.price)
+            sell_order,
+            all_or_none=False,
+        )
+        self.logger().info(f'Increasing hedge position by {amount}')
+        self.sell(
+            self.perpetual_exchange,
+            self.perpetual_pair,
+            sell_order_adjusted.amount,
+            sell_order_adjusted.order_type,
+            sell_order_adjusted.price,
+        )
 
-    def _decrease_perpetual_hedge_if_required(self, perpetual_discrepancy: Decimal):
-        perpetual_buy_result = self.connectors[self.perpetual_exchange].get_price_for_volume(self.perpetual_pair, True,
-                                                                                             self.order_amount)
+    def _decrease_perpetual_hedge_if_required(self, amount: Decimal):
+        perpetual_buy_result = self.connectors[self.perpetual_exchange].get_price_for_volume(
+            self.perpetual_pair,
+            True,
+            amount,
+        )
         buy_price_with_slippage = perpetual_buy_result.result_price * Decimal(
-            1 + self.slippage_buffer_spread_bps / 10000)
-        buy_order = OrderCandidate(trading_pair=self.perpetual_pair, is_maker=False, order_type=OrderType.MARKET,
-                                   order_side=TradeType.BUY, amount=abs(perpetual_discrepancy),
-                                   price=buy_price_with_slippage)
-        buy_order_adjusted = self.connectors[self.perpetual_exchange].budget_checker.adjust_candidate(buy_order,
-                                                                                                      all_or_none=False)
-        self.logger().info(f'Decreasing hedge position by {abs(perpetual_discrepancy)}')
-        self.buy(self.perpetual_exchange, self.perpetual_pair, buy_order_adjusted.amount,
-                 buy_order_adjusted.order_type, buy_order_adjusted.price)
+            1 + self.slippage_buffer_spread_bps / 10000
+        )
+        buy_order = PerpetualOrderCandidate(
+            trading_pair=self.perpetual_pair,
+            is_maker=False,
+            order_type=OrderType.LIMIT,
+            order_side=TradeType.BUY,
+            amount=amount,
+            price=buy_price_with_slippage,
+        )
+        buy_order_adjusted = self.connectors[self.perpetual_exchange].budget_checker.adjust_candidate(
+            buy_order,
+            all_or_none=False,
+        )
+        self.logger().info(f'Decreasing hedge position by {amount}')
+        self.buy(
+            self.perpetual_exchange,
+            self.perpetual_pair,
+            buy_order_adjusted.amount,
+            buy_order_adjusted.order_type,
+            buy_order_adjusted.price,
+        )
 
     def exchanges_df(self) -> pd.DataFrame:
         """
