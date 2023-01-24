@@ -19,17 +19,12 @@ omit =
         hummingbot/connector/connector/uniswap_v3*
         hummingbot/connector/derivative/perpetual_finance*
         hummingbot/connector/derivative/position.py
-        hummingbot/connector/exchange/beaxy*
         hummingbot/connector/exchange/bitfinex*
         hummingbot/connector/exchange/coinbase_pro*
-        hummingbot/connector/exchange/digifinex*
         hummingbot/connector/exchange/hitbtc*
-        hummingbot/connector/exchange/k2*
-        hummingbot/connector/exchange/liquid*
         hummingbot/connector/exchange/loopring*
         hummingbot/connector/exchange/paper_trade*
         hummingbot/connector/exchange/probit*
-        hummingbot/connector/exchange/wazirx*
         hummingbot/connector/gateway*
         hummingbot/core/utils/gateway_config_utils.py
         hummingbot/core/utils/kill_switch.py

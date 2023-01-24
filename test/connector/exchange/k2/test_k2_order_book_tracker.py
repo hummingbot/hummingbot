@@ -3,11 +3,7 @@ import logging
 import math
 import time
 import unittest
-from typing import (
-    Dict,
-    List,
-    Optional,
-)
+from typing import Dict, List, Optional
 
 from hummingbot.connector.exchange.k2.k2_api_order_book_data_source import K2APIOrderBookDataSource
 from hummingbot.connector.exchange.k2.k2_order_book_tracker import K2OrderBookTracker

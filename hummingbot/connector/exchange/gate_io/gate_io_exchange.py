@@ -53,8 +53,6 @@ class GateIoExchange(ExchangePyBase):
 
         super().__init__(client_config_map)
 
-        self._real_time_balance_update = False
-
     @property
     def authenticator(self):
         return GateIoAuth(
@@ -334,6 +332,8 @@ class GateIoExchange(ExchangePyBase):
                 elif channel == CONSTANTS.USER_ORDERS_ENDPOINT_NAME:
                     for order_msg in results:
                         self._process_order_message(order_msg)
+                elif channel == CONSTANTS.USER_BALANCE_ENDPOINT_NAME:
+                    self._process_balance_message_ws(results)
 
             except asyncio.CancelledError:
                 raise
@@ -460,6 +460,12 @@ class GateIoExchange(ExchangePyBase):
         for asset_name in asset_names_to_remove:
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
+
+    def _process_balance_message_ws(self, balance_update):
+        for account in balance_update:
+            asset_name = account["currency"]
+            self._account_available_balances[asset_name] = Decimal(str(account["available"]))
+            self._account_balances[asset_name] = Decimal(str(account["total"]))
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()

@@ -5,6 +5,7 @@ import { Cronos } from '../../chains/cronos/cronos';
 import { Ethereum } from '../../chains/ethereum/ethereum';
 import { Polygon } from '../../chains/polygon/polygon';
 import { Solana } from '../../chains/solana/solana';
+import { Cosmos } from '../../chains/cosmos/cosmos';
 import { Harmony } from '../../chains/harmony/harmony';
 
 import {
@@ -43,7 +44,7 @@ export async function addWallet(
   if (!passphrase) {
     throw new Error('There is no passphrase');
   }
-  let connection: EthereumBase | Solana | Near;
+  let connection: EthereumBase | Solana | Near | Cosmos;
   let address: string | undefined;
   let encryptedPrivateKey: string | undefined;
 
@@ -59,6 +60,8 @@ export async function addWallet(
     connection = Solana.getInstance(req.network);
   } else if (req.chain === 'polygon') {
     connection = Polygon.getInstance(req.network);
+  } else if (req.chain === 'cosmos') {
+    connection = Cosmos.getInstance(req.network);
   } else if (req.chain === 'near') {
     if (!('address' in req))
       throw new HttpException(
@@ -96,6 +99,16 @@ export async function addWallet(
         req.privateKey,
         passphrase
       );
+    } else if (connection instanceof Cosmos) {
+      const wallet = await connection.getAccountsfromPrivateKey(
+        req.privateKey,
+        'cosmos'
+      );
+      address = wallet.address;
+      encryptedPrivateKey = await connection.encrypt(
+        req.privateKey,
+        passphrase
+      );
     } else if (connection instanceof Near) {
       address = (
         await connection.getWalletFromPrivateKey(
@@ -105,6 +118,7 @@ export async function addWallet(
       ).accountId;
       encryptedPrivateKey = connection.encrypt(req.privateKey, passphrase);
     }
+
     if (address === undefined || encryptedPrivateKey === undefined) {
       throw new Error('ERROR_RETRIEVING_WALLET_ADDRESS_ERROR_CODE');
     }
