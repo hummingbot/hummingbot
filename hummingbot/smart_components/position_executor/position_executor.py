@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from decimal import Decimal
 from typing import List, Tuple, Union
@@ -15,6 +16,7 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
 )
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
 from hummingbot.smart_components.position_executor.data_types import (
     PositionConfig,
@@ -66,6 +68,8 @@ class PositionExecutor:
             (MarketEvent.OrderFailure, self._failed_order_forwarder),
         ]
         self.register_events()
+        self.terminated = asyncio.Event()
+        safe_ensure_future(self.control_loop())
 
     @property
     def position_config(self):
@@ -194,6 +198,11 @@ class PositionExecutor:
     def time_limit_order(self):
         return self._time_limit_order
 
+    async def control_loop(self):
+        while not self.terminated.is_set():
+            self.control_position()
+            await asyncio.sleep(1)
+
     def control_position(self):
         if self.status == PositionExecutorStatus.NOT_STARTED:
             self.control_open_order()
@@ -220,6 +229,8 @@ class PositionExecutor:
         if self.take_profit_order.order and self.take_profit_order.order.is_open:
             self.logger().info(f"Take profit order status: {self.take_profit_order.order.current_state}")
             self.remove_take_profit()
+        else:
+            self.terminated.set()
 
     def control_open_order(self):
         if self.end_time >= self._strategy.current_timestamp:
@@ -425,7 +436,13 @@ class PositionExecutor:
     def to_format_status(self):
         lines = []
         current_price = self.connector.get_mid_price(self.trading_pair)
-        lines.extend([f"""
+        if self.is_closed:
+            lines.extend([f"""
+| Trading Pair: {self.trading_pair} | Exchange: {self.exchange} | Side: {self.side} | Amount: {self.amount:.4f}
+| Entry price: {self.entry_price}  | Close price: {self.close_price} --> PNL: {self.pnl * 100:.2f}%
+        """])
+        else:
+            lines.extend([f"""
 | Trading Pair: {self.trading_pair} | Exchange: {self.exchange} | Side: {self.side} | Amount: {self.amount:.4f}
 | Entry price: {self.entry_price}  | Current price: {current_price} --> PNL: {self.pnl * 100:.2f}%
         """])
