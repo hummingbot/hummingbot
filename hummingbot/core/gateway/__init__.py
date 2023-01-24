@@ -20,7 +20,7 @@ _default_paths: Optional["GatewayPaths"] = None
 _hummingbot_pipe: Optional[aioprocessing.AioConnection] = None
 
 GATEWAY_DOCKER_REPO: str = "hummingbot/gateway-v2"
-GATEWAY_DOCKER_TAG: str = "gateway-v2-master-arm" if platform.machine() in {"arm64", "aarch64"} else "gateway-v2-master"
+GATEWAY_DOCKER_TAG: str = "gateway-v2-dev" if platform.machine() in {"arm64", "aarch64"} else "gateway-v2-dev"
 S_DECIMAL_0: Decimal = Decimal(0)
 
 
@@ -135,8 +135,11 @@ def get_gateway_paths(client_config_map: "ClientConfigAdapter") -> GatewayPaths:
 
 
 def get_default_gateway_port(client_config_map: "ClientConfigAdapter") -> int:
-    instance_id_portion = client_config_map.instance_id[:4]
-    return detect_available_port(16000 + int(instance_id_portion, 16) % 16000)
+    instance_id_portion = client_config_map.instance_id[:8]
+    sum = 0
+    for c in instance_id_portion:
+        sum += ord(c)
+    return detect_available_port(16000 + sum % 16000)
 
 
 def set_hummingbot_pipe(conn: aioprocessing.AioConnection):

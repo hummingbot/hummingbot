@@ -588,15 +588,7 @@ class AbstractExchangeConnectorTests:
 
             status_dict = self.exchange.status_dict
 
-            expected_initial_dict = {
-                "symbols_mapping_initialized": False,
-                "order_books_initialized": False,
-                "account_balance": False,
-                "trading_rule_initialized": False,
-                "user_stream_initialized": False,
-            }
-
-            self.assertEqual(expected_initial_dict, status_dict)
+            self.assertEqual(self._expected_initial_status_dict(), status_dict)
             self.assertFalse(self.exchange.ready)
 
         @aioresponses()
@@ -1817,3 +1809,12 @@ class AbstractExchangeConnectorTests:
                 body=json.dumps(response),
                 callback=callback)
             return url
+
+        def _expected_initial_status_dict(self) -> Dict[str, bool]:
+            return {
+                "symbols_mapping_initialized": False,
+                "order_books_initialized": False,
+                "account_balance": False,
+                "trading_rule_initialized": False,
+                "user_stream_initialized": False,
+            }
