@@ -8,16 +8,14 @@ from hummingbot.client.config.security import Security
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.connector.connector_status import get_connector_status
-from hummingbot.connector.other.celo.celo_cli import CeloCLI
-from hummingbot.connector.other.celo.celo_data_types import KEYS as CELO_KEYS
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.user.user_balances import UserBalances
 
 if TYPE_CHECKING:
-    from hummingbot.client.hummingbot_application import HummingbotApplication
+    from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
 
 OPTIONS = {cs.name for cs in AllConnectorSettings.get_connector_settings().values()
-           if not cs.use_ethereum_wallet and not cs.uses_gateway_generic_connector()}.union({"celo"})
+           if not cs.use_ethereum_wallet and not cs.uses_gateway_generic_connector() if cs.name != "probit_kr"}
 
 
 class ConnectCommand:
@@ -25,18 +23,13 @@ class ConnectCommand:
                 option: str):
         if option is None:
             safe_ensure_future(self.show_connections())
-        elif option == "ethereum":
-            safe_ensure_future(self.connect_ethereum())
         else:
             safe_ensure_future(self.connect_exchange(option))
 
     async def connect_exchange(self,  # type: HummingbotApplication
                                connector_name):
         # instruct users to use gateway connect if connector is a gateway connector
-        if (
-            connector_name != "celo"
-            and AllConnectorSettings.get_connector_settings()[connector_name].uses_gateway_generic_connector()
-        ):
+        if AllConnectorSettings.get_connector_settings()[connector_name].uses_gateway_generic_connector():
             self.notify("This is a gateway connector. Use `gateway connect` command instead.")
             return
 
@@ -45,8 +38,6 @@ class ConnectCommand:
         self.app.hide_input = True
         if connector_name == "kraken":
             self.notify("Reminder: Please ensure your Kraken API Key Nonce Window is at least 10.")
-        if connector_name == "celo":
-            connector_config = ClientConfigAdapter(CELO_KEYS)
         else:
             connector_config = ClientConfigAdapter(AllConnectorSettings.get_connector_config_keys(connector_name))
         if Security.connector_config_file_exists(connector_name):
@@ -89,7 +80,7 @@ class ConnectCommand:
     async def connection_df(self  # type: HummingbotApplication
                             ):
         await Security.wait_til_decryption_done()
-        columns = ["Exchange", "  Keys Added", "  Keys Confirmed", "  Status"]
+        columns = ["Exchange", "  Keys Added", "  Keys Confirmed", "  Tier"]
         data = []
         failed_msgs = {}
         network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
@@ -104,50 +95,21 @@ class ConnectCommand:
             keys_added = "No"
             keys_confirmed = "No"
             status = get_connector_status(option)
-            if option == "celo":
-                celo_config = Security.decrypted_value(option)
-                if celo_config is not None:
-                    keys_added = "Yes"
-                    err_msg = await self.validate_n_connect_celo(True)
-                    if err_msg is not None:
-                        failed_msgs[option] = err_msg
-                    else:
-                        keys_confirmed = "Yes"
-            else:
-                api_keys = (
-                    Security.api_keys(option).values()
-                    if not UserBalances.instance().is_gateway_market(option)
-                    else {}
-                )
-                if len(api_keys) > 0:
-                    keys_added = "Yes"
-                    err_msg = err_msgs.get(option)
-                    if err_msg is not None:
-                        failed_msgs[option] = err_msg
-                    else:
-                        keys_confirmed = "Yes"
+
+            api_keys = (
+                Security.api_keys(option).values()
+                if not UserBalances.instance().is_gateway_market(option)
+                else {}
+            )
+            if len(api_keys) > 0:
+                keys_added = "Yes"
+                err_msg = err_msgs.get(option)
+                if err_msg is not None:
+                    failed_msgs[option] = err_msg
+                else:
+                    keys_confirmed = "Yes"
             data.append([option, keys_added, keys_confirmed, status])
         return pd.DataFrame(data=data, columns=columns), failed_msgs
-
-    async def connect_ethereum(self,  # type: HummingbotApplication
-                               ):
-        self.notify("\nError: Feature deprecated. Use 'gateway connect' instead.")
-
-    async def validate_n_connect_celo(self, to_reconnect: bool = False) -> Optional[str]:
-        await Security.wait_til_decryption_done()
-        celo_config = Security.decrypted_value(key="celo")
-        if celo_config is None:
-            return "No Celo connection has been configured."
-        if CeloCLI.unlocked and not to_reconnect:
-            return None
-        try:
-            err_msg = CeloCLI.validate_node_synced()
-        except FileNotFoundError:
-            err_msg = "Celo CLI not installed."
-        if err_msg is not None:
-            return err_msg
-        err_msg = CeloCLI.unlock_account(celo_config.celo_address, celo_config.celo_password.get_secret_value())
-        return err_msg
 
     async def validate_n_connect_connector(
         self,  # type: HummingbotApplication
@@ -178,10 +140,7 @@ class ConnectCommand:
             self.app.to_stop_config = False
             return
         Security.update_secure_config(connector_config)
-        if connector_name == "celo":
-            err_msg = await self.validate_n_connect_celo(to_reconnect=True)
-        else:
-            err_msg = await self.validate_n_connect_connector(connector_name)
+        err_msg = await self.validate_n_connect_connector(connector_name)
         if err_msg is None:
             self.notify(f"\nYou are now connected to {connector_name}.")
         else:

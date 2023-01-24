@@ -39,36 +39,45 @@ loggers:
     hummingbot.core.utils.eth_gas_station_lookup:
         level: NETWORK
         propagate: false
-        handlers: [console_info, file_handler]
+        handlers: [console, file_handler]
+        mqtt: true
     hummingbot.logger.log_server_client:
         level: WARNING
         propagate: false
-        handlers: [console_info, file_handler]
+        handlers: [console, file_handler]
+        mqtt: true
     hummingbot.logger.reporting_proxy_handler:
         level: WARNING
         propagate: false
-        handlers: [console_info, file_handler]
+        handlers: [console, file_handler]
+        mqtt: true
     hummingbot.strategy:
         level: NETWORK
-        handlers: [console_info, file_handler]
         propagate: false
+        handlers: [console, file_handler]
+        mqtt: true
     hummingbot.connector:
         level: NETWORK
-        handlers: [console_info, file_handler]
         propagate: false
+        handlers: [console, file_handler]
+        mqtt: true
     hummingbot.client:
         level: NETWORK
-        handlers: [console_info, file_handler]
         propagate: false
+        handlers: [console, file_handler]
+        mqtt: true
     hummingbot.core.event.event_reporter:
         level: EVENT_LOG
-        handlers: [file_handler]
         propagate: false
+        handlers: [file_handler]
+        mqtt: false
     conf:
         level: NETWORK
         handlers: ["null"]
         propagate: false
+        mqtt: false
 
 root:
     level: INFO
     handlers: [console, file_handler]
+    mqtt: true

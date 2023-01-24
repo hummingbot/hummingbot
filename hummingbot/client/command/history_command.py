@@ -19,7 +19,7 @@ s_decimal_0 = Decimal("0")
 
 
 if TYPE_CHECKING:
-    from hummingbot.client.hummingbot_application import HummingbotApplication
+    from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
 
 
 def get_timestamp(days_ago: float = 0.) -> float:
@@ -50,8 +50,19 @@ class HistoryCommand:
                 return
             if verbose:
                 self.list_trades(start_time)
-            if self.strategy_name != "celo_arb":
-                safe_ensure_future(self.history_report(start_time, trades, precision))
+            safe_ensure_future(self.history_report(start_time, trades, precision))
+
+    def get_history_trades_json(self,  # type: HummingbotApplication
+                                days: float = 0):
+        if self.strategy_file_name is None:
+            return
+        start_time = get_timestamp(days) if days > 0 else self.init_time
+        with self.trade_fill_db.get_new_session() as session:
+            trades: List[TradeFill] = self._get_trades_from_session(
+                int(start_time * 1e3),
+                session=session,
+                config_file_path=self.strategy_file_name)
+            return list([TradeFill.to_bounty_api_json(t) for t in trades])
 
     async def history_report(self,  # type: HummingbotApplication
                              start_time: float,
@@ -214,9 +225,6 @@ class HistoryCommand:
                 session=session,
                 number_of_rows=MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT + 1,
                 config_file_path=self.strategy_file_name)
-            if self.strategy_name == "celo_arb":
-                celo_trades = self.strategy.celo_orders_to_trade_fills()
-                queried_trades = queried_trades + celo_trades
             df: pd.DataFrame = TradeFill.to_pandas(queried_trades)
 
         if len(df) > 0:

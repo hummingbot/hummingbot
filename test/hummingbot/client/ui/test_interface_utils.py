@@ -45,8 +45,8 @@ class InterfaceUtilsTest(unittest.TestCase):
         mock_sleep.side_effect = [None, ExpectedException()]
         with self.assertRaises(ExpectedException):
             self.async_run_with_timeout(start_timer(mock_timer))
-        self.assertEqual('Duration: 0:00:02', mock_timer.log.call_args_list[0].args[0])
-        self.assertEqual('Duration: 0:00:03', mock_timer.log.call_args_list[1].args[0])
+        self.assertEqual('Uptime:   0 day(s), 00:00:02', mock_timer.log.call_args_list[0].args[0])
+        self.assertEqual('Uptime:   0 day(s), 00:00:03', mock_timer.log.call_args_list[1].args[0])
 
     @patch("hummingbot.client.ui.interface_utils._sleep", new_callable=AsyncMock)
     @patch("psutil.Process")
