@@ -22,7 +22,7 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 from hummingbot.user.user_balances import UserBalances
 
 if TYPE_CHECKING:
-    from hummingbot.client.hummingbot_application import HummingbotApplication
+    from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
 
 
 GATEWAY_READY_TIMEOUT = 300  # seconds
@@ -54,17 +54,15 @@ class StartCommand(GatewayChainApiManager):
 
     def start(self,  # type: HummingbotApplication
               log_level: Optional[str] = None,
-              restore: Optional[bool] = False,
               script: Optional[str] = None,
               is_quickstart: Optional[bool] = False):
         if threading.current_thread() != threading.main_thread():
-            self.ev_loop.call_soon_threadsafe(self.start, log_level, restore)
+            self.ev_loop.call_soon_threadsafe(self.start, log_level)
             return
-        safe_ensure_future(self.start_check(log_level, restore, script, is_quickstart), loop=self.ev_loop)
+        safe_ensure_future(self.start_check(log_level, script, is_quickstart), loop=self.ev_loop)
 
     async def start_check(self,  # type: HummingbotApplication
                           log_level: Optional[str] = None,
-                          restore: Optional[bool] = False,
                           script: Optional[str] = None,
                           is_quickstart: Optional[bool] = False):
 
@@ -179,17 +177,19 @@ class StartCommand(GatewayChainApiManager):
                             f"{warning_msg}")
 
             # Display warning message if the exchange connector has outstanding issues or not working
-            elif not status.endswith("GREEN"):
+            elif status.endswith("UNKNOWN"):
                 self.notify(f"\nConnector status: {status}. This connector has one or more issues.\n"
                             "Refer to our Github page for more info: https://github.com/hummingbot/hummingbot")
 
         self.notify(f"\nStatus check complete. Starting '{self.strategy_name}' strategy...")
-        await self.start_market_making(restore)
+        await self.start_market_making()
 
         self._in_start_check = False
 
         # We always start the RateOracle. It is required for PNL calculation.
         RateOracle.get_instance().start()
+        if self._mqtt:
+            self._mqtt.patch_loggers()
 
     def start_script_strategy(self):
         script_strategy = ScriptStrategyBase.load_script_class(self.strategy_file_name)
@@ -204,7 +204,7 @@ class StartCommand(GatewayChainApiManager):
         return script_file_name.exists()
 
     async def start_market_making(self,  # type: HummingbotApplication
-                                  restore: Optional[bool] = False):
+                                  ):
         try:
             self.start_time = time.time() * 1e3  # Time in milliseconds
             tick_size = self.client_config_map.tick_size
@@ -215,11 +215,8 @@ class StartCommand(GatewayChainApiManager):
                     self.clock.add_iterator(market)
                     self.markets_recorder.restore_market_states(self.strategy_file_name, market)
                     if len(market.limit_orders) > 0:
-                        if restore is False:
-                            self.notify(f"Canceling dangling limit orders on {market.name}...")
-                            await market.cancel_all(5.0)
-                        else:
-                            self.notify(f"Restored {len(market.limit_orders)} limit orders on {market.name}...")
+                        self.notify(f"Canceling dangling limit orders on {market.name}...")
+                        await market.cancel_all(5.0)
             if self.strategy:
                 self.clock.add_iterator(self.strategy)
             try:
