@@ -36,7 +36,8 @@ class XEMMPerpetualHedge(ScriptStrategyBase):
     initialized = False
     hedging_in_progress = False
 
-    taker_order_id = ''
+    maker_order_ids = []
+    taker_order_ids = []
 
     def on_tick(self):
         if not self.initialized:
@@ -62,8 +63,9 @@ class XEMMPerpetualHedge(ScriptStrategyBase):
                                        price=maker_buy_price)
             buy_order_adjusted = self.connectors[self.maker_exchange].budget_checker.adjust_candidate(buy_order,
                                                                                                       all_or_none=False)
-            self.buy(self.maker_exchange, self.maker_pair, buy_order_adjusted.amount, buy_order_adjusted.order_type,
-                     buy_order_adjusted.price)
+            maker_order_id = self.buy(self.maker_exchange, self.maker_pair, buy_order_adjusted.amount,
+                                      buy_order_adjusted.order_type, buy_order_adjusted.price)
+            self.maker_order_ids.append(maker_order_id)
 
     def place_sell_order_if_none(self, active_orders: list, taker_buy_result: ClientOrderBookQueryResult):
         active_sell_orders = [o for o in active_orders if not o.is_buy and o.trading_pair == self.maker_pair]
@@ -76,8 +78,9 @@ class XEMMPerpetualHedge(ScriptStrategyBase):
             sell_order_adjusted = self.connectors[self.maker_exchange].budget_checker.adjust_candidate(sell_order,
                                                                                                        all_or_none=False
                                                                                                        )
-            self.sell(self.maker_exchange, self.maker_pair, sell_order_adjusted.amount, sell_order_adjusted.order_type,
-                      sell_order_adjusted.price)
+            maker_order_id = self.sell(self.maker_exchange, self.maker_pair, sell_order_adjusted.amount,
+                                       sell_order_adjusted.order_type, sell_order_adjusted.price)
+            self.maker_order_ids.append(maker_order_id)
 
     def cancel_orders_if_invalidated(
         self, taker_buy_result: ClientOrderBookQueryResult, taker_sell_result: ClientOrderBookQueryResult
@@ -91,11 +94,15 @@ class XEMMPerpetualHedge(ScriptStrategyBase):
                 if order.price > buy_cancel_threshold or cancel_timestamp < self.current_timestamp:
                     self.logger().info(f"Cancelling buy order: {order.client_order_id}")
                     self.cancel(self.maker_exchange, order.trading_pair, order.client_order_id)
+                    if order.client_order_id in self.maker_order_ids:
+                        self.maker_order_ids.remove(order.client_order_id)
             else:
                 sell_cancel_threshold = taker_buy_result.result_price * Decimal(1 + self.min_spread_bps / 10000)
                 if order.price < sell_cancel_threshold or cancel_timestamp < self.current_timestamp:
                     self.logger().info(f"Cancelling sell order: {order.client_order_id}")
                     self.cancel(self.maker_exchange, order.trading_pair, order.client_order_id)
+                    if order.client_order_id in self.maker_order_ids:
+                        self.maker_order_ids.remove(order.client_order_id)
         if max(cancel_timestamps) < self.current_timestamp and not self.hedging_in_progress:
             self.adjust_perpetual_hedge_if_required()
 
@@ -119,13 +126,13 @@ class XEMMPerpetualHedge(ScriptStrategyBase):
             self.taker_pair, True, self.order_amount)
         return float(balance / taker_buy_result.result_price)
 
-    def is_active_maker_order(self, event: OrderFilledEvent):
+    def is_maker_order(self, event: OrderFilledEvent):
         """
-        Helper function that checks if order is an active order on the maker exchange
+        Helper function that checks if order is an active order on the maker exchange or is in self.maker_order_ids
         """
         return event.order_id in [
             order.client_order_id for order in self.get_active_orders(connector_name=self.maker_exchange)
-        ]
+        ] + self.maker_order_ids
 
     def place_taker_buy_order(self, event: OrderFilledEvent):
         mid_price = self.connectors[self.maker_exchange].get_mid_price(self.maker_pair)
@@ -140,8 +147,9 @@ class XEMMPerpetualHedge(ScriptStrategyBase):
                                    price=buy_price_with_slippage)
         buy_order_adjusted = self.connectors[self.taker_exchange].budget_checker.adjust_candidate(buy_order,
                                                                                                   all_or_none=False)
-        self.taker_order_id = self.buy(self.taker_exchange, self.taker_pair, buy_order_adjusted.amount,
-                                       buy_order_adjusted.order_type, buy_order_adjusted.price)
+        taker_order_id = self.buy(self.taker_exchange, self.taker_pair, buy_order_adjusted.amount,
+                                  buy_order_adjusted.order_type, buy_order_adjusted.price)
+        self.taker_order_ids.append(taker_order_id)
 
     def place_taker_sell_order(self, event: OrderFilledEvent):
         mid_price = self.connectors[self.maker_exchange].get_mid_price(self.maker_pair)
@@ -157,17 +165,22 @@ class XEMMPerpetualHedge(ScriptStrategyBase):
                                     price=sell_price_with_slippage)
         sell_order_adjusted = self.connectors[self.taker_exchange].budget_checker.adjust_candidate(sell_order,
                                                                                                    all_or_none=False)
-        self.taker_order_id = self.sell(self.taker_exchange, self.taker_pair, sell_order_adjusted.amount,
-                                        sell_order_adjusted.order_type, sell_order_adjusted.price)
+        taker_order_id = self.sell(self.taker_exchange, self.taker_pair, sell_order_adjusted.amount,
+                                   sell_order_adjusted.order_type, sell_order_adjusted.price)
+        self.taker_order_ids.append(taker_order_id)
 
     def did_fill_order(self, event: OrderFilledEvent):
-        if event.trade_type == TradeType.BUY and self.is_active_maker_order(event):
+        if event.trade_type == TradeType.BUY and self.is_maker_order(event):
             self.place_taker_sell_order(event)
-        elif event.trade_type == TradeType.SELL and self.is_active_maker_order(event):
+            if event.order_id in self.maker_order_ids:
+                self.maker_order_ids.remove(event.order_id)
+        elif event.trade_type == TradeType.SELL and self.is_maker_order(event):
             self.place_taker_buy_order(event)
-        elif event.order_id == self.taker_order_id and not self.hedging_in_progress:
+            if event.order_id in self.maker_order_ids:
+                self.maker_order_ids.remove(event.order_id)
+        elif event.order_id in self.taker_order_ids and not self.hedging_in_progress:
             self.adjust_perpetual_hedge_if_required()
-            self.taker_order_id = ''
+            self.taker_order_ids.remove(event.order_id)
 
     def format_status(self) -> str:
         """
