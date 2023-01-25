@@ -1,6 +1,6 @@
 from typing import Any, Callable, Dict, Optional
 
-import hummingbot.connector.derivative.binance_perpetual.constants as CONSTANTS
+import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_constants as CONSTANTS
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.utils import TimeSynchronizerRESTPreProcessor
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -37,7 +37,6 @@ def build_api_factory(
         domain: str = CONSTANTS.DOMAIN,
         time_provider: Optional[Callable] = None,
         auth: Optional[AuthBase] = None) -> WebAssistantsFactory:
-
     throttler = throttler or create_throttler()
     time_synchronizer = time_synchronizer or TimeSynchronizer()
     time_provider = time_provider or (lambda: get_current_server_time(
@@ -65,69 +64,33 @@ def create_throttler() -> AsyncThrottler:
     return AsyncThrottler(CONSTANTS.RATE_LIMITS)
 
 
-async def api_request(path: str,
-                      api_factory: Optional[WebAssistantsFactory] = None,
-                      throttler: Optional[AsyncThrottler] = None,
-                      time_synchronizer: Optional[TimeSynchronizer] = None,
-                      domain: str = CONSTANTS.DOMAIN,
-                      params: Optional[Dict[str, Any]] = None,
-                      data: Optional[Dict[str, Any]] = None,
-                      method: RESTMethod = RESTMethod.GET,
-                      is_auth_required: bool = False,
-                      return_err: bool = False,
-                      api_version: str = CONSTANTS.API_VERSION,
-                      limit_id: Optional[str] = None,
-                      timeout: Optional[float] = None):
-
-    throttler = throttler or create_throttler()
-    time_synchronizer = time_synchronizer or TimeSynchronizer()
-
-    # If api_factory is not provided a default one is created
-    # The default instance has no authentication capabilities and all authenticated requests will fail
-    api_factory = api_factory or build_api_factory(
-        throttler=throttler,
-        time_synchronizer=time_synchronizer,
-        domain=domain,
-    )
-    rest_assistant = await api_factory.get_rest_assistant()
-
-    async with throttler.execute_task(limit_id=limit_id if limit_id else path):
-        url = rest_url(path, domain, api_version)
-
-        request = RESTRequest(
-            method=method,
-            url=url,
-            params=params,
-            data=data,
-            is_auth_required=is_auth_required,
-            throttler_limit_id=limit_id if limit_id else path
-        )
-        response = await rest_assistant.call(request=request, timeout=timeout)
-
-        if response.status != 200:
-            if return_err:
-                error_response = await response.json()
-                return error_response
-            else:
-                error_response = await response.text()
-                raise IOError(f"Error executing request {method.name} {path}. "
-                              f"HTTP status is {response.status}. "
-                              f"Error: {error_response}")
-        return await response.json()
-
-
 async def get_current_server_time(
         throttler: Optional[AsyncThrottler] = None,
         domain: str = CONSTANTS.DOMAIN,
 ) -> float:
     throttler = throttler or create_throttler()
     api_factory = build_api_factory_without_time_synchronizer_pre_processor(throttler=throttler)
-    response = await api_request(
-        path=CONSTANTS.SERVER_TIME_PATH_URL,
-        api_factory=api_factory,
-        throttler=throttler,
-        domain=domain,
-        method=RESTMethod.GET)
+    rest_assistant = await api_factory.get_rest_assistant()
+    response = await rest_assistant.execute_request(
+        url=rest_url(path_url=CONSTANTS.SERVER_TIME_PATH_URL, domain=domain),
+        method=RESTMethod.GET,
+        throttler_limit_id=CONSTANTS.SERVER_TIME_PATH_URL,
+    )
     server_time = response["serverTime"]
 
     return server_time
+
+
+def is_exchange_information_valid(rule: Dict[str, Any]) -> bool:
+    """
+    Verifies if a trading pair is enabled to operate with based on its exchange information
+
+    :param exchange_info: the exchange information for a trading pair
+
+    :return: True if the trading pair is enabled, False otherwise
+    """
+    if rule["contractType"] == "PERPETUAL" and rule["status"] == "TRADING":
+        valid = True
+    else:
+        valid = False
+    return valid

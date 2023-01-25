@@ -1,17 +1,11 @@
 import logging
+from typing import Any, Dict, List, Optional
 
-from typing import (
-    Optional,
-    Dict,
-    List, Any)
 import hummingbot.connector.exchange.k2.k2_constants as constants
 from hummingbot.connector.exchange.k2 import k2_utils
 from hummingbot.connector.exchange.k2.k2_order_book_message import K2OrderBookMessage
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_message import (
-    OrderBookMessage,
-    OrderBookMessageType,
-)
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.logger import HummingbotLogger
 
 _logger = None
