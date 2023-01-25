@@ -58,9 +58,7 @@ export class InjectiveCLOB {
   public async loadMarkets() {
     const rawMarkets = await this.spotApi.fetchMarkets();
     for (const market of rawMarkets) {
-      this.parsedMarkets[
-        `${market.baseToken?.symbol}-${market.quoteToken?.symbol}`
-      ] = market;
+      this.parsedMarkets[market.ticker.replace('/', '-')] = market;
     }
   }
 
@@ -117,6 +115,7 @@ export class InjectiveCLOB {
   public async postOrder(
     req: ClobPostOrderRequest
   ): Promise<{ txHash: string }> {
+    const [base, quote] = req.market.split('-');
     const wallet = await this._chain.getWallet(req.address);
     const privateKey: string = wallet.privateKey;
     const injectiveAddress: string = wallet.injectiveAddress;
@@ -135,12 +134,12 @@ export class InjectiveCLOB {
           orderType,
           price: spotPriceToChainPriceToFixed({
             value: req.price,
-            baseDecimals: market.baseToken?.decimals,
-            quoteDecimals: market.quoteToken?.decimals,
+            baseDecimals: this._chain.getTokenForSymbol(base)?.decimals,
+            quoteDecimals: this._chain.getTokenForSymbol(quote)?.decimals,
           }),
           quantity: spotQuantityToChainQuantityToFixed({
             value: req.amount,
-            baseDecimals: market.baseToken?.decimals,
+            baseDecimals: this._chain.getTokenForSymbol(base)?.decimals,
           }),
           marketId: market.marketId,
           feeRecipient: injectiveAddress,

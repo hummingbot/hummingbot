@@ -209,7 +209,10 @@ export class MsgBroadcasterLocal {
     }
 
     return {
-      txHash: txResponse.data.tx_response.txhash,
+      txHash:
+        txResponse.data.tx_response.code === 0
+          ? txResponse.data.tx_response.txhash
+          : '',
     };
   }
 
