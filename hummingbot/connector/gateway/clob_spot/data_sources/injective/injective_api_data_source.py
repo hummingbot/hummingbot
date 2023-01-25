@@ -186,11 +186,11 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
                 size=order.amount,
             )
 
-        transaction_hash: Optional[str] = order_result.get("txHash")
+            transaction_hash: Optional[str] = order_result.get("txHash")
 
-        if transaction_hash is None:
-            await self._update_account_address_and_create_order_hash_manager()
-            raise ValueError(f"The creation transaction for {order.client_order_id} failed.")
+            if transaction_hash is None:
+                await self._update_account_address_and_create_order_hash_manager()
+                raise ValueError(f"The creation transaction for {order.client_order_id} failed.")
 
         transaction_hash = f"0x{transaction_hash.lower()}"
 
@@ -215,7 +215,8 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         transaction_hash: Optional[str] = cancelation_result.get("txHash")
 
         if transaction_hash is None:
-            await self._update_account_address_and_create_order_hash_manager()
+            with self._order_placement_lock:
+                await self._update_account_address_and_create_order_hash_manager()
             raise ValueError(f"The cancelation transaction for {order.client_order_id} failed.")
 
         transaction_hash = f"0x{transaction_hash.lower()}"
@@ -448,11 +449,10 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         self._account_address = sub_account_balances.balances[0].account_address
         await self._client.get_account(self._account_address)
         await self._client.sync_timeout_height()
-        async with self._order_placement_lock:  # if any orders are currently being placed, let them complete
-            self._order_hash_manager = OrderHashManager(
-                network=self._network_obj, sub_account_id=self._sub_account_id
-            )
-            await self._order_hash_manager.start()
+        self._order_hash_manager = OrderHashManager(
+            network=self._network_obj, sub_account_id=self._sub_account_id
+        )
+        await self._order_hash_manager.start()
 
     def _check_markets_initialized(self) -> bool:
         return (
@@ -495,8 +495,10 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
     def _update_denom_to_token_meta(self, markets: MarketsResponse):
         self._denom_to_token_meta.clear()
         for market in markets.markets:
-            self._denom_to_token_meta[market.base_denom] = market.base_token_meta
-            self._denom_to_token_meta[market.quote_denom] = market.quote_token_meta
+            if market.base_token_meta.symbol != "":  # the meta is defined
+                self._denom_to_token_meta[market.base_denom] = market.base_token_meta
+            if market.quote_token_meta.symbol != "":  # the meta is defined
+                self._denom_to_token_meta[market.quote_denom] = market.quote_token_meta
 
     async def _start_streams(self):
         self._trades_stream_listener = (
