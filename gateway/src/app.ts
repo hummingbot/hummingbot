@@ -3,6 +3,7 @@ import express from 'express';
 import { Request, Response, NextFunction } from 'express';
 import { ConfigRoutes } from './services/config/config.routes';
 import { SolanaRoutes } from './chains/solana/solana.routes';
+import { CosmosRoutes } from './chains/cosmos/cosmos.routes';
 import { WalletRoutes } from './services/wallet/wallet.routes';
 import { logger } from './services/logger';
 import { addHttps } from './https';
@@ -70,6 +71,7 @@ gatewayApp.use('/clob', ClobRoutes.router);
 gatewayApp.use('/wallet', WalletRoutes.router);
 gatewayApp.use('/solana', SolanaRoutes.router);
 gatewayApp.use('/serum', SerumRoutes.router);
+gatewayApp.use('/cosmos', CosmosRoutes.router);
 gatewayApp.use('/near', NearRoutes.router);
 
 // a simple route to test that the server is running
@@ -139,6 +141,7 @@ export const swaggerDocument = SwaggerManager.generateSwaggerJson(
     './docs/swagger/near-routes.yml',
     './docs/swagger/clob-routes.yml',
     './docs/swagger/serum-routes.yml',
+    './docs/swagger/cosmos-routes.yml',
   ]
 );
 

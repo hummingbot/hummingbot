@@ -26,17 +26,6 @@ RUN curl https://repo.anaconda.com/miniconda/Miniconda3-py38_4.10.3-Linux-aarch6
 # Dropping default ~/.bashrc because it will return if not running as interactive shell, thus not invoking PATH settings
 RUN :> ~/.bashrc
 
-# Install nvm and CeloCLI; note: nvm adds own section to ~/.bashrc
-SHELL [ "/bin/bash", "-lc" ]
-RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash && \
-    export NVM_DIR="/home/hummingbot/.nvm" && \
-    source "/home/hummingbot/.nvm/nvm.sh" && \
-    nvm install 10 && \
-    npm install --only=production -g @celo/celocli@1.0.3 && \
-    nvm cache clear && \
-    npm cache clean --force && \
-    rm -rf /home/hummingbot/.cache
-
 # Copy environment only to optimize build caching, so changes in sources will not cause conda env invalidation
 COPY --chown=hummingbot:hummingbot setup/environment-linux-aarch64.yml setup/
 
