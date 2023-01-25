@@ -1,5 +1,4 @@
 import asyncio
-import datetime
 from decimal import Decimal
 from typing import List, Optional, Set, Tuple
 
@@ -26,7 +25,12 @@ async def start_timer(timer):
     count = 1
     while True:
         count += 1
-        timer.log(f"Duration: {datetime.timedelta(seconds=count)}")
+
+        mins, sec = divmod(count, 60)
+        hour, mins = divmod(mins, 60)
+        days, hour = divmod(hour, 24)
+
+        timer.log(f"Uptime: {days:>3} day(s), {hour:02}:{mins:02}:{sec:02}")
         await _sleep(1)
 
 
