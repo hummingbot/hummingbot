@@ -57,7 +57,7 @@ class XEMMPerpetualHedge(ScriptStrategyBase):
         active_buy_orders = [o for o in active_orders if o.is_buy and o.trading_pair == self.maker_pair]
         if not active_buy_orders:
             maker_buy_price = taker_sell_result.result_price * Decimal(1 - self.spread_bps / 10000)
-            buy_order_amount = min(self.order_amount, self.get_maker_buy_budget())
+            buy_order_amount = min(self.order_amount, self.get_taker_sell_budget())
             buy_order = OrderCandidate(trading_pair=self.maker_pair, is_maker=True, order_type=OrderType.LIMIT,
                                        order_side=TradeType.BUY, amount=Decimal(buy_order_amount),
                                        price=maker_buy_price)
@@ -71,7 +71,7 @@ class XEMMPerpetualHedge(ScriptStrategyBase):
         active_sell_orders = [o for o in active_orders if not o.is_buy and o.trading_pair == self.maker_pair]
         if not active_sell_orders:
             maker_sell_price = taker_buy_result.result_price * Decimal(1 + self.spread_bps / 10000)
-            sell_order_amount = min(self.order_amount, self.get_maker_sell_budget())
+            sell_order_amount = min(self.order_amount, self.get_taker_buy_budget())
             sell_order = OrderCandidate(trading_pair=self.maker_pair, is_maker=True, order_type=OrderType.LIMIT,
                                         order_side=TradeType.SELL, amount=Decimal(sell_order_amount),
                                         price=maker_sell_price)
@@ -106,25 +106,15 @@ class XEMMPerpetualHedge(ScriptStrategyBase):
         if max(cancel_timestamps) < self.current_timestamp and not self.hedging_in_progress:
             self.adjust_perpetual_hedge_if_required()
 
-    def get_maker_buy_budget(self) -> float:
-        balance = self.connectors[self.maker_exchange].get_available_balance(self.maker_pair.split('-')[0])
-        return float(balance)
-
-    def get_maker_sell_budget(self) -> float:
-        balance = self.connectors[self.maker_exchange].get_available_balance(self.maker_pair.split('-')[1])
-        maker_buy_result = self.connectors[self.maker_exchange].get_price_for_volume(
-            self.maker_pair, True, self.order_amount)
-        return float(balance / maker_buy_result.result_price)
-
     def get_taker_buy_budget(self) -> float:
-        balance = self.connectors[self.taker_exchange].get_available_balance(self.taker_pair.split('-')[0])
-        return float(balance)
-
-    def get_taker_sell_budget(self) -> float:
         balance = self.connectors[self.taker_exchange].get_available_balance(self.taker_pair.split('-')[1])
         taker_buy_result = self.connectors[self.taker_exchange].get_price_for_volume(
             self.taker_pair, True, self.order_amount)
         return float(balance / taker_buy_result.result_price)
+
+    def get_taker_sell_budget(self) -> float:
+        balance = self.connectors[self.taker_exchange].get_available_balance(self.taker_pair.split('-')[0])
+        return float(balance)
 
     def is_maker_order(self, event: OrderFilledEvent):
         """
