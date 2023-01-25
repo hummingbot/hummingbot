@@ -4,14 +4,21 @@ from bxsolana_trader_proto import Project
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.data_type.in_flight_order import OrderState
 
+# TOKEN_PAIR_TO_WALLET_ADDR = {
+#     "INV": "8U7VYzRnwLgKMXtp5bweXoDrzmQ1rF48a8qoD3rrc3uU",
+#     "SOL": "BZYcWxuhyZqWYbo6UPEEnYzrXGCe7tjcRQvZzz7cxqhq",
+#     "USDC": "HmvqBfBSRjNzjzKmjvefBe9NX9y2oSyiFLn77DwaH6v9",
+#     "mSOL": "SX4fHc9uL9x8VU6Ag2X8GR22bXPTwDjAcWFu7BfH2qg",
+#     "FIDA": "4aDUpyixMgbPzVcNdgxnw94chyoeMHe35W3dPCtXoY37",
+#     "RAY": "4aDUpyixMgbPzVcNdgxnw94chyoeMHe35W3dPCtXoY37",
+#     "WETH": "F2djfvy9ujH9mS4yf8zfHh1WHhGzNYJLxEKhEFbULgDv"
+# }
+
 TOKEN_PAIR_TO_WALLET_ADDR = {
-    "INV": "8U7VYzRnwLgKMXtp5bweXoDrzmQ1rF48a8qoD3rrc3uU",
-    "SOL": "BZYcWxuhyZqWYbo6UPEEnYzrXGCe7tjcRQvZzz7cxqhq",
-    "USDC": "HmvqBfBSRjNzjzKmjvefBe9NX9y2oSyiFLn77DwaH6v9",
-    "mSOL": "SX4fHc9uL9x8VU6Ag2X8GR22bXPTwDjAcWFu7BfH2qg",
-    "FIDA": "4aDUpyixMgbPzVcNdgxnw94chyoeMHe35W3dPCtXoY37",
-    "RAY": "4aDUpyixMgbPzVcNdgxnw94chyoeMHe35W3dPCtXoY37",
-    "WETH": "F2djfvy9ujH9mS4yf8zfHh1WHhGzNYJLxEKhEFbULgDv"
+    "SOL": "FFqDwRq8B4hhFKRqx7N1M6Dg6vU699hVqeynDeYJdPj5",
+    "USDC": "Hse4dWHfnExzZ6mZkfNjs8BW45YZURHsWiHzssDMNjQ8",
+    "FIDA": "5QCFjVEc7qBr9JyTJQkLjDCTgLGewpCjKo5uycNPhkGu",
+    "RAY": "J5a6hwutTb6wvVrgUn1Fkx6YHaqWkSERfUwsv9xRsnLa",
 }
 
 EXCHANGE_NAME = "bloxroute_openbook"

@@ -1,10 +1,10 @@
 import asyncio
+import time
 from asyncio import Task
-from time import time
 from typing import Dict, List, Optional
 
 from bxsolana.provider import Provider
-from bxsolana_trader_proto.api import GetOrderbookResponse, GetOrderStatusStreamResponse, OrderbookItem, OrderStatus
+from bxsolana_trader_proto.api import (GetOrderStatusResponse, GetOrderbookResponse, OrderStatus, OrderbookItem, Side)
 
 from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_constants import OPENBOOK_PROJECT
 
@@ -42,11 +42,41 @@ class OrderbookInfo:
 
 class OrderStatusInfo:
     order_status: OrderStatus
+    quantity_released: float
+    quantity_remaining: float
+    side: Side
+    fill_price: float
+    client_order_i_d: int
     timestamp: float
 
-    def __init__(self, order_status: OrderStatus, timestamp: float):
+    def __init__(
+        self,
+        order_status: OrderStatus,
+        quantity_released: float,
+        quantity_remaining: float,
+        side: Side,
+        fill_price: float,
+        client_order_i_d: int,
+        timestamp: float,
+    ):
         self.order_status = order_status
+        self.quantity_released = quantity_released
+        self.quantity_remaining = quantity_remaining
+        self.side = side
+        self.fill_price = fill_price
+        self.client_order_i_d = client_order_i_d
         self.timestamp = timestamp
+
+    def __eq__(self, other: "OrderStatusInfo"):
+        return (
+            self.order_status == other.order_status
+            and self.quantity_released == other.quantity_released
+            and self.quantity_remaining == other.quantity_remaining
+            and self.side == other.side
+            and self.fill_price == other.fill_price
+            and self.client_order_i_d == other.client_order_i_d
+            and self.timestamp == other.timestamp
+        )
 
 
 class BloxrouteOpenbookOrderManager:
@@ -59,7 +89,7 @@ class BloxrouteOpenbookOrderManager:
         self._trading_pairs = trading_pairs
 
         self._order_books: Dict[str, OrderbookInfo] = {}
-        self._markets_to_order_statuses: Dict[str, Dict[int, OrderStatusInfo]] = {}
+        self._markets_to_order_statuses: Dict[str, Dict[int, List[OrderStatusInfo]]] = {}
 
         self._started = False
         self._ready = asyncio.Event()
@@ -68,8 +98,6 @@ class BloxrouteOpenbookOrderManager:
         self._orderbook_polling_task: Optional[Task] = None
         self._order_status_running_tasks: List[Task] = []
         self._order_status_polling_task: Optional[Task] = None
-
-        self._order_status_updates = asyncio.Queue()
 
     async def ready(self):
         await self._ready.wait()
@@ -89,11 +117,11 @@ class BloxrouteOpenbookOrderManager:
             self._orderbook_polling_task = asyncio.create_task(self._poll_order_book_updates())
 
             await self._initialize_order_status_streams()
-            self._order_status_polling_task = asyncio.create_task(self._poll_order_status_updates())
 
-            await asyncio.sleep(5)
+            await asyncio.sleep(10)
 
             self._is_ready = True
+            self._ready.set()
 
     async def stop(self):
         await self._provider.close()
@@ -116,22 +144,12 @@ class BloxrouteOpenbookOrderManager:
 
     async def _initialize_order_status_streams(self):
         for trading_pair in self._trading_pairs:
-            normalized_trading_pair = normalize_trading_pair(trading_pair)
-            self._markets_to_order_statuses.update({normalized_trading_pair: {}})
+            self._markets_to_order_statuses.update({trading_pair: {}})
 
-            initialize_order_stream_task = asyncio.create_task(self._initialize_order_status_stream(trading_pair=trading_pair))
+            initialize_order_stream_task = asyncio.create_task(
+                self._poll_order_status_updates(trading_pair=trading_pair)
+            )
             self._order_status_running_tasks.append(initialize_order_stream_task)
-
-    async def _initialize_order_status_stream(self, trading_pair: str):
-        await self._provider.connect()
-        order_status_stream = self._provider.get_order_status_stream(
-            market=trading_pair, owner_address=self._owner_address, project=OPENBOOK_PROJECT
-        )
-
-        first_response = await order_status_stream.__anext__()
-        self._order_status_updates.put_nowait(first_response)
-        async for order_status_update in order_status_stream:
-            self._order_status_updates.put_nowait(order_status_update)
 
     async def _poll_order_book_updates(self):
         await self._provider.connect()
@@ -141,15 +159,13 @@ class BloxrouteOpenbookOrderManager:
         async for order_book_update in order_book_stream:
             self._apply_order_book_update(order_book_update.orderbook)
 
-    async def _poll_order_status_updates(self):
-        while True:
-            os_update: GetOrderStatusStreamResponse = await self._order_status_updates.get()
-
-            market = os_update.order_info.market
-            client_order_i_d = os_update.order_info.client_order_i_d
-            order_status = os_update.order_info.order_status
-
-            self._apply_order_status_update(market, client_order_i_d, order_status)
+    async def _poll_order_status_updates(self, trading_pair: str):
+        await self._provider.connect()
+        order_status_stream = self._provider.get_order_status_stream(
+            market=trading_pair, owner_address=self._owner_address, project=OPENBOOK_PROJECT
+        )
+        async for order_status_update in order_status_stream:
+            self._apply_order_status_update(order_status_update.order_info)
 
     def _apply_order_book_update(self, update: GetOrderbookResponse):
         normalized_trading_pair = normalize_trading_pair(update.market)
@@ -176,13 +192,25 @@ class BloxrouteOpenbookOrderManager:
             }
         )
 
-    def _apply_order_status_update(self, market: str, client_order_i_d: int, order_status: OrderStatus):
-        normalized_trading_pair = normalize_trading_pair(market)
+    def _apply_order_status_update(self, os_update: GetOrderStatusResponse) -> object:
+        normalized_trading_pair = normalize_trading_pair(os_update.market)
         if normalized_trading_pair not in self._markets_to_order_statuses:
             raise Exception(f"order manager does not support updates for ${normalized_trading_pair}")
 
         order_statuses = self._markets_to_order_statuses[normalized_trading_pair]
-        order_statuses.update({client_order_i_d: OrderStatusInfo(order_status=order_status, timestamp=time())})
+        order_status_info = OrderStatusInfo(
+            order_status=os_update.order_status,
+            quantity_released=os_update.quantity_released,
+            quantity_remaining=os_update.quantity_remaining,
+            side=os_update.side,
+            fill_price=os_update.fill_price,
+            client_order_i_d=os_update.client_order_i_d,
+            timestamp=time.time(),
+        )
+        if os_update.client_order_i_d in order_statuses:
+            order_statuses[os_update.client_order_i_d].append(order_status_info)
+        else:
+            order_statuses[os_update.client_order_i_d] = [order_status_info]
 
     def get_order_book(self, trading_pair: str) -> Orderbook:
         normalized_trading_pair = normalize_trading_pair(trading_pair)
@@ -203,7 +231,7 @@ class BloxrouteOpenbookOrderManager:
             else (ob_info.best_ask_price, ob_info.best_ask_size)
         )
 
-    def get_order_status(self, trading_pair: str, client_order_id: int) -> OrderStatusInfo:
+    def get_order_status(self, trading_pair: str, client_order_id: int) -> List[OrderStatusInfo]:
         normalized_trading_pair = normalize_trading_pair(trading_pair)
         if normalized_trading_pair not in self._markets_to_order_statuses:
             raise Exception(f"order book manager does not support ${trading_pair}")
@@ -212,7 +240,7 @@ class BloxrouteOpenbookOrderManager:
         if client_order_id in order_statuses:
             return order_statuses[client_order_id]
 
-        return OrderStatusInfo(OrderStatus.OS_UNKNOWN, time())
+        return []
 
 
 def normalize_trading_pair(trading_pair: str):

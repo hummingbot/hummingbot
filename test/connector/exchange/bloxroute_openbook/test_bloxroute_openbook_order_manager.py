@@ -1,4 +1,5 @@
 import asyncio
+import time
 from collections.abc import AsyncGenerator
 from typing import List, Tuple
 from unittest.mock import AsyncMock, patch
@@ -6,17 +7,18 @@ from unittest.mock import AsyncMock, patch
 import aiounittest
 import bxsolana.provider.grpc
 from bxsolana_trader_proto import (
-    GetOrderStatusResponse,
-    GetOrderStatusStreamResponse,
     GetOrderbookResponse,
     GetOrderbooksStreamResponse,
-    OrderStatus,
+    GetOrderStatusResponse,
+    GetOrderStatusStreamResponse,
     OrderbookItem,
+    OrderStatus,
     Side,
 )
 
-from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_orderbook_manager import (
+from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_order_manager import (
     BloxrouteOpenbookOrderManager,
+    OrderStatusInfo,
 )
 
 test_private_key = "3771ddf5dd1d38ff72334b9763dc3cbc6fc3196f23e651f391fe65e31e466e3d"
@@ -111,10 +113,11 @@ class TestOrderManager(aiounittest.AsyncTestCase):
 
         await ob_manager.stop()
 
+    @patch("time.time")
     @patch("bxsolana.provider.GrpcProvider.get_order_status_stream")
     @patch("bxsolana.provider.GrpcProvider.get_orderbooks_stream")
     @patch(
-        "hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_orderbook_manager"
+        "hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_order_manager"
         ".BloxrouteOpenbookOrderManager._initialize_order_books"
     )
     @patch("bxsolana.provider.GrpcProvider.get_orderbook")
@@ -124,21 +127,23 @@ class TestOrderManager(aiounittest.AsyncTestCase):
         initialize_order_book_mock: AsyncMock,
         orderbook_stream_mock: AsyncMock,
         order_status_stream_mock: AsyncMock,
+        time_mock: AsyncMock
     ):
         def side_effect_function(**kwargs):
             self.assertIn("market", kwargs)
             market = kwargs["market"]
 
             if market == "SOLUSDC":
-                return async_generator_order_status_stream([("SOL/USDC", 123, OrderStatus.OS_FILLED, Side.S_ASK)])
+                return async_generator_order_status_stream([("SOL/USDC", 123, OrderStatus.OS_FILLED, Side.S_ASK, 0.3, 0.2)])
             elif market == "BTCUSDC":
                 return async_generator_order_status_stream(
                     [
-                        ("BTC-USDC", 456, OrderStatus.OS_PARTIAL_FILL, Side.S_BID),
+                        ("BTC-USDC", 456, OrderStatus.OS_PARTIAL_FILL, Side.S_BID, 0.4, 0.2),
                     ]
                 )
 
         order_status_stream_mock.side_effect = side_effect_function
+        time_mock.return_value = 1
 
         provider = bxsolana.provider.GrpcProvider(auth_header="", private_key=test_private_key)
         os_manager = BloxrouteOpenbookOrderManager(provider, ["SOLUSDC", "BTCUSDC"], "OWNER_ADDRESS")
@@ -146,19 +151,34 @@ class TestOrderManager(aiounittest.AsyncTestCase):
         await asyncio.sleep(0.1)
 
         os1 = os_manager.get_order_status("SOLUSDC", 123)
-        self.assertEqual(os1.order_status, OrderStatus.OS_FILLED)
-        self.assertGreater(os1.timestamp, 0)
+        self.assertEqual(os1, [OrderStatusInfo(
+            client_order_i_d=123,
+            fill_price=0.0,
+            order_status=OrderStatus.OS_FILLED,
+            quantity_released=0.3,
+            quantity_remaining=0.2,
+            side=Side.S_ASK,
+            timestamp=1
+        )])
 
         os2 = os_manager.get_order_status("BTCUSDC", 456)
-        self.assertEqual(os2.order_status, OrderStatus.OS_PARTIAL_FILL)
-        self.assertGreater(os2.timestamp, os1.timestamp)
+        self.assertEqual(os2, [OrderStatusInfo(
+            client_order_i_d=456,
+            fill_price=0.0,
+            order_status=OrderStatus.OS_PARTIAL_FILL,
+            quantity_released=0.4,
+            quantity_remaining=0.2,
+            side=Side.S_BID,
+            timestamp=1
+        )])
 
         await os_manager.stop()
 
+    @patch("time.time")
     @patch("bxsolana.provider.GrpcProvider.get_order_status_stream")
     @patch("bxsolana.provider.GrpcProvider.get_orderbooks_stream")
     @patch(
-        "hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_orderbook_manager"
+        "hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_order_manager"
         ".BloxrouteOpenbookOrderManager._initialize_order_books"
     )
     @patch("bxsolana.provider.GrpcProvider.get_orderbook")
@@ -168,29 +188,52 @@ class TestOrderManager(aiounittest.AsyncTestCase):
         initialize_order_book_mock: AsyncMock,
         orderbook_stream_mock: AsyncMock,
         order_status_stream_mock: AsyncMock,
+        time_mock: AsyncMock
     ):
         provider = bxsolana.provider.GrpcProvider(auth_header="", private_key=test_private_key)
         order_status_stream_mock.return_value = async_generator_order_status_stream(
             [
-                ("SOL/USDC", 123, OrderStatus.OS_PARTIAL_FILL, Side.S_ASK),
-                ("SOL/USDC", 123, OrderStatus.OS_FILLED, Side.S_ASK),
+                ("SOL/USDC", 123, OrderStatus.OS_PARTIAL_FILL, Side.S_ASK, 0.1, 0.1),
+                ("SOL/USDC", 123, OrderStatus.OS_FILLED, Side.S_ASK, 0.1, 0),
             ]
         )
+        time_mock.return_value = 1
 
         os_manager = BloxrouteOpenbookOrderManager(provider, ["SOLUSDC", "BTCUSDC"], "OWNER_ADDRESS")
         await os_manager.start()
         await asyncio.sleep(0.1)
 
-        os = os_manager.get_order_status("SOLUSDC", 123)
-        self.assertEqual(os.order_status, OrderStatus.OS_FILLED)
-        self.assertGreater(os.timestamp, 0)
+        os_updates: List[OrderStatusInfo] = os_manager.get_order_status("SOLUSDC", 123)
+        expected_os_updates = [
+            OrderStatusInfo(
+                client_order_i_d=123,
+                fill_price=0.0,
+                order_status=OrderStatus.OS_PARTIAL_FILL,
+                quantity_released=0.1,
+                quantity_remaining=0.1,
+                side=Side.S_ASK,
+                timestamp=1
+            ),
+            OrderStatusInfo(
+                client_order_i_d=123,
+                fill_price=0.0,
+                order_status=OrderStatus.OS_FILLED,
+                quantity_released=0.1,
+                quantity_remaining=0,
+                side=Side.S_ASK,
+                timestamp=1
+            )
+        ]
+
+        self.assertListEqual(os_updates, expected_os_updates)
 
         await os_manager.stop()
 
+    @patch("time.time")
     @patch("bxsolana.provider.GrpcProvider.get_order_status_stream")
     @patch("bxsolana.provider.GrpcProvider.get_orderbooks_stream")
     @patch(
-        "hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_orderbook_manager"
+        "hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_order_manager"
         ".BloxrouteOpenbookOrderManager._initialize_order_books"
     )
     @patch("bxsolana.provider.GrpcProvider.get_orderbook")
@@ -200,26 +243,42 @@ class TestOrderManager(aiounittest.AsyncTestCase):
         initialize_order_book_mock: AsyncMock,
         orderbook_stream_mock: AsyncMock,
         order_status_stream_mock: AsyncMock,
+        time_mock: AsyncMock
     ):
         provider = bxsolana.provider.GrpcProvider(auth_header="", private_key=test_private_key)
         order_status_stream_mock.return_value = async_generator_order_status_stream(
             [
-                ("SOL/USDC", 123, OrderStatus.OS_PARTIAL_FILL, Side.S_ASK),
-                ("SOL/USDC", 456, OrderStatus.OS_FILLED, Side.S_ASK),
+                ("SOL/USDC", 123, OrderStatus.OS_PARTIAL_FILL, Side.S_ASK, 0.3, 0.2),
+                ("SOL/USDC", 456, OrderStatus.OS_FILLED, Side.S_ASK, 0.4, 0.2),
             ]
         )
+        time_mock.return_value = 1
 
         os_manager = BloxrouteOpenbookOrderManager(provider, ["SOLUSDC", "BTCUSDC"], "OWNER_ADDRESS")
         await os_manager.start()
         await asyncio.sleep(0.1)
 
         os = os_manager.get_order_status("SOLUSDC", 123)
-        self.assertEqual(os.order_status, OrderStatus.OS_PARTIAL_FILL)
-        self.assertGreater(os.timestamp, 0)
+        self.assertEqual(os, [OrderStatusInfo(
+            client_order_i_d=123,
+            fill_price=0.0,
+            order_status=OrderStatus.OS_PARTIAL_FILL,
+            quantity_released=0.3,
+            quantity_remaining=0.2,
+            side=Side.S_ASK,
+            timestamp=1
+        )])
 
         os2 = os_manager.get_order_status("SOLUSDC", 456)
-        self.assertEqual(os2.order_status, OrderStatus.OS_FILLED)
-        self.assertGreater(os2.timestamp, os.timestamp)
+        self.assertEqual(os2, [OrderStatusInfo(
+            client_order_i_d=456,
+            fill_price=0.0,
+            order_status=OrderStatus.OS_FILLED,
+            quantity_released=0.4,
+            quantity_remaining=0.2,
+            side=Side.S_ASK,
+            timestamp=1
+        )])
 
         await os_manager.stop()
 
@@ -237,12 +296,13 @@ async def async_generator_orderbook_stream(market, bids, asks) -> AsyncGenerator
 
 
 async def async_generator_order_status_stream(
-    order_status_updates: List[Tuple[str, int, OrderStatus, Side]]
+    order_status_updates: List[Tuple[str, int, OrderStatus, Side, float, float]]
 ) -> AsyncGenerator:
-    for market, client_order_id, order_status, side in order_status_updates:
+    for market, client_order_id, order_status, side, q_rel, q_rem in order_status_updates:
         yield GetOrderStatusStreamResponse(
             slot=1,
             order_info=GetOrderStatusResponse(
-                market=market, client_order_i_d=client_order_id, order_status=order_status, side=side
+                market=market, client_order_i_d=client_order_id, order_status=order_status, side=side,
+                quantity_released=q_rel, quantity_remaining=q_rem
             ),
         )

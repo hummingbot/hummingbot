@@ -62,6 +62,9 @@ class BloxrouteOpenbookAPIOrderBookDataSource(OrderBookTrackerDataSource):
         }
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, order_book_message_content, snapshot_timestamp)
 
+    async def listen_for_subscriptions(self):
+        pass
+
     async def _connected_websocket_assistant(self) -> WSAssistant:
         raise "connected websocket assistant not yet supported"
 
@@ -100,4 +103,4 @@ class BloxrouteOpenbookAPIOrderBookDataSource(OrderBookTrackerDataSource):
         pass
 
     async def _on_order_stream_interruption(self, websocket_assistant: Optional[WSAssistant] = None):
-        raise
+        pass
