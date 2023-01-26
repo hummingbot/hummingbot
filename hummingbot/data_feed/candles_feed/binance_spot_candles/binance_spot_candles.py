@@ -22,8 +22,8 @@ class BinanceCandlesFeed(NetworkBase):
     _bcf_logger: Optional[HummingbotLogger] = None
     _binance_candles_shared_instance: "BinanceCandlesFeed" = None
     # TODO: abstract logic of intervals
-    columns = ["timestamp", "open", "low", "high", "close", "volume", "close_time",
-               "quote_asset_volume", "n_trades", "taker_buy_base_volume", "taker_buy_quote_volume"]
+    columns = ["timestamp", "open", "low", "high", "close", "volume", "quote_asset_volume",
+               "n_trades", "taker_buy_base_volume", "taker_buy_quote_volume"]
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -42,8 +42,7 @@ class BinanceCandlesFeed(NetworkBase):
         super().__init__()
         self._ws_ready_event = asyncio.Event()
         self._shared_client: Optional[aiohttp.ClientSession] = None
-        async_throttler = AsyncThrottler(
-            rate_limits=self.rate_limits)
+        async_throttler = AsyncThrottler(rate_limits=self.rate_limits)
         self._api_factory = WebAssistantsFactory(throttler=async_throttler)
 
         self._trading_pair = trading_pair
@@ -51,12 +50,11 @@ class BinanceCandlesFeed(NetworkBase):
         self._interval = interval
         self._check_network_interval = update_interval
 
-        # TODO: check to remove
-        self._ev_loop = asyncio.get_event_loop()
         self._candles = deque(maxlen=max_records)
         self._update_interval: float = update_interval
         self._fill_candles_task: Optional[asyncio.Task] = None
         self._listen_candles_task: Optional[asyncio.Task] = None
+        self.start()
 
     async def start_network(self):
         await self.stop_network()
@@ -71,19 +69,13 @@ class BinanceCandlesFeed(NetworkBase):
             self._fill_candles_task.cancel()
             self._fill_candles_task = None
 
-    def start(self):
-        NetworkBase.start(self)
-
-    def stop(self):
-        NetworkBase.stop(self)
-
     @property
     def is_ready(self):
         return len(self._candles) == self._candles.maxlen
 
     @property
     def name(self):
-        return "binance_candles_api"
+        return f"binance_spot_{self._trading_pair}"
 
     @property
     def rest_url(self):
@@ -108,7 +100,7 @@ class BinanceCandlesFeed(NetworkBase):
     async def check_network(self) -> NetworkStatus:
         rest_assistant = await self._api_factory.get_rest_assistant()
         await rest_assistant.execute_request(url=self.health_check_url,
-                                             throttler_limit_id=self.health_check_endpoint)
+                                             throttler_limit_id=CONSTANTS.HEALTH_CHECK_ENDPOINT)
         return NetworkStatus.CONNECTED
 
     @property
@@ -129,14 +121,14 @@ class BinanceCandlesFeed(NetworkBase):
                                                        throttler_limit_id=CONSTANTS.CANDLES_ENDPOINT,
                                                        params=params)
 
-        return np.array(candles)[:, :-1].astype(np.float)
+        return np.array(candles)[:, [0, 1, 2, 3, 4, 5, 7, 8, 9, 10]].astype(np.float)
 
     async def fill_candles_loop(self):
         while True:
             if self._ws_ready_event.is_set():
                 missing_records = self._candles.maxlen - len(self._candles)
                 if missing_records > 0:
-                    end_timestamp = self._candles[0][0]
+                    end_timestamp = int(self._candles[0][0])
                     try:
                         # we have to add one more since, the last row is not going to be included
                         candles = await self.fetch_candles(end_time=end_timestamp, limit=missing_records + 1)
@@ -177,7 +169,7 @@ class BinanceCandlesFeed(NetworkBase):
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
-        await ws.connect(ws_url=self.wss_url,
+        await ws.connect(ws_url=CONSTANTS.WSS_URL,
                          ping_timeout=30)
         return ws
 
@@ -217,18 +209,17 @@ class BinanceCandlesFeed(NetworkBase):
                 high = data["k"]["h"]
                 close = data["k"]["c"]
                 volume = data["k"]["v"]
-                close_ts = data["k"]["T"]
                 quote_asset_volume = data["k"]["q"]
                 n_trades = data["k"]["n"]
                 taker_buy_base_volume = data["k"]["V"]
                 taker_buy_quote_volume = data["k"]["Q"]
                 if len(self._candles) == 0:
-                    self._candles.append(np.array([timestamp, open, low, high, close, volume, close_ts,
+                    self._candles.append(np.array([timestamp, open, low, high, close, volume,
                                                    quote_asset_volume, n_trades, taker_buy_base_volume,
                                                    taker_buy_quote_volume]))
                     self._ws_ready_event.set()
                 elif timestamp != int(self._candles[-1][0]):
-                    self._candles.append(np.array([timestamp, open, low, high, close, volume, close_ts,
+                    self._candles.append(np.array([timestamp, open, low, high, close, volume,
                                                    quote_asset_volume, n_trades, taker_buy_base_volume,
                                                    taker_buy_quote_volume]))
 
