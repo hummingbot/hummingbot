@@ -21,7 +21,6 @@ from hummingbot.logger import HummingbotLogger
 class BinanceCandlesFeed(NetworkBase):
     _bcf_logger: Optional[HummingbotLogger] = None
     _binance_candles_shared_instance: "BinanceCandlesFeed" = None
-    # TODO: abstract logic of intervals
     columns = ["timestamp", "open", "low", "high", "close", "volume", "quote_asset_volume",
                "n_trades", "taker_buy_base_volume", "taker_buy_quote_volume"]
 
@@ -40,18 +39,20 @@ class BinanceCandlesFeed(NetworkBase):
     def __init__(self, trading_pair: str, interval: str = "1m", update_interval: float = 60.0,
                  max_records: int = 150):
         super().__init__()
-        self._ws_ready_event = asyncio.Event()
         self._shared_client: Optional[aiohttp.ClientSession] = None
         async_throttler = AsyncThrottler(rate_limits=self.rate_limits)
         self._api_factory = WebAssistantsFactory(throttler=async_throttler)
 
         self._trading_pair = trading_pair
         self._ex_trading_pair = trading_pair.replace("-", "")
-        self._interval = interval
+        if interval in CONSTANTS.INTERVALS.keys():
+            self._interval = interval
+        else:
+            self.logger().exception(f"Interval {interval} is not supported. Available Intervals: {CONSTANTS.INTERVALS.keys()}")
+            raise
         self._check_network_interval = update_interval
 
         self._candles = deque(maxlen=max_records)
-        self._update_interval: float = update_interval
         self._listen_candles_task: Optional[asyncio.Task] = None
         self.start()
 
@@ -224,5 +225,4 @@ class BinanceCandlesFeed(NetworkBase):
 
     async def _on_order_stream_interruption(self, websocket_assistant: Optional[WSAssistant] = None):
         websocket_assistant and await websocket_assistant.disconnect()
-        await self._ws_ready_event.wait()
         self._candles.clear()
