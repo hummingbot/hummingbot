@@ -52,22 +52,17 @@ class BinanceCandlesFeed(NetworkBase):
 
         self._candles = deque(maxlen=max_records)
         self._update_interval: float = update_interval
-        self._fill_candles_task: Optional[asyncio.Task] = None
         self._listen_candles_task: Optional[asyncio.Task] = None
         self.start()
 
     async def start_network(self):
         await self.stop_network()
         self._listen_candles_task = safe_ensure_future(self.listen_for_subscriptions())
-        self._fill_candles_task = safe_ensure_future(self.fill_candles_loop())
 
     async def stop_network(self):
         if self._listen_candles_task is not None:
             self._listen_candles_task.cancel()
             self._listen_candles_task = None
-        if self._fill_candles_task is not None:
-            self._fill_candles_task.cancel()
-            self._fill_candles_task = None
 
     @property
     def is_ready(self):
@@ -123,26 +118,24 @@ class BinanceCandlesFeed(NetworkBase):
 
         return np.array(candles)[:, [0, 1, 2, 3, 4, 5, 7, 8, 9, 10]].astype(np.float)
 
-    async def fill_candles_loop(self):
-        while True:
-            if self._ws_ready_event.is_set():
+    async def fill_historical_candles(self):
+        while not self.is_ready:
+            missing_records = self._candles.maxlen - len(self._candles)
+            end_timestamp = int(self._candles[0][0])
+            try:
+                # we have to add one more since, the last row is not going to be included
+                candles = await self.fetch_candles(end_time=end_timestamp, limit=missing_records + 1)
+                # we are computing again the quantity of records again since the websocket process is able to
+                # modify the deque and if we extend it, the new observations are going to be dropped.
                 missing_records = self._candles.maxlen - len(self._candles)
-                if missing_records > 0:
-                    end_timestamp = int(self._candles[0][0])
-                    try:
-                        # we have to add one more since, the last row is not going to be included
-                        candles = await self.fetch_candles(end_time=end_timestamp, limit=missing_records + 1)
-                        # we are computing again the quantity of records again since the websocket process is able to
-                        # modify the deque and if we extend it, the new observations are going to be dropped.
-                        missing_records = self._candles.maxlen - len(self._candles)
-                        self._candles.extendleft(candles[-(missing_records + 1):-1][::-1])
-                    except asyncio.CancelledError:
-                        raise
-                    except Exception:
-                        self.logger().exception(
-                            "Unexpected error occurred when getting historical klines. Retrying in 1 seconds...",
-                        )
-            await self._sleep(1.0)
+                self._candles.extendleft(candles[-(missing_records + 1):-1][::-1])
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().exception(
+                    "Unexpected error occurred when getting historical klines. Retrying in 1 seconds...",
+                )
+                await self._sleep(1.0)
 
     async def listen_for_subscriptions(self):
         """
@@ -217,7 +210,7 @@ class BinanceCandlesFeed(NetworkBase):
                     self._candles.append(np.array([timestamp, open, low, high, close, volume,
                                                    quote_asset_volume, n_trades, taker_buy_base_volume,
                                                    taker_buy_quote_volume]))
-                    self._ws_ready_event.set()
+                    await self.fill_historical_candles()
                 elif timestamp != int(self._candles[-1][0]):
                     self._candles.append(np.array([timestamp, open, low, high, close, volume,
                                                    quote_asset_volume, n_trades, taker_buy_base_volume,
