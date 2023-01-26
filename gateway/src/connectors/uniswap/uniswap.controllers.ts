@@ -186,7 +186,7 @@ export async function price(
     amount: new Decimal(req.amount).toFixed(tradeInfo.baseToken.decimals),
     rawAmount: tradeInfo.requestAmount.toString(),
     expectedAmount: expectedAmount.toSignificant(8),
-    price: tradePrice.toSignificant(8),
+    price: tradePrice.toSignificant(18),
     gasPrice: gasPrice,
     gasPriceToken: ethereumish.nativeTokenSymbol,
     gasLimit: gasLimitTransaction,
@@ -247,13 +247,13 @@ export async function trade(
       tradeInfo.expectedTrade.trade.executionPrice.invert();
     if (
       limitPrice &&
-      new Decimal(price.toFixed(8)).gt(new Decimal(limitPrice))
+      new Decimal(price.toFixed(18)).gt(new Decimal(limitPrice))
     ) {
       logger.error('Swap price exceeded limit price.');
       throw new HttpException(
         500,
         SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_MESSAGE(
-          price.toFixed(8),
+          price.toFixed(18),
           limitPrice
         ),
         SWAP_PRICE_EXCEEDS_LIMIT_PRICE_ERROR_CODE
@@ -297,7 +297,7 @@ export async function trade(
       amount: new Decimal(req.amount).toFixed(tradeInfo.baseToken.decimals),
       rawAmount: tradeInfo.requestAmount.toString(),
       expectedIn: tradeInfo.expectedTrade.expectedAmount.toSignificant(8),
-      price: price.toSignificant(8),
+      price: price.toSignificant(18),
       gasPrice: gasPrice,
       gasPriceToken: ethereumish.nativeTokenSymbol,
       gasLimit: gasLimitTransaction,
@@ -308,18 +308,18 @@ export async function trade(
   } else {
     const price: Fractionish = tradeInfo.expectedTrade.trade.executionPrice;
     logger.info(
-      `Expected execution price is ${price.toFixed(6)}, ` +
+      `Expected execution price is ${price.toFixed(18)}, ` +
         `limit price is ${limitPrice}.`
     );
     if (
       limitPrice &&
-      new Decimal(price.toFixed(8)).lt(new Decimal(limitPrice))
+      new Decimal(price.toFixed(18)).lt(new Decimal(limitPrice))
     ) {
       logger.error('Swap price lower than limit price.');
       throw new HttpException(
         500,
         SWAP_PRICE_LOWER_THAN_LIMIT_PRICE_ERROR_MESSAGE(
-          price.toFixed(8),
+          price.toFixed(18),
           limitPrice
         ),
         SWAP_PRICE_LOWER_THAN_LIMIT_PRICE_ERROR_CODE
@@ -352,7 +352,7 @@ export async function trade(
       amount: new Decimal(req.amount).toFixed(tradeInfo.baseToken.decimals),
       rawAmount: tradeInfo.requestAmount.toString(),
       expectedOut: tradeInfo.expectedTrade.expectedAmount.toSignificant(8),
-      price: price.toSignificant(8),
+      price: price.toSignificant(18),
       gasPrice: gasPrice,
       gasPriceToken: ethereumish.nativeTokenSymbol,
       gasLimit: gasLimitTransaction,

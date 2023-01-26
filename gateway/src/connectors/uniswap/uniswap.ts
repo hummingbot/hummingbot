@@ -198,7 +198,7 @@ export class Uniswap implements Uniswapish {
     }
     logger.info(
       `Best trade for ${baseToken.address}-${quoteToken.address}: ` +
-        `${route.trade.executionPrice.toFixed(6)}` +
+        `${route.trade.executionPrice.toFixed(18)}` +
         `${baseToken.symbol}.`
     );
     const expectedAmount = route.trade.minimumAmountOut(
@@ -244,7 +244,7 @@ export class Uniswap implements Uniswapish {
     }
     logger.info(
       `Best trade for ${quoteToken.address}-${baseToken.address}: ` +
-        `${route.trade.executionPrice.invert().toFixed(6)} ` +
+        `${route.trade.executionPrice.invert().toFixed(18)} ` +
         `${baseToken.symbol}.`
     );
 
