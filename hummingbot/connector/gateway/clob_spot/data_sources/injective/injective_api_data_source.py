@@ -190,7 +190,10 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
             if transaction_hash is None:
                 await self._update_account_address_and_create_order_hash_manager()
-                raise ValueError(f"The creation transaction for {order.client_order_id} failed.")
+                raise ValueError(
+                    f"The creation transaction for {order.client_order_id} failed. Please ensure there is sufficient"
+                    f" INJ in the bank to cover transaction fees."
+                )
 
         transaction_hash = f"0x{transaction_hash.lower()}"
 
@@ -217,7 +220,10 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         if transaction_hash is None:
             with self._order_placement_lock:
                 await self._update_account_address_and_create_order_hash_manager()
-            raise ValueError(f"The cancelation transaction for {order.client_order_id} failed.")
+            raise ValueError(
+                f"The cancelation transaction for {order.client_order_id} failed. Please ensure there is sufficient"
+                f" INJ in the bank to cover transaction fees."
+            )
 
         transaction_hash = f"0x{transaction_hash.lower()}"
 
