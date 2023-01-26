@@ -444,12 +444,13 @@ class GatewayHttpClient:
             quote_asset: str,
             side: TradeType,
             amount: Decimal,
-            price: Decimal,
+            price: Optional[Decimal] = None,
             nonce: Optional[int] = None,
             max_fee_per_gas: Optional[int] = None,
             max_priority_fee_per_gas: Optional[int] = None
     ) -> Dict[str, Any]:
         # XXX(martin_kou): The amount is always output with 18 decimal places.
+
         request_payload: Dict[str, Any] = {
             "chain": chain,
             "network": network,
@@ -459,9 +460,10 @@ class GatewayHttpClient:
             "quote": quote_asset,
             "side": side.name,
             "amount": f"{amount:.18f}",
-            "limitPrice": str(price),
             "allowedSlippage": "0/1",  # hummingbot applies slippage itself
         }
+        if price is not None:
+            request_payload["limitPrice"] = str(price)
         if nonce is not None:
             request_payload["nonce"] = int(nonce)
         if max_fee_per_gas is not None:
