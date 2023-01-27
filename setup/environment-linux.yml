@@ -16,6 +16,7 @@ dependencies:
   - pandas=1.2.1
   - pip=21.1.2
   - prompt_toolkit=3.0.20
+  - psycopg2=2.9.3
   - pydantic=1.9
   - pytables=3.6.1
   - python=3.8.2
