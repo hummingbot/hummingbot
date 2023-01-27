@@ -202,6 +202,8 @@ export class MsgBroadcasterLocal {
           transaction.injectiveAddress,
           currentNonce
         );
+      } else {
+        throw new Error(txResponse.data.tx_response.raw_log);
       }
     } finally {
       this._txQueue.shift();

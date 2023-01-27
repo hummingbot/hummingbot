@@ -92,3 +92,6 @@ export const validatePostOrderRequest: RequestValidator = mkRequestValidator(
 export const validateOrderRequest: RequestValidator = mkRequestValidator(
   NETWORL_VALIDATIONS.concat([validateOrderId, validateWallet])
 );
+
+export const validateBatchOrdersRequest: RequestValidator =
+  mkRequestValidator(NETWORL_VALIDATIONS);

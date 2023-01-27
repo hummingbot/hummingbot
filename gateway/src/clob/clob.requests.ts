@@ -70,12 +70,29 @@ export interface ClobGetOrderResponse {
     | [];
 }
 
-export interface ClobPostOrderRequest extends ClobOrderbookRequest {
-  address: string;
-  side: Side;
-  orderType: OrderType;
+export interface CreateOrderParam {
   price: string;
   amount: string;
+  orderType: OrderType;
+  side: Side;
+  market: string;
+}
+
+export interface ClobPostOrderRequest
+  extends NetworkSelectionRequest,
+    CreateOrderParam {
+  address: string;
+}
+
+export interface ClobDeleteOrderRequestExtract {
+  market: string;
+  orderId: string;
+}
+
+export interface ClobBatchUpdateRequest extends NetworkSelectionRequest {
+  address: string;
+  createOrderParams?: CreateOrderParam[];
+  cancelOrderParams?: ClobDeleteOrderRequestExtract[];
 }
 
 export interface ClobPostOrderResponse {

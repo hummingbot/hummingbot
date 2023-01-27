@@ -2862,6 +2862,72 @@ definitions:
         type: 'string'
         example: '0x...'
 
+  ClobBatchOrdersRequest:
+    type: 'object'
+    required:
+      - 'chain'
+      - 'network'
+      - 'connector'
+      - 'address'
+      - 'createOrderParams'
+      - 'cancelOrderIds'
+    properties:
+      chain:
+        type: 'string'
+        example: 'injective'
+      network:
+        type: 'string'
+        example: 'mainnet'
+      connector:
+        type: 'string'
+        example: 'injective'
+      address:
+        type: 'string'
+        example: '0x...'
+      createOrderParams:
+        type: 'array'
+        items: 'object'
+        example: [{
+            market: 'AAVE-USDT',
+            price: '2',
+            amount: '0.10',
+            side: 'SELL',
+            orderType: 'LIMIT',
+          },
+          {
+            price: '3',
+            amount: '0.10',
+            side: 'SELL',
+          }]
+      cancelOrderParams:
+        type: 'array'
+        items: 'object'
+        example: [
+          {market: 'AAVE-USDT', orderId: '0x...'},
+          {market: 'AAVE-USDT', orderId: '0x...'},
+        ]
+
+  ClobBatchOrdersResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'txHash'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      timestamp:
+        type: 'integer'
+        example: 1636368085740
+      latency:
+        type: 'number'
+        example: 0.5
+      txHash:
+        type: 'string'
+        example: '0x...'
+
   TransferToSubAccountRequest:
     type: 'object'
     required:

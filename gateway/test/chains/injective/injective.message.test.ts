@@ -186,4 +186,37 @@ describe('That the broadcast function', () => {
     expect(txHash).toEqual(TX_HASH);
     expect(TRANSACTION_RESPONSES_QUEUE.length === 0).toBeTruthy();
   });
+
+  it('broadcaster throws error when issues unrelated to sequence arise', async () => {
+    patchGetOnChainAccount();
+    patchBroadcastUsingInjective();
+    queueTransactionResponse({
+      data: {
+        tx_response: {
+          code: 5,
+          raw_log:
+            '10148642834638inj is smaller than 200000000000000inj: insufficient funds: insufficient funds',
+        },
+      },
+    });
+    const instance = MsgBroadcasterLocal.getInstance({
+      network: Network.Mainnet,
+      privateKey: PRIVATE_KEY,
+    });
+    await expect(async () => {
+      await instance.broadcast({
+        msgs: MsgBid.fromJSON({
+          round: 10,
+          injectiveAddress: 'someAddress',
+          amount: {
+            amount: '1',
+            denom: 'someDenom',
+          },
+        }),
+        injectiveAddress: 'someAddress',
+      });
+    }).rejects.toThrow(
+      '10148642834638inj is smaller than 200000000000000inj: insufficient funds: insufficient funds'
+    );
+  });
 });

@@ -348,6 +348,70 @@ describe('DELETE /clob/orders', () => {
   });
 });
 
+describe('POST /clob/batchOrders', () => {
+  it('should return 200 with proper request to create batch orders', async () => {
+    patchGetWallet();
+    patchMsgBroadcaster();
+    await request(gatewayApp)
+      .post(`/clob/batchOrders`)
+      .send({
+        chain: 'injective',
+        network: 'mainnet',
+        connector: 'injective',
+        address:
+          '0x261362dBC1D83705AB03e99792355689A4589b8E000000000000000000000000', // noqa: mock
+        market: MARKET,
+        createOrderParams: [
+          {
+            price: '2',
+            amount: '0.10',
+            side: 'SELL',
+            orderType: 'LIMIT',
+          },
+          {
+            price: '3',
+            amount: '0.10',
+            side: 'SELL',
+          },
+        ],
+      })
+      .set('Accept', 'application/json')
+      .expect('Content-Type', /json/)
+      .expect(200)
+      .expect((res) => expect(res.body.txHash).toEqual(TX_HASH));
+  });
+
+  it('should return 200 with proper request to delete batch orders', async () => {
+    patchGetWallet();
+    patchMsgBroadcaster();
+    await request(gatewayApp)
+      .post(`/clob/batchOrders`)
+      .send({
+        chain: 'injective',
+        network: 'mainnet',
+        connector: 'injective',
+        address:
+          '0x261362dBC1D83705AB03e99792355689A4589b8E000000000000000000000000', // noqa: mock
+        market: MARKET,
+        cancelOrderIds: [
+          '0x73af517124c3f564d1d70e38ad5200dfc7101d04986c14df410042e00932d4bf', // noqa: mock
+          '0x8ce222ca5da95aaffd87b3d38a307f25d6e2c09e70a0cb8599bc6c8a0851fda3', // noqa: mock
+        ],
+      })
+      .set('Accept', 'application/json')
+      .expect('Content-Type', /json/)
+      .expect(200)
+      .expect((res) => expect(res.body.txHash).toEqual(TX_HASH));
+  });
+
+  it('should return 404 when parameters are invalid', async () => {
+    await request(gatewayApp)
+      .post(`/clob/batchOrders`)
+      .send(INVALID_REQUEST)
+      .expect(404);
+  });
+});
+
 describe('GET /clob/estimateGas', () => {
   it('should return 200 with proper request', async () => {
     patchGasPrices();
