@@ -50,6 +50,16 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
     # ORDER_NOT_EXIST_CONFIRMATION_COUNT = 3
     # ORDER_NOT_EXIST_CANCEL_COUNT = 2
 
+    __slots__ = (
+        "_gate_io_perpetual_api_key",
+        "_gate_io_perpetual_secret_key",
+        "_gate_io_perpetual_user_id",
+        "_domain",
+        "_position_mode",
+        "_trading_required",
+        "_trading_pairs",
+    )
+
     def __init__(self,
                  client_config_map: "ClientConfigAdapter",
                  gate_io_perpetual_api_key: str,
@@ -590,7 +600,7 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
         position = self._perpetual_trading.get_position(trading_pair, position_side)
         if position is not None:
             if amount == Decimal("0"):
-                del self._account_positions[pos_key]
+                self._perpetual_trading.remove_account_position(pos_key)
             else:
                 position.update_position(position_side=position_side,
                                          unrealized_pnl=None,
