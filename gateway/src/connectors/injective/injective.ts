@@ -123,7 +123,7 @@ export class InjectiveCLOB {
     let orderType: GrpcOrderType = req.side === 'BUY' ? 1 : 2;
     orderType =
       req.orderType === 'LIMIT_MAKER'
-        ? ((orderType + 6) as GrpcOrderType) // i.e. BUY_LIMIT, SELL_LIMIE are 7, 8 respectively
+        ? ((orderType + 6) as GrpcOrderType) // i.e. BUY_LIMIT, SELL_LIMIT are 7, 8 respectively
         : orderType;
 
     const msg = MsgBatchUpdateOrders.fromJSON({
