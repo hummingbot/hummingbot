@@ -36,8 +36,7 @@ class BinanceCandlesFeed(NetworkBase):
             cls._binance_candles_shared_instance = BinanceCandlesFeed()
         return cls._binance_candles_shared_instance
 
-    def __init__(self, trading_pair: str, interval: str = "1m", update_interval: float = 60.0,
-                 max_records: int = 150):
+    def __init__(self, trading_pair: str, interval: str = "1m", max_records: int = 150):
         super().__init__()
         self._shared_client: Optional[aiohttp.ClientSession] = None
         async_throttler = AsyncThrottler(rate_limits=self.rate_limits)
@@ -50,7 +49,6 @@ class BinanceCandlesFeed(NetworkBase):
         else:
             self.logger().exception(f"Interval {interval} is not supported. Available Intervals: {CONSTANTS.INTERVALS.keys()}")
             raise
-        self._check_network_interval = update_interval
 
         self._candles = deque(maxlen=max_records)
         self._listen_candles_task: Optional[asyncio.Task] = None
