@@ -154,6 +154,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         """Stops the event streaming."""
         await self._stop_streams()
         self._markets_update_task and self._markets_update_task.cancel()
+        self._markets_update_task = None
 
     async def place_order(
         self, order: GatewayInFlightOrder, **kwargs
@@ -167,7 +168,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
                 price=float(order.price),
                 quantity=float(order.amount),
                 is_buy=order.trade_type == TradeType.BUY,
-                is_po=True,
+                is_po=order.order_type == OrderType.LIMIT_MAKER,
             ),
         ]
 
@@ -490,6 +491,15 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         if status_update is None:
             raise IOError(f"No update found for order {in_flight_order.client_order_id}")
 
+        if in_flight_order.current_state == OrderState.PENDING_CREATE and status_update.new_state != OrderState.OPEN:
+            open_update = OrderUpdate(
+                trading_pair=trading_pair,
+                update_timestamp=status_update.update_timestamp,
+                new_state=OrderState.OPEN,
+                client_order_id=in_flight_order.client_order_id,
+                exchange_order_id=status_update.exchange_order_id,
+            )
+            self._publisher.trigger_event(event_tag=MarketEvent.OrderUpdate, message=open_update)
         self._publisher.trigger_event(event_tag=MarketEvent.OrderUpdate, message=status_update)
 
         return status_update
@@ -631,11 +641,16 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
     async def _stop_streams(self):
         self._trades_stream_listener and self._trades_stream_listener.cancel()
+        self._trades_stream_listener = None
         for listener in self._order_listeners.values():
             listener.cancel()
+        self._order_listeners = {}
         self._order_books_stream_listener and self._order_books_stream_listener.cancel()
+        self._order_books_stream_listener = None
         self._account_balances_stream_listener and self._account_balances_stream_listener.cancel()
+        self._account_balances_stream_listener = None
         self._transactions_stream_listener and self._transactions_stream_listener.cancel()
+        self._transactions_stream_listener = None
 
     async def _listen_to_trades_stream(self):
         while True:
@@ -743,16 +758,26 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         timestamp: 1669198784000
         """
         order_hash = order.order.order_hash
-        if order_hash in self._gateway_order_tracker.all_fillable_orders_by_exchange_id:
+        in_flight_order = self._gateway_order_tracker.all_fillable_orders_by_exchange_id.get(order_hash)
+        if in_flight_order is not None:
             market_id = order.order.market_id
             trading_pair = self._get_trading_pair_from_market_id(market_id=market_id)
             order_update = OrderUpdate(
                 trading_pair=trading_pair,
                 update_timestamp=order.order.updated_at * 1e-3,
                 new_state=BACKEND_TO_CLIENT_ORDER_STATE_MAP[order.order.state],
-                client_order_id="",
+                client_order_id=in_flight_order.client_order_id,
                 exchange_order_id=order.order.order_hash,
             )
+            if in_flight_order.current_state == OrderState.PENDING_CREATE and order_update.new_state != OrderState.OPEN:
+                open_update = OrderUpdate(
+                    trading_pair=trading_pair,
+                    update_timestamp=order.order.updated_at * 1e-3,
+                    new_state=OrderState.OPEN,
+                    client_order_id=in_flight_order.client_order_id,
+                    exchange_order_id=order.order.order_hash,
+                )
+                self._publisher.trigger_event(event_tag=MarketEvent.OrderUpdate, message=open_update)
             self._publisher.trigger_event(event_tag=MarketEvent.OrderUpdate, message=order_update)
 
     async def _listen_to_order_books_stream(self):
