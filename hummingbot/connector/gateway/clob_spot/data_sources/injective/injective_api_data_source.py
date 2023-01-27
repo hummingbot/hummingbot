@@ -142,7 +142,8 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
     async def start(self):
         """Starts the event streaming."""
-        await self._update_account_address_and_create_order_hash_manager()
+        async with self._order_placement_lock:
+            await self._update_account_address_and_create_order_hash_manager()
         self._markets_update_task = self._markets_update_task or safe_ensure_future(
             coro=self._update_markets_loop()
         )
@@ -192,7 +193,10 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
             if transaction_hash is None:
                 await self._update_account_address_and_create_order_hash_manager()
-                raise ValueError(f"The creation transaction for {order.client_order_id} failed.")
+                raise ValueError(
+                    f"The creation transaction for {order.client_order_id} failed. Please ensure there is sufficient"
+                    f" INJ in the bank to cover transaction fees."
+                )
 
         transaction_hash = f"0x{transaction_hash.lower()}"
 
@@ -268,9 +272,12 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         transaction_hash: Optional[str] = cancelation_result.get("txHash")
 
         if transaction_hash is None:
-            with self._order_placement_lock:
+            async with self._order_placement_lock:
                 await self._update_account_address_and_create_order_hash_manager()
-            raise ValueError(f"The cancelation transaction for {order.client_order_id} failed.")
+            raise ValueError(
+                f"The cancelation transaction for {order.client_order_id} failed. Please ensure there is sufficient"
+                f" INJ in the bank to cover transaction fees."
+            )
 
         transaction_hash = f"0x{transaction_hash.lower()}"
 
@@ -545,6 +552,8 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         return status_update
 
     async def _update_account_address_and_create_order_hash_manager(self):
+        if not self._order_placement_lock.locked():
+            raise RuntimeError("The order-placement lock must be acquired before creating the order hash manager.")
         sub_account_balances = await self._client.get_subaccount_balances_list(subaccount_id=self._sub_account_id)
         self._account_address = sub_account_balances.balances[0].account_address
         await self._client.get_account(self._account_address)
