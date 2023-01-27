@@ -152,6 +152,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         """Stops the event streaming."""
         await self._stop_streams()
         self._markets_update_task and self._markets_update_task.cancel()
+        self._markets_update_task = None
 
     async def place_order(
         self, order: GatewayInFlightOrder, **kwargs
@@ -531,11 +532,16 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
     async def _stop_streams(self):
         self._trades_stream_listener and self._trades_stream_listener.cancel()
+        self._trades_stream_listener = None
         for listener in self._order_listeners.values():
             listener.cancel()
+        self._order_listeners = {}
         self._order_books_stream_listener and self._order_books_stream_listener.cancel()
+        self._order_books_stream_listener = None
         self._account_balances_stream_listener and self._account_balances_stream_listener.cancel()
+        self._account_balances_stream_listener = None
         self._transactions_stream_listener and self._transactions_stream_listener.cancel()
+        self._transactions_stream_listener = None
 
     async def _listen_to_trades_stream(self):
         while True:
