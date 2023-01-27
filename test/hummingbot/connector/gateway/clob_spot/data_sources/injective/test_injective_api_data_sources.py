@@ -13,6 +13,10 @@ from bidict import bidict
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange_base import ExchangeBase
+from hummingbot.connector.gateway.clob_spot.data_sources.gateway_clob_api_data_source_base import (
+    CancelOrderResult,
+    PlaceOrderResult,
+)
 from hummingbot.connector.gateway.clob_spot.data_sources.injective.injective_api_data_source import (
     InjectiveAPIDataSource,
 )
@@ -129,6 +133,51 @@ class InjectiveAPIDataSourceTest(unittest.TestCase):
         self.assertEqual(expected_exchange_order_id, exchange_order_id)
         self.assertEqual({"creation_transaction_hash": expected_transaction_hash}, misc_updates)
 
+    def test_batch_order_create(self):
+        expected_transaction_hash = "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf"  # noqa: mock
+        buy_expected_exchange_order_id = (
+            "0x7df823e0adc0d4811e8d25d7380c1b45e43b16b0eea6f109cc1fb31d31aeddc8"  # noqa: mock
+        )
+        sell_expected_exchange_order_id = (
+            "0x8df823e0adc0d4811e8d25d7380c1b45e43b16b0eea6f109cc1fb31d31aeddc9"  # noqa: mock
+        )
+        buy_order_to_create = GatewayInFlightOrder(
+            client_order_id="someCOIDCancelCreate",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            creation_timestamp=self.initial_timestamp,
+            price=Decimal("10"),
+            amount=Decimal("2"),
+            exchange_order_id=buy_expected_exchange_order_id,
+        )
+        sell_order_to_create = GatewayInFlightOrder(
+            client_order_id="someCOIDCancelCreate",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.SELL,
+            creation_timestamp=self.initial_timestamp,
+            price=Decimal("11"),
+            amount=Decimal("3"),
+            exchange_order_id=sell_expected_exchange_order_id,
+        )
+        orders_to_create = [buy_order_to_create, sell_order_to_create]
+        self.injective_async_client_mock.configure_batch_order_create_response(
+            timestamp=self.initial_timestamp,
+            transaction_hash=expected_transaction_hash,
+            created_orders=orders_to_create,
+        )
+
+        result: List[PlaceOrderResult] = self.async_run_with_timeout(
+            coro=self.data_source.batch_order_create(orders_to_create=orders_to_create)
+        )
+
+        self.assertEqual(2, len(result))
+        self.assertEqual(buy_expected_exchange_order_id, result[0].exchange_order_id)
+        self.assertEqual({"creation_transaction_hash": expected_transaction_hash}, result[0].misc_updates)
+        self.assertEqual(sell_expected_exchange_order_id, result[1].exchange_order_id)
+        self.assertEqual({"creation_transaction_hash": expected_transaction_hash}, result[1].misc_updates)
+
     def test_cancel_order(self):
         creation_transaction_hash = "0x8f6g4552091a69125d5dfcb7b8c2659029395ceg"  # noqa: mock
         expected_client_order_id = "someCOID"
@@ -161,6 +210,58 @@ class InjectiveAPIDataSourceTest(unittest.TestCase):
         self.assertEqual({"cancelation_transaction_hash": expected_transaction_hash}, misc_updates)
 
         self.injective_async_client_mock.run_until_all_items_delivered()
+
+    def test_batch_order_cancel(self):
+        expected_transaction_hash = "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf"  # noqa: mock
+        buy_expected_exchange_order_id = (
+            "0x6df823e0adc0d4811e8d25d7380c1b45e43b16b0eea6f109cc1fb31d31aeddc7"  # noqa: mock
+        )
+        sell_expected_exchange_order_id = (
+            "0x7df823e0adc0d4811e8d25d7380c1b45e43b16b0eea6f109cc1fb31d31aeddc8"  # noqa: mock
+        )
+        creation_transaction_hash_for_cancel = "0x8f6g4552091a69125d5dfcb7b8c2659029395ceg"  # noqa: mock
+        buy_order_to_cancel = GatewayInFlightOrder(
+            client_order_id="someCOIDCancel",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10"),
+            amount=Decimal("1"),
+            creation_timestamp=self.initial_timestamp,
+            exchange_order_id=buy_expected_exchange_order_id,
+            creation_transaction_hash=creation_transaction_hash_for_cancel,
+        )
+        sell_order_to_cancel = GatewayInFlightOrder(
+            client_order_id="someCOIDCancel",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.SELL,
+            price=Decimal("11"),
+            amount=Decimal("2"),
+            creation_timestamp=self.initial_timestamp,
+            exchange_order_id=sell_expected_exchange_order_id,
+            creation_transaction_hash=creation_transaction_hash_for_cancel,
+        )
+        self.data_source.gateway_order_tracker.start_tracking_order(order=buy_order_to_cancel)
+        self.data_source.gateway_order_tracker.start_tracking_order(order=sell_order_to_cancel)
+        orders_to_cancel = [buy_order_to_cancel, sell_order_to_cancel]
+        self.injective_async_client_mock.configure_batch_order_cancel_response(
+            timestamp=self.initial_timestamp,
+            transaction_hash=expected_transaction_hash,
+            canceled_orders=orders_to_cancel,
+        )
+
+        result: List[CancelOrderResult] = self.async_run_with_timeout(
+            coro=self.data_source.batch_order_cancel(orders_to_cancel=orders_to_cancel)
+        )
+
+        self.assertEqual(2, len(result))
+        self.assertEqual(buy_order_to_cancel.client_order_id, result[0].client_order_id)
+        self.assertIsNone(result[0].exception)  # i.e. success
+        self.assertEqual({"cancelation_transaction_hash": expected_transaction_hash}, result[0].misc_updates)
+        self.assertEqual(sell_order_to_cancel.client_order_id, result[1].client_order_id)
+        self.assertIsNone(result[1].exception)  # i.e. success
+        self.assertEqual({"cancelation_transaction_hash": expected_transaction_hash}, result[1].misc_updates)
 
     def test_get_trading_rules(self):
         trading_rules = self.async_run_with_timeout(coro=self.data_source.get_trading_rules())

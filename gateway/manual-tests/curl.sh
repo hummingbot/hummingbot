@@ -249,6 +249,12 @@ curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: app
 ## delete orders
 curl -s -X DELETE -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/injective_delete_order.json)" https://localhost:15888/clob/orders | jq
 
+## post batch orders create
+curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/injective_batch_create.json)" https://localhost:15888/clob/batchOrders | jq
+
+## post batch orders delete
+curl -s -X POST -k --key $GATEWAY_KEY --cert $GATEWAY_CERT -H "Content-Type: application/json" -d "$(envsubst < ./requests/injective_batch_delete.json)" https://localhost:15888/clob/batchOrders | jq
+
 
 # Serum
 

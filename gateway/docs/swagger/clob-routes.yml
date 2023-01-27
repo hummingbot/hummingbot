@@ -172,6 +172,32 @@ paths:
           description: 'Bad request response.'
         '404':
           description: 'Not found response.'
+  /clob/batchOrders:
+    post:
+      tags:
+        - 'clob'
+      summary: 'Batch create or delete orders'
+      description: 'Create or delete orders in batch.'
+      operationId: 'batchOrders'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: 'Request body.'
+          required: true
+          schema:
+            $ref: '#/definitions/ClobBatchOrdersRequest'
+      responses:
+        '200':
+          description: 'Successful response.'
+          schema:
+            $ref: '#/definitions/ClobBatchOrdersResponse'
+        '400':
+          description: 'Bad request response.'
+
   /clob/orders/open:
     get:
       tags:

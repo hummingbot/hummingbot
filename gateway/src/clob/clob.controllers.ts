@@ -3,6 +3,7 @@ import { EstimateGasResponse } from '../amm/amm.requests';
 import { NetworkSelectionRequest } from '../services/common-interfaces';
 import { getChain, getConnector } from '../services/connection-manager';
 import {
+  ClobBatchUpdateRequest,
   ClobDeleteOrderRequest,
   ClobDeleteOrderResponse,
   ClobGetOrderRequest,
@@ -154,6 +155,31 @@ export async function deleteOrder(
     request.connector
    );
    const result = await connector.deleteOrder(request);
+   return {
+     network: request.network,
+     timestamp: startTimestamp,
+     latency: latency(startTimestamp, Date.now()),
+     ...result,
+   };
+}
+
+/**
+ * POST /batchOrders
+ *
+ *
+ * @param request
+ */
+ export async function batchOrders(
+  request: ClobBatchUpdateRequest
+): Promise<ClobDeleteOrderResponse> {
+  const startTimestamp: number = Date.now();
+   await getChain(request.chain, request.network);
+   const connector: any = await getConnector(
+    request.chain,
+    request.network,
+    request.connector
+   );
+   const result = await connector.batchOrders(request);
    return {
      network: request.network,
      timestamp: startTimestamp,

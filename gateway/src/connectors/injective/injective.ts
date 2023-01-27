@@ -16,6 +16,9 @@ import {
   ClobDeleteOrderRequest,
   CLOBMarkets,
   ClobGetOrderResponse,
+  ClobBatchUpdateRequest,
+  CreateOrderParam,
+  ClobDeleteOrderRequestExtract,
 } from '../../clob/clob.requests';
 import { NetworkSelectionRequest } from '../../services/common-interfaces';
 import { InjectiveCLOBConfig } from './injective.clob.config';
@@ -115,36 +118,59 @@ export class InjectiveCLOB {
   public async postOrder(
     req: ClobPostOrderRequest
   ): Promise<{ txHash: string }> {
-    const [base, quote] = req.market.split('-');
+    return await this.orderUpdate(req);
+  }
+
+  public async deleteOrder(
+    req: ClobDeleteOrderRequest
+  ): Promise<{ txHash: string }> {
+    return this.orderUpdate(req);
+  }
+
+  public async batchOrders(
+    req: ClobBatchUpdateRequest
+  ): Promise<{ txHash: string }> {
+    return this.orderUpdate(req);
+  }
+
+  public async orderUpdate(
+    req: ClobDeleteOrderRequest | ClobPostOrderRequest | ClobBatchUpdateRequest
+  ): Promise<{ txHash: string }> {
     const wallet = await this._chain.getWallet(req.address);
     const privateKey: string = wallet.privateKey;
     const injectiveAddress: string = wallet.injectiveAddress;
-    const market = this.parsedMarkets[req.market];
-    let orderType: GrpcOrderType = req.side === 'BUY' ? 1 : 2;
-    orderType =
-      req.orderType === 'LIMIT_MAKER'
-        ? ((orderType + 6) as GrpcOrderType) // i.e. BUY_LIMIT, SELL_LIMIE are 7, 8 respectively
-        : orderType;
+    let spotOrdersToCreate: CreateOrderParam[] = [];
+    let spotOrdersToCancel: ClobDeleteOrderRequestExtract[] = [];
+    if ('createOrderParams' in req)
+      spotOrdersToCreate = spotOrdersToCreate.concat(
+        req.createOrderParams as CreateOrderParam[]
+      );
+    if ('price' in req)
+      spotOrdersToCreate.push({
+        price: req.price,
+        amount: req.amount,
+        orderType: req.orderType,
+        side: req.side,
+        market: req.market,
+      });
+    if ('cancelOrderParams' in req)
+      spotOrdersToCancel = spotOrdersToCancel.concat(
+        req.cancelOrderParams as ClobDeleteOrderRequestExtract[]
+      );
+    if ('orderId' in req)
+      spotOrdersToCancel.push({ orderId: req.orderId, market: req.market });
 
     const msg = MsgBatchUpdateOrders.fromJSON({
       subaccountId: req.address,
       injectiveAddress,
-      spotOrdersToCreate: [
-        {
-          orderType,
-          price: spotPriceToChainPriceToFixed({
-            value: req.price,
-            baseDecimals: this._chain.getTokenForSymbol(base)?.decimals,
-            quoteDecimals: this._chain.getTokenForSymbol(quote)?.decimals,
-          }),
-          quantity: spotQuantityToChainQuantityToFixed({
-            value: req.amount,
-            baseDecimals: this._chain.getTokenForSymbol(base)?.decimals,
-          }),
-          marketId: market.marketId,
-          feeRecipient: injectiveAddress,
-        },
-      ],
+      spotOrdersToCreate: this.buildPostOrder(
+        spotOrdersToCreate,
+        injectiveAddress
+      ),
+      spotOrdersToCancel: this.buildDeleteOrder(
+        spotOrdersToCancel,
+        req.address
+      ),
     });
 
     const { txHash } = await this._chain.broadcaster(privateKey).broadcast({
@@ -154,32 +180,55 @@ export class InjectiveCLOB {
     return { txHash };
   }
 
-  public async deleteOrder(
-    req: ClobDeleteOrderRequest
-  ): Promise<{ txHash: string }> {
-    const wallet = await this._chain.getWallet(req.address);
-    const privateKey: string = wallet.privateKey;
-    const injectiveAddress: string = wallet.injectiveAddress;
-    const market = this.parsedMarkets[req.market];
+  public buildPostOrder(
+    orderParams: CreateOrderParam[],
+    injectiveAddress: string
+  ): {
+    orderType: GrpcOrderType;
+    price: string;
+    quantity: string;
+    marketId: any;
+    feeRecipient: string;
+  }[] {
+    const spotOrdersToCreate = [];
+    for (const order of orderParams) {
+      const market = this.parsedMarkets[order.market];
+      let orderType: GrpcOrderType = order.side === 'BUY' ? 1 : 2;
+      orderType =
+        order.orderType === 'LIMIT_MAKER'
+          ? ((orderType + 6) as GrpcOrderType) // i.e. BUY_LIMIT, SELL_LIMIE are 7, 8 respectively
+          : orderType;
+      spotOrdersToCreate.push({
+        orderType,
+        price: spotPriceToChainPriceToFixed({
+          value: order.price,
+          baseDecimals: market.baseToken?.decimals,
+          quoteDecimals: market.quoteToken?.decimals,
+        }),
+        quantity: spotQuantityToChainQuantityToFixed({
+          value: order.amount,
+          baseDecimals: market.baseToken?.decimals,
+        }),
+        marketId: market.marketId,
+        feeRecipient: injectiveAddress,
+      });
+    }
+    return spotOrdersToCreate;
+  }
 
-    const msg = MsgBatchUpdateOrders.fromJSON({
-      injectiveAddress,
-      subaccountId: req.address,
-      spotOrdersToCancel: [
-        {
-          marketId: market.marketId,
-          subaccountId: req.address,
-
-          orderHash: req.orderId,
-        },
-      ],
-    });
-
-    const { txHash } = await this._chain.broadcaster(privateKey).broadcast({
-      msgs: msg,
-      injectiveAddress,
-    });
-    return { txHash };
+  public buildDeleteOrder(
+    orders: ClobDeleteOrderRequestExtract[],
+    injectiveAddress: string
+  ): { marketId: any; subaccountId: string; orderHash: string }[] {
+    const spotOrdersToCancel = [];
+    for (const order of orders) {
+      spotOrdersToCancel.push({
+        marketId: this.parsedMarkets[order.market].marketId,
+        subaccountId: injectiveAddress,
+        orderHash: order.orderId,
+      });
+    }
+    return spotOrdersToCancel;
   }
 
   public estimateGas(_req: NetworkSelectionRequest): {

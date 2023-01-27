@@ -1,5 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
@@ -17,6 +18,25 @@ from hummingbot.core.event.event_listener import EventListener
 from hummingbot.core.event.events import AccountEvent, MarketEvent, OrderBookDataSourceEvent
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.pubsub import HummingbotLogger, PubSub
+
+
+@dataclass
+class PlaceOrderResult:
+    update_timestamp: float
+    client_order_id: str
+    exchange_order_id: Optional[str]
+    trading_pair: str
+    misc_updates: Dict[str, Any] = field(default_factory=lambda: {})
+    exception: Optional[Exception] = None
+
+
+@dataclass
+class CancelOrderResult:
+    client_order_id: str
+    trading_pair: str
+    misc_updates: Dict[str, Any] = field(default_factory=lambda: {})
+    not_found: bool = False
+    exception: Optional[Exception] = None
 
 
 class GatewayCLOBAPIDataSourceBase(ABC):
@@ -87,9 +107,25 @@ class GatewayCLOBAPIDataSourceBase(ABC):
         ...
 
     @abstractmethod
+    async def batch_order_create(self, orders_to_create: List[InFlightOrder]) -> List[PlaceOrderResult]:
+        """
+        :param orders_to_create: The collection of orders to create.
+        :return: The result of the batch order create attempt.
+        """
+        ...
+
+    @abstractmethod
     async def cancel_order(self, order: GatewayInFlightOrder) -> Tuple[bool, Optional[Dict[str, Any]]]:
         """
         :return: A tuple of the boolean indicating the cancelation success and any misc order updates.
+        """
+        ...
+
+    @abstractmethod
+    async def batch_order_cancel(self, orders_to_cancel: List[InFlightOrder]) -> List[CancelOrderResult]:
+        """
+        :param orders_to_cancel: The collection of orders to cancel.
+        :return: The result of the batch order cancel attempt.
         """
         ...
 

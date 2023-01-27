@@ -13,8 +13,10 @@ import {
   postOrder,
   deleteOrder,
   estimateGas,
+  batchOrders,
 } from './clob.controllers';
 import {
+  ClobBatchUpdateRequest,
   ClobDeleteOrderRequest,
   ClobDeleteOrderResponse,
   ClobGetOrderRequest,
@@ -33,6 +35,7 @@ import {
   validateMarketRequest,
   validatePostOrderRequest,
   validateOrderRequest,
+  validateBatchOrdersRequest,
 } from './clob.validators';
 
 export namespace CLOBRoutes {
@@ -122,6 +125,19 @@ export namespace CLOBRoutes {
       ) => {
         validateOrderRequest(req.body);
         res.status(200).json(await deleteOrder(req.body));
+      }
+    )
+  );
+
+  router.post(
+    '/batchOrders',
+    asyncHandler(
+      async (
+        req: Request<{}, {}, ClobBatchUpdateRequest>,
+        res: Response<ClobPostOrderResponse | string, {}>
+      ) => {
+        validateBatchOrdersRequest(req.body);
+        res.status(200).json(await batchOrders(req.body));
       }
     )
   );
