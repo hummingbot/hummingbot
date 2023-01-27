@@ -166,7 +166,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
                 price=float(order.price),
                 quantity=float(order.amount),
                 is_buy=order.trade_type == TradeType.BUY,
-                is_po=True,
+                is_po=order.order_type == OrderType.LIMIT_MAKER,
             ),
         ]
 
