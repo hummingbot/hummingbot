@@ -177,7 +177,7 @@ class StartCommand(GatewayChainApiManager):
                             f"{warning_msg}")
 
             # Display warning message if the exchange connector has outstanding issues or not working
-            elif not status.endswith("GREEN"):
+            elif status.endswith("UNKNOWN"):
                 self.notify(f"\nConnector status: {status}. This connector has one or more issues.\n"
                             "Refer to our Github page for more info: https://github.com/hummingbot/hummingbot")
 
@@ -188,6 +188,8 @@ class StartCommand(GatewayChainApiManager):
 
         # We always start the RateOracle. It is required for PNL calculation.
         RateOracle.get_instance().start()
+        if self._mqtt:
+            self._mqtt.patch_loggers()
 
     def start_script_strategy(self):
         script_strategy = ScriptStrategyBase.load_script_class(self.strategy_file_name)

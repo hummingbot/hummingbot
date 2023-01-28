@@ -123,6 +123,9 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingA
     gateway_status_parser = gateway_subparsers.add_parser("status", help="Check status of gateway docker instance")
     gateway_status_parser.set_defaults(func=hummingbot.gateway_status)
 
+    gateway_list_parser = gateway_subparsers.add_parser("list", help="List gateway connectors and chains and tiers")
+    gateway_list_parser.set_defaults(func=hummingbot.gateway_list)
+
     gateway_stop_parser = gateway_subparsers.add_parser("stop", help="Stop gateway docker instance")
     gateway_stop_parser.set_defaults(func=hummingbot.gateway_stop)
 
@@ -152,6 +155,31 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingA
     previous_strategy_parser = subparsers.add_parser("previous", help="Imports the last strategy used")
     previous_strategy_parser.add_argument("option", nargs="?", choices=["Yes,No"], default=None)
     previous_strategy_parser.set_defaults(func=hummingbot.previous_strategy)
+
+    mqtt_parser = subparsers.add_parser("mqtt", help="Manage MQTT Bridge to Message brokers")
+    mqtt_subparsers = mqtt_parser.add_subparsers()
+    mqtt_start_parser = mqtt_subparsers.add_parser("start", help="Start the MQTT Bridge")
+    mqtt_start_parser.add_argument(
+        "-t",
+        "--timeout",
+        default=30.0,
+        type=float,
+        dest="timeout",
+        help="Bridge connection timeout"
+    )
+    mqtt_start_parser.set_defaults(func=hummingbot.mqtt_start)
+    mqtt_stop_parser = mqtt_subparsers.add_parser("stop", help="Stop the MQTT Bridge")
+    mqtt_stop_parser.set_defaults(func=hummingbot.mqtt_stop)
+    mqtt_restart_parser = mqtt_subparsers.add_parser("restart", help="Restart the MQTT Bridge")
+    mqtt_restart_parser.add_argument(
+        "-t",
+        "--timeout",
+        default=30.0,
+        type=float,
+        dest="timeout",
+        help="Bridge connection timeout"
+    )
+    mqtt_restart_parser.set_defaults(func=hummingbot.mqtt_restart)
 
     # add shortcuts so they appear in command help
     shortcuts = hummingbot.client_config_map.command_shortcuts
