@@ -112,9 +112,9 @@ class SslCertTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tempdir:
             temppath: Path = Path(tempdir)
             mock_gateway_paths: GatewayPaths = GatewayPaths(
-                local_conf_path=temppath.joinpath("conf"),
+                # local_conf_path=temppath.joinpath("conf"),
                 local_certs_path=temppath.joinpath("certs"),
-                local_logs_path=temppath.joinpath("logs"),
+                # local_logs_path=temppath.joinpath("logs"),
                 mount_conf_path=temppath.joinpath("conf"),
                 mount_certs_path=temppath.joinpath("certs"),
                 mount_logs_path=temppath.joinpath("logs"),

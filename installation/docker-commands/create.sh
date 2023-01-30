@@ -17,10 +17,10 @@ then
 fi
 
 # Ask the user for the name of the new instance
-read -p "   Enter a name for your new Hummingbot instance (default = \"hummingbot-instance\") >>> " INSTANCE_NAME
+read -p "   Enter a name for your new Hummingbot instance (default = \"hummingbot\") >>> " INSTANCE_NAME
 if [ "$INSTANCE_NAME" == "" ]
 then
-  INSTANCE_NAME="hummingbot-instance"
+  INSTANCE_NAME="hummingbot"
   DEFAULT_FOLDER="hummingbot_files"
 else
   DEFAULT_FOLDER="${INSTANCE_NAME}_files"
@@ -34,12 +34,12 @@ then
 elif [[ ${FOLDER::1} != "/" ]]; then
   FOLDER=$PWD/$FOLDER
 fi
-CONF_FOLDER="$FOLDER/hummingbot_conf"
-LOGS_FOLDER="$FOLDER/hummingbot_logs"
-DATA_FOLDER="$FOLDER/hummingbot_data"
-PMM_SCRIPTS_FOLDER="$FOLDER/hummingbot_pmm_scripts"
-SCRIPTS_FOLDER="$FOLDER/hummingbot_scripts"
-CERTS_FOLDER="$FOLDER/hummingbot_certs"
+CONF_FOLDER="$FOLDER/conf"
+LOGS_FOLDER="$FOLDER/logs"
+DATA_FOLDER="$FOLDER/data"
+PMM_SCRIPTS_FOLDER="$FOLDER/pmm_scripts"
+SCRIPTS_FOLDER="$FOLDER/scripts"
+CERTS_FOLDER="$FOLDER/certs"
 GATEWAY_CONF_FOLDER="$FOLDER/gateway_conf"
 GATEWAY_LOGS_FOLDER="$FOLDER/gateway_logs"
 
@@ -97,7 +97,7 @@ create_instance () {
  --mount "type=bind,source=$DATA_FOLDER,destination=/data/" \
  --mount "type=bind,source=$PMM_SCRIPTS_FOLDER,destination=/pmm_scripts/" \
  --mount "type=bind,source=$SCRIPTS_FOLDER,destination=/scripts/" \
- --mount "type=bind,source=$CERTS_FOLDER,destination=/home/hummingbot/.hummingbot-gateway/certs/" \
+ --mount "type=bind,source=$CERTS_FOLDER,destination=/certs/" \
  --mount "type=bind,source=$GATEWAY_CONF_FOLDER,destination=/gateway-conf/" \
  --mount "type=bind,source=/var/run/docker.sock,destination=/var/run/docker.sock" \
  -e CONF_FOLDER="$CONF_FOLDER" \
