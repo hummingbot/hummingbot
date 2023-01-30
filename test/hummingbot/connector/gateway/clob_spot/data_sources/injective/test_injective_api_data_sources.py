@@ -374,9 +374,9 @@ class InjectiveAPIDataSourceTest(unittest.TestCase):
 
         self.injective_async_client_mock.run_until_all_items_delivered()
 
-        self.assertEqual(1, len(self.order_updates_logger.event_log))
+        self.assertEqual(2, len(self.order_updates_logger.event_log))
 
-        order_event: OrderUpdate = self.order_updates_logger.event_log[0]
+        order_event: OrderUpdate = self.order_updates_logger.event_log[1]
 
         self.assertIsInstance(order_event, OrderUpdate)
         self.assertEqual(self.initial_timestamp, order_event.update_timestamp)
@@ -397,9 +397,9 @@ class InjectiveAPIDataSourceTest(unittest.TestCase):
 
         self.injective_async_client_mock.run_until_all_items_delivered()
 
-        self.assertEqual(2, len(self.order_updates_logger.event_log))
+        self.assertEqual(4, len(self.order_updates_logger.event_log))
 
-        order_event: OrderUpdate = self.order_updates_logger.event_log[1]
+        order_event: OrderUpdate = self.order_updates_logger.event_log[3]
 
         self.assertIsInstance(order_event, OrderUpdate)
         self.assertEqual(self.initial_timestamp, order_event.update_timestamp)
@@ -433,9 +433,9 @@ class InjectiveAPIDataSourceTest(unittest.TestCase):
 
         self.injective_async_client_mock.run_until_all_items_delivered()
 
-        self.assertEqual(1, len(self.order_updates_logger.event_log))
+        self.assertEqual(2, len(self.order_updates_logger.event_log))
 
-        order_event: OrderUpdate = self.order_updates_logger.event_log[0]
+        order_event: OrderUpdate = self.order_updates_logger.event_log[1]
 
         self.assertIsInstance(order_event, OrderUpdate)
         self.assertEqual(self.initial_timestamp, order_event.update_timestamp)
@@ -727,7 +727,7 @@ class InjectiveAPIDataSourceTest(unittest.TestCase):
 
         self.injective_async_client_mock.run_until_all_items_delivered()
 
-        status_update = self.order_updates_logger.event_log[0]
+        status_update = self.order_updates_logger.event_log[1]
 
         self.assertEqual(self.trading_pair, status_update.trading_pair)
         self.assertEqual(self.initial_timestamp, status_update.update_timestamp)
@@ -771,7 +771,7 @@ class InjectiveAPIDataSourceTest(unittest.TestCase):
 
         self.injective_async_client_mock.run_until_all_items_delivered()
 
-        status_update = self.order_updates_logger.event_log[0]
+        status_update = self.order_updates_logger.event_log[1]
 
         self.assertEqual(self.trading_pair, status_update.trading_pair)
         self.assertEqual(self.initial_timestamp + 1, status_update.update_timestamp)
