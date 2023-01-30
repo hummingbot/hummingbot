@@ -3,7 +3,6 @@ import logging
 from collections import deque
 from typing import Any, Dict, Optional
 
-import aiohttp
 import numpy as np
 import pandas as pd
 
@@ -18,9 +17,9 @@ from hummingbot.data_feed.candles_feed.binance_spot_candles import constants as 
 from hummingbot.logger import HummingbotLogger
 
 
-class BinanceCandlesFeed(NetworkBase):
+class BinanceSpotCandles(NetworkBase):
     _bcf_logger: Optional[HummingbotLogger] = None
-    _binance_candles_shared_instance: "BinanceCandlesFeed" = None
+    _binance_candles_shared_instance: "BinanceSpotCandles" = None
     columns = ["timestamp", "open", "low", "high", "close", "volume", "quote_asset_volume",
                "n_trades", "taker_buy_base_volume", "taker_buy_quote_volume"]
 
@@ -30,15 +29,8 @@ class BinanceCandlesFeed(NetworkBase):
             cls._bcf_logger = logging.getLogger(__name__)
         return cls._bcf_logger
 
-    @classmethod
-    def get_instance(cls) -> "BinanceCandlesFeed":
-        if cls._binance_candles_shared_instance is None:
-            cls._binance_candles_shared_instance = BinanceCandlesFeed()
-        return cls._binance_candles_shared_instance
-
     def __init__(self, trading_pair: str, interval: str = "1m", max_records: int = 150):
         super().__init__()
-        self._shared_client: Optional[aiohttp.ClientSession] = None
         async_throttler = AsyncThrottler(rate_limits=self.rate_limits)
         self._api_factory = WebAssistantsFactory(throttler=async_throttler)
 
@@ -210,7 +202,8 @@ class BinanceCandlesFeed(NetworkBase):
                                                    quote_asset_volume, n_trades, taker_buy_base_volume,
                                                    taker_buy_quote_volume]))
                     await self.fill_historical_candles()
-                elif timestamp != int(self._candles[-1][0]):
+                elif timestamp > int(self._candles[-1][0]):
+                    # TODO: validate also that the diff of timestamp == interval (issue with 1M interval).
                     self._candles.append(np.array([timestamp, open, low, high, close, volume,
                                                    quote_asset_volume, n_trades, taker_buy_base_volume,
                                                    taker_buy_quote_volume]))
