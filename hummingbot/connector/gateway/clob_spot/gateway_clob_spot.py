@@ -1,4 +1,3 @@
-import asyncio
 from copy import deepcopy
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple
@@ -142,10 +141,21 @@ class GatewayCLOBSPOT(ExchangePyBase):
 
     async def start_network(self):
         await self._api_data_source.start()
+        self._api_data_source.add_forwarder(event_tag=MarketEvent.TradeUpdate, receiver=self._process_trade_update)
+        self._api_data_source.add_forwarder(event_tag=MarketEvent.OrderUpdate, receiver=self._process_order_update)
+        self._api_data_source.add_forwarder(event_tag=AccountEvent.BalanceEvent, receiver=self._process_balance_event)
+        self._orderbook_ds.add_forwarders()
         await super().start_network()
 
     async def stop_network(self):
         await super().stop_network()
+        self._orderbook_ds.remove_forwarders()
+        self._api_data_source.remove_forwarder(event_tag=MarketEvent.TradeUpdate,
+                                               receiver=self._process_trade_update)
+        self._api_data_source.remove_forwarder(event_tag=MarketEvent.OrderUpdate,
+                                               receiver=self._process_order_update)
+        self._api_data_source.remove_forwarder(event_tag=AccountEvent.BalanceEvent,
+                                               receiver=self._process_balance_event)
         await self._api_data_source.stop()
 
     def tick(self, timestamp: float):
@@ -164,7 +174,7 @@ class GatewayCLOBSPOT(ExchangePyBase):
         self._last_timestamp = timestamp
 
     def supported_order_types(self) -> List[OrderType]:
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+        return self._api_data_source.get_supported_order_types()
 
     def start_tracking_order(
         self,
@@ -483,7 +493,7 @@ class GatewayCLOBSPOT(ExchangePyBase):
     async def _make_network_check_request(self):
         network_status = await self._api_data_source.check_network_status()
         if network_status != NetworkStatus.CONNECTED:
-            raise IOError
+            raise IOError("The API data source has lost connection.")
 
     async def _make_trading_rules_request(self) -> Mapping[str, str]:
         return await self._make_trading_pairs_request()
@@ -600,20 +610,8 @@ class GatewayCLOBSPOT(ExchangePyBase):
         return False
 
     async def _user_stream_event_listener(self):
-        self._api_data_source.add_forwarder(event_tag=MarketEvent.TradeUpdate, receiver=self._process_trade_update)
-        self._api_data_source.add_forwarder(event_tag=MarketEvent.OrderUpdate, receiver=self._process_order_update)
-        self._api_data_source.add_forwarder(event_tag=AccountEvent.BalanceEvent, receiver=self._process_balance_event)
-
-        try:
-            await asyncio.Event().wait()
-        except asyncio.CancelledError:
-            self._api_data_source.remove_forwarder(event_tag=MarketEvent.TradeUpdate,
-                                                   receiver=self._process_trade_update)
-            self._api_data_source.remove_forwarder(event_tag=MarketEvent.OrderUpdate,
-                                                   receiver=self._process_order_update)
-            self._api_data_source.remove_forwarder(event_tag=AccountEvent.BalanceEvent,
-                                                   receiver=self._process_balance_event)
-            raise
+        """Not used."""
+        pass
 
     def _process_trade_update(self, trade_update: TradeUpdate):
         self._last_received_message_timestamp = self._time()
