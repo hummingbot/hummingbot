@@ -45,5 +45,22 @@ async def run_command(*args):
 
 
 def call_sync(coro,
-              loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()) -> asyncio.Future:
-    return asyncio.run_coroutine_threadsafe(coro, loop)
+              loop: asyncio.AbstractEventLoop,
+              timeout: float = 30.0):
+    import threading
+    if threading.current_thread() != threading.main_thread():  # pragma: no cover
+        fut = asyncio.run_coroutine_threadsafe(
+            asyncio.wait_for(coro, timeout),
+            loop
+        )
+        return fut.result()
+    elif not loop.is_running():
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            logging.getLogger(__name__).debug(
+                "Runtime error in call_sync - Using new event loop to exec coro",
+                exc_info=True
+            )
+            loop = asyncio.new_event_loop()
+    return loop.run_until_complete(asyncio.wait_for(coro, timeout))

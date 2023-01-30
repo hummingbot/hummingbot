@@ -1,16 +1,15 @@
 #!/usr/bin/env python
-from os.path import join, realpath
-import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
-
 import asyncio
-import conf
 import logging
 import unittest
+from os.path import join, realpath
 
-
-from hummingbot.connector.exchange.k2.k2_user_stream_tracker import K2UserStreamTracker
+import conf
 from hummingbot.connector.exchange.k2.k2_auth import K2Auth
+from hummingbot.connector.exchange.k2.k2_user_stream_tracker import K2UserStreamTracker
 from hummingbot.core.utils.async_utils import safe_ensure_future
+
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../")))
 
 
 class K2UserStreamTrackerUnitTest(unittest.TestCase):
