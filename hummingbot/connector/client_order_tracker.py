@@ -130,7 +130,7 @@ class ClientOrderTracker:
         :param tracking_states: a dictionary associating order ids with the serialized order (JSON format).
         """
         for serialized_order in tracking_states.values():
-            order = InFlightOrder.from_json(serialized_order)
+            order = self._restore_order_from_json(serialized_order=serialized_order)
             if order.is_open:
                 self.start_tracking_order(order)
 
