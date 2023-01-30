@@ -338,7 +338,7 @@ class MQTTMarketEventForwarder:
             namespace=self._mqtt_node.namespace,
             instance_id=self._hb_app.instance_id
         )
-        self._topic = f'{topic_prefix}{TopicSpecs.MARKET_EVENTS}'
+        self._topic = f'{topic_prefix}{TopicSpecs.INTERNAL_EVENTS}'
 
         self._mqtt_fowarder: SourceInfoEventForwarder = \
             SourceInfoEventForwarder(self._send_mqtt_event)
