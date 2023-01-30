@@ -31,7 +31,7 @@ export namespace SushiswapConfig {
     availableNetworks: [
       {
         chain: 'ethereum',
-        networks: ['mainnet', 'kovan', 'goerli', 'ropsten'],
+        networks: ['mainnet', 'kovan', 'goerli', 'ropsten', 'arbitrum_one', 'arbitrum_nova', 'polygon', 'mumbai'],
       },
       { chain: 'binance-smart-chain', networks: ['mainnet', 'testnet'] },
     ],
