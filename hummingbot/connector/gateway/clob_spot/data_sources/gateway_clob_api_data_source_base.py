@@ -9,6 +9,7 @@ from bidict import bidict
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.gateway.gateway_order_tracker import GatewayOrderTracker
 from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.trade_fee import MakerTakerExchangeFeeRates
@@ -68,6 +69,10 @@ class GatewayCLOBAPIDataSourceBase(ABC):
 
     def remove_listener(self, event_tag: Enum, listener: EventListener):
         self._publisher.remove_listener(event_tag=event_tag, listener=listener)
+
+    @abstractmethod
+    def get_supported_order_types(self) -> List[OrderType]:
+        ...
 
     @abstractmethod
     async def start(self):

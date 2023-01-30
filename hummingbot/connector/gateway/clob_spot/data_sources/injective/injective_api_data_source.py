@@ -147,6 +147,9 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
         self._order_placement_lock = Lock()
 
+    def get_supported_order_types(self) -> List[OrderType]:
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+
     async def start(self):
         """Starts the event streaming."""
         async with self._order_placement_lock:
