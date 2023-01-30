@@ -156,7 +156,7 @@ class GatewayInFlightOrder(InFlightOrder):
         self._creation_transaction_hash = (
             misc_updates.get("creation_transaction_hash", self._creation_transaction_hash)
         )
-        self._cancel_tx_hash = misc_updates.get("cancelation_transaction_hash") or self._cancel_tx_hash
+        self._cancel_tx_hash = misc_updates.get("cancelation_transaction_hash", self._cancel_tx_hash)
         if self.current_state not in {OrderState.PENDING_CANCEL, OrderState.CANCELED}:
             self.nonce = misc_updates.get("nonce", None)
             self.fee_asset = misc_updates.get("fee_asset", None)
