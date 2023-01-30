@@ -305,7 +305,7 @@ class TestBinanceSpotCandles(unittest.TestCase):
 
         self.listening_task = self.ev_loop.create_task(self.data_feed.listen_for_subscriptions())
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value, timeout=2)
 
         self.assertEqual(self.data_feed.candles.shape[0], 2)
         self.assertEqual(self.data_feed.candles.shape[1], 10)
