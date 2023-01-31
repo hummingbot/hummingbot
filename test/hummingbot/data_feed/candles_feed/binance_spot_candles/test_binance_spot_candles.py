@@ -25,8 +25,10 @@ class TestBinanceSpotCandles(unittest.TestCase):
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = cls.base_asset + cls.quote_asset
 
-    def setUp(self) -> None:
+    @patch("hummingbot.data_feed.candles_feed.binance_spot_candles.BinanceSpotCandles.start")
+    def setUp(self, start_mock) -> None:
         super().setUp()
+        start_mock.return_value = None
         self.mocking_assistant = NetworkMockingAssistant()
         self.data_feed = BinanceSpotCandles(trading_pair=self.trading_pair, interval=self.interval)
 
@@ -271,9 +273,11 @@ class TestBinanceSpotCandles(unittest.TestCase):
         self.assertEqual(self.data_feed.candles.shape[0], 1)
         self.assertEqual(self.data_feed.candles.shape[1], 10)
 
+    @patch("hummingbot.data_feed.candles_feed.binance_spot_candles.BinanceSpotCandles.fill_historical_candles", new_callable=AsyncMock)
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_process_websocket_messages_duplicated_candle_not_included(self, ws_connect_mock):
+    def test_process_websocket_messages_duplicated_candle_not_included(self, ws_connect_mock, fill_historical_candles):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        fill_historical_candles.return_value = None
 
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=ws_connect_mock.return_value,
