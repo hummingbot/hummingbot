@@ -87,7 +87,7 @@ create_instance () {
  mkdir $GATEWAY_CONF_FOLDER
  mkdir $GATEWAY_LOGS_FOLDER
  # 3) Set required permissions to save hummingbot password the first time
- sudo chmod a+rw $CONF_FOLDER $CERTS_FOLDER
+ sudo chmod a+rw $CONF_FOLDER
  # 4) Launch a new instance of hummingbot
  docker run -it --log-opt max-size=10m --log-opt max-file=5 \
  --name $INSTANCE_NAME \

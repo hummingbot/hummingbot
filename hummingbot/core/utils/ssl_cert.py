@@ -13,7 +13,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 
 from hummingbot import root_path
-from hummingbot.core.gateway import get_gateway_paths
+from hummingbot.core.gateway import get_certs_path
 
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -180,7 +180,7 @@ def certs_files_exist(client_config_map: "ClientConfigAdapter") -> bool:
                       server_key_filename, server_cert_filename,
                       client_key_filename, client_cert_filename]
 
-    file_list = listdir(get_gateway_paths(client_config_map).local_certs_path.as_posix())
+    file_list = listdir(get_certs_path(client_config_map).as_posix())
     return all(elem in file_list for elem in required_certs)
 
 
@@ -188,7 +188,7 @@ def create_self_sign_certs(pass_phase: str, client_config_map: "ClientConfigAdap
     """
     Create self-sign CA Cert
     """
-    cert_directory: str = get_gateway_paths(client_config_map).local_certs_path.as_posix()
+    cert_directory: str = get_certs_path(client_config_map).as_posix()
 
     filepath_list = {
         'ca_key': join(cert_directory, ca_key_filename),

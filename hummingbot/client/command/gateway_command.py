@@ -17,15 +17,14 @@ from hummingbot.client.settings import (  # GATEWAY_SSL_CONF_FILE,
 from hummingbot.client.ui.completer import load_completer
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.connector.connector_status import get_connector_status
-from hummingbot.core.gateway import (
+from hummingbot.core.gateway import (  # GatewayPaths,
     GATEWAY_DOCKER_REPO,
     GATEWAY_DOCKER_TAG,
-    GatewayPaths,
     docker_ipc,
     docker_ipc_with_generator,
+    get_certs_path,
     get_default_gateway_port,
     get_gateway_container_name,
-    get_gateway_paths,
     is_inside_docker,
     start_gateway,
     stop_gateway,
@@ -42,7 +41,7 @@ from hummingbot.core.utils.gateway_config_utils import (
     native_tokens,
     search_configs,
 )
-from hummingbot.core.utils.ssl_cert import certs_files_exist, create_self_sign_certs
+from hummingbot.core.utils.ssl_cert import create_self_sign_certs
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
@@ -131,7 +130,7 @@ class GatewayCommand(GatewayChainApiManager):
         #                 return
         #             self.notify("Invalid input. Please try again or exit config [CTRL + x].\n")
 
-        cert_path: str = get_gateway_paths(self.client_config_map).local_certs_path.as_posix()
+        cert_path: str = get_certs_path(self.client_config_map).as_posix()
         # current_path: str = self.client_config_map.certs.path
         # if not GATEWAY_SSL_CONF_FILE.exists() and not bypass_source_check:
         #     self.notify("\nSSL configuration file not found. Please use `gateway/setup/generate_conf.sh` to generate it.")
@@ -146,10 +145,10 @@ class GatewayCommand(GatewayChainApiManager):
         #     save_to_yml(CLIENT_CONFIG_PATH, self.client_config_map)  # Update config file
 
         if not from_client_password:
-            if certs_files_exist(self.client_config_map):
-                self.notify(f"Gateway SSL certification files exist in {cert_path}.")
-                self.notify("To create new certification files, please first manually delete those files.")
-                return
+            # if certs_files_exist(self.client_config_map):
+            #     self.notify(f"Gateway SSL certification files exist in {cert_path}.")
+            #     self.notify("To create new certification files, please first manually delete those files.")
+            #     return
 
             with begin_placeholder_mode(self):
                 while True:
@@ -204,11 +203,10 @@ class GatewayCommand(GatewayChainApiManager):
                         return
                     self.notify("Invalid input. Please try again or exit config [CTRL + x].\n")
 
-        gateway_paths: GatewayPaths = get_gateway_paths(self.client_config_map)
         gateway_container_name: str = get_gateway_container_name(self.client_config_map)
-        gateway_conf_mount_path: str = gateway_paths.mount_conf_path.as_posix()
-        certificate_mount_path: str = gateway_paths.mount_certs_path.as_posix()
-        logs_mount_path: str = gateway_paths.mount_logs_path.as_posix()
+        gateway_conf_mount_path: str = ""
+        certificate_mount_path: str = ""
+        logs_mount_path: str = ""
         gateway_port: int = get_default_gateway_port(self.client_config_map)
 
         # remove existing container(s)

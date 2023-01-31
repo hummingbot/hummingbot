@@ -1,6 +1,7 @@
 import os
 import platform
-from dataclasses import dataclass
+
+# from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
@@ -16,7 +17,7 @@ if TYPE_CHECKING:
     from hummingbot import ClientConfigAdapter
 
 
-_default_paths: Optional["GatewayPaths"] = None
+# _default_paths: Optional["GatewayPaths"] = None
 _hummingbot_pipe: Optional[aioprocessing.AioConnection] = None
 
 GATEWAY_DOCKER_REPO: str = "hummingbot/gateway-v2"
@@ -50,37 +51,7 @@ def get_gateway_container_name(client_config_map: "ClientConfigAdapter") -> str:
     return f"hummingbot-gateway-{instance_id_suffix}"
 
 
-@dataclass
-class GatewayPaths:
-    """
-    Represents the local paths and Docker mount paths for a gateway container's conf, certs and logs directories.
-
-    Local paths represent where Hummingbot client sees the paths from the perspective of its local environment. If
-    Hummingbot is being run from source, then the local environment is the same as the host environment. However, if
-    Hummingbot is being run as a container, then the local environment is the container's environment.
-
-    Mount paths represent where the gateway container's paths are located on the host environment. If Hummingbot is
-    being run from source, then these should be the same as the local paths. However, if Hummingbot is being run as a
-    container - then these must be fed to it from external sources (e.g. environment variables), since containers
-    generally only have very restricted access to the host filesystem.
-    """
-
-    # local_conf_path: Path
-    local_certs_path: Path
-    # local_logs_path: Path
-    mount_conf_path: Path
-    mount_certs_path: Path
-    mount_logs_path: Path
-
-    def __post_init__(self):
-        """
-        Ensure the local paths are created when a GatewayPaths object is created.
-        """
-        for path in [self.local_certs_path]:
-            path.mkdir(mode=0o755, parents=True, exist_ok=True)
-
-
-def get_gateway_paths(client_config_map: "ClientConfigAdapter") -> GatewayPaths:
+def get_certs_path(client_config_map: "ClientConfigAdapter") -> Path:
     """
     Calculates the default paths for a gateway container.
 
@@ -90,49 +61,10 @@ def get_gateway_paths(client_config_map: "ClientConfigAdapter") -> GatewayPaths:
       and inside the paths pointed to be CERTS_FOLDER, GATEWAY_CONF_FOLDER, GATEWAY_LOGS_FOLDER environment variables
       on the host system.
     """
-    global _default_paths
-    if _default_paths is not None:
-        return _default_paths
-
-    inside_docker: bool = is_inside_docker()
-
-    # gateway_container_name: str = get_gateway_container_name(client_config_map)
-    external_certs_path: Optional[Path] = os.getenv("CERTS_FOLDER") and Path(os.getenv("CERTS_FOLDER"))
-    external_conf_path: Optional[Path] = os.getenv("GATEWAY_CONF_FOLDER") and Path(os.getenv("GATEWAY_CONF_FOLDER"))
-    external_logs_path: Optional[Path] = os.getenv("GATEWAY_LOGS_FOLDER") and Path(os.getenv("GATEWAY_LOGS_FOLDER"))
-
-    if inside_docker and not (external_certs_path and external_conf_path and external_logs_path):
-        raise EnvironmentError("CERTS_FOLDER, GATEWAY_CONF_FOLDER and GATEWAY_LOGS_FOLDER must be defined when "
-                               "running as container.")
-
-    base_path: Path = Path(client_config_map.certs.path)
-    # base_path: Path = (
-    #     Path.home().joinpath(".hummingbot-gateway")
-    #     if inside_docker
-    #     else Path.home().joinpath(f".hummingbot-gateway/{gateway_container_name}")
-    # )
-    # conf_path: Path = (
-    #     Path.home().joinpath("hummingbot-files")
-    #     if inside_docker
-    #     else Path.home().joinpath(f"hummingbot-files/{gateway_container_name}")
-
-    # )
-    local_certs_path: Path = external_certs_path or base_path
-    # local_conf_path: Path = conf_path.joinpath("gateway-conf")
-    # local_logs_path: Path = conf_path.joinpath("gateway-logs")
-    mount_certs_path: Path = external_certs_path or local_certs_path
-    mount_conf_path: Path = external_conf_path
-    mount_logs_path: Path = external_logs_path
-
-    _default_paths = GatewayPaths(
-        # local_conf_path=local_conf_path,
-        local_certs_path=local_certs_path,
-        # local_logs_path=local_logs_path,
-        mount_conf_path=mount_conf_path,
-        mount_certs_path=mount_certs_path,
-        mount_logs_path=mount_logs_path
-    )
-    return _default_paths
+    if is_inside_docker():
+        return os.getenv("CERTS_FOLDER") and Path(os.getenv("CERTS_FOLDER"))
+    else:
+        return Path(client_config_map.certs.path)
 
 
 def get_default_gateway_port(client_config_map: "ClientConfigAdapter") -> int:
