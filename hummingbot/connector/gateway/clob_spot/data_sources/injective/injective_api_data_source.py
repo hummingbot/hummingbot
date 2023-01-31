@@ -189,6 +189,11 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
             )
             order_hash = order_hashes.spot[0]
 
+            self.logger().debug(
+                f"Placing order {order.client_order_id} with order hash {order_hash} from nonce"
+                f" {self._order_hash_manager.current_nonce - 1}"
+            )  # todo: remove
+
             order_result: Dict[str, Any] = await self._get_gateway_instance().clob_place_order(
                 connector=self._connector_name,
                 chain=self._chain,
@@ -202,6 +207,8 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
             )
 
             transaction_hash: Optional[str] = order_result.get("txHash")
+
+            self.logger().debug(f"Placed order {order_hash} with tx hash {transaction_hash}")  # todo: remove
 
             if transaction_hash is None:
                 await self._update_account_address_and_create_order_hash_manager()
@@ -221,6 +228,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
     async def cancel_order(self, order: GatewayInFlightOrder) -> Tuple[bool, Dict[str, Any]]:
 
         await order.get_exchange_order_id()
+        self.logger().debug(f"Canceling order {order.exchange_order_id}")  # todo: remove
 
         cancelation_result = await self._get_gateway_instance().clob_cancel_order(
             connector=self._connector_name,
@@ -241,6 +249,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
             )
 
         transaction_hash = f"0x{transaction_hash.lower()}"
+        self.logger().debug(f"Canceled order {order.exchange_order_id} with tx hash {transaction_hash}")  # todo: remove
 
         misc_updates = {
             "cancelation_transaction_hash": transaction_hash
@@ -372,6 +381,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         return trade_updates
 
     async def get_order_status_update(self, in_flight_order: GatewayInFlightOrder) -> OrderUpdate:
+        self.logger().debug(f"Getting order status update for {in_flight_order.exchange_order_id}")  # todo: remove
         trading_pair = in_flight_order.trading_pair
         order_hash = await in_flight_order.get_exchange_order_id()
 
@@ -388,6 +398,10 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
             trade_type=in_flight_order.trade_type,
         )
         if status_update is None and in_flight_order.creation_transaction_hash is not None:
+            self.logger().debug(
+                f"Failed to find status update for {in_flight_order.exchange_order_id}. Attempting from transaction"
+                f" hash {in_flight_order.creation_transaction_hash}."
+            )  # todo: remove
             creation_transaction = await self._get_transaction_by_hash(
                 transaction_hash=in_flight_order.creation_transaction_hash
             )
@@ -402,6 +416,9 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
                     exchange_order_id=in_flight_order.exchange_order_id,
                 )
         if status_update is None:
+            self.logger().debug(
+                f"Failed to find an order status update for {in_flight_order.exchange_order_id}"
+            )  # todo: remove
             raise IOError(f"No update found for order {in_flight_order.client_order_id}")
 
         if in_flight_order.current_state == OrderState.PENDING_CREATE and status_update.new_state != OrderState.OPEN:
@@ -673,6 +690,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         order_hash = order.order.order_hash
         in_flight_order = self._gateway_order_tracker.all_fillable_orders_by_exchange_id.get(order_hash)
         if in_flight_order is not None:
+            self.logger().debug(f"Received order status update for {in_flight_order.exchange_order_id}")  # todo: remove
             market_id = order.order.market_id
             trading_pair = self._get_trading_pair_from_market_id(market_id=market_id)
             order_update = OrderUpdate(
@@ -897,6 +915,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
     async def _parse_transaction_event(self, transaction: StreamTxsResponse):
         order = self._gateway_order_tracker.get_fillable_order_by_hash(hash=transaction.hash)
         if order is not None:
+            self.logger().debug(f"Received transaction update for {order.exchange_order_id}")  # todo: remove
             messages = json.loads(s=transaction.messages)
             for message in messages:
                 if message["type"] in [MSG_CREATE_SPOT_LIMIT_ORDER, MSG_CANCEL_SPOT_ORDER, MSG_BATCH_UPDATE_ORDERS]:
