@@ -35,6 +35,7 @@ from hummingbot.connector.gateway.clob_spot.data_sources.injective.injective_con
     CLIENT_TO_BACKEND_ORDER_TYPES_MAP,
     CONNECTOR_NAME,
     MARKETS_UPDATE_INTERVAL,
+    MSG_BATCH_UPDATE_ORDERS,
     MSG_CANCEL_SPOT_ORDER,
     MSG_CREATE_SPOT_LIMIT_ORDER,
     NONCE_PATH,
@@ -898,9 +899,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         if order is not None:
             messages = json.loads(s=transaction.messages)
             for message in messages:
-                if message["type"] == MSG_CREATE_SPOT_LIMIT_ORDER:
-                    await self.get_order_status_update(in_flight_order=order)
-                elif message["type"] == MSG_CANCEL_SPOT_ORDER:
+                if message["type"] in [MSG_CREATE_SPOT_LIMIT_ORDER, MSG_CANCEL_SPOT_ORDER, MSG_BATCH_UPDATE_ORDERS]:
                     await self.get_order_status_update(in_flight_order=order)
 
     def _get_trading_pair_from_market_id(self, market_id: str) -> str:
