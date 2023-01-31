@@ -53,12 +53,10 @@ class InjectiveAPIOrderBookDataSourceTest(unittest.TestCase):
         self.ob_data_source = GatewayCLOBSPOTAPIOrderBookDataSource(
             trading_pairs=[self.trading_pair], api_data_source=self.api_data_source
         )
-        self.ob_data_source.add_forwarders()
         self.async_run_with_timeout(coro=self.api_data_source.start())
 
     def tearDown(self) -> None:
         self.injective_async_client_mock.stop()
-        self.ob_data_source.remove_forwarders()
         self.async_run_with_timeout(coro=self.api_data_source.stop())
         for task in self.listening_tasks:
             task.cancel()

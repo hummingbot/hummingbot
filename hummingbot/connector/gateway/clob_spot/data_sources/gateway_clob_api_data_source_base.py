@@ -55,17 +55,8 @@ class GatewayCLOBAPIDataSourceBase(ABC):
             OrderBookDataSourceEvent.SNAPSHOT_EVENT,
         ]
 
-    def add_forwarder(self, event_tag: Enum, receiver: Callable):
-        event_forwarder = EventForwarder(to_function=receiver)
-        self.add_listener(event_tag=event_tag, listener=event_forwarder)
-        self._forwarders_map[(event_tag, receiver)] = event_forwarder
-
     def add_listener(self, event_tag: Enum, listener: EventListener):
         self._publisher.add_listener(event_tag=event_tag, listener=listener)
-
-    def remove_forwarder(self, event_tag: Enum, receiver: Callable):
-        event_forwarder = self._forwarders_map.pop((event_tag, receiver))
-        event_forwarder and self.remove_listener(event_tag=event_tag, listener=event_forwarder)
 
     def remove_listener(self, event_tag: Enum, listener: EventListener):
         self._publisher.remove_listener(event_tag=event_tag, listener=listener)
