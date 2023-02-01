@@ -53,13 +53,7 @@ def get_gateway_container_name(client_config_map: "ClientConfigAdapter") -> str:
 
 def get_certs_path(client_config_map: "ClientConfigAdapter") -> Path:
     """
-    Calculates the default paths for a gateway container.
-
-    For Hummingbot running from source, the gateway files are to be stored in ~/.hummingbot-gateway/<container name>/
-
-    For Hummingbot running inside container, the gateway files are to be stored in ~/.hummingbot-gateway/ locally;
-      and inside the paths pointed to be CERTS_FOLDER, GATEWAY_CONF_FOLDER, GATEWAY_LOGS_FOLDER environment variables
-      on the host system.
+    Calculates the default cert paths for a gateway container.
     """
     if is_inside_docker():
         return os.getenv("CERTS_FOLDER") and Path(os.getenv("CERTS_FOLDER"))

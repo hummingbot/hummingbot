@@ -70,7 +70,6 @@ debug.log
 
 # Cert files
 gateway.env
-/certs
 /gateway/certs/
 *.pem
 
