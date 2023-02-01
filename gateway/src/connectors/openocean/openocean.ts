@@ -191,13 +191,13 @@ export class Openocean implements Uniswapish {
     amount: BigNumber
   ): Promise<ExpectedTrade> {
     logger.info(
-      `estimateSellTrade getting amounts out ${baseToken.address}-${quoteToken.address}.`
+      `estimateSellTrade getting amounts out baseToken(${baseToken.symbol}): ${baseToken.address} - quoteToken(${quoteToken.symbol}): ${quoteToken.address}.`
     );
 
     const reqAmount = new Decimal(amount.toString())
       .div(new Decimal((10 ** baseToken.decimals).toString()))
       .toNumber();
-    logger.info(`reqAmount:${reqAmount}`);
+    logger.info(`reqAmount(${baseToken.symbol}):${reqAmount}`);
     const gasPrice = this.chainInstance.gasPrice;
     let quoteRes;
     try {
@@ -236,6 +236,7 @@ export class Openocean implements Uniswapish {
         Number(quoteRes.data.data.outAmount) > 0
       ) {
         const quoteData = quoteRes.data.data;
+        logger.info(`estimateSellTrade quoteData inAmount(${baseToken.symbol}): ${quoteData.inAmount}, outAmount(${quoteToken.symbol}): ${quoteData.outAmount}`);
         const amounts = [quoteData.inAmount, quoteData.outAmount];
         const maximumOutput = new TokenAmount(
           quoteToken,
@@ -277,7 +278,7 @@ export class Openocean implements Uniswapish {
     amount: BigNumber
   ): Promise<ExpectedTrade> {
     logger.info(
-      `estimateBuyTrade getting amounts in ${quoteToken.address}-${baseToken.address}.`
+      `estimateBuyTrade getting amounts in quoteToken(${quoteToken.symbol}): ${quoteToken.address} - baseToken(${baseToken.symbol}): ${baseToken.address}.`
     );
 
     const reqAmount = new Decimal(amount.toString())
@@ -321,6 +322,7 @@ export class Openocean implements Uniswapish {
         Number(quoteRes.data.data.reverseAmount) > 0
       ) {
         const quoteData = quoteRes.data.data;
+        logger.info(`estimateBuyTrade reverseData inAmount(${quoteToken.symbol}): ${quoteData.reverseAmount}, outAmount(${baseToken.symbol}): ${quoteData.inAmount}`);
         const amounts = [quoteData.reverseAmount, quoteData.inAmount];
         const minimumInput = new TokenAmount(quoteToken, amounts[0].toString());
         const trade = newFakeTrade(
