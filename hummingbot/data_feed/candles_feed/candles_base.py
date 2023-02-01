@@ -29,7 +29,6 @@ class CandlesBase(NetworkBase):
         else:
             self.logger().exception(f"Interval {interval} is not supported. Available Intervals: {self.intervals.keys()}")
             raise
-        self.start()
 
     async def start_network(self):
         await self.stop_network()
