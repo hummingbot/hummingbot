@@ -62,6 +62,16 @@ class BloxRouteConnectorMap(BaseConnectorConfigMap):
         ),
     )
 
+    open_orders_address: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Enter bloxroute Labs open orders address",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        ),
+    )
+
     class Config:
         title = "bloxroute_openbook"
 

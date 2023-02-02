@@ -28,8 +28,9 @@ class BloxrouteOpenbookOrderBook(OrderBook):
             return OrderBookMessage(
                 OrderBookMessageType.SNAPSHOT,
                 {
-                    "trading_pair": orderbook.market,
+                    "trading_pair": msg["trading_pair"],
                     "trade_id": timestamp,
+                    "update_id": timestamp,
                     "bids": orders_to_orderbook_rows(orderbook.bids),
                     "asks": orders_to_orderbook_rows(orderbook.asks),
                 },

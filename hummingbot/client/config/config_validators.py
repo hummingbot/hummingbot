@@ -83,6 +83,7 @@ def validate_market_trading_pair(market: str, value: str) -> Optional[str]:
     from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
     trading_pair_fetcher: TradingPairFetcher = TradingPairFetcher.get_instance()
     if trading_pair_fetcher.ready:
+        value = value.replace("-", "/")
         trading_pairs = trading_pair_fetcher.trading_pairs.get(market, [])
         if len(trading_pairs) == 0:
             return None

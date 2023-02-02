@@ -19,6 +19,7 @@ TOKEN_PAIR_TO_WALLET_ADDR = {
     "USDC": "Hse4dWHfnExzZ6mZkfNjs8BW45YZURHsWiHzssDMNjQ8",
     "FIDA": "5QCFjVEc7qBr9JyTJQkLjDCTgLGewpCjKo5uycNPhkGu",
     "RAY": "J5a6hwutTb6wvVrgUn1Fkx6YHaqWkSERfUwsv9xRsnLa",
+    "PRT": "CRc5F7tAa584dj1ayTJzY4BTtG7kEMjY8NgMH57f9vsF",
 }
 
 EXCHANGE_NAME = "bloxroute_openbook"

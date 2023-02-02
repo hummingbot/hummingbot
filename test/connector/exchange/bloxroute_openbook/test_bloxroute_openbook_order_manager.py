@@ -6,16 +6,20 @@ from unittest.mock import AsyncMock, patch
 
 import aiounittest
 import bxsolana.provider.grpc
+from bxsolana import Provider
 from bxsolana_trader_proto import (
     GetOrderbookResponse,
     GetOrderbooksStreamResponse,
     GetOrderStatusResponse,
     GetOrderStatusStreamResponse,
-    OrderbookItem,
+    OrderType, OrderbookItem,
     OrderStatus,
     Side,
 )
 
+from bxsolana.provider.constants import LOCAL_API_WS
+
+from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_constants import OPENBOOK_PROJECT
 from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_order_manager import (
     BloxrouteOpenbookOrderManager,
     OrderStatusInfo,
@@ -282,7 +286,6 @@ class TestOrderManager(aiounittest.AsyncTestCase):
 
         await os_manager.stop()
 
-
 def orders(price_and_sizes: List[Tuple[int, int]]) -> List[OrderbookItem]:
     orderbook_items = []
     for price, size in price_and_sizes:
@@ -306,3 +309,12 @@ async def async_generator_order_status_stream(
                 quantity_released=q_rel, quantity_remaining=q_rem
             ),
         )
+
+
+async def start_os_stream(provider: Provider, market: str, owner_address: str, queue: asyncio.Queue):
+    await provider.connect()
+    os_stream = provider.get_order_status_stream(market=market, owner_address=owner_address,
+                                                 project=OPENBOOK_PROJECT)
+    while True:
+        up = await os_stream.__anext__()
+        queue.put_nowait(up)

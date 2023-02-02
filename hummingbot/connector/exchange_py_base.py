@@ -409,9 +409,9 @@ class ExchangePyBase(ExchangeBase, ABC):
                     if client_order_id is not None:
                         order_id_set.remove(client_order_id)
                         successful_cancellations.append(CancellationResult(client_order_id, True))
-        except Exception:
+        except Exception as e:
             self.logger().network(
-                "Unexpected error cancelling orders.",
+                f"Unexpected error cancelling orders. {e}",
                 exc_info=True,
                 app_warning_msg="Failed to cancel order. Check API key and network connection."
             )

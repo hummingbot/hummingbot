@@ -302,6 +302,7 @@ cdef class ConnectorBase(NetworkIterator):
         :param currency: The currency (token) name
         :return: A balance for the given currency (token)
         """
+        self.logger().info(f"currency {currency} {self._account_balances}")
         return self._account_balances.get(currency, s_decimal_0)
 
     def apply_balance_limit(self, currency: str, available_balance: Decimal, limit: Decimal) -> Decimal:
