@@ -19,7 +19,7 @@ repos:
         types: [file]
         exclude: .json
 -   repo: https://github.com/pycqa/isort
-    rev: 5.10.1
+    rev: 5.12.0
     hooks:
       - id: isort
         files: "\\.(py)$"
