@@ -2,8 +2,8 @@ import asyncio
 import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from hummingbot.connector.exchange.binance import binance_constants as CONSTANTS, binance_web_utils as web_utils
-from hummingbot.connector.exchange.binance.binance_order_book import BinanceOrderBook
+from hummingbot.connector.exchange.bitcoin_rd import bitcoin_rd_constants as CONSTANTS, bitcoin_rd_web_utils as web_utils
+from hummingbot.connector.exchange.bitcoin_rd.bitcoin_rd_order_book import BitcoinRDOrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest
@@ -12,10 +12,10 @@ from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
 if TYPE_CHECKING:
-    from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
+    from hummingbot.connector.exchange.bitcoin_rd.bitcoin_rd_exchange import BitcoinRDExchange
 
 
-class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
+class BitcoinRDAPIOrderBookDataSource(OrderBookTrackerDataSource):
     HEARTBEAT_TIME_INTERVAL = 30.0
     TRADE_STREAM_ID = 1
     DIFF_STREAM_ID = 2
@@ -25,7 +25,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     def __init__(self,
                  trading_pairs: List[str],
-                 connector: 'BinanceExchange',
+                 connector: 'BitcoinRDExchange',
                  api_factory: WebAssistantsFactory,
                  domain: str = CONSTANTS.DEFAULT_DOMAIN):
         super().__init__(trading_pairs)
@@ -111,7 +111,7 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
         snapshot_timestamp: float = time.time()
-        snapshot_msg: OrderBookMessage = BinanceOrderBook.snapshot_message_from_exchange(
+        snapshot_msg: OrderBookMessage = BitcoinRDOrderBook.snapshot_message_from_exchange(
             snapshot,
             snapshot_timestamp,
             metadata={"trading_pair": trading_pair}
@@ -121,14 +121,14 @@ class BinanceAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         if "result" not in raw_message:
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["s"])
-            trade_message = BinanceOrderBook.trade_message_from_exchange(
+            trade_message = BitcoinRDOrderBook.trade_message_from_exchange(
                 raw_message, {"trading_pair": trading_pair})
             message_queue.put_nowait(trade_message)
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         if "result" not in raw_message:
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["s"])
-            order_book_message: OrderBookMessage = BinanceOrderBook.diff_message_from_exchange(
+            order_book_message: OrderBookMessage = BitcoinRDOrderBook.diff_message_from_exchange(
                 raw_message, time.time(), {"trading_pair": trading_pair})
             message_queue.put_nowait(order_book_message)
 

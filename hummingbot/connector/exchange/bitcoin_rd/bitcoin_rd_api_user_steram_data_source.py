@@ -2,8 +2,8 @@ import asyncio
 import time
 from typing import TYPE_CHECKING, List, Optional
 
-from hummingbot.connector.exchange.binance import binance_constants as CONSTANTS, binance_web_utils as web_utils
-from hummingbot.connector.exchange.binance.binance_auth import BinanceAuth
+from hummingbot.connector.exchange.bitcoin_rd import bitcoin_rd_constants as CONSTANTS, bitcoin_rd_web_utils as web_utils
+from hummingbot.connector.exchange.bitcoin_rd.bitcoin_rd_auth import BitcoinRDAuth
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
@@ -12,10 +12,10 @@ from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
 if TYPE_CHECKING:
-    from hummingbot.connector.exchange.binance.binance_exchange import BinanceExchange
+    from hummingbot.connector.exchange.bitcoin_rd.bitcoin_rd_exchange import BitcoinRDExchange
 
 
-class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
+class BitcoinRDAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     LISTEN_KEY_KEEP_ALIVE_INTERVAL = 1800  # Recommended to Ping/Update listen key to keep connection alive
     HEARTBEAT_TIME_INTERVAL = 30.0
@@ -23,13 +23,13 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
     _logger: Optional[HummingbotLogger] = None
 
     def __init__(self,
-                 auth: BinanceAuth,
+                 auth: BitcoinRDAuth,
                  trading_pairs: List[str],
-                 connector: 'BinanceExchange',
+                 connector: 'BitcoinRDExchange',
                  api_factory: WebAssistantsFactory,
                  domain: str = CONSTANTS.DEFAULT_DOMAIN):
         super().__init__()
-        self._auth: BinanceAuth = auth
+        self._auth: BitcoinRDAuth = auth
         self._current_listen_key = None
         self._domain = domain
         self._api_factory = api_factory
@@ -53,7 +53,7 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         Subscribes to the trade events and diff orders events through the provided websocket connection.
 
-        Binance does not require any channel subscription.
+        bitcoin_rd does not require any channel subscription.
 
         :param websocket_assistant: the websocket assistant used to connect to the exchange
         """
@@ -63,9 +63,9 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
         rest_assistant = await self._api_factory.get_rest_assistant()
         try:
             data = await rest_assistant.execute_request(
-                url=web_utils.public_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_PATH_URL, domain=self._domain),
+                url=web_utils.public_rest_url(path_url=CONSTANTS.BitcoinRD_USER_STREAM_PATH_URL, domain=self._domain),
                 method=RESTMethod.POST,
-                throttler_limit_id=CONSTANTS.BINANCE_USER_STREAM_PATH_URL,
+                throttler_limit_id=CONSTANTS.BitcoinRD_USER_STREAM_PATH_URL,
                 headers=self._auth.header_for_authentication()
             )
         except asyncio.CancelledError:
@@ -79,11 +79,11 @@ class BinanceAPIUserStreamDataSource(UserStreamTrackerDataSource):
         rest_assistant = await self._api_factory.get_rest_assistant()
         try:
             data = await rest_assistant.execute_request(
-                url=web_utils.public_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_PATH_URL, domain=self._domain),
+                url=web_utils.public_rest_url(path_url=CONSTANTS.BitcoinRD_USER_STREAM_PATH_URL, domain=self._domain),
                 params={"listenKey": self._current_listen_key},
                 method=RESTMethod.PUT,
                 return_err=True,
-                throttler_limit_id=CONSTANTS.BINANCE_USER_STREAM_PATH_URL,
+                throttler_limit_id=CONSTANTS.BitcoinRD_USER_STREAM_PATH_URL,
                 headers=self._auth.header_for_authentication()
             )
 
