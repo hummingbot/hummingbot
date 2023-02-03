@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
 
 import aioprocessing
 
+from hummingbot import root_path
 from hummingbot.connector.gateway.clob import clob_constants
 from hummingbot.connector.gateway.common_types import Chain
 from hummingbot.core.event.events import TradeType
@@ -14,7 +15,6 @@ from hummingbot.core.utils import detect_available_port
 
 if TYPE_CHECKING:
     from hummingbot import ClientConfigAdapter
-
 
 _default_paths: Optional["GatewayPaths"] = None
 _hummingbot_pipe: Optional[aioprocessing.AioConnection] = None
@@ -94,31 +94,12 @@ def get_gateway_paths(client_config_map: "ClientConfigAdapter") -> GatewayPaths:
     if _default_paths is not None:
         return _default_paths
 
-    inside_docker: bool = is_inside_docker()
-
-    gateway_container_name: str = get_gateway_container_name(client_config_map)
     external_certs_path: Optional[Path] = os.getenv("CERTS_FOLDER") and Path(os.getenv("CERTS_FOLDER"))
     external_conf_path: Optional[Path] = os.getenv("GATEWAY_CONF_FOLDER") and Path(os.getenv("GATEWAY_CONF_FOLDER"))
     external_logs_path: Optional[Path] = os.getenv("GATEWAY_LOGS_FOLDER") and Path(os.getenv("GATEWAY_LOGS_FOLDER"))
-
-    if inside_docker and not (external_certs_path and external_conf_path and external_logs_path):
-        raise EnvironmentError("CERTS_FOLDER, GATEWAY_CONF_FOLDER and GATEWAY_LOGS_FOLDER must be defined when "
-                               "running as container.")
-
-    base_path: Path = (
-        Path.home().joinpath(".hummingbot-gateway")
-        if inside_docker
-        else Path.home().joinpath(f".hummingbot-gateway/{gateway_container_name}")
-    )
-    conf_path: Path = (
-        Path.home().joinpath("hummingbot-files")
-        if inside_docker
-        else Path.home().joinpath(f"hummingbot-files/{gateway_container_name}")
-
-    )
-    local_certs_path: Path = base_path.joinpath("certs")
-    local_conf_path: Path = conf_path.joinpath("gateway-conf")
-    local_logs_path: Path = conf_path.joinpath("gateway-logs")
+    local_certs_path: Path = client_config_map.certs
+    local_conf_path: Path = root_path().joinpath("gateway/conf")
+    local_logs_path: Path = root_path().joinpath("gateway/logs")
     mount_certs_path: Path = external_certs_path or local_certs_path
     mount_conf_path: Path = external_conf_path or local_conf_path
     mount_logs_path: Path = external_logs_path or local_logs_path
