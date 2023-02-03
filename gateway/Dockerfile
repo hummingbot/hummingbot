@@ -21,14 +21,18 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # app directory
-WORKDIR /usr/src/app
-
-# create app writable directory for db files
-RUN mkdir /var/lib/gateway
-RUN chown -R hummingbot /var/lib/gateway
+WORKDIR /home/gateway
 
 # copy pwd file to container
 COPY . .
+
+RUN ln -s /conf /home/gateway/conf && \
+    ln -s /logs /home/gateway/logs && \
+    ln -s /certs /home/gateway/certs
+
+# create app writable directory for db files
+RUN mkdir -p /var/lib/gateway /certs /conf /logs
+RUN chown -R hummingbot:hummingbot /var/lib/gateway
 
 # install dependencies
 RUN yarn install --frozen-lockfile
