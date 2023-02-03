@@ -5,14 +5,14 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 from bidict import bidict
 
 from hummingbot.connector.constants import s_decimal_NaN
-from hummingbot.connector.exchange.binance import (
-    binance_constants as CONSTANTS,
-    binance_utils,
-    binance_web_utils as web_utils,
+from hummingbot.connector.exchange.bitcoin_rd import (
+    bitcoin_rd_constants as CONSTANTS,
+    bitcoin_rd_utils,
+    bitcoin_rd_web_utils as web_utils,
 )
-from hummingbot.connector.exchange.binance.binance_api_order_book_data_source import BinanceAPIOrderBookDataSource
-from hummingbot.connector.exchange.binance.binance_api_user_stream_data_source import BinanceAPIUserStreamDataSource
-from hummingbot.connector.exchange.binance.binance_auth import BinanceAuth
+from hummingbot.connector.exchange.bitcoin_rd.bitcoin_rd_api_order_book_data_source import BitcoinRDAPIOrderBookDataSource
+from hummingbot.connector.exchange.bitcoin_rd.bitcoin_rd_api_user_stream_data_source import BitcoinRDAPIUserStreamDataSource
+from hummingbot.connector.exchange.bitcoin_rd.bitcoin_rd_auth import BitcoinRDAuth
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import TradeFillOrderDetails, combine_to_hb_trading_pair
@@ -32,38 +32,38 @@ if TYPE_CHECKING:
 s_logger = None
 
 
-class BinanceExchange(ExchangePyBase):
+class bitcoin_rdExchange(ExchangePyBase):
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
 
     web_utils = web_utils
 
     def __init__(self,
                  client_config_map: "ClientConfigAdapter",
-                 binance_api_key: str,
-                 binance_api_secret: str,
+                 bitcoin_rd_api_key: str,
+                 bitcoin_rd_api_secret: str,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True,
                  domain: str = CONSTANTS.DEFAULT_DOMAIN,
                  ):
-        self.api_key = binance_api_key
-        self.secret_key = binance_api_secret
+        self.api_key = bitcoin_rd_api_key
+        self.secret_key = bitcoin_rd_api_secret
         self._domain = domain
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
-        self._last_trades_poll_binance_timestamp = 1.0
+        self._last_trades_poll_bitcoin_rd_timestamp = 1.0
         super().__init__(client_config_map)
 
     @staticmethod
-    def binance_order_type(order_type: OrderType) -> str:
+    def bitcoin_rd_order_type(order_type: OrderType) -> str:
         return order_type.name.upper()
 
     @staticmethod
-    def to_hb_order_type(binance_type: str) -> OrderType:
-        return OrderType[binance_type]
+    def to_hb_order_type(bitcoin_rd_type: str) -> OrderType:
+        return OrderType[bitcoin_rd_type]
 
     @property
     def authenticator(self):
-        return BinanceAuth(
+        return BitcoinRDAuth(
             api_key=self.api_key,
             secret_key=self.secret_key,
             time_provider=self._time_synchronizer)
@@ -71,9 +71,9 @@ class BinanceExchange(ExchangePyBase):
     @property
     def name(self) -> str:
         if self._domain == "com":
-            return "binance"
+            return "bitcoin_rd"
         else:
-            return f"binance_{self._domain}"
+            return f"bitcoin_rd_{self._domain}"
 
     @property
     def rate_limits_rules(self):
@@ -136,14 +136,14 @@ class BinanceExchange(ExchangePyBase):
             auth=self._auth)
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
-        return BinanceAPIOrderBookDataSource(
+        return BitcoinRDAPIOrderBookDataSource(
             trading_pairs=self._trading_pairs,
             connector=self,
             domain=self.domain,
             api_factory=self._web_assistants_factory)
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
-        return BinanceAPIUserStreamDataSource(
+        return BitcoinRDAPIUserStreamDataSource(
             auth=self._auth,
             trading_pairs=self._trading_pairs,
             connector=self,
@@ -173,7 +173,7 @@ class BinanceExchange(ExchangePyBase):
         order_result = None
         amount_str = f"{amount:f}"
         price_str = f"{price:f}"
-        type_str = BinanceExchange.binance_order_type(order_type)
+        type_str = BitcoinRDExchange.bitcoin_rd_order_type(order_type)
         side_str = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         api_params = {"symbol": symbol,
@@ -235,7 +235,7 @@ class BinanceExchange(ExchangePyBase):
         """
         trading_pair_rules = exchange_info_dict.get("symbols", [])
         retval = []
-        for rule in filter(binance_utils.is_exchange_information_valid, trading_pair_rules):
+        for rule in filter(bitcoin_rd_utils.is_exchange_information_valid, trading_pair_rules):
             try:
                 trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule.get("symbol"))
                 filters = rule.get("filters")
@@ -278,8 +278,8 @@ class BinanceExchange(ExchangePyBase):
         async for event_message in self._iter_user_event_queue():
             try:
                 event_type = event_message.get("e")
-                # Refer to https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md
-                # As per the order update section in Binance the ID of the order being canceled is under the "C" key
+                # Refer to https://github.com/bitcoinRD-exchange/bitcoinRD-official-api-docs/blob/master/user-data-stream.md
+                # As per the order update section in BitcoinRD the ID of the order being canceled is under the "C" key
                 if event_type == "executionReport":
                     execution_type = event_message.get("x")
                     if execution_type != "CANCELED":
@@ -338,10 +338,10 @@ class BinanceExchange(ExchangePyBase):
     async def _update_order_fills_from_trades(self):
         """
         This is intended to be a backup measure to get filled events with trade ID for orders,
-        in case Binance's user stream events are not working.
+        in case BitcoinRD's user stream events are not working.
         NOTE: It is not required to copy this functionality in other connectors.
         This is separated from _update_order_status which only updates the order status without producing filled
-        events, since Binance's get order endpoint does not return trade IDs.
+        events, since BitcoinRD's get order endpoint does not return trade IDs.
         The minimum poll interval for order status is 10 seconds.
         """
         small_interval_last_tick = self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
@@ -351,8 +351,8 @@ class BinanceExchange(ExchangePyBase):
 
         if (long_interval_current_tick > long_interval_last_tick
                 or (self.in_flight_orders and small_interval_current_tick > small_interval_last_tick)):
-            query_time = int(self._last_trades_poll_binance_timestamp * 1e3)
-            self._last_trades_poll_binance_timestamp = self._time_synchronizer.time()
+            query_time = int(self._last_trades_poll_bitcoin_rd_timestamp * 1e3)
+            self._last_trades_poll_bitcoin_rd_timestamp = self._time_synchronizer.time()
             order_by_exchange_id_map = {}
             for order in self._order_tracker.all_fillable_orders.values():
                 order_by_exchange_id_map[order.exchange_order_id] = order
@@ -515,7 +515,7 @@ class BinanceExchange(ExchangePyBase):
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
-        for symbol_data in filter(binance_utils.is_exchange_information_valid, exchange_info["symbols"]):
+        for symbol_data in filter(bitcoin_rd_utils.is_exchange_information_valid, exchange_info["symbols"]):
             mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(base=symbol_data["baseAsset"],
                                                                         quote=symbol_data["quoteAsset"])
         self._set_trading_pair_symbol_map(mapping)

@@ -8,7 +8,7 @@ from hummingbot.core.data_type.order_book_message import (
 )
 
 
-class BinanceOrderBook(OrderBook):
+class BitcoinRDOrderBook(OrderBook):
 
     @classmethod
     def snapshot_message_from_exchange(cls,
