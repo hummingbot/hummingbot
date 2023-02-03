@@ -4,6 +4,7 @@ import json
 from collections import OrderedDict
 from typing import Any, Dict
 from urllib.parse import urlencode
+import time
 
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.auth import AuthBase
@@ -11,10 +12,9 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RES
 
 
 class BitcoinRDAuth(AuthBase):
-    def __init__(self, api_key: str, secret_key: str, time_provider: TimeSynchronizer):
+    def __init__(self, api_key: str, secret_key: str):
         self.api_key = api_key
         self.secret_key = secret_key
-        self.time_provider = time_provider
 
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
         """
@@ -42,23 +42,28 @@ class BitcoinRDAuth(AuthBase):
         """
         return request  # pass-through
 
-    def add_auth_to_params(self,
-                           params: Dict[str, Any]):
-        timestamp = int(self.time_provider.time() * 1e3)
+    def get_api_expires():
+        return str(int(time.time() + 60))
 
-        request_params = OrderedDict(params or {})
-        request_params["timestamp"] = timestamp
+    def generate_signature(self):
+        method, path, api_expires = self.init_signature()
+        string_to_encode = method + path + api_expires
+        signature = hmac.new(self.secret_key.encode(),string_to_encode.encode(),hashlib.sha256).hexdigest()
+        return signature
 
-        signature = self._generate_signature(params=request_params)
-        request_params["signature"] = signature
+    def init_signature(self):
+        method = "GET"
+        path = "/v2/user/balance"
+        api_expires = self.get_api_expires()
+        return method, path, api_expires
 
-        return request_params
-
-    def header_for_authentication(self) -> Dict[str, str]:
-        return {"X-MBX-APIKEY": self.api_key}
-
-    def _generate_signature(self, params: Dict[str, Any]) -> str:
-
-        encoded_params_str = urlencode(params)
-        digest = hmac.new(self.secret_key.encode("utf8"), encoded_params_str.encode("utf8"), hashlib.sha256).hexdigest()
-        return digest
+    def auth_me(self):
+        method, path, api_expires = self.init_signature()
+        signature = self.generate_signature(method, path, self.get_api_expires())
+        api_expires = self.get_api_expires()
+        headers = {
+            "api-key": self.api_key,
+            "api-signature": signature,
+            "api-expires": api_expires
+        }
+        return headers
