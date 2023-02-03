@@ -86,10 +86,11 @@ class OrderStatusInfo:
         )
 
 
-class BloxrouteOpenbookOrderManager:
-    def __init__(self, provider: Provider, trading_pairs: List[str], owner_address: str):
+class BloxrouteOpenbookOrderDataManager:
+    def __init__(self, provider: Provider, trading_pairs: List[str], owner_address: str, start_timeout: int = 10):
         self._provider = provider
         self._owner_address = owner_address
+        self._start_timeout = start_timeout
 
         for index, trading_pair in enumerate(trading_pairs):
             trading_pairs[index] = normalize_trading_pair(trading_pair)
@@ -125,7 +126,7 @@ class BloxrouteOpenbookOrderManager:
 
             await self._initialize_order_status_streams()
 
-            await asyncio.sleep(10)
+            await asyncio.sleep(self._start_timeout)
 
             self._is_ready = True
             self._ready.set()
@@ -160,6 +161,7 @@ class BloxrouteOpenbookOrderManager:
         order_book_stream = self._provider.get_orderbooks_stream(
             markets=self._trading_pairs, limit=5, project=OPENBOOK_PROJECT
         )
+
         async for order_book_update in order_book_stream:
             self._apply_order_book_update(order_book_update.orderbook)
 
@@ -172,10 +174,6 @@ class BloxrouteOpenbookOrderManager:
         while True:
             order_status_update = await order_status_stream.__anext__()
             self._apply_order_status_update(order_status_update.order_info)
-
-            HummingbotApplication.main_application().notify(f"order type {order_status_update.order_info.order_status.name} | quant rel: {order_status_update.order_info.quantity_released} | "
-                                                            f"quant rem: {order_status_update.order_info.quantity_remaining} @ {order_status_update.order_info.order_price} | "
-                                                            f"side: {order_status_update.order_info.side.name} with id {order_status_update.order_info.client_order_i_d}")
 
     def _apply_order_book_update(self, update: GetOrderbookResponse):
         normalized_trading_pair = normalize_trading_pair(update.market)
@@ -209,6 +207,7 @@ class BloxrouteOpenbookOrderManager:
             raise Exception(f"order manager does not support updates for ${normalized_trading_pair}")
 
         order_statuses = self._markets_to_order_statuses[normalized_trading_pair]
+        client_order_id = os_update.client_order_i_d
         order_status_info = OrderStatusInfo(
             order_status=os_update.order_status,
             quantity_released=os_update.quantity_released,
@@ -216,13 +215,28 @@ class BloxrouteOpenbookOrderManager:
             side=os_update.side,
             fill_price=os_update.fill_price,
             order_price=os_update.order_price,
-            client_order_i_d=os_update.client_order_i_d,
+            client_order_i_d=client_order_id,
             timestamp=time.time(),
         )
-        if os_update.client_order_i_d in order_statuses:
-            order_statuses[os_update.client_order_i_d].append(order_status_info)
+
+        updated = False
+        if client_order_id in order_statuses:
+            if order_statuses[client_order_id][-1].order_status != os_update.order_status or order_statuses[client_order_id][-1].quantity_remaining != os_update.quantity_remaining:
+                order_statuses[client_order_id].append(order_status_info)
+                updated = True
         else:
-            order_statuses[os_update.client_order_i_d] = [order_status_info]
+            order_statuses[client_order_id] = [order_status_info]
+            updated = True
+
+        if updated:
+            remaining = order_status_info.quantity_remaining
+            released = order_status_info.quantity_released
+            if order_status_info.side == Side.S_BID:
+                remaining = remaining / order_status_info.order_price
+                released = released / order_status_info.order_price
+            HummingbotApplication.main_application().notify(f"order type {order_status_info.order_status.name} | quantity released: {released} | "
+                                                            f"quantity remaining: {remaining} | price:  {order_status_info.order_price} | "
+                                                            f"side: {order_status_info.side.name} | id {client_order_id}")
 
     def get_order_book(self, trading_pair: str) -> (Orderbook, float):
         normalized_trading_pair = normalize_trading_pair(trading_pair)

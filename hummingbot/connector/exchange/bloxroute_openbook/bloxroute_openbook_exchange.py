@@ -29,8 +29,8 @@ from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_api_ord
 from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_auth import BloxrouteOpenbookAuth
 from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_constants import OPENBOOK_PROJECT
 from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_order_book import BloxrouteOpenbookOrderBook
-from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_order_manager import (
-    BloxrouteOpenbookOrderManager,
+from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_order_data_manager import (
+    BloxrouteOpenbookOrderDataManager,
 )
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
@@ -63,6 +63,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         bloxroute_api_key: str,
         solana_wallet_public_key: str,
         solana_wallet_private_key: str,
+        open_orders_address: str,
         trading_pairs: Optional[List[str]] = None,
         trading_required: bool = True,
     ):
@@ -77,13 +78,14 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         self.logger().exception("api key is " + bloxroute_api_key)
         self.logger().exception("pub key is " + solana_wallet_public_key)
         self.logger().exception("private key is " + solana_wallet_private_key)
+        self.logger().exception("open orders address is " + open_orders_address)
 
         self._auth_header = "YmUwMjRkZjYtNGJmMy00MDY0LWE4MzAtNjU4MGM3ODhkM2E4OmY1ZWVhZTgxZjcwMzE5NjQ0ZmM3ZDYwNmIxZjg1YTUz"
         self._sol_wallet_public_key = solana_wallet_public_key
         self._sol_wallet_private_key = solana_wallet_private_key
         self._trading_required = trading_required
         self._hummingbot_to_solana_id = {}
-        self._open_orders_address = "8QMqXh2wp2iWxpnvLoBjFrRAZjQsKKWyRJw4dptvjCbX"
+        self._open_orders_address = open_orders_address
 
         self._server_response = GetServerTimeResponse
         endpoint = "ws://54.161.46.25:1809/ws"
@@ -91,7 +93,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         self._provider_2: Provider = WsProvider(endpoint=endpoint, auth_header=self._auth_header, private_key=self._sol_wallet_private_key)
 
         self._trading_pairs = trading_pairs
-        self._order_manager: BloxrouteOpenbookOrderManager = BloxrouteOpenbookOrderManager(
+        self._order_manager: BloxrouteOpenbookOrderDataManager = BloxrouteOpenbookOrderDataManager(
             self._provider_2, self._trading_pairs, self._sol_wallet_public_key
         )
         self._order_book_manager_connected = False
@@ -113,23 +115,26 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
 
     @property
     def name(self) -> str:
-        return "bloxroute_openbook"
+        return CONSTANTS.EXCHANGE_NAME
 
     async def check_network(self) -> NetworkStatus:
         await self._provider_1.connect()
         await self._order_manager.start()
 
-        self._server_response: GetServerTimeResponse = await self._provider_1.get_server_time()
-        if self._server_response.timestamp:
-            return NetworkStatus.CONNECTED
-        else:
+        try:
+            self._server_response: GetServerTimeResponse = await self._provider_1.get_server_time()
+            if self._server_response.timestamp:
+                return NetworkStatus.CONNECTED
+            else:
+                return NetworkStatus.NOT_CONNECTED
+        except Exception:
             return NetworkStatus.NOT_CONNECTED
 
     @property
     def status_dict(self) -> Dict[str, bool]:
         return {
-            "order_books_initialized": True,
-            "trading_rule_initialized": True,
+            "order_books_initialized": self._order_book_manager_connected,
+            "trading_rule_initialized": len(self._trading_rules) != 0,
         }
 
     def get_price(self, trading_pair: str, is_buy: bool) -> Decimal:
@@ -304,7 +309,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
                 skip_pre_flight=True,
             )
 
-            self.logger().info(f"cancelled order f{cancel_order_response}")
+            self.logger().info(f"cancelled order f{cancel_order_response} with id {blxr_client_order_id}")
             return cancel_order_response != ""
         except Exception as e:
             print(e)

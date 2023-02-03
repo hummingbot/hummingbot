@@ -6,12 +6,10 @@ from os.path import join, realpath
 from typing import Any, Callable, List, Optional
 
 import pandas as pd
-from telegram.bot import Bot
+from telegram import Bot, ReplyKeyboardMarkup, Update
+from telegram.constants import ParseMode
 from telegram.error import NetworkError, TelegramError
-from telegram.ext import Filters, MessageHandler, Updater
-from telegram.parsemode import ParseMode
-from telegram.replykeyboardmarkup import ReplyKeyboardMarkup
-from telegram.update import Update
+from telegram.ext import MessageHandler, Updater, filters as Filters
 
 import hummingbot
 from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
