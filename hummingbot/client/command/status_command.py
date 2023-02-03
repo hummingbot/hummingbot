@@ -91,10 +91,6 @@ class StatusCommand:
         self  # type: HummingbotApplication
     ) -> Dict[str, str]:
         invalid_conns = {}
-        if self.strategy_name == "celo_arb":
-            err_msg = await self.validate_n_connect_celo(True)
-            if err_msg is not None:
-                invalid_conns["celo"] = err_msg
         if not any([str(exchange).endswith("paper_trade") for exchange in required_exchanges]):
             connections = await UserBalances.instance().update_exchanges(self.client_config_map, exchanges=required_exchanges)
             invalid_conns.update({ex: err_msg for ex, err_msg in connections.items()

@@ -92,6 +92,10 @@ configurations:
     configurationPath: serum.yml
     schemaPath: serum-schema.json
 
+  $namespace cosmos:
+    configurationPath: cosmos.yml
+    schemaPath: cosmos-schema.json
+
   $namespace cronos:
     configurationPath: cronos.yml
     schemaPath: ethereum-schema.json

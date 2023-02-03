@@ -35,8 +35,7 @@ def validate_connector(value: str) -> Optional[str]:
     from hummingbot.client import settings
     from hummingbot.client.settings import AllConnectorSettings
     if (value not in AllConnectorSettings.get_connector_settings()
-            and value not in settings.PAPER_TRADE_EXCHANGES
-            and value != "celo"):
+            and value not in settings.PAPER_TRADE_EXCHANGES):
         return f"Invalid connector, please choose value from {AllConnectorSettings.get_connector_settings().keys()}"
 
 

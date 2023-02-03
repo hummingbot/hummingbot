@@ -69,7 +69,6 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingA
     config_parser.set_defaults(func=hummingbot.config)
 
     start_parser = subparsers.add_parser("start", help="Start the current bot")
-    start_parser.add_argument("--restore", default=False, action="store_true", dest="restore", help="Restore and maintain any active orders.")
     # start_parser.add_argument("--log-level", help="Level of logging")
     start_parser.add_argument("--script", type=str, dest="script", help="Script strategy file name")
 
@@ -110,6 +109,11 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingA
     gateway_connector_tokens_parser.add_argument("new_tokens", nargs="?", default=None, help="Report balance of these tokens - separate multiple tokens with commas (,)")
     gateway_connector_tokens_parser.set_defaults(func=hummingbot.gateway_connector_tokens)
 
+    gateway_approve_tokens_parser = gateway_subparsers.add_parser("approve-tokens", help="Approve tokens for gateway connectors")
+    gateway_approve_tokens_parser.add_argument("connector_chain_network", nargs="?", default=None, help="Name of connector you want to approve tokens for")
+    gateway_approve_tokens_parser.add_argument("tokens", nargs="?", default=None, help="Approve these tokens")
+    gateway_approve_tokens_parser.set_defaults(func=hummingbot.gateway_approve_tokens)
+
     gateway_cert_parser = gateway_subparsers.add_parser("generate-certs", help="Create ssl certifcate for gateway")
     gateway_cert_parser.set_defaults(func=hummingbot.generate_certs)
 
@@ -119,6 +123,9 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingA
     gateway_status_parser = gateway_subparsers.add_parser("status", help="Check status of gateway docker instance")
     gateway_status_parser.set_defaults(func=hummingbot.gateway_status)
 
+    gateway_list_parser = gateway_subparsers.add_parser("list", help="List gateway connectors and chains and tiers")
+    gateway_list_parser.set_defaults(func=hummingbot.gateway_list)
+
     gateway_stop_parser = gateway_subparsers.add_parser("stop", help="Stop gateway docker instance")
     gateway_stop_parser.set_defaults(func=hummingbot.gateway_stop)
 
@@ -126,7 +133,7 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingA
     gateway_test_parser.set_defaults(func=hummingbot.test_connection)
 
     exit_parser = subparsers.add_parser("exit", help="Exit and cancel all outstanding orders")
-    exit_parser.add_argument("-f", "--force", "--suspend", action="store_true", help="Force exit without canceling outstanding orders",
+    exit_parser.add_argument("-f", "--force", action="store_true", help="Force exit without canceling outstanding orders",
                              default=False)
     exit_parser.set_defaults(func=hummingbot.exit)
 
@@ -148,6 +155,31 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingA
     previous_strategy_parser = subparsers.add_parser("previous", help="Imports the last strategy used")
     previous_strategy_parser.add_argument("option", nargs="?", choices=["Yes,No"], default=None)
     previous_strategy_parser.set_defaults(func=hummingbot.previous_strategy)
+
+    mqtt_parser = subparsers.add_parser("mqtt", help="Manage MQTT Bridge to Message brokers")
+    mqtt_subparsers = mqtt_parser.add_subparsers()
+    mqtt_start_parser = mqtt_subparsers.add_parser("start", help="Start the MQTT Bridge")
+    mqtt_start_parser.add_argument(
+        "-t",
+        "--timeout",
+        default=30.0,
+        type=float,
+        dest="timeout",
+        help="Bridge connection timeout"
+    )
+    mqtt_start_parser.set_defaults(func=hummingbot.mqtt_start)
+    mqtt_stop_parser = mqtt_subparsers.add_parser("stop", help="Stop the MQTT Bridge")
+    mqtt_stop_parser.set_defaults(func=hummingbot.mqtt_stop)
+    mqtt_restart_parser = mqtt_subparsers.add_parser("restart", help="Restart the MQTT Bridge")
+    mqtt_restart_parser.add_argument(
+        "-t",
+        "--timeout",
+        default=30.0,
+        type=float,
+        dest="timeout",
+        help="Bridge connection timeout"
+    )
+    mqtt_restart_parser.set_defaults(func=hummingbot.mqtt_restart)
 
     # add shortcuts so they appear in command help
     shortcuts = hummingbot.client_config_map.command_shortcuts

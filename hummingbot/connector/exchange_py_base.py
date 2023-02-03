@@ -72,7 +72,10 @@ class ExchangePyBase(ExchangeBase, ABC):
 
         # init OrderBook Data Source and Tracker
         self._orderbook_ds: OrderBookTrackerDataSource = self._create_order_book_data_source()
-        self._set_order_book_tracker(self._create_order_book_tracker())
+        self._set_order_book_tracker(OrderBookTracker(
+            data_source=self._orderbook_ds,
+            trading_pairs=self.trading_pairs,
+            domain=self.domain))
 
         # init UserStream Data Source and Tracker
         self._user_stream_tracker = self._create_user_stream_tracker()
@@ -409,9 +412,9 @@ class ExchangePyBase(ExchangeBase, ABC):
                     if client_order_id is not None:
                         order_id_set.remove(client_order_id)
                         successful_cancellations.append(CancellationResult(client_order_id, True))
-        except Exception as e:
+        except Exception:
             self.logger().network(
-                f"Unexpected error cancelling orders. {e}",
+                "Unexpected error cancelling orders.",
                 exc_info=True,
                 app_warning_msg="Failed to cancel order. Check API key and network connection."
             )
@@ -829,13 +832,6 @@ class ExchangePyBase(ExchangeBase, ABC):
 
     def _is_user_stream_initialized(self):
         return self._user_stream_tracker.data_source.last_recv_time > 0 or not self.is_trading_required
-
-    def _create_order_book_tracker(self):
-        return OrderBookTracker(
-            data_source=self._orderbook_ds,
-            trading_pairs=self.trading_pairs,
-            domain=self.domain
-        )
 
     def _create_user_stream_tracker(self):
         return UserStreamTracker(data_source=self._create_user_stream_data_source())

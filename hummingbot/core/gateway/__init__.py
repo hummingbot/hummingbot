@@ -135,8 +135,11 @@ def get_gateway_paths(client_config_map: "ClientConfigAdapter") -> GatewayPaths:
 
 
 def get_default_gateway_port(client_config_map: "ClientConfigAdapter") -> int:
-    instance_id_portion = client_config_map.instance_id[:4]
-    return detect_available_port(16000 + int(instance_id_portion, 16) % 16000)
+    instance_id_portion = client_config_map.instance_id[:8]
+    sum = 0
+    for c in instance_id_portion:
+        sum += ord(c)
+    return detect_available_port(16000 + sum % 16000)
 
 
 def set_hummingbot_pipe(conn: aioprocessing.AioConnection):
