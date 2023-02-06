@@ -2,7 +2,7 @@
 
 mkdir -p /usr/src/app/gateway.level /usr/src/app/transactions.level \
     /usr/src/app/db
-chown -R hummingbot:hummingbot /usr/src/app/logs /usr/src/app/conf \
+chown -R hummingbot:hummingbot /usr/src/app/logs /usr/src/app/conf /usr/src/app/certs \
     /usr/src/app/gateway.level /usr/src/app/transactions.level \
     /usr/src/app/db
 

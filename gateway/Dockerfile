@@ -21,14 +21,14 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # app directory
-WORKDIR /home/gateway
+WORKDIR /usr/src/app/
 
 # copy pwd file to container
 COPY . .
 
-RUN ln -s /conf /home/gateway/conf && \
-    ln -s /logs /home/gateway/logs && \
-    ln -s /certs /home/gateway/certs
+RUN ln -s /conf /usr/src/app/conf && \
+    ln -s /logs /usr/src/app/logs && \
+    ln -s /certs /usr/src/app/certs
 
 # create app writable directory for db files
 RUN mkdir -p /var/lib/gateway /certs /conf /logs
