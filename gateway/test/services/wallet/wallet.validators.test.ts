@@ -6,8 +6,6 @@ import {
   invalidAddressError,
   validateChain,
   validateAddress,
-  isSolPrivateKey,
-  invalidSolPrivateKeyError,
   isNearPrivateKey,
   isCosmosPrivateKey,
   invalidCosmosPrivateKeyError,
@@ -41,30 +39,6 @@ describe('isEthPrivateKey', () => {
   });
 });
 
-describe('isSolPrivateKey', () => {
-  it('pass against a well formed base58 private key', () => {
-    expect(
-      isSolPrivateKey(
-        '5r1MuqBa3L9gpXHqULS3u2B142c5jA8szrEiL8cprvhjJDe6S2xz9Q4uppgaLegmuPpq4ftBpcMw7NNoJHJefiTt'
-      )
-    ).toEqual(true);
-  });
-
-  it('fail against a string that is too short', () => {
-    expect(
-      isSolPrivateKey('5r1MuqBa3L9gpXHqULS3u2B142c5jA8szrEiL8cprvhjJDe6S2xz9Q4')
-    ).toEqual(false);
-  });
-
-  it('fail against a string that has non-base58 characters', () => {
-    expect(
-      isSolPrivateKey(
-        '5r1MuqBa3L9gpXHqULS3u2B142c5jA8szrEiL8cprvhjJDe6S2xz9Q4uppgaLegmuPpq4ftBpcMw7NNoJHO0O0O0'
-      )
-    ).toEqual(false);
-  });
-});
-
 describe('isCosmosPrivateKey', () => {
   it('pass against a well formed private key', () => {
     expect(
@@ -93,7 +67,7 @@ describe('isNearPrivateKey', () => {
   });
 
   it('fail against a string that is invalid', () => {
-    expect(isSolPrivateKey('ed25519')).toEqual(false);
+    expect(isEthPrivateKey('ed25519')).toEqual(false);
   });
 });
 
@@ -158,16 +132,6 @@ describe('validatePrivateKey', () => {
     ).toEqual([]);
   });
 
-  it('valid when req.privateKey is a solana key', () => {
-    expect(
-      validatePrivateKey({
-        chain: 'solana',
-        privateKey:
-          '5r1MuqBa3L9gpXHqULS3u2B142c5jA8szrEiL8cprvhjJDe6S2xz9Q4uppgaLegmuPpq4ftBpcMw7NNoJHJefiTt',
-      })
-    ).toEqual([]);
-  });
-
   it('valid when req.privateKey is an binance-smart-chain key', () => {
     expect(
       validatePrivateKey({
@@ -215,15 +179,6 @@ describe('validatePrivateKey', () => {
     ).toEqual([invalidEthPrivateKeyError]);
   });
 
-  it('return error when req.privateKey is invalid solana key', () => {
-    expect(
-      validatePrivateKey({
-        chain: 'solana',
-        privateKey: 'world',
-      })
-    ).toEqual([invalidSolPrivateKeyError]);
-  });
-
   it('return error when req.privateKey is invalid binance-smart-chain key', () => {
     expect(
       validatePrivateKey({
@@ -256,14 +211,6 @@ describe('validateChain', () => {
     expect(
       validateChain({
         chain: 'avalanche',
-      })
-    ).toEqual([]);
-  });
-
-  it('valid when chain is solana', () => {
-    expect(
-      validateChain({
-        chain: 'solana',
       })
     ).toEqual([]);
   });
