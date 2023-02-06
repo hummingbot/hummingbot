@@ -25,10 +25,8 @@ class TestBinanceSpotCandles(unittest.TestCase):
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = cls.base_asset + cls.quote_asset
 
-    @patch("hummingbot.data_feed.candles_feed.binance_spot_candles.BinanceSpotCandles.start")
-    def setUp(self, start_mock) -> None:
+    def setUp(self) -> None:
         super().setUp()
-        start_mock.return_value = None
         self.mocking_assistant = NetworkMockingAssistant()
         self.data_feed = BinanceSpotCandles(trading_pair=self.trading_pair, interval=self.interval)
 
