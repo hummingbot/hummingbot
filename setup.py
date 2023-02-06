@@ -52,6 +52,7 @@ def main():
         "appnope",
         "async-timeout",
         "bidict",
+        "bxsolana-trader",
         "cachetools",
         "certifi",
         "cryptography",

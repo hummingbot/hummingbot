@@ -144,8 +144,16 @@ class BloxrouteOpenbookOrderDataManager:
     async def _initialize_order_books(self):
         await self._provider.connect()
         for trading_pair in self._trading_pairs:
-            orderbook = await self._provider.get_orderbook(market=trading_pair, limit=5, project=OPENBOOK_PROJECT)
-            self._apply_order_book_update(orderbook)
+            initialized = False
+            for i in range(5):
+                blxr_orderbook = await self._provider.get_orderbook(market=trading_pair, limit=5, project=OPENBOOK_PROJECT)
+                if blxr_orderbook.market != "":
+                    self._apply_order_book_update(blxr_orderbook)
+                    initialized = True
+
+                    break
+            if not initialized:
+                raise Exception(f"orderbook for {trading_pair} not initialized")
 
     async def _initialize_order_status_streams(self):
         for trading_pair in self._trading_pairs:
@@ -232,8 +240,8 @@ class BloxrouteOpenbookOrderDataManager:
             remaining = order_status_info.quantity_remaining
             released = order_status_info.quantity_released
             if order_status_info.side == Side.S_BID:
-                remaining = remaining / order_status_info.order_price
-                released = released / order_status_info.order_price
+                remaining = round(remaining / order_status_info.order_price, 2)
+                released = round(released / order_status_info.order_price, 2)
             HummingbotApplication.main_application().notify(f"order type {order_status_info.order_status.name} | quantity released: {released} | "
                                                             f"quantity remaining: {remaining} | price:  {order_status_info.order_price} | "
                                                             f"side: {order_status_info.side.name} | id {client_order_id}")

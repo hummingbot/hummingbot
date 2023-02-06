@@ -21,6 +21,7 @@ TOKEN_PAIR_TO_WALLET_ADDR = {
 EXCHANGE_NAME = "bloxroute_openbook"
 OPENBOOK_PROJECT = Project.P_OPENBOOK
 
+WS_URL = "ws://52.29.225.54:1809/ws"
 REST_URL = "https://virginia.solana.dex.blxrbdn.com"
 
 DEFAULT_DOMAIN = ""

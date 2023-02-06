@@ -88,7 +88,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         self._open_orders_address = open_orders_address
 
         self._server_response = GetServerTimeResponse
-        endpoint = "ws://54.161.46.25:1809/ws"
+        endpoint = CONSTANTS.WS_URL
         self._provider_1: Provider = WsProvider(endpoint=endpoint, auth_header=self._auth_header, private_key=self._sol_wallet_private_key)
         self._provider_2: Provider = WsProvider(endpoint=endpoint, auth_header=self._auth_header, private_key=self._sol_wallet_private_key)
 
@@ -129,6 +129,9 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
                 return NetworkStatus.NOT_CONNECTED
         except Exception:
             return NetworkStatus.NOT_CONNECTED
+
+    async def _update_time_synchronizer(self, pass_on_non_cancelled_error: bool = False):
+        pass
 
     @property
     def status_dict(self) -> Dict[str, bool]:
