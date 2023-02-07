@@ -10,8 +10,9 @@ export namespace ConfigManagerCertPassphrase {
   };
 
   export const readPassphrase = (): string | undefined => {
-    if (argvParser(process.argv)[PASSPHRASE_ARGUMENT]) {
-      return argvParser(process.argv)[PASSPHRASE_ARGUMENT];
+    const argv = argvParser(process.argv, { string: [PASSPHRASE_ARGUMENT] });
+    if (argv[PASSPHRASE_ARGUMENT]) {
+      return argv[PASSPHRASE_ARGUMENT];
     } else if (process.env[PASSPHRASE_ENV]) {
       return process.env[PASSPHRASE_ENV];
     }
