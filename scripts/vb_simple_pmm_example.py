@@ -9,8 +9,8 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
 class SimplePMM(ScriptStrategyBase):
-    bid_spread = 0.08
-    ask_spread = 0.08
+    bid_spread = 0.0001
+    ask_spread = 0.0001
     order_refresh_time = 15
     order_amount = 0.01
     create_timestamp = 0
@@ -21,16 +21,23 @@ class SimplePMM(ScriptStrategyBase):
 
     markets = {exchange: {trading_pair}}
 
+    price_ceiling = 0.005
+    price_floor = 0.005
+
     def on_tick(self):
         if self.create_timestamp <= self.current_timestamp:
             self.cancel_all_orders()
-            proposal: List[OrderCandidate] = self.create_proposal()
-            proposal_adjusted: List[OrderCandidate] = self.adjust_proposal_to_budget(proposal)
-            self.place_orders(proposal_adjusted)
+            ref_price = self.connectors[self.exchange].get_price_by_type(self.trading_pair, self.price_source)
+            prev_price = self.connectors[self.exchange].get_price_by_type(self.trading_pair, PriceType.LastTrade)
+            if self.check_price_ceiling(ref_price, prev_price) and self.check_price_floor(ref_price, prev_price):
+                self.log_with_clock(logging.INFO, f"Floor and ceiling checks passed")
+                proposal: List[OrderCandidate] = self.create_proposal(ref_price)
+                proposal_adjusted: List[OrderCandidate] = self.adjust_proposal_to_budget(proposal)
+                self.place_orders(proposal_adjusted)
             self.create_timestamp = self.order_refresh_time + self.current_timestamp
 
-    def create_proposal(self) -> List[OrderCandidate]:
-        ref_price = self.connectors[self.exchange].get_price_by_type(self.trading_pair, self.price_source)
+    def create_proposal(self, ref_price: Decimal) -> List[OrderCandidate]:
+
         buy_price = ref_price * Decimal(1 - self.bid_spread)
         sell_price = ref_price * Decimal(1 + self.ask_spread)
 
@@ -66,3 +73,25 @@ class SimplePMM(ScriptStrategyBase):
         msg = (f"{event.trade_type.name} {round(event.amount, 2)} {event.trading_pair} {self.exchange} at {round(event.price, 2)}")
         self.log_with_clock(logging.INFO, msg)
         self.notify_hb_app_with_timestamp(msg)
+
+    def check_price_ceiling(self, current_price: Decimal, previous_price: Decimal) -> bool:
+        diff = current_price - previous_price
+        if diff < 0:
+            return True
+        relative_diff = diff / previous_price
+        if relative_diff < self.price_ceiling:
+            return True
+        else:
+            self.log_with_clock(logging.INFO, f"Price {current_price} above the ceiling threshold {self.price_ceiling}.")
+            return True
+
+    def check_price_floor(self, current_price: Decimal, previous_price: Decimal) -> bool:
+        diff = previous_price - current_price
+        if diff < 0:
+            return True
+        relative_diff = diff / previous_price
+        if relative_diff > self.price_floor:
+            return False
+        else:
+            self.log_with_clock(logging.INFO, f"Price {current_price} is below the floor threshold {self.price_floor}.")
+            return False
