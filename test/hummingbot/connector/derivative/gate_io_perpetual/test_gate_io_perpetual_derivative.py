@@ -1224,6 +1224,37 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         pos = list(self.exchange.account_positions.values())[0]
         self.assertEqual(pos.amount, 3 * amount_precision)
 
+    def test_user_stream_remove_position_update(self):
+        client_config_map = ClientConfigAdapter(ClientConfigMap())
+        connector = GateIoPerpetualDerivative(
+            client_config_map=client_config_map,
+            gate_io_perpetual_api_key=self.api_key,
+            gate_io_perpetual_secret_key=self.api_secret,
+            gate_io_perpetual_user_id=self.user_id,
+            trading_pairs=[self.trading_pair],
+        )
+        connector._set_current_timestamp(1640780000)
+
+        position_event = self.position_event_websocket_update_zero
+        self._simulate_trading_rules_initialized()
+        self.exchange.account_positions[self.trading_pair] = Position(
+            trading_pair=self.trading_pair,
+            position_side=PositionSide.SHORT,
+            unrealized_pnl=Decimal('1'),
+            entry_price=Decimal('1'),
+            amount=Decimal('1'),
+            leverage=Decimal('1'),
+        )
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [position_event, asyncio.CancelledError]
+        self.exchange._user_stream_tracker._user_stream = mock_queue
+
+        try:
+            asyncio.get_event_loop().run_until_complete(self.exchange._user_stream_event_listener())
+        except asyncio.CancelledError:
+            pass
+        self.assertEqual(len(self.exchange.account_positions), 0)
+
     def test_supported_position_modes(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         linear_connector = GateIoPerpetualDerivative(
