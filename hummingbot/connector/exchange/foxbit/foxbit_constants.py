@@ -8,10 +8,8 @@ USER_AGENT = "HBOT"
 MAX_ORDER_ID_LEN = 20
 
 # Base URL
-# REST_URL = "api.foxbit.com.br"
-# WSS_URL = "api.foxbit.com.br"
-REST_URL = "api-homolog.thesail.pro"
-WSS_URL = "foxbit-api-gateway-homolog.thesail.pro"
+REST_URL = "api.foxbit.com.br"
+WSS_URL = "api.foxbit.com.br"
 
 PUBLIC_API_VERSION = "v3"
 PRIVATE_API_VERSION = "v3"

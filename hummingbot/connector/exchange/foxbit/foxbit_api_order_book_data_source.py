@@ -131,11 +131,13 @@ class FoxbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 instrument_id=full_msg[0][FoxbitOrderBookFields.PRODUCTPAIRCODE.value]
             )
             for msg in full_msg:
-                order_book_message: OrderBookMessage = FoxbitOrderBook.diff_message_from_exchange(
-                    msg=msg,
-                    metadata={"trading_pair": trading_pair, "first_update_id": self._first_update_id[trading_pair]}
-                )
-                message_queue.put_nowait(order_book_message)
+                # ACTIONTYPE == 2 informs it is a deletion
+                if int(msg[FoxbitOrderBookFields.ACTIONTYPE.value]) < 2 and float(msg[FoxbitOrderBookFields.QUANTITY.value]) > 0.0:
+                    order_book_message: OrderBookMessage = FoxbitOrderBook.diff_message_from_exchange(
+                        msg=msg,
+                        metadata={"trading_pair": trading_pair, "first_update_id": self._first_update_id[trading_pair]}
+                    )
+                    message_queue.put_nowait(order_book_message)
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
         channel = ""

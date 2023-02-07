@@ -78,7 +78,7 @@ class FoxbitOrderBook(OrderBook):
                     "trading_pair": metadata["trading_pair"],
                     "first_update_id": int(metadata["first_update_id"]),
                     "update_id": int(msg[FoxbitOrderBookFields.MDUPDATEID.value]),
-                    "bids": [[float(msg[FoxbitOrderBookFields.PRICE.value]), float(msg[FoxbitOrderBookFields.QUANTITY.value])]],
+                    "bids": [['%.10f' % float(msg[FoxbitOrderBookFields.PRICE.value]), msg[FoxbitOrderBookFields.QUANTITY.value]]],
                     "asks": [],
                 }, timestamp=int(msg[FoxbitOrderBookFields.ACTIONDATETIME.value])
             )
@@ -89,7 +89,7 @@ class FoxbitOrderBook(OrderBook):
                     "first_update_id": int(metadata["first_update_id"]),
                     "update_id": int(msg[FoxbitOrderBookFields.MDUPDATEID.value]),
                     "bids": [],
-                    "asks": [[float(msg[FoxbitOrderBookFields.PRICE.value]), float(msg[FoxbitOrderBookFields.QUANTITY.value])]],
+                    "asks": [['%.10f' % float(msg[FoxbitOrderBookFields.PRICE.value]), msg[FoxbitOrderBookFields.QUANTITY.value]]],
                 }, timestamp=int(msg[FoxbitOrderBookFields.ACTIONDATETIME.value])
             )
         return obook
@@ -111,6 +111,6 @@ class FoxbitOrderBook(OrderBook):
             "trade_type": float(TradeType.SELL.value) if msg[FoxbitTradeFields.SIDE.value] == 1 else float(TradeType.BUY.value),
             "trade_id": msg[FoxbitTradeFields.ID.value],
             "update_id": ts,
-            "price": msg[FoxbitTradeFields.PRICE.value],
+            "price": '%.10f' % float(msg[FoxbitTradeFields.PRICE.value]),
             "amount": msg[FoxbitTradeFields.VOLUME.value]
         }, timestamp=ts * 1e-3)
