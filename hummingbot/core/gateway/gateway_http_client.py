@@ -77,7 +77,7 @@ class GatewayHttpClient:
         :returns Shared client session instance
         """
         if cls._shared_client is None or re_init:
-            cert_path = client_config_map.certs.path
+            cert_path = client_config_map.certs_path
             ssl_ctx = ssl.create_default_context(cafile=f"{cert_path}/ca_cert.pem")
             ssl_ctx.load_cert_chain(certfile=f"{cert_path}/client_cert.pem",
                                     keyfile=f"{cert_path}/client_key.pem",
