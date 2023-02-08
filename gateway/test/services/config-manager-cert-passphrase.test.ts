@@ -36,4 +36,12 @@ describe('ConfigManagerCertPassphrase.readPassphrase', () => {
     expect(certPhrase).toEqual(passphrase);
     delete process.env['GATEWAY_PASSPHRASE'];
   });
+
+  it('should accept numeric cert phrase', async () => {
+    const passphrase = '12345';
+    process.env['GATEWAY_PASSPHRASE'] = passphrase;
+    const certPhrase = ConfigManagerCertPassphrase.readPassphrase();
+    expect(certPhrase).toEqual(passphrase);
+    delete process.env['GATEWAY_PASSPHRASE'];
+  });
 });
