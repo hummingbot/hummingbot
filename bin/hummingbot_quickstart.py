@@ -95,17 +95,22 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
     # Todo: validate strategy and config_file_name before assinging
 
     strategy_config = None
+    is_script = False
     if config_file_name is not None:
         hb.strategy_file_name = config_file_name
-        strategy_config = await load_strategy_config_map_from_file(
-            STRATEGIES_CONF_DIR_PATH / config_file_name
-        )
-        hb.strategy_name = (
-            strategy_config.strategy
-            if isinstance(strategy_config, ClientConfigAdapter)
-            else strategy_config.get("strategy").value
-        )
-        hb.strategy_config_map = strategy_config
+        if config_file_name.split(".")[-1] == "py":
+            hb.strategy_name = hb.strategy_file_name
+            is_script = True
+        else:
+            strategy_config = await load_strategy_config_map_from_file(
+                STRATEGIES_CONF_DIR_PATH / config_file_name
+            )
+            hb.strategy_name = (
+                strategy_config.strategy
+                if isinstance(strategy_config, ClientConfigAdapter)
+                else strategy_config.get("strategy").value
+            )
+            hb.strategy_config_map = strategy_config
 
     if strategy_config is not None:
         if not all_configs_complete(strategy_config, hb.client_config_map):
@@ -113,7 +118,7 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
 
     # The listener needs to have a named variable for keeping reference, since the event listener system
     # uses weak references to remove unneeded listeners.
-    start_listener: UIStartListener = UIStartListener(hb, is_quickstart=True)
+    start_listener: UIStartListener = UIStartListener(hb, is_script=is_script, is_quickstart=True)
     hb.app.add_listener(HummingbotUIEvent.Start, start_listener)
 
     tasks: List[Coroutine] = [hb.run(), start_existing_gateway_container(client_config_map)]
