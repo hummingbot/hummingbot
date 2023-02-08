@@ -13,7 +13,7 @@ from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 
 
 class CandlesBase(NetworkBase):
-    columns = ["timestamp", "open", "low", "high", "close", "volume", "quote_asset_volume",
+    columns = ["timestamp", "open", "high", "low", "close", "volume", "quote_asset_volume",
                "n_trades", "taker_buy_base_volume", "taker_buy_quote_volume"]
 
     def __init__(self, trading_pair: str, interval: str = "1m", max_records: int = 150):

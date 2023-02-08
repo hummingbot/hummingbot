@@ -128,8 +128,8 @@ class BinanceSpotCandles(CandlesBase):
             if data is not None and data.get("e") == "kline":  # data will be None when the websocket is disconnected
                 timestamp = data["k"]["t"]
                 open = data["k"]["o"]
-                low = data["k"]["l"]
                 high = data["k"]["h"]
+                low = data["k"]["l"]
                 close = data["k"]["c"]
                 volume = data["k"]["v"]
                 quote_asset_volume = data["k"]["q"]
@@ -137,12 +137,17 @@ class BinanceSpotCandles(CandlesBase):
                 taker_buy_base_volume = data["k"]["V"]
                 taker_buy_quote_volume = data["k"]["Q"]
                 if len(self._candles) == 0:
-                    self._candles.append(np.array([timestamp, open, low, high, close, volume,
+                    self._candles.append(np.array([timestamp, open, high, low, close, volume,
                                                    quote_asset_volume, n_trades, taker_buy_base_volume,
                                                    taker_buy_quote_volume]))
                     await self.fill_historical_candles()
                 elif timestamp > int(self._candles[-1][0]):
                     # TODO: validate also that the diff of timestamp == interval (issue with 1M interval).
-                    self._candles.append(np.array([timestamp, open, low, high, close, volume,
+                    self._candles.append(np.array([timestamp, open, high, low, close, volume,
+                                                   quote_asset_volume, n_trades, taker_buy_base_volume,
+                                                   taker_buy_quote_volume]))
+                elif timestamp == int(self._candles[-1][0]):
+                    self._candles.pop()
+                    self._candles.append(np.array([timestamp, open, high, low, close, volume,
                                                    quote_asset_volume, n_trades, taker_buy_base_volume,
                                                    taker_buy_quote_volume]))
