@@ -2,7 +2,6 @@
 import express from 'express';
 import { Request, Response, NextFunction } from 'express';
 import { ConfigRoutes } from './services/config/config.routes';
-import { SolanaRoutes } from './chains/solana/solana.routes';
 import { CosmosRoutes } from './chains/cosmos/cosmos.routes';
 import { WalletRoutes } from './services/wallet/wallet.routes';
 import { logger } from './services/logger';
@@ -28,11 +27,8 @@ import { OpenoceanConfig } from './connectors/openocean/openocean.config';
 import { VVSConfig } from './connectors/vvs/vvs.config';
 import { AvailableNetworks } from './services/config-manager-types';
 import morgan from 'morgan';
-import { ClobRoutes } from './clob/clob.routes';
-import { SerumRoutes } from './connectors/serum/serum.routes';
 import { SushiswapConfig } from './connectors/sushiswap/sushiswap.config';
 import { DefikingdomsConfig } from './connectors/defikingdoms/defikingdoms.config';
-import { SerumConfig } from './connectors/serum/serum.config';
 import { PancakeSwapConfig } from './connectors/pancakeswap/pancakeswap.config';
 
 import swaggerUi from 'swagger-ui-express';
@@ -67,10 +63,7 @@ gatewayApp.use('/connectors', ConnectorsRoutes.router);
 gatewayApp.use('/amm', AmmRoutes.router);
 gatewayApp.use('/amm/perp', PerpAmmRoutes.router);
 gatewayApp.use('/amm/liquidity', AmmLiquidityRoutes.router);
-gatewayApp.use('/clob', ClobRoutes.router);
 gatewayApp.use('/wallet', WalletRoutes.router);
-gatewayApp.use('/solana', SolanaRoutes.router);
-gatewayApp.use('/serum', SerumRoutes.router);
 gatewayApp.use('/cosmos', CosmosRoutes.router);
 gatewayApp.use('/near', NearRoutes.router);
 
@@ -94,7 +87,6 @@ gatewayApp.get(
       openocean: OpenoceanConfig.config.availableNetworks,
       traderjoe: TraderjoeConfig.config.availableNetworks,
       defikingdoms: DefikingdomsConfig.config.availableNetworks,
-      serum: SerumConfig.config.availableNetworks,
       mad_meerkat: MadMeerkatConfig.config.availableNetworks,
       vvs: VVSConfig.config.availableNetworks,
       pancakeswap: PancakeSwapConfig.config.availableNetworks,
@@ -137,10 +129,7 @@ export const swaggerDocument = SwaggerManager.generateSwaggerJson(
     './docs/swagger/amm-liquidity-routes.yml',
     './docs/swagger/evm-routes.yml',
     './docs/swagger/network-routes.yml',
-    './docs/swagger/solana-routes.yml',
     './docs/swagger/near-routes.yml',
-    './docs/swagger/clob-routes.yml',
-    './docs/swagger/serum-routes.yml',
     './docs/swagger/cosmos-routes.yml',
   ]
 );
