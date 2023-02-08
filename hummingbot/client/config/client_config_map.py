@@ -899,10 +899,10 @@ class ClientConfigMap(BaseClientModel):
                      "\ndefault host to only use localhost"
                      "\nPort need to match the final installation port for Gateway"),
     )
-    certs: Path = Field(
+    certs_path: Path = Field(
         default=DEFAULT_GATEWAY_CERTS_PATH,
         client_data=ClientFieldData(
-            prompt=lambda cm: f"Where would you like to save your logs? (default '{DEFAULT_GATEWAY_CERTS_PATH}')",
+            prompt=lambda cm: f"Where would you like to save certificates that connect your bot to Gateway? (default '{DEFAULT_GATEWAY_CERTS_PATH}')",
         ),
     )
 
