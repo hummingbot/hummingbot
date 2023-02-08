@@ -112,8 +112,8 @@ export class Injective {
       resolveDBPath(
         ConfigManagerV2.getInstance().get('database.transactionDbPath')
       ),
-      60000,
-      60000
+      3600000,
+      3600000
     );
     const config = getInjectiveConfig(networkToString(network));
     this.maxCacheSize = config.network.maxLRUCacheInstances;
