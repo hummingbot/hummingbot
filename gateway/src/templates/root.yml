@@ -4,10 +4,6 @@ configurations:
     configurationPath: harmony.yml
     schemaPath: harmony-schema.json
 
-  $namespace solana:
-    configurationPath: solana.yml
-    schemaPath: solana-schema.json
-
   $namespace avalanche:
     configurationPath: avalanche.yml
     schemaPath: ethereum-schema.json
@@ -87,10 +83,6 @@ configurations:
   $namespace defikingdoms:
     configurationPath: defikingdoms.yml
     schemaPath: defikingdoms-schema.json
-
-  $namespace serum:
-    configurationPath: serum.yml
-    schemaPath: serum-schema.json
 
   $namespace cosmos:
     configurationPath: cosmos.yml
