@@ -21,14 +21,20 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # app directory
-WORKDIR /usr/src/app
-
-# create app writable directory for db files
-RUN mkdir /var/lib/gateway
-RUN chown -R hummingbot /var/lib/gateway
+WORKDIR /usr/src/app/
 
 # copy pwd file to container
 COPY . .
+
+RUN ln -s /conf /usr/src/app/conf && \
+    ln -s /logs /usr/src/app/logs && \
+    ln -s /certs /usr/src/app/certs
+
+# create app writable directory for db files
+RUN mkdir -p /var/lib/gateway /certs /conf /logs /usr/src/app/gateway.level /usr/src/app/transactions.level \
+    /usr/src/app/db
+RUN chown -R hummingbot:hummingbot /var/lib/gateway /usr/src/app/logs /usr/src/app/conf /usr/src/app/certs \
+    /usr/src/app/gateway.level /usr/src/app/transactions.level /usr/src/app/db
 
 # install dependencies
 RUN yarn install --frozen-lockfile
@@ -37,4 +43,4 @@ EXPOSE 15888
 
 RUN yarn build
 
-CMD ["bin/docker-start.sh"]
+CMD ["gosu", "hummingbot:hummingbot", "yarn", "run", "start"]
