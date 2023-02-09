@@ -12,7 +12,7 @@ class SignalFactory:
     def __init__(self, max_records: int, connectors: Dict[str, ConnectorBase], interval: str = "1m"):
         self.connectors = connectors
         self.candles = {
-            connector_name: {trading_pair: CandlesFactory.get_candle(connector="binance_spot",
+            connector_name: {trading_pair: CandlesFactory.get_candle(connector="binance_perpetuals",
                                                                      trading_pair=trading_pair,
                                                                      interval=interval, max_records=max_records)
                              for trading_pair in connector.trading_pairs} for
@@ -51,9 +51,9 @@ class SignalFactory:
                 for connector_name, trading_pairs_features in self.features_df().items()}
 
 
-class DirectionalStrategyPerpetuals(ScriptStrategyBase):
+class CandlesticksExample(ScriptStrategyBase):
     max_executors_by_connector_trading_pair = 1
-    trading_pairs = ["ETH-USDT", "BTC-USDT"]
+    trading_pairs = ["ETH-USDT"]
     exchange = "binance_paper_trade"
     markets = {exchange: set(trading_pairs)}
 
@@ -63,7 +63,7 @@ class DirectionalStrategyPerpetuals(ScriptStrategyBase):
 
     def on_tick(self):
         if not self.signal_factory:
-            self.signal_factory = SignalFactory(max_records=1000, connectors=self.connectors, interval="3d")
+            self.signal_factory = SignalFactory(max_records=2500, connectors=self.connectors, interval="1d")
             self.signal_factory.start()
 
     def on_stop(self):

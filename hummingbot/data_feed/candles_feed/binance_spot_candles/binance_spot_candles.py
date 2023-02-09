@@ -78,16 +78,23 @@ class BinanceSpotCandles(CandlesBase):
         return np.array(candles)[:, [0, 1, 2, 3, 4, 5, 7, 8, 9, 10]].astype(np.float)
 
     async def fill_historical_candles(self):
+        max_request_needed = (self._candles.maxlen // 1000) + 1
+        requests_executed = 0
         while not self.is_ready:
             missing_records = self._candles.maxlen - len(self._candles)
             end_timestamp = int(self._candles[0][0])
             try:
-                # we have to add one more since, the last row is not going to be included
-                candles = await self.fetch_candles(end_time=end_timestamp, limit=missing_records + 1)
-                # we are computing again the quantity of records again since the websocket process is able to
-                # modify the deque and if we extend it, the new observations are going to be dropped.
-                missing_records = self._candles.maxlen - len(self._candles)
-                self._candles.extendleft(candles[-(missing_records + 1):-1][::-1])
+                if requests_executed < max_request_needed:
+                    # we have to add one more since, the last row is not going to be included
+                    candles = await self.fetch_candles(end_time=end_timestamp, limit=missing_records + 1)
+                    # we are computing again the quantity of records again since the websocket process is able to
+                    # modify the deque and if we extend it, the new observations are going to be dropped.
+                    missing_records = self._candles.maxlen - len(self._candles)
+                    self._candles.extendleft(candles[-(missing_records + 1):-1][::-1])
+                    requests_executed += 1
+                else:
+                    self.logger().error("There is no data available for the quantity of candles requested.")
+                    raise
             except asyncio.CancelledError:
                 raise
             except Exception:
