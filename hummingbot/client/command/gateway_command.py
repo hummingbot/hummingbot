@@ -9,13 +9,10 @@ import pandas as pd
 from hummingbot.client.command.gateway_api_manager import GatewayChainApiManager, begin_placeholder_mode
 from hummingbot.client.config.config_helpers import refresh_trade_fees_config, save_to_yml
 from hummingbot.client.config.security import Security
-from hummingbot.client.settings import (
-    CLIENT_CONFIG_PATH,
-    GATEWAY_SSL_CONF_FILE,
-    AllConnectorSettings,
-    GatewayConnectionSetting,
-)
+from hummingbot.client.settings import CLIENT_CONFIG_PATH, AllConnectorSettings, GatewayConnectionSetting
 from hummingbot.client.ui.completer import load_completer
+from hummingbot.client.ui.interface_utils import format_df_for_printout
+from hummingbot.connector.connector_status import get_connector_status
 from hummingbot.core.gateway import (
     GATEWAY_DOCKER_REPO,
     GATEWAY_DOCKER_TAG,
@@ -36,11 +33,12 @@ from hummingbot.core.utils.gateway_config_utils import (
     build_config_dict_display,
     build_connector_display,
     build_connector_tokens_display,
+    build_list_display,
     build_wallet_display,
     native_tokens,
     search_configs,
 )
-from hummingbot.core.utils.ssl_cert import certs_files_exist, create_self_sign_certs
+from hummingbot.core.utils.ssl_cert import create_self_sign_certs
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
@@ -84,6 +82,9 @@ class GatewayCommand(GatewayChainApiManager):
     def test_connection(self):
         safe_ensure_future(self._test_connection(), loop=self.ev_loop)
 
+    def gateway_list(self):
+        safe_ensure_future(self._gateway_list(), loop=self.ev_loop)
+
     def gateway_config(self,
                        key: Optional[str] = None,
                        value: str = None):
@@ -107,45 +108,11 @@ class GatewayCommand(GatewayChainApiManager):
     async def _generate_certs(
             self,       # type: HummingbotApplication
             from_client_password: bool = False,
-            bypass_source_check: bool = False
     ):
 
-        if not is_inside_docker and not bypass_source_check:
-            with begin_placeholder_mode(self):
-                while True:
-                    docker_check = await self.app.prompt(
-                        prompt="This command is designed to generate Gateway certificates. "
-                        "When you have installed Hummingbot from source, "
-                        "Do you want to continue? (Yes/No) >>> ",
-                    )
-                    if self.app.to_stop_config:
-                        return
-                    if docker_check in ["Y", "y", "Yes", "yes"]:
-                        break
-                    if docker_check in ["N", "n", "No", "no"]:
-                        return
-                    self.notify("Invalid input. Please try again or exit config [CTRL + x].\n")
-
-        cert_path: str = get_gateway_paths(self.client_config_map).local_certs_path.as_posix()
-        current_path: str = self.client_config_map.certs.path
-        if not GATEWAY_SSL_CONF_FILE.exists() and not bypass_source_check:
-            self.notify("\nSSL configuration file not found. Please use `gateway/setup/generate_conf.sh` to generate it.")
-        elif GATEWAY_SSL_CONF_FILE.exists():
-            self.ssl_config_map.caCertificatePath = cert_path + "/ca_cert.pem"
-            self.ssl_config_map.certificatePath = cert_path + "/server_cert.pem"
-            self.ssl_config_map.keyPath = cert_path + "/server_key.pem"
-            save_to_yml(GATEWAY_SSL_CONF_FILE, self.ssl_config_map)  # Update SSL config file
-
-        if current_path != cert_path:
-            self.client_config_map.certs.path = cert_path
-            save_to_yml(CLIENT_CONFIG_PATH, self.client_config_map)  # Update config file
+        certs_path: str = get_gateway_paths(self.client_config_map).local_certs_path.as_posix()
 
         if not from_client_password:
-            if certs_files_exist(self.client_config_map):
-                self.notify(f"Gateway SSL certification files exist in {cert_path}.")
-                self.notify("To create new certification files, please first manually delete those files.")
-                return
-
             with begin_placeholder_mode(self):
                 while True:
                     pass_phase = await self.app.prompt(
@@ -157,8 +124,8 @@ class GatewayCommand(GatewayChainApiManager):
                     self.notify("Error: Invalid pass phase")
         else:
             pass_phase = Security.secrets_manager.password.get_secret_value()
-        create_self_sign_certs(pass_phase, self.client_config_map)
-        self.notify(f"Gateway SSL certification files are created in {cert_path}.")
+        create_self_sign_certs(pass_phase, certs_path)
+        self.notify(f"Gateway SSL certification files are created in {certs_path}.")
         self._get_gateway_instance().reload_certs(self.client_config_map)
 
     async def _generate_gateway_confs(
@@ -223,7 +190,7 @@ class GatewayCommand(GatewayChainApiManager):
         except Exception:
             pass  # silently ignore exception
 
-        await self._generate_certs(from_client_password = True, bypass_source_check = True)  # create cert
+        await self._generate_certs(from_client_password=True)  # create cert
 
         if await self.check_gateway_image(GATEWAY_DOCKER_REPO, GATEWAY_DOCKER_TAG):
             self.notify("Found Gateway docker image. No image pull needed.")
@@ -624,6 +591,23 @@ class GatewayCommand(GatewayChainApiManager):
         else:
             GatewayConnectionSetting.upsert_connector_spec_tokens(connector_chain_network, new_tokens)
             self.notify(f"The 'balance' command will now report token balances {new_tokens} for '{connector_chain_network}'.")
+
+    async def _gateway_list(
+        self           # type: HummingbotApplication
+    ):
+        connector_list: List[Dict[str, Any]] = await self._get_gateway_instance().get_connectors()
+        connectors_tiers: List[Dict[str, Any]] = []
+        for connector in connector_list["connectors"]:
+            connector['tier'] = get_connector_status(connector['name'])
+            available_networks: List[Dict[str, Any]] = connector["available_networks"]
+            chains: List[str] = [d['chain'] for d in available_networks]
+            connector['chains'] = chains
+            connectors_tiers.append(connector)
+        connectors_df: pd.DataFrame = build_list_display(connectors_tiers)
+        lines = ["    " + line for line in format_df_for_printout(
+            connectors_df,
+            table_format=self.client_config_map.tables_format).split("\n")]
+        self.notify("\n".join(lines))
 
     async def _update_gateway_approve_tokens(
             self,           # type: HummingbotApplication
