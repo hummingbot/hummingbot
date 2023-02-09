@@ -32,7 +32,7 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
 
 class BloxRouteConnectorMap(BaseConnectorConfigMap):
     connector: str = Field(default="bloxroute_openbook", client_data=None)
-    bloxroute_api_key: SecretStr = Field(
+    bloxroute_auth_header: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
             prompt=lambda cm: "Enter bloxroute Labs authorization header",
@@ -55,7 +55,7 @@ class BloxRouteConnectorMap(BaseConnectorConfigMap):
     solana_wallet_private_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your solana wallet secret key",
+            prompt=lambda cm: "Enter your solana wallet private key",
             is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,

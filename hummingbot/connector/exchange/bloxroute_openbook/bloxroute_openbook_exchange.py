@@ -70,19 +70,19 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         trading_required: bool = True,
     ):
         """
-        :param bloxroute_api_key: The bloxRoute Labs authorization header to connect with solana trader api
+        :param bloxroute_auth_header: The bloxRoute Labs authorization header to connect with solana trader api
         :param solana_wallet_private_key: The secret key for a solana wallet
         :param trading_pairs: The market trading pairs which to track order book data.
         :param trading_required: Whether actual trading is needed.
         """
 
-        self.logger().exception("creating blox route exchange")
-        self.logger().exception("api key is " + bloxroute_api_key)
-        self.logger().exception("pub key is " + solana_wallet_public_key)
-        self.logger().exception("private key is " + solana_wallet_private_key)
-        self.logger().exception("open orders address is " + open_orders_address)
+        self.logger().exception("Creating bloXoute exchange")
+        self.logger().exception("API Key is " + bloxroute_auth_header)
+        self.logger().exception("Public Key is " + solana_wallet_public_key)
+        self.logger().exception("Private Key is " + solana_wallet_private_key)
+        self.logger().exception("Open Orders Address is " + open_orders_address)
 
-        self._auth_header = "YmUwMjRkZjYtNGJmMy00MDY0LWE4MzAtNjU4MGM3ODhkM2E4OmY1ZWVhZTgxZjcwMzE5NjQ0ZmM3ZDYwNmIxZjg1YTUz"
+        self._auth_header = bloxroute_auth_header
         self._sol_wallet_public_key = solana_wallet_public_key
         self._sol_wallet_private_key = solana_wallet_private_key
         self._trading_required = trading_required
