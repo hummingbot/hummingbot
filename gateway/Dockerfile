@@ -31,6 +31,7 @@ RUN chown -R hummingbot /var/lib/gateway
 COPY . .
 
 # install dependencies
+RUN yarn install --network-timeout 1000000
 RUN yarn install --frozen-lockfile
 
 EXPOSE 15888
