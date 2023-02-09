@@ -101,8 +101,23 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         self._order_book_manager_connected = False
         asyncio.create_task(self._initialize_order_manager())
 
+        self._token_accounts = Dict[str, str] = {}
+        asyncio.create_task(self._initialize_token_accounts())
+
         super().__init__(client_config_map)
         self.real_time_balance_update = False
+
+    async def _initialize_token_accounts(self):
+        account_balance_response: GetAccountBalanceResponse = await self._provider_1.get_account_balance()
+        account_balance_dict = {token.symbol: token for token in account_balance_response.tokens}
+
+        for trading_pair in self._trading_pairs:
+            tokens = trading_pair.split("-")
+            for token in tokens:
+                if token not in self._token_accounts:
+                    if token not in account_balance_dict:
+                        raise Exception(f"token account for {token} does not exist")
+                    self._token_accounts[token] = account_balance_dict[token]
 
     async def _initialize_order_manager(self):
         await self._order_manager.start()
@@ -273,17 +288,14 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         base = tokens[0]
         quote = tokens[1]
 
-        # this is temporarily hard coded to a single solana wallet
-        base_addr = CONSTANTS.TOKEN_PAIR_TO_WALLET_ADDR[base]
-        quote_addr = CONSTANTS.TOKEN_PAIR_TO_WALLET_ADDR[quote]
-        payer_address = base_addr if side == api.Side.S_ASK else quote_addr
-
-        blxr_client_order_id = convert_hummingbot_to_blxr_client_order_id(order_id)
-        self._hummingbot_to_solana_id[order_id] = blxr_client_order_id
+        payer_address = self._token_accounts[base] if side == api.Side.S_ASK else self._token_accounts[quote]
 
         open_orders_address = ""
         if trading_pair in self._open_orders_addresses:
             open_orders_address = self._open_orders_addresses[trading_pair]
+
+        blxr_client_order_id = convert_hummingbot_to_blxr_client_order_id(order_id)
+        self._hummingbot_to_solana_id[order_id] = blxr_client_order_id
 
         post_order_response = await self._provider_1.post_order(
             owner_address=self._sol_wallet_public_key,
