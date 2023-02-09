@@ -14,7 +14,12 @@ from tabulate import tabulate_formats
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
 from hummingbot.client.config.config_methods import using_exchange as using_exchange_pointer
 from hummingbot.client.config.config_validators import validate_bool, validate_float
-from hummingbot.client.settings import DEFAULT_LOG_FILE_PATH, PMM_SCRIPTS_PATH, AllConnectorSettings
+from hummingbot.client.settings import (
+    DEFAULT_GATEWAY_CERTS_PATH,
+    DEFAULT_LOG_FILE_PATH,
+    PMM_SCRIPTS_PATH,
+    AllConnectorSettings,
+)
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.connector_metrics_collector import (
     DummyMetricsCollector,
@@ -211,6 +216,24 @@ class ColorConfigMap(BaseClientModel):
             prompt=lambda cm: "What is the background color for error label?",
         ),
     )
+    gold_label: str = Field(
+        default="#FFD700",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "What is the background color for gold label?",
+        ),
+    )
+    silver_label: str = Field(
+        default="#C0C0C0",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "What is the background color for silver label?",
+        ),
+    )
+    bronze_label: str = Field(
+        default="#CD7F32",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "What is the background color for bronze label?",
+        ),
+    )
 
     @validator(
         "top_pane",
@@ -225,6 +248,9 @@ class ColorConfigMap(BaseClientModel):
         "warning_label",
         "info_label",
         "error_label",
+        "gold_label",
+        "silver_label",
+        "bronze_label",
         pre=True,
     )
     def validate_color(cls, v: str):
@@ -525,18 +551,6 @@ class GatewayConfigMap(BaseClientModel):
 
     class Config:
         title = "gateway"
-
-
-class CertsConfigMap(BaseClientModel):
-    path: str = Field(
-        default="",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Please enter the path for your certificate files",
-        ),
-    )
-
-    class Config:
-        title = "certs"
 
 
 class GlobalTokenConfigMap(BaseClientModel):
@@ -885,12 +899,13 @@ class ClientConfigMap(BaseClientModel):
                      "\ndefault host to only use localhost"
                      "\nPort need to match the final installation port for Gateway"),
     )
-    certs: CertsConfigMap = Field(
-        default=CertsConfigMap(),
-        description=("Certs Configurations"
-                     "\ndefault: use the client generated certs"
-                     "\nPort need to match the certifactes for Gateway"),
+    certs_path: Path = Field(
+        default=DEFAULT_GATEWAY_CERTS_PATH,
+        client_data=ClientFieldData(
+            prompt=lambda cm: f"Where would you like to save certificates that connect your bot to Gateway? (default '{DEFAULT_GATEWAY_CERTS_PATH}')",
+        ),
     )
+
     anonymized_metrics_mode: Union[tuple(METRICS_MODES.values())] = Field(
         default=AnonymizedMetricsEnabledMode(),
         description="Whether to enable aggregated order and trade data collection",

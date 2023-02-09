@@ -7,7 +7,6 @@ import { OpenoceanConfig } from './openocean/openocean.config';
 import { PangolinConfig } from './pangolin/pangolin.config';
 import { PerpConfig } from './perp/perp.config';
 import { QuickswapConfig } from './quickswap/quickswap.config';
-import { SerumConfig } from './serum/serum.config';
 import { SushiswapConfig } from './sushiswap/sushiswap.config';
 import { TraderjoeConfig } from './traderjoe/traderjoe.config';
 import { UniswapConfig } from './uniswap/uniswap.config';
@@ -75,11 +74,6 @@ export namespace ConnectorsRoutes {
             name: 'defira',
             trading_type: DefiraConfig.config.tradingTypes,
             available_networks: DefiraConfig.config.availableNetworks,
-          },
-          {
-            name: 'serum',
-            trading_type: SerumConfig.config.tradingTypes,
-            available_networks: SerumConfig.config.availableNetworks,
           },
           {
             name: 'mad_meerkat',
