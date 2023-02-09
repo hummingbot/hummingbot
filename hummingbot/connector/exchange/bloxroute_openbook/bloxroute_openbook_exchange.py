@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 from bidict import bidict
 from bxsolana import Provider
 from bxsolana.provider import WsProvider
+from bxsolana.transaction import signing
 from bxsolana_trader_proto import GetMarketsResponse, api
 from bxsolana_trader_proto.api import (
     GetAccountBalanceResponse,
@@ -15,6 +16,7 @@ from bxsolana_trader_proto.api import (
     Market,
     OrderStatus,
     Side,
+    TransactionMessage,
 )
 
 from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -60,7 +62,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
     def __init__(
         self,
         client_config_map: "ClientConfigAdapter",
-        bloxroute_api_key: str,
+        bloxroute_auth_header: str,
         solana_wallet_public_key: str,
         solana_wallet_private_key: str,
         open_orders_address: str,
@@ -85,7 +87,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         self._sol_wallet_private_key = solana_wallet_private_key
         self._trading_required = trading_required
         self._hummingbot_to_solana_id = {}
-        self._open_orders_address = open_orders_address
+        self._open_orders_addresses = Dict[str, str] = {}
 
         self._server_response = GetServerTimeResponse
         endpoint = CONSTANTS.WS_URL
@@ -279,35 +281,48 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         blxr_client_order_id = convert_hummingbot_to_blxr_client_order_id(order_id)
         self._hummingbot_to_solana_id[order_id] = blxr_client_order_id
 
-        submit_order_response = await self._provider_1.submit_order(
+        open_orders_address = ""
+        if trading_pair in self._open_orders_addresses:
+            open_orders_address = self._open_orders_addresses[trading_pair]
+
+        post_order_response = await self._provider_1.post_order(
             owner_address=self._sol_wallet_public_key,
             payer_address=payer_address,
             market=trading_pair,
             side=side,
-            types=[type],
+            type=[type],
             amount=float(amount),
             price=float(price),
+            open_orders_address=open_orders_address,
+            client_order_i_d=blxr_client_order_id,
             project=OPENBOOK_PROJECT,
-            client_order_id=blxr_client_order_id,
-            open_orders_address=self._open_orders_address,
+        )
+
+        signed_tx = signing.sign_tx(post_order_response.transaction.content)
+        post_submit_response = await self._provider_1.post_submit(
+            transaction=TransactionMessage(content=signed_tx),
             skip_pre_flight=True,
         )
 
-        self.logger().info(f"placed order {submit_order_response} with id {blxr_client_order_id}: {amount} @ {price}")
+        self.logger().info(f"placed order {post_submit_response.signature} with id {blxr_client_order_id}: {amount} @ {price}")
 
-        return submit_order_response, time.time()
+        if open_orders_address == "":
+            self._open_orders_addresses[trading_pair] = open_orders_address
+
+        return post_submit_response.signature, time.time()
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         if order_id not in self._hummingbot_to_solana_id:
             raise Exception("placed order not found")
         blxr_client_order_id = self._hummingbot_to_solana_id[order_id]
 
+        open_orders_address = self._open_orders_addresses[tracked_order.trading_pair]
         try:
             cancel_order_response = await self._provider_1.submit_cancel_by_client_order_i_d(
                 client_order_i_d=blxr_client_order_id,
                 market_address=tracked_order.trading_pair,
                 owner_address=self._sol_wallet_public_key,
-                open_orders_address=self._open_orders_address,
+                open_orders_address=open_orders_address,
                 project=OPENBOOK_PROJECT,
                 skip_pre_flight=True,
             )
