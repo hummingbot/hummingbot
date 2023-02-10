@@ -179,7 +179,7 @@ class TestBinancePerpetualsCandles(unittest.TestCase):
         self.assertEqual(resp.shape[1], 10)
 
     def test_candles_empty(self):
-        self.assertTrue(self.data_feed.candles.empty)
+        self.assertTrue(self.data_feed.candles_df.empty)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_subscriptions_subscribes_to_klines(self, ws_connect_mock):
@@ -271,8 +271,8 @@ class TestBinancePerpetualsCandles(unittest.TestCase):
 
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
-        self.assertEqual(self.data_feed.candles.shape[0], 1)
-        self.assertEqual(self.data_feed.candles.shape[1], 10)
+        self.assertEqual(self.data_feed.candles_df.shape[0], 1)
+        self.assertEqual(self.data_feed.candles_df.shape[1], 10)
 
     @patch("hummingbot.data_feed.candles_feed.binance_perpetuals_candles.BinancePerpetualsCandles.fill_historical_candles", new_callable=AsyncMock)
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
@@ -292,8 +292,8 @@ class TestBinancePerpetualsCandles(unittest.TestCase):
 
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value, timeout=2)
 
-        self.assertEqual(self.data_feed.candles.shape[0], 1)
-        self.assertEqual(self.data_feed.candles.shape[1], 10)
+        self.assertEqual(self.data_feed.candles_df.shape[0], 1)
+        self.assertEqual(self.data_feed.candles_df.shape[1], 10)
 
     @patch("hummingbot.data_feed.candles_feed.binance_perpetuals_candles.BinancePerpetualsCandles.fill_historical_candles")
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
@@ -312,8 +312,8 @@ class TestBinancePerpetualsCandles(unittest.TestCase):
 
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
-        self.assertEqual(self.data_feed.candles.shape[0], 2)
-        self.assertEqual(self.data_feed.candles.shape[1], 10)
+        self.assertEqual(self.data_feed.candles_df.shape[0], 2)
+        self.assertEqual(self.data_feed.candles_df.shape[1], 10)
 
     def _create_exception_and_unlock_test_with_event(self, exception):
         self.resume_test_event.set()
