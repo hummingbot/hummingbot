@@ -93,7 +93,8 @@ class BinanceSpotCandles(CandlesBase):
                     self._candles.extendleft(candles[-(missing_records + 1):-1][::-1])
                     requests_executed += 1
                 else:
-                    self.logger().error("There is no data available for the quantity of candles requested.")
+                    self.logger().error(f"There is no data available for the quantity of "
+                                        f"candles requested for {self.name}.")
                     raise
             except asyncio.CancelledError:
                 raise

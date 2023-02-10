@@ -45,7 +45,7 @@ class StopCommand:
                 # Only erase markets when cancellation has been successful
                 self.markets = {}
 
-        if issubclass(self.strategy, ScriptStrategyBase):
+        if isinstance(self.strategy, ScriptStrategyBase):
             self.strategy.on_stop()
 
         if self.strategy_task is not None and not self.strategy_task.cancelled():
