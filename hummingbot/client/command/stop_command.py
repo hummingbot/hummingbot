@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication
@@ -43,6 +44,9 @@ class StopCommand:
             if success:
                 # Only erase markets when cancellation has been successful
                 self.markets = {}
+
+        if issubclass(self.strategy, ScriptStrategyBase):
+            self.strategy.on_stop()
 
         if self.strategy_task is not None and not self.strategy_task.cancelled():
             self.strategy_task.cancel()
