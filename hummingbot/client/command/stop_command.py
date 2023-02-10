@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 
 class StopCommand:
-    def stop(self,  # type: HummingbotApplication
+    def stop(self,  # type: HummingbotApplication  # noqa: F401
              skip_order_cancellation: bool = False):
         if threading.current_thread() != threading.main_thread():
             self.ev_loop.call_soon_threadsafe(self.stop, skip_order_cancellation)
