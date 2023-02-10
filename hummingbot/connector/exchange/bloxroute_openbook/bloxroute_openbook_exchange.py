@@ -65,7 +65,6 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         bloxroute_auth_header: str,
         solana_wallet_public_key: str,
         solana_wallet_private_key: str,
-        open_orders_address: str,
         trading_pairs: Optional[List[str]] = None,
         trading_required: bool = True,
     ):
@@ -80,7 +79,6 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         self.logger().exception("API Key is " + bloxroute_auth_header)
         self.logger().exception("Public Key is " + solana_wallet_public_key)
         self.logger().exception("Private Key is " + solana_wallet_private_key)
-        self.logger().exception("Open Orders Address is " + open_orders_address)
 
         self._auth_header = bloxroute_auth_header
         self._sol_wallet_public_key = solana_wallet_public_key
@@ -109,7 +107,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
 
     async def _initialize_token_accounts(self):
         account_balance_response: GetAccountBalanceResponse = await self._provider_1.get_account_balance()
-        account_balance_dict = {token.symbol: token for token in account_balance_response.tokens}
+        account_balance_dict = {token.symbol: token.address for token in account_balance_response.tokens}
 
         for trading_pair in self._trading_pairs:
             tokens = trading_pair.split("-")
