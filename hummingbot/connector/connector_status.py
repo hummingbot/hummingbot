@@ -15,6 +15,7 @@ connector_status = {
     'bitmex_perpetual': 'bronze',
     'bitmex_testnet': 'bronze',
     'bitmex_perpetual_testnet': 'bronze',
+    'btc_markets': 'bronze',
     'bybit_perpetual': 'bronze',
     'bybit_perpetual_testnet': 'bronze',
     'bybit_testnet': 'bronze',
