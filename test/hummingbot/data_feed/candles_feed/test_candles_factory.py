@@ -7,7 +7,7 @@ from hummingbot.data_feed.candles_feed.candles_factory import CandlesFactory
 
 class TestCandlesFactory(unittest.TestCase):
     def test_get_binance_candles_spot(self):
-        candles = CandlesFactory.get_candle(connector="binance_spot", trading_pair="ETH-USDT")
+        candles = CandlesFactory.get_candle(connector="binance", trading_pair="ETH-USDT")
         self.assertIsInstance(candles, BinanceSpotCandles)
         candles.stop()
 

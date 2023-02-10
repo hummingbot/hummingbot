@@ -13,6 +13,12 @@ from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 
 
 class CandlesBase(NetworkBase):
+    """
+    This class serves as a base class for fetching and storing candle data from a cryptocurrency exchange.
+    The class uses the Rest and WS Assistants for all the IO operations, and a double-ended queue to store candles.
+    Also implements the Throttler module for API rate limiting, but it's not so necessary since the realtime data should
+    be updated via websockets mainly.
+    """
     columns = ["timestamp", "open", "high", "low", "close", "volume", "quote_asset_volume",
                "n_trades", "taker_buy_base_volume", "taker_buy_quote_volume"]
 
@@ -25,22 +31,31 @@ class CandlesBase(NetworkBase):
         self._trading_pair = trading_pair
         self._ex_trading_pair = self.get_exchange_trading_pair(trading_pair)
         if interval in self.intervals.keys():
-            self._interval = interval
+            self.interval = interval
         else:
             self.logger().exception(f"Interval {interval} is not supported. Available Intervals: {self.intervals.keys()}")
             raise
 
     async def start_network(self):
+        """
+        This method starts the network and starts a task for listen_for_subscriptions.
+        """
         await self.stop_network()
         self._listen_candles_task = safe_ensure_future(self.listen_for_subscriptions())
 
     async def stop_network(self):
+        """
+        This method stops the network by canceling the _listen_candles_task task.
+        """
         if self._listen_candles_task is not None:
             self._listen_candles_task.cancel()
             self._listen_candles_task = None
 
     @property
     def is_ready(self):
+        """
+        This property returns a boolean indicating whether the _candles deque has reached its maximum length.
+        """
         return len(self._candles) == self._candles.maxlen
 
     @property
@@ -75,7 +90,10 @@ class CandlesBase(NetworkBase):
         raise NotImplementedError
 
     @property
-    def candles(self) -> pd.DataFrame:
+    def candles_df(self) -> pd.DataFrame:
+        """
+        This property returns the candles stored in the _candles deque as a Pandas DataFrame.
+        """
         return pd.DataFrame(self._candles, columns=self.columns, dtype=float)
 
     def get_exchange_trading_pair(self, trading_pair):
@@ -85,15 +103,25 @@ class CandlesBase(NetworkBase):
                             start_time: Optional[int] = None,
                             end_time: Optional[int] = None,
                             limit: Optional[int] = 500):
+        """
+        This is an abstract method that must be implemented by a subclass to fetch candles from the exchange API.
+        :param start_time: start time to fetch candles
+        :param end_time: end time to fetch candles
+        :param limit: quantity of candles
+        :return: numpy array with the candlesticks
+        """
         raise NotImplementedError
 
     async def fill_historical_candles(self):
+        """
+        This is an abstract method that must be implemented by a subclass to fill the _candles deque with historical candles.
+        """
         raise NotImplementedError
 
     async def listen_for_subscriptions(self):
         """
-        Connects to the trade events and order diffs websocket endpoints and listens to the messages sent by the
-        exchange. Each message is stored in its own queue.
+        Connects to the candlestick websocket endpoint and listens to the messages sent by the
+        exchange.
         """
         ws: Optional[WSAssistant] = None
         while True:

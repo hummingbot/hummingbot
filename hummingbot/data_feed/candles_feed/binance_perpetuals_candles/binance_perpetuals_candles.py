@@ -66,7 +66,7 @@ class BinancePerpetualsCandles(CandlesBase):
                             end_time: Optional[int] = None,
                             limit: Optional[int] = 500):
         rest_assistant = await self._api_factory.get_rest_assistant()
-        params = {"symbol": self._ex_trading_pair, "interval": self._interval, "limit": limit}
+        params = {"symbol": self._ex_trading_pair, "interval": self.interval, "limit": limit}
         if start_time:
             params["startTime"] = start_time
         if end_time:
@@ -110,7 +110,7 @@ class BinancePerpetualsCandles(CandlesBase):
         """
         try:
             candle_params = []
-            candle_params.append(f"{self._ex_trading_pair.lower()}@kline_{self._interval}")
+            candle_params.append(f"{self._ex_trading_pair.lower()}@kline_{self.interval}")
             payload = {
                 "method": "SUBSCRIBE",
                 "params": candle_params,

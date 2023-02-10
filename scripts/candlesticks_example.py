@@ -1,99 +1,91 @@
 from typing import Dict
 
-import numpy as np
 import pandas as pd
+import pandas_ta as ta  # noqa: F401
 
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesFactory
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
-class SignalFactory:
-    def __init__(self, max_records: int, connectors: Dict[str, ConnectorBase], interval: str = "1m"):
-        self.connectors = connectors
-        self.candles = {
-            connector_name: {trading_pair: CandlesFactory.get_candle(connector="binance_perpetuals",
-                                                                     trading_pair=trading_pair,
-                                                                     interval=interval, max_records=max_records)
-                             for trading_pair in connector.trading_pairs} for
-            connector_name, connector in self.connectors.items()}
-
-    def stop(self):
-        for connector_name, trading_pairs_candles in self.candles.items():
-            for candles in trading_pairs_candles.values():
-                candles.stop()
-
-    def start(self):
-        for connector_name, trading_pairs_candles in self.candles.items():
-            for candles in trading_pairs_candles.values():
-                candles.start()
-
-    @property
-    def all_data_sources_ready(self):
-        return all(np.array([[candles.is_ready for trading_pair, candles in trading_pairs_candles.items()]
-                             for connector_name, trading_pairs_candles in self.candles.items()]).flatten())
-
-    def candles_df(self):
-        return {connector_name: {trading_pair: candles.candles for trading_pair, candles in
-                trading_pairs_candles.items()}
-                for connector_name, trading_pairs_candles in self.candles.items()}
-
-    def features_df(self):
-        candles_df = self.candles_df().copy()
-        for connector_name, trading_pairs_candles in candles_df.items():
-            for trading_pair, candles in trading_pairs_candles.items():
-                candles.ta.rsi(length=14, append=True)
-        return candles_df
-
-    def current_features(self):
-        return {connector_name: {trading_pair: features.iloc[-1, :].to_dict() for trading_pair, features in
-                                 trading_pairs_features.items()}
-                for connector_name, trading_pairs_features in self.features_df().items()}
-
-
 class CandlesticksExample(ScriptStrategyBase):
-    max_executors_by_connector_trading_pair = 1
-    trading_pairs = ["ETH-USDT"]
-    exchange = "binance_paper_trade"
-    markets = {exchange: set(trading_pairs)}
+    """
+    This is a strategy that shows how to use the new Candlestick component.
+    It acquires data from both Binance spot and Binance perpetuals to initialize three different timeframes
+    of candlesticks.
+    The candlesticks are then displayed in the status, which is coded using a custom format status that
+    includes technical indicators.
+    This strategy serves as a clear example for other users on how to effectively utilize candlesticks in their own
+    trading strategies by utilizing the new Candlestick component. The integration of multiple timeframes and technical
+    indicators provides a comprehensive view of market trends and conditions, making this strategy a valuable tool for
+    informed trading decisions.
+    """
+    # Available intervals: |1s|1m|3m|5m|15m|30m|1h|2h|4h|6h|8h|12h|1d|3d|1w|1M|
+    # Is possible to use the Candles Factory to create the candlestick that you want, and then you have to start it.
+    # Also, you can use the class directly like BinancePerpetualsCandles(trading_pair, interval, max_records), but
+    # this approach is better if you want to initialize multiple candles with a list or dict of configurations.
+    eth_1m_candles = CandlesFactory.get_candle(connector="binance",
+                                               trading_pair="ETH-USDT",
+                                               interval="1m", max_records=500)
+    eth_1h_candles = CandlesFactory.get_candle(connector="binance_perpetuals",
+                                               trading_pair="ETH-USDT",
+                                               interval="1h", max_records=500)
+    btc_1h_candles = CandlesFactory.get_candle(connector="binance_perpetuals",
+                                               trading_pair="BTC-USDT",
+                                               interval="1h", max_records=500)
+
+    # The markets are the connectors that you can use to execute all the methods of the scripts strategy base
+    # The candlesticks are just a component that provides the information of the candlesticks
+    markets = {"binance_paper_trade": {"SOL-USDT"}}
 
     def __init__(self, connectors: Dict[str, ConnectorBase]):
+        # Is necessary to start the Candles Feed.
         super().__init__(connectors)
-        self.signal_factory = None
+        self.eth_1m_candles.start()
+        self.eth_1h_candles.start()
+        self.btc_1h_candles.start()
+
+    @property
+    def all_candles_ready(self):
+        """
+        Checks if the candlesticks are full.
+        :return:
+        """
+        return all([self.eth_1h_candles.is_ready, self.eth_1m_candles.is_ready, self.btc_1h_candles.is_ready])
 
     def on_tick(self):
-        if not self.signal_factory:
-            self.signal_factory = SignalFactory(max_records=2500, connectors=self.connectors, interval="1d")
-            self.signal_factory.start()
+        pass
 
     def on_stop(self):
-        # TODO: add to the stop command the ability to code a custom stop when calling the command
-        self.signal_factory.stop()
+        """
+        Without this functionality, the network iterator will continue running forever after stopping the strategy
+        That's why is necessary to introduce this new feature to make a custom stop with the strategy.
+        :return:
+        """
+        self.eth_1m_candles.stop()
+        self.eth_1h_candles.stop()
+        self.btc_1h_candles.stop()
 
     def format_status(self) -> str:
         """
-        Returns status of the current strategy on user balances and current active orders. This function is called
-        when status command is issued. Override this function to create custom status display output.
+        Displays the three candlesticks involved in the script with RSI, BBANDS and EMA.
         """
         if not self.ready_to_trade:
             return "Market connectors are not ready."
         lines = []
-        warning_lines = []
-        warning_lines.extend(self.network_warning(self.get_market_trading_pair_tuples()))
-
-        if self.signal_factory and self.signal_factory.all_data_sources_ready:
+        if self.all_candles_ready:
             lines.extend(["\n############################################ Market Data ############################################"])
-            for connector_name, trading_pair_signal in self.signal_factory.candles_df().items():
-                for trading_pair, candles in trading_pair_signal.items():
-                    candles["timestamp"] = pd.to_datetime(candles["timestamp"], unit="ms")
-                    lines.extend([f"| Trading Pair: {trading_pair} | Exchange: {connector_name}"])
-                    lines.extend(["    " + line for line in candles.tail().to_string(index=False).split("\n")])
-                    lines.extend(["\n-----------------------------------------------------------------------------------------------------------"])
-
+            for candles in [self.btc_1h_candles, self.eth_1m_candles, self.eth_1h_candles]:
+                candles_df = candles.candles_df
+                # Let's add some technical indicators
+                candles_df.ta.rsi(length=14, append=True)
+                candles_df.ta.bbands(length=20, std=2, append=True)
+                candles_df.ta.ema(length=14, offset=None, append=True)
+                candles_df["timestamp"] = pd.to_datetime(candles_df["timestamp"], unit="ms")
+                lines.extend([f"Candles: {candles.name} | Interval: {candles.interval}"])
+                lines.extend(["    " + line for line in candles_df.tail().to_string(index=False).split("\n")])
+                lines.extend(["\n-----------------------------------------------------------------------------------------------------------"])
         else:
             lines.extend(["", "  No data collected."])
 
-        warning_lines.extend(self.balance_warning(self.get_market_trading_pair_tuples()))
-        if len(warning_lines) > 0:
-            lines.extend(["", "*** WARNINGS ***"] + warning_lines)
         return "\n".join(lines)
