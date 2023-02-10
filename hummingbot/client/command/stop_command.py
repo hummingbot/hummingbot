@@ -8,11 +8,11 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 if TYPE_CHECKING:
-    from hummingbot.client.hummingbot_application import HummingbotApplication
+    from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
 
 
 class StopCommand:
-    def stop(self,  # type: HummingbotApplication  # noqa: F401
+    def stop(self,  # type: HummingbotApplication
              skip_order_cancellation: bool = False):
         if threading.current_thread() != threading.main_thread():
             self.ev_loop.call_soon_threadsafe(self.stop, skip_order_cancellation)
