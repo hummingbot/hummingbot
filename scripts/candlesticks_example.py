@@ -31,8 +31,8 @@ class CandlesticksExample(ScriptStrategyBase):
                                                trading_pair="ETH-USDT",
                                                interval="1h", max_records=500)
     btc_1h_candles = CandlesFactory.get_candle(connector="binance_perpetuals",
-                                               trading_pair="BTC-USDT",
-                                               interval="1h", max_records=500)
+                                               trading_pair="ETH-USDT",
+                                               interval="1w", max_records=20)
 
     # The markets are the connectors that you can use to execute all the methods of the scripts strategy base
     # The candlesticks are just a component that provides the information of the candlesticks
@@ -74,7 +74,7 @@ class CandlesticksExample(ScriptStrategyBase):
             return "Market connectors are not ready."
         lines = []
         if self.all_candles_ready:
-            lines.extend(["\n############################################ Market Data ############################################"])
+            lines.extend(["\n############################################ Market Data ############################################\n"])
             for candles in [self.btc_1h_candles, self.eth_1m_candles, self.eth_1h_candles]:
                 candles_df = candles.candles_df
                 # Let's add some technical indicators
@@ -84,7 +84,7 @@ class CandlesticksExample(ScriptStrategyBase):
                 candles_df["timestamp"] = pd.to_datetime(candles_df["timestamp"], unit="ms")
                 lines.extend([f"Candles: {candles.name} | Interval: {candles.interval}"])
                 lines.extend(["    " + line for line in candles_df.tail().to_string(index=False).split("\n")])
-                lines.extend(["\n-----------------------------------------------------------------------------------------------------------"])
+                lines.extend(["\n-----------------------------------------------------------------------------------------------------------\n"])
         else:
             lines.extend(["", "  No data collected."])
 
