@@ -325,7 +325,7 @@ class HedgeStrategy(StrategyPyBase):
         if self._last_timestamp - self._last_report_timestamp.get(key, 0) > self._status_report_interval:
             self.logger().info(message)
             self._last_report_timestamp[key] = self._last_timestamp
-        
+
     def tick(self, timestamp: float) -> None:
         """
         Check if hedge interval has passed and process hedge if so
