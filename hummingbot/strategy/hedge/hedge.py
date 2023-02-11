@@ -55,6 +55,7 @@ class HedgeStrategy(StrategyPyBase):
         offsets: Dict[MarketTradingPairTuple, Decimal],
         status_report_interval: float = 900,
         max_order_age: float = 5,
+        enable_auto_set_position_mode: bool = True,
     ):
         """
         Initializes the hedge strategy.
@@ -88,6 +89,8 @@ class HedgeStrategy(StrategyPyBase):
         self._all_markets_ready = False
         self._max_order_age = max_order_age
         self._status_messages = []
+        self._last_report_timestamp = 0
+        self._enable_auto_set_position_mode = enable_auto_set_position_mode
         if config_map.value_mode:
             self.hedge = self.hedge_by_value
             self._hedge_market_pair = hedge_market_pairs[0]
@@ -297,6 +300,9 @@ class HedgeStrategy(StrategyPyBase):
         """
         if not self.is_derivative(self._hedge_market_pairs[0]):
             return
+        if not self._enable_auto_set_position_mode:
+            logging.info("Auto set position mode is disabled.")
+            return
         position_mode = "ONEWAY" if self._position_mode == PositionMode.ONEWAY else "HEDGE"
         msg = (
             f"Please ensure that the position mode on {self._hedge_market_pairs[0].market.name} "
@@ -318,7 +324,6 @@ class HedgeStrategy(StrategyPyBase):
         """
         if timestamp - self._last_timestamp < self._hedge_interval:
             return
-        self._last_timestamp = timestamp
         self._all_markets_ready = all([market.ready for market in self.active_markets])
         if not self._all_markets_ready:
             # Markets not ready yet. Don't do anything.
@@ -336,10 +341,19 @@ class HedgeStrategy(StrategyPyBase):
                 self._hedge_interval,
             )
             return
+        self._last_timestamp = timestamp
         if self.check_and_cancel_active_orders():
             self.logger().info("Active orders present.")
+            max_order_age = self.get_oldest_order_age()
+            time_to_wait = self._hedge_interval - (timestamp - max_order_age)
+            # wait for the oldest order to expire before checking hedge conditions again
+            if time_to_wait > self._hedge_interval:
+                add_seconds = self._hedge_interval - max(time_to_wait, 1)
+                self._last_timestamp = timestamp - add_seconds + 1
             return
-        self.logger().debug("Checking hedge conditions...")
+        if timestamp - self._last_report_timestamp > self._hedge_interval:
+            self.logger().info("Checking hedge conditions...")
+            self._last_report_timestamp = timestamp
         self._status_messages = []
         self._last_hedge_check_timestamp = timestamp
         self.hedge()
@@ -622,3 +636,12 @@ class HedgeStrategy(StrategyPyBase):
             )
             market_pair.cancel(order.trading_pair, order.client_order_id)
         return True
+
+    def get_oldest_order_age(self) -> float:
+        """
+        Returns the age of the oldest active order
+        """
+        if not self.active_orders:
+            return 0
+        oldest_order = max(self.active_orders, key=lambda order: order_age(order, self.current_timestamp))
+        return order_age(oldest_order, self.current_timestamp)
