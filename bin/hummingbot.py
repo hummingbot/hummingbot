@@ -27,9 +27,10 @@ from hummingbot.core.utils.async_utils import safe_gather
 
 
 class UIStartListener(EventListener):
-    def __init__(self, hummingbot_app: HummingbotApplication, is_quickstart: Optional[bool] = False):
+    def __init__(self, hummingbot_app: HummingbotApplication, is_script: Optional[bool] = False, is_quickstart: Optional[bool] = False):
         super().__init__()
         self._hb_ref: ReferenceType = ref(hummingbot_app)
+        self._is_script = is_script
         self._is_quickstart = is_quickstart
 
     def __call__(self, _):
@@ -41,9 +42,11 @@ class UIStartListener(EventListener):
 
     async def ui_start_handler(self):
         hb: HummingbotApplication = self.hummingbot_app
-        if hb.strategy_config_map is not None:
-            write_config_to_yml(hb.strategy_config_map, hb.strategy_file_name, hb.client_config_map)
+        if hb.strategy_name is not None:
+            if not self._is_script:
+                write_config_to_yml(hb.strategy_config_map, hb.strategy_file_name, hb.client_config_map)
             hb.start(log_level=hb.client_config_map.log_level,
+                     script=hb.strategy_name if self._is_script else None,
                      is_quickstart=self._is_quickstart)
 
 
