@@ -229,8 +229,13 @@ export class XRPLDEX {
     const bidQuality = bids.length > 0 ? bids[0].quality : undefined;
 
     if (baseCurrency === 'XRP' || quoteCurrency === 'XRP') {
-      topAsk = askQuality ? Number(askQuality) * 1000000 : 0;
-      topBid = bidQuality ? (1 / Number(bidQuality)) * 1000000 : 0;
+      if (baseCurrency === 'XRP') {
+        topAsk = askQuality ? Number(askQuality) * 1000000 : 0;
+        topBid = bidQuality ? (1 / Number(bidQuality)) * 1000000 : 0;
+      } else {
+        topAsk = askQuality ? Number(askQuality) / 1000000 : 0;
+        topBid = bidQuality ? 1 / Number(bidQuality) / 1000000 : 0;
+      }
     } else {
       topAsk = askQuality ? Number(askQuality) : 0;
       topBid = bidQuality ? 1 / Number(bidQuality) : 0;
@@ -310,8 +315,13 @@ export class XRPLDEX {
     const bidQuality = bids.length > 0 ? bids[0].quality : undefined;
 
     if (baseCurrency === 'XRP' || quoteCurrency === 'XRP') {
-      topAsk = askQuality ? Number(askQuality) * 1000000 : 0;
-      topBid = bidQuality ? (1 / Number(bidQuality)) * 1000000 : 0;
+      if (baseCurrency === 'XRP') {
+        topAsk = askQuality ? Number(askQuality) * 1000000 : 0;
+        topBid = bidQuality ? (1 / Number(bidQuality)) * 1000000 : 0;
+      } else {
+        topAsk = askQuality ? Number(askQuality) / 1000000 : 0;
+        topBid = bidQuality ? 1 / Number(bidQuality) / 1000000 : 0;
+      }
     } else {
       topAsk = askQuality ? Number(askQuality) : 0;
       topBid = bidQuality ? 1 / Number(bidQuality) : 0;

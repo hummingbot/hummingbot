@@ -32,9 +32,21 @@ alignment_column = 11
 class XRPLCLOBPMMExample(ScriptStrategyBase):
     # Set your network and trading pair here
     _connector_id: str = "xrpldex_xrpl_testnet"
+    # _base_token: str = "534F4C4F00000000000000000000000000000000.rHZwvHEs56GCmHupwjA4RY7oPA3EoAJWuN"
+    # _quote_token: str = "XRP"
+
+    _base_token: str = "XRP"
+    _quote_token: str = "534F4C4F00000000000000000000000000000000.rHZwvHEs56GCmHupwjA4RY7oPA3EoAJWuN"
+
+    # _base_token: str = "USD.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx"
+    # _quote_token: str = "VND.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx"
+
+    # _base_token: str = "VND.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx"
+    # _quote_token: str = "XRP"
+
     # _base_token: str = "XRP"
-    _base_token: str = "USD.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx"
-    _quote_token: str = "VND.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx"
+    # _quote_token: str = "VND.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx"
+
     _trading_pair = f"{_base_token}-{_quote_token}"
 
     markets = {
@@ -63,40 +75,40 @@ class XRPLCLOBPMMExample(ScriptStrategyBase):
                             "bid": {
                                 "quantity": 1,
                                 "spread_percentage": 1,
-                                "max_liquidity_in_quote_token": 20000
+                                "max_liquidity_in_quote_token": 50
                             },
                             "ask": {
                                 "quantity": 1,
                                 "spread_percentage": 1,
-                                "max_liquidity_in_quote_token": 20000
+                                "max_liquidity_in_quote_token": 50
                             }
                         },
                         {
                             "bid": {
                                 "quantity": 1,
                                 "spread_percentage": 5,
-                                "max_liquidity_in_quote_token": 20000
+                                "max_liquidity_in_quote_token": 50
                             },
                             "ask": {
                                 "quantity": 1,
                                 "spread_percentage": 5,
-                                "max_liquidity_in_quote_token": 20000
+                                "max_liquidity_in_quote_token": 50
                             }
                         },
                         {
                             "bid": {
                                 "quantity": 1,
                                 "spread_percentage": 10,
-                                "max_liquidity_in_quote_token": 20000
+                                "max_liquidity_in_quote_token": 50
                             },
                             "ask": {
                                 "quantity": 1,
                                 "spread_percentage": 10,
-                                "max_liquidity_in_quote_token": 20000
+                                "max_liquidity_in_quote_token": 50
                             }
                         },
                     ],
-                    "tick_interval": 30,
+                    "tick_interval": 60,
                     "xrpldex_order_type": "LIMIT",
                     "price_strategy": "middle",
                     "middle_price_strategy": "VWAP",
@@ -330,6 +342,10 @@ class XRPLCLOBPMMExample(ScriptStrategyBase):
                 bid_max_liquidity_in_quote_token = Decimal(layer["bid"]["max_liquidity_in_quote_token"])
                 bid_size = bid_max_liquidity_in_quote_token / bid_market_price / bid_quantity if bid_quantity > 0 else 0
 
+                # self._log(INFO,f"""used_price: {used_price}""")
+                # self._log(INFO,f"""bid_market_price: {bid_market_price}""")
+                # self._log(INFO,f"""bid_size: {bid_size}""")
+
                 for i in range(bid_quantity):
                     bid_order = OrderCandidate(
                         trading_pair=self._hb_trading_pair.replace(" (NEW)", ""),
@@ -349,6 +365,10 @@ class XRPLCLOBPMMExample(ScriptStrategyBase):
                 ask_market_price = ((100 + ask_spread_percentage) / 100) * max(used_price, best_bid)
                 ask_max_liquidity_in_quote_token = Decimal(layer["ask"]["max_liquidity_in_quote_token"])
                 ask_size = ask_max_liquidity_in_quote_token / ask_market_price / ask_quantity if ask_quantity > 0 else 0
+
+                # self._log(INFO,f"""used_price: {used_price}""")
+                # self._log(INFO,f"""ask_market_price: {ask_market_price}""")
+                # self._log(INFO,f"""ask_size: {ask_size}""")
 
                 for i in range(ask_quantity):
                     ask_order = OrderCandidate(
@@ -383,8 +403,8 @@ class XRPLCLOBPMMExample(ScriptStrategyBase):
 
             for order in candidate_proposal:
                 if order.order_side == TradeType.BUY:
-                    if current_quote_balance > order.amount:
-                        current_quote_balance -= order.amount
+                    if current_quote_balance > (order.amount * order.price):
+                        current_quote_balance -= (order.amount * order.price)
                         adjusted_proposal.append(order)
                     else:
                         continue
@@ -730,17 +750,24 @@ class XRPLCLOBPMMExample(ScriptStrategyBase):
         top_ask = Decimal(orderbook["topAsk"])
         top_bid = Decimal(orderbook["topBid"])
 
+        xrp_factor = Decimal(1000000)
+
         for bid in bids:
             if isinstance(bid["TakerGets"], str):
                 bids_list.append(
-                    {'price': pow(Decimal(bid["quality"]), -1) * 1000000, 'amount': Decimal(bid["TakerGets"])})
+                    {'price': pow(Decimal(bid["quality"]), -1) / xrp_factor, 'amount': Decimal(bid["TakerGets"])})
+            elif isinstance(bid["TakerPays"], str):
+                bids_list.append(
+                    {'price': pow(Decimal(bid["quality"]), -1) * xrp_factor, 'amount': Decimal(bid["TakerGets"]["value"])})
             else:
                 bids_list.append(
                     {'price': pow(Decimal(bid["quality"]), -1), 'amount': Decimal(bid["TakerGets"]["value"])})
 
         for ask in asks:
             if isinstance(ask["TakerGets"], str):
-                asks_list.append({'price': Decimal(ask["quality"]) * 1000000, 'amount': Decimal(ask["TakerGets"])})
+                asks_list.append({'price': Decimal(ask["quality"]) * xrp_factor, 'amount': Decimal(ask["TakerGets"])})
+            elif isinstance(ask["TakerPays"], str):
+                asks_list.append({'price': Decimal(ask["quality"]) / xrp_factor, 'amount': Decimal(ask["TakerGets"]["value"])})
             else:
                 asks_list.append({'price': Decimal(ask["quality"]), 'amount': Decimal(ask["TakerGets"]["value"])})
 
@@ -804,7 +831,7 @@ class XRPLCLOBPMMExample(ScriptStrategyBase):
             if len(bid_prices) > 0:
                 best_bid_price = max(bid_prices)
 
-            return Decimal((best_ask_price + best_bid_price) / 2.0)
+            return Decimal((best_ask_price + best_bid_price) / Decimal(2.0))
         elif strategy == self.MiddlePriceStrategy.WAP:
             ask_prices = [item['price'] for item in asks]
             bid_prices = [item['price'] for item in bids]
