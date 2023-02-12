@@ -16,7 +16,7 @@ class NotifyMessage(PubSubMessage):
 
 class InternalEventMessage(PubSubMessage):
     timestamp: Optional[int] = -1
-    type: Optional[str] = 'Unknown'
+    type: Optional[str] = 'ievent'
     data: Optional[dict] = {}
 
 

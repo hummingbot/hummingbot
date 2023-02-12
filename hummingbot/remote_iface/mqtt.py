@@ -6,7 +6,7 @@ import threading
 import time
 from dataclasses import asdict, is_dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Callable, Dict, List, Tuple
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple
 
 from hummingbot import get_logging_conf
 from hummingbot.connector.connector_base import ConnectorBase
@@ -69,18 +69,18 @@ class TopicSpecs:
 class MQTTCommands:
     def __init__(self,
                  hb_app: "HummingbotApplication",
-                 mqtt_node: Node):
+                 node: Node):
         if threading.current_thread() != threading.main_thread():  # pragma: no cover
             raise EnvironmentError(
                 "MQTTCommands can only be initialized from the main thread."
             )
         self._hb_app = hb_app
-        self._mqtt_node = mqtt_node
+        self._node = node
         self.logger = self._hb_app.logger
         self._ev_loop: asyncio.AbstractEventLoop = self._hb_app.ev_loop
 
         topic_prefix = TopicSpecs.PREFIX.format(
-            namespace=self._mqtt_node.namespace,
+            namespace=self._node.namespace,
             instance_id=self._hb_app.instance_id
         )
         self._start_uri = f'{topic_prefix}{TopicSpecs.COMMANDS.START}'
@@ -96,47 +96,47 @@ class MQTTCommands:
         self._init_commands()
 
     def _init_commands(self):
-        self._mqtt_node.create_rpc(
+        self._node.create_rpc(
             rpc_name=self._start_uri,
             msg_type=StartCommandMessage,
             on_request=self._on_cmd_start
         )
-        self._mqtt_node.create_rpc(
+        self._node.create_rpc(
             rpc_name=self._stop_uri,
             msg_type=StopCommandMessage,
             on_request=self._on_cmd_stop
         )
-        self._mqtt_node.create_rpc(
+        self._node.create_rpc(
             rpc_name=self._config_uri,
             msg_type=ConfigCommandMessage,
             on_request=self._on_cmd_config
         )
-        self._mqtt_node.create_rpc(
+        self._node.create_rpc(
             rpc_name=self._import_uri,
             msg_type=ImportCommandMessage,
             on_request=self._on_cmd_import
         )
-        self._mqtt_node.create_rpc(
+        self._node.create_rpc(
             rpc_name=self._status_uri,
             msg_type=StatusCommandMessage,
             on_request=self._on_cmd_status
         )
-        self._mqtt_node.create_rpc(
+        self._node.create_rpc(
             rpc_name=self._history_uri,
             msg_type=HistoryCommandMessage,
             on_request=self._on_cmd_history
         )
-        self._mqtt_node.create_rpc(
+        self._node.create_rpc(
             rpc_name=self._balance_limit_uri,
             msg_type=BalanceLimitCommandMessage,
             on_request=self._on_cmd_balance_limit
         )
-        self._mqtt_node.create_rpc(
+        self._node.create_rpc(
             rpc_name=self._balance_paper_uri,
             msg_type=BalancePaperCommandMessage,
             on_request=self._on_cmd_balance_paper
         )
-        self._mqtt_node.create_rpc(
+        self._node.create_rpc(
             rpc_name=self._shortcuts_uri,
             msg_type=CommandShortcutMessage,
             on_request=self._on_cmd_command_shortcut
@@ -324,18 +324,18 @@ class MQTTMarketEventForwarder:
 
     def __init__(self,
                  hb_app: "HummingbotApplication",
-                 mqtt_node: Node):
+                 node: Node):
         if threading.current_thread() != threading.main_thread():  # pragma: no cover
             raise EnvironmentError(
                 "MQTTMarketEventForwarder can only be initialized from the main thread."
             )
         self._hb_app = hb_app
-        self._mqtt_node = mqtt_node
+        self._node = node
         self._ev_loop: asyncio.AbstractEventLoop = self._hb_app.ev_loop
         self._markets: List[ConnectorBase] = list(self._hb_app.markets.values())
 
         topic_prefix = TopicSpecs.PREFIX.format(
-            namespace=self._mqtt_node.namespace,
+            namespace=self._node.namespace,
             instance_id=self._hb_app.instance_id
         )
         self._topic = f'{topic_prefix}{TopicSpecs.INTERNAL_EVENTS}'
@@ -360,7 +360,7 @@ class MQTTMarketEventForwarder:
             (events.MarketEvent.RangePositionClosed, self._mqtt_fowarder),
         ]
 
-        self.event_fw_pub = self._mqtt_node.create_publisher(
+        self.event_fw_pub = self._node.create_publisher(
             topic=self._topic, msg_type=InternalEventMessage
         )
         self._start_event_listeners()
@@ -437,18 +437,18 @@ class MQTTMarketEventForwarder:
 class MQTTNotifier(NotifierBase):
     def __init__(self,
                  hb_app: "HummingbotApplication",
-                 mqtt_node: Node) -> None:
+                 node: Node) -> None:
         super().__init__()
-        self._mqtt_node = mqtt_node
+        self._node = node
         self._hb_app = hb_app
         self._ev_loop: asyncio.AbstractEventLoop = self._hb_app.ev_loop
 
         topic_prefix = TopicSpecs.PREFIX.format(
-            namespace=self._mqtt_node.namespace,
+            namespace=self._node.namespace,
             instance_id=self._hb_app.instance_id
         )
         self._topic = f'{topic_prefix}{TopicSpecs.NOTIFICATIONS}'
-        self.notify_pub = self._mqtt_node.create_publisher(
+        self.notify_pub = self._node.create_publisher(
             topic=self._topic,
             msg_type=NotifyMessage
         )
@@ -467,18 +467,24 @@ class MQTTNotifier(NotifierBase):
 
 
 class MQTTGateway(Node):
-    NODE_NAME = 'hbot.$instance_id'
+    NODE_NAME: str = 'hbot.$instance_id'
+    _instance: Optional["MQTTGateway"] = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
         global mqtts_logger
         if mqtts_logger is None:  # pragma: no cover
-            mqtts_logger = HummingbotLogger(__name__)
+            mqtts_logger = logging.getLogger(__name__)
         return mqtts_logger
+
+    @classmethod
+    def main(cls) -> "MQTTGateway":
+        return cls._instance
 
     def __init__(self,
                  hb_app: "HummingbotApplication",
-                 *args, **kwargs):
+                 *args, **kwargs
+                 ):
         self._health = False
         self._stop_event_async = asyncio.Event()
         self._notifier: MQTTNotifier = None
@@ -507,6 +513,7 @@ class MQTTGateway(Node):
             *args,
             **kwargs
         )
+        MQTTGateway._instance = self
 
     @property
     def health(self):
@@ -584,10 +591,8 @@ class MQTTGateway(Node):
         if self._market_events is not None:
             self._market_events._stop_event_listeners()
 
-    def start_external_events(self):
+    def _init_external_events(self):
         if self._hb_app.client_config_map.mqtt_bridge.mqtt_external_events:
-            self.logger().info('Starting MQTT External Events Listener')
-            self._hb_app.notify('Starting MQTT External Events Listener')
             self._external_events = MQTTExternalEvents(self._hb_app, self)
 
     def add_external_event_listener(self,
@@ -621,9 +626,9 @@ class MQTTGateway(Node):
             if not c._transport.is_connected:
                 return False
         # Will use if subscribtions are integrated
-        # for c in self._subscribers:
-        #     if not c._transport.is_connected:
-        #         return False
+        for c in self._subscribers:
+            if not c._transport.is_connected:
+                return False
         # Will use if rpc clients are integrated
         # for c in self._rpc_clients:
         #     if not c._transport.is_connected:
@@ -652,6 +657,7 @@ class MQTTGateway(Node):
         self._init_logger()
         self._init_notifier()
         self._init_commands()
+        self._init_external_events()
         self._start_health_monitoring_loop()
         self.run()
 
@@ -669,25 +675,25 @@ class MQTTGateway(Node):
 class MQTTLogHandler(logging.Handler):
     def __init__(self,
                  hb_app: "HummingbotApplication",
-                 mqtt_node: Node):
+                 node: Node):
         if threading.current_thread() != threading.main_thread():  # pragma: no cover
             raise EnvironmentError(
                 "MQTTLogHandler can only be initialized from the main thread."
             )
         self._hb_app = hb_app
-        self._mqtt_node = mqtt_node
+        self._node = node
         self._ev_loop: asyncio.AbstractEventLoop = self._hb_app.ev_loop
 
         topic_prefix = TopicSpecs.PREFIX.format(
-            namespace=self._mqtt_node.namespace,
+            namespace=self._node.namespace,
             instance_id=self._hb_app.instance_id
         )
         self._topic = f'{topic_prefix}{TopicSpecs.LOGS}'
 
         super().__init__()
         self.name = self.__class__.__name__
-        self.log_pub = self._mqtt_node.create_publisher(topic=self._topic,
-                                                        msg_type=LogMessage)
+        self.log_pub = self._node.create_publisher(topic=self._topic,
+                                                   msg_type=LogMessage)
 
     def emit(self, record: logging.LogRecord):
         if threading.current_thread() != threading.main_thread():  # pragma: no cover
@@ -708,56 +714,73 @@ class MQTTLogHandler(logging.Handler):
 class MQTTExternalEvents:
     def __init__(self,
                  hb_app: "HummingbotApplication",
-                 mqtt_node: Node,
-                 topic: str = '') -> None:
-        self._mqtt_node: Node = mqtt_node
+                 node: Node
+                 ):
+        self._node: Node = node
         self._hb_app: 'HummingbotApplication' = hb_app
         self._ev_loop: asyncio.AbstractEventLoop = self._hb_app.ev_loop
 
         topic_prefix = TopicSpecs.PREFIX.format(
-            namespace=self._mqtt_node.namespace,
+            namespace=self._node.namespace,
             instance_id=self._hb_app.instance_id
         )
         self._topic = f'{topic_prefix}{TopicSpecs.EXTERNAL_EVENTS}'
 
-        self._mqtt_node.create_psubscriber(
+        self._node.create_psubscriber(
             topic=self._topic,
             msg_type=ExternalEventMessage,
             on_message=self._on_event_arrived
         )
         self._listeners: Dict[
-            str, List[Callable[ExternalEventMessage, str], None]
+            str,
+            List[Callable[ExternalEventMessage, str], None]
         ] = {'*': []}
 
     def _event_uri_to_name(self, topic: str) -> str:
         return topic.split('events/')[1].replace('/', '.')
 
-    def _on_event_arrived(self, msg: ExternalEventMessage, topic: str):
-        self._hb_app.logger().debug(f'Received event: {topic} -> {msg}')
-        for fenc in self._callbacks:
-            fenc(msg, self._event_uri_to_name(topic))
+    def _on_event_arrived(self,
+                          msg: ExternalEventMessage,
+                          topic: str
+                          ) -> None:
+        if threading.current_thread() != threading.main_thread():  # pragma: no cover
+            self._ev_loop.call_soon_threadsafe(self._on_event_arrived,
+                                               msg, topic)
+            return
+        event_name = self._event_uri_to_name(topic)
+        self._hb_app.logger().info(
+            f'Received external event {event_name} -> {msg} - '
+            'Broadcasting to listeners...'
+        )
+        if event_name in self._listeners:
+            for fenc in self._listeners[event_name]:
+                fenc(msg, event_name)
 
     def add_listener(self,
                      event_name: str,
-                     callback: Callable[[ExternalEventMessage, str], None]):
+                     callback: Callable[[ExternalEventMessage, str], None]
+                     ) -> None:
         # TODO validate event_name with regex
         if event_name in self._listeners:
             self._listeners.get(event_name).append(callback)
 
     def remove_listener(self,
                         event_name: str,
-                        callback: Callable[[ExternalEventMessage, str], None]):
+                        callback: Callable[[ExternalEventMessage, str], None]
+                        ):
         # TODO validate event_name with regex
         if event_name in self._listeners:
             self._listeners.get(event_name).remove(callback)
 
     def add_global_listener(self,
-                            callback: Callable[[ExternalEventMessage, str], None]):
+                            callback: Callable[[ExternalEventMessage, str], None]
+                            ):
         if '*' in self._listeners:
             self._listeners.get('*').append(callback)
 
     def remove_global_listener(self,
-                               callback: Callable[[ExternalEventMessage, str], None]):
+                               callback: Callable[[ExternalEventMessage, str], None]
+                               ):
         if '*' in self._listeners:
             self._listeners.get('*').remove(callback)
 
@@ -765,12 +788,22 @@ class MQTTExternalEvents:
 class MQTTTopicListener:
     def __init__(self,
                  topic: str,
-                 mqtt_node: Node,
-                 on_message: Callable[[Dict, str], None]):
-        self._topic = topic
-        self._mqtt_node = mqtt_node
+                 on_message: Callable[[Dict, str], None],
+                 use_topic_prefix: Optional[bool] = True
+                 ):
+        self._node = MQTTGateway.main()
+        if self._node is None:
+            raise Exception('MQTT Gateway not yet initialized')
+        topic_prefix = TopicSpecs.PREFIX.format(
+            namespace=self._node.namespace,
+            instance_id=self._node._hb_app.instance_id
+        )
+        if use_topic_prefix:
+            self._topic = f'{topic_prefix}{topic}'
+        else:
+            self._topic = topic
         self._on_message = on_message
-        s = self._mqtt_node.create_psubscriber(topic=self._topic,
-                                               on_message=self._on_message)
-        if s.state == NodeState.RUNNING:
+        s = self._node.create_psubscriber(topic=self._topic,
+                                          on_message=self._on_message)
+        if self._node.state == NodeState.RUNNING:
             s.run()
