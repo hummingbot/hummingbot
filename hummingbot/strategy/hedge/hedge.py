@@ -261,7 +261,7 @@ class HedgeStrategy(StrategyPyBase):
             return lines
 
         def get_last_checked_seconds_str() -> List[str]:
-            if self._last_timestamp == 0:
+            if self._last_timestamp < 1e9:
                 return ["  Last checked: Not started."]
             return [f"  Last checked {self.current_timestamp - self._last_timestamp} seconds ago."]
 
