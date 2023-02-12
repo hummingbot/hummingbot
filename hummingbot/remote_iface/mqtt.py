@@ -374,7 +374,6 @@ class MQTTMarketEventForwarder:
                 event
             )
             return
-
         try:
             event_types = {
                 events.MarketEvent.BuyOrderCreated.value: "BuyOrderCreated",
@@ -411,6 +410,10 @@ class MQTTMarketEventForwarder:
             timestamp = event_data.pop('timestamp')
         except KeyError:
             timestamp = datetime.now().timestamp()
+
+        if 'type' in event_data:
+            if not isinstance(event_data.get('type', None), str):
+                event_data['type'] = str(event_data['type'])
 
         self.event_fw_pub.publish(
             InternalEventMessage(
@@ -597,11 +600,11 @@ class MQTTGateway(Node):
 
     def add_external_event_listener(self,
                                     callback: Callable[[ExternalEventMessage, str], None]):
-        self._external_events.add_listener(callback)
+        self._external_events.add_global_listener(callback)
 
     def remove_external_event_listener(self,
                                        callback: Callable[[ExternalEventMessage, str], None]):
-        self._external_events.remove_listener(callback)
+        self._external_events.remove_global_listener(callback)
 
     def _create_mqtt_params_from_conf(self):
         host = self._hb_app.client_config_map.mqtt_bridge.mqtt_host
@@ -748,13 +751,15 @@ class MQTTExternalEvents:
                                                msg, topic)
             return
         event_name = self._event_uri_to_name(topic)
-        self._hb_app.logger().info(
+        self._hb_app.logger().debug(
             f'Received external event {event_name} -> {msg} - '
             'Broadcasting to listeners...'
         )
         if event_name in self._listeners:
             for fenc in self._listeners[event_name]:
                 fenc(msg, event_name)
+        for fenc in self._listeners['*']:
+            fenc(msg, event_name)
 
     def add_listener(self,
                      event_name: str,
