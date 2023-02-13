@@ -27,7 +27,7 @@ else
 fi
 
 # Ask the user for the folder location to save files
-read -p "   Enter a folder name where your Gateway files will be saved (default = \"$DEFAULT_FOLDER\") >>> " FOLDER
+read -p "   Enter the folder name where your Gateway files will be saved (default = \"$DEFAULT_FOLDER\") >>> " FOLDER
 if [ "$FOLDER" == "" ]
 then
   FOLDER=$PWD/$DEFAULT_FOLDER
@@ -39,19 +39,19 @@ LOGS_FOLDER="$FOLDER/logs"
 CERTS_FOLDER="$FOLDER/certs"
 
 
-# Ask the user for the hummingobt data folder location
-prompt_password () {
+# Ask the user for the hummingbot certs passphrase
+prompt_passphrase () {
 echo
-read -s -p "   Enter the your Gateway cert passphrase configured in Hummingbot  >>> " PASSWORD
-if [ "$PASSWORD" == "" ]
+read -s -p "   Enter the passphrase you used to generate certificates in Hummingbot  >>> " PASSPHRASE
+if [ "$PASSPHRASE" == "" ]
 then
  echo
  echo
- echo "‼️  ERROR. Certificates are not empty string. "
- prompt_password
+ echo "‼️  ERROR - passphrase cannot be blank"
+ prompt_passphrase
 fi
 }
-prompt_password
+prompt_passphrase
 
 # Get GMT offset from local system time
 GMT_OFFSET=$(date +%z)
@@ -74,24 +74,22 @@ echo "ℹ️  Confirm below if the instance and its folders are correct:"
 echo
 
 printf "%30s %5s\n" "Gateway instance name:" "$INSTANCE_NAME"
-printf "%30s %5s\n" "Version:" "coinalpha/gateway:$GATEWAY_TAG"
+printf "%30s %5s\n" "Version:" "hummingbot/gateway:$GATEWAY_TAG"
 echo
-printf "%30s %5s\n" "Hummingbot Instance ID:" "$HUMMINGBOT_INSTANCE_ID"
-printf "%30s %5s\n" "Gateway Conf Path:" "$CONF_FOLDER"
-printf "%30s %5s\n" "Gateway Log Path:" "$LOGS_FOLDER"
-printf "%30s %5s\n" "Gateway Certs Path:" "$CERTS_FOLDER"
-printf "%30s %5s\n" "Gateway Port:" "$PORT"
+printf "%30s %5s\n" "Hummingbot instance ID:" "$HUMMINGBOT_INSTANCE_ID"
+printf "%30s %5s\n" "Gateway conf path:" "$CONF_FOLDER"
+printf "%30s %5s\n" "Gateway log path:" "$LOGS_FOLDER"
+printf "%30s %5s\n" "Gateway certs path:" "$CERTS_FOLDER"
+printf "%30s %5s\n" "Gateway port:" "$PORT"
 echo
 
 prompt_existing_certs_path () {
   echo
-  read -p "   Enter the absolute path where the certificates are stored. If you don't have them, leave it blank and then
-add them to the corresponding folder  >>>" CERTS_PATH_TO_COPY
+  read -p "   Enter the path to the folder where Hummingbot certificates are stored. >>>" CERTS_PATH_TO_COPY
   if  [ "$CERTS_PATH_TO_COPY" == "" ]
   then
     echo
-    echo "As you didn't provide any path, the certs folder is going to be empty. To use the gateway paste the
-certificates here."
+    echo "After installation, set certificatePath in $CONF_FOLDER/server.yml to run Gateway in SSL mode"
   else
     # Check if source folder exists
     if [ ! -d "$CERTS_PATH_TO_COPY" ]; then
