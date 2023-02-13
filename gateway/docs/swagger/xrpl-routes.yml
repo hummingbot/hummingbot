@@ -1,0 +1,65 @@
+paths:
+  /xrpl:
+    get:
+      tags:
+        - 'xrpl'
+      summary: 'View the XRPL network and RPC URL that gateway is configured to use'
+      description: 'The user can change this by editing src/chains/xrpl/xrpl.config.ts'
+      operationId: 'root'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/XRPLConfigRequest'
+      responses:
+        '200':
+          description: 'XRPL config'
+          schema:
+            $ref: '#/definitions/XRPLConfigResponse'
+            
+  /xrpl/balances:
+    get:
+      tags:
+        - 'xrpl'
+      summary: 'Get the balances of an XRPL secret key'
+      operationId: 'balances'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/XRPLBalancesRequest'
+      responses:
+        '200':
+          description: 'XRPL wallet balances'
+          schema:
+            $ref: '#/definitions/XRPLBalancesResponse'
+            
+  /xrpl/poll:
+    get:
+      tags:
+        - 'xrpl'
+      summary: 'Get transaction details from transaction hash'
+      operationId: 'poll'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/XRPLPollRequest'
+      responses:
+        '200':
+          description: 'XRPL transaction details'
+          schema:
+            $ref: '#/definitions/XRPLPollResponse'

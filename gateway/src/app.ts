@@ -148,6 +148,8 @@ export const swaggerDocument = SwaggerManager.generateSwaggerJson(
     './docs/swagger/clob-routes.yml',
     './docs/swagger/serum-routes.yml',
     './docs/swagger/cosmos-routes.yml',
+    './docs/swagger/xrpl-routes.yml',
+    './docs/swagger/xrpldex-routes.yml',
   ]
 );
 

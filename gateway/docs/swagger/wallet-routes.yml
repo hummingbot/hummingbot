@@ -7,6 +7,12 @@ paths:
       operationId: 'get'
       produces:
         - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          required: true
+          schema:
+            $ref: '#/definitions/GetWalletRequest'
       responses:
         '200':
           description: 'Wallet list'
@@ -27,7 +33,11 @@ paths:
           required: true
           schema:
             $ref: '#/definitions/AddWalletRequest'
-      responses: '200'
+      responses:
+        '200':
+          description: 'Added wallet address'
+          schema:
+            $ref: '#/definitions/AddWalletResponse'
 
   /wallet/remove:
     delete:
@@ -43,4 +53,6 @@ paths:
           required: true
           schema:
             $ref: '#/definitions/RemoveWalletRequest'
-      responses: '200'
+      responses:
+        '200':
+          description: 'Removed wallet address'

@@ -1,0 +1,148 @@
+paths:
+  /xrpldex/tickers:
+    get:
+      tags:
+        - 'xrpldex'
+      summary: 'Get middle price ticker for requested market'
+      operationId: 'tickers'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: 'Request body.'
+          required: true
+          schema:
+            $ref: '#/definitions/XRPLDEXGetTickersRequest'
+      responses:
+        '200':
+          description: 'Successful response.'
+          schema:
+            $ref: '#/definitions/XRPLDEXGetTickersResponse'
+        '404':
+          description: 'Not found response.'
+          
+  /xrpldex/orderBooks:
+    get:
+      tags:
+        - 'xrpldex'
+      summary: 'Get Order Book Details'
+      operationId: 'orderBooks'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: 'Request body.'
+          required: true
+          schema:
+            $ref: '#/definitions/XRPLDEXGetOrderBooksRequest'
+      responses:
+        '200':
+          description: 'Successful response.'
+          schema:
+            $ref: '#/definitions/XRPLDEXGetOrderBooksResponse'
+        '404':
+          description: 'Not found response.'
+          
+  /xrpldex/orders:
+    get:
+      tags:
+        - 'xrpldex'
+      summary: 'Get status details of one or more orders'
+      operationId: 'getOrders'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: 'Request body.'
+          required: true
+          schema:
+            $ref: '#/definitions/XRPLDEXGetOrdersRequest'
+      responses:
+        '200':
+          description: 'Successful response.'
+          schema:
+            $ref: '#/definitions/XRPLDEXGetOrdersResponse'
+        '404':
+          description: 'Not found response.'
+    post:
+      tags:
+        - 'xrpldex'
+      summary: 'Create one or more orders'
+      description: 'Create one or more orders.'
+      operationId: 'createOrders'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: 'Request body.'
+          required: true
+          schema:
+            $ref: '#/definitions/XRPLDEXPostCreateOrdersRequest'
+      responses:
+        '200':
+          description: 'Successful response.'
+          schema:
+            $ref: '#/definitions/XRPLDEXPostCreateOrdersResponse'
+        '400':
+          description: 'Bad request response.'
+    delete:
+      tags:
+        - 'xrpldex'
+      summary: 'Cancel one or more orders'
+      description: 'Cancel one or more orders.'
+      operationId: 'cancelOrders'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: 'Request body.'
+          required: true
+          schema:
+            $ref: '#/definitions/XRPLDEXDeleteCancelOrdersRequest'
+      responses:
+        '200':
+          description: 'Successful response.'
+          schema:
+            $ref: '#/definitions/XRPLDEXDeleteCancelOrdersResponse'
+        '400':
+          description: 'Bad request response.'
+          
+  /xrpldex/orders/open:
+    get:
+      tags:
+        - 'xrpldex'
+      summary: 'Get open orders from a wallet'
+      operationId: 'getOpenOrders'
+      consumes:
+        - 'application/json'
+      produces:
+        - 'application/json'
+      parameters:
+        - in: 'body'
+          name: 'body'
+          description: 'Request body.'
+          required: true
+          schema:
+            $ref: '#/definitions/XRPLDEXGetOpenOrdersRequest'
+      responses:
+        '200':
+          description: 'Successful response.'
+          schema:
+            $ref: '#/definitions/XRPLDEXGetOpenOrdersResponse'
+        '404':
+          description: 'Not found response.'

@@ -514,32 +514,19 @@ definitions:
         type: 'string'
         example: '0xa321bbe8888c3bc88ecb1ad4f03f22a71e6f5715dfcb19e0a2dca9036c981b6d'  # noqa: documentation
 
-  AddWalletRequest:
+  GetWalletRequest:
     type: 'object'
     required:
-      - 'chainName'
-      - 'privateKey'
+      - 'chain'
+      - 'network'
     properties:
-      chainName:
+      chain:
         type: 'string'
         example: 'ethereum'
-      privateKey:
+      network:
         type: 'string'
-        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'  # noqa: documentation
-  
-  RemoveWalletRequest:
-    type: 'object'
-    required:
-      - 'chainName'
-      - 'address'
-    properties:
-      chainName:
-        type: 'string'
-        example: 'ethereum'
-      address:
-        type: 'string'
-        example: '0xd0A1E359811322d97991E03f863a0C30C2cF029C'
-
+        example: 'testnet'
+        
   GetWalletResponse:
     type: 'object'
     required:
@@ -548,10 +535,56 @@ definitions:
     properties:
       chain:
         type: 'string'
-      tokenSymbols:
+        example: 'ethereum'
+      walletAddresses:
         type: 'array'
-        items: 'string'
+        items:
+          type: string
+
         example: ['0xd0A1E359811322d97991E03f863a0C30C2cF029C', '0xd0A1E359811322d97991E03f863a0C30C2XXXXXX']
+
+  AddWalletRequest:
+    type: 'object'
+    required:
+      - 'chain'
+      - 'network'
+      - 'privateKey'
+    properties:
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'testnet'
+      privateKey:
+        type: 'string'
+        example: '6078d949c953351685fd2026646028f2a862e6148d25d504967ba63898d720c0'
+  
+  AddWalletResponse:
+    type: 'object'
+    required:
+      - 'address'
+    properties:
+      address:
+        type: 'string'
+        example: '0xd0A1E359811322d97991E03f863a0C30C2XXXXXX'
+  
+  RemoveWalletRequest:
+    type: 'object'
+    required:
+      - 'chain'
+      - 'network'
+      - 'address'
+    properties:
+      chain:
+        type: 'string'
+        example: 'ethereum'
+      network:
+        type: 'string'
+        example: 'testnet'
+      address:
+        type: 'string'
+        example: '0xd0A1E359811322d97991E03f863a0C30C2cF029C'
 
   ConfigUpdateRequest:
     type: 'object'
@@ -2568,3 +2601,732 @@ definitions:
       txReceipt:
         type: 'object'
 
+  XRPLPollRequest:
+    type: 'object'
+    required:
+      - 'chain'
+      - 'network'
+      - 'txHash'
+    properties:
+      chain:
+        type: 'string'
+        example: 'xrpl'
+      network:
+        type: 'string'
+        example: 'testnet'
+      txHash:
+        type: 'string'
+        example: 'F2F7E4AF87F785270950EFA81171E0250E010E785A07B3514F6448617CB5522B'  # noqa: documentation
+  
+  XRPLPollResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'currentLedgerIndex'
+      - 'txHash'
+      - 'txStatus'
+      - 'txLedgerIndex'
+      - 'txData'
+    properties:
+      network:
+        type: 'string'
+        example: 'testnet'
+      timestamp:
+        type: 'number'
+        example: 1676297304555
+      currentLedgerIndex:
+        type: 'number'
+        example: 35355750
+      txHash:
+        type: 'string'
+        example: 'F2F7E4AF87F785270950EFA81171E0250E010E785A07B3514F6448617CB5522B'
+      txStatus:
+        type: 'number'
+        example: 1
+      txLedgerIndex:
+        type: 'number'
+        example: 35332287
+      txData:
+        type: 'object'
+        example: '
+        {
+            "id": 240,
+            "result": {
+                "Account": "r3z4R6KQWfwRf9G15AhUZe2GN67Sj6PYNV",
+                "Fee": "12",
+                "Flags": 524288,
+                "LastLedgerSequence": 35433284,
+                "Memos": [
+                    {
+                        "Memo": {
+                            "MemoData": "39376634316337632D626464612D343933612D393564612D626539316163623161336637"
+                        }
+                    }
+                ],
+                "Sequence": 33485802,
+                "SigningPubKey": "EDCF1C3DA89B8D54A907FE28DFE8F59B5F8097A05C3D26F2528B321C6BC25F5E7D",
+                "TakerGets": {
+                    "currency": "USD",
+                    "issuer": "rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx",
+                    "value": "5"
+                },
+                "TakerPays": {
+                    "currency": "VND",
+                    "issuer": "rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx",
+                    "value": "135000"
+                },
+                "TransactionType": "OfferCreate",
+                "TxnSignature": "09569E380CEFFAE4C73C337FFD818ABF76F9802E7F799BA23C30F563E137634C4678F550D20B55A864FE123D554694BD28812CAA3FB25BDFCB2578C62778B507",
+                "date": 729538252,
+                "hash": "F2F7E4AF87F785270950EFA81171E0250E010E785A07B3514F6448617CB5522B",
+                "inLedger": 35332287,
+                "ledger_index": 35332287,
+                "meta": {
+                    "AffectedNodes": [
+                        {
+                            "ModifiedNode": {
+                                "FinalFields": {
+                                    "Account": "r3z4R6KQWfwRf9G15AhUZe2GN67Sj6PYNV",
+                                    "Balance": "919968236",
+                                    "Flags": 0,
+                                    "OwnerCount": 5,
+                                    "Sequence": 33485803
+                                },
+                                "LedgerEntryType": "AccountRoot",
+                                "LedgerIndex": "0A5AF1D714F8FDB56C512DD8DD516C1DD50F21416810AF5DA61E510317FDDCBE",
+                                "PreviousFields": {
+                                    "Balance": "919968248",
+                                    "OwnerCount": 4,
+                                    "Sequence": 33485802
+                                },
+                                "PreviousTxnID": "BD96AE0E125FD68A5973BC5DB67067AB48933B5F0763D29DFC57BFE87BF84F93",
+                                "PreviousTxnLgrSeq": 35332283
+                            }
+                        },
+                        {
+                            "ModifiedNode": {
+                                "FinalFields": {
+                                    "Flags": 0,
+                                    "Owner": "r3z4R6KQWfwRf9G15AhUZe2GN67Sj6PYNV",
+                                    "RootIndex": "71984CCE4E1DEF4CA401C071A80B0DF028C2C872EBBD87C7846FCB317A315E8D"
+                                },
+                                "LedgerEntryType": "DirectoryNode",
+                                "LedgerIndex": "71984CCE4E1DEF4CA401C071A80B0DF028C2C872EBBD87C7846FCB317A315E8D"
+                            }
+                        },
+                        {
+                            "CreatedNode": {
+                                "LedgerEntryType": "DirectoryNode",
+                                "LedgerIndex": "F01A0E08B24F1886221DB06C6C87382DDFD6D3D0FC5BBFAA590997A2BCE4C000",
+                                "NewFields": {
+                                    "ExchangeRate": "590997a2bce4c000",
+                                    "RootIndex": "F01A0E08B24F1886221DB06C6C87382DDFD6D3D0FC5BBFAA590997A2BCE4C000",
+                                    "TakerGetsCurrency": "0000000000000000000000005553440000000000",
+                                    "TakerGetsIssuer": "297AFC4445B3B935CB5DE2050CACACE6E8F70300",
+                                    "TakerPaysCurrency": "000000000000000000000000564E440000000000",
+                                    "TakerPaysIssuer": "297AFC4445B3B935CB5DE2050CACACE6E8F70300"
+                                }
+                            }
+                        },
+                        {
+                            "CreatedNode": {
+                                "LedgerEntryType": "Offer",
+                                "LedgerIndex": "F5D2E74E84E29A97359BF1C0EA7D734ABDFA078FC45BA70C63784D198BC5544D",
+                                "NewFields": {
+                                    "Account": "r3z4R6KQWfwRf9G15AhUZe2GN67Sj6PYNV",
+                                    "BookDirectory": "F01A0E08B24F1886221DB06C6C87382DDFD6D3D0FC5BBFAA590997A2BCE4C000",
+                                    "Flags": 131072,
+                                    "Sequence": 33485802,
+                                    "TakerGets": {
+                                        "currency": "USD",
+                                        "issuer": "rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx",
+                                        "value": "5"
+                                    },
+                                    "TakerPays": {
+                                        "currency": "VND",
+                                        "issuer": "rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx",
+                                        "value": "135000"
+                                    }
+                                }
+                            }
+                        }
+                    ],
+                    "TransactionIndex": 0,
+                    "TransactionResult": "tesSUCCESS"
+                },
+                "validated": true
+            },
+            "type": "response"
+        }'
+
+  XRPLBalancesRequest:
+    type: 'object'
+    required:
+      - 'chain'
+      - 'network'
+      - 'address'
+      - 'tokenSymbols'
+    properties:
+      chain:
+        type: 'string'
+        example: 'xrpl'
+      network:
+        type: 'string'
+        example: 'testnet'
+      address:
+        type: 'string'
+        example: 'r3z4R6KQWfwRf9G15AhUZe2GN67Sj6PYNV'  # noqa: documentation
+      tokenSymbols:
+        type: 'array'
+        items:
+          type: string
+        example: ['XRP', 'USD.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx']
+        
+  XRPLBalancesResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'timestamp'
+      - 'latency'
+      - 'balances'
+    properties:
+      network:
+        type: 'string'
+        example: 'testnet'
+      timestamp:
+        type: 'integer'
+        example: 1676296168012
+      latency:
+        type: 'number'
+        example: 0.799
+      balances:
+        type: 'object'
+        properties:
+          id:
+            type: 'string'
+          name:
+            type: 'string'
+        example: '{"XRP": "919.968236", "USD.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx": "1035.121230268258"}'
+
+
+  XRPLConfigRequest:
+    type: 'object'
+    required:
+      - 'chain'
+      - 'network'
+    properties:
+      chain:
+        type: 'string'
+        example: 'xrpl'
+      network:
+        type: 'string'
+        example: 'mainnet'
+
+  XRPLConfigResponse:
+    type: 'object'
+    required:
+      - 'network'
+      - 'rpcUrl'
+      - 'connection'
+      - 'timestamp'
+    properties:
+      network:
+        type: 'string'
+        example: 'mainnet'
+      rpcUrl:
+        type: 'string'
+        example: 'wss://xrplcluster.com/'
+      connection:
+        type: 'boolean'
+        example: true
+      timestamp:
+        type: 'integer'
+        example: 1641889489132
+
+  XRPLDEXGetOpenOrdersRequest:
+    type: 'object'
+    required:
+      - 'chain'
+      - 'network'
+      - 'connector'
+    properties:
+      chain:
+        type: string
+        example: xrpl
+      network:
+        type: string
+        example: testnet
+      connector:
+        type: string
+        example: 'xrplDEX'
+      orders:
+        type: 'array'
+        items:
+          type: object
+        example: '
+        [
+          {
+            "marketName": "USD.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx/VND.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx",
+            "walletAddress": "r3z4R6KQWfwRf9G15AhUZe2GN67Sj6PYNV"
+          }
+        ]
+        '  
+
+  XRPLDEXGetOpenOrdersResponse:
+    type: 'object'
+    properties:
+      "USD.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx/VND.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx":
+        type: object
+        example: '
+        {
+          "33485801": {
+              "sequence": 33485801,
+              "marketName": "USD.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx/VND.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx",
+              "price": "23000.000000000007",
+              "amount": "115000",
+              "side": "BUY"
+          },
+          "33485802": {
+              "sequence": 33485802,
+              "marketName": "USD.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx/VND.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx",
+              "price": "27000",
+              "amount": "5",
+              "side": "SELL"
+          }
+        }
+        '
+
+  XRPLDEXDeleteCancelOrdersRequest:
+    type: 'object'
+    required:
+      - 'chain'
+      - 'network'
+      - 'connector'
+      - 'waitUntilIncludedInBlock'
+    properties:
+      chain:
+        type: string
+        example: xrpl
+      network:
+        type: string
+        example: testnet
+      connector:
+        type: string
+        example: 'xrplDEX'
+      waitUntilIncludedInBlock:
+        type: boolean
+        example: true
+      orders:
+        type: 'array'
+        items:
+          type: object
+        example: '
+        [
+          {
+              "walletAddress": "r3z4R6KQWfwRf9G15AhUZe2GN67Sj6PYNV",
+              "offerSequence": 33485803
+          }
+        ]
+        '
+
+  XRPLDEXDeleteCancelOrdersResponse:
+    type: 'object'
+    properties:
+      "33485803":
+        type: object
+        example: '
+        {
+          "walletAddress": "r3z4R6KQWfwRf9G15AhUZe2GN67Sj6PYNV",
+          "status": "CANCELED",
+          "signature": "6BC113E5B58B4F7B689057FE6E17C1ADEB39A69C1E564B001DB7B5B8285608BC",
+          "transactionResult": "tesSUCCESS"
+        }
+        '
+
+  XRPLDEXPostCreateOrdersRequest:
+    type: 'object'
+    required:
+      - 'chain'
+      - 'network'
+      - 'connector'
+      - 'waitUntilIncludedInBlock'
+    properties:
+      chain:
+        type: string
+        example: xrpl
+      network:
+        type: string
+        example: testnet
+      connector:
+        type: string
+        example: 'xrplDEX'
+      waitUntilIncludedInBlock:
+        type: boolean
+        example: true
+      orders:
+        type: 'array'
+        items:
+          type: object
+        example: '
+        [
+          {
+              "marketName": "USD.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx/VND.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx",
+              "walletAddress": "r3z4R6KQWfwRf9G15AhUZe2GN67Sj6PYNV",
+              "side": "BUY",
+              "price": 594.0,
+              "amount": 33.67,
+              "type": "LIMIT"
+          }
+        ]
+        '
+  
+  XRPLDEXPostCreateOrdersResponse:
+    type: 'object'
+    properties:
+      "33485803":
+        type: object
+        example: '
+        {
+          "walletAddress": "r3z4R6KQWfwRf9G15AhUZe2GN67Sj6PYNV",
+          "marketName": "USD.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx/VND.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx",
+          "price": 594,
+          "amount": 33.67,
+          "side": "BUY",
+          "type": "LIMIT",
+          "fee": 0,
+          "orderLedgerIndex": "35357471",
+          "status": "OPEN",
+          "sequence": 33485803,
+          "signature": "53CCABA69887B92D91AE27B083D11262B4393D95D9A0AEFF4B07A731FA1F74E8",
+          "transactionResult": "tesSUCCESS"
+        }
+        '
+
+  XRPLDEXGetOrdersRequest:
+    type: 'object'
+    required:
+      - 'chain'
+      - 'network'
+      - 'connector'
+    properties:
+      chain:
+        type: string
+        example: xrpl
+      network:
+        type: string
+        example: testnet
+      connector:
+        type: string
+        example: 'xrplDEX'
+      orders:
+        type: 'array'
+        items:
+          type: object
+        example: '
+        [
+          {
+              "sequence": "33485803",
+              "signature": "53CCABA69887B92D91AE27B083D11262B4393D95D9A0AEFF4B07A731FA1F74E8"
+          }
+        ]
+        '
+
+  XRPLDEXGetOrdersResponse:
+    type: 'object'
+    properties:
+      "33485803":
+        type: object
+        example: '
+        {
+          "sequence": "33485803",
+          "status": "OPEN",
+          "signature": "53CCABA69887B92D91AE27B083D11262B4393D95D9A0AEFF4B07A731FA1F74E8",
+          "transactionResult": "tesSUCCESS"
+        }
+        '
+
+  XRPLDEXGetOrderBooksRequest:
+    type: 'object'
+    required:
+      - 'chain'
+      - 'network'
+      - 'connector'
+    properties:
+      chain:
+        type: string
+        example: xrpl
+      network:
+        type: string
+        example: testnet
+      connector:
+        type: string
+        example: 'xrplDEX'
+      marketName:
+        type: string
+        example: 'USD.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx/VND.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx'
+        
+  XRPLDEXGetOrderBooksResponse:
+    type: 'object'
+    required:
+      - 'market'
+      - 'asks'
+      - 'bids'
+      - 'topAsk'
+      - 'topBid'
+      - 'midPrice'
+      - 'timestamp'
+    properties:
+      market:
+        type: 'object'
+        example: '
+        {
+          "name": "USD.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx/VND.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx",
+          "minimumOrderSize": 15,
+          "tickSize": 15,
+          "baseTransferRate": 0,
+          "quoteTransferRate": 0
+        }
+        '
+      asks:
+        type: 'object'
+        example: '
+        [
+          {
+              "Account": "r9wmQfStbNfPJ2XqAN7KH4iP8NJKmqPe16",
+              "BookDirectory": "F01A0E08B24F1886221DB06C6C87382DDFD6D3D0FC5BBFAA590840C195D02FFF",
+              "BookNode": "0",
+              "Flags": 0,
+              "LedgerEntryType": "Offer",
+              "OwnerNode": "0",
+              "PreviousTxnID": "D1D20075111DD00845D19A8F749EFAA00816E8BF57A43305C4E8877FD411A5C9",
+              "PreviousTxnLgrSeq": 35332426,
+              "Sequence": 33595725,
+              "TakerGets": {
+                  "currency": "USD",
+                  "issuer": "rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx",
+                  "value": "2.15238915195867"
+              },
+              "TakerPays": {
+                  "currency": "VND",
+                  "issuer": "rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx",
+                  "value": "49999.9999999999"
+              },
+              "index": "2C7E8D52885EAA4A16F3D3C7C1B2EB542A6DA1218302754ABE390B4639D2766F",
+              "owner_funds": "1664.878769731742",
+              "quality": "23229.99999999999"
+          },
+          {
+              "Account": "r9wmQfStbNfPJ2XqAN7KH4iP8NJKmqPe16",
+              "BookDirectory": "F01A0E08B24F1886221DB06C6C87382DDFD6D3D0FC5BBFAA5908946E0121F001",
+              "BookNode": "0",
+              "Flags": 0,
+              "LedgerEntryType": "Offer",
+              "OwnerNode": "0",
+              "PreviousTxnID": "735C3FD717EBBF2077FD4102AF928A5B45C6C2AED84388E0515869556168312E",
+              "PreviousTxnLgrSeq": 35332426,
+              "Sequence": 33595726,
+              "TakerGets": {
+                  "currency": "USD",
+                  "issuer": "rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx",
+                  "value": "2.0703933747412"
+              },
+              "TakerPays": {
+                  "currency": "VND",
+                  "issuer": "rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx",
+                  "value": "50000"
+              },
+              "index": "9E63A2AA02403532D9F8543F172B0228CF620D50D4F87F9A68A2F84718010644",
+              "quality": "24150.00000000001"
+          },
+          {
+              "Account": "r9wmQfStbNfPJ2XqAN7KH4iP8NJKmqPe16",
+              "BookDirectory": "F01A0E08B24F1886221DB06C6C87382DDFD6D3D0FC5BBFAA5908FD0587482001",
+              "BookNode": "0",
+              "Flags": 0,
+              "LedgerEntryType": "Offer",
+              "OwnerNode": "0",
+              "PreviousTxnID": "2617441297B92D191883435B8D6E55F8AD0289FEDEB60FD52FD7B7E373106A6D",
+              "PreviousTxnLgrSeq": 35332427,
+              "Sequence": 33595727,
+              "TakerGets": {
+                  "currency": "USD",
+                  "issuer": "rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx",
+                  "value": "1.97628458498024"
+              },
+              "TakerPays": {
+                  "currency": "VND",
+                  "issuer": "rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx",
+                  "value": "50000.0000000001"
+              },
+              "index": "14A1A56CE5A59A3C9DD3CC84A0CD3E72F78B983B1919435B70FC0B80C3A2257E",
+              "quality": "25300.00000000001"
+          },
+          {
+              "Account": "r3z4R6KQWfwRf9G15AhUZe2GN67Sj6PYNV",
+              "BookDirectory": "F01A0E08B24F1886221DB06C6C87382DDFD6D3D0FC5BBFAA590997A2BCE4C000",
+              "BookNode": "0",
+              "Flags": 131072,
+              "LedgerEntryType": "Offer",
+              "OwnerNode": "0",
+              "PreviousTxnID": "F2F7E4AF87F785270950EFA81171E0250E010E785A07B3514F6448617CB5522B",
+              "PreviousTxnLgrSeq": 35332287,
+              "Sequence": 33485802,
+              "TakerGets": {
+                  "currency": "USD",
+                  "issuer": "rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx",
+                  "value": "5"
+              },
+              "TakerPays": {
+                  "currency": "VND",
+                  "issuer": "rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx",
+                  "value": "135000"
+              },
+              "index": "F5D2E74E84E29A97359BF1C0EA7D734ABDFA078FC45BA70C63784D198BC5544D",
+              "owner_funds": "1035.121230268258",
+              "quality": "27000"
+          }
+        ]
+        '
+      bids:
+        type: 'object'
+        example: '
+        [
+          {
+              "Account": "r3z4R6KQWfwRf9G15AhUZe2GN67Sj6PYNV",
+              "BookDirectory": "70A605D482230F5A27C38C313FC7929CFF4A7BB6EFC86831500F725325754DE9",
+              "BookNode": "0",
+              "Flags": 0,
+              "LedgerEntryType": "Offer",
+              "OwnerNode": "0",
+              "PreviousTxnID": "BD96AE0E125FD68A5973BC5DB67067AB48933B5F0763D29DFC57BFE87BF84F93",
+              "PreviousTxnLgrSeq": 35332283,
+              "Sequence": 33485801,
+              "TakerGets": {
+                  "currency": "VND",
+                  "issuer": "rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx",
+                  "value": "115000"
+              },
+              "TakerPays": {
+                  "currency": "USD",
+                  "issuer": "rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx",
+                  "value": "5"
+              },
+              "index": "BB068062EC0F47D4E5A8BD9CC71E59AE282FEA2D66B3CE2D9F12B3AAA45541CD",
+              "owner_funds": "694985.0000000002",
+              "quality": "0.00004347826086956521"
+          },
+          {
+              "Account": "r9wmQfStbNfPJ2XqAN7KH4iP8NJKmqPe16",
+              "BookDirectory": "70A605D482230F5A27C38C313FC7929CFF4A7BB6EFC86831500FAA0EB7466930",
+              "BookNode": "0",
+              "Flags": 0,
+              "LedgerEntryType": "Offer",
+              "OwnerNode": "0",
+              "PreviousTxnID": "3E2F17517B52F65F83890D9397A0FC62965D2D5B528F27461393CEDE0082E095",
+              "PreviousTxnLgrSeq": 35332424,
+              "Sequence": 33595722,
+              "TakerGets": {
+                  "currency": "VND",
+                  "issuer": "rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx",
+                  "value": "50000"
+              },
+              "TakerPays": {
+                  "currency": "USD",
+                  "issuer": "rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx",
+                  "value": "2.20455241588444"
+              },
+              "index": "35B4F64B6E2B9ABCF19838BD54C914E08DF349409578DEC3D19B46C6700539B2",
+              "owner_funds": "307514.9999999998",
+              "quality": "0.0000440910483176888"
+          },
+          {
+              "Account": "r9wmQfStbNfPJ2XqAN7KH4iP8NJKmqPe16",
+              "BookDirectory": "70A605D482230F5A27C38C313FC7929CFF4A7BB6EFC86831501052E6EA1B90A1",
+              "BookNode": "0",
+              "Flags": 0,
+              "LedgerEntryType": "Offer",
+              "OwnerNode": "0",
+              "PreviousTxnID": "102E59040E3ADB42FFE65C8487A748173A62F21ABDDFB02DCB4DFDDA71E600C9",
+              "PreviousTxnLgrSeq": 35332425,
+              "Sequence": 33595723,
+              "TakerGets": {
+                  "currency": "VND",
+                  "issuer": "rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx",
+                  "value": "49999.9999999999"
+              },
+              "TakerPays": {
+                  "currency": "USD",
+                  "issuer": "rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx",
+                  "value": "2.29737567550062"
+              },
+              "index": "6475DDF5DD22F927EFA5CD303EF097ACC6DA07071370CAE1A53DB6D15D7A5F14",
+              "quality": "0.00004594751351001249"
+          },
+          {
+              "Account": "r9wmQfStbNfPJ2XqAN7KH4iP8NJKmqPe16",
+              "BookDirectory": "70A605D482230F5A27C38C313FC7929CFF4A7BB6EFC8683150113B103000A6D6",
+              "BookNode": "0",
+              "Flags": 0,
+              "LedgerEntryType": "Offer",
+              "OwnerNode": "0",
+              "PreviousTxnID": "673B589B8BA761B3CDC29E81A06069543F147CF16B51FC149E98C1B9B58C67B2",
+              "PreviousTxnLgrSeq": 35332425,
+              "Sequence": 33595724,
+              "TakerGets": {
+                  "currency": "VND",
+                  "issuer": "rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx",
+                  "value": "50000.0000000001"
+              },
+              "TakerPays": {
+                  "currency": "USD",
+                  "issuer": "rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx",
+                  "value": "2.42500765747288"
+              },
+              "index": "753E103F3A07F24BF7A69300197726D891253B04A1EFFC323A9653052BCA5244",
+              "quality": "0.0000485001531494575"
+          }
+        ]
+        '
+      topAsk:
+        type: 'number'
+        example: 23229.99999999999
+      topBid:
+        type: 'number'
+        example: 23000.000000000007
+      midPrice:
+        type: 'number'
+        example: 35332287
+      timestamp:
+        type: 'number'
+        example: 1676302213676
+
+  XRPLDEXGetTickersRequest:
+    type: 'object'
+    required:
+      - 'chain'
+      - 'network'
+      - 'connector'
+    properties:
+      chain:
+        type: string
+        example: xrpl
+      network:
+        type: string
+        example: testnet
+      connector:
+        type: string
+        example: 'xrplDEX'
+      marketName:
+        type: string
+        example: 'USD.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx/VND.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx'
+
+  XRPLDEXGetTickersResponse:
+    type: object
+    properties:
+      price:
+        type: number
+        example: 23115
+      timestamp:
+        type: number
+        example: 1676301678697
