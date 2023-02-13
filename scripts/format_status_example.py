@@ -7,8 +7,9 @@ class FormatStatusExample(ScriptStrategyBase):
     Run the command status --live, once the strategy starts.
     """
     markets = {
+        "binance_paper_trade": {"ETH-USDT"},
         "kucoin_paper_trade": {"ETH-USDT"},
-        # "gate_io_paper_trade": {"ETH-USDT"},
+        "gate_io_paper_trade": {"ETH-USDT"},
     }
 
     def format_status(self) -> str:
