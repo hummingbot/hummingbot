@@ -20,28 +20,7 @@ jobs:
         with:
           PATTERNS: |
             **/*.+(py|pyx|pyd|yml)
-            !gateway/**
       - name: Check if client files are modified
-        id: check_files
-        if: env.GIT_DIFF
-        run: |
-          echo ${{ env.GIT_DIFF }}
-          echo "::set-output name=is_set::true"
-
-  run_gateway:
-    name: Check if gateway files changed
-    outputs:
-      is_set: ${{ steps.check_files.outputs.is_set }}
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v2
-      - uses: technote-space/get-diff-action@v6
-        with:
-          PATTERNS:  |
-            gateway/**/*.+(ts|js|yml)
-            !Dockerfile
-      - name: Check if gateway files are modified
         id: check_files
         if: env.GIT_DIFF
         run: |
@@ -89,10 +68,6 @@ jobs:
         with:
           program-cache-hit: ${{steps.program-changes.outputs.cache-hit}}
           dependencies-cache-hit: ${{steps.conda-dependencies.outputs.cache-hit}}
-
-      # Install gateway so eslint can be installed for pre-commit check
-      - name: Install Gateway Dependencies
-        run: yarn --cwd ./gateway install
 
       # Compile and run tests if code has changed
       - name: Run pre-commit hooks on diff
@@ -143,66 +118,3 @@ jobs:
           git clone --depth 1 https://github.com/DiscordHooks/github-actions-discord-webhook.git webhook
           bash webhook/send.sh $JOB_STATUS $WEBHOOK_URL
         shell: bash
-  build_gateway:
-    name: Gateway build + unit tests
-    needs: run_gateway
-    if: github.event.pull_request.draft == false && needs.run_gateway.outputs.is_set == 'true'
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout commit
-        uses: actions/checkout@v2
-
-      - name: Use Node.js
-        uses: actions/setup-node@v1
-        with:
-          node-version: '18.x'
-
-      - name: Get yarn cache directory path
-        id: yarn-cache-dir-path
-        run: echo "::set-output name=dir::$(yarn cache dir)"
-
-      - uses: actions/cache@v2
-        id: yarn-cache # use this to check for `cache-hit` (`steps.yarn-cache.outputs.cache-hit != 'true'`)
-        with:
-          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-yarn-
-
-      - name: Install hardhat and start node.
-        run: |
-            mkdir hardhat && cd hardhat && npm init -y
-            touch hardhat.config.js
-            yarn add --dev hardhat
-            yarn hardhat node &
-
-      - name: Install Dependencies
-        run: yarn --cwd ./gateway install
-
-      - name: Build project
-        run: yarn --cwd ./gateway build
-
-      - name: Replace testnet nodeURL for local hardhat node, and run unit test
-        run: |
-          cd gateway
-          mkdir conf db
-          cp src/templates/* conf
-          sed -i 's/https:\/\/kovan.infura.io\/v3\//http:\/\/127.0.0.1:8545\//g' ./conf/ethereum.yml
-          sed -i 's/https:\/\/rpc.ankr.com\/optimism/http:\/\/127.0.0.1:8545\//g' ./conf/ethereum.yml
-          sed -i 's/https:\/\/rpc.ankr.com\/avalanche_fuji/http:\/\/127.0.0.1:8545\//g' ./conf/avalanche.yml
-          sed -i 's/https:\/\/rpc.ankr.com\/polygon_mumbai/http:\/\/127.0.0.1:8545\//g' ./conf/polygon.yml
-          sed -i 's/https:\/\/api.s0.b.hmny.io/http:\/\/127.0.0.1:8545\//g' ./conf/harmony.yml
-          sed -i 's/https:\/\/api.s0.t.hmny.io/http:\/\/127.0.0.1:8545\//g' ./conf/harmony.yml
-          sed -i 's/https:\/\/bsc-dataseed1.binance.org/http:\/\/127.0.0.1:8545\//g' ./conf/binance-smart-chain.yml
-          sed -i 's/https:\/\/data-seed-prebsc-1-s1.binance.org:8545/http:\/\/127.0.0.1:8545\//g' ./conf/binance-smart-chain.yml
-          yarn test:unit 
-
-      - name: Run unit test coverage
-        if: github.event_name == 'pull_request'
-        shell: bash
-        run: |
-          git fetch --all -q
-          git checkout -b $GITHUB_SHA
-          yarn --cwd ./gateway test:cov 
-          git diff origin/$GITHUB_BASE_REF | $(yarn --cwd ./gateway bin)/diff-test-coverage -c ./gateway/coverage/lcov.info -t lcov -b 65 -l 67
