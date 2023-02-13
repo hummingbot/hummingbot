@@ -1,6 +1,6 @@
 import unittest
 
-from hummingbot.data_feed.candles_feed.binance_perpetuals_candles import BinancePerpetualsCandles
+from hummingbot.data_feed.candles_feed.binance_perpetual_candles import BinancePerpetualCandles
 from hummingbot.data_feed.candles_feed.binance_spot_candles import BinanceSpotCandles
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesFactory
 
@@ -12,8 +12,8 @@ class TestCandlesFactory(unittest.TestCase):
         candles.stop()
 
     def test_get_binance_candles_perpetuals(self):
-        candles = CandlesFactory.get_candle(connector="binance_perpetuals", trading_pair="ETH-USDT")
-        self.assertIsInstance(candles, BinancePerpetualsCandles)
+        candles = CandlesFactory.get_candle(connector="binance_perpetual", trading_pair="ETH-USDT")
+        self.assertIsInstance(candles, BinancePerpetualCandles)
         candles.stop()
 
     def test_get_non_existing_candles(self):
