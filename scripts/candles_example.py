@@ -8,7 +8,7 @@ from hummingbot.data_feed.candles_feed.candles_factory import CandlesFactory
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
-class CandlesticksExample(ScriptStrategyBase):
+class CandlesExample(ScriptStrategyBase):
     """
     This is a strategy that shows how to use the new Candlestick component.
     It acquires data from both Binance spot and Binance perpetuals to initialize three different timeframes
