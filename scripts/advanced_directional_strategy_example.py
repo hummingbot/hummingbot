@@ -142,23 +142,7 @@ class AdvancedDirectionalStrategyExample(ScriptStrategyBase):
         Without this functionality, the network iterator will continue running forever after stopping the strategy
         That's why is necessary to introduce this new feature to make a custom stop with the strategy.
         """
-        # we are going to close all the open positions when the bot stops
-        for connector_name, connector in self.connectors.items():
-            for trading_pair, position in connector.account_positions.items():
-                if position.position_side == PositionSide.LONG:
-                    self.sell(connector_name=connector_name,
-                              trading_pair=position.trading_pair,
-                              amount=position.amount,
-                              order_type=OrderType.MARKET,
-                              price=connector.get_mid_price(trading_pair),
-                              position_action=PositionAction.CLOSE)
-                elif position.position_side == PositionSide.SHORT:
-                    self.buy(connector_name=connector_name,
-                             trading_pair=position.trading_pair,
-                             amount=position.amount,
-                             order_type=OrderType.MARKET,
-                             price=connector.get_mid_price(trading_pair),
-                             position_action=PositionAction.CLOSE)
+        self.close_open_positions()
         for candle in self.candles.values():
             candle.stop()
 
@@ -233,8 +217,8 @@ Signal Value: {signal_value}
             df_header = pd.DataFrame([("timestamp",
                                        "signal_value",
                                        "exchange",
-                                       "trading_pair"
-                                       "side"
+                                       "trading_pair",
+                                       "side",
                                        "amount",
                                        "pnl",
                                        "close_timestamp",
@@ -267,3 +251,22 @@ Signal Value: {signal_value}
                                 self.bot_profile.leverage,)])
             df.to_csv(self.csv_path, mode='a', header=False, index=False)
         self.active_signal_executors = [executor for executor in self.active_signal_executors if not executor.is_closed]
+
+    def close_open_positions(self):
+        # we are going to close all the open positions when the bot stops
+        for connector_name, connector in self.connectors.items():
+            for trading_pair, position in connector.account_positions.items():
+                if position.position_side == PositionSide.LONG:
+                    self.sell(connector_name=connector_name,
+                              trading_pair=position.trading_pair,
+                              amount=abs(position.amount),
+                              order_type=OrderType.MARKET,
+                              price=connector.get_mid_price(position.trading_pair),
+                              position_action=PositionAction.CLOSE)
+                elif position.position_side == PositionSide.SHORT:
+                    self.buy(connector_name=connector_name,
+                             trading_pair=position.trading_pair,
+                             amount=abs(position.amount),
+                             order_type=OrderType.MARKET,
+                             price=connector.get_mid_price(position.trading_pair),
+                             position_action=PositionAction.CLOSE)
