@@ -54,12 +54,12 @@ class AdvancedDirectionalStrategyExample(ScriptStrategyBase):
     eth_1m_candles = CandlesFactory.get_candle(connector="binance_perpetual",
                                                trading_pair="ETH-USDT",
                                                interval="1m", max_records=50)
-    eth_1h_candles = CandlesFactory.get_candle(connector="binance_perpetual",
+    eth_3m_candles = CandlesFactory.get_candle(connector="binance_perpetual",
                                                trading_pair="ETH-USDT",
                                                interval="3m", max_records=50)
     candles = {
         "ETH-USDT_1m": eth_1m_candles,
-        "ETH-USDT_1h": eth_1h_candles,
+        "ETH-USDT_3m": eth_3m_candles,
     }
 
     set_leverage_flag = None
@@ -84,21 +84,6 @@ class AdvancedDirectionalStrategyExample(ScriptStrategyBase):
 
     def get_closed_executors(self):
         return self.stored_signal_executors
-
-    def get_active_positions_df(self):
-        active_positions = []
-        for connector_name, connector in self.connectors.items():
-            for trading_pair, position in connector.account_positions.items():
-                active_positions.append({
-                    "exchange": connector_name,
-                    "trading_pair": trading_pair,
-                    "side": position.position_side,
-                    "entry_price": position.entry_price,
-                    "amount": position.amount,
-                    "leverage": position.leverage,
-                    "unrealized_pnl": position.unrealized_pnl
-                })
-        return pd.DataFrame(active_positions)
 
     @property
     def all_candles_ready(self):
@@ -149,7 +134,7 @@ class AdvancedDirectionalStrategyExample(ScriptStrategyBase):
         # The idea is that you can define rules between the signal values of multiple trading pairs or timeframes
         # In this example, we are going to prioritize the short term signal, so the weight of the 1m candle
         # is going to be 0.7 and the weight of the 1h candle 0.3
-        composed_signal_value = 0.7 * values["ETH-USDT_1m"] + 0.3 * values["ETH-USDT_1h"]
+        composed_signal_value = 0.7 * values["ETH-USDT_1m"] + 0.3 * values["ETH-USDT_3m"]
         return composed_signal_value
 
     def on_stop(self):
@@ -227,7 +212,7 @@ Normalized SMA RSI = {sma_rsi_normalized}
 BB% Normalized = {bb_percentage_normalized}
 Signal Value: {signal_value}
 """])
-            lines.extend([f"Consolidated Signal = {0.7 * values['ETH-USDT_1m'] + 0.3 * values['ETH-USDT_1h']}"])
+            lines.extend([f"Consolidated Signal = {0.7 * values['ETH-USDT_1m'] + 0.3 * values['ETH-USDT_3m']}"])
             lines.extend(["\n-----------------------------------------------------------------------------------------------------------\n"])
         else:
             lines.extend(["", "  No data collected."])
