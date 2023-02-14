@@ -1,9 +1,0 @@
-{
-  "connector": "defira",
-  "chain": "harmony",
-  "network": "mainnet",
-  "quote": "USDC",
-  "base": "FIRA",
-  "amount": "0.1",
-  "side": "SELL"
-}
