@@ -147,14 +147,14 @@ class AdvancedDirectionalStrategyExample(ScriptStrategyBase):
             for trading_pair, position in connector.account_positions.items():
                 if position.position_side == PositionSide.LONG:
                     self.sell(connector_name=connector_name,
-                              trading_pair=trading_pair,
+                              trading_pair=position.trading_pair,
                               amount=position.amount,
                               order_type=OrderType.MARKET,
                               price=connector.get_mid_price(trading_pair),
                               position_action=PositionAction.CLOSE)
                 elif position.position_side == PositionSide.SHORT:
                     self.buy(connector_name=connector_name,
-                             trading_pair=trading_pair,
+                             trading_pair=position.trading_pair,
                              amount=position.amount,
                              order_type=OrderType.MARKET,
                              price=connector.get_mid_price(trading_pair),
