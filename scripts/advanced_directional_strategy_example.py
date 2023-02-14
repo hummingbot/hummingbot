@@ -33,7 +33,7 @@ class SignalExecutor(PositionExecutor):
         self.signal_value = signal_value
 
 
-class DirectionalStrategyExample(ScriptStrategyBase):
+class AdvancedDirectionalStrategyExample(ScriptStrategyBase):
     """
     A directional trading strategy that uses two timeframes of the same trading pair (ETH-USDT)
     and based on the RSI and Bollinger Bands is going long or short.
