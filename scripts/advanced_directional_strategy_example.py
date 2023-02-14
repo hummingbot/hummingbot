@@ -174,7 +174,7 @@ class AdvancedDirectionalStrategyExample(ScriptStrategyBase):
             lines.extend([
                 "\n########################################## Closed Executors ##########################################"])
 
-        for signal_id, executor in self.stored_signal_executors:
+        for executor in self.stored_signal_executors:
             lines.extend([f"|Signal id: {executor.timestamp} | Signal value: {executor.signal_value}"])
             lines.extend(executor.to_format_status())
             lines.extend([
