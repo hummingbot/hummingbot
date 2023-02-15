@@ -77,14 +77,6 @@ kucoin_passphrase = os.getenv("KUCOIN_PASSPHRASE")
 
 test_web3_provider_list = [os.getenv("WEB3_PROVIDER")]
 
-# Latoken Tests
-latoken_api_key = os.getenv("LATOKEN_API_KEY")
-latoken_secret_key = os.getenv("LATOKEN_SECRET_KEY")
-
-# Liquid Tests
-liquid_api_key = os.getenv("LIQUID_API_KEY")
-liquid_secret_key = os.getenv("LIQUID_SECRET_KEY")
-
 # Kraken Tests
 kraken_api_key = os.getenv("KRAKEN_API_KEY")
 kraken_secret_key = os.getenv("KRAKEN_SECRET_KEY")
@@ -114,15 +106,6 @@ hitbtc_secret_key = os.getenv("HITBTC_SECRET_KEY")
 # Gate.io Tests
 gate_io_api_key = os.getenv("GATE_IO_API_KEY")
 gate_io_secret_key = os.getenv("GATE_IO_SECRET_KEY")
-
-# CoinZoom Test
-coinzoom_api_key = os.getenv("COINZOOM_API_KEY")
-coinzoom_secret_key = os.getenv("COINZOOM_SECRET_KEY")
-coinzoom_username = os.getenv("COINZOOM_USERNAME")
-
-# Wazirx Test
-wazirx_api_key = os.getenv("WAZIRX_API_KEY")
-wazirx_secret_key = os.getenv("WAZIRX_SECRET_KEY")
 
 # AltMarkets.io Test
 altmarkets_api_key = os.getenv("ALTMARKETS_API_KEY")

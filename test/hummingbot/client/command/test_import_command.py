@@ -201,3 +201,30 @@ class ImportCommandTest(unittest.TestCase):
 
         self.assertEqual(1, len(validation_errors))
         self.assertEqual("no_default - field required", validation_errors[0])
+
+    @patch("hummingbot.client.config.config_helpers.get_strategy_pydantic_config_cls")
+    @patch("hummingbot.client.command.status_command.StatusCommand.status_check_all")
+    def test_import_config_file_wrong_name(
+        self, status_check_all_mock: AsyncMock, get_strategy_pydantic_config_cls: MagicMock
+    ):
+        strategy_name = "perpetual_market_making"
+        strategy_file_name = f"{strategy_name}.yml"
+        status_check_all_mock.return_value = True
+        dummy_strategy_config_cls = self.build_dummy_strategy_config_cls(strategy_name)
+        get_strategy_pydantic_config_cls.return_value = dummy_strategy_config_cls
+        cm = ClientConfigAdapter(dummy_strategy_config_cls(no_default="some value"))
+
+        wrong_strategy_file_name = f"wrong-{strategy_file_name}"
+        with TemporaryDirectory() as d:
+            d = Path(d)
+            import_command.STRATEGIES_CONF_DIR_PATH = d
+            temp_file_name = d / strategy_file_name
+            save_to_yml(temp_file_name, cm)
+            try:
+                self.async_run_with_timeout(
+                    self.app.import_config_file(wrong_strategy_file_name))
+            except FileNotFoundError:
+                self.assertNotEqual(strategy_file_name, self.app.strategy_file_name)
+                self.assertNotEqual(strategy_name, self.app.strategy_name)
+                return
+            self.assertTrue(False)

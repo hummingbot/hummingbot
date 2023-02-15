@@ -316,14 +316,6 @@ cdef class PureMarketMakingStrategy(StrategyBase):
         self._filled_order_delay = value
 
     @property
-    def filled_order_delay(self) -> float:
-        return self._filled_order_delay
-
-    @filled_order_delay.setter
-    def filled_order_delay(self, value: float):
-        self._filled_order_delay = value
-
-    @property
     def add_transaction_costs_to_orders(self) -> bool:
         return self._add_transaction_costs_to_orders
 
