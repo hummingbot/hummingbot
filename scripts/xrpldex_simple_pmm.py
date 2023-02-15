@@ -32,11 +32,11 @@ alignment_column = 11
 class XRPLCLOBPMMExample(ScriptStrategyBase):
     # Set your network and trading pair here
     _connector_id: str = "xrpldex_xrpl_testnet"
-    # _base_token: str = "534F4C4F00000000000000000000000000000000.rHZwvHEs56GCmHupwjA4RY7oPA3EoAJWuN"
-    # _quote_token: str = "XRP"
+    _base_token: str = "534F4C4F00000000000000000000000000000000.rHZwvHEs56GCmHupwjA4RY7oPA3EoAJWuN"
+    _quote_token: str = "XRP"
 
-    _base_token: str = "XRP"
-    _quote_token: str = "534F4C4F00000000000000000000000000000000.rHZwvHEs56GCmHupwjA4RY7oPA3EoAJWuN"
+    # _base_token: str = "XRP"
+    # _quote_token: str = "534F4C4F00000000000000000000000000000000.rHZwvHEs56GCmHupwjA4RY7oPA3EoAJWuN"
 
     # _base_token: str = "USD.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx"
     # _quote_token: str = "VND.rh8LssQyeBdEXk7Zv86HxHrx8k2R2DBUrx"
@@ -502,10 +502,16 @@ class XRPLCLOBPMMExample(ScriptStrategyBase):
                         if decimal_balance > self._decimal_zero:
                             self._balances["balances"][token] = Decimal(balance)
 
-                    self._summary["balance"]["wallet"]["base"] = Decimal(response["balances"][self._base_token])
-                    self._summary["balance"]["wallet"]["quote"] = Decimal(response["balances"][self._quote_token])
+                    if self._balances["balances"].get(self._base_token) is None:
+                        self._balances["balances"][self._base_token] = decimal_zero
 
-                return response
+                    if self._balances["balances"].get(self._quote_token) is None:
+                        self._balances["balances"][self._quote_token] = decimal_zero
+
+                    self._summary["balance"]["wallet"]["base"] = self._balances["balances"][self._base_token]
+                    self._summary["balance"]["wallet"]["quote"] = self._balances["balances"][self._quote_token]
+
+                return self._balances
             except Exception as exception:
                 response = traceback.format_exc()
 
