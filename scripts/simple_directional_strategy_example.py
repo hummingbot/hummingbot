@@ -5,26 +5,14 @@ from typing import Dict, List
 
 import pandas as pd
 import pandas_ta as ta  # noqa: F401
-from pydantic import BaseModel
 
 from hummingbot import data_path
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.core.data_type.common import OrderType, PositionMode, PositionSide
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesFactory
 from hummingbot.smart_components.position_executor.data_types import PositionConfig
 from hummingbot.smart_components.position_executor.position_executor import PositionExecutor
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
-
-
-class BotProfile(BaseModel):
-    order_amount_usd: Decimal
-    long_threshold: float
-    short_threshold: float
-    leverage: int
-    max_executors: int
-    stop_loss: float
-    take_profit: float
-    time_limit: int
 
 
 class SimpleDirectionalStrategyExample(ScriptStrategyBase):
@@ -45,8 +33,8 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
     eth_3m_candles = CandlesFactory.get_candle(connector="binance_perpetual",
                                                trading_pair="ETH-USDT",
                                                interval="1m", max_records=50)
-    rsi_lower_bound = 30
-    rsi_upper_bound = 70
+    rsi_lower_bound = 40
+    rsi_upper_bound = 60
 
     # Configure the leverage and order amount the bot is going to use
     set_leverage_flag = None
@@ -126,7 +114,7 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
                 "\n########################################## Closed Executors ##########################################"])
 
         for executor in self.stored_executors:
-            lines.extend([f"|Signal id: {executor.timestamp} | Signal value: {executor.signal_value}"])
+            lines.extend([f"|Signal id: {executor.timestamp}"])
             lines.extend(executor.to_format_status())
             lines.extend([
                 "-----------------------------------------------------------------------------------------------------------"])
@@ -136,7 +124,7 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
                 "\n########################################## Active Executors ##########################################"])
 
         for executor in self.active_executors:
-            lines.extend([f"|Signal id: {executor.timestamp} | Signal value: {executor.signal_value}"])
+            lines.extend([f"|Signal id: {executor.timestamp}"])
             lines.extend(executor.to_format_status())
         if self.eth_3m_candles.is_ready:
             lines.extend([
@@ -201,3 +189,22 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
                                 self.leverage)])
             df.to_csv(self.csv_path, mode='a', header=False, index=False)
         self.active_executors = [executor for executor in self.active_executors if not executor.is_closed]
+
+    def close_open_positions(self):
+        # we are going to close all the open positions when the bot stops
+        for connector_name, connector in self.connectors.items():
+            for trading_pair, position in connector.account_positions.items():
+                if position.position_side == PositionSide.LONG:
+                    self.sell(connector_name=connector_name,
+                              trading_pair=position.trading_pair,
+                              amount=abs(position.amount),
+                              order_type=OrderType.MARKET,
+                              price=connector.get_mid_price(position.trading_pair),
+                              position_action=PositionAction.CLOSE)
+                elif position.position_side == PositionSide.SHORT:
+                    self.buy(connector_name=connector_name,
+                             trading_pair=position.trading_pair,
+                             amount=abs(position.amount),
+                             order_type=OrderType.MARKET,
+                             price=connector.get_mid_price(position.trading_pair),
+                             position_action=PositionAction.CLOSE)
