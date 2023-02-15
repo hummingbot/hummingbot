@@ -318,7 +318,8 @@ class BtcMarketsAPIOrderBookDataSourceTest(unittest.TestCase):
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 
         self.assertTrue(msg_queue.empty())
-        self.assertTrue(3153171493, msg.trade_id)
+        self.assertEqual(3153171493, msg.trade_id)
+        self.assertEqual(1554756867.632, msg.timestamp)
 
     def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
@@ -405,7 +406,8 @@ class BtcMarketsAPIOrderBookDataSourceTest(unittest.TestCase):
 
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 
-        self.assertTrue(diff_event["snapshotId"], msg.update_id)
+        self.assertEqual(diff_event["snapshotId"], msg.update_id)
+        self.assertEqual(1578512833.986, msg.timestamp)
 
     # ORDER BOOK SNAPSHOT
     @staticmethod
@@ -494,6 +496,7 @@ class BtcMarketsAPIOrderBookDataSourceTest(unittest.TestCase):
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 
         self.assertEqual(int(snapshot_data["snapshotId"]), msg.update_id)
+        self.assertEqual(1567334110144000.0, msg.timestamp)
 
     @aioresponses()
     def test_listen_for_order_book_snapshots_successful_ws(self, mock_api):
@@ -535,7 +538,8 @@ class BtcMarketsAPIOrderBookDataSourceTest(unittest.TestCase):
 
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get(), timeout=6)
 
-        self.assertTrue(snapshot_event["snapshotId"], msg.update_id)
+        self.assertEqual(snapshot_event["snapshotId"], msg.update_id)
+        self.assertEqual(1578512833.986, msg.timestamp)
 
     @aioresponses()
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
