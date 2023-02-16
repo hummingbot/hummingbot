@@ -40,6 +40,7 @@ class AdvancedDirectionalStrategyExample(ScriptStrategyBase):
     The weigths of the indicators are the same, that means that 0.5 * RSI + 0.5 * BBANDS = signal_value, but we are
     going to prioritize 1m timeframe so after calculating the signal for 1m and 3m, we are going to multiply the value
     of 1m by 0.7 and 3m by 0.3.
+    IMPORTANT: Binance perpetual has to be in Single Asset Mode, soon we are going to support Multi Asset Mode.
     """
     bot_profile = BotProfile(
         order_amount_usd=Decimal(10),
@@ -51,22 +52,23 @@ class AdvancedDirectionalStrategyExample(ScriptStrategyBase):
         take_profit=0.002,
         time_limit=60 * 6,
     )
-    eth_1m_candles = CandlesFactory.get_candle(connector="binance_perpetual",
-                                               trading_pair="ETH-USDT",
+    trading_pair = "ETH-USDT"
+    exchange = "binance_perpetual"
+
+    eth_1m_candles = CandlesFactory.get_candle(connector=exchange,
+                                               trading_pair=trading_pair,
                                                interval="1m", max_records=50)
-    eth_3m_candles = CandlesFactory.get_candle(connector="binance_perpetual",
-                                               trading_pair="ETH-USDT",
+    eth_3m_candles = CandlesFactory.get_candle(connector=exchange,
+                                               trading_pair=trading_pair,
                                                interval="3m", max_records=50)
     candles = {
-        "ETH-USDT_1m": eth_1m_candles,
-        "ETH-USDT_3m": eth_3m_candles,
+        f"{trading_pair}_1m": eth_1m_candles,
+        f"{trading_pair}_3m": eth_3m_candles,
     }
 
     set_leverage_flag = None
     active_signal_executors: List[SignalExecutor] = []
     stored_signal_executors: List[SignalExecutor] = []
-    trading_pair = "ETH-USDT"
-    exchange = "binance_perpetual"
 
     today = datetime.datetime.today()
     csv_path = data_path() + f"/{exchange}_{trading_pair}_{today.day:02d}-{today.month:02d}-{today.year}.csv"
@@ -94,7 +96,7 @@ class AdvancedDirectionalStrategyExample(ScriptStrategyBase):
 
     def on_tick(self):
         self.check_and_set_leverage()
-        if len(self.get_active_executors()) < self.bot_profile.max_executors:
+        if len(self.get_active_executors()) < self.bot_profile.max_executors and self.is_margin_enough():
             signal_value = self.get_signal()
             if signal_value > self.bot_profile.long_threshold or signal_value < self.bot_profile.short_threshold:
                 price = self.connectors[self.exchange].get_mid_price(self.trading_pair)
@@ -270,3 +272,10 @@ Signal Value: {signal_value}
                              order_type=OrderType.MARKET,
                              price=connector.get_mid_price(position.trading_pair),
                              position_action=PositionAction.CLOSE)
+
+    def is_margin_enough(self):
+        quote_balance = self.connectors[self.exchange].get_available_balance(self.trading_pair.split("-")[-1])
+        if self.bot_profile.order_amount_usd > quote_balance * self.bot_profile.leverage:
+            return True
+        else:
+            return False

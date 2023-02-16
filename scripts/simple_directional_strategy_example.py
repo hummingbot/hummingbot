@@ -18,7 +18,12 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 class SimpleDirectionalStrategyExample(ScriptStrategyBase):
     """
     A simple trading strategy that uses RSI in one timeframe to determine whether to go long or short.
+    IMPORTANT: Binance perpetual has to be in Single Asset Mode, soon we are going to support Multi Asset Mode.
     """
+    # Define the trading pair and exchange that we want to use and the csv where we are going to store the entries
+    trading_pair = "ETH-USDT"
+    exchange = "binance_perpetual"
+
     # Maximum position executors at a time
     max_executors = 1
     active_executors: List[PositionExecutor] = []
@@ -30,8 +35,8 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
     time_limit = 60 * 5
 
     # Create the candles that we want to use and the thresholds for the indicators
-    eth_3m_candles = CandlesFactory.get_candle(connector="binance_perpetual",
-                                               trading_pair="ETH-USDT",
+    eth_3m_candles = CandlesFactory.get_candle(connector=exchange,
+                                               trading_pair=trading_pair,
                                                interval="1m", max_records=50)
     rsi_lower_bound = 40
     rsi_upper_bound = 60
@@ -40,10 +45,6 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
     set_leverage_flag = None
     leverage = 10
     order_amount_usd = Decimal("10")
-
-    # Define the trading pair and exchange that we want to use and the csv where we are going to store the entries
-    trading_pair = "ETH-USDT"
-    exchange = "binance_perpetual"
 
     today = datetime.datetime.today()
     csv_path = data_path() + f"/{exchange}_{trading_pair}_{today.day:02d}-{today.month:02d}-{today.year}.csv"
@@ -65,7 +66,7 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
         self.check_and_set_leverage()
         if len(self.get_active_executors()) < self.max_executors:
             signal_value = self.get_signal()
-            if signal_value > self.rsi_upper_bound or signal_value < self.rsi_lower_bound:
+            if signal_value > self.rsi_upper_bound or signal_value < self.rsi_lower_bound and self.is_margin_enough():
                 # The rule that we are going to implement is:
                 # | RSI > 70 --> Short |
                 # | RSI < 30 --> Long  |
@@ -208,3 +209,10 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
                              order_type=OrderType.MARKET,
                              price=connector.get_mid_price(position.trading_pair),
                              position_action=PositionAction.CLOSE)
+
+    def is_margin_enough(self):
+        quote_balance = self.connectors[self.exchange].get_available_balance(self.trading_pair.split("-")[-1])
+        if self.bot_profile.order_amount_usd > quote_balance * self.bot_profile.leverage:
+            return True
+        else:
+            return False
