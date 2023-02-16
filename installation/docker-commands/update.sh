@@ -105,23 +105,19 @@ execute_docker () {
    docker run -itd --log-opt max-size=10m --log-opt max-file=5 \
    --network host \
    --name ${INSTANCES[$j]} \
-   --mount "type=bind,source=${FOLDERS[$j]}/hummingbot_conf,destination=/conf/" \
-   --mount "type=bind,source=${FOLDERS[$j]}/hummingbot_logs,destination=/logs/" \
-   --mount "type=bind,source=${FOLDERS[$j]}/hummingbot_data,destination=/data/" \
-   --mount "type=bind,source=${FOLDERS[$j]}/hummingbot_scripts,destination=/scripts/" \
-   --mount "type=bind,source=${FOLDERS[$j]}/hummingbot_pmm_scripts,destination=/pmm_scripts/" \
-   --mount "type=bind,source=${FOLDERS[$j]}/hummingbot_certs,destination=/home/hummingbot/.hummingbot-gateway/certs/" \
-   --mount "type=bind,source=${FOLDERS[$j]}/gateway_conf,destination=/gateway-conf/" \
-   --mount "type=bind,source=${FOLDERS[$j]}/gateway_logs,destination=/gateway_logs/" \
+   --mount "type=bind,source=${FOLDERS[$j]}/conf,destination=/conf/" \
+   --mount "type=bind,source=${FOLDERS[$j]}/logs,destination=/logs/" \
+   --mount "type=bind,source=${FOLDERS[$j]}/data,destination=/data/" \
+   --mount "type=bind,source=${FOLDERS[$j]}/scripts,destination=/scripts/" \
+   --mount "type=bind,source=${FOLDERS[$j]}/pmm-scripts,destination=/pmm-scripts/" \
+   --mount "type=bind,source=${FOLDERS[$j]}/certs,destination=/certs" \
    --mount "type=bind,source=/var/run/docker.sock,destination=/var/run/docker.sock" \
-   -e CONF_FOLDER="${FOLDERS[$j]}/hummingbot_conf" \
-   -e LOGS_FOLDER="${FOLDERS[$j]}/hummingbot_logs" \
-   -e DATA_FOLDER="${FOLDERS[$j]}/hummingbot_data" \
-   -e PMM_SCRIPTS_FOLDER="${FOLDERS[$j]}/hummingbot_pmm_scripts" \
-   -e SCRIPTS_FOLDER="${FOLDERS[$j]}/hummingbot_scripts" \
-   -e CERTS_FOLDER="${FOLDERS[$j]}/hummingbot_certs" \
-   -e GATEWAY_CONF_FOLDER="${FOLDERS[$j]}/gateway_conf" \
-   -e GATEWAY_LOGS_FOLDER="${FOLDERS[$j]}/gateway_logs" \
+   -e CONF_FOLDER="${FOLDERS[$j]}/conf" \
+   -e LOGS_FOLDER="${FOLDERS[$j]}/logs" \
+   -e DATA_FOLDER="${FOLDERS[$j]}/data" \
+   -e PMM_SCRIPTS_FOLDER="${FOLDERS[$j]}/pmm-scripts" \
+   -e SCRIPTS_FOLDER="${FOLDERS[$j]}/scripts" \
+   -e CERTS_FOLDER="${FOLDERS[$j]}/certs" \
    hummingbot/hummingbot:$TAG
    j=$[$j+1]
    # Update file ownership
