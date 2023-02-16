@@ -6,6 +6,7 @@ import threading
 import time
 from dataclasses import asdict, is_dataclass
 from datetime import datetime
+from decimal import Decimal
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple
 
 from hummingbot import get_logging_conf
@@ -241,11 +242,11 @@ class MQTTCommands:
     def _on_cmd_status(self, msg: StatusCommandMessage.Request):
         response = StatusCommandMessage.Response()
         timeout = 30  # seconds
-        if self._hb_app.strategy is None:
-            response.status = MQTT_STATUS_CODE.ERROR
-            response.msg = 'No strategy is currently running!'
-            return response
         try:
+            if self._hb_app.strategy is None:
+                response.status = MQTT_STATUS_CODE.ERROR
+                response.msg = 'No strategy is currently running!'
+                return response
             if msg.async_backend:
                 self._hb_app.status()
             else:
@@ -411,9 +412,7 @@ class MQTTMarketEventForwarder:
         except KeyError:
             timestamp = datetime.now().timestamp()
 
-        if 'type' in event_data:
-            if not isinstance(event_data.get('type', None), str):
-                event_data['type'] = str(event_data['type'])
+        event_data = self._make_event_payload(event_data)
 
         self.event_fw_pub.publish(
             InternalEventMessage(
@@ -422,6 +421,21 @@ class MQTTMarketEventForwarder:
                 data=event_data
             )
         )
+
+    def _make_event_payload(self, event_data):
+        if 'type' in event_data:
+            event_data['type'] = str(event_data['type'])
+        if 'order_type' in event_data:
+            event_data['order_type'] = str(event_data['order_type'])
+        if 'trade_type' in event_data:
+            event_data['trade_type'] = str(event_data['trade_type'])
+
+        for key, val in event_data.items():
+            if isinstance(val, dict):
+                self._make_event_payload(val)
+            elif isinstance(val, Decimal):
+                event_data[key] = float(val)
+        return event_data
 
     def _start_event_listeners(self):
         for market in self._markets:
