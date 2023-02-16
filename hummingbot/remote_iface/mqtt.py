@@ -20,6 +20,7 @@ if TYPE_CHECKING:  # pragma: no cover
 from commlib.node import Node, NodeState
 from commlib.transports.mqtt import ConnectionParameters as MQTTConnectionParameters
 
+from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee
 from hummingbot.core.event import events
 from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
 from hummingbot.core.pubsub import PubSub
@@ -435,6 +436,9 @@ class MQTTMarketEventForwarder:
                 self._make_event_payload(val)
             elif isinstance(val, Decimal):
                 event_data[key] = float(val)
+            elif isinstance(val, DeductedFromReturnsTradeFee):
+                event_data[key] = val.to_json()
+                self._make_event_payload(event_data[key])
         return event_data
 
     def _start_event_listeners(self):
