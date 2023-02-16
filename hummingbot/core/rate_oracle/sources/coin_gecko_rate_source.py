@@ -242,7 +242,7 @@ class CoinGeckoRateSource(RateSourceBase):
 
     def _ensure_data_feed(self):
         if self._coin_gecko_data_feed is None:
-            self._coin_gecko_data_feed = CoinGeckoDataFeed.get_instance()
+            self._coin_gecko_data_feed = CoinGeckoDataFeed()
 
     async def _get_coin_gecko_prices_by_page(self, vs_currency: str, page_no: int, category: Union[str, None]) -> Dict[str, Decimal]:
         """
