@@ -32,7 +32,7 @@ class CoinGeckoDataFeed(DataFeedBase):
         self._price_dict: Dict[str, float] = {}
         self._update_interval = update_interval
         self.fetch_data_loop_task: Optional[asyncio.Task] = None
-        self._rate_limit_retry_s: float = 60.0 / 50.0  # Simply wait for a full cool-off
+        self._rate_limit_retry_s: float = 1.05 * CONSTANTS.RATE_LIMITS[0].time_interval / CONSTANTS.RATE_LIMITS[0].limit
         async_throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS,
                                          retry_interval=self._rate_limit_retry_s)
         self._api_factory = WebAssistantsFactory(throttler=async_throttler)
@@ -76,7 +76,7 @@ class CoinGeckoDataFeed(DataFeedBase):
     async def get_prices_by_page(
         self, vs_currency: str, page_no: int, category: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        """Fetches prices specified by 250-length page."""
+        """Fetches prices specified by 250-length page. Only 50 when category is specified"""
         rest_assistant = await self._api_factory.get_rest_assistant()
         price_url: str = f"{CONSTANTS.BASE_URL}{CONSTANTS.PRICES_REST_ENDPOINT}"
         params = {
