@@ -66,7 +66,8 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
         self.check_and_set_leverage()
         if len(self.get_active_executors()) < self.max_executors:
             signal_value = self.get_signal()
-            if signal_value > self.rsi_upper_bound or signal_value < self.rsi_lower_bound and self.is_margin_enough():
+            if signal_value > self.rsi_upper_bound or signal_value < self.rsi_lower_bound and self.is_margin_enough()\
+                    and self.eth_3m_candles.is_ready:
                 # The rule that we are going to implement is:
                 # | RSI > 70 --> Short |
                 # | RSI < 30 --> Long  |
