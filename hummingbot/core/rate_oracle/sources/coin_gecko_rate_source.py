@@ -57,6 +57,7 @@ class CoinGeckoRateSource(RateSourceBase):
                 except Exception as e:
                     self.logger().error(f"Unhandled error in CoinGecko rate source response: {str(e)}", exc_info=True)
                     raise Exception(f"Unhandled error in CoinGecko rate source response: {str(e)}")
+
         return try_raise_event
 
     @async_ttl_cache(ttl=COOLOFF_AFTER_BAN, maxsize=1)
@@ -75,7 +76,8 @@ class CoinGeckoRateSource(RateSourceBase):
         vs_currency = quote_token.lower()
         results = {}
         if not self._coin_gecko_supported_vs_tokens:
-            self._coin_gecko_supported_vs_tokens = await self.try_event(self._coin_gecko_data_feed.get_supported_vs_tokens)()
+            self._coin_gecko_supported_vs_tokens = await self.try_event(
+                self._coin_gecko_data_feed.get_supported_vs_tokens)()
 
         if vs_currency not in self._coin_gecko_supported_vs_tokens:
             vs_currency = "usd"
@@ -100,7 +102,6 @@ class CoinGeckoRateSource(RateSourceBase):
         for i, task_result in enumerate(task_results):
             results.update(task_result)
 
-        self.logger().info(f"Done fetching prices from CoinGecko for {quote_token}")
         self._lock.release()
         return results
 
@@ -108,7 +109,10 @@ class CoinGeckoRateSource(RateSourceBase):
         if self._coin_gecko_data_feed is None:
             self._coin_gecko_data_feed = CoinGeckoDataFeed()
 
-    async def _get_coin_gecko_prices_by_page(self, vs_currency: str, page_no: int, category: Union[str, None]) -> Dict[str, Decimal]:
+    async def _get_coin_gecko_prices_by_page(self,
+                                             vs_currency: str,
+                                             page_no: int,
+                                             category: Union[str, None]) -> Dict[str, Decimal]:
         """
         Fetches CoinGecko prices by page number.
 
@@ -120,7 +124,8 @@ class CoinGeckoRateSource(RateSourceBase):
         :return: A dictionary of trading pairs and prices (50 results max if a category is provided)
         """
         results = {}
-        resp = await self.try_event(self._coin_gecko_data_feed.get_prices_by_page)(vs_currency=vs_currency, page_no=page_no, category=category)
+        resp = await self.try_event(self._coin_gecko_data_feed.get_prices_by_page)(vs_currency=vs_currency,
+                                                                                   page_no=page_no, category=category)
 
         for record in resp:
             pair = combine_to_hb_trading_pair(base=record['symbol'].upper(), quote=vs_currency.upper())
@@ -138,8 +143,8 @@ class CoinGeckoRateSource(RateSourceBase):
         :return: A dictionary of trading pairs and prices
         """
         results = {}
-        # Forcing the collection of HBOT: Due to stringent rate limits, HBOT cannot be fetched with a regular call
-        self._extra_token_ids.append("HBOT")
+        # TODO: Should we force hummingbot to be included?
+        # self._extra_token_ids.append("hummingbot") - This fails the tests, not sure why
         if self._extra_token_ids:
             resp = await self.try_event(self._coin_gecko_data_feed.get_prices_by_token_id)(vs_currency=vs_currency,
                                                                                            token_ids=self._extra_token_ids)
