@@ -55,15 +55,15 @@ class AdvancedDirectionalStrategyExample(ScriptStrategyBase):
     trading_pair = "ETH-USDT"
     exchange = "binance_perpetual"
 
-    eth_1m_candles = CandlesFactory.get_candle(connector=exchange,
-                                               trading_pair=trading_pair,
-                                               interval="1m", max_records=50)
-    eth_3m_candles = CandlesFactory.get_candle(connector=exchange,
-                                               trading_pair=trading_pair,
-                                               interval="3m", max_records=50)
+    candles_1m = CandlesFactory.get_candle(connector=exchange,
+                                           trading_pair=trading_pair,
+                                           interval="1m", max_records=50)
+    candles_3m = CandlesFactory.get_candle(connector=exchange,
+                                           trading_pair=trading_pair,
+                                           interval="3m", max_records=50)
     candles = {
-        f"{trading_pair}_1m": eth_1m_candles,
-        f"{trading_pair}_3m": eth_3m_candles,
+        f"{trading_pair}_1m": candles_1m,
+        f"{trading_pair}_3m": candles_3m,
     }
 
     set_leverage_flag = None
@@ -136,7 +136,7 @@ class AdvancedDirectionalStrategyExample(ScriptStrategyBase):
         # The idea is that you can define rules between the signal values of multiple trading pairs or timeframes
         # In this example, we are going to prioritize the short term signal, so the weight of the 1m candle
         # is going to be 0.7 and the weight of the 1h candle 0.3
-        composed_signal_value = 0.7 * values["ETH-USDT_1m"] + 0.3 * values["ETH-USDT_3m"]
+        composed_signal_value = 0.7 * values[f"{self.trading_pair}_1m"] + 0.3 * values[f"{self.trading_pair}_3m"]
         return composed_signal_value
 
     def on_stop(self):
@@ -187,7 +187,8 @@ class AdvancedDirectionalStrategyExample(ScriptStrategyBase):
                 candles_df.ta.sma(length=10, close="RSI_21", prefix="RSI_21", append=True)
                 candles_df["timestamp"] = pd.to_datetime(candles_df["timestamp"], unit="ms")
                 lines.extend([f"Candles: {candles.name} | Interval: {candles.interval}\n"])
-                lines.extend(["    " + line for line in candles_df[columns_to_show].tail().to_string(index=False).split("\n")])
+                lines.extend(
+                    ["    " + line for line in candles_df[columns_to_show].tail().to_string(index=False).split("\n")])
                 last_row = candles_df.iloc[-1]
                 sma_rsi_normalized = -1 * (last_row["RSI_21_SMA_10"].item() - 50) / 50
                 bb_percentage_normalized = -1 * (last_row["BBP_21_2.0"].item() - 0.5) / 0.5
@@ -198,7 +199,7 @@ Normalized SMA RSI = {sma_rsi_normalized}
 BB% Normalized = {bb_percentage_normalized}
 Signal Value: {signal_value}
 """])
-            lines.extend([f"Consolidated Signal = {0.7 * values['ETH-USDT_1m'] + 0.3 * values['ETH-USDT_3m']}"])
+            lines.extend([f"Consolidated Signal = {0.7 * values[f'{self.trading_pair}_1m'] + 0.3 * values[f'{self.trading_pair}_3m']}"])
             lines.extend(["\n-----------------------------------------------------------------------------------------------------------\n"])
         else:
             lines.extend(["", "  No data collected."])
