@@ -96,7 +96,8 @@ class AdvancedDirectionalStrategyExample(ScriptStrategyBase):
 
     def on_tick(self):
         self.check_and_set_leverage()
-        if len(self.get_active_executors()) < self.bot_profile.max_executors and self.is_margin_enough():
+        if len(self.get_active_executors()) < self.bot_profile.max_executors and self.is_margin_enough() \
+                and self.all_candles_ready:
             signal_value = self.get_signal()
             if signal_value > self.bot_profile.long_threshold or signal_value < self.bot_profile.short_threshold:
                 price = self.connectors[self.exchange].get_mid_price(self.trading_pair)
