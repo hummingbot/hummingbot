@@ -196,7 +196,6 @@ class PerformanceMetrics:
 
             self.s_vol_quote += self._process_deducted_fees_impact_in_quote_vol(trade)
 
-
         self.tot_vol_base = self.b_vol_base + self.s_vol_base
         self.tot_vol_quote = self.b_vol_quote + self.s_vol_quote
 
