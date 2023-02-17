@@ -13,7 +13,7 @@ from hummingbot.data_feed.coin_gecko_data_feed import coin_gecko_constants as CO
 from hummingbot.data_feed.coin_gecko_data_feed.coin_gecko_constants import COOLOFF_AFTER_BAN
 
 
-class CoinGeckoRateSourceTest(unittest.IsolatedAsyncioTestCase):
+class CoinGeckoRateSourceTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
