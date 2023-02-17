@@ -73,6 +73,7 @@ class ConnectorType(Enum):
     Connector = "connector"
     Exchange = "exchange"
     Derivative = "derivative"
+    XRPLDEX_CLOB = "XRPLDEX_CLOB"
 
 
 class GatewayConnectionSetting:
@@ -182,6 +183,8 @@ class ConnectorSetting(NamedTuple):
             if self.type in [ConnectorType.EVM_AMM, ConnectorType.EVM_Perpetual, ConnectorType.NEAR_AMM, ConnectorType.EVM_AMM_LP]:
                 return f"gateway.amm.gateway_{self.type.name.lower()}"
             elif ConnectorType.SOL_CLOB == self.type:
+                return f"gateway.clob.gateway_{self.type.name.lower()}"
+            elif ConnectorType.XRPLDEX_CLOB == self.type:
                 return f"gateway.clob.gateway_{self.type.name.lower()}"
             else:
                 raise ValueError(f"Unsupported connector type: {self.type}")
@@ -444,7 +447,8 @@ class AllConnectorSettings:
 
     @classmethod
     def get_gateway_clob_connector_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.all_connector_settings.values() if cs.type == ConnectorType.SOL_CLOB}
+        return {cs.name for cs in cls.all_connector_settings.values() if
+                cs.type == ConnectorType.SOL_CLOB or cs.type == ConnectorType.XRPLDEX_CLOB}
 
     @classmethod
     def get_example_pairs(cls) -> Dict[str, str]:

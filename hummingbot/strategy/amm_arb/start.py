@@ -3,6 +3,7 @@ from typing import cast
 
 from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
 from hummingbot.connector.gateway.clob.gateway_sol_clob import GatewaySOLCLOB
+from hummingbot.connector.gateway.clob.gateway_xrpldex_clob import GatewayXrpldexCLOB
 from hummingbot.connector.gateway.common_types import Chain
 from hummingbot.connector.gateway.gateway_price_shim import GatewayPriceShim
 from hummingbot.strategy.amm_arb.amm_arb import AmmArbStrategy
@@ -43,6 +44,8 @@ def start(self):
             amm_connector: GatewayEVMAMM = cast(GatewayEVMAMM, amm_market_info.market)
         elif Chain.SOLANA.chain == amm_market_info.market.chain:
             amm_connector: GatewaySOLCLOB = cast(GatewaySOLCLOB, amm_market_info.market)
+        elif Chain.XRPL.chain == amm_market_info.market.chain:
+            amm_connector: GatewayXrpldexCLOB = cast(GatewayXrpldexCLOB, amm_market_info.market)
         else:
             raise ValueError(f"Unsupported chain: {amm_market_info.market.chain}")
         GatewayPriceShim.get_instance().patch_prices(
