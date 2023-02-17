@@ -6,9 +6,9 @@
 [![Youtube](https://img.shields.io/youtube/channel/subscribers/UCxzzdEnDRbylLMWmaMjywOA)](https://www.youtube.com/@hummingbot)
 [![Discord](https://img.shields.io/discord/530578568154054663?logo=discord&logoColor=white&style=flat-square)](https://discord.gg/hummingbot/)
 
-Hummingbot is an open source  framework that helps you build automated trading strategies, or **bots** that run on cryptocurrency exchanges.
+Hummingbot is an open-source framework that helps you build automated trading strategies or **bots** that run on cryptocurrency exchanges.
 
-This code is free and publicly available under the Apache 2.0 open source license!
+This code is free and publicly available under the Apache 2.0 open-source license!
 
 ## Why Hummingbot?
 
@@ -44,7 +44,7 @@ Hummingbot connectors standardize trading logic and order types across different
  * **PERP**: Connectors to central limit order book (CLOB) exchanges that trade perpetual swap markets
  * **AMM**: Connectors to decentralized exchanges that use the Automatic Market Maker (AMM) methodology
 
-Exchanges may be centralized (**CEX**), or decentralized (**DEX**), in which case user assets are stored on the blockchain and trading is performed via wallet addresses.
+Exchanges may be centralized (**CEX**), or decentralized (**DEX**), in which case user assets are stored on the blockchain, and trading is performed via wallet addresses.
 
 | Tier | Exchange | Type | Signup code |
 |------|----------|------|-------------|
@@ -72,7 +72,7 @@ We provide customizable strategy templates for core trading strategies that user
 
 ### Scripts
 
-Scripts are a newer, lighter way to build Hummingbot strategies in Python, which let you modify the script's code and re-run it to apply the changes without exiting the Hummingbot interface or re-compiling the code.
+Scripts are a newer, lighter way to build Hummingbot strategies in Python, which lets you modify the script's code and re-run it to apply the changes without exiting the Hummingbot interface or re-compiling the code.
 
 See the [Scripts](https://docs.hummingbot.org/scripts/) section in the documentation for more info, or check out the [/scripts](https://github.com/hummingbot/hummingbot/tree/master/scripts) folder for all Script examples included in the codebase.
 
