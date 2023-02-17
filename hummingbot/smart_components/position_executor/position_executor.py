@@ -255,7 +255,7 @@ class PositionExecutor:
             self.logger().info(f"""
             Updating take profit since:
             Open order amount base == {self.open_order.executed_amount_base}
-            Take profit amount base == {self.take_profit_order.amount}""")
+            Take profit amount base == {self.take_profit_order.order.amount}""")
             self.remove_take_profit()
             self.place_take_profit_order()
 
