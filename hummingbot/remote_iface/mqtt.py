@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 
 import asyncio
+import functools
 import logging
 import threading
 import time
+from collections import deque
 from dataclasses import asdict, is_dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -20,7 +22,7 @@ if TYPE_CHECKING:  # pragma: no cover
 from commlib.node import Node, NodeState
 from commlib.transports.mqtt import ConnectionParameters as MQTTConnectionParameters
 
-from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, DeductedFromReturnsTradeFee
 from hummingbot.core.event import events
 from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
 from hummingbot.core.pubsub import PubSub
@@ -439,6 +441,9 @@ class MQTTMarketEventForwarder:
             elif isinstance(val, DeductedFromReturnsTradeFee):
                 event_data[key] = val.to_json()
                 self._make_event_payload(event_data[key])
+            elif isinstance(val, AddedToCostTradeFee):
+                event_data[key] = val.to_json()
+                self._make_event_payload(event_data[key])
         return event_data
 
     def _start_event_listeners(self):
@@ -617,12 +622,20 @@ class MQTTGateway(Node):
             self._external_events = MQTTExternalEvents(self._hb_app, self)
 
     def add_external_event_listener(self,
+                                    event_name: str,
                                     callback: Callable[[ExternalEventMessage, str], None]):
-        self._external_events.add_global_listener(callback)
+        if event_name == '*':
+            self._external_events.add_global_listener(callback)
+        else:
+            self._external_events.add_listener(event_name, callback)
 
     def remove_external_event_listener(self,
+                                       event_name: str,
                                        callback: Callable[[ExternalEventMessage, str], None]):
-        self._external_events.remove_global_listener(callback)
+        if event_name == '*':
+            self._external_events.remove_global_listener(callback)
+        else:
+            self._external_events.remove_listener(event_name, callback)
 
     def _create_mqtt_params_from_conf(self):
         host = self._hb_app.client_config_map.mqtt_bridge.mqtt_host
@@ -806,6 +819,25 @@ class MQTTExternalEvents:
                                ):
         if '*' in self._listeners:
             self._listeners.get('*').remove(callback)
+
+
+class EEventsQueueFactory:
+    @classmethod
+    def create(cls,
+               event_name: Optional[str] = '*',
+               queue_size: Optional[int] = 1000
+               ) -> deque:
+        gw = MQTTGateway.main()
+        queue = deque(maxlen=queue_size)
+        if gw is None:
+            raise Exception('MQTTGateway is offline!')
+        _on_event_clb = functools.partial(cls._on_event, queue)
+        gw.add_external_event_listener(event_name, _on_event_clb)
+        return queue
+
+    @classmethod
+    def _on_event(cls, queue, msg, name):
+        queue.append((name, msg))
 
 
 class MQTTTopicListener:

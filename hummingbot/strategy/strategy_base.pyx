@@ -4,8 +4,6 @@ import pandas as pd
 from typing import (
     List)
 
-from collections import deque
-
 from hummingbot.core.clock cimport Clock
 from hummingbot.core.event.events import MarketEvent, AccountEvent
 from hummingbot.core.event.event_listener cimport EventListener
@@ -164,10 +162,6 @@ cdef class StrategyBase(TimeIterator):
         self._sb_delegate_lock = False
 
         self._sb_order_tracker = OrderTracker()
-
-        self._eevents = deque(maxlen=1000)
-
-        self.start_external_event_listener()
 
     def init_params(self, *args, **kwargs):
         """
@@ -670,16 +664,5 @@ cdef class StrategyBase(TimeIterator):
         """
         timestamp = pd.Timestamp.fromtimestamp(self._current_timestamp)
         self.notify_hb_app(f"({timestamp}) {msg}")
-
-    def start_external_event_listener(self):
-        from hummingbot.remote_iface.mqtt import MQTTGateway
-        gw = MQTTGateway.main()
-        if gw is None:
-            return False
-        gw.add_external_event_listener(self.did_receive_external_event)
-        return True
-
-    def did_receive_external_event(self, msg, name):
-        self._eevents.append((name, msg))
     # ----------------------------------------------------------------------------------------------------------
     # </editor-fold>
