@@ -16,6 +16,8 @@ If you do not have `docker` permissions:
 
 2. Log out and log back into the terminal to enable.
 
+
+
 ## Download all scipts
 
 #### Linux
@@ -65,4 +67,11 @@ The `update.sh` script will update your instance to the latest version of Hummin
 
 ```
 ./update.sh
+```
+
+## Start Docker in Hummingbot
+The `sudo service start docker` script will enable to start docker of Hummingbot.
+
+```
+sudo service start docker
 ```
