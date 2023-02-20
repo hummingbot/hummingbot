@@ -1,7 +1,8 @@
 import datetime
 import os
+from collections import deque
 from decimal import Decimal
-from typing import Dict, List
+from typing import Deque, Dict, List
 
 import pandas as pd
 import pandas_ta as ta  # noqa: F401
@@ -27,7 +28,7 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
     # Maximum position executors at a time
     max_executors = 1
     active_executors: List[PositionExecutor] = []
-    stored_executors: List[PositionExecutor] = []
+    stored_executors: Deque[PositionExecutor] = deque(maxlen=10)  # Store only the last 10 executors for reporting
 
     # Configure the parameters for the position
     stop_loss = 0.002

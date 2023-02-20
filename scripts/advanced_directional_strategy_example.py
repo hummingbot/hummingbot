@@ -1,7 +1,8 @@
 import datetime
 import os
+from collections import deque
 from decimal import Decimal
-from typing import Dict, List
+from typing import Deque, Dict, List
 
 import pandas as pd
 import pandas_ta as ta  # noqa: F401
@@ -68,7 +69,7 @@ class AdvancedDirectionalStrategyExample(ScriptStrategyBase):
 
     set_leverage_flag = None
     active_signal_executors: List[SignalExecutor] = []
-    stored_signal_executors: List[SignalExecutor] = []
+    stored_signal_executors: Deque[SignalExecutor] = deque(maxlen=10)  # Store only the last 10 executors for reporting
 
     today = datetime.datetime.today()
     csv_path = data_path() + f"/{exchange}_{trading_pair}_{today.day:02d}-{today.month:02d}-{today.year}.csv"
