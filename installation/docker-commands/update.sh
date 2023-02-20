@@ -105,19 +105,12 @@ execute_docker () {
    docker run -itd --log-opt max-size=10m --log-opt max-file=5 \
    --network host \
    --name ${INSTANCES[$j]} \
-   --mount "type=bind,source=${FOLDERS[$j]}/conf,destination=/conf/" \
-   --mount "type=bind,source=${FOLDERS[$j]}/logs,destination=/logs/" \
-   --mount "type=bind,source=${FOLDERS[$j]}/data,destination=/data/" \
-   --mount "type=bind,source=${FOLDERS[$j]}/scripts,destination=/scripts/" \
-   --mount "type=bind,source=${FOLDERS[$j]}/pmm-scripts,destination=/pmm-scripts/" \
-   --mount "type=bind,source=${FOLDERS[$j]}/certs,destination=/certs" \
-   --mount "type=bind,source=/var/run/docker.sock,destination=/var/run/docker.sock" \
-   -e CONF_FOLDER="${FOLDERS[$j]}/conf" \
-   -e LOGS_FOLDER="${FOLDERS[$j]}/logs" \
-   -e DATA_FOLDER="${FOLDERS[$j]}/data" \
-   -e PMM_SCRIPTS_FOLDER="${FOLDERS[$j]}/pmm-scripts" \
-   -e SCRIPTS_FOLDER="${FOLDERS[$j]}/scripts" \
-   -e CERTS_FOLDER="${FOLDERS[$j]}/certs" \
+   -v $CONF_FOLDER:/conf \
+   -v $LOGS_FOLDER:/logs \
+   -v $DATA_FOLDER:/data \
+   -v $PMM_SCRIPTS_FOLDER:/pmm_scripts \
+   -v $SCRIPTS_FOLDER:/scripts \
+   -v $CERTS_FOLDER:/certs \
    hummingbot/hummingbot:$TAG
    j=$[$j+1]
    # Update file ownership
