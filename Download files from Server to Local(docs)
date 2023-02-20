@@ -1,0 +1,13 @@
+Download filezilla:
+https://filezilla-project.org/
+
+Via Filezilla:
+Files > Site Manager > New Site > Input SFPT > Connect
+You can now download files from cloud server locally to your computer:
+Click here for docs with image:
+https://github.com/cryptobike07/hummingbot.wiki.git
+
+Docker:
+Folder for logs: hummingbot_files/hummingbot_logs
+SOURCE:
+Folder for logs: hummingbot/logs

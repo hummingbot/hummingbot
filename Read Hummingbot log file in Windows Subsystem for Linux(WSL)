@@ -1,0 +1,27 @@
+How to Read Hummingbot log file in Windows Subsystem for Linux(WSL):
+
+First find the file:
+
+Via DOCKER: 
+Logs:
+$cd hummingbot_files/hummingbot_logs > ls
+
+In Local Computer : 
+This PC > Linux > Ubuntu > Home > $User > hummingbot_files > hummingbot_logs
+or
+\\wsl.localhost\$LinuxInstalled-Version\home\$User\hummingbot_files\hummingbot_logs
+Mine: \\wsl.localhost\Ubuntu-22.04\home\mbcjaguar\hummingbot_files\hummingbot_logs
+
+Via SOURCE:
+Logs:
+$cd hummingbot/logs > ls
+
+In Local Computer :
+This PC > Linux > Ubuntu > Home > $User > hummingbot > logs
+\\wsl.localhost\$LinuxInstalled-Version\home\$User\hummingbot\logs
+Mine: 
+\\wsl.localhost\Ubuntu-22.04\home\mbcjaguar\hummingbot\logs
+
+Second Copy the file or directly open it:
+You can open it via Notepad(Double Click)
+or via Notepad++ (Right click > Edit with Notepad ++)
