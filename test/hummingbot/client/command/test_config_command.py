@@ -43,6 +43,7 @@ class ConfigCommandTest(unittest.TestCase):
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication.notify")
     def test_list_configs(self, notify_mock, get_strategy_config_map_mock):
         captures = []
+        self.app.client_config_map.instance_id = "TEST_ID"
         notify_mock.side_effect = lambda s: captures.append(s)
         strategy_name = "some-strategy"
         self.app.strategy_name = strategy_name
@@ -63,9 +64,22 @@ class ConfigCommandTest(unittest.TestCase):
         df_str_expected = ("    +--------------------------+----------------------+\n"
                            "    | Key                      | Value                |\n"
                            "    |--------------------------+----------------------|\n"
+                           "    | instance_id              | TEST_ID              |\n"
                            "    | kill_switch_mode         | kill_switch_disabled |\n"
                            "    | autofill_import          | disabled             |\n"
                            "    | telegram_mode            | telegram_disabled    |\n"
+                           "    | mqtt_bridge              |                      |\n"
+                           "    | ∟ mqtt_host              | localhost            |\n"
+                           "    | ∟ mqtt_port              | 1883                 |\n"
+                           "    | ∟ mqtt_username          |                      |\n"
+                           "    | ∟ mqtt_password          |                      |\n"
+                           "    | ∟ mqtt_namespace         | hbot                 |\n"
+                           "    | ∟ mqtt_ssl               | False                |\n"
+                           "    | ∟ mqtt_logger            | True                 |\n"
+                           "    | ∟ mqtt_notifier          | True                 |\n"
+                           "    | ∟ mqtt_commands          | True                 |\n"
+                           "    | ∟ mqtt_events            | True                 |\n"
+                           "    | ∟ mqtt_autostart         | False                |\n"
                            "    | send_error_logs          | True                 |\n"
                            "    | pmm_script_mode          | pmm_script_disabled  |\n"
                            "    | gateway                  |                      |\n"

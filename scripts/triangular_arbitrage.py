@@ -16,6 +16,10 @@ from hummingbot.strategy.script_strategy_base import Decimal, OrderType, ScriptS
 
 class TriangularArbitrage(ScriptStrategyBase):
     """
+    BotCamp Cohort: Sept 2022
+    Design Template: https://hummingbot-foundation.notion.site/Triangular-Arbitrage-07ef29ee97d749e1afa798a024813c88
+    Video: https://www.loom.com/share/b6781130251945d4b51d6de3f8434047
+    Description:
     This script executes arbitrage trades on 3 markets of the same exchange when a price discrepancy
     among those markets found.
 

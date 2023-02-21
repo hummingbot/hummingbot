@@ -54,9 +54,16 @@ class HummingbotCompleter(Completer):
         self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
         self._balance_completer = WordCompleter(["limit", "paper"], ignore_case=True)
         self._history_completer = WordCompleter(["--days", "--verbose", "--precision"], ignore_case=True)
-        self._gateway_completer = WordCompleter(["create", "config", "connect", "connector-tokens", "generate-certs", "status", "test-connection", "start", "stop"], ignore_case=True)
+        self._gateway_completer = WordCompleter(["config", "connect", "connector-tokens", "generate-certs", "status", "test-connection", "list", "approve-tokens"], ignore_case=True)
         self._gateway_connect_completer = WordCompleter(GATEWAY_CONNECTORS, ignore_case=True)
         self._gateway_connector_tokens_completer = WordCompleter(
+            sorted(
+                AllConnectorSettings.get_gateway_amm_connector_names().union(
+                    AllConnectorSettings.get_gateway_clob_connector_names()
+                )
+            ), ignore_case=True
+        )
+        self._gateway_approve_tokens_completer = WordCompleter(
             sorted(
                 AllConnectorSettings.get_gateway_amm_connector_names().union(
                     AllConnectorSettings.get_gateway_clob_connector_names()
@@ -68,6 +75,7 @@ class HummingbotCompleter(Completer):
         self._py_file_completer = WordCompleter(file_name_list(str(PMM_SCRIPTS_PATH), "py"))
         self._script_strategy_completer = WordCompleter(file_name_list(str(SCRIPT_STRATEGIES_PATH), "py"))
         self._rate_oracle_completer = WordCompleter(list(RATE_ORACLE_SOURCES.keys()), ignore_case=True)
+        self._mqtt_completer = WordCompleter(["start", "stop", "restart"], ignore_case=True)
         self._gateway_chains = []
         self._gateway_networks = []
         self._list_gateway_wallets_parameters = {"wallets": [], "chain": ""}
@@ -191,6 +199,10 @@ class HummingbotCompleter(Completer):
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("gateway connector-tokens ")
 
+    def _complete_gateway_approve_tokens_arguments(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return text_before_cursor.startswith("gateway approve-tokens ")
+
     def _complete_gateway_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("gateway ") and not text_before_cursor.startswith("gateway config ")
@@ -236,6 +248,10 @@ class HummingbotCompleter(Completer):
 
     def _complete_rate_oracle_source(self, document: Document):
         return all(x in self.prompt_text for x in ("source", "rate oracle"))
+
+    def _complete_mqtt_arguments(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return text_before_cursor.startswith("mqtt ")
 
     def get_completions(self, document: Document, complete_event: CompleteEvent):
         """
@@ -330,6 +346,10 @@ class HummingbotCompleter(Completer):
             for c in self._gateway_connector_tokens_completer.get_completions(document, complete_event):
                 yield c
 
+        elif self._complete_gateway_approve_tokens_arguments(document):
+            for c in self._gateway_approve_tokens_completer.get_completions(document, complete_event):
+                yield c
+
         elif self._complete_gateway_arguments(document):
             for c in self._gateway_completer.get_completions(document, complete_event):
                 yield c
@@ -371,6 +391,10 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_rate_oracle_source(document):
             for c in self._rate_oracle_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_mqtt_arguments(document):
+            for c in self._mqtt_completer.get_completions(document, complete_event):
                 yield c
 
         else:
