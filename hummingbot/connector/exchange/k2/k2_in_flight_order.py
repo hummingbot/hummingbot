@@ -1,10 +1,6 @@
 import asyncio
 from decimal import Decimal
-from typing import (
-    Any,
-    Dict,
-    Optional,
-)
+from typing import Any, Dict, Optional
 
 from hummingbot.connector.exchange.k2.k2_utils import convert_from_exchange_trading_pair
 from hummingbot.connector.in_flight_order_base import InFlightOrderBase
