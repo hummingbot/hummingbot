@@ -214,7 +214,7 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
 
     def is_margin_enough(self):
         quote_balance = self.connectors[self.exchange].get_available_balance(self.trading_pair.split("-")[-1])
-        if self.bot_profile.order_amount_usd < quote_balance * self.bot_profile.leverage:
+        if self.order_amount_usd < quote_balance * self.leverage:
             return True
         else:
             self.logger().info("No enough margin to place orders.")
