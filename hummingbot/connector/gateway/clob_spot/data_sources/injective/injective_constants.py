@@ -37,6 +37,7 @@ SPOT_CANCEL_ORDER_GAS = Decimal("25e3")
 
 MSG_CREATE_SPOT_LIMIT_ORDER = "/injective.exchange.v1beta1.MsgCreateSpotLimitOrder"
 MSG_CANCEL_SPOT_ORDER = "/injective.exchange.v1beta1.MsgCancelSpotOrder"
+MSG_BATCH_UPDATE_ORDERS = "/injective.exchange.v1beta1.MsgBatchUpdateOrders"
 
 ACC_NONCE_PATH_RATE_LIMIT_ID = "acc_nonce"
 RATE_LIMITS = [RateLimit(limit_id=ACC_NONCE_PATH_RATE_LIMIT_ID, limit=100, time_interval=1)]

@@ -37,6 +37,7 @@ from hummingbot.connector.gateway.clob_spot.data_sources.injective.injective_con
     CLIENT_TO_BACKEND_ORDER_TYPES_MAP,
     CONNECTOR_NAME,
     MARKETS_UPDATE_INTERVAL,
+    MSG_BATCH_UPDATE_ORDERS,
     MSG_CANCEL_SPOT_ORDER,
     MSG_CREATE_SPOT_LIMIT_ORDER,
     NONCE_PATH,
@@ -121,15 +122,14 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         self._network = network
         self._sub_account_id = address
         self._account_address: Optional[str] = None
-        # self._network_obj = getattr(Network, self._network)()
         self._network_obj = Network.custom(
-            lcd_endpoint='https://sentry5.lcd.injective.dev',
-            tm_websocket_endpoint='https://sentry5.tm.injective.dev/websocket',
-            grpc_endpoint='sentry5.grpc.injective.dev',
-            grpc_exchange_endpoint='sentry5.api.injective.dev',
-            grpc_explorer_endpoint='k8s.mainnet.explorer.grpc.injective.network:443',
-            chain_id='injective-1',
-            env='mainnet'
+            lcd_endpoint="https://k8s.global.mainnet.lcd.injective.network:443",
+            tm_websocket_endpoint="wss://k8s.global.mainnet.tm.injective.network:443/websocket",
+            grpc_endpoint="k8s.global.mainnet.chain.grpc.injective.network:443",
+            grpc_exchange_endpoint="k8s.global.mainnet.exchange.grpc.injective.network:443",
+            grpc_explorer_endpoint="k8s.mainnet.explorer.grpc.injective.network:443",
+            chain_id="injective-1",
+            env="mainnet"
         )
         self._client = AsyncClient(network=self._network_obj)
         self._composer = ProtoMsgComposer(network=self._network_obj.string())
@@ -998,10 +998,8 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         if order is not None:
             messages = json.loads(s=transaction.messages)
             for message in messages:
-                if message["type"] == MSG_CREATE_SPOT_LIMIT_ORDER:
-                    await self.get_order_status_update(in_flight_order=order)
-                elif message["type"] == MSG_CANCEL_SPOT_ORDER:
-                    await self.get_order_status_update(in_flight_order=order)
+                if message["type"] in [MSG_CREATE_SPOT_LIMIT_ORDER, MSG_CANCEL_SPOT_ORDER, MSG_BATCH_UPDATE_ORDERS]:
+                    safe_ensure_future(coro=self.get_order_status_update(in_flight_order=order))
 
     def _get_trading_pair_from_market_id(self, market_id: str) -> str:
         market = self._market_id_to_active_spot_markets[market_id]

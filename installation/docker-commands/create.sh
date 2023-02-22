@@ -17,10 +17,10 @@ then
 fi
 
 # Ask the user for the name of the new instance
-read -p "   Enter a name for your new Hummingbot instance (default = \"hummingbot-instance\") >>> " INSTANCE_NAME
+read -p "   Enter a name for your new Hummingbot instance (default = \"hummingbot\") >>> " INSTANCE_NAME
 if [ "$INSTANCE_NAME" == "" ]
 then
-  INSTANCE_NAME="hummingbot-instance"
+  INSTANCE_NAME="hummingbot"
   DEFAULT_FOLDER="hummingbot_files"
 else
   DEFAULT_FOLDER="${INSTANCE_NAME}_files"
@@ -34,14 +34,12 @@ then
 elif [[ ${FOLDER::1} != "/" ]]; then
   FOLDER=$PWD/$FOLDER
 fi
-CONF_FOLDER="$FOLDER/hummingbot_conf"
-LOGS_FOLDER="$FOLDER/hummingbot_logs"
-DATA_FOLDER="$FOLDER/hummingbot_data"
-PMM_SCRIPTS_FOLDER="$FOLDER/hummingbot_pmm_scripts"
-SCRIPTS_FOLDER="$FOLDER/hummingbot_scripts"
-CERTS_FOLDER="$FOLDER/hummingbot_certs"
-GATEWAY_CONF_FOLDER="$FOLDER/gateway_conf"
-GATEWAY_LOGS_FOLDER="$FOLDER/gateway_logs"
+CONF_FOLDER="$FOLDER/conf"
+LOGS_FOLDER="$FOLDER/logs"
+DATA_FOLDER="$FOLDER/data"
+PMM_SCRIPTS_FOLDER="$FOLDER/pmm-scripts"
+SCRIPTS_FOLDER="$FOLDER/scripts"
+CERTS_FOLDER="$FOLDER/certs"
 
 echo
 echo "ℹ️  Confirm below if the instance and its folders are correct:"
@@ -56,8 +54,6 @@ printf "%30s %5s\n" "Trade and data files:" "├── $DATA_FOLDER"
 printf "%30s %5s\n" "PMM scripts files:" "├── $PMM_SCRIPTS_FOLDER"
 printf "%30s %5s\n" "Scripts files:" "├── $SCRIPTS_FOLDER"
 printf "%30s %5s\n" "Cert files:" "├── $CERTS_FOLDER"
-printf "%30s %5s\n" "Gateway config files:" "└── $GATEWAY_CONF_FOLDER"
-printf "%30s %5s\n" "Gateway log files:" "└── $GATEWAY_LOGS_FOLDER"
 echo
 
 prompt_proceed () {
@@ -84,29 +80,18 @@ create_instance () {
  mkdir $PMM_SCRIPTS_FOLDER
  mkdir $CERTS_FOLDER
  mkdir $SCRIPTS_FOLDER
- mkdir $GATEWAY_CONF_FOLDER
- mkdir $GATEWAY_LOGS_FOLDER
  # 3) Set required permissions to save hummingbot password the first time
- sudo chmod a+rw $CONF_FOLDER
+ sudo chmod a+rw $CONF_FOLDER $CERTS_FOLDER
  # 4) Launch a new instance of hummingbot
  docker run -it --log-opt max-size=10m --log-opt max-file=5 \
  --name $INSTANCE_NAME \
  --network host \
- --mount "type=bind,source=$CONF_FOLDER,destination=/conf/" \
- --mount "type=bind,source=$LOGS_FOLDER,destination=/logs/" \
- --mount "type=bind,source=$DATA_FOLDER,destination=/data/" \
- --mount "type=bind,source=$PMM_SCRIPTS_FOLDER,destination=/pmm_scripts/" \
- --mount "type=bind,source=$SCRIPTS_FOLDER,destination=/scripts/" \
- --mount "type=bind,source=$CERTS_FOLDER,destination=/home/hummingbot/.hummingbot-gateway/certs/" \
- --mount "type=bind,source=$GATEWAY_CONF_FOLDER,destination=/gateway-conf/" \
- --mount "type=bind,source=/var/run/docker.sock,destination=/var/run/docker.sock" \
- -e CONF_FOLDER="$CONF_FOLDER" \
- -e DATA_FOLDER="$DATA_FOLDER" \
- -e PMM_SCRIPTS_FOLDER="$PMM_SCRIPTS_FOLDER" \
- -e SCRIPTS_FOLDER="$SCRIPTS_FOLDER" \
- -e CERTS_FOLDER="$CERTS_FOLDER" \
- -e GATEWAY_LOGS_FOLDER="$GATEWAY_LOGS_FOLDER" \
- -e GATEWAY_CONF_FOLDER="$GATEWAY_CONF_FOLDER" \
+ -v $CONF_FOLDER:/conf \
+ -v $LOGS_FOLDER:/logs \
+ -v $DATA_FOLDER:/data \
+ -v $PMM_SCRIPTS_FOLDER:/pmm_scripts \
+ -v $SCRIPTS_FOLDER:/scripts \
+ -v $CERTS_FOLDER:/certs \
  hummingbot/hummingbot:$TAG
 }
 

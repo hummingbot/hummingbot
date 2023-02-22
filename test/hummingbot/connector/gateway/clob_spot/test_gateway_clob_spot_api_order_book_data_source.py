@@ -53,7 +53,6 @@ class InjectiveAPIOrderBookDataSourceTest(unittest.TestCase):
         self.ob_data_source = GatewayCLOBSPOTAPIOrderBookDataSource(
             trading_pairs=[self.trading_pair], api_data_source=self.api_data_source
         )
-
         self.async_run_with_timeout(coro=self.api_data_source.start())
 
     def tearDown(self) -> None:
@@ -87,13 +86,6 @@ class InjectiveAPIOrderBookDataSourceTest(unittest.TestCase):
         self.assertEqual(1, len(asks))
         self.assertEqual(11, asks[0].price)
         self.assertEqual(3, asks[0].amount)
-
-    def test_listen_for_subscriptions_raises_cancel_exception(self):
-        with self.assertRaises(asyncio.CancelledError):
-            listening_task = self.ev_loop.create_task(self.ob_data_source.listen_for_subscriptions())
-            self.listening_tasks.append(listening_task)
-            self.ev_loop.call_soon(listening_task.cancel)
-            self.async_run_with_timeout(listening_task)
 
     def test_listen_for_trades_cancelled_when_listening(self):
         mock_queue = MagicMock()

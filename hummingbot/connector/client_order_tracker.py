@@ -388,3 +388,8 @@ class ClientOrderTracker:
             self.logger().info(f"Order {tracked_order.client_order_id} has failed. Order Update: {order_update}")
 
         self.stop_tracking_order(tracked_order.client_order_id)
+
+    @staticmethod
+    def _restore_order_from_json(serialized_order: Dict):
+        order = InFlightOrder.from_json(serialized_order)
+        return order

@@ -1,8 +1,0 @@
-{
-    "chain": "injective",
-    "network": "mainnet",
-    "connector": "injective",
-    "address": "$INJECTIVE_SUBACCOUNTID",
-    "amount": "0.123",
-    "token": "USDT"
-  }

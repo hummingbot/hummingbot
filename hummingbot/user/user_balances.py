@@ -1,3 +1,4 @@
+import logging
 from decimal import Decimal
 from functools import lru_cache
 from typing import Dict, List, Optional, Set
@@ -50,6 +51,7 @@ class UserBalances:
         try:
             await market._update_balances()
         except Exception as e:
+            logging.getLogger().debug(f"Failed to update balances for {market}", exc_info=True)
             return str(e)
         return None
 
