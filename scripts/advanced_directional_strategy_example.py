@@ -178,7 +178,6 @@ class AdvancedDirectionalStrategyExample(ScriptStrategyBase):
         if self.all_candles_ready:
             lines.extend([
                 "\n############################################ Market Data ############################################\n"])
-            lines.extend([f"Value: {self.get_signal()}"])
             values = {}
             columns_to_show = ["timestamp", "open", "low", "high", "close", "volume", "BBP_21_2.0", "RSI_21_SMA_10"]
             for candle_name, candles in self.candles.items():
