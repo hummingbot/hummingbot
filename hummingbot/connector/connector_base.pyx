@@ -8,7 +8,6 @@ from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.connector.utils import split_hb_trading_pair, TradeFillOrderDetails
 from hummingbot.connector.constants import s_decimal_NaN, s_decimal_0
 from hummingbot.core.clock cimport Clock
-
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
