@@ -1,3 +1,4 @@
+import asyncio
 from copy import deepcopy
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple
@@ -28,6 +29,7 @@ from hummingbot.core.data_type.trade_fee import (
     MakerTakerExchangeFeeRates,
     TradeFeeBase,
 )
+from hummingbot.core.event.event_forwarder import EventForwarder
 from hummingbot.core.event.events import AccountEvent, BalanceUpdateEvent, MarketEvent
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -62,6 +64,9 @@ class GatewayCLOBSPOT(ExchangePyBase):
         self._api_data_source = api_data_source
         self._trading_fees: Dict[str, MakerTakerExchangeFeeRates] = {}
         self._last_received_message_timestamp = 0
+        self._forwarders: List[EventForwarder] = []
+
+        self._add_forwarders()
 
         super().__init__(client_config_map)
 
@@ -141,21 +146,10 @@ class GatewayCLOBSPOT(ExchangePyBase):
 
     async def start_network(self):
         await self._api_data_source.start()
-        self._api_data_source.add_forwarder(event_tag=MarketEvent.TradeUpdate, receiver=self._process_trade_update)
-        self._api_data_source.add_forwarder(event_tag=MarketEvent.OrderUpdate, receiver=self._process_order_update)
-        self._api_data_source.add_forwarder(event_tag=AccountEvent.BalanceEvent, receiver=self._process_balance_event)
-        self._orderbook_ds.add_forwarders()
         await super().start_network()
 
     async def stop_network(self):
         await super().stop_network()
-        self._orderbook_ds.remove_forwarders()
-        self._api_data_source.remove_forwarder(event_tag=MarketEvent.TradeUpdate,
-                                               receiver=self._process_trade_update)
-        self._api_data_source.remove_forwarder(event_tag=MarketEvent.OrderUpdate,
-                                               receiver=self._process_order_update)
-        self._api_data_source.remove_forwarder(event_tag=AccountEvent.BalanceEvent,
-                                               receiver=self._process_balance_event)
         await self._api_data_source.stop()
 
     def tick(self, timestamp: float):
@@ -454,6 +448,19 @@ class GatewayCLOBSPOT(ExchangePyBase):
                        else OrderState.PENDING_CANCEL),
         )
         self._order_tracker.process_order_update(order_update)
+
+    def _add_forwarders(self):
+        event_forwarder = EventForwarder(to_function=self._process_trade_update)
+        self._forwarders.append(event_forwarder)
+        self._api_data_source.add_listener(event_tag=MarketEvent.TradeUpdate, listener=event_forwarder)
+
+        event_forwarder = EventForwarder(to_function=self._process_order_update)
+        self._forwarders.append(event_forwarder)
+        self._api_data_source.add_listener(event_tag=MarketEvent.OrderUpdate, listener=event_forwarder)
+
+        event_forwarder = EventForwarder(to_function=self._process_balance_event)
+        self._forwarders.append(event_forwarder)
+        self._api_data_source.add_listener(event_tag=AccountEvent.BalanceEvent, listener=event_forwarder)
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
         data_source = GatewayCLOBSPOTAPIOrderBookDataSource(

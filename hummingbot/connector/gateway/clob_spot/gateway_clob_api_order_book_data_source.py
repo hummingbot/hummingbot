@@ -1,11 +1,12 @@
 import asyncio
-from typing import Callable, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from hummingbot.connector.gateway.clob_spot.data_sources.gateway_clob_api_data_source_base import (
     GatewayCLOBAPIDataSourceBase,
 )
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.core.event.event_forwarder import EventForwarder
 from hummingbot.core.event.events import OrderBookDataSourceEvent
 
 
@@ -15,9 +16,9 @@ class GatewayCLOBSPOTAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def __init__(self, trading_pairs: List[str], api_data_source: GatewayCLOBAPIDataSourceBase):
         super().__init__(trading_pairs=trading_pairs)
         self._api_data_source = api_data_source
-        self._snapshot_receiver: Optional[Callable] = None
-        self._diff_receiver: Optional[Callable] = None
-        self._trade_receiver: Optional[Callable] = None
+        self._forwarders: List[EventForwarder] = []
+
+        self._add_forwarders()
 
     async def get_last_traded_prices(
         self,
@@ -30,31 +31,6 @@ class GatewayCLOBSPOTAPIOrderBookDataSource(OrderBookTrackerDataSource):
         }
         return last_traded_prices
 
-    def add_forwarders(self):
-        self._snapshot_receiver = self._message_queue[self._snapshot_messages_queue_key].put_nowait
-        self._diff_receiver = self._message_queue[self._diff_messages_queue_key].put_nowait
-        self._trade_receiver = self._message_queue[self._trade_messages_queue_key].put_nowait
-        self._api_data_source.add_forwarder(
-            event_tag=OrderBookDataSourceEvent.SNAPSHOT_EVENT, receiver=self._snapshot_receiver
-        )
-        self._api_data_source.add_forwarder(
-            event_tag=OrderBookDataSourceEvent.DIFF_EVENT, receiver=self._diff_receiver
-        )
-        self._api_data_source.add_forwarder(
-            event_tag=OrderBookDataSourceEvent.TRADE_EVENT, receiver=self._trade_receiver
-        )
-
-    def remove_forwarders(self):
-        self._api_data_source.remove_forwarder(
-            event_tag=OrderBookDataSourceEvent.SNAPSHOT_EVENT, receiver=self._snapshot_receiver
-        )
-        self._api_data_source.remove_forwarder(
-            event_tag=OrderBookDataSourceEvent.DIFF_EVENT, receiver=self._diff_receiver
-        )
-        self._api_data_source.remove_forwarder(
-            event_tag=OrderBookDataSourceEvent.TRADE_EVENT, receiver=self._trade_receiver
-        )
-
     async def listen_for_subscriptions(self):
         """Not used."""
         pass
@@ -62,6 +38,19 @@ class GatewayCLOBSPOTAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         """Not used."""
         pass
+
+    def _add_forwarders(self):
+        event_forwarder = EventForwarder(to_function=self._message_queue[self._snapshot_messages_queue_key].put_nowait)
+        self._forwarders.append(event_forwarder)
+        self._api_data_source.add_listener(event_tag=OrderBookDataSourceEvent.SNAPSHOT_EVENT, listener=event_forwarder)
+
+        event_forwarder = EventForwarder(to_function=self._message_queue[self._diff_messages_queue_key].put_nowait)
+        self._forwarders.append(event_forwarder)
+        self._api_data_source.add_listener(event_tag=OrderBookDataSourceEvent.DIFF_EVENT, listener=event_forwarder)
+
+        event_forwarder = EventForwarder(to_function=self._message_queue[self._trade_messages_queue_key].put_nowait)
+        self._forwarders.append(event_forwarder)
+        self._api_data_source.add_listener(event_tag=OrderBookDataSourceEvent.TRADE_EVENT, listener=event_forwarder)
 
     async def _parse_trade_message(self, raw_message: OrderBookMessage, message_queue: asyncio.Queue):
         """Injective fires two trade updates per transaction.

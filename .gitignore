@@ -69,9 +69,7 @@ debug.log
 /documentation/site/
 
 # Cert files
-gateway.env
 /certs
-/gateway/certs/
 *.pem
 
 # Coverage
@@ -80,31 +78,7 @@ gateway.env
 /coverage_html_report/
 coverage.xml
 
-/gateway/coverage/
-
-# Gateway-V2 repo
-# configuration files
-/gateway/conf/*
-/gateway_conf
-/conf/encrypted_default.json
-# except the examples, template and migration files in /gateway/conf/
-!/gateway/conf/*-example.yml
-# these are database files create by the level library
-/**/*.level
-/gateway/db/*
-
-# node installs
-/gateway/node_modules/
-
-# debug logs
-/gateway/npm-debug.log
-
-# distribution files
-/gateway/dist/
-
 # misc
-/gateway/coverage/
-/gateway/logs/
 *.srl
 *.key
 *.crt
