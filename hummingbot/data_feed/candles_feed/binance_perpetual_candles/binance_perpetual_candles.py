@@ -7,12 +7,12 @@ import numpy as np
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
-from hummingbot.data_feed.candles_feed.binance_perpetuals_candles import constants as CONSTANTS
+from hummingbot.data_feed.candles_feed.binance_perpetual_candles import constants as CONSTANTS
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
 from hummingbot.logger import HummingbotLogger
 
 
-class BinancePerpetualsCandles(CandlesBase):
+class BinancePerpetualCandles(CandlesBase):
     _logger: Optional[HummingbotLogger] = None
 
     @classmethod

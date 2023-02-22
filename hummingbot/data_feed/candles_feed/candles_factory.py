@@ -1,4 +1,4 @@
-from hummingbot.data_feed.candles_feed.binance_perpetuals_candles import BinancePerpetualsCandles
+from hummingbot.data_feed.candles_feed.binance_perpetual_candles import BinancePerpetualCandles
 from hummingbot.data_feed.candles_feed.binance_spot_candles import BinanceSpotCandles
 
 
@@ -11,8 +11,8 @@ class CandlesFactory:
     """
     @classmethod
     def get_candle(cls, connector: str, trading_pair: str, interval: str = "1m", max_records: int = 500):
-        if connector == "binance_perpetuals":
-            return BinancePerpetualsCandles(trading_pair, interval, max_records)
+        if connector == "binance_perpetual":
+            return BinancePerpetualCandles(trading_pair, interval, max_records)
         elif connector == "binance":
             return BinanceSpotCandles(trading_pair, interval, max_records)
         else:
