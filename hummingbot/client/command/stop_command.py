@@ -32,6 +32,9 @@ class StopCommand:
         if self._pmm_script_iterator is not None:
             self._pmm_script_iterator.stop(self.clock)
 
+        if isinstance(self.strategy, ScriptStrategyBase):
+            self.strategy.on_stop()
+
         if self._trading_required and not skip_order_cancellation:
             # Remove the strategy from clock before cancelling orders, to
             # prevent race condition where the strategy tries to create more
@@ -44,9 +47,6 @@ class StopCommand:
             if success:
                 # Only erase markets when cancellation has been successful
                 self.markets = {}
-
-        if isinstance(self.strategy, ScriptStrategyBase):
-            self.strategy.on_stop()
 
         if self.strategy_task is not None and not self.strategy_task.cancelled():
             self.strategy_task.cancel()
