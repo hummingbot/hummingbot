@@ -535,8 +535,9 @@ class ExchangePyBase(ExchangeBase, ABC):
         except asyncio.CancelledError:
             raise
         except asyncio.TimeoutError:
-            # Binance does not allow cancels with the client/user order id
-            # so log a warning and wait for the creation of the order to complete
+            # It is not possible to cancel orders before an exchange order id has
+            # been issued, so log a warning and wait for the creation of the order
+            # to complete
             self.logger().warning(
                 f"Failed to cancel the order {order.client_order_id} because it does not have an exchange order id yet")
             await self._order_tracker.process_order_not_found(order.client_order_id)
