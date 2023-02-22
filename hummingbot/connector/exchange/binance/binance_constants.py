@@ -31,12 +31,12 @@ WS_HEARTBEAT_TIME_INTERVAL = 30
 
 # Binance params
 
-SIDE_BUY = 'BUY'
-SIDE_SELL = 'SELL'
+SIDE_BUY = "BUY"
+SIDE_SELL = "SELL"
 
-TIME_IN_FORCE_GTC = 'GTC'  # Good till cancelled
-TIME_IN_FORCE_IOC = 'IOC'  # Immediate or cancel
-TIME_IN_FORCE_FOK = 'FOK'  # Fill or kill
+TIME_IN_FORCE_GTC = "GTC"  # Good till cancelled
+TIME_IN_FORCE_IOC = "IOC"  # Immediate or cancel
+TIME_IN_FORCE_FOK = "FOK"  # Fill or kill
 
 # Rate Limit Type
 REQUEST_WEIGHT = "REQUEST_WEIGHT"
@@ -70,9 +70,9 @@ TRADE_EVENT_TYPE = "trade"
 RATE_LIMITS = [
     # Pools
     RateLimit(limit_id=REQUEST_WEIGHT, limit=1200, time_interval=ONE_MINUTE),
-    RateLimit(limit_id=ORDERS, limit=50, time_interval=10 * ONE_SECOND),
-    RateLimit(limit_id=ORDERS_24HR, limit=160000, time_interval=ONE_DAY),
-    RateLimit(limit_id=RAW_REQUESTS, limit=6100, time_interval= 5 * ONE_MINUTE),
+    RateLimit(limit_id=ORDERS, limit=10, time_interval=10 * ONE_SECOND),
+    RateLimit(limit_id=ORDERS_24HR, limit=100000, time_interval=ONE_DAY),
+    RateLimit(limit_id=RAW_REQUESTS, limit=6000, time_interval= 5 * ONE_MINUTE),
     # Weighted Limits
     RateLimit(limit_id=TICKER_PRICE_CHANGE_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 40),
@@ -102,8 +102,13 @@ RATE_LIMITS = [
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 10),
                              LinkedLimitWeightPair(RAW_REQUESTS, 1)]),
     RateLimit(limit_id=ORDER_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 2),
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, 1),
                              LinkedLimitWeightPair(ORDERS, 1),
                              LinkedLimitWeightPair(ORDERS_24HR, 1),
                              LinkedLimitWeightPair(RAW_REQUESTS, 1)])
 ]
+
+ORDER_NOT_EXIST_ERROR_CODE = -2013
+ORDER_NOT_EXIST_MESSAGE = "Order does not exist"
+UNKNOWN_ORDER_ERROR_CODE = -2011
+UNKNOWN_ORDER_MESSAGE = "Unknown order sent"
