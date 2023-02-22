@@ -9,7 +9,7 @@ from collections import deque
 from dataclasses import asdict, is_dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 
 from hummingbot import get_logging_conf
 from hummingbot.connector.connector_base import ConnectorBase
@@ -821,10 +821,38 @@ class MQTTExternalEvents:
             self._listeners.get('*').remove(callback)
 
 
-class EEventsQueueFactory:
+class ETopicListener:
+    def __init__(self,
+                 topic: str,
+                 on_message: Callable[[Dict[str, Any], str], None],
+                 use_bot_prefix: Optional[bool] = True
+                 ):
+        self._node = MQTTGateway.main()
+        if self._node is None:
+            raise Exception('MQTT Gateway not yet initialized')
+        topic_prefix = TopicSpecs.PREFIX.format(
+            namespace=self._node.namespace,
+            instance_id=self._node._hb_app.instance_id
+        )
+        if use_bot_prefix:
+            self._topic = f'{topic_prefix}/{topic}'
+        else:
+            self._topic = topic
+        print(self._topic)
+        self._on_message = on_message
+        self._sub = self._node.create_psubscriber(topic=self._topic,
+                                                  on_message=self._on_message)
+        if self._node.state == NodeState.RUNNING:
+            self._sub.run()
+
+    def stop(self):
+        self._sub.stop()
+
+
+class EEventQueueFactory:
     @classmethod
     def create(cls,
-               event_name: Optional[str] = '*',
+               event_name: str,
                queue_size: Optional[int] = 1000
                ) -> deque:
         gw = MQTTGateway.main()
@@ -836,29 +864,68 @@ class EEventsQueueFactory:
         return queue
 
     @classmethod
-    def _on_event(cls, queue, msg, name):
+    def _on_event(cls, queue: deque, msg: Dict[str, Any], name):
         queue.append((name, msg))
 
 
-class MQTTTopicListener:
-    def __init__(self,
-                 topic: str,
-                 on_message: Callable[[Dict, str], None],
-                 use_topic_prefix: Optional[bool] = True
-                 ):
-        self._node = MQTTGateway.main()
-        if self._node is None:
-            raise Exception('MQTT Gateway not yet initialized')
-        topic_prefix = TopicSpecs.PREFIX.format(
-            namespace=self._node.namespace,
-            instance_id=self._node._hb_app.instance_id
+class EEventListenerFactory:
+    @classmethod
+    def create(cls,
+               event_name: str,
+               callback: Callable[[Dict[str, Any], str], None],
+               ) -> None:
+        gw = MQTTGateway.main()
+        if gw is None:
+            raise Exception('MQTTGateway is offline!')
+        gw.add_external_event_listener(event_name, callback)
+
+    @classmethod
+    def remove(cls,
+               event_name: str,
+               callback: Callable[[Dict[str, Any], str], None],
+               ) -> None:
+        gw = MQTTGateway.main()
+        if gw is None:
+            raise Exception('MQTTGateway is offline!')
+        gw.remove_external_event_listener(event_name, callback)
+
+
+class ETopicListenerFactory:
+    @classmethod
+    def create(cls,
+               topic: str,
+               callback: Callable[[Dict[str, Any], str], None],
+               use_bot_prefix: Optional[bool] = True
+               ) -> ETopicListener:
+        listener = ETopicListener(
+            topic=topic,
+            on_message=callback,
+            use_bot_prefix=use_bot_prefix
         )
-        if use_topic_prefix:
-            self._topic = f'{topic_prefix}{topic}'
-        else:
-            self._topic = topic
-        self._on_message = on_message
-        s = self._node.create_psubscriber(topic=self._topic,
-                                          on_message=self._on_message)
-        if self._node.state == NodeState.RUNNING:
-            s.run()
+        return listener
+
+    @classmethod
+    def remove(cls, listener):
+        listener.stop()
+        del listener
+
+
+class ETopicQueueFactory:
+    @classmethod
+    def create(cls,
+               topic: str,
+               queue_size: Optional[int] = 1000,
+               use_bot_prefix: Optional[bool] = True
+               ) -> deque:
+        queue = deque(maxlen=queue_size)
+        on_msg = functools.partial(cls._on_message, queue)
+        _ = ETopicListener(
+            topic=topic,
+            on_message=on_msg,
+            use_bot_prefix=use_bot_prefix
+        )
+        return queue
+
+    @classmethod
+    def _on_message(cls, queue: deque, msg: Dict[str, Any], topic: str):
+        queue.append((topic, msg))
