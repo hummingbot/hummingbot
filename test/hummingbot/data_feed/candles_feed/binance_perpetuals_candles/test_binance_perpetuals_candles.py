@@ -8,13 +8,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aioresponses import aioresponses
 
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
-from hummingbot.data_feed.candles_feed.binance_perpetuals_candles import (
-    BinancePerpetualsCandles,
-    constants as CONSTANTS,
-)
+from hummingbot.data_feed.candles_feed.binance_perpetual_candles import BinancePerpetualCandles, constants as CONSTANTS
 
 
-class TestBinancePerpetualsCandles(unittest.TestCase):
+class TestBinancePerpetualCandles(unittest.TestCase):
     # the level is required to receive logs from the data source logger
     level = 0
 
@@ -31,7 +28,7 @@ class TestBinancePerpetualsCandles(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.mocking_assistant = NetworkMockingAssistant()
-        self.data_feed = BinancePerpetualsCandles(trading_pair=self.trading_pair, interval=self.interval)
+        self.data_feed = BinancePerpetualCandles(trading_pair=self.trading_pair, interval=self.interval)
 
         self.log_records = []
         self.data_feed.logger().setLevel(1)
@@ -214,7 +211,7 @@ class TestBinancePerpetualsCandles(unittest.TestCase):
             "Subscribed to public klines..."
         ))
 
-    @patch("hummingbot.data_feed.candles_feed.binance_perpetuals_candles.BinancePerpetualsCandles._sleep")
+    @patch("hummingbot.data_feed.candles_feed.binance_perpetual_candles.BinancePerpetualCandles._sleep")
     @patch("aiohttp.ClientSession.ws_connect")
     def test_listen_for_subscriptions_raises_cancel_exception(self, mock_ws, _: AsyncMock):
         mock_ws.side_effect = asyncio.CancelledError
@@ -223,7 +220,7 @@ class TestBinancePerpetualsCandles(unittest.TestCase):
             self.listening_task = self.ev_loop.create_task(self.data_feed.listen_for_subscriptions())
             self.async_run_with_timeout(self.listening_task)
 
-    @patch("hummingbot.data_feed.candles_feed.binance_perpetuals_candles.BinancePerpetualsCandles._sleep")
+    @patch("hummingbot.data_feed.candles_feed.binance_perpetual_candles.BinancePerpetualCandles._sleep")
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_subscriptions_logs_exception_details(self, mock_ws, sleep_mock: AsyncMock):
         mock_ws.side_effect = Exception("TEST ERROR.")
@@ -274,7 +271,7 @@ class TestBinancePerpetualsCandles(unittest.TestCase):
         self.assertEqual(self.data_feed.candles_df.shape[0], 1)
         self.assertEqual(self.data_feed.candles_df.shape[1], 10)
 
-    @patch("hummingbot.data_feed.candles_feed.binance_perpetuals_candles.BinancePerpetualsCandles.fill_historical_candles", new_callable=AsyncMock)
+    @patch("hummingbot.data_feed.candles_feed.binance_perpetual_candles.BinancePerpetualCandles.fill_historical_candles", new_callable=AsyncMock)
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_process_websocket_messages_duplicated_candle_not_included(self, ws_connect_mock, fill_historical_candles):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
@@ -295,7 +292,7 @@ class TestBinancePerpetualsCandles(unittest.TestCase):
         self.assertEqual(self.data_feed.candles_df.shape[0], 1)
         self.assertEqual(self.data_feed.candles_df.shape[1], 10)
 
-    @patch("hummingbot.data_feed.candles_feed.binance_perpetuals_candles.BinancePerpetualsCandles.fill_historical_candles")
+    @patch("hummingbot.data_feed.candles_feed.binance_perpetual_candles.BinancePerpetualCandles.fill_historical_candles")
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_process_websocket_messages_with_two_valid_messages(self, ws_connect_mock, _):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()

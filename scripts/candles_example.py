@@ -8,7 +8,7 @@ from hummingbot.data_feed.candles_feed.candles_factory import CandlesFactory
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
-class CandlesticksExample(ScriptStrategyBase):
+class CandlesExample(ScriptStrategyBase):
     """
     This is a strategy that shows how to use the new Candlestick component.
     It acquires data from both Binance spot and Binance perpetuals to initialize three different timeframes
@@ -27,12 +27,12 @@ class CandlesticksExample(ScriptStrategyBase):
     eth_1m_candles = CandlesFactory.get_candle(connector="binance",
                                                trading_pair="ETH-USDT",
                                                interval="1m", max_records=500)
-    eth_1h_candles = CandlesFactory.get_candle(connector="binance_perpetuals",
+    eth_1h_candles = CandlesFactory.get_candle(connector="binance_perpetual",
                                                trading_pair="ETH-USDT",
                                                interval="1h", max_records=500)
-    btc_1h_candles = CandlesFactory.get_candle(connector="binance_perpetuals",
+    eth_1w_candles = CandlesFactory.get_candle(connector="binance_perpetual",
                                                trading_pair="ETH-USDT",
-                                               interval="1w", max_records=20)
+                                               interval="1w", max_records=50)
 
     # The markets are the connectors that you can use to execute all the methods of the scripts strategy base
     # The candlesticks are just a component that provides the information of the candlesticks
@@ -43,7 +43,7 @@ class CandlesticksExample(ScriptStrategyBase):
         super().__init__(connectors)
         self.eth_1m_candles.start()
         self.eth_1h_candles.start()
-        self.btc_1h_candles.start()
+        self.eth_1w_candles.start()
 
     @property
     def all_candles_ready(self):
@@ -51,7 +51,7 @@ class CandlesticksExample(ScriptStrategyBase):
         Checks if the candlesticks are full.
         :return:
         """
-        return all([self.eth_1h_candles.is_ready, self.eth_1m_candles.is_ready, self.btc_1h_candles.is_ready])
+        return all([self.eth_1h_candles.is_ready, self.eth_1m_candles.is_ready, self.eth_1w_candles.is_ready])
 
     def on_tick(self):
         pass
@@ -64,7 +64,7 @@ class CandlesticksExample(ScriptStrategyBase):
         """
         self.eth_1m_candles.stop()
         self.eth_1h_candles.stop()
-        self.btc_1h_candles.stop()
+        self.eth_1w_candles.stop()
 
     def format_status(self) -> str:
         """
@@ -75,7 +75,7 @@ class CandlesticksExample(ScriptStrategyBase):
         lines = []
         if self.all_candles_ready:
             lines.extend(["\n############################################ Market Data ############################################\n"])
-            for candles in [self.btc_1h_candles, self.eth_1m_candles, self.eth_1h_candles]:
+            for candles in [self.eth_1w_candles, self.eth_1m_candles, self.eth_1h_candles]:
                 candles_df = candles.candles_df
                 # Let's add some technical indicators
                 candles_df.ta.rsi(length=14, append=True)
