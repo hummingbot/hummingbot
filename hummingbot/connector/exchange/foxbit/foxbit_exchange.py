@@ -597,7 +597,7 @@ class FoxbitExchange(ExchangePyBase):
                         fee = TradeFeeBase.new_spot_fee(
                             fee_schema=self.trade_fee_schema(),
                             trade_type=tracked_order.trade_type,
-                            flat_fees=[TokenAmount(amount=foxbit_utils.decimal_val_or_none(trade.get("fee")), token=trade.get("fee_currency_symbol"))]
+                            flat_fees=[TokenAmount(amount=foxbit_utils.decimal_val_or_none(trade.get("fee")), token=trade.get("fee_currency_symbol").upper())]
                         )
 
                         trade_id = str(foxbit_utils.int_val_or_none(trade.get("id"), on_error_return_none=True))
@@ -621,7 +621,7 @@ class FoxbitExchange(ExchangePyBase):
                         fee = TradeFeeBase.new_spot_fee(
                             fee_schema=self.trade_fee_schema(),
                             trade_type=TradeType.BUY if trade.get("side") == "BUY" else TradeType.SELL,
-                            flat_fees=[TokenAmount(amount=foxbit_utils.decimal_val_or_none(trade.get("fee")), token=trade.get("fee_currency_symbol"))]
+                            flat_fees=[TokenAmount(amount=foxbit_utils.decimal_val_or_none(trade.get("fee")), token=trade.get("fee_currency_symbol").upper())]
                         )
                         # This is a fill of an order registered in the DB but not tracked any more
                         self._current_trade_fills.add(TradeFillOrderDetails(
@@ -777,7 +777,7 @@ class FoxbitExchange(ExchangePyBase):
                 fee = TradeFeeBase.new_spot_fee(
                     fee_schema=self.trade_fee_schema(),
                     trade_type=order.trade_type,
-                    flat_fees=[TokenAmount(amount=foxbit_utils.decimal_val_or_none(trade.get("fee")), token=trade.get("fee_currency_symbol"))]
+                    flat_fees=[TokenAmount(amount=foxbit_utils.decimal_val_or_none(trade.get("fee")), token=trade.get("fee_currency_symbol").upper())]
                 )
 
                 trade_id = str(foxbit_utils.int_val_or_none(trade.get("id"), on_error_return_none=True))
