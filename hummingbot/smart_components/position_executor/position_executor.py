@@ -255,7 +255,7 @@ class PositionExecutor:
             self.logger().info(f"""
             Updating take profit since:
             Open order amount base == {self.open_order.executed_amount_base}
-            Take profit amount base == {self.take_profit_order.amount}""")
+            Take profit amount base == {self.take_profit_order.order.amount}""")
             self.remove_take_profit()
             self.place_take_profit_order()
 
@@ -376,10 +376,11 @@ class PositionExecutor:
 
     def place_time_limit_order(self):
         current_price = self.connector.get_mid_price(self.trading_pair)
+        tp_partial_execution = self.take_profit_order.executed_amount_base if self.take_profit_order.executed_amount_base else Decimal("0")
         order_id = self.place_order(
             connector_name=self.exchange,
             trading_pair=self.trading_pair,
-            amount=self.open_order.executed_amount_base,
+            amount=self.open_order.executed_amount_base - tp_partial_execution,
             price=current_price,
             order_type=OrderType.MARKET,
             position_action=PositionAction.CLOSE,
