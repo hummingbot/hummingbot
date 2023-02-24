@@ -89,9 +89,9 @@ RUN ln -s /conf /home/hummingbot/conf && \
   ln -s /scripts /home/hummingbot/scripts
 
 # Create mount points
-RUN mkdir -p /conf /logs /data /pmm_scripts /scripts /certs && \
-  chown -R hummingbot:hummingbot /conf /logs /data /pmm_scripts /scripts /certs
-VOLUME /conf /logs /data /pmm_scripts /scripts /certs
+RUN mkdir -p /conf /conf/connectors /logs /data /pmm_scripts /scripts /certs && \
+  chown -R hummingbot:hummingbot /conf /conf/connectors /logs /data /pmm_scripts /scripts /certs
+VOLUME /conf /conf/connectors /logs /data /pmm_scripts /scripts /certs
 
 # Pre-populate pmm_scripts/ volume with default pmm_scripts
 COPY --chown=hummingbot:hummingbot pmm_scripts/ pmm_scripts/
