@@ -255,7 +255,7 @@ class PositionExecutor:
             self.logger().info(f"""
             Updating take profit since:
             Open order amount base == {self.open_order.executed_amount_base}
-            Take profit amount base == {self.take_profit_order.amount}""")
+            Take profit amount base == {self.take_profit_order.order.amount}""")
             self.remove_take_profit()
             self.place_take_profit_order()
 
@@ -376,10 +376,11 @@ class PositionExecutor:
 
     def place_time_limit_order(self):
         current_price = self.connector.get_mid_price(self.trading_pair)
+        tp_partial_execution = self.take_profit_order.executed_amount_base if self.take_profit_order.executed_amount_base else Decimal("0")
         order_id = self.place_order(
             connector_name=self.exchange,
             trading_pair=self.trading_pair,
-            amount=self.open_order.executed_amount_base,
+            amount=self.open_order.executed_amount_base - tp_partial_execution,
             price=current_price,
             order_type=OrderType.MARKET,
             position_action=PositionAction.CLOSE,
@@ -440,6 +441,7 @@ class PositionExecutor:
             lines.extend([f"""
 | Trading Pair: {self.trading_pair} | Exchange: {self.exchange} | Side: {self.side} | Amount: {self.amount:.4f}
 | Entry price: {self.entry_price}  | Close price: {self.close_price} --> PNL: {self.pnl * 100:.2f}%
+| Status: {self.status}
         """])
         else:
             lines.extend([f"""
@@ -463,10 +465,10 @@ class PositionExecutor:
             elif self.side == PositionSide.SHORT:
                 price_range = stop_loss_price - take_profit_price
                 progress = (stop_loss_price - current_price) / price_range
-            price_bar = [f'--{current_price:.2f}--' if i == int(price_scale * progress) else '-' for i in
+            price_bar = [f'--{current_price:.4f}--' if i == int(price_scale * progress) else '-' for i in
                          range(price_scale)]
-            price_bar.insert(0, f"SL:{stop_loss_price:.2f}")
-            price_bar.append(f"TP:{take_profit_price:.2f}")
+            price_bar.insert(0, f"SL:{stop_loss_price:.4f}")
+            price_bar.append(f"TP:{take_profit_price:.4f}")
             lines.extend(["".join(price_bar), "\n"])
             lines.extend(["-----------------------------------------------------------------------------------------------------------"])
         return lines
