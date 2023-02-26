@@ -838,7 +838,6 @@ class ETopicListener:
             self._topic = f'{topic_prefix}/{topic}'
         else:
             self._topic = topic
-        print(self._topic)
         self._on_message = on_message
         self._sub = self._node.create_psubscriber(topic=self._topic,
                                                   on_message=self._on_message)
