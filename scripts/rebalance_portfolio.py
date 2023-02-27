@@ -16,24 +16,27 @@ class WeightCalculatorBase:
         pass
 
     # @abstractmethod
-    def calculated_weights(self) -> []:
+    def calculated_weights(self) -> dict:
         pass
 
 
 class WeightCalculatorMock(WeightCalculatorBase):
-    def calculate(self) -> []:
-        return []
+    def calculate(self) -> dict:
+        weights = dict()
+        for asset in self.portfolio:
+            weights[asset] = Decimal(1.0) / Decimal(len(self.portfolio))
+        return weights
 
 
 class WeightCalculatorMarketCap(WeightCalculatorBase):
-    def calculate(self) -> []:
-        return []
+    def calculate(self) -> dict:
+        return dict()
 
 
 class RebalancePortfolio(ScriptStrategyBase):
     portfolio_rebalance_time = 15
     create_timestamp = 0
-    base_currencies = {"ETH", "BTC", "BUSD", "SOL", "FIL"}
+    assets = {"ETH", "BTC", "BUSD", "SOL", "FIL"}
     quote = "USDT"
     portfolio_pairs = {"ETH-USDT", "BTC-USDT", "BUSD-USDT", "SOL-USDT", "FIL-USDT"}
     exchange = "binance_paper_trade"
@@ -50,13 +53,14 @@ class RebalancePortfolio(ScriptStrategyBase):
                 self.create_weights_calculator()
                 self.ran_once = True
             self.cancel_all_orders()
-            deltas = self.calculate_balances_deltas()
-            self.rebalance_portfolio(deltas)
+            diffs = self.calculate_weight_diffs()
+            self.rebalance_portfolio(diffs)
             self.create_timestamp = self.portfolio_rebalance_time + self.current_timestamp
 
-    def calculate_balances_deltas(self):
+    def calculate_weight_diffs(self) -> dict:
         self.create_weights_calculator()
         new_weights = self.weights_calculator.calculate()
+        self.log_with_clock(logging.INFO, f"New weights: {new_weights}")
         current_balances = self.get_portfolio_balances()
         self.log_with_clock(logging.INFO, f"Current balances: {current_balances}")
 
@@ -73,19 +77,22 @@ class RebalancePortfolio(ScriptStrategyBase):
         self.log_with_clock(logging.INFO, f"Current weights: {current_weights}")
 
         # diff between new weight and current weight
-        #
+        weight_diffs = dict()
+        for asset in self.assets:
+            weight_diffs[asset] = new_weights[asset] - current_weights[asset]
+        self.log_with_clock(logging.INFO, f"Weights diffs: {weight_diffs}")
 
-        return []
+        return weight_diffs
 
     def create_weights_calculator(self):
         if self.weights_calculator is None:
             if self.weights_calculator_real:
-                self.log_with_clock(logging.INFO, f"Creating weights calculator for portfolio {self.portfolio_pairs}")
-                self.weights_calculator = WeightCalculatorMarketCap(self.portfolio_pairs)
+                self.log_with_clock(logging.INFO, f"Creating weights calculator for portfolio {self.assets}")
+                self.weights_calculator = WeightCalculatorMarketCap(self.assets)
             else:
                 self.log_with_clock(logging.INFO,
-                                    f"Creating mock weights calculator for portfolio {self.portfolio_pairs}")
-                self.weights_calculator = WeightCalculatorMock(self.portfolio_pairs)
+                                    f"Creating mock weights calculator for portfolio {self.assets}")
+                self.weights_calculator = WeightCalculatorMock(self.assets)
 
     def cancel_all_orders(self):
         for order in self.get_active_orders(connector_name=self.exchange):
@@ -93,7 +100,7 @@ class RebalancePortfolio(ScriptStrategyBase):
 
     def get_portfolio_balances(self):
         asset_balance_dict = dict()
-        for asset in self.base_currencies:
+        for asset in self.assets:
             balance = self.connectors[self.exchange].get_balance(asset)
             self.log_with_clock(logging.INFO, f"Balance for portfolio {asset} = {balance}")
             price = self.connectors[self.exchange].get_price_by_type(asset + "-" + self.quote, self.price_source)
@@ -101,5 +108,5 @@ class RebalancePortfolio(ScriptStrategyBase):
             asset_balance_dict[asset] = balance * price
         return asset_balance_dict
 
-    def rebalance_portfolio(self, deltas: []):
-        self.log_with_clock(logging.INFO, f"Rebalancing portfolio with deltas: {deltas}")
+    def rebalance_portfolio(self, diffs: dict):
+        self.log_with_clock(logging.INFO, f"Rebalancing portfolio with deltas: {diffs}")
