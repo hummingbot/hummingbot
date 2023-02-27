@@ -22,6 +22,8 @@ class GeometricTrailingGrid(ScriptStrategyBase):
     the stop loss defined.
     When price go down, it will execute buys according to steps mapping, until it hits stop_loss for each step
     When price go up, it will recreate the steps mapping.
+    Strategy Design: https://www.notion.so/Trailing-Geometric-Grid-1ea31373240348b1b617b83c1b08b2f5?pvs=4
+
     @TODO: #1 Deleting uppermost step not by price, but by the sell event when the stop loss triggered
     @TODO: #2 Enable the script to execute on multiple pairs
 
