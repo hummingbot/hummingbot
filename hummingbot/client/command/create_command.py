@@ -54,7 +54,7 @@ class CreateCommand:
             return
 
         config_map = get_strategy_config_map(strategy)
-        self.notify(f"Please see https://docs.hummingbot.io/strategies/{strategy.replace('_', '-')}/ "
+        self.notify(f"Please see https://docs.hummingbot.org/strategies/{strategy.replace('_', '-')}/ "
                     f"while setting up these below configuration.")
 
         if isinstance(config_map, ClientConfigAdapter):
