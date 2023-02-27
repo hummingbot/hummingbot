@@ -56,10 +56,25 @@ class RebalancePortfolio(ScriptStrategyBase):
 
     def calculate_balances_deltas(self):
         self.create_weights_calculator()
-        weights = self.weights_calculator.calculate()
+        new_weights = self.weights_calculator.calculate()
         current_balances = self.get_portfolio_balances()
         self.log_with_clock(logging.INFO, f"Current balances: {current_balances}")
-        # map weights with balances
+
+        # calculate total portfolio value
+        total_portfolio_value: Decimal = 0.0
+        for value in current_balances.values():
+            total_portfolio_value = Decimal(total_portfolio_value) + Decimal(value)
+        self.log_with_clock(logging.INFO, f"Total portfolio value: {total_portfolio_value}")
+
+        # calculate current weights
+        current_weights = dict()
+        for asset, value in current_balances.items():
+            current_weights[asset] = Decimal(value) / Decimal(total_portfolio_value)
+        self.log_with_clock(logging.INFO, f"Current weights: {current_weights}")
+
+        # diff between new weight and current weight
+        #
+
         return []
 
     def create_weights_calculator(self):
