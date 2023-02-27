@@ -20,10 +20,16 @@ class WeightCalculatorBase:
 
 
 class WeightCalculatorMock(WeightCalculatorBase):
+    counter = 1
+
     def calculate(self) -> dict:
         weights = dict()
         for asset in self.portfolio:
-            weights[asset] = Decimal(1.0) / Decimal(len(self.portfolio))
+            if self.counter % 2 == 0:
+                weights[asset] = Decimal(1.0) / Decimal(len(self.portfolio))
+            else:
+                weights = {"ETH": Decimal(0.1), "BTC": Decimal(0.9), "BUSD": Decimal(0.0), "SOL": Decimal(0.0), "FIL": Decimal(0.0)}
+        self.counter += 1
         return weights
 
 
