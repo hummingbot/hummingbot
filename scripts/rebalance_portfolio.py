@@ -52,36 +52,37 @@ class RebalancePortfolio(ScriptStrategyBase):
                 self.create_weights_calculator()
                 self.ran_once = True
             self.cancel_all_orders()
-            diffs = self.calculate_weight_diffs()
-            self.rebalance_portfolio(diffs)
+            ammounts_diffs = self.calculate_weight_diffs()
+            self.rebalance_portfolio(ammounts_diffs)
             self.create_timestamp = self.portfolio_rebalance_time + self.current_timestamp
 
     def calculate_weight_diffs(self) -> dict:
         new_weights = self.weights_calculator.calculate()
         self.log_with_clock(logging.INFO, f"New weights: {new_weights}")
 
-        current_balances = self.get_portfolio_balances()
-        self.log_with_clock(logging.INFO, f"Current balances: {current_balances}")
+        current_balances_prices = self.get_portfolio_balances()
+        self.log_with_clock(logging.INFO, f"Current balances and prices: {current_balances_prices}")
 
         # calculate total portfolio value
         total_portfolio_value: Decimal = 0.0
-        for value in current_balances.values():
-            total_portfolio_value = Decimal(total_portfolio_value) + Decimal(value)
+        for value in current_balances_prices.values():
+            total_portfolio_value = Decimal(total_portfolio_value) + Decimal(value[0] * value[1])
         self.log_with_clock(logging.INFO, f"Total portfolio value: {total_portfolio_value}")
 
         # calculate current weights
         current_weights = dict()
-        for asset, value in current_balances.items():
-            current_weights[asset] = Decimal(value) / Decimal(total_portfolio_value)
+        for asset, value in current_balances_prices.items():
+            current_weights[asset] = Decimal(Decimal(value[0] * value[1])) / Decimal(total_portfolio_value)
         self.log_with_clock(logging.INFO, f"Current weights: {current_weights}")
 
-        # diff between new weight and current weight
-        weight_diffs = dict()
+        # amount diff based on new weight and current weight
+        amounts_diffs = dict()
         for asset in self.assets:
-            weight_diffs[asset] = new_weights[asset] - current_weights[asset]
-        self.log_with_clock(logging.INFO, f"Weights diffs: {weight_diffs}")
+            amounts_diffs[asset] = ((new_weights[asset] - current_weights[asset]) * total_portfolio_value) / \
+                                   current_balances_prices[asset][1]
+        self.log_with_clock(logging.INFO, f"Weights diffs: {amounts_diffs}")
 
-        return weight_diffs
+        return amounts_diffs
 
     def create_weights_calculator(self):
         if self.weights_calculator is None:
@@ -104,32 +105,32 @@ class RebalancePortfolio(ScriptStrategyBase):
             self.log_with_clock(logging.INFO, f"Balance for asset {asset} = {balance}")
             price = self.connectors[self.exchange].get_price_by_type(asset + "-" + self.quote, self.price_source)
             self.log_with_clock(logging.INFO, f"Price for asset {asset} = {price}")
-            asset_balance_dict[asset] = balance * price
+            asset_balance_dict[asset] = (balance, price)  # balance * price
         return asset_balance_dict
 
-    def rebalance_portfolio(self, diffs: dict):
+    def rebalance_portfolio(self, ammounts_diffs: dict):
         # This is a very basic execution method, which is good enough for proof of concept and small size portfolio
         # Simplifications:
         #      a) No large order execution management
         #      b) Rebalancing uses market orders
 
-        self.log_with_clock(logging.INFO, f"Rebalancing portfolio with diffs: {diffs}")
+        self.log_with_clock(logging.INFO, f"Rebalancing portfolio with ammounts diffs: {ammounts_diffs}")
 
         # 1st sell differences for assets with diff value < 0. This will obtain quote currency.
-        for asset, value in diffs.items():
+        for asset, value in ammounts_diffs.items():
             if value < 0:
                 pair = asset + "-" + self.quote
-                amount = 1
+                amount = abs(value)
                 sell_order = OrderCandidate(trading_pair=pair, is_maker=False, order_type=OrderType.MARKET,
                                             order_side=TradeType.SELL, amount=Decimal(amount), price=Decimal("NaN"))
                 self.log_with_clock(logging.INFO, f"About to place sell order: {sell_order}")
                 self.place_order(connector_name=self.exchange, order=sell_order)
 
         # 2nd buy differences for assets with diff value > 0.
-        for asset, value in diffs.items():
+        for asset, value in ammounts_diffs.items():
             if value > 0:
                 pair = asset + "-" + self.quote
-                amount = 1
+                amount = abs(value)
                 buy_order = OrderCandidate(trading_pair=pair, is_maker=False, order_type=OrderType.MARKET,
                                            order_side=TradeType.BUY, amount=Decimal(amount), price=Decimal("NaN"))
                 self.log_with_clock(logging.INFO, f"About to place buy order: {buy_order}")
