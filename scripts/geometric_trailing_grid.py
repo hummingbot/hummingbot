@@ -22,7 +22,7 @@ class GeometricTrailingGrid(ScriptStrategyBase):
     the stop loss defined.
     When price go down, it will execute buys according to steps mapping, until it hits stop_loss for each step
     When price go up, it will recreate the steps mapping.
-    @TODO: #1 Deleting uppermost step not by price, but by the sell event when the stoploss triggered
+    @TODO: #1 Deleting uppermost step not by price, but by the sell event when the stop loss triggered
     @TODO: #2 Enable the script to execute on multiple pairs
 
     """
@@ -65,8 +65,9 @@ class GeometricTrailingGrid(ScriptStrategyBase):
         for n in range(self.max_steps):
             price_n = current_price * Decimal(math.pow(1 - self.step_interval, n))
             stop_loss_n = price_n * Decimal(1 - self.stop_loss)
-            step_candidates.append({'step_price_n':price_n, 'stop_loss_n':stop_loss_n})
+            step_candidates.append({'step_price_n': price_n, 'stop_loss_n': stop_loss_n})
         self.step_candidates = step_candidates
+
     def __init__(self, connectors: Dict[str, ConnectorBase]):
         super().__init__(connectors)
 
@@ -78,12 +79,12 @@ class GeometricTrailingGrid(ScriptStrategyBase):
         return self.stored_steps
 
     def on_tick(self):
-        '''
+        """
         Create step_candidates when not found
         If price went down exceed step_interval, then execute buy based on step_candidates
         If price going up exceed step_interval, then put the new price & SL on uppermost step_candidates
         If price wet down exceed stop_loss on uppermost step (then order will be closed), then delete the uppermost step
-        '''
+        """
         self.check_and_set_leverage()
         self.clean_and_store_steps()
         price = self.connectors[self.exchange].get_mid_price(self.trading_pair)
@@ -95,11 +96,10 @@ class GeometricTrailingGrid(ScriptStrategyBase):
             del self.step_candidates[0]
         elif price > self.step_candidates[0]['step_price_n'] * Decimal(1 + self.step_interval):
             self.execute_step()
-            self.step_candidates.insert(0, {'step_price_n':price, 'stop_loss_n':(price * Decimal(1 - self.stop_loss))})
+            self.step_candidates.insert(0, {'step_price_n': price, 'stop_loss_n': (price * Decimal(1 - self.stop_loss))})
             self.step_candidates.pop()
         if price < self.step_candidates[0]['stop_loss_n']:
             del self.step_candidates[0]
-
 
     def execute_step(self):
         price = self.connectors[self.exchange].get_mid_price(self.trading_pair)
@@ -214,6 +214,7 @@ class GeometricTrailingGrid(ScriptStrategyBase):
                     position_action=PositionAction.CLOSE
                 )
                 self.logger().info(f"connector_name= {connector_name} connector= {connector}")
+
     def is_margin_enough(self):
         quote_balance = self.connectors[self.exchange].get_available_balance(self.trading_pair.split("-")[-1])
         if self.bot_profile_order_amount_usd < quote_balance * self.bot_profile_leverage:
