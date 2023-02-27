@@ -15,7 +15,6 @@ class WeightCalculatorBase:
         self.portfolio = portfolio
         pass
 
-    # @abstractmethod
     def calculated_weights(self) -> dict:
         pass
 
@@ -58,9 +57,9 @@ class RebalancePortfolio(ScriptStrategyBase):
             self.create_timestamp = self.portfolio_rebalance_time + self.current_timestamp
 
     def calculate_weight_diffs(self) -> dict:
-        self.create_weights_calculator()
         new_weights = self.weights_calculator.calculate()
         self.log_with_clock(logging.INFO, f"New weights: {new_weights}")
+
         current_balances = self.get_portfolio_balances()
         self.log_with_clock(logging.INFO, f"Current balances: {current_balances}")
 
@@ -102,11 +101,44 @@ class RebalancePortfolio(ScriptStrategyBase):
         asset_balance_dict = dict()
         for asset in self.assets:
             balance = self.connectors[self.exchange].get_balance(asset)
-            self.log_with_clock(logging.INFO, f"Balance for portfolio {asset} = {balance}")
+            self.log_with_clock(logging.INFO, f"Balance for asset {asset} = {balance}")
             price = self.connectors[self.exchange].get_price_by_type(asset + "-" + self.quote, self.price_source)
             self.log_with_clock(logging.INFO, f"Price for asset {asset} = {price}")
             asset_balance_dict[asset] = balance * price
         return asset_balance_dict
 
     def rebalance_portfolio(self, diffs: dict):
-        self.log_with_clock(logging.INFO, f"Rebalancing portfolio with deltas: {diffs}")
+        # This is a very basic execution method, which is good enough for proof of concept and small size portfolio
+        # Simplifications:
+        #      a) No large order execution management
+        #      b) Rebalancing uses market orders
+
+        self.log_with_clock(logging.INFO, f"Rebalancing portfolio with diffs: {diffs}")
+
+        # 1st sell differences for assets with diff value < 0. This will obtain quote currency.
+        for asset, value in diffs.items():
+            if value < 0:
+                pair = asset + "-" + self.quote
+                amount = 1
+                sell_order = OrderCandidate(trading_pair=pair, is_maker=False, order_type=OrderType.MARKET,
+                                            order_side=TradeType.SELL, amount=Decimal(amount), price=Decimal("NaN"))
+                self.log_with_clock(logging.INFO, f"About to place sell order: {sell_order}")
+                self.place_order(connector_name=self.exchange, order=sell_order)
+
+        # 2nd buy differences for assets with diff value > 0.
+        for asset, value in diffs.items():
+            if value > 0:
+                pair = asset + "-" + self.quote
+                amount = 1
+                buy_order = OrderCandidate(trading_pair=pair, is_maker=False, order_type=OrderType.MARKET,
+                                           order_side=TradeType.BUY, amount=Decimal(amount), price=Decimal("NaN"))
+                self.log_with_clock(logging.INFO, f"About to place buy order: {buy_order}")
+                self.place_order(connector_name=self.exchange, order=buy_order)
+
+    def place_order(self, connector_name: str, order: OrderCandidate):
+        if order.order_side == TradeType.SELL:
+            self.sell(connector_name=connector_name, trading_pair=order.trading_pair, amount=order.amount,
+                      order_type=order.order_type, price=order.price)
+        elif order.order_side == TradeType.BUY:
+            self.buy(connector_name=connector_name, trading_pair=order.trading_pair, amount=order.amount,
+                     order_type=order.order_type, price=order.price)
