@@ -7,6 +7,11 @@ from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.event.events import OrderFilledEvent
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
+from requests import Request, Session
+import json
+import time
+import webbrowser
+
 
 class WeightCalculatorBase:
     portfolio: []
@@ -28,14 +33,47 @@ class WeightCalculatorMock(WeightCalculatorBase):
             if self.counter % 2 == 0:
                 weights[asset] = Decimal(1.0) / Decimal(len(self.portfolio))
             else:
-                weights = {"ETH": Decimal(0.1), "BTC": Decimal(0.9), "BUSD": Decimal(0.0), "SOL": Decimal(0.0), "FIL": Decimal(0.0)}
+                weights = {"ETH": Decimal(0.1), "BTC": Decimal(0.9), "BUSD": Decimal(0.0), "SOL": Decimal(0.0),
+                           "FIL": Decimal(0.0)}
         self.counter += 1
         return weights
 
 
 class WeightCalculatorMarketCap(WeightCalculatorBase):
     def calculate(self) -> dict:
-        return dict()
+        market_info = self.get_market_info()
+        total: Decimal = 0.0
+        for asset, signal in market_info.items():
+            total = Decimal(total) + signal
+        weights = dict()
+        for asset, signal in market_info.items():
+            weights[asset] = Decimal(signal / total)
+        return weights
+
+    def get_market_info(self) -> dict:  # Function to get the info
+        symbols_raw = ""
+        for asset in self.portfolio:
+            symbols_raw += asset + ","
+        symbols = symbols_raw[:-1]
+
+        url = 'https://sandbox-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest'  # Sanbox API url
+        parameters = {'symbol': symbols}
+        headers = {
+            'Accepts': 'application/json',
+            'X-CMC_PRO_API_KEY': 'b54bcf4d-1bca-4e8e-9a24-22ff2c3d462c'  # Sandbox API key
+        }
+        session = Session()
+        session.headers.update(headers)
+        response = session.get(url, params=parameters)
+        info = json.loads(response.text)
+
+        market_info_dict = dict()
+        for asset in self.portfolio:
+            quote_details = info["data"][asset]["quote"]["USD"]
+            volume_24h = Decimal(quote_details["volume_24h"])
+            market_cap = Decimal(quote_details["market_cap"])
+            market_info_dict[asset] = Decimal(volume_24h * market_cap)
+        return market_info_dict
 
 
 class RebalancePortfolio(ScriptStrategyBase):
@@ -46,7 +84,7 @@ class RebalancePortfolio(ScriptStrategyBase):
     portfolio_pairs = {"ETH-USDT", "BTC-USDT", "BUSD-USDT", "SOL-USDT", "FIL-USDT"}
     exchange = "binance_paper_trade"
     markets = {exchange: portfolio_pairs}
-    weights_calculator_real = False
+    weights_calculator_real = True
     weights_calculator: WeightCalculatorBase = None
     ran_once = False
     price_source = PriceType.MidPrice
@@ -58,13 +96,13 @@ class RebalancePortfolio(ScriptStrategyBase):
                 self.create_weights_calculator()
                 self.ran_once = True
             self.cancel_all_orders()
-            ammounts_diffs = self.calculate_weight_diffs()
-            self.rebalance_portfolio(ammounts_diffs)
+            amounts_diffs = self.calculate_weight_diffs()
+            self.rebalance_portfolio(amounts_diffs)
             self.create_timestamp = self.portfolio_rebalance_time + self.current_timestamp
 
     def calculate_weight_diffs(self) -> dict:
         new_weights = self.weights_calculator.calculate()
-        self.log_with_clock(logging.INFO, f"New weights: {new_weights}")
+        self.log_with_clock(logging.INFO, f"New weights 666: {new_weights}")
 
         current_balances_prices = self.get_portfolio_balances()
         self.log_with_clock(logging.INFO, f"Current balances and prices: {current_balances_prices}")
