@@ -520,6 +520,8 @@ class InjectiveAPIDataSourceTest(unittest.TestCase):
         self.assertEqual(OrderState.OPEN, status_update.new_state)
         self.assertEqual(in_flight_order.client_order_id, status_update.client_order_id)
         self.assertEqual(target_order_hash, status_update.exchange_order_id)
+        self.assertIn("creation_transaction_hash", status_update.misc_updates)
+        self.assertEqual(creation_transaction_hash, status_update.misc_updates["creation_transaction_hash"])
 
     def test_get_all_order_fills_no_fills(self):
         target_order_id = "0x6ba1eafc389349f86da901cdcbfd9119425a2ea84d61c17b6ded778b6fd2f70c"  # noqa: mock
