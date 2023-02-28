@@ -184,21 +184,20 @@ def certs_files_exist(client_config_map: "ClientConfigAdapter") -> bool:
     return all(elem in file_list for elem in required_certs)
 
 
-def create_self_sign_certs(pass_phase: str, client_config_map: "ClientConfigAdapter"):
+def create_self_sign_certs(pass_phase: str, cert_path: str):
     """
     Create self-sign CA Cert
     """
-    cert_directory: str = get_gateway_paths(client_config_map).local_certs_path.as_posix()
 
     filepath_list = {
-        'ca_key': join(cert_directory, ca_key_filename),
-        'ca_cert': join(cert_directory, ca_cert_filename),
-        'server_key': join(cert_directory, server_key_filename),
-        'server_cert': join(cert_directory, server_cert_filename),
-        'server_csr': join(cert_directory, server_csr_filename),
-        'client_key': join(cert_directory, client_key_filename),
-        'client_cert': join(cert_directory, client_cert_filename),
-        'client_csr': join(cert_directory, client_csr_filename)
+        'ca_key': join(cert_path, ca_key_filename),
+        'ca_cert': join(cert_path, ca_cert_filename),
+        'server_key': join(cert_path, server_key_filename),
+        'server_cert': join(cert_path, server_cert_filename),
+        'server_csr': join(cert_path, server_csr_filename),
+        'client_key': join(cert_path, client_key_filename),
+        'client_cert': join(cert_path, client_cert_filename),
+        'client_csr': join(cert_path, client_csr_filename)
     }
 
     # Create CA Private & Public Keys for signing
