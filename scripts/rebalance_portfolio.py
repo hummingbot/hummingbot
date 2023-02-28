@@ -72,7 +72,7 @@ class WeightCalculatorMarketCap(WeightCalculatorBase):
             quote_details = info["data"][asset]["quote"]["USD"]
             volume_24h = Decimal(quote_details["volume_24h"])
             market_cap = Decimal(quote_details["market_cap"])
-            market_info_dict[asset] = Decimal(volume_24h * market_cap)
+            market_info_dict[asset] = Decimal(volume_24h / market_cap)
         return market_info_dict
 
 
@@ -102,7 +102,7 @@ class RebalancePortfolio(ScriptStrategyBase):
 
     def calculate_weight_diffs(self) -> dict:
         new_weights = self.weights_calculator.calculate()
-        self.log_with_clock(logging.INFO, f"New weights 666: {new_weights}")
+        self.log_with_clock(logging.INFO, f"New weights calculated: {new_weights}")
 
         current_balances_prices = self.get_portfolio_balances()
         self.log_with_clock(logging.INFO, f"Current balances and prices: {current_balances_prices}")
