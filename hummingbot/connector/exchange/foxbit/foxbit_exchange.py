@@ -368,8 +368,8 @@ class FoxbitExchange(ExchangePyBase):
                            price: Decimal,
                            ) -> Tuple[str, float]:
         order_result = None
-        amount_str = f"{amount.normalize()}"
-        price_str = f"{price.normalize()}"
+        amount_str = '%.10f' % amount
+        price_str = '%.10f' % price
         type_str = FoxbitExchange.foxbit_order_type(order_type)
         side_str = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)

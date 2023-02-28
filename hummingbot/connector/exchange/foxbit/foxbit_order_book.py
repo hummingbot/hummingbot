@@ -78,7 +78,7 @@ class FoxbitOrderBook(OrderBook):
                     "trading_pair": metadata["trading_pair"],
                     "first_update_id": int(metadata["first_update_id"]),
                     "update_id": int(msg[FoxbitOrderBookFields.MDUPDATEID.value]),
-                    "bids": [['%.10f' % float(msg[FoxbitOrderBookFields.PRICE.value]), msg[FoxbitOrderBookFields.QUANTITY.value]]],
+                    "bids": [['%.10f' % float(msg[FoxbitOrderBookFields.PRICE.value]), '%.10f' % msg[FoxbitOrderBookFields.QUANTITY.value]]],
                     "asks": [],
                 }, timestamp=int(msg[FoxbitOrderBookFields.ACTIONDATETIME.value])
             )
@@ -89,7 +89,7 @@ class FoxbitOrderBook(OrderBook):
                     "first_update_id": int(metadata["first_update_id"]),
                     "update_id": int(msg[FoxbitOrderBookFields.MDUPDATEID.value]),
                     "bids": [],
-                    "asks": [['%.10f' % float(msg[FoxbitOrderBookFields.PRICE.value]), msg[FoxbitOrderBookFields.QUANTITY.value]]],
+                    "asks": [['%.10f' % float(msg[FoxbitOrderBookFields.PRICE.value]), '%.10f' % msg[FoxbitOrderBookFields.QUANTITY.value]]],
                 }, timestamp=int(msg[FoxbitOrderBookFields.ACTIONDATETIME.value])
             )
         return obook
