@@ -584,18 +584,20 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
         ex_trading_pair = position_msg["contract"]
         trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=ex_trading_pair)
         amount = Decimal(str(position_msg["size"]))
+        trading_rule = self._trading_rules[trading_pair]
+        amount_precision = Decimal(trading_rule.min_base_amount_increment)
         position_side = PositionSide.LONG if Decimal(position_msg.get("size")) > 0 else PositionSide.SHORT
         pos_key = self._perpetual_trading.position_key(trading_pair, position_side)
         entry_price = Decimal(str(position_msg["entry_price"]))
         position = self._perpetual_trading.get_position(trading_pair, position_side)
         if position is not None:
             if amount == Decimal("0"):
-                del self._account_positions[pos_key]
+                self._perpetual_trading.remove_position(pos_key)
             else:
                 position.update_position(position_side=position_side,
                                          unrealized_pnl=None,
                                          entry_price=entry_price,
-                                         amount=amount)
+                                         amount=amount * amount_precision)
         else:
             await self._update_positions()
 
