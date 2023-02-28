@@ -19,6 +19,8 @@ class MarketEvent(Enum):
     OrderCancelled = 106
     OrderFilled = 107
     OrderExpired = 108
+    OrderUpdate = 109
+    TradeUpdate = 110
     OrderFailure = 198
     TransactionFailure = 199
     BuyOrderCreated = 200
@@ -36,6 +38,12 @@ class OrderBookEvent(int, Enum):
     TradeEvent = 901
 
 
+class OrderBookDataSourceEvent(int, Enum):
+    SNAPSHOT_EVENT = 1001
+    DIFF_EVENT = 1002
+    TRADE_EVENT = 1003
+
+
 class TokenApprovalEvent(Enum):
     ApprovalSuccessful = 1101
     ApprovalFailed = 1102
@@ -49,6 +57,7 @@ class HummingbotUIEvent(Enum):
 class AccountEvent(Enum):
     PositionModeChangeSucceeded = 400
     PositionModeChangeFailed = 401
+    BalanceEvent = 402
 
 
 class MarketTransactionFailureEvent(NamedTuple):
@@ -134,6 +143,8 @@ class OrderBookTradeEvent(NamedTuple):
     type: TradeType
     price: Decimal
     amount: Decimal
+    trade_id: Optional[str] = None
+    is_taker: bool = True  # CEXs deliver trade events from the taker's perspective
 
 
 class OrderFilledEvent(NamedTuple):
@@ -146,6 +157,7 @@ class OrderFilledEvent(NamedTuple):
     amount: Decimal
     trade_fee: TradeFeeBase
     exchange_trade_id: str = ""
+    exchange_order_id: str = ""
     leverage: Optional[int] = 1
     position: Optional[str] = PositionAction.NIL.value
 
@@ -306,3 +318,11 @@ class PositionModeChangeEvent:
     trading_pair: str
     position_mode: PositionMode
     message: Optional[str] = None
+
+
+@dataclass
+class BalanceUpdateEvent:
+    timestamp: float
+    asset_name: str
+    total_balance: Optional[Decimal] = None
+    available_balance: Optional[Decimal] = None
