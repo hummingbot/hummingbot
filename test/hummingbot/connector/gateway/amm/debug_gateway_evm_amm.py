@@ -17,8 +17,8 @@ from typing import Generator, List, Optional
 
 from bin import path_util  # noqa: F401
 from hummingbot.client.config.config_helpers import read_system_configs_from_yml
-from hummingbot.connector.gateway.amm.evm_in_flight_order import EVMInFlightOrder
 from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
+from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
@@ -117,8 +117,8 @@ class GatewayEVMAMMDataCollector:
         print("done")
 
     async def collect_approval_status(self):
-        def create_approval_record(token_symbol: str, tx_hash: str) -> EVMInFlightOrder:
-            return EVMInFlightOrder(
+        def create_approval_record(token_symbol: str, tx_hash: str) -> GatewayInFlightOrder:
+            return GatewayInFlightOrder(
                 client_order_id=self._connector.create_approval_order_id(token_symbol),
                 exchange_order_id=tx_hash,
                 trading_pair=token_symbol,
@@ -130,7 +130,7 @@ class GatewayEVMAMMDataCollector:
                 creation_timestamp=self._connector.current_timestamp
             )
         print("Getting token approval status...\t\t", end="", flush=True)
-        successful_records: List[EVMInFlightOrder] = [
+        successful_records: List[GatewayInFlightOrder] = [
             create_approval_record(
                 "WETH",
                 "0x66b533792f45780fc38573bfd60d6043ab266471607848fb71284cd0d9eecff9"        # noqa: mock
@@ -141,7 +141,7 @@ class GatewayEVMAMMDataCollector:
             ),
         ]
         await self._connector.update_token_approval_status(successful_records)
-        fake_records: List[EVMInFlightOrder] = [
+        fake_records: List[GatewayInFlightOrder] = [
             create_approval_record(
                 "WETH",
                 "0x66b533792f45780fc38573bfd60d6043ab266471607848fb71284cd0d9eecff8"        # noqa: mock
@@ -161,8 +161,8 @@ class GatewayEVMAMMDataCollector:
                 tx_hash: str,
                 price: Decimal,
                 amount: Decimal,
-                gas_price: Decimal) -> EVMInFlightOrder:
-            return EVMInFlightOrder(
+                gas_price: Decimal) -> GatewayInFlightOrder:
+            return GatewayInFlightOrder(
                 client_order_id=self._connector.create_market_order_id(trade_type, trading_pair),
                 exchange_order_id=tx_hash,
                 trading_pair=trading_pair,
@@ -174,7 +174,7 @@ class GatewayEVMAMMDataCollector:
                 creation_timestamp=self._connector.current_timestamp
             )
         print("Getting uniswap order status...\t\t", end="", flush=True)
-        successful_records: List[EVMInFlightOrder] = [
+        successful_records: List[GatewayInFlightOrder] = [
             create_order_record(
                 "DAI-WETH",
                 TradeType.BUY,
@@ -185,7 +185,7 @@ class GatewayEVMAMMDataCollector:
             )
         ]
         await self._connector.update_order_status(successful_records)
-        fake_records: List[EVMInFlightOrder] = [
+        fake_records: List[GatewayInFlightOrder] = [
             create_order_record(
                 "DAI-WETH",
                 TradeType.BUY,
@@ -206,8 +206,8 @@ class GatewayEVMAMMDataCollector:
 
     async def collect_approve_token(self):
         print("Approving tokens...")
-        weth_in_flight_order: EVMInFlightOrder = await self._connector.approve_token("WETH")
-        dai_in_flight_order: EVMInFlightOrder = await self._connector.approve_token("DAI")
+        weth_in_flight_order: GatewayInFlightOrder = await self._connector.approve_token("WETH")
+        dai_in_flight_order: GatewayInFlightOrder = await self._connector.approve_token("DAI")
         print(f"\tSent WETH approval with txHash: {weth_in_flight_order.exchange_order_id}")
         print(f"\tSent DAI approval with txHash: {dai_in_flight_order.exchange_order_id}")
         while len(self._connector.approval_orders) > 0:
