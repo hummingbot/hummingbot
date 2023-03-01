@@ -1,49 +1,33 @@
 #!/usr/bin/env python
-from collections import namedtuple
+import asyncio
 import logging
 import time
+from collections import namedtuple
+from typing import Any, AsyncIterable, Dict, List, Optional
+
 import aiohttp
-import asyncio
-import ujson
 import pandas as pd
-from typing import (
-    Any,
-    AsyncIterable,
-    Dict,
-    List,
-    Optional,
-)
+import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
 
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_row import OrderBookRow
-from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.order_book_tracker_entry import (
-    OrderBookTrackerEntry
-)
-from hummingbot.core.data_type.order_book_message import (
-    OrderBookMessage,
-    OrderBookMessageType,
-)
-from hummingbot.core.utils.async_utils import safe_gather
-from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.bitfinex import (
-    BITFINEX_REST_URL,
-    BITFINEX_WS_URI,
-    ContentEventType,
-)
-from hummingbot.connector.exchange.bitfinex.bitfinex_utils import (
-    join_paths,
-    convert_to_exchange_trading_pair,
-    convert_from_exchange_trading_pair,
-)
+from hummingbot.connector.exchange.bitfinex import BITFINEX_REST_URL, BITFINEX_WS_URI, ContentEventType
 from hummingbot.connector.exchange.bitfinex.bitfinex_active_order_tracker import BitfinexActiveOrderTracker
 from hummingbot.connector.exchange.bitfinex.bitfinex_order_book import BitfinexOrderBook
-from hummingbot.connector.exchange.bitfinex.bitfinex_order_book_message import \
-    BitfinexOrderBookMessage
-from hummingbot.connector.exchange.bitfinex.bitfinex_order_book_tracker_entry import \
-    BitfinexOrderBookTrackerEntry
+from hummingbot.connector.exchange.bitfinex.bitfinex_order_book_message import BitfinexOrderBookMessage
+from hummingbot.connector.exchange.bitfinex.bitfinex_order_book_tracker_entry import BitfinexOrderBookTrackerEntry
+from hummingbot.connector.exchange.bitfinex.bitfinex_utils import (
+    convert_from_exchange_trading_pair,
+    convert_to_exchange_trading_pair,
+    join_paths,
+)
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.core.data_type.order_book_row import OrderBookRow
+from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
+from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.logger import HummingbotLogger
 
 BOOK_RET_TYPE = List[Dict[str, Any]]
 RESPONSE_SUCCESS = 200
@@ -503,3 +487,11 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().error("Listening snapshots", err)
                 self.logger().error("Unexpected error", exc_info=True)
                 await asyncio.sleep(self.TIME_SLEEP_BETWEEN_REQUESTS)
+
+    async def listen_for_subscriptions(self):
+        """
+        Connects to the trade events and order diffs websocket endpoints and listens to the messages sent by the
+        exchange. Each message is stored in its own queue.
+        """
+        # New method not yet implemented in this connector
+        pass
