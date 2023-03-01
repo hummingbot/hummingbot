@@ -22,7 +22,7 @@ class CEX_XEMM_w_Rebalancing(ScriptStrategyBase):
     slippage_buffer_spread_bps = 5
     maker_pair = f"{maker_base}-{maker_quote}"
     taker_pair = f"{taker_base}-{taker_quote}"
-    target_base_asset_percentage = 0.3
+    target_base_asset_percentage = 0.2
     rebalancing_pct = Decimal(0.2)
 
     markets = {maker_exchange: {maker_pair}, taker_exchange: {taker_pair}}
@@ -110,7 +110,7 @@ class CEX_XEMM_w_Rebalancing(ScriptStrategyBase):
     def total_balance_maker(self):
         total_balance_maker = self.maker_connector.get_balance(self.maker_base) + \
                               (self.maker_connector.get_balance(self.maker_quote) *
-                               self.connectors[self.maker_exchange].get_price(self.maker_pair, True,
+                               self.connectors[self.maker_exchange].get_price_for_volume(self.maker_pair, True,
                                                                               self.order_amount).result_price)
         return total_balance_maker
 
