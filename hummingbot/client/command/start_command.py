@@ -138,7 +138,7 @@ class StartCommand(GatewayChainApiManager):
                     data: List[List[str]] = [
                         ["chain", connector_details['chain']],
                         ["network", connector_details['network']],
-                        ["wallet_address", connector_details['wallet_address']]
+                        ["address", connector_details['address']]
                     ]
 
                     # check for node URL
