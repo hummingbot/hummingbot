@@ -5,7 +5,7 @@ import re
 import unittest
 from decimal import Decimal
 from typing import Any, Awaitable, Callable, Dict, List, Optional
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pandas as pd
 from aioresponses.core import aioresponses
@@ -65,8 +65,14 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
             trading_pairs=[self.trading_pair],
             domain=self.domain,
         )
+
+        if hasattr(self.exchange, "_time_synchronizer"):
+            self.exchange._time_synchronizer.add_time_offset_ms_sample(0)
+            self.exchange._time_synchronizer.logger().setLevel(1)
+            self.exchange._time_synchronizer.logger().addHandler(self)
+
         BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {
-            self.symbol: self.trading_pair
+            self.domain: bidict({self.symbol: self.trading_pair})
         }
 
         self.exchange._set_current_timestamp(1640780000)
@@ -78,9 +84,6 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.test_task: Optional[asyncio.Task] = None
         self.resume_test_event = asyncio.Event()
         self._initialize_event_loggers()
-        BinancePerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {
-            self.domain: bidict({self.symbol: self.trading_pair})
-        }
 
     @property
     def all_symbols_url(self):
@@ -1766,7 +1769,9 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertTrue("OID1" in self.exchange._order_tracker._in_flight_orders)
 
     @aioresponses()
-    def test_place_order_manage_server_overloaded_error_unkown_order(self, mock_api):
+    @patch("hummingbot.connector.derivative.binance_perpetual.binance_perpetual_web_utils.get_current_server_time")
+    def test_place_order_manage_server_overloaded_error_unkown_order(self, mock_api, mock_seconds_counter: MagicMock):
+        mock_seconds_counter.return_value = 1640780000
         self.exchange._set_current_timestamp(1640780000)
         self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
                                               self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
@@ -1780,13 +1785,13 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         mock_api.post(regex_url, body=json.dumps(mock_response), status=503)
         self._simulate_trading_rules_initialized()
 
-        o_id, timestamp = self.async_run_with_timeout(self.exchange._create_order(trade_type=TradeType.BUY,
-                                                                                  order_id="OID1",
-                                                                                  trading_pair=self.trading_pair,
-                                                                                  amount=Decimal("10000"),
-                                                                                  order_type=OrderType.LIMIT,
-                                                                                  position_action=PositionAction.OPEN,
-                                                                                  price=Decimal("10000")))
+        o_id, timestamp = self.async_run_with_timeout(self.exchange._place_order(trade_type=TradeType.BUY,
+                                                                                 order_id="OID1",
+                                                                                 trading_pair=self.trading_pair,
+                                                                                 amount=Decimal("10000"),
+                                                                                 order_type=OrderType.LIMIT,
+                                                                                 position_action=PositionAction.OPEN,
+                                                                                 price=Decimal("10000")))
         self.assertEqual(o_id, "UNKNOWN")
 
     @aioresponses()
