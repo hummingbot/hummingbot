@@ -1766,6 +1766,30 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertTrue("OID1" in self.exchange._order_tracker._in_flight_orders)
 
     @aioresponses()
+    def test_place_order_manage_server_overloaded_error_unkown_order(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
+                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
+        url = web_utils.rest_url(
+            CONSTANTS.ORDER_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
+        )
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_response = {"code": -1003, "msg": "Unknown error, please check your request or try again later."}
+
+        mock_api.post(regex_url, body=json.dumps(mock_response), status=503)
+        self._simulate_trading_rules_initialized()
+
+        o_id, timestamp = self.async_run_with_timeout(self.exchange._create_order(trade_type=TradeType.BUY,
+                                                                                  order_id="OID1",
+                                                                                  trading_pair=self.trading_pair,
+                                                                                  amount=Decimal("10000"),
+                                                                                  order_type=OrderType.LIMIT,
+                                                                                  position_action=PositionAction.OPEN,
+                                                                                  price=Decimal("10000")))
+        self.assertEqual(o_id, "UNKNOWN")
+
+    @aioresponses()
     def test_create_limit_maker_successful(self, req_mock):
         url = web_utils.rest_url(
             CONSTANTS.ORDER_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION
