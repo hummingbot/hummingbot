@@ -473,6 +473,10 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
     async def get_order_status_update(self, in_flight_order: GatewayInFlightOrder) -> OrderUpdate:
         trading_pair = in_flight_order.trading_pair
         order_hash = await in_flight_order.get_exchange_order_id()
+        misc_updates = {
+            "creation_transaction_hash": in_flight_order.creation_transaction_hash,
+            "cancelation_transaction_hash": in_flight_order.cancel_tx_hash,
+        }
 
         market = self._trading_pair_to_active_spot_markets[trading_pair]
         direction = "buy" if in_flight_order.trade_type == TradeType.BUY else "sell"
@@ -485,6 +489,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
             creation_timestamp=in_flight_order.creation_timestamp,
             order_type=in_flight_order.order_type,
             trade_type=in_flight_order.trade_type,
+            order_mist_updates=misc_updates,
         )
         if status_update is None and in_flight_order.creation_transaction_hash is not None:
             creation_transaction = await self._get_transaction_by_hash(
@@ -499,6 +504,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
                     new_state=OrderState.FAILED,
                     client_order_id=in_flight_order.client_order_id,
                     exchange_order_id=in_flight_order.exchange_order_id,
+                    misc_updates=misc_updates,
                 )
         if status_update is None:
             raise IOError(f"No update found for order {in_flight_order.client_order_id}")
@@ -510,8 +516,10 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
                 new_state=OrderState.OPEN,
                 client_order_id=in_flight_order.client_order_id,
                 exchange_order_id=status_update.exchange_order_id,
+                misc_updates=misc_updates,
             )
             self._publisher.trigger_event(event_tag=MarketEvent.OrderUpdate, message=open_update)
+
         self._publisher.trigger_event(event_tag=MarketEvent.OrderUpdate, message=status_update)
 
         return status_update
@@ -550,6 +558,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         creation_timestamp: float,
         order_type: OrderType,
         trade_type: TradeType,
+        order_mist_updates: Dict[str, str],
     ) -> Optional[OrderUpdate]:
         order_status = await self._get_backend_order_status(
             market_id=market_id,
@@ -567,6 +576,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
                 new_state=BACKEND_TO_CLIENT_ORDER_STATE_MAP[order_status.state],
                 client_order_id=client_order_id,
                 exchange_order_id=order_status.order_hash,
+                misc_updates=order_mist_updates,
             )
         else:
             status_update = None
