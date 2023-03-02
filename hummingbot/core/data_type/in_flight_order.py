@@ -53,6 +53,7 @@ class TradeUpdate(NamedTuple):
     fill_base_amount: Decimal
     fill_quote_amount: Decimal
     fee: TradeFeeBase
+    is_taker: bool = True  # CEXs deliver trade events from the taker's perspective
 
     @property
     def fee_asset(self):

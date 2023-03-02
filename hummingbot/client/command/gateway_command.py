@@ -91,12 +91,12 @@ class GatewayCommand(GatewayChainApiManager):
             with begin_placeholder_mode(self):
                 while True:
                     pass_phase = await self.app.prompt(
-                        prompt='Enter pass phase to generate Gateway SSL certifications  >>> ',
+                        prompt='Enter pass phrase to generate Gateway SSL certifications  >>> ',
                         is_password=True
                     )
                     if pass_phase is not None and len(pass_phase) > 0:
                         break
-                    self.notify("Error: Invalid pass phase")
+                    self.notify("Error: Invalid pass phrase")
         else:
             pass_phase = Security.secrets_manager.password.get_secret_value()
         create_self_sign_certs(pass_phase, certs_path)
@@ -212,8 +212,6 @@ class GatewayCommand(GatewayChainApiManager):
             self,           # type: HummingbotApplication
             connector: str = None
     ):
-        wallet_account_id: Optional[str] = None
-
         with begin_placeholder_mode(self):
             gateway_connections_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
             if connector is None:
@@ -234,6 +232,7 @@ class GatewayCommand(GatewayChainApiManager):
                 available_networks: List[Dict[str, Any]] = connector_config[0]["available_networks"]
                 trading_type: str = connector_config[0]["trading_type"][0]
                 additional_spenders: List[str] = connector_config[0].get("additional_spenders", [])
+                additional_prompts: Dict[str, str] = connector_config[0].get("additional_add_wallet_prompts", {})
 
                 # ask user to select a chain. Automatically select if there is only one.
                 chains: List[str] = [d['chain'] for d in available_networks]
@@ -286,29 +285,10 @@ class GatewayCommand(GatewayChainApiManager):
                     wallets = matching_wallets[0]['walletAddresses']
 
                 # if the user has no wallet, ask them to select one
-                if len(wallets) < 1 or chain == "near":
-                    self.app.clear_input()
-                    self.placeholder_mode = True
-                    wallet_private_key = await self.app.prompt(
-                        prompt=f"Enter your {chain}-{network} wallet private key >>> ",
-                        is_password=True
+                if len(wallets) < 1 or chain == "near" or len(additional_prompts) != 0:
+                    wallet_address = await self._prompt_for_wallet_address(
+                        chain=chain, network=network, additional_prompts=additional_prompts
                     )
-                    self.app.clear_input()
-                    if self.app.to_stop_config:
-                        return
-
-                    if chain == "near":
-                        wallet_account_id: str = await self.app.prompt(
-                            prompt=f"Enter your {chain}-{network} account Id >>> ",
-                        )
-                        self.app.clear_input()
-                        if self.app.to_stop_config:
-                            return
-
-                    response: Dict[str, Any] = await self._get_gateway_instance().add_wallet(
-                        chain, network, wallet_private_key, id=wallet_account_id
-                    )
-                    wallet_address: str = response["address"]
 
                 # the user has a wallet. Ask if they want to use it or create a new one.
                 else:
@@ -352,27 +332,9 @@ class GatewayCommand(GatewayChainApiManager):
                     else:
                         while True:
                             try:
-                                wallet_private_key: str = await self.app.prompt(
-                                    prompt=f"Enter your {chain}-{network} wallet private key >>> ",
-                                    is_password=True
+                                wallet_address = await self._prompt_for_wallet_address(
+                                    chain=chain, network=network, additional_prompts=additional_prompts
                                 )
-                                self.app.clear_input()
-                                if self.app.to_stop_config:
-                                    return
-
-                                if chain == "near":
-                                    wallet_account_id: str = await self.app.prompt(
-                                        prompt=f"Enter your {chain}-{network} account Id >>> ",
-                                    )
-                                    self.app.clear_input()
-                                    if self.app.to_stop_config:
-                                        return
-
-                                response: Dict[str, Any] = await self._get_gateway_instance().add_wallet(
-                                    chain, network, wallet_private_key, id=wallet_account_id
-                                )
-                                wallet_address = response["address"]
-
                                 break
                             except Exception:
                                 self.notify("Error adding wallet. Check private key.\n")
@@ -401,6 +363,46 @@ class GatewayCommand(GatewayChainApiManager):
 
                 # Reload completer here to include newly added gateway connectors
                 self.app.input_field.completer = load_completer(self)
+
+    async def _prompt_for_wallet_address(
+        self,           # type: HummingbotApplication
+        chain: str,
+        network: str,
+        additional_prompts: Dict[str, str],
+    ) -> Optional[str]:
+        self.app.clear_input()
+        self.placeholder_mode = True
+        wallet_private_key = await self.app.prompt(
+            prompt=f"Enter your {chain}-{network} wallet private key >>> ",
+            is_password=True
+        )
+        self.app.clear_input()
+        if self.app.to_stop_config:
+            return
+
+        additional_prompt_values = {}
+
+        if chain == "near":
+            wallet_account_id: str = await self.app.prompt(
+                prompt=f"Enter your {chain}-{network} account Id >>> ",
+            )
+            additional_prompt_values["address"] = wallet_account_id
+            self.app.clear_input()
+            if self.app.to_stop_config:
+                return
+
+        for field, prompt in additional_prompts.items():
+            value = await self.app.prompt(prompt=prompt)
+            self.app.clear_input()
+            if self.app.to_stop_config:
+                return
+            additional_prompt_values[field] = value
+
+        response: Dict[str, Any] = await self._get_gateway_instance().add_wallet(
+            chain, network, wallet_private_key, **additional_prompt_values
+        )
+        wallet_address: str = response["address"]
+        return wallet_address
 
     async def _show_gateway_connector_tokens(
             self,           # type: HummingbotApplication
