@@ -4,6 +4,7 @@ from enum import Enum
 from typing import Dict, List, NamedTuple, Optional
 
 from hummingbot.core.data_type.common import LPType, OrderType, PositionAction, PositionMode, TradeType
+from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 
@@ -26,6 +27,7 @@ class MarketEvent(Enum):
     BuyOrderCreated = 200
     SellOrderCreated = 201
     FundingPaymentCompleted = 202
+    FundingInfo = 203
     RangePositionLiquidityAdded = 300
     RangePositionLiquidityRemoved = 301
     RangePositionUpdate = 302
@@ -42,6 +44,7 @@ class OrderBookDataSourceEvent(int, Enum):
     SNAPSHOT_EVENT = 1001
     DIFF_EVENT = 1002
     TRADE_EVENT = 1003
+    FUNDING_INFO_EVENT = 1004
 
 
 class TokenApprovalEvent(Enum):
@@ -326,3 +329,9 @@ class BalanceUpdateEvent:
     asset_name: str
     total_balance: Optional[Decimal] = None
     available_balance: Optional[Decimal] = None
+
+
+@dataclass
+class FundingInfoEvent:
+    timestamp: float
+    funding_info: FundingInfo

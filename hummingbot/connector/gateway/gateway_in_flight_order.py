@@ -245,3 +245,11 @@ class GatewayInFlightOrder(InFlightOrder):
             "creation_transaction_hash": self._creation_transaction_hash,
             "gas_price": str(self._gas_price),
         }
+
+
+class GatewayPerpetualInFlightOrder(GatewayInFlightOrder):
+    def build_order_created_message(self) -> str:
+        return (
+            f"Created {self.order_type.name.upper()} {self.trade_type.name.upper()} order "
+            f"{self.client_order_id} for {self.amount} to {self.position.name.upper()} a {self.trading_pair} position."
+        )
