@@ -148,7 +148,7 @@ class ClientOrderTracker:
         :param tracking_states: a dictionary associating order ids with the serialized order (JSON format).
         """
         for serialized_order in tracking_states.values():
-            order = InFlightOrder.from_json(serialized_order)
+            order = self._restore_order_from_json(serialized_order=serialized_order)
             if order.is_open:
                 self.start_tracking_order(order)
             elif order.is_failure:
@@ -175,6 +175,20 @@ class ClientOrderTracker:
 
         return found_order
 
+    def fetch_lost_order(
+        self, client_order_id: Optional[str] = None, exchange_order_id: Optional[str] = None
+    ) -> Optional[InFlightOrder]:
+        found_order = None
+
+        if client_order_id in self._lost_orders:
+            found_order = self._lost_orders[client_order_id]
+        elif exchange_order_id is not None:
+            found_order = next(
+                (order for order in self._lost_orders.values() if order.exchange_order_id == exchange_order_id),
+                None)
+
+        return found_order
+
     def process_order_update(self, order_update: OrderUpdate):
         return safe_ensure_future(self._process_order_update(order_update))
 
@@ -194,7 +208,9 @@ class ClientOrderTracker:
                     fill_amount=trade_update.fill_base_amount,
                     fill_price=trade_update.fill_price,
                     fill_fee=trade_update.fee,
-                    trade_id=trade_update.trade_id)
+                    trade_id=trade_update.trade_id,
+                    exchange_order_id=trade_update.exchange_order_id,
+                )
 
     async def process_order_not_found(self, client_order_id: str):
         """
@@ -269,13 +285,16 @@ class ClientOrderTracker:
             if updated:
                 self._trigger_order_creation(tracked_order, previous_state, order_update.new_state)
                 self._trigger_order_completion(tracked_order, order_update)
-
-        elif order_update.client_order_id in self._lost_orders:
-            if order_update.new_state in [OrderState.CANCELED, OrderState.FILLED, OrderState.FAILED]:
-                # If the order officially reaches a final state after being lost it should be removed from the lost list
-                del self._lost_orders[order_update.client_order_id]
         else:
-            self.logger().debug(f"Order is not/no longer being tracked ({order_update})")
+            lost_order = self.fetch_lost_order(
+                client_order_id=order_update.client_order_id, exchange_order_id=order_update.exchange_order_id
+            )
+            if lost_order:
+                if order_update.new_state in [OrderState.CANCELED, OrderState.FILLED, OrderState.FAILED]:
+                    # If the order officially reaches a final state after being lost it should be removed from the lost list
+                    del self._lost_orders[lost_order.client_order_id]
+            else:
+                self.logger().debug(f"Order is not/no longer being tracked ({order_update})")
 
     def _trigger_created_event(self, order: InFlightOrder):
         event_tag = MarketEvent.BuyOrderCreated if order.trade_type is TradeType.BUY else MarketEvent.SellOrderCreated
@@ -307,12 +326,14 @@ class ClientOrderTracker:
         )
 
     def _trigger_filled_event(
-            self,
-            order: InFlightOrder,
-            fill_amount: Decimal,
-            fill_price: Decimal,
-            fill_fee: TradeFeeBase,
-            trade_id: str):
+        self,
+        order: InFlightOrder,
+        fill_amount: Decimal,
+        fill_price: Decimal,
+        fill_fee: TradeFeeBase,
+        trade_id: str,
+        exchange_order_id: str,
+    ):
         self._connector.trigger_event(
             MarketEvent.OrderFilled,
             OrderFilledEvent(
@@ -327,6 +348,7 @@ class ClientOrderTracker:
                 exchange_trade_id=trade_id,
                 leverage=int(order.leverage),
                 position=order.position.value,
+                exchange_order_id=exchange_order_id,
             ),
         )
 
@@ -364,15 +386,14 @@ class ClientOrderTracker:
             self.logger().info(tracked_order.build_order_created_message())
             self._trigger_created_event(tracked_order)
 
-    def _trigger_order_fills(
-        self,
-        tracked_order: InFlightOrder,
-        prev_executed_amount_base: Decimal,
-        fill_amount: Decimal,
-        fill_price: Decimal,
-        fill_fee: TradeFeeBase,
-        trade_id: str,
-    ):
+    def _trigger_order_fills(self,
+                             tracked_order: InFlightOrder,
+                             prev_executed_amount_base: Decimal,
+                             fill_amount: Decimal,
+                             fill_price: Decimal,
+                             fill_fee: TradeFeeBase,
+                             trade_id: str,
+                             exchange_order_id: str):
         if prev_executed_amount_base < tracked_order.executed_amount_base:
             self.logger().info(
                 f"The {tracked_order.trade_type.name.upper()} order {tracked_order.client_order_id} "
@@ -384,7 +405,9 @@ class ClientOrderTracker:
                 fill_amount=fill_amount,
                 fill_price=fill_price,
                 fill_fee=fill_fee,
-                trade_id=trade_id)
+                trade_id=trade_id,
+                exchange_order_id=exchange_order_id,
+            )
 
     def _trigger_order_completion(self, tracked_order: InFlightOrder, order_update: Optional[OrderUpdate] = None):
         if tracked_order.is_open:
@@ -405,3 +428,8 @@ class ClientOrderTracker:
             self.logger().info(f"Order {tracked_order.client_order_id} has failed. Order Update: {order_update}")
 
         self.stop_tracking_order(tracked_order.client_order_id)
+
+    @staticmethod
+    def _restore_order_from_json(serialized_order: Dict):
+        order = InFlightOrder.from_json(serialized_order)
+        return order

@@ -85,7 +85,7 @@ class GatewayEVMAMMLP(ConnectorBase):
                  connector_name: str,
                  chain: str,
                  network: str,
-                 wallet_address: str,
+                 address: str,
                  trading_pairs: List[str] = [],
                  additional_spenders: List[str] = [],
                  trading_required: bool = True
@@ -94,7 +94,7 @@ class GatewayEVMAMMLP(ConnectorBase):
         :param connector_name: name of connector on gateway
         :param chain: refers to a block chain, e.g. ethereum or avalanche
         :param network: refers to a network of a particular blockchain e.g. mainnet or kovan
-        :param wallet_address: the address of the eth wallet which has been added on gateway
+        :param address: the address of the eth wallet which has been added on gateway
         :param trading_pairs: a list of trading pairs
         :param trading_required: Whether actual trading is needed. Useful for some functionalities or commands like the balance command
         """
@@ -108,7 +108,7 @@ class GatewayEVMAMMLP(ConnectorBase):
         self._all_spenders.append(self._connector_name)
         self._tokens = set()
         [self._tokens.update(set(trading_pair.split("-"))) for trading_pair in trading_pairs]
-        self._wallet_address = wallet_address
+        self._wallet_address = address
         self._trading_required = trading_required
         self._ev_loop = asyncio.get_event_loop()
         self._last_poll_timestamp = 0.0
@@ -161,13 +161,12 @@ class GatewayEVMAMMLP(ConnectorBase):
     def limit_orders(self) -> List[LimitOrder]:
         return []
 
-    @staticmethod
-    async def all_trading_pairs(chain: str, network: str) -> List[str]:
+    async def all_trading_pairs(self) -> List[str]:
         """
         Calls the tokens endpoint on Gateway.
         """
         try:
-            tokens = await GatewayHttpClient.get_instance().get_tokens(chain, network)
+            tokens = await GatewayHttpClient.get_instance().get_tokens(self._chain, self._network)
             token_symbols = [t["symbol"] for t in tokens["tokens"]]
             trading_pairs = []
             for base, quote in it.permutations(token_symbols, 2):

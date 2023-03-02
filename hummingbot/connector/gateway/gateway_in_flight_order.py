@@ -12,7 +12,7 @@ GET_GATEWAY_EX_ORDER_ID_TIMEOUT = 30  # seconds
 s_decimal_0 = Decimal("0")
 
 
-class EVMInFlightOrder(InFlightOrder):
+class GatewayInFlightOrder(InFlightOrder):
     def __init__(
         self,
         client_order_id: str,
@@ -23,6 +23,7 @@ class EVMInFlightOrder(InFlightOrder):
         price: Decimal = s_decimal_0,
         amount: Decimal = s_decimal_0,
         exchange_order_id: Optional[str] = None,
+        creation_transaction_hash: Optional[str] = None,
         gas_price: Optional[Decimal] = s_decimal_0,
         initial_state: OrderState = OrderState.PENDING_CREATE,
         leverage: int = 1,
@@ -43,6 +44,7 @@ class EVMInFlightOrder(InFlightOrder):
         )
         self._gas_price = gas_price
         self._nonce: int = -1
+        self._creation_transaction_hash: Optional[str] = creation_transaction_hash
         self._cancel_tx_hash: Optional[str] = None
 
     @property
@@ -60,6 +62,14 @@ class EVMInFlightOrder(InFlightOrder):
     @nonce.setter
     def nonce(self, nonce):
         self._nonce = nonce
+
+    @property
+    def creation_transaction_hash(self) -> Optional[str]:
+        return self._creation_transaction_hash
+
+    @creation_transaction_hash.setter
+    def creation_transaction_hash(self, creation_transaction_hash: str):
+        self._creation_transaction_hash = creation_transaction_hash
 
     @property
     def cancel_tx_hash(self) -> Optional[str]:
@@ -98,6 +108,7 @@ class EVMInFlightOrder(InFlightOrder):
                 self.last_update_timestamp,
                 self.nonce,
                 self.gas_price,
+                self._creation_transaction_hash,
                 self.cancel_tx_hash,
             )
         )
@@ -115,9 +126,9 @@ class EVMInFlightOrder(InFlightOrder):
     @property
     def is_approval_request(self) -> bool:
         """
-        A property attribute that returns `True` if this `EVMInFlightOrder` is in fact a token approval request.
+        A property attribute that returns `True` if this `GatewayInFlightOrder` is in fact a token approval request.
 
-        :return: True if this `EVMInFlightOrder` is in fact a token approval request, otherwise it returns False
+        :return: True if this `GatewayInFlightOrder` is in fact a token approval request, otherwise it returns False
         :rtype: bool
         """
         return "approve" in self.client_order_id or (
@@ -141,8 +152,12 @@ class EVMInFlightOrder(InFlightOrder):
             self.update_exchange_order_id(order_update.exchange_order_id)
 
         self.current_state = order_update.new_state
+        misc_updates = order_update.misc_updates or {}
+        self._creation_transaction_hash = (
+            misc_updates.get("creation_transaction_hash", self._creation_transaction_hash)
+        )
+        self._cancel_tx_hash = misc_updates.get("cancelation_transaction_hash", self._cancel_tx_hash)
         if self.current_state not in {OrderState.PENDING_CANCEL, OrderState.CANCELED}:
-            misc_updates = order_update.misc_updates or {}
             self.nonce = misc_updates.get("nonce", None)
             self.fee_asset = misc_updates.get("fee_asset", None)
             self.gas_price = misc_updates.get("gas_price", None)
@@ -155,13 +170,13 @@ class EVMInFlightOrder(InFlightOrder):
         return updated
 
     @classmethod
-    def from_json(cls, data: Dict[str, Any]) -> "EVMInFlightOrder":
+    def from_json(cls, data: Dict[str, Any]) -> "GatewayInFlightOrder":
         """
         Initialize an InFlightOrder using a JSON object
         :param data: JSON data
         :return: Formatted InFlightOrder
         """
-        order = EVMInFlightOrder(
+        order = GatewayInFlightOrder(
             client_order_id=data["client_order_id"],
             trading_pair=data["trading_pair"],
             order_type=getattr(OrderType, data["order_type"]),
@@ -181,7 +196,8 @@ class EVMInFlightOrder(InFlightOrder):
         )
         order._nonce = data["nonce"]
         order._cancel_tx_hash = data["cancel_tx_hash"]
-        order._gas_price = Decimal(data["gas_price"])
+        order._gas_price = Decimal(data["gas_price"]) if data["gas_price"] != "None" else None
+        order._creation_transaction_hash = data["creation_transaction_hash"]
 
         order.check_filled_condition()
 
@@ -209,5 +225,6 @@ class EVMInFlightOrder(InFlightOrder):
             "order_fills": {key: fill.to_json() for key, fill in self.order_fills.items()},
             "nonce": self._nonce,
             "cancel_tx_hash": self._cancel_tx_hash,
+            "creation_transaction_hash": self._creation_transaction_hash,
             "gas_price": str(self._gas_price),
         }
