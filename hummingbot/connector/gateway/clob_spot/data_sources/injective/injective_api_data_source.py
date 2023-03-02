@@ -190,17 +190,21 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
             )
             order_hash = order_hashes.spot[0]
 
-            order_result: Dict[str, Any] = await self._get_gateway_instance().clob_place_order(
-                connector=self._connector_name,
-                chain=self._chain,
-                network=self._network,
-                trading_pair=order.trading_pair,
-                address=self._sub_account_id,
-                trade_type=order.trade_type,
-                order_type=order.order_type,
-                price=order.price,
-                size=order.amount,
-            )
+            try:
+                order_result: Dict[str, Any] = await self._get_gateway_instance().clob_place_order(
+                    connector=self._connector_name,
+                    chain=self._chain,
+                    network=self._network,
+                    trading_pair=order.trading_pair,
+                    address=self._sub_account_id,
+                    trade_type=order.trade_type,
+                    order_type=order.order_type,
+                    price=order.price,
+                    size=order.amount,
+                )
+            except Exception:
+                await self._update_account_address_and_create_order_hash_manager()
+                raise
 
             transaction_hash: Optional[str] = order_result.get("txHash")
 
@@ -236,14 +240,18 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
             order_hashes = self._order_hash_manager.compute_order_hashes(
                 spot_orders=spot_orders_to_create, derivative_orders=[]
             )
-            update_result = await self._get_gateway_instance().clob_batch_order_modify(
-                connector=self._connector_name,
-                chain=self._chain,
-                network=self._network,
-                address=self._sub_account_id,
-                orders_to_create=orders_to_create,
-                orders_to_cancel=[],
-            )
+            try:
+                update_result = await self._get_gateway_instance().clob_batch_order_modify(
+                    connector=self._connector_name,
+                    chain=self._chain,
+                    network=self._network,
+                    address=self._sub_account_id,
+                    orders_to_create=orders_to_create,
+                    orders_to_cancel=[],
+                )
+            except Exception:
+                await self._update_account_address_and_create_order_hash_manager()
+                raise
 
             transaction_hash: Optional[str] = update_result.get("txHash")
             exception = None
