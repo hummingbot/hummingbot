@@ -11,13 +11,13 @@ from hummingbot.connector.exchange_base import ExchangeBase
 
 class XEMMTriangularArbitrage(ScriptStrategyBase):
 
-    maker_exchange = "binance"
-    maker_pair = "ACH-BTC"
-    taker_exchange = "kucoin"
-    taker_pair1 = "ACH-USDT"
+    maker_exchange = "kucoin"
+    maker_pair = "ELF-BTC"
+    taker_exchange = "binance"
+    taker_pair1 = "ELF-USDT"
     taker_pair2 = "BTC-USDT"
 
-    order_amount = Decimal(100)         # amount for each order
+    order_amount = Decimal(40)         # amount for each order
     spread_bps = 10                     # bot places maker orders at this spread to taker price
     min_spread_bps = 0                  # bot refreshes order if spread is lower than min-spread
     slippage_buffer_spread_bps = 100    # buffer applied to limit taker hedging trades on taker exchange
@@ -118,7 +118,7 @@ class XEMMTriangularArbitrage(ScriptStrategyBase):
         mid_price = self.connectors[self.maker_exchange].get_mid_price(self.maker_pair)
         if event.trade_type == TradeType.BUY and self.is_active_maker_order(event):
             taker1_sell_result = self.connectors[self.taker_exchange].get_price_for_volume(self.taker_pair1, False, self.order_amount)
-            taker1_sell_amount = self.order_amount
+            taker1_sell_amount = event.amount
             taker2_buy_amount = self.connectors[self.taker_exchange].get_quote_volume_for_base_amount(self.taker_pair1, 1, taker1_sell_amount).result_volume
             taker2_buy_result = self.connectors[self.taker_exchange].get_price_for_volume(self.taker_pair2, False, taker2_buy_amount)
             taker2_order_book = self.connectors[self.taker_exchange].get_order_book(self.taker_pair2)
@@ -129,6 +129,7 @@ class XEMMTriangularArbitrage(ScriptStrategyBase):
             self.logger().info(f"Sending taker sell order at price: {taker1_sell_result.result_price} ")
             sell_order = OrderCandidate(trading_pair=self.taker_pair1, is_maker=False, order_type=OrderType.LIMIT, order_side=TradeType.SELL, amount=Decimal(taker1_sell_amount), price=sell_price_with_slippage)
             sell_order_adjusted = self.connectors[self.taker_exchange].budget_checker.adjust_candidate(sell_order, all_or_none=False)
+            self.logger().info(f"sell_order_adjusted.amount: {sell_order_adjusted.amount} ")
             self.sell(self.taker_exchange, self.taker_pair1, sell_order_adjusted.amount, sell_order_adjusted.order_type, sell_order_adjusted.price)
 
 
@@ -136,6 +137,7 @@ class XEMMTriangularArbitrage(ScriptStrategyBase):
             self.logger().info(f"Sending taker buy order at price: {taker2_buy_result.result_price} ")
             buy_order = OrderCandidate(trading_pair=self.taker_pair2, is_maker=False, order_type=OrderType.LIMIT, order_side=TradeType.BUY, amount=Decimal(taker2_final_amount), price=buy_price_with_slippage)
             buy_order_adjusted = self.connectors[self.taker_exchange].budget_checker.adjust_candidate(buy_order, all_or_none=False)
+            self.logger().info(f"buy_order_adjusted.amount: {buy_order_adjusted.amount} ")
             self.buy(self.taker_exchange, self.taker_pair2, buy_order_adjusted.amount, buy_order_adjusted.order_type, buy_order_adjusted.price)
             self.buy_order_placed = False
 
@@ -153,12 +155,14 @@ class XEMMTriangularArbitrage(ScriptStrategyBase):
                 self.logger().info(f"Sending taker buy order at price: {taker1_buy_result.result_price} ")
                 buy_order = OrderCandidate(trading_pair=self.taker_pair1, is_maker=False, order_type=OrderType.LIMIT, order_side=TradeType.BUY, amount=Decimal(taker1_buy_amount), price=buy_price_with_slippage)
                 buy_order_adjusted = self.connectors[self.taker_exchange].budget_checker.adjust_candidate(buy_order, all_or_none=False)
+                self.logger().info(f"buy_order_adjusted.amount: {buy_order_adjusted.amount} ")
                 self.buy(self.taker_exchange, self.taker_pair1, buy_order_adjusted.amount, buy_order_adjusted.order_type, buy_order_adjusted.price)
 
                 sell_price_with_slippage = taker2_sell_result.result_price * Decimal(1 - self.slippage_buffer_spread_bps / 10000)
                 self.logger().info(f"Sending taker sell order at price: {taker2_sell_result.result_price} ")
                 sell_order = OrderCandidate(trading_pair=self.taker_pair2, is_maker=False, order_type=OrderType.LIMIT, order_side=TradeType.SELL, amount=Decimal(taker2_final_amount), price=sell_price_with_slippage)
                 sell_order_adjusted = self.connectors[self.taker_exchange].budget_checker.adjust_candidate(sell_order, all_or_none=False)
+                self.logger().info(f"sell_order_adjusted.amount: {sell_order_adjusted.amount} ")
                 self.sell(self.taker_exchange, self.taker_pair2, sell_order_adjusted.amount, sell_order_adjusted.order_type, sell_order_adjusted.price)
                 self.sell_order_placed = False
 
