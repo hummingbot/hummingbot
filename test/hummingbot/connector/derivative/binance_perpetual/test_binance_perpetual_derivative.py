@@ -1118,14 +1118,14 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertRaises(asyncio.CancelledError, self.async_run_with_timeout, self.test_task)
 
     def test_margin_call_event(self):
-
+        self._simulate_trading_rules_initialized()
         margin_call = {
             "e": "MARGIN_CALL",
             "E": 1587727187525,
             "cw": "3.16812045",
             "p": [
                 {
-                    "s": "ETHUSDT",
+                    "s": self.symbol,
                     "ps": "LONG",
                     "pa": "1.327",
                     "mt": "CROSSED",
@@ -1153,7 +1153,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         ))
         self.assertTrue(self._is_logged(
             "INFO",
-            "Margin Required: 1.614445. Negative PnL assets: ETHUSDT: -1.166074, ."
+            f"Margin Required: 1.614445. Negative PnL assets: {self.symbol}: -1.166074, ."
         ))
 
     @aioresponses()
