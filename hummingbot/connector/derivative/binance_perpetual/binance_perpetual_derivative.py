@@ -423,12 +423,14 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
             # update position
             for asset in update_data.get("P", []):
                 trading_pair = asset["s"]
+                hb_trading_pair = self.trading_pair_associated_to_exchange_symbol(trading_pair)
+
                 side = PositionSide[asset['ps']]
-                position = self._perpetual_trading.get_position(trading_pair, side)
+                position = self._perpetual_trading.get_position(hb_trading_pair, side)
                 if position is not None:
                     amount = Decimal(asset["pa"])
                     if amount == Decimal("0"):
-                        pos_key = self._perpetual_trading.position_key(trading_pair, side)
+                        pos_key = self._perpetual_trading.position_key(hb_trading_pair, side)
                         self._perpetual_trading.remove_position(pos_key)
                     else:
                         position.update_position(position_side=PositionSide[asset["ps"]],
@@ -443,7 +445,9 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
             # total_pnl = 0
             negative_pnls_msg = ""
             for position in positions:
-                existing_position = self._perpetual_trading.get_position(position['s'], PositionSide[position['ps']])
+                trading_pair = position["s"]
+                hb_trading_pair = self.trading_pair_associated_to_exchange_symbol(trading_pair)
+                existing_position = self._perpetual_trading.get_position(hb_trading_pair, PositionSide[position['ps']])
                 if existing_position is not None:
                     existing_position.update_position(position_side=PositionSide[position["ps"]],
                                                       unrealized_pnl=Decimal(position["up"]),
@@ -570,12 +574,13 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
                                             )
         for position in positions:
             trading_pair = position.get("symbol")
+            hb_trading_pair = self.trading_pair_associated_to_exchange_symbol(trading_pair)
             position_side = PositionSide[position.get("positionSide")]
             unrealized_pnl = Decimal(position.get("unRealizedProfit"))
             entry_price = Decimal(position.get("entryPrice"))
             amount = Decimal(position.get("positionAmt"))
             leverage = Decimal(position.get("leverage"))
-            pos_key = self._perpetual_trading.position_key(trading_pair, position_side)
+            pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
             if amount != 0:
                 _position = Position(
                     trading_pair=await self.trading_pair_associated_to_exchange_symbol(trading_pair),
