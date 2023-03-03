@@ -799,6 +799,8 @@ class MQTTExternalEvents:
         # TODO validate event_name with regex
         if event_name in self._listeners:
             self._listeners.get(event_name).append(callback)
+        else:
+            self._listeners[event_name] = [callback]
 
     def remove_listener(self,
                         event_name: str,
@@ -813,6 +815,8 @@ class MQTTExternalEvents:
                             ):
         if '*' in self._listeners:
             self._listeners.get('*').append(callback)
+        else:
+            self._listeners['*'] = [callback]
 
     def remove_global_listener(self,
                                callback: Callable[[ExternalEventMessage, str], None]
