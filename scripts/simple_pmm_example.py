@@ -24,7 +24,7 @@ class SimplePMM(ScriptStrategyBase):
     order_amount = 0.01
     create_timestamp = 0
     trading_pair = "ETH-USDT"
-    exchange = "binance_paper_trade"
+    exchange = "kucoin_paper_trade"
     # Here you can use for example the LastTrade price to use in your strategy
     price_source = PriceType.MidPrice
 
