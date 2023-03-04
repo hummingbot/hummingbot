@@ -7,6 +7,46 @@ from hummingbot.model.order import Order
 from hummingbot.strategy.order_tracker import OrderTracker
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
+CHAT_GPT_SCRIPT = """
+Your job is to recommend daily strategies for a crypto-bot given current market data.
+I will provide the following data (pulled from a centralized exchange) for several Trading Pairs:
+
+|  Data Points               | Description |
+|----------------------------|-------------|
+|  Historical Price          | Time-series data of the price of the trading pair, with data points including the opening price, closing price, high price, and low price for each trading day.|
+|  Real-Time Order Book Data | Data that shows the current buy and sell orders for the asset, including the order quantity and price. |
+|  Volume Data               | Data that shows the trading volume of the asset, including the number of trades and the total amount of assets traded over a specified period. |
+|  Spread Data               | Data that shows the spread between the bid and ask prices for the asset, including the current spread and historical spread data. |
+|  Market Depth Data         | Data that shows the quantity of buy and sell orders at different price levels, including the number of orders and the total order quantity at each price level. |
+|  News and Events           | Data that tracks news and events that may impact the market, including economic reports, regulatory changes, and other relevant news items. |
+
+Given the above data, you will need to recommend 2-3 market making strategies for the bot to follow on a paper-trading.
+Each market making strategy should include the following data:
+
+|  Data Points               | Description |
+|----------------------------|-------------|
+| market              | Token trading pair for the exchange, e.g. BTC-USDT |
+| bid_spread          | How far away from mid price to place the bid order. Spread of 1 = 1% away from mid price at that time. Example if mid price is 100 and bid_spread is 1. Your bid is placed at 99. |
+| ask_spread          | How far away from mid price to place the ask order. Spread of 1 = 1% away from mid price at that time. Example if mid price is 100 and ask_spread is 1. Your bid is placed at 101. |
+| minimum_spread| How far away from the mid price to cancel active orders |
+| order_refresh_time | Time in seconds before cancelling and placing new orders. If the value is 60, the bot cancels active orders and placing new ones after a minute. |
+| max_order_age | Time in seconds before replacing existing order with new orders at the same price.|
+| order_refresh_tolerance_pct | The spread (from mid price) to defer order refresh process to the next cycle. (Enter 1 to indicate 1%), value below 0, e.g. -1, is to disable this feature - not recommended. |
+| order_amount | Size of your bid and ask order. |
+| price_ceiling | Price band ceiling. |
+| price_floor | Price band floor. |
+| moving_price_band_enabled | enable moving price floor and ceiling. |
+| price_ceiling_pct | Price band ceiling pct. |
+| price_floor_pct | Price band floor pct. |
+| price_band_refresh_time | price_band_refresh_time |
+| order_levels | Number of levels of orders to place on each side of the order book. |
+| order_level_amount | Increase or decrease size of consecutive orders after the first order (if order_levels > 1). |
+| order_level_spread | Order price space between orders (if order_levels > 1). |
+| filled_order_delay | How long to wait before placing the next order in case your order gets filled. |
+| hanging_orders_enabled | Whether to stop cancellations of orders on the other side (of the order book), when one side is filled (hanging orders feature) (true/false). |
+| hanging_orders_cancel_pct | Spread (from mid price, in percentage) hanging orders will be canceled (Enter 1 to indicate 1%) |
+"""
+
 
 class AbacusMethod(ScriptStrategyBase):
     """
@@ -80,7 +120,8 @@ class AbacusMethod(ScriptStrategyBase):
         """
         This method is called every tick_size seconds, and will only be called if there is no active bid or ask.
         """
-        return (self.get_price_from_exchange(market, pair, True) + self.get_price_from_exchange(market, pair, False)) / 2
+        return (self.get_price_from_exchange(market, pair, True) + self.get_price_from_exchange(market, pair,
+                                                                                                False)) / 2
 
     def get_price_from_exchange(self, market: str, pair: str, is_buy: bool) -> float:
         """
