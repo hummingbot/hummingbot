@@ -22,7 +22,7 @@ class XEMMTriangularArbitrage(ScriptStrategyBase):
     min_spread_bps = 0                  # bot refreshes order if spread is lower than min-spread
     slippage_buffer_spread_bps = 100    # buffer applied to limit taker hedging trades on taker exchange
     max_order_age = 8                   # bot refreshes orders after this age
-    min_profitability = 0.0035
+    min_profitability = 0.0045
 
     markets = {maker_exchange: {maker_pair}, taker_exchange: {taker_pair1, taker_pair2}}
 
@@ -144,7 +144,7 @@ class XEMMTriangularArbitrage(ScriptStrategyBase):
         else:
             if event.trade_type == TradeType.SELL and self.is_active_maker_order(event):
                 taker1_buy_result = self.connectors[self.taker_exchange].get_price_for_volume(self.taker_pair1, True, self.order_amount)
-                taker1_buy_amount = self.order_amount
+                taker1_buy_amount = self.event.amount
                 taker2_sell_amount = self.connectors[self.taker_exchange].get_quote_volume_for_base_amount(self.taker_pair1, 0, taker1_buy_amount).result_volume
                 taker2_sell_result = self.connectors[self.taker_exchange].get_price_for_volume(self.taker_pair2, False, taker2_sell_amount)
                 taker2_order_book = self.connectors[self.taker_exchange].get_order_book(self.taker_pair2)
