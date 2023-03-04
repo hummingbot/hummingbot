@@ -109,10 +109,28 @@ class CEX_XEMM_w_Rebalancing(ScriptStrategyBase):
 
     def total_balance_maker(self):
         total_balance_maker = self.maker_connector.get_balance(self.maker_base) + \
-                              (self.maker_connector.get_balance(self.maker_quote) *
+                              (self.maker_connector.get_balance(self.maker_quote) /
                                self.connectors[self.maker_exchange].get_price_for_volume(self.maker_pair, True,
                                                                               self.order_amount).result_price)
         return total_balance_maker
+
+    def get_base_quote_and_ratio_taker_exchange(self):
+        base_asset_taker_exchange = self.taker_connector.get_balance(self.taker_base)
+        quote_asset_taker_exchange = self.taker_connector.get_balance(self.taker_quote) / self.taker_connector.get_mid_price(self.taker_pair)
+        ratio_taker_exchange = base_asset_taker_exchange / (base_asset_taker_exchange + quote_asset_taker_exchange)
+        return base_asset_taker_exchange, quote_asset_taker_exchange, ratio_taker_exchange
+
+    def get_base_quote_and_ratio_maker_exchange(self):
+        base_asset_maker_exchange = self.maker_connector.get_balance(self.maker_base)
+        quote_asset_maker_exchange = self.maker_connector.get_balance(self.maker_quote) / self.maker_connector.get_mid_price(self.maker_pair)
+        ratio_maker_exchange = base_asset_maker_exchange / (base_asset_maker_exchange + quote_asset_maker_exchange)
+        return base_asset_maker_exchange, quote_asset_maker_exchange, ratio_maker_exchange
+
+    def total_balance_taker(self):
+        total_balance_taker = self.taker_connector.get_balance(self.taker_base) + \
+                                (self.taker_connector.get_balance(self.taker_quote) /
+                            self.taker_connector.get_mid_price(self.taker_pair))
+        return total_balance_taker
 
     def base_asset_maker_pct(self):
         base_asset_maker_exchange = self.maker_connector.get_balance(self.maker_base)
@@ -125,27 +143,28 @@ class CEX_XEMM_w_Rebalancing(ScriptStrategyBase):
         return taker_connector
 
     def rebalancing(self):
-        total_balance_taker = self.taker_connector.get_balance(self.taker_base) + \
-                              (self.taker_connector.get_balance(self.taker_quote) *
-                               self.connectors[self.taker_exchange].get_price_for_volume(self.taker_pair, True,
-                                                                                         self.order_amount).result_price)
-        rebalancing_amount_maker = self.total_balance_maker() * self.rebalancing_pct
-        rebalancing_amount_taker = total_balance_taker * self.rebalancing_pct
-        if self.base_asset_maker_pct() < self.target_base_asset_percentage:
-            self.buy(self.maker_exchange, self.maker_pair, rebalancing_amount_maker, order_type=OrderType.MARKET,
-                     price=self.connectors[self.maker_exchange].get_price_for_volume(self.maker_pair, True,
-                                                                                     self.order_amount).result_price)
-            self.sell(self.taker_exchange, self.taker_pair, rebalancing_amount_taker, order_type=OrderType.MARKET,
-                      price=self.connectors[self.taker_exchange].get_price_for_volume(self.taker_pair, True,
-                                                                                      self.order_amount).result_price)
+        base_asset_taker_exchange, quote_asset_taker_exchange, ratio_taker_exchange = self.get_base_quote_and_ratio_taker_exchange()
+        base_asset_maker_exchange, quote_asset_maker_exchange, ratio_maker_exchange = self.get_base_quote_and_ratio_maker_exchange()
 
-        if self.base_asset_maker_pct() > self.target_base_asset_percentage:
-            self.sell(self.maker_exchange, self.maker_pair, rebalancing_amount_maker, order_type=OrderType.MARKET,
-                      price=self.connectors[self.maker_exchange].get_price_for_volume(self.maker_pair, True,
-                                                                                      self.order_amount).result_price)
-            self.buy(self.taker_exchange, self.taker_pair, rebalancing_amount_taker, order_type=OrderType.MARKET,
-                     price=self.connectors[self.taker_exchange].get_price_for_volume(self.taker_pair, True,
-                                                                                     self.order_amount).result_price)
+        amount_to_rebalance = Decimal(self.order_amount) # for now just buy the same amount, but this is a thing that you should improve
+
+        if ratio_maker_exchange < self.rebalancing_pct:
+            self.logger().info(f"Rebalancing since the ratio of base asset {ratio_maker_exchange} in the maker exchange is lower than {self.rebalancing_pct}")
+            self.buy(self.maker_exchange, self.maker_pair, amount_to_rebalance, order_type=OrderType.MARKET,
+                     price=self.connectors[self.maker_exchange].get_mid_price(self.maker_pair))
+        elif ratio_maker_exchange > (1 - self.rebalancing_pct):
+            self.logger().info(f"Rebalancing since the ratio of base asset {ratio_maker_exchange} in the maker exchange is higher than { 1 - self.rebalancing_pct}")
+            self.sell(self.maker_exchange, self.maker_pair, amount_to_rebalance, order_type=OrderType.MARKET,
+                      price=self.connectors[self.maker_exchange].get_mid_price(self.maker_pair))
+
+        if ratio_taker_exchange < self.rebalancing_pct:
+            self.logger().info(f"Rebalancing since the ratio of base asset {ratio_taker_exchange} in the taker exchange is lower than {self.rebalancing_pct}")
+            self.buy(self.taker_exchange, self.maker_pair, amount_to_rebalance, order_type=OrderType.MARKET,
+                      price=self.connectors[self.taker_exchange].get_mid_price(self.taker_pair))
+        elif ratio_taker_exchange > (1 - self.rebalancing_pct):
+            self.logger().info(f"Rebalancing since the ratio of base asset {ratio_maker_exchange} in the taker exchange is higher than { 1 - self.rebalancing_pct}")
+            self.sell(self.taker_exchange, self.taker_pair, amount_to_rebalance, order_type=OrderType.MARKET,
+                     price=self.connectors[self.taker_exchange].get_mid_price(self.taker_pair))
 
     def did_fill_order(self, event: OrderFilledEvent):
 
