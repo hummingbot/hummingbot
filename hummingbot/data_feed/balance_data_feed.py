@@ -7,8 +7,8 @@ from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.gateway.types import WalletBalances
 from hummingbot.core.network_base import NetworkBase
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils import split_base_quote
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.data_feed.utils import split_base_quote
 from hummingbot.logger import HummingbotLogger
 
 
@@ -59,8 +59,12 @@ class BalanceDataFeed(NetworkBase):
             token_symbols.add(quote_token)
         return list(token_symbols)
 
+    @property
     def balances(self) -> Dict[str, WalletBalances]:
         return self._balances
+
+    def is_ready(self) -> bool:
+        return len(self._balances) == len(self.chains)
 
     async def check_network(self) -> NetworkStatus:
         is_gateway_online = await self.gateway_client.ping_gateway()
@@ -113,13 +117,11 @@ class BalanceDataFeed(NetworkBase):
 
     def _load_wallet_address(self) -> None:
         gateway_conf = GatewayConnectionSetting.load()
-        # wallets = [w for w in gateway_conf if w["chain"] == self.chain and w["network"] == self.network]
-        # if len(wallets) == 0:
-        #     self.logger().info(f"No wallet found for chain {self.chain} and network {self.network}")
-        #     return
-        # wallet_adress = wallets[0]["wallet_address"]
-        # self.wallet_address = wallet_adress
-        self.wallet_address = ""
+        wallets = [w for w in gateway_conf if w["chain"] in self.chains and w["network"] == self.network]
+        if len(wallets) > 0:
+            wallet_addresses = list(set([w["wallet_address"] for w in wallets]))
+            self.wallet_address = wallet_addresses[0]
+        return
 
     @staticmethod
     async def _async_sleep(delay: float) -> None:

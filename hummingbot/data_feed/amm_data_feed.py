@@ -10,8 +10,8 @@ from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.gateway.types import TokenPrice
 from hummingbot.core.network_base import NetworkBase
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils import split_base_quote
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.data_feed.utils import split_base_quote
 from hummingbot.logger import HummingbotLogger
 
 
@@ -69,6 +69,13 @@ class AmmDataFeed(NetworkBase):
     def network(self) -> str:
         return self.connector_chain_network.split("_")[2]
 
+    @property
+    def price_dict(self) -> Dict[str, TokenBuySellPrice]:
+        return self._price_dict
+
+    def is_ready(self) -> bool:
+        return len(self._price_dict) == len(self.trading_pairs)
+
     async def check_network(self) -> NetworkStatus:
         is_gateway_online = await self.gateway_client.ping_gateway()
         if not is_gateway_online:
@@ -83,10 +90,6 @@ class AmmDataFeed(NetworkBase):
         if self.fetch_data_loop_task is not None:
             self.fetch_data_loop_task.cancel()
             self.fetch_data_loop_task = None
-
-    @property
-    def price_dict(self) -> Dict[str, TokenBuySellPrice]:
-        return self._price_dict
 
     async def _fetch_data_loop(self) -> None:
         while True:
