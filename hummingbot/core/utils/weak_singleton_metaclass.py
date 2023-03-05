@@ -1,5 +1,4 @@
 import abc
-import asyncio
 import functools
 import threading
 import weakref
@@ -99,16 +98,12 @@ class WeakSingletonMetaclass(abc.ABCMeta):
     def _cleanup_when_no_reference(mcs, cls: Type[T]):
         """Clean the references to the class if its weak reference is dead (last instance deleted)"""
         assert mcs._has_dead_reference(cls), "_cleanup_when_no_reference called with no dead reference"
-        assert cls in mcs._strict_locks, f"{cls} not in _strict_locks"
+        assert cls in mcs._strict_locks, f"{cls.__name__} not in _strict_locks"
         assert mcs._strict_locks[cls].locked(), "_cleanup_when_no_reference should be called when locked"
 
-        try:
-            with mcs._strict_locks[cls]:
-                mcs._instances[cls] = None
-                if mcs._strict_locks[cls].locked():
-                    mcs._strict_locks[cls] = threading.Lock()
-        except KeyError:
-            raise NoLockForInstanceError("Failed to lock access to instance")
+        mcs._instances[cls] = None
+        if mcs._strict_locks[cls].locked():
+            mcs._strict_locks[cls] = threading.Lock()
 
         assert mcs._has_no_instance(cls), "Instance should be None"
 
@@ -132,16 +127,6 @@ class WeakSingletonMetaclass(abc.ABCMeta):
                 if cls in cls._instances:
                     cls._instances[cls] = None
                     cls._strict_locks[cls] = threading.Lock()
-
-    async def __aclear(cls: Type[T]):
-        """Clear the class attributes (registration of the class as Singleton)
-        This method was added for testing purposes only. It should not be used in production code."""
-        if cls in cls._instances and cls._instances[cls]() is not None:
-            with cls._strict_locks[cls]:
-                if cls in cls._instances and cls._instances[cls]() is not None:
-                    cls._instances[cls] = None
-                    cls._strict_locks[cls] = threading.Lock()
-        await asyncio.sleep(0)
 
     def __lock(cls: Type[T]):
         """Returns the lock for the class.

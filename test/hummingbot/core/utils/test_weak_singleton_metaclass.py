@@ -2,17 +2,9 @@ import random
 import threading
 import unittest
 from time import sleep
-from unittest.mock import AsyncMock
+from unittest.mock import patch
 
 from hummingbot.core.utils.weak_singleton_metaclass import WeakSingletonMetaclass
-
-
-class AsyncContextManagerMock(AsyncMock):
-    async def __aenter__(self):
-        return self.return_value
-
-    async def __aexit__(self, *args):
-        pass
 
 
 class TestWeakSingletonMetaclass(unittest.TestCase):
@@ -125,7 +117,7 @@ class TestWeakSingletonMetaclass(unittest.TestCase):
         c = SubclassA(30)
         self.assertIs(a, c)
 
-    def test__class_is_instantiated(self):
+    def test_is_instantiated(self):
         # Check that subclasses of a singleton class are different singletons
         class ClassA(metaclass=WeakSingletonMetaclass):
             pass
@@ -209,3 +201,52 @@ class TestWeakSingletonMetaclass(unittest.TestCase):
             t.start()
             t.join()
             self.assertEqual(t.result, "Acquired")
+
+    def test__cleanup_when_no_reference_raises_asserts(self):
+        class SingletonClass(metaclass=WeakSingletonMetaclass):
+            def __init__(self, val):
+                self.val = val
+
+        # Check that subclasses of a singleton class are different singletons
+        a = SingletonClass(0)
+        self.assertTrue(a is SingletonClass(0))
+        self.assertTrue(SingletonClass.is_instantiated())
+
+        with self.assertRaises(AssertionError) as e:
+            SingletonClass.__class__._cleanup_when_no_reference(SingletonClass)
+        self.assertEqual(str(e.exception), "_cleanup_when_no_reference called with no dead reference")
+
+        # Pass the ded-reference assert with mocking
+        with patch.object(SingletonClass.__class__, "_has_dead_reference", return_value=True):
+            with self.assertRaises(AssertionError) as e:
+                SingletonClass.__class__._cleanup_when_no_reference(SingletonClass)
+        self.assertEqual(str(e.exception), "_cleanup_when_no_reference should be called when locked")
+
+        # Pass the lock assert with mocking, remove the lock entry in the metaclass dictionary
+        with patch.object(SingletonClass.__class__, "_has_dead_reference", return_value=True):
+            with self.assertRaises(AssertionError) as e:
+                ref = SingletonClass._strict_locks.pop(SingletonClass)
+                SingletonClass.__class__._cleanup_when_no_reference(SingletonClass)
+        self.assertEqual(str(e.exception), "SingletonClass not in _strict_locks")
+
+        # Reinstate the lock entry in the metaclass dictionary in order to close cleanly
+        SingletonClass._strict_locks[SingletonClass] = ref
+
+    def test__cleanup_when_no_reference(self):
+        class SingletonClass(metaclass=WeakSingletonMetaclass):
+            def __init__(self, val):
+                self.val = val
+
+        # Check that subclasses of a singleton class are different singletons
+        a = SingletonClass(0)
+        self.assertTrue(a is SingletonClass(0))
+        self.assertTrue(SingletonClass.is_instantiated())
+
+        # Pass the dead-reference assert with mocking
+        with patch.object(SingletonClass.__class__, "_has_dead_reference", return_value=True):
+            with SingletonClass.__class__._WeakSingletonMetaclass__lock(SingletonClass) as lock:
+                SingletonClass.__class__._cleanup_when_no_reference(SingletonClass)
+                self.assertFalse(SingletonClass.is_instantiated())
+                self.assertTrue(SingletonClass.__class__._instances[SingletonClass] is None)
+                # if the cleanup is done within a lock, sets that lock reference to None
+                self.assertFalse(SingletonClass.__class__._strict_locks[SingletonClass] is lock)
