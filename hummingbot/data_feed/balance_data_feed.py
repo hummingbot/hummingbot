@@ -1,12 +1,8 @@
 import asyncio
 import logging
-from decimal import Decimal
 from typing import Dict, List, Optional, Set
 
-from pydantic import BaseModel
-
 from hummingbot.client.settings import GatewayConnectionSetting
-from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.gateway.types import WalletBalances
 from hummingbot.core.network_base import NetworkBase
