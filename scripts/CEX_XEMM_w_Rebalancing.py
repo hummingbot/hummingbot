@@ -146,7 +146,7 @@ class CEX_XEMM_w_Rebalancing(ScriptStrategyBase):
         base_asset_taker_exchange, quote_asset_taker_exchange, ratio_taker_exchange = self.get_base_quote_and_ratio_taker_exchange()
         base_asset_maker_exchange, quote_asset_maker_exchange, ratio_maker_exchange = self.get_base_quote_and_ratio_maker_exchange()
 
-        amount_to_rebalance = Decimal(self.order_amount)
+        amount_to_rebalance = Decimal(self.order_amount * self.rebalancing_pct)
 
         if ratio_maker_exchange < self.rebalancing_pct:
             self.logger().info(f"Rebalancing since the ratio of base asset {ratio_maker_exchange} in the maker exchange is lower than {self.rebalancing_pct}")
