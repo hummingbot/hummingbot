@@ -171,18 +171,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
     async def place_order(
         self, order: GatewayInFlightOrder, **kwargs
     ) -> Tuple[Optional[str], Dict[str, Any]]:
-        market = self._trading_pair_to_active_spot_markets[order.trading_pair]
-        spot_order_to_create = [
-            self._composer.SpotOrder(
-                market_id=market.market_id,
-                subaccount_id=self._sub_account_id,
-                fee_recipient=self._account_address,
-                price=float(order.price),
-                quantity=float(order.amount),
-                is_buy=order.trade_type == TradeType.BUY,
-                is_po=order.order_type == OrderType.LIMIT_MAKER,
-            ),
-        ]
+        spot_order_to_create = [self._compose_spot_order_for_local_hash_computation(order=order)]
 
         async with self._order_placement_lock:
             order_hashes = self._order_hash_manager.compute_order_hashes(
@@ -223,17 +212,10 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
         return order_hash, misc_updates
 
-    async def batch_order_create(self, orders_to_create: List[InFlightOrder]) -> List[PlaceOrderResult]:
+    async def batch_order_create(self, orders_to_create: List[GatewayInFlightOrder]) -> List[PlaceOrderResult]:
         spot_orders_to_create = [
-            self._composer.SpotOrder(
-                market_id=self._trading_pair_to_active_spot_markets[order.trading_pair].market_id,
-                subaccount_id=self._sub_account_id,
-                fee_recipient=self._account_address,
-                price=float(order.price),
-                quantity=float(order.amount),
-                is_buy=order.trade_type == TradeType.BUY,
-                is_po=True,
-            ) for order in orders_to_create
+            self._compose_spot_order_for_local_hash_computation(order=order)
+            for order in orders_to_create
         ]
 
         async with self._order_placement_lock:
@@ -555,6 +537,18 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
                 maker=maker_fee, taker=taker_fee, maker_flat_fees=[], taker_flat_fees=[]
             )
         return trading_fees
+
+    def _compose_spot_order_for_local_hash_computation(self, order: GatewayInFlightOrder) -> SpotOrder:
+        market = self._trading_pair_to_active_spot_markets[order.trading_pair].market_id
+        return SpotOrder(
+            market_id=market.market_id,
+            subaccount_id=self._sub_account_id,
+            fee_recipient=self._account_address,
+            price=float(order.price),
+            quantity=float(order.amount),
+            is_buy=order.trade_type == TradeType.BUY,
+            is_po=order.order_type == OrderType.LIMIT_MAKER,
+        )
 
     async def _get_booked_order_status_update(
         self,
