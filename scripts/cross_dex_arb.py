@@ -11,8 +11,8 @@ from hummingbot.data_feed.balance_data_feed import BalanceDataFeed
 from hummingbot.data_feed.utils import split_base_quote
 from hummingbot.strategy.script_strategy_base import Decimal, ScriptStrategyBase
 
-UNKNONW = -1
-TRANSACTION_COMPLETED = 1
+UNKNOWN_TIMESTAMP: int = -1
+TRANSACTION_COMPLETED: int = 1
 
 
 class SlippagePriceError(Exception):
@@ -53,7 +53,7 @@ class CrossDexArb(ScriptStrategyBase):
     balance_update_interval = 5.0
     balance_data_feed = BalanceDataFeed([chain], network, {trading_pair}, balance_update_interval)
 
-    # for execute trade
+    # param for execute trade
     gateway_client = GatewayHttpClient.get_instance()
     gas_token = "BNB"
     min_gas_fee_reserve = Decimal("0.001")
@@ -61,9 +61,11 @@ class CrossDexArb(ScriptStrategyBase):
     slippage_tolerance = 0.05
     is_submit_tx_incomplete = False
     is_poll_tx_incomplete = False
+
+    # state for trade execution
     transaction_a: Optional[Transaction] = None
     transaction_b: Optional[Transaction] = None
-    last_trade_timestamp: int = UNKNONW
+    last_trade_timestamp: int = UNKNOWN_TIMESTAMP
 
     def __init__(self, connectors: Dict[str, ConnectorBase]) -> None:
         super().__init__(connectors)
@@ -144,8 +146,10 @@ class CrossDexArb(ScriptStrategyBase):
         if tx_status_a.txStatus == TRANSACTION_COMPLETED and tx_status_b.txStatus == TRANSACTION_COMPLETED:
             self.logger().info(
                 f"Both transactions ({tx_hash_a} and {tx_hash_b}) are completed. "
-                "Reset self.transaction_a and self.transaction_b to be None."
+                "Reset self.transaction_a and self.transaction_b and update self.last_trade_timestamp."
             )
+            last_trade_timestamp = max(tx_status_a.timestamp, tx_status_b.timestamp)
+            self.last_trade_timestamp = last_trade_timestamp
             self.transaction_a = None
             self.transaction_b = None
         self.is_poll_tx_incomplete = False
@@ -168,21 +172,19 @@ class CrossDexArb(ScriptStrategyBase):
 
     # TODO: now assume gas fee and quote token is in same currency (i.e. WBNB & BNB)
     def should_base_buy_a_sell_b(self) -> bool:
-        trading_pair = self.trading_pair
-        quote_amount_out = float(self.dex_data_feed_a.price_dict[trading_pair].buy.expectedAmount)
-        a_gas_fee = float(self.dex_data_feed_a.price_dict[trading_pair].buy.gasCost)
-        quote_amount_in = float(self.dex_data_feed_b.price_dict[trading_pair].sell.expectedAmount)
-        b_gas_fee = float(self.dex_data_feed_b.price_dict[trading_pair].sell.gasCost)
-        profit_pb = (quote_amount_in - quote_amount_out - a_gas_fee - b_gas_fee) / quote_amount_in * 10000
+        profit_pb = self._compute_arb_profit_pb(
+            self.trading_pair,
+            buy_data_feed=self.dex_data_feed_a,
+            sell_data_feed=self.dex_data_feed_b,
+        )
         return profit_pb >= self.min_profit_bp
 
     def should_base_buy_b_sell_a(self) -> bool:
-        trading_pair = self.trading_pair
-        quote_amount_out = float(self.dex_data_feed_b.price_dict[trading_pair].buy.expectedAmount)
-        b_gas_fee = float(self.dex_data_feed_b.price_dict[trading_pair].buy.gasCost)
-        quote_amount_in = float(self.dex_data_feed_a.price_dict[trading_pair].sell.expectedAmount)
-        a_gas_fee = float(self.dex_data_feed_a.price_dict[trading_pair].sell.gasCost)
-        profit_pb = (quote_amount_in - quote_amount_out - b_gas_fee - a_gas_fee) / quote_amount_in * 10000
+        profit_pb = self._compute_arb_profit_pb(
+            self.trading_pair,
+            buy_data_feed=self.dex_data_feed_b,
+            sell_data_feed=self.dex_data_feed_a,
+        )
         return profit_pb >= self.min_profit_bp
 
     async def base_buy_a_sell_b(self) -> None:
@@ -207,6 +209,16 @@ class CrossDexArb(ScriptStrategyBase):
         )
         self.is_submit_tx_incomplete = False
         return
+
+    def _compute_arb_profit_pb(
+        self, trading_pair: str, buy_data_feed: AmmDataFeed, sell_data_feed: AmmDataFeed
+    ) -> float:
+        quote_amount_out = float(buy_data_feed.price_dict[trading_pair].buy.expectedAmount)
+        buy_gas_fee = float(buy_data_feed.price_dict[trading_pair].buy.gasCost)
+        quote_amount_in = float(sell_data_feed.price_dict[trading_pair].sell.expectedAmount)
+        sell_gas_fee = float(sell_data_feed.price_dict[trading_pair].sell.gasCost)
+        profit_pb = (quote_amount_in - quote_amount_out - buy_gas_fee - sell_gas_fee) / quote_amount_in * 10000
+        return profit_pb
 
     async def _poll_transaction_status(self, transaction_hash: str) -> TransactionStatus:
         transaction_status = await self.gateway_client.get_transaction_status(
