@@ -191,6 +191,7 @@ class CrossDexArb(ScriptStrategyBase):
             )
         return
 
+    # TODO: add precheck to see if all tokens have been approved
     def is_precheck(self) -> bool:
         _is_precheck = False
         if not self.is_wallet_address_set():
