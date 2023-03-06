@@ -80,7 +80,7 @@ class ExchangePyBase(ExchangeBase, ABC):
         # init UserStream Data Source and Tracker
         self._user_stream_tracker = self._create_user_stream_tracker()
 
-        self._order_tracker: ClientOrderTracker = ClientOrderTracker(connector=self)
+        self._order_tracker: ClientOrderTracker = self._create_order_tracker()
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -459,6 +459,7 @@ class ExchangePyBase(ExchangeBase, ABC):
             amount=amount,
             **kwargs,
         )
+        order = self._order_tracker.active_orders[order_id]
 
         if order_type not in self.supported_order_types():
             self.logger().error(f"{order_type} is not in the list of supported order types")
@@ -478,36 +479,63 @@ class ExchangePyBase(ExchangeBase, ABC):
             return
 
         try:
-            exchange_order_id, update_timestamp = await self._place_order(
+            exchange_order_id = await self._place_order_and_process_update(order=order, **kwargs,)
+
+        except asyncio.CancelledError:
+            raise
+        except Exception as ex:
+            self._on_order_failure(
                 order_id=order_id,
                 trading_pair=trading_pair,
                 amount=amount,
                 trade_type=trade_type,
                 order_type=order_type,
                 price=price,
+                exception=ex,
                 **kwargs,
             )
-
-            order_update: OrderUpdate = OrderUpdate(
-                client_order_id=order_id,
-                exchange_order_id=exchange_order_id,
-                trading_pair=trading_pair,
-                update_timestamp=update_timestamp,
-                new_state=OrderState.OPEN,
-            )
-            self._order_tracker.process_order_update(order_update)
-
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            self.logger().network(
-                f"Error submitting {trade_type.name.lower()} {order_type.name.upper()} order to {self.name_cap} for "
-                f"{amount} {trading_pair} {price}.",
-                exc_info=True,
-                app_warning_msg=f"Failed to submit buy order to {self.name_cap}. Check API key and network connection."
-            )
-            self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
         return order_id, exchange_order_id
+
+    async def _place_order_and_process_update(self, order: InFlightOrder, **kwargs) -> str:
+        exchange_order_id, update_timestamp = await self._place_order(
+            order_id=order.client_order_id,
+            trading_pair=order.trading_pair,
+            amount=order.amount,
+            trade_type=order.trade_type,
+            order_type=order.order_type,
+            price=order.price,
+            **kwargs,
+        )
+
+        order_update: OrderUpdate = OrderUpdate(
+            client_order_id=order.client_order_id,
+            exchange_order_id=str(exchange_order_id),
+            trading_pair=order.trading_pair,
+            update_timestamp=update_timestamp,
+            new_state=OrderState.OPEN,
+        )
+        self._order_tracker.process_order_update(order_update)
+
+        return exchange_order_id
+
+    def _on_order_failure(
+        self,
+        order_id: str,
+        trading_pair: str,
+        amount: Decimal,
+        trade_type: TradeType,
+        order_type: OrderType,
+        price: Optional[Decimal],
+        exception: Exception,
+        **kwargs,
+    ):
+        self.logger().network(
+            f"Error submitting {trade_type.name.lower()} {order_type.name.upper()} order to {self.name_cap} for "
+            f"{amount} {trading_pair} {price}.",
+            exc_info=True,
+            app_warning_msg=f"Failed to submit buy order to {self.name_cap}. Check API key and network connection."
+        )
+        self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
 
     def _update_order_after_failure(self, order_id: str, trading_pair: str):
         order_update: OrderUpdate = OrderUpdate(
@@ -520,17 +548,8 @@ class ExchangePyBase(ExchangeBase, ABC):
 
     async def _execute_order_cancel(self, order: InFlightOrder) -> str:
         try:
-            cancelled = await self._place_cancel(order.client_order_id, order)
+            cancelled = await self._execute_order_cancel_and_process_update(order=order)
             if cancelled:
-                order_update: OrderUpdate = OrderUpdate(
-                    client_order_id=order.client_order_id,
-                    trading_pair=order.trading_pair,
-                    update_timestamp=self.current_timestamp,
-                    new_state=(OrderState.CANCELED
-                               if self.is_cancel_request_in_exchange_synchronous
-                               else OrderState.PENDING_CANCEL),
-                )
-                self._order_tracker.process_order_update(order_update)
                 return order.client_order_id
         except asyncio.CancelledError:
             raise
@@ -543,6 +562,20 @@ class ExchangePyBase(ExchangeBase, ABC):
         except Exception:
             self.logger().error(
                 f"Failed to cancel order {order.client_order_id}", exc_info=True)
+
+    async def _execute_order_cancel_and_process_update(self, order: InFlightOrder) -> bool:
+        cancelled = await self._place_cancel(order.client_order_id, order)
+        if cancelled:
+            order_update: OrderUpdate = OrderUpdate(
+                client_order_id=order.client_order_id,
+                trading_pair=order.trading_pair,
+                update_timestamp=self.current_timestamp,
+                new_state=(OrderState.CANCELED
+                           if self.is_cancel_request_in_exchange_synchronous
+                           else OrderState.PENDING_CANCEL),
+            )
+            self._order_tracker.process_order_update(order_update)
+        return cancelled
 
     async def _execute_cancel(self, trading_pair: str, order_id: str) -> str:
         """
@@ -678,7 +711,7 @@ class ExchangePyBase(ExchangeBase, ABC):
         Checks connectivity with the exchange using the API
         """
         try:
-            await self._api_get(path_url=self.check_network_request_path)
+            await self._make_network_check_request()
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -842,7 +875,7 @@ class ExchangePyBase(ExchangeBase, ABC):
     # === Exchange / Trading logic methods that call the API ===
 
     async def _update_trading_rules(self):
-        exchange_info = await self._api_get(path_url=self.trading_rules_request_path)
+        exchange_info = await self._make_trading_rules_request()
         trading_rules_list = await self._format_trading_rules(exchange_info)
         self._trading_rules.clear()
         for trading_rule in trading_rules_list:
@@ -1032,9 +1065,23 @@ class ExchangePyBase(ExchangeBase, ABC):
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         raise NotImplementedError
 
+    def _create_order_tracker(self) -> ClientOrderTracker:
+        return ClientOrderTracker(connector=self)
+
     async def _initialize_trading_pair_symbol_map(self):
         try:
-            exchange_info = await self._api_get(path_url=self.trading_pairs_request_path)
+            exchange_info = await self._make_trading_pairs_request()
             self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
         except Exception:
             self.logger().exception("There was an error requesting exchange info.")
+
+    async def _make_network_check_request(self):
+        await self._api_get(path_url=self.check_network_request_path)
+
+    async def _make_trading_rules_request(self) -> Any:
+        exchange_info = await self._api_get(path_url=self.trading_rules_request_path)
+        return exchange_info
+
+    async def _make_trading_pairs_request(self) -> Any:
+        exchange_info = await self._api_get(path_url=self.trading_pairs_request_path)
+        return exchange_info
