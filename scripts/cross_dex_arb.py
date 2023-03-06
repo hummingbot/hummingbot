@@ -1,6 +1,8 @@
 import asyncio
 from typing import Dict, Optional
 
+import pandas as pd
+
 from hummingbot.connector.connector_base import ConnectorBase  # type: ignore
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
@@ -27,35 +29,37 @@ class CrossDexArb(ScriptStrategyBase):
     connector_b = "sushiswap"
     connector_chain_network_a = f"{connector_a}_{chain}_{network}"
     connector_chain_network_b = f"{connector_b}_{chain}_{network}"
-    trading_pair = "USDT-WBNB"
+    base = "USDT"
+    quote = "WBNB"
+    gas_token = "BNB"
+    trading_pair = f"{base}-{quote}"
     markets = {
         connector_chain_network_a: {trading_pair},
         connector_chain_network_b: {trading_pair},
     }
 
     # set up data feed for 2 DEXs
-    dex_update_interval = 0.0
+    price_update_interval = 0.0
     order_amount_in_base: Decimal = Decimal("50")
-    dex_data_feed_a = AmmDataFeed(
+    amm_data_feed_a = AmmDataFeed(
         connector_chain_network_a,
         {trading_pair},
         order_amount_in_base,
-        dex_update_interval,
+        price_update_interval,
     )
-    dex_data_feed_b = AmmDataFeed(
+    amm_data_feed_b = AmmDataFeed(
         connector_chain_network_b,
         {trading_pair},
         order_amount_in_base,
-        dex_update_interval,
+        price_update_interval,
     )
 
-    # set up data feed for wallet balances
+    # set up data feed for wallet balances on a single chain
     balance_update_interval = 5.0
-    balance_data_feed = BalanceDataFeed([chain], network, {trading_pair}, balance_update_interval)
+    balance_data_feed = BalanceDataFeed([chain], network, {base, quote, gas_token}, balance_update_interval)
 
     # param for execute trade
     gateway_client = GatewayHttpClient.get_instance()
-    gas_token = "BNB"
     min_gas_fee_reserve = Decimal("0.001")
     min_profit_bp = 10
     slippage_tolerance = 0.05
@@ -69,22 +73,107 @@ class CrossDexArb(ScriptStrategyBase):
 
     def __init__(self, connectors: Dict[str, ConnectorBase]) -> None:
         super().__init__(connectors)
-        self.dex_data_feed_a.start()
-        self.dex_data_feed_b.start()
-        self.logger().info(f"{self.dex_data_feed_a.name} and {self.dex_data_feed_b.name} started...")
-        self._load_wallet_address()
+        self.amm_data_feed_a.start()
+        self.amm_data_feed_b.start()
+        self.balance_data_feed.start()
+        self.logger().info(f"{self.amm_data_feed_a.name}, {self.amm_data_feed_b.name} and BalanceDataFeed started...")
 
     def on_stop(self) -> None:
-        """
-        Without this functionality, the network iterator will continue running forever after stopping the strategy
-        That's why is necessary to introduce this new feature to make a custom stop with the strategy.
-        """
-        self.dex_data_feed_a.stop()
-        self.dex_data_feed_b.stop()
-        self.logger().info(f"{self.dex_data_feed_a.name} and {self.dex_data_feed_b.name} terminated...")
+        self.amm_data_feed_a.stop()
+        self.amm_data_feed_b.stop()
+        self.balance_data_feed.stop()
+        self.logger().info(
+            f"{self.amm_data_feed_a.name}, {self.amm_data_feed_b.name} amd BalanceDataFeed terminated..."
+        )
+        return
 
     def format_status(self) -> str:
-        raise NotImplementedError
+        if not self.ready_to_trade:
+            return "Market Connectors are not ready"
+
+        if not self.is_amm_data_feeds_ready():
+            return "AmmDataFeeds are not ready."
+
+        lines = []
+
+        # header
+        chain = self.amm_data_feed_a.chain
+        network = self.amm_data_feed_a.network
+        lines.extend(["", f"Chain: {chain}", f"Network: {network}", "", ""])
+
+        # metrics for buy base in exchange a and sell base in exchange b
+        buy_a_sell_b_profit_pb = self._compute_arb_profit_pb(
+            trading_pair=self.trading_pair,
+            buy_data_feed=self.amm_data_feed_a,
+            sell_data_feed=self.amm_data_feed_b,
+        )
+        lines.extend(["", f"Profit (Pb): {buy_a_sell_b_profit_pb:.0f}"])
+        buy_a_sell_b_df = self._get_arb_monitor_df(
+            self.trading_pair,
+            buy_data_feed=self.amm_data_feed_a,
+            sell_data_feed=self.amm_data_feed_b,
+        )
+        lines.extend([""] + ["    " + line for line in buy_a_sell_b_df.to_string(index=False).split("\n")])
+
+        # metrics for buy base in exchange b and sell base in exchange a
+        lines.extend(["", ""])
+        buy_b_sell_a_profit_pb = self._compute_arb_profit_pb(
+            trading_pair=self.trading_pair,
+            buy_data_feed=self.amm_data_feed_b,
+            sell_data_feed=self.amm_data_feed_a,
+        )
+        lines.extend(["", f"Profit (Pb): {buy_b_sell_a_profit_pb:.0f}"])
+        buy_b_sell_a_df = self._get_arb_monitor_df(
+            self.trading_pair,
+            buy_data_feed=self.amm_data_feed_b,
+            sell_data_feed=self.amm_data_feed_a,
+        )
+        lines.extend([""] + ["    " + line for line in buy_b_sell_a_df.to_string(index=False).split("\n")])
+        return "\n".join(lines)
+
+    def _get_arb_monitor_df(
+        self, trading_pair: str, buy_data_feed: AmmDataFeed, sell_data_feed: AmmDataFeed
+    ) -> pd.DataFrame:
+        buy_price_response = buy_data_feed.price_dict[trading_pair].buy
+        sell_price_response = sell_data_feed.price_dict[trading_pair].sell
+        buy_dict = {
+            "timestamp": buy_price_response.timestamp,
+            "connector": buy_data_feed.connector,
+            "base": buy_data_feed.price_dict[trading_pair].base,
+            "quote": buy_data_feed.price_dict[trading_pair].quote,
+            "trade_type": "BUY",
+            "order_amount_in_base": buy_data_feed.order_amount_in_base,
+            "expected_amount": buy_price_response.expectedAmount,
+            "price": buy_price_response.price,
+            "gas_token": buy_price_response.gasPriceToken,
+            "gas_fee": buy_price_response.gasCost,
+        }
+        sell_dict = {
+            "timestamp": sell_price_response.timestamp,
+            "connector": sell_data_feed.connector,
+            "base": sell_data_feed.price_dict[trading_pair].base,
+            "quote": sell_data_feed.price_dict[trading_pair].quote,
+            "trade_type": "SELL",
+            "order_amount_in_base": sell_data_feed.order_amount_in_base,
+            "expected_amount": sell_price_response.expectedAmount,
+            "price": sell_price_response.price,
+            "gas_token": buy_price_response.gasPriceToken,
+            "gas_fee": buy_price_response.gasCost,
+        }
+        ordered_cols = [
+            "timestamp",
+            "connector",
+            "base",
+            "quote",
+            "trade_type",
+            "order_amount_in_base",
+            "expected_amount",
+            "price",
+            "gas_token",
+            "gas_fee",
+        ]
+        df = pd.DataFrame([buy_dict, sell_dict])[ordered_cols]
+        return df
 
     def on_tick(self) -> None:
         if not self.is_precheck():
@@ -92,7 +181,7 @@ class CrossDexArb(ScriptStrategyBase):
 
         if self.is_transactions_in_progress():
             safe_ensure_future(self.reset_state_if_transactions_complete())  # type: ignore
-        elif self.transaction_a is None and self.transaction_b is None:
+        elif self.is_bot_idle():
             safe_ensure_future(self.decide_and_trade())  # type: ignore
         else:
             self.logger().warning(
@@ -174,16 +263,16 @@ class CrossDexArb(ScriptStrategyBase):
     def should_base_buy_a_sell_b(self) -> bool:
         profit_pb = self._compute_arb_profit_pb(
             self.trading_pair,
-            buy_data_feed=self.dex_data_feed_a,
-            sell_data_feed=self.dex_data_feed_b,
+            buy_data_feed=self.amm_data_feed_a,
+            sell_data_feed=self.amm_data_feed_b,
         )
         return profit_pb >= self.min_profit_bp
 
     def should_base_buy_b_sell_a(self) -> bool:
         profit_pb = self._compute_arb_profit_pb(
             self.trading_pair,
-            buy_data_feed=self.dex_data_feed_b,
-            sell_data_feed=self.dex_data_feed_a,
+            buy_data_feed=self.amm_data_feed_b,
+            sell_data_feed=self.amm_data_feed_a,
         )
         return profit_pb >= self.min_profit_bp
 
@@ -192,8 +281,8 @@ class CrossDexArb(ScriptStrategyBase):
         self.is_submit_tx_incomplete = True
         await self._trade_two_legs(
             self.trading_pair,
-            buy_data_feed=self.dex_data_feed_a,
-            sell_data_feed=self.dex_data_feed_b,
+            buy_data_feed=self.amm_data_feed_a,
+            sell_data_feed=self.amm_data_feed_b,
             slippage_tolerance=self.slippage_tolerance,
         )
         self.is_submit_tx_incomplete = False
@@ -203,8 +292,8 @@ class CrossDexArb(ScriptStrategyBase):
         self.is_submit_tx_incomplete = True
         await self._trade_two_legs(
             self.trading_pair,
-            buy_data_feed=self.dex_data_feed_b,
-            sell_data_feed=self.dex_data_feed_a,
+            buy_data_feed=self.amm_data_feed_b,
+            sell_data_feed=self.amm_data_feed_a,
             slippage_tolerance=self.slippage_tolerance,
         )
         self.is_submit_tx_incomplete = False
@@ -278,9 +367,12 @@ class CrossDexArb(ScriptStrategyBase):
         )
         return
 
+    def is_bot_idle(self) -> bool:
+        return self.transaction_a is None and self.transaction_b is None
+
     def is_enough_balance_for_trade(self, buy_exchange: str, sell_exchange: str) -> bool:
-        buy_side_data_feed = self.dex_data_feed_a if buy_exchange == self.connector_a else self.dex_data_feed_b
-        sell_side_data_feed = self.dex_data_feed_a if sell_exchange == self.connector_a else self.dex_data_feed_b
+        buy_side_data_feed = self.amm_data_feed_a if buy_exchange == self.connector_a else self.amm_data_feed_b
+        sell_side_data_feed = self.amm_data_feed_a if sell_exchange == self.connector_a else self.amm_data_feed_b
         assert (
             buy_side_data_feed is not sell_side_data_feed
         ), "buy_side_data_feed should not be the same as sell_side_data_feed."
@@ -298,7 +390,7 @@ class CrossDexArb(ScriptStrategyBase):
         return float(self.balance_data_feed.balances[self.chain].balances[self.gas_token]) > self.min_gas_fee_reserve
 
     def is_amm_data_feeds_ready(self) -> bool:
-        return self.dex_data_feed_a.is_ready() and self.dex_data_feed_b.is_ready()
+        return self.amm_data_feed_a.is_ready() and self.amm_data_feed_b.is_ready()
 
     def is_balance_data_feed_ready(self) -> bool:
         return self.balance_data_feed.is_ready()
