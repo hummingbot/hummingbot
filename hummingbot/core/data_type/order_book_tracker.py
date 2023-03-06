@@ -139,6 +139,9 @@ class OrderBookTracker:
             self._tracking_tasks.clear()
         self._order_books_initialized.clear()
 
+    async def wait_ready(self):
+        await self._order_books_initialized.wait()
+
     async def _update_last_trade_prices_loop(self):
         '''
         Updates last trade price for all order books through REST API, it is to initiate last_trade_price and as
@@ -179,7 +182,7 @@ class OrderBookTracker:
             self._tracking_tasks[trading_pair] = safe_ensure_future(self._track_single_book(trading_pair))
             self.logger().info(f"Initialized order book for {trading_pair}. "
                                f"{index + 1}/{len(self._trading_pairs)} completed.")
-            await asyncio.sleep(1)
+            await self._sleep(delay=1)
         self._order_books_initialized.set()
 
     async def _order_book_diff_router(self):
@@ -336,3 +339,7 @@ class OrderBookTracker:
                     app_warning_msg="Unexpected error routing order book messages. Retrying after 5 seconds."
                 )
                 await asyncio.sleep(5.0)
+
+    @staticmethod
+    async def _sleep(delay: float):
+        await asyncio.sleep(delay=delay)
