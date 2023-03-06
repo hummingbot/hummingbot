@@ -91,12 +91,12 @@ class GatewayCommand(GatewayChainApiManager):
             with begin_placeholder_mode(self):
                 while True:
                     pass_phase = await self.app.prompt(
-                        prompt='Enter pass phase to generate Gateway SSL certifications  >>> ',
+                        prompt='Enter pass phrase to generate Gateway SSL certifications  >>> ',
                         is_password=True
                     )
                     if pass_phase is not None and len(pass_phase) > 0:
                         break
-                    self.notify("Error: Invalid pass phase")
+                    self.notify("Error: Invalid pass phrase")
         else:
             pass_phase = Security.secrets_manager.password.get_secret_value()
         create_self_sign_certs(pass_phase, certs_path)
