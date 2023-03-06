@@ -12,6 +12,7 @@ native_tokens = {
     "binance-smart-chain": "BNB",
     "cronos": "CRO",
     "near": "NEAR",
+    "injective": "INJ",
     "xdc": "XDC"
 }
 
