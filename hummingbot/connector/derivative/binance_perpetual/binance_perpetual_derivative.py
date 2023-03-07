@@ -454,7 +454,7 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
                                                       amount=Decimal(position["pa"]))
                 total_maint_margin_required += Decimal(position.get("mm", "0"))
                 if float(position.get("up", 0)) < 1:
-                    negative_pnls_msg += f"{position.get('s')}: {position.get('up')}, "
+                    negative_pnls_msg += f"{hb_trading_pair}: {position.get('up')}, "
             self.logger().warning("Margin Call: Your position risk is too high, and you are at risk of "
                                   "liquidation. Close your positions or add additional margin to your wallet.")
             self.logger().info(f"Margin Required: {total_maint_margin_required}. "

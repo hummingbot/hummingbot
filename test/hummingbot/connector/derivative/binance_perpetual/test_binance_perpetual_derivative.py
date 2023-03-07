@@ -1153,7 +1153,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         ))
         self.assertTrue(self._is_logged(
             "INFO",
-            f"Margin Required: 1.614445. Negative PnL assets: {self.symbol}: -1.166074, ."
+            f"Margin Required: 1.614445. Negative PnL assets: {self.trading_pair}: -1.166074, ."
         ))
 
     @aioresponses()
