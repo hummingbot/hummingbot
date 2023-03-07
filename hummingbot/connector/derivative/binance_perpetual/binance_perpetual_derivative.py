@@ -1,4 +1,5 @@
 import asyncio
+import time
 from collections import defaultdict
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional, Tuple
@@ -264,14 +265,23 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
                 api_params["positionSide"] = "LONG" if trade_type is TradeType.BUY else "SHORT"
             else:
                 api_params["positionSide"] = "SHORT" if trade_type is TradeType.BUY else "LONG"
-
-        order_result = await self._api_post(
-            path_url=CONSTANTS.ORDER_URL,
-            data=api_params,
-            is_auth_required=True)
-        o_id = str(order_result["orderId"])
-        transact_time = order_result["updateTime"] * 1e-3
-        return (o_id, transact_time)
+        try:
+            order_result = await self._api_post(
+                path_url=CONSTANTS.ORDER_URL,
+                data=api_params,
+                is_auth_required=True)
+            o_id = str(order_result["orderId"])
+            transact_time = order_result["updateTime"] * 1e-3
+        except IOError as e:
+            error_description = str(e)
+            is_server_overloaded = ("status is 503" in error_description
+                                    and "Unknown error, please check your request or try again later." in error_description)
+            if is_server_overloaded:
+                o_id = "UNKNOWN"
+                transact_time = time.time()
+            else:
+                raise
+        return o_id, transact_time
 
     async def _all_trade_updates_for_order(self, tracked_order: InFlightOrder) -> List[TradeUpdate]:
         trade_updates = []
