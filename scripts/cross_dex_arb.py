@@ -99,7 +99,16 @@ class CrossDexArb(ScriptStrategyBase):
         # header
         chain = self.amm_data_feed_a.chain
         network = self.amm_data_feed_a.network
-        lines.extend(["", f"Chain: {chain}", f"Network: {network}", "", ""])
+        lines.extend(
+            [
+                "",
+                f"Chain: {chain}",
+                f"Network: {network}",
+                f"Order Size (in Base): {self.order_amount_in_base}",
+                "",
+                "",
+            ]
+        )
 
         # metrics for buy base in exchange a and sell base in exchange b
         buy_a_sell_b_profit_pb = self._compute_arb_profit_pb(
@@ -107,7 +116,7 @@ class CrossDexArb(ScriptStrategyBase):
             buy_data_feed=self.amm_data_feed_a,
             sell_data_feed=self.amm_data_feed_b,
         )
-        lines.extend(["", f"Profit (Pb): {buy_a_sell_b_profit_pb:.0f}"])
+        lines.extend(["", f"Profit After Gas Fee (Pb): {buy_a_sell_b_profit_pb:.0f}"])
         buy_a_sell_b_df = self._get_arb_monitor_df(
             self.trading_pair,
             buy_data_feed=self.amm_data_feed_a,
@@ -122,13 +131,29 @@ class CrossDexArb(ScriptStrategyBase):
             buy_data_feed=self.amm_data_feed_b,
             sell_data_feed=self.amm_data_feed_a,
         )
-        lines.extend(["", f"Profit (Pb): {buy_b_sell_a_profit_pb:.0f}"])
+        lines.extend(["", f"Profit After Gas Fee (Pb): {buy_b_sell_a_profit_pb:.0f}"])
         buy_b_sell_a_df = self._get_arb_monitor_df(
             self.trading_pair,
             buy_data_feed=self.amm_data_feed_b,
             sell_data_feed=self.amm_data_feed_a,
         )
         lines.extend([""] + ["    " + line for line in buy_b_sell_a_df.to_string(index=False).split("\n")])
+
+        # wallet balances
+        lines.extend(
+            [
+                "",
+                "",
+                f"Last Trade Timestamp: {self.last_trade_timestamp}",
+                f"Last Balance Query Timestamp: {self.balance_data_feed.balances[self.chain].timestamp}",
+                f"Wallet Chain: {self.chain}",
+                f"Gas token Balane: {float(self.balance_data_feed.balances[self.chain].balances[self.gas_token]):.6f}",
+                f"Base Balance: {float(self.balance_data_feed.balances[self.chain].balances[self.base]):.6f}",
+                f"Quote Balance: {float(self.balance_data_feed.balances[self.chain].balances[self.quote]):.6f}",
+                "",
+                "",
+            ]
+        )
         return "\n".join(lines)
 
     def _get_arb_monitor_df(
@@ -142,11 +167,11 @@ class CrossDexArb(ScriptStrategyBase):
             "base": buy_data_feed.price_dict[trading_pair].base,
             "quote": buy_data_feed.price_dict[trading_pair].quote,
             "trade_type": "BUY",
-            "order_amount_in_base": buy_data_feed.order_amount_in_base,
-            "expected_amount": buy_price_response.expectedAmount,
-            "price": buy_price_response.price,
+            # "order_amount_in_base": buy_data_feed.order_amount_in_base,
+            "expected_amount": round(float(buy_price_response.expectedAmount), 6),
+            "price": round(float(buy_price_response.price), 6),
             "gas_token": buy_price_response.gasPriceToken,
-            "gas_fee": buy_price_response.gasCost,
+            "gas_fee": round(float(buy_price_response.gasCost), 6),
         }
         sell_dict = {
             "timestamp": sell_price_response.timestamp,
@@ -154,11 +179,11 @@ class CrossDexArb(ScriptStrategyBase):
             "base": sell_data_feed.price_dict[trading_pair].base,
             "quote": sell_data_feed.price_dict[trading_pair].quote,
             "trade_type": "SELL",
-            "order_amount_in_base": sell_data_feed.order_amount_in_base,
-            "expected_amount": sell_price_response.expectedAmount,
-            "price": sell_price_response.price,
+            # "order_amount_in_base": sell_data_feed.order_amount_in_base,
+            "expected_amount": round(float(sell_price_response.expectedAmount), 6),
+            "price": round(float(sell_price_response.price), 6),
             "gas_token": buy_price_response.gasPriceToken,
-            "gas_fee": buy_price_response.gasCost,
+            "gas_fee": round(float(buy_price_response.gasCost), 6),
         }
         ordered_cols = [
             "timestamp",
@@ -166,7 +191,7 @@ class CrossDexArb(ScriptStrategyBase):
             "base",
             "quote",
             "trade_type",
-            "order_amount_in_base",
+            # "order_amount_in_base",
             "expected_amount",
             "price",
             "gas_token",
@@ -258,6 +283,8 @@ class CrossDexArb(ScriptStrategyBase):
                 await self.base_buy_b_sell_a()
             else:
                 self.logger().warning(f"Insufficient balance for trade. Skip this on_tick.")
+        else:
+            self.logger().info(f"No opportunities found in this on_tick. (Min Profit in pb: {self.min_profit_bp})")
         return
 
     # TODO: now assume gas fee and quote token is in same currency (i.e. WBNB & BNB)
@@ -388,7 +415,7 @@ class CrossDexArb(ScriptStrategyBase):
         return self.balance_data_feed.balances[self.chain].timestamp > self.last_trade_timestamp
 
     def is_out_of_gas_fee_reserve(self) -> bool:
-        return float(self.balance_data_feed.balances[self.chain].balances[self.gas_token]) > self.min_gas_fee_reserve
+        return float(self.balance_data_feed.balances[self.chain].balances[self.gas_token]) < self.min_gas_fee_reserve
 
     def is_amm_data_feeds_ready(self) -> bool:
         return self.amm_data_feed_a.is_ready() and self.amm_data_feed_b.is_ready()
