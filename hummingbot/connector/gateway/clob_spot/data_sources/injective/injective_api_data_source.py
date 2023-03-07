@@ -193,17 +193,21 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
                 f" {self._order_hash_manager.current_nonce - 1}"
             )  # todo: remove
 
-            order_result: Dict[str, Any] = await self._get_gateway_instance().clob_place_order(
-                connector=self._connector_name,
-                chain=self._chain,
-                network=self._network,
-                trading_pair=order.trading_pair,
-                address=self._sub_account_id,
-                trade_type=order.trade_type,
-                order_type=order.order_type,
-                price=order.price,
-                size=order.amount,
-            )
+            try:
+                order_result: Dict[str, Any] = await self._get_gateway_instance().clob_place_order(
+                    connector=self._connector_name,
+                    chain=self._chain,
+                    network=self._network,
+                    trading_pair=order.trading_pair,
+                    address=self._sub_account_id,
+                    trade_type=order.trade_type,
+                    order_type=order.order_type,
+                    price=order.price,
+                    size=order.amount,
+                )
+            except Exception:
+                await self._update_account_address_and_create_order_hash_manager()
+                raise
 
             transaction_hash: Optional[str] = order_result.get("txHash")
 
