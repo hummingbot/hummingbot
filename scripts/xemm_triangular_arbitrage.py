@@ -18,7 +18,6 @@ class XEMMTriangularArbitrage(ScriptStrategyBase):
     taker_pair2 = "BTC-USDT"
 
     order_amount = Decimal(50)          # amount for each order
-    spread_bps = 10                     # bot places maker orders at this spread to taker price
     min_spread_bps = 0                  # bot refreshes order if spread is lower than min-spread
     slippage_buffer_spread_bps = 100    # buffer applied to limit taker hedging trades on taker exchange
     max_order_age = 1                   # bot refreshes orders after this age
@@ -77,10 +76,10 @@ class XEMMTriangularArbitrage(ScriptStrategyBase):
         return
 
     def buy_hedging_budget(self) -> Decimal:
-        balance = self.connectors[self.taker_exchange].get_available_balance("QTUM")
+        balance = self.connectors[self.taker_exchange].get_available_balance(self.maker_pair_base_asset)
         return balance
     def sell_hedging_budget(self) -> Decimal:
-        balance = self.connectors[self.taker_exchange].get_available_balance("USDT")
+        balance = self.connectors[self.taker_exchange].get_available_balance(self.taker_pair2_quote_asset)
         taker_buy_result = self.connectors[self.taker_exchange].get_price_for_volume(self.taker_pair, True, self.order_amount)
         return balance / taker_buy_result.result_price
     def is_active_maker_order(self, event: OrderFilledEvent):
