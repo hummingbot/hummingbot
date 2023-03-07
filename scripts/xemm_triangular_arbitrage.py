@@ -12,17 +12,17 @@ from hummingbot.connector.exchange_base import ExchangeBase
 class XEMMTriangularArbitrage(ScriptStrategyBase):
 
     maker_exchange = "kucoin"
-    maker_pair = "ELF-BTC"
+    maker_pair = "PNT-BTC"
     taker_exchange = "binance"
-    taker_pair1 = "ELF-USDT"
+    taker_pair1 = "PNT-USDT"
     taker_pair2 = "BTC-USDT"
 
-    order_amount = Decimal(40)         # amount for each order
+    order_amount = Decimal(50)          # amount for each order
     spread_bps = 10                     # bot places maker orders at this spread to taker price
     min_spread_bps = 0                  # bot refreshes order if spread is lower than min-spread
     slippage_buffer_spread_bps = 100    # buffer applied to limit taker hedging trades on taker exchange
-    max_order_age = 8                   # bot refreshes orders after this age
-    min_profitability = 0.0045
+    max_order_age = 1                   # bot refreshes orders after this age
+    min_profitability = 0.0044
 
     markets = {maker_exchange: {maker_pair}, taker_exchange: {taker_pair1, taker_pair2}}
 
@@ -39,12 +39,12 @@ class XEMMTriangularArbitrage(ScriptStrategyBase):
         conversion_price_bid = third.get_vwap_for_volume(volume=self.order_amount * taker.get_mid_price(), is_buy=True).result_price
         effective_hedging_price_uncoverted_bid = taker.get_vwap_for_volume(volume=self.order_amount, is_buy=False).result_price
         effective_hedging_price_converted_bid = effective_hedging_price_uncoverted_bid / conversion_price_bid
-        maker_bid_order_price = effective_hedging_price_converted_bid / Decimal(1.004)
+        maker_bid_order_price = effective_hedging_price_converted_bid / Decimal(1 + self.min_profitability)
 
-        conversion_price_ask = third.get_vwap_for_volume(volume=self.order_amount * taker.get_mid_price(),is_buy=True).result_price
-        effective_hedging_price_uncoverted_ask = taker.get_vwap_for_volume(volume=self.order_amount,is_buy=False).result_price
+        conversion_price_ask = third.get_vwap_for_volume(volume=self.order_amount * taker.get_mid_price(),is_buy=False).result_price
+        effective_hedging_price_uncoverted_ask = taker.get_vwap_for_volume(volume=self.order_amount,is_buy=True).result_price
         effective_hedging_price_converted_ask = effective_hedging_price_uncoverted_ask / conversion_price_ask
-        maker_ask_order_price = effective_hedging_price_converted_ask * Decimal(1.004)
+        maker_ask_order_price = effective_hedging_price_converted_ask * Decimal(1 + self.min_profitability)
 
         if not self.buy_order_placed:
             maker_buy_price = maker_bid_order_price
@@ -144,7 +144,7 @@ class XEMMTriangularArbitrage(ScriptStrategyBase):
         else:
             if event.trade_type == TradeType.SELL and self.is_active_maker_order(event):
                 taker1_buy_result = self.connectors[self.taker_exchange].get_price_for_volume(self.taker_pair1, True, self.order_amount)
-                taker1_buy_amount = self.event.amount
+                taker1_buy_amount = event.amount
                 taker2_sell_amount = self.connectors[self.taker_exchange].get_quote_volume_for_base_amount(self.taker_pair1, 0, taker1_buy_amount).result_volume
                 taker2_sell_result = self.connectors[self.taker_exchange].get_price_for_volume(self.taker_pair2, False, taker2_sell_amount)
                 taker2_order_book = self.connectors[self.taker_exchange].get_order_book(self.taker_pair2)
