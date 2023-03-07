@@ -10,8 +10,8 @@ from typing import Generator, Optional
 
 from bin import path_util  # noqa: F401
 from hummingbot.client.config.config_helpers import read_system_configs_from_yml
-from hummingbot.connector.gateway.amm.evm_in_flight_order import EVMInFlightOrder
 from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
+from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
@@ -134,12 +134,12 @@ class GatewayCancelDataCollector:
         connector.add_listener(TokenApprovalEvent.ApprovalCancelled, event_logger)
         try:
             async with self.run_clock():
-                tracked_order_1: EVMInFlightOrder = await connector.approve_token(
+                tracked_order_1: GatewayInFlightOrder = await connector.approve_token(
                     "DAI",
                     max_fee_per_gas=MAX_FEE_PER_GAS,
                     max_priority_fee_per_gas=MAX_PRIORITY_FEE_PER_GAS
                 )
-                tracked_order_2: EVMInFlightOrder = await connector.approve_token(
+                tracked_order_2: GatewayInFlightOrder = await connector.approve_token(
                     "WETH",
                     max_fee_per_gas=MAX_FEE_PER_GAS,
                     max_priority_fee_per_gas=MAX_PRIORITY_FEE_PER_GAS
