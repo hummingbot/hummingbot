@@ -162,12 +162,6 @@ class GatewayCommand(GatewayChainApiManager):
             return False
 
     async def _gateway_status(self):
-        can_reach_docker = await self.ping_gateway_docker()
-        if not can_reach_docker:
-            self.notify("\nError: It looks like you do not have Docker installed or running. Gateway commands will not "
-                        "work without it. Please install or start Docker and restart Hummingbot.")
-            return
-
         if self._gateway_monitor.gateway_status is GatewayStatus.ONLINE:
             try:
                 status = await self._get_gateway_instance().get_gateway_status()
