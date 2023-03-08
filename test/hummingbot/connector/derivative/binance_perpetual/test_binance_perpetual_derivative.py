@@ -372,6 +372,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(len(self.exchange.account_positions), 1)
         pos = list(self.exchange.account_positions.values())[0]
         self.assertEqual(pos.trading_pair.replace("-", ""), self.symbol)
+
     @aioresponses()
     def test_wrong_symbol_position_detected_on_positions_update(self, req_mock):
         self._simulate_trading_rules_initialized()
@@ -1288,7 +1289,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         ))
         self.assertTrue(self._is_logged(
             "INFO",
-            f"Margin Required: 0. Negative PnL assets: ."
+            "Margin Required: 0. Negative PnL assets: ."
         ))
 
     @aioresponses()
