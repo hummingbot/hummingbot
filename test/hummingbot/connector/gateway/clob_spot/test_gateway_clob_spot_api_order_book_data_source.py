@@ -1,7 +1,7 @@
 import asyncio
 import unittest
 from decimal import Decimal
-from test.hummingbot.connector.gateway.clob_spot.data_sources.mock_utils import InjectiveClientMock
+from test.hummingbot.connector.gateway.clob_spot.data_sources.injective.injective_mock_utils import InjectiveClientMock
 from typing import Awaitable
 from unittest.mock import MagicMock
 
@@ -19,7 +19,7 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage, Order
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 
 
-class InjectiveAPIOrderBookDataSourceTest(unittest.TestCase):
+class GatewayCLOBSPOTAPIOrderBookDataSourceTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
@@ -45,9 +45,11 @@ class InjectiveAPIOrderBookDataSourceTest(unittest.TestCase):
         client_config_map = ClientConfigAdapter(hb_config=ClientConfigMap())
         self.api_data_source = InjectiveAPIDataSource(
             trading_pairs=[self.trading_pair],
-            chain="someChain",
-            network="mainnet",
-            address=self.sub_account_id,
+            connector_spec={
+                "chain": "someChain",
+                "network": "mainnet",
+                "wallet_address": self.sub_account_id,
+            },
             client_config_map=client_config_map,
         )
         self.ob_data_source = GatewayCLOBSPOTAPIOrderBookDataSource(

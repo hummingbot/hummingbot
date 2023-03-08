@@ -3,10 +3,10 @@ import json
 import time
 from asyncio import Lock
 from decimal import Decimal
+from enum import Enum
 from math import floor
-from typing import Any, Dict, List, Mapping, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
-from bidict import bidict
 from grpc.aio import UnaryStreamCall
 from pyinjective.async_client import AsyncClient
 from pyinjective.composer import Composer as ProtoMsgComposer
@@ -26,9 +26,9 @@ from pyinjective.proto.exchange.injective_spot_exchange_rpc_pb2 import (
 from pyinjective.proto.injective.exchange.v1beta1.exchange_pb2 import DerivativeOrder, SpotOrder
 
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.gateway.clob_spot.data_sources.gateway_clob_api_data_source_base import (
+from hummingbot.connector.gateway.clob_spot.data_sources.clob_api_data_source_base import (
     CancelOrderResult,
-    GatewayCLOBAPIDataSourceBase,
+    CLOBAPIDataSourceBase,
     PlaceOrderResult,
 )
 from hummingbot.connector.gateway.clob_spot.data_sources.injective.injective_constants import (
@@ -97,7 +97,7 @@ class OrderHashManager:
         return order_hashes
 
 
-class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
+class InjectiveAPIDataSource(CLOBAPIDataSourceBase):
     """An interface class to the Injective blockchain.
 
     Note — The same wallet address should not be used with different instances of the client as this will cause
@@ -110,17 +110,16 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
     def __init__(
         self,
         trading_pairs: List[str],
-        chain: str,
-        network: str,
-        address: str,
+        connector_spec: Dict[str, Any],
         client_config_map: ClientConfigAdapter,
     ):
-        super().__init__()
-        self._trading_pairs = trading_pairs
+        super().__init__(
+            trading_pairs=trading_pairs, connector_spec=connector_spec, client_config_map=client_config_map
+        )
         self._connector_name = CONNECTOR_NAME
-        self._chain = chain
-        self._network = network
-        self._sub_account_id = address
+        self._chain = connector_spec["chain"]
+        self._network = connector_spec["network"]
+        self._sub_account_id = connector_spec["wallet_address"]
         self._account_address: Optional[str] = None
         self._network_obj = Network.custom(
             lcd_endpoint="https://k8s.global.mainnet.lcd.injective.network:443",
@@ -134,9 +133,8 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         self._client = AsyncClient(network=self._network_obj)
         self._composer = ProtoMsgComposer(network=self._network_obj.string())
         self._order_hash_manager: Optional[OrderHashManager] = None
-        self._client_config = client_config_map
 
-        self._trading_pair_to_active_spot_markets: Dict[str, SpotMarketInfo] = {}
+        self._markets_info: Dict[str, SpotMarketInfo] = {}
         self._market_id_to_active_spot_markets: Dict[str, SpotMarketInfo] = {}
         self._denom_to_token_meta: Dict[str, TokenMeta] = {}
         self._markets_update_task: Optional[asyncio.Task] = None
@@ -148,6 +146,25 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         self._transactions_stream_listener: Optional[asyncio.Task] = None
 
         self._order_placement_lock = Lock()
+
+    @property
+    def real_time_balance_update(self) -> bool:
+        return True
+
+    @property
+    def events_are_streamed(self) -> bool:
+        return True
+
+    @staticmethod
+    def supported_stream_events() -> List[Enum]:
+        return [
+            MarketEvent.TradeUpdate,
+            MarketEvent.OrderUpdate,
+            AccountEvent.BalanceEvent,
+            OrderBookDataSourceEvent.TRADE_EVENT,
+            OrderBookDataSourceEvent.DIFF_EVENT,
+            OrderBookDataSourceEvent.SNAPSHOT_EVENT,
+        ]
 
     def get_supported_order_types(self) -> List[OrderType]:
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
@@ -171,7 +188,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
     async def place_order(
         self, order: GatewayInFlightOrder, **kwargs
     ) -> Tuple[Optional[str], Dict[str, Any]]:
-        market = self._trading_pair_to_active_spot_markets[order.trading_pair]
+        market = self._markets_info[order.trading_pair]
         spot_order_to_create = [
             self._composer.SpotOrder(
                 market_id=market.market_id,
@@ -222,7 +239,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
     async def batch_order_create(self, orders_to_create: List[InFlightOrder]) -> List[PlaceOrderResult]:
         spot_orders_to_create = [
             self._composer.SpotOrder(
-                market_id=self._trading_pair_to_active_spot_markets[order.trading_pair].market_id,
+                market_id=self._markets_info[order.trading_pair].market_id,
                 subaccount_id=self._sub_account_id,
                 fee_recipient=self._account_address,
                 price=float(order.price),
@@ -347,25 +364,8 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
         return cancel_order_results
 
-    async def get_trading_rules(self) -> Dict[str, TradingRule]:
-        self._check_markets_initialized() or await self._update_markets()
-
-        trading_rules = {
-            trading_pair: self._get_trading_rule_from_market(trading_pair=trading_pair, market=market)
-            for trading_pair, market in self._trading_pair_to_active_spot_markets.items()
-        }
-        return trading_rules
-
-    async def get_symbol_map(self) -> bidict[str, str]:
-        self._check_markets_initialized() or await self._update_markets()
-
-        mapping = bidict()
-        for trading_pair, market in self._trading_pair_to_active_spot_markets.items():
-            mapping[market.market_id] = trading_pair
-        return mapping
-
     async def get_last_traded_price(self, trading_pair: str) -> Decimal:
-        market = self._trading_pair_to_active_spot_markets[trading_pair]
+        market = self._markets_info[trading_pair]
         trades = await self._client.get_spot_trades(market_id=market.market_id)
         if len(trades.trades) != 0:
             price = self._convert_price_from_backend(price=trades.trades[0].price.price, market=market)
@@ -374,7 +374,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         return price
 
     async def get_order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
-        market = self._trading_pair_to_active_spot_markets[trading_pair]
+        market = self._markets_info[trading_pair]
         order_book_response = await self._client.get_spot_orderbook(market_id=market.market_id)
         price_scale = self._get_backend_price_scaler(market=market)
         size_scale = self._get_backend_denom_scaler(denom_meta=market.base_token_meta)
@@ -451,7 +451,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
     async def get_all_order_fills(self, in_flight_order: GatewayInFlightOrder) -> List[TradeUpdate]:
         trading_pair = in_flight_order.trading_pair
-        market = self._trading_pair_to_active_spot_markets[trading_pair]
+        market = self._markets_info[trading_pair]
         direction = "buy" if in_flight_order.trade_type == TradeType.BUY else "sell"
 
         trade_updates = []
@@ -474,7 +474,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         trading_pair = in_flight_order.trading_pair
         order_hash = await in_flight_order.get_exchange_order_id()
 
-        market = self._trading_pair_to_active_spot_markets[trading_pair]
+        market = self._markets_info[trading_pair]
         direction = "buy" if in_flight_order.trade_type == TradeType.BUY else "sell"
         status_update = await self._get_booked_order_status_update(
             trading_pair=trading_pair,
@@ -527,19 +527,6 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
             status = NetworkStatus.NOT_CONNECTED
         return status
 
-    async def get_trading_fees(self) -> Mapping[str, MakerTakerExchangeFeeRates]:
-        self._check_markets_initialized() or await self._update_markets()
-
-        trading_fees = {}
-        for trading_pair, market in self._trading_pair_to_active_spot_markets.items():
-            fee_scaler = Decimal("1") - Decimal(market.service_provider_fee)
-            maker_fee = Decimal(market.maker_fee_rate) * fee_scaler
-            taker_fee = Decimal(market.taker_fee_rate) * fee_scaler
-            trading_fees[trading_pair] = MakerTakerExchangeFeeRates(
-                maker=maker_fee, taker=taker_fee, maker_flat_fees=[], taker_flat_fees=[]
-            )
-        return trading_fees
-
     async def _get_booked_order_status_update(
         self,
         trading_pair: str,
@@ -587,7 +574,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
     def _check_markets_initialized(self) -> bool:
         return (
-            len(self._trading_pair_to_active_spot_markets) != 0
+            len(self._markets_info) != 0
             and len(self._market_id_to_active_spot_markets) != 0
             and len(self._denom_to_token_meta) != 0
         )
@@ -615,8 +602,8 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
                 base=market.base_token_meta.symbol, quote=market.quote_token_meta.symbol
             )
             markets_dict[trading_pair] = market
-        self._trading_pair_to_active_spot_markets.clear()
-        self._trading_pair_to_active_spot_markets.update(markets_dict)
+        self._markets_info.clear()
+        self._markets_info.update(markets_dict)
 
     def _update_market_id_to_active_spot_markets(self, markets: MarketsResponse):
         markets_dict = {market.market_id: market for market in markets.markets}
@@ -1008,9 +995,13 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         )
         return trading_pair
 
-    def _get_trading_rule_from_market(self, trading_pair: str, market: SpotMarketInfo) -> TradingRule:
-        min_price_tick_size = self._convert_price_from_backend(price=market.min_price_tick_size, market=market)
-        min_quantity_tick_size = self._convert_size_from_backend(size=market.min_quantity_tick_size, market=market)
+    def _parse_trading_rule(self, trading_pair: str, market_info: SpotMarketInfo) -> TradingRule:
+        min_price_tick_size = self._convert_price_from_backend(
+            price=market_info.min_price_tick_size, market=market_info
+        )
+        min_quantity_tick_size = self._convert_size_from_backend(
+            size=market_info.min_quantity_tick_size, market=market_info
+        )
         trading_rule = TradingRule(
             trading_pair=trading_pair,
             min_order_size=min_quantity_tick_size,
@@ -1019,6 +1010,17 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
             min_quote_amount_increment=min_price_tick_size,
         )
         return trading_rule
+
+    def _get_exchange_trading_pair_from_market_info(self, market_info: Any) -> str:
+        return market_info.market_id
+
+    def _get_maker_taker_exchange_fee_rates_from_market_info(self, market_info: Any) -> MakerTakerExchangeFeeRates:
+        fee_scaler = Decimal("1") - Decimal(market_info.service_provider_fee)
+        maker_fee = Decimal(market_info.maker_fee_rate) * fee_scaler
+        taker_fee = Decimal(market_info.taker_fee_rate) * fee_scaler
+        return MakerTakerExchangeFeeRates(
+            maker=maker_fee, taker=taker_fee, maker_flat_fees=[], taker_flat_fees=[]
+        )
 
     def _convert_price_from_backend(self, price: str, market: SpotMarketInfo) -> Decimal:
         scale = self._get_backend_price_scaler(market=market)
@@ -1030,7 +1032,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
     def _get_market_ids(self) -> List[str]:
         market_ids = [
-            self._trading_pair_to_active_spot_markets[trading_pair].market_id
+            self._markets_info[trading_pair].market_id
             for trading_pair in self._trading_pairs
         ]
         return market_ids

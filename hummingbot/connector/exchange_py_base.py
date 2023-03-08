@@ -974,7 +974,9 @@ class ExchangePyBase(ExchangeBase, ABC):
                 raise
             except Exception as request_error:
                 self.logger().warning(
-                    f"Failed to fetch trade updates for order {order.client_order_id}. Error: {request_error}")
+                    f"Failed to fetch trade updates for order {order.client_order_id}. Error: {request_error}",
+                    exc_info=request_error,
+                )
 
     async def _update_orders(self):
         orders_to_update = self.in_flight_orders.copy()
