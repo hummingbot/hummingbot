@@ -285,7 +285,7 @@ class GatewayCommand(GatewayChainApiManager):
                     wallets = matching_wallets[0]['walletAddresses']
 
                 # if the user has no wallet, ask them to select one
-                if len(wallets) < 1 or chain == "near" or len(additional_prompts) != 0 or connector == "dexalot":
+                if len(wallets) < 1 or chain == "near" or len(additional_prompts) != 0:
                     wallet_address = await self._prompt_for_wallet_address(
                         chain=chain, network=network, additional_prompts=additional_prompts
                     )
