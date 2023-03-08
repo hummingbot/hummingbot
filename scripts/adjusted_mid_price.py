@@ -9,12 +9,16 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 class AdjustedMidPrice(ScriptStrategyBase):
     """
-        This is an example of a pure market making strategy with an adjusted mid price.  The mid price is adjusted to
-        the midpoint of a hypothetical buy and sell of a user defined {test_volume}.
-        Example:
-        let test_volume = 10 and the pair = BTC-USDT, then the new mid price will be the mid price of the following two points:
-        1) the average fill price of a hypothetical market buy of 10 BTC
-        2) the average fill price of a hypothetical market sell of 10 BTC
+    BotCamp Cohort: Sept 2022
+    Design Template: https://hummingbot-foundation.notion.site/PMM-with-Adjusted-Midpoint-4259e7aef7bf403dbed35d1ed90f36fe
+    Video: -
+    Description:
+    This is an example of a pure market making strategy with an adjusted mid price.  The mid price is adjusted to
+    the midpoint of a hypothetical buy and sell of a user defined {test_volume}.
+    Example:
+    let test_volume = 10 and the pair = BTC-USDT, then the new mid price will be the mid price of the following two points:
+    1) the average fill price of a hypothetical market buy of 10 BTC
+    2) the average fill price of a hypothetical market sell of 10 BTC
     """
 
     # The following strategy dictionary are parameters that the script operator can adjustS

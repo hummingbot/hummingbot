@@ -74,6 +74,10 @@ bittrex_maker_percent_fee:
 bittrex_percent_fee_token:
 bittrex_taker_fixed_fees:
 bittrex_taker_percent_fee:
+btc_markets_percent_fee_token:  
+btc_markets_maker_percent_fee:  
+btc_markets_taker_percent_fee:  
+btc_markets_buy_percent_fee_deducted_from_returns: 
 bybit_perpetual_buy_percent_fee_deducted_from_returns:
 bybit_perpetual_maker_fixed_fees:
 bybit_perpetual_maker_percent_fee:
