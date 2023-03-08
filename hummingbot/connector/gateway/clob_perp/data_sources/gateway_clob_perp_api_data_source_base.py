@@ -7,10 +7,10 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 
 from bidict import bidict
 
+from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.gateway.clob.clob_constants import DECIMAL_NaN
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.gateway.gateway_order_tracker import GatewayOrderTracker
-from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.data_type.funding_info import FundingInfo
@@ -33,11 +33,10 @@ class GatewayCLOBPerpAPIDataSourceBase(ABC):
             cls._logger = logging.getLogger(HummingbotLogger.logger_name_for_class(cls))
         return cls._logger
 
-    def __init__(self, trading_pairs: List[str]):
+    def __init__(self):
         self._publisher = PubSub()
         self._forwarders_map: Dict[Tuple[Enum, Callable], EventForwarder] = {}
         self._gateway_order_tracker: Optional[GatewayOrderTracker] = None
-        self._perpetual_trading: PerpetualTrading = PerpetualTrading(trading_pairs)
 
     @property
     def gateway_order_tracker(self):
@@ -92,16 +91,10 @@ class GatewayCLOBPerpAPIDataSourceBase(ABC):
 
     @abstractmethod
     async def start(self):
-        """
-        NOTE: Has to call self._perpetual_trading.start()
-        """
         ...
 
     @abstractmethod
     async def stop(self):
-        """
-        NOTE: Has to call self._perpetual_trading.stop()
-        """
         ...
 
     @abstractmethod
@@ -157,7 +150,7 @@ class GatewayCLOBPerpAPIDataSourceBase(ABC):
         ...
 
     @abstractmethod
-    async def fetch_last_fee_payment(self, trading_pair: str) -> Tuple[float, Decimal]:
+    async def fetch_last_fee_payment(self, trading_pair: str) -> Tuple[float, Decimal, Decimal]:
         ...
 
     @abstractmethod
@@ -169,15 +162,8 @@ class GatewayCLOBPerpAPIDataSourceBase(ABC):
         ...
 
     @abstractmethod
-    async def _update_positions(self):
+    async def fetch_positions(self) -> List[Position]:
         ...
-
-    @abstractmethod
-    def get_buy_collateral_token(self, trading_pair: str) -> str:
-        ...
-
-    @abstractmethod
-    def get_sell_collateral_token(self, trading_pair: str) -> str:
         ...
 
     @abstractmethod
