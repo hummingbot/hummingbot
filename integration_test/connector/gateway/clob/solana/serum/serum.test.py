@@ -171,7 +171,7 @@ class Serum:
         return await self.__gateway_http_client.add_wallet(
             self.__helper.configuration['chain'],
             self.__helper.configuration['network'],
-            private_key
+            id=private_key
         )
 
     async def auto_create_token_accounts(self, market_names: List[str] = None):
@@ -188,7 +188,7 @@ class Serum:
         return self.__helper.configuration['wallets']['payer']
 
     async def get_markets(self, name: str = None, names: List[str] = None):
-        return await self.__gateway_http_client.clob_get_markets(
+        return await self.__gateway_http_client.serum_get_markets(
             self.__helper.configuration['chain'],
             self.__helper.configuration['network'],
             self.__helper.configuration['connector'],
@@ -197,7 +197,7 @@ class Serum:
         )
 
     async def get_order_books(self, market_name: str = None, market_names: List[str] = None):
-        return await self.__gateway_http_client.clob_get_order_books(
+        return await self.__gateway_http_client.serum_get_order_books(
             self.__helper.configuration['chain'],
             self.__helper.configuration['network'],
             self.__helper.configuration['connector'],
@@ -206,7 +206,7 @@ class Serum:
         )
 
     async def get_tickers(self, market_name: str = None, market_names: List[str] = None):
-        return await self.__gateway_http_client.clob_get_tickers(
+        return await self.__gateway_http_client.serum_get_tickers(
             self.__helper.configuration['chain'],
             self.__helper.configuration['network'],
             self.__helper.configuration['connector'],
@@ -216,7 +216,7 @@ class Serum:
 
     async def get_orders(self, owner_address: str = None, order: Dict[str, Any] = None,
                          orders: List[Dict[str, Any]] = None):
-        return await self.__gateway_http_client.clob_get_orders(
+        return await self.__gateway_http_client.serum_get_orders(
             self.__helper.configuration['chain'],
             self.__helper.configuration['network'],
             self.__helper.configuration['connector'],
@@ -227,7 +227,7 @@ class Serum:
 
     async def get_open_orders(self, owner_address: str = None, order: Dict[str, Any] = None,
                               orders: List[Dict[str, Any]] = None):
-        return await self.__gateway_http_client.clob_get_open_orders(
+        return await self.__gateway_http_client.serum_get_open_orders(
             self.__helper.configuration['chain'],
             self.__helper.configuration['network'],
             self.__helper.configuration['connector'],
@@ -238,7 +238,7 @@ class Serum:
 
     async def get_filled_orders(self, owner_address: str = None, order: Dict[str, Any] = None,
                                 orders: List[Dict[str, Any]] = None):
-        return await self.__gateway_http_client.clob_get_filled_orders(
+        return await self.__gateway_http_client.serum_get_filled_orders(
             self.__helper.configuration['chain'],
             self.__helper.configuration['network'],
             self.__helper.configuration['connector'],
@@ -248,7 +248,7 @@ class Serum:
         )
 
     async def place_orders(self, order: Dict[str, Any] = None, orders: List[Dict[str, Any]] = None):
-        return await self.__gateway_http_client.clob_post_orders(
+        return await self.__gateway_http_client.serum_post_orders(
             self.__helper.configuration['chain'],
             self.__helper.configuration['network'],
             self.__helper.configuration['connector'],
@@ -258,7 +258,7 @@ class Serum:
 
     async def cancel_orders(self, owner_address: str = None, order: Dict[str, Any] = None,
                             orders: List[Dict[str, Any]] = None):
-        return await self.__gateway_http_client.clob_delete_orders(
+        return await self.__gateway_http_client.serum_delete_orders(
             self.__helper.configuration['chain'],
             self.__helper.configuration['network'],
             self.__helper.configuration['connector'],
@@ -268,7 +268,7 @@ class Serum:
         )
 
     async def settle_funds(self, owner_address: str = None, market_name: str = None, market_names: List[str] = None):
-        return await self.__gateway_http_client.clob_post_settle_funds(
+        return await self.__gateway_http_client.serum_post_settle_funds(
             self.__helper.configuration['chain'],
             self.__helper.configuration['network'],
             self.__helper.configuration['connector'],

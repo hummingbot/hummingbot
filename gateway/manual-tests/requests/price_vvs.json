@@ -1,9 +1,0 @@
-{
-  "connector": "vvs",
-  "chain": "cronos",
-  "network": "mainnet",
-  "base": "VVS",
-  "quote": "WCRO",
-  "amount": "1000",
-  "side": "BUY"
-}

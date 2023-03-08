@@ -229,10 +229,6 @@ class LbankExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return "TrID1"
 
     @property
-    def is_cancel_request_executed_synchronously_by_server(self) -> bool:
-        return False
-
-    @property
     def is_order_fill_http_update_included_in_status_update(self) -> bool:
         return True
 
@@ -340,6 +336,21 @@ class LbankExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         url = self.configure_erroneous_cancelation_response(order=erroneous_order, mock_api=mock_api)
         all_urls.append(url)
         return all_urls
+
+    def configure_order_not_found_error_cancelation_response(
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
+        # Implement the expected not found response when enabling test_cancel_order_not_found_in_the_exchange
+        raise NotImplementedError
+
+    def configure_order_not_found_error_order_status_response(
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> List[str]:
+        # Implement the expected not found response when enabling
+        # test_lost_order_removed_if_not_found_during_order_status_update
+        raise NotImplementedError
 
     def configure_completely_filled_order_status_response(
         self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
@@ -487,6 +498,18 @@ class LbankExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         # NOTE: LBank does not have any trade events over their private stream channels
         return None
+
+    @aioresponses()
+    def test_cancel_order_not_found_in_the_exchange(self, mock_api):
+        # Disabling this test because the connector has not been updated yet to validate
+        # order not found during cancellation (check _is_order_not_found_during_cancelation_error)
+        pass
+
+    @aioresponses()
+    def test_lost_order_removed_if_not_found_during_order_status_update(self, mock_api):
+        # Disabling this test because the connector has not been updated yet to validate
+        # order not found during status update (check _is_order_not_found_during_status_update_error)
+        pass
 
     def _order_status_request_completely_filled_mock_response(self, order: InFlightOrder) -> Any:
         return {

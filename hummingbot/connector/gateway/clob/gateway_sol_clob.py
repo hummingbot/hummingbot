@@ -154,25 +154,9 @@ class GatewaySOLCLOB(ConnectorBase):
     def connector_name(self):
         return self._connector_name
 
-    async def all_trading_pairs(self, chain: str, network: str) -> List[str]:
+    async def all_trading_pairs(self) -> List[str]:
         # Since the solana tokens trading pairs would be too much, we are returning an empty list here.
         return []
-
-        # """
-        # Calls the token's endpoint on the Gateway.
-        # """
-        # try:
-        #     tokens = await self._get_gateway_instance().get_tokens(chain, network)
-        #     token_symbols = [token["symbol"] for token in tokens["tokens"]]
-        #     trading_pairs = []
-        #     for base, quote in it.permutations(token_symbols, 2):
-        #         trading_pairs.append(f"{base}-{quote}")
-        #
-        #     return trading_pairs
-        # except (Exception,):
-        #     GatewaySOLCLOB.logger().warning(f"""No trading pairs found for {chain}/{network}.""")
-        #
-        #     return []
 
     @staticmethod
     def is_order(in_flight_order: CLOBInFlightOrder) -> bool:
@@ -304,7 +288,7 @@ class GatewaySOLCLOB(ConnectorBase):
 
     async def get_markets(self):
         try:
-            self._markets = await self._get_gateway_instance().clob_get_markets(
+            self._markets = await self._get_gateway_instance().serum_get_markets(
                 chain=self.chain,
                 network=self.network,
                 connector=self.connector,
@@ -321,7 +305,7 @@ class GatewaySOLCLOB(ConnectorBase):
 
     async def set_order_price_and_order_size_quantum(self):
         for trading_pair in self._trading_pairs:
-            market = await self._get_gateway_instance().clob_get_markets(
+            market = await self._get_gateway_instance().serum_get_markets(
                 self.chain, self.network, self.connector, name=convert_trading_pair(trading_pair)
             )
 
@@ -476,7 +460,7 @@ class GatewaySOLCLOB(ConnectorBase):
 
         # Pull the price from gateway.
         try:
-            ticker = await self._get_gateway_instance().clob_get_tickers(
+            ticker = await self._get_gateway_instance().serum_get_tickers(
                 self.chain, self.network, self.connector, market_name=convert_trading_pair(trading_pair)
             )
             gas_limit: int = constant.FIVE_THOUSAND_LAMPORTS
@@ -606,7 +590,7 @@ class GatewaySOLCLOB(ConnectorBase):
 
             numeric_order_id = order_id.split('-')[3]
 
-            order_result: Dict[str, Any] = await self._get_gateway_instance().clob_post_orders(
+            order_result: Dict[str, Any] = await self._get_gateway_instance().serum_post_orders(
                 self.chain,
                 self.network,
                 self.connector,
@@ -1030,7 +1014,7 @@ class GatewaySOLCLOB(ConnectorBase):
         Hummingbot to force cancel all orders whenever Hummingbot quits.
         """
         asyncio.ensure_future(
-            self._get_gateway_instance().clob_delete_orders(
+            self._get_gateway_instance().serum_delete_orders(
                 chain=self.chain,
                 network=self.network,
                 connector=self.connector,
@@ -1073,7 +1057,7 @@ class GatewaySOLCLOB(ConnectorBase):
 
             numeric_order_id = order_id.split('-')[3]
 
-            resp = await self._get_gateway_instance().clob_delete_orders(
+            resp = await self._get_gateway_instance().serum_delete_orders(
                 self.chain,
                 self.network,
                 self.connector,

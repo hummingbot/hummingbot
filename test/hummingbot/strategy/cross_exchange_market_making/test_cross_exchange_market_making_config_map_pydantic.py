@@ -162,7 +162,7 @@ class CrossExchangeMarketMakingConfigMapPydanticTest(unittest.TestCase):
         self.assertIn("MakerMarkets", schema_dict["definitions"])
         expected_connectors = {connector_setting.name for connector_setting in
                                AllConnectorSettings.get_connector_settings().values()
-                               if connector_setting.type is ConnectorType.Exchange}
+                               if connector_setting.type in [ConnectorType.Exchange, ConnectorType.CLOB_SPOT]}
         print(expected_connectors)
         expected_connectors = list(expected_connectors.union(settings.PAPER_TRADE_EXCHANGES))
         expected_connectors.sort()
@@ -185,7 +185,9 @@ class CrossExchangeMarketMakingConfigMapPydanticTest(unittest.TestCase):
                                AllConnectorSettings.get_connector_settings().values()
                                if connector_setting.type in [
                                    ConnectorType.Exchange,
-                                   ConnectorType.EVM_AMM]
+                                   ConnectorType.EVM_AMM,
+                                   ConnectorType.NEAR_AMM,
+                                   ConnectorType.CLOB_SPOT]
                                }
         expected_connectors = list(expected_connectors.union(settings.PAPER_TRADE_EXCHANGES))
         expected_connectors.sort()

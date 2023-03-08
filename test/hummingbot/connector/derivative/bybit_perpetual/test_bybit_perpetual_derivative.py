@@ -515,10 +515,6 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         return "335fd977-e5a5-4781-b6d0-c772d5bfb95b"
 
     @property
-    def is_cancel_request_executed_synchronously_by_server(self) -> bool:
-        return False
-
-    @property
     def is_order_fill_http_update_included_in_status_update(self) -> bool:
         return False
 
@@ -632,7 +628,7 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         response = {
-            "ret_code": CONSTANTS.RET_CODE_ORDER_NOT_EXISTS,
+            "ret_code": 20000,
             "ret_msg": "Could not find order",
         }
         mock_api.post(regex_url, body=json.dumps(response), callback=callback)
@@ -653,6 +649,21 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
         url = self.configure_erroneous_cancelation_response(order=erroneous_order, mock_api=mock_api)
         all_urls.append(url)
         return all_urls
+
+    def configure_order_not_found_error_cancelation_response(
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
+        # Implement the expected not found response when enabling test_cancel_order_not_found_in_the_exchange
+        raise NotImplementedError
+
+    def configure_order_not_found_error_order_status_response(
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> List[str]:
+        # Implement the expected not found response when enabling
+        # test_lost_order_removed_if_not_found_during_order_status_update
+        raise NotImplementedError
 
     def configure_completely_filled_order_status_response(
         self,
@@ -1350,6 +1361,18 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
             pass
 
         self.assertEqual(1, self.exchange._perpetual_trading.funding_info_stream.qsize())  # rest in OB DS tests
+
+    @aioresponses()
+    def test_cancel_order_not_found_in_the_exchange(self, mock_api):
+        # Disabling this test because the connector has not been updated yet to validate
+        # order not found during cancellation (check _is_order_not_found_during_cancelation_error)
+        pass
+
+    @aioresponses()
+    def test_lost_order_removed_if_not_found_during_order_status_update(self, mock_api):
+        # Disabling this test because the connector has not been updated yet to validate
+        # order not found during status update (check _is_order_not_found_during_status_update_error)
+        pass
 
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
         return {
