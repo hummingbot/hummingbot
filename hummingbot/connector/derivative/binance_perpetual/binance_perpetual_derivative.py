@@ -447,7 +447,11 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
             # update position
             for asset in update_data.get("P", []):
                 trading_pair = asset["s"]
-                hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(trading_pair)
+                try:
+                    hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(trading_pair)
+                except KeyError:
+                    # Ignore results for which their symbols is not tracked by the connector
+                    continue
 
                 side = PositionSide[asset['ps']]
                 position = self._perpetual_trading.get_position(hb_trading_pair, side)
@@ -470,7 +474,11 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
             negative_pnls_msg = ""
             for position in positions:
                 trading_pair = position["s"]
-                hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(trading_pair)
+                try:
+                    hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(trading_pair)
+                except KeyError:
+                    # Ignore results for which their symbols is not tracked by the connector
+                    continue
                 existing_position = self._perpetual_trading.get_position(hb_trading_pair, PositionSide[position['ps']])
                 if existing_position is not None:
                     existing_position.update_position(position_side=PositionSide[position["ps"]],
@@ -598,7 +606,11 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
                                             )
         for position in positions:
             trading_pair = position.get("symbol")
-            hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(trading_pair)
+            try:
+                hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(trading_pair)
+            except KeyError:
+                # Ignore results for which their symbols is not tracked by the connector
+                continue
             position_side = PositionSide[position.get("positionSide")]
             unrealized_pnl = Decimal(position.get("unRealizedProfit"))
             entry_price = Decimal(position.get("entryPrice"))
