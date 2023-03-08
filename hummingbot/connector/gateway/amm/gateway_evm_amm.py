@@ -223,7 +223,10 @@ class GatewayEVMAMM(ConnectorBase):
         when it disconnects.
         :param saved_states: The saved tracking_states.
         """
-        self._order_tracker.restore_tracking_states(tracking_states=saved_states)
+        for value in saved_states.values():
+            order = GatewayInFlightOrder.from_json(value)
+            if order.is_open or order.is_pending_approval:
+                self._order_tracker.start_tracking_order(order)
 
     def create_approval_order_id(self, token_symbol: str) -> str:
         return f"approve-{self.connector_name}-{token_symbol}"

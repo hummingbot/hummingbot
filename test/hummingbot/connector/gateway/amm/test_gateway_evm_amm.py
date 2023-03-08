@@ -18,6 +18,7 @@ from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.clock import Clock, ClockMode
+from hummingbot.core.data_type.in_flight_order import OrderState
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCreatedEvent,
@@ -232,6 +233,80 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
                 filled_event.exchange_trade_id)
         finally:
             self._connector.remove_listener(MarketEvent.OrderFilled, event_logger)
+
+    def test_restore_tracking_orders(self):
+        client_order_id_prefix = "buy-ETH-DAI-"
+        expected_exchange_order_id_prefix = "0xc7287236f64484b476cfbec0fd21bc49d85f8850c8885665003928a122041e1"       # noqa: mock
+        orders: List[GatewayInFlightOrder] = []
+        orders.append(GatewayInFlightOrder(
+            client_order_id="approve-ETH",
+            exchange_order_id=expected_exchange_order_id_prefix + "E",
+            trading_pair="",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.PENDING_APPROVAL,
+        ))
+        orders.append(GatewayInFlightOrder(
+            client_order_id="approve-DAI",
+            exchange_order_id=expected_exchange_order_id_prefix + "D",
+            trading_pair="",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.APPROVED,
+        ))
+        orders.append(GatewayInFlightOrder(
+            client_order_id=client_order_id_prefix + "1",
+            exchange_order_id=expected_exchange_order_id_prefix + "1",
+            trading_pair="ETH-DAI",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+            creation_timestamp=1640001112.223,
+        ))
+        orders.append(GatewayInFlightOrder(
+            client_order_id=client_order_id_prefix + "2",
+            exchange_order_id=expected_exchange_order_id_prefix + "2",
+            trading_pair="ETH-DAI",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.CANCELED
+        ))
+        orders.append(GatewayInFlightOrder(
+            client_order_id=client_order_id_prefix + "3",
+            exchange_order_id=expected_exchange_order_id_prefix + "3",
+            trading_pair="ETH-DAI",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.FILLED
+        ))
+        orders.append(GatewayInFlightOrder(
+            client_order_id=client_order_id_prefix + "4",
+            exchange_order_id=expected_exchange_order_id_prefix + "4",
+            trading_pair="ETH-DAI",
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            amount=Decimal("1000.0"),
+            price=Decimal("1.0"),
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.FAILED
+        ))
+
+        tracking_states = {order.client_order_id: order.to_json() for order in orders}
+        self._connector.restore_tracking_states(tracking_states)
+
+        self.assertIn("approve-ETH", self._connector._order_tracker.active_orders)
+        self.assertIn("buy-ETH-DAI-1", self._connector._order_tracker.active_orders)
+        for i in range(2, 5):
+            self.assertNotIn(f"{client_order_id_prefix}{i}", self._connector._order_tracker.all_orders)
 
     @async_test(loop=ev_loop)
     async def test_get_quote_price(self):
