@@ -139,28 +139,6 @@ class GatewayCommand(GatewayChainApiManager):
 
         return True
 
-    async def ping_gateway_docker_and_api(self, max_wait: int) -> bool:
-        """
-        Try to reach the docker and then the gateway API for up to max_wait seconds
-        """
-        now = int(time.time())
-        docker_live = await self.ping_gateway_docker()
-        while not docker_live:
-            later = int(time.time())
-            if later - now > max_wait:
-                return False
-            await asyncio.sleep(0.5)
-            docker_live = await self.ping_gateway_docker()
-
-        return await self.ping_gateway_api(max_wait)
-
-    async def ping_gateway_docker(self) -> bool:
-        try:
-            await docker_ipc("version")
-            return True
-        except Exception:
-            return False
-
     async def _gateway_status(self):
         if self._gateway_monitor.gateway_status is GatewayStatus.ONLINE:
             try:
