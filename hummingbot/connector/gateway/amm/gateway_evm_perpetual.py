@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
 from hummingbot.connector.derivative.perpetual_budget_checker import PerpetualBudgetChecker
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
-from hummingbot.connector.gateway.amm.gateway_in_flight_lp_order import EVMInFlightOrder
+from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide
 from hummingbot.core.data_type.funding_info import FundingInfo
@@ -46,7 +46,7 @@ class GatewayEVMPerpetual(GatewayEVMAMM, PerpetualTrading):
                  connector_name: str,
                  chain: str,
                  network: str,
-                 wallet_address: str,
+                 address: str,
                  trading_pairs: List[str] = [],
                  additional_spenders: List[str] = [],  # not implemented
                  trading_required: bool = True
@@ -55,7 +55,7 @@ class GatewayEVMPerpetual(GatewayEVMAMM, PerpetualTrading):
         :param connector_name: name of connector on gateway
         :param chain: refers to a block chain, e.g. ethereum or avalanche
         :param network: refers to a network of a particular blockchain e.g. mainnet or kovan
-        :param wallet_address: the address of the eth wallet which has been added on gateway
+        :param address: the address of the eth wallet which has been added on gateway
         :param trading_pairs: a list of trading pairs
         :param trading_required: Whether actual trading is needed. Useful for some functionalities or commands like the balance command
         """
@@ -65,7 +65,7 @@ class GatewayEVMPerpetual(GatewayEVMAMM, PerpetualTrading):
             connector_name = connector_name,
             chain = chain,
             network = network,
-            wallet_address = wallet_address,
+            address= address,
             trading_pairs = trading_pairs,
             trading_required = trading_required
         )
@@ -82,13 +82,14 @@ class GatewayEVMPerpetual(GatewayEVMAMM, PerpetualTrading):
             gp_logger = logging.getLogger(cls.__name__)
         return cast(HummingbotLogger, gp_logger)
 
-    @staticmethod
-    async def all_trading_pairs(chain: str, network: str, connector_name: str) -> List[str]:
+    async def all_trading_pairs(self) -> List[str]:
         """
         Calls the get_perp_markets endpoint on Gateway.
         """
         try:
-            response = await GatewayHttpClient.get_instance().get_perp_markets(chain, network, connector_name)
+            response = await GatewayHttpClient.get_instance().get_perp_markets(
+                self._chain, self._network, self._connector_name
+            )
             trading_pairs = []
             for pair in response.get("pairs", []):
                 split = TRADING_PAIR_SPLITTER.search(pair)
@@ -390,7 +391,7 @@ class GatewayEVMPerpetual(GatewayEVMAMM, PerpetualTrading):
         Starts tracking an order by simply adding it into _in_flight_orders dictionary in ClientOrderTracker.
         """
         self._order_tracker.start_tracking_order(
-            EVMInFlightOrder(
+            GatewayInFlightOrder(
                 client_order_id=order_id,
                 exchange_order_id=exchange_order_id,
                 trading_pair=trading_pair,

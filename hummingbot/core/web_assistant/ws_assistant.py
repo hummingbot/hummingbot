@@ -1,14 +1,9 @@
 from copy import deepcopy
-from typing import (
-    AsyncGenerator,
-    Dict,
-    List,
-    Optional,
-)
+from typing import AsyncGenerator, Dict, List, Optional
 
 from hummingbot.core.web_assistant.auth import AuthBase
-from hummingbot.core.web_assistant.connections.ws_connection import WSConnection
 from hummingbot.core.web_assistant.connections.data_types import WSRequest, WSResponse
+from hummingbot.core.web_assistant.connections.ws_connection import WSConnection
 from hummingbot.core.web_assistant.ws_post_processors import WSPostProcessorBase
 from hummingbot.core.web_assistant.ws_pre_processors import WSPreProcessorBase
 

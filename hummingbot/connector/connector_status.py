@@ -15,6 +15,7 @@ connector_status = {
     'bitmex_perpetual': 'bronze',
     'bitmex_testnet': 'bronze',
     'bitmex_perpetual_testnet': 'bronze',
+    'btc_markets': 'bronze',
     'bybit_perpetual': 'bronze',
     'bybit_perpetual_testnet': 'bronze',
     'bybit_testnet': 'bronze',
@@ -39,7 +40,21 @@ connector_status = {
     'perpetual_finance': 'bronze',
     'probit': 'bronze',
     'whitebit': 'bronze',
-    'ciex': 'bronze'
+    'ciex': 'bronze',
+    'uniswap': 'gold',
+    'uniswapLP': 'gold',
+    'pancakeswap': 'silver',
+    'sushiswap': 'silver',
+    'traderjoe': 'bronze',
+    'quickswap': 'bronze',
+    'perp': 'bronze',
+    'openocean': 'bronze',
+    'pangolin': 'bronze',
+    'defikingdoms': 'bronze',
+    'defira': 'bronze',
+    'mad_meerkat': 'bronze',
+    'vvs': 'bronze',
+    'ref': 'bronze',
 }
 
 warning_messages = {
