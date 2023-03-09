@@ -3,9 +3,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import Dict, List, NamedTuple, Optional
 
-from hummingbot.connector.derivative.position import Position
 from hummingbot.core.data_type.common import LPType, OrderType, PositionAction, PositionMode, TradeType
-from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 
@@ -63,6 +61,8 @@ class AccountEvent(Enum):
     PositionModeChangeFailed = 401
     BalanceEvent = 402
     PositionUpdate = 403
+    MarginCall = 404
+    LiquidationEvent = 405
 
 
 class MarketTransactionFailureEvent(NamedTuple):
@@ -334,15 +334,3 @@ class BalanceUpdateEvent:
     asset_name: str
     total_balance: Optional[Decimal] = None
     available_balance: Optional[Decimal] = None
-
-
-@dataclass
-class PositionUpdateEvent:
-    timestamp: float
-    position: Position
-
-
-@dataclass
-class FundingInfoEvent:
-    timestamp: float
-    funding_info: FundingInfo

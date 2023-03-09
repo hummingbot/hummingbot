@@ -72,6 +72,7 @@ class ConnectorType(Enum):
     EVM_Perpetual = "EVM_Perpetual"
     EVM_AMM_LP = "EVM_AMM_LP"
     CLOB_SPOT = "CLOB_SPOT"
+    CLOB_PERP = "CLOB_PERP"
     NEAR_AMM = "NEAR_AMM"
     Connector = "connector"
     Exchange = "exchange"
@@ -190,7 +191,7 @@ class ConnectorSetting(NamedTuple):
         return self.type not in non_gateway_connectors_types
 
     def uses_clob_connector(self) -> bool:
-        return self.type == ConnectorType.CLOB_SPOT
+        return self.type in [ConnectorType.CLOB_SPOT, ConnectorType.CLOB_PERP]
 
     def module_name(self) -> str:
         # returns connector module name, e.g. binance_exchange
@@ -199,6 +200,8 @@ class ConnectorSetting(NamedTuple):
                 return f"gateway.amm.gateway_{self._get_module_package()}"
             elif self.type == ConnectorType.CLOB_SPOT:
                 return f"gateway.clob_spot.gateway_{self._get_module_package()}"
+            elif self.type == ConnectorType.CLOB_PERP:
+                return f"gateway.clob_perp.gateway_{self._get_module_package()}"
             else:
                 raise ValueError(f"Unsupported connector type: {self.type}")
         return f"{self.base_name()}_{self._get_module_package()}"
