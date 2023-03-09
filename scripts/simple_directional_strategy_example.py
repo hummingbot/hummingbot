@@ -36,7 +36,7 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
     time_limit = 60 * 5
 
     # Create the candles that we want to use and the thresholds for the indicators
-    eth_3m_candles = CandlesFactory.get_candle(connector=exchange,
+    eth_1m_candles = CandlesFactory.get_candle(connector=exchange,
                                                trading_pair=trading_pair,
                                                interval="1m", max_records=50)
     rsi_lower_bound = 40
@@ -54,7 +54,7 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
     def __init__(self, connectors: Dict[str, ConnectorBase]):
         # Is necessary to start the Candles Feed.
         super().__init__(connectors)
-        self.eth_3m_candles.start()
+        self.eth_1m_candles.start()
 
     def get_active_executors(self):
         return [signal_executor for signal_executor in self.active_executors
@@ -68,7 +68,7 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
         if len(self.get_active_executors()) < self.max_executors:
             signal_value = self.get_signal()
             if signal_value > self.rsi_upper_bound or signal_value < self.rsi_lower_bound and self.is_margin_enough()\
-                    and self.eth_3m_candles.is_ready:
+                    and self.eth_1m_candles.is_ready:
                 # The rule that we are going to implement is:
                 # | RSI > 70 --> Short |
                 # | RSI < 30 --> Long  |
@@ -89,7 +89,7 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
         self.clean_and_store_executors()
 
     def get_signal(self):
-        candle_df = self.eth_3m_candles.candles_df
+        candle_df = self.eth_1m_candles.candles_df
         # Let's add some technical indicators
         candle_df.ta.rsi(length=21, append=True)
         rsi_value = candle_df.iat[-1, -1]
@@ -102,7 +102,7 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
         """
         # we are going to close all the open positions when the bot stops
         self.close_open_positions()
-        self.eth_3m_candles.stop()
+        self.eth_1m_candles.stop()
 
     def format_status(self) -> str:
         """
@@ -129,16 +129,16 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
         for executor in self.active_executors:
             lines.extend([f"|Signal id: {executor.timestamp}"])
             lines.extend(executor.to_format_status())
-        if self.eth_3m_candles.is_ready:
+        if self.eth_1m_candles.is_ready:
             lines.extend([
                 "\n############################################ Market Data ############################################\n"])
             lines.extend([f"Value: {self.get_signal()}"])
             columns_to_show = ["timestamp", "open", "low", "high", "close", "volume", "RSI_21"]
-            candles_df = self.eth_3m_candles.candles_df
+            candles_df = self.eth_1m_candles.candles_df
             # Let's add some technical indicators
             candles_df.ta.rsi(length=21, append=True)
             candles_df["timestamp"] = pd.to_datetime(candles_df["timestamp"], unit="ms")
-            lines.extend([f"Candles: {self.eth_3m_candles.name} | Interval: {self.eth_3m_candles.interval}\n"])
+            lines.extend([f"Candles: {self.eth_1m_candles.name} | Interval: {self.eth_1m_candles.interval}\n"])
             lines.extend(["    " + line for line in candles_df[columns_to_show].tail().to_string(index=False).split("\n")])
             lines.extend(["\n-----------------------------------------------------------------------------------------------------------\n"])
         else:

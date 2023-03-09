@@ -5,7 +5,7 @@ from asyncio import Lock
 from decimal import Decimal
 from enum import Enum
 from math import floor
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from grpc.aio import UnaryStreamCall
 from pyinjective.async_client import AsyncClient
@@ -121,15 +121,12 @@ class InjectiveAPIDataSource(CLOBAPIDataSourceBase):
         self._network = connector_spec["network"]
         self._sub_account_id = connector_spec["wallet_address"]
         self._account_address: Optional[str] = None
-        self._network_obj = Network.custom(
-            lcd_endpoint="https://k8s.global.mainnet.lcd.injective.network:443",
-            tm_websocket_endpoint="wss://k8s.global.mainnet.tm.injective.network:443/websocket",
-            grpc_endpoint="k8s.global.mainnet.chain.grpc.injective.network:443",
-            grpc_exchange_endpoint="k8s.global.mainnet.exchange.grpc.injective.network:443",
-            grpc_explorer_endpoint="k8s.mainnet.explorer.grpc.injective.network:443",
-            chain_id="injective-1",
-            env="mainnet"
-        )
+        if self._network == "mainnet":
+            self._network_obj = Network.mainnet()
+        elif self._network == "testnet":
+            self._network_obj = Network.testnet()
+        else:
+            raise ValueError(f"Invalid network: {self._network}")
         self._client = AsyncClient(network=self._network_obj)
         self._composer = ProtoMsgComposer(network=self._network_obj.string())
         self._order_hash_manager: Optional[OrderHashManager] = None
@@ -188,18 +185,7 @@ class InjectiveAPIDataSource(CLOBAPIDataSourceBase):
     async def place_order(
         self, order: GatewayInFlightOrder, **kwargs
     ) -> Tuple[Optional[str], Dict[str, Any]]:
-        market = self._markets_info[order.trading_pair]
-        spot_order_to_create = [
-            self._composer.SpotOrder(
-                market_id=market.market_id,
-                subaccount_id=self._sub_account_id,
-                fee_recipient=self._account_address,
-                price=float(order.price),
-                quantity=float(order.amount),
-                is_buy=order.trade_type == TradeType.BUY,
-                is_po=order.order_type == OrderType.LIMIT_MAKER,
-            ),
-        ]
+        spot_order_to_create = [self._compose_spot_order_for_local_hash_computation(order=order)]
 
         async with self._order_placement_lock:
             order_hashes = self._order_hash_manager.compute_order_hashes(
@@ -207,17 +193,21 @@ class InjectiveAPIDataSource(CLOBAPIDataSourceBase):
             )
             order_hash = order_hashes.spot[0]
 
-            order_result: Dict[str, Any] = await self._get_gateway_instance().clob_place_order(
-                connector=self._connector_name,
-                chain=self._chain,
-                network=self._network,
-                trading_pair=order.trading_pair,
-                address=self._sub_account_id,
-                trade_type=order.trade_type,
-                order_type=order.order_type,
-                price=order.price,
-                size=order.amount,
-            )
+            try:
+                order_result: Dict[str, Any] = await self._get_gateway_instance().clob_place_order(
+                    connector=self._connector_name,
+                    chain=self._chain,
+                    network=self._network,
+                    trading_pair=order.trading_pair,
+                    address=self._sub_account_id,
+                    trade_type=order.trade_type,
+                    order_type=order.order_type,
+                    price=order.price,
+                    size=order.amount,
+                )
+            except Exception:
+                await self._update_account_address_and_create_order_hash_manager()
+                raise
 
             transaction_hash: Optional[str] = order_result.get("txHash")
 
@@ -236,31 +226,28 @@ class InjectiveAPIDataSource(CLOBAPIDataSourceBase):
 
         return order_hash, misc_updates
 
-    async def batch_order_create(self, orders_to_create: List[InFlightOrder]) -> List[PlaceOrderResult]:
+    async def batch_order_create(self, orders_to_create: List[GatewayInFlightOrder]) -> List[PlaceOrderResult]:
         spot_orders_to_create = [
-            self._composer.SpotOrder(
-                market_id=self._markets_info[order.trading_pair].market_id,
-                subaccount_id=self._sub_account_id,
-                fee_recipient=self._account_address,
-                price=float(order.price),
-                quantity=float(order.amount),
-                is_buy=order.trade_type == TradeType.BUY,
-                is_po=True,
-            ) for order in orders_to_create
+            self._compose_spot_order_for_local_hash_computation(order=order)
+            for order in orders_to_create
         ]
 
         async with self._order_placement_lock:
             order_hashes = self._order_hash_manager.compute_order_hashes(
                 spot_orders=spot_orders_to_create, derivative_orders=[]
             )
-            update_result = await self._get_gateway_instance().clob_batch_order_modify(
-                connector=self._connector_name,
-                chain=self._chain,
-                network=self._network,
-                address=self._sub_account_id,
-                orders_to_create=orders_to_create,
-                orders_to_cancel=[],
-            )
+            try:
+                update_result = await self._get_gateway_instance().clob_batch_order_modify(
+                    connector=self._connector_name,
+                    chain=self._chain,
+                    network=self._network,
+                    address=self._sub_account_id,
+                    orders_to_create=orders_to_create,
+                    orders_to_cancel=[],
+                )
+            except Exception:
+                await self._update_account_address_and_create_order_hash_manager()
+                raise
 
             transaction_hash: Optional[str] = update_result.get("txHash")
             exception = None
@@ -473,6 +460,10 @@ class InjectiveAPIDataSource(CLOBAPIDataSourceBase):
     async def get_order_status_update(self, in_flight_order: GatewayInFlightOrder) -> OrderUpdate:
         trading_pair = in_flight_order.trading_pair
         order_hash = await in_flight_order.get_exchange_order_id()
+        misc_updates = {
+            "creation_transaction_hash": in_flight_order.creation_transaction_hash,
+            "cancelation_transaction_hash": in_flight_order.cancel_tx_hash,
+        }
 
         market = self._markets_info[trading_pair]
         direction = "buy" if in_flight_order.trade_type == TradeType.BUY else "sell"
@@ -485,6 +476,7 @@ class InjectiveAPIDataSource(CLOBAPIDataSourceBase):
             creation_timestamp=in_flight_order.creation_timestamp,
             order_type=in_flight_order.order_type,
             trade_type=in_flight_order.trade_type,
+            order_mist_updates=misc_updates,
         )
         if status_update is None and in_flight_order.creation_transaction_hash is not None:
             creation_transaction = await self._get_transaction_by_hash(
@@ -499,6 +491,7 @@ class InjectiveAPIDataSource(CLOBAPIDataSourceBase):
                     new_state=OrderState.FAILED,
                     client_order_id=in_flight_order.client_order_id,
                     exchange_order_id=in_flight_order.exchange_order_id,
+                    misc_updates=misc_updates,
                 )
         if status_update is None:
             raise IOError(f"No update found for order {in_flight_order.client_order_id}")
@@ -510,8 +503,10 @@ class InjectiveAPIDataSource(CLOBAPIDataSourceBase):
                 new_state=OrderState.OPEN,
                 client_order_id=in_flight_order.client_order_id,
                 exchange_order_id=status_update.exchange_order_id,
+                misc_updates=misc_updates,
             )
             self._publisher.trigger_event(event_tag=MarketEvent.OrderUpdate, message=open_update)
+
         self._publisher.trigger_event(event_tag=MarketEvent.OrderUpdate, message=status_update)
 
         return status_update
@@ -527,6 +522,31 @@ class InjectiveAPIDataSource(CLOBAPIDataSourceBase):
             status = NetworkStatus.NOT_CONNECTED
         return status
 
+    async def get_trading_fees(self) -> Mapping[str, MakerTakerExchangeFeeRates]:
+        self._check_markets_initialized() or await self._update_markets()
+
+        trading_fees = {}
+        for trading_pair, market in self._trading_pair_to_active_spot_markets.items():
+            fee_scaler = Decimal("1") - Decimal(market.service_provider_fee)
+            maker_fee = Decimal(market.maker_fee_rate) * fee_scaler
+            taker_fee = Decimal(market.taker_fee_rate) * fee_scaler
+            trading_fees[trading_pair] = MakerTakerExchangeFeeRates(
+                maker=maker_fee, taker=taker_fee, maker_flat_fees=[], taker_flat_fees=[]
+            )
+        return trading_fees
+
+    def _compose_spot_order_for_local_hash_computation(self, order: GatewayInFlightOrder) -> SpotOrder:
+        market = self._markets_info[order.trading_pair]
+        return self._composer.SpotOrder(
+            market_id=market.market_id,
+            subaccount_id=self._sub_account_id,
+            fee_recipient=self._account_address,
+            price=float(order.price),
+            quantity=float(order.amount),
+            is_buy=order.trade_type == TradeType.BUY,
+            is_po=order.order_type == OrderType.LIMIT_MAKER,
+        )
+
     async def _get_booked_order_status_update(
         self,
         trading_pair: str,
@@ -537,6 +557,7 @@ class InjectiveAPIDataSource(CLOBAPIDataSourceBase):
         creation_timestamp: float,
         order_type: OrderType,
         trade_type: TradeType,
+        order_mist_updates: Dict[str, str],
     ) -> Optional[OrderUpdate]:
         order_status = await self._get_backend_order_status(
             market_id=market_id,
@@ -554,6 +575,7 @@ class InjectiveAPIDataSource(CLOBAPIDataSourceBase):
                 new_state=BACKEND_TO_CLIENT_ORDER_STATE_MAP[order_status.state],
                 client_order_id=client_order_id,
                 exchange_order_id=order_status.order_hash,
+                misc_updates=order_mist_updates,
             )
         else:
             status_update = None

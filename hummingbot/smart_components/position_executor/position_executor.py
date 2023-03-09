@@ -441,6 +441,7 @@ class PositionExecutor:
             lines.extend([f"""
 | Trading Pair: {self.trading_pair} | Exchange: {self.exchange} | Side: {self.side} | Amount: {self.amount:.4f}
 | Entry price: {self.entry_price}  | Close price: {self.close_price} --> PNL: {self.pnl * 100:.2f}%
+| Status: {self.status}
         """])
         else:
             lines.extend([f"""
@@ -464,10 +465,10 @@ class PositionExecutor:
             elif self.side == PositionSide.SHORT:
                 price_range = stop_loss_price - take_profit_price
                 progress = (stop_loss_price - current_price) / price_range
-            price_bar = [f'--{current_price:.2f}--' if i == int(price_scale * progress) else '-' for i in
+            price_bar = [f'--{current_price:.4f}--' if i == int(price_scale * progress) else '-' for i in
                          range(price_scale)]
-            price_bar.insert(0, f"SL:{stop_loss_price:.2f}")
-            price_bar.append(f"TP:{take_profit_price:.2f}")
+            price_bar.insert(0, f"SL:{stop_loss_price:.4f}")
+            price_bar.append(f"TP:{take_profit_price:.4f}")
             lines.extend(["".join(price_bar), "\n"])
             lines.extend(["-----------------------------------------------------------------------------------------------------------"])
         return lines
