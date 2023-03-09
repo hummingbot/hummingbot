@@ -230,7 +230,6 @@ class OrderBookTrackerDataSource(metaclass=ABCMeta):
         pass
 
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
-
         async for ws_response in websocket_assistant.iter_messages():
             data: Dict[str, Any] = ws_response.data
             if data is not None:  # data will be None when the websocket is disconnected

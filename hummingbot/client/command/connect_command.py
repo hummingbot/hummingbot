@@ -134,11 +134,7 @@ class ConnectCommand:
 
     async def _perform_connect(self, connector_config: ClientConfigAdapter, previous_keys: Optional[Dict] = None):
         connector_name = connector_config.connector
-
-        self.notify(f"\nYou are attempting to connect to {connector_name}.")
-
         await self.prompt_for_model_config(connector_config)
-
         self.app.change_prompt(prompt=">>> ")
         if self.app.to_stop_config:
             self.app.to_stop_config = False

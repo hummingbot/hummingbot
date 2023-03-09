@@ -67,6 +67,7 @@ class BinanceExchange(ExchangePyBase):
             api_key=self.api_key,
             secret_key=self.secret_key,
             time_provider=self._time_synchronizer)
+
     @property
     def name(self) -> str:
         if self._domain == "com":

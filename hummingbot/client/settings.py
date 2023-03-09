@@ -1,7 +1,5 @@
 import importlib
 import json
-import os
-import time
 from decimal import Decimal
 from enum import Enum
 from os import DirEntry, scandir
@@ -268,7 +266,6 @@ class ConnectorSetting(NamedTuple):
         kwargs = self.add_domain_parameter(kwargs)
         kwargs.update(trading_pairs=trading_pairs, trading_required=False)
         kwargs["client_config_map"] = HummingbotApplication.main_application().client_config_map
-
         connector = connector_class(**kwargs)
 
         return connector
@@ -391,19 +388,10 @@ class AllConnectorSettings:
     def get_connector_settings(cls) -> Dict[str, ConnectorSetting]:
         if len(cls.all_connector_settings) == 0:
             cls.all_connector_settings = cls.create_connector_settings()
-
         return cls.all_connector_settings
 
     @classmethod
     def get_connector_config_keys(cls, connector: str) -> Optional["BaseConnectorConfigMap"]:
-        dict_path = os.getcwd()
-        print(dict_path)
-        with open(dict_path + "/dict.txt", 'w') as f:
-            for key, value in cls.get_connector_settings().items():
-                f.write('%s:%s\n' % (key, value))
-        print("file written")
-        print("-----------------------------------------------------")
-        print(connector)
         return cls.get_connector_settings()[connector].config_keys
 
     @classmethod

@@ -484,7 +484,6 @@ cdef class FixedGridStrategy(StrategyBase):
 
                 # Check if sufficient base and quote inventory are available according to current level
                 market, trading_pair, base_asset, quote_asset = self._market_info
-                self.logger().info(f"base balance token: {base_asset}, quote asset: {quote_asset}")
                 base_balance = float(market.get_balance(base_asset))
                 quote_balance = float(market.get_balance(quote_asset)/self._price_levels[self._current_level])
                 # self.logger().info(f"Current level {self._current_level+1}")
