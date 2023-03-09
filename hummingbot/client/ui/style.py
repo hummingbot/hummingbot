@@ -27,6 +27,9 @@ def load_style(config_map: ClientConfigAdapter):
     color_warning_label = config_map.color.warning_label
     color_info_label = config_map.color.info_label
     color_error_label = config_map.color.error_label
+    color_gold_label = config_map.color.gold_label
+    color_silver_label = config_map.color.silver_label
+    color_bronze_label = config_map.color.bronze_label
 
     if is_windows():
         # Load default style for Windows
@@ -46,6 +49,9 @@ def load_style(config_map: ClientConfigAdapter):
         color_warning_label = hex_to_ansi(color_warning_label)
         color_info_label = hex_to_ansi(color_info_label)
         color_error_label = hex_to_ansi(color_error_label)
+        color_gold_label = hex_to_ansi(color_gold_label)
+        color_silver_label = hex_to_ansi(color_silver_label)
+        color_bronze_label = hex_to_ansi(color_bronze_label)
 
         # Apply custom configuration
         style["output_field"] = "bg:" + color_output_pane + " " + color_terminal_primary
@@ -68,6 +74,9 @@ def load_style(config_map: ClientConfigAdapter):
         style["warning_label"] = "bg:" + color_warning_label + " " + color_output_pane
         style["info_label"] = "bg:" + color_info_label + " " + color_output_pane
         style["error_label"] = "bg:" + color_error_label + " " + color_output_pane
+        style["gold_label"] = "bg:" + color_output_pane + " " + color_gold_label
+        style["silver_label"] = "bg:" + color_output_pane + " " + color_silver_label
+        style["bronze_label"] = "bg:" + color_output_pane + " " + color_bronze_label
 
         return Style.from_dict(style)
 
@@ -94,7 +103,9 @@ def load_style(config_map: ClientConfigAdapter):
         style["warning_label"] = "bg:" + color_warning_label + " " + color_output_pane
         style["info_label"] = "bg:" + color_info_label + " " + color_output_pane
         style["error_label"] = "bg:" + color_error_label + " " + color_output_pane
-
+        style["gold_label"] = "bg:" + color_output_pane + " " + color_gold_label
+        style["silver_label"] = "bg:" + color_output_pane + " " + color_silver_label
+        style["bronze_label"] = "bg:" + color_output_pane + " " + color_bronze_label
         return Style.from_dict(style)
 
 
@@ -114,6 +125,9 @@ def reset_style(config_map: ClientConfigAdapter, save=True):
     config_map.color.warning_label = config_map.color.get_default("warning_label")
     config_map.color.info_label = config_map.color.get_default("info_label")
     config_map.color.error_label = config_map.color.get_default("error_label")
+    config_map.color.gold_label = config_map.color.get_default("gold_label")
+    config_map.color.silver_label = config_map.color.get_default("silver_label")
+    config_map.color.bronze_label = config_map.color.get_default("bronze_label")
 
     # Save configuration
     if save:
@@ -132,7 +146,11 @@ def hex_to_ansi(color_hex):
                     "FF00FF": "ansimagenta",
                     "00FFFF": "ansicyan",
                     "F0F0F0": "ansigray",
-                    "FFFFFF": "ansiwhite"}
+                    "FFFFFF": "ansiwhite",
+                    "FFD700": "ansiyellow",
+                    "C0C0C0": "ansilightgray",
+                    "CD7F32": "ansibrown"
+                    }
 
     # Sanitization
     color_hex = color_hex.replace('#', '')
@@ -159,10 +177,9 @@ def hex_to_ansi(color_hex):
 
 
 text_ui_style = {
-    "&cGREEN": "success_label",
-    "&cYELLOW": "warning_label",
-    "&cRED": "error_label",
-    "&cMISSING_AND_REQUIRED": "error_label",
+    "&cGOLD": "gold_label",
+    "&cSILVER": "silver_label",
+    "&cBRONZE": "bronze_label",
 }
 
 default_ui_style = {

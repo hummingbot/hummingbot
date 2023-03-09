@@ -1,20 +1,16 @@
-import aiohttp
 import asyncio
-import conf
 import logging
 import sys
 import unittest
+from os.path import join, realpath
+from typing import Any, Dict
+
+import aiohttp
 import ujson
 import websockets
 
+import conf
 import hummingbot.connector.exchange.k2.k2_constants as CONSTANTS
-
-from os.path import join, realpath
-from typing import (
-    Any,
-    Dict,
-)
-
 from hummingbot.connector.exchange.k2.k2_auth import K2Auth
 from hummingbot.logger.struct_logger import METRICS_LOG_LEVEL
 

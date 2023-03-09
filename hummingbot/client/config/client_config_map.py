@@ -14,7 +14,12 @@ from tabulate import tabulate_formats
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
 from hummingbot.client.config.config_methods import using_exchange as using_exchange_pointer
 from hummingbot.client.config.config_validators import validate_bool, validate_float
-from hummingbot.client.settings import DEFAULT_LOG_FILE_PATH, PMM_SCRIPTS_PATH, AllConnectorSettings
+from hummingbot.client.settings import (
+    DEFAULT_GATEWAY_CERTS_PATH,
+    DEFAULT_LOG_FILE_PATH,
+    PMM_SCRIPTS_PATH,
+    AllConnectorSettings,
+)
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.connector_metrics_collector import (
     DummyMetricsCollector,
@@ -47,6 +52,95 @@ def generate_client_id() -> str:
 
 def using_exchange(exchange: str) -> Callable:
     return using_exchange_pointer(exchange)
+
+
+class MQTTBridgeConfigMap(BaseClientModel):
+    mqtt_host: str = Field(
+        default="localhost",
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Set the MQTT hostname to connect to (e.g. localhost)"
+            ),
+        ),
+    )
+    mqtt_port: int = Field(
+        default=1883,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Set the MQTT port to connect to (e.g. 1883)"
+            ),
+        ),
+    )
+    mqtt_username: str = Field(
+        default="",
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Set the username for connecting to the MQTT broker"
+            ),
+        ),
+    )
+    mqtt_password: str = Field(
+        default="",
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Set the password for connecting to the MQTT broker"
+            ),
+        ),
+    )
+    mqtt_namespace: str = Field(
+        default='hbot',
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Set the mqtt uri namespace (Default='hbot')"
+            ),
+        ),
+    )
+    mqtt_ssl: bool = Field(
+        default=False,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Enable/Disable SSL for MQTT connections"
+            ),
+        ),
+    )
+    mqtt_logger: bool = Field(
+        default=True
+    )
+    mqtt_notifier: bool = Field(
+        default=True,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Enable/Disable MQTT Notifier"
+            ),
+        ),
+    )
+    mqtt_commands: bool = Field(
+        default=True,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Enable/Disable MQTT Commands"
+            ),
+        ),
+    )
+    mqtt_events: bool = Field(
+        default=True,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Enable/Disable Events forwarding to MQTT broker"
+            ),
+        ),
+    )
+    mqtt_autostart: bool = Field(
+        default=False,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Enable/Disable autostart"
+            ),
+        ),
+    )
+
+    class Config:
+        title = "mqtt_bridge"
 
 
 class ColorConfigMap(BaseClientModel):
@@ -122,6 +216,24 @@ class ColorConfigMap(BaseClientModel):
             prompt=lambda cm: "What is the background color for error label?",
         ),
     )
+    gold_label: str = Field(
+        default="#FFD700",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "What is the background color for gold label?",
+        ),
+    )
+    silver_label: str = Field(
+        default="#C0C0C0",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "What is the background color for silver label?",
+        ),
+    )
+    bronze_label: str = Field(
+        default="#CD7F32",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "What is the background color for bronze label?",
+        ),
+    )
 
     @validator(
         "top_pane",
@@ -136,6 +248,9 @@ class ColorConfigMap(BaseClientModel):
         "warning_label",
         "info_label",
         "error_label",
+        "gold_label",
+        "silver_label",
+        "bronze_label",
         pre=True,
     )
     def validate_color(cls, v: str):
@@ -438,18 +553,6 @@ class GatewayConfigMap(BaseClientModel):
         title = "gateway"
 
 
-class CertsConfigMap(BaseClientModel):
-    path: str = Field(
-        default="",
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Please enter the path for your certificate files",
-        ),
-    )
-
-    class Config:
-        title = "certs"
-
-
 class GlobalTokenConfigMap(BaseClientModel):
     global_token_name: str = Field(
         default="USD",
@@ -696,7 +799,12 @@ class CommandShortcutModel(BaseModel):
 
 
 class ClientConfigMap(BaseClientModel):
-    instance_id: str = Field(default=generate_client_id())
+    instance_id: str = Field(
+        default=generate_client_id(),
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Instance UID of the bot",
+        ),
+    )
     log_level: str = Field(default="INFO")
     debug_console: bool = Field(default=False)
     strategy_report_interval: float = Field(default=900)
@@ -729,6 +837,10 @@ class ClientConfigMap(BaseClientModel):
         client_data=ClientFieldData(
             prompt=lambda cm: f"Select the desired telegram mode ({'/'.join(list(TELEGRAM_MODES.keys()))})"
         )
+    )
+    mqtt_bridge: MQTTBridgeConfigMap = Field(
+        default=MQTTBridgeConfigMap(),
+        description=('MQTT Bridge configuration.'),
     )
     send_error_logs: bool = Field(
         default=True,
@@ -787,12 +899,13 @@ class ClientConfigMap(BaseClientModel):
                      "\ndefault host to only use localhost"
                      "\nPort need to match the final installation port for Gateway"),
     )
-    certs: CertsConfigMap = Field(
-        default=CertsConfigMap(),
-        description=("Certs Configurations"
-                     "\ndefault: use the client generated certs"
-                     "\nPort need to match the certifactes for Gateway"),
+    certs_path: Path = Field(
+        default=DEFAULT_GATEWAY_CERTS_PATH,
+        client_data=ClientFieldData(
+            prompt=lambda cm: f"Where would you like to save certificates that connect your bot to Gateway? (default '{DEFAULT_GATEWAY_CERTS_PATH}')",
+        ),
     )
+
     anonymized_metrics_mode: Union[tuple(METRICS_MODES.values())] = Field(
         default=AnonymizedMetricsEnabledMode(),
         description="Whether to enable aggregated order and trade data collection",

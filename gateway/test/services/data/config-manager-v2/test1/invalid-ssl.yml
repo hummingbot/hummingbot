@@ -1,4 +1,0 @@
-caCertificatePath: ca.crt
-certificatePath: gateway.crt
-keyPath: gateway.key
-funnyKeyPath: funny.key

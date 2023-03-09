@@ -26,17 +26,6 @@ RUN curl https://repo.anaconda.com/miniconda/Miniconda3-py38_4.10.3-Linux-aarch6
 # Dropping default ~/.bashrc because it will return if not running as interactive shell, thus not invoking PATH settings
 RUN :> ~/.bashrc
 
-# Install nvm and CeloCLI; note: nvm adds own section to ~/.bashrc
-SHELL [ "/bin/bash", "-lc" ]
-RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash && \
-    export NVM_DIR="/home/hummingbot/.nvm" && \
-    source "/home/hummingbot/.nvm/nvm.sh" && \
-    nvm install 10 && \
-    npm install --only=production -g @celo/celocli@1.0.3 && \
-    nvm cache clear && \
-    npm cache clean --force && \
-    rm -rf /home/hummingbot/.cache
-
 # Copy environment only to optimize build caching, so changes in sources will not cause conda env invalidation
 COPY --chown=hummingbot:hummingbot setup/environment-linux-aarch64.yml setup/
 
@@ -49,8 +38,6 @@ RUN ~/miniconda3/bin/conda env create -f setup/environment-linux-aarch64.yml && 
 # Copy remaining files
 COPY --chown=hummingbot:hummingbot bin/ bin/
 COPY --chown=hummingbot:hummingbot hummingbot/ hummingbot/
-COPY --chown=hummingbot:hummingbot gateway/setup/ gateway/setup/
-COPY --chown=hummingbot:hummingbot gateway/src/templates gateway/src/templates
 COPY --chown=hummingbot:hummingbot setup.py .
 COPY --chown=hummingbot:hummingbot LICENSE .
 COPY --chown=hummingbot:hummingbot README.md .
@@ -96,19 +83,15 @@ RUN groupadd -g 8211 hummingbot && \
 # Create sym links
 RUN ln -s /conf /home/hummingbot/conf && \
   ln -s /logs /home/hummingbot/logs && \
+  ln -s /certs /home/hummingbot/certs && \
   ln -s /data /home/hummingbot/data && \
   ln -s /pmm_scripts /home/hummingbot/pmm_scripts && \
   ln -s /scripts /home/hummingbot/scripts
 
 # Create mount points
-RUN mkdir -p /conf /logs /data /pmm_scripts /scripts \
-    /gateway-conf \
-    /home/hummingbot/.hummingbot-gateway/certs && \
-  chown -R hummingbot:hummingbot /conf /logs /data /pmm_scripts /scripts /gateway-conf \
-    /home/hummingbot/.hummingbot-gateway
-VOLUME /conf /logs /data /pmm_scripts /scripts \
-  /gateway-conf \
-  /home/hummingbot/.hummingbot-gateway/certs
+RUN mkdir -p /conf /conf/connectors /logs /data /pmm_scripts /scripts /certs && \
+  chown -R hummingbot:hummingbot /conf /conf/connectors /logs /data /pmm_scripts /scripts /certs
+VOLUME /conf /conf/connectors /logs /data /pmm_scripts /scripts /certs
 
 # Pre-populate pmm_scripts/ volume with default pmm_scripts
 COPY --chown=hummingbot:hummingbot pmm_scripts/ pmm_scripts/

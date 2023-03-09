@@ -70,7 +70,7 @@ class CoinGeckoDataFeed(DataFeedBase):
     async def get_prices_by_page(
         self, vs_currency: str, page_no: int, category: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        """Fetches prices specified by 250-length page."""
+        """Fetches prices specified by 250-length page. Only 50 when category is specified"""
         rest_assistant = await self._api_factory.get_rest_assistant()
         price_url: str = f"{CONSTANTS.BASE_URL}{CONSTANTS.PRICES_REST_ENDPOINT}"
         params = {
