@@ -39,8 +39,8 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
     eth_1m_candles = CandlesFactory.get_candle(connector=exchange,
                                                trading_pair=trading_pair,
                                                interval="1m", max_records=50)
-    rsi_lower_bound = 40
-    rsi_upper_bound = 60
+    rsi_lower_bound = 30
+    rsi_upper_bound = 70
 
     # Configure the leverage and order amount the bot is going to use
     set_leverage_flag = None
