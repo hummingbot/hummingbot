@@ -245,7 +245,7 @@ class HotbitExchange(ExchangePyBase):
                         order_state = OrderState.PARTIALLY_FILLED
                         has_fill = True
                     elif order_type == CONSTANTS.ORDER_STATE_FINISHED:
-                        if not self.is_zero(data["deal_stock"]):
+                        if Decimal(data["deal_stock"]) == Decimal(data["amount"]):
                             order_state = OrderState.FILLED
                             has_fill = True
                         else:
