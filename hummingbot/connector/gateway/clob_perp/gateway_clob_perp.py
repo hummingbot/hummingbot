@@ -22,13 +22,7 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState,
 from hummingbot.core.data_type.perpetual_api_order_book_data_source import PerpetualAPIOrderBookDataSource
 from hummingbot.core.data_type.trade_fee import MakerTakerExchangeFeeRates, TradeFeeBase
 from hummingbot.core.event.event_forwarder import EventForwarder
-from hummingbot.core.event.events import (
-    AccountEvent,
-    BalanceUpdateEvent,
-    FundingInfoEvent,
-    MarketEvent,
-    PositionUpdateEvent,
-)
+from hummingbot.core.event.events import AccountEvent, BalanceUpdateEvent, FundingInfoEvent, MarketEvent
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.web_assistant.auth import AuthBase
 
@@ -172,6 +166,14 @@ class GatewayCLOBPerpetual(PerpetualDerivativePyBase):
         self._forwarders.append(event_forwarder)
         self._api_data_source.add_listener(event_tag=AccountEvent.PositionUpdate, listener=event_forwarder)
 
+        event_forwarder = EventForwarder(to_function=self._process_margin_call_event)
+        self._forwarders.append(event_forwarder)
+        self._api_data_source.add_listener(event_tag=AccountEvent.MarginCall, listener=event_forwarder)
+
+        event_forwarder = EventForwarder(to_function=self._process_liquidation_event)
+        self._forwarders.append(event_forwarder)
+        self._api_data_source.add_listener(event_tag=AccountEvent.LiquidationEvent, listener=event_forwarder)
+
     def _create_order_book_data_source(self) -> PerpetualAPIOrderBookDataSource:
         data_source = GatewayCLOBPerpAPIOrderBookDataSource(
             trading_pairs=self.trading_pairs, api_data_source=self._api_data_source
@@ -312,7 +314,7 @@ class GatewayCLOBPerpetual(PerpetualDerivativePyBase):
         positions: List[Position] = await self._api_data_source.fetch_positions()
         for position in positions:
             post_key = self._perpetual_trading.position_key(position.trading_pair, position.position_side)
-            if position.amount != Decimal('0'):
+            if position.amount != Decimal("0"):
                 position._leverage = self._perpetual_trading.get_leverage(trading_pair=position.trading_pair)
                 self._perpetual_trading.set_position(position=position)
             else:
@@ -396,9 +398,7 @@ class GatewayCLOBPerpetual(PerpetualDerivativePyBase):
 
     async def _listen_for_funding_info(self):
         await self._init_funding_info()
-        await self._api_data_source.listen_for_funding_info(
-            output=self._perpetual_trading.funding_info_stream
-        )
+        await self._api_data_source.listen_for_funding_info(output=self._perpetual_trading.funding_info_stream)
 
     def _process_trade_update(self, trade_update: TradeUpdate):
         self._last_received_message_timestamp = self._time()
@@ -419,12 +419,27 @@ class GatewayCLOBPerpetual(PerpetualDerivativePyBase):
         self._last_received_message_timestamp = self._time()
         self._perpetual_trading.initialize_funding_info(funding_info_event.funding_info)
 
-    def _process_position_update_event(self, position_event: PositionUpdateEvent):
+    def _process_position_update_event(self, position_update_event: Position):
         self._last_received_message_timestamp = self._time()
-        position: Position = position_event.position
-        post_key = self._perpetual_trading.position_key(position.trading_pair, position.position_side)
-        if position.amount != Decimal('0'):
-            position._leverage = self._perpetual_trading.get_leverage(trading_pair=position.trading_pair)
-            self._perpetual_trading.set_position(position=position)
+        position_key = self._perpetual_trading.position_key(
+            position_update_event.trading_pair, position_update_event.position_side
+        )
+        if position_update_event.amount > Decimal("0"):
+            position: Position = self._perpetual_trading.get_position(
+                trading_pair=position_update_event.trading_pair, side=position_update_event.position_side
+            )
+            leverage: Decimal = (
+                # If event leverage is set to -1, the initial leverage is used. This is for specific cases when the
+                # DataSource does not provide any leverage information in the position stream
+                position.leverage if position_update_event.leverage == Decimal("-1") else position_update_event.leverage
+            )
+            position.update_position(
+                trading_pair=position_update_event.trading_pair,
+                position_side=position_update_event.position_side,
+                unrealized_pnl=position_update_event.unrealized_pnl,
+                entry_price=position_update_event.entry_price,
+                amount=position_update_event.amount,
+                leverage=leverage,
+            )
         else:
-            self._perpetual_trading.remove_position(post_key=post_key)
+            self._perpetual_trading.remove_position(post_key=position_key)

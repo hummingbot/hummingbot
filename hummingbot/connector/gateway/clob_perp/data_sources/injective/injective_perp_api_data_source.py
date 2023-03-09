@@ -27,7 +27,9 @@ from pyinjective.proto.exchange.injective_derivative_exchange_rpc_pb2 import (
     OrderbookResponse,
     OrdersHistoryResponse,
     PositionsResponse,
+    StreamOrdersHistoryResponse,
     StreamOrdersResponse,
+    StreamPositionsResponse,
     StreamTradesResponse,
     TokenMeta,
     TradesResponse,
@@ -466,11 +468,13 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
             subaccount_id=self._sub_account_id, market_id=market_info.market_id, end_time=int(self._time() * 1e3)
         )
 
-        latest_funding_payment: FundingPayment = payment_response.payments[0]
+        latest_funding_payment: FundingPayment = payment_response.payments[0]  # List of payments sorted by latest
 
-        timestamp = latest_funding_payment.timestamp * 1e-3
-        funding_rate = await self._request_last_funding_rate(market_info=market_info)
-        payment = Decimal(latest_funding_payment.amount)
+        timestamp: float = latest_funding_payment.timestamp * 1e-3
+
+        # FundingPayment does not include price, hence we have to fetch latest funding rate
+        funding_rate: Decimal = await self._request_last_funding_rate(market_info=market_info)
+        payment: Decimal = Decimal(latest_funding_payment.amount)
 
         return timestamp, funding_rate, payment
 
@@ -890,12 +894,60 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
             self.logger().info("Restarting transactions stream.")
             stream.cancel()
 
+    async def _process_order_update_event(self, message: StreamOrdersHistoryResponse):
+        """
+        Order History Stream example:
+            order {
+                order_hash: "0xfb526d72b85e9ffb4426c37bf332403fb6fb48709fb5d7ca3be7b8232cd10292"  # noqa: documentation
+                market_id: "0x90e662193fa29a3a7e6c07be4407c94833e762d9ee82136a2cc712d6b87d7de3"  # noqa: documentation
+                is_active: true
+                subaccount_id: "0xc6fe5d33615a1c52c08018c47e8bc53646a0e101000000000000000000000000"  # noqa: documentation
+                execution_type: "limit"
+                order_type: "sell_po"
+                price: "274310000"
+                trigger_price: "0"
+                quantity: "144"
+                filled_quantity: "0"
+                state: "booked"
+                created_at: 1665487076373
+                updated_at: 1665487076373
+                direction: "sell"
+                margin: "3950170000"
+                }
+            operation_type: "insert"
+            timestamp: 1665487078000
+        """
+        order_update: DerivativeOrderHistory = message.order
+        order_hash: str = order_update.order_hash
+
+        in_flight_order = self._gateway_order_tracker.all_fillable_orders_by_exchange_id.get(order_hash)
+        if in_flight_order is not None:
+            market_id = order_update.market_id
+            trading_pair = self._get_trading_pair_from_market_id(market_id=market_id)
+            order_update = OrderUpdate(
+                trading_pair=trading_pair,
+                update_timestamp=order_update.updated_at * 1e-3,
+                new_state=CONSTANTS.INJ_DERIVATIVE_ORDER_STATES[order_update.state],
+                client_order_id=in_flight_order.client_order_id,
+                exchange_order_id=order_update.order_hash,
+            )
+            if in_flight_order.current_state == OrderState.PENDING_CREATE and order_update.new_state != OrderState.OPEN:
+                open_update = OrderUpdate(
+                    trading_pair=trading_pair,
+                    update_timestamp=order_update.updated_at * 1e-3,
+                    new_state=OrderState.OPEN,
+                    client_order_id=in_flight_order.client_order_id,
+                    exchange_order_id=order_update.order_hash,
+                )
+                self._publisher.trigger_event(event_tag=MarketEvent.OrderUpdate, message=open_update)
+            self._publisher.trigger_event(event_tag=MarketEvent.OrderUpdate, message=order_update)
+
     async def _listen_order_updates_stream(self, market_id: str):
         while True:
             stream: UnaryStreamCall = await self._client.stream_historical_derivative_orders(market_id=market_id)
             try:
                 async for order in stream:
-                    self._process_order_update_event(order=order)
+                    await self._process_order_update_event(message=order)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -903,9 +955,62 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
             self.logger().info("Restarting orders stream.")
             stream.cancel()
 
+    async def _process_position_event(self, message: StreamPositionsResponse):
+        """
+        Position Stream example:
+        position {
+            ticker: "BTC/USDT PERP"
+            market_id: "0x90e662193fa29a3a7e6c07be4407c94833e762d9ee82136a2cc712d6b87d7de3"  # noqa: documentation
+            subaccount_id: "0xea98e3aa091a6676194df40ac089e40ab4604bf9000000000000000000000000"  # noqa: documentation
+            direction: "short"
+            quantity: "0.01"
+            entry_price: "18000000000"
+            margin: "186042357.839476"
+            liquidation_price: "34861176937.092952"
+            mark_price: "16835930000"
+            aggregate_reduce_only_quantity: "0"
+            updated_at: 1676412001911
+            created_at: -62135596800000
+        }
+        timestamp: 1652793296000
+        """
+        position: DerivativePosition = message.position
+        market_info: DerivativeMarketInfo = self._market_id_to_active_perp_markets[position.market_id]
+        trading_pair: str = combine_to_hb_trading_pair(base=market_info.oracle_base, quote=market_info.oracle_quote)
+        position_side: PositionSide = PositionSide[position.direction.upper()]
+        scaler: Decimal = Decimal(f"1e-{market_info.oracle_scale_factor}")
+        entry_price: Decimal = Decimal(position.entry_price) * scaler
+        mark_price: Decimal = Decimal(position.mark_price) * scaler
+        amount: Decimal = Decimal(position.quantity)
+
+        unrealized_pnl: Decimal = amount * ((1 / entry_price) - (1 / mark_price))
+
+        position: Position = Position(
+            trading_pair=trading_pair,
+            position_side=position_side,
+            unrealized_pnl=unrealized_pnl,
+            entry_price=entry_price,
+            amount=amount,
+            leverage=Decimal("-1"),  # Injective does not provide information on the leverage of a position here.
+        )
+
+        self._publisher.trigger_event(event_tag=AccountEvent.PositionUpdate, message=position)
+
     async def _listen_to_position_stream(self):
-        # TODO: Implement _listen_to_position_stream
-        pass
+        while True:
+            market_ids: List[str] = ",".join(list(self._market_id_to_active_perp_markets.keys()))
+            stream: UnaryStreamCall = await self._client.stream_derivative_positions(
+                market_ids=market_ids, subaccount_id=self._sub_account_id
+            )
+            try:
+                async for order in stream:
+                    await self._process_position_event(order=order)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().exception("Unexpected error in user stream listener loop.")
+            self.logger().info("Restarting orders stream.")
+            stream.cancel()
 
     async def _start_streams(self):
         self._trades_stream_listener = self._trades_stream_listener or safe_ensure_future(
@@ -920,7 +1025,7 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         self._transactions_stream_listener = self._transactions_stream_listener or safe_ensure_future(
             coro=self._listen_to_transactions_stream()
         )
-        # TODO: User Order Update streams & Transaction Streams
+        # TODO: User Order Update streams & Position Streams
         for market_id in [self._trading_pair_to_active_perp_markets[tp].market_id for tp in self._trading_pairs]:
             if market_id not in self._order_listeners:
                 self._order_listeners[market_id] = safe_ensure_future(
