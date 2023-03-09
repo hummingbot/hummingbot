@@ -23,8 +23,9 @@ from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_numer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.trade_fee import MakerTakerExchangeFeeRates, TokenAmount, TradeFeeBase, TradeFeeSchema
-from hummingbot.core.event.events import MarketEvent
+from hummingbot.core.event.events import MarketEvent, OrderBookDataSourceEvent
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.tracking_nonce import NonceCreator
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest
@@ -45,12 +46,14 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
         super().__init__(
             trading_pairs=trading_pairs, connector_spec=connector_spec, client_config_map=client_config_map
         )
+        self._api_key = connector_spec["additional_prompt_values"]["api_key"]
         self._api_factory: Optional[WebAssistantsFactory] = None
         self._stream_listener: Optional[asyncio.Task] = None
-        self._nonce_provider = NonceCreator.for_microseconds()
+        self._client_order_id_nonce_provider = NonceCreator.for_microseconds()
         self._max_id_hex_digits = 64
         self._max_id_bit_count = self._max_id_hex_digits * 4
         self._last_traded_price_map = defaultdict(lambda: Decimal("0"))
+        self._snapshots_id_nonce_provider = NonceCreator.for_milliseconds()
 
     @property
     def connector_name(self) -> str:
@@ -62,10 +65,9 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
     @property
     def current_block_time(self) -> float:
-        return 4
+        return 5  # ~2s for Gateway submission + 2s for block inclusion + 1s buffer
 
     async def start(self):
-        api_key = await self._get_api_key()
         signer = WalletSigner(
             chain=self._chain,
             network=self._network,
@@ -74,7 +76,7 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
         )
         auth = DexalotAuth(signer=signer, address=self._account_id)
         throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        self._api_factory = build_api_factory(throttler=throttler, api_key=api_key, auth=auth)
+        self._api_factory = build_api_factory(throttler=throttler, api_key=self._api_key, auth=auth)
         self._stream_listener = safe_ensure_future(self._listen_to_streams())
         await super().start()
 
@@ -89,7 +91,7 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
         self, is_buy: bool, trading_pair: str, hbot_order_id_prefix: str, max_id_len: Optional[int]
     ) -> str:
         decimal_id = get_new_numeric_client_order_id(
-            nonce_creator=self._nonce_provider, max_id_bit_count=self._max_id_bit_count
+            nonce_creator=self._client_order_id_nonce_provider, max_id_bit_count=self._max_id_bit_count
         )
         return "{0:#0{1}x}".format(  # https://stackoverflow.com/a/12638477/6793798
             decimal_id, self._max_id_hex_digits + 2
@@ -184,6 +186,9 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
     async def get_last_traded_price(self, trading_pair: str) -> Decimal:
         return self._last_traded_price_map[trading_pair]
+
+    async def _update_snapshots_loop(self):
+        pass  # Dexalot streams the snapshots via websocket
 
     async def _get_order_status_update_with_batch_request(
         self, in_flight_order: InFlightOrder
@@ -377,10 +382,12 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
         trading_pairs_map = await self.get_symbol_map()
         for trading_pair in self._trading_pairs:
             exchange_trading_pair = trading_pairs_map.inverse[trading_pair]
+            market_info = self._markets_info[trading_pair]
             pair_sub_request = {
                 "data": exchange_trading_pair,
                 "pair": exchange_trading_pair,
                 "type": "subscribe",
+                "decimal": market_info["quoteDisplayDecimals"],
             }
             request = WSJSONRequest(payload=pair_sub_request, throttler_limit_id=CONSTANTS.WS_SUB_RATE_LIMIT_ID)
             await ws_assistant.send(request)
@@ -393,6 +400,8 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
     async def _process_event_message(self, event_message: Dict[str, Any]):
         if event_message["type"] == "lastTrade":
             await self._process_last_traded_price(price_message=event_message)
+        elif event_message["type"] == "orderBooks":
+            await self._process_snapshot_message(snapshot_message=event_message)
 
     async def _process_last_traded_price(self, price_message: Dict[str, Any]):
         data = price_message["data"]
@@ -403,5 +412,39 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
         trading_pair = trading_pairs_map[exchange_pair]
         self._last_traded_price_map[trading_pair] = price
 
-    async def _get_api_key(self) -> str:
-        return ""
+    async def _process_snapshot_message(self, snapshot_message: Dict[str, Any]):
+        data = snapshot_message["data"]
+        trading_pairs_map = await self.get_symbol_map()
+        exchange_trading_pair = snapshot_message["pair"]
+        trading_pair = trading_pairs_map[exchange_trading_pair]
+        market_info = self._markets_info[trading_pair]
+        price_scaler = Decimal(f"1e-{market_info['quoteDecimals']}")
+        size_scaler = Decimal(f"1e-{market_info['baseDecimals']}")
+
+        bid_price_strings = data["buyBook"][0]["prices"].split(",")
+        bid_size_strings = data["buyBook"][0]["quantities"].split(",")
+        bids = [
+            (Decimal(price) * price_scaler, Decimal(size) * size_scaler)
+            for price, size in zip(bid_price_strings, bid_size_strings)
+        ]
+
+        ask_price_strings = data["sellBook"][0]["prices"].split(",")
+        ask_size_strings = data["sellBook"][0]["quantities"].split(",")
+        asks = [
+            (Decimal(price) * price_scaler, Decimal(size) * size_scaler)
+            for price, size in zip(ask_price_strings, ask_size_strings)
+        ]
+
+        timestamp = self._time()
+        update_id = self._snapshots_id_nonce_provider.get_tracking_nonce(timestamp=timestamp)
+        snapshot_msg = OrderBookMessage(
+            message_type=OrderBookMessageType.SNAPSHOT,
+            content={
+                "trading_pair": trading_pair,
+                "update_id": update_id,
+                "bids": bids,
+                "asks": asks,
+            },
+            timestamp=timestamp,
+        )
+        self._publisher.trigger_event(event_tag=OrderBookDataSourceEvent.SNAPSHOT_EVENT, message=snapshot_msg)

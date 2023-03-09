@@ -2,7 +2,7 @@
 import asyncio
 import itertools
 import time
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 
@@ -232,7 +232,10 @@ class GatewayCommand(GatewayChainApiManager):
                 available_networks: List[Dict[str, Any]] = connector_config[0]["available_networks"]
                 trading_type: str = connector_config[0]["trading_type"][0]
                 additional_spenders: List[str] = connector_config[0].get("additional_spenders", [])
-                additional_prompts: Dict[str, str] = connector_config[0].get("additional_add_wallet_prompts", {})
+                additional_prompts: Dict[str, str] = connector_config[0].get(  # These will be stored locally.
+                    "additional_add_wallet_prompts",  # If Gateway requires additional, prompts with secure info,
+                    {}  # a new attribute must be added (e.g. additional_secure_add_wallet_prompts)
+                )
 
                 # ask user to select a chain. Automatically select if there is only one.
                 chains: List[str] = [d['chain'] for d in available_networks]
@@ -286,7 +289,7 @@ class GatewayCommand(GatewayChainApiManager):
 
                 # if the user has no wallet, ask them to select one
                 if len(wallets) < 1 or chain == "near" or len(additional_prompts) != 0:
-                    wallet_address = await self._prompt_for_wallet_address(
+                    wallet_address, additional_prompt_values = await self._prompt_for_wallet_address(
                         chain=chain, network=network, additional_prompts=additional_prompts
                     )
 
@@ -332,7 +335,7 @@ class GatewayCommand(GatewayChainApiManager):
                     else:
                         while True:
                             try:
-                                wallet_address = await self._prompt_for_wallet_address(
+                                wallet_address, additional_prompt_values = await self._prompt_for_wallet_address(
                                     chain=chain, network=network, additional_prompts=additional_prompts
                                 )
                                 break
@@ -351,7 +354,15 @@ class GatewayCommand(GatewayChainApiManager):
                 self.app.clear_input()
 
                 # write wallets to Gateway connectors settings.
-                GatewayConnectionSetting.upsert_connector_spec(connector, chain, network, trading_type, wallet_address, additional_spenders)
+                GatewayConnectionSetting.upsert_connector_spec(
+                    connector_name=connector,
+                    chain=chain,
+                    network=network,
+                    trading_type=trading_type,
+                    wallet_address=wallet_address,
+                    additional_spenders=additional_spenders,
+                    additional_prompt_values=additional_prompt_values,
+                )
                 self.notify(f"The {connector} connector now uses wallet {wallet_address} on {chain}-{network}")
 
                 # update AllConnectorSettings and fee overrides.
@@ -369,7 +380,7 @@ class GatewayCommand(GatewayChainApiManager):
         chain: str,
         network: str,
         additional_prompts: Dict[str, str],
-    ) -> Optional[str]:
+    ) -> Tuple[Optional[str], Dict[str, str]]:
         self.app.clear_input()
         self.placeholder_mode = True
         wallet_private_key = await self.app.prompt(
@@ -402,7 +413,7 @@ class GatewayCommand(GatewayChainApiManager):
             chain, network, wallet_private_key, **additional_prompt_values
         )
         wallet_address: str = response["address"]
-        return wallet_address
+        return wallet_address, additional_prompt_values
 
     async def _show_gateway_connector_tokens(
             self,           # type: HummingbotApplication

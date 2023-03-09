@@ -123,7 +123,15 @@ class GatewayConnectionSetting:
         return None
 
     @staticmethod
-    def upsert_connector_spec(connector_name: str, chain: str, network: str, trading_type: str, wallet_address: str, additional_spenders: List[str]):
+    def upsert_connector_spec(
+        connector_name: str,
+        chain: str,
+        network: str,
+        trading_type: str,
+        wallet_address: str,
+        additional_spenders: List[str],
+        additional_prompt_values: Dict[str, str],
+    ):
         new_connector_spec: Dict[str, str] = {
             "connector": connector_name,
             "chain": chain,
@@ -131,6 +139,7 @@ class GatewayConnectionSetting:
             "trading_type": trading_type,
             "wallet_address": wallet_address,
             "additional_spenders": additional_spenders,
+            "additional_prompt_values": additional_prompt_values,
         }
         updated: bool = False
         connectors_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
