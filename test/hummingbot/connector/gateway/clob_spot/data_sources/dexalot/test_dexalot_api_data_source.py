@@ -4,7 +4,7 @@ import math
 import re
 from decimal import Decimal
 from typing import Any, Dict, List, Union
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pandas as pd
 from aioresponses import aioresponses
@@ -21,7 +21,10 @@ from hummingbot.connector.test_support.network_mocking_assistant import NetworkM
 from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate
+from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.trade_fee import TradeFeeBase
+from hummingbot.core.event.event_logger import EventLogger
+from hummingbot.core.event.events import OrderBookDataSourceEvent
 
 
 class DexalotAPIDataSourceTest(AbstractGatewayCLOBAPIDataSourceTests.GatewayCLOBAPIDataSourceTests):
@@ -45,30 +48,31 @@ class DexalotAPIDataSourceTest(AbstractGatewayCLOBAPIDataSourceTests.GatewayCLOB
     def exchange_quote(self) -> str:
         return self.hb_token_to_exchange_token(hb_token=self.quote)
 
+    @property
+    def expected_quote_decimals(self) -> int:
+        return 6
+
+    @property
+    def expected_base_decimals(self) -> int:
+        return 18
+
     def setUp(self) -> None:
         self.domain = "dexalot"
         self.mock_api = aioresponses()
         self.mock_api.start()
-        self.get_api_key_patch = patch(
-            target=(
-                "hummingbot.connector.gateway.clob_spot.data_sources.dexalot.dexalot_api_data_source"
-                ".DexalotAPIDataSource._get_api_key"
-            ),
-            autospec=True,
-        )
-        self.get_api_key_mock = self.get_api_key_patch.start()
         self.api_key_mock = "someAPIKey"
         self.wallet_sign_mock = "DD5113FEDED638E5500E65779613BDD3BDDBEB8EB5D86CDD3370E629B02E92CD"  # noqa: mock
-        self.get_api_key_mock.return_value = self.api_key_mock
 
         self.mocking_assistant = NetworkMockingAssistant()
+        self.ws_connect_patch = patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+        self.ws_connect_mock = self.ws_connect_patch.start()
         super().setUp()
         self.configure_signature_response()
         self.configure_ws_auth_response()
 
     def tearDown(self) -> None:
         self.mock_api.stop()
-        self.get_api_key_patch.stop()
+        self.ws_connect_patch.stop()
         super().tearDown()
 
     def configure_signature_response(self):
@@ -89,6 +93,7 @@ class DexalotAPIDataSourceTest(AbstractGatewayCLOBAPIDataSourceTests.GatewayCLOB
             "chain": "avalanche",
             "network": "dexalot",
             "wallet_address": self.account_id,
+            "additional_prompt_values": {"api_key": self.api_key_mock},
         }
         data_source = DexalotAPIDataSource(
             trading_pairs=[self.trading_pair],
@@ -121,9 +126,9 @@ class DexalotAPIDataSourceTest(AbstractGatewayCLOBAPIDataSourceTests.GatewayCLOB
                 "auctionMode": 1,
                 "makerRate": float(self.expected_maker_taker_fee_rates.maker),
                 "takerRate": float(self.expected_maker_taker_fee_rates.taker),
-                "baseDecimals": 18,
+                "baseDecimals": self.expected_base_decimals,
                 "baseDisplayDecimals": int(math.log10(1 / self.expected_min_price_increment)),
-                "quoteDecimals": 16,
+                "quoteDecimals": self.expected_quote_decimals,
                 "quoteDisplayDecimals": 3,
                 "allowedSlippagePercent": 1,
                 "addOrderPaused": False,
@@ -214,10 +219,36 @@ class DexalotAPIDataSourceTest(AbstractGatewayCLOBAPIDataSourceTests.GatewayCLOB
         ]
         self.mock_api.get(regex_url, body=json.dumps(markets_resp))
 
-    def configure_last_traded_price(
-        self, trading_pair: str, last_traded_price: Decimal, mock_ws: NetworkMockingAssistant
+    def configure_orderbook_snapshot_event(
+        self, bids: List[List[float]], asks: List[List[float]], latency: float = 0
     ):
-        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
+        self.ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        price_scaler = Decimal(f"1e{self.expected_quote_decimals}")
+        size_scaler = Decimal(f"1e{self.expected_base_decimals}")
+        resp = {  # abbreviated response
+            "data": {
+                "buyBook": [
+                    {
+                        "prices": ",".join([str(int(price * price_scaler)) for price, _ in bids]),
+                        "quantities": ",".join([str(int(size * size_scaler)) for _, size in bids]),
+                    }
+                ],
+                "sellBook": [
+                    {
+                        "prices": ",".join([str(int(price * price_scaler)) for price, _ in asks]),
+                        "quantities": ",".join([str(int(size * size_scaler)) for _, size in asks]),
+                    }
+                ],
+            },
+            "pair": self.exchange_trading_pair,
+            "type": "orderBooks",
+        }
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            self.ws_connect_mock.return_value, json.dumps(resp)
+        )
+
+    def configure_last_traded_price(self, trading_pair: str, last_traded_price: Decimal):
+        self.ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         resp = {"data": [{"execId": 1675046315,
                           "price": str(self.expected_last_traded_price),
                           "quantity": "951.14",
@@ -226,7 +257,7 @@ class DexalotAPIDataSourceTest(AbstractGatewayCLOBAPIDataSourceTests.GatewayCLOB
                 "pair": self.exchange_trading_pair,
                 "type": "lastTrade"}
         self.mocking_assistant.add_websocket_aiohttp_message(
-            mock_ws.return_value, json.dumps(resp)
+            self.ws_connect_mock.return_value, json.dumps(resp)
         )
 
     def enqueue_order_status_response(
@@ -368,15 +399,56 @@ class DexalotAPIDataSourceTest(AbstractGatewayCLOBAPIDataSourceTests.GatewayCLOB
         base, quote = split_hb_trading_pair(trading_pair=trading_pair)
         return f"{base[:-1] + base[-1].lower()}/{quote[:-1] + quote[-1].lower()}"
 
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_get_last_traded_price(self, mock_ws: AsyncMock):
+    @patch(
+        "hummingbot.connector.gateway.clob_spot.data_sources.dexalot.dexalot_api_data_source"
+        ".DexalotAPIDataSource._time"
+    )
+    def test_delivers_order_book_snapshot_events(self, time_mock: MagicMock):
+        self.async_run_with_timeout(self.data_source.stop())
+
+        data_source = self.build_api_data_source()
+        self.additional_data_sources_to_stop_on_tear_down.append(data_source)
+        data_source.min_snapshots_update_interval = 0
+        data_source.max_snapshots_update_interval = 0
+
+        snapshots_logger = EventLogger()
+
+        data_source.add_listener(
+            event_tag=OrderBookDataSourceEvent.SNAPSHOT_EVENT, listener=snapshots_logger
+        )
+
+        self.configure_orderbook_snapshot_event(bids=[[9, 1], [8, 2]], asks=[[11, 3]])
+        time_mock.return_value = self.initial_timestamp
+
+        self.async_run_with_timeout(coro=data_source.start())
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(
+            websocket_mock=self.ws_connect_mock.return_value
+        )
+
+        self.assertEqual(1, len(snapshots_logger.event_log))
+
+        snapshot_event: OrderBookMessage = snapshots_logger.event_log[0]
+
+        self.assertEqual(self.initial_timestamp, snapshot_event.timestamp)
+        self.assertEqual(2, len(snapshot_event.bids))
+        self.assertEqual(9, snapshot_event.bids[0].price)
+        self.assertEqual(1, snapshot_event.bids[0].amount)
+        self.assertEqual(1, len(snapshot_event.asks))
+        self.assertEqual(11, snapshot_event.asks[0].price)
+        self.assertEqual(3, snapshot_event.asks[0].amount)
+
+    def test_minimum_delay_between_requests_for_snapshot_events(self):
+        pass  # Dexalot streams the snapshots
+
+    def test_maximum_delay_between_requests_for_snapshot_events(self):
+        pass  # Dexalot streams the snapshots
+
+    def test_get_last_traded_price(self):
         self.configure_last_traded_price(
-            trading_pair=self.trading_pair,
-            last_traded_price=self.expected_last_traded_price,
-            mock_ws=mock_ws,
+            trading_pair=self.trading_pair, last_traded_price=self.expected_last_traded_price,
         )
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(
-            websocket_mock=mock_ws.return_value,
+            websocket_mock=self.ws_connect_mock.return_value,
         )
         last_trade_price = self.async_run_with_timeout(
             coro=self.data_source.get_last_traded_price(trading_pair=self.trading_pair)

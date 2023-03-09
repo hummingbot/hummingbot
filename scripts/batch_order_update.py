@@ -6,11 +6,11 @@ from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
-CONNECTOR = "injective_injective_mainnet"
-BASE = "INJ"
-QUOTE = "USDT"
+CONNECTOR = "dexalot_avalanche_dexalot"
+BASE = "AVAX"
+QUOTE = "USDC"
 TRADING_PAIR = combine_to_hb_trading_pair(base=BASE, quote=QUOTE)
-AMOUNT = Decimal("0.1")
+AMOUNT = Decimal("0.5")
 ORDERS_INTERVAL = 20
 PRICE_OFFSET_RATIO = Decimal("0.1")  # 10%
 

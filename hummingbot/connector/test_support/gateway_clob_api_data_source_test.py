@@ -833,8 +833,6 @@ class AbstractGatewayCLOBAPIDataSourceTests:
                 event_tag=OrderBookDataSourceEvent.SNAPSHOT_EVENT, listener=snapshots_logger
             )
 
-            self.assertEqual(1, len(self.snapshots_logger.event_log))  # the initial snapshot
-
             _, snapshot_delivered = self.configure_orderbook_snapshot(
                 timestamp=self.initial_timestamp, bids=[[9, 1], [8, 2]], asks=[[11, 3]]
             )
@@ -842,7 +840,7 @@ class AbstractGatewayCLOBAPIDataSourceTests:
             self.async_run_with_timeout(coro=data_source.start())
             self.async_run_with_timeout(coro=snapshot_delivered.wait())
 
-            self.assertEqual(1, len(self.snapshots_logger.event_log))
+            self.assertEqual(1, len(snapshots_logger.event_log))
 
             snapshot_event: OrderBookMessage = snapshots_logger.event_log[0]
 
