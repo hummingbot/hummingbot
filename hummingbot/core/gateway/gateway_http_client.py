@@ -1217,6 +1217,7 @@ class GatewayHttpClient:
                     "amount": str(order.amount),
                     "side": order.trade_type.name,
                     "orderType": order.order_type.name,
+                    "clientOrderID": order.client_order_id,
                 } for order in orders_to_create
             ]
         if len(orders_to_cancel) != 0:
