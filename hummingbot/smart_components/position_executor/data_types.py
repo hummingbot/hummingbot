@@ -66,3 +66,10 @@ class TrackedOrder:
             return self.order.executed_amount_base
         else:
             return Decimal("0")
+
+    @property
+    def cum_fees(self):
+        if self.order:
+            return self.order.cumulative_fee_paid(token=self.order.quote_asset)
+        else:
+            return Decimal("0")
