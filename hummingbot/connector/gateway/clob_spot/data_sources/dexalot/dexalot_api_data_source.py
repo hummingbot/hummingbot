@@ -18,6 +18,7 @@ from hummingbot.connector.gateway.clob_spot.data_sources.dexalot.dexalot_web_uti
 from hummingbot.connector.gateway.clob_spot.data_sources.gateway_clob_api_data_source_base import (
     GatewayCLOBAPIDataSourceBase,
 )
+from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_numeric_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -86,6 +87,22 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
     def get_supported_order_types(self) -> List[OrderType]:
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+
+    async def place_order(
+        self, order: GatewayInFlightOrder, **kwargs
+    ) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+        place_order_results = await super().batch_order_create(orders_to_create=[order])
+        result = place_order_results[0]
+        if result.exception is not None:
+            raise result.exception
+        return result.exchange_order_id, result.misc_updates
+
+    async def cancel_order(self, order: GatewayInFlightOrder) -> Tuple[bool, Optional[Dict[str, Any]]]:
+        cancel_order_results = await super().batch_order_cancel(orders_to_cancel=[order])
+        result = cancel_order_results[0]
+        if result.exception is not None:
+            raise result.exception
+        return True, result.misc_updates
 
     def get_client_order_id(
         self, is_buy: bool, trading_pair: str, hbot_order_id_prefix: str, max_id_len: Optional[int]

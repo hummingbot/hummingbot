@@ -466,7 +466,7 @@ class AbstractGatewayCLOBAPIDataSourceTests:
 
         def configure_batch_order_cancel_response(
             self,
-            timestamp: int,
+            timestamp: float,
             transaction_hash: str,
             canceled_orders: List[GatewayInFlightOrder],
         ):
@@ -656,6 +656,7 @@ class AbstractGatewayCLOBAPIDataSourceTests:
                 exchange_order_id=self.expected_buy_exchange_order_id,
                 creation_transaction_hash="someCreationHash",
             )
+            self.data_source.gateway_order_tracker.start_tracking_order(order=order)
             self.configure_cancel_order_response(
                 timestamp=self.initial_timestamp, transaction_hash=self.expected_transaction_hash
             )
@@ -699,6 +700,7 @@ class AbstractGatewayCLOBAPIDataSourceTests:
                 exchange_order_id=self.expected_buy_exchange_order_id,
                 creation_transaction_hash="someCreationHash",
             )
+            self.data_source.gateway_order_tracker.start_tracking_order(order=order)
             self.configure_cancel_order_failure_response()
 
             with self.assertRaises(ValueError):

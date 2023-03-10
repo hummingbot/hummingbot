@@ -161,6 +161,54 @@ class DexalotAPIDataSourceTest(AbstractGatewayCLOBAPIDataSourceTests.GatewayCLOB
     def get_clob_ticker_response(self, trading_pair: str, last_traded_price: Decimal) -> List[Dict[str, Any]]:
         raise NotImplementedError
 
+    def configure_place_order_response(
+        self,
+        timestamp: float,
+        transaction_hash: str,
+        exchange_order_id: str,
+        trade_type: TradeType,
+        price: Decimal,
+        size: Decimal,
+    ):
+        super().configure_batch_order_create_response(
+            timestamp=timestamp,
+            transaction_hash=transaction_hash,
+            created_orders=[
+                GatewayInFlightOrder(
+                    client_order_id=self.expected_buy_client_order_id,
+                    trading_pair=self.trading_pair,
+                    order_type=OrderType.LIMIT,
+                    trade_type=trade_type,
+                    creation_timestamp=timestamp,
+                    price=price,
+                    amount=size,
+                    exchange_order_id=exchange_order_id,
+                    creation_transaction_hash=transaction_hash,
+                )
+            ]
+        )
+
+    def configure_place_order_failure_response(self):
+        self.gateway_instance_mock.clob_batch_order_modify.return_value = {
+            "network": self.data_source.network,
+            "timestamp": self.initial_timestamp,
+            "latency": 2,
+            "txHash": None,
+        }
+
+    def configure_cancel_order_response(self, timestamp: float, transaction_hash: str):
+        super().configure_batch_order_cancel_response(
+            timestamp=timestamp, transaction_hash=transaction_hash, canceled_orders=[]
+        )
+
+    def configure_cancel_order_failure_response(self):
+        self.gateway_instance_mock.clob_batch_order_modify.return_value = {
+            "network": self.data_source.network,
+            "timestamp": self.initial_timestamp,
+            "latency": 2,
+            "txHash": None,
+        }
+
     def configure_account_balances_response(
         self,
         base_total_balance: Decimal,
