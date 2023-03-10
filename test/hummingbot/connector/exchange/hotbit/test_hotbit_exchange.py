@@ -805,7 +805,7 @@ class TestHotbitExchange(unittest.TestCase):
 
         self.assertTrue(
             self._is_logged(
-                "NETWORK",
+                "WARNING",
                 f"Error fetching status update for the order {order.client_order_id}: "
                 f"Error executing request POST "
                 f"{CONSTANTS.REST_URL_P2}{CONSTANTS.MY_TRADES_PATH_URL}. "
