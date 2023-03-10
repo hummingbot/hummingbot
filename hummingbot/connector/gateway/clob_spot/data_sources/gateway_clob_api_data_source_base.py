@@ -216,9 +216,9 @@ class GatewayCLOBAPIDataSourceBase(CLOBAPIDataSourceBase, ABC):
 
         if transaction_hash is None:
             self.logger().error("The batch order update transaction failed.")
-            exception = RuntimeError(f"The creation transaction has failed on the {self._chain} chain.")
+            exception = ValueError(f"The creation transaction has failed on the {self._chain} chain.")
 
-        transaction_hash = f"0x{transaction_hash.lower()}"
+        transaction_hash = "" if transaction_hash is None else f"0x{transaction_hash.lower()}"
 
         place_order_results = []
         for order in orders_to_create:
@@ -304,9 +304,9 @@ class GatewayCLOBAPIDataSourceBase(CLOBAPIDataSourceBase, ABC):
 
         if transaction_hash is None:
             self.logger().error("The batch order update transaction failed.")
-            exception = RuntimeError(f"The cancelation transaction has failed on the {self._chain} chain.")
+            exception = ValueError(f"The cancelation transaction has failed on the {self._chain} chain.")
 
-        transaction_hash = f"0x{transaction_hash.lower()}"
+        transaction_hash = "" if transaction_hash is None else f"0x{transaction_hash.lower()}"
 
         cancel_order_results = []
         for order in found_orders_to_cancel:
