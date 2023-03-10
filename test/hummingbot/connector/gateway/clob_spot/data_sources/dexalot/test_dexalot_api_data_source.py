@@ -114,6 +114,7 @@ class DexalotAPIDataSourceTest(AbstractGatewayCLOBAPIDataSourceTests.GatewayCLOB
         return hb_token[:-1] + hb_token[-1].lower()
 
     def get_trading_pairs_info_response(self) -> List[Dict[str, Any]]:
+        quote_display_decimals = int(math.log10(1 / self.expected_min_price_increment))
         return [
             {
                 "baseSymbol": self.exchange_base,
@@ -124,10 +125,10 @@ class DexalotAPIDataSourceTest(AbstractGatewayCLOBAPIDataSourceTests.GatewayCLOB
                 "maxTradeAmount": 50000000000,
                 "auctionPrice": 6,
                 "auctionMode": 1,
-                "makerRate": float(self.expected_maker_taker_fee_rates.maker),
-                "takerRate": float(self.expected_maker_taker_fee_rates.taker),
+                "makerRate": float(self.expected_maker_taker_fee_rates.maker * Decimal(f"1e{quote_display_decimals}")),
+                "takerRate": float(self.expected_maker_taker_fee_rates.taker * Decimal(f"1e{quote_display_decimals}")),
                 "baseDecimals": self.expected_base_decimals,
-                "baseDisplayDecimals": int(math.log10(1 / self.expected_min_price_increment)),
+                "baseDisplayDecimals": quote_display_decimals,
                 "quoteDecimals": self.expected_quote_decimals,
                 "quoteDisplayDecimals": 3,
                 "allowedSlippagePercent": 1,
@@ -144,8 +145,8 @@ class DexalotAPIDataSourceTest(AbstractGatewayCLOBAPIDataSourceTests.GatewayCLOB
                 "maxTradeAmount": 50000000000,
                 "auctionPrice": 6,
                 "auctionMode": 1,
-                "makerRate": float(self.expected_maker_taker_fee_rates.maker),
-                "takerRate": float(self.expected_maker_taker_fee_rates.taker),
+                "makerRate": float(self.expected_maker_taker_fee_rates.maker) * float(f"1e{4}"),
+                "takerRate": float(self.expected_maker_taker_fee_rates.taker) * float(f"1e{4}"),
                 "baseDecimals": 18,
                 "baseDisplayDecimals": 6,
                 "quoteDecimals": 16,
