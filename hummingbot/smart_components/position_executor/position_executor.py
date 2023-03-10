@@ -104,11 +104,14 @@ class PositionExecutor:
 
     @property
     def amount(self):
-        return self.position_config.amount
+        if self.open_order.executed_amount_base == Decimal("0"):
+            return self.position_config.amount
+        else:
+            return self.open_order.executed_amount_base
 
     @property
     def entry_price(self):
-        if not self.open_order.order or self.open_order.average_executed_price == Decimal("0"):
+        if not self.open_order.average_executed_price:
             entry_price = self.position_config.entry_price
             price = entry_price if entry_price else self.connector.get_mid_price(self.trading_pair)
         else:
@@ -142,7 +145,15 @@ class PositionExecutor:
             else:
                 return (self.entry_price - current_price) / self.entry_price
         else:
-            return 0
+            return Decimal("0")
+
+    @property
+    def pnl_usd(self):
+        return self.pnl * self.amount * self.entry_price
+
+    @property
+    def cum_fees(self):
+        return self.open_order.cum_fees + self.take_profit_order.cum_fees + self.stop_loss_order.cum_fees + self.time_limit_order.cum_fees
 
     @property
     def timestamp(self):
@@ -185,6 +196,17 @@ class PositionExecutor:
     @property
     def open_order(self):
         return self._open_order
+
+    @property
+    def close_order(self):
+        if self.status == PositionExecutorStatus.CLOSED_BY_TAKE_PROFIT:
+            return self.take_profit_order
+        elif self.status == PositionExecutorStatus.CLOSED_BY_STOP_LOSS:
+            return self.stop_loss_order
+        elif self.status == PositionExecutorStatus.CLOSED_BY_TIME_LIMIT:
+            return self.time_limit_order
+        else:
+            return None
 
     @property
     def take_profit_order(self):
@@ -437,16 +459,21 @@ class PositionExecutor:
     def to_format_status(self):
         lines = []
         current_price = self.connector.get_mid_price(self.trading_pair)
+        amount_in_quote = self.amount * self.entry_price
+        base_asset = self.trading_pair.split("-")[0]
+        quote_asset = self.trading_pair.split("-")[1]
         if self.is_closed:
             lines.extend([f"""
-| Trading Pair: {self.trading_pair} | Exchange: {self.exchange} | Side: {self.side} | Amount: {self.amount:.4f}
-| Entry price: {self.entry_price}  | Close price: {self.close_price} --> PNL: {self.pnl * 100:.2f}%
+| Trading Pair: {self.trading_pair} | Exchange: {self.exchange} | Side: {self.side} | Amount: {amount_in_quote:.4f} {quote_asset} - {self.amount:.4f} {base_asset}
+| Entry price: {self.entry_price:.4f}  | Close price: {self.close_price:.4f} --> PNL: {self.pnl * 100:.2f}%
+| Realized PNL: {self.pnl_usd:.4f} {quote_asset} | Total Fee: {self.cum_fees:.4f} {quote_asset} --> Net return: {(self.pnl_usd - self.cum_fees):.4f} {quote_asset}
 | Status: {self.status}
-        """])
+"""])
         else:
             lines.extend([f"""
-| Trading Pair: {self.trading_pair} | Exchange: {self.exchange} | Side: {self.side} | Amount: {self.amount:.4f}
-| Entry price: {self.entry_price}  | Current price: {current_price} --> PNL: {self.pnl * 100:.2f}%
+| Trading Pair: {self.trading_pair} | Exchange: {self.exchange} | Side: {self.side} | Amount: {amount_in_quote:.4f} {quote_asset} - {self.amount:.4f} {base_asset}
+| Entry price: {self.entry_price:.4f}  | Current price: {current_price:.4f} --> PNL: {self.pnl * 100:.2f}%
+| Unrealized PNL: {self.pnl_usd:.4f} {quote_asset} | Total Fee: {self.cum_fees:.4f} {quote_asset} --> Net return: {(self.pnl_usd - self.cum_fees):.4f} {quote_asset}
         """])
         time_scale = 67
         price_scale = 47
