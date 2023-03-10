@@ -495,3 +495,40 @@ class TestPositionExecutor(unittest.TestCase):
         status = position_executor.to_format_status()
         self.assertIn("Trading Pair: ETH-USDT", status[0])
         self.assertIn("PNL: 1.00%", status[0])
+
+    def test_to_format_status_is_closed(self):
+        position_config = self.get_position_config_market_long()
+        type(self.strategy).current_timestamp = PropertyMock(return_value=1234567890)
+        self.strategy.connectors[position_config.exchange].get_mid_price.return_value = Decimal(101)
+        position_executor = PositionExecutor(position_config, self.strategy)
+        position_executor.status = PositionExecutorStatus.CLOSED_BY_TAKE_PROFIT
+        type(position_executor).close_price = PropertyMock(return_value=Decimal(101))
+        status = position_executor.to_format_status()
+        self.assertIn("Trading Pair: ETH-USDT", status[0])
+        self.assertIn("PNL: 1.00%", status[0])
+
+    def test_close_order_is_none(self):
+        position_config = self.get_position_config_market_long()
+        position_executor = PositionExecutor(position_config, self.strategy)
+        self.assertIsNone(position_executor.close_order)
+
+    def test_close_order_take_profit(self):
+        position_config = self.get_position_config_market_long()
+        position_executor = PositionExecutor(position_config, self.strategy)
+        position_executor.status = PositionExecutorStatus.CLOSED_BY_TAKE_PROFIT
+        position_executor.take_profit_order.order_id = "OID-SELL-1"
+        self.assertEqual(position_executor.close_order.order_id, "OID-SELL-1")
+
+    def test_close_order_stop_loss(self):
+        position_config = self.get_position_config_market_long()
+        position_executor = PositionExecutor(position_config, self.strategy)
+        position_executor.status = PositionExecutorStatus.CLOSED_BY_STOP_LOSS
+        position_executor.stop_loss_order.order_id = "OID-SELL-1"
+        self.assertEqual(position_executor.close_order.order_id, "OID-SELL-1")
+
+    def test_close_order_time_limit(self):
+        position_config = self.get_position_config_market_long()
+        position_executor = PositionExecutor(position_config, self.strategy)
+        position_executor.status = PositionExecutorStatus.CLOSED_BY_TIME_LIMIT
+        position_executor.time_limit_order.order_id = "OID-SELL-1"
+        self.assertEqual(position_executor.close_order.order_id, "OID-SELL-1")
