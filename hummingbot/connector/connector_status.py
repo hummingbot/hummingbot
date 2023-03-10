@@ -55,6 +55,8 @@ connector_status = {
     'mad_meerkat': 'bronze',
     'vvs': 'bronze',
     'ref': 'bronze',
+    'injective': 'bronze',
+    'xsswap': 'bronze',
 }
 
 warning_messages = {
