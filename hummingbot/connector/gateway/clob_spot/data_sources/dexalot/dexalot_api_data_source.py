@@ -295,9 +295,10 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
     def _get_maker_taker_exchange_fee_rates_from_market_info(
         self, market_info: Dict[str, Any]
     ) -> MakerTakerExchangeFeeRates:
+        rate_scaler = Decimal(f"1e-{market_info['quoteDisplayDecimals']}")
         maker_taker_exchange_fee_rates = MakerTakerExchangeFeeRates(
-            maker=Decimal(str(market_info["makerRate"])),
-            taker=Decimal(str(market_info["takerRate"])),
+            maker=Decimal(str(market_info["makerRate"])) * rate_scaler / Decimal("100"),
+            taker=Decimal(str(market_info["takerRate"])) * rate_scaler / Decimal("100"),
             maker_flat_fees=[],
             taker_flat_fees=[],
         )
