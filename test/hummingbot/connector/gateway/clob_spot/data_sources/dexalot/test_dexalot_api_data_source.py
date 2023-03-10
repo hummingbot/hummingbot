@@ -11,10 +11,7 @@ from aioresponses import aioresponses
 
 from hummingbot.connector.gateway.clob_spot.data_sources.dexalot import dexalot_constants as CONSTANTS
 from hummingbot.connector.gateway.clob_spot.data_sources.dexalot.dexalot_api_data_source import DexalotAPIDataSource
-from hummingbot.connector.gateway.clob_spot.data_sources.dexalot.dexalot_constants import (
-    HB_TO_DEXALOT_NUMERIC_STATUS_MAP,
-    HB_TO_DEXALOT_STATUS_MAP,
-)
+from hummingbot.connector.gateway.clob_spot.data_sources.dexalot.dexalot_constants import HB_TO_DEXALOT_STATUS_MAP
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.test_support.gateway_clob_api_data_source_test import AbstractGatewayCLOBAPIDataSourceTests
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
@@ -337,64 +334,72 @@ class DexalotAPIDataSourceTest(AbstractGatewayCLOBAPIDataSourceTests.GatewayCLOB
         update_delivered_event = asyncio.Event()
         base_url = CONSTANTS.BASE_PATH_URL[self.domain] + CONSTANTS.ORDERS_PATH
         for order, status, i in zip(orders, statuses, range(len(orders))):
-            if status != OrderState.OPEN:  # the order is not new and it will have exchange order ID
-                regex_url = re.compile(
-                    f"^{base_url}/{order.exchange_order_id}".replace(".", r"\.").replace("?", r"\?")
+            if status == OrderState.OPEN:  # order is being created, and it doesn't have an exchange order ID
+                response = self.get_transaction_status_update(
+                    timestamp=timestamp, orders=orders, statuses=statuses
                 )
-                response = self.get_order_status_response(
-                    timestamp=timestamp,
-                    trading_pair=order.trading_pair,
-                    exchange_order_id=order.exchange_order_id or "",
-                    client_order_id=order.client_order_id,
-                    status=status,
-                )
-            else:  # order is being created and it doesn"t have an exchange order ID
-                regex_url = re.compile(f"^{base_url}?".replace(".", r"\.").replace("?", r"\?"))
-                response = {
-                    "count": len(orders),
-                    "rows": [
-                        self.get_order_status_response_row(
-                            timestamp=timestamp,
-                            trading_pair=order.trading_pair,
-                            exchange_order_id=order.exchange_order_id or "",
-                            client_order_id=order.client_order_id,
-                            status=status,
-                        ) for order, status in zip(orders, statuses)
-                    ]
-                }
+                self.gateway_instance_mock.get_transaction_status.return_value = response
+            regex_url = re.compile(
+                f"^{base_url}/{order.exchange_order_id}".replace(".", r"\.").replace("?", r"\?")
+            )
+            response = self.get_order_status_response(
+                timestamp=timestamp,
+                trading_pair=order.trading_pair,
+                exchange_order_id=order.exchange_order_id or "",
+                client_order_id=order.client_order_id,
+                status=status,
+            )
 
             callback = None if i != len(orders) - 1 else lambda *_, **__: update_delivered_event.set()
             self.mock_api.get(regex_url, body=json.dumps(response), callback=callback)
 
         return update_delivered_event
 
-    def get_order_status_response_row(
-        self,
-        timestamp: float,
-        trading_pair: str,
-        exchange_order_id: str,
-        client_order_id: str,
-        status: OrderState,
+    def get_transaction_status_update(
+        self, timestamp: float, orders: List[GatewayInFlightOrder], statuses: List[OrderState]
     ):
-        dexalot_timestamp_str = pd.Timestamp.utcfromtimestamp(timestamp).strftime(format="%Y-%m-%dT%H:%M:%S") + ".000Z"
         return {
-            "clientordid": client_order_id,
-            "env": "production-multi-subnet",
-            "id": exchange_order_id,
-            "pair": self.exchange_trading_pair_from_hb_trading_pair(trading_pair=trading_pair),
-            "price": "17.570000000000000000",
-            "quantity": "1.500000000000000000",
-            "quantityfilled": "0.000000000000000000",
-            "side": 0,  # buy
-            "status": HB_TO_DEXALOT_NUMERIC_STATUS_MAP[status],
-            "totalamount": "26.355000000000000000",
-            "totalfee": "0.070000000000000000",
-            "traderaddress": self.account_id,
-            "ts": dexalot_timestamp_str,
-            "tx": "0xa0b9af42887ddafcf80e94412601ca6b6850d3b8c7b5295ddeb2d98aee5f1c84",  # noqa: mock
-            "type": 1,  # limit
-            "type2": 0,  # GTC
-            "update_ts": dexalot_timestamp_str,
+            "txStatus": 1,
+            "timestamp": int(timestamp * 1e3),
+            "txHash": self.expected_transaction_hash,
+            "txData": {},
+            "txReceipt": {
+                "transactionHash": self.expected_transaction_hash,
+                "logs": [
+                    {
+                        "name": "OrderStatusChanged",
+                        "events": [
+                            {
+                                "name": "orderId",
+                                "type": "bytes32",
+                                "value": order.exchange_order_id,
+                            },
+                            {
+                                "name": "clientOrderId",
+                                "type": "bytes32",
+                                "value": order.client_order_id,
+                            },
+                            {
+                                "name": "price",
+                                "type": "uint256",
+                                "value": "15000000"
+                            },
+                            {
+                                "name": "quantity",
+                                "type": "uint256",
+                                "value": "500000000000000000"
+                            },
+                            {
+                                "name": "status",
+                                "type": "uint8",
+                                "value": str(CONSTANTS.HB_TO_DEXALOT_NUMERIC_STATUS_MAP[status])
+                            }
+                        ],
+                        "address": "0x09383137C1eEe3E1A8bc781228E4199f6b4A9bbf"
+                    } for order, status in zip(orders, statuses)
+                ],
+                "status": 1,
+            },
         }
 
     def get_order_status_response(

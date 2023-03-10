@@ -402,11 +402,6 @@ class AbstractGatewayCLOBAPIDataSourceTests:
             price: Decimal,
             size: Decimal,
         ):
-            transaction_hash = (
-                transaction_hash[2:]  # Gateway strips the hex prefix
-                if transaction_hash.startswith("0x")
-                else transaction_hash
-            )
             response = {
                 "network": self.data_source.network,
                 "timestamp": timestamp,
@@ -429,11 +424,6 @@ class AbstractGatewayCLOBAPIDataSourceTests:
             transaction_hash: str,
             created_orders: List[GatewayInFlightOrder],
         ):
-            transaction_hash = (
-                transaction_hash[2:]  # Gateway strips the hex prefix
-                if transaction_hash.startswith("0x")
-                else transaction_hash
-            )
             response = {
                 "network": self.data_source.network,
                 "timestamp": timestamp,
@@ -443,11 +433,6 @@ class AbstractGatewayCLOBAPIDataSourceTests:
             self.gateway_instance_mock.clob_batch_order_modify.return_value = response
 
         def configure_cancel_order_response(self, timestamp: float, transaction_hash: str):
-            transaction_hash = (
-                transaction_hash[2:]  # Gateway strips the hex prefix
-                if transaction_hash.startswith("0x")
-                else transaction_hash
-            )
             response = {
                 "network": self.data_source.network,
                 "timestamp": timestamp,
@@ -470,11 +455,6 @@ class AbstractGatewayCLOBAPIDataSourceTests:
             transaction_hash: str,
             canceled_orders: List[GatewayInFlightOrder],
         ):
-            transaction_hash = (
-                transaction_hash[2:]  # Gateway strips the hex prefix
-                if transaction_hash.startswith("0x")
-                else transaction_hash
-            )
             response = {
                 "network": self.data_source.network,
                 "timestamp": timestamp,
@@ -517,6 +497,14 @@ class AbstractGatewayCLOBAPIDataSourceTests:
             new_callable=AsyncMock,
         )
         def test_place_order(self, sleep_mock: AsyncMock):
+            def sleep_mock_side_effect(t):
+                if t == self.data_source.current_block_time:
+                    return None
+                else:
+                    raise Exception
+
+            sleep_mock.side_effect = sleep_mock_side_effect
+
             self.configure_place_order_response(
                 timestamp=self.initial_timestamp,
                 transaction_hash=self.expected_transaction_hash,
@@ -579,6 +567,14 @@ class AbstractGatewayCLOBAPIDataSourceTests:
             new_callable=AsyncMock,
         )
         def test_batch_order_create(self, sleep_mock: AsyncMock):
+            def sleep_mock_side_effect(t):
+                if t == self.data_source.current_block_time:
+                    return None
+                else:
+                    raise Exception
+
+            sleep_mock.side_effect = sleep_mock_side_effect
+
             buy_order_to_create = GatewayInFlightOrder(
                 client_order_id=self.expected_buy_client_order_id,
                 trading_pair=self.trading_pair,
@@ -676,7 +672,7 @@ class AbstractGatewayCLOBAPIDataSourceTests:
 
             self.async_run_with_timeout(coro=update_delivered_event.wait())
 
-            self.assertEqual(2, len(self.order_updates_logger.event_log))
+            self.assertEqual(1, len(self.order_updates_logger.event_log))
 
             order_status_event = self.order_updates_logger.event_log[0]
 
@@ -762,16 +758,14 @@ class AbstractGatewayCLOBAPIDataSourceTests:
 
             self.async_run_with_timeout(coro=update_delivered_event.wait())
 
-            self.assertEqual(
-                4, len(self.order_updates_logger.event_log)  # BUY OPEN, BUY CANCEL, SELL OPEN, SELL CANCEL
-            )
+            self.assertEqual(2, len(self.order_updates_logger.event_log))
 
-            buy_order_status_event = self.order_updates_logger.event_log[1]
+            buy_order_status_event = self.order_updates_logger.event_log[0]
 
             self.assertEqual(self.expected_buy_exchange_order_id, buy_order_status_event.exchange_order_id)
             self.assertEqual(OrderState.CANCELED, buy_order_status_event.new_state)
 
-            sell_order_status_event = self.order_updates_logger.event_log[3]
+            sell_order_status_event = self.order_updates_logger.event_log[1]
 
             self.assertEqual(self.expected_sell_exchange_order_id, sell_order_status_event.exchange_order_id)
             self.assertEqual(OrderState.CANCELED, sell_order_status_event.new_state)

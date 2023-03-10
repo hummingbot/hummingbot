@@ -23,7 +23,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_numeric_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.common import OrderType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.trade_fee import MakerTakerExchangeFeeRates, TokenAmount, TradeFeeBase, TradeFeeSchema
 from hummingbot.core.event.events import MarketEvent, OrderBookDataSourceEvent
@@ -136,29 +136,17 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
                 balances[token]["available_balance"] = Decimal(available_balance)
         return balances
 
-    async def get_order_status_update(self, in_flight_order: InFlightOrder) -> OrderUpdate:
+    async def get_order_status_update(self, in_flight_order: GatewayInFlightOrder) -> OrderUpdate:
         if in_flight_order.exchange_order_id is None:
-            status_update = await self._get_order_status_update_with_batch_request(in_flight_order=in_flight_order)
-        else:
-            status_update = await self._get_order_status_update_with_order_id(in_flight_order=in_flight_order)
-
-        if status_update is None:
-            raise IOError(f"No update found for order {in_flight_order.client_order_id}")
-
-        if in_flight_order.current_state == OrderState.PENDING_CREATE and status_update.new_state != OrderState.OPEN:
-            open_update = OrderUpdate(
-                trading_pair=in_flight_order.trading_pair,
-                update_timestamp=status_update.update_timestamp,
-                new_state=OrderState.OPEN,
-                client_order_id=in_flight_order.client_order_id,
-                exchange_order_id=status_update.exchange_order_id,
-            )
-            self._publisher.trigger_event(event_tag=MarketEvent.OrderUpdate, message=open_update)
+            status_update = await self._get_order_status_update_from_transaction_status(in_flight_order=in_flight_order)
+            in_flight_order.exchange_order_id = status_update.exchange_order_id
+            self._publisher.trigger_event(event_tag=MarketEvent.OrderUpdate, message=status_update)
+        status_update = await self._get_order_status_update_with_order_id(in_flight_order=in_flight_order)
         self._publisher.trigger_event(event_tag=MarketEvent.OrderUpdate, message=status_update)
 
         return status_update
 
-    async def get_all_order_fills(self, in_flight_order: InFlightOrder) -> List[TradeUpdate]:
+    async def get_all_order_fills(self, in_flight_order: GatewayInFlightOrder) -> List[TradeUpdate]:
         self._check_markets_initialized() or await self._update_markets()
 
         if in_flight_order.exchange_order_id is None:  # we still haven't received an order status update
@@ -207,56 +195,162 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
     async def _update_snapshots_loop(self):
         pass  # Dexalot streams the snapshots via websocket
 
-    async def _get_order_status_update_with_batch_request(
-        self, in_flight_order: InFlightOrder
+    async def _get_order_status_update_from_transaction_status(
+        self, in_flight_order: GatewayInFlightOrder
     ) -> Optional[OrderUpdate]:
-        status_update = None
-        page_length = 50
-        period_from = self._timestamp_to_dexalot_timestamp(
-            timestamp=in_flight_order.creation_timestamp - 1
+        """
+        Transaction not yet listed
+        {
+          "network": "dexalot",
+          "currentBlock": 1005813,
+          "timestamp": 1678431621633,
+          "txHash": "0xadaef9c4540192e45c991ffe6f12cc86be9c07b80b43487e5778d95c964405c7",  # noqa: documentation
+          "txBlock": -1,
+          "txStatus": -1,
+          "txData": null,
+          "txReceipt": null
+        }
+
+        ======================
+
+        Transaction failed (abbreviated)
+        {
+          "timestamp": 1678431839032,
+          "txHash": "0x34494d6c88e36415bbf3d1f44e648ed11bd952380743395f950c242cded147d1",  # noqa: documentation
+          "txStatus": 1,
+          "txData": {
+            ...
+          },
+          "txReceipt": {
+            "status": 0,
+          }
+        }
+
+        ======================
+
+        Transaction success (abbreviated)
+        {
+          "txStatus": 1,
+          "timestamp": 1678440295386,
+          "txHash": "0x6aca797aa30636c3285c5ecaee76fe85a9ee2ac60d74af64b8d6660a6f4f0f27",  # noqa: documentation
+          "txData": {
+            ...
+          },
+          "txReceipt": {
+            "transactionHash": "...",
+            "logs": [
+              {                                                   # SUCCESS
+                "name": "OrderStatusChanged",
+                "events": [
+                  {
+                    "name": "orderId",
+                    "type": "bytes32",
+                    "value": "0x0000000000000000000000000000000000000000000000000000000063d84143"  # noqa: documentation
+                  },
+                  {
+                    "name": "clientOrderId",
+                    "type": "bytes32",
+                    "value": "0xb71309b1a16b7903ffc817f256d1f4d42602d402bd81001feb29fd067e69013b"  # noqa: documentation
+                  },
+                  {
+                    "name": "price",
+                    "type": "uint256",
+                    "value": "15000000"
+                  },
+                  {
+                    "name": "quantity",
+                    "type": "uint256",
+                    "value": "500000000000000000"
+                  },
+                  {
+                    "name": "status",
+                    "type": "uint8",
+                    "value": "0"
+                  }
+                ],
+                "address": "0x09383137C1eEe3E1A8bc781228E4199f6b4A9bbf"
+              },
+               {                                                   # FAILED
+                "name": "OrderStatusChanged",
+                "events": [
+                  {
+                    "name": "orderId",
+                    "type": "bytes32",
+                    "value": "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: documentation
+                  },
+                  {
+                    "name": "clientOrderId",
+                    "type": "bytes32",
+                    "value": "0x936f0db5ba15ceaf9d6ee8fb6c1aeca01e67dfb3d061680a4ac3ce8ccb153072"  # noqa: documentation
+                  },
+                  {
+                    "name": "price",
+                    "type": "uint256",
+                    "value": "15000000"
+                  },
+                  {
+                    "name": "quantity",
+                    "type": "uint256",
+                    "value": "0"
+                  },
+                  {
+                    "name": "status",
+                    "type": "uint8",
+                    "value": "1"
+                  },
+                ],
+               },
+            ],
+            "status": 1,
+          },
+        }
+        """
+        transaction_data = await self._get_gateway_instance().get_transaction_status(
+            chain=self._chain,
+            network=self._network,
+            transaction_hash=in_flight_order.creation_transaction_hash,
+            connector="dexalot",
         )
-
-        done = False
-        page = 0
-        while not done:
-            page += 1
-            request_params = {
-                "itemsperpage": page_length,
-                "pageno": page,
-                "periodfrom": period_from,
-            }
-
-            resp = await self._api_get(
-                path_url=CONSTANTS.ORDERS_PATH,
-                throttler_limit_id=CONSTANTS.ORDERS_RATE_LIMIT_ID,
-                params=request_params,
-                is_auth_required=True,
+        if transaction_data["txStatus"] != -1 and transaction_data["txReceipt"]["status"] != 0:
+            order_data = self._find_order_data_from_transaction_data(
+                transaction_data=transaction_data, in_flight_order=in_flight_order
             )
-            status_update = self._parse_order_status_response_for_order_update(
-                in_flight_order=in_flight_order, response=resp
+            timestamp = transaction_data["timestamp"] * 1e-3
+            order_update = OrderUpdate(
+                trading_pair=in_flight_order.trading_pair,
+                update_timestamp=timestamp,
+                new_state=DEXALOT_TO_HB_NUMERIC_STATUS_MAP[int(order_data[-4]["value"])],
+                client_order_id=in_flight_order.client_order_id,
+                exchange_order_id=order_data[3]["value"],
             )
-            done = status_update is not None or len(resp["rows"]) < page_length
-
-        return status_update
-
-    @staticmethod
-    def _parse_order_status_response_for_order_update(
-        in_flight_order: InFlightOrder, response: Dict[str, Any]
-    ) -> Optional[OrderUpdate]:
-        order_update = None
-
-        for row in response["rows"]:
-            if row["clientordid"] == in_flight_order.client_order_id:
-                order_update = OrderUpdate(
-                    trading_pair=in_flight_order.trading_pair,
-                    update_timestamp=pd.Timestamp(row["update_ts"]).timestamp(),
-                    new_state=DEXALOT_TO_HB_NUMERIC_STATUS_MAP[row["status"]],
-                    client_order_id=in_flight_order.client_order_id,
-                    exchange_order_id=row["id"],
-                )
-                break
+        else:
+            raise ValueError(f"Transaction {in_flight_order.creation_transaction_hash} not found.")
 
         return order_update
+
+    @staticmethod
+    def _find_order_data_from_transaction_data(
+        transaction_data: Dict[str, Any], in_flight_order: GatewayInFlightOrder
+    ) -> List[Dict[str, str]]:
+        log_events = transaction_data["txReceipt"]["logs"]
+
+        order_event = None
+        i = 0
+        while i != len(log_events) and order_event is None:
+            log_event = log_events[i]
+            if log_event["name"] == "OrderStatusChanged":
+                client_order_id = log_event["events"][4]["value"]
+                if client_order_id == in_flight_order.client_order_id:
+                    order_event = log_event["events"]
+            i += 1
+
+        if order_event is None:
+            raise ValueError(
+                f"Order {in_flight_order.client_order_id}"
+                f" not found in transaction {transaction_data['txHash']} data"
+            )
+
+        return order_event
 
     async def _get_order_status_update_with_order_id(self, in_flight_order: InFlightOrder) -> Optional[OrderUpdate]:
         url = f"{CONSTANTS.ORDERS_PATH}/{in_flight_order.exchange_order_id}"
@@ -265,7 +359,7 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
         )
 
         if resp.get("message") == "":
-            status_update = None
+            raise ValueError(f"No update found for order {in_flight_order.exchange_order_id}.")
         else:
             status_update = OrderUpdate(
                 trading_pair=in_flight_order.trading_pair,
