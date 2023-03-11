@@ -127,13 +127,6 @@ amm_arb_config_map = {
         default=False,
         validator=validate_bool,
         type_str="bool"),
-    "debug_price_shim": ConfigVar(
-        key="debug_price_shim",
-        prompt="Do you want to enable the debug price shim for integration tests? If you don't know what this does "
-               "you should keep it disabled. >>> ",
-        default=False,
-        validator=validate_bool,
-        type_str="bool"),
     "gateway_transaction_cancel_interval": ConfigVar(
         key="gateway_transaction_cancel_interval",
         prompt="After what time should blockchain transactions be cancelled if they are not included in a block? "

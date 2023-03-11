@@ -31,7 +31,6 @@ from hummingbot.core.event.events import (
     TokenApprovalSuccessEvent,
     TradeType,
 )
-from hummingbot.core.gateway import check_transaction_exceptions
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils import async_ttl_cache
@@ -78,7 +77,6 @@ class GatewaySOLCLOB(ConnectorBase):
             network: str,
             wallet_address: str,
             trading_pairs: List[str] = (),
-            additional_spenders: List[str] = [],  # not implemented
             trading_required: bool = True
     ):
         """
@@ -463,31 +461,11 @@ class GatewaySOLCLOB(ConnectorBase):
             ticker = await self._get_gateway_instance().serum_get_tickers(
                 self.chain, self.network, self.connector, market_name=convert_trading_pair(trading_pair)
             )
-            gas_limit: int = constant.FIVE_THOUSAND_LAMPORTS
             gas_price_token: str = Chain.SOLANA.native_currency
             gas_cost: Decimal = constant.FIVE_THOUSAND_LAMPORTS
             price = Decimal(ticker["price"])
             self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
-            exceptions: List[str] = check_transaction_exceptions(
-                allowances=self._allowances,
-                balances=self._account_balances,
-                base_asset=base,
-                quote_asset=quote,
-                amount=amount,
-                side=side,
-                gas_limit=gas_limit,
-                gas_cost=gas_cost,
-                gas_asset=gas_price_token,
-                swaps_count=constant.DECIMAL_ZERO,
-                chain=Chain.SOLANA,
-            )
-
-            for index in range(len(exceptions)):
-                self.logger().warning(
-                    f"Warning! [{index + 1}/{len(exceptions)}] {side} order - {exceptions[index]}"
-                )
-
-            if price is not None and len(exceptions) == 0:
+            if price is not None:
                 return Decimal(str(price))
 
             # Didn't pass all the checks - no price available.

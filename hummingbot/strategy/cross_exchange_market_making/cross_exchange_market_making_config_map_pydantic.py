@@ -337,16 +337,6 @@ class CrossExchangeMarketMakingConfigMap(BaseTradingStrategyMakerTakerConfigMap)
         ),
     )
 
-    debug_price_shim: bool = Field(
-        default=False,
-        description="Usd the debug price shim to mock gateway price.",
-        client_data=ClientFieldData(
-            prompt=lambda mi: (
-                "Do you want to enable the debug price shim for integration tests? If you don't know what this does "
-                "you should keep it disabled."
-            ),
-        ),
-    )
     gateway_transaction_cancel_interval: int = Field(
         default= 600,
         description="Gateway transaction cancellation timeout.",

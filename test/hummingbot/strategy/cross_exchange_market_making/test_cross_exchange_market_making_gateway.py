@@ -317,7 +317,6 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
             'network': 'kovan',
             'trading_type': 'EVM_AMM',
             'wallet_address': '0xXXXXX',
-            'additional_spenders': []
         }
 
         return settings

@@ -87,7 +87,6 @@ class GatewayEVMAMMLP(ConnectorBase):
                  network: str,
                  address: str,
                  trading_pairs: List[str] = [],
-                 additional_spenders: List[str] = [],
                  trading_required: bool = True
                  ):
         """
@@ -104,7 +103,6 @@ class GatewayEVMAMMLP(ConnectorBase):
         self._chain = chain
         self._network = network
         self._trading_pairs = trading_pairs
-        self._all_spenders = additional_spenders
         self._all_spenders.append(self._connector_name)
         self._tokens = set()
         [self._tokens.update(set(trading_pair.split("-"))) for trading_pair in trading_pairs]

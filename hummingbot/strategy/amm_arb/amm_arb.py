@@ -10,7 +10,6 @@ from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
-from hummingbot.connector.gateway.gateway_price_shim import GatewayPriceShim
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
@@ -348,22 +347,6 @@ class AmmArbStrategy(StrategyPyBase):
             order_price: Decimal) -> str:
         place_order_fn: Callable[[MarketTradingPairTuple, Decimal, OrderType, Decimal], str] = \
             cast(Callable, self.buy_with_specific_market if is_buy else self.sell_with_specific_market)
-
-        # If I'm placing order under a gateway price shim, then the prices in the proposal are fake - I should fetch
-        # the real prices before I make the order on the gateway side. Otherwise, the orders are gonna fail because
-        # the limit price set for them will not match market prices.
-        if self.is_gateway_market(market_info):
-            slippage_buffer: Decimal = self._market_1_slippage_buffer
-            if market_info == self._market_info_2:
-                slippage_buffer = self._market_2_slippage_buffer
-            slippage_buffer_factor: Decimal = Decimal(1) + slippage_buffer
-            if not is_buy:
-                slippage_buffer_factor = Decimal(1) - slippage_buffer
-            market: GatewayEVMAMM = cast(GatewayEVMAMM, market_info.market)
-            if GatewayPriceShim.get_instance().has_price_shim(
-                    market.connector_name, market.chain, market.network, market_info.trading_pair):
-                order_price = await market.get_order_price(market_info.trading_pair, is_buy, amount, ignore_shim=True)
-                order_price *= slippage_buffer_factor
 
         return place_order_fn(market_info, amount, market_info.market.get_taker_order_type(), order_price)
 

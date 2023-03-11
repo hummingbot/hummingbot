@@ -5,11 +5,9 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, cast
 
 from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
-from hummingbot.connector.gateway.gateway_price_shim import GatewayPriceShim
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate
-from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -31,7 +29,6 @@ class GatewayNearAMM(GatewayEVMAMM):
                  network: str,
                  address: str,
                  trading_pairs: List[str] = [],
-                 additional_spenders: List[str] = [],  # not implemented
                  trading_required: bool = True
                  ):
         """
@@ -48,7 +45,6 @@ class GatewayNearAMM(GatewayEVMAMM):
                          network=network,
                          address=address,
                          trading_pairs=trading_pairs,
-                         additional_spenders=additional_spenders,
                          trading_required=trading_required)
 
     @classmethod
@@ -91,7 +87,8 @@ class GatewayNearAMM(GatewayEVMAMM):
             if tx_receipt is not None:
                 if tx_status == 1:
                     gas_used: int = tx_receipt["transaction_outcome"]["outcome"]["gas_burnt"]
-                    gas_price: Decimal = tracked_order.gas_price
+                    # replace with Near gas price implementation
+                    gas_price: int = 1
                     fee: Decimal = Decimal(str(gas_used)) * Decimal(str(gas_price)) / Decimal(str(1e24))
 
                     self.processs_trade_fill_update(tracked_order=tracked_order, fee=fee)
@@ -183,31 +180,6 @@ class GatewayNearAMM(GatewayEVMAMM):
 
         base, quote = trading_pair.split("-")
         side: TradeType = TradeType.BUY if is_buy else TradeType.SELL
-
-        # Get the price from gateway price shim for integration tests.
-        if not ignore_shim:
-            test_price: Optional[Decimal] = await GatewayPriceShim.get_instance().get_connector_price(
-                self.connector_name,
-                self.chain,
-                self.network,
-                trading_pair,
-                is_buy,
-                amount
-            )
-            if test_price is not None:
-                # Grab the gas price for test net.
-                try:
-                    resp: Dict[str, Any] = await self._get_gateway_instance().get_price(
-                        self.chain, self.network, self.connector_name, base, quote, amount, side
-                    )
-                    gas_price_token: str = resp["gasPriceToken"]
-                    gas_cost: Decimal = Decimal(resp["gasCost"])
-                    self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
-                except asyncio.CancelledError:
-                    raise
-                except Exception:
-                    pass
-                return test_price
 
         # Pull the price from gateway.
         try:
