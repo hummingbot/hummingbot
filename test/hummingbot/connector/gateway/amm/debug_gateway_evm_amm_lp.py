@@ -13,16 +13,13 @@ from contextlib import asynccontextmanager
 from decimal import Decimal
 from os.path import join, realpath
 from test.mock.http_recorder import HttpRecorder
-from typing import Generator, List, Optional
+from typing import Generator, Optional
 
-from bin import path_util  # noqa: F401
 from hummingbot.client.config.config_helpers import read_system_configs_from_yml
 from hummingbot.connector.gateway.amm.gateway_evm_amm_lp import GatewayEVMAMMLP
-from hummingbot.connector.gateway.amm.gateway_in_flight_lp_order import GatewayInFlightLPOrder
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
-    LPType,
     MarketEvent,
     RangePositionFeeCollectedEvent,
     RangePositionLiquidityAddedEvent,
@@ -92,11 +89,8 @@ class GatewayEVMAMMLPDataCollector:
 
     async def collect_testing_data(self):
         await self.collect_update_balances()
-        await self.collect_get_allowances()
         await self.collect_get_chain_info()
-        await self.collect_approval_status()
         await self.collect_get_price()
-        await self.collect_approve_token()
         await self.collect_add_liquidity()
         await self.collect_fee_collect()
         await self.collect_remove_liquidity()
@@ -106,71 +100,15 @@ class GatewayEVMAMMLPDataCollector:
         await self._connector.update_balances(on_interval=False)
         print("done")
 
-    async def collect_get_allowances(self):
-        print("Getting token allowances...\t\t", end="", flush=True)
-        await self._connector.get_allowances()
-        print("done")
-
     async def collect_get_chain_info(self):
         print("Getting chain info...\t\t", end="", flush=True)
         await self._connector.get_chain_info()
-        print("done")
-
-    async def collect_approval_status(self):
-        def create_approval_record(token_symbol: str, tx_hash: str) -> GatewayInFlightLPOrder:
-            return GatewayInFlightLPOrder(
-                client_order_id=self._connector.create_approval_order_id(token_symbol),
-                exchange_order_id=tx_hash,
-                trading_pair=token_symbol,
-                lp_type = LPType.ADD,
-                lower_price = s_decimal_0,
-                upper_price = s_decimal_0,
-                amount_0 = s_decimal_0,
-                amount_1 = s_decimal_0,
-                token_id = 0,
-                gas_price=s_decimal_0,
-                creation_timestamp=self._connector.current_timestamp
-            )
-        print("Getting token approval status...\t\t", end="", flush=True)
-        successful_records: List[GatewayInFlightLPOrder] = [
-            create_approval_record(
-                "COIN1",
-                "0x273a720fdc92554c47f409f4f74d3c262937451ccdbaddfd8d0185a9e3c64dd2"        # noqa: mock
-            ),
-            create_approval_record(
-                "COIN3",
-                "0x27d7a7156bd0afc73092602da67774aa3319adbc72213122d65480e482ce0a8b"        # noqa: mock
-            ),
-        ]
-        await self._connector.update_token_approval_status(successful_records)
-        fake_records: List[GatewayInFlightLPOrder] = [
-            create_approval_record(
-                "COIN1",
-                "0x273a720fdc92554c47f409f4f74d3c262937451ccdbaddfd8d0185a9e3c64dd1"        # noqa: mock
-            ),
-            create_approval_record(
-                "COIN3",
-                "0x27d7a7156bd0afc73092602da67774aa3319adbc72213122d65480e482ce0a8a"        # noqa: mock
-            ),
-        ]
-        await self._connector.update_token_approval_status(fake_records)
         print("done")
 
     async def collect_get_price(self):
         print("Getting current pool price...\t\t", end="", flush=True)
         await self._connector.get_price("COIN1-COIN3", "LOW")
         print("done")
-
-    async def collect_approve_token(self):
-        print("Approving tokens...")
-        coin1_in_flight_order: GatewayInFlightLPOrder = await self._connector.approve_token("COIN1")
-        coin3_in_flight_order: GatewayInFlightLPOrder = await self._connector.approve_token("COIN3")
-        print(f"\tSent COIN1 approval with txHash: {coin1_in_flight_order.exchange_order_id}")
-        print(f"\tSent COIN3 approval with txHash: {coin3_in_flight_order.exchange_order_id}")
-        while len(self._connector.approval_orders) > 0:
-            await asyncio.sleep(5)
-            await self._connector.update_token_approval_status(self._connector.approval_orders)
-        print("\tdone")
 
     async def collect_add_liquidity(self):
         print("Adding liquidity in LOW pool...")

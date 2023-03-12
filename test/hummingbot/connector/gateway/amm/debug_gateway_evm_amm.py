@@ -63,7 +63,7 @@ class GatewayEVMAMMDataCollector:
     @staticmethod
     async def load_configs():
         await read_system_configs_from_yml()
-        gateway_http_client.base_url = "https://localhost:5000"
+        gateway_http_client.base_url = "https://localhost:15888"
 
     async def wait_til_ready(self):
         print("Waiting til ready...\t\t", end="", flush=True)
@@ -92,12 +92,9 @@ class GatewayEVMAMMDataCollector:
 
     async def collect_testing_data(self):
         await self.collect_update_balances()
-        await self.collect_get_allowances()
         await self.collect_get_chain_info()
-        await self.collect_approval_status()
         await self.collect_order_status()
         await self.collect_get_price()
-        await self.collect_approve_token()
         await self.collect_buy_order()
         await self.collect_sell_order()
 
@@ -106,52 +103,9 @@ class GatewayEVMAMMDataCollector:
         await self._connector.update_balances(on_interval=False)
         print("done")
 
-    async def collect_get_allowances(self):
-        print("Getting token allowances...\t\t", end="", flush=True)
-        await self._connector.get_allowances()
-        print("done")
-
     async def collect_get_chain_info(self):
         print("Getting chain info...\t\t", end="", flush=True)
         await self._connector.get_chain_info()
-        print("done")
-
-    async def collect_approval_status(self):
-        def create_approval_record(token_symbol: str, tx_hash: str) -> GatewayInFlightOrder:
-            return GatewayInFlightOrder(
-                client_order_id=self._connector.create_approval_order_id(token_symbol),
-                exchange_order_id=tx_hash,
-                trading_pair=token_symbol,
-                order_type=OrderType.LIMIT,
-                trade_type=TradeType.BUY,
-                price=s_decimal_0,
-                amount=s_decimal_0,
-                gas_price=s_decimal_0,
-                creation_timestamp=self._connector.current_timestamp
-            )
-        print("Getting token approval status...\t\t", end="", flush=True)
-        successful_records: List[GatewayInFlightOrder] = [
-            create_approval_record(
-                "WETH",
-                "0x66b533792f45780fc38573bfd60d6043ab266471607848fb71284cd0d9eecff9"        # noqa: mock
-            ),
-            create_approval_record(
-                "DAI",
-                "0x4f81aa904fcb16a8938c0e0a76bf848df32ce6378e9e0060f7afc4b2955de405"        # noqa: mock
-            ),
-        ]
-        await self._connector.update_token_approval_status(successful_records)
-        fake_records: List[GatewayInFlightOrder] = [
-            create_approval_record(
-                "WETH",
-                "0x66b533792f45780fc38573bfd60d6043ab266471607848fb71284cd0d9eecff8"        # noqa: mock
-            ),
-            create_approval_record(
-                "DAI",
-                "0x4f81aa904fcb16a8938c0e0a76bf848df32ce6378e9e0060f7afc4b2955de404"        # noqa: mock
-            ),
-        ]
-        await self._connector.update_token_approval_status(fake_records)
         print("done")
 
     async def collect_order_status(self):
@@ -203,17 +157,6 @@ class GatewayEVMAMMDataCollector:
         await self._connector.get_quote_price("DAI-WETH", True, Decimal(1000))
         await self._connector.get_quote_price("DAI-WETH", False, Decimal(1000))
         print("done")
-
-    async def collect_approve_token(self):
-        print("Approving tokens...")
-        weth_in_flight_order: GatewayInFlightOrder = await self._connector.approve_token("WETH")
-        dai_in_flight_order: GatewayInFlightOrder = await self._connector.approve_token("DAI")
-        print(f"\tSent WETH approval with txHash: {weth_in_flight_order.exchange_order_id}")
-        print(f"\tSent DAI approval with txHash: {dai_in_flight_order.exchange_order_id}")
-        while len(self._connector.approval_orders) > 0:
-            await asyncio.sleep(5)
-            await self._connector.update_token_approval_status(self._connector.approval_orders)
-        print("\tdone")
 
     async def collect_buy_order(self):
         print("Buying DAI tokens...")

@@ -2,9 +2,7 @@ import asyncio
 import platform
 import threading
 import time
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set
-
-import pandas as pd
+from typing import TYPE_CHECKING, Callable, List, Optional, Set
 
 import hummingbot.client.settings as settings
 from hummingbot import init_logging
@@ -12,14 +10,12 @@ from hummingbot.client.command.gateway_api_manager import GatewayChainApiManager
 from hummingbot.client.config.config_helpers import get_strategy_starter_file
 from hummingbot.client.config.config_validators import validate_bool
 from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.connector.connector_status import get_connector_status, warning_messages
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.exceptions import OracleRateUnavailable
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
-from hummingbot.user.user_balances import UserBalances
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
@@ -129,57 +125,9 @@ class StartCommand(GatewayChainApiManager):
             connector: str = str(exchange)
             status: str = get_connector_status(connector)
             warning_msg: Optional[str] = warning_messages.get(connector, None)
-
-            # confirm gateway connection
-            conn_setting: settings.ConnectorSetting = settings.AllConnectorSettings.get_connector_settings()[connector]
-            if conn_setting.uses_gateway_generic_connector():
-                connector_details: Dict[str, Any] = conn_setting.conn_init_parameters()
-                if connector_details:
-                    data: List[List[str]] = [
-                        ["chain", connector_details['chain']],
-                        ["network", connector_details['network']],
-                        ["address", connector_details['address']]
-                    ]
-
-                    # check for node URL
-                    await self._test_node_url_from_gateway_config(connector_details['chain'], connector_details['network'])
-
-                    await UserBalances.instance().update_exchange_balance(connector, self.client_config_map)
-                    balances: List[str] = [
-                        f"{str(PerformanceMetrics.smart_round(v, 8))} {k}"
-                        for k, v in UserBalances.instance().all_balances(connector).items()
-                    ]
-                    data.append(["balances", ""])
-                    for bal in balances:
-                        data.append(["", bal])
-                    wallet_df: pd.DataFrame = pd.DataFrame(data=data, columns=["", f"{connector} configuration"])
-                    self.notify(wallet_df.to_string(index=False))
-
-                    if not is_quickstart:
-                        self.app.clear_input()
-                        self.placeholder_mode = True
-                        use_configuration = await self.app.prompt(prompt="Do you want to continue? (Yes/No) >>> ")
-                        self.placeholder_mode = False
-                        self.app.change_prompt(prompt=">>> ")
-
-                        if use_configuration in ["N", "n", "No", "no"]:
-                            self._in_start_check = False
-                            return
-
-                        if use_configuration not in ["Y", "y", "Yes", "yes"]:
-                            self.notify("Invalid input. Please execute the `start` command again.")
-                            self._in_start_check = False
-                            return
-
-            # Display custom warning message for specific connectors
-            elif warning_msg is not None:
+            if warning_msg is not None:
                 self.notify(f"\nConnector status: {status}\n"
                             f"{warning_msg}")
-
-            # Display warning message if the exchange connector has outstanding issues or not working
-            elif status.endswith("UNKNOWN"):
-                self.notify(f"\nConnector status: {status}. This connector has one or more issues.\n"
-                            "Refer to our Github page for more info: https://github.com/hummingbot/hummingbot")
 
         self.notify(f"\nStatus check complete. Starting '{self.strategy_name}' strategy...")
         await self.start_market_making()

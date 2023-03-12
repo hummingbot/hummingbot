@@ -53,7 +53,6 @@ class GatewayEVMAMM(ConnectorBase):
     _last_poll_timestamp: float
     _last_balance_poll_timestamp: float
     _last_est_gas_cost_reported: float
-    _allowances: Dict[str, Decimal]
     _chain_info: Dict[str, Any]
     _status_polling_task: Optional[asyncio.Task]
     _get_chain_info_task: Optional[asyncio.Task]
@@ -92,7 +91,6 @@ class GatewayEVMAMM(ConnectorBase):
         self._last_poll_timestamp = 0.0
         self._last_balance_poll_timestamp = time.time()
         self._last_est_gas_cost_reported = 0
-        self._allowances = {}
         self._chain_info = {}
         self._status_polling_task = None
         self._get_chain_info_task = None
@@ -652,7 +650,7 @@ class GatewayEVMAMM(ConnectorBase):
 
     async def update_balances(self, on_interval: bool = False):
         """
-        Calls Eth API to update total and available balances.
+        Updates wallet balances.
         """
         if self._native_currency is None:
             await self.get_chain_info()

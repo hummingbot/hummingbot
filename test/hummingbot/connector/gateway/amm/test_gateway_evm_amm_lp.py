@@ -5,7 +5,7 @@ from contextlib import ExitStack
 from decimal import Decimal
 from os.path import join, realpath
 from test.mock.http_recorder import HttpPlayer
-from typing import Dict, List
+from typing import List
 from unittest.mock import patch
 
 from aiohttp import ClientSession
@@ -102,14 +102,6 @@ class GatewayEVMAMMLPConnectorUnitTest(unittest.TestCase):
         self.assertEqual(3, len(self._connector.get_all_balances()))
         self.assertAlmostEqual(Decimal("299914.137497713523375729"), self._connector.get_balance("COIN1"))
         self.assertAlmostEqual(Decimal("599007.076157878187323412"), self._connector.get_balance("COIN3"))
-
-    @async_test(loop=ev_loop)
-    async def test_get_allowances(self):
-        big_num: Decimal = Decimal("1000000000000000000000000000")
-        allowances: Dict[str, Decimal] = await self._connector.get_allowances()
-        self.assertEqual(2, len(allowances))
-        self.assertGreater(allowances.get("uniswapLP_COIN1"), big_num)
-        self.assertGreater(allowances.get("uniswapLP_COIN3"), big_num)
 
     @async_test(loop=ev_loop)
     async def test_get_chain_info(self):

@@ -5,7 +5,7 @@ from contextlib import ExitStack
 from decimal import Decimal
 from os.path import join, realpath
 from test.mock.http_recorder import HttpPlayer
-from typing import Dict, List
+from typing import List
 from unittest.mock import patch
 
 from aiohttp import ClientSession
@@ -25,8 +25,6 @@ from hummingbot.core.event.events import (
     OrderFilledEvent,
     OrderType,
     SellOrderCreatedEvent,
-    TokenApprovalEvent,
-    TokenApprovalSuccessEvent,
     TradeType,
 )
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
@@ -71,7 +69,7 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
             )
         )
         cls._patch_stack.enter_context(cls._clock)
-        GatewayHttpClient.get_instance(client_config_map=cls._client_config_map).base_url = "https://localhost:5000"
+        GatewayHttpClient.get_instance(client_config_map=cls._client_config_map).base_url = "https://localhost:15888"
         ev_loop.run_until_complete(cls.wait_til_ready())
 
     @classmethod
@@ -110,69 +108,11 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
         self.assertAlmostEqual(Decimal("1015.242427495432379422"), self._connector.get_balance("DAI"))
 
     @async_test(loop=ev_loop)
-    async def test_get_allowances(self):
-        big_num: Decimal = Decimal("1000000000000000000000000000")
-        allowances: Dict[str, Decimal] = await self._connector.get_allowances()
-        self.assertEqual(2, len(allowances))
-        self.assertGreater(allowances.get("WETH"), big_num)
-        self.assertGreater(allowances.get("DAI"), big_num)
-
-    @async_test(loop=ev_loop)
     async def test_get_chain_info(self):
         self._connector._chain_info.clear()
         await self._connector.get_chain_info()
         self.assertGreater(len(self._connector._chain_info), 2)
         self.assertEqual("ETH", self._connector._chain_info.get("nativeCurrency"))
-
-    @async_test(loop=ev_loop)
-    async def test_update_approval_status(self):
-        def create_approval_record(token_symbol: str, tx_hash: str) -> GatewayInFlightOrder:
-            return GatewayInFlightOrder(
-                client_order_id=self._connector.create_approval_order_id(token_symbol),
-                exchange_order_id=tx_hash,
-                trading_pair=token_symbol,
-                order_type=OrderType.LIMIT,
-                trade_type=TradeType.BUY,
-                price=s_decimal_0,
-                amount=s_decimal_0,
-                gas_price=s_decimal_0,
-                creation_timestamp=self._connector.current_timestamp
-            )
-        successful_records: List[GatewayInFlightOrder] = [
-            create_approval_record(
-                "WETH",
-                "0x66b533792f45780fc38573bfd60d6043ab266471607848fb71284cd0d9eecff9"        # noqa: mock
-            ),
-            create_approval_record(
-                "DAI",
-                "0x4f81aa904fcb16a8938c0e0a76bf848df32ce6378e9e0060f7afc4b2955de405"        # noqa: mock
-            ),
-        ]
-        fake_records: List[GatewayInFlightOrder] = [
-            create_approval_record(
-                "WETH",
-                "0x66b533792f45780fc38573bfd60d6043ab266471607848fb71284cd0d9eecff8"        # noqa: mock
-            ),
-            create_approval_record(
-                "DAI",
-                "0x4f81aa904fcb16a8938c0e0a76bf848df32ce6378e9e0060f7afc4b2955de404"        # noqa: mock
-            ),
-        ]
-
-        event_logger: EventLogger = EventLogger()
-        self._connector.add_listener(TokenApprovalEvent.ApprovalSuccessful, event_logger)
-        self._connector.add_listener(TokenApprovalEvent.ApprovalFailed, event_logger)
-
-        try:
-            await self._connector.update_token_approval_status(successful_records + fake_records)
-            self.assertEqual(2, len(event_logger.event_log))
-            self.assertEqual(
-                {"WETH", "DAI"},
-                set(e.token_symbol for e in event_logger.event_log)
-            )
-        finally:
-            self._connector.remove_listener(TokenApprovalEvent.ApprovalSuccessful, event_logger)
-            self._connector.remove_listener(TokenApprovalEvent.ApprovalFailed, event_logger)
 
     @async_test(loop=ev_loop)
     async def test_update_order_status(self):
@@ -239,43 +179,6 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
         sell_price: Decimal = await self._connector.get_quote_price("DAI-WETH", False, Decimal(1000))
         self.assertEqual(Decimal("0.002684496"), buy_price)
         self.assertEqual(Decimal("0.002684496"), sell_price)
-
-    @async_test(loop=ev_loop)
-    async def test_approve_token(self):
-        self._http_player.replay_timestamp_ms = 1648499867736
-        weth_in_flight_order: GatewayInFlightOrder = await self._connector.approve_token("WETH")
-        self._http_player.replay_timestamp_ms = 1648499871595
-        dai_in_flight_order: GatewayInFlightOrder = await self._connector.approve_token("DAI")
-
-        self.assertEqual(
-            "0x6c975ba8c1d35e8542ffd05956d9ec227c1ac234ae4d5f69819aa24bae784321",       # noqa: mock
-            weth_in_flight_order.exchange_order_id
-        )
-        self.assertEqual(
-            "0x919438daa20dc2f5381fdf25b6b89a189d055b3a1d6d848c44e53dc10f49168c",       # noqa: mock
-            dai_in_flight_order.exchange_order_id
-        )
-
-        clock_task: asyncio.Task = safe_ensure_future(self.run_clock())
-        event_logger: EventLogger = EventLogger()
-        self._connector.add_listener(TokenApprovalEvent.ApprovalSuccessful, event_logger)
-
-        self._http_player.replay_timestamp_ms = 1648500060232
-        try:
-            async with timeout(10):
-                while len(event_logger.event_log) < 2:
-                    await event_logger.wait_for(TokenApprovalSuccessEvent)
-            self.assertEqual(2, len(event_logger.event_log))
-            self.assertEqual(
-                {"WETH", "DAI"},
-                set(e.token_symbol for e in event_logger.event_log)
-            )
-        finally:
-            clock_task.cancel()
-            try:
-                await clock_task
-            except asyncio.CancelledError:
-                pass
 
     @async_test(loop=ev_loop)
     async def test_buy_order(self):
