@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pandas as pd
 from aioresponses import aioresponses
 
+from hummingbot.connector.gateway.clob_spot.data_sources.clob_api_data_source_base import PlaceOrderResult
 from hummingbot.connector.gateway.clob_spot.data_sources.dexalot import dexalot_constants as CONSTANTS
 from hummingbot.connector.gateway.clob_spot.data_sources.dexalot.dexalot_api_data_source import DexalotAPIDataSource
 from hummingbot.connector.gateway.clob_spot.data_sources.dexalot.dexalot_constants import HB_TO_DEXALOT_STATUS_MAP
@@ -553,3 +554,114 @@ class DexalotAPIDataSourceTest(AbstractGatewayCLOBAPIDataSourceTests.GatewayCLOB
         self.assertEqual(OrderState.FILLED, status_update.new_state)
         self.assertEqual(in_flight_order.client_order_id, status_update.client_order_id)
         self.assertEqual(self.expected_buy_exchange_order_id, status_update.exchange_order_id)
+
+    @patch(
+        "hummingbot.connector.gateway.clob_spot.data_sources.gateway_clob_api_data_source_base"
+        ".GatewayCLOBAPIDataSourceBase._sleep",
+        new_callable=AsyncMock,
+    )
+    def test_batch_order_create_splits_order_by_max_order_create_per_batch(self, sleep_mock: AsyncMock):
+        mock_max_order_create_per_batch = 2
+
+        def sleep_mock_side_effect(delay):
+            if delay == self.data_source.current_block_time:
+                return None
+            else:
+                raise Exception
+
+        sleep_mock.side_effect = sleep_mock_side_effect
+
+        orders_to_create = []
+        for i in range(mock_max_order_create_per_batch + 1):
+            orders_to_create.append(
+                GatewayInFlightOrder(
+                    client_order_id=f"someCOID{i}",
+                    trading_pair=self.trading_pair,
+                    order_type=OrderType.LIMIT,
+                    trade_type=TradeType.BUY,
+                    creation_timestamp=self.initial_timestamp,
+                    price=self.expected_buy_order_price + Decimal("1") * i,
+                    amount=self.expected_buy_order_size,
+                    exchange_order_id=hex(int(self.expected_buy_exchange_order_id, 16) + i),
+                )
+            )
+        self.configure_batch_order_create_response(
+            timestamp=self.initial_timestamp,
+            transaction_hash=self.expected_transaction_hash,
+            created_orders=orders_to_create,
+        )
+
+        for order in orders_to_create:
+            order.exchange_order_id = None  # the orders are new
+
+        CONSTANTS.MAX_ORDER_CREATIONS_PER_BATCH = mock_max_order_create_per_batch
+        result: List[PlaceOrderResult] = self.async_run_with_timeout(
+            coro=self.data_source.batch_order_create(orders_to_create=orders_to_create)
+        )
+
+        self.assertEqual(len(orders_to_create), len(result))
+        self.assertEqual(
+            math.ceil(len(orders_to_create) / mock_max_order_create_per_batch),
+            len(self.gateway_instance_mock.clob_batch_order_modify.mock_calls),
+        )
+
+        first_call = self.gateway_instance_mock.clob_batch_order_modify.mock_calls[0]
+        second_call = self.gateway_instance_mock.clob_batch_order_modify.mock_calls[1]
+
+        self.assertEqual(
+            orders_to_create[:mock_max_order_create_per_batch], first_call.kwargs["orders_to_create"]
+        )
+        self.assertEqual(
+            orders_to_create[mock_max_order_create_per_batch:], second_call.kwargs["orders_to_create"]
+        )
+
+    @patch(
+        "hummingbot.connector.gateway.clob_spot.data_sources.gateway_clob_api_data_source_base"
+        ".GatewayCLOBAPIDataSourceBase._sleep",
+        new_callable=AsyncMock,
+    )
+    def test_batch_order_cancel_splits_order_by_max_order_cancel_per_batch(self, sleep_mock: AsyncMock):
+        mock_max_order_cancelations_per_batch = 2
+
+        orders_to_cancel = []
+        for i in range(mock_max_order_cancelations_per_batch + 1):
+            orders_to_cancel.append(
+                GatewayInFlightOrder(
+                    client_order_id=f"someCOID{i}",
+                    trading_pair=self.trading_pair,
+                    order_type=OrderType.LIMIT,
+                    trade_type=TradeType.BUY,
+                    creation_timestamp=self.initial_timestamp,
+                    price=self.expected_buy_order_price + Decimal("1") * i,
+                    amount=self.expected_buy_order_size,
+                    exchange_order_id=hex(int(self.expected_buy_exchange_order_id, 16) + i),
+                    creation_transaction_hash=f"someCreationHash{i}"
+                )
+            )
+            self.data_source.gateway_order_tracker.start_tracking_order(order=orders_to_cancel[-1])
+        self.configure_batch_order_cancel_response(
+            timestamp=self.initial_timestamp,
+            transaction_hash=self.expected_transaction_hash,
+            canceled_orders=orders_to_cancel,
+        )
+
+        CONSTANTS.MAX_ORDER_CANCELATIONS_PER_BATCH = mock_max_order_cancelations_per_batch
+        result: List[PlaceOrderResult] = self.async_run_with_timeout(
+            coro=self.data_source.batch_order_cancel(orders_to_cancel=orders_to_cancel)
+        )
+
+        self.assertEqual(len(orders_to_cancel), len(result))
+        self.assertEqual(
+            math.ceil(len(orders_to_cancel) / mock_max_order_cancelations_per_batch),
+            len(self.gateway_instance_mock.clob_batch_order_modify.mock_calls),
+        )
+
+        first_call = self.gateway_instance_mock.clob_batch_order_modify.mock_calls[0]
+        second_call = self.gateway_instance_mock.clob_batch_order_modify.mock_calls[1]
+
+        self.assertEqual(
+            orders_to_cancel[:mock_max_order_cancelations_per_batch], first_call.kwargs["orders_to_cancel"]
+        )
+        self.assertEqual(
+            orders_to_cancel[mock_max_order_cancelations_per_batch:], second_call.kwargs["orders_to_cancel"]
+        )

@@ -8,6 +8,9 @@ from hummingbot.core.data_type.in_flight_order import OrderState
 
 CONNECTOR_NAME = "dexalot"
 
+MAX_ORDER_CREATIONS_PER_BATCH = 10
+MAX_ORDER_CANCELATIONS_PER_BATCH = 15
+
 DEFAULT_DOMAIN = "mainnet"
 
 ORDERS_PATH = "/signed/orders"

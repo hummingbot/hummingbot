@@ -1,11 +1,16 @@
 import asyncio
 from collections import defaultdict
 from decimal import Decimal
+from itertools import chain
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
 
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
+from hummingbot.connector.gateway.clob_spot.data_sources.clob_api_data_source_base import (
+    CancelOrderResult,
+    PlaceOrderResult,
+)
 from hummingbot.connector.gateway.clob_spot.data_sources.dexalot import dexalot_constants as CONSTANTS
 from hummingbot.connector.gateway.clob_spot.data_sources.dexalot.dexalot_auth import DexalotAuth, WalletSigner
 from hummingbot.connector.gateway.clob_spot.data_sources.dexalot.dexalot_constants import (
@@ -27,7 +32,7 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.trade_fee import MakerTakerExchangeFeeRates, TokenAmount, TradeFeeBase, TradeFeeSchema
 from hummingbot.core.event.events import MarketEvent, OrderBookDataSourceEvent
-from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.tracking_nonce import NonceCreator
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
@@ -97,12 +102,34 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
             raise result.exception
         return result.exchange_order_id, result.misc_updates
 
+    async def batch_order_create(self, orders_to_create: List[GatewayInFlightOrder]) -> List[PlaceOrderResult]:
+        super_batch_order_create = super().batch_order_create  # https://stackoverflow.com/a/31895448/6793798
+        tasks = [
+            super_batch_order_create(
+                orders_to_create=orders_to_create[i: i + CONSTANTS.MAX_ORDER_CREATIONS_PER_BATCH]
+            )
+            for i in range(0, len(orders_to_create), CONSTANTS.MAX_ORDER_CREATIONS_PER_BATCH)
+        ]
+        results = await safe_gather(*tasks)
+        return list(chain(*results))
+
     async def cancel_order(self, order: GatewayInFlightOrder) -> Tuple[bool, Optional[Dict[str, Any]]]:
         cancel_order_results = await super().batch_order_cancel(orders_to_cancel=[order])
         result = cancel_order_results[0]
         if result.exception is not None:
             raise result.exception
         return True, result.misc_updates
+
+    async def batch_order_cancel(self, orders_to_cancel: List[GatewayInFlightOrder]) -> List[CancelOrderResult]:
+        super_batch_order_cancel = super().batch_order_cancel  # https://stackoverflow.com/a/31895448/6793798
+        tasks = [
+            super_batch_order_cancel(
+                orders_to_cancel=orders_to_cancel[i: i + CONSTANTS.MAX_ORDER_CANCELATIONS_PER_BATCH]
+            )
+            for i in range(0, len(orders_to_cancel), CONSTANTS.MAX_ORDER_CANCELATIONS_PER_BATCH)
+        ]
+        results = await safe_gather(*tasks)
+        return list(chain(*results))
 
     def get_client_order_id(
         self, is_buy: bool, trading_pair: str, hbot_order_id_prefix: str, max_id_len: Optional[int]

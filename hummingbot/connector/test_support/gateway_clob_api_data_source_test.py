@@ -611,10 +611,9 @@ class AbstractGatewayCLOBAPIDataSourceTests:
                 statuses=[OrderState.OPEN, OrderState.OPEN],
             )
 
-            buy_order_to_create.exchange_order_id = None
-            sell_order_to_create.exchange_order_id = None
             for order in orders_to_create:
                 order.exchange_order_id = None  # the orders are new
+
             result: List[PlaceOrderResult] = self.async_run_with_timeout(
                 coro=self.data_source.batch_order_create(orders_to_create=orders_to_create)
             )
