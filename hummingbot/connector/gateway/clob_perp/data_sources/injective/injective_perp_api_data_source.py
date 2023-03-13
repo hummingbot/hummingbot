@@ -36,6 +36,7 @@ from pyinjective.proto.exchange.injective_derivative_exchange_rpc_pb2 import (
     TxDetailData,
 )
 from pyinjective.proto.exchange.injective_explorer_rpc_pb2 import GetTxByTxHashResponse, StreamTxsResponse
+from pyinjective.proto.exchange.injective_oracle_rpc_pb2 import StreamPricesResponse
 
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.position import Position
@@ -48,7 +49,7 @@ from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlight
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, split_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
-from hummingbot.core.data_type.funding_info import FundingInfo
+from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.trade_fee import MakerTakerExchangeFeeRates, TokenAmount, TradeFeeBase, TradeFeeSchema
@@ -96,6 +97,14 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         self._trading_pair_to_market_id_map = bidict()
         self._denom_to_token_meta: Dict[str, TokenMeta] = {}
 
+        # Listener(s) and Loop Task(s)
+        self._update_market_info_loop_task: Optional[asyncio.Task] = None
+        self._trades_stream_listener: Optional[asyncio.Task] = None
+        self._order_listeners: Dict[str, asyncio.Task] = {}
+        self._order_books_stream_listener: Optional[asyncio.Task] = None
+        self._account_balances_stream_listener: Optional[asyncio.Task] = None
+        self._transactions_stream_listener: Optional[asyncio.Task] = None
+
         self._order_placement_lock = asyncio.Lock()
 
     def get_supported_order_types(self) -> List[OrderType]:
@@ -128,10 +137,11 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
             await self._update_account_address_and_create_order_hash_manager()
 
         # Fetches and maintains dictionary of active markets
-        self._update_market_info_loop_task = self._markets_update_task or safe_ensure_future(
+        self._update_market_info_loop_task = self._update_market_info_loop_task or safe_ensure_future(
             coro=self._update_market_info_loop()
         )
 
+        # Ensures all market info has been initialized before starting streaming tasks.
         self._update_market_info()
         self._start_streams()
 
@@ -139,8 +149,10 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         """
         Stops the event streaming.
         """
-        # TODO: Implement stop fn
-        pass
+        await self._stop_streams()
+        self._update_market_info_loop_task and self._update_market_info_loop_task.cancel()
+        self._update_market_info_loop_task = None
+        self._update_funding_info_loop_task and self
 
     def _get_gateway_instance(self) -> GatewayHttpClient:
         gateway_instance = GatewayHttpClient.get_instance(self._client_config)
@@ -189,10 +201,12 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         )
 
     async def get_trading_fees(self) -> Mapping[str, MakerTakerExchangeFeeRates]:
-        self._check_markets_initialized() or await self._update_markets()
+        self._check_markets_initialized() or await self._update_market_info()
 
         trading_fees = {}
         for trading_pair, market in self._trading_pair_to_active_perp_markets.items():
+            # Since we are using the API, we are the service provider.
+            # Reference: https://api.injective.exchange/#overview-trading-fees-and-gas
             fee_scaler = Decimal("1") - Decimal(market.service_provider_fee)
             maker_fee = Decimal(market.maker_fee_rate) * fee_scaler
             taker_fee = Decimal(market.taker_fee_rate) * fee_scaler
@@ -206,7 +220,7 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
     # region >>> Market Functions >>>
 
     async def get_symbol_map(self) -> bidict[str, str]:
-        self._check_markets_initialized() or await self._update_markets()
+        self._check_markets_initialized() or await self._update_market_info()
 
         mapping = bidict()
         for trading_pair, market in self._trading_pair_to_active_perp_markets.items():
@@ -495,7 +509,7 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         return trading_rule
 
     async def get_trading_rules(self) -> Dict[str, TradingRule]:
-        self._check_markets_initialized() or await self._update_markets()
+        self._check_markets_initialized() or await self._update_market_info()
 
         trading_rules = {
             trading_pair: self._get_trading_rule_from_market(trading_pair=trading_pair, market=market)
@@ -535,17 +549,17 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         return last_trade_price
 
     async def get_funding_info(self, trading_pair: str) -> FundingInfo:
-        self._check_markets_initialized() or await self._update_markets()
+        self._check_markets_initialized() or await self._update_market_info()
 
         market_info: DerivativeMarketInfo = self._trading_pair_to_active_perp_markets.get(trading_pair, None)
         if market_info is not None:
             last_funding_rate: Decimal = await self._request_last_funding_rate(market_info=market_info)
-            mark_price: Decimal = await self._request_oracle_price(market_info=market_info)
+            oracle_price: Decimal = await self._request_oracle_price(market_info=market_info)
             last_trade_price: Decimal = await self._request_last_trade_price(market_info=market_info)
             funding_info = FundingInfo(
                 trading_pair=trading_pair,
                 index_price=last_trade_price,  # Default to using last trade price
-                mark_price=mark_price,
+                mark_price=oracle_price,
                 next_funding_utc_timestamp=market_info.next_funding_timestamp,
                 rate=last_funding_rate,
             )
@@ -555,17 +569,9 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         market_info: DerivativeMarketInfo = self._trading_pair_to_active_perp_markets[trading_pair]
         return await self._request_last_trade_price(market_info=market_info)
 
-    async def _parse_funding_info_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        # TODO: Implement _parse_funding_info_message
-        return await super()._parse_funding_info_message(raw_message, message_queue)
-
     # endregion
 
     # region >>> Stream Tasks & Parsing Functions >>>
-
-    async def _listen_to_oracle_price_stream(self):
-        # TODO: Determine if this is necessary for FundingInfo stream
-        pass
 
     def _parse_derivative_ob_message(self, message: StreamOrdersResponse) -> OrderBookMessage:
         """
@@ -620,7 +626,7 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().exception("Unexpected error in user stream listener loop.")
+                self.logger().exception("Unexpected error in orderbook listener loop.")
             self.logger().info("Restarting order books stream.")
             stream.cancel()
 
@@ -716,8 +722,8 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().exception("Unexpected error in user stream listener loop.")
-            self.logger().info("Restarting trades stream.")
+                self.logger().exception("Unexpected error in public trade listener loop.")
+            self.logger().info("Restarting public trades stream.")
             stream.cancel()
 
     def _parse_balance_message(self, message: StreamSubaccountBalanceResponse) -> BalanceUpdateEvent:
@@ -761,7 +767,7 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().exception("Unexpected error in user stream listener loop.")
+                self.logger().exception("Unexpected error in account balance listener loop.")
             self.logger().info("Restarting account balances stream.")
             stream.cancel()
 
@@ -890,7 +896,7 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().exception("Unexpected error in user stream listener loop.")
+                self.logger().exception("Unexpected error in transaction listener loop.")
             self.logger().info("Restarting transactions stream.")
             stream.cancel()
 
@@ -951,8 +957,8 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().exception("Unexpected error in user stream listener loop.")
-            self.logger().info("Restarting orders stream.")
+                self.logger().exception("Unexpected error in user order listener loop.")
+            self.logger().info("Restarting user orders stream.")
             stream.cancel()
 
     async def _process_position_event(self, message: StreamPositionsResponse):
@@ -996,7 +1002,7 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
 
         self._publisher.trigger_event(event_tag=AccountEvent.PositionUpdate, message=position)
 
-    async def _listen_to_position_stream(self):
+    async def _listen_to_positions_stream(self):
         while True:
             market_ids: List[str] = ",".join(list(self._market_id_to_active_perp_markets.keys()))
             stream: UnaryStreamCall = await self._client.stream_derivative_positions(
@@ -1008,8 +1014,40 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().exception("Unexpected error in user stream listener loop.")
-            self.logger().info("Restarting orders stream.")
+                self.logger().exception("Unexpected error in position listener loop.")
+            self.logger().info("Restarting position stream.")
+            stream.cancel()
+
+    async def _process_funding_info_event(self, market_info: DerivativeMarketInfo, message: StreamPricesResponse):
+        trading_pair: str = combine_to_hb_trading_pair(base=market_info.oracle_base, quote=market_info.oracle_quote)
+        oracle_price: Decimal = Decimal(message.price)
+        # We need to fetch misssing information with another API call since not all info is provided in the stream.
+        last_funding_rate: Decimal = await self._request_last_funding_rate(market_info=market_info)
+        last_trade_price: Decimal = await self._request_last_trade_price(market_info=market_info)
+        funding_info = FundingInfoUpdate(
+            trading_pair=trading_pair,
+            index_price=last_trade_price,  # Default to using last trade price
+            mark_price=oracle_price,
+            next_funding_utc_timestamp=market_info.next_funding_timestamp,
+            rate=last_funding_rate,
+        )
+        self._publisher.trigger_event(event_tag=MarketEvent.FundingInfo, message=funding_info)
+
+    async def _listen_to_funding_info_stream(self, market_info: DerivativeMarketInfo):
+        while True:
+            stream: UnaryStreamCall = await self._client.stream_oracle_prices(
+                base_symbol=market_info.oracle_base,
+                quote_symbol=market_info.oracle_quote,
+                oracle_type=market_info.oracle_type
+            )
+            try:
+                async for message in stream:
+                    await self._process_funding_info_event(market_info=market_info, message=message)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().exception("Unexpected error in position listener loop.")
+            self.logger().info("Restarting position stream.")
             stream.cancel()
 
     async def _start_streams(self):
@@ -1025,7 +1063,9 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         self._transactions_stream_listener = self._transactions_stream_listener or safe_ensure_future(
             coro=self._listen_to_transactions_stream()
         )
-        # TODO: User Order Update streams & Position Streams
+        self._positions_stream_listener = self._positions_stream_listener or safe_ensure_future(
+            coro=self._listen_to_positions_stream()
+        )
         for market_id in [self._trading_pair_to_active_perp_markets[tp].market_id for tp in self._trading_pairs]:
             if market_id not in self._order_listeners:
                 self._order_listeners[market_id] = safe_ensure_future(
@@ -1033,7 +1073,18 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
                 )
 
     async def _stop_streams(self):
-        # TODO: Implement stop_streams
-        pass
+        self._trades_stream_listener and self._trades_stream_listener.cancel()
+        self._trades_stream_listener = None
+        for listener in self._order_listeners.values():
+            listener.cancel()
+        self._order_listeners = {}
+        self._order_books_stream_listener and self._order_books_stream_listener.cancel()
+        self._order_books_stream_listener = None
+        self._account_balances_stream_listener and self._account_balances_stream_listener.cancel()
+        self._account_balances_stream_listener = None
+        self._transactions_stream_listener and self._transactions_stream_listener.cancel()
+        self._transactions_stream_listener = None
+        self._positions_stream_listener and self._positions_stream_listener.cancel()
+        self._positions_stream_listener = None
 
     # endregion

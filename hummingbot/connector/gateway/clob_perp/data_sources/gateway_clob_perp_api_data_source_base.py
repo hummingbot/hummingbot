@@ -171,5 +171,5 @@ class GatewayCLOBPerpAPIDataSourceBase(ABC):
         ...
 
     @abstractmethod
-    async def _parse_funding_info_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
+    async def parse_funding_info_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         ...
