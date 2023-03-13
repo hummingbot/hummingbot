@@ -160,3 +160,11 @@ class GatewayCLOBAPIDataSourceBase(ABC):
     @abstractmethod
     async def get_trading_fees(self) -> Mapping[str, MakerTakerExchangeFeeRates]:
         ...
+
+    @abstractmethod
+    def is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
+        ...
+
+    @abstractmethod
+    def is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
+        ...

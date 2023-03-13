@@ -535,6 +535,12 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
             )
         return trading_fees
 
+    def is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
+        return str(status_update_exception).startswith("No update found for order")
+
+    def is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
+        return False
+
     def _compose_spot_order_for_local_hash_computation(self, order: GatewayInFlightOrder) -> SpotOrder:
         market = self._trading_pair_to_active_spot_markets[order.trading_pair]
         return self._composer.SpotOrder(
