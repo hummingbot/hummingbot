@@ -447,12 +447,18 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
             # update position
             for asset in update_data.get("P", []):
                 trading_pair = asset["s"]
+                try:
+                    hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(trading_pair)
+                except KeyError:
+                    # Ignore results for which their symbols is not tracked by the connector
+                    continue
+
                 side = PositionSide[asset['ps']]
-                position = self._perpetual_trading.get_position(trading_pair, side)
+                position = self._perpetual_trading.get_position(hb_trading_pair, side)
                 if position is not None:
                     amount = Decimal(asset["pa"])
                     if amount == Decimal("0"):
-                        pos_key = self._perpetual_trading.position_key(trading_pair, side)
+                        pos_key = self._perpetual_trading.position_key(hb_trading_pair, side)
                         self._perpetual_trading.remove_position(pos_key)
                     else:
                         position.update_position(position_side=PositionSide[asset["ps"]],
@@ -467,14 +473,20 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
             # total_pnl = 0
             negative_pnls_msg = ""
             for position in positions:
-                existing_position = self._perpetual_trading.get_position(position['s'], PositionSide[position['ps']])
+                trading_pair = position["s"]
+                try:
+                    hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(trading_pair)
+                except KeyError:
+                    # Ignore results for which their symbols is not tracked by the connector
+                    continue
+                existing_position = self._perpetual_trading.get_position(hb_trading_pair, PositionSide[position['ps']])
                 if existing_position is not None:
                     existing_position.update_position(position_side=PositionSide[position["ps"]],
                                                       unrealized_pnl=Decimal(position["up"]),
                                                       amount=Decimal(position["pa"]))
                 total_maint_margin_required += Decimal(position.get("mm", "0"))
                 if float(position.get("up", 0)) < 1:
-                    negative_pnls_msg += f"{position.get('s')}: {position.get('up')}, "
+                    negative_pnls_msg += f"{hb_trading_pair}: {position.get('up')}, "
             self.logger().warning("Margin Call: Your position risk is too high, and you are at risk of "
                                   "liquidation. Close your positions or add additional margin to your wallet.")
             self.logger().info(f"Margin Required: {total_maint_margin_required}. "
@@ -594,12 +606,17 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
                                             )
         for position in positions:
             trading_pair = position.get("symbol")
+            try:
+                hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(trading_pair)
+            except KeyError:
+                # Ignore results for which their symbols is not tracked by the connector
+                continue
             position_side = PositionSide[position.get("positionSide")]
             unrealized_pnl = Decimal(position.get("unRealizedProfit"))
             entry_price = Decimal(position.get("entryPrice"))
             amount = Decimal(position.get("positionAmt"))
             leverage = Decimal(position.get("leverage"))
-            pos_key = self._perpetual_trading.position_key(trading_pair, position_side)
+            pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
             if amount != 0:
                 _position = Position(
                     trading_pair=await self.trading_pair_associated_to_exchange_symbol(trading_pair),
