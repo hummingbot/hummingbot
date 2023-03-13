@@ -539,6 +539,7 @@ class AbstractGatewayCLOBAPIDataSourceTests:
 
             self.assertEqual({"creation_transaction_hash": self.expected_transaction_hash}, misc_updates)
 
+            order.update_creation_transaction_hash(self.expected_transaction_hash)
             self.async_run_with_timeout(coro=update_delivered_event.wait())
 
             self.assertEqual(self.expected_event_counts_per_new_order, len(self.order_updates_logger.event_log))
@@ -624,6 +625,8 @@ class AbstractGatewayCLOBAPIDataSourceTests:
             self.assertEqual(self.expected_sell_client_order_id, result[1].client_order_id)
             self.assertEqual({"creation_transaction_hash": self.expected_transaction_hash}, result[1].misc_updates)
 
+            for order in orders_to_create:
+                order.update_creation_transaction_hash(self.expected_transaction_hash)
             self.async_run_with_timeout(coro=update_delivered_event.wait())
 
             self.assertEqual(2 * self.expected_event_counts_per_new_order, len(self.order_updates_logger.event_log))
