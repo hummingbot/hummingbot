@@ -23,6 +23,7 @@ connector_status = {
     'coinbase_pro': 'bronze',
     'crypto_com': 'bronze',
     'dydx_perpetual': 'silver',
+    'foxbit': 'bronze',
     'gate_io': 'silver',
     'gate_io_perpetual': 'silver',
     'hitbtc': 'bronze',
