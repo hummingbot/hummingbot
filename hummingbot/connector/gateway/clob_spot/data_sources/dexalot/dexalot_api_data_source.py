@@ -135,6 +135,17 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
         results = await safe_gather(*tasks)
         return list(chain(*results))
 
+    async def batch_order_cancel(self, orders_to_cancel: List[GatewayInFlightOrder]) -> List[CancelOrderResult]:
+        super_batch_order_cancel = super().batch_order_cancel  # https://stackoverflow.com/a/31895448/6793798
+        tasks = [
+            super_batch_order_cancel(
+                orders_to_cancel=orders_to_cancel[i: i + CONSTANTS.MAX_ORDER_CANCELATIONS_PER_BATCH]
+            )
+            for i in range(0, len(orders_to_cancel), CONSTANTS.MAX_ORDER_CANCELATIONS_PER_BATCH)
+        ]
+        results = await safe_gather(*tasks)
+        return list(chain(*results))
+
     def get_client_order_id(
         self, is_buy: bool, trading_pair: str, hbot_order_id_prefix: str, max_id_len: Optional[int]
     ) -> str:
