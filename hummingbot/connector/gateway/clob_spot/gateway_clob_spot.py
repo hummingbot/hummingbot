@@ -679,6 +679,16 @@ class GatewayCLOBSPOT(ExchangePyBase):
         """Not used."""
         return False
 
+    def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
+        return self._api_data_source.is_order_not_found_during_status_update_error(
+            status_update_exception=status_update_exception
+        )
+
+    def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
+        return self._api_data_source.is_order_not_found_during_cancelation_error(
+            cancelation_exception=cancelation_exception
+        )
+
     async def _user_stream_event_listener(self):
         """Not used."""
         pass
