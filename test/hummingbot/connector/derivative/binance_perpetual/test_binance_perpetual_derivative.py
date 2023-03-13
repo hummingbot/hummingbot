@@ -193,6 +193,28 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         ]
         return positions
 
+    def _get_wrong_symbol_position_risk_api_endpoint_single_position_list(self) -> List[Dict[str, Any]]:
+        positions = [
+            {
+                "symbol": f"{self.symbol}_230331",
+                "positionAmt": "1",
+                "entryPrice": "10",
+                "markPrice": "11",
+                "unRealizedProfit": "1",
+                "liquidationPrice": "100",
+                "leverage": "1",
+                "maxNotionalValue": "9",
+                "marginType": "cross",
+                "isolatedMargin": "0",
+                "isAutoAddMargin": "false",
+                "positionSide": "BOTH",
+                "notional": "11",
+                "isolatedWallet": "0",
+                "updateTime": int(self.start_timestamp),
+            }
+        ]
+        return positions
+
     def _get_account_update_ws_event_single_position_dict(self) -> Dict[str, Any]:
         account_update = {
             "e": "ACCOUNT_UPDATE",
@@ -206,6 +228,32 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
                 "P": [
                     {
                         "s": self.symbol,
+                        "pa": "1",
+                        "ep": "10",
+                        "cr": "200",
+                        "up": "1",
+                        "mt": "cross",
+                        "iw": "0.00000000",
+                        "ps": "BOTH",
+                    },
+                ],
+            },
+        }
+        return account_update
+
+    def _get_wrong_symbol_account_update_ws_event_single_position_dict(self) -> Dict[str, Any]:
+        account_update = {
+            "e": "ACCOUNT_UPDATE",
+            "E": 1564745798939,
+            "T": 1564745798938,
+            "a": {
+                "m": "POSITION",
+                "B": [
+                    {"a": "USDT", "wb": "122624.12345678", "cw": "100.12345678", "bc": "50.12345678"},
+                ],
+                "P": [
+                    {
+                        "s": f"{self.symbol}_230331",
                         "pa": "1",
                         "ep": "10",
                         "cr": "200",
@@ -324,6 +372,23 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(len(self.exchange.account_positions), 1)
         pos = list(self.exchange.account_positions.values())[0]
         self.assertEqual(pos.trading_pair.replace("-", ""), self.symbol)
+
+    @aioresponses()
+    def test_wrong_symbol_position_detected_on_positions_update(self, req_mock):
+        self._simulate_trading_rules_initialized()
+
+        url = web_utils.rest_url(
+            CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION_V2
+        )
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        positions = self._get_wrong_symbol_position_risk_api_endpoint_single_position_list()
+        req_mock.get(regex_url, body=json.dumps(positions))
+
+        task = self.ev_loop.create_task(self.exchange._update_positions())
+        self.async_run_with_timeout(task)
+
+        self.assertEqual(len(self.exchange.account_positions), 0)
 
     @aioresponses()
     def test_account_position_updated_on_positions_update(self, req_mock):
@@ -489,6 +554,35 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         account_update = self._get_account_update_ws_event_single_position_dict()
         account_update["a"]["P"][0]["pa"] = 0
         self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(account_update))
+
+        self.ev_loop.create_task(self.exchange._user_stream_event_listener())
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+
+        self.assertEqual(len(self.exchange.account_positions), 0)
+
+    @aioresponses()
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_wrong_symbol_new_account_position_detected_on_stream_event(self, mock_api, ws_connect_mock):
+        self._simulate_trading_rules_initialized()
+        url = web_utils.rest_url(CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        listen_key_response = {"listenKey": self.listen_key}
+        mock_api.post(regex_url, body=json.dumps(listen_key_response))
+
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        self.ev_loop.create_task(self.exchange._user_stream_tracker.start())
+
+        self.assertEqual(len(self.exchange.account_positions), 0)
+
+        account_update = self._get_wrong_symbol_account_update_ws_event_single_position_dict()
+        self.mocking_assistant.add_websocket_aiohttp_message(ws_connect_mock.return_value, json.dumps(account_update))
+
+        url = web_utils.rest_url(
+            CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION_V2
+        )
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        positions = self._get_position_risk_api_endpoint_single_position_list()
+        mock_api.get(regex_url, body=json.dumps(positions))
 
         self.ev_loop.create_task(self.exchange._user_stream_event_listener())
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
@@ -1121,14 +1215,14 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertRaises(asyncio.CancelledError, self.async_run_with_timeout, self.test_task)
 
     def test_margin_call_event(self):
-
+        self._simulate_trading_rules_initialized()
         margin_call = {
             "e": "MARGIN_CALL",
             "E": 1587727187525,
             "cw": "3.16812045",
             "p": [
                 {
-                    "s": "ETHUSDT",
+                    "s": self.symbol,
                     "ps": "LONG",
                     "pa": "1.327",
                     "mt": "CROSSED",
@@ -1156,7 +1250,46 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         ))
         self.assertTrue(self._is_logged(
             "INFO",
-            "Margin Required: 1.614445. Negative PnL assets: ETHUSDT: -1.166074, ."
+            f"Margin Required: 1.614445. Negative PnL assets: {self.trading_pair}: -1.166074, ."
+        ))
+
+    def test_wrong_symbol_margin_call_event(self):
+        self._simulate_trading_rules_initialized()
+        margin_call = {
+            "e": "MARGIN_CALL",
+            "E": 1587727187525,
+            "cw": "3.16812045",
+            "p": [
+                {
+                    "s": f"{self.symbol}_230331",
+                    "ps": "LONG",
+                    "pa": "1.327",
+                    "mt": "CROSSED",
+                    "iw": "0",
+                    "mp": "187.17127",
+                    "up": "-1.166074",
+                    "mm": "1.614445"
+                }
+            ]
+        }
+
+        mock_user_stream = AsyncMock()
+        mock_user_stream.get.side_effect = functools.partial(self._return_calculation_and_set_done_event,
+                                                             lambda: margin_call)
+
+        self.exchange._user_stream_tracker._user_stream = mock_user_stream
+
+        self.test_task = asyncio.get_event_loop().create_task(self.exchange._user_stream_event_listener())
+        self.async_run_with_timeout(self.resume_test_event.wait())
+
+        self.assertTrue(self._is_logged(
+            "WARNING",
+            "Margin Call: Your position risk is too high, and you are at risk of liquidation. "
+            "Close your positions or add additional margin to your wallet."
+        ))
+        self.assertTrue(self._is_logged(
+            "INFO",
+            "Margin Required: 0. Negative PnL assets: ."
         ))
 
     @aioresponses()
