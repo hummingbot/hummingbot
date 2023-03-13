@@ -84,6 +84,14 @@ class GatewayCLOBAPIDataSourceBase(CLOBAPIDataSourceBase, ABC):
         ...
 
     @abstractmethod
+    def is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
+        ...
+
+    @abstractmethod
+    def is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
+        ...
+
+    @abstractmethod
     def _parse_trading_rule(self, trading_pair: str, market_info: Dict[str, Any]) -> TradingRule:
         ...
 

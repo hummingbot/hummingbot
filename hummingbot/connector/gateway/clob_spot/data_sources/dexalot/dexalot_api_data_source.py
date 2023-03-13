@@ -192,6 +192,15 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
     async def get_last_traded_price(self, trading_pair: str) -> Decimal:
         return self._last_traded_price_map[trading_pair]
 
+    def is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
+        return (
+            str(status_update_exception).endswith("not found")  # transaction not found
+            or str(status_update_exception).startswith("No update found for order")  # status update not found
+        )
+
+    def is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
+        return False
+
     async def _update_snapshots_loop(self):
         pass  # Dexalot streams the snapshots via websocket
 
