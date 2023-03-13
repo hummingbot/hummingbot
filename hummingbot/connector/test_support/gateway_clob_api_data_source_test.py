@@ -229,6 +229,10 @@ class AbstractGatewayCLOBAPIDataSourceTests:
         def expected_available_balance(self) -> Decimal:
             return Decimal("19")
 
+        @property
+        def expected_event_counts_per_new_order(self) -> int:
+            return 1
+
         @classmethod
         def setUpClass(cls) -> None:
             super().setUpClass()
@@ -497,8 +501,8 @@ class AbstractGatewayCLOBAPIDataSourceTests:
             new_callable=AsyncMock,
         )
         def test_place_order(self, sleep_mock: AsyncMock):
-            def sleep_mock_side_effect(t):
-                if t == self.data_source.current_block_time:
+            def sleep_mock_side_effect(delay):
+                if delay == self.data_source.current_block_time:
                     return None
                 else:
                     raise Exception
@@ -537,9 +541,9 @@ class AbstractGatewayCLOBAPIDataSourceTests:
 
             self.async_run_with_timeout(coro=update_delivered_event.wait())
 
-            self.assertEqual(1, len(self.order_updates_logger.event_log))
+            self.assertEqual(self.expected_event_counts_per_new_order, len(self.order_updates_logger.event_log))
 
-            order_status_event = self.order_updates_logger.event_log[0]
+            order_status_event = self.order_updates_logger.event_log[self.expected_event_counts_per_new_order - 1]
 
             self.assertEqual(self.expected_buy_exchange_order_id, order_status_event.exchange_order_id)
             self.assertEqual(OrderState.OPEN, order_status_event.new_state)
@@ -567,8 +571,8 @@ class AbstractGatewayCLOBAPIDataSourceTests:
             new_callable=AsyncMock,
         )
         def test_batch_order_create(self, sleep_mock: AsyncMock):
-            def sleep_mock_side_effect(t):
-                if t == self.data_source.current_block_time:
+            def sleep_mock_side_effect(delay):
+                if delay == self.data_source.current_block_time:
                     return None
                 else:
                     raise Exception
@@ -623,14 +627,16 @@ class AbstractGatewayCLOBAPIDataSourceTests:
 
             self.async_run_with_timeout(coro=update_delivered_event.wait())
 
-            self.assertEqual(2, len(self.order_updates_logger.event_log))
+            self.assertEqual(2 * self.expected_event_counts_per_new_order, len(self.order_updates_logger.event_log))
 
-            buy_order_status_event = self.order_updates_logger.event_log[0]
+            buy_order_status_event = self.order_updates_logger.event_log[self.expected_event_counts_per_new_order - 1]
 
             self.assertEqual(self.expected_buy_exchange_order_id, buy_order_status_event.exchange_order_id)
             self.assertEqual(OrderState.OPEN, buy_order_status_event.new_state)
 
-            sell_order_status_event = self.order_updates_logger.event_log[1]
+            sell_order_status_event = self.order_updates_logger.event_log[
+                2 * self.expected_event_counts_per_new_order - 1
+            ]
 
             self.assertEqual(self.expected_sell_exchange_order_id, sell_order_status_event.exchange_order_id)
             self.assertEqual(OrderState.OPEN, sell_order_status_event.new_state)
@@ -675,11 +681,6 @@ class AbstractGatewayCLOBAPIDataSourceTests:
             self.assertEqual(1, len(self.order_updates_logger.event_log))
 
             order_status_event = self.order_updates_logger.event_log[0]
-
-            self.assertEqual(self.expected_buy_exchange_order_id, order_status_event.exchange_order_id)
-            self.assertEqual(OrderState.OPEN, order_status_event.new_state)
-
-            order_status_event = self.order_updates_logger.event_log[1]
 
             self.assertEqual(self.expected_buy_exchange_order_id, order_status_event.exchange_order_id)
             self.assertEqual(OrderState.CANCELED, order_status_event.new_state)

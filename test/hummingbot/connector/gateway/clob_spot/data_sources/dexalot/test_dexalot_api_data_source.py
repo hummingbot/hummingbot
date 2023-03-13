@@ -53,6 +53,10 @@ class DexalotAPIDataSourceTest(AbstractGatewayCLOBAPIDataSourceTests.GatewayCLOB
     def expected_base_decimals(self) -> int:
         return 18
 
+    @property
+    def expected_event_counts_per_new_order(self) -> int:
+        return 2
+
     def setUp(self) -> None:
         self.domain = "dexalot"
         self.mock_api = aioresponses()
@@ -369,6 +373,9 @@ class DexalotAPIDataSourceTest(AbstractGatewayCLOBAPIDataSourceTests.GatewayCLOB
                     {
                         "name": "OrderStatusChanged",
                         "events": [
+                            {},  # version
+                            {},  # traderaddress
+                            {},  # pair
                             {
                                 "name": "orderId",
                                 "type": "bytes32",
@@ -384,16 +391,23 @@ class DexalotAPIDataSourceTest(AbstractGatewayCLOBAPIDataSourceTests.GatewayCLOB
                                 "type": "uint256",
                                 "value": "15000000"
                             },
+                            {},  # totalamount
                             {
                                 "name": "quantity",
                                 "type": "uint256",
                                 "value": "500000000000000000"
                             },
+                            {},  # side
+                            {},  # type1
+                            {},  # type2
                             {
                                 "name": "status",
                                 "type": "uint8",
                                 "value": str(CONSTANTS.HB_TO_DEXALOT_NUMERIC_STATUS_MAP[status])
-                            }
+                            },
+                            {},  # quantityfilled
+                            {},  # totalfee
+                            {},  # code
                         ],
                         "address": "0x09383137C1eEe3E1A8bc781228E4199f6b4A9bbf"
                     } for order, status in zip(orders, statuses)
