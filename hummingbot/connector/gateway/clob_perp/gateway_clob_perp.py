@@ -18,11 +18,12 @@ from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativ
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import PositionAction, PositionMode, TradeType
+from hummingbot.core.data_type.funding_info import FundingInfoUpdate
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.perpetual_api_order_book_data_source import PerpetualAPIOrderBookDataSource
 from hummingbot.core.data_type.trade_fee import MakerTakerExchangeFeeRates, TradeFeeBase
 from hummingbot.core.event.event_forwarder import EventForwarder
-from hummingbot.core.event.events import AccountEvent, BalanceUpdateEvent, FundingInfoEvent, MarketEvent
+from hummingbot.core.event.events import AccountEvent, BalanceUpdateEvent, MarketEvent
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.web_assistant.auth import AuthBase
 
@@ -391,15 +392,6 @@ class GatewayCLOBPerpetual(PerpetualDerivativePyBase):
 
         return cancelled
 
-    async def _init_funding_info(self):
-        for trading_pair in self.trading_pairs:
-            funding_info = await self._api_data_source.get_funding_info(trading_pair)
-            self._perpetual_trading.initialize_funding_info(funding_info)
-
-    async def _listen_for_funding_info(self):
-        await self._init_funding_info()
-        await self._api_data_source.listen_for_funding_info(output=self._perpetual_trading.funding_info_stream)
-
     def _process_trade_update(self, trade_update: TradeUpdate):
         self._last_received_message_timestamp = self._time()
         self._order_tracker.process_trade_update(trade_update)
@@ -415,10 +407,6 @@ class GatewayCLOBPerpetual(PerpetualDerivativePyBase):
         if balance_event.available_balance is not None:
             self._account_available_balances[balance_event.asset_name] = balance_event.available_balance
 
-    def _process_funding_info_event(self, funding_info_event: FundingInfoEvent):
-        self._last_received_message_timestamp = self._time()
-        self._perpetual_trading.initialize_funding_info(funding_info_event.funding_info)
-
     def _process_position_update_event(self, position_update_event: Position):
         self._last_received_message_timestamp = self._time()
         position_key = self._perpetual_trading.position_key(
@@ -430,7 +418,7 @@ class GatewayCLOBPerpetual(PerpetualDerivativePyBase):
             )
             leverage: Decimal = (
                 # If event leverage is set to -1, the initial leverage is used. This is for specific cases when the
-                # DataSource does not provide any leverage information in the position stream
+                # DataSource does not provide any leverage information in the position stream response
                 position.leverage if position_update_event.leverage == Decimal("-1") else position_update_event.leverage
             )
             position.update_position(
@@ -443,3 +431,7 @@ class GatewayCLOBPerpetual(PerpetualDerivativePyBase):
             )
         else:
             self._perpetual_trading.remove_position(post_key=position_key)
+
+    def _process_funding_info_event(self, funding_info_event: FundingInfoUpdate):
+        self._last_received_message_timestamp = self._time()
+        self._perpetual_trading.funding_info_stream.put_nowait(funding_info_event)
