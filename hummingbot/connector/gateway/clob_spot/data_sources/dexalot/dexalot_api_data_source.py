@@ -164,6 +164,7 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
         return balances
 
     async def get_order_status_update(self, in_flight_order: GatewayInFlightOrder) -> OrderUpdate:
+        await in_flight_order.get_creation_transaction_hash()
         if in_flight_order.exchange_order_id is None:
             status_update = await self._get_order_status_update_from_transaction_status(in_flight_order=in_flight_order)
             in_flight_order.exchange_order_id = status_update.exchange_order_id
@@ -347,7 +348,11 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
             transaction_hash=in_flight_order.creation_transaction_hash,
             connector="dexalot",
         )
-        if transaction_data["txStatus"] != -1 and transaction_data["txReceipt"]["status"] != 0:
+        if (
+            transaction_data is not None
+            and transaction_data["txStatus"] != -1
+            and transaction_data["txReceipt"]["status"] != 0
+        ):
             order_data = self._find_order_data_from_transaction_data(
                 transaction_data=transaction_data, in_flight_order=in_flight_order
             )
