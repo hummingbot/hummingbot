@@ -145,6 +145,12 @@ class GatewayCLOBSPOT(ExchangePyBase):
     def trading_fees(self) -> Mapping[str, MakerTakerExchangeFeeRates]:
         return deepcopy(self._trading_fees)
 
+    @property
+    def status_dict(self) -> Dict[str, bool]:
+        sd = super().status_dict
+        sd["api_data_source_initialized"] = self._api_data_source.ready
+        return sd
+
     async def start_network(self):
         await self._api_data_source.start()
         await super().start_network()

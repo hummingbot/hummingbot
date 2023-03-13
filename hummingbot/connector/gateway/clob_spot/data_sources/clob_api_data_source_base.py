@@ -192,6 +192,10 @@ class CLOBAPIDataSourceBase(ABC):
     def gateway_order_tracker(self):
         return self._gateway_order_tracker
 
+    @property
+    def ready(self) -> bool:
+        return self._check_markets_initialized()
+
     @gateway_order_tracker.setter
     def gateway_order_tracker(self, tracker: GatewayOrderTracker):
         if self._gateway_order_tracker is not None:
