@@ -526,7 +526,7 @@ class InjectiveAPIDataSource(CLOBAPIDataSourceBase):
         self._check_markets_initialized() or await self._update_markets()
 
         trading_fees = {}
-        for trading_pair, market in self._trading_pair_to_active_spot_markets.items():
+        for trading_pair, market in self._markets_info.items():
             fee_scaler = Decimal("1") - Decimal(market.service_provider_fee)
             maker_fee = Decimal(market.maker_fee_rate) * fee_scaler
             taker_fee = Decimal(market.taker_fee_rate) * fee_scaler
@@ -741,7 +741,7 @@ class InjectiveAPIDataSource(CLOBAPIDataSourceBase):
         self._publisher.trigger_event(event_tag=OrderBookDataSourceEvent.TRADE_EVENT, message=trade_msg)
 
         exchange_order_id = trade.trade.order_hash
-        tracked_order = self._gateway_order_tracker.all_fillable_orders_by_exchange_id.get(exchange_order_id)
+        tracked_order = self._gateway_order_tracker.all_fillable_orders_by_exchange_order_id.get(exchange_order_id)
         client_order_id = "" if tracked_order is None else tracked_order.client_order_id
 
         trade_update = self._parse_backend_trade(
@@ -785,7 +785,7 @@ class InjectiveAPIDataSource(CLOBAPIDataSourceBase):
         timestamp: 1669198784000
         """
         order_hash = order.order.order_hash
-        in_flight_order = self._gateway_order_tracker.all_fillable_orders_by_exchange_id.get(order_hash)
+        in_flight_order = self._gateway_order_tracker.all_fillable_orders_by_exchange_order_id.get(order_hash)
         if in_flight_order is not None:
             market_id = order.order.market_id
             trading_pair = self._get_trading_pair_from_market_id(market_id=market_id)
