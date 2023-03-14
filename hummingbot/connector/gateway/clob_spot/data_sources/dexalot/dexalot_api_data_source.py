@@ -351,6 +351,7 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
         if (
             transaction_data is not None
             and transaction_data["txStatus"] != -1
+            and transaction_data["txReceipt"] is not None
             and transaction_data["txReceipt"]["status"] != 0
         ):
             order_data = self._find_order_data_from_transaction_data(
