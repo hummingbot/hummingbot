@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from hummingbot.connector.connector_base import ConnectorBase
     from hummingbot.connector.gateway.clob_spot.data_sources.clob_api_data_source_base import CLOBAPIDataSourceBase
 
+
 # Global variables
 required_exchanges: Set[str] = set()
 requried_connector_trading_pairs: Dict[str, List[str]] = {}
@@ -218,7 +219,7 @@ class ConnectorSetting(NamedTuple):
             file_name = self.module_name().split('.')[-1]
             splited_name = file_name.split('_')
             for i in range(len(splited_name)):
-                if splited_name[i] in ['evm', 'amm', 'clob', 'lp', 'sol', 'spot']:
+                if splited_name[i] in ['evm', 'amm', 'clob', 'lp', 'sol', 'spot', 'perp']:
                     splited_name[i] = splited_name[i].upper()
                 else:
                     splited_name[i] = splited_name[i].capitalize()
@@ -491,7 +492,7 @@ class AllConnectorSettings:
     def get_exchange_names(cls) -> Set[str]:
         return {
             cs.name for cs in cls.get_connector_settings().values()
-            if cs.type in [ConnectorType.Exchange, ConnectorType.CLOB_SPOT]
+            if cs.type in [ConnectorType.Exchange, ConnectorType.CLOB_SPOT, ConnectorType.CLOB_PERP]
         }.union(set(PAPER_TRADE_EXCHANGES))
 
     @classmethod

@@ -1109,6 +1109,7 @@ class GatewayHttpClient:
         price: Decimal,
         size: Decimal,
         client_order_id: Optional[str] = None,
+        leverage: Optional[int] = None
     ) -> Dict[str, Any]:
         request_payload = {
             "connector": connector,
@@ -1123,6 +1124,10 @@ class GatewayHttpClient:
         }
         if client_order_id is not None:
             request_payload["clientOrderID"] = client_order_id
+        if leverage is not None:
+            request_payload.update({
+                "leverage": leverage
+            })
         resp = await self.api_request(method="post", path_url="clob/orders", params=request_payload)
         return resp
 
@@ -1242,4 +1247,36 @@ class GatewayHttpClient:
         }
         return await self.api_request("post", "injective/balances", request_payload)
 
-    # TODO: Include new perp route wrapper functions
+    async def clob_perp_funding_rates(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        trading_pair: str
+    ):
+        request_payload = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "market": trading_pair
+        }
+        return await self.api_request("get", "clob/perp/funding/rates", request_payload)
+
+    async def clob_perp_funding_payments(
+        self,
+        address: str,
+        chain: str,
+        connector: str,
+        network: str,
+        trading_pair: str,
+        **kwargs
+    ):
+        request_payload = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "market": trading_pair,
+            "address": address
+        }
+        request_payload.update(kwargs)
+        return await self.api_request("get", "clob/perp/funding/payments", request_payload)
