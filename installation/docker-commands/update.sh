@@ -106,6 +106,8 @@ execute_docker () {
    --network host \
    --name ${INSTANCES[$j]} \
     -v ${FOLDERS[$j]}/conf:/conf \
+    -v ${FOLDERS[$j]}/conf/connectors:/conf/connectors \
+    -v ${FOLDERS[$j]}/conf/strategies:/conf/strategies \
     -v ${FOLDERS[$j]}/logs:/logs \
     -v ${FOLDERS[$j]}/data:/data \
     -v ${FOLDERS[$j]}/pmm-scripts:/pmm-scripts \
