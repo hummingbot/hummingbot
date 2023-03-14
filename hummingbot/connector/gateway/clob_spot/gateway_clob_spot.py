@@ -1,4 +1,5 @@
 import asyncio
+import math
 from copy import deepcopy
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple
@@ -599,10 +600,13 @@ class GatewayCLOBSPOT(ExchangePyBase):
         cancelled, misc_order_updates = await self._api_data_source.cancel_order(order=order)
 
         if cancelled:
+            update_timestamp = self.current_timestamp
+            if update_timestamp is None or math.isnan(update_timestamp):
+                update_timestamp = self._time()
             order_update: OrderUpdate = OrderUpdate(
                 client_order_id=order.client_order_id,
                 trading_pair=order.trading_pair,
-                update_timestamp=self.current_timestamp,
+                update_timestamp=update_timestamp,
                 new_state=(OrderState.CANCELED
                            if self.is_cancel_request_in_exchange_synchronous
                            else OrderState.PENDING_CANCEL),
