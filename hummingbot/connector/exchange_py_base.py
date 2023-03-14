@@ -3,7 +3,7 @@ import copy
 import logging
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, AsyncIterable, Callable, Dict, List, Optional, Tuple
 
 from async_timeout import timeout
 
@@ -162,10 +162,7 @@ class ExchangePyBase(ExchangeBase, ABC):
 
     @property
     def limit_orders(self) -> List[LimitOrder]:
-        return [
-            in_flight_order.to_limit_order()
-            for in_flight_order in self.in_flight_orders.values()
-        ]
+        return [in_flight_order.to_limit_order() for in_flight_order in self.in_flight_orders.values()]
 
     @property
     def status_dict(self) -> Dict[str, bool]:
@@ -194,11 +191,7 @@ class ExchangePyBase(ExchangeBase, ABC):
         """
         Returns a dictionary associating current active orders client id to their JSON representation
         """
-        return {
-            key: value.to_json()
-            for key, value in self.in_flight_orders.items()
-            if not value.is_done
-        }
+        return {key: value.to_json() for key, value in self._order_tracker.all_updatable_orders.items()}
 
     @abstractmethod
     def supported_order_types(self) -> List[OrderType]:
@@ -206,6 +199,14 @@ class ExchangePyBase(ExchangeBase, ABC):
 
     @abstractmethod
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception) -> bool:
+        raise NotImplementedError
+
+    @abstractmethod
+    def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
+        raise NotImplementedError
+
+    @abstractmethod
+    def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
         raise NotImplementedError
 
     # === Price logic ===
@@ -279,9 +280,9 @@ class ExchangePyBase(ExchangeBase, ABC):
             0 if self._user_stream_tracker is None else self._user_stream_tracker.last_recv_time
         )
         last_recv_diff = timestamp - last_user_stream_message_time
-        poll_interval = (self.SHORT_POLL_INTERVAL
-                         if last_recv_diff > self.TICK_INTERVAL_LIMIT
-                         else self.LONG_POLL_INTERVAL)
+        poll_interval = (
+            self.SHORT_POLL_INTERVAL if last_recv_diff > self.TICK_INTERVAL_LIMIT else self.LONG_POLL_INTERVAL
+        )
         last_tick = int(self._last_timestamp / poll_interval)
         current_tick = int(timestamp / poll_interval)
         if current_tick > last_tick:
@@ -554,14 +555,18 @@ class ExchangePyBase(ExchangeBase, ABC):
         except asyncio.CancelledError:
             raise
         except asyncio.TimeoutError:
-            # Binance does not allow cancels with the client/user order id
+            # some exchanges do not allow cancels with the client/user order id
             # so log a warning and wait for the creation of the order to complete
             self.logger().warning(
-                f"Failed to cancel the order {order.client_order_id} because it does not have an exchange order id yet")
+                f"Failed to cancel the order {order.client_order_id} because it does not have an exchange order id yet"
+            )
             await self._order_tracker.process_order_not_found(order.client_order_id)
-        except Exception:
-            self.logger().error(
-                f"Failed to cancel order {order.client_order_id}", exc_info=True)
+        except Exception as ex:
+            if self._is_order_not_found_during_cancelation_error(cancelation_exception=ex):
+                self.logger().warning(f"Failed to cancel order {order.client_order_id} (order not found)")
+                await self._order_tracker.process_order_not_found(order.client_order_id)
+            else:
+                self.logger().error(f"Failed to cancel order {order.client_order_id}", exc_info=True)
 
     async def _execute_order_cancel_and_process_update(self, order: InFlightOrder) -> bool:
         cancelled = await self._place_cancel(order.client_order_id, order)
@@ -691,9 +696,9 @@ class ExchangePyBase(ExchangeBase, ABC):
         """
         self._stop_network()
         self.order_book_tracker.start()
-        self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
-        self._trading_fees_polling_task = safe_ensure_future(self._trading_fees_polling_loop())
         if self.is_trading_required:
+            self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
+            self._trading_fees_polling_task = safe_ensure_future(self._trading_fees_polling_loop())
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._user_stream_tracker_task = self._create_user_stream_tracker_task()
             self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
@@ -976,40 +981,48 @@ class ExchangePyBase(ExchangeBase, ABC):
                 self.logger().warning(
                     f"Failed to fetch trade updates for order {order.client_order_id}. Error: {request_error}")
 
-    async def _update_orders(self):
-        orders_to_update = self.in_flight_orders.copy()
-        for client_order_id, order in orders_to_update.items():
+    async def _handle_update_error_for_active_order(self, order: InFlightOrder, error: Exception):
+        try:
+            raise error
+        except asyncio.TimeoutError:
+            self.logger().debug(
+                f"Tracked order {order.client_order_id} does not have an exchange id. "
+                f"Attempting fetch in next polling interval."
+            )
+            await self._order_tracker.process_order_not_found(order.client_order_id)
+        except Exception as request_error:
+            self.logger().warning(
+                f"Error fetching status update for the order {order.client_order_id}: {request_error}.",
+            )
+            await self._order_tracker.process_order_not_found(order.client_order_id)
+
+    async def _handle_update_error_for_lost_order(self, order: InFlightOrder, error: Exception):
+        if self._is_order_not_found_during_status_update_error(status_update_exception=error):
+            self._update_order_after_failure(order.client_order_id, order.trading_pair)
+        else:
+            self.logger().warning(f"Error fetching status update for the order {order.client_order_id}: {error}.")
+
+    async def _update_orders_with_error_handler(self, orders: List[InFlightOrder], error_handler: Callable):
+        for order in orders:
             try:
                 order_update = await self._request_order_status(tracked_order=order)
-                if client_order_id in self.in_flight_orders:
-                    self._order_tracker.process_order_update(order_update)
+                self._order_tracker.process_order_update(order_update)
             except asyncio.CancelledError:
                 raise
-            except asyncio.TimeoutError:
-                self.logger().debug(
-                    f"Tracked order {client_order_id} does not have an exchange id. "
-                    f"Attempting fetch in next polling interval."
-                )
-                await self._order_tracker.process_order_not_found(client_order_id)
             except Exception as request_error:
-                self.logger().network(
-                    f"Error fetching status update for the order {order.client_order_id}: {request_error}.",
-                    app_warning_msg=f"Failed to fetch status update for the order {order.client_order_id}.",
-                )
-                await self._order_tracker.process_order_not_found(order.client_order_id)
+                await error_handler(order, request_error)
+
+    async def _update_orders(self):
+        orders_to_update = self.in_flight_orders.copy()
+        await self._update_orders_with_error_handler(
+            orders=list(orders_to_update.values()), error_handler=self._handle_update_error_for_active_order
+        )
 
     async def _update_lost_orders(self):
         orders_to_update = self._order_tracker.lost_orders.copy()
-        for client_order_id, order in orders_to_update.items():
-            try:
-                order_update = await self._request_order_status(tracked_order=order)
-                if client_order_id in self._order_tracker.lost_orders:
-                    self._order_tracker.process_order_update(order_update)
-            except asyncio.CancelledError:
-                raise
-            except Exception as request_error:
-                self.logger().warning(
-                    f"Error fetching status update for lost order {order.client_order_id}: {request_error}.")
+        await self._update_orders_with_error_handler(
+            orders=list(orders_to_update.values()), error_handler=self._handle_update_error_for_lost_order
+        )
 
     async def _update_order_status(self):
         await self._update_orders_fills(orders=list(self._order_tracker.all_fillable_orders.values()))
