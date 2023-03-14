@@ -1,28 +1,20 @@
 import asyncio
 import json
 from decimal import Decimal
-from typing import Any, Dict, List, Mapping, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Tuple, Union
 
 from bidict import bidict
 from grpc.aio import UnaryStreamCall
 from pyinjective.async_client import AsyncClient
 from pyinjective.composer import Composer as ProtoMsgComposer
 from pyinjective.constant import Network
-from pyinjective.proto.exchange.injective_accounts_rpc_pb2 import (
-    StreamSubaccountBalanceResponse,
-    SubaccountBalance,
-    SubaccountBalancesListResponse,
-)
+from pyinjective.proto.exchange.injective_accounts_rpc_pb2 import StreamSubaccountBalanceResponse, SubaccountBalance
 from pyinjective.proto.exchange.injective_derivative_exchange_rpc_pb2 import (
     DerivativeLimitOrderbook,
     DerivativeMarketInfo,
     DerivativeOrderHistory,
     DerivativePosition,
     DerivativeTrade,
-    FundingPayment,
-    FundingPaymentsResponse,
-    FundingRate,
-    FundingRatesResponse,
     MarketsResponse,
     OrderbookResponse,
     OrdersHistoryResponse,
@@ -43,7 +35,9 @@ from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.gateway.clob_perp.data_sources.gateway_clob_perp_api_data_source_base import (
     GatewayCLOBPerpAPIDataSourceBase,
 )
-from hummingbot.connector.gateway.clob_perp.data_sources.injective import injective_perp_constants as CONSTANTS
+from hummingbot.connector.gateway.clob_perp.data_sources.injective_perpetual import (
+    injective_perpetual_constants as CONSTANTS,
+)
 from hummingbot.connector.gateway.clob_spot.data_sources.injective.injective_api_data_source import OrderHashManager
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.trading_rule import TradingRule
@@ -95,7 +89,7 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         self._trading_pair_to_active_perp_markets: Dict[str, DerivativeMarketInfo] = {}
         self._market_id_to_active_perp_markets: Dict[str, DerivativeMarketInfo] = {}
         self._trading_pair_to_market_id_map = bidict()
-        self._denom_to_token_meta: Dict[str, TokenMeta] = {}
+        self._denom_to_token_meta: Dict[str, Union[Dict[str, Any], TokenMeta]] = {}
 
         # Listener(s) and Loop Task(s)
         self._update_market_info_loop_task: Optional[asyncio.Task] = None
@@ -118,12 +112,13 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
     async def _update_account_address_and_create_order_hash_manager(self):
         if not self._order_placement_lock.locked():
             raise RuntimeError("The order-placement lock must be acquired before creating the order hash manager.")
-        response: SubaccountBalancesListResponse = await self._client.get_subaccount_balances_list(
-            subaccount_id=self._sub_account_id
+        response: Dict[str, Any] = await self._get_gateway_instance().clob_injective_balances(
+            chain=self._chain,
+            network=self._network,
+            address=self._sub_account_id
         )
-        balances: List[SubaccountBalance] = response.balances
+        self._account_address: str = response["injectiveAddress"]
 
-        self._account_address = balances[0].account_address
         await self._client.get_account(address=self._account_address)
         await self._client.sync_timeout_height()
         self._order_hash_manager = OrderHashManager(network=self._network_obj, sub_account_id=self._sub_account_id)
@@ -262,16 +257,17 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         "Parses MarketsResponse and re-populate the market map attributes"
         active_perp_markets: Dict[str, DerivativeMarketInfo] = {}
         market_id_to_market_map: Dict[str, DerivativeMarketInfo] = {}
-        denom_to_token_meta_map: Dict[str, TokenMeta] = {}
+        denom_to_token_meta_map: Dict[str, Union[Dict[str, Any], TokenMeta]] = {}
         for market in response.markets:
             trading_pair: str = combine_to_hb_trading_pair(base=market.oracle_base, quote=market.oracle_quote)
             market_id: str = market.market_id
-            base_demon: str = market.base_denom
-            quote_demon: str = market.quote_denom
+            base_denom: str = market.oracle_base.upper()
+            quote_demon: str = market.oracle_quote.upper()
 
             active_perp_markets[trading_pair] = market
             market_id_to_market_map[market_id] = market
-            denom_to_token_meta_map[base_demon] = market.base_token_meta
+            # Specifically for base token, Derivative API does not provide a Token Meta in the response.
+            denom_to_token_meta_map[base_denom] = {"symbol": base_denom, "decimals": market.oracle_scale_factor}
             denom_to_token_meta_map[quote_demon] = market.quote_token_meta
 
         self._trading_pair_to_active_perp_markets.clear()
@@ -328,7 +324,8 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
                 order_type=order.order_type,
                 price=order.price,
                 size=order.amount,
-                # is_derivative=True
+                leverage=order.leverage
+                # is_po=order.order_type == OrderType.LIMIT_MAKER
             )
 
             transaction_hash: Optional[str] = order_result.get("txHash")
@@ -360,7 +357,6 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
             trading_pair=order.trading_pair,
             address=self._sub_account_id,
             exchange_order_id=order.exchange_order_id,
-            # is_derivative=True
         )
         transaction_hash: Optional[str] = cancelation_result.get("txHash")
 
@@ -412,18 +408,24 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         return positions
 
     async def get_account_balances(self) -> Dict[str, Dict[str, Decimal]]:
-        response: SubaccountBalancesListResponse = await self._client.get_subaccount_balances_list(
-            subaccount_id=self._sub_account_id
+        response: Dict[str, Any] = await self._get_gateway_instance().clob_injective_balances(
+            chain=self._chain,
+            network=self._network,
+            address=self._sub_account_id
         )
-        balances: List[SubaccountBalance] = response.balances
+        sub_acct_balances: List[Dict[str, Any]] = response["subaccounts"]
+        balances: List[Dict[str, Any]] = []
+
+        for entry in sub_acct_balances:
+            if entry["subaccountId"] == self._sub_account_id:
+                balances = entry["balances"]
+                break
 
         balances_dict: Dict[str, Dict[str, Decimal]] = {}
         for balance in balances:
-            denom_meta = self._denom_to_token_meta[balance.denom]
-            asset_name = denom_meta.symbol
-            asset_scaler = self._get_backend_denom_scaler(denom_meta=denom_meta)
-            total_balance = Decimal(balance.deposit.total_balance) * asset_scaler
-            available_balance = Decimal(balance.deposit.available_balance) * asset_scaler
+            asset_name = balance["token"]
+            total_balance = Decimal(balance["totalBalance"])
+            available_balance = Decimal(balance["availableBalance"])
             balances_dict[asset_name] = {
                 "total_balance": total_balance,
                 "available_balance": available_balance,
@@ -471,24 +473,26 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
     # region >>> Funding Payment Function(s) >>>
 
     async def fetch_last_fee_payment(self, trading_pair: str) -> Tuple[float, Decimal, Decimal]:
-        # TODO: Use Gateway endpoint POST /clob/funding/payments
         timestamp, funding_rate, payment = 0, Decimal("-1"), Decimal("-1")
 
         if trading_pair not in self._trading_pair_to_active_perp_markets:
             return timestamp, funding_rate, payment
 
-        market_info: DerivativeMarketInfo = self._trading_pair_to_active_perp_markets[trading_pair]
-        payment_response: FundingPaymentsResponse = await self._client.get_funding_payments(
-            subaccount_id=self._sub_account_id, market_id=market_info.market_id, end_time=int(self._time() * 1e3)
+        response: Dict[str, Any] = await self._get_gateway_instance().clob_perp_funding_payments(
+            chain=self._chain,
+            network=self._network,
+            connector=self._connector_name,
+            trading_pair=trading_pair,
+            address=self._sub_account_id
         )
 
-        latest_funding_payment: FundingPayment = payment_response.payments[0]  # List of payments sorted by latest
+        latest_funding_payment: Dict[str, Any] = response["fundingPayments"][0]  # List of payments sorted by latest
 
         timestamp: float = latest_funding_payment.timestamp * 1e-3
 
         # FundingPayment does not include price, hence we have to fetch latest funding rate
-        funding_rate: Decimal = await self._request_last_funding_rate(market_info=market_info)
-        payment: Decimal = Decimal(latest_funding_payment.amount)
+        funding_rate: Decimal = await self._request_last_funding_rate(trading_pair=trading_pair)
+        payment: Decimal = Decimal(latest_funding_payment["amount"])
 
         return timestamp, funding_rate, payment
 
@@ -521,13 +525,15 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
 
     # region >>> Funding Info Utility Functions >>>
 
-    async def _request_last_funding_rate(self, market_info: DerivativeMarketInfo) -> Decimal:
-        limit: int = 1
-        response: FundingRatesResponse = await self._client.get_funding_rates(
-            market_id=market_info.market_id, limit=limit
+    async def _request_last_funding_rate(self, trading_pair: str) -> Decimal:
+        response: Dict[str, Any] = await self._get_gateway_instance().clob_perp_funding_rates(
+            chain=self._chain,
+            network=self._network,
+            connector=self._connector_name,
+            trading_pair=trading_pair
         )
-        funding_rate: FundingRate = response[0]  # We only want the latest funding rate.
-        return Decimal(funding_rate.rate)
+        funding_rate: Dict[str, Any] = response["fundingRates"][0]  # We only want the latest funding rate.
+        return Decimal(funding_rate["rate"])
 
     async def _request_oracle_price(self, market_info: DerivativeMarketInfo) -> Decimal:
         """
@@ -553,7 +559,7 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
 
         market_info: DerivativeMarketInfo = self._trading_pair_to_active_perp_markets.get(trading_pair, None)
         if market_info is not None:
-            last_funding_rate: Decimal = await self._request_last_funding_rate(market_info=market_info)
+            last_funding_rate: Decimal = await self._request_last_funding_rate(trading_pair=trading_pair)
             oracle_price: Decimal = await self._request_oracle_price(market_info=market_info)
             last_trade_price: Decimal = await self._request_last_trade_price(market_info=market_info)
             funding_info = FundingInfo(
@@ -671,7 +677,6 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         size: Decimal = Decimal(trade_message.position_delta.execution_quantity)
         is_taker: bool = trade_message.execution_side == "taker"
 
-        # TODO: Double check calculation of fees
         fee_amount: Decimal = Decimal(trade_message.fee)
         _, quote = split_hb_trading_pair(trading_pair=trading_pair)
         fee = TradeFeeBase.new_spot_fee(
@@ -740,8 +745,11 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         timestamp: 1675902606000
         """
         subacct_balance: SubaccountBalance = message.balance
-        denom_meta: TokenMeta = self._denom_to_token_meta[subacct_balance.denom]
-        denom_scaler: Decimal = Decimal(f"1e-{denom_meta.decimals}")
+        denom_meta: Union[Dict[str, Any], TokenMeta] = self._denom_to_token_meta[subacct_balance.denom.upper()]
+        if type(denom_meta) is TokenMeta:
+            denom_scaler: Decimal = Decimal(f"1e-{denom_meta.decimals}")
+        elif type(denom_meta) is Dict:
+            denom_scaler: Decimal = Decimal(f"1e-{denom_meta['decimals']}")
         total_balance = subacct_balance.deposit.total_balance
         total_balance = Decimal(total_balance) * denom_scaler if total_balance != "" else None
         available_balance = subacct_balance.deposit.available_balance
@@ -1022,7 +1030,7 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         trading_pair: str = combine_to_hb_trading_pair(base=market_info.oracle_base, quote=market_info.oracle_quote)
         oracle_price: Decimal = Decimal(message.price)
         # We need to fetch misssing information with another API call since not all info is provided in the stream.
-        last_funding_rate: Decimal = await self._request_last_funding_rate(market_info=market_info)
+        last_funding_rate: Decimal = await self._request_last_funding_rate(trading_pair=trading_pair)
         last_trade_price: Decimal = await self._request_last_trade_price(market_info=market_info)
         funding_info = FundingInfoUpdate(
             trading_pair=trading_pair,
