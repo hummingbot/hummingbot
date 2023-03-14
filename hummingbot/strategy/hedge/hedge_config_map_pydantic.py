@@ -199,6 +199,14 @@ class HedgeConfigMap(BaseStrategyConfigMap):
             prompt_on_new=True,
         ),
     )
+    enable_auto_set_position_mode: bool = Field(
+        default=False,
+        description="Whether to automatically set the exchange position mode to one-way or hedge based  ratio.",
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Do you want to automatically set the exchange position mode to one-way or hedge [y/n]?",
+            prompt_on_new=False,
+        )
+    )
     connector_0: market_config_map = get_field(0)
     connector_1: market_config_map = get_field(1)
     connector_2: market_config_map = get_field(2)
