@@ -77,7 +77,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         self._order_id_mapper: Dict[str, int] = {}  # maps Hummingbot to bloXroute order id
         self._open_orders_address_mapper: Dict[str, str] = {}  # maps trading pair to open orders address
 
-        self._bloxroute_provider = BloxrouteOpenbookProvider(
+        self._mainnet_provider = BloxrouteOpenbookProvider(
             endpoint=MAINNET_PROVIDER_ENDPOINT,
             auth_header=self._auth_header,
             private_key=self._sol_wallet_private_key,
