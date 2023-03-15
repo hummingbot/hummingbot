@@ -9,6 +9,7 @@ import aiohttp
 
 from hummingbot.client.config.security import Security
 from hummingbot.core.data_type.common import OrderType, PositionSide
+from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
 
@@ -1219,3 +1220,37 @@ class GatewayHttpClient:
             "orderId": exchange_order_id,
         }
         return await self.api_request("delete", "clob/orders", request_payload)
+
+    async def clob_batch_order_modify(
+        self,
+        connector: str,
+        chain: str,
+        network: str,
+        address: str,
+        orders_to_create: List[InFlightOrder],
+        orders_to_cancel: List[InFlightOrder],
+    ):
+        request_payload = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "address": address,
+        }
+        if len(orders_to_create) != 0:
+            request_payload["createOrderParams"] = [
+                {
+                    "market": order.trading_pair,
+                    "price": str(order.price),
+                    "amount": str(order.amount),
+                    "side": order.trade_type.name,
+                    "orderType": order.order_type.name,
+                } for order in orders_to_create
+            ]
+        if len(orders_to_cancel) != 0:
+            request_payload["cancelOrderParams"] = [
+                {
+                    "market": order.trading_pair,
+                    "orderId": order.exchange_order_id,
+                } for order in orders_to_cancel
+            ]
+        return await self.api_request("post", "clob/batchOrders", request_payload)

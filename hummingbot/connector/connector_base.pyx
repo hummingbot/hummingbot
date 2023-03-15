@@ -8,8 +8,10 @@ from hummingbot.connector.in_flight_order_base import InFlightOrderBase
 from hummingbot.connector.utils import split_hb_trading_pair, TradeFillOrderDetails
 from hummingbot.connector.constants import s_decimal_NaN, s_decimal_0
 from hummingbot.core.clock cimport Clock
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.market_order import MarketOrder
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 from hummingbot.core.network_iterator import NetworkIterator
@@ -264,6 +266,64 @@ cdef class ConnectorBase(NetworkIterator):
         """
         raise NotImplementedError
 
+    def batch_order_create(
+        self, orders_to_create: List[Union[LimitOrder, MarketOrder]]
+    ) -> List[Union[LimitOrder, MarketOrder]]:
+        """
+        Issues a batch order creation as a single API request for exchanges that implement this feature. The default
+        implementation of this method is to send the requests discretely (one by one).
+        :param orders_to_create: A list of LimitOrder or MarketOrder objects representing the orders to create. The
+            order IDs can be blanc.
+        :returns: A list of LimitOrder or MarketOrder objects representing the created orders, complete with the
+            generated order IDs.
+        """
+        creation_results = []
+        for order in orders_to_create:
+            order_type = OrderType.LIMIT if isinstance(order, LimitOrder) else OrderType.MARKET
+            size = order.quantity if order_type == OrderType.LIMIT else order.amount
+            if order.is_buy:
+                client_order_id = self.buy(
+                    trading_pair=order.trading_pair,
+                    amount=size,
+                    order_type=order_type,
+                    price=order.price if order_type == OrderType.LIMIT else s_decimal_NaN
+                )
+            else:
+                client_order_id = self.sell(
+                    trading_pair=order.trading_pair,
+                    amount=size,
+                    order_type=order_type,
+                    price=order.price if order_type == OrderType.LIMIT else s_decimal_NaN,
+                )
+            if order_type == OrderType.LIMIT:
+                creation_results.append(
+                    LimitOrder(
+                        client_order_id=client_order_id,
+                        trading_pair=order.trading_pair,
+                        is_buy=order.is_buy,
+                        base_currency=order.base_currency,
+                        quote_currency=order.quote_currency,
+                        price=order.price,
+                        quantity=size,
+                        filled_quantity=order.filled_quantity,
+                        creation_timestamp=order.creation_timestamp,
+                        status=order.status,
+                    )
+                )
+            else:
+                creation_results.append(
+                    MarketOrder(
+                        order_id=client_order_id,
+                        trading_pair=order.trading_pair,
+                        is_buy=order.is_buy,
+                        base_asset=order.base_asset,
+                        quote_asset=order.quote_asset,
+                        amount=size,
+                        timestamp=order.timestamp,
+                    )
+                )
+        return creation_results
+
     cdef str c_sell(self, str trading_pair, object amount, object order_type=OrderType.MARKET,
                     object price=s_decimal_NaN, dict kwargs={}):
         return self.sell(trading_pair, amount, order_type, price, **kwargs)
@@ -278,6 +338,15 @@ cdef class ConnectorBase(NetworkIterator):
         :param client_order_id: The internal order id (also called client_order_id)
         """
         raise NotImplementedError
+
+    def batch_order_cancel(self, orders_to_cancel: List[LimitOrder]):
+        """
+        Issues a batch order cancelation as a single API request for exchanges that implement this feature. The default
+        implementation of this method is to send the requests discretely (one by one).
+        :param orders_to_cancel: A list of the orders to cancel.
+        """
+        for order in orders_to_cancel:
+            self.cancel(trading_pair=order.trading_pair, client_order_id=order.client_order_id)
 
     cdef c_stop_tracking_order(self, str order_id):
         raise NotImplementedError
