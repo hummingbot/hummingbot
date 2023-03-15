@@ -1,6 +1,7 @@
 import asyncio
 import copy
 import logging
+import math
 from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, AsyncIterable, Callable, Dict, List, Optional, Tuple
@@ -472,7 +473,7 @@ class ExchangePyBase(ExchangeBase, ABC):
                                   f" size {trading_rule.min_order_size}. The order will not be created.")
             self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
             return
-        if price is not None and amount * price < trading_rule.min_notional_size:
+        if price is not None and not math.isnan(price) and amount * price < trading_rule.min_notional_size:
             self.logger().warning(f"{trade_type.name.title()} order notional {amount * price} is lower than the "
                                   f"minimum notional size {trading_rule.min_notional_size}. "
                                   "The order will not be created.")
@@ -571,10 +572,13 @@ class ExchangePyBase(ExchangeBase, ABC):
     async def _execute_order_cancel_and_process_update(self, order: InFlightOrder) -> bool:
         cancelled = await self._place_cancel(order.client_order_id, order)
         if cancelled:
+            update_timestamp = self.current_timestamp
+            if update_timestamp is None or math.isnan(update_timestamp):
+                update_timestamp = self._time()
             order_update: OrderUpdate = OrderUpdate(
                 client_order_id=order.client_order_id,
                 trading_pair=order.trading_pair,
-                update_timestamp=self.current_timestamp,
+                update_timestamp=update_timestamp,
                 new_state=(OrderState.CANCELED
                            if self.is_cancel_request_in_exchange_synchronous
                            else OrderState.PENDING_CANCEL),
@@ -979,7 +983,9 @@ class ExchangePyBase(ExchangeBase, ABC):
                 raise
             except Exception as request_error:
                 self.logger().warning(
-                    f"Failed to fetch trade updates for order {order.client_order_id}. Error: {request_error}")
+                    f"Failed to fetch trade updates for order {order.client_order_id}. Error: {request_error}",
+                    exc_info=request_error,
+                )
 
     async def _handle_update_error_for_active_order(self, order: InFlightOrder, error: Exception):
         try:
