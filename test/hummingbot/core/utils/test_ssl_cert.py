@@ -102,7 +102,7 @@ class SslCertTest(unittest.TestCase):
             with open(verified_public_key_file_path2, "rb") as verified_public_key2:
                 self.assertNotEqual(verified_public_key, verified_public_key2)
 
-    def test_create_self_sign_certs(self, _):
+    def test_create_self_sign_certs(self):
         """
         Unit tests for create_self_sign_certs and certs_files_exist
         """
