@@ -175,6 +175,7 @@ class InjectiveAPIDataSource(CLOBAPIDataSourceBase):
         )
         await self._update_markets()  # required for the streams
         await self._start_streams()
+        self._gateway_order_tracker.lost_order_count_limit = 10
 
     async def stop(self):
         """Stops the event streaming."""
