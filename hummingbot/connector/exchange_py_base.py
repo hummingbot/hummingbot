@@ -572,10 +572,13 @@ class ExchangePyBase(ExchangeBase, ABC):
     async def _execute_order_cancel_and_process_update(self, order: InFlightOrder) -> bool:
         cancelled = await self._place_cancel(order.client_order_id, order)
         if cancelled:
+            update_timestamp = self.current_timestamp
+            if update_timestamp is None or math.isnan(update_timestamp):
+                update_timestamp = self._time()
             order_update: OrderUpdate = OrderUpdate(
                 client_order_id=order.client_order_id,
                 trading_pair=order.trading_pair,
-                update_timestamp=self.current_timestamp,
+                update_timestamp=update_timestamp,
                 new_state=(OrderState.CANCELED
                            if self.is_cancel_request_in_exchange_synchronous
                            else OrderState.PENDING_CANCEL),
