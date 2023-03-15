@@ -198,6 +198,7 @@ class GatewayInFlightOrder(InFlightOrder):
         order._cancel_tx_hash = data["cancel_tx_hash"]
         order._gas_price = Decimal(data["gas_price"]) if data["gas_price"] != "None" else None
         order._creation_transaction_hash = data["creation_transaction_hash"]
+        order.last_update_timestamp = data.get("last_update_timestamp", order.creation_timestamp)
 
         order.check_filled_condition()
 
@@ -222,6 +223,7 @@ class GatewayInFlightOrder(InFlightOrder):
             "leverage": str(self.leverage),
             "position": self.position.value,
             "creation_timestamp": self.creation_timestamp,
+            "last_update_timestamp": self.last_update_timestamp,
             "order_fills": {key: fill.to_json() for key, fill in self.order_fills.items()},
             "nonce": self._nonce,
             "cancel_tx_hash": self._cancel_tx_hash,

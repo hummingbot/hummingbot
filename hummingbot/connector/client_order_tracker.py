@@ -132,6 +132,14 @@ class ClientOrderTracker:
         """
         return {client_order_id: order for client_order_id, order in self._lost_orders.items()}
 
+    @property
+    def lost_order_count_limit(self) -> int:
+        return self._lost_order_count_limit
+
+    @lost_order_count_limit.setter
+    def lost_order_count_limit(self, value: int):
+        self._lost_order_count_limit = value
+
     def start_tracking_order(self, order: InFlightOrder):
         self._in_flight_orders[order.client_order_id] = order
 
