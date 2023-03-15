@@ -36,6 +36,7 @@ from hummingbot.connector.gateway.clob_spot.data_sources.injective.injective_con
     BACKEND_TO_CLIENT_ORDER_STATE_MAP,
     CLIENT_TO_BACKEND_ORDER_TYPES_MAP,
     CONNECTOR_NAME,
+    LOST_ORDER_COUNT_LIMIT,
     MARKETS_UPDATE_INTERVAL,
     MSG_BATCH_UPDATE_ORDERS,
     MSG_CANCEL_SPOT_ORDER,
@@ -175,7 +176,7 @@ class InjectiveAPIDataSource(CLOBAPIDataSourceBase):
         )
         await self._update_markets()  # required for the streams
         await self._start_streams()
-        self._gateway_order_tracker.lost_order_count_limit = 10
+        self._gateway_order_tracker.lost_order_count_limit = LOST_ORDER_COUNT_LIMIT
 
     async def stop(self):
         """Stops the event streaming."""
