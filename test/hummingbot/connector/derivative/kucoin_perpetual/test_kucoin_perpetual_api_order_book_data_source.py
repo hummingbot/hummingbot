@@ -214,7 +214,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(TestCase):
         expected_trade_subscription = {
             "id": 1,
             "type": "subscribe",
-            "topic": f"/market/match:{self.trading_pair}",
+            "topic": f"/contractMarket/ticker:{self.trading_pair}",
             "privateChannel": False,
             "response": False
         }
