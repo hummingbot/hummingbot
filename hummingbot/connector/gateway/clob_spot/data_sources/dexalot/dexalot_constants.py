@@ -10,6 +10,9 @@ CONNECTOR_NAME = "dexalot"
 
 MAX_ORDER_CREATIONS_PER_BATCH = 10
 MAX_ORDER_CANCELATIONS_PER_BATCH = 15
+MAX_ID_HEX_DIGITS = 64
+MAX_ID_BIT_COUNT = MAX_ID_HEX_DIGITS * 4
+CURRENT_BLOCK_TIME = 5  # ~2s for Gateway submission + 2s for block inclusion + 1s buffer
 
 DEFAULT_DOMAIN = "mainnet"
 

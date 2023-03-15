@@ -56,8 +56,6 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
         self._api_factory: Optional[WebAssistantsFactory] = None
         self._stream_listener: Optional[asyncio.Task] = None
         self._client_order_id_nonce_provider = NonceCreator.for_microseconds()
-        self._max_id_hex_digits = 64
-        self._max_id_bit_count = self._max_id_hex_digits * 4
         self._last_traded_price_map = defaultdict(lambda: Decimal("0"))
         self._snapshots_id_nonce_provider = NonceCreator.for_milliseconds()
 
@@ -71,7 +69,7 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
     @property
     def current_block_time(self) -> float:
-        return 5  # ~2s for Gateway submission + 2s for block inclusion + 1s buffer
+        return CONSTANTS.CURRENT_BLOCK_TIME
 
     async def start(self):
         signer = WalletSigner(
@@ -135,10 +133,11 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
         self, is_buy: bool, trading_pair: str, hbot_order_id_prefix: str, max_id_len: Optional[int]
     ) -> str:
         decimal_id = get_new_numeric_client_order_id(
-            nonce_creator=self._client_order_id_nonce_provider, max_id_bit_count=self._max_id_bit_count
+            nonce_creator=self._client_order_id_nonce_provider,
+            max_id_bit_count=CONSTANTS.MAX_ID_BIT_COUNT,
         )
         return "{0:#0{1}x}".format(  # https://stackoverflow.com/a/12638477/6793798
-            decimal_id, self._max_id_hex_digits + 2
+            decimal_id, CONSTANTS.MAX_ID_HEX_DIGITS + 2
         )
 
     async def get_account_balances(self) -> Dict[str, Dict[str, Decimal]]:
