@@ -87,6 +87,8 @@ create_instance () {
  --name $INSTANCE_NAME \
  --network host \
  -v $CONF_FOLDER:/conf \
+ -v $CONF_FOLDER/connectors:/conf/connectors \
+ -v $CONF_FOLDER/strategies:/conf/strategies \
  -v $LOGS_FOLDER:/logs \
  -v $DATA_FOLDER:/data \
  -v $PMM_SCRIPTS_FOLDER:/pmm_scripts \
