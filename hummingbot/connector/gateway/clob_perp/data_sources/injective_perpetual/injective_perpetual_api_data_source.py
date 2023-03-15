@@ -25,9 +25,8 @@ from pyinjective.proto.exchange.injective_derivative_exchange_rpc_pb2 import (
     StreamTradesResponse,
     TokenMeta,
     TradesResponse,
-    TxDetailData,
 )
-from pyinjective.proto.exchange.injective_explorer_rpc_pb2 import GetTxByTxHashResponse, StreamTxsResponse
+from pyinjective.proto.exchange.injective_explorer_rpc_pb2 import GetTxByTxHashResponse, StreamTxsResponse, TxDetailData
 from pyinjective.proto.exchange.injective_oracle_rpc_pb2 import StreamPricesResponse
 
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -53,7 +52,7 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
-class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
+class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
     def __init__(
         self,
         trading_pairs: List[str],
@@ -62,7 +61,7 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         address: str,
         client_config_map: ClientConfigAdapter,
     ):
-        super().__init__(trading_pairs=trading_pairs)
+        super().__init__()
         self._trading_pairs = trading_pairs
         self._connector_name = CONSTANTS.CONNECTOR_NAME
         self._chain = chain
@@ -295,6 +294,7 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
     async def place_order(
         self, order: GatewayInFlightOrder, **kwargs
     ) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+        # TODO: Use POST GatewayHTTPClient's /clob/orders here.
         market: DerivativeMarketInfo = self._trading_pair_to_active_perp_markets[order.trading_pair]
         perp_order_to_create = [
             self._composer.DerivativeOrder(
@@ -1025,6 +1025,9 @@ class InjectivePerpAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
                 self.logger().exception("Unexpected error in position listener loop.")
             self.logger().info("Restarting position stream.")
             stream.cancel()
+
+    async def parse_funding_info_message(self, raw_message: FundingInfoUpdate, message_queue: asyncio.Queue):
+        message_queue.put_nowait(raw_message)
 
     async def _process_funding_info_event(self, market_info: DerivativeMarketInfo, message: StreamPricesResponse):
         trading_pair: str = combine_to_hb_trading_pair(base=market_info.oracle_base, quote=market_info.oracle_quote)
