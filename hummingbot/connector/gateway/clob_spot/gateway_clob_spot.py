@@ -1,3 +1,5 @@
+import asyncio
+import math
 from copy import deepcopy
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple
@@ -15,10 +17,12 @@ from hummingbot.connector.gateway.clob_spot.gateway_clob_api_order_book_data_sou
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.gateway.gateway_order_tracker import GatewayOrderTracker
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
 from hummingbot.core.api_throttler.data_types import RateLimit
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import (
     AddedToCostTradeFee,
@@ -29,6 +33,7 @@ from hummingbot.core.data_type.trade_fee import (
 from hummingbot.core.event.event_forwarder import EventForwarder
 from hummingbot.core.event.events import AccountEvent, BalanceUpdateEvent, MarketEvent
 from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
@@ -190,6 +195,261 @@ class GatewayCLOBSPOT(ExchangePyBase):
             )
         )
 
+    def batch_order_create(self, orders_to_create: List[LimitOrder]) -> List[LimitOrder]:
+        """
+        Issues a batch order creation as a single API request for exchanges that implement this feature. The default
+        implementation of this method is to send the requests discretely (one by one).
+        :param orders_to_create: A list of LimitOrder objects representing the orders to create. The order IDs
+            can be blanc.
+        :returns: A tuple composed of LimitOrder objects representing the created orders, complete with the generated
+            order IDs.
+        """
+        orders_with_ids_to_create = []
+        for order in orders_to_create:
+            client_order_id = get_new_client_order_id(
+                is_buy=order.is_buy,
+                trading_pair=order.trading_pair,
+                hbot_order_id_prefix=self.client_order_id_prefix,
+                max_id_len=self.client_order_id_max_length
+            )
+            orders_with_ids_to_create.append(
+                LimitOrder(
+                    client_order_id=client_order_id,
+                    trading_pair=order.trading_pair,
+                    is_buy=order.is_buy,
+                    base_currency=order.base_currency,
+                    quote_currency=order.quote_currency,
+                    price=order.price,
+                    quantity=order.quantity,
+                    filled_quantity=order.filled_quantity,
+                    creation_timestamp=order.creation_timestamp,
+                    status=order.status,
+                )
+            )
+        safe_ensure_future(self._execute_batch_order_create(orders_to_create=orders_with_ids_to_create))
+        return orders_with_ids_to_create
+
+    def batch_order_cancel(self, orders_to_cancel: List[LimitOrder]):
+        """
+        Issues a batch order cancelation as a single API request for exchanges that implement this feature. The default
+        implementation of this method is to send the requests discretely (one by one).
+        :param orders_to_cancel: A list of the orders to cancel.
+        """
+        safe_ensure_future(coro=self._execute_batch_cancel(orders_to_cancel=orders_to_cancel))
+
+    async def _execute_batch_order_create(self, orders_to_create: List[LimitOrder]):
+        in_flight_orders_to_create = []
+        for order in orders_to_create:
+            valid_order = await self._start_tracking_and_validate_order(
+                trade_type=TradeType.BUY if order.is_buy else TradeType.SELL,
+                order_id=order.client_order_id,
+                trading_pair=order.trading_pair,
+                amount=order.quantity,
+                order_type=OrderType.LIMIT,
+                price=order.price,
+            )
+            if valid_order is not None:
+                in_flight_orders_to_create.append(valid_order)
+        try:
+            place_order_results = await self._api_data_source.batch_order_create(
+                orders_to_create=in_flight_orders_to_create
+            )
+            for place_order_result, in_flight_order in (
+                zip(place_order_results, in_flight_orders_to_create)
+            ):
+                if place_order_result.exception:
+                    self._on_order_creation_failure(
+                        order_id=in_flight_order.client_order_id,
+                        trading_pair=in_flight_order.trading_pair,
+                        amount=in_flight_order.amount,
+                        trade_type=in_flight_order.trade_type,
+                        order_type=in_flight_order.order_type,
+                        price=in_flight_order.price,
+                        exception=place_order_result.exception,
+                    )
+                else:
+                    self._update_order_after_creation_success(
+                        exchange_order_id=place_order_result.exchange_order_id,
+                        order=in_flight_order,
+                        update_timestamp=self.current_timestamp,
+                    )
+        except asyncio.CancelledError:
+            raise
+        except Exception as ex:
+            self.logger().network("Batch order create failed.")
+            for order in orders_to_create:
+                self._on_order_creation_failure(
+                    order_id=order.client_order_id,
+                    trading_pair=order.trading_pair,
+                    amount=order.quantity,
+                    trade_type=TradeType.BUY if order.is_buy else TradeType.SELL,
+                    order_type=OrderType.LIMIT,
+                    price=order.price,
+                    exception=ex,
+                )
+
+    async def _start_tracking_and_validate_order(
+        self,
+        trade_type: TradeType,
+        order_id: str,
+        trading_pair: str,
+        amount: Decimal,
+        order_type: OrderType,
+        price: Optional[Decimal] = None,
+        **kwargs
+    ) -> Optional[InFlightOrder]:
+        trading_rule = self._trading_rules[trading_pair]
+
+        if order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]:
+            price = self.quantize_order_price(trading_pair, price)
+            quantize_amount_price = Decimal("0") if price.is_nan() else price
+            amount = self.quantize_order_amount(trading_pair=trading_pair, amount=amount, price=quantize_amount_price)
+        else:
+            amount = self.quantize_order_amount(trading_pair=trading_pair, amount=amount)
+
+        self.start_tracking_order(
+            order_id=order_id,
+            exchange_order_id=None,
+            trading_pair=trading_pair,
+            order_type=order_type,
+            trade_type=trade_type,
+            price=price,
+            amount=amount,
+            **kwargs,
+        )
+        order = self._order_tracker.active_orders[order_id]
+
+        if order_type not in self.supported_order_types():
+            self.logger().error(f"{order_type} is not in the list of supported order types")
+            self._update_order_after_creation_failure(order_id=order_id, trading_pair=trading_pair)
+            order = None
+        elif amount < trading_rule.min_order_size:
+            self.logger().warning(f"{trade_type.name.title()} order amount {amount} is lower than the minimum order"
+                                  f" size {trading_rule.min_order_size}. The order will not be created.")
+            self._update_order_after_creation_failure(order_id=order_id, trading_pair=trading_pair)
+            order = None
+        elif price is not None and amount * price < trading_rule.min_notional_size:
+            self.logger().warning(f"{trade_type.name.title()} order notional {amount * price} is lower than the "
+                                  f"minimum notional size {trading_rule.min_notional_size}. "
+                                  "The order will not be created.")
+            self._update_order_after_creation_failure(order_id=order_id, trading_pair=trading_pair)
+            order = None
+
+        return order
+
+    def _update_order_after_creation_success(
+        self, exchange_order_id: str, order: InFlightOrder, update_timestamp: float
+    ):
+        order_update: OrderUpdate = OrderUpdate(
+            client_order_id=order.client_order_id,
+            exchange_order_id=str(exchange_order_id),
+            trading_pair=order.trading_pair,
+            update_timestamp=update_timestamp,
+            new_state=OrderState.OPEN,
+        )
+        self._order_tracker.process_order_update(order_update)
+
+    def _on_order_creation_failure(
+        self,
+        order_id: str,
+        trading_pair: str,
+        amount: Decimal,
+        trade_type: TradeType,
+        order_type: OrderType,
+        price: Optional[Decimal],
+        exception: Exception,
+    ):
+        self.logger().network(
+            f"Error submitting {trade_type.name.lower()} {order_type.name.upper()} order to {self.name_cap} for "
+            f"{amount} {trading_pair} {price}.",
+            exc_info=exception,
+            app_warning_msg=f"Failed to submit buy order to {self.name_cap}. Check API key and network connection."
+        )
+        self._update_order_after_creation_failure(order_id=order_id, trading_pair=trading_pair)
+
+    def _update_order_after_creation_failure(self, order_id: str, trading_pair: str):
+        order_update: OrderUpdate = OrderUpdate(
+            client_order_id=order_id,
+            trading_pair=trading_pair,
+            update_timestamp=self.current_timestamp,
+            new_state=OrderState.FAILED,
+        )
+        self._order_tracker.process_order_update(order_update)
+
+    async def _execute_batch_cancel(self, orders_to_cancel: List[LimitOrder]) -> List[CancellationResult]:
+        results = []
+        tracked_orders_to_cancel = []
+
+        for order in orders_to_cancel:
+            tracked_order = self._order_tracker.fetch_tracked_order(client_order_id=order.client_order_id)
+            if tracked_order is not None:
+                tracked_orders_to_cancel.append(tracked_order)
+            else:
+                results.append(CancellationResult(order_id=order.client_order_id, success=False))
+
+        results.extend(await self._execute_batch_order_cancel(orders_to_cancel=tracked_orders_to_cancel))
+
+        return results
+
+    async def _execute_batch_order_cancel(self, orders_to_cancel: List[InFlightOrder]) -> List[CancellationResult]:
+        try:
+            cancel_order_results = await self._api_data_source.batch_order_cancel(orders_to_cancel=orders_to_cancel)
+            cancelation_results = []
+            for cancel_order_result in cancel_order_results:
+                success = True
+                if cancel_order_result.not_found:
+                    self.logger().warning(
+                        f"Failed to cancel the order {cancel_order_result.client_order_id} due to the order"
+                        f" not being found."
+                    )
+                    await self._order_tracker.process_order_not_found(
+                        client_order_id=cancel_order_result.client_order_id
+                    )
+                    success = False
+                elif cancel_order_result.exception is not None:
+                    self.logger().error(
+                        f"Failed to cancel order {cancel_order_result.client_order_id}",
+                        exc_info=cancel_order_result.exception,
+                    )
+                    success = False
+                else:
+                    order_update: OrderUpdate = OrderUpdate(
+                        client_order_id=cancel_order_result.client_order_id,
+                        trading_pair=cancel_order_result.trading_pair,
+                        update_timestamp=self.current_timestamp,
+                        new_state=(OrderState.CANCELED
+                                   if self.is_cancel_request_in_exchange_synchronous
+                                   else OrderState.PENDING_CANCEL),
+                    )
+                    self._order_tracker.process_order_update(order_update)
+                cancelation_results.append(
+                    CancellationResult(order_id=cancel_order_result.client_order_id, success=success)
+                )
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().error(
+                f"Failed to cancel orders {', '.join([o.client_order_id for o in orders_to_cancel])}",
+                exc_info=True,
+            )
+            cancelation_results = [
+                CancellationResult(order_id=order.client_order_id, success=False)
+                for order in orders_to_cancel
+            ]
+
+        return cancelation_results
+
+    def _update_order_after_cancelation_success(self, order: InFlightOrder):
+        order_update: OrderUpdate = OrderUpdate(
+            client_order_id=order.client_order_id,
+            trading_pair=order.trading_pair,
+            update_timestamp=self.current_timestamp,
+            new_state=(OrderState.CANCELED
+                       if self.is_cancel_request_in_exchange_synchronous
+                       else OrderState.PENDING_CANCEL),
+        )
+        self._order_tracker.process_order_update(order_update)
+
     def _add_forwarders(self):
         event_forwarder = EventForwarder(to_function=self._process_trade_update)
         self._forwarders.append(event_forwarder)
@@ -340,10 +600,13 @@ class GatewayCLOBSPOT(ExchangePyBase):
         cancelled, misc_order_updates = await self._api_data_source.cancel_order(order=order)
 
         if cancelled:
+            update_timestamp = self.current_timestamp
+            if update_timestamp is None or math.isnan(update_timestamp):
+                update_timestamp = self._time()
             order_update: OrderUpdate = OrderUpdate(
                 client_order_id=order.client_order_id,
                 trading_pair=order.trading_pair,
-                update_timestamp=self.current_timestamp,
+                update_timestamp=update_timestamp,
                 new_state=(OrderState.CANCELED
                            if self.is_cancel_request_in_exchange_synchronous
                            else OrderState.PENDING_CANCEL),
@@ -356,6 +619,16 @@ class GatewayCLOBSPOT(ExchangePyBase):
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception) -> bool:
         """Not used."""
         return False
+
+    def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
+        return self._api_data_source.is_order_not_found_during_status_update_error(
+            status_update_exception=status_update_exception
+        )
+
+    def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
+        return self._api_data_source.is_order_not_found_during_cancelation_error(
+            cancelation_exception=cancelation_exception
+        )
 
     async def _user_stream_event_listener(self):
         """Not used."""

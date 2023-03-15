@@ -27,7 +27,9 @@ from pyinjective.proto.injective.exchange.v1beta1.exchange_pb2 import Derivative
 
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.gateway.clob_spot.data_sources.gateway_clob_api_data_source_base import (
+    CancelOrderResult,
     GatewayCLOBAPIDataSourceBase,
+    PlaceOrderResult,
 )
 from hummingbot.connector.gateway.clob_spot.data_sources.injective.injective_constants import (
     ACC_NONCE_PATH_RATE_LIMIT_ID,
@@ -54,7 +56,7 @@ from hummingbot.core.data_type.trade_fee import MakerTakerExchangeFeeRates, Toke
 from hummingbot.core.event.events import AccountEvent, BalanceUpdateEvent, MarketEvent, OrderBookDataSourceEvent
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.logger import HummingbotLogger
 
@@ -120,15 +122,12 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         self._network = network
         self._sub_account_id = address
         self._account_address: Optional[str] = None
-        self._network_obj = Network.custom(
-            lcd_endpoint="https://k8s.global.mainnet.lcd.injective.network:443",
-            tm_websocket_endpoint="wss://k8s.global.mainnet.tm.injective.network:443/websocket",
-            grpc_endpoint="k8s.global.mainnet.chain.grpc.injective.network:443",
-            grpc_exchange_endpoint="k8s.global.mainnet.exchange.grpc.injective.network:443",
-            grpc_explorer_endpoint="k8s.mainnet.explorer.grpc.injective.network:443",
-            chain_id="injective-1",
-            env="mainnet"
-        )
+        if network == "mainnet":
+            self._network_obj = Network.mainnet()
+        elif network == "testnet":
+            self._network_obj = Network.testnet()
+        else:
+            raise ValueError(f"Invalid network: {network}")
         self._client = AsyncClient(network=self._network_obj)
         self._composer = ProtoMsgComposer(network=self._network_obj.string())
         self._order_hash_manager: Optional[OrderHashManager] = None
@@ -159,6 +158,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         )
         await self._update_markets()  # required for the streams
         await self._start_streams()
+        self._gateway_order_tracker.lost_order_count_limit = 10
 
     async def stop(self):
         """Stops the event streaming."""
@@ -169,29 +169,13 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
     async def place_order(
         self, order: GatewayInFlightOrder, **kwargs
     ) -> Tuple[Optional[str], Dict[str, Any]]:
-        market = self._trading_pair_to_active_spot_markets[order.trading_pair]
-        spot_order_to_create = [
-            self._composer.SpotOrder(
-                market_id=market.market_id,
-                subaccount_id=self._sub_account_id,
-                fee_recipient=self._account_address,
-                price=float(order.price),
-                quantity=float(order.amount),
-                is_buy=order.trade_type == TradeType.BUY,
-                is_po=order.order_type == OrderType.LIMIT_MAKER,
-            ),
-        ]
+        spot_order_to_create = [self._compose_spot_order_for_local_hash_computation(order=order)]
 
         async with self._order_placement_lock:
             order_hashes = self._order_hash_manager.compute_order_hashes(
                 spot_orders=spot_order_to_create, derivative_orders=[]
             )
             order_hash = order_hashes.spot[0]
-
-            self.logger().debug(
-                f"Placing order {order.client_order_id} with order hash {order_hash} from nonce"
-                f" {self._order_hash_manager.current_nonce - 1}"
-            )  # todo: remove
 
             try:
                 order_result: Dict[str, Any] = await self._get_gateway_instance().clob_place_order(
@@ -211,8 +195,6 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
             transaction_hash: Optional[str] = order_result.get("txHash")
 
-            self.logger().debug(f"Placed order {order_hash} with tx hash {transaction_hash}")  # todo: remove
-
             if transaction_hash is None:
                 await self._update_account_address_and_create_order_hash_manager()
                 raise ValueError(
@@ -228,10 +210,57 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
         return order_hash, misc_updates
 
+    async def batch_order_create(self, orders_to_create: List[GatewayInFlightOrder]) -> List[PlaceOrderResult]:
+        spot_orders_to_create = [
+            self._compose_spot_order_for_local_hash_computation(order=order)
+            for order in orders_to_create
+        ]
+
+        async with self._order_placement_lock:
+            order_hashes = self._order_hash_manager.compute_order_hashes(
+                spot_orders=spot_orders_to_create, derivative_orders=[]
+            )
+            try:
+                update_result = await self._get_gateway_instance().clob_batch_order_modify(
+                    connector=self._connector_name,
+                    chain=self._chain,
+                    network=self._network,
+                    address=self._sub_account_id,
+                    orders_to_create=orders_to_create,
+                    orders_to_cancel=[],
+                )
+            except Exception:
+                await self._update_account_address_and_create_order_hash_manager()
+                raise
+
+            transaction_hash: Optional[str] = update_result.get("txHash")
+            exception = None
+
+            if transaction_hash is None:
+                await self._update_account_address_and_create_order_hash_manager()
+                self.logger().error("The batch order update transaction failed.")
+                exception = RuntimeError("The creation transaction has failed on the Injective chain.")
+
+        transaction_hash = f"0x{transaction_hash.lower()}"
+
+        place_order_results = [
+            PlaceOrderResult(
+                update_timestamp=self._time(),
+                client_order_id=order.client_order_id,
+                exchange_order_id=order_hash,
+                trading_pair=order.trading_pair,
+                misc_updates={
+                    "creation_transaction_hash": transaction_hash,
+                },
+                exception=exception,
+            ) for order, order_hash in zip(orders_to_create, order_hashes.spot)
+        ]
+
+        return place_order_results
+
     async def cancel_order(self, order: GatewayInFlightOrder) -> Tuple[bool, Dict[str, Any]]:
 
         await order.get_exchange_order_id()
-        self.logger().debug(f"Canceling order {order.exchange_order_id}")  # todo: remove
 
         cancelation_result = await self._get_gateway_instance().clob_cancel_order(
             connector=self._connector_name,
@@ -252,13 +281,59 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
             )
 
         transaction_hash = f"0x{transaction_hash.lower()}"
-        self.logger().debug(f"Canceled order {order.exchange_order_id} with tx hash {transaction_hash}")  # todo: remove
 
         misc_updates = {
             "cancelation_transaction_hash": transaction_hash
         }
 
         return True, misc_updates
+
+    async def batch_order_cancel(self, orders_to_cancel: List[InFlightOrder]) -> List[CancelOrderResult]:
+        in_flight_orders_to_cancel = [
+            self._gateway_order_tracker.fetch_tracked_order(client_order_id=order.client_order_id)
+            for order in orders_to_cancel
+        ]
+        exchange_order_ids_to_cancel = await safe_gather(
+            *[order.get_exchange_order_id() for order in in_flight_orders_to_cancel],
+            return_exceptions=True,
+        )
+        found_orders_to_cancel = [
+            order
+            for order, result in zip(orders_to_cancel, exchange_order_ids_to_cancel)
+            if not isinstance(result, asyncio.TimeoutError)
+        ]
+
+        update_result = await self._get_gateway_instance().clob_batch_order_modify(
+            connector=self._connector_name,
+            chain=self._chain,
+            network=self._network,
+            address=self._sub_account_id,
+            orders_to_create=[],
+            orders_to_cancel=found_orders_to_cancel,
+        )
+
+        transaction_hash: Optional[str] = update_result.get("txHash")
+        exception = None
+
+        if transaction_hash is None:
+            await self._update_account_address_and_create_order_hash_manager()
+            self.logger().error("The batch order update transaction failed.")
+            exception = RuntimeError("The cancelation transaction has failed on the Injective chain.")
+
+        transaction_hash = f"0x{transaction_hash.lower()}"
+
+        cancel_order_results = [
+            CancelOrderResult(
+                client_order_id=order.client_order_id,
+                trading_pair=order.trading_pair,
+                misc_updates={
+                    "cancelation_transaction_hash": transaction_hash
+                },
+                exception=exception,
+            ) for order in orders_to_cancel
+        ]
+
+        return cancel_order_results
 
     async def get_trading_rules(self) -> Dict[str, TradingRule]:
         self._check_markets_initialized() or await self._update_markets()
@@ -384,7 +459,6 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         return trade_updates
 
     async def get_order_status_update(self, in_flight_order: GatewayInFlightOrder) -> OrderUpdate:
-        self.logger().debug(f"Getting order status update for {in_flight_order.exchange_order_id}")  # todo: remove
         trading_pair = in_flight_order.trading_pair
         order_hash = await in_flight_order.get_exchange_order_id()
         misc_updates = {
@@ -406,10 +480,6 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
             order_mist_updates=misc_updates,
         )
         if status_update is None and in_flight_order.creation_transaction_hash is not None:
-            self.logger().debug(
-                f"Failed to find status update for {in_flight_order.exchange_order_id}. Attempting from transaction"
-                f" hash {in_flight_order.creation_transaction_hash}."
-            )  # todo: remove
             creation_transaction = await self._get_transaction_by_hash(
                 transaction_hash=in_flight_order.creation_transaction_hash
             )
@@ -425,9 +495,6 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
                     misc_updates=misc_updates,
                 )
         if status_update is None:
-            self.logger().debug(
-                f"Failed to find an order status update for {in_flight_order.exchange_order_id}"
-            )  # todo: remove
             raise IOError(f"No update found for order {in_flight_order.client_order_id}")
 
         if in_flight_order.current_state == OrderState.PENDING_CREATE and status_update.new_state != OrderState.OPEN:
@@ -468,6 +535,24 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
                 maker=maker_fee, taker=taker_fee, maker_flat_fees=[], taker_flat_fees=[]
             )
         return trading_fees
+
+    def is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
+        return str(status_update_exception).startswith("No update found for order")
+
+    def is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
+        return False
+
+    def _compose_spot_order_for_local_hash_computation(self, order: GatewayInFlightOrder) -> SpotOrder:
+        market = self._trading_pair_to_active_spot_markets[order.trading_pair]
+        return self._composer.SpotOrder(
+            market_id=market.market_id,
+            subaccount_id=self._sub_account_id,
+            fee_recipient=self._account_address,
+            price=float(order.price),
+            quantity=float(order.amount),
+            is_buy=order.trade_type == TradeType.BUY,
+            is_po=order.order_type == OrderType.LIMIT_MAKER,
+        )
 
     async def _get_booked_order_status_update(
         self,
@@ -657,7 +742,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         self._publisher.trigger_event(event_tag=OrderBookDataSourceEvent.TRADE_EVENT, message=trade_msg)
 
         exchange_order_id = trade.trade.order_hash
-        tracked_order = self._gateway_order_tracker.all_fillable_orders_by_exchange_id.get(exchange_order_id)
+        tracked_order = self._gateway_order_tracker.all_fillable_orders_by_exchange_order_id.get(exchange_order_id)
         client_order_id = "" if tracked_order is None else tracked_order.client_order_id
 
         trade_update = self._parse_backend_trade(
@@ -701,9 +786,8 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         timestamp: 1669198784000
         """
         order_hash = order.order.order_hash
-        in_flight_order = self._gateway_order_tracker.all_fillable_orders_by_exchange_id.get(order_hash)
+        in_flight_order = self._gateway_order_tracker.all_fillable_orders_by_exchange_order_id.get(order_hash)
         if in_flight_order is not None:
-            self.logger().debug(f"Received order status update for {in_flight_order.exchange_order_id}")  # todo: remove
             market_id = order.order.market_id
             trading_pair = self._get_trading_pair_from_market_id(market_id=market_id)
             order_update = OrderUpdate(
@@ -928,7 +1012,6 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
     async def _parse_transaction_event(self, transaction: StreamTxsResponse):
         order = self._gateway_order_tracker.get_fillable_order_by_hash(hash=transaction.hash)
         if order is not None:
-            self.logger().debug(f"Received transaction update for {order.exchange_order_id}")  # todo: remove
             messages = json.loads(s=transaction.messages)
             for message in messages:
                 if message["type"] in [MSG_CREATE_SPOT_LIMIT_ORDER, MSG_CANCEL_SPOT_ORDER, MSG_BATCH_UPDATE_ORDERS]:
