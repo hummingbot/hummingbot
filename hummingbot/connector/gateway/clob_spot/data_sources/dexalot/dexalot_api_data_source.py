@@ -396,9 +396,14 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
     async def _get_order_status_update_with_order_id(self, in_flight_order: InFlightOrder) -> Optional[OrderUpdate]:
         url = f"{CONSTANTS.ORDERS_PATH}/{in_flight_order.exchange_order_id}"
-        resp = await self._api_get(
-            path_url=url, throttler_limit_id=CONSTANTS.ORDERS_RATE_LIMIT_ID, is_auth_required=True
-        )
+
+        try:
+            resp = await self._api_get(
+                path_url=url, throttler_limit_id=CONSTANTS.ORDERS_RATE_LIMIT_ID, is_auth_required=True
+            )
+        except OSError as e:
+            if "HTTP status is 404" in str(e):
+                raise ValueError(f"No update found for order {in_flight_order.exchange_order_id}.")
 
         if resp.get("message") == "":
             raise ValueError(f"No update found for order {in_flight_order.exchange_order_id}.")
