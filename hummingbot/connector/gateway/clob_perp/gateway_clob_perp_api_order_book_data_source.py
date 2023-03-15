@@ -1,14 +1,14 @@
 import asyncio
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from hummingbot.connector.gateway.clob_perp.data_sources.gateway_clob_perp_api_data_source_base import (
     GatewayCLOBPerpAPIDataSourceBase,
 )
-from hummingbot.core.data_type.funding_info import FundingInfo
+from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.perpetual_api_order_book_data_source import PerpetualAPIOrderBookDataSource
 from hummingbot.core.event.event_forwarder import EventForwarder
-from hummingbot.core.event.events import OrderBookDataSourceEvent
+from hummingbot.core.event.events import MarketEvent, OrderBookDataSourceEvent
 
 
 class GatewayCLOBPerpAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
@@ -59,7 +59,7 @@ class GatewayCLOBPerpAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         )
         self._forwarders.append(event_forwarder)
         self._api_data_source.add_listener(
-            event_tag=OrderBookDataSourceEvent.FUNDING_INFO_EVENT, listener=event_forwarder
+            event_tag=MarketEvent.FundingInfo, listener=event_forwarder
         )
 
     async def _parse_trade_message(self, raw_message: OrderBookMessage, message_queue: asyncio.Queue):
@@ -87,5 +87,5 @@ class GatewayCLOBPerpAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     async def get_funding_info(self, trading_pair: str) -> FundingInfo:
         return await self._api_data_source.get_funding_info(trading_pair=trading_pair)
 
-    async def _parse_funding_info_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
+    async def _parse_funding_info_message(self, raw_message: FundingInfoUpdate, message_queue: asyncio.Queue):
         return await self._api_data_source.parse_funding_info_message(raw_message, message_queue)

@@ -1,6 +1,6 @@
 from copy import deepcopy
 from decimal import Decimal
-from typing import TYPE_CHECKING, Dict, List, Mapping, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.derivative.position import Position
@@ -31,7 +31,7 @@ if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 
-class GatewayCLOBPerpetual(PerpetualDerivativePyBase):
+class GatewayCLOBPerp(PerpetualDerivativePyBase):
     def __init__(
         self,
         client_config_map: "ClientConfigAdapter",
@@ -167,14 +167,6 @@ class GatewayCLOBPerpetual(PerpetualDerivativePyBase):
         self._forwarders.append(event_forwarder)
         self._api_data_source.add_listener(event_tag=AccountEvent.PositionUpdate, listener=event_forwarder)
 
-        event_forwarder = EventForwarder(to_function=self._process_margin_call_event)
-        self._forwarders.append(event_forwarder)
-        self._api_data_source.add_listener(event_tag=AccountEvent.MarginCall, listener=event_forwarder)
-
-        event_forwarder = EventForwarder(to_function=self._process_liquidation_event)
-        self._forwarders.append(event_forwarder)
-        self._api_data_source.add_listener(event_tag=AccountEvent.LiquidationEvent, listener=event_forwarder)
-
     def _create_order_book_data_source(self) -> PerpetualAPIOrderBookDataSource:
         data_source = GatewayCLOBPerpAPIOrderBookDataSource(
             trading_pairs=self.trading_pairs, api_data_source=self._api_data_source
@@ -269,6 +261,9 @@ class GatewayCLOBPerpetual(PerpetualDerivativePyBase):
         trading_rule: TradingRule = self._trading_rules[trading_pair]
         return trading_rule.sell_order_collateral_token
 
+    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
+        self._set_trading_pair_symbol_map(exchange_info)
+
     async def _make_network_check_request(self):
         network_status = await self._api_data_source.check_network_status()
         if network_status != NetworkStatus.CONNECTED:
@@ -328,6 +323,9 @@ class GatewayCLOBPerpetual(PerpetualDerivativePyBase):
         for asset, balance in balances.items():
             self._account_balances[asset] = Decimal(balance["total_balance"])
             self._account_available_balances[asset] = Decimal(balance["available_balance"])
+
+    async def _update_trading_fees(self):
+        pass
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         status_update, _ = await self._api_data_source.get_order_status_update(in_flight_order=tracked_order)
