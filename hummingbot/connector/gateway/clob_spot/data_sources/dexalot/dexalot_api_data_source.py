@@ -82,6 +82,7 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
         throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         self._api_factory = build_api_factory(throttler=throttler, api_key=self._api_key, auth=auth)
         self._stream_listener = safe_ensure_future(self._listen_to_streams())
+        self._gateway_order_tracker.lost_order_count_limit = CONSTANTS.LOST_ORDER_COUNT_LIMIT
         await super().start()
 
     async def stop(self):
