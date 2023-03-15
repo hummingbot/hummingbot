@@ -51,7 +51,7 @@ class KucoinPerpetualAuthTests(TestCase):
             throttler_limit_id="/api/endpoint"
         )
 
-        self.async_run_with_timeout(self.auth.rest_authenticate(request))
+        self.async_run_with_timeout(self.auth.rest_authenticate(request, use_time_provider=1))
 
         self.assertEqual(self.api_key, request.headers["KC-API-KEY"])
         self.assertEqual("1000000", request.headers["KC-API-TIMESTAMP"])
@@ -75,7 +75,7 @@ class KucoinPerpetualAuthTests(TestCase):
             throttler_limit_id="/api/endpoint"
         )
 
-        self.async_run_with_timeout(self.auth.rest_authenticate(request))
+        self.async_run_with_timeout(self.auth.rest_authenticate(request, use_time_provider=1))
 
         self.assertEqual(self.api_key, request.headers["KC-API-KEY"])
         self.assertEqual("1000000", request.headers["KC-API-TIMESTAMP"])
@@ -101,7 +101,7 @@ class KucoinPerpetualAuthTests(TestCase):
             throttler_limit_id="/api/endpoint"
         )
 
-        self.async_run_with_timeout(self.auth.rest_authenticate(request))
+        self.async_run_with_timeout(self.auth.rest_authenticate(request, use_time_provider=1))
 
         self.assertEqual(self.api_key, request.headers["KC-API-KEY"])
         self.assertEqual("1000000", request.headers["KC-API-TIMESTAMP"])
