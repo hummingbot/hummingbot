@@ -1281,6 +1281,28 @@ class GatewayHttpClient:
         request_payload.update(kwargs)
         return await self.api_request("get", "clob/perp/funding/payments", request_payload)
 
+    async def clob_get_perp_orders(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        address: str = None,
+        order_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+        }
+
+        if address is not None:
+            request["address"] = address
+
+        if order_id is not None:
+            request["orderId"] = order_id
+
+        return await self.api_request("get", "clob/perp/orders", request, use_body=True)
+
     async def clob_perp_positions(
         self,
         address: str,
