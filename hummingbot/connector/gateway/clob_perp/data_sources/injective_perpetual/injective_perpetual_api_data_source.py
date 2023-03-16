@@ -100,11 +100,9 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         self._order_placement_lock = asyncio.Lock()
 
     def get_supported_order_types(self) -> List[OrderType]:
-        # TODO: Confirm the supported order types
         return CONSTANTS.SUPPORTED_ORDER_TYPES
 
     def supported_position_modes(self) -> List[PositionMode]:
-        # TODO: Confirm the supported Position Modes. Default to ONEWAY
         return CONSTANTS.SUPPORTED_POSITION_MODES
 
     async def _update_account_address_and_create_order_hash_manager(self):
@@ -559,6 +557,7 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         return last_trade_price
 
     async def get_funding_info(self, trading_pair: str) -> FundingInfo:
+        # TODO: Update this to use clob_perp_funding_info
         self._check_markets_initialized() or await self._update_market_info()
 
         market_info: DerivativeMarketInfo = self._trading_pair_to_active_perp_markets.get(trading_pair, None)
@@ -796,6 +795,9 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         return order_update
 
     async def _fetch_order_history(self, order: GatewayInFlightOrder) -> Optional[DerivativeOrderHistory]:
+        """
+        # TODO: Update to use clob_get_perp_orders
+        """
         trading_pair: str = order.trading_pair
         order_hash: str = await order.get_exchange_order_id()
 
@@ -808,6 +810,12 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         skip = 0
         search_completed = False
         while not search_completed:
+            # response: Dict[str, Any] = await self._get_gateway_instance().clob_get_perp_orders(
+            #     chain=self._chain,
+            #     network=self._network,
+            #     connector=self._connector_name,
+            #     owner_address=self._sub_account_id
+            # )
             response: OrdersHistoryResponse = await self._client.get_historical_derivative_orders(
                 market_id=market.market_id,
                 subaccount_id=self._sub_account_id,

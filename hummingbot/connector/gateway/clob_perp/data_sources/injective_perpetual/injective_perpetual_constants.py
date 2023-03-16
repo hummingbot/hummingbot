@@ -8,7 +8,7 @@ CONNECTOR_NAME = "injective_perpetual"
 MARKETS_UPDATE_INTERVAL = 8 * 60 * 60
 
 SUPPORTED_ORDER_TYPES = [OrderType.LIMIT, OrderType.MARKET, OrderType.LIMIT_MAKER]
-SUPPORTED_POSITION_MODES = [PositionMode.ONEWAY, PositionMode.HEDGE]
+SUPPORTED_POSITION_MODES = [PositionMode.ONEWAY]
 
 MSG_CREATE_DERIVATIVE_LIMIT_ORDER = "/injective.exchange.v1beta1.MsgCreateDerivativeLimitOrder"
 MSG_CANCEL_DERIVATIVE_ORDER = "/injective.exchange.v1beta1.MsgCancelDerivativeOrder"
