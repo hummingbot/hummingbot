@@ -201,12 +201,6 @@ class GatewayCLOBAPIDataSourceBase(CLOBAPIDataSourceBase, ABC):
             "creation_transaction_hash": transaction_hash,
         }
 
-        safe_ensure_future(
-            coro=self._wait_for_transaction_to_be_included_in_a_block_and_request_order_status_update(
-                in_flight_order=order
-            )
-        )
-
         return None, misc_updates
 
     async def batch_order_create(self, orders_to_create: List[GatewayInFlightOrder]) -> List[PlaceOrderResult]:
@@ -242,11 +236,6 @@ class GatewayCLOBAPIDataSourceBase(CLOBAPIDataSourceBase, ABC):
                     exception=exception,
                 )
             )
-            safe_ensure_future(
-                coro=self._wait_for_transaction_to_be_included_in_a_block_and_request_order_status_update(
-                    in_flight_order=order
-                )
-            )
 
         return place_order_results
 
@@ -275,12 +264,6 @@ class GatewayCLOBAPIDataSourceBase(CLOBAPIDataSourceBase, ABC):
             "cancelation_transaction_hash": transaction_hash
         }
 
-        safe_ensure_future(
-            coro=self._wait_for_transaction_to_be_included_in_a_block_and_request_order_status_update(
-                in_flight_order=order
-            )
-        )
-
         return True, misc_updates
 
     async def batch_order_cancel(self, orders_to_cancel: List[GatewayInFlightOrder]) -> List[CancelOrderResult]:
@@ -288,51 +271,47 @@ class GatewayCLOBAPIDataSourceBase(CLOBAPIDataSourceBase, ABC):
             self._gateway_order_tracker.fetch_tracked_order(client_order_id=order.client_order_id)
             for order in orders_to_cancel
         ]
-        exchange_order_ids_to_cancel = await safe_gather(
-            *[order.get_exchange_order_id() for order in in_flight_orders_to_cancel],
-            return_exceptions=True,
-        )
-        found_orders_to_cancel = [
-            order
-            for order, result in zip(orders_to_cancel, exchange_order_ids_to_cancel)
-            if not isinstance(result, asyncio.TimeoutError)
-        ]
-
-        update_result = await self._get_gateway_instance().clob_batch_order_modify(
-            connector=self.connector_name,
-            chain=self._chain,
-            network=self._network,
-            address=self._account_id,
-            orders_to_create=[],
-            orders_to_cancel=found_orders_to_cancel,
-        )
-
-        transaction_hash: Optional[str] = update_result.get("txHash")
-        exception = None
-
-        if transaction_hash is None:
-            self.logger().error("The batch order update transaction failed.")
-            exception = ValueError(f"The cancelation transaction has failed on the {self._chain} chain.")
-
-        transaction_hash = "" if transaction_hash is None else transaction_hash.lower()
-
         cancel_order_results = []
-        for order in found_orders_to_cancel:
-            cancel_order_results.append(
-                CancelOrderResult(
-                    client_order_id=order.client_order_id,
-                    trading_pair=order.trading_pair,
-                    misc_updates={
-                        "cancelation_transaction_hash": transaction_hash
-                    },
-                    exception=exception,
-                )
+        if len(in_flight_orders_to_cancel) != 0:
+            exchange_order_ids_to_cancel = await safe_gather(
+                *[order.get_exchange_order_id() for order in in_flight_orders_to_cancel],
+                return_exceptions=True,
             )
-            safe_ensure_future(
-                coro=self._wait_for_transaction_to_be_included_in_a_block_and_request_order_status_update(
-                    in_flight_order=order
-                )
+            found_orders_to_cancel = [
+                order
+                for order, result in zip(orders_to_cancel, exchange_order_ids_to_cancel)
+                if not isinstance(result, asyncio.TimeoutError)
+            ]
+
+            update_result = await self._get_gateway_instance().clob_batch_order_modify(
+                connector=self.connector_name,
+                chain=self._chain,
+                network=self._network,
+                address=self._account_id,
+                orders_to_create=[],
+                orders_to_cancel=found_orders_to_cancel,
             )
+
+            transaction_hash: Optional[str] = update_result.get("txHash")
+            exception = None
+
+            if transaction_hash is None:
+                self.logger().error("The batch order update transaction failed.")
+                exception = ValueError(f"The cancelation transaction has failed on the {self._chain} chain.")
+
+            transaction_hash = "" if transaction_hash is None else transaction_hash.lower()
+
+            for order in found_orders_to_cancel:
+                cancel_order_results.append(
+                    CancelOrderResult(
+                        client_order_id=order.client_order_id,
+                        trading_pair=order.trading_pair,
+                        misc_updates={
+                            "cancelation_transaction_hash": transaction_hash
+                        },
+                        exception=exception,
+                    )
+                )
 
         return cancel_order_results
 
@@ -475,12 +454,6 @@ class GatewayCLOBAPIDataSourceBase(CLOBAPIDataSourceBase, ABC):
             f"The cancelation transaction for {order.client_order_id} failed. Please ensure you have sufficient"
             f" funds to cover the transaction gas costs."
         )
-
-    async def _wait_for_transaction_to_be_included_in_a_block_and_request_order_status_update(
-        self, in_flight_order: GatewayInFlightOrder
-    ):
-        await self._sleep(delay=self.current_block_time)
-        await self.get_order_status_update(in_flight_order=in_flight_order)
 
     @staticmethod
     async def _sleep(delay: float):

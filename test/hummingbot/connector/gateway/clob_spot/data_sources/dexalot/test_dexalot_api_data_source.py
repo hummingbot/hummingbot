@@ -487,6 +487,7 @@ class DexalotAPIDataSourceTest(AbstractGatewayCLOBAPIDataSourceTests.GatewayCLOB
 
         self.configure_orderbook_snapshot_event(bids=[[9, 1], [8, 2]], asks=[[11, 3]])
         time_mock.return_value = self.initial_timestamp
+        data_source.gateway_order_tracker = self.tracker
 
         self.async_run_with_timeout(coro=data_source.start())
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(
