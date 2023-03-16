@@ -105,12 +105,14 @@ execute_docker () {
    docker run -itd --log-opt max-size=10m --log-opt max-file=5 \
    --network host \
    --name ${INSTANCES[$j]} \
-   -v $CONF_FOLDER:/conf \
-   -v $LOGS_FOLDER:/logs \
-   -v $DATA_FOLDER:/data \
-   -v $PMM_SCRIPTS_FOLDER:/pmm_scripts \
-   -v $SCRIPTS_FOLDER:/scripts \
-   -v $CERTS_FOLDER:/certs \
+    -v ${FOLDERS[$j]}/conf:/conf \
+    -v ${FOLDERS[$j]}/conf/connectors:/conf/connectors \
+    -v ${FOLDERS[$j]}/conf/strategies:/conf/strategies \
+    -v ${FOLDERS[$j]}/logs:/logs \
+    -v ${FOLDERS[$j]}/data:/data \
+    -v ${FOLDERS[$j]}/pmm-scripts:/pmm-scripts \
+    -v ${FOLDERS[$j]}/scripts:/scripts \
+    -v ${FOLDERS[$j]}/certs:/certs \
    hummingbot/hummingbot:$TAG
    j=$[$j+1]
    # Update file ownership
