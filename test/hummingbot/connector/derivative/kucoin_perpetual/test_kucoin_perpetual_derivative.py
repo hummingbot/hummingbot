@@ -1067,7 +1067,7 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             pass
 
         self.assertEqual(Decimal("10"), self.exchange.available_balances[self.base_asset])
-        self.assertEqual(Decimal("15"), self.exchange.get_balance(self.base_asset))
+        self.assertEqual(Decimal("25"), self.exchange.get_balance(self.base_asset))
 
     def test_supported_position_modes(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
@@ -1364,3 +1364,18 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     def test_set_position_mode_failure(self, mock_api):
         # There's only ONEWAY position mode
         pass
+
+    def configure_order_not_found_error_cancelation_response(
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
+        # Implement the expected not found response when enabling test_cancel_order_not_found_in_the_exchange
+        raise NotImplementedError
+
+    def configure_order_not_found_error_order_status_response(
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> List[str]:
+        # Implement the expected not found response when enabling
+        # test_lost_order_removed_if_not_found_during_order_status_update
+        raise NotImplementedError
