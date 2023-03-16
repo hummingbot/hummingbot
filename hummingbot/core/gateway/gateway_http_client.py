@@ -1109,7 +1109,6 @@ class GatewayHttpClient:
         price: Decimal,
         size: Decimal,
         client_order_id: Optional[str] = None,
-        leverage: Optional[int] = None
     ) -> Dict[str, Any]:
         request_payload = {
             "connector": connector,
@@ -1124,10 +1123,6 @@ class GatewayHttpClient:
         }
         if client_order_id is not None:
             request_payload["clientOrderID"] = client_order_id
-        if leverage is not None:
-            request_payload.update({
-                "leverage": leverage
-            })
         resp = await self.api_request(method="post", path_url="clob/orders", params=request_payload)
         return resp
 
