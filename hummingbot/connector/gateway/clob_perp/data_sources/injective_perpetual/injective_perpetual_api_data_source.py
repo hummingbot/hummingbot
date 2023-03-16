@@ -291,7 +291,6 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
     async def place_order(
         self, order: GatewayInFlightOrder, **kwargs
     ) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
-        # TODO: Use POST GatewayHTTPClient's /clob/orders here.
         market: DerivativeMarketInfo = self._trading_pair_to_active_perp_markets[order.trading_pair]
         perp_order_to_create = [
             self._composer.DerivativeOrder(
@@ -311,7 +310,7 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
             )
             order_hash: str = order_hashes.derivate[0]
 
-            order_result: Dict[str, Any] = await self._get_gateway_instance().clob_place_order(
+            order_result: Dict[str, Any] = await self._get_gateway_instance().clob_perp_place_order(
                 connector=self._connector_name,
                 chain=self._chain,
                 network=self._network,
@@ -322,7 +321,6 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
                 price=order.price,
                 size=order.amount,
                 leverage=order.leverage
-                # is_po=order.order_type == OrderType.LIMIT_MAKER
             )
 
             transaction_hash: Optional[str] = order_result.get("txHash")
@@ -347,12 +345,12 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
     async def cancel_order(self, order: GatewayInFlightOrder) -> Tuple[bool, Optional[Dict[str, Any]]]:
         await order.get_exchange_order_id()
 
-        cancelation_result = await self._get_gateway_instance().clob_cancel_order(
-            connector=self._connector_name,
+        cancelation_result = await self._get_gateway_instance().clob_perp_cancel_order(
             chain=self._chain,
             network=self._network,
-            trading_pair=order.trading_pair,
+            connector=self._connector_name,
             address=self._sub_account_id,
+            trading_pair=order.trading_pair,
             exchange_order_id=order.exchange_order_id,
         )
         transaction_hash: Optional[str] = cancelation_result.get("txHash")

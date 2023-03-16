@@ -1316,3 +1316,49 @@ class GatewayHttpClient:
         }
         request_payload.update(kwargs)
         return await self.api_request("post", "clob/perp/positions", request_payload)
+
+    async def clob_perp_place_order(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        address: str,
+        trading_pair: str,
+        trade_type: TradeType,
+        order_type: OrderType,
+        price: Decimal,
+        size: Decimal,
+        leverage: Decimal
+    ) -> Dict[str, Any]:
+        request_payload = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "address": address,
+            "market": trading_pair,
+            "price": str(price),
+            "amount": str(size),
+            "leverage": str(leverage),
+            "side": trade_type.name,
+            "orderType": order_type.name
+        }
+        return await self.api_request("post", "clob/perp/orders", request_payload)
+
+    async def clob_perp_cancel_order(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        address: str,
+        trading_pair: str,
+        exchange_order_id: str
+    ) -> Dict[str, Any]:
+        request_payload = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "address": address,
+            "market": trading_pair,
+            "orderId": exchange_order_id
+        }
+        return await self.api_request("delete", "clob/perp/orders", request_payload)
