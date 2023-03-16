@@ -1249,6 +1249,7 @@ class GatewayHttpClient:
         connector: str,
         trading_pair: str
     ):
+        # TODO: Remove once GET clob/perp/funding/info endpoint is finalized
         request_payload = {
             "chain": chain,
             "network": network,
@@ -1256,6 +1257,21 @@ class GatewayHttpClient:
             "market": trading_pair
         }
         return await self.api_request("get", "clob/perp/funding/rates", request_payload)
+
+    async def clob_perp_funding_info(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        trading_pair: str
+    ) -> Dict[str, Any]:
+        request_payload = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "market": trading_pair,
+        }
+        return await self.api_request("get", "clob/perp/funding/info", request_payload)
 
     async def clob_perp_funding_payments(
         self,
