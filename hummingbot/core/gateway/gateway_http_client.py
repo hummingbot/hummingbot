@@ -1280,3 +1280,22 @@ class GatewayHttpClient:
         }
         request_payload.update(kwargs)
         return await self.api_request("get", "clob/perp/funding/payments", request_payload)
+
+    async def clob_perp_positions(
+        self,
+        address: str,
+        chain: str,
+        connector: str,
+        network: str,
+        trading_pairs: List[str],
+        **kwargs
+    ):
+        request_payload = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "address": address,
+            "markets": trading_pairs
+        }
+        request_payload.update(kwargs)
+        return await self.api_request("post", "clob/perp/positions", request_payload)
