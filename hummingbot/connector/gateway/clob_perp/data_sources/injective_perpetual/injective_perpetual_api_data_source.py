@@ -18,7 +18,6 @@ from pyinjective.proto.exchange.injective_derivative_exchange_rpc_pb2 import (
     MarketsResponse,
     OrderbookResponse,
     OrdersHistoryResponse,
-    PositionsResponse,
     StreamOrdersHistoryResponse,
     StreamOrdersResponse,
     StreamPositionsResponse,
@@ -376,22 +375,27 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         return True, misc_updates
 
     async def fetch_positions(self) -> List[Position]:
-        # TODO: Use Gateway endpoint if possible
         positions: List[Position] = []
-        response: PositionsResponse = await self._client.get_derivative_positions(
-            market_ids=[list(self._market_id_to_active_perp_markets.keys())], subaccount_id=self._sub_account_id
+
+        response: Dict[str, Any] = await self._get_gateway_instance().clob_perp_positions(
+            address=self._sub_account_id,
+            chain=self._chain,
+            connector=self._connector_name,
+            network=self._network,
+            trading_pairs=self._trading_pairs
         )
-        positions: List[DerivativePosition] = response.positions
+
+        positions: List[Dict[str, Any]] = response["positions"]
         for position in positions:
-            market_info: DerivativeMarketInfo = self._market_id_to_active_perp_markets[position.market_id]
+            market_info: DerivativeMarketInfo = self._market_id_to_active_perp_markets[position["marketId"]]
 
             trading_pair: str = combine_to_hb_trading_pair(base=market_info.oracle_base, quote=market_info.oracle_quote)
-            position_side: PositionSide = PositionSide[position.direction.upper()]
-            amount: Decimal = Decimal(position.quantity)
+            position_side: PositionSide = PositionSide[position["direction"].upper()]
+            amount: Decimal = Decimal(position["quantity"])
 
             scaler: Decimal = Decimal(f"1e-{market_info.oracle_scale_factor}")
-            entry_price: Decimal = Decimal(position.entry_price) * scaler
-            mark_price: Decimal = Decimal(position.mark_price) * scaler
+            entry_price: Decimal = Decimal(position["entry_price"]) * scaler
+            mark_price: Decimal = Decimal(position["mark_price"]) * scaler
 
             unrealized_pnl: Decimal = amount * ((1 / entry_price) - (1 / mark_price))
 
