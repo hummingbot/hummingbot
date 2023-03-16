@@ -28,7 +28,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_numeric_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.common import OrderType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.trade_fee import MakerTakerExchangeFeeRates, TokenAmount, TradeFeeBase, TradeFeeSchema
 from hummingbot.core.event.events import MarketEvent, OrderBookDataSourceEvent
@@ -114,10 +114,15 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
     async def cancel_order(self, order: GatewayInFlightOrder) -> Tuple[bool, Optional[Dict[str, Any]]]:
         cancel_order_results = await super().batch_order_cancel(orders_to_cancel=[order])
-        result = cancel_order_results[0]
-        if result.exception is not None:
-            raise result.exception
-        return True, result.misc_updates
+        misc_updates = {}
+        canceled = False
+        if len(cancel_order_results) != 0:
+            result = cancel_order_results[0]
+            if result.exception is not None:
+                raise result.exception
+            misc_updates = result.misc_updates
+            canceled = True
+        return canceled, misc_updates
 
     async def batch_order_cancel(self, orders_to_cancel: List[GatewayInFlightOrder]) -> List[CancelOrderResult]:
         super_batch_order_cancel = super().batch_order_cancel  # https://stackoverflow.com/a/31895448/6793798
@@ -165,12 +170,25 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
     async def get_order_status_update(self, in_flight_order: GatewayInFlightOrder) -> OrderUpdate:
         await in_flight_order.get_creation_transaction_hash()
+        status_update = None
+
         if in_flight_order.exchange_order_id is None:
             status_update = await self._get_order_status_update_from_transaction_status(in_flight_order=in_flight_order)
             in_flight_order.exchange_order_id = status_update.exchange_order_id
             self._publisher.trigger_event(event_tag=MarketEvent.OrderUpdate, message=status_update)
-        status_update = await self._get_order_status_update_with_order_id(in_flight_order=in_flight_order)
-        self._publisher.trigger_event(event_tag=MarketEvent.OrderUpdate, message=status_update)
+
+        if (
+            in_flight_order.exchange_order_id is not None
+            or (
+                status_update is not None
+                and status_update.new_state not in [OrderState.FAILED, OrderState.PENDING_CREATE]
+            )
+        ):
+            status_update = await self._get_order_status_update_with_order_id(in_flight_order=in_flight_order)
+            self._publisher.trigger_event(event_tag=MarketEvent.OrderUpdate, message=status_update)
+
+        if status_update is None:
+            raise ValueError(f"No update found for order {in_flight_order.exchange_order_id}.")
 
         return status_update
 
@@ -279,6 +297,9 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
               {                                                   # SUCCESS
                 "name": "OrderStatusChanged",
                 "events": [
+                  { ... },
+                  { ... },
+                  { ... },
                   {
                     "name": "orderId",
                     "type": "bytes32",
@@ -294,22 +315,32 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
                     "type": "uint256",
                     "value": "15000000"
                   },
+                  { ... },
                   {
                     "name": "quantity",
                     "type": "uint256",
                     "value": "500000000000000000"
                   },
+                  { ... },
+                  { ... },
+                  { ... },
                   {
                     "name": "status",
                     "type": "uint8",
                     "value": "0"
-                  }
+                  },
+                  { ... },
+                  { ... },
+                  { ... },
                 ],
                 "address": "0x09383137C1eEe3E1A8bc781228E4199f6b4A9bbf"
               },
                {                                                   # FAILED
                 "name": "OrderStatusChanged",
                 "events": [
+                  { ... },
+                  { ... },
+                  { ... },
                   {
                     "name": "orderId",
                     "type": "bytes32",
@@ -325,16 +356,23 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
                     "type": "uint256",
                     "value": "15000000"
                   },
+                  { ... },
                   {
                     "name": "quantity",
                     "type": "uint256",
                     "value": "0"
                   },
+                  { ... },
+                  { ... },
+                  { ... },
                   {
                     "name": "status",
                     "type": "uint8",
                     "value": "1"
                   },
+                  { ... },
+                  { ... },
+                  { ... },
                 ],
                },
             ],
@@ -351,22 +389,38 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
         if (
             transaction_data is not None
             and transaction_data["txStatus"] == 1
-            and transaction_data["txReceipt"] is not None
-            and transaction_data["txReceipt"]["status"] == 1
+            and transaction_data.get("txReceipt", {}).get("status") == 1
         ):
             order_data = self._find_order_data_from_transaction_data(
                 transaction_data=transaction_data, in_flight_order=in_flight_order
             )
+            new_dexalot_numeric_state_event = next(filter(lambda event: event["name"] == "status", order_data))
+            new_dexalot_numeric_state = new_dexalot_numeric_state_event["value"]
+            exchange_order_id_event = next(filter(lambda event: event["name"] == "orderId", order_data))
+            exchange_order_id = exchange_order_id_event["value"]
             timestamp = transaction_data["timestamp"] * 1e-3
             order_update = OrderUpdate(
                 trading_pair=in_flight_order.trading_pair,
                 update_timestamp=timestamp,
-                new_state=DEXALOT_TO_HB_NUMERIC_STATUS_MAP[int(order_data[-4]["value"])],
+                new_state=DEXALOT_TO_HB_NUMERIC_STATUS_MAP[int(new_dexalot_numeric_state)],
                 client_order_id=in_flight_order.client_order_id,
-                exchange_order_id=order_data[3]["value"],
+                exchange_order_id=exchange_order_id,
             )
-        else:
+        elif (
+            transaction_data is not None
+            and (
+                transaction_data["txStatus"] == -1
+                or transaction_data.get("txReceipt", {}).get("status") == 0
+            )
+        ):
             raise ValueError(f"Transaction {in_flight_order.creation_transaction_hash} not found.")
+        else:  # transaction is still being processed
+            order_update = OrderUpdate(
+                trading_pair=in_flight_order.trading_pair,
+                update_timestamp=self._time(),
+                new_state=OrderState.PENDING_CREATE,
+                client_order_id=in_flight_order.client_order_id,
+            )
 
         return order_update
 
@@ -374,25 +428,26 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
     def _find_order_data_from_transaction_data(
         transaction_data: Dict[str, Any], in_flight_order: GatewayInFlightOrder
     ) -> List[Dict[str, str]]:
-        log_events = transaction_data["txReceipt"]["logs"]
+        log_items = transaction_data["txReceipt"]["logs"]
 
-        order_event = None
-        i = 0
-        while i != len(log_events) and order_event is None:
-            log_event = log_events[i]
-            if log_event["name"] == "OrderStatusChanged":
-                client_order_id = log_event["events"][4]["value"]
+        def log_items_filter(log_event_: Dict[str, Any]) -> bool:
+            target_hit = False
+            if log_event_["name"] == "OrderStatusChanged":
+                client_order_id_event = next(
+                    filter(
+                        lambda event: event["name"] == "clientOrderId",
+                        log_event_["events"],
+                    ),
+                )
+                client_order_id = client_order_id_event["value"]
                 if client_order_id == in_flight_order.client_order_id:
-                    order_event = log_event["events"]
-            i += 1
+                    target_hit = True
+            return target_hit
 
-        if order_event is None:
-            raise ValueError(
-                f"Order {in_flight_order.client_order_id}"
-                f" not found in transaction {transaction_data['txHash']} data"
-            )
+        log_item = next(filter(log_items_filter, log_items))
+        log_event = log_item["events"]
 
-        return order_event
+        return log_event
 
     async def _get_order_status_update_with_order_id(self, in_flight_order: InFlightOrder) -> Optional[OrderUpdate]:
         url = f"{CONSTANTS.ORDERS_PATH}/{in_flight_order.exchange_order_id}"
@@ -404,6 +459,7 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
         except OSError as e:
             if "HTTP status is 404" in str(e):
                 raise ValueError(f"No update found for order {in_flight_order.exchange_order_id}.")
+            raise e
 
         if resp.get("message") == "":
             raise ValueError(f"No update found for order {in_flight_order.exchange_order_id}.")

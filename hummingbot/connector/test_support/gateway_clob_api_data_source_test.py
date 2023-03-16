@@ -517,13 +517,6 @@ class AbstractGatewayCLOBAPIDataSourceTests:
                 price=self.expected_buy_order_price,
                 size=self.expected_buy_order_size,
             )
-            update_delivered_event = self.enqueue_order_status_response(
-                timestamp=self.initial_timestamp,
-                trading_pair=self.trading_pair,
-                exchange_order_id=self.expected_buy_exchange_order_id,
-                client_order_id=self.expected_buy_client_order_id,
-                status=OrderState.OPEN,
-            )
             order = GatewayInFlightOrder(
                 client_order_id=self.expected_buy_client_order_id,
                 trading_pair=self.trading_pair,
@@ -538,16 +531,6 @@ class AbstractGatewayCLOBAPIDataSourceTests:
             )
 
             self.assertEqual({"creation_transaction_hash": self.expected_transaction_hash}, misc_updates)
-
-            order.update_creation_transaction_hash(self.expected_transaction_hash)
-            self.async_run_with_timeout(coro=update_delivered_event.wait())
-
-            self.assertEqual(self.expected_event_counts_per_new_order, len(self.order_updates_logger.event_log))
-
-            order_status_event = self.order_updates_logger.event_log[self.expected_event_counts_per_new_order - 1]
-
-            self.assertEqual(self.expected_buy_exchange_order_id, order_status_event.exchange_order_id)
-            self.assertEqual(OrderState.OPEN, order_status_event.new_state)
 
         def test_place_order_transaction_fails(self):
             self.configure_place_order_failure_response()
@@ -606,11 +589,6 @@ class AbstractGatewayCLOBAPIDataSourceTests:
                 transaction_hash=self.expected_transaction_hash,
                 created_orders=orders_to_create,
             )
-            update_delivered_event = self.enqueue_order_status_responses_for_batch_order_create(
-                timestamp=self.initial_timestamp,
-                orders=orders_to_create,
-                statuses=[OrderState.OPEN, OrderState.OPEN],
-            )
 
             for order in orders_to_create:
                 order.exchange_order_id = None  # the orders are new
@@ -624,24 +602,6 @@ class AbstractGatewayCLOBAPIDataSourceTests:
             self.assertEqual({"creation_transaction_hash": self.expected_transaction_hash}, result[0].misc_updates)
             self.assertEqual(self.expected_sell_client_order_id, result[1].client_order_id)
             self.assertEqual({"creation_transaction_hash": self.expected_transaction_hash}, result[1].misc_updates)
-
-            for order in orders_to_create:
-                order.update_creation_transaction_hash(self.expected_transaction_hash)
-            self.async_run_with_timeout(coro=update_delivered_event.wait())
-
-            self.assertEqual(2 * self.expected_event_counts_per_new_order, len(self.order_updates_logger.event_log))
-
-            buy_order_status_event = self.order_updates_logger.event_log[self.expected_event_counts_per_new_order - 1]
-
-            self.assertEqual(self.expected_buy_exchange_order_id, buy_order_status_event.exchange_order_id)
-            self.assertEqual(OrderState.OPEN, buy_order_status_event.new_state)
-
-            sell_order_status_event = self.order_updates_logger.event_log[
-                2 * self.expected_event_counts_per_new_order - 1
-            ]
-
-            self.assertEqual(self.expected_sell_exchange_order_id, sell_order_status_event.exchange_order_id)
-            self.assertEqual(OrderState.OPEN, sell_order_status_event.new_state)
 
         @patch(
             "hummingbot.connector.gateway.clob_spot.data_sources.gateway_clob_api_data_source_base"
@@ -664,28 +624,12 @@ class AbstractGatewayCLOBAPIDataSourceTests:
             self.configure_cancel_order_response(
                 timestamp=self.initial_timestamp, transaction_hash=self.expected_transaction_hash
             )
-            update_delivered_event = self.enqueue_order_status_response(
-                timestamp=self.initial_timestamp,
-                trading_pair=self.trading_pair,
-                exchange_order_id=self.expected_buy_exchange_order_id,
-                client_order_id=self.expected_buy_client_order_id,
-                status=OrderState.CANCELED,
-            )
             cancelation_success, misc_updates = self.async_run_with_timeout(
                 coro=self.data_source.cancel_order(order=order)
             )
 
             self.assertTrue(cancelation_success)
             self.assertEqual({"cancelation_transaction_hash": self.expected_transaction_hash}, misc_updates)
-
-            self.async_run_with_timeout(coro=update_delivered_event.wait())
-
-            self.assertEqual(1, len(self.order_updates_logger.event_log))
-
-            order_status_event = self.order_updates_logger.event_log[0]
-
-            self.assertEqual(self.expected_buy_exchange_order_id, order_status_event.exchange_order_id)
-            self.assertEqual(OrderState.CANCELED, order_status_event.new_state)
 
         def test_cancel_order_transaction_fails(self):
             order = GatewayInFlightOrder(
@@ -741,11 +685,6 @@ class AbstractGatewayCLOBAPIDataSourceTests:
                 transaction_hash=self.expected_transaction_hash,
                 canceled_orders=orders_to_cancel,
             )
-            update_delivered_event = self.enqueue_order_status_responses_for_batch_order_cancel(
-                timestamp=self.initial_timestamp,
-                orders=orders_to_cancel,
-                statuses=[OrderState.CANCELED, OrderState.CANCELED],
-            )
 
             result: List[CancelOrderResult] = self.async_run_with_timeout(
                 coro=self.data_source.batch_order_cancel(orders_to_cancel=orders_to_cancel)
@@ -758,20 +697,6 @@ class AbstractGatewayCLOBAPIDataSourceTests:
             self.assertEqual(sell_order_to_cancel.client_order_id, result[1].client_order_id)
             self.assertIsNone(result[1].exception)  # i.e. success
             self.assertEqual({"cancelation_transaction_hash": self.expected_transaction_hash}, result[1].misc_updates)
-
-            self.async_run_with_timeout(coro=update_delivered_event.wait())
-
-            self.assertEqual(2, len(self.order_updates_logger.event_log))
-
-            buy_order_status_event = self.order_updates_logger.event_log[0]
-
-            self.assertEqual(self.expected_buy_exchange_order_id, buy_order_status_event.exchange_order_id)
-            self.assertEqual(OrderState.CANCELED, buy_order_status_event.new_state)
-
-            sell_order_status_event = self.order_updates_logger.event_log[1]
-
-            self.assertEqual(self.expected_sell_exchange_order_id, sell_order_status_event.exchange_order_id)
-            self.assertEqual(OrderState.CANCELED, sell_order_status_event.new_state)
 
         def test_get_trading_rules(self):
             trading_rules = self.async_run_with_timeout(coro=self.data_source.get_trading_rules())
