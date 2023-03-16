@@ -9,6 +9,15 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
 class SimplePMM(ScriptStrategyBase):
+    """
+    BotCamp Cohort: Sept 2022
+    Design Template: https://hummingbot-foundation.notion.site/Simple-PMM-63cc765486dd42228d3da0b32537fc92
+    Video: -
+    Description:
+    The bot will place two orders around the price_source (mid price or last traded price) in a trading_pair on
+    exchange, with a distance defined by the ask_spread and bid_spread. Every order_refresh_time in seconds,
+    the bot will cancel and replace the orders.
+    """
     bid_spread = 0.08
     ask_spread = 0.08
     order_refresh_time = 15
