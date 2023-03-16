@@ -22,7 +22,7 @@ class KucoinPerpetualAuthTests(TestCase):
         self.subaccount_name = "test!?Subaccount"
 
         self.mock_time_provider = MagicMock()
-        self.mock_time_provider.time.return_value = 1000
+        self.mock_time_provider.time.return_value = 1000000
 
         self.auth = KucoinPerpetualAuth(
             api_key=self.api_key,

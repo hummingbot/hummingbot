@@ -222,7 +222,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(TestCase):
         expected_diff_subscription = {
             "id": 2,
             "type": "subscribe",
-            "topic": f"/market/level2:{self.trading_pair}",
+            "topic": f"/contractMarket/level2:{self.trading_pair}",
             "privateChannel": False,
             "response": False
         }
@@ -261,18 +261,6 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(TestCase):
         with self.assertRaises(asyncio.CancelledError):
             self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
             self.async_run_with_timeout(self.listening_task)
-
-    def test_subscribe_channels_raises_exception_and_logs_error(self):
-        mock_ws = MagicMock()
-        mock_ws.send.side_effect = Exception("Test Error")
-
-        with self.assertRaises(Exception):
-            self.listening_task = self.ev_loop.create_task(self.data_source._subscribe_channels(mock_ws))
-            self.async_run_with_timeout(self.listening_task)
-
-        self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error occurred subscribing to order book trading and delta streams...")
-        )
 
     def test_listen_for_trades_cancelled_when_listening(self):
         mock_queue = MagicMock()

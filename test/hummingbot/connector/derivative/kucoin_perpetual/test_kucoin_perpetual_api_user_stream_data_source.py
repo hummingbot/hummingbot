@@ -66,7 +66,7 @@ class KucoinPerpetualAPIUserStreamDataSourceUnitTests(unittest.TestCase):
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
         self.data_source = KucoinPerpetualAPIUserStreamDataSource(
-            trading_pairs=[self.trading_pair], auth=self.auth, api_factory=self.connector._web_assistants_factory, domain=self.domain
+            trading_pairs=[self.trading_pair], connector=self.connector, auth=self.auth, api_factory=self.connector._web_assistants_factory, domain=self.domain
         )
 
         self.data_source.logger().setLevel(1)
