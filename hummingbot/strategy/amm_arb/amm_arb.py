@@ -187,6 +187,10 @@ class AmmArbStrategy(StrategyPyBase):
         if self.ready_for_new_arb_trades():
             if self._main_task is None or self._main_task.done():
                 self._main_task = safe_ensure_future(self.main())
+        else:
+            self.log_with_clock(logging.INFO,
+                                f"Not ready for new arbitrage trades, waiting for unfilled orders")
+ 
         if self._cancel_outdated_orders_task is None or self._cancel_outdated_orders_task.done():
             self._cancel_outdated_orders_task = safe_ensure_future(self.apply_gateway_transaction_cancel_interval())
 
@@ -330,7 +334,9 @@ class AmmArbStrategy(StrategyPyBase):
                 })
 
                 if not self._concurrent_orders_submission:
+                    self.logger().info(f"Waiting for completion of {arb_side.market_info} {side}...")
                     await arb_side.completed_event.wait()
+                    self.logger().info(f"Received completed event for {arb_side.market_info} {side}.")
                     if arb_side.is_failed:
                         self.log_with_clock(logging.ERROR,
                                             f"Order {order_id} seems to have failed in this arbitrage opportunity. "
