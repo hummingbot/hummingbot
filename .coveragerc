@@ -42,6 +42,9 @@ branch = true
 fail_under = 70
 precision = 2
 skip_empty = true
+exclude_lines =
+    @abstractmethod
+    @abc.abstractmethod
 
 [html]
 directory = coverage_html_report
