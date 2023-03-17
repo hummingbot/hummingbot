@@ -10,6 +10,7 @@ from unittest.mock import patch
 from aiohttp import ClientSession
 from aiounittest import async_test
 
+from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.event.events import TradeType
@@ -73,3 +74,38 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
         self.assertEqual(1647066436595, result["timestamp"])
         self.assertEqual(2, result["latency"])
         self.assertEqual("0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf", result["txHash"])  # noqa: mock
+
+    @async_test(loop=ev_loop)
+    async def test_clob_batch_order_update(self):
+        trading_pair = combine_to_hb_trading_pair(base="COIN", quote="ALPHA")
+        order_to_create = GatewayInFlightOrder(
+            client_order_id="someOrderIDCreate",
+            trading_pair=trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            creation_timestamp=123123123,
+            amount=Decimal("10"),
+            price=Decimal("100"),
+        )
+        order_to_cancel = GatewayInFlightOrder(
+            client_order_id="someOrderIDCancel",
+            trading_pair=trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.SELL,
+            creation_timestamp=123123123,
+            price=Decimal("90"),
+            amount=Decimal("9"),
+        )
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_batch_order_modify(
+            connector="injective",
+            chain="injective",
+            network="mainnet",
+            address="0xc7287236f64484b476cfbec0fd21bc49d85f8850c8885665003928a122041e18",  # noqa: mock
+            orders_to_create=[order_to_create],
+            orders_to_cancel=[order_to_cancel],
+        )
+
+        self.assertEqual("mainnet", result["network"])
+        self.assertEqual(1647066456595, result["timestamp"])
+        self.assertEqual(3, result["latency"])
+        self.assertEqual("0x7E5F4552091A69125d5DfCb7b8C2659029395Ceg", result["txHash"])  # noqa: mock
