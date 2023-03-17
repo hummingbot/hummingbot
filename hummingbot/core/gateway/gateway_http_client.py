@@ -1229,6 +1229,40 @@ class GatewayHttpClient:
             ]
         return await self.api_request("post", "clob/batchOrders", request_payload)
 
+    async def clob_perp_batch_order_modify(
+        self,
+        connector: str,
+        chain: str,
+        network: str,
+        address: str,
+        orders_to_create: List[InFlightOrder],
+        orders_to_cancel: List[InFlightOrder],
+    ):
+        request_payload = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "address": address,
+        }
+        if len(orders_to_create) != 0:
+            request_payload["createOrderParams"] = [
+                {
+                    "market": order.trading_pair,
+                    "price": str(order.price),
+                    "amount": str(order.amount),
+                    "side": order.trade_type.name,
+                    "orderType": order.order_type.name,
+                } for order in orders_to_create
+            ]
+        if len(orders_to_cancel) != 0:
+            request_payload["cancelOrderParams"] = [
+                {
+                    "market": order.trading_pair,
+                    "orderId": order.exchange_order_id,
+                } for order in orders_to_cancel
+            ]
+        return await self.api_request("post", "clob/perp/batchOrders", request_payload)
+
     async def clob_injective_balances(
         self,
         chain: str,
@@ -1313,6 +1347,23 @@ class GatewayHttpClient:
             request["orderId"] = order_id
 
         return await self.api_request("get", "clob/perp/orders", request, use_body=True)
+
+    async def clob_perp_get_order_trades(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        address: str = None,
+        order_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "address": address,
+            "orderId": order_id
+        }
+        return await self.api_request("get", "clob/perp/order/trades", request, use_body=True)
 
     async def clob_perp_positions(
         self,
