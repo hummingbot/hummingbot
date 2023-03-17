@@ -2,7 +2,7 @@ import sys
 
 from bidict import bidict
 
-from hummingbot.core.api_throttler.data_types import RateLimit
+from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState
 
@@ -33,6 +33,7 @@ WS_PATH_URL = {
 
 HEARTBEAT_TIME_INTERVAL = 30.0
 
+GLOBAL_RATE_LIMIT_ID = "dexalotGlobalRateLimitID"
 ORDERS_RATE_LIMIT_ID = "dexalotOrdersRateLimitID"
 BATCH_OPEN_ORDERS_RATE_LIMIT_ID = "dexalotBatchOpenOrdersRateLimitID"
 EXECUTIONS_RATE_LIMIT_ID = "dexalotExecutionsRateLimitID"
@@ -41,11 +42,37 @@ WS_AUTH_RATE_LIMIT_ID = "dexalotWSAuthRateLimitID"
 WS_SUB_RATE_LIMIT_ID = "dexalotWSSubRateLimitID"
 
 RATE_LIMITS = [
-    RateLimit(limit_id=ORDERS_RATE_LIMIT_ID, limit=sys.maxsize, time_interval=1),
-    RateLimit(limit_id=BATCH_OPEN_ORDERS_RATE_LIMIT_ID, limit=sys.maxsize, time_interval=1),
-    RateLimit(limit_id=EXECUTIONS_RATE_LIMIT_ID, limit=sys.maxsize, time_interval=1),
-    RateLimit(limit_id=WS_AUTH_RATE_LIMIT_ID, limit=sys.maxsize, time_interval=1),
-    RateLimit(limit_id=WS_SUB_RATE_LIMIT_ID, limit=sys.maxsize, time_interval=1),
+    RateLimit(limit_id=GLOBAL_RATE_LIMIT_ID, limit=5, time_interval=3),
+    RateLimit(
+        limit_id=ORDERS_RATE_LIMIT_ID,
+        limit=sys.maxsize,
+        time_interval=1,
+        linked_limits=[LinkedLimitWeightPair(limit_id=GLOBAL_RATE_LIMIT_ID, weight=1)],
+    ),
+    RateLimit(
+        limit_id=BATCH_OPEN_ORDERS_RATE_LIMIT_ID,
+        limit=sys.maxsize,
+        time_interval=1,
+        linked_limits=[LinkedLimitWeightPair(limit_id=GLOBAL_RATE_LIMIT_ID, weight=1)],
+    ),
+    RateLimit(
+        limit_id=EXECUTIONS_RATE_LIMIT_ID,
+        limit=sys.maxsize,
+        time_interval=1,
+        linked_limits=[LinkedLimitWeightPair(limit_id=GLOBAL_RATE_LIMIT_ID, weight=1)],
+    ),
+    RateLimit(
+        limit_id=WS_AUTH_RATE_LIMIT_ID,
+        limit=sys.maxsize,
+        time_interval=1,
+        linked_limits=[LinkedLimitWeightPair(limit_id=GLOBAL_RATE_LIMIT_ID, weight=1)],
+    ),
+    RateLimit(
+        limit_id=WS_SUB_RATE_LIMIT_ID,
+        limit=sys.maxsize,
+        time_interval=1,
+        linked_limits=[LinkedLimitWeightPair(limit_id=GLOBAL_RATE_LIMIT_ID, weight=1)],
+    ),
 ]
 ORDER_SIDE_MAP = bidict(
     {
