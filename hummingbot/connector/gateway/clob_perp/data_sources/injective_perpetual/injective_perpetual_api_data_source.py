@@ -15,6 +15,8 @@ from pyinjective.proto.exchange.injective_derivative_exchange_rpc_pb2 import (
     DerivativeOrderHistory,
     DerivativePosition,
     DerivativeTrade,
+    FundingRate,
+    FundingRatesResponse,
     MarketsResponse,
     OrderbookResponse,
     OrdersHistoryResponse,
@@ -600,18 +602,16 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
     # region >>> Funding Info Utility Functions >>>
 
     async def _request_last_funding_rate(self, trading_pair: str) -> Decimal:
-        # TODO: To be removed once _request_funding_info() fn and GET /clob/perp/funding/info is implemented
-        response: Dict[str, Any] = await self._get_gateway_instance().clob_perp_funding_rates(
-            chain=self._chain,
-            network=self._network,
-            connector=self._connector_name,
-            trading_pair=trading_pair
+        # NOTE: Can be removed when GatewayHttpClient.clob_perp_funding_info is used.
+        market_info: DerivativeMarketInfo = self._trading_pair_to_active_perp_markets[trading_pair]
+        response: FundingRatesResponse = await self._client.get_funding_rates(
+            market_id=market_info.market_id, limit=1
         )
-        funding_rate: Dict[str, Any] = response["fundingRates"][0]  # We only want the latest funding rate.
-        return Decimal(funding_rate["rate"])
+        funding_rate: FundingRate = response.funding_rates[0]  # We only want the latest funding rate.
+        return Decimal(funding_rate.rate)
 
     async def _request_oracle_price(self, market_info: DerivativeMarketInfo) -> Decimal:
-        # TODO: To be removed once _request_funding_info() fn and GET /clob/perp/funding/info is implemented
+        # NOTE: Can be removed when GatewayHttpClient.clob_perp_funding_info is used.
         """
         According to Injective, Oracle Price refers to mark price.
         """
@@ -623,8 +623,8 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         )
         return Decimal(response.price)
 
-    async def _request_last_trade_price(self, market_info: DerivativeMarketInfo) -> Decimal:
-        # TODO: To be removed once _request_funding_info() fn and GET /clob/perp/funding/info is implemented
+    async def _request_last_trade_price(self, trading_pair: str) -> Decimal:
+        market_info: DerivativeMarketInfo = self._trading_pair_to_active_perp_markets[trading_pair]
         response: TradesResponse = await self._client.get_derivative_trades(market_id=market_info.market_id)
         last_trade: DerivativeTrade = response.trades[0]
         scaler: Decimal = Decimal(market_info.oracle_scale_factor)
@@ -632,31 +632,13 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         return last_trade_price
 
     async def _request_funding_info(self, trading_pair: str) -> FundingInfo:
-        response: Dict[str, Any] = await self._get_gateway_instance().clob_perp_funding_info(
-            chain=self._chain,
-            network=self._network,
-            connector=self._connector_name,
-            trading_pair=trading_pair
-        )
-        funding_info: FundingInfo = FundingInfo(
-            trading_pair=trading_pair,
-            index_price=Decimal(response["indexPrice"]),
-            mark_price=Decimal(response["markPrice"]),
-            rate=Decimal(response["fundingRate"]),
-            next_funding_utc_timestamp=int(response["nextFundingTimestamp"] * 1e-3)
-        )
-        return funding_info
-
-    async def get_funding_info(self, trading_pair: str) -> FundingInfo:
-        # TODO: Replace with _request_funding_info once GET /clob/perp/funding/info is implemented
-        # return await self._request_funding_info(trading_pair=trading_pair)
+        # NOTE: Can be replaced with GatewayHttpClient.clob_perp_funding_info()
         self._check_markets_initialized() or await self._update_market_info()
-
         market_info: DerivativeMarketInfo = self._trading_pair_to_active_perp_markets.get(trading_pair, None)
         if market_info is not None:
             last_funding_rate: Decimal = await self._request_last_funding_rate(trading_pair=trading_pair)
             oracle_price: Decimal = await self._request_oracle_price(market_info=market_info)
-            last_trade_price: Decimal = await self._request_last_trade_price(market_info=market_info)
+            last_trade_price: Decimal = await self._request_last_trade_price(trading_pair=trading_pair)
             funding_info = FundingInfo(
                 trading_pair=trading_pair,
                 index_price=last_trade_price,  # Default to using last trade price
@@ -666,9 +648,11 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
             )
             return funding_info
 
+    async def get_funding_info(self, trading_pair: str) -> FundingInfo:
+        return await self._request_funding_info(trading_pair=trading_pair)
+
     async def get_last_traded_price(self, trading_pair: str) -> Decimal:
-        market_info: DerivativeMarketInfo = self._trading_pair_to_active_perp_markets[trading_pair]
-        return await self._request_last_trade_price(market_info=market_info)
+        return await self._request_last_trade_price(trading_pair=trading_pair)
 
     # endregion
 
