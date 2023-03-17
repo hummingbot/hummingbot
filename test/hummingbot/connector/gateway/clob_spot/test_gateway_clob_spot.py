@@ -217,6 +217,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
             "account_balance": False,
             "trading_rule_initialized": False,
             "user_stream_initialized": False,
+            "api_data_source_initialized": False,
         }
 
     @staticmethod
@@ -227,6 +228,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
             "account_balance": True,
             "trading_rule_initialized": True,
             "user_stream_initialized": True,
+            "api_data_source_initialized": True,
         }
 
     def place_buy_order(self, size: Decimal = Decimal("100"), price: Decimal = Decimal("10_000")):
