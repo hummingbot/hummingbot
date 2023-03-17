@@ -432,7 +432,7 @@ class GatewayEVMAMM(ConnectorBase):
                 client_order_id=order_id,
                 exchange_order_id=exchange_order_id,
                 trading_pair=trading_pair,
-                order_type=OrderType.MARKET,
+                order_type=OrderType.LIMIT,
                 trade_type=trade_type,
                 price=price,
                 amount=amount,
