@@ -7,16 +7,22 @@ from unittest.mock import MagicMock
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
+from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.gateway.clob_spot.data_sources.injective.injective_api_data_source import (
     InjectiveAPIDataSource,
 )
 from hummingbot.connector.gateway.clob_spot.gateway_clob_api_order_book_data_source import (
     GatewayCLOBSPOTAPIOrderBookDataSource,
 )
+from hummingbot.connector.gateway.gateway_order_tracker import GatewayOrderTracker
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
+
+
+class MockExchange(ExchangeBase):
+    pass
 
 
 class GatewayCLOBSPOTAPIOrderBookDataSourceTest(unittest.TestCase):
@@ -52,6 +58,9 @@ class GatewayCLOBSPOTAPIOrderBookDataSourceTest(unittest.TestCase):
             },
             client_config_map=client_config_map,
         )
+        self.connector = MockExchange(client_config_map=client_config_map)
+        self.tracker = GatewayOrderTracker(connector=self.connector)
+        self.api_data_source.gateway_order_tracker = self.tracker
         self.ob_data_source = GatewayCLOBSPOTAPIOrderBookDataSource(
             trading_pairs=[self.trading_pair], api_data_source=self.api_data_source
         )
