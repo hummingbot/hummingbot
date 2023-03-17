@@ -11,7 +11,7 @@
 
 test:
 	coverage run -m nose \
-	--exclude-dir="hummingbot/connector/test_support/" \
+	--exclude-dir="hummingbot/connector/test_support" \
  	--exclude-dir="test/connector" \
  	--exclude-dir="test/debug" \
  	--exclude-dir="test/mock" \
