@@ -13,7 +13,7 @@ from hummingbot.client.settings import AllConnectorSettings, GatewayConnectionSe
 from hummingbot.client.ui.completer import load_completer
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.connector.connector_status import get_connector_status
-from hummingbot.core.gateway import docker_ipc, get_gateway_paths
+from hummingbot.core.gateway import get_gateway_paths
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.gateway.gateway_status_monitor import GatewayStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -68,11 +68,6 @@ class GatewayCommand(GatewayChainApiManager):
         else:
             safe_ensure_future(self._show_gateway_configuration(key), loop=self.ev_loop)
 
-    @staticmethod
-    async def check_gateway_image(docker_repo: str, docker_tag: str) -> bool:
-        image_list: List = await docker_ipc("images", name=f"{docker_repo}:{docker_tag}", quiet=True)
-        return len(image_list) > 0
-
     async def _test_connection(self):
         # test that the gateway is running
         if await self._get_gateway_instance().ping_gateway():
@@ -103,26 +98,6 @@ class GatewayCommand(GatewayChainApiManager):
         self.notify(f"Gateway SSL certification files are created in {certs_path}.")
         self._get_gateway_instance().reload_certs(self.client_config_map)
 
-    async def _generate_gateway_confs(
-            self,       # type: HummingbotApplication
-            container_id: str, conf_path: str = "/usr/src/app/conf"
-    ):
-        try:
-            cmd: str = f"./setup/generate_conf.sh {conf_path}"
-            exec_info = await docker_ipc(method_name="exec_create",
-                                         container=container_id,
-                                         cmd=cmd,
-                                         user="hummingbot")
-
-            await docker_ipc(method_name="exec_start",
-                             exec_id=exec_info["Id"],
-                             detach=True)
-            return
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            raise
-
     async def ping_gateway_api(self, max_wait: int) -> bool:
         """
         Try to reach the gateway API for up to max_wait seconds
@@ -139,35 +114,7 @@ class GatewayCommand(GatewayChainApiManager):
 
         return True
 
-    async def ping_gateway_docker_and_api(self, max_wait: int) -> bool:
-        """
-        Try to reach the docker and then the gateway API for up to max_wait seconds
-        """
-        now = int(time.time())
-        docker_live = await self.ping_gateway_docker()
-        while not docker_live:
-            later = int(time.time())
-            if later - now > max_wait:
-                return False
-            await asyncio.sleep(0.5)
-            docker_live = await self.ping_gateway_docker()
-
-        return await self.ping_gateway_api(max_wait)
-
-    async def ping_gateway_docker(self) -> bool:
-        try:
-            await docker_ipc("version")
-            return True
-        except Exception:
-            return False
-
     async def _gateway_status(self):
-        can_reach_docker = await self.ping_gateway_docker()
-        if not can_reach_docker:
-            self.notify("\nError: It looks like you do not have Docker installed or running. Gateway commands will not "
-                        "work without it. Please install or start Docker and restart Hummingbot.")
-            return
-
         if self._gateway_monitor.gateway_status is GatewayStatus.ONLINE:
             try:
                 status = await self._get_gateway_instance().get_gateway_status()
