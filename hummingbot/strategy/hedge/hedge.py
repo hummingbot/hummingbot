@@ -55,6 +55,7 @@ class HedgeStrategy(StrategyPyBase):
         offsets: Dict[MarketTradingPairTuple, Decimal],
         status_report_interval: float = 900,
         max_order_age: float = 5,
+        enable_auto_set_position_mode: bool = True,
     ):
         """
         Initializes the hedge strategy.
@@ -84,10 +85,11 @@ class HedgeStrategy(StrategyPyBase):
         self._status_report_interval = status_report_interval
         self._all_markets = self._hedge_market_pairs + self._market_pairs
         self._last_timestamp = 0
-        self._last_hedge_check_timestamp = 0
         self._all_markets_ready = False
         self._max_order_age = max_order_age
         self._status_messages = []
+        self._last_report_timestamp = {}
+        self._enable_auto_set_position_mode = enable_auto_set_position_mode
         if config_map.value_mode:
             self.hedge = self.hedge_by_value
             self._hedge_market_pair = hedge_market_pairs[0]
@@ -259,9 +261,9 @@ class HedgeStrategy(StrategyPyBase):
             return lines
 
         def get_last_checked_seconds_str() -> List[str]:
-            if self._last_timestamp == 0:
+            if self._last_timestamp < 1e9:
                 return ["  Last checked: Not started."]
-            return [f"  Last checked {self.current_timestamp - self._last_hedge_check_timestamp} seconds ago."]
+            return [f"  Last checked {self.current_timestamp - self._last_timestamp} seconds ago."]
 
         def get_status_messages() -> List[str]:
             if self._status_messages:
@@ -297,6 +299,9 @@ class HedgeStrategy(StrategyPyBase):
         """
         if not self.is_derivative(self._hedge_market_pairs[0]):
             return
+        if not self._enable_auto_set_position_mode:
+            logging.info("Auto set position mode is disabled.")
+            return
         position_mode = "ONEWAY" if self._position_mode == PositionMode.ONEWAY else "HEDGE"
         msg = (
             f"Please ensure that the position mode on {self._hedge_market_pairs[0].market.name} "
@@ -311,14 +316,26 @@ class HedgeStrategy(StrategyPyBase):
             market.set_leverage(trading_pair, self._leverage)
             market.set_position_mode(self._position_mode)
 
+    def interval_log(self, key: str, message: str) -> None:
+        """
+        Log message at interval.
+        :param key: Key to identify the last recorded timestamp.
+        :param message: Message to log.
+        """
+        if self._last_timestamp - self._last_report_timestamp.get(key, 0) > self._status_report_interval:
+            self.logger().info(message)
+            self._last_report_timestamp[key] = self._last_timestamp
+
     def tick(self, timestamp: float) -> None:
         """
         Check if hedge interval has passed and process hedge if so
         :param timestamp: clock timestamp
         """
+        if self.check_and_cancel_active_orders():
+            self.interval_log("hedge", "Active orders present. Skipping hedge check until active orders expires.")
+            return
         if timestamp - self._last_timestamp < self._hedge_interval:
             return
-        self._last_timestamp = timestamp
         self._all_markets_ready = all([market.ready for market in self.active_markets])
         if not self._all_markets_ready:
             # Markets not ready yet. Don't do anything.
@@ -336,13 +353,10 @@ class HedgeStrategy(StrategyPyBase):
                 self._hedge_interval,
             )
             return
-        if self.check_and_cancel_active_orders():
-            self.logger().info("Active orders present.")
-            return
-        self.logger().debug("Checking hedge conditions...")
+        self.interval_log("hedge", "Checking hedge conditions...")
         self._status_messages = []
-        self._last_hedge_check_timestamp = timestamp
         self.hedge()
+        self._last_timestamp = timestamp
 
     def get_positions(self, market_pair: MarketTradingPairTuple, position_side: PositionSide = None) -> List[Position]:
         """
