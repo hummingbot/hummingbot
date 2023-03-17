@@ -288,6 +288,106 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
 
     # region >>> User Account, Order & Position Management Function(s)
 
+    async def _fetch_order_history(self, order: GatewayInFlightOrder) -> Optional[DerivativeOrderHistory]:
+        # NOTE: Can be replaced by calling GatewayHttpClient.clob_get_perp_orders
+        trading_pair: str = order.trading_pair
+        order_hash: str = await order.get_exchange_order_id()
+
+        market: DerivativeMarketInfo = self._trading_pair_to_active_perp_markets[trading_pair]
+        direction: str = "buy" if order.trade_type == TradeType.BUY else "sell"
+        trade_type: TradeType = order.trade_type
+        order_type: OrderType = order.order_type
+
+        order_history: Optional[DerivativeOrderHistory] = None
+        skip = 0
+        search_completed = False
+        while not search_completed:
+            response: OrdersHistoryResponse = await self._client.get_historical_derivative_orders(
+                market_id=market.market_id,
+                subaccount_id=self._sub_account_id,
+                direction=direction,
+                start_time=int(order.creation_timestamp),
+                limit=CONSTANTS.FETCH_ORDER_HISTORY_LIMIT,
+                skip=skip,
+                order_types=[CONSTANTS.CLIENT_TO_BACKEND_ORDER_TYPES_MAP[(trade_type, order_type)]],
+            )
+            if len(response.orders) == 0:
+                search_completed = True
+            else:
+                skip += CONSTANTS.FETCH_ORDER_HISTORY_LIMIT
+                for order in response.orders:
+                    if order.order_hash == order_hash:
+                        order_history = order
+                        search_completed = True
+                        break
+
+        return order_history
+
+    async def _fetch_order_fills(self, order: InFlightOrder) -> List[DerivativeTrade]:
+        # NOTE: This can be replaced by calling `GatewayHttpClient.clob_get_order_trades(...)`
+        skip = 0
+        all_trades: List[DerivativeTrade] = []
+        search_completed = False
+
+        market_info: DerivativeMarketInfo = self._trading_pair_to_active_perp_markets[order.trading_pair]
+
+        market_id: str = market_info.market_id
+        direction: str = "buy" if order.trade_type == TradeType.BUY else "sell"
+
+        while not search_completed:
+            trades = await self._client.get_derivative_trades(
+                market_id=market_id,
+                subaccount_id=self._sub_account_id,
+                direction=direction,
+                skip=skip,
+                start_time=int(order.creation_timestamp * 1e3),
+            )
+            if len(trades.trades) == 0:
+                search_completed = True
+            else:
+                all_trades.extend(trades.trades)
+                skip += len(trades.trades)
+
+        return all_trades
+
+    async def _fetch_transaction_by_hash(self, hash: str) -> GetTxByTxHashResponse:
+        return await self._client.get_tx_by_hash(tx_hash=hash)
+
+    async def get_order_status_update(self, in_flight_order: GatewayInFlightOrder) -> Tuple[OrderUpdate, OrderUpdate]:
+        status_update: Optional[OrderUpdate] = None
+        order_update: Optional[OrderUpdate] = None
+
+        #  Fetch by Order History
+        order_history: Optional[DerivativeOrderHistory] = await self._fetch_order_history(order=in_flight_order)
+        if order_history is not None:
+            status_update: OrderUpdate = self._parse_order_update_from_order_history(
+                order=in_flight_order, order_history=order_history
+            )
+
+        # Determine if order has failed from transaction hash
+        if status_update is None and in_flight_order.creation_transaction_hash is not None:
+            tx_response: GetTxByTxHashResponse = await self._fetch_transaction_by_hash(
+                hash=in_flight_order.creation_transaction_hash
+            )
+            if await self._check_if_order_failed_based_on_transaction(transaction=tx_response, order=in_flight_order):
+                status_update: OrderUpdate = self._parse_failed_order_update_from_transaction_hash_response(
+                    order=in_flight_order, response=tx_response
+                )
+
+        if status_update is None:
+            raise ValueError(f"No update found for order {in_flight_order.client_order_id}")
+
+        if in_flight_order.current_state == OrderState.PENDING_CREATE and status_update.new_state != OrderState.OPEN:
+            order_update = OrderUpdate(
+                trading_pair=in_flight_order.trading_pair,
+                update_timestamp=status_update.update_timestamp,
+                new_state=OrderState.OPEN,
+                client_order_id=in_flight_order.client_order_id,
+                exchange_order_id=status_update.exchange_order_id,
+            )
+
+        return status_update, order_update
+
     async def place_order(
         self, order: GatewayInFlightOrder, **kwargs
     ) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
@@ -432,32 +532,6 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
             }
         return balances_dict
 
-    async def _fetch_order_fills(self, order: InFlightOrder) -> List[DerivativeTrade]:
-        skip = 0
-        all_trades: List[DerivativeTrade] = []
-        search_completed = False
-
-        market_info: DerivativeMarketInfo = self._trading_pair_to_active_perp_markets[order.trading_pair]
-
-        market_id: str = market_info.market_id
-        direction: str = "buy" if order.trade_type == TradeType.BUY else "sell"
-
-        while not search_completed:
-            trades = await self._client.get_derivative_trades(
-                market_id=market_id,
-                subaccount_id=self._sub_account_id,
-                direction=direction,
-                skip=skip,
-                start_time=int(order.creation_timestamp * 1e3),
-            )
-            if len(trades.trades) == 0:
-                search_completed = True
-            else:
-                all_trades.extend(trades.trades)
-                skip += len(trades.trades)
-
-        return all_trades
-
     async def get_all_order_fills(self, in_flight_order: InFlightOrder) -> List[TradeUpdate]:
         trades: List[DerivativeTrade] = await self._fetch_order_fills(order=in_flight_order)
 
@@ -526,6 +600,7 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
     # region >>> Funding Info Utility Functions >>>
 
     async def _request_last_funding_rate(self, trading_pair: str) -> Decimal:
+        # TODO: To be removed once _request_funding_info() fn and GET /clob/perp/funding/info is implemented
         response: Dict[str, Any] = await self._get_gateway_instance().clob_perp_funding_rates(
             chain=self._chain,
             network=self._network,
@@ -536,6 +611,7 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         return Decimal(funding_rate["rate"])
 
     async def _request_oracle_price(self, market_info: DerivativeMarketInfo) -> Decimal:
+        # TODO: To be removed once _request_funding_info() fn and GET /clob/perp/funding/info is implemented
         """
         According to Injective, Oracle Price refers to mark price.
         """
@@ -548,14 +624,32 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         return Decimal(response.price)
 
     async def _request_last_trade_price(self, market_info: DerivativeMarketInfo) -> Decimal:
+        # TODO: To be removed once _request_funding_info() fn and GET /clob/perp/funding/info is implemented
         response: TradesResponse = await self._client.get_derivative_trades(market_id=market_info.market_id)
         last_trade: DerivativeTrade = response.trades[0]
         scaler: Decimal = Decimal(market_info.oracle_scale_factor)
         last_trade_price: Decimal = Decimal(last_trade.position_delta.execution_price) * scaler
         return last_trade_price
 
+    async def _request_funding_info(self, trading_pair: str) -> FundingInfo:
+        response: Dict[str, Any] = await self._get_gateway_instance().clob_perp_funding_info(
+            chain=self._chain,
+            network=self._network,
+            connector=self._connector_name,
+            trading_pair=trading_pair
+        )
+        funding_info: FundingInfo = FundingInfo(
+            trading_pair=trading_pair,
+            index_price=Decimal(response["indexPrice"]),
+            mark_price=Decimal(response["markPrice"]),
+            rate=Decimal(response["fundingRate"]),
+            next_funding_utc_timestamp=int(response["nextFundingTimestamp"] * 1e-3)
+        )
+        return funding_info
+
     async def get_funding_info(self, trading_pair: str) -> FundingInfo:
-        # TODO: Update this to use clob_perp_funding_info
+        # TODO: Replace with _request_funding_info once GET /clob/perp/funding/info is implemented
+        # return await self._request_funding_info(trading_pair=trading_pair)
         self._check_markets_initialized() or await self._update_market_info()
 
         market_info: DerivativeMarketInfo = self._trading_pair_to_active_perp_markets.get(trading_pair, None)
@@ -792,49 +886,6 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         )
         return order_update
 
-    async def _fetch_order_history(self, order: GatewayInFlightOrder) -> Optional[DerivativeOrderHistory]:
-        """
-        # TODO: Update to use clob_get_perp_orders
-        """
-        trading_pair: str = order.trading_pair
-        order_hash: str = await order.get_exchange_order_id()
-
-        market: DerivativeMarketInfo = self._trading_pair_to_active_perp_markets[trading_pair]
-        direction: str = "buy" if order.trade_type == TradeType.BUY else "sell"
-        trade_type: TradeType = order.trade_type
-        order_type: OrderType = order.order_type
-
-        order_history: Optional[DerivativeOrderHistory] = None
-        skip = 0
-        search_completed = False
-        while not search_completed:
-            # response: Dict[str, Any] = await self._get_gateway_instance().clob_get_perp_orders(
-            #     chain=self._chain,
-            #     network=self._network,
-            #     connector=self._connector_name,
-            #     owner_address=self._sub_account_id
-            # )
-            response: OrdersHistoryResponse = await self._client.get_historical_derivative_orders(
-                market_id=market.market_id,
-                subaccount_id=self._sub_account_id,
-                direction=direction,
-                start_time=int(order.creation_timestamp),
-                limit=CONSTANTS.FETCH_ORDER_HISTORY_LIMIT,
-                skip=skip,
-                order_types=[CONSTANTS.CLIENT_TO_BACKEND_ORDER_TYPES_MAP[(trade_type, order_type)]],
-            )
-            if len(response.orders) == 0:
-                search_completed = True
-            else:
-                skip += CONSTANTS.FETCH_ORDER_HISTORY_LIMIT
-                for order in response.orders:
-                    if order.order_hash == order_hash:
-                        order_history = order
-                        search_completed = True
-                        break
-
-        return order_history
-
     def _parse_failed_order_update_from_transaction_hash_response(
         self, order: GatewayInFlightOrder, response: GetTxByTxHashResponse
     ) -> Optional[OrderUpdate]:
@@ -854,44 +905,6 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
     ) -> bool:
         order_hash = await order.get_exchange_order_id()
         return order_hash.lower() not in transaction.data.data.decode().lower()
-
-    async def _fetch_transaction_by_hash(self, hash: str) -> GetTxByTxHashResponse:
-        return await self._client.get_tx_by_hash(tx_hash=hash)
-
-    async def get_order_status_update(self, in_flight_order: GatewayInFlightOrder) -> Tuple[OrderUpdate, OrderUpdate]:
-        status_update: Optional[OrderUpdate] = None
-        order_update: Optional[OrderUpdate] = None
-
-        #  Fetch by Order History
-        order_history: Optional[DerivativeOrderHistory] = await self._fetch_order_history(order=in_flight_order)
-        if order_history is not None:
-            status_update: OrderUpdate = self._parse_order_update_from_order_history(
-                order=in_flight_order, order_history=order_history
-            )
-
-        # Determine if order has failed from transaction hash
-        if status_update is None and in_flight_order.creation_transaction_hash is not None:
-            tx_response: GetTxByTxHashResponse = await self._get_trans_fetch_transaction_by_hashaction_by_hash(
-                hash=in_flight_order.creation_transaction_hash
-            )
-            if await self._check_if_order_failed_based_on_transaction(transaction=tx_response, order=in_flight_order):
-                status_update: OrderUpdate = self._parse_failed_order_update_from_transaction_hash_response(
-                    order=in_flight_order, response=tx_response
-                )
-
-        if status_update is None:
-            raise ValueError(f"No update found for order {in_flight_order.client_order_id}")
-
-        if in_flight_order.current_state == OrderState.PENDING_CREATE and status_update.new_state != OrderState.OPEN:
-            order_update = OrderUpdate(
-                trading_pair=in_flight_order.trading_pair,
-                update_timestamp=status_update.update_timestamp,
-                new_state=OrderState.OPEN,
-                client_order_id=in_flight_order.client_order_id,
-                exchange_order_id=status_update.exchange_order_id,
-            )
-
-        return status_update, order_update
 
     async def _process_transaction_event(self, transaction: StreamTxsResponse):
         order: GatewayInFlightOrder = self._gateway_order_tracker.get_fillable_order_by_hash(hash=transaction.hash)
