@@ -99,6 +99,78 @@ class KucoinPerpetualAPIUserStreamDataSourceUnitTests(unittest.TestCase):
         self.resume_test_event.set()
         raise exception
 
+    def _successful_get_server_time(self) -> str:
+        resp = {
+            "code": "200000",
+            "msg": "success",
+            "data": 1546837113087,
+        }
+        return ujson.dumps(resp)
+
+    def _all_symbols_request_mock_response(self):
+        mock_response = {
+            "code": "200000",
+            "data": [
+                {
+                    "symbol": "COINALPHAHBOT",
+                    "rootSymbol": "COINALPHA",
+                    "type": "FFWCSX",
+                    "firstOpenDate": 1585555200000,
+                    "expireDate": None,
+                    "settleDate": None,
+                    "baseCurrency": "COINALPHA",
+                    "quoteCurrency": "HBOT",
+                    "settleCurrency": "HBOT",
+                    "maxOrderQty": 1000000,
+                    "maxPrice": 1000000.0,
+                    "lotSize": 1,
+                    "tickSize": 1.0,
+                    "indexPriceTickSize": 0.01,
+                    "multiplier": 0.001,
+                    "initialMargin": 0.01,
+                    "maintainMargin": 0.005,
+                    "maxRiskLimit": 2000000,
+                    "minRiskLimit": 2000000,
+                    "riskStep": 1000000,
+                    "makerFeeRate": 0.0002,
+                    "takerFeeRate": 0.0006,
+                    "takerFixFee": 0.0,
+                    "makerFixFee": 0.0,
+                    "settlementFee": None,
+                    "isDeleverage": True,
+                    "isQuanto": True,
+                    "isInverse": False,
+                    "markMethod": "FairPrice",
+                    "fairMethod": "FundingRate",
+                    "settlementSymbol": "",
+                    "status": "Open",
+                    "fundingFeeRate": 0.0001,
+                    "predictedFundingFeeRate": 0.0001,
+                    "openInterest": "5191275",
+                    "turnoverOf24h": 2361994501.712677,
+                    "volumeOf24h": 56067.116,
+                    "markPrice": 44514.03,
+                    "indexPrice": 44510.78,
+                    "lastTradePrice": 44493.0,
+                    "nextFundingRateTime": 21031525,
+                    "maxLeverage": 100,
+                    "sourceExchanges": [
+                        "huobi",
+                        "Okex",
+                        "Binance",
+                        "Kucoin",
+                        "Poloniex",
+                        "Hitbtc"
+                    ],
+                    "lowPrice": 38040,
+                    "highPrice": 44948,
+                    "priceChgPct": 0.1702,
+                    "priceChg": 6476
+                }
+            ]
+        }
+        return ujson.dumps(mock_response)
+
     def _successful_get_connection_token_response(self) -> str:
         resp = {
             "code": "200000",
@@ -126,12 +198,12 @@ class KucoinPerpetualAPIUserStreamDataSourceUnitTests(unittest.TestCase):
         # Order Trade Update
         resp = {
             "type": "message",
-            "topic": "/contractMarket/tradeOrders:XBTUSDM",
+            "topic": "/contractMarket/tradeOrders:HBOTALPHAM",
             "subject": "symbolOrderChange",
             "channelType": "private",
             "data": {
                 "orderId": "5cdfc138b21023a909e5ad55",  # Order ID
-                "symbol": "XBTUSDM",  # Symbol
+                "symbol": "HBOTALPHAM",  # Symbol
                 "type": "match",  # Message Type: "open", "match", "filled", "canceled", "update"
                 "status": "open",  # Order Status: "match", "open", "done"
                 "matchSize": "",  # Match Size (when the type is "match")
@@ -248,6 +320,14 @@ class KucoinPerpetualAPIUserStreamDataSourceUnitTests(unittest.TestCase):
 
         mock_api.post(regex_url, body=self._successful_get_connection_token_response())
 
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.SERVER_TIME_PATH_URL)
+        mock_api.get(url, body=self._successful_get_server_time())
+        mock_api.get(url, body=self._successful_get_server_time())
+
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.QUERY_SYMBOL_ENDPOINT)
+        mock_api.get(url, body=self._all_symbols_request_mock_response())
+        mock_api.get(url, body=self._all_symbols_request_mock_response())
+
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
 
         self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, self._simulate_user_update_event())
@@ -266,6 +346,14 @@ class KucoinPerpetualAPIUserStreamDataSourceUnitTests(unittest.TestCase):
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.post(regex_url, body=self._successful_get_connection_token_response())
+
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.SERVER_TIME_PATH_URL)
+        mock_api.get(url, body=self._successful_get_server_time())
+        mock_api.get(url, body=self._successful_get_server_time())
+
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.QUERY_SYMBOL_ENDPOINT)
+        mock_api.get(url, body=self._all_symbols_request_mock_response())
+        mock_api.get(url, body=self._all_symbols_request_mock_response())
 
         mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
 

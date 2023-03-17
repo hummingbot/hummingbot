@@ -612,7 +612,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
                            if (tracked_order.trade_type is TradeType.BUY and position_side == "buy"
                                or tracked_order.trade_type is TradeType.SELL and position_side == "sell")
                            else PositionAction.CLOSE)
-        if "type" in trade_msg and trade_msg["type"] == "canceled" and "status" in trade_msg and trade_msg["status"] == "done":
+        if "type" in trade_msg and trade_msg["type"] in ["canceled", "filled"] and "status" in trade_msg and trade_msg["status"] == "done":
             position_action = PositionAction.CLOSE
 
         flat_fees = [] if fee_amount == Decimal("0") else [TokenAmount(amount=fee_amount, token=fee_asset)]
@@ -649,7 +649,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
             exec_price = 0
         else:
             contract_value = Decimal(self.get_value_of_contracts(tracked_order.trading_pair, int(trade_msg["filledSize"])))
-        if trade_msg["type"] == "canceled" and trade_msg["status"] == "done":
+        if "type" in trade_msg and "status" in trade_msg and trade_msg["type"] == "canceled" and trade_msg["status"] == "done":
             contract_value = 0
             exec_price = 0
 
