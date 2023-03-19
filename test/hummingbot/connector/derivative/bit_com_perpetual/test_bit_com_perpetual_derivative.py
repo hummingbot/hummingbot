@@ -463,7 +463,6 @@ class BitComPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     @aioresponses()
     def test_set_position_mode_failure(self, mock_api):
         self.exchange.set_position_mode(PositionMode.HEDGE)
-        print(self.log_records)
         self.assertTrue(
             self.is_logged(
                 log_level="ERROR",

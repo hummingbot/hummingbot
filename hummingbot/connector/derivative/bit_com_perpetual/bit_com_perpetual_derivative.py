@@ -1,5 +1,4 @@
 import asyncio
-from collections import defaultdict
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional, Tuple
 
@@ -27,9 +26,8 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 if TYPE_CHECKING:
@@ -521,7 +519,7 @@ class BitComPerpetualDerivative(PerpetualDerivativePyBase):
                             sell_order_collateral_token=collateral_token,
                         )
                     )
-            except Exception as e:
+            except Exception:
                 self.logger().error(f"Error parsing the trading pair rule {rule}. Skipping.", exc_info=True)
         return return_val
 
