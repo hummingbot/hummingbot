@@ -271,7 +271,7 @@ class TestBitComPerpetualAPIUserStreamDataSource(unittest.TestCase):
                     },
                     {
                         "currency": "ETH",
-                        "equity": "1.99960000",
+                        "equity": "1.9996000",
                         "liability": "0.00000000",
                         "index_price": "3119.01923077",
                         "cash_balance": "1.99960000",
