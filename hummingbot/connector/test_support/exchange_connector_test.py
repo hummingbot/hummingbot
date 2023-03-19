@@ -153,11 +153,6 @@ class AbstractExchangeConnectorTests:
 
         @property
         @abstractmethod
-        def is_cancel_request_executed_synchronously_by_server(self) -> bool:
-            raise NotImplementedError
-
-        @property
-        @abstractmethod
         def is_order_fill_http_update_included_in_status_update(self) -> bool:
             raise NotImplementedError
 
@@ -227,10 +222,23 @@ class AbstractExchangeConnectorTests:
 
         @abstractmethod
         def configure_erroneous_cancelation_response(
-                self,
-                order: InFlightOrder,
-                mock_api: aioresponses,
-                callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        ) -> str:
+            """
+            :return: the URL configured for the cancelation
+            """
+            raise NotImplementedError
+
+        @abstractmethod
+        def configure_order_not_found_error_cancelation_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        ) -> str:
             """
             :return: the URL configured for the cancelation
             """
@@ -296,6 +304,18 @@ class AbstractExchangeConnectorTests:
                 order: InFlightOrder,
                 mock_api: aioresponses,
                 callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+            """
+            :return: the URL configured
+            """
+            raise NotImplementedError
+
+        @abstractmethod
+        def configure_order_not_found_error_order_status_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
+        ) -> List[str]:
             """
             :return: the URL configured
             """
@@ -825,7 +845,7 @@ class AbstractExchangeConnectorTests:
                 order=order,
                 request_call=cancel_request)
 
-            if self.is_cancel_request_executed_synchronously_by_server:
+            if self.exchange.is_cancel_request_in_exchange_synchronous:
                 self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
                 self.assertTrue(order.is_cancelled)
                 cancel_event: OrderCancelledEvent = self.order_cancelled_logger.event_log[0]
@@ -875,8 +895,44 @@ class AbstractExchangeConnectorTests:
                 request_call=cancel_request)
 
             self.assertEquals(0, len(self.order_cancelled_logger.event_log))
-            self.assertTrue(any(log.msg.startswith(f"Failed to cancel order {order.client_order_id}")
-                                for log in self.log_records))
+            self.assertTrue(
+                any(
+                    log.msg.startswith(f"Failed to cancel order {order.client_order_id}")
+                    for log in self.log_records
+                )
+            )
+
+        @aioresponses()
+        def test_cancel_order_not_found_in_the_exchange(self, mock_api):
+            self.exchange._set_current_timestamp(1640780000)
+            request_sent_event = asyncio.Event()
+
+            self.exchange.start_tracking_order(
+                order_id=self.client_order_id_prefix + "1",
+                exchange_order_id=str(self.expected_exchange_order_id),
+                trading_pair=self.trading_pair,
+                order_type=OrderType.LIMIT,
+                trade_type=TradeType.BUY,
+                price=Decimal("10000"),
+                amount=Decimal("1"),
+            )
+
+            self.assertIn(self.client_order_id_prefix + "1", self.exchange.in_flight_orders)
+            order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+            self.configure_order_not_found_error_cancelation_response(
+                order=order, mock_api=mock_api, callback=lambda *args, **kwargs: request_sent_event.set()
+            )
+
+            self.exchange.cancel(trading_pair=self.trading_pair, order_id=self.client_order_id_prefix + "1")
+            self.async_run_with_timeout(request_sent_event.wait())
+
+            self.assertFalse(order.is_done)
+            self.assertFalse(order.is_failure)
+            self.assertFalse(order.is_cancelled)
+
+            self.assertIn(order.client_order_id, self.exchange._order_tracker.all_updatable_orders)
+            self.assertEqual(1, self.exchange._order_tracker._order_not_found_records[order.client_order_id])
 
         @aioresponses()
         def test_cancel_two_orders_with_cancel_all_and_one_fails(self, mock_api):
@@ -923,7 +979,7 @@ class AbstractExchangeConnectorTests:
             self.assertEqual(CancellationResult(order1.client_order_id, True), cancellation_results[0])
             self.assertEqual(CancellationResult(order2.client_order_id, False), cancellation_results[1])
 
-            if self.is_cancel_request_executed_synchronously_by_server:
+            if self.exchange.is_cancel_request_in_exchange_synchronous:
                 self.assertEqual(1, len(self.order_cancelled_logger.event_log))
                 cancel_event: OrderCancelledEvent = self.order_cancelled_logger.event_log[0]
                 self.assertEqual(self.exchange.current_timestamp, cancel_event.timestamp)
@@ -1599,7 +1655,7 @@ class AbstractExchangeConnectorTests:
                 order=order,
                 request_call=cancel_request)
 
-            if self.is_cancel_request_executed_synchronously_by_server:
+            if self.exchange.is_cancel_request_in_exchange_synchronous:
                 self.assertNotIn(order.client_order_id, self.exchange._order_tracker.lost_orders)
                 self.assertFalse(order.is_cancelled)
                 self.assertTrue(order.is_failure)
@@ -1648,8 +1704,57 @@ class AbstractExchangeConnectorTests:
 
             self.assertIn(order.client_order_id, self.exchange._order_tracker.lost_orders)
             self.assertEquals(0, len(self.order_cancelled_logger.event_log))
-            self.assertTrue(any(log.msg.startswith(f"Failed to cancel order {order.client_order_id}")
-                                for log in self.log_records))
+            self.assertTrue(
+                any(
+                    log.msg.startswith(f"Failed to cancel order {order.client_order_id}")
+                    for log in self.log_records
+                )
+            )
+
+        @aioresponses()
+        def test_lost_order_removed_if_not_found_during_order_status_update(self, mock_api):
+            self.exchange._set_current_timestamp(1640780000)
+            request_sent_event = asyncio.Event()
+
+            self.exchange.start_tracking_order(
+                order_id=self.client_order_id_prefix + "1",
+                exchange_order_id=str(self.expected_exchange_order_id),
+                trading_pair=self.trading_pair,
+                order_type=OrderType.LIMIT,
+                trade_type=TradeType.BUY,
+                price=Decimal("10000"),
+                amount=Decimal("1"),
+            )
+            order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+            for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
+                self.async_run_with_timeout(
+                    self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id)
+                )
+
+            self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
+
+            if self.is_order_fill_http_update_included_in_status_update:
+                # This is done for completeness reasons (to have a response available for the trades request)
+                self.configure_erroneous_http_fill_trade_response(order=order, mock_api=mock_api)
+
+            self.configure_order_not_found_error_order_status_response(
+                order=order, mock_api=mock_api, callback=lambda *args, **kwargs: request_sent_event.set()
+            )
+
+            self.async_run_with_timeout(self.exchange._update_lost_orders_status())
+            # Execute one more synchronization to ensure the async task that processes the update is finished
+            self.async_run_with_timeout(request_sent_event.wait())
+
+            self.assertTrue(order.is_done)
+            self.assertTrue(order.is_failure)
+
+            self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
+            self.assertNotIn(order.client_order_id, self.exchange._order_tracker.all_fillable_orders)
+
+            self.assertFalse(
+                self.is_logged("INFO", f"BUY order {order.client_order_id} completely filled.")
+            )
 
         def test_lost_order_removed_after_cancel_status_user_event_received(self):
             self.exchange._set_current_timestamp(1640780000)
