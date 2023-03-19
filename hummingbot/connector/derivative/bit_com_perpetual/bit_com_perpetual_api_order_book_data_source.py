@@ -197,7 +197,7 @@ class BitComPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             trading_pair=trading_pair,
             mark_price=Decimal(data["mark_price"]),
             next_funding_utc_timestamp=(int(data["time"] / CONSTANTS.FUNDING_RATE_INTERNAL_MIL_SECOND) + 1) *
-                                       CONSTANTS.FUNDING_RATE_INTERNAL_MIL_SECOND,
+            CONSTANTS.FUNDING_RATE_INTERNAL_MIL_SECOND,
             rate=Decimal(data["funding_rate"]),
         )
 
