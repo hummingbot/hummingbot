@@ -2,13 +2,12 @@ import asyncio
 import hashlib
 import hmac
 import json
-import time
 from typing import Awaitable
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
 from hummingbot.connector.derivative.bit_com_perpetual.bit_com_perpetual_auth import BitComPerpetualAuth
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSJSONRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 
 
 class BitComPerpetualAuthTests(TestCase):

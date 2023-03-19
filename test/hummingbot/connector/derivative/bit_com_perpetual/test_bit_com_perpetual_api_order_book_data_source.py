@@ -216,9 +216,7 @@ class BitComPerpetualAPIOrderBookDataSourceTests(TestCase):
 
         mock_api.get(regex_url, status=400)
         with self.assertRaises(IOError):
-            self.async_run_with_timeout(
-                self.data_source.get_new_order_book(self.trading_pair)
-            )
+            self.async_run_with_timeout(self.data_source.get_new_order_book(self.trading_pair))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_subscriptions_subscribes_to_trades_diffs_and_orderbooks(self, ws_connect_mock):
@@ -544,7 +542,7 @@ class BitComPerpetualAPIOrderBookDataSourceTests(TestCase):
 
         self.assertEqual(self.trading_pair, funding_info.trading_pair)
         self.assertEqual(Decimal(str(msg_result["data"]["mark_price"])), funding_info.mark_price)
-        self.assertEqual((int(msg_result["data"][
-                                  "time"] / CONSTANTS.FUNDING_RATE_INTERNAL_MIL_SECOND) + 1) * CONSTANTS.FUNDING_RATE_INTERNAL_MIL_SECOND,
+        self.assertEqual((int(msg_result["data"]["time"] / CONSTANTS.FUNDING_RATE_INTERNAL_MIL_SECOND) + 1) *
+                         CONSTANTS.FUNDING_RATE_INTERNAL_MIL_SECOND,
                          funding_info.next_funding_utc_timestamp)
         self.assertEqual(Decimal(str(msg_result["data"]["funding_rate"])), funding_info.rate)
