@@ -1,3 +1,36 @@
+"""
+The `WeakSingletonMetaclass` module provides a metaclass for implementing a weak reference to a singleton class.
+
+The `WeakSingletonMetaclass` metaclass ensures that only one instance of a class can exist at any time. It uses a
+dictionary to store the instances of each class and weak references to these instances. The instances are cleaned up
+when their reference count drops to zero.
+
+This module provides a `WeakSingletonMetaclass` metaclass that can be used to create singleton classes. It also
+provides several exceptions for handling errors that may occur when using the metaclass.
+
+Example usage:
+
+    from typing_extensions import Type
+
+    class MyClass(metaclass=WeakSingletonMetaclass):
+        def __init__(self, name: str):
+            self.name = name
+
+    a = MyClass("foo")
+    b = MyClass("bar")
+
+    assert a is b
+
+
+Module name: weak_singleton_metaclass.py
+Module description: A metaclass for implementing a weak reference to a singleton class.
+Copyright (c) 2023, Memento "RC" Mori
+License: MIT
+
+Author: Memento "RC" Mori
+Creation date: 2023/03/20
+"""
+
 import abc
 import functools
 import threading
