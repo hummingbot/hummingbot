@@ -354,7 +354,7 @@ class GatewayCommand(GatewayChainApiManager):
                 return
 
         for field, prompt in additional_prompts.items():
-            value = await self.app.prompt(prompt=prompt)
+            value = await self.app.prompt(prompt=prompt, is_password=True)
             self.app.clear_input()
             if self.app.to_stop_config:
                 return
