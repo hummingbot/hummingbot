@@ -151,7 +151,7 @@ class MQTTCommands:
         response = StartCommandMessage.Response()
         timeout = 30
         try:
-            if self._hb_app.strategy_name is None:
+            if self._hb_app.strategy_name is None and msg.script is None:
                 raise Exception('Strategy check: Please import or create a strategy.')
             if self._hb_app.strategy is not None:
                 raise Exception('The bot is already running - please run "stop" first')
