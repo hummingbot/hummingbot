@@ -36,7 +36,7 @@ class TestPersistentClientSession(unittest.IsolatedAsyncioTestCase):
 
     @classmethod
     def tearDownClass(cls):
-        print("TearDownClass")
+        print("TearDownClas")
 
     def assertWasInstantiatedInThread(self, instance: PersistentClientSession, thread_id: int):
         self.assertTrue(instance.__class__.is_instantiated())

@@ -1,7 +1,5 @@
-import asyncio
 import threading
 import unittest
-import weakref
 
 import aiohttp
 from aioresponses import aioresponses
@@ -9,19 +7,15 @@ from aioresponses import aioresponses
 from hummingbot.core.web_assistant.connections.persistent_client_session import PersistentClientSession
 
 
-class TestPersistentClientSessionAsClientSession(unittest.IsolatedAsyncioTestCase):
+class TestPersistentClientSession(unittest.IsolatedAsyncioTestCase):
 
     async def asyncSetUp(self):
         self.persistent_session = PersistentClientSession()
-        self.client_session: weakref.ProxyTypes = self.persistent_session()
+        self.client_session = self.persistent_session()
 
     async def asyncTearDown(self):
-        try:
-            await self.client_session.close()
-        except Exception:
-            pass
+        await self.client_session.close()
         await self.persistent_session.close()
-        await asyncio.sleep(0)
 
     async def test_get(self):
         async with self.persistent_session.get('https://httpbin.org/get') as response:

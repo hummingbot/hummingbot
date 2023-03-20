@@ -3,7 +3,6 @@ import gc
 import sys
 import threading
 import weakref
-from asyncio import AbstractEventLoop
 from dataclasses import dataclass
 from functools import partial
 from typing import Any, Callable, Coroutine, Protocol
@@ -97,7 +96,6 @@ class PersistentClientSession(metaclass=WeakSingletonMetaclass):
     __slots__ = (
         '_sessions_mutex',
         '_client_sessions',
-        '_running_event_loops',
         '_finalizers',
         '_kwargs_client_sessions',
         '_original_sessions_close',
@@ -128,7 +126,6 @@ class PersistentClientSession(metaclass=WeakSingletonMetaclass):
         setattr(self, "_finalizers", {thread_id: list()})
 
         setattr(self, "_sessions_mutex", {thread_id: asyncio.Lock()})
-        setattr(self, "_running_event_loops", {thread_id: None})
         setattr(self, "_client_sessions", {thread_id: None})
         setattr(self, "_kwargs_client_sessions", {thread_id: kwargs})
         setattr(self, "_original_sessions_close", {thread_id: None})
@@ -142,16 +139,13 @@ class PersistentClientSession(metaclass=WeakSingletonMetaclass):
         :rtype: Coroutine[Any, Any, ClientSession]
         """
         print("__call__")
+        self._in_running_loop_or_raise()
+
         thread_id: int = threading.get_ident()
-
-        # Record the event loop for the current thread (It should already be running, otherwise it raises)
-        self._running_event_loops[thread_id]: AbstractEventLoop = self._get_running_loop_or_raise()
-
         self._kwargs_client_sessions[thread_id] = kwargs
 
         # Create a session if one is not in the process of being created on the event loop
-        self._run_in_thread(call=self._get_or_create_session(thread_id=thread_id, should_be_locked=False))
-        assert getattr(self._client_sessions[thread_id], "_loop") is self._running_event_loops[thread_id]
+        self._get_or_create_session(thread_id=thread_id, should_be_locked=False)
 
         self._ref_count[thread_id] = self._count_refs(thread_id=thread_id)
         return weakref.proxy(self._client_sessions[thread_id])
@@ -171,7 +165,7 @@ class PersistentClientSession(metaclass=WeakSingletonMetaclass):
 
         # Otherwise, we need to create the session
         async with self._sessions_mutex[thread_id]:
-            await self._get_or_create_session(thread_id=thread_id, should_be_locked=True)
+            self._get_or_create_session(thread_id=thread_id, should_be_locked=True)
             await asyncio.sleep(0)
 
         assert self._client_sessions[thread_id] is not None
@@ -183,11 +177,11 @@ class PersistentClientSession(metaclass=WeakSingletonMetaclass):
 
     async def _session_close(self, thread_id: int):
         """Wraps the original close() method of the ClientSession to clean this instance"""
-        if self._original_sessions_close[thread_id] and self._original_sessions_close[thread_id]() is not None:
+        if self._original_sessions_close[thread_id]() is not None:
             await self._original_sessions_close[thread_id]()()
         self._cleanup_closed_session(thread_id=thread_id)
 
-    async def _get_or_create_session(self, *, thread_id: int, should_be_locked: bool = True):
+    def _get_or_create_session(self, *, thread_id: int, should_be_locked: bool = True):
         """
         Create a new session if needed for the given thread id.
 
@@ -203,8 +197,6 @@ class PersistentClientSession(metaclass=WeakSingletonMetaclass):
         # meaning, no async call in the process of creating a session
         if should_be_locked == self._sessions_mutex[thread_id].locked():
             try:
-                if "loop" not in self._kwargs_client_sessions[thread_id]:
-                    self._kwargs_client_sessions[thread_id]["loop"] = self._running_event_loops[thread_id]
                 self._client_sessions[thread_id] = ClientSession(**self._kwargs_client_sessions[thread_id])
 
                 self._finalizers[thread_id].append(
@@ -225,7 +217,6 @@ class PersistentClientSession(metaclass=WeakSingletonMetaclass):
         elif not should_be_locked:
             raise RuntimeError("The session is already being created in async context."
                                "This is not allowed in sync context and a design flaw")
-        await asyncio.sleep(0)
 
     async def open(self, **kwargs) -> ClientSession:
         """Request out-of-context access to the shared client."""
@@ -303,28 +294,28 @@ class PersistentClientSession(metaclass=WeakSingletonMetaclass):
             await self.async_session_cleanup(thread_id=thread_id)
         await asyncio.sleep(0)
 
-    def __getattr__(self, attr):
-        """
-        Wraps all other method calls to the underlying `aiohttp.ClientSession` instance.
-
-        :param attr: The name of the method to call.
-
-        Example:
-        --------
-        persistent_session = PersistentClientSession(session)
-        response = await persistent_session.get('https://www.example.com')
-        """
-        thread_id: int = threading.get_ident()
-        print(f"__getattr__({attr})")
-        if hasattr(self._client_sessions[thread_id], attr):
-            return getattr(self._client_sessions[thread_id], attr)
-        else:
-            raise AttributeError(f"'{self.__class__.__name__}',"
-                                 f" nor '{self._client_sessions[thread_id].__class__.__name__}'"
-                                 f" object has attribute '{attr}'")
-
+    # def __getattr__(self, attr):
+    #    """
+    #    Wraps all other method calls to the underlying `aiohttp.ClientSession` instance.
+    #
+    #    :param attr: The name of the method to call.
+    #
+    #    Example:
+    #    --------
+    #    persistent_session = PersistentClientSession(session)
+    #    response = await persistent_session.get('https://www.example.com')
+    #    """
+    #    thread_id: int = threading.get_ident()
+    #    print(f"__getattr__({attr})")
+    #    if hasattr(self._client_sessions[thread_id], attr):
+    #        return getattr(self._client_sessions[thread_id], attr)
+    #    else:
+    #        raise AttributeError(f"'{self.__class__.__name__}',"
+    #                             f" nor '{self._client_sessions[thread_id].__class__.__name__}'"
+    #                             f" object has attribute '{attr}'")
+    #
     @staticmethod
-    def _get_running_loop_or_raise() -> AbstractEventLoop:
+    def _in_running_loop_or_raise():
         """
         Raises an error if the current thread is not running an asyncio event loop.
 
@@ -333,7 +324,7 @@ class PersistentClientSession(metaclass=WeakSingletonMetaclass):
         :rtype: bool
         """
         try:
-            return asyncio.get_running_loop()
+            asyncio.get_running_loop()
         except RuntimeError:
             raise NotWithinAsyncFrameworkError("The event loop is not running."
                                                "This method requires a running event loop")
@@ -393,27 +384,6 @@ class PersistentClientSession(metaclass=WeakSingletonMetaclass):
         self._client_sessions[thread_id] = None
         self._original_sessions_close[thread_id] = None
         self._kwargs_client_sessions[thread_id] = {}
-
-    def _run_in_thread(self, *, call: Coroutine[Any, Any, None] = None):
-        """
-        Closes the ClientSession for the thread, and cleans up the thread resources. This uses a new event loop
-        in a different thread to run the async cleanup.
-        :return: None
-        """
-        # Create a new event loop in a different thread and run the call there
-        # A call to asyncio.run() is not possible here because the loop is already/still running
-        loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
-        loop.set_debug(True)
-        thread: threading.Thread = threading.Thread(target=loop.run_forever, daemon=False)
-        thread.start()
-
-        result = None
-        if call:
-            result = asyncio.run_coroutine_threadsafe(call, loop=loop).result()
-
-        loop.call_soon_threadsafe(loop.stop)
-        thread.join()
-        return result
 
     def _cleanup_in_thread(self, *, thread_id: int, call: Callable[[], Coroutine[Any, Any, None]] = None):
         """
