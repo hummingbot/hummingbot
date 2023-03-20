@@ -1252,6 +1252,7 @@ class GatewayHttpClient:
                     "amount": str(order.amount),
                     "side": order.trade_type.name,
                     "orderType": order.order_type.name,
+                    "leverage": order.leverage
                 } for order in orders_to_create
             ]
         if len(orders_to_cancel) != 0:
