@@ -624,6 +624,7 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         return Decimal(response.price)
 
     async def _request_last_trade_price(self, trading_pair: str) -> Decimal:
+        # NOTE: Can be replaced by calling GatewayHTTPClient.clob_perp_last_trade_price
         market_info: DerivativeMarketInfo = self._trading_pair_to_active_perp_markets[trading_pair]
         response: TradesResponse = await self._client.get_derivative_trades(market_id=market_info.market_id)
         last_trade: DerivativeTrade = response.trades[0]
