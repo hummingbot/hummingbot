@@ -29,6 +29,7 @@ from pyinjective.proto.exchange.injective_derivative_exchange_rpc_pb2 import (
 )
 from pyinjective.proto.exchange.injective_explorer_rpc_pb2 import GetTxByTxHashResponse, StreamTxsResponse, TxDetailData
 from pyinjective.proto.exchange.injective_oracle_rpc_pb2 import StreamPricesResponse
+from pyinjective.proto.injective.exchange.v1beta1.exchange_pb2 import DerivativeOrder
 
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.position import Position
@@ -37,6 +38,10 @@ from hummingbot.connector.gateway.clob_perp.data_sources.gateway_clob_perp_api_d
 )
 from hummingbot.connector.gateway.clob_perp.data_sources.injective_perpetual import (
     injective_perpetual_constants as CONSTANTS,
+)
+from hummingbot.connector.gateway.clob_spot.data_sources.gateway_clob_api_data_source_base import (
+    CancelOrderResult,
+    PlaceOrderResult,
 )
 from hummingbot.connector.gateway.clob_spot.data_sources.injective.injective_api_data_source import OrderHashManager
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
@@ -50,7 +55,7 @@ from hummingbot.core.data_type.trade_fee import MakerTakerExchangeFeeRates, Toke
 from hummingbot.core.event.events import AccountEvent, BalanceUpdateEvent, MarketEvent, OrderBookDataSourceEvent
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 
 
 class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
@@ -290,6 +295,24 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
 
     # region >>> User Account, Order & Position Management Function(s)
 
+    def is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
+        return str(status_update_exception).startswith("No update found for order")
+
+    def is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
+        return False
+
+    def _compose_derivative_order_for_local_hash_computation(self, order: GatewayInFlightOrder) -> DerivativeOrder:
+        market = self._trading_pair_to_active_perp_markets[order.trading_pair]
+        return self._composer.DerivativeOrder(
+            market_id=market.market_id,
+            subaccount_id=self._sub_account_id,
+            fee_recipient=self._account_address,
+            price=float(order.price),
+            quantity=float(order.amount),
+            is_buy=order.trade_type == TradeType.BUY,
+            is_po=order.order_type == OrderType.LIMIT_MAKER,
+        )
+
     async def _fetch_order_history(self, order: GatewayInFlightOrder) -> Optional[DerivativeOrderHistory]:
         # NOTE: Can be replaced by calling GatewayHttpClient.clob_get_perp_orders
         trading_pair: str = order.trading_pair
@@ -393,18 +416,8 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
     async def place_order(
         self, order: GatewayInFlightOrder, **kwargs
     ) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
-        market: DerivativeMarketInfo = self._trading_pair_to_active_perp_markets[order.trading_pair]
         perp_order_to_create = [
-            self._composer.DerivativeOrder(
-                market_id=market.market_id,
-                subaccount_id=self._sub_account_id,
-                fee_recipient=self._account_address,
-                price=float(order.price),
-                quantity=float(order.amount),
-                is_buy=order.trade_type == TradeType.BUY,
-                leverage=order.leverage,
-                is_po=order.order_type == OrderType.LIMIT_MAKER,
-            )
+            self._compose_derivative_order_for_local_hash_computation(order=order)
         ]
         async with self._order_placement_lock:
             order_hashes: List[str] = self._order_hash_manager.compute_order_hashes(
@@ -444,6 +457,54 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
 
         return order_hash, misc_updates
 
+    async def batch_order_create(self, orders_to_create: List[InFlightOrder]) -> List[PlaceOrderResult]:
+        derivative_orders_to_create = [
+            self._compose_derivative_order_for_local_hash_computation(order=order)
+            for order in orders_to_create
+        ]
+
+        async with self._order_placement_lock:
+            order_hashes = self._order_hash_manager.compute_order_hashes(
+                spot_orders=[], derivative_orders=derivative_orders_to_create
+            )
+            try:
+                update_result = await self._get_gateway_instance().clob_perp_batch_order_modify(
+                    connector=self._connector_name,
+                    chain=self._chain,
+                    network=self._network,
+                    address=self._sub_account_id,
+                    orders_to_create=orders_to_create,
+                    orders_to_cancel=[],
+                )
+            except Exception:
+                await self._update_account_address_and_create_order_hash_manager()
+                raise
+
+            transaction_hash: Optional[str] = update_result.get("txHash")
+            exception = None
+
+            if transaction_hash is None:
+                await self._update_account_address_and_create_order_hash_manager()
+                self.logger().error("The batch order update transaction failed.")
+                exception = RuntimeError("The creation transaction has failed on the Injective chain.")
+
+        transaction_hash = f"0x{transaction_hash.lower()}"
+
+        place_order_results = [
+            PlaceOrderResult(
+                update_timestamp=self._time(),
+                client_order_id=order.client_order_id,
+                exchange_order_id=order_hash,
+                trading_pair=order.trading_pair,
+                misc_updates={
+                    "creation_transaction_hash": transaction_hash,
+                },
+                exception=exception,
+            ) for order, order_hash in zip(orders_to_create, order_hashes.spot)
+        ]
+
+        return place_order_results
+
     async def cancel_order(self, order: GatewayInFlightOrder) -> Tuple[bool, Optional[Dict[str, Any]]]:
         await order.get_exchange_order_id()
 
@@ -466,11 +527,57 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
             )
 
         transaction_hash = f"0x{transaction_hash.lower()}"
-        self.logger().debug(f"Canceled order {order.exchange_order_id} with tx hash {transaction_hash}")  # todo: remove
 
         misc_updates = {"cancelation_transaction_hash": transaction_hash}
 
         return True, misc_updates
+
+    async def batch_order_cancel(self, orders_to_cancel: List[InFlightOrder]) -> List[CancelOrderResult]:
+        in_flight_orders_to_cancel = [
+            self._gateway_order_tracker.fetch_tracked_order(client_order_id=order.client_order_id)
+            for order in orders_to_cancel
+        ]
+        exchange_order_ids_to_cancel = await safe_gather(
+            *[order.get_exchange_order_id() for order in in_flight_orders_to_cancel],
+            return_exceptions=True,
+        )
+        found_orders_to_cancel = [
+            order
+            for order, result in zip(orders_to_cancel, exchange_order_ids_to_cancel)
+            if not isinstance(result, asyncio.TimeoutError)
+        ]
+
+        update_result = await self._get_gateway_instance().clob_perp_batch_order_modify(
+            connector=self._connector_name,
+            chain=self._chain,
+            network=self._network,
+            address=self._sub_account_id,
+            orders_to_create=[],
+            orders_to_cancel=found_orders_to_cancel,
+        )
+
+        transaction_hash: Optional[str] = update_result.get("txHash")
+        exception = None
+
+        if transaction_hash is None:
+            await self._update_account_address_and_create_order_hash_manager()
+            self.logger().error("The batch order update transaction failed.")
+            exception = RuntimeError("The cancelation transaction has failed on the Injective chain.")
+
+        transaction_hash = f"0x{transaction_hash.lower()}"
+
+        cancel_order_results = [
+            CancelOrderResult(
+                client_order_id=order.client_order_id,
+                trading_pair=order.trading_pair,
+                misc_updates={
+                    "cancelation_transaction_hash": transaction_hash
+                },
+                exception=exception,
+            ) for order in orders_to_cancel
+        ]
+
+        return cancel_order_results
 
     async def fetch_positions(self) -> List[Position]:
         positions: List[Position] = []
