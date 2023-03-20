@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import Dict, Tuple
 
 from hummingbot.core.data_type.common import OrderType, PositionMode, TradeType
@@ -37,3 +38,8 @@ CLIENT_TO_BACKEND_ORDER_TYPES_MAP: Dict[Tuple[TradeType, OrderType], str] = {
 }
 
 FETCH_ORDER_HISTORY_LIMIT = 100
+
+BASE_GAS = Decimal("100e3")
+GAS_BUFFER = Decimal("20e3")
+DERIVATIVE_SUBMIT_ORDER_GAS = Decimal("45e3")
+DERIVATIVE_CANCEL_ORDER_GAS = Decimal("25e3")

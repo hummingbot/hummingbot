@@ -199,6 +199,12 @@ class GatewayCLOBPerp(PerpetualDerivativePyBase):
         """
         return False
 
+    def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
+        return self._api_data_source.is_order_not_found_during_status_update_error(status_update_exception)
+
+    def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
+        return self._api_data_source.is_order_not_found_during_cancelation_error(cancelation_exception)
+
     async def start_network(self):
         await self._api_data_source.start()
         await super().start_network()
