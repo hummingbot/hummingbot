@@ -1384,6 +1384,21 @@ class GatewayHttpClient:
         request_payload.update(kwargs)
         return await self.api_request("post", "clob/perp/positions", request_payload)
 
+    async def clob_perp_last_trade_price(
+        self,
+        chain: str,
+        connector: str,
+        network: str,
+        trading_pair: str,
+    ) -> Dict[str, Any]:
+        request_payload = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "market": trading_pair
+        }
+        return await self.api_request("post", "clob/perp/lastTradePrice", request_payload)
+
     async def clob_perp_place_order(
         self,
         chain: str,
