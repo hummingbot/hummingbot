@@ -520,7 +520,10 @@ class AllConnectorSettings:
 
     @classmethod
     def get_gateway_clob_connector_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.all_connector_settings.values() if cs.type == ConnectorType.SOL_CLOB}
+        return {
+            cs.name for cs in cls.all_connector_settings.values()
+            if cs.type == ConnectorType.SOL_CLOB or cs.type == ConnectorType.CLOB_SPOT
+        }
 
     @classmethod
     def get_example_pairs(cls) -> Dict[str, str]:
