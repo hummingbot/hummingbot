@@ -163,7 +163,11 @@ class MQTTCommands:
                 )
             else:
                 res = call_sync(
-                    self._hb_app.start_check(),
+                    self._hb_app.start_check(
+                        log_level=msg.log_level,
+                        script=msg.script,
+                        is_quickstart=msg.is_quickstart
+                    ),
                     loop=self._ev_loop,
                     timeout=timeout
                 )
