@@ -9,7 +9,6 @@ from hummingbot.connector.derivative.kucoin_perpetual import (
     kucoin_perpetual_constants as CONSTANTS,
     kucoin_perpetual_web_utils as web_utils,
 )
-from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
@@ -29,7 +28,6 @@ class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         trading_pairs: List[str],
         connector: 'KucoinPerpetualDerivative',
         api_factory: WebAssistantsFactory,
-        time_provider: TimeSynchronizer,
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
         super().__init__(trading_pairs)
@@ -37,7 +35,6 @@ class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._api_factory = api_factory
         self._domain = domain
         self._nonce_provider = NonceCreator.for_microseconds()
-        self._time_provider = time_provider
 
     async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
@@ -57,7 +54,7 @@ class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         )
         return funding_info
 
-    async def _subscribe_to_channels(self, ws: WSAssistant):
+    async def _subscribe_channels(self, ws: WSAssistant):
         try:
             symbols = ",".join([await self._connector.exchange_symbol_associated_to_pair(trading_pair=pair)
                                 for pair in self._trading_pairs])

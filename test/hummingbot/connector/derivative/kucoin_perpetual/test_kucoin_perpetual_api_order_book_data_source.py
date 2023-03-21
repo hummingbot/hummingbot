@@ -61,7 +61,6 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(TestCase):
             trading_pairs=[self.trading_pair],
             connector=self.connector,
             api_factory=self.connector._web_assistants_factory,
-            time_provider=self.mock_time_provider,
         )
         self._original_full_order_book_reset_time = self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS
         self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = -1
