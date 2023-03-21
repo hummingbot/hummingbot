@@ -503,7 +503,7 @@ class AllConnectorSettings:
 
     @classmethod
     def get_derivative_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Derivative or cs.type is ConnectorType.EVM_Perpetual}
+        return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Derivative or cs.type is ConnectorType.EVM_Perpetual or cs.type is ConnectorType.CLOB_PERP}
 
     @classmethod
     def get_derivative_dex_names(cls) -> Set[str]:
