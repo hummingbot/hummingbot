@@ -8,6 +8,7 @@ native_tokens = {
     "avalanche": "AVAX",
     "solana": "SOL",
     "polygon": "MATIC",
+    "xdc": "XDC",
     "harmony": "ONE",
     "binance-smart-chain": "BNB",
     "cronos": "CRO",
