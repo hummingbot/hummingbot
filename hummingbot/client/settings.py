@@ -72,7 +72,6 @@ class ConnectorType(Enum):
     EVM_Perpetual = "EVM_Perpetual"
     EVM_AMM_LP = "EVM_AMM_LP"
     CLOB_SPOT = "CLOB_SPOT"
-    SOL_CLOB = "SOL_CLOB"
     NEAR_AMM = "NEAR_AMM"
     Connector = "connector"
     Exchange = "exchange"
@@ -198,8 +197,6 @@ class ConnectorSetting(NamedTuple):
         if self.uses_gateway_generic_connector():
             if self.type in [ConnectorType.EVM_AMM, ConnectorType.EVM_Perpetual, ConnectorType.NEAR_AMM, ConnectorType.EVM_AMM_LP]:
                 return f"gateway.amm.gateway_{self._get_module_package()}"
-            elif ConnectorType.SOL_CLOB == self.type:
-                return f"gateway.clob.gateway_{self._get_module_package()}"
             elif self.type == ConnectorType.CLOB_SPOT:
                 return f"gateway.clob_spot.gateway_{self._get_module_package()}"
             else:
@@ -522,7 +519,7 @@ class AllConnectorSettings:
     def get_gateway_clob_connector_names(cls) -> Set[str]:
         return {
             cs.name for cs in cls.all_connector_settings.values()
-            if cs.type == ConnectorType.SOL_CLOB or cs.type == ConnectorType.CLOB_SPOT
+            if cs.type == ConnectorType.CLOB_SPOT
         }
 
     @classmethod
