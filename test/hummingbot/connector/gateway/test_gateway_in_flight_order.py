@@ -129,3 +129,21 @@ class GatewayInFlightOrderUnitTests(unittest.TestCase):
         order.update_with_order_update(order_update=order_update)
 
         self.assertEqual(desired_cancelation_transaction_hash, order.cancel_tx_hash)
+
+    def test_to_and_from_json(self):
+        base_order = GatewayInFlightOrder(
+            client_order_id=self.client_order_id,
+            trading_pair=self.quote_asset,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("1"),
+            amount=Decimal("1000"),
+            creation_timestamp=1652324823,
+            initial_state=OrderState.PENDING_CREATE,
+        )
+        base_order.last_update_timestamp = 1652324824
+
+        order_json = base_order.to_json()
+        derived_order = GatewayInFlightOrder.from_json(order_json)
+
+        self.assertEqual(base_order, derived_order)

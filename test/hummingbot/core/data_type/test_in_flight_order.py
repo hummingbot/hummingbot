@@ -270,6 +270,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             "leverage": "1",
             "position": "NIL",
             "creation_timestamp": 1640001112.0,
+            "last_update_timestamp": 1640001113.0,
             "order_fills": {"1": trade_update.to_json()}
         }
 
@@ -283,6 +284,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
             creation_timestamp=1640001112.0,
             price=Decimal("1.0"),
         )
+        expected_order.last_update_timestamp = 1640001113.0
 
         order_from_json = InFlightOrder.from_json(order_json)
         self.assertEqual(expected_order, order_from_json)
@@ -290,6 +292,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
 
         self.assertIn("1", order_from_json.order_fills)
         self.assertEqual(trade_update, order_from_json.order_fills["1"])
+        self.assertEqual(1640001113.0, order_from_json.last_update_timestamp)
 
     def test_from_json_does_not_fail_when_order_fills_not_present(self):
         order_json = {
@@ -406,6 +409,7 @@ class InFlightOrderPyUnitTests(unittest.TestCase):
         self.assertEqual(order_json["leverage"], str(order.leverage))
         self.assertEqual(order_json["position"], order.position.value)
         self.assertEqual(order_json["creation_timestamp"], order.creation_timestamp)
+        self.assertEqual(order_json["last_update_timestamp"], order.last_update_timestamp)
         self.assertEqual(order_json["order_fills"], {"1": trade_update.to_json()})
 
     def test_to_limit_order(self):
