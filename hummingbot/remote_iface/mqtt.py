@@ -67,7 +67,7 @@ class TopicSpecs:
     INTERNAL_EVENTS: str = '/events'
     NOTIFICATIONS: str = '/notify'
     HEARTBEATS: str = '/hb'
-    EXTERNAL_EVENTS: str = '/external/events/*'
+    EXTERNAL_EVENTS: str = '/external/event/*'
 
 
 class MQTTCommands:
@@ -771,7 +771,7 @@ class MQTTExternalEvents:
         ] = {'*': []}
 
     def _event_uri_to_name(self, topic: str) -> str:
-        return topic.split('events/')[1].replace('/', '.')
+        return topic.split('event/')[1].replace('/', '.')
 
     def _on_event_arrived(self,
                           msg: ExternalEventMessage,
@@ -932,3 +932,52 @@ class ETopicQueueFactory:
     @classmethod
     def _on_message(cls, queue: deque, msg: Dict[str, Any], topic: str):
         queue.append((topic, msg))
+
+
+class ExternalEventFactory:
+    @classmethod
+    def create_queue(cls,
+                     event_name: str,
+                     queue_size: Optional[int] = 1000
+                     ) -> deque:
+        return EEventQueueFactory.create(event_name, queue_size)
+
+    @classmethod
+    def create_async(cls,
+                     event_name: str,
+                     callback: Callable[[Dict[str, Any], str], None],
+                     ) -> None:
+        return EEventListenerFactory.create(event_name, callback)
+
+    @classmethod
+    def remove_listener(cls,
+                        event_name: str,
+                        callback: Callable[[Dict[str, Any], str], None],
+                        ) -> None:
+        gw = MQTTGateway.main()
+        if gw is None:
+            raise Exception('MQTTGateway is offline!')
+        gw.remove_external_event_listener(event_name, callback)
+
+
+class ExternalTopicFactory:
+    @classmethod
+    def create_queue(cls,
+                     topic: str,
+                     queue_size: Optional[int] = 1000,
+                     use_bot_prefix: Optional[bool] = True
+                     ) -> deque:
+        return ETopicQueueFactory.create(topic, queue_size, use_bot_prefix)
+
+    @classmethod
+    def create_async(cls,
+                     topic: str,
+                     callback: Callable[[Dict[str, Any], str], None],
+                     use_bot_prefix: Optional[bool] = True
+                     ) -> ETopicListener:
+        return ETopicListenerFactory.create(topic, callback, use_bot_prefix)
+
+    @classmethod
+    def remove_listener(cls, listener):
+        listener.stop()
+        del listener

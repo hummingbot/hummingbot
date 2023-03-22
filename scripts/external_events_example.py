@@ -1,10 +1,5 @@
 from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketOrderFailureEvent, SellOrderCreatedEvent
-from hummingbot.remote_iface.mqtt import (
-    EEventListenerFactory,
-    EEventQueueFactory,
-    ETopicListenerFactory,
-    ETopicQueueFactory,
-)
+from hummingbot.remote_iface.mqtt import ExternalEventFactory, ExternalTopicFactory
 from hummingbot.strategy.script_strategy_base import Decimal, OrderType, ScriptStrategyBase
 
 
@@ -17,30 +12,16 @@ class ExternalEventsExample(ScriptStrategyBase):
     markets = {"kucoin_paper_trade": {"BTC-USDT"}}
 
     # ------ Using Factory Classes ------
-    # -----------------------------------
     # hbot/{id}/external/events/*
-    eevents = EEventQueueFactory.create('*')
-    # hbot/{id}/external/events/tv/s1/signal
-    # eevents = EEventsQueueFactory.create('tv.s1.signal')
-
-    # Examples of using ETopicQUeueFactory to listen to MQTT topics for
-    # messages and puts them in a FIFO
+    eevents = ExternalEventFactory.create_queue('*')
     # hbot/{id}/test/a
-    # etopic_queue = ETopicQueueFactory.create('test.a')
-    etopic_queue = ETopicQueueFactory.create('test/a')
-
-    # this/is/without/prefix/a
-    # etopic_queue = ETopicQueueFactory.create(
-    #     'this/is/without/prefix/a',
-    #     use_bot_prefix=False
-    # )
-    # -----------------------------------
+    etopic_queue = ExternalTopicFactory.create_queue('test/a')
 
     # ---- Using callback functions ----
     # ----------------------------------
     def __init__(self, *args, **kwargs):
-        EEventListenerFactory.create('*', self.on_event)
-        self.listener = ETopicListenerFactory.create('test/a', self.on_message)
+        ExternalEventFactory.create_async('*', self.on_event)
+        self.listener = ExternalTopicFactory.create_async('test/a', self.on_message)
         super().__init__(*args, **kwargs)
 
     def on_event(self, msg, name):
@@ -50,8 +31,8 @@ class ExternalEventsExample(ScriptStrategyBase):
         self.logger().info(f'Topic Message Callback fired: {topic} -> {msg}')
 
     def on_stop(self):
-        EEventListenerFactory.remove('*', self.on_event)
-        ETopicListenerFactory.remove(self.listener)
+        ExternalEventFactory.remove_listener('*', self.on_event)
+        ExternalTopicFactory.remove_listener(self.listener)
     # ----------------------------------
 
     def on_tick(self):
