@@ -29,6 +29,12 @@ from pyinjective.proto.exchange.injective_derivative_exchange_rpc_pb2 import (
 )
 from pyinjective.proto.exchange.injective_explorer_rpc_pb2 import GetTxByTxHashResponse, StreamTxsResponse, TxDetailData
 from pyinjective.proto.exchange.injective_oracle_rpc_pb2 import StreamPricesResponse
+from pyinjective.proto.exchange.injective_portfolio_rpc_pb2 import (
+    AccountPortfolioResponse,
+    Coin,
+    Portfolio,
+    SubaccountBalanceV2,
+)
 from pyinjective.proto.injective.exchange.v1beta1.exchange_pb2 import DerivativeOrder
 
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -94,7 +100,8 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         self._trading_pair_to_active_perp_markets: Dict[str, DerivativeMarketInfo] = {}
         self._market_id_to_active_perp_markets: Dict[str, DerivativeMarketInfo] = {}
         self._trading_pair_to_market_id_map = bidict()
-        self._denom_to_token_meta: Dict[str, Union[Dict[str, Any], TokenMeta]] = {}
+
+        self._denom_to_token_meta: Dict[str, Dict[str, Any]] = CONSTANTS.NETWORK_DENOM_TOKEN_META[self._network]
 
         # Listener(s) and Loop Task(s)
         self._update_market_info_loop_task: Optional[asyncio.Task] = None
@@ -116,9 +123,7 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         if not self._order_placement_lock.locked():
             raise RuntimeError("The order-placement lock must be acquired before creating the order hash manager.")
         response: Dict[str, Any] = await self._get_gateway_instance().clob_injective_balances(
-            chain=self._chain,
-            network=self._network,
-            address=self._sub_account_id
+            chain=self._chain, network=self._network, address=self._sub_account_id
         )
         self._account_address: str = response["injectiveAddress"]
 
@@ -260,26 +265,18 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         "Parses MarketsResponse and re-populate the market map attributes"
         active_perp_markets: Dict[str, DerivativeMarketInfo] = {}
         market_id_to_market_map: Dict[str, DerivativeMarketInfo] = {}
-        denom_to_token_meta_map: Dict[str, Union[Dict[str, Any], TokenMeta]] = {}
         for market in response.markets:
             trading_pair: str = combine_to_hb_trading_pair(base=market.oracle_base, quote=market.oracle_quote)
             market_id: str = market.market_id
-            base_denom: str = market.oracle_base.upper()
-            quote_demon: str = market.oracle_quote.upper()
 
             active_perp_markets[trading_pair] = market
             market_id_to_market_map[market_id] = market
-            # Specifically for base token, Derivative API does not provide a Token Meta in the response.
-            denom_to_token_meta_map[base_denom] = {"symbol": base_denom, "decimals": market.oracle_scale_factor}
-            denom_to_token_meta_map[quote_demon] = market.quote_token_meta
 
         self._trading_pair_to_active_perp_markets.clear()
         self._market_id_to_active_perp_markets.clear()
-        self._denom_to_token_meta.clear()
 
         self._trading_pair_to_active_perp_markets.update(active_perp_markets)
         self._market_id_to_active_perp_markets.update(market_id_to_market_map)
-        self._denom_to_token_meta.update(denom_to_token_meta_map)
 
     async def _update_market_info(self):
         "Fetches and updates trading pair maps of active perpetual markets."
@@ -416,9 +413,7 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
     async def place_order(
         self, order: GatewayInFlightOrder, **kwargs
     ) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
-        perp_order_to_create = [
-            self._compose_derivative_order_for_local_hash_computation(order=order)
-        ]
+        perp_order_to_create = [self._compose_derivative_order_for_local_hash_computation(order=order)]
         async with self._order_placement_lock:
             order_hashes: List[str] = self._order_hash_manager.compute_order_hashes(
                 derivative_orders=perp_order_to_create
@@ -435,7 +430,7 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
                 order_type=order.order_type,
                 price=order.price,
                 size=order.amount,
-                leverage=order.leverage
+                leverage=order.leverage,
             )
 
             transaction_hash: Optional[str] = order_result.get("txHash")
@@ -459,8 +454,7 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
 
     async def batch_order_create(self, orders_to_create: List[InFlightOrder]) -> List[PlaceOrderResult]:
         derivative_orders_to_create = [
-            self._compose_derivative_order_for_local_hash_computation(order=order)
-            for order in orders_to_create
+            self._compose_derivative_order_for_local_hash_computation(order=order) for order in orders_to_create
         ]
 
         async with self._order_placement_lock:
@@ -500,7 +494,8 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
                     "creation_transaction_hash": transaction_hash,
                 },
                 exception=exception,
-            ) for order, order_hash in zip(orders_to_create, order_hashes.spot)
+            )
+            for order, order_hash in zip(orders_to_create, order_hashes.spot)
         ]
 
         return place_order_results
@@ -570,11 +565,10 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
             CancelOrderResult(
                 client_order_id=order.client_order_id,
                 trading_pair=order.trading_pair,
-                misc_updates={
-                    "cancelation_transaction_hash": transaction_hash
-                },
+                misc_updates={"cancelation_transaction_hash": transaction_hash},
                 exception=exception,
-            ) for order in orders_to_cancel
+            )
+            for order in orders_to_cancel
         ]
 
         return cancel_order_results
@@ -587,7 +581,7 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
             chain=self._chain,
             connector=self._connector_name,
             network=self._network,
-            trading_pairs=self._trading_pairs
+            trading_pairs=self._trading_pairs,
         )
 
         positions: List[Dict[str, Any]] = response["positions"]
@@ -617,28 +611,52 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         return positions
 
     async def get_account_balances(self) -> Dict[str, Dict[str, Decimal]]:
-        response: Dict[str, Any] = await self._get_gateway_instance().clob_injective_balances(
-            chain=self._chain,
-            network=self._network,
-            address=self._sub_account_id
-        )
-        sub_acct_balances: List[Dict[str, Any]] = response["subaccounts"]
-        balances: List[Dict[str, Any]] = []
+        if self._account_address is None:
+            async with self._order_placement_lock:
+                await self._update_account_address_and_create_order_hash_manager()
+        self._check_markets_initialized() or await self._update_market_info()
 
-        for entry in sub_acct_balances:
-            if entry["subaccountId"] == self._sub_account_id:
-                balances = entry["balances"]
-                break
+        portfolio_response: AccountPortfolioResponse = await self._client.get_account_portfolio(
+            account_address=self._account_address
+        )
+
+        portfolio: Portfolio = portfolio_response.portfolio
+        bank_balances: List[Coin] = portfolio.bank_balances
+        sub_account_balances: List[SubaccountBalanceV2] = portfolio.subaccounts
 
         balances_dict: Dict[str, Dict[str, Decimal]] = {}
-        for balance in balances:
-            asset_name = balance["token"]
-            total_balance = Decimal(balance["totalBalance"])
-            available_balance = Decimal(balance["availableBalance"])
+
+        for bank_entry in bank_balances:
+            token_meta: Dict[str, Any] = self._denom_to_token_meta[bank_entry.denom]
+            asset_name: str = token_meta["symbol"]
+            denom_scaler: Decimal = Decimal(f"1e-{token_meta['decimal']}")
+
+            available_balance: Decimal = Decimal(bank_entry.amount) * denom_scaler
             balances_dict[asset_name] = {
-                "total_balance": total_balance,
+                "total_balance": available_balance,
                 "available_balance": available_balance,
             }
+
+        for entry in sub_account_balances:
+            token_meta: Dict[str, Any] = self._denom_to_token_meta[entry.denom]
+            asset_name: str = token_meta["symbol"]
+            denom_scaler: Decimal = Decimal(f"1e-{token_meta['decimal']}")
+
+            total_balance: Decimal = Decimal(entry.deposit.total_balance) * denom_scaler
+            available_balance: Decimal = Decimal(entry.deposit.available_balance) * denom_scaler
+            if asset_name in balances_dict:
+                balances_dict[asset_name].update(
+                    {
+                        "total_balance": balances_dict[asset_name]["total_balance"] + total_balance,
+                        "available_balance": balances_dict[asset_name]["available_balance"] + available_balance,
+                    }
+                )
+            else:
+                balances_dict[asset_name] = {
+                    "total_balance": total_balance,
+                    "available_balance": available_balance,
+                }
+
         return balances_dict
 
     async def get_all_order_fills(self, in_flight_order: InFlightOrder) -> List[TradeUpdate]:
@@ -666,7 +684,7 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
             network=self._network,
             connector=self._connector_name,
             trading_pair=trading_pair,
-            address=self._sub_account_id
+            address=self._sub_account_id,
         )
 
         latest_funding_payment: Dict[str, Any] = response["fundingPayments"][0]  # List of payments sorted by latest
@@ -711,9 +729,7 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
     async def _request_last_funding_rate(self, trading_pair: str) -> Decimal:
         # NOTE: Can be removed when GatewayHttpClient.clob_perp_funding_info is used.
         market_info: DerivativeMarketInfo = self._trading_pair_to_active_perp_markets[trading_pair]
-        response: FundingRatesResponse = await self._client.get_funding_rates(
-            market_id=market_info.market_id, limit=1
-        )
+        response: FundingRatesResponse = await self._client.get_funding_rates(market_id=market_info.market_id, limit=1)
         funding_rate: FundingRate = response.funding_rates[0]  # We only want the latest funding rate.
         return Decimal(funding_rate.rate)
 
@@ -932,7 +948,7 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         timestamp: 1675902606000
         """
         subacct_balance: SubaccountBalance = message.balance
-        denom_meta: Union[Dict[str, Any], TokenMeta] = self._denom_to_token_meta[subacct_balance.denom.upper()]
+        denom_meta: Union[Dict[str, Any], TokenMeta] = self._denom_to_token_meta[subacct_balance.denom]
         if type(denom_meta) is TokenMeta:
             denom_scaler: Decimal = Decimal(f"1e-{denom_meta.decimals}")
         elif type(denom_meta) is Dict:
@@ -954,6 +970,7 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         self._publisher.trigger_event(event_tag=AccountEvent.BalanceEvent, message=balance_msg)
 
     async def _listen_to_account_balances_stream(self):
+        # TODO: Update to use portfoio stream
         while True:
             stream: UnaryStreamCall = await self._client.stream_subaccount_balance(subaccount_id=self._sub_account_id)
             try:
@@ -1164,7 +1181,7 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
             stream: UnaryStreamCall = await self._client.stream_oracle_prices(
                 base_symbol=market_info.oracle_base,
                 quote_symbol=market_info.oracle_quote,
-                oracle_type=market_info.oracle_type
+                oracle_type=market_info.oracle_type,
             )
             try:
                 async for message in stream:

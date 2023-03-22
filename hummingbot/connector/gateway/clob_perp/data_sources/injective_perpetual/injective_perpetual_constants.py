@@ -1,5 +1,12 @@
+from configparser import ConfigParser
 from decimal import Decimal
 from typing import Dict, Tuple
+
+from pyinjective.constant import (
+    devnet_config as DEVNET_CONFIG,
+    mainnet_config as MAINNET_CONFIG,
+    testnet_config as TESTNET_CONFIG,
+)
 
 from hummingbot.core.data_type.common import OrderType, PositionMode, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState
@@ -43,3 +50,17 @@ BASE_GAS = Decimal("100e3")
 GAS_BUFFER = Decimal("20e3")
 DERIVATIVE_SUBMIT_ORDER_GAS = Decimal("45e3")
 DERIVATIVE_CANCEL_ORDER_GAS = Decimal("25e3")
+
+
+def _parse_network_config(config: ConfigParser):
+    return {
+        entry["peggy_denom"]: {"symbol": entry.name, "decimal": entry["decimals"]}
+        for entry in config.values() if "peggy_denom" in entry
+    }
+
+
+NETWORK_DENOM_TOKEN_META = {
+    "mainnet": _parse_network_config(config=MAINNET_CONFIG),
+    "testnet": _parse_network_config(config=TESTNET_CONFIG),
+    "devnet": _parse_network_config(config=DEVNET_CONFIG)
+}
