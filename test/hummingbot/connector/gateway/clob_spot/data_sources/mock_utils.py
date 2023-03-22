@@ -201,6 +201,57 @@ class InjectiveClientMock:
             asyncio.wait_for(fut=self.cancel_order_called_event.wait(), timeout=timeout)
         )
 
+    def configure_batch_order_create_response(
+        self,
+        timestamp: int,
+        transaction_hash: str,
+        created_orders: List[InFlightOrder],
+    ):
+        def update_and_return(*_, **__):
+            self.place_order_called_event.set()
+            return {
+                "network": "injective",
+                "timestamp": timestamp,
+                "latency": 2,
+                "txHash": transaction_hash if not transaction_hash.startswith("0x") else transaction_hash[2:],
+            }
+
+        self.gateway_instance_mock.clob_batch_order_modify.side_effect = update_and_return
+        self.configure_get_tx_by_hash_creation_response(
+            timestamp=timestamp, success=True, order_hashes=[order.exchange_order_id for order in created_orders]
+        )
+        for order in created_orders:
+            self.configure_get_historical_spot_orders_response_for_in_flight_order(
+                timestamp=timestamp,
+                in_flight_order=order,
+            )
+        self.injective_compute_order_hashes_mock.return_value = OrderHashResponse(
+            spot=[order.exchange_order_id for order in created_orders], derivative=[]
+        )
+
+    def configure_batch_order_cancel_response(
+        self,
+        timestamp: int,
+        transaction_hash: str,
+        canceled_orders: List[InFlightOrder],
+    ):
+        def update_and_return(*_, **__):
+            self.place_order_called_event.set()
+            return {
+                "network": "injective",
+                "timestamp": timestamp,
+                "latency": 2,
+                "txHash": transaction_hash if not transaction_hash.startswith("0x") else transaction_hash[2:],
+            }
+
+        self.gateway_instance_mock.clob_batch_order_modify.side_effect = update_and_return
+        for order in canceled_orders:
+            self.configure_get_historical_spot_orders_response_for_in_flight_order(
+                timestamp=timestamp,
+                in_flight_order=order,
+                is_canceled=True,
+            )
+
     def configure_place_order_response(
         self,
         timestamp: int,
@@ -222,7 +273,7 @@ class InjectiveClientMock:
 
         self.gateway_instance_mock.clob_place_order.side_effect = place_and_return
         self.configure_get_tx_by_hash_creation_response(
-            timestamp=timestamp, success=True, order_hash=exchange_order_id
+            timestamp=timestamp, success=True, order_hashes=[exchange_order_id]
         )
         self.configure_get_historical_spot_orders_response(
             timestamp=timestamp,
@@ -314,7 +365,7 @@ class InjectiveClientMock:
             self.configure_get_tx_by_hash_creation_response(
                 timestamp=timestamp,
                 success=creation_transaction_success,
-                order_hash=exchange_order_id,
+                order_hashes=[exchange_order_id],
                 transaction_hash=creation_transaction_hash,
                 is_order_failed=is_failed,
             )
@@ -839,14 +890,15 @@ class InjectiveClientMock:
         self,
         timestamp: float,
         success: bool,
-        order_hash: str = "",
+        order_hashes: Optional[List[str]] = None,
         transaction_hash: str = "",
         trade_type: TradeType = TradeType.BUY,
         is_order_failed: bool = False,
     ):
-        data_data = "\n{\n3/injective.exchange.v1beta1.MsgCreateSpotLimitOrder\x12D\nB"
+        order_hashes = order_hashes or []
+        data_data = "\n\275\001\n0/injective.exchange.v1beta1.MsgBatchUpdateOrders"
         if success and not is_order_failed:
-            data_data += order_hash
+            data_data += "\022\210\001\032B" + "\032B".join(order_hashes)
         gas_wanted = int(BASE_GAS + SPOT_SUBMIT_ORDER_GAS + GAS_BUFFER)
         gas_amount_scaled = self.order_creation_gas_estimate * Decimal("1e18")
         gas_amount = CosmosCoin(denom="inj", amount=str(int(gas_amount_scaled)))
@@ -854,7 +906,7 @@ class InjectiveClientMock:
         gas_fee.amount.append(gas_amount)
         messages_data = [
             {
-                'type': '/injective.exchange.v1beta1.MsgCreateSpotLimitOrder',
+                'type': '/injective.exchange.v1beta1.MsgBatchUpdateOrders',
                 'value': {
                     'order': {
                         'market_id': self.market_id,
