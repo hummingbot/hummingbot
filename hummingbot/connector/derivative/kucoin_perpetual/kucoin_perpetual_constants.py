@@ -89,6 +89,11 @@ WS_CONNECTION_LIMIT = 30
 WS_CONNECTION_TIME_INTERVAL = 20
 WS_REQUEST_LIMIT_ID = "WSRequest"
 
+ORDER_CHANGE_EVENT_TYPE = "orderChange"
+BALANCE_EVENT_TYPE = "availableBalance.change"
+POSITION_CHANGE_EVENT_TYPE = "position.change"
+TRADE_EVENT_TYPE = "match"
+
 # Order Statuses
 ORDER_STATE = {
     "open": OrderState.OPEN,

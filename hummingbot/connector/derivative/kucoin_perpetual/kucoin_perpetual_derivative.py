@@ -507,32 +507,24 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
         """
         async for event_message in self._iter_user_event_queue():
             try:
+                event_type = event_message.get("type")
+                event_subject = event_message.get("subject")
+                execution_data = event_message.get("data")
                 endpoint = web_utils.endpoint_from_message(event_message)
                 payload = web_utils.payload_from_message(event_message)
+                if type(execution_data) == list:
+                    execution_data = execution_data[0]
 
-                if endpoint == CONSTANTS.WS_SUBSCRIPTION_POSITIONS_ENDPOINT_NAME:
+                if event_type == "message" and event_subject == CONSTANTS.ORDER_CHANGE_EVENT_TYPE:
+                    self._process_trade_event_message(execution_data)
+                elif event_subject == CONSTANTS.BALANCE_EVENT_TYPE:
+                    currency = execution_data["currency"]
+                    available_balance = Decimal(execution_data["availableBalance"])
+                    total_balance = Decimal(execution_data["holdBalance"]) + Decimal(execution_data["availableBalance"])
+                    self._account_balances.update({currency: total_balance})
+                    self._account_available_balances.update({currency: available_balance})
+                elif event_subject == CONSTANTS.POSITION_CHANGE_EVENT_TYPE:
                     await self._process_account_position_event(payload)
-                elif endpoint == CONSTANTS.WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME:
-                    if type(payload) == list:
-                        for order_msg in payload:
-                            self._process_trade_event_message(order_msg)
-                    else:
-                        self._process_trade_event_message(payload)
-                elif endpoint == CONSTANTS.WS_SUBSCRIPTION_EXECUTIONS_ENDPOINT_NAME:
-                    if type(payload) == list:
-                        for order_msg in payload:
-                            self._process_trade_event_message(order_msg)
-                    else:
-                        self._process_trade_event_message(payload)
-                elif endpoint == CONSTANTS.WS_SUBSCRIPTION_WALLET_ENDPOINT_NAME:
-                    if type(payload) == list:
-                        for wallet_msg in payload:
-                            self._process_wallet_event_message(wallet_msg)
-                    else:
-                        self._process_wallet_event_message(payload)
-                elif endpoint is None:
-                    self.logger().error(f"Could not extract endpoint from {event_message}.")
-                    raise ValueError
                 elif endpoint == "error":
                     self.logger().error(f"Error returned via WS: {payload}.")
             except asyncio.CancelledError:
