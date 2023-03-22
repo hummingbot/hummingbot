@@ -1,4 +1,5 @@
 import asyncio
+import time
 from abc import abstractmethod
 from decimal import Decimal
 from enum import Enum
@@ -85,3 +86,6 @@ class GatewayCLOBPerpAPIDataSourceBase(GatewayCLOBAPIDataSourceBase):
     async def parse_funding_info_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         # This function should enqueue a FundingInfoUpdate obj into message_queue as presented in the function argument
         ...
+
+    def _time(self) -> float:
+        return time.time()

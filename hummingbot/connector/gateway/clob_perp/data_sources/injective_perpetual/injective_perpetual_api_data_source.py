@@ -1,14 +1,13 @@
 import asyncio
 import json
 from decimal import Decimal
-from typing import Any, Dict, List, Mapping, Optional, Tuple, Union
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from bidict import bidict
 from grpc.aio import UnaryStreamCall
 from pyinjective.async_client import AsyncClient
 from pyinjective.composer import Composer as ProtoMsgComposer
 from pyinjective.constant import Network
-from pyinjective.proto.exchange.injective_accounts_rpc_pb2 import StreamSubaccountBalanceResponse, SubaccountBalance
 from pyinjective.proto.exchange.injective_derivative_exchange_rpc_pb2 import (
     DerivativeLimitOrderbook,
     DerivativeMarketInfo,
@@ -24,7 +23,6 @@ from pyinjective.proto.exchange.injective_derivative_exchange_rpc_pb2 import (
     StreamOrdersResponse,
     StreamPositionsResponse,
     StreamTradesResponse,
-    TokenMeta,
     TradesResponse,
 )
 from pyinjective.proto.exchange.injective_explorer_rpc_pb2 import GetTxByTxHashResponse, StreamTxsResponse, TxDetailData
@@ -33,6 +31,7 @@ from pyinjective.proto.exchange.injective_portfolio_rpc_pb2 import (
     AccountPortfolioResponse,
     Coin,
     Portfolio,
+    StreamAccountPortfolioResponse,
     SubaccountBalanceV2,
 )
 from pyinjective.proto.injective.exchange.v1beta1.exchange_pb2 import DerivativeOrder
@@ -108,10 +107,14 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         self._trades_stream_listener: Optional[asyncio.Task] = None
         self._order_listeners: Dict[str, asyncio.Task] = {}
         self._order_books_stream_listener: Optional[asyncio.Task] = None
-        self._account_balances_stream_listener: Optional[asyncio.Task] = None
+        self._subaccount_balances_stream_listener: Optional[asyncio.Task] = None
         self._transactions_stream_listener: Optional[asyncio.Task] = None
 
         self._order_placement_lock = asyncio.Lock()
+
+        # Balance
+        self._account_balances = {}
+        self._account_available_balances = {}
 
     def get_supported_order_types(self) -> List[OrderType]:
         return CONSTANTS.SUPPORTED_ORDER_TYPES
@@ -611,6 +614,14 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
             )
         return positions
 
+    def _update_local_balances(self, balances: Dict[str, Dict[str, Decimal]]):
+        # We need to keep local copy of total and available balance so we can trigger BalanceUpdateEvent with correct
+        # details. This is specifically for Injective during the processing of balance streams, where the messages does not
+        # detail the total_balance and available_balance across bank and subaccounts.
+        for asset_name, balance_entry in balances.items():
+            self._account_balances[asset_name] = balance_entry["total_balance"]
+            self._account_available_balances[asset_name] = balance_entry["available_balance"]
+
     async def get_account_balances(self) -> Dict[str, Dict[str, Decimal]]:
         if self._account_address is None:
             async with self._order_placement_lock:
@@ -658,6 +669,7 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
                     "available_balance": available_balance,
                 }
 
+        self._update_local_balances(balances=balances_dict)
         return balances_dict
 
     async def get_all_order_fills(self, in_flight_order: InFlightOrder) -> List[TradeUpdate]:
@@ -935,48 +947,88 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
             self.logger().info("Restarting public trades stream.")
             stream.cancel()
 
-    def _parse_balance_message(self, message: StreamSubaccountBalanceResponse) -> BalanceUpdateEvent:
-        """
-        Balance Balance Example:
-        balance {
-            subaccount_id: "0xc7dca7c15c364865f77a4fb67ab11dc95502e6fe000000000000000000000001"  # noqa: documentation
-            account_address: "inj1clw20s2uxeyxtam6f7m84vgae92s9eh7vygagt"
-            denom: "inj"
-            deposit {
-                available_balance: "9980001000000000000"
-            }
-            }
-        timestamp: 1675902606000
-        """
-        subacct_balance: SubaccountBalance = message.balance
-        denom_meta: Union[Dict[str, Any], TokenMeta] = self._denom_to_token_meta[subacct_balance.denom]
-        if type(denom_meta) is TokenMeta:
-            denom_scaler: Decimal = Decimal(f"1e-{denom_meta.decimals}")
-        elif type(denom_meta) is Dict:
-            denom_scaler: Decimal = Decimal(f"1e-{denom_meta['decimals']}")
-        total_balance = subacct_balance.deposit.total_balance
-        total_balance = Decimal(total_balance) * denom_scaler if total_balance != "" else None
-        available_balance = subacct_balance.deposit.available_balance
-        available_balance = Decimal(available_balance) * denom_scaler if available_balance != "" else None
+    def _parse_bank_balance_message(self, message: StreamAccountPortfolioResponse) -> BalanceUpdateEvent:
+        denom_meta: Dict[str, Any] = self._denom_to_token_meta[message.denom]
+        denom_scaler: Decimal = Decimal(f"1e-{denom_meta['decimal']}")
+
+        available_balance: Decimal = Decimal(message.amount) * denom_scaler
+        total_balance: Decimal = available_balance
+
         balance_msg = BalanceUpdateEvent(
-            timestamp=subacct_balance.timestamp * 1e-3,
+            timestamp=self._time(),
             asset_name=denom_meta.symbol,
             total_balance=total_balance,
             available_balance=available_balance,
         )
+        self._update_local_balances(
+            balances={denom_meta.symbol: {"total_balance": total_balance, "available_balance": available_balance}}
+        )
         return balance_msg
 
-    def _process_balance_stream_event(self, message: StreamSubaccountBalanceResponse):
-        balance_msg: BalanceUpdateEvent = self._parse_balance_message(message=message)
+    def _process_bank_balance_stream_event(self, message: StreamAccountPortfolioResponse):
+        balance_msg: BalanceUpdateEvent = self._parse_bank_balance_message(message=message)
         self._publisher.trigger_event(event_tag=AccountEvent.BalanceEvent, message=balance_msg)
 
-    async def _listen_to_account_balances_stream(self):
-        # TODO: Update to use portfoio stream
+    async def _listen_to_bank_balances_streams(self):
         while True:
-            stream: UnaryStreamCall = await self._client.stream_subaccount_balance(subaccount_id=self._sub_account_id)
+            stream: UnaryStreamCall = await self._client.stream_account_portfolio(
+                account_address=self._account_address, type="bank"
+            )
+            try:
+                async for bank_balance in stream:
+                    self._process_bank_balance_stream_event(message=bank_balance)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().exception("Unexpected error in account balance listener loop.")
+            self.logger().info("Restarting account balances stream.")
+            stream.cancel()
+
+    def _parse_subaccount_balance_message(self, message: StreamAccountPortfolioResponse) -> BalanceUpdateEvent:
+        """
+        Balance Example:
+
+        type: "total_balances"
+        denom: "peggy0xdAC17F958D2ee523a2206206994597C13D831ec7"  # noqa: documentation
+        amount: "0.885648987490134461"
+        subaccount_id: "0x72b52e007d01cc5ac36349288f24ce1bd912cedf000000000000000000000000"  # noqa: documentation
+
+        """
+        denom_meta: Dict[str, Any] = self._denom_to_token_meta[message.denom]
+        denom_scaler: Decimal = Decimal(f"1e-{denom_meta['decimal']}")
+
+        total_bank_balance = self._account_balances[denom_meta]
+        total_subaccount_balance = Decimal(message.amount) * denom_scaler
+
+        total_balance = total_bank_balance + total_subaccount_balance
+
+        balance_msg = BalanceUpdateEvent(
+            timestamp=self._time(),
+            asset_name=denom_meta.symbol,
+            total_balance=total_balance,
+        )
+        self._update_local_balances(
+            balances={
+                denom_meta.symbol: {
+                    "total_balance": total_balance,
+                    "available_balance": self._account_available_balances[denom_meta],
+                }
+            }
+        )
+        return balance_msg
+
+    def _process_subaccount_balance_stream_event(self, message: StreamAccountPortfolioResponse):
+        balance_msg: BalanceUpdateEvent = self._parse_subaccount_balance_message(message=message)
+        self._publisher.trigger_event(event_tag=AccountEvent.BalanceEvent, message=balance_msg)
+
+    async def _listen_to_subaccount_balances_stream(self):
+        while True:
+            stream: UnaryStreamCall = await self._client.stream_account_portfolio(
+                account_address=self._account_address, subaccount_id=self._sub_account_id, type="total_balances"
+            )
             try:
                 async for balance_msg in stream:
-                    self._process_balance_stream_event(message=balance_msg)
+                    self._process_subaccount_balance_stream_event(message=balance_msg)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -1201,8 +1253,11 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         self._order_books_stream_listener = self._order_books_stream_listener or safe_ensure_future(
             coro=self._listen_to_order_books_stream()
         )
-        self._account_balances_stream_listener = self._account_balances_stream_listener or safe_ensure_future(
-            coro=self._listen_to_account_balances_stream()
+        self._bank_balances_stream_listener = self._bank_balances_stream_listener or safe_ensure_future(
+            coro=self._listen_to_bank_balances_streams()
+        )
+        self._subaccount_balances_stream_listener = self._subaccount_balances_stream_listener or safe_ensure_future(
+            coro=self._listen_to_subaccount_balances_stream()
         )
         self._transactions_stream_listener = self._transactions_stream_listener or safe_ensure_future(
             coro=self._listen_to_transactions_stream()
@@ -1224,8 +1279,10 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         self._order_listeners = {}
         self._order_books_stream_listener and self._order_books_stream_listener.cancel()
         self._order_books_stream_listener = None
-        self._account_balances_stream_listener and self._account_balances_stream_listener.cancel()
-        self._account_balances_stream_listener = None
+        self._subaccount_balances_stream_listener and self._subaccount_balances_stream_listener.cancel()
+        self._subaccount_balances_stream_listener = None
+        self._bank_balances_stream_listener and self._bank_balances_stream_listener.cancel()
+        self._bank_balances_stream_listener = None
         self._transactions_stream_listener and self._transactions_stream_listener.cancel()
         self._transactions_stream_listener = None
         self._positions_stream_listener and self._positions_stream_listener.cancel()
