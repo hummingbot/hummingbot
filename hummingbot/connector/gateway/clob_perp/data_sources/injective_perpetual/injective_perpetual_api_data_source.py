@@ -243,17 +243,18 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
 
     async def get_order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         market_info = self._trading_pair_to_active_perp_markets[trading_pair]
+        price_scaler: Decimal = Decimal(f"1e-{market_info.quote_token_meta.decimals}")
         response: OrderbookResponse = await self._client.get_derivative_orderbook(market_id=market_info.market_id)
 
-        snapshot_ob: DerivativeLimitOrderbook = response.order_book
+        snapshot_ob: DerivativeLimitOrderbook = response.orderbook
         snapshot_timestamp: float = max(
             [entry.timestamp for entry in list(response.orderbook.buys) + list(response.orderbook.sells)]
         )
         snapshot_content: Dict[str, Any] = {
             "trading_pair": combine_to_hb_trading_pair(base=market_info.oracle_base, quote=market_info.oracle_quote),
             "update_id": snapshot_timestamp,
-            "bids": [(entry.price, entry.quantity) for entry in snapshot_ob.buys],
-            "asks": [(entry.price, entry.quantity) for entry in snapshot_ob.sells],
+            "bids": [(Decimal(entry.price) * price_scaler, entry.quantity) for entry in snapshot_ob.buys],
+            "asks": [(Decimal(entry.price) * price_scaler, entry.quantity) for entry in snapshot_ob.sells],
         }
 
         snapshot_msg: OrderBookMessage = OrderBookMessage(
@@ -592,9 +593,9 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
             position_side: PositionSide = PositionSide[position["direction"].upper()]
             amount: Decimal = Decimal(position["quantity"])
 
-            scaler: Decimal = Decimal(f"1e-{market_info.oracle_scale_factor}")
-            entry_price: Decimal = Decimal(position["entry_price"]) * scaler
-            mark_price: Decimal = Decimal(position["mark_price"]) * scaler
+            price_scaler: Decimal = Decimal(f"1e-{market_info.quote_token_meta.decimals}")
+            entry_price: Decimal = Decimal(position["entry_price"]) * price_scaler
+            mark_price: Decimal = Decimal(position["mark_price"]) * price_scaler
 
             unrealized_pnl: Decimal = amount * ((1 / entry_price) - (1 / mark_price))
 
@@ -751,8 +752,8 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         market_info: DerivativeMarketInfo = self._trading_pair_to_active_perp_markets[trading_pair]
         response: TradesResponse = await self._client.get_derivative_trades(market_id=market_info.market_id)
         last_trade: DerivativeTrade = response.trades[0]
-        scaler: Decimal = Decimal(market_info.oracle_scale_factor)
-        last_trade_price: Decimal = Decimal(last_trade.position_delta.execution_price) * scaler
+        price_scaler: Decimal = Decimal(f"1e-{market_info.quote_token_meta.decimals}")
+        last_trade_price: Decimal = Decimal(last_trade.position_delta.execution_price) * price_scaler
         return last_trade_price
 
     async def _request_funding_info(self, trading_pair: str) -> FundingInfo:
@@ -1124,9 +1125,9 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         market_info: DerivativeMarketInfo = self._market_id_to_active_perp_markets[position.market_id]
         trading_pair: str = combine_to_hb_trading_pair(base=market_info.oracle_base, quote=market_info.oracle_quote)
         position_side: PositionSide = PositionSide[position.direction.upper()]
-        scaler: Decimal = Decimal(f"1e-{market_info.oracle_scale_factor}")
-        entry_price: Decimal = Decimal(position.entry_price) * scaler
-        mark_price: Decimal = Decimal(position.mark_price) * scaler
+        price_scaler: Decimal = Decimal(f"1e-{market_info.quote_token_meta.decimals}")
+        entry_price: Decimal = Decimal(position.entry_price) * price_scaler
+        mark_price: Decimal = Decimal(position.mark_price) * price_scaler
         amount: Decimal = Decimal(position.quantity)
 
         unrealized_pnl: Decimal = amount * ((1 / entry_price) - (1 / mark_price))
