@@ -52,7 +52,21 @@ DERIVATIVE_SUBMIT_ORDER_GAS = Decimal("45e3")
 DERIVATIVE_CANCEL_ORDER_GAS = Decimal("25e3")
 
 
-def _parse_network_config(config: ConfigParser):
+def _parse_network_config_to_denom_meta(config: ConfigParser):
+    """
+    Parses token's denom configuration from Injective SDK.
+    i.e.
+    {
+        "inj": {
+            "symbol": "INJ",
+            "decimal": 18
+        },
+        "peggy0xdAC17F958D2ee523a2206206994597C13D831ec7": {
+            "symbol": "USDT",
+            "decimal": 6
+        },
+    }
+    """
     return {
         entry["peggy_denom"]: {"symbol": entry.name, "decimal": entry["decimals"]}
         for entry in config.values() if "peggy_denom" in entry
@@ -60,7 +74,7 @@ def _parse_network_config(config: ConfigParser):
 
 
 NETWORK_DENOM_TOKEN_META = {
-    "mainnet": _parse_network_config(config=MAINNET_CONFIG),
-    "testnet": _parse_network_config(config=TESTNET_CONFIG),
-    "devnet": _parse_network_config(config=DEVNET_CONFIG)
+    "mainnet": _parse_network_config_to_denom_meta(config=MAINNET_CONFIG),
+    "testnet": _parse_network_config_to_denom_meta(config=TESTNET_CONFIG),
+    "devnet": _parse_network_config_to_denom_meta(config=DEVNET_CONFIG)
 }
