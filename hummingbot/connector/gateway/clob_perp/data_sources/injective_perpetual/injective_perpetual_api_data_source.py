@@ -310,7 +310,7 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         )
 
     async def _fetch_order_history(self, order: GatewayInFlightOrder) -> Optional[DerivativeOrderHistory]:
-        # NOTE: Can be replaced by calling GatewayHttpClient.clob_get_perp_orders
+        # NOTE: Can be replaced by calling GatewayHttpClient.clob_perp_get_orders
         trading_pair: str = order.trading_pair
         order_hash: str = await order.get_exchange_order_id()
 
