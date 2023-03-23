@@ -3,15 +3,22 @@ from decimal import Decimal
 from typing import Dict, Tuple
 
 from pyinjective.constant import (
-    devnet_config as DEVNET_CONFIG,
-    mainnet_config as MAINNET_CONFIG,
-    testnet_config as TESTNET_CONFIG,
+    Network,
+    devnet_config as DEVNET_TOKEN_META_CONFIG,
+    mainnet_config as MAINNET_TOKEN_META_CONFIG,
+    testnet_config as TESTNET_TOKEN_META_CONFIG,
 )
 
 from hummingbot.core.data_type.common import OrderType, PositionMode, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState
 
 CONNECTOR_NAME = "injective_perpetual"
+
+NETWORK_CONFIG = {
+    "mainnet": Network.mainnet(node="k8s"),
+    "testnet": Network.testnet(),
+    "devnet": Network.devnet()
+}
 
 MARKETS_UPDATE_INTERVAL = 8 * 60 * 60
 
@@ -74,7 +81,7 @@ def _parse_network_config_to_denom_meta(config: ConfigParser):
 
 
 NETWORK_DENOM_TOKEN_META = {
-    "mainnet": _parse_network_config_to_denom_meta(config=MAINNET_CONFIG),
-    "testnet": _parse_network_config_to_denom_meta(config=TESTNET_CONFIG),
-    "devnet": _parse_network_config_to_denom_meta(config=DEVNET_CONFIG)
+    "mainnet": _parse_network_config_to_denom_meta(config=MAINNET_TOKEN_META_CONFIG),
+    "testnet": _parse_network_config_to_denom_meta(config=TESTNET_TOKEN_META_CONFIG),
+    "devnet": _parse_network_config_to_denom_meta(config=DEVNET_TOKEN_META_CONFIG)
 }
