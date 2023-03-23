@@ -7,7 +7,6 @@ from bidict import bidict
 from grpc.aio import UnaryStreamCall
 from pyinjective.async_client import AsyncClient
 from pyinjective.composer import Composer as ProtoMsgComposer
-from pyinjective.constant import Network
 from pyinjective.proto.exchange.injective_accounts_rpc_pb2 import StreamSubaccountBalanceResponse, SubaccountBalance
 from pyinjective.proto.exchange.injective_derivative_exchange_rpc_pb2 import (
     DerivativeLimitOrderbook,
@@ -84,15 +83,7 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         self._account_address = Address(bytes.fromhex(address[2:-24])).to_acc_bech32()
         self._is_default_subaccount = address[-24:] == "000000000000000000000000"
 
-        self._network_obj = Network.custom(
-            lcd_endpoint="https://k8s.global.mainnet.lcd.injective.network:443",
-            tm_websocket_endpoint="wss://k8s.global.mainnet.tm.injective.network:443/websocket",
-            grpc_endpoint="k8s.global.mainnet.chain.grpc.injective.network:443",
-            grpc_exchange_endpoint="k8s.global.mainnet.exchange.grpc.injective.network:443",
-            grpc_explorer_endpoint="k8s.mainnet.explorer.grpc.injective.network:443",
-            chain_id="injective-1",
-            env="mainnet",
-        )
+        self._network_obj = CONSTANTS.NETWORK_CONFIG[network]
         self._client = AsyncClient(network=self._network_obj)
         self._account_address: Optional[str] = None
 
@@ -227,7 +218,7 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
 
     # endregion
 
-    # region >>> Market Functions >>>
+    # region >>> Initialize Market Functions >>>
 
     async def get_symbol_map(self) -> bidict[str, str]:
         self._check_markets_initialized() or await self._update_market_info()
@@ -298,7 +289,7 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
 
     # endregion
 
-    # region >>> User Account, Order & Position Management Function(s)
+    # region >>> User Account, Order & Position Management Function(s) >>>
 
     def is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
         return str(status_update_exception).startswith("No update found for order")
@@ -1088,7 +1079,7 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         if order is not None:
             messages = json.loads(s=transaction.message)
             for message in messages:
-                if message["type"] in [CONSTANTS.INJ_DERIVATIVE_ORDER_STATES]:
+                if message["type"] in [CONSTANTS.INJ_DERIVATIVE_TX_EVENT_TYPES]:
                     status_update, order_update = await self.get_order_status_update(in_flight_order=order)
                     if status_update is not None:
                         self._publisher.trigger_event(event_tag=MarketEvent.OrderUpdate, message=status_update)
