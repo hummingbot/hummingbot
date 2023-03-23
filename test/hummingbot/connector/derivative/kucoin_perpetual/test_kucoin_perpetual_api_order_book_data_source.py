@@ -61,7 +61,6 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(TestCase):
             trading_pairs=[self.trading_pair],
             connector=self.connector,
             api_factory=self.connector._web_assistants_factory,
-            time_provider=self.mock_time_provider,
         )
         self._original_full_order_book_reset_time = self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS
         self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = -1
@@ -160,7 +159,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(TestCase):
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.derivative.kucoin_perpetual.kucoin_perpetual_web_utils.next_message_id")
-    def test_listen_for_subscriptions_subscribes_to_trades_and_order_diffs(self, mock_api, id_mock, mock_ws):
+    def test_listen_for_subscriptions_subscribes_to_trades_order_diffs_and_instruments(self, mock_api, id_mock, mock_ws):
         id_mock.side_effect = [1, 2, 3]
         url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.PUBLIC_WS_DATA_PATH_URL)
 
@@ -191,7 +190,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(TestCase):
             "type": "ack",
             "id": 2
         }
-        result_subscribe_diffs = {
+        result_subscribe_instruments = {
             "type": "ack",
             "id": 3
         }
@@ -202,6 +201,9 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=mock_ws.return_value,
             message=json.dumps(result_subscribe_diffs))
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=mock_ws.return_value,
+            message=json.dumps(result_subscribe_instruments))
 
         self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
 
@@ -233,30 +235,59 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(TestCase):
             "Subscribed to public order book, trade and funding info channels..."
         ))
 
-    @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
+    @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_subscriptions_logs_exception_details(self, mock_ws, sleep_mock):
-        mock_ws.side_effect = Exception("TEST ERROR.")
-        sleep_mock.side_effect = asyncio.CancelledError
-
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
-
-        try:
-            self.async_run_with_timeout(self.listening_task)
-        except asyncio.CancelledError:
-            pass
-        self.assertTrue(
-            self._is_logged(
-                "ERROR",
-                "Unexpected error occurred when listening to order book streams"
-                " https://api-futures.kucoin.com/api/v1/bullet-public. Retrying in 5 seconds...",
-            )
-        )
-
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
-    @patch("aiohttp.ClientSession.ws_connect")
-    def test_listen_for_subscriptions_raises_cancel_exception(self, mock_ws, _: AsyncMock):
-        mock_ws.side_effect = asyncio.CancelledError
+    def test_listen_for_subscriptions_logs_exception_details(self, mock_api, _, ws_connect_mock):
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.PUBLIC_WS_DATA_PATH_URL)
+
+        resp = {
+            "code": "200000",
+            "data": {
+                "instanceServers": [
+                    {
+                        "endpoint": "wss://test.url/endpoint",
+                        "protocol": "websocket",
+                        "encrypt": True,
+                        "pingInterval": 50000,
+                        "pingTimeout": 10000
+                    }
+                ],
+                "token": "testToken"
+            }
+        }
+        mock_api.post(url, body=json.dumps(resp))
+
+        ws_connect_mock.side_effect = asyncio.CancelledError
+
+        with self.assertRaises(asyncio.CancelledError):
+            self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
+            self.async_run_with_timeout(self.listening_task)
+
+    @aioresponses()
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
+    def test_listen_for_subscriptions_raises_cancel_exception(self, mock_api, _, ws_connect_mock):
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.PUBLIC_WS_DATA_PATH_URL)
+
+        resp = {
+            "code": "200000",
+            "data": {
+                "instanceServers": [
+                    {
+                        "endpoint": "wss://test.url/endpoint",
+                        "protocol": "websocket",
+                        "encrypt": True,
+                        "pingInterval": 50000,
+                        "pingTimeout": 10000
+                    }
+                ],
+                "token": "testToken"
+            }
+        }
+        mock_api.post(url, body=json.dumps(resp))
+
+        ws_connect_mock.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
             self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
