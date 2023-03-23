@@ -9,7 +9,6 @@ from hummingbot.connector.derivative.kucoin_perpetual import (
     kucoin_perpetual_constants as CONSTANTS,
     kucoin_perpetual_web_utils as web_utils,
 )
-from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
@@ -29,7 +28,6 @@ class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         trading_pairs: List[str],
         connector: 'KucoinPerpetualDerivative',
         api_factory: WebAssistantsFactory,
-        time_provider: TimeSynchronizer,
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
         super().__init__(trading_pairs)
@@ -37,7 +35,6 @@ class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._api_factory = api_factory
         self._domain = domain
         self._nonce_provider = NonceCreator.for_microseconds()
-        self._time_provider = time_provider
 
     async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
@@ -57,71 +54,24 @@ class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         )
         return funding_info
 
-    async def listen_for_subscriptions(self):
-        """
-        Subscribe to all required events and start the listening cycle.
-        """
-        tasks_future = None
+    async def _subscribe_channels(self, ws: WSAssistant):
         try:
-            tasks = []
-            tasks.append(self._listen_for_subscriptions_on_url(
-                url=web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.PUBLIC_WS_DATA_PATH_URL, domain=self._domain),
-                trading_pairs=self._trading_pairs))
-
-            if tasks:
-                tasks_future = asyncio.gather(*tasks)
-                await tasks_future
-
-        except asyncio.CancelledError:
-            tasks_future and tasks_future.cancel()
-            raise
-
-    async def _listen_for_subscriptions_on_url(self, url: str, trading_pairs: List[str]):
-        """
-        Subscribe to all required events and start the listening cycle.
-        :param url: the wss url to connect to
-        :param trading_pairs: the trading pairs for which the function should listen events
-        """
-
-        ws: Optional[WSAssistant] = None
-        while True:
-            try:
-                ws = await self._connected_websocket_assistant()
-                await self._subscribe_to_channels(ws, trading_pairs)
-                await ws.ping()  # to update last_recv_timestamp
-                await self._process_websocket_messages(ws)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().exception('ExceptionThrown', exc_info=True)
-                self.logger().exception(
-                    f"Unexpected error occurred when listening to order book streams {url}. Retrying in 5 seconds..."
-                )
-                await self._sleep(5.0)
-            finally:
-                ws and await ws.disconnect()
-
-    async def _subscribe_to_channels(self, ws: WSAssistant, trading_pairs: List[str]):
-        try:
-            symbols = [
-                await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                for trading_pair in trading_pairs
-            ]
-            symbols_str = ",".join(symbols)
+            symbols = ",".join([await self._connector.exchange_symbol_associated_to_pair(trading_pair=pair)
+                                for pair in self._trading_pairs])
 
             trades_payload = {
                 "id": web_utils.next_message_id(),
                 "type": "subscribe",
-                "topic": f"/contractMarket/ticker:{symbols_str}",
+                "topic": f"/contractMarket/ticker:{symbols}",
                 "privateChannel": False,
                 "response": False,
             }
-            subscribe_trade_request = WSJSONRequest(payload=trades_payload)
+            subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trades_payload)
 
             order_book_payload = {
                 "id": web_utils.next_message_id(),
                 "type": "subscribe",
-                "topic": f"/contractMarket/level2:{symbols_str}",
+                "topic": f"/contractMarket/level2:{symbols}",
                 "privateChannel": False,
                 "response": False,
             }
@@ -130,7 +80,7 @@ class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             instrument_payload = {
                 "id": web_utils.next_message_id(),
                 "type": "subscribe",
-                "topic": f"/contract/instrument:{symbols_str}",
+                "topic": f"/contract/instrument:{symbols}",
                 "privateChannel": False,
                 "response": False,
             }
@@ -339,9 +289,10 @@ class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
         ws_url = connection_info["data"]["instanceServers"][0]["endpoint"]
         self._ping_interval = int(connection_info["data"]["instanceServers"][0]["pingInterval"]) * 0.8 * 1e-3
-        message_timeout = int(connection_info["data"]["instanceServers"][0]["pingTimeout"]) * 0.8 * 1e-3
+        # message_timeout = int(connection_info["data"]["instanceServers"][0]["pingTimeout"]) * 0.8 * 1e-3
         token = connection_info["data"]["token"]
 
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
-        await ws.connect(ws_url=f"{ws_url}?token={token}", ping_timeout=self._ping_interval, message_timeout=message_timeout)
+        await ws.connect(ws_url=f"{ws_url}?token={token}", ping_timeout=self._ping_interval)
+        # await ws.connect(ws_url=f"{ws_url}?token={token}", ping_timeout=self._ping_interval, message_timeout=message_timeout)
         return ws
