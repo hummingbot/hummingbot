@@ -266,7 +266,6 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
             self.trading_pairs,
             connector=self,
             api_factory=self._web_assistants_factory,
-            time_provider=self._time_synchronizer,
             domain=self._domain,
         )
 
