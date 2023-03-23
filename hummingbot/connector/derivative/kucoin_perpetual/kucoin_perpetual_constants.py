@@ -58,6 +58,7 @@ QUERY_ORDER_BY_CLIENT_ORDER_ID_PATH_URL = f"{REST_API_VERSION}/orders/byClientOi
 SET_LEVERAGE_PATH_URL = f"{REST_API_VERSION}/position/risk-limit-level/change"
 GET_RECENT_FILLS_INFO_PATH_URL = f"{REST_API_VERSION}/recentFills"
 GET_FILL_INFO_PATH_URL = f"{REST_API_VERSION}/fills?orderId={{orderid}}"
+FILLS_PATH_URL = f"{REST_API_VERSION}/fills"
 GET_WALLET_BALANCE_PATH_URL = f"{REST_API_VERSION}/account-overview?currency={{currency}}"
 GET_POSITIONS_PATH_URL = f"{REST_API_VERSION}/positions"
 QUERY_ACTIVE_ORDER_PATH_URL = f"{REST_API_VERSION}/orders?status=active"
@@ -97,8 +98,9 @@ TRADE_EVENT_TYPE = "match"
 # Order Statuses
 ORDER_STATE = {
     "open": OrderState.OPEN,
-    "done": OrderState.FILLED,
-    "cancelExist": OrderState.CANCELED,
+    "match": OrderState.PARTIALLY_FILLED,
+    "filled": OrderState.FILLED,
+    "canceled": OrderState.CANCELED,
 }
 
 # Request error codes
@@ -135,4 +137,5 @@ RATE_LIMITS = [
     RateLimit(limit_id=GET_FILL_INFO_PATH_URL, limit=9, time_interval=3),
     RateLimit(limit_id=GET_RECENT_FILLS_INFO_PATH_URL, limit=9, time_interval=3),
     RateLimit(limit_id=GET_FUNDING_HISTORY_PATH_URL, limit=9, time_interval=3),
+    RateLimit(limit_id=FILLS_PATH_URL, limit=9, time_interval=3),
 ]

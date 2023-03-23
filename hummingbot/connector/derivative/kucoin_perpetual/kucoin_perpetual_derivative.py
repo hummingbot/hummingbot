@@ -24,9 +24,8 @@ from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
@@ -60,6 +59,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
         self._trading_pairs = trading_pairs
         self._domain = domain
         self._last_trade_history_timestamp = None
+        self._last_order_fill_ts_s: float = 0
 
         super().__init__(client_config_map)
 
@@ -195,39 +195,29 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
         position_action: PositionAction = PositionAction.NIL,
         **kwargs,
     ) -> Tuple[str, float]:
+        side = trade_type.name.lower()
+        order_type_str = "market" if order_type == OrderType.MARKET else "limit"
         data = {
-            "side": "buy" if trade_type == TradeType.BUY else "sell",
-            "symbol": await self.exchange_symbol_associated_to_pair(trading_pair),
-            # size needs to be number of contracts, not amount of currency
-            "size": self.get_quantity_of_contracts(trading_pair, amount),
-            "timeInForce": CONSTANTS.DEFAULT_TIME_IN_FORCE,
-            "closeOrder": position_action == PositionAction.CLOSE,
+            "size": float(amount),
             "clientOid": order_id,
+            "side": side,
+            "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
+            "type": order_type_str,
             "reduceOnly": position_action == PositionAction.CLOSE,
-            "type": CONSTANTS.ORDER_TYPE_MAP[order_type],
             "leverage": str(self.get_leverage(trading_pair)),
         }
-        if order_type.is_limit_type():
-            data["price"] = float(price)
+        if order_type is OrderType.LIMIT:
+            data["price"] = str(price)
+        elif order_type is OrderType.LIMIT_MAKER:
+            data["price"] = str(price)
+            data["postOnly"] = True
 
-        resp = await self._api_post(
+        return_order_id = await self._api_post(
             path_url=CONSTANTS.CREATE_ORDER_PATH_URL,
             data=data,
             is_auth_required=True,
-            trading_pair=trading_pair,
-            headers={"referer": CONSTANTS.HB_PARTNER_ID},
-            **kwargs,
+            limit_id=CONSTANTS.CREATE_ORDER_PATH_URL,
         )
-
-        if resp["code"] != CONSTANTS.RET_CODE_OK:
-            formatted_ret_code = self._format_ret_code_for_print(resp['code'])
-            raise IOError(f"Error submitting order {order_id}: {formatted_ret_code} - {resp['msg']}")
-        if "orderId" in resp["data"]:
-            return_order_id = resp["data"]["orderId"]
-        elif "clientOid" in resp["data"]:
-            return_order_id = resp["data"]["clientOid"]
-        else:
-            raise IOError(f"Could not retrieve order ID after placing order: {order_id} - {resp['msg']}")
         return str(return_order_id), self.current_timestamp
 
     def _get_fee(self,
@@ -235,20 +225,28 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
                  quote_currency: str,
                  order_type: OrderType,
                  order_side: TradeType,
+                 position_action: PositionAction,
                  amount: Decimal,
                  price: Decimal = s_decimal_NaN,
-                 is_maker: Optional[bool] = None) -> TradeFeeBase:
-        is_maker = is_maker or False
-        fee = build_trade_fee(
-            self.name,
-            is_maker,
-            base_currency=base_currency,
-            quote_currency=quote_currency,
-            order_type=order_type,
-            order_side=order_side,
-            amount=amount,
-            price=price,
-        )
+                 is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
+
+        is_maker = is_maker or (order_type is OrderType.LIMIT_MAKER)
+        trading_pair = combine_to_hb_trading_pair(base=base_currency, quote=quote_currency)
+        if trading_pair in self._trading_fees:
+            fees_data = self._trading_fees[trading_pair]
+            fee_value = Decimal(fees_data["makerFeeRate"]) if is_maker else Decimal(fees_data["takerFeeRate"])
+            fee = AddedToCostTradeFee(percent=fee_value)
+        else:
+            fee = build_trade_fee(
+                self.name,
+                is_maker,
+                base_currency=base_currency,
+                quote_currency=quote_currency,
+                order_type=order_type,
+                order_side=order_side,
+                amount=amount,
+                price=price,
+            )
         return fee
 
     async def _update_trading_fees(self):
@@ -278,86 +276,73 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
             domain=self._domain,
         )
 
-    async def _status_polling_loop_fetch_updates(self):
-        await safe_gather(
-            self._update_trade_history(),
-            self._update_order_status(),
-            self._update_balances(),
-            self._update_positions(),
-        )
+    async def _update_orders_fills(self, orders: List[InFlightOrder]):
+        # This method in the base ExchangePyBase, makes an API call for each order.
+        # Given the rate limit of the API method and the breadth of info provided by the method
+        # the mitigation proposal is to collect all orders in one shot, then parse them
+        # Note that this is limited to 500 orders (pagination)
+        # An alternative for Kucoin would be to use the limit/fills that returns 24hr updates, which should
+        # be sufficient, the rate limit seems better suited
+        all_trades_updates: List[TradeUpdate] = []
+        if len(orders) > 0:
+            try:
+                all_trades_updates: List[TradeUpdate] = await self._all_trades_updates(orders)
+            except asyncio.CancelledError:
+                raise
+            except Exception as request_error:
+                self.logger().warning(
+                    f"Failed to fetch trade updates. Error: {request_error}")
 
-    async def _update_trade_history(self):
-        """
-        Calls REST API to get trade history (order fills)
-        """
+            for trade_update in all_trades_updates:
+                self._order_tracker.process_trade_update(trade_update)
 
-        trade_history_tasks = []
+    async def _all_trades_updates(self, orders: List[InFlightOrder]) -> List[TradeUpdate]:
+        trade_updates: List[TradeUpdate] = []
+        if len(orders) > 0:
+            exchange_to_client = {o.exchange_order_id: {"client_id": o.client_order_id, "trading_pair": o.trading_pair} for o in orders}
 
-        for trading_pair in self._trading_pairs:
-            trade_history_tasks.append(
-                asyncio.create_task(self._api_get(
-                    path_url=CONSTANTS.GET_RECENT_FILLS_INFO_PATH_URL,
-                    is_auth_required=True,
-                    trading_pair=trading_pair,
-                ))
-            )
+            # We request updates from either:
+            #    - The earliest order creation_timestamp in the list (first couple requests)
+            #    - The last time we got a fill
+            self._last_order_fill_ts_s = int(max(self._last_order_fill_ts_s, min([o.creation_timestamp for o in orders])))
 
-        raw_responses: List[Dict[str, Any]] = await safe_gather(*trade_history_tasks, return_exceptions=True)
+            # From Kucoin https://docs.kucoin.com/#list-fills:
+            # "If you only specified the start time, the system will automatically
+            #  calculate the end time (end time = start time + 7 * 24 hours)"
+            all_fills_response = await self._api_get(
+                path_url=CONSTANTS.FILLS_PATH_URL,
+                params={
+                    "pageSize": 500,
+                    "startAt": self._last_order_fill_ts_s * 1000,
+                },
+                is_auth_required=True)
 
-        # Initial parsing of responses. Joining all the responses
-        parsed_history_resps: List[Dict[str, Any]] = []
-        for trading_pair, resp in zip(self._trading_pairs, raw_responses):
-            if not isinstance(resp, Exception):
-                trade_entries = resp["data"]
-                if trade_entries:
-                    if "totalNum" in trade_entries:
-                        number_entries = int(trade_entries["totalNum"])
-                        if (number_entries > 0):
-                            if "items" in trade_entries:
-                                trade_entries = trade_entries["items"]
-                                self._last_trade_history_timestamp = float(trade_entries[0]["tradeTime"] * 1e-9)  # Time passed in nanoseconds
-                            else:
-                                self._last_trade_history_timestamp = float(trade_entries[0]["tradeTime"] * 1e-9)  # Time passed in nanoseconds
-                            parsed_history_resps.extend(trade_entries)
-                    else:
-                        parsed_history_resps.extend(trade_entries)
-            else:
-                self.logger().network(
-                    f"Error fetching status update for {trading_pair}: {resp}.",
-                    app_warning_msg=f"Failed to fetch status update for {trading_pair}."
-                )
+            for trade in all_fills_response.get("items", []):
+                if str(trade["orderId"]) in exchange_to_client:
+                    fee = TradeFeeBase.new_spot_fee(
+                        fee_schema=self.trade_fee_schema(),
+                        trade_type=TradeType.BUY if trade["side"] == "buy" else "sell",
+                        percent_token=trade["feeCurrency"],
+                        flat_fees=[TokenAmount(amount=Decimal(trade["fee"]), token=trade["feeCurrency"])]
+                    )
 
-        # Trade updates must be handled before any order status updates.
-        for trade in parsed_history_resps:
-            self._process_trade_event_message(trade)
+                    client_info = exchange_to_client[str(trade["orderId"])]
+                    trade_update = TradeUpdate(
+                        trade_id=str(trade["tradeId"]),
+                        client_order_id=client_info["client_id"],
+                        trading_pair=client_info["trading_pair"],
+                        exchange_order_id=str(trade["orderId"]),
+                        fee=fee,
+                        fill_base_amount=Decimal(trade["size"]),
+                        fill_quote_amount=Decimal(trade["funds"]),
+                        fill_price=Decimal(trade["price"]),
+                        fill_timestamp=trade["createdAt"] * 1e-3,
+                    )
+                    trade_updates.append(trade_update)
+                    # Update the last fill timestamp with the latest one
+                    self._last_order_fill_ts_s = max(self._last_order_fill_ts_s, trade["createdAt"] * 1e-3)
 
-    async def _update_order_status(self):
-        """
-        Calls REST API to get order status
-        """
-
-        active_orders: List[InFlightOrder] = list(self.in_flight_orders.values())
-
-        tasks = []
-        for active_order in active_orders:
-            tasks.append(asyncio.create_task(self._request_order_status_data(tracked_order=active_order)))
-
-        raw_responses: List[Dict[str, Any]] = await safe_gather(*tasks, return_exceptions=True)
-
-        # Initial parsing of responses. Removes Exceptions.
-        parsed_status_responses: List[Dict[str, Any]] = []
-        for resp, active_order in zip(raw_responses, active_orders):
-            if not isinstance(resp, Exception) and "data" in resp:
-                parsed_status_responses.append(resp["data"])
-            else:
-                self.logger().network(
-                    f"Error fetching status update for the order {active_order.client_order_id}: {resp}.",
-                    app_warning_msg=f"Failed to fetch status update for the order {active_order.client_order_id}."
-                )
-                await self._order_tracker.process_order_not_found(active_order.client_order_id)
-
-        for order_status in parsed_status_responses:
-            self._process_order_event_message(order_status)
+        return trade_updates
 
     async def _update_balances(self):
         """
@@ -515,7 +500,56 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
                     execution_data = execution_data[0]
 
                 if event_type == "message" and event_subject == CONSTANTS.ORDER_CHANGE_EVENT_TYPE:
-                    self._process_trade_event_message(execution_data)
+                    order_event_type = execution_data["type"]
+                    client_order_id: Optional[str] = execution_data.get("clientOid")
+
+                    fillable_order = self._order_tracker.all_fillable_orders.get(client_order_id)
+                    updatable_order = self._order_tracker.all_updatable_orders.get(client_order_id)
+
+                    event_timestamp = execution_data["ts"] * 1e-9
+
+                    if fillable_order is not None and order_event_type == "match":
+                        execute_amount_diff = Decimal(execution_data["matchSize"])
+                        execute_price = Decimal(execution_data["matchPrice"])
+                        position_side = execution_data["side"]
+                        position_action = (PositionAction.OPEN
+                                           if (fillable_order.trade_type is TradeType.BUY and position_side == "buy"
+                                               or fillable_order.trade_type is TradeType.SELL and position_side == "sell")
+                                           else PositionAction.CLOSE)
+
+                        fee = self.get_fee(
+                            fillable_order.base_asset,
+                            fillable_order.quote_asset,
+                            fillable_order.order_type,
+                            fillable_order.trade_type,
+                            position_action,
+                            execute_price,
+                            execute_amount_diff,
+                        )
+
+                        trade_update = TradeUpdate(
+                            trade_id=execution_data["tradeId"],
+                            client_order_id=client_order_id,
+                            exchange_order_id=execution_data["orderId"],
+                            trading_pair=updatable_order.trading_pair,
+                            fee=fee,
+                            fill_base_amount=execute_amount_diff,
+                            fill_quote_amount=execute_amount_diff * execute_price,
+                            fill_price=execute_price,
+                            fill_timestamp=event_timestamp,
+                        )
+                        self._order_tracker.process_trade_update(trade_update)
+
+                    if updatable_order is not None:
+                        updated_status = CONSTANTS.ORDER_STATE.get(order_event_type)
+                        order_update = OrderUpdate(
+                            trading_pair=updatable_order.trading_pair,
+                            update_timestamp=event_timestamp,
+                            new_state=updated_status,
+                            client_order_id=client_order_id,
+                            exchange_order_id=execution_data["orderId"],
+                        )
+                        self._order_tracker.process_order_update(order_update=order_update)
                 elif event_subject == CONSTANTS.BALANCE_EVENT_TYPE:
                     currency = execution_data["currency"]
                     available_balance = Decimal(execution_data["availableBalance"])
