@@ -92,6 +92,10 @@ class RemoteIfaceMQTTTests(TestCase):
         self.resume_test_event.set()
         raise RuntimeError(self.fake_err_msg)
 
+    def _create_exception_and_unlock_test_with_event_not_impl(self, *args, **kwargs):
+        self.resume_test_event.set()
+        raise NotImplementedError(self.fake_err_msg)
+
     def is_msg_received(self, *args, **kwargs):
         return self.fake_mqtt_broker.is_msg_received(*args, **kwargs)
 
@@ -236,7 +240,10 @@ class RemoteIfaceMQTTTests(TestCase):
                 exchange_trade_id="EOID1",
                 order=order)
         ]
-        return list([TradeFill.to_bounty_api_json(t) for t in trades])
+        trade_list = list([TradeFill.to_bounty_api_json(t) for t in trades])
+        for t in trade_list:
+            t['trade_timestamp'] = str(t['trade_timestamp'])
+        return trade_list
 
     @patch("commlib.transports.mqtt.MQTTTransport")
     def test_mqtt_command_balance_limit(self,
@@ -275,7 +282,7 @@ class RemoteIfaceMQTTTests(TestCase):
         self.async_run_with_timeout(self.resume_test_event.wait())
 
         topic = f"test_reply/hbot/{self.instance_id}/balance/limit"
-        msg = {'status': 400, 'msg': self.fake_err_msg, 'data': ''}
+        msg = {'status': '400', 'msg': self.fake_err_msg, 'data': ''}
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
     @patch("commlib.transports.mqtt.MQTTTransport")
@@ -315,7 +322,7 @@ class RemoteIfaceMQTTTests(TestCase):
         self.async_run_with_timeout(self.resume_test_event.wait())
 
         topic = f"test_reply/hbot/{self.instance_id}/balance/paper"
-        msg = {'status': 400, 'msg': self.fake_err_msg, 'data': ''}
+        msg = {'status': '400', 'msg': self.fake_err_msg, 'data': ''}
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
     @patch("commlib.transports.mqtt.MQTTTransport")
@@ -334,7 +341,7 @@ class RemoteIfaceMQTTTests(TestCase):
             "Invalid key, please choose from the list.",
         ]
         reply_topic = f"test_reply/hbot/{self.instance_id}/command_shortcuts"
-        reply_data = {'success': [True], 'status': 200, 'msg': ''}
+        reply_data = {'success': [True], 'status': '200', 'msg': ''}
         self.ev_loop.run_until_complete(self.wait_for_rcv(reply_topic, reply_data, msg_key='data'))
         for notify_msg in notify_msgs:
             self.assertTrue(self.is_msg_received(notify_topic, notify_msg))
@@ -355,7 +362,7 @@ class RemoteIfaceMQTTTests(TestCase):
         self.async_run_with_timeout(self.resume_test_event.wait())
 
         topic = f"test_reply/hbot/{self.instance_id}/command_shortcuts"
-        msg = {'success': [], 'status': 400, 'msg': self.fake_err_msg}
+        msg = {'success': [], 'status': '400', 'msg': self.fake_err_msg}
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
     @patch("commlib.transports.mqtt.MQTTTransport")
@@ -420,7 +427,7 @@ class RemoteIfaceMQTTTests(TestCase):
         self.async_run_with_timeout(self.resume_test_event.wait())
 
         topic = f"test_reply/hbot/{self.instance_id}/config"
-        msg = {'changes': [], 'status': 400, 'msg': self.fake_err_msg}
+        msg = {'changes': [], 'status': '400', 'msg': self.fake_err_msg}
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
     @patch("hummingbot.client.command.history_command.HistoryCommand.get_history_trades_json")
@@ -436,7 +443,7 @@ class RemoteIfaceMQTTTests(TestCase):
 
         self.fake_mqtt_broker.publish_to_subscription(topic, {"async_backend": 0})
         history_topic = f"test_reply/hbot/{self.instance_id}/history"
-        history_msg = {'status': 200, 'msg': '', 'trades': fake_trades}
+        history_msg = {'status': '200', 'msg': '', 'trades': fake_trades}
         self.ev_loop.run_until_complete(self.wait_for_rcv(history_topic, history_msg, msg_key='data'))
         self.assertTrue(self.is_msg_received(history_topic, history_msg, msg_key='data'))
 
@@ -446,7 +453,7 @@ class RemoteIfaceMQTTTests(TestCase):
         self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, notify_msg))
         self.assertTrue(self.is_msg_received(notify_topic, notify_msg))
         history_topic = f"test_reply/hbot/{self.instance_id}/history"
-        history_msg = {'status': 200, 'msg': '', 'trades': []}
+        history_msg = {'status': '200', 'msg': '', 'trades': []}
         self.ev_loop.run_until_complete(self.wait_for_rcv(history_topic, history_msg, msg_key='data'))
         self.assertTrue(self.is_msg_received(history_topic, history_msg, msg_key='data'))
 
@@ -463,7 +470,7 @@ class RemoteIfaceMQTTTests(TestCase):
         self.async_run_with_timeout(self.resume_test_event.wait())
 
         topic = f"test_reply/hbot/{self.instance_id}/history"
-        msg = {'status': 400, 'msg': self.fake_err_msg, 'trades': []}
+        msg = {'status': '400', 'msg': self.fake_err_msg, 'trades': []}
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
     @patch("hummingbot.client.command.import_command.load_strategy_config_map_from_file")
@@ -500,7 +507,8 @@ class RemoteIfaceMQTTTests(TestCase):
                                   invalid_strategy=False)
 
         topic = f"test_reply/hbot/{self.instance_id}/import"
-        msg = {'status': 400, 'msg': 'Some error'}
+        msg = {'status': '400', 'msg': 'Some error'}
+        self.ev_loop.run_until_complete(self.wait_for_rcv(topic, msg, msg_key='data'))
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
     @patch("hummingbot.client.command.import_command.load_strategy_config_map_from_file")
@@ -514,12 +522,13 @@ class RemoteIfaceMQTTTests(TestCase):
                                                 load_strategy_config_map_from_file: MagicMock):
         import_mock.side_effect = self._create_exception_and_unlock_test_with_event_async
         topic = f"test_reply/hbot/{self.instance_id}/import"
-        msg = {'status': 400, 'msg': 'Empty strategy_name given!'}
+        msg = {'status': '400', 'msg': 'Empty strategy_name given!'}
         self.start_mqtt(mock_mqtt=mock_mqtt)
         self.send_fake_import_cmd(status_check_all_mock=status_check_all_mock,
                                   load_strategy_config_map_from_file=load_strategy_config_map_from_file,
                                   invalid_strategy=False,
                                   empty_name=True)
+        self.ev_loop.run_until_complete(self.wait_for_rcv(topic, msg, msg_key='data'))
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
     @patch("hummingbot.client.command.import_command.load_strategy_config_map_from_file")
@@ -547,6 +556,26 @@ class RemoteIfaceMQTTTests(TestCase):
         self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, start_msg))
         self.assertTrue(self.is_msg_received(notify_topic, start_msg))
 
+    @patch("hummingbot.client.command.import_command.load_strategy_config_map_from_file")
+    @patch("hummingbot.client.command.start_command.StartCommand.start_script_strategy")
+    @patch("hummingbot.client.command.status_command.StatusCommand.status_check_all")
+    @patch("commlib.transports.mqtt.MQTTTransport")
+    def test_mqtt_command_start_script(self,
+                                       mock_mqtt,
+                                       status_check_all_mock: MagicMock,
+                                       start_script_strategy_mock: MagicMock,
+                                       load_strategy_config_map_from_file: MagicMock):
+        start_script_strategy_mock.side_effect = self._create_exception_and_unlock_test_with_event_not_impl
+        self.start_mqtt(mock_mqtt=mock_mqtt)
+
+        notify_topic = f"hbot/{self.instance_id}/notify"
+        notify_msg = "Invalid strategy. Start aborted."
+
+        self.fake_mqtt_broker.publish_to_subscription(self.get_topic_for(self.START_URI), {'script': 'format_status_example.py'})
+
+        self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, notify_msg))
+        self.assertTrue(self.is_msg_received(notify_topic, notify_msg))
+
     @patch("hummingbot.client.command.start_command.StartCommand.start")
     @patch("commlib.transports.mqtt.MQTTTransport")
     def test_mqtt_command_start_failure(self,
@@ -556,7 +585,8 @@ class RemoteIfaceMQTTTests(TestCase):
         self.start_mqtt(mock_mqtt=mock_mqtt)
         self.fake_mqtt_broker.publish_to_subscription(self.get_topic_for(self.START_URI), {})
         topic = f"test_reply/hbot/{self.instance_id}/start"
-        msg = {'status': 400, 'msg': self.fake_err_msg}
+        msg = {'status': '400', 'msg': self.fake_err_msg}
+        self.ev_loop.run_until_complete(self.wait_for_rcv(topic, msg, msg_key='data'))
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
     @patch("hummingbot.client.command.status_command.StatusCommand.strategy_status", new_callable=AsyncMock)
@@ -568,7 +598,8 @@ class RemoteIfaceMQTTTests(TestCase):
         self.start_mqtt(mock_mqtt=mock_mqtt)
         self.fake_mqtt_broker.publish_to_subscription(self.get_topic_for(self.STATUS_URI), {})
         topic = f"test_reply/hbot/{self.instance_id}/status"
-        msg = {'status': 400, 'msg': 'No strategy is currently running!', 'data': ''}
+        msg = {'status': '400', 'msg': 'No strategy is currently running!', 'data': ''}
+        self.ev_loop.run_until_complete(self.wait_for_rcv(topic, msg, msg_key='data'))
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
     @patch("hummingbot.client.command.status_command.StatusCommand.strategy_status", new_callable=AsyncMock)
@@ -580,7 +611,8 @@ class RemoteIfaceMQTTTests(TestCase):
         self.start_mqtt(mock_mqtt=mock_mqtt)
         self.fake_mqtt_broker.publish_to_subscription(self.get_topic_for(self.STATUS_URI), {})
         topic = f"test_reply/hbot/{self.instance_id}/status"
-        msg = {'status': 400, 'msg': 'No strategy is currently running!', 'data': ''}
+        msg = {'status': '400', 'msg': 'No strategy is currently running!', 'data': ''}
+        self.ev_loop.run_until_complete(self.wait_for_rcv(topic, msg, msg_key='data'))
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
     @patch("commlib.transports.mqtt.MQTTTransport")
@@ -612,7 +644,8 @@ class RemoteIfaceMQTTTests(TestCase):
         self.async_run_with_timeout(self.resume_test_event.wait())
 
         topic = f"test_reply/hbot/{self.instance_id}/stop"
-        msg = {'status': 400, 'msg': self.fake_err_msg}
+        msg = {'status': '400', 'msg': self.fake_err_msg}
+        self.ev_loop.run_until_complete(self.wait_for_rcv(topic, msg, msg_key='data'))
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
     @patch("commlib.transports.mqtt.MQTTTransport")

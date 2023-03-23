@@ -521,7 +521,7 @@ class MQTTGateway(Node):
         return self._health
 
     def _remove_log_handlers(self):
-        loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
+        loggers = list([logging.getLogger(name) for name in logging.root.manager.loggerDict])
         log_conf = get_logging_conf()
         if 'loggers' not in log_conf:
             return
@@ -538,7 +538,7 @@ class MQTTGateway(Node):
         self.patch_loggers()
 
     def patch_loggers(self):
-        loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
+        loggers = list([logging.getLogger(name) for name in logging.root.manager.loggerDict])
 
         log_conf = get_logging_conf()
         if 'root' in log_conf:
