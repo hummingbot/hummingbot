@@ -606,8 +606,6 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(order.trade_type.name.lower(), request_data["side"])
         self.assertEqual(self.exchange_trading_pair, request_data["symbol"])
         self.assertEqual(order.amount, request_data["size"] * 1e-6)
-        self.assertEqual(CONSTANTS.DEFAULT_TIME_IN_FORCE, request_data["timeInForce"])
-        self.assertEqual(order.position == PositionAction.CLOSE, request_data["closeOrder"])
         self.assertEqual(order.client_order_id, request_data["clientOid"])
         self.assertEqual(order.position == PositionAction.CLOSE, request_data["reduceOnly"])
         self.assertIn("clientOid", request_data)

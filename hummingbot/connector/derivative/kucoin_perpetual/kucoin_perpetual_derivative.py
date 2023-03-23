@@ -198,7 +198,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
         side = trade_type.name.lower()
         order_type_str = "market" if order_type == OrderType.MARKET else "limit"
         data = {
-            "size": float(amount),
+            "size": self.get_quantity_of_contracts(trading_pair, amount),
             "clientOid": order_id,
             "side": side,
             "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
@@ -212,13 +212,13 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
             data["price"] = str(price)
             data["postOnly"] = True
 
-        return_order_id = await self._api_post(
+        exchange_order_id = await self._api_post(
             path_url=CONSTANTS.CREATE_ORDER_PATH_URL,
             data=data,
             is_auth_required=True,
             limit_id=CONSTANTS.CREATE_ORDER_PATH_URL,
         )
-        return str(return_order_id), self.current_timestamp
+        return str(exchange_order_id["data"]["orderId"]), self.current_timestamp
 
     def _get_fee(self,
                  base_currency: str,
