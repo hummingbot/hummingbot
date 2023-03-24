@@ -40,3 +40,17 @@ class PhemexPerpetualAuth(AuthBase):
 
     async def ws_authenticate(self, request: WSRequest) -> WSRequest:
         return request  # pass-through
+
+    def get_ws_auth_payload(self) -> dict:
+        expiry_timestamp = int(self._time_provider.time()) + CONSTANTS.ONE_SECOND * 2
+        signature = self.generate_signature_from_payload(payload=f"{self._api_key}{expiry_timestamp}")
+        return {
+            "method": "user.auth",
+            "params": [
+                "API",
+                self._api_key,
+                signature,
+                expiry_timestamp,
+            ],
+            "id": 0
+        }

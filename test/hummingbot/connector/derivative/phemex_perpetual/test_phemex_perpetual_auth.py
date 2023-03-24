@@ -92,3 +92,21 @@ class PhemexPerpetualAuthUnitTests(unittest.TestCase):
         signed_request: WSJSONRequest = self.async_run_with_timeout(self.auth.ws_authenticate(request))
 
         self.assertEqual(request, signed_request)
+
+    def test_get_ws_auth_payload(self):
+        auth_payload = self.auth.get_ws_auth_payload()
+        secret = bytes(self.secret_key.encode("utf-8"))
+        payload = f"{self.api_key}{int(self.emulated_time) + 2}"
+        signature = hmac.new(secret, payload.encode("utf-8"), hashlib.sha256).hexdigest()
+        target_auth_payload = {
+            "method": "user.auth",
+            "params": [
+                "API",
+                self.api_key,
+                signature,
+                int(self.emulated_time) + 2,
+            ],
+            "id": 0,
+        }
+
+        self.assertEqual(target_auth_payload, auth_payload)
