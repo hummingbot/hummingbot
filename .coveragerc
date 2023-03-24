@@ -26,6 +26,7 @@ omit =
         hummingbot/connector/exchange/paper_trade*
         hummingbot/connector/exchange/probit*
         hummingbot/connector/gateway*
+        hummingbot/connector/test_support/*
         hummingbot/core/utils/gateway_config_utils.py
         hummingbot/core/utils/kill_switch.py
         hummingbot/core/utils/wallet_setup.py
@@ -42,6 +43,9 @@ branch = true
 fail_under = 70
 precision = 2
 skip_empty = true
+exclude_lines =
+    @abstractmethod
+    @abc.abstractmethod
 
 [html]
 directory = coverage_html_report
