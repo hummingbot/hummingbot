@@ -186,7 +186,7 @@ class PhemexPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     def _orderbook_update_event(self):
         resp = {
-            "book": {"asks": [[86775000, 4621]], "bids": []},
+            "orderbook_p": {"asks": [[86775000, 4621]], "bids": []},
             "depth": 30,
             "sequence": 1191905,
             "symbol": self.ex_trading_pair,
@@ -198,7 +198,7 @@ class PhemexPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         resp = {
             "sequence": 1167852,
             "symbol": self.ex_trading_pair,
-            "trades": [
+            "trades_p": [
                 [1573716998128563500, "Buy", 86735000, 56],
                 [1573716995033683000, "Buy", 86735000, 52],
                 [1573716991485286000, "Buy", 86735000, 51],
@@ -210,22 +210,53 @@ class PhemexPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     def _funding_info_event(self):
         resp = {
-            "market24h": {
-                "close": 87425000,
-                "fundingRate": 10000,
-                "high": 92080000,
-                "indexPrice": 87450676,
-                "low": 87130000,
-                "markPrice": 87453092,
-                "open": 90710000,
-                "openInterest": 7821141,
-                "predFundingRate": 7609,
-                "symbol": self.ex_trading_pair,
-                "timestamp": 1583646442444219017,
-                "turnover": 1399362834123,
-                "volume": 125287131,
-            },
-            "timestamp": 1576490244024818000,
+            "data": [
+                [
+                    self.ex_trading_pair,
+                    "1533.72",
+                    "1594.17",
+                    "1510.05",
+                    "1547.52",
+                    "545942.34",
+                    "848127644.5712",
+                    "0",
+                    "1548.31694379",
+                    "1548.44513153",
+                    "0.0001",
+                    "0.0001",
+                ],
+                [
+                    "BTCUSDT",
+                    "20614.5",
+                    "21628.4",
+                    "19258.6",
+                    "20626.3",
+                    "8819.819",
+                    "182892627.4297",
+                    "0",
+                    "20641.8167574",
+                    "20643.52572781",
+                    "0.0001",
+                    "0.0001",
+                ],
+            ],
+            "fields": [
+                "symbol",
+                "openRp",
+                "highRp",
+                "lowRp",
+                "lastRp",
+                "volumeRq",
+                "turnoverRv",
+                "openInterestRv",
+                "indexRp",
+                "markRp",
+                "fundingRateRr",
+                "predFundingRateRr",
+            ],
+            "method": "perp_market24h_pack_p.update",
+            "timestamp": 1666862556850547000,
+            "type": "snapshot",
         }
         return resp
 
@@ -239,7 +270,7 @@ class PhemexPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             self.async_run_with_timeout(self.data_source._order_book_snapshot(trading_pair=self.trading_pair))
 
         self.assertEqual(
-            'Error executing request GET https://testnet-api.phemex.com/md/fullbook. HTTP status is 400. Error: ["ERROR"]',
+            'Error executing request GET https://testnet-api.phemex.com/md/v2/orderbook. HTTP status is 400. Error: ["ERROR"]',
             str(context.exception),
         )
 
@@ -251,7 +282,7 @@ class PhemexPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             "error": None,
             "id": 0,
             "result": {
-                "book": {
+                "orderbook_p": {
                     "asks": [[87705000, 1000000], [87710000, 200000]],
                     "bids": [[87700000, 2000000], [87695000, 200000]],
                 },
@@ -277,7 +308,7 @@ class PhemexPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             "error": None,
             "id": 0,
             "result": {
-                "book": {
+                "orderbook_p": {
                     "asks": [[87705000, 1000000], [87710000, 200000]],
                     "bids": [[87700000, 2000000], [87695000, 200000]],
                 },
@@ -302,19 +333,19 @@ class PhemexPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             "error": None,
             "id": 0,
             "result": {
-                "close": 87425000,
-                "fundingRate": 10000,
-                "high": 92080000,
-                "indexPrice": 87450676,
-                "low": 87130000,
-                "markPrice": 87453092,
-                "open": 90710000,
-                "openInterest": 7821141,
-                "predFundingRate": 7609,
+                "closeRp": "20731",
+                "fundingRateRr": "0.0001",
+                "highRp": "20818.8",
+                "indexPriceRp": "20737.09857143",
+                "lowRp": "20425.2",
+                "markPriceRp": "20737.788944",
+                "openInterestRv": "0",
+                "openRp": "20709",
+                "predFundingRateRr": "0.0001",
                 "symbol": self.ex_trading_pair,
-                "timestamp": 1583646442444219017,
-                "turnover": 1399362834123,
-                "volume": 125287131,
+                "timestamp": 1667222412794076700,
+                "turnoverRv": "139029311.7517",
+                "volumeRq": "6747.727",
             },
         }
         mock_api.get(regex_url, body=json.dumps(mock_response))
@@ -323,9 +354,9 @@ class PhemexPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertIsInstance(result, FundingInfo)
         self.assertEqual(result.trading_pair, self.trading_pair)
-        self.assertEqual(result.index_price, Decimal(mock_response["result"]["indexPrice"]))
-        self.assertEqual(result.mark_price, Decimal(mock_response["result"]["markPrice"]))
-        self.assertEqual(result.rate, Decimal(mock_response["result"]["fundingRate"]))
+        self.assertEqual(result.index_price, Decimal(mock_response["result"]["indexPriceRp"]))
+        self.assertEqual(result.mark_price, Decimal(mock_response["result"]["markPriceRp"]))
+        self.assertEqual(result.rate, Decimal(mock_response["result"]["fundingRateRr"]))
 
     @aioresponses()
     def test_get_funding_info(self, mock_api):
@@ -336,19 +367,19 @@ class PhemexPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             "error": None,
             "id": 0,
             "result": {
-                "close": 87425000,
-                "fundingRate": 10000,
-                "high": 92080000,
-                "indexPrice": 87450676,
-                "low": 87130000,
-                "markPrice": 87453092,
-                "open": 90710000,
-                "openInterest": 7821141,
-                "predFundingRate": 7609,
+                "closeRp": "20731",
+                "fundingRateRr": "0.0001",
+                "highRp": "20818.8",
+                "indexPriceRp": "20737.09857143",
+                "lowRp": "20425.2",
+                "markPriceRp": "20737.788944",
+                "openInterestRv": "0",
+                "openRp": "20709",
+                "predFundingRateRr": "0.0001",
                 "symbol": self.ex_trading_pair,
-                "timestamp": 1583646442444219017,
-                "turnover": 1399362834123,
-                "volume": 125287131,
+                "timestamp": 1667222412794076700,
+                "turnoverRv": "139029311.7517",
+                "volumeRq": "6747.727",
             },
         }
         mock_api.get(regex_url, body=json.dumps(mock_response))
@@ -357,9 +388,9 @@ class PhemexPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertIsInstance(result, FundingInfo)
         self.assertEqual(result.trading_pair, self.trading_pair)
-        self.assertEqual(result.index_price, Decimal(mock_response["result"]["indexPrice"]))
-        self.assertEqual(result.mark_price, Decimal(mock_response["result"]["markPrice"]))
-        self.assertEqual(result.rate, Decimal(mock_response["result"]["fundingRate"]))
+        self.assertEqual(result.index_price, Decimal(mock_response["result"]["indexPriceRp"]))
+        self.assertEqual(result.mark_price, Decimal(mock_response["result"]["markPriceRp"]))
+        self.assertEqual(result.rate, Decimal(mock_response["result"]["fundingRateRr"]))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
@@ -517,7 +548,7 @@ class PhemexPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             "error": None,
             "id": 0,
             "result": {
-                "book": {
+                "orderbook_p": {
                     "asks": [[87705000, 1000000], [87710000, 200000]],
                     "bids": [[87700000, 2000000], [87695000, 200000]],
                 },

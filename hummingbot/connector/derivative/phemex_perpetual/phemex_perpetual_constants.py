@@ -18,8 +18,8 @@ PRIVATE_WS_ENDPOINT = "/ws"
 WS_HEARTBEAT = 5  # https://phemex-docs.github.io/#heartbeat
 
 # Public API Endpoints
-SNAPSHOT_REST_URL = "/md/fullbook"
-TICKER_PRICE_URL = "/v1/md/ticker/24hr"
+SNAPSHOT_REST_URL = "/md/v2/orderbook"
+TICKER_PRICE_URL = "/md/v2/ticker/24hr"
 TICKER_PRICE_CHANGE_URL = TICKER_PRICE_URL
 PING_URL = "/ping"
 MARK_PRICE_URL = TICKER_PRICE_URL
@@ -36,9 +36,9 @@ ORDERS_1MIN = "ORDERS_1MIN"
 WSS_CONNECTION_LIMIT_ID = "phemexWSSConnectionLimitID"
 WSS_MESSAGE_LIMIT_ID = "phemexWSSMessageLimitID"
 
-DIFF_STREAM_METHOD = "orderbook.subscribe"
-TRADE_STREAM_METHOD = "trade.subscribe"
-FUNDING_INFO_STREAM_METHOD = "market24h.subscribe"
+DIFF_STREAM_METHOD = "orderbook_p.subscribe"
+TRADE_STREAM_METHOD = "trade_p.subscribe"
+FUNDING_INFO_STREAM_METHOD = "perp_market24h_pack_p.subscribe"
 HEARTBEAT_TIME_INTERVAL = 5.0
 
 # Rate Limit time intervals
