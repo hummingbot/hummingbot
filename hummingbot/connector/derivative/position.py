@@ -21,7 +21,7 @@ class Position:
     def __repr__(self) -> str:
         return (
             f"Position("
-            f"trading_pair={self._trading_pair},"
+            f" trading_pair={self._trading_pair},"
             f" position_side={self._position_side},"
             f" unrealized_pnl={self._unrealized_pnl},"
             f" entry_price={self._entry_price},"

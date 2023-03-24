@@ -1,3 +1,4 @@
+import asyncio
 import copy
 from decimal import Decimal
 from typing import Any, Dict, Optional, Tuple
@@ -8,6 +9,7 @@ from hummingbot.core.data_type.common import OrderType, PositionAction, TradeTyp
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 
 GET_GATEWAY_EX_ORDER_ID_TIMEOUT = 30  # seconds
+GET_GATEWAY_TX_HASH = 1  # seconds
 
 s_decimal_0 = Decimal("0")
 
@@ -45,6 +47,9 @@ class GatewayInFlightOrder(InFlightOrder):
         self._gas_price = gas_price
         self._nonce: int = -1
         self._creation_transaction_hash: Optional[str] = creation_transaction_hash
+        self._creation_transaction_hash_update_event = asyncio.Event()
+        if self.creation_transaction_hash is not None:
+            self._creation_transaction_hash_update_event.set()
         self._cancel_tx_hash: Optional[str] = None
 
     @property
@@ -135,6 +140,16 @@ class GatewayInFlightOrder(InFlightOrder):
             self.current_state in {OrderState.PENDING_APPROVAL, OrderState.APPROVED}
         )
 
+    def update_creation_transaction_hash(self, creation_transaction_hash: str):
+        self.creation_transaction_hash = creation_transaction_hash
+        self._creation_transaction_hash_update_event.set()
+
+    async def get_creation_transaction_hash(self) -> str:
+        if self.creation_transaction_hash is None:
+            async with timeout(GET_GATEWAY_TX_HASH):
+                await self._creation_transaction_hash_update_event.wait()
+        return self.creation_transaction_hash
+
     def update_with_order_update(self, order_update: OrderUpdate) -> bool:
         """
         Updates the in flight order with an order update
@@ -153,9 +168,9 @@ class GatewayInFlightOrder(InFlightOrder):
 
         self.current_state = order_update.new_state
         misc_updates = order_update.misc_updates or {}
-        self._creation_transaction_hash = (
-            misc_updates.get("creation_transaction_hash", self._creation_transaction_hash)
-        )
+        creation_transaction_hash = misc_updates.get("creation_transaction_hash", self.creation_transaction_hash)
+        if creation_transaction_hash is not None:
+            self.update_creation_transaction_hash(creation_transaction_hash=creation_transaction_hash)
         self._cancel_tx_hash = misc_updates.get("cancelation_transaction_hash", self._cancel_tx_hash)
         if self.current_state not in {OrderState.PENDING_CANCEL, OrderState.CANCELED}:
             self.nonce = misc_updates.get("nonce", None)
