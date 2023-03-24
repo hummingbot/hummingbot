@@ -32,7 +32,10 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
         cls._patch_stack = ExitStack()
         cls._patch_stack.enter_context(cls._http_player.patch_aiohttp_client())
         cls._patch_stack.enter_context(
-            patch("hummingbot.core.gateway.gateway_http_client.GatewayHttpClient._http_client", return_value=ClientSession())
+            patch(
+                "hummingbot.core.gateway.gateway_http_client.GatewayHttpClient._http_client",
+                return_value=ClientSession(),
+            )
         )
         GatewayHttpClient.get_instance().base_url = "https://localhost:5000"
 
@@ -76,6 +79,92 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
         self.assertEqual("0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf", result["txHash"])  # noqa: mock
 
     @async_test(loop=ev_loop)
+    async def test_clob_order_status_updates(self):
+        result = await GatewayHttpClient.get_instance().get_clob_order_status_updates(
+            trading_pair="COIN-ALPHA",
+            chain="injective",
+            network="mainnet",
+            connector="injective",
+            address="0xc7287236f64484b476cfbec0fd21bc49d85f8850c8885665003928a122041e18",  # noqa: mock
+        )
+
+        self.assertEqual(2, len(result["orders"]))
+        self.assertEqual("EOID1", result["orders"][0]["exchangeID"])
+        self.assertEqual("EOID2", result["orders"][1]["exchangeID"])
+
+        result = await GatewayHttpClient.get_instance().get_clob_order_status_updates(
+            trading_pair="COIN-ALPHA",
+            chain="injective",
+            network="mainnet",
+            connector="injective",
+            address="0xc7287236f64484b476cfbec0fd21bc49d85f8850c8885665003928a122041e18",  # noqa: mock
+            exchange_order_id="0x66b533792f45780fc38573bfd60d6043ab266471607848fb71284cd0d9eecff9",  # noqa: mock
+        )
+
+        self.assertEqual(1, len(result["orders"]))
+        self.assertEqual("EOID1", result["orders"][0]["exchangeID"])
+
+    @async_test(loop=ev_loop)
+    async def test_get_clob_all_markets(self):
+        result = await GatewayHttpClient.get_instance().get_clob_markets(
+            connector="dexalot", chain="avalanche", network="mainnet"
+        )
+
+        self.assertEqual(2, len(result["markets"]))
+        self.assertEqual("COIN-ALPHA", result["markets"][1]["tradingPair"])
+
+    @async_test(loop=ev_loop)
+    async def test_get_clob_single_market(self):
+        result = await GatewayHttpClient.get_instance().get_clob_markets(
+            connector="dexalot", chain="avalanche", network="mainnet", trading_pair="COIN-ALPHA"
+        )
+
+        self.assertEqual(1, len(result["markets"]))
+        self.assertEqual("COIN-ALPHA", result["markets"][0]["tradingPair"])
+
+    @async_test(loop=ev_loop)
+    async def test_get_clob_orderbook(self):
+        result = await GatewayHttpClient.get_instance().get_clob_orderbook_snapshot(
+            trading_pair="COIN-ALPHA", connector="dexalot", chain="avalanche", network="mainnet"
+        )
+
+        expected_orderbook = {
+            "bids": [[1, 2], [3, 4]],
+            "asks": [[5, 6]],
+        }
+        self.assertEqual(expected_orderbook, result["orderbook"])
+
+    @async_test(loop=ev_loop)
+    async def test_get_clob_ticker(self):
+        result = await GatewayHttpClient.get_instance().get_clob_ticker(
+            connector="dexalot", chain="avalanche", network="mainnet"
+        )
+        expected_markets = [
+            {
+                "pair": "COIN-ALPHA",
+                "lastPrice": 9,
+            },
+            {
+                "pair": "BTC-USDT",
+                "lastPrice": 10,
+            }
+        ]
+
+        self.assertEqual(expected_markets, result["markets"])
+
+        result = await GatewayHttpClient.get_instance().get_clob_ticker(
+            connector="dexalot", chain="avalanche", network="mainnet", trading_pair="COIN-ALPHA"
+        )
+        expected_markets = [
+            {
+                "pair": "COIN-ALPHA",
+                "lastPrice": 9,
+            },
+        ]
+
+        self.assertEqual(expected_markets, result["markets"])
+
+    @async_test(loop=ev_loop)
     async def test_clob_batch_order_update(self):
         trading_pair = combine_to_hb_trading_pair(base="COIN", quote="ALPHA")
         order_to_create = GatewayInFlightOrder(
@@ -95,6 +184,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
             creation_timestamp=123123123,
             price=Decimal("90"),
             amount=Decimal("9"),
+            exchange_order_id="someExchangeOrderID",
         )
         result: Dict[str, Any] = await GatewayHttpClient.get_instance().clob_batch_order_modify(
             connector="injective",

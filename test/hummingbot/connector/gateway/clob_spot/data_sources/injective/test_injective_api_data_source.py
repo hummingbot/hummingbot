@@ -3,7 +3,7 @@ import unittest
 from contextlib import ExitStack
 from decimal import Decimal
 from pathlib import Path
-from test.hummingbot.connector.gateway.clob_spot.data_sources.mock_utils import InjectiveClientMock
+from test.hummingbot.connector.gateway.clob_spot.data_sources.injective.injective_mock_utils import InjectiveClientMock
 from test.mock.http_recorder import HttpPlayer
 from typing import Awaitable, List
 from unittest.mock import patch
@@ -75,11 +75,14 @@ class InjectiveAPIDataSourceTest(unittest.TestCase):
 
         self.connector = MockExchange(client_config_map=ClientConfigAdapter(ClientConfigMap()))
         self.tracker = GatewayOrderTracker(connector=self.connector)
+        connector_spec = {
+            "chain": "injective",
+            "network": "mainnet",
+            "wallet_address": self.sub_account_id
+        }
         self.data_source = InjectiveAPIDataSource(
             trading_pairs=[self.trading_pair],
-            chain="injective",
-            network="mainnet",
-            address=self.sub_account_id,
+            connector_spec=connector_spec,
             client_config_map=client_config_map,
         )
         self.data_source.gateway_order_tracker = self.tracker
