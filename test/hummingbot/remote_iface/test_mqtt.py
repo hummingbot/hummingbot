@@ -1,4 +1,5 @@
 import asyncio
+import time
 from decimal import Decimal
 from typing import Awaitable
 from unittest import TestCase
@@ -77,6 +78,7 @@ class RemoteIfaceMQTTTests(TestCase):
     def tearDown(self):
         self.fake_mqtt_broker._transport._received_msgs = {}
         self.fake_mqtt_broker._transport._subscriptions = {}
+        time.sleep(0.001)
         self.gateway.stop()
         super().tearDown()
 
@@ -91,6 +93,10 @@ class RemoteIfaceMQTTTests(TestCase):
     def _create_exception_and_unlock_test_with_event(self, *args, **kwargs):
         self.resume_test_event.set()
         raise RuntimeError(self.fake_err_msg)
+
+    def _create_exception_and_unlock_test_with_event_not_impl(self, *args, **kwargs):
+        self.resume_test_event.set()
+        raise NotImplementedError(self.fake_err_msg)
 
     def is_msg_received(self, *args, **kwargs):
         return self.fake_mqtt_broker.is_msg_received(*args, **kwargs)
@@ -236,7 +242,10 @@ class RemoteIfaceMQTTTests(TestCase):
                 exchange_trade_id="EOID1",
                 order=order)
         ]
-        return list([TradeFill.to_bounty_api_json(t) for t in trades])
+        trade_list = list([TradeFill.to_bounty_api_json(t) for t in trades])
+        for t in trade_list:
+            t['trade_timestamp'] = str(t['trade_timestamp'])
+        return trade_list
 
     @patch("commlib.transports.mqtt.MQTTTransport")
     def test_mqtt_command_balance_limit(self,
@@ -501,6 +510,7 @@ class RemoteIfaceMQTTTests(TestCase):
 
         topic = f"test_reply/hbot/{self.instance_id}/import"
         msg = {'status': 400, 'msg': 'Some error'}
+        self.ev_loop.run_until_complete(self.wait_for_rcv(topic, msg, msg_key='data'))
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
     @patch("hummingbot.client.command.import_command.load_strategy_config_map_from_file")
@@ -520,6 +530,7 @@ class RemoteIfaceMQTTTests(TestCase):
                                   load_strategy_config_map_from_file=load_strategy_config_map_from_file,
                                   invalid_strategy=False,
                                   empty_name=True)
+        self.ev_loop.run_until_complete(self.wait_for_rcv(topic, msg, msg_key='data'))
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
     @patch("hummingbot.client.command.import_command.load_strategy_config_map_from_file")
@@ -547,6 +558,29 @@ class RemoteIfaceMQTTTests(TestCase):
         self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, start_msg))
         self.assertTrue(self.is_msg_received(notify_topic, start_msg))
 
+    @patch("hummingbot.client.command.start_command.init_logging")
+    @patch("hummingbot.client.command.import_command.load_strategy_config_map_from_file")
+    @patch("hummingbot.client.command.start_command.StartCommand.start_script_strategy")
+    @patch("hummingbot.client.command.status_command.StatusCommand.status_check_all")
+    @patch("commlib.transports.mqtt.MQTTTransport")
+    def test_mqtt_command_start_script(self,
+                                       mock_mqtt,
+                                       status_check_all_mock: MagicMock,
+                                       start_script_strategy_mock: MagicMock,
+                                       load_strategy_config_map_from_file: MagicMock,
+                                       mock_init_logging: MagicMock):
+        start_script_strategy_mock.side_effect = self._create_exception_and_unlock_test_with_event_not_impl
+        mock_init_logging.side_effect = lambda *args, **kwargs: None
+        self.start_mqtt(mock_mqtt=mock_mqtt)
+
+        notify_topic = f"hbot/{self.instance_id}/notify"
+        notify_msg = "Invalid strategy. Start aborted."
+
+        self.fake_mqtt_broker.publish_to_subscription(self.get_topic_for(self.START_URI), {'script': 'format_status_example.py'})
+
+        self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, notify_msg))
+        self.assertTrue(self.is_msg_received(notify_topic, notify_msg))
+
     @patch("hummingbot.client.command.start_command.StartCommand.start")
     @patch("commlib.transports.mqtt.MQTTTransport")
     def test_mqtt_command_start_failure(self,
@@ -557,6 +591,7 @@ class RemoteIfaceMQTTTests(TestCase):
         self.fake_mqtt_broker.publish_to_subscription(self.get_topic_for(self.START_URI), {})
         topic = f"test_reply/hbot/{self.instance_id}/start"
         msg = {'status': 400, 'msg': self.fake_err_msg}
+        self.ev_loop.run_until_complete(self.wait_for_rcv(topic, msg, msg_key='data'))
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
     @patch("hummingbot.client.command.status_command.StatusCommand.strategy_status", new_callable=AsyncMock)
@@ -569,6 +604,7 @@ class RemoteIfaceMQTTTests(TestCase):
         self.fake_mqtt_broker.publish_to_subscription(self.get_topic_for(self.STATUS_URI), {})
         topic = f"test_reply/hbot/{self.instance_id}/status"
         msg = {'status': 400, 'msg': 'No strategy is currently running!', 'data': ''}
+        self.ev_loop.run_until_complete(self.wait_for_rcv(topic, msg, msg_key='data'))
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
     @patch("hummingbot.client.command.status_command.StatusCommand.strategy_status", new_callable=AsyncMock)
@@ -581,6 +617,7 @@ class RemoteIfaceMQTTTests(TestCase):
         self.fake_mqtt_broker.publish_to_subscription(self.get_topic_for(self.STATUS_URI), {})
         topic = f"test_reply/hbot/{self.instance_id}/status"
         msg = {'status': 400, 'msg': 'No strategy is currently running!', 'data': ''}
+        self.ev_loop.run_until_complete(self.wait_for_rcv(topic, msg, msg_key='data'))
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
     @patch("commlib.transports.mqtt.MQTTTransport")
@@ -613,6 +650,7 @@ class RemoteIfaceMQTTTests(TestCase):
 
         topic = f"test_reply/hbot/{self.instance_id}/stop"
         msg = {'status': 400, 'msg': self.fake_err_msg}
+        self.ev_loop.run_until_complete(self.wait_for_rcv(topic, msg, msg_key='data'))
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
     @patch("commlib.transports.mqtt.MQTTTransport")
