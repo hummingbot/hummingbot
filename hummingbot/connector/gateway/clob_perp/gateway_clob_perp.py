@@ -267,6 +267,9 @@ class GatewayCLOBPerp(PerpetualDerivativePyBase):
         trading_rule: TradingRule = self._trading_rules[trading_pair]
         return trading_rule.sell_order_collateral_token
 
+    async def _update_time_synchronizer(self, pass_on_non_cancelled_error: bool = False):
+        pass
+
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         self._set_trading_pair_symbol_map(exchange_info)
 

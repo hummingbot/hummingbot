@@ -34,6 +34,14 @@ class GatewayCLOBPerpAPIDataSourceBase(GatewayCLOBAPIDataSourceBase):
             OrderBookDataSourceEvent.FUNDING_INFO_EVENT
         ]
 
+    @staticmethod
+    async def _sleep(delay: float):
+        await asyncio.sleep(delay)
+
+    @staticmethod
+    def _time() -> float:
+        return time.time()
+
     @property
     @abstractmethod
     def supported_position_modes(self) -> List[PositionMode]:
@@ -86,6 +94,3 @@ class GatewayCLOBPerpAPIDataSourceBase(GatewayCLOBAPIDataSourceBase):
     async def parse_funding_info_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         # This function should enqueue a FundingInfoUpdate obj into message_queue as presented in the function argument
         ...
-
-    def _time(self) -> float:
-        return time.time()
