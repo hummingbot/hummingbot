@@ -558,6 +558,7 @@ class RemoteIfaceMQTTTests(TestCase):
         self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, start_msg))
         self.assertTrue(self.is_msg_received(notify_topic, start_msg))
 
+    @patch("hummingbot.client.command.start_command.init_logging")
     @patch("hummingbot.client.command.import_command.load_strategy_config_map_from_file")
     @patch("hummingbot.client.command.start_command.StartCommand.start_script_strategy")
     @patch("hummingbot.client.command.status_command.StatusCommand.status_check_all")
@@ -566,8 +567,10 @@ class RemoteIfaceMQTTTests(TestCase):
                                        mock_mqtt,
                                        status_check_all_mock: MagicMock,
                                        start_script_strategy_mock: MagicMock,
-                                       load_strategy_config_map_from_file: MagicMock):
+                                       load_strategy_config_map_from_file: MagicMock,
+                                       mock_init_logging: MagicMock):
         start_script_strategy_mock.side_effect = self._create_exception_and_unlock_test_with_event_not_impl
+        mock_init_logging.side_effect = lambda *args, **kwargs: None
         self.start_mqtt(mock_mqtt=mock_mqtt)
 
         notify_topic = f"hbot/{self.instance_id}/notify"
