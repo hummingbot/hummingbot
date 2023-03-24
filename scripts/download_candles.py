@@ -19,7 +19,7 @@ class DownloadCandles(ScriptStrategyBase):
             pass
         else:
             df = self.candles.candles_df
-            df.to_csv(self.csv_path)
+            df.to_csv(self.csv_path, index=False)
             HummingbotApplication.main_application().stop()
 
     def on_stop(self):
