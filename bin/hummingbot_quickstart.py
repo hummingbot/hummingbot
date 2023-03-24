@@ -30,7 +30,6 @@ from hummingbot.client.settings import STRATEGIES_CONF_DIR_PATH, AllConnectorSet
 from hummingbot.client.ui import login_prompt
 from hummingbot.client.ui.style import load_style
 from hummingbot.core.event.events import HummingbotUIEvent
-from hummingbot.core.gateway import start_existing_gateway_container
 from hummingbot.core.management.console import start_management_console
 from hummingbot.core.utils.async_utils import safe_gather
 
@@ -121,7 +120,7 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
     start_listener: UIStartListener = UIStartListener(hb, is_script=is_script, is_quickstart=True)
     hb.app.add_listener(HummingbotUIEvent.Start, start_listener)
 
-    tasks: List[Coroutine] = [hb.run(), start_existing_gateway_container(client_config_map)]
+    tasks: List[Coroutine] = [hb.run()]
     if client_config_map.debug_console:
         management_port: int = detect_available_port(8211)
         tasks.append(start_management_console(locals(), host="localhost", port=management_port))
