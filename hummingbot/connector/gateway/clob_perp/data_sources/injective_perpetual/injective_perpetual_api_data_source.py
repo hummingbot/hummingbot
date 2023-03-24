@@ -7,6 +7,7 @@ from bidict import bidict
 from grpc.aio import UnaryStreamCall
 from pyinjective.async_client import AsyncClient
 from pyinjective.composer import Composer as ProtoMsgComposer
+from pyinjective.orderhash import OrderHashResponse
 from pyinjective.proto.exchange.injective_accounts_rpc_pb2 import StreamSubaccountBalanceResponse, SubaccountBalance
 from pyinjective.proto.exchange.injective_derivative_exchange_rpc_pb2 import (
     DerivativeLimitOrderbook,
@@ -35,7 +36,6 @@ from pyinjective.proto.exchange.injective_portfolio_rpc_pb2 import (
     SubaccountBalanceV2,
 )
 from pyinjective.proto.injective.exchange.v1beta1.exchange_pb2 import DerivativeOrder
-from pyinjective.wallet import Address
 
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.position import Position
@@ -80,7 +80,6 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         self._network = network
         self._client_config = client_config_map
         self._sub_account_id = address
-        self._account_address = Address(bytes.fromhex(address[2:-24])).to_acc_bech32()
         self._is_default_subaccount = address[-24:] == "000000000000000000000000"
 
         self._network_obj = CONSTANTS.NETWORK_CONFIG[network]
@@ -102,7 +101,9 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         self._trades_stream_listener: Optional[asyncio.Task] = None
         self._order_listeners: Dict[str, asyncio.Task] = {}
         self._order_books_stream_listener: Optional[asyncio.Task] = None
+        self._bank_balances_stream_listener: Optional[asyncio.Task] = None
         self._subaccount_balances_stream_listener: Optional[asyncio.Task] = None
+        self._positions_stream_listener: Optional[asyncio.Task] = None
         self._transactions_stream_listener: Optional[asyncio.Task] = None
 
         self._order_placement_lock = asyncio.Lock()
@@ -143,8 +144,8 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         )
 
         # Ensures all market info has been initialized before starting streaming tasks.
-        self._update_market_info()
-        self._start_streams()
+        await self._update_market_info()
+        await self._start_streams()
 
     async def stop(self):
         """
@@ -153,7 +154,6 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         await self._stop_streams()
         self._update_market_info_loop_task and self._update_market_info_loop_task.cancel()
         self._update_market_info_loop_task = None
-        self._update_funding_info_loop_task and self
 
     def _get_gateway_instance(self) -> GatewayHttpClient:
         gateway_instance = GatewayHttpClient.get_instance(self._client_config)
@@ -307,6 +307,7 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
             quantity=float(order.amount),
             is_buy=order.trade_type == TradeType.BUY,
             is_po=order.order_type == OrderType.LIMIT_MAKER,
+            leverage=order.leverage
         )
 
     async def _fetch_order_history(self, order: GatewayInFlightOrder) -> Optional[DerivativeOrderHistory]:
@@ -414,10 +415,11 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
     ) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
         perp_order_to_create = [self._compose_derivative_order_for_local_hash_computation(order=order)]
         async with self._order_placement_lock:
-            order_hashes: List[str] = self._order_hash_manager.compute_order_hashes(
+            order_hashes: OrderHashResponse = self._order_hash_manager.compute_order_hashes(
+                spot_orders=[],
                 derivative_orders=perp_order_to_create
             )
-            order_hash: str = order_hashes.derivate[0]
+            order_hash: str = order_hashes.derivative[0]
 
             order_result: Dict[str, Any] = await self._get_gateway_instance().clob_perp_place_order(
                 connector=self._connector_name,
@@ -573,6 +575,7 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         return cancel_order_results
 
     async def fetch_positions(self) -> List[Position]:
+        # TODO: Use Injective AsyncClient
         positions: List[Position] = []
 
         response: Dict[str, Any] = await self._get_gateway_instance().clob_perp_positions(
@@ -592,8 +595,8 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
             amount: Decimal = Decimal(position["quantity"])
 
             price_scaler: Decimal = Decimal(f"1e-{market_info.quote_token_meta.decimals}")
-            entry_price: Decimal = Decimal(position["entry_price"]) * price_scaler
-            mark_price: Decimal = Decimal(position["mark_price"]) * price_scaler
+            entry_price: Decimal = Decimal(position["entryPrice"]) * price_scaler
+            mark_price: Decimal = Decimal(position["markPrice"]) * price_scaler
 
             unrealized_pnl: Decimal = amount * ((1 / entry_price) - (1 / mark_price))
 
@@ -699,7 +702,7 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
 
         latest_funding_payment: Dict[str, Any] = response["fundingPayments"][0]  # List of payments sorted by latest
 
-        timestamp: float = latest_funding_payment.timestamp * 1e-3
+        timestamp: float = latest_funding_payment["timestamp"] * 1e-3
 
         # FundingPayment does not include price, hence we have to fetch latest funding rate
         funding_rate: Decimal = await self._request_last_funding_rate(trading_pair=trading_pair)
@@ -777,7 +780,7 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
                 trading_pair=trading_pair,
                 index_price=last_trade_price,  # Default to using last trade price
                 mark_price=oracle_price,
-                next_funding_utc_timestamp=market_info.next_funding_timestamp,
+                next_funding_utc_timestamp=market_info.perpetual_market_info.next_funding_timestamp,
                 rate=last_funding_rate,
             )
             return funding_info
@@ -832,7 +835,7 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         return snapshot_msg
 
     def _process_order_book_stream_event(self, message: StreamOrdersResponse):
-        snapshot_msg: OrderBookMessage = self._parse_derivative_ob_message(message == message)
+        snapshot_msg: OrderBookMessage = self._parse_derivative_ob_message(message=message)
         self._publisher.trigger_event(event_tag=OrderBookDataSourceEvent.SNAPSHOT_EVENT, message=snapshot_msg)
 
     async def _listen_to_order_books_stream(self):
@@ -876,14 +879,11 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         trading_pair: str = combine_to_hb_trading_pair(base=market.oracle_base, quote=market.oracle_quote)
         exchange_order_id: str = trade_message.order_hash
 
-        tracked_order: GatewayInFlightOrder = self._gateway_order_tracker.all_fillable_orders_by_exchange_id.get(
+        tracked_order: GatewayInFlightOrder = self._gateway_order_tracker.all_fillable_orders_by_exchange_order_id.get(
             exchange_order_id, None
         )
         client_order_id: str = "" if tracked_order is None else tracked_order.client_order_id
         trade_id: str = trade_message.trade_id
-        trade_type: TradeType = (
-            TradeType.BUY if trade_message.position_delta.trade_direction == "buy" else TradeType.SELL
-        )
 
         oracle_scale_factor: Decimal = Decimal(f"1e-{market.oracle_scale_factor}")
         price: Decimal = Decimal(trade_message.position_delta.execution_price) * oracle_scale_factor
@@ -892,14 +892,14 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
 
         fee_amount: Decimal = Decimal(trade_message.fee)
         _, quote = split_hb_trading_pair(trading_pair=trading_pair)
-        fee = TradeFeeBase.new_spot_fee(
-            fee_schema=TradeFeeSchema(), trade_type=trade_type, flat_fees=[TokenAmount(amount=fee_amount, token=quote)]
+        fee = TradeFeeBase.new_perpetual_fee(
+            fee_schema=TradeFeeSchema(), position_action=PositionAction.OPEN, flat_fees=[TokenAmount(amount=fee_amount, token=quote)]
         )
 
         trade_msg_content = {
             "trade_id": trade_id,
             "trading_pair": trading_pair,
-            "trade_type": TradeType.BUY if trade_message.trade_direction == "buy" else TradeType.SELL,
+            "trade_type": TradeType.BUY if trade_message.position_delta.trade_direction == "buy" else TradeType.SELL,
             "amount": size,
             "price": price,
             "is_taker": is_taker,
@@ -1125,7 +1125,7 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
         order_update: DerivativeOrderHistory = message.order
         order_hash: str = order_update.order_hash
 
-        in_flight_order = self._gateway_order_tracker.all_fillable_orders_by_exchange_id.get(order_hash)
+        in_flight_order = self._gateway_order_tracker.all_fillable_orders_by_exchange_order_id.get(order_hash)
         if in_flight_order is not None:
             market_id = order_update.market_id
             trading_pair = self._get_trading_pair_from_market_id(market_id=market_id)
@@ -1208,8 +1208,8 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
                 market_ids=market_ids, subaccount_id=self._sub_account_id
             )
             try:
-                async for order in stream:
-                    await self._process_position_event(order=order)
+                async for message in stream:
+                    await self._process_position_event(message=message)
             except asyncio.CancelledError:
                 raise
             except Exception:
