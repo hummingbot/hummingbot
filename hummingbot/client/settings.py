@@ -17,9 +17,7 @@ if TYPE_CHECKING:
     from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
     from hummingbot.connector.connector_base import ConnectorBase
-    from hummingbot.connector.gateway.clob_spot.data_sources.gateway_clob_api_data_source_base import (
-        GatewayCLOBAPIDataSourceBase,
-    )
+    from hummingbot.connector.gateway.clob_spot.data_sources.clob_api_data_source_base import CLOBAPIDataSourceBase
 
 # Global variables
 required_exchanges: Set[str] = set()
@@ -74,7 +72,6 @@ class ConnectorType(Enum):
     EVM_Perpetual = "EVM_Perpetual"
     EVM_AMM_LP = "EVM_AMM_LP"
     CLOB_SPOT = "CLOB_SPOT"
-    SOL_CLOB = "SOL_CLOB"
     NEAR_AMM = "NEAR_AMM"
     Connector = "connector"
     Exchange = "exchange"
@@ -125,7 +122,15 @@ class GatewayConnectionSetting:
         return None
 
     @staticmethod
-    def upsert_connector_spec(connector_name: str, chain: str, network: str, trading_type: str, wallet_address: str, additional_spenders: List[str]):
+    def upsert_connector_spec(
+        connector_name: str,
+        chain: str,
+        network: str,
+        trading_type: str,
+        wallet_address: str,
+        additional_spenders: List[str],
+        additional_prompt_values: Dict[str, str],
+    ):
         new_connector_spec: Dict[str, str] = {
             "connector": connector_name,
             "chain": chain,
@@ -133,6 +138,7 @@ class GatewayConnectionSetting:
             "trading_type": trading_type,
             "wallet_address": wallet_address,
             "additional_spenders": additional_spenders,
+            "additional_prompt_values": additional_prompt_values,
         }
         updated: bool = False
         connectors_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
@@ -146,6 +152,7 @@ class GatewayConnectionSetting:
             connectors_conf.append(new_connector_spec)
         GatewayConnectionSetting.save(connectors_conf)
 
+    @staticmethod
     def upsert_connector_spec_tokens(connector_chain_network: str, tokens: List[str]):
         updated_connector: Optional[Dict[str, Any]] = GatewayConnectionSetting.get_connector_spec_from_market_name(connector_chain_network)
         updated_connector['tokens'] = tokens
@@ -190,8 +197,6 @@ class ConnectorSetting(NamedTuple):
         if self.uses_gateway_generic_connector():
             if self.type in [ConnectorType.EVM_AMM, ConnectorType.EVM_Perpetual, ConnectorType.NEAR_AMM, ConnectorType.EVM_AMM_LP]:
                 return f"gateway.amm.gateway_{self._get_module_package()}"
-            elif ConnectorType.SOL_CLOB == self.type:
-                return f"gateway.clob.gateway_{self._get_module_package()}"
             elif self.type == ConnectorType.CLOB_SPOT:
                 return f"gateway.clob_spot.gateway_{self._get_module_package()}"
             else:
@@ -320,7 +325,7 @@ class ConnectorSetting(NamedTuple):
         trading_required: bool,
         client_config_map: "ClientConfigAdapter",
         connector_spec: Dict[str, str],
-    ) -> "GatewayCLOBAPIDataSourceBase":
+    ) -> "CLOBAPIDataSourceBase":
         module_name = self.get_api_data_source_module_name()
         parent_package = f"hummingbot.connector.gateway.{self._get_module_package()}.data_sources"
         module_package = self.name.split("_")[0]
@@ -329,9 +334,7 @@ class ConnectorSetting(NamedTuple):
         api_data_source_class = getattr(module, self.get_api_data_source_class_name())
         instance = api_data_source_class(
             trading_pairs=trading_pairs,
-            chain=connector_spec["chain"],
-            network=connector_spec["network"],
-            address=connector_spec["wallet_address"],
+            connector_spec=connector_spec,
             client_config_map=client_config_map,
         )
         return instance
@@ -514,7 +517,10 @@ class AllConnectorSettings:
 
     @classmethod
     def get_gateway_clob_connector_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.all_connector_settings.values() if cs.type == ConnectorType.SOL_CLOB}
+        return {
+            cs.name for cs in cls.all_connector_settings.values()
+            if cs.type == ConnectorType.CLOB_SPOT
+        }
 
     @classmethod
     def get_example_pairs(cls) -> Dict[str, str]:

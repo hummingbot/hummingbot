@@ -421,3 +421,18 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
         )
 
         self.assertTrue(len(result) > 0)
+
+    @async_test(loop=ev_loop)
+    async def test_successful_wallet_sign(self):
+        result: Dict[str, Any] = await GatewayHttpClient.get_instance().wallet_sign(
+            chain="avalanche",
+            network="dexalot",
+            address="0x010216bB52E46807a07d0101Bb828bA547534F37",  # noqa: mock
+            message="dexalot",
+        )
+        self.assertIn("signature", result)
+        self.assertEqual(
+            result["signature"],
+            "0x7e26cf881393f098dd8ff1adf459c01414c28e30fb05e6f2b2d5d0e2e284234b5964d4134cab95affc2219"  # noqa: mock
+            "55a4956ce8f5ed3c5a80e94143808063b26e7774421f",
+        )  # noqa: mock
