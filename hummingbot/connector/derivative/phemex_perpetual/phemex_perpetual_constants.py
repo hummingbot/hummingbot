@@ -1,3 +1,5 @@
+import sys
+
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 
 EXCHANGE_NAME = "phemex_perpetual"
@@ -13,6 +15,7 @@ TESTNET_WS_URL = "wss://testnet.phemex.com"
 PUBLIC_WS_ENDPOINT = "/ws"
 PRIVATE_WS_ENDPOINT = "/ws"
 
+WS_HEARTBEAT = 5  # https://phemex-docs.github.io/#heartbeat
 
 # Public API Endpoints
 SNAPSHOT_REST_URL = "/md/fullbook"
@@ -30,6 +33,8 @@ FUNDING_SETTLEMENT_DURATION = (0, 30)  # seconds before snapshot, seconds after 
 # Rate Limit Type
 REQUEST_WEIGHT = "REQUEST_WEIGHT"
 ORDERS_1MIN = "ORDERS_1MIN"
+WSS_CONNECTION_LIMIT_ID = "phemexWSSConnectionLimitID"
+WSS_MESSAGE_LIMIT_ID = "phemexWSSMessageLimitID"
 
 DIFF_STREAM_METHOD = "orderbook.subscribe"
 TRADE_STREAM_METHOD = "trade.subscribe"
@@ -43,6 +48,7 @@ ONE_SECOND = 1
 ONE_DAY = 86400
 
 MAX_REQUEST = 5000
+NO_LIMIT = sys.maxsize
 
 RATE_LIMITS = [
     # Pool Limits
@@ -61,4 +67,6 @@ RATE_LIMITS = [
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
     RateLimit(limit_id=MARK_PRICE_URL, limit=100, time_interval=ONE_MINUTE, weight=1,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
+    RateLimit(limit_id=WSS_CONNECTION_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
+    RateLimit(limit_id=WSS_MESSAGE_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
 ]
