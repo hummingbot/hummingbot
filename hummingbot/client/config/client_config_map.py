@@ -541,7 +541,12 @@ PMM_SCRIPT_MODES = {
 
 
 class GatewayConfigMap(BaseClientModel):
-    gateway_api_host: str = Field(default="localhost")
+    gateway_api_host: str = Field(
+        default="localhost",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Please enter your Gateway API host",
+        ),
+    )
     gateway_api_port: str = Field(
         default="15888",
         client_data=ClientFieldData(
