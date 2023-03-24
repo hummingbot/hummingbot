@@ -450,21 +450,30 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         try:
             order_status_data = await self._request_order_status_data(tracked_order=tracked_order)
-            order_msg = order_status_data["data"]
-            client_order_id = str(order_msg["clientOid"])
-            if "cancelExist" in order_msg:
-                if bool(order_msg["cancelExist"]) is True:
-                    order_status = CONSTANTS.ORDER_STATE["cancelExist"]
-                else:
-                    order_status = CONSTANTS.ORDER_STATE[order_msg["status"]]
+            if order_status_data["code"] == CONSTANTS.RET_CODE_PARAMS_ERROR and order_status_data["msg"] == "error.getOrder.orderNotExist":
+                order_status = CONSTANTS.OrderState.CANCELED
+                order_update = OrderUpdate(
+                    client_order_id=tracked_order.client_order_id,
+                    trading_pair=tracked_order.trading_pair,
+                    update_timestamp=self.current_timestamp,
+                    new_state=order_status,
+                )
+            else:
+                order_msg = order_status_data["data"]
+                client_order_id = str(order_msg["clientOid"])
+                if "cancelExist" in order_msg:
+                    if bool(order_msg["cancelExist"]) is True:
+                        order_status = CONSTANTS.ORDER_STATE["cancelExist"]
+                    else:
+                        order_status = CONSTANTS.ORDER_STATE[order_msg["status"]]
 
-            order_update: OrderUpdate = OrderUpdate(
-                trading_pair=tracked_order.trading_pair,
-                update_timestamp=self.current_timestamp,
-                new_state=order_status,
-                client_order_id=client_order_id,
-                exchange_order_id=order_msg["id"],
-            )
+                order_update: OrderUpdate = OrderUpdate(
+                    trading_pair=tracked_order.trading_pair,
+                    update_timestamp=self.current_timestamp,
+                    new_state=order_status,
+                    client_order_id=client_order_id,
+                    exchange_order_id=order_msg["id"],
+                )
 
             return order_update
 
@@ -519,7 +528,13 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
                             execute_price = Decimal(execution_data["matchPrice"])
                         elif order_event_type == "filled":
                             contract_value = Decimal(self.get_value_of_contracts(fillable_order.trading_pair, int(execution_data["filledSize"])))
-                            execute_price = Decimal(execution_data["price"])
+                            if "price" in execution_data:
+                                if execution_data["price"] is None or execution_data["price"] == "":
+                                    execute_price = 0
+                                else:
+                                    execute_price = Decimal(execution_data["price"])
+                            elif "filledPrice" in execution_data:
+                                execute_price = Decimal(execution_data["filledPrice"])
                         position_side = execution_data["side"]
                         position_action = (PositionAction.OPEN
                                            if (fillable_order.trade_type is TradeType.BUY and position_side == "buy"
@@ -532,7 +547,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
                         if "fee" in execution_data:
                             fee_amount = Decimal(execution_data["fee"])
                         else:
-                            fee_amount = round(Decimal(execution_data["size"]) * Decimal(0.1), 2)
+                            fee_amount = round(Decimal(execution_data["size"]) * Decimal(0.001), 2)
                         flat_fees = [] if fee_amount == Decimal("0") else [TokenAmount(amount=fee_amount, token=fee_asset)]
 
                         fee = TradeFeeBase.new_perpetual_fee(
@@ -586,7 +601,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
         Updates position
         :param position_msg: The position event message payload
         """
-        if position_msg["changeReason"] != "markPriceChange":
+        if "changeReason" in position_msg and position_msg["changeReason"] != "markPriceChange":
             ex_trading_pair = position_msg["symbol"]
             trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=ex_trading_pair)
             amount = Decimal(str(position_msg["currentQty"]))
@@ -646,7 +661,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
         if "fee" in trade_msg:
             fee_amount = Decimal(trade_msg["fee"])
         else:
-            fee_amount = round(Decimal(trade_msg["size"]) * Decimal(0.1), 2)
+            fee_amount = round(Decimal(trade_msg["size"]) * Decimal(0.001), 2)
         position_side = trade_msg["side"]
         position_action = (PositionAction.OPEN
                            if (tracked_order.trade_type is TradeType.BUY and position_side == "buy"
