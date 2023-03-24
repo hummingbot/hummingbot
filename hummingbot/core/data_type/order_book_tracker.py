@@ -285,7 +285,6 @@ class OrderBookTracker:
                 elif message.type is OrderBookMessageType.SNAPSHOT:
                     past_diffs: List[OrderBookMessage] = list(past_diffs_window)
                     order_book.restore_from_snapshot_and_diffs(message, past_diffs)
-                    self.logger().debug(f"Processed order book snapshot for {trading_pair}.")
             except asyncio.CancelledError:
                 raise
             except Exception:
