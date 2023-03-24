@@ -312,35 +312,35 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
             all_fills_response = await self._api_get(
                 path_url=CONSTANTS.FILLS_PATH_URL,
                 params={
-                    "pageSize": 500,
                     "startAt": self._last_order_fill_ts_s * 1000,
                 },
                 is_auth_required=True)
 
-            for trade in all_fills_response.get("items", []):
-                if str(trade["orderId"]) in exchange_to_client:
-                    fee = TradeFeeBase.new_spot_fee(
-                        fee_schema=self.trade_fee_schema(),
-                        trade_type=TradeType.BUY if trade["side"] == "buy" else "sell",
-                        percent_token=trade["feeCurrency"],
-                        flat_fees=[TokenAmount(amount=Decimal(trade["fee"]), token=trade["feeCurrency"])]
-                    )
+            if "data" in all_fills_response and len(all_fills_response["data"]) > 0:
+                for trade in all_fills_response["data"].get("items", []):
+                    if str(trade["orderId"]) in exchange_to_client:
+                        fee = TradeFeeBase.new_perpetual_fee(
+                            fee_schema=self.trade_fee_schema(),
+                            position_action=TradeType.BUY if trade["side"] == "buy" else TradeType.SELL,
+                            percent_token=trade["feeCurrency"],
+                            flat_fees=[TokenAmount(amount=Decimal(trade["fee"]), token=trade["feeCurrency"])]
+                        )
 
-                    client_info = exchange_to_client[str(trade["orderId"])]
-                    trade_update = TradeUpdate(
-                        trade_id=str(trade["tradeId"]),
-                        client_order_id=client_info["client_id"],
-                        trading_pair=client_info["trading_pair"],
-                        exchange_order_id=str(trade["orderId"]),
-                        fee=fee,
-                        fill_base_amount=Decimal(trade["size"]),
-                        fill_quote_amount=Decimal(trade["funds"]),
-                        fill_price=Decimal(trade["price"]),
-                        fill_timestamp=trade["createdAt"] * 1e-3,
-                    )
-                    trade_updates.append(trade_update)
-                    # Update the last fill timestamp with the latest one
-                    self._last_order_fill_ts_s = max(self._last_order_fill_ts_s, trade["createdAt"] * 1e-3)
+                        client_info = exchange_to_client[str(trade["orderId"])]
+                        trade_update = TradeUpdate(
+                            trade_id=str(trade["tradeId"]),
+                            client_order_id=client_info["client_id"],
+                            trading_pair=client_info["trading_pair"],
+                            exchange_order_id=str(trade["orderId"]),
+                            fee=fee,
+                            fill_base_amount=Decimal(trade["size"]),
+                            fill_quote_amount=Decimal(trade["value"]),
+                            fill_price=Decimal(trade["price"]),
+                            fill_timestamp=trade["createdAt"] * 1e-3,
+                        )
+                        trade_updates.append(trade_update)
+                        # Update the last fill timestamp with the latest one
+                        self._last_order_fill_ts_s = max(self._last_order_fill_ts_s, trade["createdAt"] * 1e-3)
 
         return trade_updates
 
@@ -452,11 +452,16 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
             order_status_data = await self._request_order_status_data(tracked_order=tracked_order)
             order_msg = order_status_data["data"]
             client_order_id = str(order_msg["clientOid"])
+            if "cancelExist" in order_msg:
+                if bool(order_msg["cancelExist"]) is True:
+                    order_status = CONSTANTS.ORDER_STATE["cancelExist"]
+                else:
+                    order_status = CONSTANTS.ORDER_STATE[order_msg["status"]]
 
             order_update: OrderUpdate = OrderUpdate(
                 trading_pair=tracked_order.trading_pair,
                 update_timestamp=self.current_timestamp,
-                new_state=CONSTANTS.ORDER_STATE[order_msg["status"]],
+                new_state=order_status,
                 client_order_id=client_order_id,
                 exchange_order_id=order_msg["id"],
             )
@@ -508,37 +513,47 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
 
                     event_timestamp = execution_data["ts"] * 1e-9
 
-                    if fillable_order is not None and order_event_type == "match":
-                        execute_amount_diff = Decimal(execution_data["matchSize"])
-                        execute_price = Decimal(execution_data["matchPrice"])
+                    if fillable_order is not None and order_event_type in ("match", "filled"):
+                        if order_event_type == "match":
+                            contract_value = Decimal(self.get_value_of_contracts(fillable_order.trading_pair, int(execution_data["matchSize"])))
+                            execute_price = Decimal(execution_data["matchPrice"])
+                        elif order_event_type == "filled":
+                            contract_value = Decimal(self.get_value_of_contracts(fillable_order.trading_pair, int(execution_data["filledSize"])))
+                            execute_price = Decimal(execution_data["price"])
                         position_side = execution_data["side"]
                         position_action = (PositionAction.OPEN
                                            if (fillable_order.trade_type is TradeType.BUY and position_side == "buy"
                                                or fillable_order.trade_type is TradeType.SELL and position_side == "sell")
                                            else PositionAction.CLOSE)
+                        if "type" in execution_data and execution_data["type"] in ["canceled", "filled"] and "status" in execution_data and execution_data["status"] == "done":
+                            position_action = PositionAction.CLOSE
 
-                        fee = self.get_fee(
-                            fillable_order.base_asset,
-                            fillable_order.quote_asset,
-                            fillable_order.order_type,
-                            fillable_order.trade_type,
-                            position_action,
-                            execute_price,
-                            execute_amount_diff,
-                        )
+                        fee_asset = fillable_order.quote_asset
+                        if "fee" in execution_data:
+                            fee_amount = Decimal(execution_data["fee"])
+                        else:
+                            fee_amount = round(Decimal(execution_data["size"]) * Decimal(0.1), 2)
+                        flat_fees = [] if fee_amount == Decimal("0") else [TokenAmount(amount=fee_amount, token=fee_asset)]
 
-                        trade_update = TradeUpdate(
-                            trade_id=execution_data["tradeId"],
-                            client_order_id=client_order_id,
-                            exchange_order_id=execution_data["orderId"],
-                            trading_pair=updatable_order.trading_pair,
-                            fee=fee,
-                            fill_base_amount=execute_amount_diff,
-                            fill_quote_amount=execute_amount_diff * execute_price,
-                            fill_price=execute_price,
-                            fill_timestamp=event_timestamp,
+                        fee = TradeFeeBase.new_perpetual_fee(
+                            fee_schema=self.trade_fee_schema(),
+                            position_action=position_action,
+                            percent_token=fee_asset,
+                            flat_fees=flat_fees,
                         )
-                        self._order_tracker.process_trade_update(trade_update)
+                        if "tradeId" in execution_data:
+                            trade_update = TradeUpdate(
+                                trade_id=execution_data["tradeId"],
+                                client_order_id=client_order_id,
+                                exchange_order_id=execution_data["orderId"],
+                                trading_pair=updatable_order.trading_pair,
+                                fee=fee,
+                                fill_base_amount=contract_value,
+                                fill_quote_amount=contract_value * execute_price,
+                                fill_price=execute_price,
+                                fill_timestamp=event_timestamp,
+                            )
+                            self._order_tracker.process_trade_update(trade_update)
 
                     if updatable_order is not None:
                         updated_status = CONSTANTS.ORDER_STATE.get(order_event_type)

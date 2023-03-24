@@ -59,6 +59,7 @@ SET_LEVERAGE_PATH_URL = f"{REST_API_VERSION}/position/risk-limit-level/change"
 GET_RECENT_FILLS_INFO_PATH_URL = f"{REST_API_VERSION}/recentFills"
 GET_FILL_INFO_PATH_URL = f"{REST_API_VERSION}/fills?orderId={{orderid}}"
 FILLS_PATH_URL = f"{REST_API_VERSION}/fills"
+FILLS_BY_DATE_PATH_URL = f"{REST_API_VERSION}/fills?startAt={{startat}}"
 GET_WALLET_BALANCE_PATH_URL = f"{REST_API_VERSION}/account-overview?currency={{currency}}"
 GET_POSITIONS_PATH_URL = f"{REST_API_VERSION}/positions"
 QUERY_ACTIVE_ORDER_PATH_URL = f"{REST_API_VERSION}/orders?status=active"
@@ -101,6 +102,8 @@ ORDER_STATE = {
     "match": OrderState.PARTIALLY_FILLED,
     "filled": OrderState.FILLED,
     "canceled": OrderState.CANCELED,
+    "done": OrderState.FILLED,
+    "cancelExist": OrderState.CANCELED,
 }
 
 # Request error codes
@@ -138,4 +141,5 @@ RATE_LIMITS = [
     RateLimit(limit_id=GET_RECENT_FILLS_INFO_PATH_URL, limit=9, time_interval=3),
     RateLimit(limit_id=GET_FUNDING_HISTORY_PATH_URL, limit=9, time_interval=3),
     RateLimit(limit_id=FILLS_PATH_URL, limit=9, time_interval=3),
+    RateLimit(limit_id=FILLS_BY_DATE_PATH_URL, limit=9, time_interval=3),
 ]

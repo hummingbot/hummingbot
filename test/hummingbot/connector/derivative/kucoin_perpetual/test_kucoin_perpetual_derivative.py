@@ -88,6 +88,10 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return url
 
     @property
+    def _last_order_fill_ts_s(self):
+        return 1640780000
+
+    @property
     def all_symbols_request_mock_response(self):
         mock_response = {
             "code": "200000",
@@ -693,11 +697,15 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         mock_api: aioresponses,
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.QUERY_ORDER_BY_EXCHANGE_ORDER_ID_PATH_URL.format(orderid=order.exchange_order_id)
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.QUERY_ORDER_BY_EXCHANGE_ORDER_ID_PATH_URL.format(orderid=order.exchange_order_id))
         response = self._order_status_request_canceled_mock_response(order=order)
         mock_api.get(url, body=json.dumps(response), callback=callback)
+        response = self._order_fills_request_full_fill_mock_response(order=order)
+        url2 = web_utils.get_rest_url_for_endpoint(
+            endpoint=CONSTANTS.FILLS_BY_DATE_PATH_URL.format(startat=self._last_order_fill_ts_s * 1000)
+        )
+        mock_api.get(url2, body=json.dumps(""), callback=callback)
+
         return url
 
     def configure_open_order_status_response(
@@ -761,7 +769,7 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.GET_FILL_INFO_PATH_URL.format(orderid=order.exchange_order_id),
+            endpoint=CONSTANTS.FILLS_BY_DATE_PATH_URL.format(startat=1640780000000),
         )
         response = self._order_fills_request_full_fill_mock_response(order=order)
         mock_api.get(url, body=json.dumps(response), callback=callback)
@@ -922,7 +930,7 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 "orderType": order.order_type.name.lower(),
                 "side": order.trade_type.name.lower(),
                 "price": str(order.price),
-                "size": float(order.amount) * 1000,
+                "size": float(order.amount) * 500,
                 "remainSize": "0",
                 "filledSize": float(order.amount) * 1000,
                 "fee": str(self.expected_fill_fee.flat_fees[0].amount),
@@ -953,6 +961,7 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 "remainSize": "0",
                 "filledSize": float(order.amount) * 1000,
                 "canceledSize": "0",
+                "tradeId": self.expected_fill_trade_id,
                 "clientOid": order.client_order_id or "",
                 "orderTime": 1545914149935808589,
                 "liquidity": "maker",
