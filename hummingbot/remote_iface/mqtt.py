@@ -151,7 +151,7 @@ class MQTTCommands:
         response = StartCommandMessage.Response()
         timeout = 30
         try:
-            if self._hb_app.strategy_name is None:
+            if self._hb_app.strategy_name is None and msg.script is None:
                 raise Exception('Strategy check: Please import or create a strategy.')
             if self._hb_app.strategy is not None:
                 raise Exception('The bot is already running - please run "stop" first')
@@ -163,7 +163,11 @@ class MQTTCommands:
                 )
             else:
                 res = call_sync(
-                    self._hb_app.start_check(),
+                    self._hb_app.start_check(
+                        log_level=msg.log_level,
+                        script=msg.script,
+                        is_quickstart=msg.is_quickstart
+                    ),
                     loop=self._ev_loop,
                     timeout=timeout
                 )
@@ -517,7 +521,7 @@ class MQTTGateway(Node):
         return self._health
 
     def _remove_log_handlers(self):
-        loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
+        loggers = list([logging.getLogger(name) for name in logging.root.manager.loggerDict])
         log_conf = get_logging_conf()
         if 'loggers' not in log_conf:
             return
@@ -534,7 +538,7 @@ class MQTTGateway(Node):
         self.patch_loggers()
 
     def patch_loggers(self):
-        loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
+        loggers = list([logging.getLogger(name) for name in logging.root.manager.loggerDict])
 
         log_conf = get_logging_conf()
         if 'root' in log_conf:
