@@ -144,7 +144,6 @@ class WeakSingletonMetaclass(abc.ABCMeta):
     def _finalize(wr_obj: weakref, cls: Type[T]):
         """The reference count dropped to 0, simply set the weakref to None"""
         assert wr_obj() is None, "Weakref should be dead"
-        print(f"Finalizing {cls}")
         cls._instances[cls] = None
         if cls._strict_locks[cls].locked():
             cls._strict_locks[cls] = threading.Lock()
