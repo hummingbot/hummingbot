@@ -2,9 +2,10 @@ import asyncio
 import sys
 import threading
 import unittest
+from asyncio import AbstractEventLoop
+from typing import Awaitable
 from unittest.mock import AsyncMock, patch
 
-from _weakref import ReferenceType
 from aiohttp import ClientSession
 
 from hummingbot.core.web_assistant.connections.persistent_client_session import (
@@ -21,22 +22,24 @@ class AsyncContextManagerMock(AsyncMock):
         pass
 
 
-class TestPersistentClientSession(unittest.IsolatedAsyncioTestCase):
+class TestPersistentClientSession(unittest.TestCase):
+    ev_loop: AbstractEventLoop
+
+    @classmethod
+    def setUpClass(cls):
+        cls.ev_loop = asyncio.get_event_loop()
+
     def setUp(self):
         self.client_type = PersistentClientSession
         if self.client_type.is_instantiated():
             self.client_type.__class__._WeakSingletonMetaclass__clear(self.client_type)
 
-    async def asyncTearDown(self):
-        print("asyncTearDown")
-        await asyncio.sleep(0)
-
     def tearDown(self):
-        print("TearDown")
+        pass
 
     @classmethod
     def tearDownClass(cls):
-        print("TearDownClass")
+        pass
 
     def assertWasInstantiatedInThread(self, instance: PersistentClientSession, thread_id: int):
         self.assertTrue(instance.__class__.is_instantiated())
@@ -95,6 +98,10 @@ class TestPersistentClientSession(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(instance.has_live_session(thread_id=thread_id))
         self.assertTrue(instance.__class__.is_instantiated())
 
+    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
+        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
+        return ret
+
     def test_instantiated_state(self):
         thread_id: int = threading.get_ident()
         kwargs: dict = {"key": "val"}
@@ -104,27 +111,30 @@ class TestPersistentClientSession(unittest.IsolatedAsyncioTestCase):
         self.assertInitializedStateInThread(instance, thread_id, kwargs)
         self.assertEqual(kwargs, instance._kwargs_client_sessions.get(thread_id), )
 
-    async def test_session_opened_state(self):
+    def test_session_opened_state(self):
         thread_id: int = threading.get_ident()
         instance: PersistentClientSession = PersistentClientSession()
 
         # self.assertInstantiatedStateInThread(instance, thread_id)
-        session: ReferenceType[ClientSession] = instance()
-        print(session)
-        print(type(session))
-        self.assertTrue(session is instance())
-        self.assertSessionOpenedStateInThread(instance, thread_id, None)
-        # instance._shared_client_sessions[thread_id] = None
-        # del instance
-        # gc.collect()
+        async def open_session():
+            session: ClientSession = instance()
+            self.assertTrue(session is instance())
+            self.assertSessionOpenedStateInThread(instance, thread_id, None)
 
-    async def test_session_closed_state(self):
+        self.async_run_with_timeout(open_session())
+
+    def test_session_closed_state(self):
         thread_id: int = threading.get_ident()
         instance: PersistentClientSession = PersistentClientSession()
 
         self.assertInstantiatedStateInThread(instance, thread_id)
-        session: ClientSession = instance()
-        await session.close()
+
+        async def close_session():
+            session: ClientSession = instance()
+            await session.close()
+            self.assertSessionClosedStateInThread(instance, thread_id)
+
+        self.async_run_with_timeout(close_session())
         self.assertSessionClosedStateInThread(instance, thread_id)
 
     def test___call___raises_without_event_loop(self):
@@ -167,7 +177,9 @@ class TestPersistentClientSession(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(PersistentClientSession.is_instantiated())
         # Standalone this test you not have an entry in the _instances dict
         # However, tests ran in parallel may have created an instance
-        self.assertTrue(PersistentClientSession not in PersistentClientSession._instances or PersistentClientSession._instances[PersistentClientSession] is None)
+        self.assertTrue(
+            PersistentClientSession not in PersistentClientSession._instances or PersistentClientSession._instances[
+                PersistentClientSession] is None)
         client_session: ClientSession = PersistentClientSession()()
         # No explicit hard-reference, however, there is a hard reference on the stack from the Class call
         self.assertTrue(PersistentClientSession.is_instantiated())

@@ -1,5 +1,4 @@
 import asyncio
-import gc
 import sys
 import threading
 import weakref
@@ -108,19 +107,14 @@ class PersistentClientSession(metaclass=WeakSingletonMetaclass):
     )
 
     def __del__(self):
-        print(f"Deleting instance {self} of class {getattr(self, '__class__').__name__}")
-        print(f"   refs: {gc.get_referrers(self)}")
         thread_id = threading.get_ident()
-        print(sys.getrefcount(self._client_sessions[thread_id]) - 1)
         if self.has_live_session(thread_id=thread_id):
             # The session was not closed cleanly by the user (or the context manager)
             # This is not a good practice, but we can try to close the session from another loop
             # if the current loop is already closed (which is the case when the class is deleted)
-            print(f"      - calling _cleanup_in_thread {thread_id}")
             self._cleanup_in_thread(thread_id=thread_id)
 
     def __init__(self, **kwargs):
-        print("__init__", kwargs)
         # Initializing with whichever thread is initializing first
         thread_id: int = threading.get_ident()
 
@@ -141,7 +135,6 @@ class PersistentClientSession(metaclass=WeakSingletonMetaclass):
         :return: The ClientSession instance associated with the current thread.
         :rtype: Coroutine[Any, Any, ClientSession]
         """
-        print("__call__")
         thread_id: int = threading.get_ident()
 
         # Record the event loop for the current thread (It should already be running, otherwise it raises)
@@ -262,7 +255,6 @@ class PersistentClientSession(metaclass=WeakSingletonMetaclass):
         :return: The ClientSession instance associated with the current thread.
         :rtype: Coroutine[Any, Any, ClientSession]
         """
-        print("__aenter__")
         return await self.open()
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
@@ -284,13 +276,11 @@ class PersistentClientSession(metaclass=WeakSingletonMetaclass):
         :param exc_val: Value of exception raised.
         :param exc_tb: Traceback of exception raised.
         """
-        print("__aexit__")
         thread_id: int = threading.get_ident()
 
         references_offset = self._count_refs(thread_id=thread_id) - self._ref_count[thread_id]
 
         # Are there any other references?
-        print(f"  ref offset: {references_offset}")
 
         # If the ref count is 0 and there are no extra references, we can safely close the session
         if references_offset >= 1:
@@ -315,7 +305,6 @@ class PersistentClientSession(metaclass=WeakSingletonMetaclass):
         response = await persistent_session.get('https://www.example.com')
         """
         thread_id: int = threading.get_ident()
-        print(f"__getattr__({attr})")
         if hasattr(self._client_sessions[thread_id], attr):
             return getattr(self._client_sessions[thread_id], attr)
         else:
