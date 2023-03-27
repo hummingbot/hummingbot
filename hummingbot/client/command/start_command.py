@@ -57,7 +57,7 @@ class StartCommand(GatewayChainApiManager):
               script: Optional[str] = None,
               is_quickstart: Optional[bool] = False):
         if threading.current_thread() != threading.main_thread():
-            self.ev_loop.call_soon_threadsafe(self.start, log_level)
+            self.ev_loop.call_soon_threadsafe(self.start, log_level, script)
             return
         safe_ensure_future(self.start_check(log_level, script, is_quickstart), loop=self.ev_loop)
 
