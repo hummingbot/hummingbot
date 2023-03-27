@@ -1,7 +1,7 @@
 import asyncio
 import unittest
 from decimal import Decimal
-from test.hummingbot.connector.gateway.clob_spot.data_sources.mock_utils import InjectiveClientMock
+from test.hummingbot.connector.gateway.clob_spot.data_sources.injective.injective_mock_utils import InjectiveClientMock
 from typing import Awaitable, Dict, List, Mapping
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -73,12 +73,15 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
         self.clob_data_source_mock.start()
 
         client_config_map = ClientConfigAdapter(ClientConfigMap())
+        connector_spec = {
+            "chain": "someChain",
+            "network": "mainnet",
+            "wallet_address": self.wallet_address,
+        }
         api_data_source = InjectiveAPIDataSource(
             trading_pairs=[self.trading_pair],
-            chain="someChain",
-            network="mainnet",
-            address=self.wallet_address,
-            client_config_map=client_config_map
+            connector_spec=connector_spec,
+            client_config_map=client_config_map,
         )
         self.exchange = GatewayCLOBSPOT(
             client_config_map=client_config_map,
@@ -214,6 +217,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
             "account_balance": False,
             "trading_rule_initialized": False,
             "user_stream_initialized": False,
+            "api_data_source_initialized": False,
         }
 
     @staticmethod
@@ -224,6 +228,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
             "account_balance": True,
             "trading_rule_initialized": True,
             "user_stream_initialized": True,
+            "api_data_source_initialized": True,
         }
 
     def place_buy_order(self, size: Decimal = Decimal("100"), price: Decimal = Decimal("10_000")):
@@ -360,11 +365,14 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
 
     def test_initial_status_dict(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
+        connector_spec = {
+            "chain": "someChain",
+            "network": "mainnet",
+            "wallet_address": self.wallet_address,
+        }
         api_data_source = InjectiveAPIDataSource(
             trading_pairs=[self.trading_pair],
-            chain="someChain",
-            network="mainnet",
-            address=self.wallet_address,
+            connector_spec=connector_spec,
             client_config_map=client_config_map,
         )
         exchange = GatewayCLOBSPOT(
@@ -396,11 +404,14 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
         )
 
         client_config_map = ClientConfigAdapter(ClientConfigMap())
+        connector_spec = {
+            "chain": "someChain",
+            "network": "mainnet",
+            "wallet_address": self.wallet_address,
+        }
         api_data_source = InjectiveAPIDataSource(
             trading_pairs=[self.trading_pair],
-            chain="someChain",
-            network="mainnet",
-            address=self.wallet_address,
+            connector_spec=connector_spec,
             client_config_map=client_config_map,
         )
         exchange = GatewayCLOBSPOT(
