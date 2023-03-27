@@ -59,6 +59,7 @@ connector_status = {
     'xsswap': 'bronze',
     'dexalot': 'bronze',
     'kucoin_perpetual': 'silver',
+    'kucoin_perpetual_testnet': 'silver',
 }
 
 warning_messages = {
