@@ -260,6 +260,8 @@ class BitComPerpetualDerivative(PerpetualDerivativePyBase):
                       "order_type": "market" if order_type is OrderType.MARKET else "limit",
                       "label": order_id
                       }
+        if order_type == OrderType.MARKET:
+            del api_params["price"]
         if order_type == OrderType.LIMIT_MAKER:
             api_params["post_only"] = False
             api_params["reject_post_only"] = True
