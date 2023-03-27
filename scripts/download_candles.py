@@ -5,22 +5,32 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
 class DownloadCandles(ScriptStrategyBase):
-    trading_pair = "APE-USDT"
+    trading_pairs = ["APE-USDT", "BTC-USDT", "BNB-USDT"]
     interval = "3m"
-    candles = CandlesFactory.get_candle(connector="binance", trading_pair=trading_pair, interval=interval, max_records=175000)
-    candles.start()
 
-    csv_path = data_path() + f"/candles_{trading_pair}_{interval}.csv"
+    # we need to initialize the candles for each trading pair
+    candles = {trading_pair: {} for trading_pair in trading_pairs}
+    for trading_pair in trading_pairs:
+        candle = CandlesFactory.get_candle(connector="binance", trading_pair=trading_pair, interval=interval, max_records=175000)
+        candle.start()
+        # we are storing the candles object and the csv path to save the candles
+        candles[trading_pair]["candles"] = candle
+        candles[trading_pair]["csv_path"] = data_path() + f"/candles_{trading_pair}_{interval}.csv"
+
+    # we can initialize any trading pair since we only need the candles
     markets = {"binance_paper_trade": {"BTC-USDT"}}
 
     def on_tick(self):
-        if not self.candles.is_ready:
-            self.logger().info(f"Candles not ready yet! Missing {self.candles._candles.maxlen - len(self.candles._candles)}")
-            pass
-        else:
-            df = self.candles.candles_df
-            df.to_csv(self.csv_path, index=False)
+        for trading_pair, candles_info in self.candles.items():
+            if not candles_info["candles"].is_ready:
+                self.logger().info(f"Candles not ready yet for {trading_pair}! Missing {candles_info['candles']._candles.maxlen - len(candles_info['candles']._candles)}")
+                pass
+            else:
+                df = candles_info["candles"].candles_df
+                df.to_csv(candles_info["csv_path"], index=False)
+        if all(candles_info["candles"].is_ready for candles_info in self.candles.values()):
             HummingbotApplication.main_application().stop()
 
     def on_stop(self):
-        self.candles.stop()
+        for candles_info in self.candles.values():
+            candles_info["candles"].stop()
