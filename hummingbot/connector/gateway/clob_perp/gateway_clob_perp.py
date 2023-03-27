@@ -318,12 +318,12 @@ class GatewayCLOBPerp(PerpetualDerivativePyBase):
     async def _update_positions(self):
         positions: List[Position] = await self._api_data_source.fetch_positions()
         for position in positions:
-            post_key = self._perpetual_trading.position_key(position.trading_pair, position.position_side)
+            position_key = self._perpetual_trading.position_key(position.trading_pair, position.position_side)
             if position.amount != Decimal("0"):
                 position._leverage = self._perpetual_trading.get_leverage(trading_pair=position.trading_pair)
-                self._perpetual_trading.set_position(position=position)
+                self._perpetual_trading.set_position(pos_key=position_key, position=position)
             else:
-                self._perpetual_trading.remove_position(post_key=post_key)
+                self._perpetual_trading.remove_position(post_key=position_key)
 
     async def _update_balances(self):
         balances = await self._api_data_source.get_account_balances()

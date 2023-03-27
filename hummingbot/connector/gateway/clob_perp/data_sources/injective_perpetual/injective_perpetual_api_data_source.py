@@ -586,8 +586,8 @@ class InjectivePerpetualAPIDataSource(GatewayCLOBPerpAPIDataSourceBase):
             trading_pairs=self._trading_pairs,
         )
 
-        positions: List[Dict[str, Any]] = response["positions"]
-        for position in positions:
+        fetch_positions: List[Dict[str, Any]] = response["positions"]
+        for position in fetch_positions:
             market_info: DerivativeMarketInfo = self._market_id_to_active_perp_markets[position["marketId"]]
 
             trading_pair: str = combine_to_hb_trading_pair(base=market_info.oracle_base, quote=market_info.oracle_quote)
