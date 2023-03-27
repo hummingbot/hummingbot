@@ -57,6 +57,8 @@ connector_status = {
     'ref': 'bronze',
     'injective': 'bronze',
     'xsswap': 'bronze',
+    'dexalot': 'bronze',
+    'kucoin_perpetual': 'silver',
 }
 
 warning_messages = {
