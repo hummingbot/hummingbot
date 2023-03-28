@@ -622,6 +622,12 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
                 self._perpetual_trading.set_position(pos_key, position)
             else:
                 self._perpetual_trading.remove_position(pos_key)
+        elif "changeReason" in position_msg and position_msg["changeReason"] == "markPriceChange":
+            ex_trading_pair = position_msg["symbol"]
+            trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=ex_trading_pair)
+            existing_position = self._perpetual_trading.get_position(trading_pair)
+            if existing_position is not None:
+                existing_position.update_position(unrealized_pnl=Decimal(str(position_msg["unrealisedPnl"])))
 
     def _process_trade_event_message(self, trade_msg: Dict[str, Any]):
         """
