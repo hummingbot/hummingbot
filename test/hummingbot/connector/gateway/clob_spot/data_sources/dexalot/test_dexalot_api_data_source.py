@@ -565,10 +565,7 @@ class DexalotAPIDataSourceTest(AbstractGatewayCLOBAPIDataSourceTests.GatewayCLOB
         mock_max_order_create_per_batch = 2
 
         def sleep_mock_side_effect(delay):
-            if delay == self.data_source.current_block_time:
-                return None
-            else:
-                raise Exception
+            raise Exception
 
         sleep_mock.side_effect = sleep_mock_side_effect
 
