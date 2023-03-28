@@ -304,3 +304,11 @@ class DeductedFromReturnsTradeFee(TradeFeeBase):
         """
         impact = order_candidate.potential_returns.amount * self.percent
         return impact
+
+
+@dataclass(frozen=True)
+class MakerTakerExchangeFeeRates:
+    maker: Decimal
+    taker: Decimal
+    maker_flat_fees: List[TokenAmount]
+    taker_flat_fees: List[TokenAmount]

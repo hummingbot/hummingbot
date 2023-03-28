@@ -3,8 +3,8 @@ import logging
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, cast
 
-from hummingbot.connector.gateway.amm.evm_in_flight_order import EVMInFlightOrder
 from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
+from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.gateway.gateway_price_shim import GatewayPriceShim
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import TradeType
@@ -29,7 +29,7 @@ class GatewayNearAMM(GatewayEVMAMM):
                  connector_name: str,
                  chain: str,
                  network: str,
-                 wallet_address: str,
+                 address: str,
                  trading_pairs: List[str] = [],
                  additional_spenders: List[str] = [],  # not implemented
                  trading_required: bool = True
@@ -38,7 +38,7 @@ class GatewayNearAMM(GatewayEVMAMM):
         :param connector_name: name of connector on gateway
         :param chain: refers to a block chain, e.g. ethereum or avalanche
         :param network: refers to a network of a particular blockchain e.g. mainnet or kovan
-        :param wallet_address: the address of the eth wallet which has been added on gateway
+        :param address: the address of the eth wallet which has been added on gateway
         :param trading_pairs: a list of trading pairs
         :param trading_required: Whether actual trading is needed. Useful for some functionalities or commands like the balance command
         """
@@ -46,7 +46,7 @@ class GatewayNearAMM(GatewayEVMAMM):
                          connector_name=connector_name,
                          chain=chain,
                          network=network,
-                         wallet_address=wallet_address,
+                         address=address,
                          trading_pairs=trading_pairs,
                          additional_spenders=additional_spenders,
                          trading_required=trading_required)
@@ -58,7 +58,7 @@ class GatewayNearAMM(GatewayEVMAMM):
             s_logger = logging.getLogger(cls.__name__)
         return cast(HummingbotLogger, s_logger)
 
-    async def update_order_status(self, tracked_orders: List[EVMInFlightOrder]):
+    async def update_order_status(self, tracked_orders: List[GatewayInFlightOrder]):
         """
         Calls REST API to get status update for each in-flight amm orders.
         """
@@ -149,14 +149,14 @@ class GatewayNearAMM(GatewayEVMAMM):
         """
         return []
 
-    async def update_canceling_transactions(self, canceled_tracked_orders: List[EVMInFlightOrder]):
+    async def update_canceling_transactions(self, canceled_tracked_orders: List[GatewayInFlightOrder]):
         """
         Update tracked orders that have a cancel_tx_hash.
         :param canceled_tracked_orders: Canceled tracked_orders (cancel_tx_has is not None).
         """
         pass
 
-    async def update_token_approval_status(self, tracked_approvals: List[EVMInFlightOrder]):
+    async def update_token_approval_status(self, tracked_approvals: List[GatewayInFlightOrder]):
         """
         Calls REST API to get status update for each in-flight token approval transaction.
         :param tracked_approvals: tracked approval orders.

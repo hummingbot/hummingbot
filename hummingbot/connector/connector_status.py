@@ -55,6 +55,11 @@ connector_status = {
     'mad_meerkat': 'bronze',
     'vvs': 'bronze',
     'ref': 'bronze',
+    'injective': 'bronze',
+    'xsswap': 'bronze',
+    'dexalot': 'bronze',
+    'kucoin_perpetual': 'silver',
+    'kucoin_perpetual_testnet': 'silver',
 }
 
 warning_messages = {

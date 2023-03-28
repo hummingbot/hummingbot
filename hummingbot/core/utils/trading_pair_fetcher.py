@@ -36,16 +36,7 @@ class TradingPairFetcher:
             connector_name: Optional[str] = None):
         connector_name = connector_name or connector_setting.name
         connector = connector_setting.non_trading_connector_instance_with_default_configuration()
-        if connector_setting.uses_gateway_generic_connector():
-            connector_params = connector_setting.name.split("_")
-            try:
-                safe_ensure_future(self.call_fetch_pairs(
-                    connector.all_trading_pairs(connector_params[1], connector_params[2]), connector_name))
-            except TypeError:  # some gateway generic connector like gateway_EVM_Perpetual require an extra name parameter
-                safe_ensure_future(self.call_fetch_pairs(
-                    connector.all_trading_pairs(connector_params[1], connector_params[2], connector_params[0]), connector_name))
-        else:
-            safe_ensure_future(self.call_fetch_pairs(connector.all_trading_pairs(), connector_name))
+        safe_ensure_future(self.call_fetch_pairs(connector.all_trading_pairs(), connector_name))
 
     async def fetch_all(self, client_config_map: ClientConfigAdapter):
         connector_settings = self._all_connector_settings()
