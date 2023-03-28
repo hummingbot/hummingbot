@@ -29,8 +29,6 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
-s_logger = None
-
 
 class BinanceExchange(ExchangePyBase):
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
@@ -128,6 +126,16 @@ class BinanceExchange(ExchangePyBase):
                                         and "Timestamp for this request" in error_description)
         return is_time_synchronizer_related
 
+    def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
+        return str(CONSTANTS.ORDER_NOT_EXIST_ERROR_CODE) in str(
+            status_update_exception
+        ) and CONSTANTS.ORDER_NOT_EXIST_MESSAGE in str(status_update_exception)
+
+    def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
+        return str(CONSTANTS.UNKNOWN_ORDER_ERROR_CODE) in str(
+            cancelation_exception
+        ) and CONSTANTS.UNKNOWN_ORDER_MESSAGE in str(cancelation_exception)
+
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
             throttler=self._throttler,
@@ -185,13 +193,23 @@ class BinanceExchange(ExchangePyBase):
         if order_type == OrderType.LIMIT:
             api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_GTC
 
-        order_result = await self._api_post(
-            path_url=CONSTANTS.ORDER_PATH_URL,
-            data=api_params,
-            is_auth_required=True)
-        o_id = str(order_result["orderId"])
-        transact_time = order_result["transactTime"] * 1e-3
-        return (o_id, transact_time)
+        try:
+            order_result = await self._api_post(
+                path_url=CONSTANTS.ORDER_PATH_URL,
+                data=api_params,
+                is_auth_required=True)
+            o_id = str(order_result["orderId"])
+            transact_time = order_result["transactTime"] * 1e-3
+        except IOError as e:
+            error_description = str(e)
+            is_server_overloaded = ("status is 503" in error_description
+                                    and "Unknown error, please check your request or try again later." in error_description)
+            if is_server_overloaded:
+                o_id = "UNKNOWN"
+                transact_time = self._time_synchronizer.time()
+            else:
+                raise
+        return o_id, transact_time
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
