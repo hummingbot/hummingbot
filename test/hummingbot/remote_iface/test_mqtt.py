@@ -715,7 +715,8 @@ class RemoteIfaceMQTTTests(TestCase):
                                     mock_mqtt):
         self.start_mqtt(mock_mqtt=mock_mqtt)
         self.assertTrue(self.gateway is not None)
-        subscribed_mqtt_topics = sorted(list([f"hbot/{self.instance_id}/{topic}" for topic in self.command_topics]))
+        subscribed_mqtt_topics = sorted(list([f"hbot/{self.instance_id}/{topic}"
+                                              for topic in (self.command_topics + ['external/event/*'])]))
         self.assertEqual(subscribed_mqtt_topics, sorted(list(self.fake_mqtt_broker.subscriptions.keys())))
 
     @patch("hummingbot.remote_iface.mqtt.mqtts_logger", None)
@@ -797,15 +798,61 @@ class RemoteIfaceMQTTTests(TestCase):
         self.gateway.stop()
         self.assertFalse(self.gateway._check_connections())
 
-    # @patch("commlib.transports.mqtt.MQTTTransport")
-    # def test_mqtt_gateway_patch_loggers(self,
-    #                                     mock_mqtt):
-    #     import logging
-    #     self.gateway.patch_loggers = self._patch_loggers_default
-    #     self.start_mqtt(mock_mqtt=mock_mqtt)
-    #     for handler in logging.getLogger().handlers:
-    #         if handler.name == 'MQTTLogHandler':
-    #             self.assertTrue(1)
-    #             return
-    #     self.assertTrue(0)
-    #     self.gateway.stop()
+    @patch("commlib.transports.mqtt.MQTTTransport")
+    def test_eevent_queue_factory(self,
+                                  mock_mqtt):
+        self.start_mqtt(mock_mqtt=mock_mqtt)
+        from hummingbot.remote_iface.mqtt import ExternalEventFactory
+        queue = ExternalEventFactory.create_queue('test')
+        self.assertTrue(queue is not None)
+
+    @patch("commlib.transports.mqtt.MQTTTransport")
+    def test_eevent_listener_factory(self,
+                                     mock_mqtt):
+        self.start_mqtt(mock_mqtt=mock_mqtt)
+        from hummingbot.remote_iface.mqtt import ExternalEventFactory
+
+        def clb(msg, event_name):
+            pass
+
+        ExternalEventFactory.create_async('test.a.b', clb)
+
+    @patch("commlib.transports.mqtt.MQTTTransport")
+    def test_etopic_queue_factory(self,
+                                  mock_mqtt):
+        self.start_mqtt(mock_mqtt=mock_mqtt)
+        from hummingbot.remote_iface.mqtt import ExternalTopicFactory
+        queue = ExternalTopicFactory.create_queue('test/a/b')
+        self.assertTrue(queue is not None)
+
+    @patch("commlib.transports.mqtt.MQTTTransport")
+    def test_etopic_listener_factory(self,
+                                     mock_mqtt):
+        self.start_mqtt(mock_mqtt=mock_mqtt)
+        from hummingbot.remote_iface.mqtt import ExternalTopicFactory
+
+        def clb(msg, topic):
+            pass
+
+        listener = ExternalTopicFactory.create_async('test/a/b', clb)
+        self.assertTrue(listener is not None)
+
+    @patch("commlib.transports.mqtt.MQTTTransport")
+    def test_external_events_add_remove(self,
+                                        mock_mqtt):
+        self.start_mqtt(mock_mqtt=mock_mqtt)
+        from hummingbot.remote_iface.mqtt import MQTTGateway
+
+        def clb(msg, event_name):
+            pass
+
+        gw = MQTTGateway.main()
+        self.assertTrue(len(gw._external_events._listeners.get('*')) == 0)
+        gw.add_external_event_listener('*', clb)
+        self.assertTrue(len(gw._external_events._listeners.get('*')) == 1)
+        gw.remove_external_event_listener('*', clb)
+        self.assertTrue(len(gw._external_events._listeners.get('*')) == 0)
+        gw.add_external_event_listener('test.a.b', clb)
+        self.assertTrue(len(gw._external_events._listeners.get('test.a.b')) == 1)
+        gw.remove_external_event_listener('test.a.b', clb)
+        self.assertTrue(len(gw._external_events._listeners.get('test.a.b')) == 0)
