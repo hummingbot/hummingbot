@@ -7,13 +7,10 @@ from unittest.mock import AsyncMock, patch
 import grpc
 import pandas as pd
 from pyinjective.orderhash import OrderHashResponse
-from pyinjective.proto.cosmos.bank.v1beta1.query_pb2 import QueryAllBalancesResponse
-from pyinjective.proto.cosmos.base.v1beta1.coin_pb2 import Coin
 from pyinjective.proto.exchange.injective_accounts_rpc_pb2 import (
     StreamSubaccountBalanceResponse,
     SubaccountBalance,
-    SubaccountBalancesListResponse,
-    SubaccountDeposit,
+    SubaccountDeposit as Account_SubaccountDeposit,
 )
 from pyinjective.proto.exchange.injective_explorer_rpc_pb2 import (
     CosmosCoin,
@@ -21,6 +18,13 @@ from pyinjective.proto.exchange.injective_explorer_rpc_pb2 import (
     GetTxByTxHashResponse,
     StreamTxsResponse,
     TxDetailData,
+)
+from pyinjective.proto.exchange.injective_portfolio_rpc_pb2 import (
+    AccountPortfolioResponse,
+    Coin,
+    Portfolio,
+    SubaccountBalanceV2,
+    SubaccountDeposit,
 )
 from pyinjective.proto.exchange.injective_spot_exchange_rpc_pb2 import (
     MarketsResponse,
@@ -164,6 +168,7 @@ class InjectiveClientMock:
         self.injective_async_client_mock.stream_spot_trades.return_value = StreamMock()
         self.injective_async_client_mock.stream_historical_spot_orders.return_value = StreamMock()
         self.injective_async_client_mock.stream_spot_orderbooks.return_value = StreamMock()
+        self.injective_async_client_mock.stream_account_portfolio.return_value = StreamMock()
         self.injective_async_client_mock.stream_subaccount_balance.return_value = StreamMock()
         self.injective_async_client_mock.stream_txs.return_value = StreamMock()
 
@@ -507,7 +512,7 @@ class InjectiveClientMock:
         self, timestamp: float, total_balance: Decimal, available_balance: Decimal
     ):
         timestamp_ms = int(timestamp * 1e3)
-        deposit = SubaccountDeposit(
+        deposit = Account_SubaccountDeposit(
             total_balance=str(total_balance * Decimal(f"1e{self.base_decimals}")),
             available_balance=str(available_balance * Decimal(f"1e{self.base_decimals}")),
         )
@@ -525,7 +530,7 @@ class InjectiveClientMock:
 
     def configure_faulty_base_balance_stream_event(self, timestamp: float):
         timestamp_ms = int(timestamp * 1e3)
-        deposit = SubaccountDeposit(
+        deposit = Account_SubaccountDeposit(
             total_balance="",
             available_balance="",
         )
@@ -842,49 +847,65 @@ class InjectiveClientMock:
         )
         return order
 
-    def configure_get_account_balances_list_response(
-        self,
-        base_total_balance: Decimal,
-        base_available_balance: Decimal,
-        quote_total_balance: Decimal,
-        quote_available_balance: Decimal,
+    def configure_get_account_portfolio_response(
+            self,
+            base_total_balance: Decimal,
+            base_available_balance: Decimal,
+            quote_total_balance: Decimal,
+            quote_available_balance: Decimal,
     ):
-        balances_response = SubaccountBalancesListResponse()
+        pass
+
+    def configure_get_account_balances_response(
+        self,
+        base_bank_balance: Decimal = s_decimal_0,
+        quote_bank_balance: Decimal = s_decimal_0,
+        base_total_balance: Decimal = s_decimal_0,
+        base_available_balance: Decimal = s_decimal_0,
+        quote_total_balance: Decimal = s_decimal_0,
+        quote_available_balance: Decimal = s_decimal_0,
+    ):
+        subaccount_list = []
+        bank_coin_list = []
 
         if base_total_balance != s_decimal_0:
             base_deposit = SubaccountDeposit(
                 total_balance=str(base_total_balance * Decimal(f"1e{self.base_decimals}")),
                 available_balance=str(base_available_balance * Decimal(f"1e{self.base_decimals}")),
             )
-            base_balance = SubaccountBalance(
+            base_balance = SubaccountBalanceV2(
                 subaccount_id=self.sub_account_id,
-                account_address="someAccountAddress",
                 denom=self.base_denom,
                 deposit=base_deposit
             )
-            balances_response.balances.append(base_balance)
+            subaccount_list.append(base_balance)
 
         if quote_total_balance != s_decimal_0:
             quote_deposit = SubaccountDeposit(
-                total_balance=str(quote_total_balance * Decimal(f"1e{self.quote_decimals}")),
-                available_balance=str(quote_available_balance * Decimal(f"1e{self.quote_decimals}")),
+                total_balance = str(quote_total_balance * Decimal(f"1e{self.quote_decimals}")),
+                available_balance = str(quote_available_balance * Decimal(f"1e{self.quote_decimals}")),
             )
-            quote_balance = SubaccountBalance(
+            quote_balance = SubaccountBalanceV2(
                 subaccount_id=self.sub_account_id,
-                account_address="someAccountAddress",
                 denom=self.quote_denom,
                 deposit=quote_deposit,
             )
-            balances_response.balances.append(quote_balance)
+            subaccount_list.append(quote_balance)
 
-        self.injective_async_client_mock.get_subaccount_balances_list.return_value = balances_response
+        if base_bank_balance != s_decimal_0:
+            base_scaled_amount = str(base_bank_balance * Decimal(f"1e{self.base_decimals}"))
+            coin = Coin(amount=base_scaled_amount, denom=self.base_denom)
+            bank_coin_list.append(coin)
 
-    def configure_get_bank_balances_response(self, base_balance: Decimal):
-        base_scaled_amount = str(base_balance * Decimal(f"1e{self.base_decimals}"))
-        coin = Coin(amount=base_scaled_amount, denom=self.base_denom)
-        bank_balances_response = QueryAllBalancesResponse()
-        bank_balances_response.balances.append(coin)
-        self.injective_async_client_mock.get_bank_balances.return_value = bank_balances_response
+        if quote_bank_balance != s_decimal_0:
+            quote_scaled_amount = str(quote_bank_balance * Decimal(f"1e{self.quote_decimals}"))
+            coin = Coin(amount=quote_scaled_amount, denom=self.quote_denom)
+            bank_coin_list.append(coin)
+
+        portfolio = Portfolio(account_address="someAccountAddress", bank_balances=bank_coin_list,
+                              subaccounts=subaccount_list)
+
+        self.injective_async_client_mock.get_account_portfolio.return_value = AccountPortfolioResponse(portfolio=portfolio)
 
     def configure_get_tx_by_hash_creation_response(
         self,
