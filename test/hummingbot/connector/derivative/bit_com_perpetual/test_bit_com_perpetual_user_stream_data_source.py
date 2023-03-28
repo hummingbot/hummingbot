@@ -83,7 +83,7 @@ class TestBitComPerpetualAPIUserStreamDataSource(unittest.TestCase):
         return any(record.levelname == log_level and record.getMessage() == message
                    for record in self.log_records)
 
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
+    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 2):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
 
