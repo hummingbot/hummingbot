@@ -67,10 +67,6 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
     def events_are_streamed(self) -> bool:
         return False
 
-    @property
-    def current_block_time(self) -> float:
-        return CONSTANTS.CURRENT_BLOCK_TIME
-
     async def start(self):
         signer = WalletSigner(
             chain=self._chain,

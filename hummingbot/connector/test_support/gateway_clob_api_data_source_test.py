@@ -502,10 +502,7 @@ class AbstractGatewayCLOBAPIDataSourceTests:
         )
         def test_place_order(self, sleep_mock: AsyncMock):
             def sleep_mock_side_effect(delay):
-                if delay == self.data_source.current_block_time:
-                    return None
-                else:
-                    raise Exception
+                raise Exception
 
             sleep_mock.side_effect = sleep_mock_side_effect
 
@@ -556,10 +553,7 @@ class AbstractGatewayCLOBAPIDataSourceTests:
         )
         def test_batch_order_create(self, sleep_mock: AsyncMock):
             def sleep_mock_side_effect(delay):
-                if delay == self.data_source.current_block_time:
-                    return None
-                else:
-                    raise Exception
+                raise Exception
 
             sleep_mock.side_effect = sleep_mock_side_effect
 

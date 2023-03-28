@@ -64,12 +64,6 @@ class GatewayCLOBAPIDataSourceBase(CLOBAPIDataSourceBase, ABC):
     def connector_name(self) -> str:
         ...
 
-    @property
-    @abstractmethod
-    def current_block_time(self) -> float:
-        """How much time, in seconds, does it take for a new block to be added to the chain."""
-        ...
-
     @abstractmethod
     def get_supported_order_types(self) -> List[OrderType]:
         ...
