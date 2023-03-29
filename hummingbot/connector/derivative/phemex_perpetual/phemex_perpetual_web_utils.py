@@ -21,20 +21,29 @@ class PhemexPerpetualRESTPreProcessor(RESTPreProcessorBase):
         return request
 
 
-def rest_url(path_url: str, domain: str = "phemex_perpetual"):
-    base_url = CONSTANTS.PERPETUAL_BASE_URL if domain == "phemex_perpetual" else CONSTANTS.TESTNET_BASE_URL
+def public_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
+    base_url = CONSTANTS.BASE_URLS[domain]
     return base_url + path_url
 
 
-def wss_url(endpoint: str, domain: str = "phemex_perpetual"):
-    base_ws_url = CONSTANTS.PERPETUAL_WS_URL if domain == "phemex_perpetual" else CONSTANTS.TESTNET_WS_URL
+def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
+    return public_rest_url(path_url=path_url, domain=domain)
+
+
+def rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN):
+    base_url = CONSTANTS.BASE_URLS[domain]
+    return base_url + path_url
+
+
+def wss_url(endpoint: str, domain: str = CONSTANTS.DEFAULT_DOMAIN):
+    base_ws_url = CONSTANTS.WSS_URLS[domain]
     return base_ws_url + endpoint
 
 
 def build_api_factory(
         throttler: Optional[AsyncThrottler] = None,
         time_synchronizer: Optional[TimeSynchronizer] = None,
-        domain: str = CONSTANTS.DOMAIN,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
         time_provider: Optional[Callable] = None,
         auth: Optional[AuthBase] = None) -> WebAssistantsFactory:
     throttler = throttler or create_throttler()
@@ -66,13 +75,13 @@ def create_throttler() -> AsyncThrottler:
 
 async def get_current_server_time(
         throttler: Optional[AsyncThrottler] = None,
-        domain: str = CONSTANTS.DOMAIN,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
 ) -> float:
     throttler = throttler or create_throttler()
     api_factory = build_api_factory_without_time_synchronizer_pre_processor(throttler=throttler)
     rest_assistant = await api_factory.get_rest_assistant()
     response = await rest_assistant.execute_request(
-        url=rest_url(path_url=CONSTANTS.SERVER_TIME_PATH_URL, domain=domain),
+        url=public_rest_url(path_url=CONSTANTS.SERVER_TIME_PATH_URL, domain=domain),
         method=RESTMethod.GET,
         throttler_limit_id=CONSTANTS.SERVER_TIME_PATH_URL,
     )

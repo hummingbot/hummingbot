@@ -36,9 +36,16 @@ class PhemexPerpetualAuthUnitTests(unittest.TestCase):
     def _get_test_payload(self, is_get: bool = True):
         payload = ""
         if is_get is True:
-            payload += self.path + urlencode(dict(copy.deepcopy(self.test_params))) + str(int(self.emulated_time) + CONSTANTS.ONE_MINUTE)
+            payload += (
+                self.path
+                + urlencode(dict(copy.deepcopy(self.test_params)))
+                + str(int(self.emulated_time) + CONSTANTS.ONE_MINUTE))
         else:
-            payload += self.path + str(int(self.emulated_time) + CONSTANTS.ONE_MINUTE) + json.dumps(copy.deepcopy(self.test_params))
+            payload += (
+                self.path
+                + str(int(self.emulated_time) + CONSTANTS.ONE_MINUTE)
+                + json.dumps(copy.deepcopy(self.test_params))
+            )
         return payload
 
     def _get_signature_from_test_payload(self, is_get: bool = True):
@@ -74,7 +81,7 @@ class PhemexPerpetualAuthUnitTests(unittest.TestCase):
 
     def test_rest_authenticate_data_provided(self):
         request: RESTRequest = RESTRequest(
-            method=RESTMethod.POST, url=self.path, data=copy.deepcopy(self.test_params), is_auth_required=True
+            method=RESTMethod.POST, url=self.path, data=json.dumps(self.test_params), is_auth_required=True
         )
 
         signed_request: RESTRequest = self.async_run_with_timeout(self.auth.rest_authenticate(request))
@@ -82,7 +89,10 @@ class PhemexPerpetualAuthUnitTests(unittest.TestCase):
         self.assertIn("x-phemex-access-token", signed_request.headers)
         self.assertEqual(signed_request.headers["x-phemex-access-token"], self.api_key)
         self.assertIn("x-phemex-request-signature", signed_request.headers)
-        self.assertEqual(signed_request.headers["x-phemex-request-signature"], self._get_signature_from_test_payload(is_get=False))
+        self.assertEqual(
+            signed_request.headers["x-phemex-request-signature"],
+            self._get_signature_from_test_payload(is_get=False)
+        )
 
     def test_ws_authenticate(self):
         request: WSJSONRequest = WSJSONRequest(
@@ -95,9 +105,8 @@ class PhemexPerpetualAuthUnitTests(unittest.TestCase):
 
     def test_get_ws_auth_payload(self):
         auth_payload = self.auth.get_ws_auth_payload()
-        secret = bytes(self.secret_key.encode("utf-8"))
         payload = f"{self.api_key}{int(self.emulated_time) + 2}"
-        signature = hmac.new(secret, payload.encode("utf-8"), hashlib.sha256).hexdigest()
+        signature = hmac.new(self.secret_key.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
         target_auth_payload = {
             "method": "user.auth",
             "params": [

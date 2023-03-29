@@ -1,5 +1,5 @@
 import asyncio
-from typing import List, Optional
+from typing import Optional
 
 from hummingbot.connector.derivative.phemex_perpetual import (
     phemex_perpetual_constants as CONSTANTS,
@@ -19,13 +19,11 @@ class PhemexPerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
     def __init__(
         self,
         auth: PhemexPerpetualAuth,
-        trading_pairs: List[str],
         api_factory: WebAssistantsFactory,
-        domain: str = CONSTANTS.DOMAIN,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
         super().__init__()
         self._auth = auth
-        self._trading_pairs = trading_pairs
         self._api_factory = api_factory
         self._domain = domain
 

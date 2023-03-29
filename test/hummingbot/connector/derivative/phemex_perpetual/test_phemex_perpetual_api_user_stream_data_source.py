@@ -39,7 +39,7 @@ class PhemexPerpetualAPIUserStreamDataSourceTest(unittest.TestCase):
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.exchange_trading_pair = cls.base_asset + cls.quote_asset
-        cls.domain = CONSTANTS.DOMAIN
+        cls.domain = CONSTANTS.DEFAULT_DOMAIN
 
         cls.api_key = "TEST_API_KEY"
         cls.secret_key = "TEST_SECRET_KEY"
@@ -64,7 +64,6 @@ class PhemexPerpetualAPIUserStreamDataSourceTest(unittest.TestCase):
         api_factory = web_utils.build_api_factory(auth=self.auth)
         self.data_source = PhemexPerpetualAPIUserStreamDataSource(
             auth=self.auth,
-            trading_pairs=[self.trading_pair],
             api_factory=api_factory,
             domain=self.domain,
         )

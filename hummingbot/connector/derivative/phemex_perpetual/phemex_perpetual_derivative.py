@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional, Tupl
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.derivative.phemex_perpetual import (
     phemex_perpetual_constants as CONSTANTS,
+    phemex_perpetual_utils,
     phemex_perpetual_web_utils as web_utils,
 )
 from hummingbot.connector.derivative.phemex_perpetual.phemex_perpetual_api_order_book_data_source import (
@@ -14,17 +15,18 @@ from hummingbot.connector.derivative.phemex_perpetual.phemex_perpetual_api_user_
     PhemexPerpetualAPIUserStreamDataSource,
 )
 from hummingbot.connector.derivative.phemex_perpetual.phemex_perpetual_auth import PhemexPerpetualAuth
+from hummingbot.connector.exchange_base import bidict
 from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativePyBase
 from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.trade_fee import TradeFeeBase
+from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 if TYPE_CHECKING:
@@ -46,7 +48,7 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
         phemex_perpetual_api_secret: str = None,
         trading_pairs: Optional[List[str]] = None,
         trading_required: bool = True,
-        domain: str = CONSTANTS.DOMAIN,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
         self.phemex_perpetual_api_key = phemex_perpetual_api_key
         self.phemex_perpetual_secret_key = phemex_perpetual_api_secret
@@ -115,7 +117,7 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
         """
         :return a list of OrderType supported by this connector
         """
-        return [OrderType.LIMIT, OrderType.MARKET, OrderType.LIMIT_MAKER]
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
     def supported_position_modes(self):
         """
@@ -139,10 +141,12 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
         return False
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
-        return status_update_exception["bizError"] == CONSTANTS.ORDER_NOT_EXIST_ERROR_CODE
+        return "Order not found for Client ID" in str(status_update_exception)
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
-        return cancelation_exception["bizError"] in CONSTANTS.UNKNOWN_ORDER_ERROR_CODE
+        return str(CONSTANTS.ORDER_NOT_FOUND_ERROR_CODE) in str(
+            cancelation_exception
+        ) and CONSTANTS.ORDER_NOT_FOUND_ERROR_MESSAGE in str(cancelation_exception)
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
@@ -160,7 +164,6 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
         return PhemexPerpetualAPIUserStreamDataSource(
             auth=self._auth,
-            connector=self,
             api_factory=self._web_assistants_factory,
             domain=self.domain,
         )
@@ -192,7 +195,7 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
         """
         Update fees information from the exchange
         """
-        pass
+        raise NotImplementedError()
 
     async def _status_polling_loop_fetch_updates(self):
         await safe_gather(
@@ -204,7 +207,6 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
-        posSide = ""
         if self._position_mode is PositionMode.ONEWAY:
             posSide = "Merged"
         else:
@@ -213,13 +215,14 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
         cancel_result = await self._api_delete(
             path_url=CONSTANTS.CANCEL_ORDERS, params=api_params, is_auth_required=True
         )
-        if cancel_result.get("data", {}).get("bizError") == CONSTANTS.ORDER_NOT_EXIST_ERROR_CODE:
-            self.logger().debug(f"The order {order_id} does not exist or cannot be cancelled on Phemex Perpetuals. ")
-            await self._order_tracker.process_order_not_found(order_id)
-            raise IOError(cancel_result.get("data", {}).get("bizError"))
-        if cancel_result.get("code") == 0 and cancel_result.get("data", {}).get("bizError") == 0:
-            return True
-        return False
+
+        if cancel_result["code"] != CONSTANTS.SUCCESSFUL_RETURN_CODE:
+            code = cancel_result["code"]
+            message = cancel_result["msg"]
+            raise IOError(f"{code} - {message}")
+        is_order_canceled = CONSTANTS.ORDER_STATE[cancel_result["data"]["ordStatus"]] == OrderState.CANCELED
+
+        return is_order_canceled
 
     async def _place_order(
         self,
@@ -242,61 +245,122 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
             "orderQtyRq": amount_str,
             "ordType": "Market" if order_type is OrderType.MARKET else "Limit",
             "clOrdID": order_id,
+            "closeOnTrigger": position_action == PositionAction.CLOSE,
+            "reduceOnly": position_action == PositionAction.CLOSE,
         }
         if order_type.is_limit_type():
             api_params["priceRp"] = price_str
-        if order_type == OrderType.LIMIT:
-            api_params["timeInForce"] = "GoodTillCancel"
         if order_type == OrderType.LIMIT_MAKER:
             api_params["timeInForce"] = "PostOnly"
         if self._position_mode is PositionMode.ONEWAY:
             api_params["posSide"] = "Merged"
         else:
-            api_params["posSide"] = "Long" if position_action == PositionAction.OPEN else "Short"
+            if position_action == PositionAction.OPEN:
+                api_params["posSide"] = "Long" if trade_type is TradeType.BUY else "Short"
+            else:
+                api_params["posSide"] = "Short" if trade_type is TradeType.BUY else "Long"
 
         order_result = await self._api_post(path_url=CONSTANTS.PLACE_ORDERS, data=api_params, is_auth_required=True)
         o_id = str(order_result["data"]["orderID"])
         transact_time = order_result["data"]["actionTimeNs"] * 1e-9
         return o_id, transact_time
 
-    async def _all_trade_updates_for_order(self, tracked_order: InFlightOrder) -> List[TradeUpdate]:
-        trade_updates = []
+    async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
+        # Not required in Phemex because it reimplements _update_orders_fills
+        raise NotImplementedError
+
+    async def _all_trades_details(self, trading_pair: str, start_time: float) -> List[Dict[str, Any]]:
+        result = []
         try:
-            # exchange_order_id = await tracked_order.get_exchange_order_id()
-            trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
-            all_fills_response = await self._api_get(
-                path_url=CONSTANTS.ACCOUNT_TRADE_LIST_URL,
-                params={"symbol": trading_pair, "execType": 1, "limit": 200},  # Normal trades
+            symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+            result = await self._api_get(
+                path_url=CONSTANTS.GET_TRADES,
+                params={"symbol": symbol, "start": int(start_time * 1e3), "limit": 200},
                 is_auth_required=True,
             )
+        except asyncio.CancelledError:
+            raise
+        except Exception as ex:
+            self.logger().warning(f"There was an error requesting trades history for Phemex ({ex})")
 
-            for trade in all_fills_response.get("data", {}).get("rows", []):
-                # To-do: Enquire for their team how to know the order trades in trade updates are associated with - https://phemex-docs.github.io/#query-user-trade-2
-                continue
+        return result
 
-        except asyncio.TimeoutError:
-            raise IOError(
-                f"Skipped order update with order fills for {tracked_order.client_order_id} "
-                "- waiting for exchange order id."
-            )
+    async def _update_orders_fills(self, orders: List[InFlightOrder]):
+        # Reimplementing this method because Phemex does not provide an endpoint to request trades for a particular
+        # order
 
-        return trade_updates
+        if len(orders) > 0:
+            orders_by_id = dict()
+            min_order_creation_time = self.current_timestamp
+            trading_pairs = set()
+
+            for order in orders:
+                orders_by_id[order.client_order_id] = order
+                trading_pairs.add(order.trading_pair)
+                min_order_creation_time = min(min_order_creation_time, order.creation_timestamp)
+
+            tasks = [
+                safe_ensure_future(
+                    self._all_trades_details(trading_pair=trading_pair, start_time=min_order_creation_time)
+                ) for trading_pair in trading_pairs
+            ]
+
+            trades_data = []
+            results = await safe_gather(*tasks)
+            for trades_for_market in results:
+                trades_data.extend(trades_for_market)
+
+            for trade_info in trades_data:
+                client_order_id = trade_info["clOrdID"]
+                tracked_order = orders_by_id.get(client_order_id)
+
+                if tracked_order is not None:
+                    position_action = tracked_order.position
+                    fee = TradeFeeBase.new_perpetual_fee(
+                        fee_schema=self.trade_fee_schema(),
+                        position_action=position_action,
+                        percent_token=CONSTANTS.COLLATERAL_TOKEN,
+                        flat_fees=[TokenAmount(
+                            amount=Decimal(trade_info["execFeeRv"]),
+                            token=CONSTANTS.COLLATERAL_TOKEN)
+                        ],
+                    )
+                    trade_update: TradeUpdate = TradeUpdate(
+                        trade_id=trade_info["execID"],
+                        client_order_id=tracked_order.client_order_id,
+                        exchange_order_id=trade_info["orderID"],
+                        trading_pair=tracked_order.trading_pair,
+                        fill_timestamp=trade_info["transactTimeNs"] * 1e-9,
+                        fill_price=Decimal(trade_info["execPriceRp"]),
+                        fill_base_amount=Decimal(trade_info["execQtyRq"]),
+                        fill_quote_amount=Decimal(trade_info["execValueRv"]),
+                        fee=fee,
+                    )
+
+                    self._order_tracker.process_trade_update(trade_update=trade_update)
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
-        order_update = await self._api_get(
+        response = await self._api_get(
             path_url=CONSTANTS.GET_ORDERS,
             params={"symbol": trading_pair, "clOrdID": tracked_order.client_order_id},
             is_auth_required=True,
         )
-        _order_update: OrderUpdate = OrderUpdate(
+
+        orders_data = response.get("data", {}).get("rows", [])
+
+        if len(orders_data) == 0:
+            raise IOError(f"Order not found for Client ID {tracked_order.client_order_id}")
+
+        order_info = orders_data[0]
+        order_update: OrderUpdate = OrderUpdate(
             trading_pair=tracked_order.trading_pair,
-            update_timestamp=order_update["updateTime"] * 1e-3,
-            new_state=CONSTANTS.ORDER_STATE[order_update["status"]],
-            client_order_id=order_update["clientOrderId"],
-            exchange_order_id=order_update["orderId"],
+            update_timestamp=self.current_timestamp,
+            new_state=CONSTANTS.ORDER_STATE[order_info["ordStatus"]],
+            client_order_id=tracked_order.client_order_id,
+            exchange_order_id=order_info["orderId"],
         )
-        return _order_update
+        return order_update
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:
@@ -369,16 +433,44 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
         exchange_info_dict:
             Trading rules dictionary response from the exchange
         """
-        return  # To-do
+        raise NotImplementedError()
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
-        return  # To-do
+        mapping = bidict()
+        for symbol_data in filter(
+                phemex_perpetual_utils.is_exchange_information_valid,
+                exchange_info["data"]["perpProductsV2"],
+        ):
+            exchange_symbol = symbol_data["symbol"]
+            base = symbol_data["contractUnderlyingAssets"]
+            quote = symbol_data["settleCurrency"]
+            trading_pair = combine_to_hb_trading_pair(base, quote)
+            mapping[exchange_symbol] = trading_pair
+        self._set_trading_pair_symbol_map(mapping)
 
     async def _update_balances(self):
         """
         Calls the REST API to update total and available balances.
         """
-        return  # To-do
+        account_info = await self._api_get(
+            path_url=CONSTANTS.ACCOUNT_INFO,
+            params={"currency": CONSTANTS.COLLATERAL_TOKEN},
+            is_auth_required=True,
+        )
+
+        if account_info["code"] != CONSTANTS.SUCCESSFUL_RETURN_CODE:
+            code = account_info["code"]
+            message = account_info["msg"]
+            raise IOError(f"{code} - {message}")
+
+        account_data = account_info["data"]["account"]
+
+        self._account_available_balances.clear()
+        self._account_balances.clear()
+        total_balance = Decimal(str(account_data["accountBalanceRv"]))
+        locked_balance = Decimal(str(account_data["totalUsedBalanceRv"]))
+        self._account_balances[account_data["currency"]] = total_balance
+        self._account_available_balances[account_data["currency"]] = total_balance - locked_balance
 
     async def _update_positions(self):
         """
@@ -387,52 +479,17 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
         else:
             self._perpetual_trading.remove_position(pos_key)
         """
-        return  # To-do
-
-    async def _update_order_status(self):
-        """
-        Calls the REST API to get order/trade updates for each in-flight order.
-        """
-        last_tick = int(self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
-        current_tick = int(self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL)
-        if current_tick > last_tick and len(self._order_tracker.active_orders) > 0:
-            tracked_orders = list(self._order_tracker.active_orders.values())
-            tasks = [
-                self._api_request(
-                    path_url=CONSTANTS.GET_ORDERS,
-                    params={
-                        "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair),
-                        "origClientOrderId": order.client_order_id,
-                    },
-                    method=RESTMethod.GET,
-                    is_auth_required=True,
-                    return_err=True,
-                )
-                for order in tracked_orders
-            ]
-            self.logger().debug(f"Polling for order status updates of {len(tasks)} orders.")
-            results = await safe_gather(*tasks, return_exceptions=True)
-
-            for order_update, tracked_order in zip(results, tracked_orders):
-                client_order_id = tracked_order.client_order_id
-                if client_order_id not in self._order_tracker.all_orders:
-                    continue
-                if order_update["bizError"] != 0:
-                    await self._order_tracker.process_order_not_found(client_order_id)
-
-                new_order_update: OrderUpdate = OrderUpdate(
-                    trading_pair=await self.trading_pair_associated_to_exchange_symbol(order_update["symbol"]),
-                    update_timestamp=order_update["actionTimeNs"] * 1e-9,
-                    new_state=CONSTANTS.ORDER_STATE[order_update["ordStatus"]],
-                    client_order_id=order_update["clOrdId"],
-                    exchange_order_id=order_update["orderId"],
-                )
-
-                self._order_tracker.process_order_update(new_order_update)
+        raise NotImplementedError()
 
     async def _get_position_mode(self) -> Optional[PositionMode]:
         # To-do:
         pass
 
     async def _trading_pair_position_mode_set(self, mode: PositionMode, trading_pair: str) -> Tuple[bool, str]:
-        pass  # To-do
+        raise NotImplementedError()
+
+    async def _set_trading_pair_leverage(self, trading_pair: str, leverage: int) -> Tuple[bool, str]:
+        raise NotImplementedError()
+
+    async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
+        raise NotImplementedError()

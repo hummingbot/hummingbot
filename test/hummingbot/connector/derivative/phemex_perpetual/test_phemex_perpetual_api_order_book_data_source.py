@@ -16,6 +16,7 @@ from hummingbot.connector.derivative.phemex_perpetual import phemex_perpetual_we
 from hummingbot.connector.derivative.phemex_perpetual.phemex_perpetual_api_order_book_data_source import (
     PhemexPerpetualAPIOrderBookDataSource,
 )
+from hummingbot.connector.derivative.phemex_perpetual.phemex_perpetual_derivative import PhemexPerpetualDerivative
 from hummingbot.connector.derivative.phemex_perpetual.phemex_perpetual_web_utils import build_api_factory
 
 # from hummingbot.connector.derivative.phemex_perpetual.phemex_perpetual_derivative import PhemexPerpetualDerivative
@@ -118,7 +119,7 @@ class PhemexPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = f"{cls.base_asset}{cls.quote_asset}"
-        cls.domain = "phemex_perpetual_testnet"
+        cls.domain = CONSTANTS.TESTNET_DOMAIN
 
     def setUp(self) -> None:
         super().setUp()
@@ -128,16 +129,15 @@ class PhemexPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.time_synchronizer = TimeSynchronizer()
         self.time_synchronizer.add_time_offset_ms_sample(0)
-        # client_config_map = ClientConfigAdapter(ClientConfigMap())
-        self.connector = MockExchange(
-            # client_config_map,
-            # phemex_perpetual_api_key="",
-            # phemex_perpetual_api_secret="",
-            # trading_pairs=[self.trading_pair],
-            # trading_required=False,
-            # domain=self.domain,
+        client_config_map = ClientConfigAdapter(ClientConfigMap())
+        self.connector = PhemexPerpetualDerivative(
+            client_config_map=client_config_map,
+            phemex_perpetual_api_key="",
+            phemex_perpetual_api_secret="",
+            trading_pairs=[self.trading_pair],
+            trading_required=False,
+            domain=self.domain,
         )
-        # self.connector.ready = True
         self.data_source = PhemexPerpetualAPIOrderBookDataSource(
             trading_pairs=[self.trading_pair],
             connector=self.connector,
@@ -262,7 +262,7 @@ class PhemexPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_get_snapshot_exception_raised(self, mock_api):
-        url = web_utils.rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
+        url = web_utils.public_rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.get(regex_url, status=400, body=json.dumps(["ERROR"]))
 
@@ -276,7 +276,7 @@ class PhemexPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_get_snapshot_successful(self, mock_api):
-        url = web_utils.rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
+        url = web_utils.public_rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_response = {
             "error": None,
@@ -302,7 +302,7 @@ class PhemexPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_get_new_order_book(self, mock_api):
-        url = web_utils.rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
+        url = web_utils.public_rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_response = {
             "error": None,
@@ -326,7 +326,7 @@ class PhemexPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_get_funding_info_from_exchange_successful(self, mock_api):
-        url = web_utils.rest_url(CONSTANTS.MARK_PRICE_URL, domain=self.domain)
+        url = web_utils.public_rest_url(CONSTANTS.MARK_PRICE_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_response = {
@@ -360,7 +360,7 @@ class PhemexPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_get_funding_info(self, mock_api):
-        url = web_utils.rest_url(CONSTANTS.MARK_PRICE_URL, domain=self.domain)
+        url = web_utils.public_rest_url(CONSTANTS.MARK_PRICE_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_response = {
@@ -501,7 +501,7 @@ class PhemexPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_listen_for_order_book_snapshots_cancelled_error_raised(self, mock_api):
-        url = web_utils.rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
+        url = web_utils.public_rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, exception=asyncio.CancelledError)
@@ -518,7 +518,7 @@ class PhemexPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_listen_for_order_book_snapshots_logs_exception_error_with_response(self, mock_api):
-        url = web_utils.rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
+        url = web_utils.public_rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_response = {
@@ -541,7 +541,7 @@ class PhemexPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_listen_for_order_book_snapshots_successful(self, mock_api):
-        url = web_utils.rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
+        url = web_utils.public_rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_response = {
@@ -577,7 +577,7 @@ class PhemexPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     def test_listen_for_funding_info_cancelled_error_raised(self):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.CancelledError
-        self.data_source._message_queue[CONSTANTS.FUNDING_INFO_STREAM_METHOD] = mock_queue
+        self.data_source._message_queue[self.data_source._funding_info_messages_queue_key] = mock_queue
 
         with self.assertRaises(asyncio.CancelledError):
             self.async_run_with_timeout(self.data_source.listen_for_funding_info(mock_queue))
