@@ -84,6 +84,8 @@ See the [Scripts](https://docs.hummingbot.org/scripts/) section in the documenta
 * [Hummingbot StreamLit Apps](https://github.com/hummingbot/streamlit-apps): Hummingbot-related StreamLit data apps and dashboards
 * [Community Tools](https://github.com/hummingbot/community-tools): Community contributed resources related to Hummingbot
 * [Brokers](https://github.com/hummingbot/brokers): Different brokers that can be used to communicate with multiple instances of Hummingbot
+* [Deploy Examples](https://github.com/hummingbot/deploy-examples): Deploy Hummingbot in various configurations with Docker
+* [Remote Client](https://github.com/hummingbot/hbot-remote-client-py): A remote client for Hummingbot in Python
 
 ## Contributions
 
