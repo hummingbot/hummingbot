@@ -8,16 +8,14 @@ from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange_base import TradeType
 from hummingbot.connector.exchange_py_base import ExchangePyBase
-from hummingbot.connector.gateway.clob_spot.data_sources.gateway_clob_api_data_source_base import (
-    GatewayCLOBAPIDataSourceBase,
-)
+from hummingbot.connector.gateway.clob_spot.data_sources.gateway_clob_api_data_source_base import CLOBAPIDataSourceBase
 from hummingbot.connector.gateway.clob_spot.gateway_clob_api_order_book_data_source import (
     GatewayCLOBSPOTAPIOrderBookDataSource,
 )
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.gateway.gateway_order_tracker import GatewayOrderTracker
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
+from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType
@@ -35,6 +33,7 @@ from hummingbot.core.event.events import AccountEvent, BalanceUpdateEvent, Marke
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.estimate_fee import build_trade_fee
+from hummingbot.core.utils.tracking_nonce import NonceCreator
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
@@ -46,7 +45,7 @@ class GatewayCLOBSPOT(ExchangePyBase):
     def __init__(
         self,
         client_config_map: "ClientConfigAdapter",
-        api_data_source: GatewayCLOBAPIDataSourceBase,
+        api_data_source: CLOBAPIDataSourceBase,
         connector_name: str,
         chain: str,
         network: str,
@@ -63,9 +62,11 @@ class GatewayCLOBSPOT(ExchangePyBase):
         self._trading_pairs = trading_pairs or []
         self._trading_required = trading_required
         self._api_data_source = api_data_source
+        self._real_time_balance_update = self._api_data_source.real_time_balance_update
         self._trading_fees: Dict[str, MakerTakerExchangeFeeRates] = {}
         self._last_received_message_timestamp = 0
         self._forwarders: List[EventForwarder] = []
+        self._nonce_provider: Optional[NonceCreator] = NonceCreator.for_milliseconds()
 
         self._add_forwarders()
 
@@ -145,6 +146,12 @@ class GatewayCLOBSPOT(ExchangePyBase):
     def trading_fees(self) -> Mapping[str, MakerTakerExchangeFeeRates]:
         return deepcopy(self._trading_fees)
 
+    @property
+    def status_dict(self) -> Dict[str, bool]:
+        sd = super().status_dict
+        sd["api_data_source_initialized"] = self._api_data_source.ready
+        return sd
+
     async def start_network(self):
         await self._api_data_source.start()
         await super().start_network()
@@ -160,7 +167,7 @@ class GatewayCLOBSPOT(ExchangePyBase):
         """
         last_recv_diff = timestamp - self._last_received_message_timestamp
         poll_interval = (self.SHORT_POLL_INTERVAL
-                         if last_recv_diff > self.TICK_INTERVAL_LIMIT
+                         if last_recv_diff > self.TICK_INTERVAL_LIMIT or not self._api_data_source.events_are_streamed
                          else self.LONG_POLL_INTERVAL)
         last_tick = int(self._last_timestamp / poll_interval)
         current_tick = int(timestamp / poll_interval)
@@ -195,6 +202,68 @@ class GatewayCLOBSPOT(ExchangePyBase):
             )
         )
 
+    def buy(self,
+            trading_pair: str,
+            amount: Decimal,
+            order_type=OrderType.LIMIT,
+            price: Decimal = s_decimal_NaN,
+            **kwargs) -> str:
+        """
+        Creates a promise to create a buy order using the parameters
+
+        :param trading_pair: the token pair to operate with
+        :param amount: the order amount
+        :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
+        :param price: the order price
+
+        :return: the id assigned by the connector to the order (the client id)
+        """
+        order_id = self._api_data_source.get_client_order_id(
+            is_buy=True,
+            trading_pair=trading_pair,
+            hbot_order_id_prefix=self.client_order_id_prefix,
+            max_id_len=self.client_order_id_max_length,
+        )
+        safe_ensure_future(self._create_order(
+            trade_type=TradeType.BUY,
+            order_id=order_id,
+            trading_pair=trading_pair,
+            amount=amount,
+            order_type=order_type,
+            price=price,
+            **kwargs))
+        return order_id
+
+    def sell(self,
+             trading_pair: str,
+             amount: Decimal,
+             order_type: OrderType = OrderType.LIMIT,
+             price: Decimal = s_decimal_NaN,
+             **kwargs) -> str:
+        """
+        Creates a promise to create a sell order using the parameters.
+        :param trading_pair: the token pair to operate with
+        :param amount: the order amount
+        :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
+        :param price: the order price
+        :return: the id assigned by the connector to the order (the client id)
+        """
+        order_id = self._api_data_source.get_client_order_id(
+            is_buy=False,
+            trading_pair=trading_pair,
+            hbot_order_id_prefix=self.client_order_id_prefix,
+            max_id_len=self.client_order_id_max_length,
+        )
+        safe_ensure_future(self._create_order(
+            trade_type=TradeType.SELL,
+            order_id=order_id,
+            trading_pair=trading_pair,
+            amount=amount,
+            order_type=order_type,
+            price=price,
+            **kwargs))
+        return order_id
+
     def batch_order_create(self, orders_to_create: List[LimitOrder]) -> List[LimitOrder]:
         """
         Issues a batch order creation as a single API request for exchanges that implement this feature. The default
@@ -206,11 +275,11 @@ class GatewayCLOBSPOT(ExchangePyBase):
         """
         orders_with_ids_to_create = []
         for order in orders_to_create:
-            client_order_id = get_new_client_order_id(
+            client_order_id = self._api_data_source.get_client_order_id(
                 is_buy=order.is_buy,
                 trading_pair=order.trading_pair,
                 hbot_order_id_prefix=self.client_order_id_prefix,
-                max_id_len=self.client_order_id_max_length
+                max_id_len=self.client_order_id_max_length,
             )
             orders_with_ids_to_create.append(
                 LimitOrder(
