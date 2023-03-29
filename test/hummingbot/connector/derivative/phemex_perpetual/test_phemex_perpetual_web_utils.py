@@ -48,29 +48,29 @@ class PhemexPerpetualWebUtilsUnitTests(unittest.TestCase):
     def test_rest_url_main_domain(self):
         path_url = "/TEST_PATH_URL"
 
-        expected_url = f"{CONSTANTS.PERPETUAL_BASE_URL}{path_url}"
-        self.assertEqual(expected_url, web_utils.rest_url(path_url))
-        self.assertEqual(expected_url, web_utils.rest_url(path_url))
+        expected_url = f"{CONSTANTS.BASE_URLS[CONSTANTS.DEFAULT_DOMAIN]}{path_url}"
+        self.assertEqual(expected_url, web_utils.public_rest_url(path_url))
+        self.assertEqual(expected_url, web_utils.public_rest_url(path_url))
 
     def test_rest_url_testnet_domain(self):
         path_url = "/TEST_PATH_URL"
 
-        expected_url = f"{CONSTANTS.TESTNET_BASE_URL}{path_url}"
+        expected_url = f"{CONSTANTS.BASE_URLS[CONSTANTS.TESTNET_DOMAIN]}{path_url}"
         self.assertEqual(
-            expected_url, web_utils.rest_url(path_url=path_url, domain="testnet")
+            expected_url, web_utils.public_rest_url(path_url=path_url, domain=CONSTANTS.TESTNET_DOMAIN)
         )
 
     def test_wss_url_main_domain(self):
         endpoint = "TEST_SUBSCRIBE"
 
-        expected_url = f"{CONSTANTS.PERPETUAL_WS_URL}{endpoint}"
+        expected_url = f"{CONSTANTS.WSS_URLS[CONSTANTS.DEFAULT_DOMAIN]}{endpoint}"
         self.assertEqual(expected_url, web_utils.wss_url(endpoint=endpoint))
 
     def test_wss_url_testnet_domain(self):
         endpoint = "TEST_SUBSCRIBE"
 
-        expected_url = f"{CONSTANTS.TESTNET_WS_URL}{endpoint}"
-        self.assertEqual(expected_url, web_utils.wss_url(endpoint=endpoint, domain="testnet"))
+        expected_url = f"{CONSTANTS.WSS_URLS[CONSTANTS.TESTNET_DOMAIN]}{endpoint}"
+        self.assertEqual(expected_url, web_utils.wss_url(endpoint=endpoint, domain=CONSTANTS.TESTNET_DOMAIN))
 
     def test_build_api_factory(self):
         api_factory = web_utils.build_api_factory(

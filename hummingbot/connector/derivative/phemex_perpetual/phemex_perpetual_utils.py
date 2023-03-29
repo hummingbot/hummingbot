@@ -1,19 +1,27 @@
 from decimal import Decimal
+from typing import Any, Dict
 
 from pydantic import Field, SecretStr
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
+from hummingbot.connector.derivative.phemex_perpetual import phemex_perpetual_constants as CONSTANTS
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 DEFAULT_FEES = TradeFeeSchema(
-    maker_percent_fee_decimal=Decimal("0.01"),
-    taker_percent_fee_decimal=Decimal("0.06"),
-    buy_percent_fee_deducted_from_returns=True
+    percent_fee_token=CONSTANTS.COLLATERAL_TOKEN,
+    maker_percent_fee_decimal=Decimal("0.0001"),
+    taker_percent_fee_decimal=Decimal("0.0006"),
 )
 
 CENTRALIZED = True
 
 EXAMPLE_PAIR = "BTC-USDT"
+
+
+def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
+    status = exchange_info.get("status")
+    valid = status == "Listed"
+    return valid
 
 
 class PhemexPerpetualConfigMap(BaseConnectorConfigMap):

@@ -4,19 +4,27 @@ from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, Rate
 from hummingbot.core.data_type.in_flight_order import OrderState
 
 EXCHANGE_NAME = "phemex_perpetual"
+MAX_ORDER_ID_LEN = 40
 
-DOMAIN = EXCHANGE_NAME
+DEFAULT_DOMAIN = ""
+TESTNET_DOMAIN = "phemex_testnet"
 
-PERPETUAL_BASE_URL = "https://api.phemex.com"
-TESTNET_BASE_URL = "https://testnet-api.phemex.com"
+BASE_URLS = {
+    DEFAULT_DOMAIN: "https://api.phemex.com",
+    TESTNET_DOMAIN: "https://testnet-api.phemex.com",
+}
 
-PERPETUAL_WS_URL = "wss://phemex.com"
-TESTNET_WS_URL = "wss://testnet.phemex.com"
+WSS_URLS = {
+    DEFAULT_DOMAIN: "wss://phemex.com",
+    TESTNET_DOMAIN: "wss://testnet.phemex.com",
+}
 
 PUBLIC_WS_ENDPOINT = "/ws"
 PRIVATE_WS_ENDPOINT = "/ws"
 
 WS_HEARTBEAT = 5  # https://phemex-docs.github.io/#heartbeat
+
+COLLATERAL_TOKEN = "USDT"
 
 # Public API Endpoints
 SNAPSHOT_REST_URL = "/md/v2/orderbook"
@@ -27,24 +35,12 @@ MARK_PRICE_URL = TICKER_PRICE_URL
 EXCHANGE_INFO_URL = "/public/products"
 
 # Private API Endpoints
+ACCOUNT_INFO = "/g-accounts/accountPositions"
 PLACE_ORDERS = "/g-orders"
 CANCEL_ORDERS = "/g-orders/cancel"
 GET_ORDERS = "/api-data/g-futures/orders/by-order-id"
-ACCOUNT_TRADE_LIST_URL = "/exchange/order/v2/tradingList"
+GET_TRADES = "/api-data/g-futures/trades"
 
-ORDER_NOT_EXIST_ERROR_CODE = 10002
-UNKNOWN_ORDER_ERROR_CODE = [10003, 10004, 10005]
-
-# Order Statuses
-ORDER_STATE = {
-    "Created": OrderState.OPEN,
-    "Init": OrderState.OPEN,
-    "Rejected": OrderState.FAILED,
-    "New": OrderState.OPEN,
-    "PartiallyFilled": OrderState.PARTIALLY_FILLED,
-    "Filled": OrderState.FILLED,
-    "Canceled": OrderState.CANCELED,
-}
 
 # Funding Settlement Time Span
 FUNDING_SETTLEMENT_DURATION = (0, 30)  # seconds before snapshot, seconds after snapshot
@@ -52,7 +48,7 @@ FUNDING_SETTLEMENT_DURATION = (0, 30)  # seconds before snapshot, seconds after 
 
 # Rate Limit Type
 REQUEST_WEIGHT = "REQUEST_WEIGHT"
-ORDERS_1MIN = "ORDERS_1MIN"
+API_CONTRACT_GENERAL_LIMIT = "API_CONTRACT_GENERAL_LIMIT"
 WSS_CONNECTION_LIMIT_ID = "phemexWSSConnectionLimitID"
 WSS_MESSAGE_LIMIT_ID = "phemexWSSMessageLimitID"
 
@@ -70,33 +66,50 @@ ONE_DAY = 86400
 MAX_REQUEST = 5000
 NO_LIMIT = sys.maxsize
 
-MAX_ORDER_ID_LEN = 40
 
 RATE_LIMITS = [
     # Pool Limits
     RateLimit(limit_id=REQUEST_WEIGHT, limit=100, time_interval=ONE_MINUTE),
-    RateLimit(limit_id=ORDERS_1MIN, limit=500, time_interval=ONE_MINUTE),
-    # Weight Limits for individual endpoints
-    RateLimit(limit_id=SNAPSHOT_REST_URL, limit=100, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
-    RateLimit(limit_id=TICKER_PRICE_URL, limit=100, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
-    RateLimit(limit_id=TICKER_PRICE_CHANGE_URL, limit=100, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
-    RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=100, time_interval=ONE_MINUTE,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
-    RateLimit(limit_id=MARK_PRICE_URL, limit=100, time_interval=ONE_MINUTE, weight=1,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
-    RateLimit(limit_id=EXCHANGE_INFO_URL, limit=100, time_interval=ONE_MINUTE, weight=1,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
-    RateLimit(limit_id=PLACE_ORDERS, limit=500, time_interval=ONE_MINUTE, weight=1,
-              linked_limits=[LinkedLimitWeightPair(ORDERS_1MIN, weight=1)]),
-    RateLimit(limit_id=CANCEL_ORDERS, limit=500, time_interval=ONE_MINUTE, weight=1,
-              linked_limits=[LinkedLimitWeightPair(ORDERS_1MIN, weight=1)]),
-    RateLimit(limit_id=GET_ORDERS, limit=500, time_interval=ONE_MINUTE, weight=1,
-              linked_limits=[LinkedLimitWeightPair(ORDERS_1MIN, weight=1)]),
-    RateLimit(limit_id=ACCOUNT_TRADE_LIST_URL, limit=500, time_interval=ONE_MINUTE, weight=1,
-              linked_limits=[LinkedLimitWeightPair(ORDERS_1MIN, weight=1)]),
+    RateLimit(limit_id=API_CONTRACT_GENERAL_LIMIT, limit=500, time_interval=ONE_MINUTE),
+    # WSS rate limits
     RateLimit(limit_id=WSS_CONNECTION_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
     RateLimit(limit_id=WSS_MESSAGE_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
+    # Weight Limits for individual endpoints
+    RateLimit(limit_id=SNAPSHOT_REST_URL, limit=NO_LIMIT, time_interval=ONE_SECOND,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT)]),
+    RateLimit(limit_id=TICKER_PRICE_URL, limit=NO_LIMIT, time_interval=ONE_SECOND,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT)]),
+    RateLimit(limit_id=TICKER_PRICE_CHANGE_URL, limit=NO_LIMIT, time_interval=ONE_SECOND,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT)]),
+    RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=NO_LIMIT, time_interval=ONE_SECOND,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT)]),
+    RateLimit(limit_id=MARK_PRICE_URL, limit=NO_LIMIT, time_interval=ONE_SECOND,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT)]),
+    RateLimit(limit_id=EXCHANGE_INFO_URL, limit=NO_LIMIT, time_interval=ONE_SECOND,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT)]),
+    RateLimit(limit_id=ACCOUNT_INFO, limit=NO_LIMIT, time_interval=ONE_SECOND,
+              linked_limits=[LinkedLimitWeightPair(API_CONTRACT_GENERAL_LIMIT)]),
+    RateLimit(limit_id=PLACE_ORDERS, limit=NO_LIMIT, time_interval=ONE_SECOND,
+              linked_limits=[LinkedLimitWeightPair(API_CONTRACT_GENERAL_LIMIT)]),
+    RateLimit(limit_id=CANCEL_ORDERS, limit=NO_LIMIT, time_interval=ONE_SECOND,
+              linked_limits=[LinkedLimitWeightPair(API_CONTRACT_GENERAL_LIMIT)]),
+    RateLimit(limit_id=GET_ORDERS, limit=NO_LIMIT, time_interval=ONE_SECOND,
+              linked_limits=[LinkedLimitWeightPair(API_CONTRACT_GENERAL_LIMIT)]),
+    RateLimit(limit_id=GET_TRADES, limit=NO_LIMIT, time_interval=ONE_SECOND,
+              linked_limits=[LinkedLimitWeightPair(API_CONTRACT_GENERAL_LIMIT)]),
 ]
+
+# Order Statuses
+ORDER_STATE = {
+    "Created": OrderState.PENDING_CREATE,
+    "Init": OrderState.PENDING_CREATE,
+    "New": OrderState.OPEN,
+    "PartiallyFilled": OrderState.PARTIALLY_FILLED,
+    "Filled": OrderState.FILLED,
+    "Canceled": OrderState.CANCELED,
+    "Rejected": OrderState.FAILED,
+}
+
+SUCCESSFUL_RETURN_CODE = 0
+ORDER_NOT_FOUND_ERROR_CODE = 10002
+ORDER_NOT_FOUND_ERROR_MESSAGE = "OM_ORDER_NOT_FOUND"

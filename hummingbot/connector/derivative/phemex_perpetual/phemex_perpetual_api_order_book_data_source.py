@@ -34,7 +34,7 @@ class PhemexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         trading_pairs: List[str],
         connector: "PhemexPerpetualDerivative",
         api_factory: WebAssistantsFactory,
-        domain: str = CONSTANTS.DOMAIN,
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
         super().__init__(trading_pairs)
         self._connector = connector
