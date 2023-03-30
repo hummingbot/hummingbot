@@ -217,6 +217,12 @@ class MQTTCommands:
                         invalid_params.append(param[0])
                 if len(invalid_params):
                     raise ValueError(f'Invalid param key(s): {invalid_params}')
+            strategy_config = self._hb_app.strategy_config_map
+            client_config = self._hb_app.client_config_map
+            response.config = {
+                "client": client_config.dict() if client_config is not None else {},
+                "strategy": strategy_config.dict() if strategy_config is not None else {}
+            }
         except Exception as e:
             response.status = MQTT_STATUS_CODE.ERROR
             response.msg = str(e)
