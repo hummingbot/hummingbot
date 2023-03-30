@@ -57,6 +57,7 @@ POSITION_INFORMATION_URL = "/linear/v1/positions"
 # Order Statuses
 
 ORDER_STATE = {
+    "pending": OrderState.OPEN,
     "open": OrderState.OPEN,
     "filled": OrderState.FILLED,
     "cancelled": OrderState.CANCELED,

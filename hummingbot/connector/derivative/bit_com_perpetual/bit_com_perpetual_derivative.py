@@ -335,8 +335,7 @@ class BitComPerpetualDerivative(PerpetualDerivativePyBase):
         _order_update: OrderUpdate = OrderUpdate(
             trading_pair=tracked_order.trading_pair,
             update_timestamp=order_update["data"][0]["updated_at"] * 1e-3,
-            new_state=CONSTANTS.ORDER_STATE[
-                current_state] if current_state != "pending" else tracked_order.current_state,
+            new_state=CONSTANTS.ORDER_STATE[current_state],
             client_order_id=order_update["data"][0]["label"],
             exchange_order_id=order_update["data"][0]["order_id"],
         )
@@ -478,8 +477,7 @@ class BitComPerpetualDerivative(PerpetualDerivativePyBase):
         order_update: OrderUpdate = OrderUpdate(
             trading_pair=tracked_order.trading_pair,
             update_timestamp=order_msg["updated_at"] * 1e-3,
-            new_state=CONSTANTS.ORDER_STATE[
-                current_state] if current_state != "pending" else tracked_order.current_state,
+            new_state=CONSTANTS.ORDER_STATE[current_state],
             client_order_id=order_msg["label"],
             exchange_order_id=order_msg["order_id"],
         )
