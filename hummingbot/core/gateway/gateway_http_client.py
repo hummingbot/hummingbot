@@ -1228,3 +1228,16 @@ class GatewayHttpClient:
                 } for order in orders_to_cancel
             ]
         return await self.api_request("post", "clob/batchOrders", request_payload)
+
+    async def clob_injective_balances(
+        self,
+        chain: str,
+        network: str,
+        address: str
+    ):
+        request_payload = {
+            "chain": chain,
+            "network": network,
+            "address": address,
+        }
+        return await self.api_request("post", "injective/balances", request_payload)
