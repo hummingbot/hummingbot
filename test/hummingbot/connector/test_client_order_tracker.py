@@ -1082,3 +1082,12 @@ class ClientOrderTrackerUnitTest(unittest.TestCase):
 
         self.assertTrue(order.is_failure)
         self.assertIn(order.client_order_id, self.tracker.lost_orders)
+
+    def test_setting_lost_order_count_limit(self):
+        self.tracker.lost_order_count_limit = 1
+
+        self.assertEqual(1, self.tracker.lost_order_count_limit)
+
+        self.tracker.lost_order_count_limit = 2
+
+        self.assertEqual(2, self.tracker.lost_order_count_limit)

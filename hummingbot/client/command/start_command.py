@@ -57,7 +57,7 @@ class StartCommand(GatewayChainApiManager):
               script: Optional[str] = None,
               is_quickstart: Optional[bool] = False):
         if threading.current_thread() != threading.main_thread():
-            self.ev_loop.call_soon_threadsafe(self.start, log_level)
+            self.ev_loop.call_soon_threadsafe(self.start, log_level, script)
             return
         safe_ensure_future(self.start_check(log_level, script, is_quickstart), loop=self.ev_loop)
 
@@ -138,7 +138,7 @@ class StartCommand(GatewayChainApiManager):
                     data: List[List[str]] = [
                         ["chain", connector_details['chain']],
                         ["network", connector_details['network']],
-                        ["wallet_address", connector_details['wallet_address']]
+                        ["address", connector_details['address']]
                     ]
 
                     # check for node URL

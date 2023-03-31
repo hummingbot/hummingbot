@@ -43,12 +43,13 @@ cdef class TradingRule:
                f"min_order_size={self.min_order_size}, " \
                f"max_order_size={self.max_order_size}, " \
                f"min_price_increment={self.min_price_increment}, " \
-               f"min_base_amount_increment={self.min_base_amount_increment}), " \
-               f"min_quote_amount_increment={self.min_quote_amount_increment}), " \
-               f"min_notional_size={self.min_notional_size}), " \
-               f"min_order_value={self.min_order_value}), " \
-               f"max_price_significant_digits={self.max_price_significant_digits}), " \
-               f"supports_limit_orders={self.supports_limit_orders}), " \
+               f"min_base_amount_increment={self.min_base_amount_increment}, " \
+               f"min_quote_amount_increment={self.min_quote_amount_increment}, " \
+               f"min_notional_size={self.min_notional_size}, " \
+               f"min_order_value={self.min_order_value}, " \
+               f"max_price_significant_digits={self.max_price_significant_digits}, " \
+               f"supports_limit_orders={self.supports_limit_orders}, " \
                f"supports_market_orders={self.supports_market_orders}, " \
                f"buy_order_collateral_token={self.buy_order_collateral_token}, " \
-               f"sell_order_collateral_token={self.sell_order_collateral_token})"
+               f"sell_order_collateral_token={self.sell_order_collateral_token}," \
+               f")"
