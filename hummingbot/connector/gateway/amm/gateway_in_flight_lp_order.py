@@ -1,14 +1,14 @@
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
-from hummingbot.connector.gateway.amm.evm_in_flight_order import EVMInFlightOrder
+from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.data_type.common import LPType, OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState
 
 s_decimal_0 = Decimal("0")
 
 
-class GatewayInFlightLPOrder(EVMInFlightOrder):
+class GatewayInFlightLPOrder(GatewayInFlightOrder):
     def __init__(self,
                  client_order_id: str,
                  exchange_order_id: Optional[str],

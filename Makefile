@@ -10,7 +10,12 @@
 .PHONY: build
 
 test:
-	coverage run -m nose --exclude-dir="test/connector" --exclude-dir="test/debug" --exclude-dir="test/mock" --exclude-dir="test/hummingbot/connector/gateway"
+	coverage run -m nose \
+ 	--exclude-dir="test/connector" \
+ 	--exclude-dir="test/debug" \
+ 	--exclude-dir="test/mock" \
+ 	--exclude-dir="test/hummingbot/connector/gateway/amm" \
+ 	--exclude-dir="test/hummingbot/connector/gateway/clob"
 
 run_coverage: test
 	coverage report

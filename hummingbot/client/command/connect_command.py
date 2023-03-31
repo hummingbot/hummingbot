@@ -38,8 +38,7 @@ class ConnectCommand:
         self.app.hide_input = True
         if connector_name == "kraken":
             self.notify("Reminder: Please ensure your Kraken API Key Nonce Window is at least 10.")
-        else:
-            connector_config = ClientConfigAdapter(AllConnectorSettings.get_connector_config_keys(connector_name))
+        connector_config = ClientConfigAdapter(AllConnectorSettings.get_connector_config_keys(connector_name))
         if Security.connector_config_file_exists(connector_name):
             await Security.wait_til_decryption_done()
             api_key_config = [

@@ -54,7 +54,7 @@ class GatewayEVMAMMLPConnectorUnitTest(unittest.TestCase):
             connector_name="uniswapLP",
             chain="ethereum",
             network="kovan",
-            wallet_address="0xefb7be8631d154d4c0ad8676fec0897b2894fe8f",
+            address="0xefb7be8631d154d4c0ad8676fec0897b2894fe8f",
             trading_pairs=["COIN1-COIN3"],
             trading_required=True
         )
