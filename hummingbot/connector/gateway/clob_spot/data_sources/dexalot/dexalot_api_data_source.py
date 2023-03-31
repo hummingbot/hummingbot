@@ -480,10 +480,10 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
         quote_scaler = Decimal(f"1e-{market_info['quoteDecimals']}")
         return TradingRule(
             trading_pair=combine_to_hb_trading_pair(base=base, quote=quote),
-            min_order_size=Decimal(f"1e-{market_info['quoteDisplayDecimals']}"),
-            min_price_increment=Decimal(f"1e-{market_info['baseDisplayDecimals']}"),
-            min_quote_amount_increment=Decimal(f"1e-{market_info['baseDisplayDecimals']}"),
-            min_base_amount_increment=Decimal(f"1e-{market_info['quoteDisplayDecimals']}"),
+            min_order_size=Decimal(f"1e-{market_info['baseDisplayDecimals']}"),
+            min_price_increment=Decimal(f"1e-{market_info['quoteDisplayDecimals']}"),
+            min_quote_amount_increment=Decimal(f"1e-{market_info['quoteDisplayDecimals']}"),
+            min_base_amount_increment=Decimal(f"1e-{market_info['baseDisplayDecimals']}"),
             min_notional_size=Decimal(market_info["minTradeAmount"]) * quote_scaler,
             min_order_value=Decimal(market_info["minTradeAmount"]) * quote_scaler,
         )
