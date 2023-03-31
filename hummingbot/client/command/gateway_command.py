@@ -2,7 +2,7 @@
 import asyncio
 import itertools
 import time
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 
@@ -13,7 +13,7 @@ from hummingbot.client.settings import AllConnectorSettings, GatewayConnectionSe
 from hummingbot.client.ui.completer import load_completer
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.connector.connector_status import get_connector_status
-from hummingbot.core.gateway import docker_ipc, get_gateway_paths
+from hummingbot.core.gateway import get_gateway_paths
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.gateway.gateway_status_monitor import GatewayStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
@@ -68,11 +68,6 @@ class GatewayCommand(GatewayChainApiManager):
         else:
             safe_ensure_future(self._show_gateway_configuration(key), loop=self.ev_loop)
 
-    @staticmethod
-    async def check_gateway_image(docker_repo: str, docker_tag: str) -> bool:
-        image_list: List = await docker_ipc("images", name=f"{docker_repo}:{docker_tag}", quiet=True)
-        return len(image_list) > 0
-
     async def _test_connection(self):
         # test that the gateway is running
         if await self._get_gateway_instance().ping_gateway():
@@ -91,37 +86,17 @@ class GatewayCommand(GatewayChainApiManager):
             with begin_placeholder_mode(self):
                 while True:
                     pass_phase = await self.app.prompt(
-                        prompt='Enter pass phase to generate Gateway SSL certifications  >>> ',
+                        prompt='Enter pass phrase to generate Gateway SSL certifications  >>> ',
                         is_password=True
                     )
                     if pass_phase is not None and len(pass_phase) > 0:
                         break
-                    self.notify("Error: Invalid pass phase")
+                    self.notify("Error: Invalid pass phrase")
         else:
             pass_phase = Security.secrets_manager.password.get_secret_value()
         create_self_sign_certs(pass_phase, certs_path)
         self.notify(f"Gateway SSL certification files are created in {certs_path}.")
         self._get_gateway_instance().reload_certs(self.client_config_map)
-
-    async def _generate_gateway_confs(
-            self,       # type: HummingbotApplication
-            container_id: str, conf_path: str = "/usr/src/app/conf"
-    ):
-        try:
-            cmd: str = f"./setup/generate_conf.sh {conf_path}"
-            exec_info = await docker_ipc(method_name="exec_create",
-                                         container=container_id,
-                                         cmd=cmd,
-                                         user="hummingbot")
-
-            await docker_ipc(method_name="exec_start",
-                             exec_id=exec_info["Id"],
-                             detach=True)
-            return
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            raise
 
     async def ping_gateway_api(self, max_wait: int) -> bool:
         """
@@ -139,35 +114,7 @@ class GatewayCommand(GatewayChainApiManager):
 
         return True
 
-    async def ping_gateway_docker_and_api(self, max_wait: int) -> bool:
-        """
-        Try to reach the docker and then the gateway API for up to max_wait seconds
-        """
-        now = int(time.time())
-        docker_live = await self.ping_gateway_docker()
-        while not docker_live:
-            later = int(time.time())
-            if later - now > max_wait:
-                return False
-            await asyncio.sleep(0.5)
-            docker_live = await self.ping_gateway_docker()
-
-        return await self.ping_gateway_api(max_wait)
-
-    async def ping_gateway_docker(self) -> bool:
-        try:
-            await docker_ipc("version")
-            return True
-        except Exception:
-            return False
-
     async def _gateway_status(self):
-        can_reach_docker = await self.ping_gateway_docker()
-        if not can_reach_docker:
-            self.notify("\nError: It looks like you do not have Docker installed or running. Gateway commands will not "
-                        "work without it. Please install or start Docker and restart Hummingbot.")
-            return
-
         if self._gateway_monitor.gateway_status is GatewayStatus.ONLINE:
             try:
                 status = await self._get_gateway_instance().get_gateway_status()
@@ -212,8 +159,6 @@ class GatewayCommand(GatewayChainApiManager):
             self,           # type: HummingbotApplication
             connector: str = None
     ):
-        wallet_account_id: Optional[str] = None
-
         with begin_placeholder_mode(self):
             gateway_connections_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
             if connector is None:
@@ -234,6 +179,10 @@ class GatewayCommand(GatewayChainApiManager):
                 available_networks: List[Dict[str, Any]] = connector_config[0]["available_networks"]
                 trading_type: str = connector_config[0]["trading_type"][0]
                 additional_spenders: List[str] = connector_config[0].get("additional_spenders", [])
+                additional_prompts: Dict[str, str] = connector_config[0].get(  # These will be stored locally.
+                    "additional_add_wallet_prompts",  # If Gateway requires additional, prompts with secure info,
+                    {}  # a new attribute must be added (e.g. additional_secure_add_wallet_prompts)
+                )
 
                 # ask user to select a chain. Automatically select if there is only one.
                 chains: List[str] = [d['chain'] for d in available_networks]
@@ -286,29 +235,10 @@ class GatewayCommand(GatewayChainApiManager):
                     wallets = matching_wallets[0]['walletAddresses']
 
                 # if the user has no wallet, ask them to select one
-                if len(wallets) < 1 or chain == "near":
-                    self.app.clear_input()
-                    self.placeholder_mode = True
-                    wallet_private_key = await self.app.prompt(
-                        prompt=f"Enter your {chain}-{network} wallet private key >>> ",
-                        is_password=True
+                if len(wallets) < 1 or chain == "near" or len(additional_prompts) != 0:
+                    wallet_address, additional_prompt_values = await self._prompt_for_wallet_address(
+                        chain=chain, network=network, additional_prompts=additional_prompts
                     )
-                    self.app.clear_input()
-                    if self.app.to_stop_config:
-                        return
-
-                    if chain == "near":
-                        wallet_account_id: str = await self.app.prompt(
-                            prompt=f"Enter your {chain}-{network} account Id >>> ",
-                        )
-                        self.app.clear_input()
-                        if self.app.to_stop_config:
-                            return
-
-                    response: Dict[str, Any] = await self._get_gateway_instance().add_wallet(
-                        chain, network, wallet_private_key, id=wallet_account_id
-                    )
-                    wallet_address: str = response["address"]
 
                 # the user has a wallet. Ask if they want to use it or create a new one.
                 else:
@@ -331,9 +261,13 @@ class GatewayCommand(GatewayChainApiManager):
                         wallet_table: List[Dict[str, Any]] = []
                         for w in wallets:
                             balances: Dict[str, Any] = await self._get_gateway_instance().get_balances(
-                                chain, network, w, [native_token]
+                                chain, network, w, [native_token], connector
                             )
-                            wallet_table.append({"balance": balances['balances'][native_token], "address": w})
+                            balance = (
+                                balances['balances'].get(native_token)
+                                or balances['balances']['total'].get(native_token)
+                            )
+                            wallet_table.append({"balance": balance, "address": w})
 
                         wallet_df: pd.DataFrame = build_wallet_display(native_token, wallet_table)
                         self.notify(wallet_df.to_string(index=False))
@@ -352,27 +286,9 @@ class GatewayCommand(GatewayChainApiManager):
                     else:
                         while True:
                             try:
-                                wallet_private_key: str = await self.app.prompt(
-                                    prompt=f"Enter your {chain}-{network} wallet private key >>> ",
-                                    is_password=True
+                                wallet_address, additional_prompt_values = await self._prompt_for_wallet_address(
+                                    chain=chain, network=network, additional_prompts=additional_prompts
                                 )
-                                self.app.clear_input()
-                                if self.app.to_stop_config:
-                                    return
-
-                                if chain == "near":
-                                    wallet_account_id: str = await self.app.prompt(
-                                        prompt=f"Enter your {chain}-{network} account Id >>> ",
-                                    )
-                                    self.app.clear_input()
-                                    if self.app.to_stop_config:
-                                        return
-
-                                response: Dict[str, Any] = await self._get_gateway_instance().add_wallet(
-                                    chain, network, wallet_private_key, id=wallet_account_id
-                                )
-                                wallet_address = response["address"]
-
                                 break
                             except Exception:
                                 self.notify("Error adding wallet. Check private key.\n")
@@ -380,16 +296,24 @@ class GatewayCommand(GatewayChainApiManager):
                         # display wallet balance
                         native_token: str = native_tokens[chain]
                         balances: Dict[str, Any] = await self._get_gateway_instance().get_balances(
-                            chain, network, wallet_address, [native_token]
+                            chain, network, wallet_address, [native_token], connector
                         )
-                        wallet_table: List[Dict[str, Any]] = [{"balance": balances['balances'][native_token], "address": wallet_address}]
+                        wallet_table: List[Dict[str, Any]] = [{"balance": balances['balances'].get(native_token) or balances['balances']['total'].get(native_token), "address": wallet_address}]
                         wallet_df: pd.DataFrame = build_wallet_display(native_token, wallet_table)
                         self.notify(wallet_df.to_string(index=False))
 
                 self.app.clear_input()
 
                 # write wallets to Gateway connectors settings.
-                GatewayConnectionSetting.upsert_connector_spec(connector, chain, network, trading_type, wallet_address, additional_spenders)
+                GatewayConnectionSetting.upsert_connector_spec(
+                    connector_name=connector,
+                    chain=chain,
+                    network=network,
+                    trading_type=trading_type,
+                    wallet_address=wallet_address,
+                    additional_spenders=additional_spenders,
+                    additional_prompt_values=additional_prompt_values,
+                )
                 self.notify(f"The {connector} connector now uses wallet {wallet_address} on {chain}-{network}")
 
                 # update AllConnectorSettings and fee overrides.
@@ -401,6 +325,46 @@ class GatewayCommand(GatewayChainApiManager):
 
                 # Reload completer here to include newly added gateway connectors
                 self.app.input_field.completer = load_completer(self)
+
+    async def _prompt_for_wallet_address(
+        self,           # type: HummingbotApplication
+        chain: str,
+        network: str,
+        additional_prompts: Dict[str, str],
+    ) -> Tuple[Optional[str], Dict[str, str]]:
+        self.app.clear_input()
+        self.placeholder_mode = True
+        wallet_private_key = await self.app.prompt(
+            prompt=f"Enter your {chain}-{network} wallet private key >>> ",
+            is_password=True
+        )
+        self.app.clear_input()
+        if self.app.to_stop_config:
+            return
+
+        additional_prompt_values = {}
+
+        if chain == "near":
+            wallet_account_id: str = await self.app.prompt(
+                prompt=f"Enter your {chain}-{network} account Id >>> ",
+            )
+            additional_prompt_values["address"] = wallet_account_id
+            self.app.clear_input()
+            if self.app.to_stop_config:
+                return
+
+        for field, prompt in additional_prompts.items():
+            value = await self.app.prompt(prompt=prompt, is_password=True)
+            self.app.clear_input()
+            if self.app.to_stop_config:
+                return
+            additional_prompt_values[field] = value
+
+        response: Dict[str, Any] = await self._get_gateway_instance().add_wallet(
+            chain, network, wallet_private_key, **additional_prompt_values
+        )
+        wallet_address: str = response["address"]
+        return wallet_address, additional_prompt_values
 
     async def _show_gateway_connector_tokens(
             self,           # type: HummingbotApplication
