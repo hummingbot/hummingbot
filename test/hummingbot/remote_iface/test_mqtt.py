@@ -429,7 +429,7 @@ class RemoteIfaceMQTTTests(TestCase):
         self.async_run_with_timeout(self.resume_test_event.wait())
 
         topic = f"test_reply/hbot/{self.instance_id}/config"
-        msg = {'changes': [], 'status': 400, 'msg': self.fake_err_msg}
+        msg = {'changes': [], 'config': {}, 'status': 400, 'msg': self.fake_err_msg}
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
     @patch("hummingbot.client.command.history_command.HistoryCommand.get_history_trades_json")
