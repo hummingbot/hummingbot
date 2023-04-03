@@ -12,6 +12,8 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 
 from hummingbot import get_logging_conf
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
+from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.logger import HummingbotLogger
 
@@ -217,15 +219,35 @@ class MQTTCommands:
                         invalid_params.append(param[0])
                 if len(invalid_params):
                     raise ValueError(f'Invalid param key(s): {invalid_params}')
-            strategy_config = self._hb_app.strategy_config_map
-            client_config = self._hb_app.client_config_map
+            strategy_config = {}
+            client_config = {}
+            if isinstance(self._hb_app.client_config_map, dict):
+                client_config = self._hb_app.client_config_map
+                for key, value in client_config.items():
+                    if isinstance(value, ConfigVar):
+                        client_config[key] = value.value
+                    else:
+                        client_config[key] = value
+            elif isinstance(self._hb_app.client_config_map,
+                            ClientConfigAdapter):
+                client_config = self._hb_app.client_config_map.dict()
+            if isinstance(self._hb_app._strategy_config_map, dict):
+                for key, value in self._hb_app._strategy_config_map.items():
+                    if isinstance(value, ConfigVar):
+                        strategy_config[key] = value.value
+                    else:
+                        strategy_config[key] = value
+            elif isinstance(self._hb_app._strategy_config_map,
+                            ClientConfigAdapter):
+                strategy_config = self._hb_app._strategy_config_map.dict()
             response.config = {
-                "client": client_config.dict() if client_config is not None else {},
-                "strategy": strategy_config.dict() if strategy_config is not None else {}
+                "client": client_config,
+                "strategy": strategy_config
             }
         except Exception as e:
             response.status = MQTT_STATUS_CODE.ERROR
             response.msg = str(e)
+            self._hb_app.logger().error(e)
         return response
 
     def _on_cmd_import(self, msg: ImportCommandMessage.Request):
