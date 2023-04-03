@@ -79,7 +79,6 @@ def main():
           license="Apache 2.0",
           packages=packages,
           package_data=package_data,
-          define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
           ext_modules=cythonize(cython_sources,
                                 compiler_directives=compiler_directives,
                                 **cython_kwargs),
