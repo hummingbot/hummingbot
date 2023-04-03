@@ -79,6 +79,7 @@ class ConfigCommandTest(unittest.TestCase):
                            "    | ∟ mqtt_notifier          | True                 |\n"
                            "    | ∟ mqtt_commands          | True                 |\n"
                            "    | ∟ mqtt_events            | True                 |\n"
+                           "    | ∟ mqtt_external_events   | True                 |\n"
                            "    | ∟ mqtt_autostart         | False                |\n"
                            "    | send_error_logs          | True                 |\n"
                            "    | pmm_script_mode          | pmm_script_disabled  |\n"
