@@ -272,6 +272,7 @@ class GatewayCommand(GatewayChainApiManager):
                         wallet_df: pd.DataFrame = build_wallet_display(native_token, wallet_table)
                         self.notify(wallet_df.to_string(index=False))
                         self.app.input_field.completer.set_list_gateway_wallets_parameters(wallets_response, chain)
+                        additional_prompt_values = {}
 
                         while True:
                             wallet_address: str = await self.app.prompt(prompt="Select a gateway wallet >>> ")
