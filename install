@@ -33,16 +33,30 @@ elif uname | egrep -qe "MINGW64"; then
     ENV_FILE=$WIN64_ENV
 fi
 
-if ${CONDA_EXE} env list | egrep -qe "^hummingbot"; then
+VALID_ENV_NAME=$(grep  'name:' ${ENV_FILE} | tail -n1 | awk '{ print $2}')
+read -p "Enter environment name [${VALID_ENV_NAME}]: " RESPONSE
+if [ "${RESPONSE}_" == "_" ]; then
+    RESPONSE=${VALID_ENV_NAME}
+fi
+
+ENV_NAME=${RESPONSE}
+
+VALID_ENV_NAME=$(grep  'name:' ${ENV_FILE} | tail -n1 | awk '{ print $2}')
+if [ "$ENV_NAME" != "$VALID_ENV_NAME" ]; then
+    echo "*** Incompatible environment name in ${ENV_FILE} (${VALID_ENV_NAME}). Please resolve and try again."
+    exit 1
+fi
+
+if ${CONDA_EXE} env list | awk '{ print $1 }' | egrep -e "^${ENV_NAME}$" 1>/dev/null; then
     ${CONDA_EXE} env update -f $ENV_FILE
 else
     ${CONDA_EXE} env create -f $ENV_FILE
 fi
 
-source "${CONDA_BIN}/activate" hummingbot
+source "${CONDA_BIN}/activate" ${ENV_NAME}
 
 # Add the project directory to module search paths.
-conda develop .
+#conda develop .
 
 # For some reason, this needs to be installed outside of the environment file,
 # or it'll give you the graphviz install error.

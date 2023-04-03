@@ -15,8 +15,45 @@ if [ "${CONDA_EXE}_" == "_" ]; then
     exit 1
 fi
 
-if ${CONDA_EXE} env list | egrep -qe "^hummingbot"; then
-    ${CONDA_EXE} env remove -n hummingbot
+MACOS_ENV=setup/environment.yml
+LINUX_ENV=setup/environment-linux.yml
+LINUX_AARCH64_ENV=setup/environment-linux-aarch64.yml
+WIN64_ENV=setup/environment-win64.yml
+ENV_FILE=$MACOS_ENV
+
+if uname | egrep -qe "Linux"; then
+    if uname -m | egrep -qe "aarch64"; then
+        ENV_FILE=$LINUX_AARCH64_ENV
+    else
+        ENV_FILE=$LINUX_ENV
+    fi
+elif uname | egrep -qe "MINGW64"; then
+    ENV_FILE=$WIN64_ENV
+fi
+
+read -p " Enter environment name: " ENV_NAME
+echo    "   Attempting to remove: ${ENV_NAME}"
+
+if ${CONDA_EXE} env list | awk '{ print $1 }' | egrep -e "^${ENV_NAME}$" 1>/dev/null; then
+    echo "   Environment found."
+    echo "       Environment .yml: ${ENV_FILE}"
+    VALID_ENV_NAME=$(grep  'name:' ${ENV_FILE} | tail -n1 | awk '{ print $2}')
+    echo "          .yml env name: ${VALID_ENV_NAME}"
+
+    if [ ${ENV_NAME} != ${VALID_ENV_NAME} ]; then
+        echo "*** You are attempting to remove the environment:"
+        echo "       ${ENV_NAME}"
+        echo "    but the environment name in ${ENV_FILE} is:"
+        echo "       ${VALID_ENV_NAME}"
+    fi
+
+    read -p "Do you want to continue? [y/N]: " RESPONSE
+    if [ "${RESPONSE}_" == "_" ] || [ "${RESPONSE}" != "y" ]; then
+        echo "Aborting."
+        exit 1
+    fi
+
+    ${CONDA_EXE} env remove -n ${ENV_NAME}
 else
     echo "Environment already removed."
 fi
