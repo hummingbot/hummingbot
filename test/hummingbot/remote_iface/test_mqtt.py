@@ -379,6 +379,12 @@ class RemoteIfaceMQTTTests(TestCase):
         notify_msg = "\nGlobal Configurations:"
         self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, notify_msg))
         self.assertTrue(self.is_msg_received(notify_topic, notify_msg))
+        self._strategy_config_map = {}
+        self.fake_mqtt_broker.publish_to_subscription(topic, {})
+        notify_topic = f"hbot/{self.instance_id}/notify"
+        notify_msg = "\nGlobal Configurations:"
+        self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, notify_msg))
+        self.assertTrue(self.is_msg_received(notify_topic, notify_msg))
 
     @patch("commlib.transports.mqtt.MQTTTransport")
     def test_mqtt_command_config_updates_single_param(self,
