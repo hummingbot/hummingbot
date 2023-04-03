@@ -5,13 +5,21 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
 class DownloadCandles(ScriptStrategyBase):
+    """
+    This script provides an example of how to use the Candles Feed to download and store historical data.
+    It downloads 3-minute candles for 3 Binance trading pairs ["APE-USDT", "BTC-USDT", "BNB-USDT"] and stores them in
+    CSV files in the /data directory. The script stops after it has downloaded 50,000 max_records records for each pair.
+    Is important to notice that the component will fail if all the candles are not available since the idea of it is to
+    use it in production based on candles needed to compute technical indicators.
+    """
     trading_pairs = ["APE-USDT", "BTC-USDT", "BNB-USDT"]
     interval = "3m"
 
     # we need to initialize the candles for each trading pair
     candles = {trading_pair: {} for trading_pair in trading_pairs}
     for trading_pair in trading_pairs:
-        candle = CandlesFactory.get_candle(connector="binance", trading_pair=trading_pair, interval=interval, max_records=175000)
+        candle = CandlesFactory.get_candle(connector="binance", trading_pair=trading_pair, interval=interval,
+                                           max_records=50000)
         candle.start()
         # we are storing the candles object and the csv path to save the candles
         candles[trading_pair]["candles"] = candle
