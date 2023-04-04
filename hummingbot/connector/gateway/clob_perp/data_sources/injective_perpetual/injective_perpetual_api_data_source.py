@@ -103,6 +103,7 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
         self._update_market_info_loop_task: Optional[asyncio.Task] = None
         self._trades_stream_listener: Optional[asyncio.Task] = None
         self._order_listeners: Dict[str, asyncio.Task] = {}
+        self._funding_info_listeners: Dict[str, asyncio.Task] = {}
         self._order_books_stream_listener: Optional[asyncio.Task] = None
         self._bank_balances_stream_listener: Optional[asyncio.Task] = None
         self._subaccount_balances_stream_listener: Optional[asyncio.Task] = None
@@ -705,23 +706,6 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
             if "available_balance" in balance_entry:
                 self._account_available_balances[asset_name] = balance_entry["available_balance"]
 
-    async def _request_funding_info(self, trading_pair: str) -> FundingInfo:
-        # NOTE: Can be replaced with GatewayHttpClient.clob_perp_funding_info()
-        self._check_markets_initialized() or await self._update_markets()
-        market_info: DerivativeMarketInfo = self._markets_info.get(trading_pair, None)
-        if market_info is not None:
-            last_funding_rate: Decimal = await self._request_last_funding_rate(trading_pair=trading_pair)
-            oracle_price: Decimal = await self._request_oracle_price(market_info=market_info)
-            last_trade_price: Decimal = await self._request_last_trade_price(trading_pair=trading_pair)
-            funding_info = FundingInfo(
-                trading_pair=trading_pair,
-                index_price=last_trade_price,  # Default to using last trade price
-                mark_price=oracle_price,
-                next_funding_utc_timestamp=market_info.perpetual_market_info.next_funding_timestamp,
-                rate=last_funding_rate,
-            )
-            return funding_info
-
     async def _request_last_funding_rate(self, trading_pair: str) -> Decimal:
         # NOTE: Can be removed when GatewayHttpClient.clob_perp_funding_info is used.
         market_info: DerivativeMarketInfo = self._markets_info[trading_pair]
@@ -738,7 +722,7 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
             base_symbol=market_info.oracle_base,
             quote_symbol=market_info.oracle_quote,
             oracle_type=market_info.oracle_type,
-            oracle_scale_factor=market_info.oracle_scale_factor,
+            oracle_scale_factor=0,
         )
         return Decimal(response.price)
 
@@ -888,7 +872,7 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
         denom_scaler: Decimal = Decimal(f"1e-{denom_meta.decimals}")
 
         available_balance: Decimal = Decimal(message.amount) * denom_scaler
-        total_balance: Decimal = available_balance
+        total_balance = None  # bank balance events do not provide available balance information
 
         balance_msg = BalanceUpdateEvent(
             timestamp=self._time(),
@@ -896,9 +880,7 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
             total_balance=total_balance,
             available_balance=available_balance,
         )
-        self._update_local_balances(
-            balances={denom_meta.symbol: {"total_balance": total_balance, "available_balance": available_balance}}
-        )
+        safe_ensure_future(coro=self.get_account_balances())  # update local balances
         return balance_msg
 
     def _process_bank_balance_stream_event(self, message: StreamAccountPortfolioResponse):
@@ -1153,7 +1135,6 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
             mark_price: Decimal = (
                 Decimal(backend_position.mark_price) * Decimal(f"1e-{market_info.oracle_scale_factor}")
             )
-            unrealized_pnl: Decimal = amount * ((1 / entry_price) - (1 / mark_price))
             leverage = Decimal(
                 round(
                     Decimal(backend_position.entry_price) / (
@@ -1163,6 +1144,7 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
             )
             if backend_position.direction == "short":
                 amount = -amount  # client expects short positions to be negative in size
+            unrealized_pnl: Decimal = amount * ((1 / entry_price) - (1 / mark_price))
         else:
             position_side = None
             entry_price = Decimal("0")
@@ -1199,21 +1181,39 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
 
     async def _process_funding_info_event(self, market_info: DerivativeMarketInfo, message: StreamPricesResponse):
         trading_pair: str = combine_to_hb_trading_pair(base=market_info.oracle_base, quote=market_info.oracle_quote)
-        oracle_price: Decimal = Decimal(message.price)
-        # We need to fetch misssing information with another API call since not all info is provided in the stream.
+        funding_info = await self._request_funding_info(trading_pair=trading_pair)
+        funding_info_event = FundingInfoUpdate(
+            trading_pair=trading_pair,
+            index_price=funding_info.index_price,
+            mark_price=funding_info.mark_price,
+            next_funding_utc_timestamp=funding_info.next_funding_utc_timestamp,
+            rate=funding_info.rate,
+        )
+        self._publisher.trigger_event(event_tag=MarketEvent.FundingInfo, message=funding_info_event)
+
+    async def _request_funding_info(self, trading_pair: str) -> FundingInfo:
+        # NOTE: Can be replaced with GatewayHttpClient.clob_perp_funding_info()
+        self._check_markets_initialized() or await self._update_markets()
+        market_info: DerivativeMarketInfo = self._markets_info[trading_pair]
         last_funding_rate: Decimal = await self._request_last_funding_rate(trading_pair=trading_pair)
+        oracle_price: Decimal = await self._request_oracle_price(market_info=market_info)
         last_trade_price: Decimal = await self._request_last_trade_price(trading_pair=trading_pair)
-        funding_info = FundingInfoUpdate(
+        updated_market_info = await self._client.get_derivative_market(market_id=market_info.market_id)
+        funding_info = FundingInfo(
             trading_pair=trading_pair,
             index_price=last_trade_price,  # Default to using last trade price
             mark_price=oracle_price,
-            next_funding_utc_timestamp=market_info.next_funding_timestamp,
+            next_funding_utc_timestamp=(
+                updated_market_info.market.perpetual_market_info.next_funding_timestamp * 1e-3
+            ),
             rate=last_funding_rate,
         )
-        self._publisher.trigger_event(event_tag=MarketEvent.FundingInfo, message=funding_info)
+        return funding_info
 
-    async def _listen_to_funding_info_stream(self, market_info: DerivativeMarketInfo):
+    async def _listen_to_funding_info_stream(self, market_id: str):
+        self._check_markets_initialized() or await self._update_markets()
         while True:
+            market_info = self._market_id_to_active_perp_markets[market_id]
             stream: UnaryStreamCall = await self._client.stream_oracle_prices(
                 base_symbol=market_info.oracle_base,
                 quote_symbol=market_info.oracle_quote,
@@ -1236,9 +1236,10 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
         self._order_books_stream_listener = self._order_books_stream_listener or safe_ensure_future(
             coro=self._listen_to_order_books_stream()
         )
-        self._bank_balances_stream_listener = self._bank_balances_stream_listener or safe_ensure_future(
-            coro=self._listen_to_bank_balances_streams()
-        )
+        if self._is_default_subaccount:
+            self._bank_balances_stream_listener = self._bank_balances_stream_listener or safe_ensure_future(
+                coro=self._listen_to_bank_balances_streams()
+            )
         self._subaccount_balances_stream_listener = self._subaccount_balances_stream_listener or safe_ensure_future(
             coro=self._listen_to_subaccount_balances_stream()
         )
@@ -1253,6 +1254,10 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
                 self._order_listeners[market_id] = safe_ensure_future(
                     coro=self._listen_order_updates_stream(market_id=market_id)
                 )
+            if market_id not in self._funding_info_listeners:
+                self._funding_info_listeners[market_id] = safe_ensure_future(
+                    coro=self._listen_to_funding_info_stream(market_id=market_id)
+                )
 
     async def _stop_streams(self):
         self._trades_stream_listener and self._trades_stream_listener.cancel()
@@ -1260,6 +1265,9 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
         for listener in self._order_listeners.values():
             listener.cancel()
         self._order_listeners = {}
+        for listener in self._funding_info_listeners.values():
+            listener.cancel()
+        self._funding_info_listeners = {}
         self._order_books_stream_listener and self._order_books_stream_listener.cancel()
         self._order_books_stream_listener = None
         self._subaccount_balances_stream_listener and self._subaccount_balances_stream_listener.cancel()

@@ -18,6 +18,9 @@ from pyinjective.proto.exchange.injective_derivative_exchange_rpc_pb2 import (
     DerivativeOrderHistory,
     DerivativePosition,
     DerivativeTrade,
+    FundingRate,
+    FundingRatesResponse,
+    MarketResponse,
     MarketsResponse,
     OrderbookResponse,
     OrdersHistoryResponse,
@@ -40,6 +43,7 @@ from pyinjective.proto.exchange.injective_explorer_rpc_pb2 import (
     StreamTxsResponse,
     TxDetailData,
 )
+from pyinjective.proto.exchange.injective_oracle_rpc_pb2 import PriceResponse, StreamPricesResponse
 from pyinjective.proto.exchange.injective_portfolio_rpc_pb2 import (
     AccountPortfolioResponse,
     Coin,
@@ -63,7 +67,7 @@ from hummingbot.connector.gateway.clob_perp.data_sources.injective_perpetual.inj
 )
 from hummingbot.core.data_type.common import OrderType, PositionSide, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
-from hummingbot.core.data_type.trade_fee import TradeFeeBase
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 
 
 class StreamMock:
@@ -188,6 +192,7 @@ class InjectivePerpetualClientMock:
         self.injective_async_client_mock.stream_subaccount_balance.return_value = StreamMock()
         self.injective_async_client_mock.stream_derivative_positions.return_value = StreamMock()
         self.injective_async_client_mock.stream_txs.return_value = StreamMock()
+        self.injective_async_client_mock.stream_oracle_prices.return_value = StreamMock()
 
         self.configure_active_derivative_markets_response(timestamp=self.initial_timestamp)
 
@@ -215,6 +220,8 @@ class InjectivePerpetualClientMock:
             timeout=timeout
         )
         self.injective_async_client_mock.stream_txs.return_value.run_until_all_items_delivered(timeout=timeout)
+        self.injective_async_client_mock.stream_oracle_prices.return_value.run_until_all_items_delivered(
+            timeout=timeout)
 
     def run_until_place_order_called(self, timeout: float = 1):
         asyncio.get_event_loop().run_until_complete(
@@ -532,9 +539,30 @@ class InjectivePerpetualClientMock:
         self.injective_async_client_mock.stream_derivative_trades.return_value.add(maker_trade_response)
         self.injective_async_client_mock.stream_derivative_trades.return_value.add(taker_trade_response)
 
-    def configure_bank_account_portfolio_balance_stream_event(self, denom: str, amount: Decimal):
-        balance_event = StreamAccountPortfolioResponse(type="bank", denom=denom, amount=amount)
+    def configure_bank_account_portfolio_balance_stream_event(self, token: str, amount: Decimal):
+        assert token in (self.base, self.quote)
+        if token == self.base:
+            denom = self.base_coin_address
+            amount = amount * Decimal(f"1e{self.base_decimals}")
+        else:
+            denom = self.quote_coin_address
+            amount = amount * Decimal(f"1e{self.quote_decimals}")
+        balance_event = StreamAccountPortfolioResponse(type="bank", denom=denom, amount=str(amount))
         self.injective_async_client_mock.stream_account_portfolio.return_value.add(balance_event)
+
+    def configure_funding_info_stream_event(
+        self, index_price: Decimal, mark_price: Decimal, next_funding_time: float, funding_rate: Decimal
+    ):
+        self.configure_get_funding_info_response(
+            index_price=index_price,
+            mark_price=mark_price,
+            next_funding_time=next_funding_time,
+            funding_rate=funding_rate,
+        )
+        stream_prices_event = StreamPricesResponse(
+            price=str(mark_price), timestamp=next_funding_time - 1000
+        )
+        self.injective_async_client_mock.stream_oracle_prices.return_value.add(stream_prices_event)
 
     def configure_account_base_balance_stream_event(
         self, timestamp: float, total_balance: Decimal, available_balance: Decimal
@@ -864,6 +892,32 @@ class InjectivePerpetualClientMock:
         mock_response.orders.append(order)
         self.injective_async_client_mock.get_historical_derivative_orders.return_value = mock_response
 
+    def configure_get_funding_info_response(
+        self, index_price: Decimal, mark_price: Decimal, next_funding_time: float, funding_rate: Decimal
+    ):
+        self.configure_get_funding_rates_response(
+            funding_rate=funding_rate, timestamp=next_funding_time - 100000
+        )
+
+        oracle_price = PriceResponse(price=str(mark_price))
+        self.injective_async_client_mock.get_oracle_prices.return_value = oracle_price
+
+        self.configure_perp_trades_response_to_request_without_exchange_order_id(
+            timestamp=next_funding_time - 1000,
+            price=index_price,
+            size=Decimal("1"),
+            maker_fee=AddedToCostTradeFee(flat_fees=[TokenAmount(token=self.quote, amount=Decimal("0"))]),
+            taker_fee=AddedToCostTradeFee(flat_fees=[TokenAmount(token=self.quote, amount=Decimal("0"))]),
+        )
+
+        derivative_market_info = self._get_derivative_market_info(
+            market_id=self.market_id,
+            base_token=self.base,
+            next_funding_time=next_funding_time,
+        )
+        market_info_response = MarketResponse(market=derivative_market_info)
+        self.injective_async_client_mock.get_derivative_market.return_value = market_info_response
+
     def get_derivative_order_history(
         self,
         timestamp: float,
@@ -1103,81 +1157,12 @@ class InjectivePerpetualClientMock:
         self.injective_async_client_mock.stream_txs.return_value.add(transaction_event)
 
     def configure_active_derivative_markets_response(self, timestamp: float):
-        quote_token_meta = TokenMeta(
-            name="Alpha",
-            address=self.quote_coin_address,
-            symbol=self.quote,
-            decimals=self.quote_decimals,
-            updated_at=int(timestamp * 1e3),
-        )
-        min_perpetual_price_tick_size = str(self.min_price_tick_size * Decimal(f"1e{self.quote_decimals}"))
-        min_perpetual_quantity_tick_size = str(self.min_quantity_tick_size)
-        custom_perpetual_market_info = PerpetualMarketInfo(
-            hourly_funding_rate_cap="0.0000625",
-            hourly_interest_rate="0.00000416666",
-            next_funding_timestamp=1677661200,
-            funding_interval=3600,
-        )
-        custom_perpetual_market_funding = PerpetualMarketFunding(
-            cumulative_funding="6749828879.286921884648585187",
-            cumulative_price="1.502338165156193724",
-            last_timestamp=1677660809,
-        )
-        custom_derivative_market_info = DerivativeMarketInfo(
-            market_id=self.market_id,
-            market_status="active",
-            ticker=f"{self.base}/{self.quote} PERP",
-            oracle_base=self.base,
-            oracle_quote=self.quote,
-            oracle_type="bandibc",
-            oracle_scale_factor=self.oracle_scale_factor,
-            initial_margin_ratio="0.095",
-            maintenance_margin_ratio="0.05",
-            quote_denom=self.quote_coin_address,
-            quote_token_meta=quote_token_meta,
-            maker_fee_rate=str(self.maker_fee_rate),
-            taker_fee_rate=str(self.taker_fee_rate),
-            service_provider_fee="0.4",
-            is_perpetual=True,
-            min_price_tick_size=min_perpetual_price_tick_size,
-            min_quantity_tick_size=min_perpetual_quantity_tick_size,
-            perpetual_market_info=custom_perpetual_market_info,
-            perpetual_market_funding=custom_perpetual_market_funding,
-        )
-        inj_perpetual_pair_min_price_tick_size = str(self.min_price_tick_size * Decimal(f"1e{18}"))
-        inj_perpetual_pair_min_quantity_tick_size = str(self.min_quantity_tick_size)
-
-        inj_perpetual_market_info = PerpetualMarketInfo(
-            hourly_funding_rate_cap="0.000625",
-            hourly_interest_rate="0.00000416666",
-            next_funding_timestamp=1676340000,
-            funding_interval=3600,
-        )
-        inj_perpetual_market_funding = PerpetualMarketFunding(
-            cumulative_funding="30750.538513128695953648",
-            cumulative_price="793.433131392911165592",
-            last_timestamp=1674712474,
+        custom_derivative_market_info = self._get_derivative_market_info(
+            market_id=self.market_id, base_token=self.base
         )
 
-        inj_derivative_market_info = DerivativeMarketInfo(
-            market_id="anotherMarketId",
-            market_status="active",
-            ticker=f"INJ/{self.quote} PERP",
-            oracle_base="INJ",
-            oracle_quote=self.quote,
-            oracle_type="bandibc",
-            oracle_scale_factor=self.oracle_scale_factor,
-            initial_margin_ratio="0.095",
-            maintenance_margin_ratio="0.05",
-            quote_denom=self.quote_coin_address,
-            quote_token_meta=quote_token_meta,
-            maker_fee_rate=str(self.maker_fee_rate),
-            taker_fee_rate=str(self.taker_fee_rate),
-            service_provider_fee="0.4",
-            min_price_tick_size=inj_perpetual_pair_min_price_tick_size,
-            min_quantity_tick_size=inj_perpetual_pair_min_quantity_tick_size,
-            perpetual_market_info=inj_perpetual_market_info,
-            perpetual_market_funding=inj_perpetual_market_funding,
+        inj_derivative_market_info = self._get_derivative_market_info(
+            market_id="anotherMarketId", base_token="INJ"
         )
         perp_markets = MarketsResponse()
         perp_markets.markets.append(custom_derivative_market_info)
@@ -1185,7 +1170,8 @@ class InjectivePerpetualClientMock:
 
         self.injective_async_client_mock.get_derivative_markets.return_value = perp_markets
 
-        min_spot_price_tick_size = str(self.min_price_tick_size * Decimal(f"1e{self.quote_decimals - self.base_decimals}"))
+        min_spot_price_tick_size = str(
+            self.min_price_tick_size * Decimal(f"1e{self.quote_decimals - self.base_decimals}"))
         min_spot_quantity_tick_size = str(self.min_quantity_tick_size * Decimal(f"1e{self.base_decimals}"))
         inj_spot_pair_min_price_tick_size = str(self.min_price_tick_size * Decimal(f"1e{18 - self.base_decimals}"))
         inj_spot_pair_min_quantity_tick_size = str(self.min_quantity_tick_size * Decimal(f"1e{self.base_decimals}"))
@@ -1309,3 +1295,81 @@ class InjectivePerpetualClientMock:
             )
 
         self.injective_async_client_mock.get_derivative_positions.return_value = positions
+
+    def _get_derivative_market_info(
+        self,
+        market_id: str,
+        base_token: str,
+        next_funding_time: float = 123123123
+    ):
+        quote_token_meta = TokenMeta(
+            name="Alpha",
+            address=self.quote_coin_address,
+            symbol=self.quote,
+            decimals=self.quote_decimals,
+            updated_at=int(self.initial_timestamp * 1e3),
+        )
+        min_perpetual_price_tick_size = str(self.min_price_tick_size * Decimal(f"1e{self.quote_decimals}"))
+        min_perpetual_quantity_tick_size = str(self.min_quantity_tick_size)
+        perpetual_market_info = PerpetualMarketInfo(
+            hourly_funding_rate_cap="0.0000625",
+            hourly_interest_rate="0.00000416666",
+            next_funding_timestamp=int(next_funding_time * 1e3),
+            funding_interval=3600,
+        )
+        perpetual_market_funding = PerpetualMarketFunding(
+            cumulative_funding="6749828879.286921884648585187",
+            cumulative_price="1.502338165156193724",
+            last_timestamp=1677660809,
+        )
+        derivative_market_info = DerivativeMarketInfo(
+            market_id=market_id,
+            market_status="active",
+            ticker=f"{base_token}/{self.quote} PERP",
+            oracle_base=base_token,
+            oracle_quote=self.quote,
+            oracle_type="bandibc",
+            oracle_scale_factor=self.oracle_scale_factor,
+            initial_margin_ratio="0.095",
+            maintenance_margin_ratio="0.05",
+            quote_denom=self.quote_coin_address,
+            quote_token_meta=quote_token_meta,
+            maker_fee_rate=str(self.maker_fee_rate),
+            taker_fee_rate=str(self.taker_fee_rate),
+            service_provider_fee="0.4",
+            is_perpetual=True,
+            min_price_tick_size=min_perpetual_price_tick_size,
+            min_quantity_tick_size=min_perpetual_quantity_tick_size,
+            perpetual_market_info=perpetual_market_info,
+            perpetual_market_funding=perpetual_market_funding,
+        )
+        return derivative_market_info
+
+    def configure_fetch_last_fee_payment_response(
+        self, amount: Decimal, funding_rate: Decimal, timestamp: float
+    ):
+        funding_payments_response = {
+            "network": "injective",
+            "timestamp": timestamp,
+            "latency": 2,
+            "fundingPayments": [
+                {
+                    "marketId": self.market_id,
+                    "subaccountId": self.sub_account_id,
+                    "amount": str(amount),
+                    "timestamp": timestamp * 1e3,
+                }
+            ]
+        }
+        self.gateway_instance_mock.clob_perp_funding_payments.return_value = funding_payments_response
+        self.configure_get_funding_rates_response(funding_rate=funding_rate, timestamp=timestamp)
+
+    def configure_get_funding_rates_response(self, funding_rate: Decimal, timestamp: float):
+        funding_rate = FundingRate(
+            market_id=self.exchange_trading_pair,
+            rate=str(funding_rate),
+            timestamp=int(timestamp * 1e3),
+        )
+        funding_rates_response = FundingRatesResponse()
+        funding_rates_response.funding_rates.append(funding_rate)
+        self.injective_async_client_mock.get_funding_rates.return_value = funding_rates_response
