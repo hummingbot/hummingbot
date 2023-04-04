@@ -1,4 +1,5 @@
 import asyncio
+from collections import defaultdict
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional, Tuple
 
@@ -26,6 +27,7 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
@@ -274,7 +276,86 @@ class BitComPerpetualDerivative(PerpetualDerivativePyBase):
         transact_time = order_result['data']["updated_at"]
         return (o_id, transact_time)
 
+    async def _update_orders_fills(self, orders: List[InFlightOrder]):
+        # This method in the base ExchangePyBase, makes an API call for each order.
+        # Given the rate limit of the API method and the breadth of info provided by the method
+        # the mitigation proposal is to collect all orders in one shot, then parse them
+        # Note that this is limited to 100 orders (pagination)
+        all_trades_updates: List[TradeUpdate] = []
+        if len(orders) > 0:
+            try:
+                all_trades_updates: List[TradeUpdate] = await self._all_trade_updates(orders=orders)
+            except asyncio.CancelledError:
+                raise
+            except Exception as request_error:
+                self.logger().warning(
+                    f"Failed to fetch trade updates. Error: {request_error}",
+                    exc_info=request_error,
+                )
+            for trade_update in all_trades_updates:
+                self._order_tracker.process_trade_update(trade_update)
+
+
+    async def _all_trade_updates(self, orders: List[InFlightOrder]) -> List[TradeUpdate]:
+        trade_updates = []
+        if len(orders) > 0:
+            trading_pairs_to_order_map: Dict[str, Dict[str, Any]] = defaultdict(lambda: {})
+            for order in orders:
+                trading_pairs_to_order_map[order.trading_pair][order.exchange_order_id] = order
+            trading_pairs = list(trading_pairs_to_order_map.keys())
+            tasks = [
+                self._api_get(
+                    path_url=CONSTANTS.ACCOUNT_TRADE_LIST_URL,
+                    params={
+                        "currency": CONSTANTS.CURRENCY,
+                        "instrument_id": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
+                    },
+                    is_auth_required=True)
+                for trading_pair in trading_pairs
+            ]
+            self.logger().debug(f"Polling for order fills of {len(tasks)} trading_pairs.")
+            results = await safe_gather(*tasks, return_exceptions=True)
+            for trades, trading_pair in zip(results, trading_pairs):
+                order_map = trading_pairs_to_order_map.get(trading_pair)
+                if isinstance(trades, Exception) or trades.get("code") != 0:
+                    self.logger().network(
+                        f"Error fetching trades update for the order {trading_pair}: {trades}.",
+                        app_warning_msg=f"Failed to fetch trade update for {trading_pair}."
+                    )
+                    continue
+                for trade in trades.get("data",[]):
+                    order_id = str(trade.get("order_id"))
+                    if order_id in order_map:
+                        tracked_order: InFlightOrder = order_map.get(order_id)
+                        position_side = "LONG" if trade["side"] == "buy" else "SHORT"
+                        position_action = (PositionAction.OPEN
+                                           if (tracked_order.trade_type is TradeType.BUY and position_side == "LONG"
+                                               or tracked_order.trade_type is TradeType.SELL and position_side == "SHORT")
+                                           else PositionAction.CLOSE)
+                        fee_asset = tracked_order.quote_asset
+                        fee = TradeFeeBase.new_perpetual_fee(
+                            fee_schema=self.trade_fee_schema(),
+                            position_action=position_action,
+                            percent_token=fee_asset,
+                            flat_fees=[TokenAmount(amount=Decimal(trade["fee"]), token=fee_asset)]
+                        )
+                        trade_update: TradeUpdate = TradeUpdate(
+                            trade_id=str(trade["trade_id"]),
+                            client_order_id=tracked_order.client_order_id,
+                            exchange_order_id=trade["order_id"],
+                            trading_pair=tracked_order.trading_pair,
+                            fill_timestamp=trade["created_at"] * 1e-3,
+                            fill_price=Decimal(trade["price"]),
+                            fill_base_amount=Decimal(trade["qty"]),
+                            fill_quote_amount=Decimal(trade["price"]) * Decimal(trade["qty"]),
+                            fee=fee,
+                        )
+                        trade_updates.append(trade_update)
+
+        return trade_updates
+
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
+        raise Exception("Developer: This method should not be called, it is obsoleted for bit_com")
         trade_updates = []
         try:
             exchange_order_id = await order.get_exchange_order_id()
