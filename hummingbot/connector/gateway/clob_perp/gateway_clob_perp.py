@@ -5,10 +5,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.gateway.clob import clob_constants as CONSTANTS
-from hummingbot.connector.gateway.clob.clob_types import OrderType
-from hummingbot.connector.gateway.clob_perp.data_sources.gateway_clob_perp_api_data_source_base import (
-    GatewayCLOBPerpAPIDataSourceBase,
-)
+from hummingbot.connector.gateway.clob_perp.data_sources.clob_perp_api_data_source_base import CLOBPerpAPIDataSourceBase
 from hummingbot.connector.gateway.clob_perp.gateway_clob_perp_api_order_book_data_source import (
     GatewayCLOBPerpAPIOrderBookDataSource,
 )
@@ -16,15 +13,23 @@ from hummingbot.connector.gateway.gateway_in_flight_order import GatewayPerpetua
 from hummingbot.connector.gateway.gateway_order_tracker import GatewayOrderTracker
 from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativePyBase
 from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.data_types import RateLimit
-from hummingbot.core.data_type.common import PositionAction, PositionMode, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.data_type.funding_info import FundingInfoUpdate
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.perpetual_api_order_book_data_source import PerpetualAPIOrderBookDataSource
-from hummingbot.core.data_type.trade_fee import MakerTakerExchangeFeeRates, TradeFeeBase
+from hummingbot.core.data_type.trade_fee import (
+    AddedToCostTradeFee,
+    DeductedFromReturnsTradeFee,
+    MakerTakerExchangeFeeRates,
+    TradeFeeBase,
+)
 from hummingbot.core.event.event_forwarder import EventForwarder
-from hummingbot.core.event.events import AccountEvent, BalanceUpdateEvent, MarketEvent
+from hummingbot.core.event.events import AccountEvent, BalanceUpdateEvent, MarketEvent, PositionUpdateEvent
 from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.auth import AuthBase
 
 if TYPE_CHECKING:
@@ -35,7 +40,7 @@ class GatewayCLOBPerp(PerpetualDerivativePyBase):
     def __init__(
         self,
         client_config_map: "ClientConfigAdapter",
-        api_data_source: GatewayCLOBPerpAPIDataSourceBase,
+        api_data_source: CLOBPerpAPIDataSourceBase,
         connector_name: str,
         chain: str,
         network: str,
@@ -334,10 +339,10 @@ class GatewayCLOBPerp(PerpetualDerivativePyBase):
             self._account_available_balances[asset] = Decimal(balance["available_balance"])
 
     async def _update_trading_fees(self):
-        pass
+        self._trading_fees = await self._api_data_source.get_trading_fees()
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
-        status_update, _ = await self._api_data_source.get_order_status_update(in_flight_order=tracked_order)
+        status_update = await self._api_data_source.get_order_status_update(in_flight_order=tracked_order)
         return status_update
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
@@ -363,9 +368,29 @@ class GatewayCLOBPerp(PerpetualDerivativePyBase):
         price: Decimal = ...,
         is_maker: Optional[bool] = None,
     ) -> TradeFeeBase:
-        return self._api_data_source.get_fee(
-            base_currency, quote_currency, order_type, order_side, position_action, amount, price, is_maker
-        )
+        is_maker = is_maker or (order_type is OrderType.LIMIT_MAKER)
+        trading_pair = combine_to_hb_trading_pair(base=base_currency, quote=quote_currency)
+        if trading_pair in self._trading_fees:
+            fees_data = self._trading_fees[trading_pair]
+            fee_value = Decimal(fees_data.maker) if is_maker else Decimal(fees_data.taker)
+            flat_fees = fees_data.maker_flat_fees if is_maker else fees_data.taker_flat_fees
+            if order_side == TradeType.BUY:
+                fee = AddedToCostTradeFee(percent=fee_value, percent_token=quote_currency, flat_fees=flat_fees)
+            else:
+                fee = DeductedFromReturnsTradeFee(percent=fee_value, percent_token=quote_currency, flat_fees=flat_fees)
+        else:
+            fee = build_trade_fee(
+                self.name,
+                is_maker,
+                base_currency=base_currency,
+                quote_currency=quote_currency,
+                order_type=order_type,
+                order_side=order_side,
+                amount=amount,
+                price=price,
+            )
+
+        return fee
 
     async def _place_order_and_process_update(self, order: GatewayPerpetualInFlightOrder, **kwargs) -> str:
         order.leverage = self._perpetual_trading.get_leverage(trading_pair=order.trading_pair)
@@ -414,28 +439,30 @@ class GatewayCLOBPerp(PerpetualDerivativePyBase):
         if balance_event.available_balance is not None:
             self._account_available_balances[balance_event.asset_name] = balance_event.available_balance
 
-    def _process_position_update_event(self, position_update_event: Position):
+    def _process_position_update_event(self, position_update_event: PositionUpdateEvent):
         self._last_received_message_timestamp = self._time()
         position_key = self._perpetual_trading.position_key(
             position_update_event.trading_pair, position_update_event.position_side
         )
-        if position_update_event.amount > Decimal("0"):
+        if position_update_event.amount != Decimal("0"):
             position: Position = self._perpetual_trading.get_position(
                 trading_pair=position_update_event.trading_pair, side=position_update_event.position_side
             )
-            leverage: Decimal = (
-                # If event leverage is set to -1, the initial leverage is used. This is for specific cases when the
-                # DataSource does not provide any leverage information in the position stream response
-                position.leverage if position_update_event.leverage == Decimal("-1") else position_update_event.leverage
-            )
-            position.update_position(
-                trading_pair=position_update_event.trading_pair,
-                position_side=position_update_event.position_side,
-                unrealized_pnl=position_update_event.unrealized_pnl,
-                entry_price=position_update_event.entry_price,
-                amount=position_update_event.amount,
-                leverage=leverage,
-            )
+            if position is not None:
+                leverage: Decimal = (
+                    # If event leverage is set to -1, the initial leverage is used. This is for specific cases when the
+                    # DataSource does not provide any leverage information in the position stream response
+                    position.leverage if position_update_event.leverage == Decimal("-1") else position_update_event.leverage
+                )
+                position.update_position(
+                    position_side=position_update_event.position_side,
+                    unrealized_pnl=position_update_event.unrealized_pnl,
+                    entry_price=position_update_event.entry_price,
+                    amount=position_update_event.amount,
+                    leverage=leverage,
+                )
+            else:
+                safe_ensure_future(coro=self._update_positions())
         else:
             self._perpetual_trading.remove_position(post_key=position_key)
 
