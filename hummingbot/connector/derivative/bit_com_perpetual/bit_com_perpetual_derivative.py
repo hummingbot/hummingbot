@@ -295,7 +295,6 @@ class BitComPerpetualDerivative(PerpetualDerivativePyBase):
             for trade_update in all_trades_updates:
                 self._order_tracker.process_trade_update(trade_update)
 
-
     async def _all_trade_updates(self, orders: List[InFlightOrder]) -> List[TradeUpdate]:
         trade_updates = []
         if len(orders) > 0:
@@ -323,7 +322,7 @@ class BitComPerpetualDerivative(PerpetualDerivativePyBase):
                         app_warning_msg=f"Failed to fetch trade update for {trading_pair}."
                     )
                     continue
-                for trade in trades.get("data",[]):
+                for trade in trades.get("data", []):
                     order_id = str(trade.get("order_id"))
                     if order_id in order_map:
                         tracked_order: InFlightOrder = order_map.get(order_id)
