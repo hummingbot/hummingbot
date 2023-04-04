@@ -3,7 +3,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import Dict, List, NamedTuple, Optional
 
-from hummingbot.core.data_type.common import LPType, OrderType, PositionAction, PositionMode, TradeType
+from hummingbot.core.data_type.common import LPType, OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 
@@ -334,3 +334,14 @@ class BalanceUpdateEvent:
     asset_name: str
     total_balance: Optional[Decimal] = None
     available_balance: Optional[Decimal] = None
+
+
+@dataclass
+class PositionUpdateEvent:
+    timestamp: float
+    trading_pair: str
+    position_side: Optional[PositionSide]  # None if the event is for a closed position
+    unrealized_pnl: Decimal
+    entry_price: Decimal
+    amount: Decimal
+    leverage: Decimal

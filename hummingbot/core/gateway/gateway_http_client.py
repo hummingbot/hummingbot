@@ -1395,7 +1395,7 @@ class GatewayHttpClient:
         order_type: OrderType,
         price: Decimal,
         size: Decimal,
-        leverage: Decimal
+        leverage: int,
     ) -> Dict[str, Any]:
         request_payload = {
             "chain": chain,

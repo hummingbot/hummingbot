@@ -1,9 +1,7 @@
 import asyncio
 from typing import Dict, List, Optional
 
-from hummingbot.connector.gateway.clob_perp.data_sources.gateway_clob_perp_api_data_source_base import (
-    GatewayCLOBPerpAPIDataSourceBase,
-)
+from hummingbot.connector.gateway.clob_perp.data_sources.clob_perp_api_data_source_base import CLOBPerpAPIDataSourceBase
 from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.perpetual_api_order_book_data_source import PerpetualAPIOrderBookDataSource
@@ -14,7 +12,7 @@ from hummingbot.core.event.events import MarketEvent, OrderBookDataSourceEvent
 class GatewayCLOBPerpAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     _logger = None
 
-    def __init__(self, trading_pairs: List[str], api_data_source: GatewayCLOBPerpAPIDataSourceBase) -> None:
+    def __init__(self, trading_pairs: List[str], api_data_source: CLOBPerpAPIDataSourceBase) -> None:
         super().__init__(trading_pairs=trading_pairs)
         self._api_data_source = api_data_source
 
@@ -40,6 +38,9 @@ class GatewayCLOBPerpAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     async def listen_for_order_book_diffs(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         """Not used."""
         pass
+
+    async def get_funding_info(self, trading_pair: str) -> FundingInfo:
+        return await self._api_data_source.get_funding_info(trading_pair=trading_pair)
 
     def _add_forwarders(self):
         event_forwarder = EventForwarder(to_function=self._message_queue[self._snapshot_messages_queue_key].put_nowait)
@@ -76,6 +77,9 @@ class GatewayCLOBPerpAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     async def _parse_order_book_snapshot_message(self, raw_message: OrderBookMessage, message_queue: asyncio.Queue):
         message_queue.put_nowait(raw_message)
 
+    async def _parse_funding_info_message(self, raw_message: FundingInfoUpdate, message_queue: asyncio.Queue):
+        message_queue.put_nowait(raw_message)
+
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         """
         Fetches order book snapshot for specified trading pair.
@@ -83,9 +87,3 @@ class GatewayCLOBPerpAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         """
         snapshot = await self._api_data_source.get_order_book_snapshot(trading_pair=trading_pair)
         return snapshot
-
-    async def get_funding_info(self, trading_pair: str) -> FundingInfo:
-        return await self._api_data_source.get_funding_info(trading_pair=trading_pair)
-
-    async def _parse_funding_info_message(self, raw_message: FundingInfoUpdate, message_queue: asyncio.Queue):
-        return await self._api_data_source.parse_funding_info_message(raw_message, message_queue)

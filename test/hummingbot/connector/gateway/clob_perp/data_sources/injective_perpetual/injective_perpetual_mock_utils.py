@@ -7,11 +7,16 @@ from unittest.mock import AsyncMock, patch
 import grpc
 import pandas as pd
 from pyinjective.orderhash import OrderHashResponse
-from pyinjective.proto.exchange.injective_accounts_rpc_pb2 import SubaccountDeposit
+from pyinjective.proto.exchange.injective_accounts_rpc_pb2 import (
+    StreamSubaccountBalanceResponse,
+    SubaccountBalance,
+    SubaccountDeposit as AccountSubaccountDeposit,
+)
 from pyinjective.proto.exchange.injective_derivative_exchange_rpc_pb2 import (
     DerivativeLimitOrderbook,
     DerivativeMarketInfo,
     DerivativeOrderHistory,
+    DerivativePosition,
     DerivativeTrade,
     MarketsResponse,
     OrderbookResponse,
@@ -20,6 +25,7 @@ from pyinjective.proto.exchange.injective_derivative_exchange_rpc_pb2 import (
     PerpetualMarketFunding,
     PerpetualMarketInfo,
     PositionDelta,
+    PositionsResponse,
     PriceLevel,
     StreamOrderbookResponse,
     StreamOrdersHistoryResponse,
@@ -40,6 +46,12 @@ from pyinjective.proto.exchange.injective_portfolio_rpc_pb2 import (
     Portfolio,
     StreamAccountPortfolioResponse,
     SubaccountBalanceV2,
+    SubaccountDeposit,
+)
+from pyinjective.proto.exchange.injective_spot_exchange_rpc_pb2 import (
+    MarketsResponse as SpotMarketsResponse,
+    SpotMarketInfo,
+    TokenMeta as SpotTokenMeta,
 )
 
 from hummingbot.connector.constants import s_decimal_0
@@ -49,7 +61,7 @@ from hummingbot.connector.gateway.clob_perp.data_sources.injective_perpetual.inj
     DERIVATIVE_SUBMIT_ORDER_GAS,
     GAS_BUFFER,
 )
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionSide, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.data_type.trade_fee import TradeFeeBase
 
@@ -93,6 +105,7 @@ class InjectivePerpetualClientMock:
         self.quote_coin_address = "someQuoteCoinAddress"
         self.quote_denom = self.quote_coin_address
         self.quote_decimals = 8  # usually set to 6, but for the sake of differing minimum price/size increments
+        self.oracle_scale_factor = 6  # usually same as quote_decimals but differentiating here for the sake of tests
         self.market_id = "someMarketId"
         self.sub_account_id = sub_account_id
         self.service_provider_fee = Decimal("0.4")
@@ -109,8 +122,8 @@ class InjectivePerpetualClientMock:
         self.injective_async_client_mock: Optional[AsyncMock] = None
         self.gateway_instance_mock_patch = patch(
             target=(
-                "hummingbot.connector.gateway.clob_perp.data_sources.injective_perpetual.injective_perpetual_api_data_source"
-                ".GatewayHttpClient"
+                "hummingbot.connector.gateway.clob_perp.data_sources.injective_perpetual"
+                ".injective_perpetual_api_data_source.GatewayHttpClient"
             ),
             autospec=True,
         )
@@ -124,7 +137,7 @@ class InjectivePerpetualClientMock:
         )
         self.injective_composer_patch = patch(
             target="hummingbot.connector.gateway.clob_perp.data_sources.injective_perpetual.injective_perpetual_api_data_source"
-            ".ProtoMsgComposer",
+                   ".Composer",
             autospec=True,
         )
         self.injective_compute_order_hashes_patch = patch(
@@ -172,6 +185,8 @@ class InjectivePerpetualClientMock:
         self.injective_async_client_mock.stream_historical_derivative_orders.return_value = StreamMock()
         self.injective_async_client_mock.stream_derivative_orderbooks.return_value = StreamMock()
         self.injective_async_client_mock.stream_account_portfolio.return_value = StreamMock()
+        self.injective_async_client_mock.stream_subaccount_balance.return_value = StreamMock()
+        self.injective_async_client_mock.stream_derivative_positions.return_value = StreamMock()
         self.injective_async_client_mock.stream_txs.return_value = StreamMock()
 
         self.configure_active_derivative_markets_response(timestamp=self.initial_timestamp)
@@ -194,6 +209,9 @@ class InjectivePerpetualClientMock:
             timeout=timeout
         )
         self.injective_async_client_mock.stream_account_portfolio.return_value.run_until_all_items_delivered(
+            timeout=timeout
+        )
+        self.injective_async_client_mock.stream_subaccount_balance.return_value.run_until_all_items_delivered(
             timeout=timeout
         )
         self.injective_async_client_mock.stream_txs.return_value.run_until_all_items_delivered(timeout=timeout)
@@ -277,7 +295,7 @@ class InjectivePerpetualClientMock:
                 "txHash": transaction_hash[2:].lower(),
             }
 
-        self.gateway_instance_mock.clob_place_order.side_effect = place_and_return
+        self.gateway_instance_mock.clob_perp_place_order.side_effect = place_and_return
         self.configure_get_tx_by_hash_creation_response(
             timestamp=timestamp, success=True, order_hashes=[exchange_order_id]
         )
@@ -302,7 +320,7 @@ class InjectivePerpetualClientMock:
             self.place_order_called_event.set()
             raise exception
 
-        self.gateway_instance_mock.clob_place_order.side_effect = place_and_raise
+        self.gateway_instance_mock.clob_perp_place_order.side_effect = place_and_raise
 
     def configure_cancel_order_response(self, timestamp: int, transaction_hash: str):
         def cancel_and_return(*_, **__):
@@ -314,14 +332,14 @@ class InjectivePerpetualClientMock:
                 "txHash": transaction_hash if not transaction_hash.startswith("0x") else transaction_hash[2:],
             }
 
-        self.gateway_instance_mock.clob_cancel_order.side_effect = cancel_and_return
+        self.gateway_instance_mock.clob_perp_cancel_order.side_effect = cancel_and_return
 
     def configure_cancel_order_fails_response(self, exception: Exception):
         def cancel_and_raise(*_, **__):
             self.cancel_order_called_event.set()
             raise exception
 
-        self.gateway_instance_mock.clob_cancel_order.side_effect = cancel_and_raise
+        self.gateway_instance_mock.clob_perp_cancel_order.side_effect = cancel_and_raise
 
     def configure_one_success_one_failure_order_cancelation_responses(
         self,
@@ -344,7 +362,7 @@ class InjectivePerpetualClientMock:
                 "txHash": success_transaction_hash,
             }
 
-        self.gateway_instance_mock.clob_cancel_order.side_effect = cancel_and_return
+        self.gateway_instance_mock.clob_pepr_cancel_order.side_effect = cancel_and_return
 
     def configure_check_network_success(self):
         self.injective_async_client_mock.ping.side_effect = None
@@ -412,19 +430,24 @@ class InjectivePerpetualClientMock:
     ):
         """This method appends mocks if previously queued mocks already exist."""
         timestamp_ms = int(timestamp * 1e3)
-        scaled_price = price * Decimal(f"1e{self.quote_decimals - self.base_decimals}")
-        scaled_size = size * Decimal(f"1e{self.base_decimals}")
-        price_level = PriceLevel(price=str(scaled_price), quantity=str(scaled_size), timestamp=timestamp_ms)
+        scaled_price = price * Decimal(f"1e{self.quote_decimals}")
         scaled_fee = fee.flat_fees[0].amount * Decimal(f"1e{self.quote_decimals}")
-        trade = DerivativeTrade(
-            order_hash=exchange_order_id,
-            subaccount_id=self.sub_account_id,
-            market_id=self.market_id,
-            trade_execution_type="limitMatchNewOrder",
+        position_delta = PositionDelta(
             trade_direction="buy",
-            price=price_level,
-            fee=str(scaled_fee),
+            execution_price=str(scaled_price),
+            execution_quantity=str(size),
+            execution_margin=str(scaled_price * size),
+        )
+        trade = DerivativeTrade(
             executed_at=timestamp_ms,
+            position_delta=position_delta,
+            subaccount_id=self.sub_account_id,
+            trade_execution_type="limitMatchNewOrder",
+            fee=str(scaled_fee),
+            is_liquidation=False,
+            market_id=self.market_id,
+            order_hash=exchange_order_id,
+            payout="0",
             fee_recipient="anotherRecipientAddress",
             trade_id=trade_id,
             execution_side="taker",
@@ -513,6 +536,44 @@ class InjectivePerpetualClientMock:
         balance_event = StreamAccountPortfolioResponse(type="bank", denom=denom, amount=amount)
         self.injective_async_client_mock.stream_account_portfolio.return_value.add(balance_event)
 
+    def configure_account_base_balance_stream_event(
+        self, timestamp: float, total_balance: Decimal, available_balance: Decimal
+    ):
+        timestamp_ms = int(timestamp * 1e3)
+        deposit = AccountSubaccountDeposit(
+            total_balance=str(total_balance * Decimal(f"1e{self.quote_decimals}")),
+            available_balance=str(available_balance * Decimal(f"1e{self.quote_decimals}")),
+        )
+        balance = SubaccountBalance(
+            subaccount_id=self.sub_account_id,
+            account_address="someAccountAddress",
+            denom=self.quote_denom,
+            deposit=deposit,
+        )
+        balance_event = StreamSubaccountBalanceResponse(
+            balance=balance,
+            timestamp=timestamp_ms,
+        )
+        self.injective_async_client_mock.stream_subaccount_balance.return_value.add(balance_event)
+
+    def configure_faulty_base_balance_stream_event(self, timestamp: float):
+        timestamp_ms = int(timestamp * 1e3)
+        deposit = AccountSubaccountDeposit(
+            total_balance="",
+            available_balance="",
+        )
+        balance = SubaccountBalance(
+            subaccount_id=self.sub_account_id,
+            account_address="someAccountAddress",
+            denom="wrongCoinAddress",
+            deposit=deposit,
+        )
+        balance_event = StreamSubaccountBalanceResponse(
+            balance=balance,
+            timestamp=timestamp_ms,
+        )
+        self.injective_async_client_mock.stream_subaccount_balance.return_value.add(balance_event)
+
     def configure_perp_trades_response_to_request_without_exchange_order_id(
         self,
         timestamp: float,
@@ -567,15 +628,13 @@ class InjectivePerpetualClientMock:
         orderbook = DerivativeLimitOrderbook()
 
         for price, size in bids:
-            scaled_price = price * Decimal(f"1e{self.quote_decimals - self.base_decimals}")
-            scaled_size = size * Decimal(f"1e{self.base_decimals}")
-            bid = PriceLevel(price=str(scaled_price), quantity=str(scaled_size), timestamp=timestamp_ms)
+            scaled_price = price * Decimal(f"1e{self.quote_decimals}")
+            bid = PriceLevel(price=str(scaled_price), quantity=str(size), timestamp=timestamp_ms)
             orderbook.buys.append(bid)
 
         for price, size in asks:
-            scaled_price = price * Decimal(f"1e{self.quote_decimals - self.base_decimals}")
-            scaled_size = size * Decimal(f"1e{self.base_decimals}")
-            ask = PriceLevel(price=str(scaled_price), quantity=str(scaled_size), timestamp=timestamp_ms)
+            scaled_price = price * Decimal(f"1e{self.quote_decimals}")
+            ask = PriceLevel(price=str(scaled_price), quantity=str(size), timestamp=timestamp_ms)
             orderbook.sells.append(ask)
 
         return orderbook
@@ -592,9 +651,7 @@ class InjectivePerpetualClientMock:
     ) -> Tuple[DerivativeTrade, DerivativeTrade]:
         """The taker is a buy."""
         timestamp_ms = int(timestamp * 1e3)
-        scaled_price = price * Decimal(f"1e{self.quote_decimals - self.base_decimals}")
-        scaled_size = size * Decimal(f"1e{self.base_decimals}")
-        price_level = PriceLevel(price=str(scaled_price), quantity=str(scaled_size), timestamp=timestamp_ms)
+        scaled_price = price * Decimal(f"1e{self.quote_decimals}")
         scaled_maker_fee = maker_fee * Decimal(f"1e{self.quote_decimals}")
         scaled_taker_fee = taker_fee * Decimal(f"1e{self.quote_decimals}")
         assert len(taker_trade_id.split("_")) == 2
@@ -602,16 +659,16 @@ class InjectivePerpetualClientMock:
 
         taker_position_delta = PositionDelta(
             trade_direction="buy",
-            execution_price=price_level,
-            execution_quantity=scaled_size,
-            execution_margin=str(scaled_price * scaled_size),
+            execution_price=str(scaled_price),
+            execution_quantity=str(size),
+            execution_margin=str(scaled_price * size),
         )
 
         maker_position_delta = PositionDelta(
             trade_direction="sell",
-            execution_price=price_level,
-            execution_quantity=scaled_size,
-            execution_margin=str(scaled_price * scaled_size),
+            execution_price=str(scaled_price),
+            execution_quantity=str(size),
+            execution_margin=str(scaled_price * size),
         )
 
         taker_trade = DerivativeTrade(
@@ -655,7 +712,7 @@ class InjectivePerpetualClientMock:
         size: Decimal,
         filled_size: Decimal,
         direction: str,
-        leverage: float,
+        leverage: Decimal,
     ):
         """
         order {
@@ -767,7 +824,7 @@ class InjectivePerpetualClientMock:
         size: Decimal,
         filled_size: Decimal,
         direction: str,
-        leverage: float,
+        leverage: Decimal,
     ):
         """
         orders {
@@ -818,7 +875,7 @@ class InjectivePerpetualClientMock:
         size: Decimal,
         filled_size: Decimal,
         direction: str,
-        leverage: float,
+        leverage: Decimal,
     ) -> DerivativeOrderHistory:
         timestamp_ms = int(timestamp * 1e3)
         order = DerivativeOrderHistory(
@@ -835,50 +892,63 @@ class InjectivePerpetualClientMock:
             created_at=timestamp_ms,
             updated_at=timestamp_ms,
             direction=direction,
-            margin=Decimal(leverage) * size * price,
+            margin=str(leverage * size * price),
         )
         return order
 
-    def configure_get_account_balances_list_response(
+    def configure_get_account_balances_response(
         self,
-        bank_base_available_balance: Decimal,
-        bank_quote_available_balance: Decimal,
-        subaccount_base_total_balance: Decimal,
-        subaccount_quote_total_balance: Decimal,
+        base_bank_balance: Decimal = s_decimal_0,
+        quote_bank_balance: Decimal = s_decimal_0,
+        base_total_balance: Decimal = s_decimal_0,
+        base_available_balance: Decimal = s_decimal_0,
+        quote_total_balance: Decimal = s_decimal_0,
+        quote_available_balance: Decimal = s_decimal_0,
+        sub_account_id: Optional[str] = None,
     ):
-        account_portfolio_response = AccountPortfolioResponse()
+        sub_account_id = sub_account_id or self.sub_account_id
+        subaccount_list = []
+        bank_coin_list = []
 
-        if bank_base_available_balance != s_decimal_0:
-            base_coin = Coin(denom=self.base_denom, amount=str(bank_base_available_balance))
-        if bank_quote_available_balance != s_decimal_0:
-            quote_coin = Coin(denom=self.quote_denom, amount=str(bank_quote_available_balance))
-
-        if subaccount_base_total_balance != s_decimal_0:
+        if base_total_balance != s_decimal_0:
             base_deposit = SubaccountDeposit(
-                total_balance=str(subaccount_base_total_balance * Decimal(f"1e{self.base_decimals}")),
-                available_balance="",
+                total_balance=str(base_total_balance * Decimal(f"1e{self.base_decimals}")),
+                available_balance=str(base_available_balance * Decimal(f"1e{self.base_decimals}")),
             )
-            base_subaccount = SubaccountBalanceV2(
-                subaccount_id=self.sub_account_id, denom=self.base_denom, deposit=base_deposit
+            base_balance = SubaccountBalanceV2(
+                subaccount_id=sub_account_id,
+                denom=self.base_denom,
+                deposit=base_deposit
             )
+            subaccount_list.append(base_balance)
 
-        if subaccount_quote_total_balance != s_decimal_0:
+        if quote_total_balance != s_decimal_0:
             quote_deposit = SubaccountDeposit(
-                total_balance=str(subaccount_quote_total_balance * Decimal(f"1e{self.base_decimals}")),
-                available_balance="",
+                total_balance=str(quote_total_balance * Decimal(f"1e{self.quote_decimals}")),
+                available_balance=str(quote_available_balance * Decimal(f"1e{self.quote_decimals}")),
             )
-            quote_subaccount = SubaccountBalanceV2(
-                subaccount_id=self.sub_account_id, denom=self.base_denom, deposit=quote_deposit
+            quote_balance = SubaccountBalanceV2(
+                subaccount_id=sub_account_id,
+                denom=self.quote_denom,
+                deposit=quote_deposit,
             )
+            subaccount_list.append(quote_balance)
 
-        portfolio = Portfolio(
-            account_address="someInjAddress",
-            bank_balances=[base_coin, quote_coin],
-            subaccounts=[base_subaccount, quote_subaccount],
-        )
-        account_portfolio_response.portfolio = portfolio
+        if base_bank_balance != s_decimal_0:
+            base_scaled_amount = str(base_bank_balance * Decimal(f"1e{self.base_decimals}"))
+            coin = Coin(amount=base_scaled_amount, denom=self.base_denom)
+            bank_coin_list.append(coin)
 
-        self.injective_async_client_mock.get_account_portfolio.return_value = account_portfolio_response
+        if quote_bank_balance != s_decimal_0:
+            quote_scaled_amount = str(quote_bank_balance * Decimal(f"1e{self.quote_decimals}"))
+            coin = Coin(amount=quote_scaled_amount, denom=self.quote_denom)
+            bank_coin_list.append(coin)
+
+        portfolio = Portfolio(account_address="someAccountAddress", bank_balances=bank_coin_list,
+                              subaccounts=subaccount_list)
+
+        self.injective_async_client_mock.get_account_portfolio.return_value = AccountPortfolioResponse(
+            portfolio=portfolio)
 
     def configure_get_tx_by_hash_creation_response(
         self,
@@ -1040,8 +1110,8 @@ class InjectivePerpetualClientMock:
             decimals=self.quote_decimals,
             updated_at=int(timestamp * 1e3),
         )
-        min_price_tick_size = str(self.min_price_tick_size * Decimal(f"1e{self.quote_decimals - self.base_decimals}"))
-        min_quantity_tick_size = str(self.min_quantity_tick_size * Decimal(f"1e{self.base_decimals}"))
+        min_perpetual_price_tick_size = str(self.min_price_tick_size * Decimal(f"1e{self.quote_decimals}"))
+        min_perpetual_quantity_tick_size = str(self.min_quantity_tick_size)
         custom_perpetual_market_info = PerpetualMarketInfo(
             hourly_funding_rate_cap="0.0000625",
             hourly_interest_rate="0.00000416666",
@@ -1053,14 +1123,14 @@ class InjectivePerpetualClientMock:
             cumulative_price="1.502338165156193724",
             last_timestamp=1677660809,
         )
-        custom_market = DerivativeMarketInfo(
+        custom_derivative_market_info = DerivativeMarketInfo(
             market_id=self.market_id,
             market_status="active",
             ticker=f"{self.base}/{self.quote} PERP",
             oracle_base=self.base,
             oracle_quote=self.quote,
             oracle_type="bandibc",
-            oracle_scale_factor=6,
+            oracle_scale_factor=self.oracle_scale_factor,
             initial_margin_ratio="0.095",
             maintenance_margin_ratio="0.05",
             quote_denom=self.quote_coin_address,
@@ -1069,13 +1139,13 @@ class InjectivePerpetualClientMock:
             taker_fee_rate=str(self.taker_fee_rate),
             service_provider_fee="0.4",
             is_perpetual=True,
-            min_price_tick_size=min_price_tick_size,
-            min_quantity_tick_size=min_quantity_tick_size,
+            min_price_tick_size=min_perpetual_price_tick_size,
+            min_quantity_tick_size=min_perpetual_quantity_tick_size,
             perpetual_market_info=custom_perpetual_market_info,
             perpetual_market_funding=custom_perpetual_market_funding,
         )
-        inj_pair_min_price_tick_size = str(self.min_price_tick_size * Decimal(f"1e{18 - self.base_decimals}"))
-        inj_pair_min_quantity_tick_size = str(self.min_quantity_tick_size * Decimal(f"1e{self.base_decimals}"))
+        inj_perpetual_pair_min_price_tick_size = str(self.min_price_tick_size * Decimal(f"1e{18}"))
+        inj_perpetual_pair_min_quantity_tick_size = str(self.min_quantity_tick_size)
 
         inj_perpetual_market_info = PerpetualMarketInfo(
             hourly_funding_rate_cap="0.000625",
@@ -1089,14 +1159,14 @@ class InjectivePerpetualClientMock:
             last_timestamp=1674712474,
         )
 
-        inj_pair_market = DerivativeMarketInfo(
+        inj_derivative_market_info = DerivativeMarketInfo(
             market_id="anotherMarketId",
             market_status="active",
             ticker=f"INJ/{self.quote} PERP",
             oracle_base="INJ",
             oracle_quote=self.quote,
             oracle_type="bandibc",
-            oracle_scale_factor=6,
+            oracle_scale_factor=self.oracle_scale_factor,
             initial_margin_ratio="0.095",
             maintenance_margin_ratio="0.05",
             quote_denom=self.quote_coin_address,
@@ -1104,13 +1174,138 @@ class InjectivePerpetualClientMock:
             maker_fee_rate=str(self.maker_fee_rate),
             taker_fee_rate=str(self.taker_fee_rate),
             service_provider_fee="0.4",
-            min_price_tick_size=inj_pair_min_price_tick_size,
-            min_quantity_tick_size=inj_pair_min_quantity_tick_size,
+            min_price_tick_size=inj_perpetual_pair_min_price_tick_size,
+            min_quantity_tick_size=inj_perpetual_pair_min_quantity_tick_size,
             perpetual_market_info=inj_perpetual_market_info,
             perpetual_market_funding=inj_perpetual_market_funding,
         )
-        markets = MarketsResponse()
-        markets.markets.append(custom_market)
-        markets.markets.append(inj_pair_market)
+        perp_markets = MarketsResponse()
+        perp_markets.markets.append(custom_derivative_market_info)
+        perp_markets.markets.append(inj_derivative_market_info)
 
-        self.injective_async_client_mock.get_derivative_markets.return_value = markets
+        self.injective_async_client_mock.get_derivative_markets.return_value = perp_markets
+
+        min_spot_price_tick_size = str(self.min_price_tick_size * Decimal(f"1e{self.quote_decimals - self.base_decimals}"))
+        min_spot_quantity_tick_size = str(self.min_quantity_tick_size * Decimal(f"1e{self.base_decimals}"))
+        inj_spot_pair_min_price_tick_size = str(self.min_price_tick_size * Decimal(f"1e{18 - self.base_decimals}"))
+        inj_spot_pair_min_quantity_tick_size = str(self.min_quantity_tick_size * Decimal(f"1e{self.base_decimals}"))
+        base_token_meta = SpotTokenMeta(
+            name="Coin",
+            address=self.base_coin_address,
+            symbol=self.base,
+            decimals=self.base_decimals,
+            updated_at=int(timestamp * 1e3),
+        )
+        quote_token_meta = SpotTokenMeta(
+            name="Alpha",
+            address=self.quote_coin_address,
+            symbol=self.quote,
+            decimals=self.quote_decimals,
+            updated_at=int(timestamp * 1e3),
+        )
+        inj_token_meta = SpotTokenMeta(
+            name="Injective Protocol",
+            address="0xe28b3B32B6c345A34Ff64674606124Dd5Aceca30",  # noqa: mock
+            symbol="INJ",
+            decimals=18,
+            updated_at=int(timestamp * 1e3),
+        )
+        custom_spot_market_info = SpotMarketInfo(
+            market_id=self.market_id,
+            market_status="active",
+            ticker=f"{self.base}/{self.quote}",
+            base_denom=self.base_denom,
+            base_token_meta=base_token_meta,
+            quote_denom=self.quote_denom,
+            quote_token_meta=quote_token_meta,
+            maker_fee_rate=str(self.maker_fee_rate),
+            taker_fee_rate=str(self.taker_fee_rate),
+            service_provider_fee="0.4",
+            min_price_tick_size=min_spot_price_tick_size,
+            min_quantity_tick_size=min_spot_quantity_tick_size,
+        )
+        inj_spot_market_info = SpotMarketInfo(
+            market_id="anotherMarketId",
+            market_status="active",
+            ticker=f"INJ/{self.quote}",
+            base_denom="inj",
+            base_token_meta=inj_token_meta,
+            quote_denom=self.quote_denom,
+            quote_token_meta=quote_token_meta,
+            maker_fee_rate=str(self.maker_fee_rate),
+            taker_fee_rate=str(self.taker_fee_rate),
+            service_provider_fee="0.4",
+            min_price_tick_size=inj_spot_pair_min_price_tick_size,
+            min_quantity_tick_size=inj_spot_pair_min_quantity_tick_size,
+        )
+        spot_markets = SpotMarketsResponse()
+        spot_markets.markets.append(custom_spot_market_info)
+        spot_markets.markets.append(inj_spot_market_info)
+
+        self.injective_async_client_mock.get_spot_markets.return_value = spot_markets
+
+    def configure_get_derivative_positions_response(
+        self,
+        main_position_size: Decimal,
+        main_position_price: Decimal,
+        main_position_mark_price: Decimal,
+        main_position_side: PositionSide,
+        main_position_leverage: Decimal,
+        inj_position_size: Decimal,
+        inj_position_price: Decimal,
+        inj_position_mark_price: Decimal,
+        inj_position_side: PositionSide,
+        inj_position_leverage: Decimal,
+    ):
+        """Mocks a response for a fetch-positions call.
+
+        Allows to set one arbitrary trading-pair position and one positions for INJ/{QUOTE}. If the size of
+        either of those two positions is zero, the position is not added to the response."""
+        positions = PositionsResponse()
+
+        if main_position_size != 0:
+            margin = (
+                main_position_price * Decimal(f"1e{self.quote_decimals}")
+                / main_position_leverage
+                * abs(main_position_size)
+            )
+            positions.positions.append(
+                DerivativePosition(
+                    ticker=f"{self.base}/{self.quote} PERP",
+                    market_id=self.market_id,
+                    subaccount_id=self.sub_account_id,
+                    direction="long" if main_position_side == PositionSide.LONG else "short",
+                    quantity=str(abs(main_position_size)),
+                    entry_price=str(main_position_price * Decimal(f"1e{self.quote_decimals}")),
+                    margin=str(margin),
+                    liquidation_price="0",
+                    mark_price=str(main_position_mark_price * Decimal(f"1e{self.oracle_scale_factor}")),
+                    aggregate_reduce_only_quantity="0",
+                    updated_at=1680511486496,
+                    created_at=-62135596800000,
+                )
+            )
+        if inj_position_size != 0:
+            margin = (
+                inj_position_price * Decimal(f"1e{self.quote_decimals}")
+                / inj_position_leverage
+                * abs(inj_position_size)
+            )
+            positions.positions.append(
+                DerivativePosition(
+                    ticker=f"INJ/{self.quote} PERP",
+                    market_id="anotherMarketId",
+                    subaccount_id=self.sub_account_id,
+                    direction="long" if inj_position_side == PositionSide.LONG else "short",
+                    quantity=str(abs(inj_position_size)),
+                    entry_price=str(inj_position_price * Decimal(f"1e{self.quote_decimals}")),
+                    margin=str(margin),
+                    liquidation_price="0",
+                    mark_price=str(inj_position_mark_price * Decimal(f"1e{self.oracle_scale_factor}")),
+                    aggregate_reduce_only_quantity="0",
+                    updated_at=1680511486496,
+                    created_at=-62135596800000,
+                )
+            )
+
+        self.injective_async_client_mock.get_derivative_positions.return_value = positions
