@@ -25,6 +25,7 @@ from hummingbot.connector.gateway.gateway_order_tracker import GatewayOrderTrack
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, PositionSide, TradeType
+from hummingbot.core.data_type.funding_info import FundingInfoUpdate
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, MakerTakerExchangeFeeRates, TokenAmount
@@ -85,12 +86,14 @@ class InjectivePerpetualAPIDataSourceTest(unittest.TestCase):
         self.trade_updates_logger = EventLogger()
         self.snapshots_logger = EventLogger()
         self.balance_logger = EventLogger()
+        self.funding_info_logger = EventLogger()
 
         self.data_source.add_listener(event_tag=OrderBookDataSourceEvent.TRADE_EVENT, listener=self.trades_logger)
         self.data_source.add_listener(event_tag=MarketEvent.OrderUpdate, listener=self.order_updates_logger)
         self.data_source.add_listener(event_tag=MarketEvent.TradeUpdate, listener=self.trade_updates_logger)
         self.data_source.add_listener(event_tag=OrderBookDataSourceEvent.SNAPSHOT_EVENT, listener=self.snapshots_logger)
         self.data_source.add_listener(event_tag=AccountEvent.BalanceEvent, listener=self.balance_logger)
+        self.data_source.add_listener(event_tag=MarketEvent.FundingInfo, listener=self.funding_info_logger)
 
         self.async_run_with_timeout(coro=self.data_source.start())
 
@@ -802,29 +805,70 @@ class InjectivePerpetualAPIDataSourceTest(unittest.TestCase):
         self.assertEqual(target_total_balance, balance_event.total_balance)
         self.assertEqual(target_available_balance, balance_event.available_balance)
 
-    # def test_delivers_bank_balance_events(self):
-    #     target_total_balance = Decimal("20")
-    #     self.injective_async_client_mock.configure_bank_account_portfolio_balance_stream_event(
-    #         denom=self.quote, amount=target_total_balance
-    #     )
-    #
-    #     self.injective_async_client_mock.run_until_all_items_delivered()
-    #
-    #     self.assertEqual(1, len(self.balance_logger.event_log))
-    #
-    #     balance_event: BalanceUpdateEvent = self.balance_logger.event_log[0]
-    #
-    #     self.assertEqual(self.quote, balance_event.asset_name)
-    #     self.assertEqual(target_total_balance, balance_event.total_balance)
-    #     self.assertEqual(target_available_balance, balance_event.available_balance)
-    #
-    #     raise NotImplementedError
-    #
-    # def test_non_default_account_ignores_bank_balance_events(self):
-    #     raise NotImplementedError
-    #
-    # def test_delivers_funding_info_events(self):
-    #     raise NotImplementedError
+    def test_delivers_bank_balance_events(self):
+        target_available_balance = Decimal("20")
+        self.injective_async_client_mock.configure_bank_account_portfolio_balance_stream_event(
+            token=self.quote, amount=target_available_balance
+        )
+
+        self.injective_async_client_mock.run_until_all_items_delivered()
+
+        self.assertEqual(1, len(self.balance_logger.event_log))
+
+        balance_event: BalanceUpdateEvent = self.balance_logger.event_log[0]
+
+        self.assertEqual(self.quote, balance_event.asset_name)
+        self.assertEqual(target_available_balance, balance_event.available_balance)
+        self.assertIsNone(balance_event.total_balance)  # unknown via bank update
+
+    def test_non_default_account_ignores_bank_balance_events(self):
+        sub_account_id = "0x6df823e0adc0d4811e8d25d7380c1b45e43b16b0eea6f109cc1fb31d31aeddc7"  # noqa: mock
+        connector_spec = {
+            "chain": "injective",
+            "network": "mainnet",
+            "wallet_address": sub_account_id,
+        }
+        data_source = InjectivePerpetualAPIDataSource(
+            trading_pairs=[self.trading_pair],
+            connector_spec=connector_spec,
+            client_config_map=ClientConfigAdapter(hb_config=ClientConfigMap()),
+        )
+        data_source.gateway_order_tracker = self.tracker
+        self.data_source.remove_listener(event_tag=AccountEvent.BalanceEvent, listener=self.balance_logger)
+        data_source.add_listener(event_tag=AccountEvent.BalanceEvent, listener=self.balance_logger)
+
+        self.async_run_with_timeout(coro=data_source.start())
+
+        self.injective_async_client_mock.configure_bank_account_portfolio_balance_stream_event(
+            token=self.quote, amount=Decimal("20")
+        )
+
+        self.injective_async_client_mock.run_until_all_items_delivered()
+
+        self.assertEqual(0, len(self.balance_logger.event_log))
+
+    def test_delivers_funding_info_events(self):
+        target_index_price = Decimal("100")
+        target_mark_price = Decimal("101")
+        next_funding_time = 123123123
+        target_rate = Decimal("0.0001")
+        self.injective_async_client_mock.configure_funding_info_stream_event(
+            index_price=target_index_price,
+            mark_price=target_mark_price,
+            next_funding_time=next_funding_time,
+            funding_rate=target_rate,
+        )
+        self.injective_async_client_mock.run_until_all_items_delivered()
+
+        self.assertEqual(1, len(self.funding_info_logger.event_log))
+
+        funding_info_event: FundingInfoUpdate = self.funding_info_logger.event_log[0]
+
+        self.assertEqual(self.trading_pair, funding_info_event.trading_pair)
+        self.assertEqual(target_index_price, funding_info_event.index_price)
+        self.assertEqual(target_mark_price, funding_info_event.mark_price)
+        self.assertEqual(next_funding_time, funding_info_event.next_funding_utc_timestamp)
+        self.assertEqual(target_rate, funding_info_event.rate)
 
     def test_parses_transaction_event_for_order_creation_success(self):
         creation_transaction_hash = "0x7cb1eafc389349f86da901cdcbfd9119435a2ea84d61c17b6ded778b6fd2f81d"  # noqa: mock
@@ -1009,8 +1053,44 @@ class InjectivePerpetualAPIDataSourceTest(unittest.TestCase):
         self.assertEqual(inj_position_expected_size, inj_position.amount)
         self.assertEqual(inj_position_expected_leverage, inj_position.leverage)
 
-    # def test_get_funding_info(self):
-    #     raise NotImplementedError
-    #
-    # def test_fetch_last_fee_payment(self):
-    #     raise NotImplementedError
+    def test_get_funding_info(self):
+        target_index_price = Decimal("100")
+        target_mark_price = Decimal("101")
+        next_funding_time = 123123123
+        target_rate = Decimal("0.0001")
+
+        self.injective_async_client_mock.configure_get_funding_info_response(
+            index_price=target_index_price,
+            mark_price=target_mark_price,
+            next_funding_time=next_funding_time,
+            funding_rate=target_rate,
+        )
+
+        funding_info = self.async_run_with_timeout(
+            coro=self.data_source.get_funding_info(trading_pair=self.trading_pair)
+        )
+
+        self.assertEqual(self.trading_pair, funding_info.trading_pair)
+        self.assertEqual(target_index_price, funding_info.index_price)
+        self.assertEqual(target_mark_price, funding_info.mark_price)
+        self.assertEqual(next_funding_time, funding_info.next_funding_utc_timestamp)
+        self.assertEqual(target_rate, funding_info.rate)
+
+    def test_fetch_last_fee_payment(self):
+        expected_funding_timestamp = self.initial_timestamp + 1000
+        expected_funding_rate = Decimal("0.0001")
+        expected_payment = Decimal("0.02")
+
+        self.injective_async_client_mock.configure_fetch_last_fee_payment_response(
+            amount=expected_payment,
+            funding_rate=expected_funding_rate,
+            timestamp=expected_funding_timestamp,
+        )
+
+        timestamp, funding_rate, payment = self.async_run_with_timeout(
+            coro=self.data_source.fetch_last_fee_payment(trading_pair=self.trading_pair)
+        )
+
+        self.assertEqual(expected_funding_timestamp, timestamp)
+        self.assertEqual(expected_funding_rate, funding_rate)
+        self.assertEqual(expected_payment, payment)
