@@ -1,7 +1,7 @@
 import asyncio
 import functools
 import unittest
-from test.mock.wrapped_request_client_session import WrappedRequestClientSession
+from test.mock.client_session_wrapped_request import ClientSessionWrappedRequest
 
 import aiohttp
 from aiohttp import ClientResponse, ClientSession
@@ -12,18 +12,18 @@ class CustomClientResponse(ClientResponse):
     pass
 
 
-class TestWrappedRequestClientSession(unittest.TestCase):
+class TestClientSessionWrappedRequest(unittest.TestCase):
 
     def test_init_with_incorrect_response_class_subclass(self):
         class NotClientResponseSubclass:
             pass
 
         with self.assertRaises(ValueError):
-            WrappedRequestClientSession(response_class=NotClientResponseSubclass)  # type: ignore
+            ClientSessionWrappedRequest(response_class=NotClientResponseSubclass)  # type: ignore
 
     def test_async_context_manager(self):
         async def async_test():
-            async with WrappedRequestClientSession() as session:
+            async with ClientSessionWrappedRequest() as session:
                 self.assertIsInstance(session._session, ClientSession)
 
         asyncio.run(async_test())
@@ -33,7 +33,7 @@ class TestWrappedRequestClientSession(unittest.TestCase):
             return await session.client_session_request(*args, **kwargs)
 
         async def async_test():
-            async with WrappedRequestClientSession() as session:
+            async with ClientSessionWrappedRequest() as session:
                 url = "http://example.com"
                 wrapped_request_wrapper = functools.partial(request_wrapper, session)
                 response = await wrapped_request_wrapper("GET", url)
@@ -43,7 +43,7 @@ class TestWrappedRequestClientSession(unittest.TestCase):
 
     def test_request_wrapper_raises(self):
         async def async_test():
-            async with WrappedRequestClientSession() as session:
+            async with ClientSessionWrappedRequest() as session:
                 with self.assertRaises(NotImplementedError):
                     await session.get("http://example.com")
 
@@ -61,7 +61,7 @@ class TestWrappedRequestClientSession(unittest.TestCase):
             return await kwargs["wrapped_session"].client_session_request(*args, **kwargs)
 
         async def async_test():
-            async with TestServer(app) as server, WrappedRequestClientSession(
+            async with TestServer(app) as server, ClientSessionWrappedRequest(
                     request_wrapper=custom_request_wrapper
             ) as session:
                 url = str(server.make_url("/"))
@@ -81,12 +81,12 @@ class TestWrappedRequestClientSession(unittest.TestCase):
 
         async def custom_request_wrapper(*args, **kwargs):
             wrapped_session = kwargs.pop("wrapped_session", None)
-            if not isinstance(wrapped_session, WrappedRequestClientSession):
+            if not isinstance(wrapped_session, ClientSessionWrappedRequest):
                 raise TypeError("Invalid wrapped_session")
             return await wrapped_session.client_session_request(*args, **kwargs)
 
         async def async_test():
-            async with TestServer(app) as server, WrappedRequestClientSession(
+            async with TestServer(app) as server, ClientSessionWrappedRequest(
                     request_wrapper=functools.partial(custom_request_wrapper, wrapped_session="invalid")
             ) as session:
                 url = str(server.make_url("/"))
@@ -99,7 +99,7 @@ class TestWrappedRequestClientSession(unittest.TestCase):
 
     def test_getattr(self):
         async def async_test():
-            async with WrappedRequestClientSession() as session:
+            async with ClientSessionWrappedRequest() as session:
                 self.assertIsInstance(session.timeout, aiohttp.ClientTimeout)
                 with self.assertRaises(AttributeError):
                     _ = session.__unknown_attr__
@@ -117,7 +117,7 @@ class TestWrappedRequestClientSession(unittest.TestCase):
             return await session.client_session_request(*args, **kwargs)
 
         async def async_test():
-            async with TestServer(app) as server, WrappedRequestClientSession() as session:
+            async with TestServer(app) as server, ClientSessionWrappedRequest() as session:
                 url = str(server.make_url("/"))
                 wrapped_request_wrapper = functools.partial(request_wrapper, session)
                 response = await wrapped_request_wrapper("GET", url)
@@ -139,7 +139,7 @@ class TestWrappedRequestClientSession(unittest.TestCase):
             return await wrapped_session.client_session_request(*args, **kwargs)
 
         async def async_test():
-            async with TestServer(app) as server, WrappedRequestClientSession(
+            async with TestServer(app) as server, ClientSessionWrappedRequest(
                     request_wrapper=functools.partial(custom_request_wrapper, wrapped_session=None)
             ) as session:
                 url = str(server.make_url("/"))
@@ -158,9 +158,13 @@ class TestWrappedRequestClientSession(unittest.TestCase):
         app = aiohttp.web.Application()
         app.router.add_route("POST", "/", handler)
 
+        async def custom_request_wrapper(*args, **kwargs):
+            wrapped_session = kwargs.pop("wrapped_session")
+            return await wrapped_session.client_session_request(*args, **kwargs)
+
         async def async_test():
-            async with TestServer(app) as server, WrappedRequestClientSession(
-                    request_wrapper=WrappedRequestClientSession.client_session_request
+            async with TestServer(app) as server, ClientSessionWrappedRequest(
+                    request_wrapper=custom_request_wrapper
             ) as session:
                 url = str(server.make_url("/"))
                 response = await session.post(url, data={'key': 'value'})
@@ -177,15 +181,14 @@ class TestWrappedRequestClientSession(unittest.TestCase):
         app = aiohttp.web.Application()
         app.router.add_route("GET", "/", handler)
 
-        async def custom_request_wrapper(self, *args, **kwargs):
-            response = await self.client_session_request(*args, **kwargs)
-            response_class = response.__class__
-            return response_class.from_client_response(response, CustomClientResponse)
+        async def custom_request_wrapper(*args, **kwargs):
+            response = await kwargs["wrapped_session"].client_session_request(*args, **kwargs)
+            response.__class__ = CustomClientResponse
+            return response
 
         async def async_test():
             async with TestServer(app) as server:
-                session = WrappedRequestClientSession()
-                session.request_wrapper = custom_request_wrapper.__get__(session)
+                session = ClientSessionWrappedRequest(request_wrapper=custom_request_wrapper)
                 async with session:
                     url = str(server.make_url("/"))
                     response = await session.get(url)
@@ -206,7 +209,7 @@ class TestWrappedRequestClientSession(unittest.TestCase):
             raise ValueError("Test exception")
 
         async def async_test():
-            async with TestServer(app) as server, WrappedRequestClientSession(
+            async with TestServer(app) as server, ClientSessionWrappedRequest(
                     request_wrapper=custom_request_wrapper
             ) as session:
                 url = str(server.make_url("/"))
@@ -220,7 +223,7 @@ class TestWrappedRequestClientSession(unittest.TestCase):
             pass
 
         async def async_test():
-            async with WrappedRequestClientSession(response_class=CustomClientResponse) as session:
+            async with ClientSessionWrappedRequest(response_class=CustomClientResponse) as session:
                 self.assertIs(session._kwargs["response_class"], CustomClientResponse)
 
         asyncio.run(async_test())
@@ -239,7 +242,7 @@ class TestWrappedRequestClientSession(unittest.TestCase):
             return response
 
         async def async_test():
-            async with TestServer(app) as server, WrappedRequestClientSession(
+            async with TestServer(app) as server, ClientSessionWrappedRequest(
                     request_wrapper=custom_request_wrapper
             ) as session:
                 url = str(server.make_url("/"))
@@ -267,7 +270,7 @@ class TestWrappedRequestClientSession(unittest.TestCase):
             return response
 
         async def async_test():
-            async with TestServer(app) as server, WrappedRequestClientSession(
+            async with TestServer(app) as server, ClientSessionWrappedRequest(
                     request_wrapper=custom_request_wrapper
             ) as session:
                 url = str(server.make_url("/"))

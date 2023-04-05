@@ -7,7 +7,7 @@ from aiohttp import ClientResponse, ClientSession
 T = TypeVar("T", bound=ClientResponse)
 
 
-class WrappedRequestClientSession(Generic[T]):
+class ClientSessionWrappedRequest(Generic[T]):
     """
     A wrapped aiohttp.ClientSession that allows custom request handling via a provided request_wrapper function.
 
@@ -42,7 +42,7 @@ class WrappedRequestClientSession(Generic[T]):
                  response_class: Type[T] = ClientResponse,
                  **kwargs):
         """
-        Initialize the WrappedRequestClientSession with the provided request_wrapper, args, and kwargs.
+        Initialize the ClientSessionWrappedRequest with the provided request_wrapper, args, and kwargs.
 
         :param request_wrapper: An optional async function that takes the same arguments as ClientSession.request
                                 and returns a response object.
@@ -64,11 +64,10 @@ class WrappedRequestClientSession(Generic[T]):
             ..., Coroutine[Any, Any, T]] = request_wrapper or self.request_wrapper_default_raises
         self._kwargs["response_class"] = response_class
 
-        print(inspect.signature(self._request_wrapper).parameters)
         if "wrapped_session" not in inspect.signature(self._request_wrapper).parameters:
             self._request_wrapper = functools.partial(self._request_wrapper, wrapped_session=self)
 
-    async def __aenter__(self) -> "WrappedRequestClientSession":
+    async def __aenter__(self) -> "ClientSessionWrappedRequest":
         """
         Asynchronously enter the context manager, creating the underlying
         ClientSession and applying the request wrapper. It also initializes the type
@@ -104,7 +103,7 @@ class WrappedRequestClientSession(Generic[T]):
             raise AttributeError(name)
 
         if self._session is not None:
-            # This is not needed, _request() is not likely to be called directly from WrappedRequestClientSession
+            # This is not needed, _request() is not likely to be called directly from ClientSessionWrappedRequest
             # if name == "request":
             #     return getattr(self, "request_wrapper")
             attribute = getattr(self._session, name)
