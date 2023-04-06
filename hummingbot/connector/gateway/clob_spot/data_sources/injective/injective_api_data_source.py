@@ -28,11 +28,7 @@ from pyinjective.proto.injective.exchange.v1beta1.exchange_pb2 import SpotOrder
 from pyinjective.wallet import Address
 
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.gateway.clob_spot.data_sources.clob_api_data_source_base import (
-    CancelOrderResult,
-    CLOBAPIDataSourceBase,
-    PlaceOrderResult,
-)
+from hummingbot.connector.gateway.clob_spot.data_sources.clob_api_data_source_base import CLOBAPIDataSourceBase
 from hummingbot.connector.gateway.clob_spot.data_sources.injective.injective_constants import (
     BACKEND_TO_CLIENT_ORDER_STATE_MAP,
     CLIENT_TO_BACKEND_ORDER_TYPES_MAP,
@@ -45,6 +41,7 @@ from hummingbot.connector.gateway.clob_spot.data_sources.injective.injective_con
     REQUESTS_SKIP_STEP,
 )
 from hummingbot.connector.gateway.clob_spot.data_sources.injective.injective_utils import OrderHashManager
+from hummingbot.connector.gateway.common_types import CancelOrderResult, PlaceOrderResult
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, split_hb_trading_pair

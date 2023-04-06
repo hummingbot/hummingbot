@@ -46,11 +46,8 @@ from hummingbot.connector.gateway.clob_perp.data_sources.clob_perp_api_data_sour
 from hummingbot.connector.gateway.clob_perp.data_sources.injective_perpetual import (
     injective_perpetual_constants as CONSTANTS,
 )
-from hummingbot.connector.gateway.clob_spot.data_sources.gateway_clob_api_data_source_base import (
-    CancelOrderResult,
-    PlaceOrderResult,
-)
 from hummingbot.connector.gateway.clob_spot.data_sources.injective.injective_utils import Composer, OrderHashManager
+from hummingbot.connector.gateway.common_types import CancelOrderResult, PlaceOrderResult
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, split_hb_trading_pair
@@ -130,10 +127,10 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
             MarketEvent.TradeUpdate,
             MarketEvent.OrderUpdate,
             AccountEvent.BalanceEvent,
+            AccountEvent.PositionUpdate,
+            MarketEvent.FundingInfo,
             OrderBookDataSourceEvent.TRADE_EVENT,
-            OrderBookDataSourceEvent.DIFF_EVENT,
             OrderBookDataSourceEvent.SNAPSHOT_EVENT,
-            OrderBookDataSourceEvent.FUNDING_INFO_EVENT
         ]
 
     def get_supported_order_types(self) -> List[OrderType]:

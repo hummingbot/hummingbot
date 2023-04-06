@@ -5,7 +5,6 @@ from test.hummingbot.connector.gateway.clob_perp.data_sources.injective_perpetua
     InjectivePerpetualClientMock,
 )
 from typing import Awaitable, List
-from unittest.mock import patch
 
 from bidict import bidict
 
@@ -16,10 +15,7 @@ from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.gateway.clob_perp.data_sources.injective_perpetual.injective_perpetual_api_data_source import (
     InjectivePerpetualAPIDataSource,
 )
-from hummingbot.connector.gateway.clob_spot.data_sources.gateway_clob_api_data_source_base import (
-    CancelOrderResult,
-    PlaceOrderResult,
-)
+from hummingbot.connector.gateway.common_types import CancelOrderResult, PlaceOrderResult
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.gateway.gateway_order_tracker import GatewayOrderTracker
 from hummingbot.connector.trading_rule import TradingRule
@@ -671,6 +667,7 @@ class InjectivePerpetualAPIDataSourceTest(unittest.TestCase):
         self.assertEqual(creation_transaction_hash, status_update.misc_updates["creation_transaction_hash"])
 
     def test_get_all_order_fills_no_fills(self):
+        self.injective_async_client_mock.configure_empty_perp_trades_responses()
         target_order_id = "0x6ba1eafc389349f86da901cdcbfd9119425a2ea84d61c17b6ded778b6fd2f70c"  # noqa: mock
         creation_transaction_hash = "0x7cb2eafc389349f86da901cdcbfd9119425a2ea84d61c17b6ded778b6fd2g81d"  # noqa: mock
         self.injective_async_client_mock.configure_get_historical_perp_orders_response(
@@ -789,7 +786,7 @@ class InjectivePerpetualAPIDataSourceTest(unittest.TestCase):
     def test_delivers_balance_events(self):
         target_total_balance = Decimal("20")
         target_available_balance = Decimal("19")
-        self.injective_async_client_mock.configure_account_base_balance_stream_event(
+        self.injective_async_client_mock.configure_account_quote_balance_stream_event(
             timestamp=self.initial_timestamp,
             total_balance=target_total_balance,
             available_balance=target_available_balance,
@@ -914,12 +911,7 @@ class InjectivePerpetualAPIDataSourceTest(unittest.TestCase):
         self.assertEqual(in_flight_order.client_order_id, status_update.client_order_id)
         self.assertEqual(target_order_hash, status_update.exchange_order_id)
 
-    @patch(
-        "hummingbot.connector.gateway.clob_spot.data_sources.injective.injective_api_data_source"
-        ".InjectiveAPIDataSource._time"
-    )
-    def test_parses_transaction_event_for_order_creation_failure(self, time_mock):
-        time_mock.return_value = self.initial_timestamp + 1
+    def test_parses_transaction_event_for_order_creation_failure(self):
         creation_transaction_hash = "0x7cb1eafc389349f86da901cdcbfd9119435a2ea84d61c17b6ded778b6fd2f81d"  # noqa: mock
         target_order_hash = "0x6ba1eafc389349f86da901cdcbfd9119425a2ea84d61c17b6ded778b6fd2f70c"  # noqa: mock
         in_flight_order = GatewayInFlightOrder(

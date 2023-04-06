@@ -379,17 +379,17 @@ class ExchangePyBase(ExchangeBase, ABC):
         """
         return self._get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
 
-    def cancel(self, trading_pair: str, order_id: str):
+    def cancel(self, trading_pair: str, client_order_id: str):
         """
         Creates a promise to cancel an order in the exchange
 
         :param trading_pair: the trading pair the order to cancel operates with
-        :param order_id: the client id of the order to cancel
+        :param client_order_id: the client id of the order to cancel
 
         :return: the client id of the order to cancel
         """
-        safe_ensure_future(self._execute_cancel(trading_pair, order_id))
-        return order_id
+        safe_ensure_future(self._execute_cancel(trading_pair, client_order_id))
+        return client_order_id
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         """
