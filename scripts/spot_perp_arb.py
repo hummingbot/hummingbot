@@ -276,8 +276,8 @@ class SpotPerpArb(ScriptStrategyBase):
         perp_short_price = self.limit_taker_price(self.perp_connector, is_buy=False)
         ret_percent = float((perp_short_price - spot_buy_price) / spot_buy_price) * 100
         lines.append("Buy Spot Short Perp Opportunity:")
-        lines.append(f"Spot Buy: {spot_buy_price}")
-        lines.append(f"Perp Short: {perp_short_price}")
+        lines.append(f"Buy Spot: {spot_buy_price}")
+        lines.append(f"Short Perp: {perp_short_price}")
         lines.append(f"Return: {ret_percent:.2f}%")
         lines.append(f"Is In Position: {self.is_perp_in_short}")
         return
@@ -287,8 +287,8 @@ class SpotPerpArb(ScriptStrategyBase):
         spot_sell_price = self.limit_taker_price(self.spot_connector, is_buy=False)
         ret_percent = float((spot_sell_price - perp_long_price) / perp_long_price) * 100
         lines.append("Long Perp Sell Spot Opportunity:")
-        lines.append(f"Perp Long: {perp_long_price}")
-        lines.append(f"Spot Sell: {spot_sell_price}")
+        lines.append(f"Long Perp: {perp_long_price}")
+        lines.append(f"Sell Spot: {spot_sell_price}")
         lines.append(f"Return: {ret_percent:.2f}%")
         lines.append(f"Is In Position: {self.is_perp_in_long}")
         return
