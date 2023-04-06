@@ -370,6 +370,8 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
                 f" INJ in the bank to cover transaction fees."
             )
 
+        self.logger().debug(f"Canceling order {order.exchange_order_id} with tx hash {transaction_hash}.")
+
         transaction_hash = f"0x{transaction_hash.lower()}"
 
         misc_updates = {"cancelation_transaction_hash": transaction_hash}
