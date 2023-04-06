@@ -13,13 +13,23 @@ from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
+# TODO: handle corner cases -- spot price and perp price never cross again after position is opened
 class SpotPerpArb(ScriptStrategyBase):
+    """
+    PRECHECK:
+    1. enough base and quote balance in spot, enough quote balance in perp
+    2. better to empty your position in perp
+    """
+
     spot_connector = "kucoin"
     perp_connector = "kucoin_perpetual"
-    trading_pair = "SXP-USDT"
+    trading_pair = "LINA-USDT"
 
-    base_order_amount = Decimal("50")
-    spread_bps = 30  # minimal profit margin in order to execute trade
+    base_order_amount = Decimal("100")
+    buy_spot_short_perp_profit_margin_bps = (
+        1  # minimal profit margin in order to execute trade
+    )
+    sell_spot_long_perp_profit_margin_bps = 1
     slippage_buffer_bps = (
         5  # buffer to account for slippage when placing limit taker orders
     )
@@ -83,7 +93,7 @@ class SpotPerpArb(ScriptStrategyBase):
         spot_buy_price = self.limit_taker_price(self.spot_connector, is_buy=True)
         perp_sell_price = self.limit_taker_price(self.perp_connector, is_buy=False)
         ret_pbs = float((perp_sell_price - spot_buy_price) / spot_buy_price) * 10000
-        is_profitable = ret_pbs >= self.spread_bps
+        is_profitable = ret_pbs >= self.buy_spot_short_perp_profit_margin_bps
         return is_profitable
 
     # TODO: check if balance is deducted when it has position
@@ -132,8 +142,8 @@ class SpotPerpArb(ScriptStrategyBase):
             price=spot_buy_price_with_slippage,
         )
         self.logger().info(
-            f"Submitted buy order in {self.spot_connector} for {self.trading_pair} ",
-            f"at price {spot_buy_price_with_slippage}@{self.base_order_amount}",
+            f"Submitted buy order in {self.spot_connector} for {self.trading_pair} "
+            f"at price {spot_buy_price_with_slippage:.06f}@{self.base_order_amount}"
         )
         position_action = (
             PositionAction.CLOSE if self.is_perp_in_long else PositionAction.OPEN
@@ -147,8 +157,8 @@ class SpotPerpArb(ScriptStrategyBase):
             position_action=position_action,
         )
         self.logger().info(
-            f"Submitted short order in {self.perp_connector} for {self.trading_pair} ",
-            f"at price {perp_short_price_with_slippage}@{self.base_order_amount}",
+            f"Submitted short order in {self.perp_connector} for {self.trading_pair} "
+            f"at price {perp_short_price_with_slippage:.06f}@{self.base_order_amount}"
         )
         return
 
@@ -156,7 +166,7 @@ class SpotPerpArb(ScriptStrategyBase):
         spot_sell_price = self.limit_taker_price(self.spot_connector, is_buy=False)
         perp_buy_price = self.limit_taker_price(self.perp_connector, is_buy=True)
         ret_pbs = float((spot_sell_price - perp_buy_price) / perp_buy_price) * 10000
-        is_profitable = ret_pbs >= self.spread_bps
+        is_profitable = ret_pbs >= self.sell_spot_long_perp_profit_margin_bps
         return is_profitable
 
     def can_sell_spot_long_perp(self) -> bool:
@@ -172,7 +182,9 @@ class SpotPerpArb(ScriptStrategyBase):
             )
         perp_balance = self.get_balance(self.perp_connector, is_base=False)
         # long order WITH any splippage takes more capital
-        long_price_with_slippage = self.limit_taker_price(self.perp_connector, is_buy=True)
+        long_price_with_slippage = self.limit_taker_price(
+            self.perp_connector, is_buy=True
+        )
         perp_required = long_price_with_slippage * self.base_order_amount
         is_perp_enough = Decimal(perp_balance) >= perp_required
         if not is_perp_enough:
@@ -183,7 +195,6 @@ class SpotPerpArb(ScriptStrategyBase):
                 f"Required {float_perp_required:.4f} {quote}."
             )
         return is_spot_enough and is_perp_enough
-
 
     def sell_spot_long_perp(self) -> None:
         perp_long_price_with_slippage = self.limit_taker_price_with_slippage(
@@ -204,8 +215,8 @@ class SpotPerpArb(ScriptStrategyBase):
             position_action=position_action,
         )
         self.logger().info(
-            f"Submitted long order in {self.perp_connector} for {self.trading_pair} ",
-            f"at price {perp_long_price_with_slippage}@{self.base_order_amount}",
+            f"Submitted long order in {self.perp_connector} for {self.trading_pair} "
+            f"at price {perp_long_price_with_slippage:.06f}@{self.base_order_amount}"
         )
         self.sell(
             self.spot_connector,
@@ -215,8 +226,8 @@ class SpotPerpArb(ScriptStrategyBase):
             price=spot_sell_price_with_slippage,
         )
         self.logger().info(
-            f"Submitted sell order in {self.spot_connector} for {self.trading_pair} ",
-            f"at price {spot_sell_price_with_slippage}@{self.base_order_amount}",
+            f"Submitted sell order in {self.spot_connector} for {self.trading_pair} "
+            f"at price {spot_sell_price_with_slippage:.06f}@{self.base_order_amount}"
         )
 
         return
@@ -257,6 +268,7 @@ class SpotPerpArb(ScriptStrategyBase):
         self._append_sell_spot_long_perp_status(lines)
         lines.extend(["", ""])
         self._append_balances_status(lines)
+        lines.extend(["", ""])
         return "\n".join(lines)
 
     def _append_buy_spot_short_perp_status(self, lines: List[str]) -> None:
@@ -267,6 +279,7 @@ class SpotPerpArb(ScriptStrategyBase):
         lines.append(f"Spot Buy: {spot_buy_price}")
         lines.append(f"Perp Short: {perp_short_price}")
         lines.append(f"Return: {ret_percent:.2f}%")
+        lines.append(f"Is In Position: {self.is_perp_in_short}")
         return
 
     def _append_sell_spot_long_perp_status(self, lines: List[str]) -> None:
@@ -277,10 +290,11 @@ class SpotPerpArb(ScriptStrategyBase):
         lines.append(f"Perp Long: {perp_long_price}")
         lines.append(f"Spot Sell: {spot_sell_price}")
         lines.append(f"Return: {ret_percent:.2f}%")
+        lines.append(f"Is In Position: {self.is_perp_in_long}")
         return
 
     def _append_balances_status(self, lines: List[str]) -> None:
-
+        base, quote = split_hb_trading_pair(self.trading_pair)
         spot_base_balance = self.get_balance(self.spot_connector, is_base=True)
         spot_quote_balance = self.get_balance(self.spot_connector, is_base=False)
         perp_quote_balance = self.get_balance(self.perp_connector, is_base=False)
