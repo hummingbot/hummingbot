@@ -26,7 +26,13 @@ from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, T
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, MakerTakerExchangeFeeRates, TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import AccountEvent, BalanceUpdateEvent, MarketEvent, OrderBookDataSourceEvent
+from hummingbot.core.event.events import (
+    AccountEvent,
+    BalanceUpdateEvent,
+    MarketEvent,
+    OrderBookDataSourceEvent,
+    PositionUpdateEvent,
+)
 from hummingbot.core.network_iterator import NetworkStatus
 
 
@@ -83,13 +89,15 @@ class InjectivePerpetualAPIDataSourceTest(unittest.TestCase):
         self.snapshots_logger = EventLogger()
         self.balance_logger = EventLogger()
         self.funding_info_logger = EventLogger()
+        self.position_event_logger = EventLogger()
 
-        self.data_source.add_listener(event_tag=OrderBookDataSourceEvent.TRADE_EVENT, listener=self.trades_logger)
+        self.data_source.add_listener(event_tag=AccountEvent.BalanceEvent, listener=self.balance_logger)
+        self.data_source.add_listener(event_tag=AccountEvent.PositionUpdate, listener=self.position_event_logger)
         self.data_source.add_listener(event_tag=MarketEvent.OrderUpdate, listener=self.order_updates_logger)
         self.data_source.add_listener(event_tag=MarketEvent.TradeUpdate, listener=self.trade_updates_logger)
-        self.data_source.add_listener(event_tag=OrderBookDataSourceEvent.SNAPSHOT_EVENT, listener=self.snapshots_logger)
-        self.data_source.add_listener(event_tag=AccountEvent.BalanceEvent, listener=self.balance_logger)
         self.data_source.add_listener(event_tag=MarketEvent.FundingInfo, listener=self.funding_info_logger)
+        self.data_source.add_listener(event_tag=OrderBookDataSourceEvent.TRADE_EVENT, listener=self.trades_logger)
+        self.data_source.add_listener(event_tag=OrderBookDataSourceEvent.SNAPSHOT_EVENT, listener=self.snapshots_logger)
 
         self.async_run_with_timeout(coro=self.data_source.start())
 
@@ -986,6 +994,34 @@ class InjectivePerpetualAPIDataSourceTest(unittest.TestCase):
         self.assertEqual(OrderState.CANCELED, status_update.new_state)
         self.assertEqual(in_flight_order.client_order_id, status_update.client_order_id)
         self.assertEqual(target_order_hash, status_update.exchange_order_id)
+
+    def test_parse_position_event(self):
+        expected_size = Decimal("1")
+        expected_side = PositionSide.LONG
+        expecte_unrealized_pnl = Decimal("2")
+        expected_entry_price = Decimal("1")
+        expected_leverage = Decimal("3")
+
+        self.injective_async_client_mock.configure_position_event(
+            size=expected_size,
+            side=expected_side,
+            unrealized_pnl=expecte_unrealized_pnl,
+            entry_price=expected_entry_price,
+            leverage=expected_leverage,
+        )
+
+        self.injective_async_client_mock.run_until_all_items_delivered()
+
+        self.assertEqual(1, len(self.position_event_logger.event_log))
+
+        position_event: PositionUpdateEvent = self.position_event_logger.event_log[0]
+
+        self.assertEqual(self.trading_pair, position_event.trading_pair)
+        self.assertEqual(expected_size, position_event.amount)
+        self.assertEqual(expected_side, position_event.position_side)
+        self.assertEqual(expecte_unrealized_pnl, position_event.unrealized_pnl)
+        self.assertEqual(expected_entry_price, position_event.entry_price)
+        self.assertEqual(expected_leverage, position_event.leverage)
 
     def test_fetch_positions(self):
         main_position_expected_size = Decimal("1")

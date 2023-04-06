@@ -32,6 +32,7 @@ from pyinjective.proto.exchange.injective_derivative_exchange_rpc_pb2 import (
     PriceLevel,
     StreamOrderbookResponse,
     StreamOrdersHistoryResponse,
+    StreamPositionsResponse,
     StreamTradesResponse,
     TokenMeta,
     TradesResponse,
@@ -195,6 +196,7 @@ class InjectivePerpetualClientMock:
         self.injective_async_client_mock.stream_derivative_positions.return_value = StreamMock()
         self.injective_async_client_mock.stream_txs.return_value = StreamMock()
         self.injective_async_client_mock.stream_oracle_prices.return_value = StreamMock()
+        self.injective_async_client_mock.stream_derivative_positions.return_value = StreamMock()
 
         self.configure_active_derivative_markets_response(timestamp=self.initial_timestamp)
         self.configure_get_funding_info_response(
@@ -1301,6 +1303,32 @@ class InjectivePerpetualClientMock:
             )
 
         self.injective_async_client_mock.get_derivative_positions.return_value = positions
+
+    def configure_position_event(
+        self,
+        size: Decimal,
+        side: PositionSide,
+        unrealized_pnl: Decimal,
+        entry_price: Decimal,
+        leverage: Decimal,
+    ):
+        mark_price = 1 / ((1 / entry_price) - (unrealized_pnl / size))
+        margin = entry_price / leverage * size
+        position = DerivativePosition(
+            ticker=f"{self.base}/{self.quote} PERP",
+            market_id=self.market_id,
+            direction="long" if side == PositionSide.LONG else "short",
+            subaccount_id=self.sub_account_id,
+            quantity=str(size),
+            mark_price=str(mark_price * Decimal(f"1e{self.oracle_scale_factor}")),
+            entry_price=str(entry_price * Decimal(f"1e{self.quote_decimals}")),
+            margin=str(margin * Decimal(f"1e{self.quote_decimals}")),
+            aggregate_reduce_only_quantity="0",
+            updated_at=1680511486496,
+            created_at=-62135596800000,
+        )
+        position_event = StreamPositionsResponse(position=position)
+        self.injective_async_client_mock.stream_derivative_positions.return_value.add(position_event)
 
     def _get_derivative_market_info(
         self,
