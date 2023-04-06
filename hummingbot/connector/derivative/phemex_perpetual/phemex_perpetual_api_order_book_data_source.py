@@ -124,7 +124,7 @@ class PhemexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             channel = self._diff_messages_queue_key
         elif self._trade_messages_queue_key in event_message:
             channel = self._trade_messages_queue_key
-        elif event_message["method"] == self._funding_info_messages_queue_key:
+        elif event_message.get("method", None) == self._funding_info_messages_queue_key:
             channel = self._funding_info_messages_queue_key
         return channel
 

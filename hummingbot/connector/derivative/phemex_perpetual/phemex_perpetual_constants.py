@@ -29,7 +29,7 @@ COLLATERAL_TOKEN = "USDT"
 # Public API Endpoints
 SNAPSHOT_REST_URL = "/md/v2/orderbook"
 TICKER_PRICE_URL = "/md/v2/ticker/24hr"
-TICKER_PRICE_CHANGE_URL = TICKER_PRICE_URL
+TICKER_PRICE_CHANGE_URL = "/exchange/public/md/v2/kline/last"
 SERVER_TIME_PATH_URL = "/public/time"
 MARK_PRICE_URL = TICKER_PRICE_URL
 EXCHANGE_INFO_URL = "/public/products"
@@ -40,6 +40,10 @@ PLACE_ORDERS = "/g-orders"
 CANCEL_ORDERS = "/g-orders/cancel"
 GET_ORDERS = "/api-data/g-futures/orders/by-order-id"
 GET_TRADES = "/api-data/g-futures/trades"
+POSITION_INFO = "/g-accounts/accountPositions"
+POSITION_MODE = "/g-positions/switch-pos-mode-sync"
+POSITION_LEVERAGE = "/g-positions/leverage"
+USER_TRADE = "/exchange/order/v2/tradingList"
 
 
 # Funding Settlement Time Span
@@ -75,28 +79,97 @@ RATE_LIMITS = [
     RateLimit(limit_id=WSS_CONNECTION_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
     RateLimit(limit_id=WSS_MESSAGE_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
     # Weight Limits for individual endpoints
-    RateLimit(limit_id=SNAPSHOT_REST_URL, limit=NO_LIMIT, time_interval=ONE_SECOND,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT)]),
-    RateLimit(limit_id=TICKER_PRICE_URL, limit=NO_LIMIT, time_interval=ONE_SECOND,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT)]),
-    RateLimit(limit_id=TICKER_PRICE_CHANGE_URL, limit=NO_LIMIT, time_interval=ONE_SECOND,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT)]),
-    RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=NO_LIMIT, time_interval=ONE_SECOND,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT)]),
-    RateLimit(limit_id=MARK_PRICE_URL, limit=NO_LIMIT, time_interval=ONE_SECOND,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT)]),
-    RateLimit(limit_id=EXCHANGE_INFO_URL, limit=NO_LIMIT, time_interval=ONE_SECOND,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT)]),
-    RateLimit(limit_id=ACCOUNT_INFO, limit=NO_LIMIT, time_interval=ONE_SECOND,
-              linked_limits=[LinkedLimitWeightPair(API_CONTRACT_GENERAL_LIMIT)]),
-    RateLimit(limit_id=PLACE_ORDERS, limit=NO_LIMIT, time_interval=ONE_SECOND,
-              linked_limits=[LinkedLimitWeightPair(API_CONTRACT_GENERAL_LIMIT)]),
-    RateLimit(limit_id=CANCEL_ORDERS, limit=NO_LIMIT, time_interval=ONE_SECOND,
-              linked_limits=[LinkedLimitWeightPair(API_CONTRACT_GENERAL_LIMIT)]),
-    RateLimit(limit_id=GET_ORDERS, limit=NO_LIMIT, time_interval=ONE_SECOND,
-              linked_limits=[LinkedLimitWeightPair(API_CONTRACT_GENERAL_LIMIT)]),
-    RateLimit(limit_id=GET_TRADES, limit=NO_LIMIT, time_interval=ONE_SECOND,
-              linked_limits=[LinkedLimitWeightPair(API_CONTRACT_GENERAL_LIMIT)]),
+    RateLimit(
+        limit_id=SNAPSHOT_REST_URL,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT)],
+    ),
+    RateLimit(
+        limit_id=TICKER_PRICE_URL,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT)],
+    ),
+    RateLimit(
+        limit_id=TICKER_PRICE_CHANGE_URL,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        weight=10,
+        linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT)],
+    ),
+    RateLimit(
+        limit_id=SERVER_TIME_PATH_URL,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT)],
+    ),
+    RateLimit(
+        limit_id=MARK_PRICE_URL,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT)],
+    ),
+    RateLimit(
+        limit_id=EXCHANGE_INFO_URL,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT)],
+    ),
+    RateLimit(
+        limit_id=ACCOUNT_INFO,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(API_CONTRACT_GENERAL_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=PLACE_ORDERS,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(API_CONTRACT_GENERAL_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=CANCEL_ORDERS,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(API_CONTRACT_GENERAL_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=GET_ORDERS,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(API_CONTRACT_GENERAL_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=GET_TRADES,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(API_CONTRACT_GENERAL_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=POSITION_INFO,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(API_CONTRACT_GENERAL_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=POSITION_MODE,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(API_CONTRACT_GENERAL_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=POSITION_LEVERAGE,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(API_CONTRACT_GENERAL_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=USER_TRADE,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(API_CONTRACT_GENERAL_LIMIT)],
+    ),
 ]
 
 # Order Statuses
