@@ -26,13 +26,11 @@ class SpotPerpArb(ScriptStrategyBase):
     trading_pair = "LINA-USDT"
 
     base_order_amount = Decimal("100")
-    buy_spot_short_perp_profit_margin_bps = (
-        1  # minimal profit margin in order to execute trade
-    )
-    sell_spot_long_perp_profit_margin_bps = 1
-    slippage_buffer_bps = (
-        5  # buffer to account for slippage when placing limit taker orders
-    )
+    buy_spot_short_perp_profit_margin_bps = 30
+    sell_spot_long_perp_profit_margin_bps = 30
+    # buffer to account for slippage when placing limit taker orders
+    slippage_buffer_bps = 5
+    
     leverage = 2
     markets = {spot_connector: {trading_pair}, perp_connector: {trading_pair}}
 
