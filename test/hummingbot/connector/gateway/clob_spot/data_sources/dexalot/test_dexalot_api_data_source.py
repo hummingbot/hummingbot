@@ -9,10 +9,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pandas as pd
 from aioresponses import aioresponses
 
-from hummingbot.connector.gateway.clob_spot.data_sources.clob_api_data_source_base import PlaceOrderResult
 from hummingbot.connector.gateway.clob_spot.data_sources.dexalot import dexalot_constants as CONSTANTS
 from hummingbot.connector.gateway.clob_spot.data_sources.dexalot.dexalot_api_data_source import DexalotAPIDataSource
 from hummingbot.connector.gateway.clob_spot.data_sources.dexalot.dexalot_constants import HB_TO_DEXALOT_STATUS_MAP
+from hummingbot.connector.gateway.common_types import PlaceOrderResult
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.test_support.gateway_clob_api_data_source_test import AbstractGatewayCLOBAPIDataSourceTests
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant

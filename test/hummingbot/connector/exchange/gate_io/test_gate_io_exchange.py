@@ -673,7 +673,7 @@ class TestGateIoExchange(unittest.TestCase):
                         status=400,
                         callback=lambda *args, **kwargs: request_sent_event.set())
 
-        self.exchange.cancel(trading_pair=self.trading_pair, order_id="OID1")
+        self.exchange.cancel(trading_pair=self.trading_pair, client_order_id="OID1")
         self.async_run_with_timeout(request_sent_event.wait())
 
         self.assertEqual(0, len(self.order_cancelled_logger.event_log))

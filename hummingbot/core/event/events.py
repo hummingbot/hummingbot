@@ -43,7 +43,6 @@ class OrderBookDataSourceEvent(int, Enum):
     SNAPSHOT_EVENT = 1001
     DIFF_EVENT = 1002
     TRADE_EVENT = 1003
-    FUNDING_INFO_EVENT = 1004
 
 
 class TokenApprovalEvent(Enum):

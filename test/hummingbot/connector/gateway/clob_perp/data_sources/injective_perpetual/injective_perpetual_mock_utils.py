@@ -111,6 +111,8 @@ class InjectivePerpetualClientMock:
         self.quote_decimals = 8  # usually set to 6, but for the sake of differing minimum price/size increments
         self.oracle_scale_factor = 6  # usually same as quote_decimals but differentiating here for the sake of tests
         self.market_id = "someMarketId"
+        self.inj_base = "INJ"
+        self.inj_market_id = "anotherMarketId"
         self.sub_account_id = sub_account_id
         self.service_provider_fee = Decimal("0.4")
         self.order_creation_gas_estimate = Decimal("0.0000825")
@@ -195,6 +197,12 @@ class InjectivePerpetualClientMock:
         self.injective_async_client_mock.stream_oracle_prices.return_value = StreamMock()
 
         self.configure_active_derivative_markets_response(timestamp=self.initial_timestamp)
+        self.configure_get_funding_info_response(
+            index_price=Decimal("200"),
+            mark_price=Decimal("202"),
+            next_funding_time=self.initial_timestamp + 8 * 60 * 60,
+            funding_rate=Decimal("0.0002"),
+        )
 
     def stop(self):
         self.injective_async_client_mock_patch.stop()
@@ -369,7 +377,7 @@ class InjectivePerpetualClientMock:
                 "txHash": success_transaction_hash,
             }
 
-        self.gateway_instance_mock.clob_pepr_cancel_order.side_effect = cancel_and_return
+        self.gateway_instance_mock.clob_perp_cancel_order.side_effect = cancel_and_return
 
     def configure_check_network_success(self):
         self.injective_async_client_mock.ping.side_effect = None
@@ -469,17 +477,6 @@ class InjectivePerpetualClientMock:
                 self.injective_async_client_mock.get_derivative_trades.side_effect
             ) + [trades, TradesResponse()]
 
-    def configure_trades_response_no_trades(self):
-        """This method appends mocks if previously queued mocks already exist."""
-        trades = TradesResponse()
-
-        if self.injective_async_client_mock.get_derivative_trades.side_effect is None:
-            self.injective_async_client_mock.get_derivative_trades.side_effect = [trades, TradesResponse()]
-        else:
-            self.injective_async_client_mock.get_derivative_trades.side_effect = list(
-                self.injective_async_client_mock.get_derivative_trades.side_effect
-            ) + [trades, TradesResponse()]
-
     def configure_trades_response_fails(self):
         self.injective_async_client_mock.get_derivative_trades.side_effect = RuntimeError
 
@@ -560,11 +557,11 @@ class InjectivePerpetualClientMock:
             funding_rate=funding_rate,
         )
         stream_prices_event = StreamPricesResponse(
-            price=str(mark_price), timestamp=next_funding_time - 1000
+            price=str(mark_price), timestamp=int(next_funding_time - 1000)
         )
         self.injective_async_client_mock.stream_oracle_prices.return_value.add(stream_prices_event)
 
-    def configure_account_base_balance_stream_event(
+    def configure_account_quote_balance_stream_event(
         self, timestamp: float, total_balance: Decimal, available_balance: Decimal
     ):
         timestamp_ms = int(timestamp * 1e3)
@@ -623,6 +620,9 @@ class InjectivePerpetualClientMock:
         trades.trades.append(taker_trade)
 
         self.injective_async_client_mock.get_derivative_trades.return_value = trades
+
+    def configure_empty_perp_trades_responses(self):
+        self.injective_async_client_mock.get_derivative_trades.return_value = TradesResponse()
 
     def configure_orderbook_snapshot(
         self,
@@ -1162,7 +1162,7 @@ class InjectivePerpetualClientMock:
         )
 
         inj_derivative_market_info = self._get_derivative_market_info(
-            market_id="anotherMarketId", base_token="INJ"
+            market_id=self.inj_market_id, base_token=self.inj_base
         )
         perp_markets = MarketsResponse()
         perp_markets.markets.append(custom_derivative_market_info)
@@ -1192,7 +1192,7 @@ class InjectivePerpetualClientMock:
         inj_token_meta = SpotTokenMeta(
             name="Injective Protocol",
             address="0xe28b3B32B6c345A34Ff64674606124Dd5Aceca30",  # noqa: mock
-            symbol="INJ",
+            symbol=self.inj_base,
             decimals=18,
             updated_at=int(timestamp * 1e3),
         )
@@ -1211,9 +1211,9 @@ class InjectivePerpetualClientMock:
             min_quantity_tick_size=min_spot_quantity_tick_size,
         )
         inj_spot_market_info = SpotMarketInfo(
-            market_id="anotherMarketId",
+            market_id=self.inj_market_id,
             market_status="active",
-            ticker=f"INJ/{self.quote}",
+            ticker=f"{self.inj_base}/{self.quote}",
             base_denom="inj",
             base_token_meta=inj_token_meta,
             quote_denom=self.quote_denom,
@@ -1279,8 +1279,8 @@ class InjectivePerpetualClientMock:
             )
             positions.positions.append(
                 DerivativePosition(
-                    ticker=f"INJ/{self.quote} PERP",
-                    market_id="anotherMarketId",
+                    ticker=f"{self.inj_base}/{self.quote} PERP",
+                    market_id=self.inj_market_id,
                     subaccount_id=self.sub_account_id,
                     direction="long" if inj_position_side == PositionSide.LONG else "short",
                     quantity=str(abs(inj_position_size)),

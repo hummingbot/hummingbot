@@ -3,6 +3,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
+from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.gateway.clob import clob_constants as CONSTANTS
 from hummingbot.connector.gateway.clob_perp.data_sources.clob_perp_api_data_source_base import CLOBPerpAPIDataSourceBase
@@ -142,6 +143,12 @@ class GatewayCLOBPerp(PerpetualDerivativePyBase):
         return deepcopy(self._trading_fees)
 
     @property
+    def status_dict(self) -> Dict[str, bool]:
+        sd = super().status_dict
+        sd["api_data_source_initialized"] = self._api_data_source.ready
+        return sd
+
+    @property
     def funding_fee_poll_interval(self) -> int:
         return CONSTANTS.FUNDING_FEE_POLL_INTERVAL
 
@@ -191,6 +198,10 @@ class GatewayCLOBPerp(PerpetualDerivativePyBase):
 
     def _create_user_stream_data_source(self):
         return None
+
+    async def _get_last_traded_price(self, trading_pair: str) -> float:
+        price = await self._api_data_source.get_last_traded_price(trading_pair=trading_pair)
+        return float(price)
 
     def _create_web_assistants_factory(self):
         return None
@@ -264,6 +275,68 @@ class GatewayCLOBPerp(PerpetualDerivativePyBase):
             )
         )
 
+    def buy(self,
+            trading_pair: str,
+            amount: Decimal,
+            order_type=OrderType.LIMIT,
+            price: Decimal = s_decimal_NaN,
+            **kwargs) -> str:
+        """
+        Creates a promise to create a buy order using the parameters
+
+        :param trading_pair: the token pair to operate with
+        :param amount: the order amount
+        :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
+        :param price: the order price
+
+        :return: the id assigned by the connector to the order (the client id)
+        """
+        order_id = self._api_data_source.get_client_order_id(
+            is_buy=True,
+            trading_pair=trading_pair,
+            hbot_order_id_prefix=self.client_order_id_prefix,
+            max_id_len=self.client_order_id_max_length,
+        )
+        safe_ensure_future(self._create_order(
+            trade_type=TradeType.BUY,
+            order_id=order_id,
+            trading_pair=trading_pair,
+            amount=amount,
+            order_type=order_type,
+            price=price,
+            **kwargs))
+        return order_id
+
+    def sell(self,
+             trading_pair: str,
+             amount: Decimal,
+             order_type: OrderType = OrderType.LIMIT,
+             price: Decimal = s_decimal_NaN,
+             **kwargs) -> str:
+        """
+        Creates a promise to create a sell order using the parameters.
+        :param trading_pair: the token pair to operate with
+        :param amount: the order amount
+        :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
+        :param price: the order price
+        :return: the id assigned by the connector to the order (the client id)
+        """
+        order_id = self._api_data_source.get_client_order_id(
+            is_buy=False,
+            trading_pair=trading_pair,
+            hbot_order_id_prefix=self.client_order_id_prefix,
+            max_id_len=self.client_order_id_max_length,
+        )
+        safe_ensure_future(self._create_order(
+            trade_type=TradeType.SELL,
+            order_id=order_id,
+            trading_pair=trading_pair,
+            amount=amount,
+            order_type=order_type,
+            price=price,
+            **kwargs))
+        return order_id
+
     def get_buy_collateral_token(self, trading_pair: str) -> str:
         trading_rule: TradingRule = self._trading_rules[trading_pair]
         return trading_rule.buy_order_collateral_token
@@ -283,14 +356,16 @@ class GatewayCLOBPerp(PerpetualDerivativePyBase):
         if network_status != NetworkStatus.CONNECTED:
             raise IOError("The API data source has lost connection.")
 
+    async def _make_trading_rules_request(self) -> Mapping[str, str]:
+        return await self._make_trading_pairs_request()
+
     async def _make_trading_pairs_request(self) -> Mapping[str, str]:
-        return await self._api_data_source.get_symbol_map()
+        symbol_map = await self._api_data_source.get_symbol_map()
+        return symbol_map
 
-    async def _make_trading_rules_request(self) -> Dict[str, TradingRule]:
-        return await self._api_data_source.get_trading_rules()
-
-    async def _format_trading_rules(self, exchange_info_dict: Dict[str, TradingRule]) -> List[TradingRule]:
-        return list(exchange_info_dict.values())
+    async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
+        trading_rules = await self._api_data_source.get_trading_rules()
+        return list(trading_rules.values())
 
     async def _place_order(
         self,

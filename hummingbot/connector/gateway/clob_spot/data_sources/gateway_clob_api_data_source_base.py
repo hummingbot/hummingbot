@@ -8,11 +8,8 @@ from typing import Any, Dict, List, Optional, Tuple
 from bidict import bidict
 
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.gateway.clob_spot.data_sources.clob_api_data_source_base import (
-    CancelOrderResult,
-    CLOBAPIDataSourceBase,
-    PlaceOrderResult,
-)
+from hummingbot.connector.gateway.clob_spot.data_sources.clob_api_data_source_base import CLOBAPIDataSourceBase
+from hummingbot.connector.gateway.common_types import CancelOrderResult, PlaceOrderResult
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.trading_rule import TradingRule, split_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType
