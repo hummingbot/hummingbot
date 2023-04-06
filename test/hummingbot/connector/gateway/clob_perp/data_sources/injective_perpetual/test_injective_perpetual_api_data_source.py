@@ -816,7 +816,6 @@ class InjectivePerpetualAPIDataSourceTest(unittest.TestCase):
 
         self.assertEqual(self.quote, balance_event.asset_name)
         self.assertEqual(target_available_balance, balance_event.available_balance)
-        self.assertIsNone(balance_event.total_balance)  # unknown via bank update
 
     def test_non_default_account_ignores_bank_balance_events(self):
         sub_account_id = "0x6df823e0adc0d4811e8d25d7380c1b45e43b16b0eea6f109cc1fb31d31aeddc7"  # noqa: mock

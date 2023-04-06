@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from grpc.aio import UnaryStreamCall
 from pyinjective.async_client import AsyncClient
 from pyinjective.orderhash import OrderHashResponse
-from pyinjective.proto.exchange.injective_accounts_rpc_pb2 import StreamSubaccountBalanceResponse, SubaccountBalance
+from pyinjective.proto.exchange.injective_accounts_rpc_pb2 import StreamSubaccountBalanceResponse
 from pyinjective.proto.exchange.injective_derivative_exchange_rpc_pb2 import (
     DerivativeLimitOrderbook,
     DerivativeMarketInfo,
@@ -864,26 +864,6 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
             self.logger().info("Restarting public trades stream.")
             stream.cancel()
 
-    def _parse_bank_balance_message(self, message: StreamAccountPortfolioResponse) -> BalanceUpdateEvent:
-        denom_meta = self._denom_to_token_meta[message.denom]
-        denom_scaler: Decimal = Decimal(f"1e-{denom_meta.decimals}")
-
-        available_balance: Decimal = Decimal(message.amount) * denom_scaler
-        total_balance = None  # bank balance events do not provide available balance information
-
-        balance_msg = BalanceUpdateEvent(
-            timestamp=self._time(),
-            asset_name=denom_meta.symbol,
-            total_balance=total_balance,
-            available_balance=available_balance,
-        )
-        safe_ensure_future(coro=self.get_account_balances())  # update local balances
-        return balance_msg
-
-    def _process_bank_balance_stream_event(self, message: StreamAccountPortfolioResponse):
-        balance_msg: BalanceUpdateEvent = self._parse_bank_balance_message(message=message)
-        self._publisher.trigger_event(event_tag=AccountEvent.BalanceEvent, message=balance_msg)
-
     async def _listen_to_bank_balances_streams(self):
         while True:
             stream: UnaryStreamCall = await self._client.stream_account_portfolio(
@@ -899,52 +879,10 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
             self.logger().info("Restarting account balances stream.")
             stream.cancel()
 
-    def _parse_subaccount_balance_message(self, message: StreamSubaccountBalanceResponse) -> BalanceUpdateEvent:
-        """
-        Balance Example:
-
-        balance {
-            subaccount_id: "0xc7dca7c15c364865f77a4fb67ab11dc95502e6fe000000000000000000000001"  # noqa: documentation
-            account_address: "inj1clw20s2uxeyxtam6f7m84vgae92s9eh7vygagt"  # noqa: documentation
-            denom: "inj"
-            deposit {
-                available_balance: "9980001000000000000"
-            }
-        }
-        timestamp: 1675902606000
-
-        """
-        subaccount_balance: SubaccountBalance = message.balance
-        denom_meta = self._denom_to_token_meta[subaccount_balance.denom]
-        asset_name: str = denom_meta.symbol
-        denom_scaler: Decimal = Decimal(f"1e-{denom_meta.decimals}")
-
-        total_balance = subaccount_balance.deposit.total_balance
-        total_balance = Decimal(total_balance) * denom_scaler if total_balance != "" else None
-        available_balance = subaccount_balance.deposit.available_balance
-        available_balance = Decimal(available_balance) * denom_scaler if available_balance != "" else None
-
-        if self._is_default_subaccount:
-            if available_balance is not None:
-                available_balance += self._account_available_balances[asset_name]
-            if total_balance is not None:
-                total_balance += self._account_balances[asset_name]
-
-        balance_msg = BalanceUpdateEvent(
-            timestamp=self._time(),
-            asset_name=asset_name,
-            total_balance=total_balance,
-            available_balance=available_balance,
-        )
-        balance_dict: Dict[str, Dict[str, Decimal]] = {
-            asset_name: {"total_balance": total_balance, "available_balance": available_balance}
-        }
-        self._update_local_balances(balances=balance_dict)
-        return balance_msg
-
-    def _process_subaccount_balance_stream_event(self, message: StreamSubaccountBalanceResponse):
-        balance_msg: BalanceUpdateEvent = self._parse_subaccount_balance_message(message=message)
-        self._publisher.trigger_event(event_tag=AccountEvent.BalanceEvent, message=balance_msg)
+    def _process_bank_balance_stream_event(self, message: StreamAccountPortfolioResponse):
+        denom_meta = self._denom_to_token_meta[message.denom]
+        symbol = denom_meta.symbol
+        safe_ensure_future(self._issue_balance_update(token=symbol))
 
     async def _listen_to_subaccount_balances_stream(self):
         while True:
@@ -959,6 +897,24 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
                 self.logger().exception("Unexpected error in account balance listener loop.")
             self.logger().info("Restarting account balances stream.")
             stream.cancel()
+
+    def _process_subaccount_balance_stream_event(self, message: StreamSubaccountBalanceResponse):
+        denom_meta = self._denom_to_token_meta[message.balance.denom]
+        symbol = denom_meta.symbol
+        safe_ensure_future(self._issue_balance_update(token=symbol))
+
+    async def _issue_balance_update(self, token: str):
+        account_balances = await self.get_account_balances()
+        token_balances = account_balances.get(token, {})
+        total_balance = token_balances.get("total_balance", Decimal("0"))
+        available_balance = token_balances.get("available_balance", Decimal("0"))
+        balance_msg = BalanceUpdateEvent(
+            timestamp=self._time(),
+            asset_name=token,
+            total_balance=total_balance,
+            available_balance=available_balance,
+        )
+        self._publisher.trigger_event(event_tag=AccountEvent.BalanceEvent, message=balance_msg)
 
     @staticmethod
     def _parse_order_update_from_order_history(
