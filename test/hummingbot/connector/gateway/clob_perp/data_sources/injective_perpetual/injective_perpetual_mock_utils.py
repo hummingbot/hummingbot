@@ -540,11 +540,13 @@ class InjectivePerpetualClientMock:
         assert token in (self.base, self.quote)
         if token == self.base:
             denom = self.base_coin_address
-            amount = amount * Decimal(f"1e{self.base_decimals}")
+            scaled_amount = amount * Decimal(f"1e{self.base_decimals}")
+            self.configure_get_account_balances_response(base_bank_balance=amount)
         else:
             denom = self.quote_coin_address
-            amount = amount * Decimal(f"1e{self.quote_decimals}")
-        balance_event = StreamAccountPortfolioResponse(type="bank", denom=denom, amount=str(amount))
+            scaled_amount = amount * Decimal(f"1e{self.quote_decimals}")
+            self.configure_get_account_balances_response(quote_bank_balance=amount)
+        balance_event = StreamAccountPortfolioResponse(type="bank", denom=denom, amount=str(scaled_amount))
         self.injective_async_client_mock.stream_account_portfolio.return_value.add(balance_event)
 
     def configure_funding_info_stream_event(
@@ -580,6 +582,10 @@ class InjectivePerpetualClientMock:
             timestamp=timestamp_ms,
         )
         self.injective_async_client_mock.stream_subaccount_balance.return_value.add(balance_event)
+
+        self.configure_get_account_balances_response(
+            quote_total_balance=total_balance, quote_available_balance=available_balance,
+        )
 
     def configure_faulty_base_balance_stream_event(self, timestamp: float):
         timestamp_ms = int(timestamp * 1e3)
