@@ -15,12 +15,13 @@ from hummingbot.connector.derivative.phemex_perpetual.phemex_perpetual_api_user_
     PhemexPerpetualAPIUserStreamDataSource,
 )
 from hummingbot.connector.derivative.phemex_perpetual.phemex_perpetual_auth import PhemexPerpetualAuth
+from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.exchange_base import bidict
 from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.data_types import RateLimit
-from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
@@ -195,14 +196,13 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
         """
         Update fees information from the exchange
         """
-        raise NotImplementedError()
+        pass
 
     async def _status_polling_loop_fetch_updates(self):
         await safe_gather(
             self._update_order_status(),
-            """To-Do: Update
             self._update_balances(),
-            self._update_positions(),""",
+            self._update_positions(),
         )
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
@@ -267,7 +267,7 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         # Not required in Phemex because it reimplements _update_orders_fills
-        raise NotImplementedError
+        return await self._update_orders_fills(orders=[order])
 
     async def _all_trades_details(self, trading_pair: str, start_time: float) -> List[Dict[str, Any]]:
         result = []
@@ -302,12 +302,13 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
             tasks = [
                 safe_ensure_future(
                     self._all_trades_details(trading_pair=trading_pair, start_time=min_order_creation_time)
-                ) for trading_pair in trading_pairs
+                )
+                for trading_pair in trading_pairs
             ]
 
             trades_data = []
             results = await safe_gather(*tasks)
-            for trades_for_market in results:
+            for trades_for_market in results.get("data", {}).get("rows", []):
                 trades_data.extend(trades_for_market)
 
             for trade_info in trades_data:
@@ -320,9 +321,8 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
                         fee_schema=self.trade_fee_schema(),
                         position_action=position_action,
                         percent_token=CONSTANTS.COLLATERAL_TOKEN,
-                        flat_fees=[TokenAmount(
-                            amount=Decimal(trade_info["execFeeRv"]),
-                            token=CONSTANTS.COLLATERAL_TOKEN)
+                        flat_fees=[
+                            TokenAmount(amount=Decimal(trade_info["execFeeRv"]), token=CONSTANTS.COLLATERAL_TOKEN)
                         ],
                     )
                     trade_update: TradeUpdate = TradeUpdate(
@@ -387,42 +387,91 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
             except asyncio.CancelledError:
                 raise
             except Exception as e:
-                self.logger().error(f"Unexpected error in user stream listener loop: {e}", exc_info=True)
+                print(e)
+                self.logger().error("Unexpected error in user stream listener loop.")
                 await self._sleep(5.0)
 
     async def _process_user_stream_event(self, event_message: Dict[str, Any]):
-        event_type = event_message.get("e")
-        if event_type == "ORDER_TRADE_UPDATE":
+        for balance in event_message.get("accounts_p", []):
+            total_balance = Decimal(str(balance["accountBalanceRv"]))
+            locked_balance = Decimal(str(balance["totalUsedBalanceRv"]))
+            asset = balance["currency"]
+            self._account_balances[asset] = total_balance
+            self._account_available_balances[asset] = total_balance - locked_balance
 
-            """trade_update: TradeUpdate = TradeUpdate(
+        for trade_info in event_message.get("orders_p", []):
+            client_order_id = trade_info["clOrdID"]
+            tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
 
-                        )
-                        self._order_tracker.process_trade_update(trade_update)
-            AND
-                        tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
-                        if tracked_order is not None:
-                            order_update: OrderUpdate = OrderUpdate(
+            if tracked_order is not None:
+                position_action = tracked_order.position
+                fee = TradeFeeBase.new_perpetual_fee(
+                    fee_schema=self.trade_fee_schema(),
+                    position_action=position_action,
+                    percent_token=CONSTANTS.COLLATERAL_TOKEN,
+                    flat_fees=[TokenAmount(amount=Decimal(trade_info["execFeeRv"]), token=CONSTANTS.COLLATERAL_TOKEN)],
+                )
+                trade_update: TradeUpdate = TradeUpdate(
+                    trade_id=trade_info["execID"],
+                    client_order_id=tracked_order.client_order_id,
+                    exchange_order_id=trade_info["orderID"],
+                    trading_pair=tracked_order.trading_pair,
+                    fill_timestamp=trade_info["transactTimeNs"] * 1e-9,
+                    fill_price=Decimal(trade_info["execPriceRp"]),
+                    fill_base_amount=Decimal(trade_info["execQty"]),
+                    fill_quote_amount=Decimal(trade_info["execValueRv"]),
+                    fee=fee,
+                )
+                self._order_tracker.process_trade_update(trade_update=trade_update)
 
-                            )
+                order_update: OrderUpdate = OrderUpdate(
+                    trading_pair=tracked_order.trading_pair,
+                    update_timestamp=trade_info["transactTimeNs"] * 1e-9,
+                    new_state=CONSTANTS.ORDER_STATE[trade_info["ordStatus"]],
+                    client_order_id=client_order_id,
+                    exchange_order_id=trade_info["orderID"],
+                )
 
-                            self._order_tracker.process_order_update(order_update)"""
+                self._order_tracker.process_order_update(order_update)
 
-        elif event_type == "ACCOUNT_UPDATE":
-            """
-
-                        position.update_position(position_side=PositionSide[asset["ps"]],
-                                                    unrealized_pnl=Decimal(asset["up"]),
-                                                    entry_price=Decimal(asset["ep"]),
-                                                    amount=Decimal(asset["pa"]))
-            OR
-                        await self._update_positions()
-            """
-
-        elif event_type == "MARGIN_CALL":
-            """self.logger().warning("Margin Call: Your position risk is too high, and you are at risk of "
-                                  "liquidation. Close your positions or add additional margin to your wallet.")
-            self.logger().info(f"Margin Required: {total_maint_margin_required}. "
-                               f"Negative PnL assets: {negative_pnls_msg}.")"""
+        for position in event_message.get("positions_p", []):
+            total_maint_margin_required = Decimal("0")
+            try:
+                hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(position["symbol"])
+            except KeyError:
+                # Ignore results for which their symbols is not tracked by the connector
+                continue
+            position_side: PositionSide = PositionSide.LONG if position["posSide"] == "Long" else PositionSide.SHORT
+            amount = Decimal(position["size"])
+            pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
+            # existing_position = self._perpetual_trading.get_position(hb_trading_pair, PositionSide[position_side])
+            # if existing_position is not None:
+            #     existing_position.update_position(position_side=PositionSide[position_side],
+            #                                       unrealized_pnl=Decimal(position["unrealisedPnlRv"]),
+            #                                       entry_price=Decimal(position["avgEntryPriceRp"]),
+            #                                       amount=Decimal(position["size"]))
+            if amount != Decimal("0"):
+                _position = Position(
+                    trading_pair=hb_trading_pair,
+                    position_side=position_side,
+                    unrealized_pnl=Decimal(position["unrealisedPnlRv"]),
+                    entry_price=Decimal(position["avgEntryPriceRp"]),
+                    amount=amount,
+                    leverage=Decimal(position.get("leverageRr")),
+                )
+                self._perpetual_trading.set_position(pos_key, _position)
+            else:
+                self._perpetual_trading.remove_position(pos_key)
+            total_maint_margin_required += Decimal(position["maintMarginReqRr"])
+            if Decimal(position["deleveragePercentileRr"]) > Decimal("0.90"):
+                negative_pnls_msg = f"{hb_trading_pair}: {position['deleveragePercentileRr']}, "
+                self.logger().warning(
+                    "Margin Call: Your position risk is too high, and you are at risk of "
+                    "liquidation. Close your positions or add additional margin to your wallet."
+                )
+                self.logger().info(
+                    f"Margin Required: {total_maint_margin_required}. " f"Negative PnL assets: {negative_pnls_msg}."
+                )
 
     async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
         """
@@ -433,13 +482,40 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
         exchange_info_dict:
             Trading rules dictionary response from the exchange
         """
-        raise NotImplementedError()
+        rules: list = exchange_info_dict.get("data", {}).get("perpProductsV2", [])
+        return_val: list = []
+        for rule in rules:
+            try:
+                if web_utils.is_exchange_information_valid(rule):
+                    trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule["symbol"])
+
+                    min_order_size = Decimal(rule["qtyStepSize"])
+                    step_size = Decimal(rule["qtyStepSize"])
+                    tick_size = Decimal(rule["tickSize"])
+                    min_notional = Decimal(rule["minOrderValueRv"])
+                    collateral_token = rule["settleCurrency"]
+
+                    return_val.append(
+                        TradingRule(
+                            trading_pair,
+                            min_order_size=min_order_size,
+                            min_price_increment=Decimal(tick_size),
+                            min_base_amount_increment=Decimal(step_size),
+                            min_notional_size=Decimal(min_notional),
+                            buy_order_collateral_token=collateral_token,
+                            sell_order_collateral_token=collateral_token,
+                        )
+                    )
+            except Exception:
+                print(f"Error parsing the trading pair rule {rule}. Skipping...")
+                self.logger().error(f"Error parsing the trading pair rule: {rule}. Skipping.")
+        return return_val
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
         for symbol_data in filter(
-                phemex_perpetual_utils.is_exchange_information_valid,
-                exchange_info["data"]["perpProductsV2"],
+            phemex_perpetual_utils.is_exchange_information_valid,
+            exchange_info.get("data", {}).get("perpProductsV2", []),
         ):
             exchange_symbol = symbol_data["symbol"]
             base = symbol_data["contractUnderlyingAssets"]
@@ -473,23 +549,113 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
         self._account_available_balances[account_data["currency"]] = total_balance - locked_balance
 
     async def _update_positions(self):
-        """
-        if _position:
-            self._perpetual_trading.set_position(pos_key, _position)
-        else:
-            self._perpetual_trading.remove_position(pos_key)
-        """
-        raise NotImplementedError()
+        positions = await self._api_get(
+            path_url=CONSTANTS.POSITION_INFO,
+            params={"currency": CONSTANTS.COLLATERAL_TOKEN},
+            is_auth_required=True,
+        )
+        for position in positions.get("data", {}).get("positions", []):
+            trading_pair = position.get("symbol")
+            try:
+                hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(trading_pair)
+                if hb_trading_pair not in self.trading_pairs:
+                    continue
+            except KeyError:
+                # Ignore results for which their symbols is not tracked by the connector
+                continue
+
+            mid_price = self.get_mid_price(hb_trading_pair)
+            if mid_price != s_decimal_NaN:
+
+                position_side = PositionSide[position.get("posSide").upper()]
+
+                entry_price = Decimal(position.get("avgEntryPriceRp"))
+
+                price_diff = mid_price - entry_price
+                amount = Decimal(position.get("size"))
+                unrealized_pnl = (
+                    price_diff * amount if position_side == PositionSide.LONG else price_diff * amount * Decimal("-1")
+                )
+                leverage = Decimal(position.get("leverageRr"))
+                pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
+                if amount != Decimal("0"):
+                    _position = Position(
+                        trading_pair=hb_trading_pair,
+                        position_side=position_side,
+                        unrealized_pnl=unrealized_pnl,
+                        entry_price=entry_price,
+                        amount=amount,
+                        leverage=leverage,
+                    )
+                    self._perpetual_trading.set_position(pos_key, _position)
+                else:
+                    self._perpetual_trading.remove_position(pos_key)
 
     async def _get_position_mode(self) -> Optional[PositionMode]:
-        # To-do:
-        pass
+        return self._position_mode
 
     async def _trading_pair_position_mode_set(self, mode: PositionMode, trading_pair: str) -> Tuple[bool, str]:
-        raise NotImplementedError()
+        response = await self._api_put(
+            path_url=CONSTANTS.POSITION_MODE,
+            data={
+                "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
+                "targetPosMode": "OneWay" if mode == PositionMode.ONEWAY else "Hedged",
+            },
+            is_auth_required=True,
+        )
+        success = False
+        msg = response["msg"]
+        if msg == "success" and response["code"] == 0:
+            success = True
+            self._position_mode = mode
+        return success, msg
 
     async def _set_trading_pair_leverage(self, trading_pair: str, leverage: int) -> Tuple[bool, str]:
-        raise NotImplementedError()
+        response = await self._api_put(
+            path_url=CONSTANTS.POSITION_LEVERAGE,
+            data={
+                "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
+                "leverageRr": str(leverage),
+            },
+            is_auth_required=True,
+        )
+        success = False
+        msg = response["msg"]
+        if msg == "success" and response["code"] == 0:
+            success = True
+        return success, msg
 
     async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
-        raise NotImplementedError()
+        timestamp, funding_rate, payment = 0, Decimal("-1"), Decimal("-1")
+        payment_response = await self._api_get(
+            path_url=CONSTANTS.USER_TRADE,
+            params={
+                "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
+                "currency": CONSTANTS.COLLATERAL_TOKEN,
+                "execType": 4,
+                "offset": 0,
+                "limit": 200,
+            },
+            is_auth_required=True,
+        )
+        payments = payment_response.get("data", [])
+        for funding_payment in payments:
+            payment = Decimal(funding_payment["execValueRv"])
+            funding_rate = Decimal(funding_payment["feeRateRr"])
+            timestamp = funding_payment["createdAt"]
+        return timestamp, funding_rate, payment
+
+    async def _get_last_traded_price(self, trading_pair: str) -> float:
+        exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
+        params = {"symbol": exchange_symbol, "resolution": 60}
+
+        resp_json = await self._api_get(
+            path_url=CONSTANTS.TICKER_PRICE_CHANGE_URL,
+            params=params,
+        )
+
+        price = 0
+        kline = resp_json.get("data", {}).get("rows", [])
+        if len(kline) > 0:
+            price = float(kline[0][2])
+        return price
