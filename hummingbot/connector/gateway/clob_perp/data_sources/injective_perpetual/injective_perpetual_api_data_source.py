@@ -657,9 +657,9 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
                 search_completed = True
             else:
                 skip += CONSTANTS.FETCH_ORDER_HISTORY_LIMIT
-                for order in response.orders:
-                    if order.order_hash == order_hash:
-                        order_history = order
+                for response_order in response.orders:
+                    if response_order.order_hash == order_hash:
+                        order_history = response_order
                         search_completed = True
                         break
 
