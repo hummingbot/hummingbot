@@ -181,7 +181,7 @@ class InjectiveAPIDataSource(CLOBAPIDataSourceBase):
 
             transaction_hash: Optional[str] = order_result.get("txHash")
 
-            if transaction_hash is None:
+            if transaction_hash in (None, ""):
                 await self._update_account_address_and_create_order_hash_manager()
                 raise ValueError(
                     f"The creation transaction for {order.client_order_id} failed. Please ensure there is sufficient"
@@ -222,7 +222,7 @@ class InjectiveAPIDataSource(CLOBAPIDataSourceBase):
             transaction_hash: Optional[str] = update_result.get("txHash")
             exception = None
 
-            if transaction_hash is None:
+            if transaction_hash in (None, ""):
                 await self._update_account_address_and_create_order_hash_manager()
                 self.logger().error("The batch order update transaction failed.")
                 exception = RuntimeError("The creation transaction has failed on the Injective chain.")
@@ -332,29 +332,32 @@ class InjectiveAPIDataSource(CLOBAPIDataSourceBase):
 
     async def get_order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         market = self._markets_info[trading_pair]
-        order_book_response = await self._client.get_spot_orderbook(market_id=market.market_id)
+        order_book_response = await self._client.get_spot_orderbooksV2(market_ids=[market.market_id])
         price_scale = self._get_backend_price_scaler(market=market)
         size_scale = self._get_backend_denom_scaler(denom_meta=market.base_token_meta)
         last_update_timestamp_ms = 0
         bids = []
-        for bid in order_book_response.orderbook.buys:
-            bids.append((Decimal(bid.price) * price_scale, Decimal(bid.quantity) * size_scale))
-            last_update_timestamp_ms = max(last_update_timestamp_ms, bid.timestamp)
-        asks = []
-        for ask in order_book_response.orderbook.sells:
-            asks.append((Decimal(ask.price) * price_scale, Decimal(ask.quantity) * size_scale))
-            last_update_timestamp_ms = max(last_update_timestamp_ms, ask.timestamp)
-        snapshot_msg = OrderBookMessage(
-            message_type=OrderBookMessageType.SNAPSHOT,
-            content={
-                "trading_pair": trading_pair,
-                "update_id": last_update_timestamp_ms,
-                "bids": bids,
-                "asks": asks,
-            },
-            timestamp=last_update_timestamp_ms * 1e-3,
-        )
-        return snapshot_msg
+        if len(order_book_response.orderbooks) == 1:
+            # There's no ambiguity in the orderbooks single market_id response
+            orderbook = order_book_response.orderbooks[0].orderbook
+            for bid in orderbook.buys:
+                bids.append((Decimal(bid.price) * price_scale, Decimal(bid.quantity) * size_scale))
+                last_update_timestamp_ms = max(last_update_timestamp_ms, bid.timestamp)
+            asks = []
+            for ask in orderbook.sells:
+                asks.append((Decimal(ask.price) * price_scale, Decimal(ask.quantity) * size_scale))
+                last_update_timestamp_ms = max(last_update_timestamp_ms, ask.timestamp)
+            snapshot_msg = OrderBookMessage(
+                message_type=OrderBookMessageType.SNAPSHOT,
+                content={
+                    "trading_pair": trading_pair,
+                    "update_id": last_update_timestamp_ms,
+                    "bids": bids,
+                    "asks": asks,
+                },
+                timestamp=last_update_timestamp_ms * 1e-3,
+            )
+            return snapshot_msg
 
     def _update_local_balances(self, balances: Dict[str, Dict[str, Decimal]]):
         # We need to keep local copy of total and available balance so we can trigger BalanceUpdateEvent with correct
@@ -657,9 +660,10 @@ class InjectiveAPIDataSource(CLOBAPIDataSourceBase):
         self._order_books_stream_listener = (
             self._order_books_stream_listener or safe_ensure_future(coro=self._listen_to_order_books_stream())
         )
-        self._bank_balances_stream_listener = self._bank_balances_stream_listener or safe_ensure_future(
-            coro=self._listen_to_bank_balances_streams()
-        )
+        if self._is_default_subaccount:
+            self._bank_balances_stream_listener = (
+                self._bank_balances_stream_listener or safe_ensure_future(coro=self._listen_to_bank_balances_streams())
+            )
         self._subaccount_balances_stream_listener = self._subaccount_balances_stream_listener or safe_ensure_future(
             coro=self._listen_to_subaccount_balances_stream()
         )
@@ -813,7 +817,7 @@ class InjectiveAPIDataSource(CLOBAPIDataSourceBase):
     async def _listen_to_order_books_stream(self):
         while True:
             market_ids = self._get_market_ids()
-            stream: UnaryStreamCall = await self._client.stream_spot_orderbooks(market_ids=market_ids)
+            stream: UnaryStreamCall = await self._client.stream_spot_orderbook_snapshot(market_ids=market_ids)
             try:
                 async for order_book_update in stream:
                     self._parse_order_book_event(order_book_update=order_book_update)
@@ -931,12 +935,6 @@ class InjectiveAPIDataSource(CLOBAPIDataSourceBase):
         total_balance = Decimal(total_balance) * denom_scaler if total_balance != "" else Decimal("0")
         available_balance = subaccount_balance.deposit.available_balance
         available_balance = Decimal(available_balance) * denom_scaler if available_balance != "" else Decimal("0")
-
-        if self._is_default_subaccount:
-            if available_balance is not None:
-                available_balance += self._account_available_balances.get(asset_name, Decimal("0"))
-            if total_balance is not None:
-                total_balance += self._account_balances.get(asset_name, Decimal("0"))
 
         balance_msg = BalanceUpdateEvent(
             timestamp=self._time(),
