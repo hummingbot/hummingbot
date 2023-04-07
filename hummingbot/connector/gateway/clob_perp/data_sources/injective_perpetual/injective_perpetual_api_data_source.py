@@ -286,7 +286,7 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
                 f" and tx hash {transaction_hash}."
             )
 
-            if transaction_hash is None:
+            if transaction_hash in [None, ""]:
                 await self._update_account_address_and_create_order_hash_manager()
                 raise ValueError(
                     f"The creation transaction for {order.client_order_id} failed. Please ensure there is sufficient"
