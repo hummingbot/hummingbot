@@ -56,9 +56,7 @@ class HotbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def _subscribe_channels(self, websocket_assistant: WSAssistant):
         """
-        Subscribes to the trade events and diff orders events through the provided websocket connection.
-
-        Hotbit does not require any channel subscription.
+        Subscribes to order events, balance events and account events
 
         :param websocket_assistant: the websocket assistant used to connect to the exchange
         """
@@ -93,7 +91,7 @@ class HotbitAPIUserStreamDataSource(UserStreamTrackerDataSource):
             raise
         except Exception:
             self.logger().error(
-                "Unexpected error occurred subscribing to order book trading and delta streams...",
+                "Unexpected error occurred subscribing to private user streams...",
                 exc_info=True
             )
             raise
