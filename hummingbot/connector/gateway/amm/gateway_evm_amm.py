@@ -217,13 +217,16 @@ class GatewayEVMAMM(ConnectorBase):
             for key, value in self.in_flight_orders.items()
         }
 
-    def restore_tracking_states(self, saved_states: Dict[str, Any]):
+    def restore_tracking_states(self, saved_states: Dict[str, any]):
         """
-        Restore in-flight orders from saved tracking states, this is st the connector can pick up on where it left off
-        when it disconnects.
-        :param saved_states: The saved tracking_states.
+        *required
+        Updates inflight order statuses from API results
+        This is used by the MarketsRecorder class to orchestrate market classes at a higher level.
         """
-        self._order_tracker.restore_tracking_states(tracking_states=saved_states)
+        self._order_tracker._in_flight_orders.update({
+            key: GatewayInFlightOrder.from_json(value)
+            for key, value in saved_states.items()
+        })
 
     def create_approval_order_id(self, token_symbol: str) -> str:
         return f"approve-{self.connector_name}-{token_symbol}"
