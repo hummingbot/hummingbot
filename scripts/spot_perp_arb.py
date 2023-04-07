@@ -19,6 +19,7 @@ class SpotPerpArb(ScriptStrategyBase):
     PRECHECK:
     1. enough base and quote balance in spot, enough quote balance in perp
     2. better to empty your position in perp
+    3. check you have set one way (instead of hedge) in your futures account
     """
 
     spot_connector = "kucoin"
@@ -26,11 +27,11 @@ class SpotPerpArb(ScriptStrategyBase):
     trading_pair = "LINA-USDT"
 
     base_order_amount = Decimal("100")
-    buy_spot_short_perp_profit_margin_bps = 30
-    sell_spot_long_perp_profit_margin_bps = 30
+    buy_spot_short_perp_profit_margin_bps = -1
+    sell_spot_long_perp_profit_margin_bps = -1
     # buffer to account for slippage when placing limit taker orders
     slippage_buffer_bps = 5
-    
+
     leverage = 2
     markets = {spot_connector: {trading_pair}, perp_connector: {trading_pair}}
 
@@ -44,7 +45,7 @@ class SpotPerpArb(ScriptStrategyBase):
     # TODO: resolve error when setting leverage
     def set_leverage(self) -> None:
         perp_connector = self.connectors[self.perp_connector]
-        perp_connector.set_position_mode(PositionMode.HEDGE)
+        perp_connector.set_position_mode(PositionMode.ONEWAY)
         perp_connector.set_leverage(
             trading_pair=self.trading_pair, leverage=self.leverage
         )
