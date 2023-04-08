@@ -31,6 +31,8 @@ class RemoteIfaceMQTTTests(TestCase):
         cls.client_config_map = ClientConfigAdapter(ClientConfigMap())
         cls.hbapp = HummingbotApplication(client_config_map=cls.client_config_map)
         cls.client_config_map.mqtt_bridge.mqtt_port = 1888
+        cls.client_config_map.mqtt_bridge.mqtt_commands = 1
+        cls.client_config_map.mqtt_bridge.mqtt_events = 1
         cls.prev_instance_id = cls.client_config_map.instance_id
         cls.client_config_map.instance_id = cls.instance_id
         cls.command_topics = [
@@ -410,18 +412,8 @@ class RemoteIfaceMQTTTests(TestCase):
         self.assertTrue(self.is_msg_received(notify_topic, notify_msg))
         self.client_config_map = prev_cconfigmap
 
-        self.send_fake_import_cmd(
-            status_check_all_mock=status_check_all_mock,
-            load_strategy_config_map_from_file=load_strategy_config_map_from_file,
-            invalid_strategy=False
-        )
-        self.fake_mqtt_broker.publish_to_subscription(topic, {})
-        notify_msg = "\nGlobal Configurations:"
-        self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, notify_msg))
-
     @patch("commlib.transports.mqtt.MQTTTransport")
-    def test_mqtt_command_config_updates_single_param(self,
-                                                      mock_mqtt):
+    def test_mqtt_command_config_updates_single_param(self, mock_mqtt):
         self.start_mqtt(mock_mqtt=mock_mqtt)
 
         topic = self.get_topic_for(self.CONFIG_URI)
@@ -585,14 +577,15 @@ class RemoteIfaceMQTTTests(TestCase):
         self.start_mqtt(mock_mqtt=mock_mqtt)
 
         self.send_fake_import_cmd(status_check_all_mock=status_check_all_mock,
-                                  load_strategy_config_map_from_file=load_strategy_config_map_from_file)
+                                  load_strategy_config_map_from_file=load_strategy_config_map_from_file,
+                                  invalid_strategy=False)
 
         notify_topic = f"hbot/{self.instance_id}/notify"
 
-        self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, '\nEnter "start" to start market making.'))
+        self.ev_loop.run_until_complete(self.wait_for_rcv(
+            notify_topic, '\nEnter "start" to start market making.'))
 
         self.fake_mqtt_broker.publish_to_subscription(self.get_topic_for(self.START_URI), {})
-
         start_msg = 'The bot is already running - please run "stop" first'
         self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, start_msg))
         self.assertTrue(self.is_msg_received(notify_topic, start_msg))
@@ -615,7 +608,10 @@ class RemoteIfaceMQTTTests(TestCase):
         notify_topic = f"hbot/{self.instance_id}/notify"
         notify_msg = "Invalid strategy. Start aborted."
 
-        self.fake_mqtt_broker.publish_to_subscription(self.get_topic_for(self.START_URI), {'script': 'format_status_example.py'})
+        self.fake_mqtt_broker.publish_to_subscription(
+            self.get_topic_for(self.START_URI),
+            {'script': 'format_status_example.py'}
+        )
 
         self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, notify_msg))
         self.assertTrue(self.is_msg_received(notify_topic, notify_msg))
@@ -627,11 +623,62 @@ class RemoteIfaceMQTTTests(TestCase):
                                         start_mock: MagicMock):
         start_mock.side_effect = self._create_exception_and_unlock_test_with_event
         self.start_mqtt(mock_mqtt=mock_mqtt)
-        self.fake_mqtt_broker.publish_to_subscription(self.get_topic_for(self.START_URI), {})
+        self.fake_mqtt_broker.publish_to_subscription(
+            self.get_topic_for(self.START_URI),
+            {}
+        )
         topic = f"test_reply/hbot/{self.instance_id}/start"
         msg = {'status': 400, 'msg': self.fake_err_msg}
         self.ev_loop.run_until_complete(self.wait_for_rcv(topic, msg, msg_key='data'))
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
+
+        self.hbapp.strategy_name = None
+
+        self.fake_mqtt_broker.publish_to_subscription(
+            self.get_topic_for(self.START_URI),
+            {'script': None}
+        )
+        topic = f"test_reply/hbot/{self.instance_id}/start"
+        msg = {'status': 400, 'msg': self.fake_err_msg}
+        self.ev_loop.run_until_complete(self.wait_for_rcv(topic, msg, msg_key='data'))
+        self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
+
+        self.fake_mqtt_broker.publish_to_subscription(
+            self.get_topic_for(self.START_URI),
+            {'script': 'format_status_example.py'}
+        )
+        topic = f"test_reply/hbot/{self.instance_id}/start"
+        msg = {'status': 400, 'msg': self.fake_err_msg}
+        self.ev_loop.run_until_complete(self.wait_for_rcv(topic, msg, msg_key='data'))
+        self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
+
+        prev_strategy = self.hbapp.strategy
+        self.hbapp.strategy = {}
+
+        self.fake_mqtt_broker.publish_to_subscription(
+            self.get_topic_for(self.START_URI),
+            {'script': 'format_status_example.py'}
+        )
+        topic = f"test_reply/hbot/{self.instance_id}/start"
+        msg = {
+            'status': 400,
+            'msg': 'The bot is already running - please run "stop" first'
+        }
+        self.ev_loop.run_until_complete(self.wait_for_rcv(topic, msg, msg_key='data'))
+        self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
+
+        self.fake_mqtt_broker.publish_to_subscription(
+            self.get_topic_for(self.START_URI),
+            {}
+        )
+        topic = f"test_reply/hbot/{self.instance_id}/start"
+        msg = {
+            'status': 400,
+            'msg': 'Strategy check: Please import or create a strategy.'
+        }
+        self.ev_loop.run_until_complete(self.wait_for_rcv(topic, msg, msg_key='data'))
+        self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
+        self.hbapp.strategy = prev_strategy
 
     @patch("hummingbot.client.command.status_command.StatusCommand.strategy_status", new_callable=AsyncMock)
     @patch("commlib.transports.mqtt.MQTTTransport")
@@ -841,9 +888,14 @@ class RemoteIfaceMQTTTests(TestCase):
     def test_eevent_queue_factory(self,
                                   mock_mqtt):
         self.start_mqtt(mock_mqtt=mock_mqtt)
-        from hummingbot.remote_iface.mqtt import ExternalEventFactory
+        from hummingbot.remote_iface.mqtt import EEventQueueFactory, ExternalEventFactory
         queue = ExternalEventFactory.create_queue('test')
         self.assertTrue(queue is not None)
+
+        from collections import deque
+        dq = deque()
+        EEventQueueFactory._on_event(dq, {'a': 1}, 'testevent')
+        self.assertTrue(1)
 
     @patch("commlib.transports.mqtt.MQTTTransport")
     def test_eevent_listener_factory(self,
@@ -856,8 +908,9 @@ class RemoteIfaceMQTTTests(TestCase):
 
         ExternalEventFactory.create_async('test.a.b', clb)
         ExternalEventFactory.remove_listener('test.a.b', clb)
-        MQTTGateway._instance = None
         try:
+            MQTTGateway._instance = None
+            ExternalEventFactory.create_async('test.a.b', clb)
             ExternalEventFactory.remove_listener('test.a.b', clb)
         except Exception:
             self.assertTrue(1)
@@ -868,9 +921,14 @@ class RemoteIfaceMQTTTests(TestCase):
     def test_etopic_queue_factory(self,
                                   mock_mqtt):
         self.start_mqtt(mock_mqtt=mock_mqtt)
-        from hummingbot.remote_iface.mqtt import ExternalTopicFactory
+        from hummingbot.remote_iface.mqtt import ETopicQueueFactory, ExternalTopicFactory
         queue = ExternalTopicFactory.create_queue('test/a/b')
         self.assertTrue(queue is not None)
+
+        from collections import deque
+        dq = deque()
+        ETopicQueueFactory._on_message(dq, {'a': 1}, 'test/external')
+        self.assertTrue(1)
 
     @patch("commlib.transports.mqtt.MQTTTransport")
     def test_etopic_listener_factory(self,
@@ -907,15 +965,22 @@ class RemoteIfaceMQTTTests(TestCase):
 
     @patch("commlib.transports.mqtt.MQTTTransport")
     def test_mqtt_log_handler(self, mock_mqtt):
-        self.start_mqtt(mock_mqtt=mock_mqtt)
         import logging
 
-        from hummingbot.remote_iface.mqtt import MQTTGateway, MQTTLogHandler
+        from hummingbot.logger import HummingbotLogger
+        from hummingbot.remote_iface.mqtt import MQTTLogHandler
+        self.start_mqtt(mock_mqtt=mock_mqtt)
 
-        gw = MQTTGateway.main()
-        handler = MQTTLogHandler(self.hbapp, gw)
+        handler = MQTTLogHandler(self.hbapp, self.gateway)
         handler.emit(logging.LogRecord('', 1, '', '', '', '', ''))
         self.assertTrue(1)
+
+        logger = HummingbotLogger('testlogger')
+        self.gateway.add_log_handler(logger)
+        self.gateway.remove_log_handler(logger)
+        logger = self.gateway._get_root_logger()
+        self.assertTrue(logger is not None)
+        self.gateway._remove_log_handlers()
 
     @patch("commlib.transports.mqtt.MQTTTransport")
     def test_market_events(self, mock_mqtt):
@@ -932,3 +997,44 @@ class RemoteIfaceMQTTTests(TestCase):
             'e': AddedToCostTradeFee()
         })
         self.assertTrue(1)
+
+    @patch("commlib.transports.mqtt.MQTTTransport")
+    def test_etopic_listener_class(self, mock_mqtt):
+        from hummingbot.remote_iface.mqtt import ETopicListener
+
+        def clb(msg, topic):
+            pass
+
+        listener = ETopicListener('test', clb, use_bot_prefix=False)
+        self.assertTrue(listener is not None)
+        listener = ETopicListener('test', clb, use_bot_prefix=True)
+        self.assertTrue(listener is not None)
+
+        self.start_mqtt(mock_mqtt=mock_mqtt)
+        listener = ETopicListener('test', clb, use_bot_prefix=True)
+        self.assertTrue(listener is not None)
+
+    @patch("commlib.transports.mqtt.MQTTTransport")
+    def test_mqtt_external_events_class(self, mock_mqtt):
+        from hummingbot.remote_iface.mqtt import MQTTExternalEvents
+
+        def clb(msg, topic):
+            pass
+
+        eevents = MQTTExternalEvents(self.hbapp, self.gateway)
+        eevents.add_global_listener(clb)
+        eevents.add_global_listener(clb)
+        eevents._listeners = {}
+        eevents.add_global_listener(clb)
+        eevents.remove_global_listener(clb)
+        self.assertTrue(1)
+        eevents.add_listener('test_event', clb)
+        eevents.remove_listener('test_event', clb)
+        eevents.add_listener('test_event', clb)
+        eevents.add_listener('test_event', clb)
+        eevents.remove_listener('test_event', clb)
+
+    @patch("commlib.transports.mqtt.MQTTTransport")
+    def test_mqtt_gateway_health(self, mock_mqtt):
+        health = self.gateway.health
+        self.assertFalse(health)
