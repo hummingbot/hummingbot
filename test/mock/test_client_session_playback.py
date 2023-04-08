@@ -1,6 +1,7 @@
+import os
 import unittest
 from test.mock.client_session_playback import Base, ClientSessionPlayback
-from test.mock.client_session_request_utils import (
+from test.mock.client_session_recorder_utils import (
     ClientSessionRequestMethod,
     ClientSessionRequestType,
     ClientSessionResponseType,
@@ -9,20 +10,19 @@ from test.mock.client_session_request_utils import (
 from sqlalchemy import and_, create_engine
 from sqlalchemy.orm import sessionmaker
 
+os.environ["SQLALCHEMY_WARN_20"] = "1"
+
 
 class TestClientSessionPlayback(unittest.TestCase):
     session = None
 
-    @classmethod
-    def setUpClass(cls):
-        engine = create_engine('sqlite:///test.db')
+    def setUp(cls):
         engine = create_engine('sqlite:///:memory:')
         Base.metadata.create_all(engine)
         Session = sessionmaker(bind=engine)
         cls.session = Session()
 
-    @classmethod
-    def tearDownClass(cls):
+    def tearDown(cls):
         cls.session.close()
 
     def test_as_dict(self):
@@ -31,12 +31,14 @@ class TestClientSessionPlayback(unittest.TestCase):
             url='http://example.com',
             method=ClientSessionRequestMethod.GET,
             request_type=ClientSessionRequestType.PLAIN,
+            request_headers={'User-Agent': 'Test-Agent', 'Custom-Header': 'Test'},
             request_params={'key': 'value'},
             request_json={'data': 'example'},
             response_type=ClientSessionResponseType.WITH_JSON,
             response_code=200,
             response_text='OK',
-            response_json={'result': 'success'}
+            response_json={'result': 'success'},
+            response_binary=b'Hello World',
         )
         expected_dict = {
             'id': None,
@@ -44,8 +46,10 @@ class TestClientSessionPlayback(unittest.TestCase):
             'url': 'http://example.com',
             'method': ClientSessionRequestMethod.GET,
             'request_type': ClientSessionRequestType.PLAIN,
+            'request_headers': {'User-Agent': 'Test-Agent', 'Custom-Header': 'Test'},
             'request_params': {'key': 'value'},
             'request_json': {'data': 'example'},
+            'response_binary': b'Hello World',
             'response_type': ClientSessionResponseType.WITH_JSON,
             'response_code': 200,
             'response_text': 'OK',
@@ -59,6 +63,7 @@ class TestClientSessionPlayback(unittest.TestCase):
             url='http://example.com',
             method=ClientSessionRequestMethod.GET,
             request_type=ClientSessionRequestType.PLAIN,
+            request_headers={'User-Agent': 'Test-Agent', 'Custom-Header': 'Test'},
             response_type=ClientSessionResponseType.WITH_JSON,
         )
         self.session.add(playback)
@@ -71,6 +76,7 @@ class TestClientSessionPlayback(unittest.TestCase):
             url='http://example.com',
             method=ClientSessionRequestMethod.GET,
             request_type=ClientSessionRequestType.PLAIN,
+            request_headers={'User-Agent': 'Test-Agent', 'Custom-Header': 'Test'},
             response_type=ClientSessionResponseType.WITH_JSON,
             response_code=200,
         )
@@ -84,6 +90,7 @@ class TestClientSessionPlayback(unittest.TestCase):
                 ClientSessionPlayback.url == 'http://example.com',
                 ClientSessionPlayback.method == ClientSessionRequestMethod.GET,
                 ClientSessionPlayback.request_type == ClientSessionRequestType.PLAIN,
+                ClientSessionPlayback.request_headers == {'User-Agent': 'Test-Agent', 'Custom-Header': 'Test'},
                 ClientSessionPlayback.response_type == ClientSessionResponseType.WITH_JSON,
                 ClientSessionPlayback.response_code == 200,
             )
@@ -100,6 +107,7 @@ class TestClientSessionPlayback(unittest.TestCase):
                     'url': 'http://example.com',
                     'method': ClientSessionRequestMethod.GET,
                     'request_type': ClientSessionRequestType.PLAIN,
+                    'request_headers': {'User-Agent': 'Test-Agent', 'Custom-Header': 'Test'},
                     'request_params': {'key': 'value'},
                     'request_json': {'data': 'example'},
                     'response_type': ClientSessionResponseType.WITH_JSON,
@@ -110,7 +118,7 @@ class TestClientSessionPlayback(unittest.TestCase):
             )
             with self.assertRaises(Exception):
                 self.session.add(playback_missing_field)
-                self.session.commit()
+                self.session.flush()
             # Roll back the session to clear the pending rollback state
             self.session.rollback()
 
@@ -120,6 +128,7 @@ class TestClientSessionPlayback(unittest.TestCase):
             url='http://example.com',
             method=ClientSessionRequestMethod.GET,
             request_type=ClientSessionRequestType.PLAIN,
+            request_headers={'User-Agent': 'Test-Agent', 'Custom-Header': 'Test'},
             request_params={'key': 'value'},
             request_json={'data': 'example'},
             response_type=ClientSessionResponseType.WITH_JSON,
@@ -128,7 +137,7 @@ class TestClientSessionPlayback(unittest.TestCase):
             response_json={'result': 'success'}
         )
         self.session.add(playback_all_fields)
-        self.session.commit()
+        self.session.flush()
 
         # Test non-required fields
         non_required_fields = ['request_params', 'request_json', 'response_text', 'response_json']
@@ -138,12 +147,13 @@ class TestClientSessionPlayback(unittest.TestCase):
                 url='http://example.com',
                 method=ClientSessionRequestMethod.GET,
                 request_type=ClientSessionRequestType.PLAIN,
+                request_headers={'User-Agent': 'Test-Agent', 'Custom-Header': 'Test'},
                 response_type=ClientSessionResponseType.WITH_JSON,
                 response_code=200,
                 **{field: None}
             )
             self.session.add(playback_missing_field)
-            self.session.commit()
+            self.session.flush()
 
     def test_full_behaviour(self):
         # Create playback instances with missing required fields, and add them to the session

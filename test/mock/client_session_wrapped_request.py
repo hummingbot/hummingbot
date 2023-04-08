@@ -1,13 +1,14 @@
 import functools
 import inspect
+from test.mock.client_session_response_protocol import ClientResponseProtocol
 from typing import Any, Callable, Coroutine, Dict, Generic, Optional, Tuple, Type, TypeVar
 
 from aiohttp import ClientResponse, ClientSession
 
-T = TypeVar("T", bound=ClientResponse)
+ClientResponseType = TypeVar("ClientResponseType", bound=ClientResponseProtocol)
 
 
-class ClientSessionWrappedRequest(Generic[T]):
+class ClientSessionWrappedRequest(Generic[ClientResponseType]):
     """
     A wrapped aiohttp.ClientSession that allows custom request handling via a provided request_wrapper function.
 
@@ -25,7 +26,7 @@ class ClientSessionWrappedRequest(Generic[T]):
         "_response_class",
     )
 
-    async def request_wrapper_default_raises(self, *args: Any, **kwargs: Any) -> T:
+    async def request_wrapper_default_raises(self, *args: Any, **kwargs: Any) -> ClientResponseType:
         """
         Default request_wrapper implementation that raises NotImplementedError.
 
@@ -38,8 +39,8 @@ class ClientSessionWrappedRequest(Generic[T]):
 
     def __init__(self,
                  *args,
-                 request_wrapper: Optional[Callable[..., Coroutine[Any, Any, T]]] = None,
-                 response_class: Type[T] = ClientResponse,
+                 request_wrapper: Optional[Callable[..., Coroutine[Any, Any, ClientResponseType]]] = None,
+                 response_class: Type[ClientResponseType] = ClientResponse,
                  **kwargs):
         """
         Initialize the ClientSessionWrappedRequest with the provided request_wrapper, args, and kwargs.
@@ -59,13 +60,26 @@ class ClientSessionWrappedRequest(Generic[T]):
         self._args: Tuple[Any, ...] = args
         self._kwargs: Dict[str, Any] = kwargs
         self._session: Optional[ClientSession] = None
-        self._session_request: Optional[Callable[..., T]] = None
+        self._session_request: Optional[Callable[..., ClientResponseType]] = None
+        self._response_class: Type[ClientResponseType] = response_class
         self._request_wrapper: Callable[
-            ..., Coroutine[Any, Any, T]] = request_wrapper or self.request_wrapper_default_raises
-        self._kwargs["response_class"] = response_class
+            ..., Coroutine[Any, Any, ClientResponseType]] = request_wrapper or self.request_wrapper_default_raises
 
         if "wrapped_session" not in inspect.signature(self._request_wrapper).parameters:
             self._request_wrapper = functools.partial(self._request_wrapper, wrapped_session=self)
+
+    def __repr__(self):
+        representation = f"{self.__class__.__name__}(\n\t{self._args}, {self._kwargs}"
+        if self._session is not None:
+            representation += f"\n\tsession={self._session}: Closed={self._session.closed}"
+        if self._session_request is not None:
+            representation += f"\n\tsession_request={self._session_request}"
+        if self._request_wrapper is not None:
+            representation += f"\n\trequest_wrapper={self._request_wrapper}"
+        if self._response_class is not None:
+            representation += f"\n\tresponse_class={self._response_class}"
+        representation += "\n)"
+        return representation
 
     async def __aenter__(self) -> "ClientSessionWrappedRequest":
         """
@@ -75,6 +89,8 @@ class ClientSessionWrappedRequest(Generic[T]):
 
         :return: Self.
         """
+        # Ensure the session._request() return the desired class
+        self._kwargs["response_class"] = self._response_class
         self._session = ClientSession(*self._args, **self._kwargs)
         self._session_request = getattr(self._session, "_request")
         setattr(self._session, "_request", self._request_wrapper)
@@ -110,7 +126,7 @@ class ClientSessionWrappedRequest(Generic[T]):
             return attribute
         raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
 
-    async def client_session_request(self, *args, **kwargs) -> T:
+    async def client_session_request(self, *args, **kwargs) -> ClientResponseType:
         """
         Get the original ClientSession._request() -> ClientResponse recast into the type
         prototype T.
@@ -120,4 +136,6 @@ class ClientSessionWrappedRequest(Generic[T]):
         # Make sure the "wrapped_session" argument is not passed to the underlying ClientSession._request()
         # This class likely adds it (or it is already in the request_wrapper signature)
         kwargs.pop("wrapped_session", None)
-        return await self._session_request(*args, **kwargs)
+        response: ClientResponseType = await self._session_request(*args, **kwargs)
+        assert isinstance(response, self._response_class)
+        return response
