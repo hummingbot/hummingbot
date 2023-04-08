@@ -497,13 +497,15 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
         return balances_dict
 
     async def get_all_order_fills(self, in_flight_order: InFlightOrder) -> List[TradeUpdate]:
+        exchange_order_id = await in_flight_order.get_exchange_order_id()
         trades: List[DerivativeTrade] = await self._fetch_order_fills(order=in_flight_order)
 
         trade_updates: List[TradeUpdate] = []
         client_order_id: str = in_flight_order.client_order_id
         for trade in trades:
-            _, trade_update = self._parse_backend_trade(client_order_id=client_order_id, backend_trade=trade)
-            trade_updates.append(trade_update)
+            if trade.order_hash == exchange_order_id:
+                _, trade_update = self._parse_backend_trade(client_order_id=client_order_id, backend_trade=trade)
+                trade_updates.append(trade_update)
 
         return trade_updates
 

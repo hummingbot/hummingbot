@@ -5,6 +5,7 @@ from test.hummingbot.connector.gateway.clob_perp.data_sources.injective_perpetua
     InjectivePerpetualClientMock,
 )
 from typing import Awaitable, List
+from unittest.mock import AsyncMock, patch
 
 from bidict import bidict
 
@@ -918,7 +919,12 @@ class InjectivePerpetualAPIDataSourceTest(unittest.TestCase):
         self.assertEqual(in_flight_order.client_order_id, status_update.client_order_id)
         self.assertEqual(target_order_hash, status_update.exchange_order_id)
 
-    def test_parses_transaction_event_for_order_creation_failure(self):
+    @patch(
+        "hummingbot.connector.gateway.clob_perp.data_sources.injective_perpetual.injective_perpetual_api_data_source"
+        ".InjectivePerpetualAPIDataSource._update_account_address_and_create_order_hash_manager",
+        new_callable=AsyncMock,
+    )
+    def test_parses_transaction_event_for_order_creation_failure(self, _: AsyncMock):
         creation_transaction_hash = "0x7cb1eafc389349f86da901cdcbfd9119435a2ea84d61c17b6ded778b6fd2f81d"  # noqa: mock
         target_order_hash = "0x6ba1eafc389349f86da901cdcbfd9119425a2ea84d61c17b6ded778b6fd2f70c"  # noqa: mock
         in_flight_order = GatewayInFlightOrder(
