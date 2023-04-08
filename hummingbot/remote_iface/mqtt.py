@@ -986,10 +986,7 @@ class ExternalEventFactory:
                         event_name: str,
                         callback: Callable[[Dict[str, Any], str], None],
                         ) -> None:
-        gw = MQTTGateway.main()
-        if gw is None:
-            raise Exception('MQTTGateway is offline!')
-        gw.remove_external_event_listener(event_name, callback)
+        EEventListenerFactory.remove(event_name, callback)
 
 
 class ExternalTopicFactory:
@@ -1011,5 +1008,4 @@ class ExternalTopicFactory:
 
     @classmethod
     def remove_listener(cls, listener):
-        listener.stop()
-        del listener
+        return ETopicListenerFactory.remove(listener)
