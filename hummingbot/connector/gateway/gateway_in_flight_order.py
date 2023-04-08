@@ -167,6 +167,7 @@ class GatewayInFlightOrder(InFlightOrder):
             self.update_exchange_order_id(order_update.exchange_order_id)
 
         self.current_state = order_update.new_state
+        self.check_processed_by_exchange_condition()
         misc_updates = order_update.misc_updates or {}
         creation_transaction_hash = misc_updates.get("creation_transaction_hash", self.creation_transaction_hash)
         if creation_transaction_hash is not None:
