@@ -926,6 +926,19 @@ class InjectivePerpetualClientMock:
         market_info_response = MarketResponse(market=derivative_market_info)
         self.injective_async_client_mock.get_derivative_market.return_value = market_info_response
 
+    def configure_get_funding_payments_response(
+        self, timestamp: float, funding_rate: Decimal, amount: Decimal
+    ):
+        self.gateway_instance_mock.clob_perp_funding_payments.return_value = {
+            "fundingPayments": [
+                {
+                    "timestamp": timestamp * 1e3,
+                    "amount": amount,
+                }
+            ]
+        }
+        self.configure_get_funding_rates_response(funding_rate=funding_rate, timestamp=timestamp)
+
     def get_derivative_order_history(
         self,
         timestamp: float,

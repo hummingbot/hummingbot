@@ -229,21 +229,6 @@ class GatewayCLOBPerp(PerpetualDerivativePyBase):
         await super().stop_network()
         await self._api_data_source.stop()
 
-    def tick(self, timestamp: float):
-        """
-        Includes the logic that has to be processed every time a new tick happens in the bot. Particularly it enables
-        the execution of the status update polling loop using an event.
-        """
-        last_recv_diff = timestamp - self._last_received_message_timestamp
-        poll_interval = (
-            self.SHORT_POLL_INTERVAL if last_recv_diff > self.TICK_INTERVAL_LIMIT else self.LONG_POLL_INTERVAL
-        )
-        last_tick = int(self._last_timestamp / poll_interval)
-        current_tick = int(timestamp / poll_interval)
-        if current_tick > last_tick:
-            self._poll_notifier.set()
-        self._last_timestamp = timestamp
-
     def supported_order_types(self) -> List[OrderType]:
         return self._api_data_source.get_supported_order_types()
 
@@ -544,3 +529,12 @@ class GatewayCLOBPerp(PerpetualDerivativePyBase):
     def _process_funding_info_event(self, funding_info_event: FundingInfoUpdate):
         self._last_received_message_timestamp = self._time()
         self._perpetual_trading.funding_info_stream.put_nowait(funding_info_event)
+
+    def _get_poll_interval(self, timestamp: float) -> float:
+        last_recv_diff = timestamp - self._last_received_message_timestamp
+        poll_interval = (
+            self.SHORT_POLL_INTERVAL
+            if last_recv_diff > self.TICK_INTERVAL_LIMIT or not self._api_data_source.events_are_streamed
+            else self.LONG_POLL_INTERVAL
+        )
+        return poll_interval

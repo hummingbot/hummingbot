@@ -196,6 +196,7 @@ class GatewayCLOBPERPTest(unittest.TestCase):
         self.order_filled_logger = EventLogger()
         self.sell_order_completed_logger = EventLogger()
         self.sell_order_created_logger = EventLogger()
+        self.funding_payment_logger = EventLogger()
 
         events_and_loggers = [
             (MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger),
@@ -205,6 +206,7 @@ class GatewayCLOBPERPTest(unittest.TestCase):
             (MarketEvent.OrderFilled, self.order_filled_logger),
             (MarketEvent.SellOrderCompleted, self.sell_order_completed_logger),
             (MarketEvent.SellOrderCreated, self.sell_order_created_logger),
+            (MarketEvent.FundingPaymentCompleted, self.funding_payment_logger),
         ]
 
         for event, logger in events_and_loggers:
@@ -1812,3 +1814,30 @@ class GatewayCLOBPERPTest(unittest.TestCase):
 
         self.assertEqual(self.quote_asset, fee.percent_token)
         self.assertEqual(Decimal("0.0006"), fee.percent)
+
+    def test_funding_info_continuously_requested(self):
+        first_amount = Decimal("2.1")
+        funding_rate = Decimal("0.001")
+        timestamp = self.start_timestamp + 1
+        self.clob_data_source_mock.configure_get_funding_payments_response(
+            timestamp=timestamp,
+            funding_rate=funding_rate,
+            amount=first_amount,
+        )
+
+        self.clock.backtest_til(self.start_timestamp + 1)
+        self.clob_data_source_mock.run_until_all_items_delivered()
+
+        self.assertEqual(1, len(self.funding_payment_logger.event_log))
+
+        second_amount = Decimal("1.9")
+        self.clob_data_source_mock.configure_get_funding_payments_response(
+            timestamp=timestamp + 60,
+            funding_rate=funding_rate,
+            amount=second_amount,
+        )
+
+        self.clock.backtest_til(self.start_timestamp + 1 + self.exchange.funding_fee_poll_interval + 1)
+        self.clob_data_source_mock.run_until_all_items_delivered()
+
+        self.assertEqual(2, len(self.funding_payment_logger.event_log))
