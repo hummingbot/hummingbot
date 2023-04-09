@@ -1,16 +1,13 @@
-import aioprocessing
 import asyncio
-import docker
 import logging
-from multiprocessing import Process
 import types
-from typing import Callable, Dict, Any, List, Generator, Union
+from multiprocessing import Process
+from typing import Any, Callable, Dict, Generator, List, Union
 
-from hummingbot.core.gateway import (
-    docker_ipc,
-    get_gateway_container_name,
-    set_hummingbot_pipe,
-)
+import aioprocessing
+
+import docker
+from hummingbot.core.gateway import set_hummingbot_pipe
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -136,15 +133,15 @@ def fork_and_start(main_function: Callable):
         # run the main function as parent.
         main_function()
 
-        # stop the gateway container.
-        try:
-            asyncio.get_event_loop().run_until_complete(docker_ipc(
-                "stop",
-                container=get_gateway_container_name(),
-                timeout=1
-            ))
-        except Exception:
-            pass
+        # gateway removed
+        # try:
+        #     asyncio.get_event_loop().run_until_complete(docker_ipc(
+        #         "stop",
+        #         container=get_gateway_container_name(),
+        #         timeout=1
+        #     ))
+        # except Exception:
+        #     pass
     finally:
 
         # close pipes.

@@ -9,9 +9,10 @@ from unittest.mock import MagicMock, patch
 from pydantic import Field
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_data_types import BaseClientModel, BaseStrategyConfigMap, ClientFieldData
+from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
 from hummingbot.client.config.config_helpers import ClientConfigAdapter, read_system_configs_from_yml
 from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.client.config.strategy_config_data_types import BaseStrategyConfigMap
 from hummingbot.client.hummingbot_application import HummingbotApplication
 
 
@@ -42,6 +43,7 @@ class ConfigCommandTest(unittest.TestCase):
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication.notify")
     def test_list_configs(self, notify_mock, get_strategy_config_map_mock):
         captures = []
+        self.app.client_config_map.instance_id = "TEST_ID"
         notify_mock.side_effect = lambda s: captures.append(s)
         strategy_name = "some-strategy"
         self.app.strategy_name = strategy_name
@@ -62,14 +64,28 @@ class ConfigCommandTest(unittest.TestCase):
         df_str_expected = ("    +--------------------------+----------------------+\n"
                            "    | Key                      | Value                |\n"
                            "    |--------------------------+----------------------|\n"
+                           "    | instance_id              | TEST_ID              |\n"
                            "    | kill_switch_mode         | kill_switch_disabled |\n"
                            "    | autofill_import          | disabled             |\n"
                            "    | telegram_mode            | telegram_disabled    |\n"
+                           "    | mqtt_bridge              |                      |\n"
+                           "    | ∟ mqtt_host              | localhost            |\n"
+                           "    | ∟ mqtt_port              | 1883                 |\n"
+                           "    | ∟ mqtt_username          |                      |\n"
+                           "    | ∟ mqtt_password          |                      |\n"
+                           "    | ∟ mqtt_namespace         | hbot                 |\n"
+                           "    | ∟ mqtt_ssl               | False                |\n"
+                           "    | ∟ mqtt_logger            | True                 |\n"
+                           "    | ∟ mqtt_notifier          | True                 |\n"
+                           "    | ∟ mqtt_commands          | True                 |\n"
+                           "    | ∟ mqtt_events            | True                 |\n"
+                           "    | ∟ mqtt_external_events   | True                 |\n"
+                           "    | ∟ mqtt_autostart         | False                |\n"
                            "    | send_error_logs          | True                 |\n"
                            "    | pmm_script_mode          | pmm_script_disabled  |\n"
                            "    | gateway                  |                      |\n"
                            "    | ∟ gateway_api_host       | localhost            |\n"
-                           "    | ∟ gateway_api_port       | 5000                 |\n"
+                           "    | ∟ gateway_api_port       | 15888                |\n"
                            "    | rate_oracle_source       | binance              |\n"
                            "    | global_token             |                      |\n"
                            "    | ∟ global_token_name      | USD                  |\n"
@@ -79,6 +95,7 @@ class ConfigCommandTest(unittest.TestCase):
                            "    | ∟ create_command_timeout | 10                   |\n"
                            "    | ∟ other_commands_timeout | 30                   |\n"
                            "    | tables_format            | psql                 |\n"
+                           "    | tick_size                | 1.0                  |\n"
                            "    +--------------------------+----------------------+")
 
         self.assertEqual(df_str_expected, captures[1])

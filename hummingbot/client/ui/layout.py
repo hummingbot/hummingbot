@@ -114,7 +114,7 @@ def create_timer():
         read_only=False,
         scrollbar=False,
         max_line_count=1,
-        width=20,
+        width=30,
     )
 
 

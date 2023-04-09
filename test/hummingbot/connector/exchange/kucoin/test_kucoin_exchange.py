@@ -11,13 +11,15 @@ from bidict import bidict
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
+from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.exchange.kucoin import kucoin_constants as CONSTANTS, kucoin_web_utils as web_utils
 from hummingbot.connector.exchange.kucoin.kucoin_exchange import KucoinExchange
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, TradeUpdate
+from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase, TradeFeeSchema
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -208,7 +210,8 @@ class KucoinExchangeTests(unittest.TestCase):
         map["TKN1-TKN2"] = "TKN1-TKN2"
         self.exchange._set_trading_pair_symbol_map(map)
 
-        url1 = web_utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, domain=CONSTANTS.DEFAULT_DOMAIN)
+        url1 = web_utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
+                                         domain=CONSTANTS.DEFAULT_DOMAIN)
         url1 = f"{url1}?symbol={self.trading_pair}"
         regex_url = re.compile(f"^{url1}".replace(".", r"\.").replace("?", r"\?"))
         resp = {
@@ -226,7 +229,8 @@ class KucoinExchangeTests(unittest.TestCase):
         }
         mock_api.get(regex_url, body=json.dumps(resp))
 
-        url2 = web_utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, domain=CONSTANTS.DEFAULT_DOMAIN)
+        url2 = web_utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
+                                         domain=CONSTANTS.DEFAULT_DOMAIN)
         url2 = f"{url2}?symbol=TKN1-TKN2"
         regex_url = re.compile(f"^{url2}".replace(".", r"\.").replace("?", r"\?"))
         resp = {
@@ -1297,7 +1301,413 @@ class KucoinExchangeTests(unittest.TestCase):
 
         self.assertTrue(order.is_open)
 
+        list_updates = self.async_run_with_timeout(self.exchange._update_order_status())
+
+        order_request = next(((key, value) for key, value in mock_api.requests.items()
+                              if key[1].human_repr().startswith(url)))
+        request_params = order_request[1][0].kwargs["params"]
+        self.assertIsNone(request_params)
+        self._validate_auth_credentials_present(order_request[1][0])
+        self.assertIsNone(list_updates)
+
+        self.assertTrue(order.is_open)
+        self.assertFalse(order.is_filled)
+        self.assertFalse(order.is_done)
+
+    # ---- Testing the _update_orders_fills() method overwritten from the ExchangePyBase
+    def test__update_orders_fills_raises_asyncio(self):
+        orders: List[InFlightOrder] = [InFlightOrder(client_order_id="COID1-1",
+                                                     exchange_order_id="EOID1-1",
+                                                     trading_pair=self.trading_pair,
+                                                     order_type=OrderType.LIMIT,
+                                                     trade_type=TradeType.BUY,
+                                                     price=Decimal("10000"),
+                                                     amount=Decimal("1"),
+                                                     creation_timestamp=1234567890,
+                                                     )]
+
+        # Simulate the order has been filled with a TradeUpdate
+        self.assertEqual(0., self.exchange._last_order_fill_ts_s)
+
+        with patch.object(ClientOrderTracker, "process_trade_update") as mock_tracker:
+            with patch.object(KucoinExchange, "_all_trades_updates") as mock_updates:
+                mock_updates.side_effect = [asyncio.CancelledError]
+                with self.assertRaises(asyncio.CancelledError):
+                    self.async_run_with_timeout(self.exchange._update_orders_fills(orders))
+                mock_tracker.assert_not_called()
+
+        self.assertEqual(0, self.exchange._last_order_fill_ts_s)
+
+    def test__update_orders_fills_calls_on_orders(self):
+        orders: List[InFlightOrder] = [InFlightOrder(client_order_id="COID1-1",
+                                                     exchange_order_id="EOID1-1",
+                                                     trading_pair=self.trading_pair,
+                                                     order_type=OrderType.LIMIT,
+                                                     trade_type=TradeType.BUY,
+                                                     price=Decimal("10000"),
+                                                     amount=Decimal("1"),
+                                                     creation_timestamp=1234567890,
+                                                     ),
+                                       InFlightOrder(client_order_id="COID1-2",
+                                                     exchange_order_id="EOID1-2",
+                                                     trading_pair=self.trading_pair,
+                                                     order_type=OrderType.LIMIT,
+                                                     trade_type=TradeType.BUY,
+                                                     price=Decimal("10000"),
+                                                     amount=Decimal("1"),
+                                                     creation_timestamp=1234567890,
+                                                     )
+                                       ]
+        fee: TradeFeeBase = TradeFeeBase.new_spot_fee(
+            fee_schema=TradeFeeSchema(),
+            trade_type=TradeType.BUY,
+            percent_token="USDT",
+            flat_fees=[TokenAmount(amount=Decimal("0"), token="USDT")]
+        )
+        trade: TradeUpdate = TradeUpdate(client_order_id="COID1-1",
+                                         exchange_order_id="EOID1-1",
+                                         trading_pair=self.trading_pair,
+                                         trade_id="0",
+                                         fill_timestamp=1234567890,
+                                         fill_price=Decimal("0"),
+                                         fill_base_amount=Decimal("0"),
+                                         fill_quote_amount=Decimal("0"),
+                                         fee=fee)
+        # Simulate the order has been filled with a TradeUpdate
+        self.assertEqual(0., self.exchange._last_order_fill_ts_s)
+
+        with patch.object(ClientOrderTracker, "process_trade_update") as mock_tracker:
+            with patch.object(KucoinExchange, "_all_trades_updates") as mock_updates:
+                mock_updates.side_effect = [[trade]]
+                self.async_run_with_timeout(self.exchange._update_orders_fills(orders))
+                mock_tracker.assert_called_with(trade)
+                mock_updates.assert_called_once_with(orders)
+
+    def test__update_orders_fills_handles_exception(self):
+        orders: List[InFlightOrder] = [InFlightOrder(client_order_id="COID1-1",
+                                                     exchange_order_id="EOID1-1",
+                                                     trading_pair=self.trading_pair,
+                                                     order_type=OrderType.LIMIT,
+                                                     trade_type=TradeType.BUY,
+                                                     price=Decimal("10000"),
+                                                     amount=Decimal("1"),
+                                                     creation_timestamp=1234567890,
+                                                     )]
+
+        with patch.object(ClientOrderTracker, "process_trade_update") as mock_tracker:
+            with patch.object(KucoinExchange, "_all_trades_updates") as mock_updates:
+                mock_updates.side_effect = [Exception("test")]
+                self.async_run_with_timeout(self.exchange._update_orders_fills(orders))
+                # Empty trade updates due to exception
+                mock_tracker.assert_not_called()
+
+        print(self.log_records)
+        self.assertTrue(self._is_logged("WARNING", "Failed to fetch trade updates. Error: test"))
+
+    @aioresponses()
+    def test__all_trades_updates_empty_orders(self, mock_api):
+        orders: List[InFlightOrder] = []
+
+        # Simulate the order has been filled with a TradeUpdate
+        # Updating with only the oldest order(fee called once)
+        self.assertEqual(0., self.exchange._last_order_fill_ts_s)
+        with patch.object(TradeFeeBase, "new_spot_fee") as mock_fee:
+            trades = self.async_run_with_timeout(self.exchange._all_trades_updates(orders))
+            mock_fee.assert_not_called()
+        self.assertEqual(0, self.exchange._last_order_fill_ts_s)
+
+        self.assertEqual(0, len(trades))
+
+    def test__update_orders_fills_empty_orders(self):
+        orders: List[InFlightOrder] = []
+
+        with patch.object(ClientOrderTracker, "process_trade_update") as mock_tracker:
+            mock_tracker.return_value = None
+            with patch.object(KucoinExchange, "_all_trades_updates") as mock_exception:
+                mock_exception.side_effect = [asyncio.CancelledError, Exception]
+                with patch.object(TradeFeeBase, "new_spot_fee") as mock_fee:
+                    self.async_run_with_timeout(self.exchange._update_orders_fills(orders))
+                    mock_fee.assert_not_called()
+                    mock_exception.assert_not_called()
+                    mock_tracker.assert_not_called()
+
+        self.assertEqual(0, self.exchange._last_order_fill_ts_s)
+
+    @aioresponses()
+    def test__all_trades_updates_last_fill(self, mock_api):
+        orders: List[InFlightOrder] = []
+        order_fills_status: Dict = {
+            "currentPage": 1,
+            "pageSize": 500,
+            "totalNum": 251915,
+            "totalPage": 251915,
+            "items": []}
+        base_amount = Decimal("0.8424304")
+        quote_amount = Decimal("0.0699217232")
+        for i in range(5):
+            self.exchange._set_current_timestamp(1640780000 + i)
+            self.exchange.start_tracking_order(
+                order_id=f"OID1-{i}",
+                exchange_order_id=f"EOID1-{i}",
+                trading_pair=self.trading_pair,
+                order_type=OrderType.LIMIT,
+                trade_type=TradeType.BUY,
+                price=Decimal("10000"),
+                amount=Decimal("1"),
+            )
+            orders.append(self.exchange.in_flight_orders[f"OID1-{i}"])
+
+            order_fills_status["items"].append({
+                "symbol": self.trading_pair,
+                "tradeId": f"5c35c02709e4f67d5266954e-{i}",  # trade id
+                "orderId": orders[-1].exchange_order_id,
+                "counterOrderId": "5c1ab46003aa676e487fa8e3",  # counter order id
+                "side": orders[-1].trade_type.name.lower(),
+                "liquidity": "taker",  # include taker and maker
+                "forceTaker": True,  # forced to become taker
+                "price": "0.083",  # order price
+                "size": str(base_amount),  # order quantity
+                "funds": str(quote_amount),  # order funds
+                "fee": "0",  # fee
+                "feeRate": "0",  # fee rate
+                "feeCurrency": self.quote_asset,
+                "stop": "",  # stop type
+                "type": "limit",  # order type,e.g. limit,market,stop_limit.
+                "createdAt": orders[-1].creation_timestamp * 1000,
+                "tradeType": "TRADE"
+            })
+
+        mock_response = order_fills_status
+        for i in range(5):
+            url_fills = web_utils.private_rest_url(
+                f"{CONSTANTS.FILLS_PATH_URL}?pageSize=500&startAt={int((1640780004 - i) * 1000)}")
+            regex_url_fills = re.compile(f"^{url_fills}".replace(".", r"\.").replace("?", r"\?"))
+
+            mock_api.get(regex_url_fills, body=json.dumps(mock_response), repeat=True)
+
+        # Simulate the order has been filled with a TradeUpdate
+        # Updating with only the oldest order(fee called once)
+        self.assertEqual(0., self.exchange._last_order_fill_ts_s)
+        with patch.object(TradeFeeBase, "new_spot_fee") as mock_fee:
+            trades = self.async_run_with_timeout(self.exchange._all_trades_updates([orders[0]]))
+            mock_fee.assert_called_once()
+        self.assertEqual(1640780000.0, self.exchange._last_order_fill_ts_s)
+
+        order_request = next(((key, value) for key, value in mock_api.requests.items()
+                              if key[1].human_repr().startswith(
+            web_utils.private_rest_url(f"{CONSTANTS.FILLS_PATH_URL}?pageSize=500&startAt="))))
+        request_params = order_request[1][0].kwargs["params"]
+        self.assertEqual({'pageSize': 500, 'startAt': 1640780000000}, request_params)
+        self._validate_auth_credentials_present(order_request[1][0])
+
+        self.assertEqual(1, len(trades))
+
+        # Updating with only the second-oldest order(fee called once)
+        mock_api.requests = {}
+        with patch.object(TradeFeeBase, "new_spot_fee") as mock_fee:
+            trades = self.async_run_with_timeout(self.exchange._all_trades_updates([orders[3]]))
+            mock_fee.assert_called_once()
+        self.assertEqual(1640780003.0, self.exchange._last_order_fill_ts_s)
+
+        order_request = next(((key, value) for key, value in mock_api.requests.items()
+                              if key[1].human_repr().startswith(
+            web_utils.private_rest_url(f"{CONSTANTS.FILLS_PATH_URL}?pageSize=500&startAt="))))
+        request_params = order_request[1][0].kwargs["params"]
+        self.assertEqual({'pageSize': 500, 'startAt': 1640780003000}, request_params)
+        self._validate_auth_credentials_present(order_request[1][0])
+
+        self.assertEqual(1, len(trades))
+
+        # Updating with 5 orders (fee called 5 times)
+        mock_api.requests = {}
+        with patch.object(TradeFeeBase, "new_spot_fee") as mock_fee:
+            trades = self.async_run_with_timeout(self.exchange._all_trades_updates(orders))
+            mock_fee.assert_called()
+        self.assertEqual(1640780004.0, self.exchange._last_order_fill_ts_s)
+
+        self.assertEqual(5, len(trades))
+
+    @aioresponses()
+    def test_update_order_status_when_filled_using_fills(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="EOID1",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        self.exchange.start_tracking_order(
+            order_id="OID2",
+            exchange_order_id="EOID2",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        orders: List[InFlightOrder] = [self.exchange.in_flight_orders["OID1"],
+                                       self.exchange.in_flight_orders["OID2"]]
+
+        url_fills = web_utils.private_rest_url(
+            f"{CONSTANTS.FILLS_PATH_URL}?pageSize=500&startAt={int(orders[0].creation_timestamp * 1000)}")
+        regex_url_fills = re.compile(f"^{url_fills}".replace(".", r"\.").replace("?", r"\?"))
+        url = web_utils.private_rest_url(f"{CONSTANTS.ORDERS_PATH_URL}/{orders[0].exchange_order_id}")
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        base_amount = Decimal("0.8424304")
+        quote_amount = Decimal("0.0699217232")
+        order_fills_status = {
+            "currentPage": 1,
+            "pageSize": 1,
+            "totalNum": 251915,
+            "totalPage": 251915,
+            "items": [
+                {
+                    "symbol": self.trading_pair,
+                    "tradeId": "5c35c02709e4f67d5266954e",  # trade id
+                    "orderId": orders[0].exchange_order_id,
+                    "counterOrderId": "5c1ab46003aa676e487fa8e3",  # counter order id
+                    "side": orders[0].trade_type.name.lower(),
+                    "liquidity": "taker",  # include taker and maker
+                    "forceTaker": True,  # forced to become taker
+                    "price": "0.083",  # order price
+                    "size": str(base_amount),  # order quantity
+                    "funds": str(quote_amount),  # order funds
+                    "fee": "0",  # fee
+                    "feeRate": "0",  # fee rate
+                    "feeCurrency": self.quote_asset,
+                    "stop": "",  # stop type
+                    "type": "limit",  # order type,e.g. limit,market,stop_limit.
+                    "createdAt": orders[0].creation_timestamp,
+                    "tradeType": "TRADE"
+                },
+                {
+                    "symbol": self.trading_pair,
+                    "tradeId": "5c35c02709e4f67d5266954e",  # trade id
+                    "orderId": "5c35c02709e4f67d5266954e",
+                    "counterOrderId": "5c1ab46003aa676e487fa8e3",  # counter order id
+                    "side": orders[0].trade_type.name.lower(),
+                    "liquidity": "taker",  # include taker and maker
+                    "forceTaker": True,  # forced to become taker
+                    "price": "0.083",  # order price
+                    "size": str(base_amount),  # order quantity
+                    "funds": "0.0699217232",  # order funds
+                    "fee": "0",  # fee
+                    "feeRate": "0",  # fee rate
+                    "feeCurrency": self.quote_asset,
+                    "stop": "",  # stop type
+                    "type": "limit",  # order type,e.g. limit,market,stop_limit.
+                    "createdAt": orders[0].creation_timestamp,
+                    "tradeType": "TRADE"
+                },
+                {
+                    "symbol": self.trading_pair,
+                    "tradeId": "5c35c02709e4f67d5266954e",  # trade id
+                    "orderId": orders[1].exchange_order_id,
+                    "counterOrderId": "5c1ab46003aa676e487fa8e3",  # counter order id
+                    "side": orders[1].trade_type.name.lower(),
+                    "liquidity": "taker",  # include taker and maker
+                    "forceTaker": True,  # forced to become taker
+                    "price": "0.083",  # order price
+                    "size": str(base_amount),  # order quantity
+                    "funds": "0.0699217232",  # order funds
+                    "fee": "0",  # fee
+                    "feeRate": "0",  # fee rate
+                    "feeCurrency": self.quote_asset,
+                    "stop": "",  # stop type
+                    "type": "limit",  # order type,e.g. limit,market,stop_limit.
+                    "createdAt": orders[1].creation_timestamp,
+                    "tradeType": "TRADE"
+                },
+                {
+                    "symbol": self.trading_pair,
+                    "tradeId": "5c35c02709e4f67d5266954e",  # trade id
+                    "orderId": "5c35c02709e4f67d5266954e",
+                    "counterOrderId": "5c1ab46003aa676e487fa8e3",  # counter order id
+                    "side": orders[1].trade_type.name.lower(),
+                    "liquidity": "taker",  # include taker and maker
+                    "forceTaker": True,  # forced to become taker
+                    "price": "0.083",  # order price
+                    "size": "0.8424304",  # order quantity
+                    "funds": "0.0699217232",  # order funds
+                    "fee": "0",  # fee
+                    "feeRate": "0",  # fee rate
+                    "feeCurrency": self.quote_asset,
+                    "stop": "",  # stop type
+                    "type": "limit",  # order type,e.g. limit,market,stop_limit.
+                    "createdAt": orders[1].creation_timestamp,
+                    "tradeType": "TRADE"
+                },
+                {
+                    "symbol": "XCAD-HBOT",
+                    "tradeId": "5c35c02709e4f67d5266954e",  # trade id
+                    "orderId": "5c35c02709e4f67dxxxxxxxx",
+                    "counterOrderId": "5c1ab46003aa676e487fa8e3",  # counter order id
+                    "side": orders[0].trade_type.name.lower(),
+                    "liquidity": "taker",  # include taker and maker
+                    "forceTaker": True,  # forced to become taker
+                    "price": "0.083",  # order price
+                    "size": "0.8424304",  # order quantity
+                    "funds": "0.0699217232",  # order funds
+                    "fee": "0",  # fee
+                    "feeRate": "0",  # fee rate
+                    "feeCurrency": self.quote_asset,
+                    "stop": "",  # stop type
+                    "type": "limit",  # order type,e.g. limit,market,stop_limit.
+                    "createdAt": orders[0].creation_timestamp,
+                    "tradeType": "TRADE"
+                },
+            ]
+        }
+        order_status = {
+            "code": "200000",
+            "data": {
+                "id": orders[0].exchange_order_id,
+                "symbol": self.trading_pair,
+                "opType": "DEAL",
+                "type": "limit",
+                "side": orders[0].trade_type.name.lower(),
+                "price": "10000",
+                "size": "1",
+                "funds": "0",
+                "dealFunds": "0.166",
+                "dealSize": "1",
+                "fee": "0",
+                "feeCurrency": self.quote_asset,
+                "stp": "",
+                "stop": "",
+                "stopTriggered": False,
+                "stopPrice": "0",
+                "timeInForce": "GTC",
+                "postOnly": False,
+                "hidden": False,
+                "iceberg": False,
+                "visibleSize": "0",
+                "cancelAfter": 0,
+                "channel": "IOS",
+                "clientOid": "",
+                "remark": "",
+                "tags": "",
+                "isActive": False,
+                "cancelExist": False,
+                "createdAt": 1547026471000,
+                "tradeType": "TRADE"
+            }
+        }
+
+        mock_response = order_fills_status
+        mock_api.get(regex_url_fills, body=json.dumps(mock_response))
+        mock_response = order_status
+        mock_api.get(regex_url, body=json.dumps(mock_response))
+
+        # Simulate the order has been filled with a TradeUpdate
+        orders[0].completely_filled_event.set()
         self.async_run_with_timeout(self.exchange._update_order_status())
+        self.async_run_with_timeout(orders[0].wait_until_completely_filled())
 
         order_request = next(((key, value) for key, value in mock_api.requests.items()
                               if key[1].human_repr().startswith(url)))
@@ -1305,9 +1715,456 @@ class KucoinExchangeTests(unittest.TestCase):
         self.assertIsNone(request_params)
         self._validate_auth_credentials_present(order_request[1][0])
 
-        self.assertTrue(order.is_open)
-        self.assertFalse(order.is_filled)
-        self.assertFalse(order.is_done)
+        self.assertTrue(orders[0].is_filled)
+        self.assertTrue(orders[0].is_done)
+
+        buy_event: BuyOrderCompletedEvent = self.buy_order_completed_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, buy_event.timestamp)
+        self.assertEqual(orders[0].client_order_id, buy_event.order_id)
+        self.assertEqual(orders[0].base_asset, buy_event.base_asset)
+        self.assertEqual(orders[0].quote_asset, buy_event.quote_asset)
+        self.assertEqual(base_amount, buy_event.base_asset_amount)
+        self.assertEqual(quote_amount, buy_event.quote_asset_amount)
+        self.assertEqual(orders[0].order_type, buy_event.order_type)
+        self.assertEqual(orders[0].exchange_order_id, buy_event.exchange_order_id)
+        self.assertNotIn(orders[0].client_order_id, self.exchange.in_flight_orders)
+        self.assertTrue(
+            self._is_logged(
+                "INFO",
+                f"BUY order {orders[0].client_order_id} completely filled."
+            )
+        )
+
+    @aioresponses()
+    def test_update_order_status_when_cancelled_using_fills(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="100234",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        self.exchange.start_tracking_order(
+            order_id="OID2",
+            exchange_order_id="EOID2",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        orders: List[InFlightOrder] = [self.exchange.in_flight_orders["OID1"],
+                                       self.exchange.in_flight_orders["OID2"]]
+
+        url_fills = web_utils.private_rest_url(
+            f"{CONSTANTS.FILLS_PATH_URL}?pageSize=500&startAt={int(orders[0].creation_timestamp * 1000)}")
+        regex_url_fills = re.compile(f"^{url_fills}".replace(".", r"\.").replace("?", r"\?"))
+        url = web_utils.private_rest_url(f"{CONSTANTS.ORDERS_PATH_URL}/{orders[0].exchange_order_id}")
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        order_fills_status = {
+            "currentPage": 1,
+            "pageSize": 1,
+            "totalNum": 251915,
+            "totalPage": 251915,
+            "items": [
+                {
+                    "symbol": self.trading_pair,
+                    "tradeId": "5c35c02709e4f67d5266954e",  # trade id
+                    "orderId": orders[0].exchange_order_id,
+                    "counterOrderId": "5c1ab46003aa676e487fa8e3",  # counter order id
+                    "side": orders[0].trade_type.name.lower(),
+                    "liquidity": "taker",  # include taker and maker
+                    "forceTaker": True,  # forced to become taker
+                    "price": "0.083",  # order price
+                    "size": "0.8424304",  # order quantity
+                    "funds": "0.0699217232",  # order funds
+                    "fee": "0",  # fee
+                    "feeRate": "0",  # fee rate
+                    "feeCurrency": self.quote_asset,
+                    "stop": "",  # stop type
+                    "type": "limit",  # order type,e.g. limit,market,stop_limit.
+                    "createdAt": orders[0].creation_timestamp,
+                    "tradeType": "TRADE"
+                },
+                {
+                    "symbol": self.trading_pair,
+                    "tradeId": "5c35c02709e4f67d5266954e",  # trade id
+                    "orderId": "5c35c02709e4f67d5266954e",
+                    "counterOrderId": "5c1ab46003aa676e487fa8e3",  # counter order id
+                    "side": orders[0].trade_type.name.lower(),
+                    "liquidity": "taker",  # include taker and maker
+                    "forceTaker": True,  # forced to become taker
+                    "price": "0.083",  # order price
+                    "size": "0.8424304",  # order quantity
+                    "funds": "0.0699217232",  # order funds
+                    "fee": "0",  # fee
+                    "feeRate": "0",  # fee rate
+                    "feeCurrency": self.quote_asset,
+                    "stop": "",  # stop type
+                    "type": "limit",  # order type,e.g. limit,market,stop_limit.
+                    "createdAt": orders[0].creation_timestamp,
+                    "tradeType": "TRADE"
+                },
+                {
+                    "symbol": self.trading_pair,
+                    "tradeId": "5c35c02709e4f67d5266954e",  # trade id
+                    "orderId": orders[1].exchange_order_id,
+                    "counterOrderId": "5c1ab46003aa676e487fa8e3",  # counter order id
+                    "side": orders[1].trade_type.name.lower(),
+                    "liquidity": "taker",  # include taker and maker
+                    "forceTaker": True,  # forced to become taker
+                    "price": "0.083",  # order price
+                    "size": "0.8424304",  # order quantity
+                    "funds": "0.0699217232",  # order funds
+                    "fee": "0",  # fee
+                    "feeRate": "0",  # fee rate
+                    "feeCurrency": self.quote_asset,
+                    "stop": "",  # stop type
+                    "type": "limit",  # order type,e.g. limit,market,stop_limit.
+                    "createdAt": orders[1].creation_timestamp,
+                    "tradeType": "TRADE"
+                },
+                {
+                    "symbol": self.trading_pair,
+                    "tradeId": "5c35c02709e4f67d5266954e",  # trade id
+                    "orderId": "5c35c02709e4f67d5266954e",
+                    "counterOrderId": "5c1ab46003aa676e487fa8e3",  # counter order id
+                    "side": orders[1].trade_type.name.lower(),
+                    "liquidity": "taker",  # include taker and maker
+                    "forceTaker": True,  # forced to become taker
+                    "price": "0.083",  # order price
+                    "size": "0.8424304",  # order quantity
+                    "funds": "0.0699217232",  # order funds
+                    "fee": "0",  # fee
+                    "feeRate": "0",  # fee rate
+                    "feeCurrency": self.quote_asset,
+                    "stop": "",  # stop type
+                    "type": "limit",  # order type,e.g. limit,market,stop_limit.
+                    "createdAt": orders[1].creation_timestamp,
+                    "tradeType": "TRADE"
+                },
+                {
+                    "symbol": "XCAD-HBOT",
+                    "tradeId": "5c35c02709e4f67d5266954e",  # trade id
+                    "orderId": "5c35c02709e4f67dxxxxxxxx",
+                    "counterOrderId": "5c1ab46003aa676e487fa8e3",  # counter order id
+                    "side": orders[0].trade_type.name.lower(),
+                    "liquidity": "taker",  # include taker and maker
+                    "forceTaker": True,  # forced to become taker
+                    "price": "0.083",  # order price
+                    "size": "0.8424304",  # order quantity
+                    "funds": "0.0699217232",  # order funds
+                    "fee": "0",  # fee
+                    "feeRate": "0",  # fee rate
+                    "feeCurrency": self.quote_asset,
+                    "stop": "",  # stop type
+                    "type": "limit",  # order type,e.g. limit,market,stop_limit.
+                    "createdAt": orders[0].creation_timestamp,
+                    "tradeType": "TRADE"
+                },
+            ]
+        }
+        order_status = {
+            "code": "200000",
+            "data": {
+                "id": orders[0].exchange_order_id,
+                "symbol": self.trading_pair,
+                "opType": "CANCEL",
+                "type": "limit",
+                "side": orders[0].trade_type.name.lower(),
+                "price": "10000",
+                "size": "1",
+                "funds": "0",
+                "dealFunds": "0.166",
+                "dealSize": "1",
+                "fee": "0",
+                "feeCurrency": self.quote_asset,
+                "stp": "",
+                "stop": "",
+                "stopTriggered": False,
+                "stopPrice": "0",
+                "timeInForce": "GTC",
+                "postOnly": False,
+                "hidden": False,
+                "iceberg": False,
+                "visibleSize": "0",
+                "cancelAfter": 0,
+                "channel": "IOS",
+                "clientOid": "",
+                "remark": "",
+                "tags": "",
+                "isActive": False,
+                "cancelExist": True,
+                "createdAt": 1547026471000,
+                "tradeType": "TRADE"
+            }
+        }
+
+        mock_response = order_fills_status
+        mock_api.get(regex_url_fills, body=json.dumps(mock_response))
+        mock_response = order_status
+        mock_api.get(regex_url, body=json.dumps(mock_response))
+
+        self.async_run_with_timeout(self.exchange._update_order_status())
+
+        order_request = next(((key, value) for key, value in mock_api.requests.items()
+                              if key[1].human_repr().startswith(url_fills)))
+        request_params = order_request[1][0].kwargs["params"]
+        self.assertEqual({'pageSize': 500, 'startAt': 1640780000000}, request_params)
+        self._validate_auth_credentials_present(order_request[1][0])
+
+        cancel_event: OrderCancelledEvent = self.order_cancelled_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, cancel_event.timestamp)
+        self.assertEqual(orders[0].client_order_id, cancel_event.order_id)
+        self.assertEqual(orders[0].exchange_order_id, cancel_event.exchange_order_id)
+        self.assertNotIn(orders[0].client_order_id, self.exchange.in_flight_orders)
+        self.assertTrue(
+            self._is_logged("INFO", f"Successfully canceled order {orders[0].client_order_id}.")
+        )
+
+    @aioresponses()
+    def test_update_order_status_when_order_has_not_changed_using_fills(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)  # Seconds
+
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="EOID1",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        self.exchange.start_tracking_order(
+            order_id="OID2",
+            exchange_order_id="EOID2",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        orders: List[InFlightOrder] = [self.exchange.in_flight_orders["OID1"],
+                                       self.exchange.in_flight_orders["OID2"]]
+
+        url_fills = web_utils.private_rest_url(
+            f"{CONSTANTS.FILLS_PATH_URL}?pageSize=500&startAt={int(orders[0].creation_timestamp * 1000)}")
+        regex_url_fills = re.compile(f"^{url_fills}".replace(".", r"\.").replace("?", r"\?"))
+
+        order_fills_status = {
+            "currentPage": 1,
+            "pageSize": 1,
+            "totalNum": 251915,
+            "totalPage": 251915,
+            "items": [
+                {
+                    "symbol": self.trading_pair,
+                    "tradeId": "5c35c02709e4f67d5266954e",  # trade id
+                    "orderId": orders[0].exchange_order_id,
+                    "counterOrderId": "5c1ab46003aa676e487fa8e3",  # counter order id
+                    "side": orders[0].trade_type.name.lower(),
+                    "liquidity": "taker",  # include taker and maker
+                    "forceTaker": True,  # forced to become taker
+                    "price": "0.083",  # order price
+                    "size": "0.8424304",  # order quantity
+                    "funds": "0.0699217232",  # order funds
+                    "fee": "0",  # fee
+                    "feeRate": "0",  # fee rate
+                    "feeCurrency": self.quote_asset,
+                    "stop": "",  # stop type
+                    "type": "limit",  # order type,e.g. limit,market,stop_limit.
+                    "createdAt": orders[0].creation_timestamp,
+                    "tradeType": "TRADE"
+                },
+                {
+                    "symbol": self.trading_pair,
+                    "tradeId": "5c35c02709e4f67d5266954e",  # trade id
+                    "orderId": "5c35c02709e4f67d5266954e",
+                    "counterOrderId": "5c1ab46003aa676e487fa8e3",  # counter order id
+                    "side": orders[0].trade_type.name.lower(),
+                    "liquidity": "taker",  # include taker and maker
+                    "forceTaker": True,  # forced to become taker
+                    "price": "0.083",  # order price
+                    "size": "0.8424304",  # order quantity
+                    "funds": "0.0699217232",  # order funds
+                    "fee": "0",  # fee
+                    "feeRate": "0",  # fee rate
+                    "feeCurrency": self.quote_asset,
+                    "stop": "",  # stop type
+                    "type": "limit",  # order type,e.g. limit,market,stop_limit.
+                    "createdAt": orders[0].creation_timestamp,
+                    "tradeType": "TRADE"
+                },
+                {
+                    "symbol": self.trading_pair,
+                    "tradeId": "5c35c02709e4f67d5266954e",  # trade id
+                    "orderId": orders[1].exchange_order_id,
+                    "counterOrderId": "5c1ab46003aa676e487fa8e3",  # counter order id
+                    "side": orders[1].trade_type.name.lower(),
+                    "liquidity": "taker",  # include taker and maker
+                    "forceTaker": True,  # forced to become taker
+                    "price": "0.083",  # order price
+                    "size": "0.8424304",  # order quantity
+                    "funds": "0.0699217232",  # order funds
+                    "fee": "0",  # fee
+                    "feeRate": "0",  # fee rate
+                    "feeCurrency": self.quote_asset,
+                    "stop": "",  # stop type
+                    "type": "limit",  # order type,e.g. limit,market,stop_limit.
+                    "createdAt": orders[1].creation_timestamp,
+                    "tradeType": "TRADE"
+                },
+                {
+                    "symbol": self.trading_pair,
+                    "tradeId": "5c35c02709e4f67d5266954e",  # trade id
+                    "orderId": "5c35c02709e4f67d5266954e",
+                    "counterOrderId": "5c1ab46003aa676e487fa8e3",  # counter order id
+                    "side": orders[1].trade_type.name.lower(),
+                    "liquidity": "taker",  # include taker and maker
+                    "forceTaker": True,  # forced to become taker
+                    "price": "0.083",  # order price
+                    "size": "0.8424304",  # order quantity
+                    "funds": "0.0699217232",  # order funds
+                    "fee": "0",  # fee
+                    "feeRate": "0",  # fee rate
+                    "feeCurrency": self.quote_asset,
+                    "stop": "",  # stop type
+                    "type": "limit",  # order type,e.g. limit,market,stop_limit.
+                    "createdAt": orders[1].creation_timestamp,
+                    "tradeType": "TRADE"
+                },
+                {
+                    "symbol": "XCAD-HBOT",
+                    "tradeId": "5c35c02709e4f67d5266954e",  # trade id
+                    "orderId": "5c35c02709e4f67dxxxxxxxx",
+                    "counterOrderId": "5c1ab46003aa676e487fa8e3",  # counter order id
+                    "side": orders[0].trade_type.name.lower(),
+                    "liquidity": "taker",  # include taker and maker
+                    "forceTaker": True,  # forced to become taker
+                    "price": "0.083",  # order price
+                    "size": "0.8424304",  # order quantity
+                    "funds": "0.0699217232",  # order funds
+                    "fee": "0",  # fee
+                    "feeRate": "0",  # fee rate
+                    "feeCurrency": self.quote_asset,
+                    "stop": "",  # stop type
+                    "type": "limit",  # order type,e.g. limit,market,stop_limit.
+                    "createdAt": orders[0].creation_timestamp,
+                    "tradeType": "TRADE"
+                },
+            ]
+        }
+
+        mock_response = order_fills_status
+        mock_api.get(regex_url_fills, body=json.dumps(mock_response))
+
+        self.assertTrue(orders[0].is_open)
+
+        self.async_run_with_timeout(self.exchange._update_order_status())
+
+        order_request = next(((key, value) for key, value in mock_api.requests.items()
+                              if key[1].human_repr().startswith(url_fills)))
+        request_params = order_request[1][0].kwargs["params"]
+        self.assertEqual({'pageSize': 500, 'startAt': 1640780000000}, request_params)
+        self._validate_auth_credentials_present(order_request[1][0])
+
+        self.assertTrue(orders[0].is_open)
+        self.assertFalse(orders[0].is_filled)
+        self.assertFalse(orders[0].is_done)
+
+    @aioresponses()
+    def test_update_order_status_when_request_fails_marks_order_as_not_found_using_fills(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="EOID1",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        self.exchange.start_tracking_order(
+            order_id="OID2",
+            exchange_order_id="EOID2",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        orders: List[InFlightOrder] = [self.exchange.in_flight_orders["OID1"],
+                                       self.exchange.in_flight_orders["OID2"]]
+
+        url_fills = web_utils.private_rest_url(
+            f"{CONSTANTS.FILLS_PATH_URL}?pageSize=500&startAt={int(orders[0].creation_timestamp * 1000)}")
+        regex_url_fills = re.compile(f"^{url_fills}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_api.get(regex_url_fills, status=404)
+
+        self.async_run_with_timeout(self.exchange._update_order_status())
+
+        order_request = next(((key, value) for key, value in mock_api.requests.items()
+                              if key[1].human_repr().startswith(url_fills)))
+        request_params = order_request[1][0].kwargs["params"]
+        self.assertEqual({'pageSize': 500, 'startAt': 1640780000000}, request_params)
+        self._validate_auth_credentials_present(order_request[1][0])
+
+        self.assertTrue(orders[0].is_open)
+        self.assertFalse(orders[0].is_filled)
+        self.assertFalse(orders[0].is_done)
+
+        self.assertEqual(1, self.exchange._order_tracker._order_not_found_records[orders[0].client_order_id])
+
+    @aioresponses()
+    def test_update_order_status_marks_order_with_no_exchange_id_as_not_found_using_fills(self, mock_api):
+        update_event = MagicMock()
+        update_event.wait.side_effect = asyncio.TimeoutError
+
+        self.exchange._set_current_timestamp(1640780000)
+
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="EOID1",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        self.exchange.start_tracking_order(
+            order_id="OID2",
+            exchange_order_id="EOID2",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        orders: List[InFlightOrder] = [self.exchange.in_flight_orders["OID1"],
+                                       self.exchange.in_flight_orders["OID2"]]
+        orders[0].exchange_order_id_update_event = update_event
+
+        url_fills = web_utils.private_rest_url(
+            f"{CONSTANTS.FILLS_PATH_URL}?pageSize=500&startAt={int(orders[0].creation_timestamp * 1000)}")
+        regex_url_fills = re.compile(f"^{url_fills}".replace(".", r"\.").replace("?", r"\?"))
+
+        mock_api.get(regex_url_fills, status=404)
+        self.async_run_with_timeout(self.exchange._update_order_status())
+
+        self.assertTrue(orders[0].is_open)
+        self.assertFalse(orders[0].is_filled)
+        self.assertFalse(orders[0].is_done)
+
+        self.assertEqual(1, self.exchange._order_tracker._order_not_found_records[orders[0].client_order_id])
+
+    # ---- End of testing for _update_orders_fills() method overwritten from the ExchangePyBase
 
     @aioresponses()
     def test_update_order_status_when_request_fails_marks_order_as_not_found(self, mock_api):
@@ -1361,7 +2218,7 @@ class KucoinExchangeTests(unittest.TestCase):
         order: InFlightOrder = self.exchange.in_flight_orders["OID1"]
         order.exchange_order_id_update_event = update_event
 
-        self.async_run_with_timeout(self.exchange._update_order_status())
+        self.async_run_with_timeout(self.exchange._update_order_status(), timeout=2)
 
         self.assertTrue(order.is_open)
         self.assertFalse(order.is_filled)

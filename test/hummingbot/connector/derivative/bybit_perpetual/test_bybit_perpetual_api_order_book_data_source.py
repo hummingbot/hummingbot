@@ -254,7 +254,7 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
             "timestamp_e6": 1578853525691123
         }
 
-    def get_funding_info_rest_msg(self):
+    def get_general_info_rest_msg(self):
         return {
             "ret_code": 0,
             "ret_msg": "OK",
@@ -291,6 +291,22 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
                 },
             ],
             "time_now": "1577484619.817968",
+        }
+
+    def get_predicted_funding_info(self):
+        return {
+            "ret_code": 0,
+            "ret_msg": "ok",
+            "ext_code": "",
+            "result": {
+                "predicted_funding_rate": 0.0001,
+                "predicted_funding_fee": 0
+            },
+            "ext_info": None,
+            "time_now": "1577447415.583259",
+            "rate_limit_status": 118,
+            "rate_limit_reset_ms": 1577447415590,
+            "rate_limit": 120
         }
 
     @aioresponses()
@@ -710,17 +726,23 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
         endpoint = CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT
         url = web_utils.get_rest_url_for_endpoint(endpoint, self.trading_pair, self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        resp = self.get_funding_info_rest_msg()
-        mock_api.get(regex_url, body=json.dumps(resp))
+        general_resp = self.get_general_info_rest_msg()
+        mock_api.get(regex_url, body=json.dumps(general_resp))
+
+        endpoint = CONSTANTS.GET_PREDICTED_FUNDING_RATE_PATH_URL
+        url = web_utils.get_rest_url_for_endpoint(endpoint, self.trading_pair, self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        funding_resp = self.get_predicted_funding_info()
+        mock_api.get(regex_url, body=json.dumps(funding_resp))
 
         funding_info: FundingInfo = self.async_run_with_timeout(
             self.data_source.get_funding_info(self.trading_pair)
         )
-        msg_result = resp["result"][0]
+        general_info_result = general_resp["result"][0]
 
         self.assertEqual(self.trading_pair, funding_info.trading_pair)
-        self.assertEqual(Decimal(str(msg_result["index_price"])), funding_info.index_price)
-        self.assertEqual(Decimal(str(msg_result["mark_price"])), funding_info.mark_price)
-        expected_utc_timestamp = int(pd.Timestamp(msg_result["next_funding_time"]).timestamp())
+        self.assertEqual(Decimal(str(general_info_result["index_price"])), funding_info.index_price)
+        self.assertEqual(Decimal(str(general_info_result["mark_price"])), funding_info.mark_price)
+        expected_utc_timestamp = int(pd.Timestamp(general_info_result["next_funding_time"]).timestamp())
         self.assertEqual(expected_utc_timestamp, funding_info.next_funding_utc_timestamp)
-        self.assertEqual(Decimal(str(msg_result["predicted_funding_rate"])), funding_info.rate)
+        self.assertEqual(Decimal(str(funding_resp["result"]["predicted_funding_rate"])), funding_info.rate)

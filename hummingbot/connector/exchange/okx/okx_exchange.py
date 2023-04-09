@@ -104,6 +104,20 @@ class OkxExchange(ExchangePyBase):
         is_time_synchronizer_related = '"code":"50113"' in error_description
         return is_time_synchronizer_related
 
+    def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
+        # TODO: implement this method correctly for the connector
+        # The default implementation was added when the functionality to detect not found orders was introduced in the
+        # ExchangePyBase class. Also fix the unit test test_lost_order_removed_if_not_found_during_order_status_update
+        # when replacing the dummy implementation
+        return False
+
+    def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
+        # TODO: implement this method correctly for the connector
+        # The default implementation was added when the functionality to detect not found orders was introduced in the
+        # ExchangePyBase class. Also fix the unit test test_cancel_order_not_found_in_the_exchange when replacing the
+        # dummy implementation
+        return False
+
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
             throttler=self._throttler,
@@ -207,11 +221,14 @@ class OkxExchange(ExchangePyBase):
         )
         if cancel_result["data"][0]["sCode"] == "0":
             final_result = True
-        elif cancel_result["data"][0]["sCode"] == "5140":
-            # Cancelation failed because the order does not exist anymore
+        elif cancel_result["data"][0]["sCode"] == "51400":
+            # Cancelation failed because the order does not exist
+            final_result = True
+        elif cancel_result["data"][0]["sCode"] == "51401":
+            # Cancelation failed because order has been cancelled
             final_result = True
         else:
-            raise IOError(cancel_result["msg"])
+            raise IOError(f"Error cancelling order {order_id}: {cancel_result}")
 
         return final_result
 

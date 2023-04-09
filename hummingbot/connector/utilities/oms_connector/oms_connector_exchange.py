@@ -84,10 +84,6 @@ class OMSExchange(ExchangePyBase):
         return CONSTANTS.RATE_LIMITS
 
     @property
-    def domain(self) -> str:
-        return ""
-
-    @property
     def client_order_id_max_length(self) -> int:
         return -1
 
@@ -186,6 +182,20 @@ class OMSExchange(ExchangePyBase):
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         # Not required for OMS connectors
+        return False
+
+    def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
+        # TODO: implement this method correctly for the connector
+        # The default implementation was added when the functionality to detect not found orders was introduced in the
+        # ExchangePyBase class. Also fix the unit test test_lost_order_removed_if_not_found_during_order_status_update
+        # when replacing the dummy implementation
+        return False
+
+    def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
+        # TODO: implement this method correctly for the connector
+        # The default implementation was added when the functionality to detect not found orders was introduced in the
+        # ExchangePyBase class. Also fix the unit test test_cancel_order_not_found_in_the_exchange when replacing the
+        # dummy implementation
         return False
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):

@@ -157,6 +157,20 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         )
         return is_time_synchronizer_related
 
+    def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
+        # TODO: implement this method correctly for the connector
+        # The default implementation was added when the functionality to detect not found orders was introduced in the
+        # ExchangePyBase class. Also fix the unit test test_lost_order_removed_if_not_found_during_order_status_update
+        # when replacing the dummy implementation
+        return False
+
+    def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
+        # TODO: implement this method correctly for the connector
+        # The default implementation was added when the functionality to detect not found orders was introduced in the
+        # ExchangePyBase class. Also fix the unit test test_cancel_order_not_found_in_the_exchange when replacing the
+        # dummy implementation
+        return False
+
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         data = {"symbol": await self.exchange_symbol_associated_to_pair(tracked_order.trading_pair)}
         if tracked_order.exchange_order_id:
@@ -419,7 +433,7 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
                     position_entries = result if isinstance(result, list) else [result]
                     parsed_resps.extend(position_entries)
             else:
-                self.logger().error(f"Error fetching trades history for {trading_pair}. Response: {resp}")
+                self.logger().error(f"Error fetching positions for {trading_pair}. Response: {resp}")
 
         for position in parsed_resps:
             data = position
@@ -451,10 +465,13 @@ class BybitPerpetualDerivative(PerpetualDerivativePyBase):
         if order.exchange_order_id is not None:
             try:
                 all_fills_response = await self._request_order_fills(order=order)
-                fills_data = all_fills_response["result"]["trade_list"]
-                for fill_data in fills_data:
-                    trade_update = self._parse_trade_update(trade_msg=fill_data, tracked_order=order)
-                    trade_updates.append(trade_update)
+                trades_list_key = "data" if bybit_utils.is_linear_perpetual(order.trading_pair) else "trade_list"
+                fills_data = all_fills_response["result"].get(trades_list_key, [])
+
+                if fills_data is not None:
+                    for fill_data in fills_data:
+                        trade_update = self._parse_trade_update(trade_msg=fill_data, tracked_order=order)
+                        trade_updates.append(trade_update)
             except IOError as ex:
                 if not self._is_request_exception_related_to_time_synchronizer(request_exception=ex):
                     raise
