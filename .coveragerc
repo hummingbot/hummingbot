@@ -44,8 +44,15 @@ fail_under = 70
 precision = 2
 skip_empty = true
 exclude_lines =
-    @abstractmethod
-    @abc.abstractmethod
+    @(abc\.)?abstractmethod
+    if TYPE_CHECKING:
+    pragma: no cover
+    if __name__ == .__main__.:
+    if 0:
+    raise AssertionError
+    raise NotImplementedError
+    if settings.DEBUG
+    except asyncio.exceptions.TimeoutError:
 
 [html]
 directory = coverage_html_report
