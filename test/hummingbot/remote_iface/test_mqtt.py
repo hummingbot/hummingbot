@@ -82,6 +82,7 @@ class RemoteIfaceMQTTTests(TestCase):
         self.fake_mqtt_broker._transport._subscriptions = {}
         time.sleep(0.001)
         self.gateway.stop()
+        del self.gateway
         super().tearDown()
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
@@ -474,13 +475,19 @@ class RemoteIfaceMQTTTests(TestCase):
 
         topic = self.get_topic_for(self.HISTORY_URI)
 
-        self.fake_mqtt_broker.publish_to_subscription(topic, {"async_backend": 0})
+        self.fake_mqtt_broker.publish_to_subscription(
+            topic,
+            {"async_backend": 0}
+        )
         history_topic = f"test_reply/hbot/{self.instance_id}/history"
         history_msg = {'status': 200, 'msg': '', 'trades': fake_trades}
         self.ev_loop.run_until_complete(self.wait_for_rcv(history_topic, history_msg, msg_key='data'))
         self.assertTrue(self.is_msg_received(history_topic, history_msg, msg_key='data'))
 
-        self.fake_mqtt_broker.publish_to_subscription(topic, {"async_backend": 1})
+        self.fake_mqtt_broker.publish_to_subscription(
+            topic,
+            {"async_backend": 1}
+        )
         notify_topic = f"hbot/{self.instance_id}/notify"
         notify_msg = "\n  Please first import a strategy config file of which to show historical performance."
         self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, notify_msg))
@@ -687,7 +694,10 @@ class RemoteIfaceMQTTTests(TestCase):
                                  strategy_status_mock: AsyncMock):
         strategy_status_mock.side_effect = self._create_exception_and_unlock_test_with_event_async
         self.start_mqtt(mock_mqtt=mock_mqtt)
-        self.fake_mqtt_broker.publish_to_subscription(self.get_topic_for(self.STATUS_URI), {})
+        self.fake_mqtt_broker.publish_to_subscription(
+            self.get_topic_for(self.STATUS_URI),
+            {'async_backend': 1}
+        )
         topic = f"test_reply/hbot/{self.instance_id}/status"
         msg = {'status': 400, 'msg': 'No strategy is currently running!', 'data': ''}
         self.ev_loop.run_until_complete(self.wait_for_rcv(topic, msg, msg_key='data'))
@@ -713,12 +723,33 @@ class RemoteIfaceMQTTTests(TestCase):
 
         topic = self.get_topic_for(self.STOP_URI)
 
-        self.fake_mqtt_broker.publish_to_subscription(topic, {})
+        self.fake_mqtt_broker.publish_to_subscription(
+            topic,
+            {'async_backend': 0}
+        )
         notify_topic = f"hbot/{self.instance_id}/notify"
         wind_down_msg = "\nWinding down..."
+        canceling_msg = "Canceling outstanding orders..."
         stop_msg = "All outstanding orders canceled."
         self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, wind_down_msg))
         self.assertTrue(self.is_msg_received(notify_topic, wind_down_msg))
+        self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, canceling_msg))
+        self.assertTrue(self.is_msg_received(notify_topic, canceling_msg))
+        self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, stop_msg))
+        self.assertTrue(self.is_msg_received(notify_topic, stop_msg))
+
+        self.fake_mqtt_broker.publish_to_subscription(
+            topic,
+            {'async_backend': 1}
+        )
+        notify_topic = f"hbot/{self.instance_id}/notify"
+        wind_down_msg = "\nWinding down..."
+        canceling_msg = "Canceling outstanding orders..."
+        stop_msg = "All outstanding orders canceled."
+        self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, wind_down_msg))
+        self.assertTrue(self.is_msg_received(notify_topic, wind_down_msg))
+        self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, canceling_msg))
+        self.assertTrue(self.is_msg_received(notify_topic, canceling_msg))
         self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, stop_msg))
         self.assertTrue(self.is_msg_received(notify_topic, stop_msg))
 
@@ -994,7 +1025,11 @@ class RemoteIfaceMQTTTests(TestCase):
             'b': 1,
             'c': Decimal('1.0'),
             'd': DeductedFromReturnsTradeFee(),
-            'e': AddedToCostTradeFee()
+            'e': AddedToCostTradeFee(),
+            'f': {'a': 1},
+            'type': 'TEST',
+            'order_type': 'BUY',
+            'trade_type': 'LIMIT',
         })
         self.assertTrue(1)
 
@@ -1016,18 +1051,30 @@ class RemoteIfaceMQTTTests(TestCase):
 
     @patch("commlib.transports.mqtt.MQTTTransport")
     def test_mqtt_external_events_class(self, mock_mqtt):
+        from hummingbot.remote_iface.messages import ExternalEventMessage
         from hummingbot.remote_iface.mqtt import MQTTExternalEvents
+
+        self.start_mqtt(mock_mqtt=mock_mqtt)
 
         def clb(msg, topic):
             pass
 
         eevents = MQTTExternalEvents(self.hbapp, self.gateway)
         eevents.add_global_listener(clb)
-        eevents.add_global_listener(clb)
+        ename = eevents._event_uri_to_name('hbot/bot1/external/event/e1')
+        self.assertTrue(ename == "e1")
+        eevents.add_listener('e1', clb)
+        eevents.add_listener('e1', clb)
+        eevents._on_event_arrived(ExternalEventMessage(),
+                                  'hbot/bot1/external/event/e1')
+        self.assertTrue(len(eevents._listeners) == 2)
+        self.assertTrue('*' in eevents._listeners)
+        self.assertTrue('e1' in eevents._listeners)
+        self.assertTrue(ename in eevents._listeners)
+
         eevents._listeners = {}
         eevents.add_global_listener(clb)
         eevents.remove_global_listener(clb)
-        self.assertTrue(1)
         eevents.add_listener('test_event', clb)
         eevents.remove_listener('test_event', clb)
         eevents.add_listener('test_event', clb)
