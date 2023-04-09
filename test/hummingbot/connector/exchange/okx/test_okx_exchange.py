@@ -1,3 +1,4 @@
+import asyncio
 import json
 import re
 from decimal import Decimal
@@ -16,7 +17,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
-from hummingbot.core.event.events import OrderType
+from hummingbot.core.event.events import OrderCancelledEvent, OrderType, TradeType
 
 
 class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
@@ -442,10 +443,6 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         return "TrID1"
 
     @property
-    def is_cancel_request_executed_synchronously_by_server(self) -> bool:
-        return False
-
-    @property
     def is_order_fill_http_update_included_in_status_update(self) -> bool:
         return True
 
@@ -509,9 +506,10 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             self,
             order: InFlightOrder,
             mock_api: aioresponses,
+            response_scode: int = 0,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.OKX_ORDER_CANCEL_PATH)
-        response = self._order_cancelation_request_successful_mock_response(order=order)
+        response = self._order_cancelation_request_successful_mock_response(response_scode=response_scode, order=order)
         mock_api.post(url, body=json.dumps(response), callback=callback)
         return url
 
@@ -550,6 +548,21 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         url = self.configure_erroneous_cancelation_response(order=erroneous_order, mock_api=mock_api)
         all_urls.append(url)
         return all_urls
+
+    def configure_order_not_found_error_cancelation_response(
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
+        # Implement the expected not found response when enabling test_cancel_order_not_found_in_the_exchange
+        raise NotImplementedError
+
+    def configure_order_not_found_error_order_status_response(
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> List[str]:
+        # Implement the expected not found response when enabling
+        # test_lost_order_removed_if_not_found_during_order_status_update
+        raise NotImplementedError
 
     def configure_completely_filled_order_status_response(
             self,
@@ -863,7 +876,19 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                             'Error: {"code":"50114","msg":"message"}')
         self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
-    def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
+    @aioresponses()
+    def test_cancel_order_not_found_in_the_exchange(self, mock_api):
+        # Disabling this test because the connector has not been updated yet to validate
+        # order not found during cancellation (check _is_order_not_found_during_cancelation_error)
+        pass
+
+    @aioresponses()
+    def test_lost_order_removed_if_not_found_during_order_status_update(self, mock_api):
+        # Disabling this test because the connector has not been updated yet to validate
+        # order not found during status update (check _is_order_not_found_during_status_update_error)
+        pass
+
+    def _order_cancelation_request_successful_mock_response(self, response_scode: int, order: InFlightOrder) -> Any:
         return {
             "code": "0",
             "msg": "",
@@ -871,7 +896,7 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 {
                     "clOrdId": order.client_order_id,
                     "ordId": order.exchange_order_id or "dummyOrdId",
-                    "sCode": "0",
+                    "sCode": str(response_scode),
                     "sMsg": ""
                 }
             ]
@@ -1106,3 +1131,54 @@ class OkxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 },
             ]
         }
+
+    @aioresponses()
+    def test_cancel_order_successfully(self, mock_api):
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+
+        self.exchange.start_tracking_order(
+            order_id="11",
+            exchange_order_id="4",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("100"),
+            order_type=OrderType.LIMIT,
+        )
+
+        self.assertIn("11", self.exchange.in_flight_orders)
+        order: InFlightOrder = self.exchange.in_flight_orders["11"]
+
+        for response_scode in (0, 51400, 51401):
+            url = self.configure_successful_cancelation_response(
+                order=order,
+                mock_api=mock_api,
+                response_scode=response_scode,
+                callback=lambda *args, **kwargs: request_sent_event.set())
+
+            self.exchange.cancel(trading_pair=order.trading_pair, order_id=order.client_order_id)
+            self.async_run_with_timeout(request_sent_event.wait())
+
+            cancel_request = self._all_executed_requests(mock_api, url)[0]
+            self.validate_auth_credentials_present(cancel_request)
+            self.validate_order_cancelation_request(
+                order=order,
+                request_call=cancel_request)
+
+            if self.exchange.is_cancel_request_in_exchange_synchronous:
+                self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
+                self.assertTrue(order.is_cancelled)
+                cancel_event: OrderCancelledEvent = self.order_cancelled_logger.event_log[0]
+                self.assertEqual(self.exchange.current_timestamp, cancel_event.timestamp)
+                self.assertEqual(order.client_order_id, cancel_event.order_id)
+
+                self.assertTrue(
+                    self.is_logged(
+                        "INFO",
+                        f"Successfully canceled order {order.client_order_id}."
+                    )
+                )
+            else:
+                self.assertIn(order.client_order_id, self.exchange.in_flight_orders)
+                self.assertTrue(order.is_pending_cancel_confirmation)

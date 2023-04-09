@@ -9,7 +9,7 @@ from datetime import date, datetime, time
 from decimal import Decimal
 from os import listdir, scandir, unlink
 from os.path import isfile, join
-from pathlib import Path, PosixPath
+from pathlib import Path, PosixPath, PureWindowsPath
 from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Type, Union
 
 import ruamel.yaml
@@ -24,18 +24,19 @@ from hummingbot.client.config.client_config_map import ClientConfigMap, CommandS
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.fee_overrides_config_map import fee_overrides_config_map, init_fee_overrides_config
+from hummingbot.client.config.gateway_ssl_config_map import SSLConfigMap
 from hummingbot.client.settings import (
     CLIENT_CONFIG_PATH,
     CONF_DIR_PATH,
     CONF_POSTFIX,
     CONF_PREFIX,
     CONNECTORS_CONF_DIR_PATH,
+    GATEWAY_SSL_CONF_FILE,
     STRATEGIES_CONF_DIR_PATH,
     TEMPLATE_PATH,
     TRADE_FEES_CONFIG_PATH,
     AllConnectorSettings,
 )
-from hummingbot.connector.other.celo import celo_data_types
 
 # Use ruamel.yaml to preserve order and comments in .yml file
 yaml_parser = ruamel.yaml.YAML()  # legacy
@@ -342,7 +343,10 @@ class ClientConfigAdapter:
             value = getattr(self, attribute)
             if isinstance(value, ClientConfigAdapter):
                 value = value._dict_in_conf_order()
-            conf_as_dictionary = {attribute: value}
+            if isinstance(traversal_item.value, PureWindowsPath):
+                conf_as_dictionary = {attribute: traversal_item.printable_value}
+            else:
+                conf_as_dictionary = {attribute: value}
             self._encrypt_secrets(conf_as_dictionary)
 
             yaml_config = yaml.safe_dump(conf_as_dictionary, sort_keys=False)
@@ -607,31 +611,42 @@ def load_client_config_map_from_file() -> ClientConfigAdapter:
     if len(config_validation_errors) > 0:
         all_errors = "\n".join(config_validation_errors)
         raise ConfigValidationError(f"There are errors in the client global configuration (\n{all_errors})")
+    save_to_yml(yml_path, config_map)
+
+    return config_map
+
+
+def load_ssl_config_map_from_file() -> ClientConfigAdapter:
+    yml_path = GATEWAY_SSL_CONF_FILE
+    if yml_path.exists():
+        config_data = read_yml_file(yml_path)
+    else:
+        config_data = {}
+    ssl_config = SSLConfigMap()
+    config_map = ClientConfigAdapter(ssl_config)
+    config_validation_errors = _load_yml_data_into_map(config_data, config_map)
+
+    if len(config_validation_errors) > 0:
+        all_errors = "\n".join(config_validation_errors)
+        raise ConfigValidationError(f"There are errors in the ssl certs configuration (\n{all_errors})")
+
+    if yml_path.exists():
+        save_to_yml(yml_path, config_map)
 
     return config_map
 
 
 def get_connector_hb_config(connector_name: str) -> BaseClientModel:
-    if connector_name == "celo":
-        hb_config = celo_data_types.KEYS
-    else:
-        hb_config = AllConnectorSettings.get_connector_config_keys(connector_name)
+    hb_config = AllConnectorSettings.get_connector_config_keys(connector_name)
     return hb_config
 
 
 def reset_connector_hb_config(connector_name: str):
-    if connector_name == "celo":
-        celo_data_types.KEYS = celo_data_types.KEYS.__class__.construct()
-    else:
-        AllConnectorSettings.reset_connector_config_keys(connector_name)
+    AllConnectorSettings.reset_connector_config_keys(connector_name)
 
 
 def update_connector_hb_config(connector_config: ClientConfigAdapter):
-    connector_name = connector_config.connector
-    if connector_name == "celo":
-        celo_data_types.KEYS = connector_config.hb_config
-    else:
-        AllConnectorSettings.update_connector_config_keys(connector_config.hb_config)
+    AllConnectorSettings.update_connector_config_keys(connector_config.hb_config)
 
 
 def api_keys_from_connector_config_map(cm: ClientConfigAdapter) -> Dict[str, str]:

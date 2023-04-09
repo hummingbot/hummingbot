@@ -16,8 +16,8 @@ from bin.docker_connection import fork_and_start
 from bin.hummingbot import UIStartListener, detect_available_port
 from hummingbot import init_logging
 from hummingbot.client.config.config_crypt import BaseSecretsManager, ETHKeyFileSecretManger
-from hummingbot.client.config.config_data_types import BaseStrategyConfigMap
 from hummingbot.client.config.config_helpers import (
+    ClientConfigAdapter,
     all_configs_complete,
     create_yml_files_legacy,
     load_client_config_map_from_file,
@@ -30,7 +30,6 @@ from hummingbot.client.settings import STRATEGIES_CONF_DIR_PATH, AllConnectorSet
 from hummingbot.client.ui import login_prompt
 from hummingbot.client.ui.style import load_style
 from hummingbot.core.event.events import HummingbotUIEvent
-from hummingbot.core.gateway import start_existing_gateway_container
 from hummingbot.core.management.console import start_management_console
 from hummingbot.core.utils.async_utils import safe_gather
 
@@ -95,17 +94,22 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
     # Todo: validate strategy and config_file_name before assinging
 
     strategy_config = None
+    is_script = False
     if config_file_name is not None:
         hb.strategy_file_name = config_file_name
-        strategy_config = await load_strategy_config_map_from_file(
-            STRATEGIES_CONF_DIR_PATH / config_file_name
-        )
-        hb.strategy_name = (
-            strategy_config.strategy
-            if isinstance(strategy_config, BaseStrategyConfigMap)
-            else strategy_config.get("strategy").value
-        )
-        hb.strategy_config_map = strategy_config
+        if config_file_name.split(".")[-1] == "py":
+            hb.strategy_name = hb.strategy_file_name
+            is_script = True
+        else:
+            strategy_config = await load_strategy_config_map_from_file(
+                STRATEGIES_CONF_DIR_PATH / config_file_name
+            )
+            hb.strategy_name = (
+                strategy_config.strategy
+                if isinstance(strategy_config, ClientConfigAdapter)
+                else strategy_config.get("strategy").value
+            )
+            hb.strategy_config_map = strategy_config
 
     if strategy_config is not None:
         if not all_configs_complete(strategy_config, hb.client_config_map):
@@ -113,10 +117,10 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
 
     # The listener needs to have a named variable for keeping reference, since the event listener system
     # uses weak references to remove unneeded listeners.
-    start_listener: UIStartListener = UIStartListener(hb, is_quickstart=True)
+    start_listener: UIStartListener = UIStartListener(hb, is_script=is_script, is_quickstart=True)
     hb.app.add_listener(HummingbotUIEvent.Start, start_listener)
 
-    tasks: List[Coroutine] = [hb.run(), start_existing_gateway_container(client_config_map)]
+    tasks: List[Coroutine] = [hb.run()]
     if client_config_map.debug_console:
         management_port: int = detect_available_port(8211)
         tasks.append(start_management_console(locals(), host="localhost", port=management_port))

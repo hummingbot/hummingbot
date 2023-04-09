@@ -2,19 +2,12 @@
 import asyncio
 import logging
 import time
+from typing import Any, AsyncIterable, Dict, List, Optional
+
 import ujson
 import websockets
 
-from typing import (
-    Any,
-    AsyncIterable,
-    Dict,
-    Optional,
-    List
-)
-
 import hummingbot.connector.exchange.k2.k2_constants as constants
-
 from hummingbot.connector.exchange.k2.k2_auth import K2Auth
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger

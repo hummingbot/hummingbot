@@ -8,16 +8,18 @@ from typing import Deque, Dict, List, Optional, Tuple, Union
 
 from hummingbot.client.command import __all__ as commands
 from hummingbot.client.config.client_config_map import ClientConfigMap
-from hummingbot.client.config.config_data_types import BaseStrategyConfigMap
 from hummingbot.client.config.config_helpers import (
     ClientConfigAdapter,
     ReadOnlyClientConfigAdapter,
     get_connector_class,
     get_strategy_config_map,
     load_client_config_map_from_file,
+    load_ssl_config_map_from_file,
     save_to_yml,
 )
+from hummingbot.client.config.gateway_ssl_config_map import SSLConfigMap
 from hummingbot.client.config.security import Security
+from hummingbot.client.config.strategy_config_data_types import BaseStrategyConfigMap
 from hummingbot.client.settings import CLIENT_CONFIG_PATH, AllConnectorSettings, ConnectorType
 from hummingbot.client.tab import __all__ as tab_classes
 from hummingbot.client.tab.data_types import CommandTab
@@ -38,6 +40,7 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.application_warning import ApplicationWarning
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 from hummingbot.notifier.notifier_base import NotifierBase
+from hummingbot.remote_iface.mqtt import MQTTGateway
 from hummingbot.strategy.maker_taker_market_pair import MakerTakerMarketPair
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.strategy_base import StrategyBase
@@ -68,6 +71,9 @@ class HummingbotApplication(*commands):
     def __init__(self, client_config_map: Optional[ClientConfigAdapter] = None):
         self.client_config_map: Union[ClientConfigMap, ClientConfigAdapter] = (  # type-hint enables IDE auto-complete
             client_config_map or load_client_config_map_from_file()
+        )
+        self.ssl_config_map: SSLConfigMap = (  # type-hint enables IDE auto-complete
+            load_ssl_config_map_from_file()
         )
         # This is to start fetching trading pairs for auto-complete
         TradingPairFetcher.get_instance(self.client_config_map)
@@ -101,6 +107,7 @@ class HummingbotApplication(*commands):
         self._pmm_script_iterator = None
         self._binance_connector = None
         self._shared_client = None
+        self._mqtt: MQTTGateway = None
 
         # gateway variables and monitor
         self._gateway_monitor = GatewayStatusMonitor(self)
@@ -116,6 +123,13 @@ class HummingbotApplication(*commands):
         )
 
         self._init_gateway_monitor()
+        # MQTT Bridge
+        if self.client_config_map.mqtt_bridge.mqtt_autostart:
+            self.mqtt_start()
+
+    @property
+    def instance_id(self) -> str:
+        return self.client_config_map.instance_id
 
     @property
     def gateway_config_keys(self) -> List[str]:
@@ -162,6 +176,36 @@ class HummingbotApplication(*commands):
         for notifier in self.notifiers:
             notifier.add_msg_to_queue(msg)
 
+    def _handle_shortcut(self, command_split):
+        shortcuts = self.client_config_map.command_shortcuts
+        shortcut = None
+        # see if we match against shortcut command
+        if shortcuts is not None:
+            for each_shortcut in shortcuts:
+                if command_split[0] == each_shortcut.command:
+                    shortcut = each_shortcut
+                    break
+
+        # perform shortcut expansion
+        if shortcut is not None:
+            # check number of arguments
+            num_shortcut_args = len(shortcut.arguments)
+            if len(command_split) == num_shortcut_args + 1:
+                # notify each expansion if there's more than 1
+                verbose = True if len(shortcut.output) > 1 else False
+                # do argument replace and re-enter this function with the expanded command
+                for output_cmd in shortcut.output:
+                    final_cmd = output_cmd
+                    for i in range(1, num_shortcut_args + 1):
+                        final_cmd = final_cmd.replace(f'${i}', command_split[i])
+                    if verbose is True:
+                        self.notify(f'  >>> {final_cmd}')
+                    self._handle_command(final_cmd)
+            else:
+                self.notify('Invalid number of arguments for shortcut')
+            return True
+        return False
+
     def _handle_command(self, raw_command: str):
         # unset to_stop_config flag it triggered before loading any command
         if self.app.to_stop_config:
@@ -184,34 +228,8 @@ class HummingbotApplication(*commands):
                     self.help(raw_command)
                     return
 
-                shortcuts = self.client_config_map.command_shortcuts
-                shortcut = None
-                # see if we match against shortcut command
-                if shortcuts is not None:
-                    for each_shortcut in shortcuts:
-                        if command_split[0] == each_shortcut.command:
-                            shortcut = each_shortcut
-                            break
-
-                # perform shortcut expansion
-                if shortcut is not None:
-                    # check number of arguments
-                    num_shortcut_args = len(shortcut.arguments)
-                    if len(command_split) == num_shortcut_args + 1:
-                        # notify each expansion if there's more than 1
-                        verbose = True if len(shortcut.output) > 1 else False
-                        # do argument replace and re-enter this function with the expanded command
-                        for output_cmd in shortcut.output:
-                            final_cmd = output_cmd
-                            for i in range(1, num_shortcut_args + 1):
-                                final_cmd = final_cmd.replace(f'${i}', command_split[i])
-                            if verbose is True:
-                                self.notify(f'  >>> {final_cmd}')
-                            self._handle_command(final_cmd)
-                    else:
-                        self.notify('Invalid number of arguments for shortcut')
-                # regular command
-                else:
+                if not self._handle_shortcut(command_split):
+                    # regular command
                     args = self.parser.parse_args(args=command_split)
                     kwargs = vars(args)
                     if not hasattr(args, "func"):
@@ -287,11 +305,15 @@ class HummingbotApplication(*commands):
                         connector.set_balance(asset, balance)
             else:
                 keys = Security.api_keys(connector_name)
-                init_params = conn_setting.conn_init_parameters(keys)
-                init_params.update(trading_pairs=trading_pairs, trading_required=self._trading_required)
-                connector_class = get_connector_class(connector_name)
                 read_only_config = ReadOnlyClientConfigAdapter.lock_config(self.client_config_map)
-                connector = connector_class(read_only_config, **init_params)
+                init_params = conn_setting.conn_init_parameters(
+                    trading_pairs=trading_pairs,
+                    trading_required=self._trading_required,
+                    api_keys=keys,
+                    client_config_map=read_only_config,
+                )
+                connector_class = get_connector_class(connector_name)
+                connector = connector_class(**init_params)
             self.markets[connector_name] = connector
 
         self.markets_recorder = MarketsRecorder(
@@ -301,6 +323,8 @@ class HummingbotApplication(*commands):
             self.strategy_name,
         )
         self.markets_recorder.start()
+        if self._mqtt is not None:
+            self._mqtt.start_market_events_fw()
 
     def _initialize_notifiers(self):
         self.notifiers.extend(

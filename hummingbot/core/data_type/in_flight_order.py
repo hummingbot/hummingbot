@@ -53,6 +53,7 @@ class TradeUpdate(NamedTuple):
     fill_base_amount: Decimal
     fill_quote_amount: Decimal
     fee: TradeFeeBase
+    is_taker: bool = True  # CEXs deliver trade events from the taker's perspective
 
     @property
     def fee_asset(self):
@@ -234,6 +235,7 @@ class InFlightOrder:
         order.order_fills.update({key: TradeUpdate.from_json(value)
                                   for key, value
                                   in data.get("order_fills", {}).items()})
+        order.last_update_timestamp = data.get("last_update_timestamp", order.creation_timestamp)
 
         order.check_filled_condition()
 
@@ -258,6 +260,7 @@ class InFlightOrder:
             "leverage": str(self.leverage),
             "position": self.position.value,
             "creation_timestamp": self.creation_timestamp,
+            "last_update_timestamp": self.last_update_timestamp,
             "order_fills": {key: fill.to_json() for key, fill in self.order_fills.items()}
         }
 
