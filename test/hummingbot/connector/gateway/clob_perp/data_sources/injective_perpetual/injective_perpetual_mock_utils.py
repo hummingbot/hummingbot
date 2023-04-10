@@ -13,7 +13,7 @@ from pyinjective.proto.exchange.injective_accounts_rpc_pb2 import (
     SubaccountDeposit as AccountSubaccountDeposit,
 )
 from pyinjective.proto.exchange.injective_derivative_exchange_rpc_pb2 import (
-    DerivativeLimitOrderbook,
+    DerivativeLimitOrderbookV2,
     DerivativeMarketInfo,
     DerivativeOrderHistory,
     DerivativePosition,
@@ -22,7 +22,7 @@ from pyinjective.proto.exchange.injective_derivative_exchange_rpc_pb2 import (
     FundingRatesResponse,
     MarketResponse,
     MarketsResponse,
-    OrderbookResponse,
+    OrderbooksV2Response,
     OrdersHistoryResponse,
     Paging,
     PerpetualMarketFunding,
@@ -30,7 +30,8 @@ from pyinjective.proto.exchange.injective_derivative_exchange_rpc_pb2 import (
     PositionDelta,
     PositionsResponse,
     PriceLevel,
-    StreamOrderbookResponse,
+    SingleDerivativeLimitOrderbookV2,
+    StreamOrderbookV2Response,
     StreamOrdersHistoryResponse,
     StreamPositionsResponse,
     StreamTradesResponse,
@@ -190,7 +191,7 @@ class InjectivePerpetualClientMock:
 
         self.injective_async_client_mock.stream_derivative_trades.return_value = StreamMock()
         self.injective_async_client_mock.stream_historical_derivative_orders.return_value = StreamMock()
-        self.injective_async_client_mock.stream_derivative_orderbooks.return_value = StreamMock()
+        self.injective_async_client_mock.stream_derivative_orderbook_snapshot.return_value = StreamMock()
         self.injective_async_client_mock.stream_account_portfolio.return_value = StreamMock()
         self.injective_async_client_mock.stream_subaccount_balance.return_value = StreamMock()
         self.injective_async_client_mock.stream_derivative_positions.return_value = StreamMock()
@@ -640,28 +641,30 @@ class InjectivePerpetualClientMock:
     ):
         timestamp_ms = int(timestamp * 1e3)
         orderbook = self.create_orderbook_mock(timestamp_ms=timestamp_ms, bids=bids, asks=asks)
-        orderbook_response = OrderbookResponse(orderbook=orderbook)
+        single_orderbook = SingleDerivativeLimitOrderbookV2(market_id=self.market_id, orderbook=orderbook)
+        orderbook_response = OrderbooksV2Response()
+        orderbook_response.orderbooks.append(single_orderbook)
 
-        self.injective_async_client_mock.get_derivative_orderbook.return_value = orderbook_response
+        self.injective_async_client_mock.get_derivative_orderbooksV2.return_value = orderbook_response
 
     def configure_orderbook_snapshot_stream_event(
         self, timestamp: float, bids: List[Tuple[float, float]], asks: List[Tuple[float, float]]
     ):
         timestamp_ms = int(timestamp * 1e3)
         orderbook = self.create_orderbook_mock(timestamp_ms=timestamp_ms, bids=bids, asks=asks)
-        orderbook_response = StreamOrderbookResponse(
+        orderbook_response = StreamOrderbookV2Response(
             orderbook=orderbook,
             operation_type="update",
             timestamp=timestamp_ms,
             market_id=self.market_id,
         )
 
-        self.injective_async_client_mock.stream_derivative_orderbooks.return_value.add(orderbook_response)
+        self.injective_async_client_mock.stream_derivative_orderbook_snapshot.return_value.add(orderbook_response)
 
     def create_orderbook_mock(
         self, timestamp_ms: float, bids: List[Tuple[float, float]], asks: List[Tuple[float, float]]
-    ) -> DerivativeLimitOrderbook:
-        orderbook = DerivativeLimitOrderbook()
+    ) -> DerivativeLimitOrderbookV2:
+        orderbook = DerivativeLimitOrderbookV2()
 
         for price, size in bids:
             scaled_price = price * Decimal(f"1e{self.quote_decimals}")
