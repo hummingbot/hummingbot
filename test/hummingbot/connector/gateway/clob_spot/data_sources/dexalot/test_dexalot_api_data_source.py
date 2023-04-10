@@ -489,10 +489,13 @@ class DexalotAPIDataSourceTest(AbstractGatewayCLOBAPIDataSourceTests.GatewayCLOB
         time_mock.return_value = self.initial_timestamp
         data_source.gateway_order_tracker = self.tracker
 
+        task = asyncio.get_event_loop().create_task(coro=snapshots_logger.wait_for(event_type=OrderBookMessage))
+        self.async_tasks.append(task)
         self.async_run_with_timeout(coro=data_source.start())
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(
             websocket_mock=self.ws_connect_mock.return_value
         )
+        self.async_run_with_timeout(coro=task)
 
         self.assertEqual(1, len(snapshots_logger.event_log))
 
