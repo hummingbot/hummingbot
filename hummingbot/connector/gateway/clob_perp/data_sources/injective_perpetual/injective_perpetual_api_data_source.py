@@ -11,7 +11,7 @@ from pyinjective.async_client import AsyncClient
 from pyinjective.orderhash import OrderHashResponse
 from pyinjective.proto.exchange.injective_accounts_rpc_pb2 import StreamSubaccountBalanceResponse
 from pyinjective.proto.exchange.injective_derivative_exchange_rpc_pb2 import (
-    DerivativeLimitOrderbook,
+    DerivativeLimitOrderbookV2,
     DerivativeMarketInfo,
     DerivativeOrderHistory,
     DerivativePosition,
@@ -19,11 +19,11 @@ from pyinjective.proto.exchange.injective_derivative_exchange_rpc_pb2 import (
     FundingRate,
     FundingRatesResponse,
     MarketsResponse,
-    OrderbookResponse,
+    OrderbooksV2Response,
     OrdersHistoryResponse,
     PositionsResponse,
+    StreamOrderbookV2Response,
     StreamOrdersHistoryResponse,
-    StreamOrdersResponse,
     StreamPositionsResponse,
     StreamTradesResponse,
     TokenMeta,
@@ -184,11 +184,13 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
     async def get_order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         market_info = self._markets_info[trading_pair]
         price_scaler: Decimal = Decimal(f"1e-{market_info.quote_token_meta.decimals}")
-        response: OrderbookResponse = await self._client.get_derivative_orderbook(market_id=market_info.market_id)
+        response: OrderbooksV2Response = await self._client.get_derivative_orderbooksV2(
+            market_ids=[market_info.market_id]
+        )
 
-        snapshot_ob: DerivativeLimitOrderbook = response.orderbook
+        snapshot_ob: DerivativeLimitOrderbookV2 = response.orderbooks[0].orderbook
         snapshot_timestamp_ms: float = max(
-            [entry.timestamp for entry in list(response.orderbook.buys) + list(response.orderbook.sells)] + [0]
+            [entry.timestamp for entry in list(snapshot_ob.buys) + list(snapshot_ob.sells)] + [0]
         )
         snapshot_content: Dict[str, Any] = {
             "trading_pair": combine_to_hb_trading_pair(base=market_info.oracle_base, quote=market_info.oracle_quote),
@@ -746,7 +748,7 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
         last_trade_price: Decimal = Decimal(last_trade.position_delta.execution_price) * price_scaler
         return last_trade_price
 
-    def _parse_derivative_ob_message(self, message: StreamOrdersResponse) -> OrderBookMessage:
+    def _parse_derivative_ob_message(self, message: StreamOrderbookV2Response) -> OrderBookMessage:
         """
         Order Update Example:
         orderbook {
@@ -785,14 +787,14 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
         )
         return snapshot_msg
 
-    def _process_order_book_stream_event(self, message: StreamOrdersResponse):
+    def _process_order_book_stream_event(self, message: StreamOrderbookV2Response):
         snapshot_msg: OrderBookMessage = self._parse_derivative_ob_message(message=message)
         self._publisher.trigger_event(event_tag=OrderBookDataSourceEvent.SNAPSHOT_EVENT, message=snapshot_msg)
 
     async def _listen_to_order_books_stream(self):
         while True:
             market_ids = self._get_market_ids()
-            stream: UnaryStreamCall = await self._client.stream_derivative_orderbooks(market_ids=market_ids)
+            stream: UnaryStreamCall = await self._client.stream_derivative_orderbook_snapshot(market_ids=market_ids)
             try:
                 async for ob_msg in stream:
                     self._process_order_book_stream_event(message=ob_msg)
