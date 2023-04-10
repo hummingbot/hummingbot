@@ -13,7 +13,7 @@ from pydantic import SecretStr
 from hummingbot import root_path
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.client.settings import CONNECTOR_SUBMODULES_THAT_ARE_NOT_TYPES
+from hummingbot.client.settings import CONNECTOR_SUBMODULES_THAT_ARE_NOT_CEX_TYPES
 from hummingbot.connector.utils import get_new_client_order_id
 
 
@@ -77,7 +77,7 @@ class UtilsTest(unittest.TestCase):
         type_dirs = [
             cast(DirEntry, f) for f in
             scandir(f"{root_path() / 'hummingbot' / 'connector'}")
-            if f.is_dir() and f.name not in CONNECTOR_SUBMODULES_THAT_ARE_NOT_TYPES
+            if f.is_dir() and f.name not in CONNECTOR_SUBMODULES_THAT_ARE_NOT_CEX_TYPES
         ]
         for type_dir in type_dirs:
             connector_dirs = [
