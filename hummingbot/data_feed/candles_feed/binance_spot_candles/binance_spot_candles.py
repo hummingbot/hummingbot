@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional
 
 import numpy as np
 
-from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.network_iterator import NetworkStatus, safe_ensure_future
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.data_feed.candles_feed.binance_spot_candles import constants as CONSTANTS
@@ -148,7 +148,7 @@ class BinanceSpotCandles(CandlesBase):
                     self._candles.append(np.array([timestamp, open, high, low, close, volume,
                                                    quote_asset_volume, n_trades, taker_buy_base_volume,
                                                    taker_buy_quote_volume]))
-                    await self.fill_historical_candles()
+                    safe_ensure_future(self.fill_historical_candles())
                 elif timestamp > int(self._candles[-1][0]):
                     # TODO: validate also that the diff of timestamp == interval (issue with 1M interval).
                     self._candles.append(np.array([timestamp, open, high, low, close, volume,
