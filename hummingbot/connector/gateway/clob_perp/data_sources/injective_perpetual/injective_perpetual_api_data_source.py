@@ -545,11 +545,13 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
         await self._client.get_account(address=self._account_address)
         await self._client.sync_timeout_height()
         tasks_to_await_submitted_orders_to_be_processed_by_chain = [
-            order.wait_until_processed_by_exchange()
+            asyncio.wait_for(order.wait_until_processed_by_exchange(), timeout=CONSTANTS.ORDER_CHAIN_PROCESSING_TIMEOUT)
             for order in self._gateway_order_tracker.active_orders.values()
             if order.creation_transaction_hash is not None
         ]  # orders that have been sent to the chain but not yet added to a block will affect the order nonce
-        await safe_gather(*tasks_to_await_submitted_orders_to_be_processed_by_chain)  # await their processing
+        await safe_gather(
+            *tasks_to_await_submitted_orders_to_be_processed_by_chain, return_exceptions=True  # await their processing
+        )
         self._order_hash_manager = OrderHashManager(network=self._network_obj, sub_account_id=self._account_id)
         await self._order_hash_manager.start()
 
