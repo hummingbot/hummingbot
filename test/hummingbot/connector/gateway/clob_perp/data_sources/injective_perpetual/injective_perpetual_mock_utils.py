@@ -18,6 +18,8 @@ from pyinjective.proto.exchange.injective_derivative_exchange_rpc_pb2 import (
     DerivativeOrderHistory,
     DerivativePosition,
     DerivativeTrade,
+    FundingPayment,
+    FundingPaymentsResponse,
     FundingRate,
     FundingRatesResponse,
     MarketResponse,
@@ -932,15 +934,9 @@ class InjectivePerpetualClientMock:
     def configure_get_funding_payments_response(
         self, timestamp: float, funding_rate: Decimal, amount: Decimal
     ):
-        self.gateway_instance_mock.clob_perp_funding_payments.return_value = {
-            "fundingPayments": [
-                {
-                    "timestamp": timestamp * 1e3,
-                    "amount": amount,
-                }
-            ]
-        }
-        self.configure_get_funding_rates_response(funding_rate=funding_rate, timestamp=timestamp)
+        self.configure_fetch_last_fee_payment_response(
+            amount=amount, funding_rate=funding_rate, timestamp=timestamp
+        )
 
     def get_derivative_order_history(
         self,
@@ -1398,20 +1394,15 @@ class InjectivePerpetualClientMock:
     def configure_fetch_last_fee_payment_response(
         self, amount: Decimal, funding_rate: Decimal, timestamp: float
     ):
-        funding_payments_response = {
-            "network": "injective",
-            "timestamp": timestamp,
-            "latency": 2,
-            "fundingPayments": [
-                {
-                    "marketId": self.market_id,
-                    "subaccountId": self.sub_account_id,
-                    "amount": str(amount),
-                    "timestamp": timestamp * 1e3,
-                }
-            ]
-        }
-        self.gateway_instance_mock.clob_perp_funding_payments.return_value = funding_payments_response
+        funding_payments_response = FundingPaymentsResponse()
+        funding_payment = FundingPayment(
+            market_id=self.market_id,
+            subaccount_id=self.sub_account_id,
+            amount=str(amount * Decimal(f"1e{self.quote_decimals}")),
+            timestamp=int(timestamp * 1e3),
+        )
+        funding_payments_response.payments.append(funding_payment)
+        self.injective_async_client_mock.get_funding_payments.return_value = funding_payments_response
         self.configure_get_funding_rates_response(funding_rate=funding_rate, timestamp=timestamp)
 
     def configure_get_funding_rates_response(self, funding_rate: Decimal, timestamp: float):
