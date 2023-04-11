@@ -16,6 +16,8 @@ from pyinjective.proto.exchange.injective_derivative_exchange_rpc_pb2 import (
     DerivativeOrderHistory,
     DerivativePosition,
     DerivativeTrade,
+    FundingPayment,
+    FundingPaymentsResponse,
     FundingRate,
     FundingRatesResponse,
     MarketsResponse,
@@ -517,22 +519,19 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
         if trading_pair not in self._markets_info:
             return timestamp, funding_rate, payment
 
-        response: Dict[str, Any] = await self._get_gateway_instance().clob_perp_funding_payments(
-            chain=self._chain,
-            network=self._network,
-            connector=self._connector_name,
-            trading_pair=trading_pair,
-            address=self._account_id,
+        response: FundingPaymentsResponse = await self._client.get_funding_payments(
+            subaccount_id=self._account_id, market_id=self._markets_info[trading_pair].market_id, limit=1
         )
 
-        if len(response["fundingPayments"]) != 0:
-            latest_funding_payment: Dict[str, Any] = response["fundingPayments"][0]  # List of payments sorted by latest
+        if len(response.payments) != 0:
+            latest_funding_payment: FundingPayment = response.payments[0]  # List of payments sorted by latest
 
-            timestamp: float = latest_funding_payment["timestamp"] * 1e-3
+            timestamp: float = latest_funding_payment.timestamp * 1e-3
 
             # FundingPayment does not include price, hence we have to fetch latest funding rate
             funding_rate: Decimal = await self._request_last_funding_rate(trading_pair=trading_pair)
-            payment: Decimal = Decimal(latest_funding_payment["amount"])
+            amount_scaler: Decimal = Decimal(f"1e-{self._markets_info[trading_pair].quote_token_meta.decimals}")
+            payment: Decimal = Decimal(latest_funding_payment.amount) * amount_scaler
 
         return timestamp, funding_rate, payment
 
