@@ -594,7 +594,7 @@ class MQTTGateway(Node):
         self._logh = MQTTLogHandler(self._hb_app, self)
         self.patch_loggers()
 
-    def patch_loggers(self):
+    def patch_loggers(self):  # pragma: no cover
         loggers = list([logging.getLogger(name) for name in logging.root.manager.loggerDict])
 
         log_conf = get_logging_conf()
