@@ -1,0 +1,78 @@
+# Set the base image
+FROM continuumio/miniconda3:latest AS builder
+
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y sudo libusb-1.0 && \
+    sudo apt-get install -y gcc python3-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /home/hummingbot
+
+# Copy environment only to optimize build caching, so changes in sources will not cause conda env invalidation
+COPY setup/environment-simplified.yml setup/
+
+# Create conda environment
+COPY setup/environment-simplified.yml /tmp/environment.yml
+RUN conda env create -f /tmp/environment.yml && \
+    conda clean -afy && \
+    rm /tmp/environment.yml
+
+# Copy remaining files
+COPY bin/ bin/
+COPY hummingbot/ hummingbot/
+COPY setup.py .
+COPY LICENSE .
+COPY README.md .
+COPY DATA_COLLECTION.md .
+
+RUN conda activate hummingbot && \
+    /opt/conda/bin/python3 setup.py build_ext --inplace -j 8 && \
+    rm -rf build/ && \
+    find . -type f -name "*.cpp" -delete
+
+
+# Build final image using artifacts from builder
+FROM continuumio/miniconda3:latest AS release
+
+# Dockerfile author / maintainer
+LABEL maintainer="Fede Cardoso @dardonacci <federico@hummingbot.org>"
+
+# Build arguments
+ARG BRANCH=""
+ARG COMMIT=""
+ARG BUILD_DATE=""
+LABEL branch=${BRANCH}
+LABEL commit=${COMMIT}
+LABEL date=${BUILD_DATE}
+
+# Set ENV variables
+ENV COMMIT_SHA=${COMMIT}
+ENV COMMIT_BRANCH=${BRANCH}
+ENV BUILD_DATE=${DATE}
+
+ENV INSTALLATION_TYPE=docker
+
+# Pre-populate pmm_scripts/ volume with default pmm_scripts
+COPY pmm_scripts/ pmm_scripts/
+# Pre-populate scripts/ volume with default scripts
+COPY scripts/ scripts/
+# Copy the conf folder structure
+COPY conf/ conf/
+
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y sudo libusb-1.0 && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /home/hummingbot
+
+# Copy all build artifacts from builder image
+COPY --from=builder /opt/conda/ /opt/conda/
+
+# Setting bash as default shell because we have .bashrc with customized PATH (setting SHELL affects RUN, CMD and ENTRYPOINT, but not manual commands e.g. `docker run image COMMAND`!)
+SHELL [ "/bin/bash", "-lc" ]
+
+# Set the default command to run when starting the container
+CMD conda activate hummingbot && ./bin/hummingbot_quickstart.py
+
