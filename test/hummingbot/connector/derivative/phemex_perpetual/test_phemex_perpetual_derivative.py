@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
+from bidict import bidict
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -18,10 +19,12 @@ from hummingbot.connector.derivative.phemex_perpetual.phemex_perpetual_derivativ
 from hummingbot.connector.test_support.perpetual_derivative_test import AbstractPerpetualDerivativeTests
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.event.events import OrderCancelledEvent
 
 
 class PhemexPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDerivativeTests):
@@ -32,6 +35,12 @@ class PhemexPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         cls.api_secret = "someSecret"
         cls.quote_asset = "USDT"
         cls.trading_pair = combine_to_hb_trading_pair(cls.base_asset, cls.quote_asset)
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.exchange._set_trading_pair_symbol_map(
+            bidict({f"{self.base_asset}{self.quote_asset}": self.trading_pair, "ABCDEF": "ABC-DEF"})
+        )
 
     @property
     def expected_supported_position_modes(self) -> List[PositionMode]:
@@ -82,29 +91,26 @@ class PhemexPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return {
             "code": 0,
             "msg": "OK",
-            "data": {
-                "total": 4,
-                "rows": [
-                    {
-                        "createdAt": 1666226932259,
-                        "symbol": self.exchange_trading_pair,
-                        "currency": "USDT",
-                        "action": 1,
-                        "tradeType": 1,
-                        "execQtyRq": "0.01",
-                        "execPriceRp": "1271.9",
-                        "side": 1,
-                        "orderQtyRq": "0.78",
-                        "priceRp": "1271.9",
-                        "execValueRv": "200",
-                        "feeRateRr": "100",
-                        "execFeeRv": "0.0012719",
-                        "ordType": 2,
-                        "execId": "8718cae",
-                        "execStatus": 6,
-                    },
-                ],
-            },
+            "data": [
+                {
+                    "createdAt": 1666226932259,
+                    "symbol": self.exchange_trading_pair,
+                    "currency": "USDT",
+                    "action": 1,
+                    "tradeType": 1,
+                    "execQtyRq": "0.01",
+                    "execPriceRp": "1271.9",
+                    "side": 1,
+                    "orderQtyRq": "0.78",
+                    "priceRp": "1271.9",
+                    "execValueRv": "200",
+                    "feeRateRr": "100",
+                    "execFeeRv": "0.0012719",
+                    "ordType": 2,
+                    "execId": "8718cae",
+                    "execStatus": 6,
+                },
+            ],
         }
 
     def position_event_for_full_fill_websocket_update(self, order: InFlightOrder, unrealized_pnl: float):
@@ -144,8 +150,8 @@ class PhemexPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "minPosCostRv": "0",
                     "orderCostRv": "0",
                     "posCostRv": "30.284669572349",
-                    "posMode": "Hedged",
-                    "posSide": "Short",
+                    "posMode": "Oneway",
+                    "posSide": "Merged",
                     "positionMarginRv": "1196.181723398102",
                     "positionStatus": "Normal",
                     "riskLimitRv": "1000000",
@@ -153,7 +159,7 @@ class PhemexPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "sellLeavesValueRv": "0",
                     "sellValueToCostRr": "0.10126",
                     "side": "Buy",
-                    "size": str(order.amount * Decimal("-1")),
+                    "size": str(order.amount),
                     "symbol": self.exchange_trading_pair,
                     "takerFeeRateRr": "-1",
                     "term": 1,
@@ -178,8 +184,9 @@ class PhemexPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ):
         url = web_utils.private_rest_url(path_url=CONSTANTS.POSITION_MODE)
-        response = {"code": 0, "data": "", "msg": "success"}
-        mock_api.put(url, body=json.dumps(response), callback=callback)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        response = {"code": 0, "data": "", "msg": ""}
+        mock_api.put(regex_url, body=json.dumps(response), callback=callback)
 
         return url
 
@@ -190,8 +197,9 @@ class PhemexPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ):
         url = web_utils.private_rest_url(path_url=CONSTANTS.POSITION_MODE)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         response = {"code": -1, "data": "", "msg": "Error."}
-        mock_api.put(url, body=json.dumps(response), callback=callback)
+        mock_api.put(regex_url, body=json.dumps(response), callback=callback)
 
         return url, response["msg"]
 
@@ -199,8 +207,9 @@ class PhemexPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self, leverage: int, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> Tuple[str, str]:
         url = web_utils.private_rest_url(path_url=CONSTANTS.POSITION_LEVERAGE)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         response = {"code": -1, "data": "", "msg": "Error."}
-        mock_api.put(url, body=json.dumps(response), callback=callback)
+        mock_api.put(regex_url, body=json.dumps(response), callback=callback)
 
         return url, response["msg"]
 
@@ -208,8 +217,9 @@ class PhemexPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self, leverage: int, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ):
         url = web_utils.private_rest_url(path_url=CONSTANTS.POSITION_LEVERAGE)
-        response = {"code": 0, "data": "", "msg": "success"}
-        mock_api.put(url, body=json.dumps(response), callback=callback)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        response = {"code": 0, "data": "", "msg": ""}
+        mock_api.put(regex_url, body=json.dumps(response), callback=callback)
 
         return url
 
@@ -785,7 +795,7 @@ class PhemexPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(order.order_type.name.capitalize(), request_data["ordType"])
         self.assertEqual(order.price, Decimal(request_data["priceRp"]))
         self.assertEqual(order.trade_type.name.capitalize(), request_data["side"])
-        if self.exchange._position_mode is PositionMode.ONEWAY:
+        if self.exchange.position_mode == PositionMode.ONEWAY:
             position_side = "Merged"
         else:
             if order.position in [PositionAction.OPEN, PositionAction.NIL]:
@@ -798,14 +808,21 @@ class PhemexPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
     def validate_order_cancelation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
+
+        if self.exchange._position_mode is PositionMode.ONEWAY:
+            posSide = "Merged"
+        else:
+            if order.position is PositionAction.OPEN:
+                posSide = "Long" if order.trade_type is TradeType.BUY else "Short"
+            else:
+                posSide = "Short" if order.trade_type is TradeType.BUY else "Long"
         self.assertEqual(order.client_order_id, request_params["clOrdID"])
         self.assertEqual(self.exchange_trading_pair, request_params["symbol"])
-        self.assertEqual("Long" if order.trade_type == TradeType.BUY else "Short", request_params["posSide"])
+        self.assertEqual(posSide, request_params["posSide"])
 
     def validate_order_status_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
         self.assertEqual(self.exchange_trading_pair, request_params["symbol"])
-        self.assertEqual(order.client_order_id, request_params["clOrdID"])
 
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
@@ -819,6 +836,18 @@ class PhemexPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         url = web_utils.private_rest_url(path_url=CONSTANTS.CANCEL_ORDERS)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         response = self._order_cancelation_request_successful_mock_response(order=order)
+        mock_api.delete(regex_url, body=json.dumps(response), callback=callback)
+        return url
+
+    def configure_cancel_all_response(
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
+        response = {
+            "code": 0 if order.trading_pair == self.trading_pair else 10003,
+            "msg": "",
+        }
+        url = web_utils.private_rest_url(path_url=CONSTANTS.CANCEL_ALL_ORDERS)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         mock_api.delete(regex_url, body=json.dumps(response), callback=callback)
         return url
 
@@ -850,9 +879,9 @@ class PhemexPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self, successful_order: InFlightOrder, erroneous_order: InFlightOrder, mock_api: aioresponses
     ) -> List[str]:
         all_urls = []
-        url = self.configure_successful_cancelation_response(order=successful_order, mock_api=mock_api)
+        url = self.configure_cancel_all_response(order=successful_order, mock_api=mock_api)
         all_urls.append(url)
-        url = self.configure_erroneous_cancelation_response(order=erroneous_order, mock_api=mock_api)
+        url = self.configure_cancel_all_response(order=erroneous_order, mock_api=mock_api)
         all_urls.append(url)
         return all_urls
 
@@ -1411,56 +1440,68 @@ class PhemexPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         }
 
     def _order_fills_request_full_fill_mock_response(self, order: InFlightOrder):
-        return [
-            {
-                "action": "New",
-                "clOrdID": order.client_order_id,
-                "closedPnlRv": "0",
-                "closedSizeRq": "0",
-                "currency": self.quote_asset,
-                "execFeeRv": str(self.expected_fill_fee.flat_fees[0].amount),
-                "execID": self.expected_fill_trade_id,
-                "execPriceRp": str(order.price),
-                "execQtyRq": str(order.amount),
-                "execStatus": "MakerFill",
-                "execValueRv": str(order.amount * order.price),
-                "feeRateRr": "0.0001",
-                "orderID": order.exchange_order_id,
-                "orderQtyRq": str(order.amount),
-                "ordType": "LimitIfTouched",
-                "priceRp": str(order.price),
-                "side": order.trade_type.name.capitalize(),
-                "symbol": self.exchange_trading_pair,
-                "tradeType": "Trade",
-                "transactTimeNs": 1669407633926215067,
-            }
-        ]
+        return {
+            "code": 0,
+            "msg": "OK",
+            "data": {
+                "rows": [
+                    {
+                        "action": "New",
+                        "clOrdID": order.client_order_id,
+                        "closedPnlRv": "0",
+                        "closedSizeRq": "0",
+                        "currency": self.quote_asset,
+                        "execFeeRv": str(self.expected_fill_fee.flat_fees[0].amount),
+                        "execID": self.expected_fill_trade_id,
+                        "execPriceRp": str(order.price),
+                        "execQtyRq": str(order.amount),
+                        "execStatus": "MakerFill",
+                        "execValueRv": str(order.amount * order.price),
+                        "feeRateRr": "0.0001",
+                        "orderID": order.exchange_order_id,
+                        "orderQtyRq": str(order.amount),
+                        "ordType": "LimitIfTouched",
+                        "priceRp": str(order.price),
+                        "side": order.trade_type.name.capitalize(),
+                        "symbol": self.exchange_trading_pair,
+                        "tradeType": "Trade",
+                        "transactTimeNs": 1669407633926215067,
+                    }
+                ]
+            },
+        }
 
     def _order_fills_request_partial_fill_mock_response(self, order: InFlightOrder):
-        return [
-            {
-                "action": "New",
-                "clOrdID": order.client_order_id,
-                "closedPnlRv": "0",
-                "closedSizeRq": "0",
-                "currency": self.quote_asset,
-                "execFeeRv": str(self.expected_fill_fee.flat_fees[0].amount),
-                "execID": self.expected_fill_trade_id,
-                "execPriceRp": str(self.expected_partial_fill_price),
-                "execQtyRq": str(self.expected_partial_fill_amount),
-                "execStatus": "MakerFill",
-                "execValueRv": str(self.expected_partial_fill_amount * self.expected_partial_fill_price),
-                "feeRateRr": "0.0001",
-                "orderID": order.exchange_order_id,
-                "orderQtyRq": str(order.amount),
-                "ordType": "LimitIfTouched",
-                "priceRp": str(order.price),
-                "side": order.trade_type.name.capitalize(),
-                "symbol": self.exchange_trading_pair,
-                "tradeType": "Trade",
-                "transactTimeNs": 1669407633926215067,
-            }
-        ]
+        return {
+            "code": 0,
+            "msg": "OK",
+            "data": {
+                "rows": [
+                    {
+                        "action": "New",
+                        "clOrdID": order.client_order_id,
+                        "closedPnlRv": "0",
+                        "closedSizeRq": "0",
+                        "currency": self.quote_asset,
+                        "execFeeRv": str(self.expected_fill_fee.flat_fees[0].amount),
+                        "execID": self.expected_fill_trade_id,
+                        "execPriceRp": str(self.expected_partial_fill_price),
+                        "execQtyRq": str(self.expected_partial_fill_amount),
+                        "execStatus": "MakerFill",
+                        "execValueRv": str(self.expected_partial_fill_amount * self.expected_partial_fill_price),
+                        "feeRateRr": "0.0001",
+                        "orderID": order.exchange_order_id,
+                        "orderQtyRq": str(order.amount),
+                        "ordType": "LimitIfTouched",
+                        "priceRp": str(order.price),
+                        "side": order.trade_type.name.capitalize(),
+                        "symbol": self.exchange_trading_pair,
+                        "tradeType": "Trade",
+                        "transactTimeNs": 1669407633926215067,
+                    }
+                ]
+            },
+        }
 
     @aioresponses()
     @patch("asyncio.Queue.get")
@@ -1506,3 +1547,55 @@ class PhemexPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(self.target_funding_info_index_price, funding_info.index_price)
         self.assertEqual(self.target_funding_info_mark_price, funding_info.mark_price)
         self.assertEqual(self.target_funding_info_rate, funding_info.rate)
+
+    @aioresponses()
+    def test_cancel_two_orders_with_cancel_all_and_one_fails(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=self.exchange_order_id_prefix + "1",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("100"),
+            order_type=OrderType.LIMIT,
+        )
+
+        self.assertIn(self.client_order_id_prefix + "1", self.exchange.in_flight_orders)
+        order1 = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+        self.exchange.start_tracking_order(
+            order_id="12",
+            exchange_order_id="5",
+            trading_pair="ABC-DEF",
+            trade_type=TradeType.SELL,
+            price=Decimal("11000"),
+            amount=Decimal("90"),
+            order_type=OrderType.LIMIT,
+        )
+
+        self.assertIn("12", self.exchange.in_flight_orders)
+        order2 = self.exchange.in_flight_orders["12"]
+
+        urls = self.configure_one_successful_one_erroneous_cancel_all_response(
+            successful_order=order1, erroneous_order=order2, mock_api=mock_api
+        )
+
+        cancellation_results = self.async_run_with_timeout(self.exchange.cancel_all(10))
+
+        for url in urls:
+            cancel_request = self._all_executed_requests(mock_api, url)[0]
+            self.validate_auth_credentials_present(cancel_request)
+
+        self.assertEqual(2, len(cancellation_results))
+        self.assertEqual(CancellationResult(order1.client_order_id, True), cancellation_results[0])
+        self.assertEqual(CancellationResult(order2.client_order_id, False), cancellation_results[1])
+
+        if self.exchange.is_cancel_request_in_exchange_synchronous:
+            self.assertEqual(1, len(self.order_cancelled_logger.event_log))
+            cancel_event: OrderCancelledEvent = self.order_cancelled_logger.event_log[0]
+            self.assertEqual(self.exchange.current_timestamp, cancel_event.timestamp)
+            self.assertEqual(order1.client_order_id, cancel_event.order_id)
+
+            self.assertTrue(self.is_logged("INFO", f"Successfully canceled order {order1.client_order_id}."))

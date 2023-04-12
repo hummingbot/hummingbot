@@ -7,7 +7,7 @@ EXCHANGE_NAME = "phemex_perpetual"
 MAX_ORDER_ID_LEN = 40
 
 DEFAULT_DOMAIN = ""
-TESTNET_DOMAIN = "phemex_testnet"
+TESTNET_DOMAIN = "phemex_perpetual_testnet"
 
 BASE_URLS = {
     DEFAULT_DOMAIN: "https://api.phemex.com",
@@ -38,6 +38,7 @@ EXCHANGE_INFO_URL = "/public/products"
 ACCOUNT_INFO = "/g-accounts/accountPositions"
 PLACE_ORDERS = "/g-orders"
 CANCEL_ORDERS = "/g-orders/cancel"
+CANCEL_ALL_ORDERS = "/g-orders/all"
 GET_ORDERS = "/api-data/g-futures/orders/by-order-id"
 GET_TRADES = "/api-data/g-futures/trades"
 POSITION_INFO = "/g-accounts/accountPositions"
@@ -130,6 +131,12 @@ RATE_LIMITS = [
     ),
     RateLimit(
         limit_id=CANCEL_ORDERS,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(API_CONTRACT_GENERAL_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=CANCEL_ALL_ORDERS,
         limit=NO_LIMIT,
         time_interval=ONE_SECOND,
         linked_limits=[LinkedLimitWeightPair(API_CONTRACT_GENERAL_LIMIT)],

@@ -15,7 +15,7 @@ class PhemexPerpetualRESTPreProcessor(RESTPreProcessorBase):
         if request.headers is None:
             request.headers = {}
         request.headers["Content-Type"] = (
-            "application/json" if request.method == RESTMethod.POST else "application/x-www-form-urlencoded"
+            "application/json" if request.method is not RESTMethod.GET else "application/x-www-form-urlencoded"
         )
         return request
 
