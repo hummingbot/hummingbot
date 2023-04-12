@@ -2,6 +2,8 @@ import asyncio
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional, Tuple
 
+from async_timeout import timeout
+
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.derivative.phemex_perpetual import (
     phemex_perpetual_constants as CONSTANTS,
@@ -21,6 +23,7 @@ from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativ
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.data_types import RateLimit
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -37,6 +40,7 @@ bpm_logger = None
 
 
 class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
+    _position_mode: PositionMode
     web_utils = web_utils
     SHORT_POLL_INTERVAL = 5.0
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
@@ -139,7 +143,7 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
         Documentation doesn't make this clear.
         To-do: Confirm manually or from their team.
         """
-        return False
+        return 'Error: {"code": "401","msg": "401 Request Expired at' in request_exception.args[0]
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
         return "Order not found for Client ID" in str(status_update_exception)
@@ -205,12 +209,62 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
             self._update_positions(),
         )
 
+    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
+        """
+        Cancels all currently active orders. The cancellations are performed in parallel tasks.
+
+        :param timeout_seconds: the maximum time (in seconds) the cancel logic should run
+
+        :return: a list of CancellationResult instances, one for each of the orders to be cancelled
+        """
+        trading_pairs_to_orders_map = {}
+        tasks = []
+        incomplete_orders = [o for o in self.in_flight_orders.values() if not o.is_done]
+        for order in incomplete_orders:
+            if trading_pairs_to_orders_map.get(order.trading_pair, None) is None:
+                trading_pairs_to_orders_map[order.trading_pair] = []
+            trading_pairs_to_orders_map[order.trading_pair].append(order.client_order_id)
+
+        for pair in trading_pairs_to_orders_map:
+            symbol = await self.exchange_symbol_associated_to_pair(trading_pair=pair)
+            tasks.append(
+                self._api_delete(path_url=CONSTANTS.CANCEL_ALL_ORDERS, params={"symbol": symbol}, is_auth_required=True)
+            )
+        successful_cancellations = []
+        failed_cancellations = []
+
+        try:
+            async with timeout(timeout_seconds):
+                cancellation_results = await safe_gather(*tasks, return_exceptions=True)
+                for trading_pair, cr in zip(trading_pairs_to_orders_map, cancellation_results):
+                    if isinstance(cr, Exception) or cr["code"] != 0:
+                        [
+                            failed_cancellations.append(CancellationResult(client_order_id, False))
+                            for client_order_id in trading_pairs_to_orders_map[trading_pair]
+                        ]
+                    else:
+                        [
+                            successful_cancellations.append(CancellationResult(client_order_id, True))
+                            for client_order_id in trading_pairs_to_orders_map[trading_pair]
+                        ]
+        except Exception:
+            self.logger().network(
+                "Unexpected error cancelling orders.",
+                exc_info=True,
+                app_warning_msg="Failed to cancel order. Check API key and network connection.",
+            )
+
+        return successful_cancellations + failed_cancellations
+
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
         if self._position_mode is PositionMode.ONEWAY:
             posSide = "Merged"
         else:
-            posSide = "Long" if tracked_order.trade_type is TradeType.BUY else "Short"
+            if tracked_order.position is PositionAction.OPEN:
+                posSide = "Long" if tracked_order.trade_type is TradeType.BUY else "Short"
+            else:
+                posSide = "Short" if tracked_order.trade_type is TradeType.BUY else "Long"
         api_params = {"clOrdID": order_id, "symbol": symbol, "posSide": posSide}
         cancel_result = await self._api_delete(
             path_url=CONSTANTS.CANCEL_ORDERS, params=api_params, is_auth_required=True
@@ -245,6 +299,7 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
             "orderQtyRq": amount_str,
             "ordType": "Market" if order_type is OrderType.MARKET else "Limit",
             "clOrdID": order_id,
+            "posSide": "Merged",
             "closeOnTrigger": position_action == PositionAction.CLOSE,
             "reduceOnly": position_action == PositionAction.CLOSE,
         }
@@ -252,12 +307,9 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
             api_params["priceRp"] = price_str
         if order_type == OrderType.LIMIT_MAKER:
             api_params["timeInForce"] = "PostOnly"
-        if self._position_mode is PositionMode.ONEWAY:
-            api_params["posSide"] = "Merged"
-        else:
-            if position_action == PositionAction.OPEN:
-                api_params["posSide"] = "Long" if trade_type is TradeType.BUY else "Short"
-            else:
+        if self._position_mode is PositionMode.HEDGE:
+            api_params["posSide"] = "Long" if trade_type is TradeType.BUY else "Short"
+            if position_action == PositionAction.CLOSE:
                 api_params["posSide"] = "Short" if trade_type is TradeType.BUY else "Long"
 
         order_result = await self._api_post(path_url=CONSTANTS.PLACE_ORDERS, data=api_params, is_auth_required=True)
@@ -270,7 +322,7 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
         return await self._update_orders_fills(orders=[order])
 
     async def _all_trades_details(self, trading_pair: str, start_time: float) -> List[Dict[str, Any]]:
-        result = []
+        result = {}
         try:
             symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
             result = await self._api_get(
@@ -308,8 +360,9 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
 
             trades_data = []
             results = await safe_gather(*tasks)
-            for trades_for_market in results.get("data", {}).get("rows", []):
-                trades_data.extend(trades_for_market)
+            for result in results:
+                for trades_for_market in result.get("data", {}).get("rows", []):
+                    trades_data.append(trades_for_market)
 
             for trade_info in trades_data:
                 client_order_id = trade_info["clOrdID"]
@@ -442,21 +495,16 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
                 # Ignore results for which their symbols is not tracked by the connector
                 continue
             position_side: PositionSide = PositionSide.LONG if position["posSide"] == "Long" else PositionSide.SHORT
+            position_mode = PositionMode.HEDGE if position["posMode"] == "Hedged" else PositionMode.ONEWAY
             amount = Decimal(position["size"])
-            pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
-            # existing_position = self._perpetual_trading.get_position(hb_trading_pair, PositionSide[position_side])
-            # if existing_position is not None:
-            #     existing_position.update_position(position_side=PositionSide[position_side],
-            #                                       unrealized_pnl=Decimal(position["unrealisedPnlRv"]),
-            #                                       entry_price=Decimal(position["avgEntryPriceRp"]),
-            #                                       amount=Decimal(position["size"]))
+            pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side, position_mode)
             if amount != Decimal("0"):
                 _position = Position(
                     trading_pair=hb_trading_pair,
                     position_side=position_side,
                     unrealized_pnl=Decimal(position["unrealisedPnlRv"]),
                     entry_price=Decimal(position["avgEntryPriceRp"]),
-                    amount=amount,
+                    amount=amount * Decimal("-1") if position_side is PositionSide.SHORT else amount,
                     leverage=Decimal(position.get("leverageRr")),
                 )
                 self._perpetual_trading.set_position(pos_key, _position)
@@ -567,7 +615,12 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
             mid_price = self.get_mid_price(hb_trading_pair)
             if mid_price != s_decimal_NaN:
 
-                position_side = PositionSide[position.get("posSide").upper()]
+                position_mode = PositionMode.HEDGE if position["posMode"] == "Hedged" else PositionMode.ONEWAY
+                position_side = (
+                    PositionSide.BOTH
+                    if position_mode is PositionMode.ONEWAY
+                    else PositionSide[position.get("posSide").upper()]
+                )
 
                 entry_price = Decimal(position.get("avgEntryPriceRp"))
 
@@ -577,14 +630,14 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
                     price_diff * amount if position_side == PositionSide.LONG else price_diff * amount * Decimal("-1")
                 )
                 leverage = Decimal(position.get("leverageRr"))
-                pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
+                pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side, position_mode)
                 if amount != Decimal("0"):
                     _position = Position(
                         trading_pair=hb_trading_pair,
                         position_side=position_side,
                         unrealized_pnl=unrealized_pnl,
                         entry_price=entry_price,
-                        amount=amount,
+                        amount=amount * Decimal("-1") if position_side is PositionSide.SHORT else amount,
                         leverage=leverage,
                     )
                     self._perpetual_trading.set_position(pos_key, _position)
@@ -592,12 +645,23 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
                     self._perpetual_trading.remove_position(pos_key)
 
     async def _get_position_mode(self) -> Optional[PositionMode]:
-        return self._position_mode
+        """
+        We set position mode here since there is currently no endpoint to get current position mode.
+        """
+        pos_list = [PositionMode.ONEWAY, PositionMode.HEDGE]
+        success, msg = await self._trading_pair_position_mode_set(
+            mode=self._position_mode, trading_pair=self.trading_pairs[-1]
+        )
+        if success is True:
+            pos_mode = self._position_mode
+        else:
+            pos_mode = pos_list.pop(self._position_mode)[-1]
+        return pos_mode
 
     async def _trading_pair_position_mode_set(self, mode: PositionMode, trading_pair: str) -> Tuple[bool, str]:
         response = await self._api_put(
             path_url=CONSTANTS.POSITION_MODE,
-            data={
+            params={
                 "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
                 "targetPosMode": "OneWay" if mode == PositionMode.ONEWAY else "Hedged",
             },
@@ -605,23 +669,28 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
         )
         success = False
         msg = response["msg"]
-        if msg == "success" and response["code"] == 0:
+        if msg == "" and response["code"] == 0:
             success = True
             self._position_mode = mode
         return success, msg
 
     async def _set_trading_pair_leverage(self, trading_pair: str, leverage: int) -> Tuple[bool, str]:
+        params = {
+            "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
+        }
+        if self._position_mode is PositionMode.ONEWAY:
+            params["leverageRr"] = str(leverage)
+        else:
+            params["longLeverageRr"] = str(leverage)
+            params["shortLeverageRr"] = str(leverage)
         response = await self._api_put(
             path_url=CONSTANTS.POSITION_LEVERAGE,
-            data={
-                "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
-                "leverageRr": str(leverage),
-            },
+            params=params,
             is_auth_required=True,
         )
         success = False
         msg = response["msg"]
-        if msg == "success" and response["code"] == 0:
+        if msg == "" and response["code"] == 0:
             success = True
         return success, msg
 

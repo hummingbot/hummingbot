@@ -9,6 +9,7 @@ import hummingbot.connector.derivative.phemex_perpetual.phemex_perpetual_web_uti
 from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.perpetual_api_order_book_data_source import PerpetualAPIOrderBookDataSource
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
@@ -28,6 +29,10 @@ class PhemexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     _bpobds_logger: Optional[HummingbotLogger] = None
     _trading_pair_symbol_map: Dict[str, Mapping[str, str]] = {}
     _mapping_initialization_lock = asyncio.Lock()
+    _index_price_index: int
+    _mark_price_index: int
+    _symbol_index: int
+    _funding_rate_index: int
 
     def __init__(
         self,
@@ -84,9 +89,10 @@ class PhemexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         return snapshot_msg
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
-        url = f"{web_utils.wss_url(CONSTANTS.PUBLIC_WS_ENDPOINT, self._domain)}"
+        url = web_utils.wss_url(CONSTANTS.PUBLIC_WS_ENDPOINT, self._domain)
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
-        await ws.connect(ws_url=url, ping_timeout=CONSTANTS.HEARTBEAT_TIME_INTERVAL)
+        async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WSS_CONNECTION_LIMIT_ID):
+            await ws.connect(ws_url=url, ping_timeout=CONSTANTS.WS_HEARTBEAT)
         return ws
 
     async def _subscribe_channels(self, ws: WSAssistant):
@@ -107,11 +113,13 @@ class PhemexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 payload = {
                     "id": 0,
                     "method": stream_method,
-                    "params": params,
+                    "params": params if stream_method is not CONSTANTS.FUNDING_INFO_STREAM_METHOD else [],
                 }
                 subscribe_request: WSJSONRequest = WSJSONRequest(payload)
-                await ws.send(subscribe_request)
+                async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WSS_MESSAGE_LIMIT_ID):
+                    await ws.send(subscribe_request)
             self.logger().info("Subscribed to public order book, trade and funding info channels...")
+            safe_ensure_future(self.ping_loop(ws=ws))
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -182,26 +190,27 @@ class PhemexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 await self._sleep(5.0)
 
     async def _parse_funding_info_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        fields = raw_message.get("fields", [])
-        index_price_index = fields.index("indexRp")
-        mark_price_index = fields.index("markRp")
-        symbol_index = fields.index("symbol")
-        funding_rate_index = fields.index("fundingRateRr")
+        if raw_message["type"] == "snapshot":
+            fields = raw_message.get("fields", [])
+            self._index_price_index = fields.index("indexRp")
+            self._mark_price_index = fields.index("markRp")
+            self._symbol_index = fields.index("symbol")
+            self._funding_rate_index = fields.index("fundingRateRr")
 
         for data in raw_message.get("data", []):
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(data[symbol_index])
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(data[self._symbol_index])
 
             if trading_pair not in self._trading_pairs:
-                return
+                continue
             funding_info = FundingInfoUpdate(
                 trading_pair=trading_pair,
-                index_price=Decimal(data[index_price_index]),
-                mark_price=Decimal(data[mark_price_index]),
+                index_price=Decimal(data[self._index_price_index]),
+                mark_price=Decimal(data[self._mark_price_index]),
                 next_funding_utc_timestamp=self._next_funding_time(),
-                rate=Decimal(data[funding_rate_index]),
+                rate=Decimal(data[self._funding_rate_index]),
             )
 
-        message_queue.put_nowait(funding_info)
+            message_queue.put_nowait(funding_info)
 
     async def _request_complete_funding_info(self, trading_pair: str):
         ex_trading_pair = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
@@ -215,3 +224,10 @@ class PhemexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         Funding settlement occurs every 8 hours as mentioned in https://phemex.com/user-guides/funding-rate
         """
         return ((time.time() // 28800) + 1) * 28800
+
+    async def ping_loop(self, ws: WSAssistant):
+        while ws._connection.connected:
+            ping_request: WSJSONRequest = WSJSONRequest({"id": 0, "method": "server.ping", "params": []})
+            async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WSS_MESSAGE_LIMIT_ID):
+                await ws.send(ping_request)
+            await self._sleep(5.0)

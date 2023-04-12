@@ -34,6 +34,7 @@ class PhemexPerpetualAuth(AuthBase):
 
         request.headers["x-phemex-request-signature"] = self.generate_signature_from_payload(payload=payload)
         request.headers["x-phemex-request-expiry"] = expiry_timestamp
+        request.headers["Content-Type"] = "application/json"
         return request
 
     async def ws_authenticate(self, request: WSRequest) -> WSRequest:
