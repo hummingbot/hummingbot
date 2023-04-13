@@ -8,6 +8,12 @@ RUN apt-get update && \
         sudo libudev-dev libssl-dev && \
     rm -rf /var/lib/apt/lists/*
 
+# Add hummingbot user and group
+RUN groupadd -g 8211 hummingbot && \
+    useradd -m -s /bin/bash -u 8211 -g 8211 hummingbot
+
+# Switch to hummingbot user
+USER hummingbot:hummingbot
 WORKDIR /home/hummingbot
 
 # Install miniconda
@@ -21,7 +27,7 @@ RUN curl https://repo.anaconda.com/miniconda/Miniconda3-py38_4.10.3-Linux-aarch6
 RUN :> ~/.bashrc
 
 # Copy environment only to optimize build caching, so changes in sources will not cause conda env invalidation
-COPY setup/environment-linux-aarch64.yml setup/
+COPY --chown=hummingbot:hummingbot setup/environment-linux-aarch64.yml setup/
 
 # ./install | create hummingbot environment
 RUN ~/miniconda3/bin/conda env create -f setup/environment-linux-aarch64.yml && \
@@ -30,12 +36,12 @@ RUN ~/miniconda3/bin/conda env create -f setup/environment-linux-aarch64.yml && 
     rm -rf /home/hummingbot/.cache
 
 # Copy remaining files
-COPY bin/ bin/
-COPY hummingbot/ hummingbot/
-COPY setup.py .
-COPY LICENSE .
-COPY README.md .
-COPY DATA_COLLECTION.md .
+COPY --chown=hummingbot:hummingbot bin/ bin/
+COPY --chown=hummingbot:hummingbot hummingbot/ hummingbot/
+COPY --chown=hummingbot:hummingbot setup.py .
+COPY --chown=hummingbot:hummingbot LICENSE .
+COPY --chown=hummingbot:hummingbot README.md .
+COPY --chown=hummingbot:hummingbot DATA_COLLECTION.md .
 
 # activate hummingbot env when entering the CT
 RUN echo "source /home/hummingbot/miniconda3/etc/profile.d/conda.sh && conda activate $(head -1 setup/environment-linux-aarch64.yml | cut -d' ' -f2)" >> ~/.bashrc
@@ -70,12 +76,29 @@ ENV CONFIG_PASSWORD=${CONFIG_PASSWORD}
 
 ENV INSTALLATION_TYPE=docker
 
+# Add hummingbot user and group
+RUN groupadd -g 8211 hummingbot && \
+    useradd -m -s /bin/bash -u 8211 -g 8211 hummingbot
+
+# Create sym links
+RUN ln -s /conf /home/hummingbot/conf && \
+  ln -s /logs /home/hummingbot/logs && \
+  ln -s /certs /home/hummingbot/certs && \
+  ln -s /data /home/hummingbot/data && \
+  ln -s /pmm_scripts /home/hummingbot/pmm_scripts && \
+  ln -s /scripts /home/hummingbot/scripts
+
+# Create mount points
+RUN mkdir -p /conf /conf/connectors /logs /data /pmm_scripts /scripts /certs && \
+  chown -R hummingbot:hummingbot /conf /conf/connectors /logs /data /pmm_scripts /scripts /certs
+VOLUME /conf /conf/connectors /logs /data /pmm_scripts /scripts /certs
+
 # Pre-populate pmm_scripts/ volume with default pmm_scripts
-COPY pmm_scripts/ pmm_scripts/
+COPY --chown=hummingbot:hummingbot pmm_scripts/ pmm_scripts/
 # Pre-populate scripts/ volume with default scripts
-COPY scripts/ scripts/
+COPY --chown=hummingbot:hummingbot scripts/ scripts/
 # Copy the conf folder structure
-COPY conf/ conf/
+COPY --chown=hummingbot:hummingbot conf/ conf/
 
 # Install packages required in runtime
 RUN apt-get update && \
@@ -85,7 +108,10 @@ RUN apt-get update && \
 WORKDIR /home/hummingbot
 
 # Copy all build artifacts from builder image
-COPY --from=builder /home/ /home/
+COPY --from=builder --chown=hummingbot:hummingbot /home/ /home/
+
+# additional configs (sudo)
+COPY docker/etc /etc
 
 # Setting bash as default shell because we have .bashrc with customized PATH (setting SHELL affects RUN, CMD and ENTRYPOINT, but not manual commands e.g. `docker run image COMMAND`!)
 SHELL [ "/bin/bash", "-lc" ]
