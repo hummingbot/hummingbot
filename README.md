@@ -54,9 +54,46 @@ Exchanges may be centralized (**CEX**), or decentralized (**DEX**), in which cas
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=SILVER&color=silver) | [KuCoin](https://www.kucoin.com/ucenter/signup?rcode=272KvRf) | SPOT CEX | [272KvRf](https://www.kucoin.com/ucenter/signup?rcode=272KvRf)
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=SILVER&color=silver) | [Gate.io](https://www.gate.io/signup/5868285) | SPOT CEX | [5868285](https://www.gate.io/signup/5868285)
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=SILVER&color=silver) | [AscendEx](https://ascendex.com/register?inviteCode=UEIXNXKW) | SPOT CEX | [UEIXNXKW](https://ascendex.com/register?inviteCode=UEIXNXKW)
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=SILVER&color=silver) | [PancakeSwap](https://pancakeswap.finance/) | AMM DEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=SILVER&color=silver) | [Sushiswap](https://sushi.com/) | AMM DEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=SILVER&color=silver) | [Quickswap](https://quickswap.exchange/) | SPOT DEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=SILVER&color=silver) | [TraderJoe](https://traderjoexyz.com/) | SPOT DEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=SILVER&color=silver) | [dYdX](https://dydx.exchange/) | PERP DEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [AltMarkets](https://v2.altmarkets.io/) | SPOT CEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [BTC-Markets](https://www.btcmarkets.net/) | SPOT CEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Binance US](https://binance.us/) | SPOT CEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [BitGet]( https://www.bitget.com/) | PERP CEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [BitMart](https://www.bitmart.com/) | SPOT CEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Bitfinex](https://www.bitfinex.com/) | SPOT CEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Bitmex]( https://www.bitmex.com/) | SPOT CEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Bitmex (perp](https://www.bitmex.com/) | PERP CEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Bittrex](https://international.bittrex.com/) | SPOT CEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Bybit](https://www.bybit.com/en-US/) | SPOT CEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Bybit (perp)](https://www.bybit.com/en-US/) | PERP CEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Coinbase](https://pro.coinbase.com/) | SPOT CEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Crypto.com](https://crypto.com/) | SPOT CEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [DeFi Kingdoms](https://defikingdoms.com/) | SPOT DEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Defira](https://defira.com) | SPOT DEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Dexalot](https://dexalot.com/) | SPOT DEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [HitBTC](https://hitbtc.com/) | SPOT CEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Huobi](https://www.hbg.com/) | SPOT CEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Injective](https://helixapp.com/markets?type=spot) | SPOT DEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Kraken](https://www.kraken.com/) | SPOT CEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [LBank](https://www.lbank.info/) | SPOT DEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Loopring](https://loopring.io/) | SPOT DEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [MEXC](https://www.mexc.com/) | SPOT CEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Mad Meerkat](https://mm.finance) | SPOT DEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [NDAX](https://ndax.io/) | SPOT DEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [OKX](https://www.okx.com/) | SPOT CEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [OpenOcean](https://openocean.finance/) | SPOT DEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Pancakeswap](https://pancakeswap.finance/) | SPOT DEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Pangolin](https://pangolin.exchange/) | SPOT DEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Perpetual Protocol](https://perp.com/) | PERP DEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [ProBit](https://www.probit.com/en-us/) | SPOT CEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Ref Finance](https://www.ref.finance/) | SPOT DEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Sushiswap](https://sushi.com/) | SPOT DEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [VVS Finance](https://vvs.finance/) | SPOT DEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [WhiteBit](https://whitebit.com/) | SPOT CEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [xswap](https://xspswap.finance/) | SPOT DEX |
+
 
 Quarterly [Polls](https://hummingbot.org/maintenance/certification/) allow the Hummingbot community to vote using HBOT tokens to decide which exchanges should be certified GOLD or SILVER, which means that they are maintained and continually improved by Hummingbot Foundation. In addition, the codebase includes BRONZE exchange connectors that are maintained by community members. See the [Hummingbot documentation](https://docs.hummingbot.org/exchanges) for all exchanges supported.
 
