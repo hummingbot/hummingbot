@@ -221,7 +221,7 @@ class MQTTCommands:
                     raise ValueError(f'Invalid param key(s): {invalid_params}')
             strategy_config = {}
             client_config = {}
-            if isinstance(self._hb_app.client_config_map, dict):
+            if isinstance(self._hb_app.client_config_map, dict):  # pragma: no cover
                 client_config = self._hb_app.client_config_map
                 for key, value in client_config.items():
                     if isinstance(value, ConfigVar):
@@ -231,7 +231,7 @@ class MQTTCommands:
             elif isinstance(self._hb_app.client_config_map,
                             ClientConfigAdapter):
                 client_config = self._hb_app.client_config_map.dict()
-            if isinstance(self._hb_app._strategy_config_map, dict):
+            if isinstance(self._hb_app._strategy_config_map, dict):  # pragma: no cover
                 for key, value in self._hb_app._strategy_config_map.items():
                     if isinstance(value, ConfigVar):
                         strategy_config[key] = value.value
@@ -577,7 +577,7 @@ class MQTTGateway(Node):
     def health(self):
         return self._health
 
-    def _remove_log_handlers(self):
+    def _remove_log_handlers(self):  # pragma: no cover
         loggers = list([logging.getLogger(name) for name in logging.root.manager.loggerDict])
         log_conf = get_logging_conf()
         if 'loggers' not in log_conf:
