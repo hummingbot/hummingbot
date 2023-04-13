@@ -336,7 +336,12 @@ class GatewayEVMAMM(ConnectorBase):
             return None
 
     async def update_allowances(self):
-        self._allowances = await self.get_allowances()
+        """
+        Allowances updated continously.
+        """
+        while True:
+            self._allowances = await self.get_allowances()
+            await asyncio.sleep(120)  # sleep for 2 mins
 
     async def get_allowances(self) -> Dict[str, Decimal]:
         """
@@ -553,7 +558,7 @@ class GatewayEVMAMM(ConnectorBase):
                 **request_args
             )
             transaction_hash: Optional[str] = order_result.get("txHash")
-            if transaction_hash is not None:
+            if transaction_hash is not None and transaction_hash != "":
                 gas_cost: Decimal = Decimal(order_result.get("gasCost"))
                 gas_price_token: str = order_result.get("gasPriceToken")
                 self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
@@ -667,7 +672,6 @@ class GatewayEVMAMM(ConnectorBase):
                             token_symbol
                         )
                     )
-                    safe_ensure_future(self.update_allowances())
                 else:
                     self.logger().warning(
                         f"Token approval for {tracked_approval.client_order_id} on {self.connector_name} failed."
