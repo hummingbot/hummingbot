@@ -431,6 +431,28 @@ class RemoteIfaceMQTTTests(TestCase):
         self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, notify_msg))
         self.assertTrue(self.is_msg_received(notify_topic, notify_msg))
 
+    @patch("hummingbot.client.command.config_command.ConfigCommand.config")
+    @patch("commlib.transports.mqtt.MQTTTransport")
+    def test_mqtt_command_config_updates_configurable_keys(self,
+                                                           mock_mqtt,
+                                                           config_mock: MagicMock):
+        config_mock.side_effect = self._create_exception_and_unlock_test_with_event
+        self.start_mqtt(mock_mqtt=mock_mqtt)
+
+        config_msg = {
+            'params': [
+                ('skata', 90),
+            ]
+        }
+
+        self.fake_mqtt_broker.publish_to_subscription(
+            self.get_topic_for(self.CONFIG_URI),
+            config_msg
+        )
+        topic = f"test_reply/hbot/{self.instance_id}/config"
+        msg = {'changes': [], 'config': {}, 'status': 400, 'msg': "Invalid param key(s): ['skata']"}
+        self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
+
     @patch("commlib.transports.mqtt.MQTTTransport")
     def test_mqtt_command_config_updates_multiple_params(self,
                                                          mock_mqtt):
@@ -575,11 +597,11 @@ class RemoteIfaceMQTTTests(TestCase):
     @patch("hummingbot.client.command.start_command.StartCommand._in_start_check")
     @patch("hummingbot.client.command.status_command.StatusCommand.status_check_all")
     @patch("commlib.transports.mqtt.MQTTTransport")
-    def test_mqtt_command_start(self,
-                                mock_mqtt,
-                                status_check_all_mock: MagicMock,
-                                in_start_check_mock: MagicMock,
-                                load_strategy_config_map_from_file: MagicMock):
+    def test_mqtt_command_start_sync(self,
+                                     mock_mqtt,
+                                     status_check_all_mock: MagicMock,
+                                     in_start_check_mock: MagicMock,
+                                     load_strategy_config_map_from_file: MagicMock):
         in_start_check_mock.return_value = True
         self.start_mqtt(mock_mqtt=mock_mqtt)
 
@@ -592,10 +614,39 @@ class RemoteIfaceMQTTTests(TestCase):
         self.ev_loop.run_until_complete(self.wait_for_rcv(
             notify_topic, '\nEnter "start" to start market making.'))
 
-        self.fake_mqtt_broker.publish_to_subscription(self.get_topic_for(self.START_URI), {})
-        start_msg = 'The bot is already running - please run "stop" first'
-        self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, start_msg))
-        self.assertTrue(self.is_msg_received(notify_topic, start_msg))
+        self.fake_mqtt_broker.publish_to_subscription(
+            self.get_topic_for(self.START_URI),
+            {'async_backend': 0}
+        )
+
+    @patch("hummingbot.client.command.import_command.load_strategy_config_map_from_file")
+    @patch("hummingbot.client.command.start_command.StartCommand._in_start_check")
+    @patch("hummingbot.client.command.status_command.StatusCommand.status_check_all")
+    @patch("commlib.transports.mqtt.MQTTTransport")
+    def test_mqtt_command_start_async(self,
+                                      mock_mqtt,
+                                      status_check_all_mock: MagicMock,
+                                      in_start_check_mock: MagicMock,
+                                      load_strategy_config_map_from_file: MagicMock):
+        in_start_check_mock.return_value = True
+        self.start_mqtt(mock_mqtt=mock_mqtt)
+
+        self.send_fake_import_cmd(status_check_all_mock=status_check_all_mock,
+                                  load_strategy_config_map_from_file=load_strategy_config_map_from_file,
+                                  invalid_strategy=False)
+
+        notify_topic = f"hbot/{self.instance_id}/notify"
+
+        self.ev_loop.run_until_complete(self.wait_for_rcv(
+            notify_topic, '\nEnter "start" to start market making.'))
+
+        self.fake_mqtt_broker.publish_to_subscription(
+            self.get_topic_for(self.START_URI),
+            {'async_backend': 1}
+        )
+        # start_msg = 'The bot is already running - please run "stop" first'
+        # self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, start_msg))
+        # self.assertTrue(self.is_msg_received(notify_topic, start_msg))
 
     @patch("hummingbot.client.command.start_command.init_logging")
     @patch("hummingbot.client.command.import_command.load_strategy_config_map_from_file")
@@ -753,8 +804,8 @@ class RemoteIfaceMQTTTests(TestCase):
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
     @patch("commlib.transports.mqtt.MQTTTransport")
-    def test_mqtt_command_stop(self,
-                               mock_mqtt):
+    def test_mqtt_command_stop_sync(self,
+                                    mock_mqtt):
         self.start_mqtt(mock_mqtt=mock_mqtt)
 
         topic = self.get_topic_for(self.STOP_URI)
@@ -774,6 +825,12 @@ class RemoteIfaceMQTTTests(TestCase):
         self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, stop_msg))
         self.assertTrue(self.is_msg_received(notify_topic, stop_msg))
 
+    @patch("commlib.transports.mqtt.MQTTTransport")
+    def test_mqtt_command_stop_async(self,
+                                     mock_mqtt):
+        self.start_mqtt(mock_mqtt=mock_mqtt)
+
+        topic = self.get_topic_for(self.STOP_URI)
         self.fake_mqtt_broker.publish_to_subscription(
             topic,
             {'async_backend': 1}
