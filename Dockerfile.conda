@@ -8,9 +8,6 @@ RUN apt-get update && \
 
 WORKDIR /home/hummingbot
 
-# Copy environment only to optimize build caching, so changes in sources will not cause conda env invalidation
-COPY setup/environment-simplified.yml setup/
-
 # Create conda environment
 COPY setup/environment-simplified.yml /tmp/environment.yml
 RUN conda env create -f /tmp/environment.yml && \
@@ -20,6 +17,7 @@ RUN conda env create -f /tmp/environment.yml && \
 # Copy remaining files
 COPY bin/ bin/
 COPY hummingbot/ hummingbot/
+COPY scripts/ scripts/
 COPY setup.py .
 COPY LICENSE .
 COPY README.md .
@@ -60,10 +58,8 @@ RUN apt-get update && \
     apt-get install -y sudo libusb-1.0 && \
     rm -rf /var/lib/apt/lists/*
 
-
 # Create mount points
 RUN mkdir -p /home/hummingbot/conf /home/hummingbot/conf/connectors /home/hummingbot/logs /home/hummingbot/data /home/hummingbot/certs /home/hummingbot/scripts
-COPY scripts/ home/hummingbot/scripts/
 
 WORKDIR /home/hummingbot
 
