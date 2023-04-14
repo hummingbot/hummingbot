@@ -26,9 +26,6 @@ PhemexPerpetualDerivative = ""  # To-do: cleanup. Just added so preliminaty comm
 
 
 class PhemexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
-    _bpobds_logger: Optional[HummingbotLogger] = None
-    _trading_pair_symbol_map: Dict[str, Mapping[str, str]] = {}
-    _mapping_initialization_lock = asyncio.Lock()
     _index_price_index: int
     _mark_price_index: int
     _symbol_index: int
