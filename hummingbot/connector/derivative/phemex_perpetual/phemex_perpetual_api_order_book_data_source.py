@@ -81,7 +81,7 @@ class PhemexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 "bids": snapshot_response[self._diff_messages_queue_key]["bids"],
                 "asks": snapshot_response[self._diff_messages_queue_key]["asks"],
             },
-            timestamp=snapshot_response["timestamp"] // 1e9,
+            timestamp=snapshot_response["timestamp"] * 1e-9,
         )
         return snapshot_msg
 
