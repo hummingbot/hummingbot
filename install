@@ -41,7 +41,6 @@ fi
 
 ENV_NAME=${RESPONSE}
 
-VALID_ENV_NAME=$(grep  'name:' ${ENV_FILE} | tail -n1 | awk '{ print $2}')
 if [ "$ENV_NAME" != "$VALID_ENV_NAME" ]; then
     echo "*** Incompatible environment name in ${ENV_FILE} (${VALID_ENV_NAME}). Please resolve and try again."
     exit 1

@@ -107,7 +107,7 @@ class DydxPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                     "oraclePrice": "101",
                     "priceChange24H": "0",
                     "nextFundingRate": "0.0000125000",
-                    "nextFundingAt": "2022-07-06T12:20:53.000Z",
+                    "nextFundingAt": "2022-07-06T12:20:53Z",
                     "minOrderSize": "1",
                     "type": "PERPETUAL",
                     "initialMarginFraction": "0.10",

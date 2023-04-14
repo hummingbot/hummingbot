@@ -190,33 +190,35 @@ class GatewayCancelUnitTest(unittest.TestCase):
         }
 
         try:
-            async with self.run_clock():
-                self._http_player.replay_timestamp_ms = 1648503333290
-                tracked_order_1: GatewayInFlightOrder = await connector.approve_token(
-                    "DAI", max_fee_per_gas=MAX_FEE_PER_GAS, max_priority_fee_per_gas=MAX_PRIORITY_FEE_PER_GAS
-                )
-                self._http_player.replay_timestamp_ms = 1648503337964
-                tracked_order_2: GatewayInFlightOrder = await connector.approve_token(
-                    "WETH", max_fee_per_gas=MAX_FEE_PER_GAS, max_priority_fee_per_gas=MAX_PRIORITY_FEE_PER_GAS
-                )
-                self.assertEqual(2, len(connector.approval_orders))
-                self.assertEqual(
-                    expected_evm_approve_tx_hash_set, set(o.exchange_order_id for o in connector.approval_orders)
-                )
+            async with timeout(10):
+                async with self.run_clock():
+                    self._http_player.replay_timestamp_ms = 1648503333290
+                    tracked_order_1: GatewayInFlightOrder = await connector.approve_token(
+                        "DAI", max_fee_per_gas=MAX_FEE_PER_GAS, max_priority_fee_per_gas=MAX_PRIORITY_FEE_PER_GAS
+                    )
+                    self._http_player.replay_timestamp_ms = 1648503337964
+                    tracked_order_2: GatewayInFlightOrder = await connector.approve_token(
+                        "WETH", max_fee_per_gas=MAX_FEE_PER_GAS, max_priority_fee_per_gas=MAX_PRIORITY_FEE_PER_GAS
+                    )
+                    self.assertEqual(2, len(connector.approval_orders))
+                    self.assertEqual(
+                        expected_evm_approve_tx_hash_set, set(o.exchange_order_id for o in connector.approval_orders)
+                    )
 
-                self._http_player.replay_timestamp_ms = 1648503342513
-                tracked_order_1.creation_timestamp = connector.current_timestamp - 86400
-                tracked_order_2.creation_timestamp = connector.current_timestamp - 86400
-                await connector.cancel_outdated_orders(600)
-                self.assertEqual(2, len(connector.approval_orders))
-                self.assertEqual(expected_cancel_tx_hash_set, set(o.cancel_tx_hash for o in connector.approval_orders))
+                    self._http_player.replay_timestamp_ms = 1648503342513
+                    tracked_order_1.creation_timestamp = connector.current_timestamp - 86400
+                    tracked_order_2.creation_timestamp = connector.current_timestamp - 86400
+                    await connector.cancel_outdated_orders(600)
+                    self.assertEqual(2, len(connector.approval_orders))
+                    self.assertEqual(expected_cancel_tx_hash_set, set(o.cancel_tx_hash for o in connector.approval_orders))
 
-                self._http_player.replay_timestamp_ms = 1648503385484
-                async with timeout(10):
-                    while len(event_logger.event_log) < 2:
-                        await event_logger.wait_for(TokenApprovalCancelledEvent)
-                    cancelled_approval_symbols = [e.token_symbol for e in event_logger.event_log]
-                    self.assertIn("DAI", cancelled_approval_symbols)
-                    self.assertIn("WETH", cancelled_approval_symbols)
+                    self._http_player.replay_timestamp_ms = 1648503385484
+                    async with timeout(10):
+                        while len(event_logger.event_log) < 2:
+                            await event_logger.wait_for(TokenApprovalCancelledEvent)
+                        cancelled_approval_symbols = [e.token_symbol for e in event_logger.event_log]
+                        self.assertIn("DAI", cancelled_approval_symbols)
+                        self.assertIn("WETH", cancelled_approval_symbols)
+
         finally:
             connector.remove_listener(TokenApprovalEvent.ApprovalCancelled, event_logger)

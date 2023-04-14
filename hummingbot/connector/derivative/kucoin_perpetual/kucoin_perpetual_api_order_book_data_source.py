@@ -4,6 +4,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
+from pandas._libs.tslibs.parsing import DateParseError
 
 from hummingbot.connector.derivative.kucoin_perpetual import (
     kucoin_perpetual_constants as CONSTANTS,
@@ -45,6 +46,16 @@ class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             symbol_info = funding_info_response["data"]
         else:
             symbol_info = funding_info_response["data"][0]
+
+        try:
+            pd.Timestamp(symbol_info["nextFundingRateTime"])
+        except DateParseError:
+            # There is a badly formed timestamp in the response, so we use the current time instead.
+            if '+' in symbol_info["nextFundingRateTime"] and symbol_info["nextFundingRateTime"].endswith('Z'):
+                symbol_info["nextFundingRateTime"] = symbol_info["nextFundingRateTime"][:-1]
+            else:
+                raise ValueError(f"Unexpected timestamp format: {symbol_info['nextFundingRateTime']}")
+
         funding_info = FundingInfo(
             trading_pair=trading_pair,
             index_price=Decimal(str(symbol_info["indexPrice"])),

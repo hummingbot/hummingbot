@@ -519,7 +519,10 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
     @staticmethod
     def _timestamp_to_dexalot_timestamp(timestamp: float) -> str:
-        dt_str = str(pd.Timestamp.utcfromtimestamp(ts=timestamp).tz_localize("UTC"))
+        utc_ts = pd.Timestamp.utcfromtimestamp(ts=timestamp)
+        if utc_ts.tzinfo is None:
+            utc_ts = utc_ts.tz_localize("UTC")
+        dt_str = str(utc_ts)
         return dt_str
 
     @staticmethod

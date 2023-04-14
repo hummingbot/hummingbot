@@ -61,7 +61,9 @@ class OkxAuth(AuthBase):
         return signature
 
     def authentication_headers(self, request: RESTRequest) -> Dict[str, Any]:
-        timestamp = datetime.utcfromtimestamp(self.time_provider.time()).isoformat(timespec="milliseconds") + "Z"
+        timestamp = datetime.utcfromtimestamp(self.time_provider.time()).isoformat(timespec="milliseconds")
+        if '+' not in timestamp:
+            timestamp = timestamp + "Z"
 
         path_url = f"/api{request.url.split('/api')[-1]}"
         if request.params:

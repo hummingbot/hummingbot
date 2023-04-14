@@ -3,6 +3,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import pandas as pd
+from pandas._libs.tslibs.parsing import DateParseError
 
 from hummingbot.connector.derivative.bybit_perpetual import (
     bybit_perpetual_constants as CONSTANTS,
@@ -44,6 +45,15 @@ class BybitPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         funding_info_response = await self._request_complete_funding_info(trading_pair)
         general_info = funding_info_response[0]["result"][0]
         predicted_funding = funding_info_response[1]["result"]
+
+        try:
+            pd.Timestamp(general_info["next_funding_time"])
+        except DateParseError:
+            # There is a badly formed timestamp in the response, so we use the current time instead.
+            if '+' in general_info["next_funding_time"] and general_info["next_funding_time"].endswith('Z'):
+                general_info["next_funding_time"] = general_info["next_funding_time"][:-1]
+            else:
+                raise ValueError(f"Unexpected timestamp format: {general_info['next_funding_time']}")
 
         funding_info = FundingInfo(
             trading_pair=trading_pair,

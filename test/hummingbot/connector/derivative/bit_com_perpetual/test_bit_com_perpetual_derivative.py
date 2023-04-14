@@ -702,7 +702,9 @@ class BitComPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         datetime_str = str(
             pd.Timestamp.utcfromtimestamp(
                 self.target_funding_info_next_funding_utc_timestamp)
-        ).replace(" ", "T") + "Z"
+        ).replace(" ", "T")
+        if '+' not in datetime_str:
+            datetime_str = datetime_str + "Z"
         return datetime_str
 
     @property
@@ -710,7 +712,9 @@ class BitComPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         datetime_str = str(
             pd.Timestamp.utcfromtimestamp(
                 self.target_funding_info_next_funding_utc_timestamp_ws_updated)
-        ).replace(" ", "T") + "Z"
+        ).replace(" ", "T")
+        if '+' not in datetime_str:
+            datetime_str = datetime_str + "Z"
         return datetime_str
 
     @property
@@ -718,7 +722,9 @@ class BitComPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         datetime_str = str(
             pd.Timestamp.utcfromtimestamp(
                 self.target_funding_payment_timestamp)
-        ).replace(" ", "T") + "Z"
+        ).replace(" ", "T")
+        if '+' not in datetime_str:
+            datetime_str = datetime_str + "Z"
         return datetime_str
 
     @property

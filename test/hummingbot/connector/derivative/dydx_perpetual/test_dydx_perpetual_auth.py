@@ -39,18 +39,19 @@ class DydxPerpetualAuthTests(TestCase):
             data="{}",
             is_auth_required=True,
         )
-        ts_mock.return_value = "2022-07-06T12:20:53.000Z"
+        ts_mock.return_value = "2022-07-06T12:20:53Z"
 
         self.async_run_with_timeout(self.auth.rest_authenticate(request))
 
-        self.assertEqual("f9KTZzueyS1MazebIiorgGnZ5aOsVB3o7N2mRaW520g=", request.headers["DYDX-SIGNATURE"])
+        # self.assertEqual("f9KTZzueyS1MazebIiorgGnZ5aOsVB3o7N2mRaW520g=", request.headers["DYDX-SIGNATURE"])
+        self.assertEqual("BP8F3t2OsBFJJXIdM7PbGZFRL6ipxFebT7QzzT4dCzM=", request.headers["DYDX-SIGNATURE"])
         self.assertEqual("someApiKey", request.headers["DYDX-API-KEY"])
         self.assertEqual(ts_mock.return_value, request.headers["DYDX-TIMESTAMP"])
         self.assertEqual("somePassphrase", request.headers["DYDX-PASSPHRASE"])
 
     @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_auth.DydxPerpetualAuth._get_iso_timestamp")
     def test_add_auth_to_ws_request(self, ts_mock: MagicMock):
-        ts_mock.return_value = "2022-07-06T12:20:53.000Z"
+        ts_mock.return_value = "2022-07-06T12:20:53Z"
 
         request = WSJSONRequest(
             payload={"channel": CONSTANTS.WS_CHANNEL_ACCOUNTS},
@@ -62,7 +63,8 @@ class DydxPerpetualAuthTests(TestCase):
         self.assertEqual("someApiKey", request.payload["apiKey"])
         self.assertEqual("somePassphrase", request.payload["passphrase"])
         self.assertEqual(ts_mock.return_value, request.payload["timestamp"])
-        self.assertEqual("MLJvgJDWv-o1lz1e6oRuU96SbCay1Qo9m-E6kKleOxY=", request.payload["signature"])
+        # self.assertEqual("MLJvgJDWv-o1lz1e6oRuU96SbCay1Qo9m-E6kKleOxY=", request.payload["signature"])
+        self.assertEqual("eQ_9O8coXHK4_EuLy_3kPaIR_A14GsQrenB0dMzge8M=", request.payload["signature"])
 
     def test_get_order_signature(self):
         result = self.auth.get_order_signature(

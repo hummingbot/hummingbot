@@ -31,7 +31,13 @@ elif uname | egrep -qe "MINGW64"; then
     ENV_FILE=$WIN64_ENV
 fi
 
-read -p " Enter environment name: " ENV_NAME
+VALID_ENV_NAME=$(grep  'name:' ${ENV_FILE} | tail -n1 | awk '{ print $2}')
+read -p "Enter environment name [${VALID_ENV_NAME}]: " RESPONSE
+if [ "${RESPONSE}_" == "_" ]; then
+    RESPONSE=${VALID_ENV_NAME}
+fi
+
+ENV_NAME=${RESPONSE}
 echo    "   Attempting to remove: ${ENV_NAME}"
 
 if ${CONDA_EXE} env list | awk '{ print $1 }' | egrep -e "^${ENV_NAME}$" 1>/dev/null; then

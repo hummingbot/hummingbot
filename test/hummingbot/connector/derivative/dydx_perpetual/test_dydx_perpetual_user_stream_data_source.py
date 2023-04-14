@@ -86,7 +86,7 @@ class DydxPerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
     )
     def test_listen_for_user_stream_raises_logs_exception(self, mock_sleep, ts_mock, ws_connect_mock):
         mock_sleep.side_effect = lambda: (self.ev_loop.run_until_complete(asyncio.sleep(0.5)))
-        ts_mock.return_value = "2022-07-06T12:20:53.000Z"
+        ts_mock.return_value = "2022-07-06T12:20:53Z"
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         ws_connect_mock.return_value.receive.side_effect = lambda *_: self._create_exception_and_unlock_test_with_event(
             Exception("TEST ERROR")
@@ -102,7 +102,7 @@ class DydxPerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.connector.derivative.dydx_perpetual.dydx_perpetual_auth.DydxPerpetualAuth._get_iso_timestamp")
     def test_ws_authentication_successful(self, ts_mock: MagicMock, ws_connect_mock):
-        ts_mock.return_value = "2022-07-06T12:20:53.000Z"
+        ts_mock.return_value = "2022-07-06T12:20:53Z"
 
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
         self.async_run_with_timeout(self.data_source._connected_websocket_assistant())
@@ -112,4 +112,5 @@ class DydxPerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
         self.assertEqual("someApiKey", json_msgs[0]["apiKey"])
         self.assertEqual("somePassphrase", json_msgs[0]["passphrase"])
         self.assertEqual(ts_mock.return_value, json_msgs[0]["timestamp"])
-        self.assertEqual("MLJvgJDWv-o1lz1e6oRuU96SbCay1Qo9m-E6kKleOxY=", json_msgs[0]["signature"])
+        # self.assertEqual("MLJvgJDWv-o1lz1e6oRuU96SbCay1Qo9m-E6kKleOxY=", json_msgs[0]["signature"])
+        self.assertEqual("eQ_9O8coXHK4_EuLy_3kPaIR_A14GsQrenB0dMzge8M=", json_msgs[0]["signature"])
