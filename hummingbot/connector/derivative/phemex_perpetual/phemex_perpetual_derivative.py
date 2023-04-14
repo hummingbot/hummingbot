@@ -504,17 +504,14 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
                     "liquidation. Close your positions or add additional margin to your wallet."
                 )
                 self.logger().info(
-                    f"Margin Required: {total_maint_margin_required}. " f"Negative PnL assets: {negative_pnls_msg}."
+                    f"Margin Required: {total_maint_margin_required}. Negative PnL assets: {negative_pnls_msg}."
                 )
 
     async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
         """
         Queries the necessary API endpoint and initialize the TradingRule object for each trading pair being traded.
 
-        Parameters
-        ----------
-        exchange_info_dict:
-            Trading rules dictionary response from the exchange
+        :param exchange_info_dict: Trading rules dictionary response from the exchange
         """
         rules: list = exchange_info_dict.get("data", {}).get("perpProductsV2", [])
         return_val: list = []

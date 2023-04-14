@@ -23,9 +23,6 @@ TradeStructure = namedtuple("Trade", "timestamp side price amount")
 
 
 class PhemexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
-    _bpobds_logger: Optional[HummingbotLogger] = None
-    _trading_pair_symbol_map: Dict[str, Mapping[str, str]] = {}
-    _mapping_initialization_lock = asyncio.Lock()
     _index_price_index: int
     _mark_price_index: int
     _symbol_index: int
@@ -81,7 +78,7 @@ class PhemexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 "bids": snapshot_response[self._diff_messages_queue_key]["bids"],
                 "asks": snapshot_response[self._diff_messages_queue_key]["asks"],
             },
-            timestamp=snapshot_response["timestamp"] // 1e9,
+            timestamp=snapshot_response["timestamp"] * 1e-9,
         )
         return snapshot_msg
 
