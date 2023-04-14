@@ -29,11 +29,6 @@ def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> s
     return public_rest_url(path_url=path_url, domain=domain)
 
 
-def rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN):
-    base_url = CONSTANTS.BASE_URLS[domain]
-    return base_url + path_url
-
-
 def wss_url(endpoint: str, domain: str = CONSTANTS.DEFAULT_DOMAIN):
     base_ws_url = CONSTANTS.WSS_URLS[domain]
     return base_ws_url + endpoint
