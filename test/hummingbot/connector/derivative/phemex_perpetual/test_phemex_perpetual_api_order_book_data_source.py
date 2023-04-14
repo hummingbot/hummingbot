@@ -3,7 +3,7 @@ import json
 import re
 import unittest
 from decimal import Decimal
-from typing import Any, Awaitable, Dict, List, Mapping, Optional
+from typing import Any, Awaitable, Dict, List
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses.core import aioresponses
@@ -17,94 +17,11 @@ from hummingbot.connector.derivative.phemex_perpetual.phemex_perpetual_api_order
     PhemexPerpetualAPIOrderBookDataSource,
 )
 from hummingbot.connector.derivative.phemex_perpetual.phemex_perpetual_derivative import PhemexPerpetualDerivative
-from hummingbot.connector.derivative.phemex_perpetual.phemex_perpetual_web_utils import build_api_factory
-
-# from hummingbot.connector.derivative.phemex_perpetual.phemex_perpetual_derivative import PhemexPerpetualDerivative
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.data_type.funding_info import FundingInfo
+from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod
-
-
-# To-do: cleanup when main exchage class is done
-class MockExchange:
-    client_config_map = ClientConfigAdapter(ClientConfigMap())
-    _time_synchronizer = TimeSynchronizer()
-    _throttler = AsyncThrottler(
-        rate_limits=CONSTANTS.RATE_LIMITS, limits_share_percentage=client_config_map.rate_limits_share_pct
-    )
-
-    def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
-        return {"COINALPHA-HBOT": 123.456}
-
-    _web_assistants_factory = build_api_factory(
-        throttler=_throttler,
-        time_synchronizer=_time_synchronizer,
-    )
-
-    def _set_trading_pair_symbol_map(self, trading_pair_and_symbol_map: Optional[Mapping[str, str]]):
-        self._trading_pair_symbol_map = trading_pair_and_symbol_map
-        self._trading_pair_symbol_map["COINALPHAHBOT"] = "COINALPHA-HBOT"
-
-    async def exchange_symbol_associated_to_pair(self, trading_pair: str) -> str:
-        return "COINALPHAHBOT"
-
-    async def trading_pair_associated_to_exchange_symbol(
-        self,
-        symbol: str,
-    ) -> str:
-        return "COINALPHA-HBOT"
-
-    async def _api_get(self, *args, **kwargs):
-        kwargs["method"] = RESTMethod.GET
-        return await self._api_request(*args, **kwargs)
-
-    async def _api_request(
-        self,
-        path_url,
-        overwrite_url: Optional[str] = None,
-        method: RESTMethod = RESTMethod.GET,
-        params: Optional[Dict[str, Any]] = None,
-        data: Optional[Dict[str, Any]] = None,
-        is_auth_required: bool = False,
-        return_err: bool = False,
-        limit_id: Optional[str] = None,
-        **kwargs,
-    ) -> Dict[str, Any]:
-
-        last_exception = None
-        rest_assistant = await self._web_assistants_factory.get_rest_assistant()
-
-        url = overwrite_url or await self._api_request_url(path_url=path_url, is_auth_required=is_auth_required)
-
-        for _ in range(2):
-            try:
-                request_result = await rest_assistant.execute_request(
-                    url=url,
-                    params=params,
-                    data=data,
-                    method=method,
-                    is_auth_required=is_auth_required,
-                    return_err=return_err,
-                    throttler_limit_id=limit_id if limit_id else path_url,
-                )
-
-                return request_result
-            except IOError:
-                raise
-
-        # Failed even after the last retry
-        raise last_exception
-
-    async def _api_request_url(self, path_url: str, is_auth_required: bool = False) -> str:
-        return (
-            CONSTANTS.TESTNET_BASE_URL + path_url
-            if path_url != "/public/time"
-            else "https://api.phemex.com/public/time"
-        )
 
 
 class PhemexPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
@@ -391,6 +308,62 @@ class PhemexPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(result.index_price, Decimal(mock_response["result"]["indexPriceRp"]))
         self.assertEqual(result.mark_price, Decimal(mock_response["result"]["markPriceRp"]))
         self.assertEqual(result.rate, Decimal(mock_response["result"]["fundingRateRr"]))
+
+    def test_listen_for_funding_info_successful(self):
+        funding_info_event = {
+            "data": [
+                [
+                    self.ex_trading_pair,
+                    "0.6597",
+                    "0.6887",
+                    "0.6149",
+                    "0.6429",
+                    "8416322",
+                    "5502514.8318",
+                    "291407",
+                    "0.6418",
+                    "0.642054889",
+                    "0.0001",
+                    "0.0001",
+                ]
+            ],
+            "fields": [
+                "symbol",
+                "openRp",
+                "highRp",
+                "lowRp",
+                "lastRp",
+                "volumeRq",
+                "turnoverRv",
+                "openInterestRv",
+                "indexRp",
+                "markRp",
+                "fundingRateRr",
+                "predFundingRateRr",
+            ],
+            "method": "perp_market24h_pack_p.update",
+            "timestamp": 1681507081332818939,
+            "type": "snapshot",
+        }
+
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [funding_info_event, asyncio.CancelledError()]
+        self.data_source._message_queue[self.data_source._funding_info_messages_queue_key] = mock_queue
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_funding_info(msg_queue))
+
+        msg: FundingInfoUpdate = self.async_run_with_timeout(msg_queue.get())
+        funding_update = funding_info_event["data"][0]
+
+        self.assertEqual(self.trading_pair, msg.trading_pair)
+        expected_index_price = Decimal(str(funding_update[8]))
+        self.assertEqual(expected_index_price, msg.index_price)
+        expected_mark_price = Decimal(str(funding_update[9]))
+        self.assertEqual(expected_mark_price, msg.mark_price)
+        expected_rate = Decimal(funding_update[10])
+        self.assertEqual(expected_rate, msg.rate)
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")

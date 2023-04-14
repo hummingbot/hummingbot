@@ -1,6 +1,7 @@
 import asyncio
+from collections import defaultdict
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from async_timeout import timeout
 
@@ -259,13 +260,13 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
         if self._position_mode is PositionMode.ONEWAY:
-            posSide = "Merged"
+            pos_side = "Merged"
         else:
             if tracked_order.position is PositionAction.OPEN:
-                posSide = "Long" if tracked_order.trade_type is TradeType.BUY else "Short"
+                pos_side = "Long" if tracked_order.trade_type is TradeType.BUY else "Short"
             else:
-                posSide = "Short" if tracked_order.trade_type is TradeType.BUY else "Long"
-        api_params = {"clOrdID": order_id, "symbol": symbol, "posSide": posSide}
+                pos_side = "Short" if tracked_order.trade_type is TradeType.BUY else "Long"
+        api_params = {"clOrdID": order_id, "symbol": symbol, "posSide": pos_side}
         cancel_result = await self._api_delete(
             path_url=CONSTANTS.CANCEL_ORDERS, params=api_params, is_auth_required=True
         )
@@ -343,17 +344,16 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
 
         if len(orders) > 0:
             orders_by_id = dict()
-            min_order_creation_time = self.current_timestamp
+            min_order_creation_time = defaultdict(lambda: self.current_timestamp)
             trading_pairs = set()
-
             for order in orders:
                 orders_by_id[order.client_order_id] = order
-                trading_pairs.add(order.trading_pair)
-                min_order_creation_time = min(min_order_creation_time, order.creation_timestamp)
-
+                trading_pair = order.trading_pair
+                trading_pairs.add(trading_pair)
+                min_order_creation_time[trading_pair] = min(min_order_creation_time[trading_pair], order.creation_timestamp)
             tasks = [
                 safe_ensure_future(
-                    self._all_trades_details(trading_pair=trading_pair, start_time=min_order_creation_time)
+                    self._all_trades_details(trading_pair=trading_pair, start_time=min_order_creation_time[trading_pair])
                 )
                 for trading_pair in trading_pairs
             ]
@@ -414,20 +414,6 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
             exchange_order_id=order_info["orderId"],
         )
         return order_update
-
-    async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
-        while True:
-            try:
-                yield await self._user_stream_tracker.user_stream.get()
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().network(
-                    "Unknown error. Retrying after 1 seconds.",
-                    exc_info=True,
-                    app_warning_msg="Could not fetch user events from Phemex. Check API key and network connection.",
-                )
-                await self._sleep(1.0)
 
     async def _user_stream_event_listener(self):
         """
