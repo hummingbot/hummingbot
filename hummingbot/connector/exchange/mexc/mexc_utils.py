@@ -75,5 +75,9 @@ def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
     return hb_trading_pair.replace("-", "_")
 
 
+def convert_to_mexcV3_trading_pair(hb_trading_pair: str) -> str:
+    return hb_trading_pair.replace("-", "")
+
+
 def ws_order_status_convert_to_str(ws_order_status: int) -> str:
     return ws_status[ws_order_status]

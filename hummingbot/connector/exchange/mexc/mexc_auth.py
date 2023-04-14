@@ -3,13 +3,10 @@
 import base64
 import hashlib
 import hmac
-from typing import (
-    Any,
-    Dict, Optional
-)
+from typing import Any, Dict, Optional
+from urllib.parse import unquote, urlencode
 
 from hummingbot.connector.exchange.mexc import mexc_utils
-from urllib.parse import urlencode, unquote
 
 
 class MexcAuth:
@@ -50,12 +47,37 @@ class MexcAuth:
             path_url = path_url + '?' + urlencode(params)
         return path_url
 
+    def _signV3(self, method, path, original_params=None):
+        if original_params:
+            original_params = urlencode(original_params)
+            to_sign = "{}&timestamp={}".format(original_params, str(mexc_utils.milliseconds()))
+        else:
+            to_sign = "timestamp={}".format(str(mexc_utils.milliseconds()))
+        signature = hmac.new(self.secret_key.encode('utf-8'), to_sign.encode('utf-8'), hashlib.sha256).hexdigest()
+        return signature
+
+    def add_auth_to_paramsV3(self,
+                             method: str,
+                             path_url: str,
+                             params: Optional[Dict[str, Any]] = {},
+                             is_auth_required: bool = False
+                             ) -> Dict[str, Any]:
+        uppercase_method = method.upper()
+        params = params if params else dict()
+        params['signature'] = self._signV3(uppercase_method, path_url, params)
+        params['timestamp'] = str(mexc_utils.milliseconds())
+        path_url = path_url + '?' + urlencode(params)
+        return path_url
+
     def get_signature(self, operation, timestamp) -> str:
         auth = operation + timestamp + self.api_key
 
         _hash = hmac.new(self.secret_key.encode(), auth.encode(), hashlib.sha256).digest()
         signature = base64.b64encode(_hash).decode()
         return signature
+
+    def get_apikey(self):
+        return self.api_key
 
     def generate_ws_auth(self, operation: str):
         # timestamp = str(int(time.time()))

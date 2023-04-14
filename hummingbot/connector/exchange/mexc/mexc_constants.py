@@ -1,9 +1,10 @@
-from hummingbot.core.api_throttler.data_types import RateLimit, LinkedLimitWeightPair
+from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 
 EXCHANGE_NAME = "mexc"
 # URLs
 
 MEXC_BASE_URL = "https://www.mexc.com"
+MEXC_V3_URL = "https://api.mexc.com"
 
 MEXC_SYMBOL_URL = '/open/api/v2/market/symbols'
 MEXC_TICKERS_URL = '/open/api/v2/market/ticker'
@@ -12,10 +13,11 @@ MEXC_PRICE_URL = '/open/api/v2/market/ticker?symbol={trading_pair}'
 MEXC_PING_URL = '/open/api/v2/common/ping'
 
 
-MEXC_PLACE_ORDER = "/open/api/v2/order/place"
+MEXC_PLACE_ORDER = "/api/v3/order"
 MEXC_ORDER_DETAILS_URL = '/open/api/v2/order/query'
-MEXC_ORDER_CANCEL = '/open/api/v2/order/cancel'
-MEXC_BATCH_ORDER_CANCEL = '/open/api/v2/order/cancel'
+MEXC_ORDER_CANCEL = '/api/v3/order'
+MEXC_BATCH_ORDER_CANCEL = '/api/v3/order'
+MEXC_ORDER_CANCEL_ALL = '/api/v3/openOrders'
 MEXC_BALANCE_URL = '/open/api/v2/account/info'
 MEXC_DEAL_DETAIL = '/open/api/v2/order/deal_detail'
 
@@ -88,6 +90,12 @@ RATE_LIMITS = [
     ),
     RateLimit(
         limit_id=MEXC_BATCH_ORDER_CANCEL,
+        limit=HTTP_LIMIT,
+        time_interval=MINUTE,
+        linked_limits=[LinkedLimitWeightPair(HTTP_ENDPOINTS_LIMIT_ID)],
+    ),
+    RateLimit(
+        limit_id=MEXC_ORDER_CANCEL_ALL,
         limit=HTTP_LIMIT,
         time_interval=MINUTE,
         linked_limits=[LinkedLimitWeightPair(HTTP_ENDPOINTS_LIMIT_ID)],

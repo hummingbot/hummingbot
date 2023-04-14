@@ -2,7 +2,7 @@ import asyncio
 import logging
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
-from urllib.parse import quote, urljoin
+from urllib.parse import urljoin
 
 import aiohttp
 import ujson
@@ -15,7 +15,7 @@ from hummingbot.connector.exchange.mexc.mexc_order_book_tracker import MexcOrder
 from hummingbot.connector.exchange.mexc.mexc_user_stream_tracker import MexcUserStreamTracker
 from hummingbot.connector.exchange.mexc.mexc_utils import (
     convert_from_exchange_trading_pair,
-    convert_to_exchange_trading_pair,
+    convert_to_mexcV3_trading_pair,
     num_to_increment,
     ws_order_status_convert_to_str,
 )
@@ -256,6 +256,43 @@ class MexcExchange(ExchangeBase):
         limit_id = limit_id or path_url
         path_url = self._mexc_auth.add_auth_to_params(method, path_url, params, is_auth_required)
         url = urljoin(CONSTANTS.MEXC_BASE_URL, path_url)
+        async with self._throttler.execute_task(limit_id):
+            response_core = await client.request(
+                method=method.upper(),
+                url=url,
+                headers=headers,
+                # params=params if params else None, #mexc`s params  is already in the url
+                data=text_data,
+            )
+
+        # async with response_core as response:
+        if response_core.status != 200:
+            raise IOError(f"Error request from {url}. Response: {await response_core.json()}.")
+        try:
+            parsed_response = await response_core.json()
+            return parsed_response
+        except Exception as ex:
+            raise IOError(f"Error parsing data from {url}." + repr(ex))
+
+    async def _apiV3_request(self,
+                             method: str,
+                             path_url: str,
+                             params: Optional[Dict[str, Any]] = {},
+                             data={},
+                             is_auth_required: bool = False,
+                             limit_id: Optional[str] = None) -> Dict[str, Any]:
+
+        headers = {
+            "Content-Type": "application/json",
+            "x-mexc-apikey": self._mexc_auth.get_apikey()
+        }
+        if path_url in CONSTANTS.MEXC_PLACE_ORDER:
+            headers.update({'source': 'HUMBOT'})
+        client = await self._http_client()
+        text_data = ujson.dumps(data) if data else None
+        limit_id = limit_id or path_url
+        path_url = self._mexc_auth.add_auth_to_paramsV3(method, path_url, params, is_auth_required)
+        url = urljoin(CONSTANTS.MEXC_V3_URL, path_url)
         async with self._throttler.execute_task(limit_id):
             response_core = await client.request(
                 method=method.upper(),
@@ -608,28 +645,27 @@ class MexcExchange(ExchangeBase):
                           price: Decimal) -> str:
 
         if order_type is OrderType.LIMIT:
-            order_type_str = "LIMIT_ORDER"
+            order_type_str = "LIMIT"
         elif order_type is OrderType.LIMIT_MAKER:
-            order_type_str = "POST_ONLY"
+            order_type_str = "LIMIT_MAKER"
 
-        data = {
-            'client_order_id': order_id,
-            'order_type': order_type_str,
-            'trade_type': "BID" if is_buy else "ASK",
-            'symbol': convert_to_exchange_trading_pair(trading_pair),
+        params = {
+            'newClientOrderId': order_id,
+            'type': order_type_str,
+            'side': "BUY" if is_buy else "SELL",
+            'symbol': convert_to_mexcV3_trading_pair(trading_pair),
             'quantity': str(amount),
             'price': str(price)
         }
 
-        exchange_order_id = await self._api_request(
+        exchange_order_id = await self._apiV3_request(
             "POST",
             path_url=CONSTANTS.MEXC_PLACE_ORDER,
-            params={},
-            data=data,
+            params=params,
             is_auth_required=True
         )
 
-        return str(exchange_order_id.get('data'))
+        return str(exchange_order_id['orderId'])
 
     async def execute_buy(self,
                           order_id: str,
@@ -782,12 +818,13 @@ class MexcExchange(ExchangeBase):
                 self.logger().network(f"Failed to cancel order - {client_order_id}. Order not found.")
                 return
             params = {
-                "client_order_ids": client_order_id,
+                'symbol': convert_to_mexcV3_trading_pair(trading_pair),
+                "origClientOrderId": client_order_id
             }
-            response = await self._api_request("DELETE", path_url=CONSTANTS.MEXC_ORDER_CANCEL, params=params,
-                                               is_auth_required=True)
+            response = await self._apiV3_request("DELETE", path_url=CONSTANTS.MEXC_ORDER_CANCEL, params=params,
+                                                 is_auth_required=True)
 
-            if not response['code'] == 200:
+            if 'code' in response.keys() and response['code'] == -2011:
                 raise MexcAPIError("Order could not be canceled")
 
         except MexcAPIError as ex:
@@ -826,19 +863,26 @@ class MexcExchange(ExchangeBase):
                 self.logger().debug(
                     f"cancel_order_ids {this_turn_cancel_order_ids} orders_by_trading_pair[trading_pair]")
                 params = {
-                    'order_ids': quote(','.join([o for o in this_turn_cancel_order_ids])),
+                    'symbol': convert_to_mexcV3_trading_pair(trading_pair)
                 }
 
                 cancellation_results = []
                 try:
-                    cancel_all_results = await self._api_request(
+                    response = await self._apiV3_request(
                         "DELETE",
-                        path_url=CONSTANTS.MEXC_ORDER_CANCEL,
+                        path_url=CONSTANTS.MEXC_ORDER_CANCEL_ALL,
                         params=params,
                         is_auth_required=True
                     )
 
-                    for order_result_client_order_id, order_result_value in cancel_all_results['data'].items():
+                    cancel_all_results = {}
+                    for i in range(len(response)):
+                        orderId = response[i]['orderId']
+                        if response[i]['status'] == 'NEW':
+                            status = 'success'
+                        cancel_all_results.update({f"{orderId}": status})
+
+                    for order_result_client_order_id, order_result_value in cancel_all_results.items():
                         for o in orders_by_trading_pair[trading_pair]:
                             if o.client_order_id == order_result_client_order_id:
                                 result_bool = True if order_result_value == "invalid order state" or order_result_value == "success" else False
