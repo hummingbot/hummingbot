@@ -314,9 +314,13 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
                 api_params["posSide"] = "Short" if trade_type is TradeType.BUY else "Long"
 
         order_result = await self._api_post(path_url=CONSTANTS.PLACE_ORDERS, data=api_params, is_auth_required=True)
-        o_id = str(order_result["data"]["orderID"])
-        transact_time = order_result["data"]["actionTimeNs"] * 1e-9
-        return o_id, transact_time
+        code = order_result.get("code")
+        if code == 0 and order_result.get("data", {}).get("orderID", None) is not None:
+            o_id = str(order_result["data"]["orderID"])
+            transact_time = order_result["data"]["actionTimeNs"] * 1e-9
+            return o_id, transact_time
+        else:
+            raise IOError(f"{code} - {order_result.get('msg')}")
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         # Not required in Phemex because it reimplements _update_orders_fills
