@@ -32,7 +32,7 @@ class PhemexPerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
         url = web_utils.wss_url(CONSTANTS.PRIVATE_WS_ENDPOINT, self._domain)
 
         async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WSS_CONNECTION_LIMIT_ID):
-            await ws.connect(ws_url=url, ping_timeout=CONSTANTS.WS_HEARTBEAT)
+            await ws.connect(ws_url=url, ping_timeout=CONSTANTS.WS_HEARTBEAT)  # protocol level ping used because it is not enforced at the application level
 
         await self._authenticate_ws(ws)
 
