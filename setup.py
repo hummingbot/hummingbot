@@ -138,8 +138,9 @@ def main():
 
     cythonized_pyx = cythonize(Extension("*",
                                          sources=["hummingbot/**/*.pyx"],
-                                         language="c++",
-                                         define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")]),
+                                         # This is no longer needed with the prod version of Cython
+                                         # define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
+                                         language="c++"),
                                compiler_directives=compiler_directives, **cython_kwargs)
 
     setup(name="hummingbot",

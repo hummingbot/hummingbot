@@ -32,16 +32,18 @@ elif uname | egrep -qe "MINGW64"; then
 fi
 
 VALID_ENV_NAME=$(grep  'name:' ${ENV_FILE} | tail -n1 | awk '{ print $2}')
-read -p "Enter environment name [${VALID_ENV_NAME}]: " RESPONSE
+read -t 30 -p "Enter environment name [${VALID_ENV_NAME}](30s wait): " RESPONSE
 if [ "${RESPONSE}_" == "_" ]; then
+    echo ""
+    echo "  '-> Using default environment name: ${VALID_ENV_NAME}"
     RESPONSE=${VALID_ENV_NAME}
 fi
 
 ENV_NAME=${RESPONSE}
-echo    "   Attempting to remove: ${ENV_NAME}"
+echo    "  '-> Attempting to remove: ${ENV_NAME}"
 
 if ${CONDA_EXE} env list | awk '{ print $1 }' | egrep -e "^${ENV_NAME}$" 1>/dev/null; then
-    echo "   Environment found."
+    echo "  '-> Environment found."
     echo "       Environment .yml: ${ENV_FILE}"
     VALID_ENV_NAME=$(grep  'name:' ${ENV_FILE} | tail -n1 | awk '{ print $2}')
     echo "          .yml env name: ${VALID_ENV_NAME}"
@@ -53,8 +55,9 @@ if ${CONDA_EXE} env list | awk '{ print $1 }' | egrep -e "^${ENV_NAME}$" 1>/dev/
         echo "       ${VALID_ENV_NAME}"
     fi
 
-    read -p "Do you want to continue? [y/N]: " RESPONSE
+    read -t 10 -p "Do you want to continue? [y/N]: " RESPONSE
     if [ "${RESPONSE}_" == "_" ] || [ "${RESPONSE}" != "y" ]; then
+        echo ""
         echo "Aborting."
         exit 1
     fi
