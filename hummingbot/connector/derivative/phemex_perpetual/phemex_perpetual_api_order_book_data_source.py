@@ -2,7 +2,7 @@ import asyncio
 import time
 from collections import defaultdict, namedtuple
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import hummingbot.connector.derivative.phemex_perpetual.phemex_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.phemex_perpetual.phemex_perpetual_web_utils as web_utils
@@ -13,7 +13,6 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
-from hummingbot.logger import HummingbotLogger
 
 if TYPE_CHECKING:
     from hummingbot.connector.derivative.phemex_perpetual.phemex_perpetual_derivative import PhemexPerpetualDerivative
