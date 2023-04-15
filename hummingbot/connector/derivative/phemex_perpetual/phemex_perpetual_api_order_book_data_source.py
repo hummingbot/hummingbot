@@ -22,11 +22,6 @@ TradeStructure = namedtuple("Trade", "timestamp side price amount")
 
 
 class PhemexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
-    _index_price_index: int
-    _mark_price_index: int
-    _symbol_index: int
-    _funding_rate_index: int
-
     def __init__(
         self,
         trading_pairs: List[str],
@@ -44,6 +39,7 @@ class PhemexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._diff_messages_queue_key = "orderbook_p"
         self._funding_info_messages_queue_key = "perp_market24h_pack_p.update"
         self._snapshot_messages_queue_key = "snapshot"
+        self.pong_received_event = asyncio.Event()
 
     async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
@@ -127,6 +123,8 @@ class PhemexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             channel = self._trade_messages_queue_key
         elif event_message.get("method", None) == self._funding_info_messages_queue_key:
             channel = self._funding_info_messages_queue_key
+        elif event_message.get("result", None) == "pong":
+            self.pong_received_event.set()
         return channel
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
@@ -185,22 +183,22 @@ class PhemexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     async def _parse_funding_info_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         if raw_message["type"] == "snapshot":
             fields = raw_message.get("fields", [])
-            self._index_price_index = fields.index("indexRp")
-            self._mark_price_index = fields.index("markRp")
-            self._symbol_index = fields.index("symbol")
-            self._funding_rate_index = fields.index("fundingRateRr")
+            self.index_price_index = fields.index("indexRp")
+            self.mark_price_index = fields.index("markRp")
+            self.symbol_index = fields.index("symbol")
+            self.funding_rate_index = fields.index("fundingRateRr")
 
         for data in raw_message.get("data", []):
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(data[self._symbol_index])
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(data[self.symbol_index])
 
             if trading_pair not in self._trading_pairs:
                 continue
             funding_info = FundingInfoUpdate(
                 trading_pair=trading_pair,
-                index_price=Decimal(data[self._index_price_index]),
-                mark_price=Decimal(data[self._mark_price_index]),
+                index_price=Decimal(data[self.index_price_index]),
+                mark_price=Decimal(data[self.mark_price_index]),
                 next_funding_utc_timestamp=self._next_funding_time(),
-                rate=Decimal(data[self._funding_rate_index]),
+                rate=Decimal(data[self.funding_rate_index]),
             )
 
             message_queue.put_nowait(funding_info)
@@ -219,8 +217,18 @@ class PhemexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         return ((time.time() // 28800) + 1) * 28800
 
     async def ping_loop(self, ws: WSAssistant):
+        count = 0
         while ws._connection.connected:
             ping_request: WSJSONRequest = WSJSONRequest({"id": 0, "method": "server.ping", "params": []})
             async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WSS_MESSAGE_LIMIT_ID):
                 await ws.send(ping_request)
+            try:
+                await asyncio.wait_for(self._pong_received_event.wait(), timeout=5)
+                self.pong_received_event.clear()
+                count = 0
+            except asyncio.TimeoutError:
+                count += 1
+            finally:
+                if count == 3:
+                    await ws._connection.disconnect()
             await self._sleep(5.0)
