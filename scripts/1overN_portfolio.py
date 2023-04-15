@@ -1,30 +1,35 @@
 from decimal import Decimal
 
-from hummingbot.client.hummingbot_application import HummingbotApplication
+from hummingbot.core.data_type.common import OrderType
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
-
-EXCHANGE = "binance_paper_trade"
 
 
 class OneOverNPortfolio(ScriptStrategyBase):
     """
-    This strategy aims to create a 1/N cryptocurrency portfolio, providing perfect diversification without parametrization and giving a reasonable baseline performance.
+    This strategy aims to create a 1/N cryptocurrency portfolio, providing perfect diversification without
+    parametrization and giving a reasonable baseline performance.
     """
-
+    exchange = "binance_paper_trade"
     base_currency = "USDT"
     quote_currencies = ["BTC", "ETH", "ONE"]
     pairs = {f"{currency}-USDT" for currency in quote_currencies}
 
     #: Define markets to instruct Hummingbot to create connectors on the exchanges and markets you need
-    markets = {EXCHANGE: pairs}
+    markets = {exchange: pairs}
 
     def on_tick(self):
-        connector = self.connectors[EXCHANGE]
+        # TODO: checking for active orders works ONLY with LIMIT orders. Ask why. Find a better solution to the problem
+        #       of atomic transactions on exchanges.
+        if 0 < len(self.get_active_orders(connector_name=self.exchange)):
+            self.logger().info("Wait until all active orders have completed...")
+            return
+
+        connector = self.connectors[self.exchange]
         #: check current balance of coins
         balance_df = self.get_balance_df()
         #: Filter by exchange "binance_paper_trade"
-        exchange_balance_df = balance_df.loc[balance_df["Exchange"] == EXCHANGE]
-        #: Create a dictionary with asset name as key and total and available balance measuered in quote currencies
+        exchange_balance_df = balance_df.loc[balance_df["Exchange"] == self.exchange]
+        #: Create a dictionary with asset name as key and total and available balance measured in quote currencies
         quote_balances = {}
         for _, row in exchange_balance_df.iterrows():
             asset_name = row["Asset"]
@@ -46,6 +51,7 @@ class OneOverNPortfolio(ScriptStrategyBase):
             self.logger().info(
                 f"Available Balance {asset} * {current_price} {self.base_currency} = {available_balance} {self.base_currency}")
         #: Sum the available balances
+        # TODO: add base_currency balance correctly so that the full amount can be traded and it is not stuck when trades are canceled etc.
         total_available_balance = sum(balances[1] for balances in base_balances.values())
         self.logger().info(f"TOT ({self.base_currency}): {total_available_balance}")
         self.logger().info(
@@ -66,10 +72,13 @@ class OneOverNPortfolio(ScriptStrategyBase):
             self.logger().info(f"Missing from 1/N {asset}: {deficit * 100}%")
 
         # Calculate the absolute differences in base currency
+        # TODO: if we have any assets in base currency left in the bank we need to trade it too. This can easily happen
+        #       when orders get canceled. By doing so we can also fund the fonds with new cash in that way.
         differences_in_base_currency = {}
         for asset, deficit in differences_dict.items():
-            trading_pair = f"{asset}-{self.base_currency}"
-            # TODO: take the bid when selling and ask when buying?
+            # TODO: take the bid when selling and ask when buying? generally take the price from the rate oracle
+            #  instead from the exchange? this would imply (potentially) more price stability across exchanges if the
+            #  source is adjusted
             current_price = base_balances[asset][2]
             difference_in_base_currency = deficit / current_price
             differences_in_base_currency[asset] = difference_in_base_currency
@@ -77,8 +86,26 @@ class OneOverNPortfolio(ScriptStrategyBase):
         differences_in_quote_asset = {}
         for asset, deficit in differences_in_base_currency.items():
             differences_in_quote_asset[asset] = deficit * total_available_balance
-        for asset, deficit in differences_in_quote_asset.items():
-            self.logger().info(f" Need to Trade {asset}: {deficit}")
-        HummingbotApplication.main_application().stop()
+        #: Create an ordered list of asset-deficit pairs starting from the smallest negative deficit ending with the
+        #  biggest positive deficit
+        ordered_trades = sorted(differences_in_quote_asset.items(), key=lambda x: x[1])
+        #: log the planned ordered trades with sequence number
+        for i, (asset, deficit) in enumerate(ordered_trades):
+            trade_number = i + 1
+            trade_type = "sell" if deficit < Decimal('0') else "buy"
+            self.logger().info(f"Trade {trade_number}: {trade_type} {asset}: {deficit}")
+        for i, (asset, deficit) in enumerate(ordered_trades):
+            trade_is_buy = True if deficit > Decimal('0') else False
+            if trade_is_buy:
+                self.buy(connector_name=self.exchange, trading_pair=f"{asset}-{self.base_currency}",
+                         amount=abs(deficit), order_type=OrderType.LIMIT, price=base_balances[asset][2])
+            else:
+                self.sell(connector_name=self.exchange, trading_pair=f"{asset}-{self.base_currency}",
+                          amount=abs(deficit), order_type=OrderType.LIMIT, price=base_balances[asset][2])
         return
+
+    def cancel_all_orders(self):
+        for order in self.get_active_orders(connector_name=self.exchange):
+            self.cancel(self.exchange, order.trading_pair, order.client_order_id)
+
     # TODO: def format status def format_status(self) -> str:
