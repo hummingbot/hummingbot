@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 EXCHANGE = "binance_paper_trade"
@@ -16,49 +17,47 @@ class OneOverNPortfolio(ScriptStrategyBase):
 
     #: Define markets to instruct Hummingbot to create connectors on the exchanges and markets you need
     markets = {EXCHANGE: pairs}
-    is_off = False
 
     def on_tick(self):
-        if self.is_off:
-            return
         connector = self.connectors[EXCHANGE]
         #: check current balance of coins
         balance_df = self.get_balance_df()
         #: Filter by exchange "binance_paper_trade"
         exchange_balance_df = balance_df.loc[balance_df["Exchange"] == EXCHANGE]
-        #: Create a dictionary with asset name as key and total and available balance as tuple value
-        assets_dict = {}
+        #: Create a dictionary with asset name as key and total and available balance measuered in quote currencies
+        quote_balances = {}
         for _, row in exchange_balance_df.iterrows():
             asset_name = row["Asset"]
             if asset_name in self.quote_currencies:
                 total_balance = Decimal(row["Total Balance"])
                 available_balance = Decimal(row["Available Balance"])
-                assets_dict[asset_name] = (total_balance, available_balance)
+                quote_balances[asset_name] = (total_balance, available_balance)
                 self.logger().info(f"Available Balance in pieces: {available_balance} {asset_name}")
 
-        #: Multiply each balance with the current price in USDT of the asset
-        for asset, balances in assets_dict.items():
+        #: Multiply each balance with the current price to get the balances in the base currency
+        base_balances = {}
+        for asset, balances in quote_balances.items():
             trading_pair = f"{asset}-{self.base_currency}"
             # TODO: should I put the amount to buy sell to get a orderbook conform value?
             current_price = Decimal(connector.get_price(trading_pair, is_buy=False))
             total_balance = balances[0] * current_price
             available_balance = balances[1] * current_price
-            assets_dict[asset] = (total_balance, available_balance)
+            base_balances[asset] = (total_balance, available_balance, current_price)
             self.logger().info(
                 f"Available Balance {asset} * {current_price} {self.base_currency} = {available_balance} {self.base_currency}")
         #: Sum the available balances
-        total_available_balance = sum(balances[1] for balances in assets_dict.values())
+        total_available_balance = sum(balances[1] for balances in base_balances.values())
         self.logger().info(f"TOT ({self.base_currency}): {total_available_balance}")
         self.logger().info(
             f"TOT/{len(self.quote_currencies)} ({self.base_currency}): {total_available_balance / len(self.quote_currencies)}")
         #: Calculate the percentage of each available_balance over total_available_balance
         percentages_dict = {}
-        for asset, balances in assets_dict.items():
+        for asset, balances in base_balances.items():
             available_balance = balances[1]
             percentage = (available_balance / total_available_balance)
             percentages_dict[asset] = percentage
             self.logger().info(f"Total share {asset}: {percentage * 100}%")
-        number_of_assets = Decimal(len(assets_dict))
+        number_of_assets = Decimal(len(base_balances))
         #: Calculate the difference between each percentage and 1/number_of_assets
         differences_dict = {}
         for asset, percentage in percentages_dict.items():
@@ -80,6 +79,6 @@ class OneOverNPortfolio(ScriptStrategyBase):
             differences_in_quote_asset[asset] = deficit * total_available_balance
         for asset, deficit in differences_in_quote_asset.items():
             self.logger().info(f" Need to Trade {asset}: {deficit}")
-        self.is_off = True
+        HummingbotApplication.main_application().stop()
         return
     # TODO: def format status def format_status(self) -> str:
