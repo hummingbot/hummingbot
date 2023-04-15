@@ -39,7 +39,7 @@ class OneOverNPortfolio(ScriptStrategyBase):
         for asset, balances in quote_balances.items():
             trading_pair = f"{asset}-{self.base_currency}"
             # TODO: should I put the amount to buy sell to get a orderbook conform value?
-            current_price = Decimal(connector.get_price(trading_pair, is_buy=False))
+            current_price = Decimal(connector.get_mid_price(trading_pair))
             total_balance = balances[0] * current_price
             available_balance = balances[1] * current_price
             base_balances[asset] = (total_balance, available_balance, current_price)
@@ -69,8 +69,8 @@ class OneOverNPortfolio(ScriptStrategyBase):
         differences_in_base_currency = {}
         for asset, deficit in differences_dict.items():
             trading_pair = f"{asset}-{self.base_currency}"
-            # TODO: take the bid when selling and ask when buying? get_mid_price seems not available anymore?
-            current_price = Decimal(connector.get_price(trading_pair, is_buy=True if deficit < 0 else False))
+            # TODO: take the bid when selling and ask when buying?
+            current_price = base_balances[asset][2]
             difference_in_base_currency = deficit / current_price
             differences_in_base_currency[asset] = difference_in_base_currency
         #: Calculate the difference in pieces of each quote asset
