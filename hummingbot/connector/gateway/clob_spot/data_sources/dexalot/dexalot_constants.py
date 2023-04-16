@@ -42,7 +42,7 @@ WS_AUTH_RATE_LIMIT_ID = "dexalotWSAuthRateLimitID"
 WS_SUB_RATE_LIMIT_ID = "dexalotWSSubRateLimitID"
 
 RATE_LIMITS = [
-    RateLimit(limit_id=GLOBAL_RATE_LIMIT_ID, limit=5, time_interval=3),
+    RateLimit(limit_id=GLOBAL_RATE_LIMIT_ID, limit=10, time_interval=6),
     RateLimit(
         limit_id=ORDERS_RATE_LIMIT_ID,
         limit=sys.maxsize,
