@@ -31,21 +31,38 @@ jobs:
     needs: run_client
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        arch: [armv6l, armv7l, aarch64]
+        target: [zero_raspbian, zero_raspios, zero_dietpi, zero2_raspios, zero2_dietpi, zero2_64_raspios, zero2_64_dietpi]
         include:
-        - arch: armv6l
+        - target: zero_raspbian
           cpu: arm1176
+          cpu_info: cpuinfo/raspberrypi_zero_w
+          base_image: raspbian_lite:latest
+        - target: zero_raspios
+          cpu: arm1176
+          cpu_info: cpuinfo/raspberrypi_zero_w
           base_image: raspios_lite:latest
-          cpu_info: raspberrypi_zero_w
-        - arch: armv7l
+        - target: zero_dietpi
+          cpu: arm1176
+          cpu_info: cpuinfo/raspberrypi_zero_w
+          base_image: dietpi:rpi_armv6_bullseye
+        - target: zero2_raspios
           cpu: cortex-a7
+          cpu_info: cpuinfo/raspberrypi_zero2_w
           base_image: raspios_lite:latest
-          cpu_info: raspberrypi_3b
-        - arch: aarch64
+        - target: zero2_dietpi
+          cpu: cortex-a7
+          cpu_info: cpuinfo/raspberrypi_zero2_w
+          base_image: dietpi:rpi_armv7_bullseye
+        - target: zero2_64_raspios
           cpu: cortex-a53
+          cpu_info: cpuinfo/raspberrypi_zero2_w_arm64
           base_image: raspios_lite_arm64:latest
-          cpu_info: raspberrypi_zero2_w_arm64_w
+        - target: zero2_64_dietpi
+          cpu: cortex-a53
+          cpu_info: cpuinfo/raspberrypi_zero2_w_arm64
+          base_image: dietpi:rpi_armv8_bullseye
     if: github.event.pull_request.draft == false && needs.run_client.outputs.is_set == 'true'
 
     defaults:
@@ -61,8 +78,9 @@ jobs:
           base_image: ${{ matrix.base_image }}
           cpu: ${{ matrix.cpu }}
           cpu_info: ${{ matrix.cpu_info }}
+          bind_mount_repository: true
           commands: |
-              test `uname -m` = ${{ matrix.arch }}
+              test `uname -m` = ${{ matrix.target }}
               grep Model /proc/cpuinfo
 
       # Use cache's hashFiles function to check for changes in core code
