@@ -119,6 +119,14 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
     def funding_fee_poll_interval(self) -> int:
         return 120
 
+    async def start_network(self):
+        """
+        Start all required tasks to update the status of the connector.
+        """
+        await super().start_network()
+        if self.is_trading_required:
+            await self._get_position_mode()
+
     def supported_order_types(self) -> List[OrderType]:
         """
         :return a list of OrderType supported by this connector
@@ -583,12 +591,15 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
         self._account_balances[account_data["currency"]] = total_balance
         self._account_available_balances[account_data["currency"]] = total_balance - locked_balance
 
-    async def _update_positions(self):
-        positions = await self._api_get(
+    async def _request_positions(self):
+        return await self._api_get(
             path_url=CONSTANTS.POSITION_INFO,
             params={"currency": CONSTANTS.COLLATERAL_TOKEN},
             is_auth_required=True,
         )
+
+    async def _update_positions(self):
+        positions = await self._request_positions()
         for position in positions.get("data", {}).get("positions", []):
             trading_pair = position.get("symbol")
             try:
@@ -632,18 +643,17 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
                     self._perpetual_trading.remove_position(pos_key)
 
     async def _get_position_mode(self) -> Optional[PositionMode]:
-        """
-        We set position mode here since there is currently no endpoint to get current position mode.
-        """
-        pos_list = [PositionMode.ONEWAY, PositionMode.HEDGE]
-        success, msg = await self._trading_pair_position_mode_set(
-            mode=self._position_mode, trading_pair=self.trading_pairs[-1]
-        )
-        if success is True:
-            pos_mode = self._position_mode
-        else:
-            pos_mode = pos_list.pop(self._position_mode)[-1]
-        return pos_mode
+        self._position_mode = PositionMode.ONEWAY
+        positions = await self._request_positions()
+        for position in positions.get("data", {}).get("positions", []):
+            trading_pair = position.get("symbol")
+            try:
+                hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(trading_pair)
+                if hb_trading_pair in self.trading_pairs:
+                    self._position_mode = PositionMode.HEDGE if position["posMode"] == "Hedged" else PositionMode.ONEWAY
+            except KeyError:
+                continue
+        return self._position_mode
 
     async def _trading_pair_position_mode_set(self, mode: PositionMode, trading_pair: str) -> Tuple[bool, str]:
         response = await self._api_put(
