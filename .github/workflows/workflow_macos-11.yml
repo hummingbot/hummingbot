@@ -15,7 +15,7 @@ jobs:
     runs-on: macos-11
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: technote-space/get-diff-action@v6
         with:
           PATTERNS: |
@@ -25,7 +25,7 @@ jobs:
         if: env.GIT_DIFF
         run: |
           echo ${{ env.GIT_DIFF }}
-          echo "::set-output name=is_set::true"
+          echo "is_set=true" >> $GITHUB_OUTPUT
 
   build_hummingbot:
     name: Hummingbot build + stable tests
@@ -34,14 +34,14 @@ jobs:
     runs-on: macos-11
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
       # Use cache's hashFiles function to check for changes in core code
       - name: Check for code changes
         id: program-changes
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         env:
           # Increase this value to manually reset cache if program files have not changed
           CACHE_NUMBER: 0
@@ -52,7 +52,7 @@ jobs:
       # Check for setup/environmnet-linux.yml changes
       - name: Cache conda dependencies
         id: conda-dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         env:
           # Increase this value to manually reset cache if setup/environment-linux.yml has not changed
           CONDA_CACHE_NUMBER: 0

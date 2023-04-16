@@ -6,6 +6,7 @@ dependencies:
   ### Packages needed for the build/install process
   - coverage>=5.5
   # - cython=0.29.24
+  - diff-cover>=5.1.2
   - flake8>=3.7.9
   - nose>=1.3.7
   - nose-exclude
