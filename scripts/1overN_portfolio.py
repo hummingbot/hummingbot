@@ -1,3 +1,4 @@
+import decimal
 import logging
 from decimal import Decimal
 
@@ -99,13 +100,23 @@ class OneOverNPortfolio(ScriptStrategyBase):
             trade_type = "sell" if deficit < Decimal('0') else "buy"
             self.logger().info(f"Trade {trade_number}: {trade_type} {asset}: {deficit}")
         for i, (asset, deficit) in enumerate(ordered_trades):
+            # TODO: this is a quick fix to the trade engine error. We don't trade under 1 base value, e.g. dollar.
+            #  This is even a feature parameter that we can use to save trading fees.
+            base_price = base_balances[asset][2]
+            if abs(deficit * base_price) < 1:
+                continue
             trade_is_buy = True if deficit > Decimal('0') else False
-            if trade_is_buy:
-                self.buy(connector_name=self.exchange, trading_pair=f"{asset}-{self.base_currency}",
-                         amount=abs(deficit), order_type=OrderType.MARKET, price=base_balances[asset][2])
-            else:
-                self.sell(connector_name=self.exchange, trading_pair=f"{asset}-{self.base_currency}",
-                          amount=abs(deficit), order_type=OrderType.MARKET, price=base_balances[asset][2])
+            try:
+                if trade_is_buy:
+                    self.buy(connector_name=self.exchange, trading_pair=f"{asset}-{self.base_currency}",
+                             amount=abs(deficit), order_type=OrderType.MARKET, price=base_price)
+                else:
+                    self.sell(connector_name=self.exchange, trading_pair=f"{asset}-{self.base_currency}",
+                              amount=abs(deficit), order_type=OrderType.MARKET, price=base_price)
+            except decimal.InvalidOperation as e:
+                # Handle the error by logging it or taking other appropriate actions
+                print(f"Caught an error: {e}")
+                self.activeOrders -= 1
         return
 
     # TODO: def format status def format_status(self) -> str:
