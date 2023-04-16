@@ -223,7 +223,7 @@ class PhemexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WSS_MESSAGE_LIMIT_ID):
                 await ws.send(ping_request)
             try:
-                await asyncio.wait_for(self._pong_received_event.wait(), timeout=5)
+                await asyncio.wait_for(self.pong_received_event.wait(), timeout=5)
                 self.pong_received_event.clear()
                 count = 0
             except asyncio.TimeoutError:
