@@ -104,6 +104,7 @@ class OneOverNPortfolio(ScriptStrategyBase):
             #  This is even a feature parameter that we can use to save trading fees.
             base_price = base_balances[asset][2]
             if abs(deficit * base_price) < 1:
+                self.logger().info(f"{abs(deficit * base_price)} < 1 too small to trade")
                 continue
             trade_is_buy = True if deficit > Decimal('0') else False
             try:
