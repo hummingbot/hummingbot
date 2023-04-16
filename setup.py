@@ -20,7 +20,7 @@ if is_posix:
         os.environ["CFLAGS"] = "-std=c++11"
 
 if os.environ.get('WITHOUT_CYTHON_OPTIMIZATIONS'):
-    os.environ["CFLAGS"] += " -O0"
+    os.environ["CFLAGS"] = os.environ.get("CFLAGS", None) + "-O0"
 
 IS_PY_DEBUG = os.getenv('EXT_BUILD_PY_DEBUG', False)
 
