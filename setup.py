@@ -59,7 +59,7 @@ def find_py_with_cython_inline() -> List[Extension]:
         parent = str(py_file.parent).replace("/", ".")
         obj = py_file.stem
 
-        with open(py_file, "r") as f:
+        with open(py_file, "r", encoding="utf8") as f:
             for i, line in enumerate(f):
                 if " cython " in line:
                     extensions.append(Extension(parent + "." + obj,
