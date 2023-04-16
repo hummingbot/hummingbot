@@ -746,3 +746,50 @@ class BybitPerpetualAPIOrderBookDataSourceTests(TestCase):
         expected_utc_timestamp = int(pd.Timestamp(general_info_result["next_funding_time"]).timestamp())
         self.assertEqual(expected_utc_timestamp, funding_info.next_funding_utc_timestamp)
         self.assertEqual(Decimal(str(funding_resp["result"]["predicted_funding_rate"])), funding_info.rate)
+
+    @aioresponses()
+    def test_get_funding_info_bad_timestamp(self, mock_api):
+        endpoint = CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT
+        url = web_utils.get_rest_url_for_endpoint(endpoint, self.trading_pair, self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        general_resp = self.get_general_info_rest_msg()
+        general_resp["result"][0]["next_funding_time"] = "2023-04-17T00:00:00+00:00Z"
+        mock_api.get(regex_url, body=json.dumps(general_resp))
+
+        endpoint = CONSTANTS.GET_PREDICTED_FUNDING_RATE_PATH_URL
+        url = web_utils.get_rest_url_for_endpoint(endpoint, self.trading_pair, self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        funding_resp = self.get_predicted_funding_info()
+        mock_api.get(regex_url, body=json.dumps(funding_resp))
+
+        funding_info: FundingInfo = self.async_run_with_timeout(
+            self.data_source.get_funding_info(self.trading_pair)
+        )
+        general_info_result = general_resp["result"][0]
+
+        self.assertEqual(self.trading_pair, funding_info.trading_pair)
+        self.assertEqual(Decimal(str(general_info_result["index_price"])), funding_info.index_price)
+        self.assertEqual(Decimal(str(general_info_result["mark_price"])), funding_info.mark_price)
+        expected_utc_timestamp = int(pd.Timestamp("2023-04-17T00:00:00+00:00").timestamp())
+        self.assertEqual(expected_utc_timestamp, funding_info.next_funding_utc_timestamp)
+        self.assertEqual(Decimal(str(funding_resp["result"]["predicted_funding_rate"])), funding_info.rate)
+
+    @aioresponses()
+    def test_get_funding_info_unexpected_timestamp(self, mock_api):
+        endpoint = CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT
+        url = web_utils.get_rest_url_for_endpoint(endpoint, self.trading_pair, self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        general_resp = self.get_general_info_rest_msg()
+        general_resp["result"][0]["next_funding_time"] = "UNEXPECTED_TIMESTAMP"
+        mock_api.get(regex_url, body=json.dumps(general_resp))
+
+        endpoint = CONSTANTS.GET_PREDICTED_FUNDING_RATE_PATH_URL
+        url = web_utils.get_rest_url_for_endpoint(endpoint, self.trading_pair, self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        funding_resp = self.get_predicted_funding_info()
+        mock_api.get(regex_url, body=json.dumps(funding_resp))
+
+        with self.assertRaises(ValueError):
+            self.async_run_with_timeout(
+                self.data_source.get_funding_info(self.trading_pair)
+            )

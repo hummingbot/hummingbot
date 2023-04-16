@@ -643,3 +643,161 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(self.trading_pair, funding_info.trading_pair)
         self.assertEqual(Decimal(str(future_info_response["data"]["indexPrice"])), funding_info.index_price)
         self.assertEqual(Decimal(str(future_info_response["data"]["markPrice"])), funding_info.mark_price)
+
+    @aioresponses()
+    def test_get_funding_info_bad_timestamp(self, mock_api):
+        future_info_url = web_utils.get_rest_url_for_endpoint(
+            endpoint = CONSTANTS.GET_CONTRACT_INFO_PATH_URL.format(symbol=self.ex_trading_pair)
+        )
+        future_info_regex_url = re.compile(f"^{future_info_url}".replace(".", r"\.").replace("?", r"\?"))
+        future_info_response = {
+            "code": "200000",
+            "data": {
+                "symbol": self.ex_trading_pair,
+                "rootSymbol": "USDT",
+                "type": "FFWCSX",
+                "firstOpenDate": 1610697600000,
+                "baseCurrency": "HBOT",
+                "quoteCurrency": "USDT",
+                "settleCurrency": "USDT",
+                "maxOrderQty": 1000000,
+                "maxPrice": 1000000.0,
+                "lotSize": 1,
+                "tickSize": 0.01,
+                "indexPriceTickSize": 0.01,
+                "multiplier": 0.01,
+                "initialMargin": 0.05,
+                "maintainMargin": 0.025,
+                "maxRiskLimit": 100000,
+                "minRiskLimit": 100000,
+                "riskStep": 50000,
+                "makerFeeRate": 0.0002,
+                "takerFeeRate": 0.0006,
+                "takerFixFee": 0.0,
+                "makerFixFee": 0.0,
+                "isDeleverage": True,
+                "isQuanto": False,
+                "isInverse": False,
+                "markMethod": "FairPrice",
+                "fairMethod": "FundingRate",
+                "fundingBaseSymbol": ".HBOTINT8H",
+                "fundingQuoteSymbol": ".USDTINT8H",
+                "fundingRateSymbol": ".HBOTUSDTMFPI8H",
+                "indexSymbol": ".KHBOTUSDT",
+                "settlementSymbol": "",
+                "status": "Open",
+                "fundingFeeRate": 0.0001,
+                "predictedFundingFeeRate": 0.0001,
+                "openInterest": "2487402",
+                "turnoverOf24h": 3166644.36115288,
+                "volumeOf24h": 32299.4,
+                "markPrice": 101.6,
+                "indexPrice": 101.59,
+                "lastTradePrice": 101.54,
+                "nextFundingRateTime": "2023-04-17T00:00:00+00:00Z",
+                "maxLeverage": 20,
+                "sourceExchanges": [
+                    "huobi",
+                    "Okex",
+                    "Binance",
+                    "Kucoin",
+                    "Poloniex",
+                    "Hitbtc"
+                ],
+                "premiumsSymbol1M": ".HBOTUSDTMPI",
+                "premiumsSymbol8H": ".HBOTUSDTMPI8H",
+                "fundingBaseSymbol1M": ".HBOTINT",
+                "fundingQuoteSymbol1M": ".USDTINT",
+                "lowPrice": 88.88,
+                "highPrice": 102.21,
+                "priceChgPct": 0.1401,
+                "priceChg": 12.48
+            }
+        }
+        mock_api.get(future_info_regex_url, body=json.dumps(future_info_response))
+
+        funding_info: FundingInfo = self.async_run_with_timeout(
+            self.data_source.get_funding_info(self.trading_pair)
+        )
+
+        self.assertEqual(self.trading_pair, funding_info.trading_pair)
+        self.assertEqual(Decimal(str(future_info_response["data"]["indexPrice"])), funding_info.index_price)
+        self.assertEqual(Decimal(str(future_info_response["data"]["markPrice"])), funding_info.mark_price)
+
+    @aioresponses()
+    def test_get_funding_info_unexpected_timestamp(self, mock_api):
+        future_info_url = web_utils.get_rest_url_for_endpoint(
+            endpoint = CONSTANTS.GET_CONTRACT_INFO_PATH_URL.format(symbol=self.ex_trading_pair)
+        )
+        future_info_regex_url = re.compile(f"^{future_info_url}".replace(".", r"\.").replace("?", r"\?"))
+        future_info_response = {
+            "code": "200000",
+            "data": {
+                "symbol": self.ex_trading_pair,
+                "rootSymbol": "USDT",
+                "type": "FFWCSX",
+                "firstOpenDate": 1610697600000,
+                "baseCurrency": "HBOT",
+                "quoteCurrency": "USDT",
+                "settleCurrency": "USDT",
+                "maxOrderQty": 1000000,
+                "maxPrice": 1000000.0,
+                "lotSize": 1,
+                "tickSize": 0.01,
+                "indexPriceTickSize": 0.01,
+                "multiplier": 0.01,
+                "initialMargin": 0.05,
+                "maintainMargin": 0.025,
+                "maxRiskLimit": 100000,
+                "minRiskLimit": 100000,
+                "riskStep": 50000,
+                "makerFeeRate": 0.0002,
+                "takerFeeRate": 0.0006,
+                "takerFixFee": 0.0,
+                "makerFixFee": 0.0,
+                "isDeleverage": True,
+                "isQuanto": False,
+                "isInverse": False,
+                "markMethod": "FairPrice",
+                "fairMethod": "FundingRate",
+                "fundingBaseSymbol": ".HBOTINT8H",
+                "fundingQuoteSymbol": ".USDTINT8H",
+                "fundingRateSymbol": ".HBOTUSDTMFPI8H",
+                "indexSymbol": ".KHBOTUSDT",
+                "settlementSymbol": "",
+                "status": "Open",
+                "fundingFeeRate": 0.0001,
+                "predictedFundingFeeRate": 0.0001,
+                "openInterest": "2487402",
+                "turnoverOf24h": 3166644.36115288,
+                "volumeOf24h": 32299.4,
+                "markPrice": 101.6,
+                "indexPrice": 101.59,
+                "lastTradePrice": 101.54,
+                "nextFundingRateTime": "UNEXPECTED_TIMESTAMP",
+                "maxLeverage": 20,
+                "sourceExchanges": [
+                    "huobi",
+                    "Okex",
+                    "Binance",
+                    "Kucoin",
+                    "Poloniex",
+                    "Hitbtc"
+                ],
+                "premiumsSymbol1M": ".HBOTUSDTMPI",
+                "premiumsSymbol8H": ".HBOTUSDTMPI8H",
+                "fundingBaseSymbol1M": ".HBOTINT",
+                "fundingQuoteSymbol1M": ".USDTINT",
+                "lowPrice": 88.88,
+                "highPrice": 102.21,
+                "priceChgPct": 0.1401,
+                "priceChg": 12.48
+            }
+        }
+        mock_api.get(future_info_regex_url, body=json.dumps(future_info_response))
+
+        # Call the `get_funding_info` method and assert that it raises a ValueError
+        with self.assertRaises(ValueError):
+            self.async_run_with_timeout(
+                self.data_source.get_funding_info(self.trading_pair)
+            )
