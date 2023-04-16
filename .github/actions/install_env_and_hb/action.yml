@@ -21,6 +21,11 @@ runs:
       if: ${{inputs.program-cache-hit}} != 'true' || ${{inputs.dependencies-cache-hit}} != 'true'
       shell: bash
       run: |
+        if [ "$RUNNER_OS" == "Windows" ]; then
+          MINICONDA_FILENAME=Miniconda3-latest-Windows-x86_64.exe
+          curl -o $MINICONDA_FILENAME "https://repo.continuum.io/miniconda/$MINICONDA_FILENAME"
+          ./Miniconda3-latest-Windows-x86_64.exe //InstallationType=JustMe //RegisterPython=0 //S //D=%CONDA%
+        fi
         conda install -c conda-forge pre_commit
 
     # Install hummingbot env if environment-linux.yml has changed

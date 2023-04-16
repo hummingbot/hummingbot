@@ -28,7 +28,7 @@ jobs:
           echo "is_set=true" >> $GITHUB_OUTPUT
 
   build_hummingbot:
-    name: Hummingbot build + stable tests (Windows)
+    name: Hummingbot build/tests (Windows - ${{ matrix.os }}
     needs: run_client
     if: github.event.pull_request.draft == false && needs.run_client.outputs.is_set == 'true'
     runs-on: windows-latest
@@ -48,17 +48,6 @@ jobs:
         with:
           path: README.md # placeholder file
           key: ${{ runner.os }}-build-${{ env.CACHE_NUMBER }}-${{ hashFiles('hummingbot/*', '**/*.py', '**/*.py*', '**/*.pxd', 'test/*') }}
-
-      # Install Miniconda
-      - name: Install Miniconda
-        uses: conda-incubator/setup-miniconda@v2
-        with:
-          miniconda-version: "latest"
-          python-version: 3.8
-          activate-environment: hummingbot
-          environment-file: setup/environment-windows-latest.yml
-          auto-update-conda: true
-          use-only-tar-bz2: true # IMPORTANT: This needs to be set for caching to work properly!
 
       # Check for setup/environment-linux.yml changes
       - name: Cache conda dependencies
