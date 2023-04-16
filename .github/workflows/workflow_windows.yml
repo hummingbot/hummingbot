@@ -12,7 +12,7 @@ jobs:
     name: Check if client files changed
     outputs:
       is_set: ${{ steps.check_files.outputs.is_set }}
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@v3
@@ -28,13 +28,10 @@ jobs:
           echo "is_set=true" >> $GITHUB_OUTPUT
 
   build_hummingbot:
-    name: Hummingbot build + stable tests (Linux)
+    name: Hummingbot build + stable tests (Windows)
     needs: run_client
     if: github.event.pull_request.draft == false && needs.run_client.outputs.is_set == 'true'
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, macos-11, ubuntu-20.04]
+    runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@v3
@@ -52,6 +49,17 @@ jobs:
           path: README.md # placeholder file
           key: ${{ runner.os }}-build-${{ env.CACHE_NUMBER }}-${{ hashFiles('hummingbot/*', '**/*.py', '**/*.py*', '**/*.pxd', 'test/*') }}
 
+      # Install Miniconda
+      - name: Install Miniconda
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          miniconda-version: "latest"
+          python-version: 3.8
+          activate-environment: hummingbot
+          environment-file: setup/environment-windows-latest.yml
+          auto-update-conda: true
+          use-only-tar-bz2: true # IMPORTANT: This needs to be set for caching to work properly!
+
       # Check for setup/environment-linux.yml changes
       - name: Cache conda dependencies
         id: conda-dependencies
@@ -63,7 +71,7 @@ jobs:
           path: |
             /home/runner/conda_pkgs_dir/
             /usr/share/miniconda/envs
-          key: ${{ runner.os }}-conda-${{ env.CONDA_CACHE_NUMBER }}-${{ hashFiles('setup/environment-linux.yml') }}
+          key: ${{ runner.os }}-conda-${{ env.CONDA_CACHE_NUMBER }}-${{ hashFiles('setup/environment-windows-latest.yml') }}
 
       # Install environment and Hummingbot
       - name: Install environment and Hummingbot
