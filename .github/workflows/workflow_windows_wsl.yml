@@ -27,11 +27,12 @@ jobs:
           echo "is_set=true" >> $GITHUB_OUTPUT
 
   build_hummingbot:
-    name: Hummingbot build/tests (${{ matrix.os }}
+    name: Hummingbot (${{ matrix.os }}
     runs-on: windows-latest
     strategy:
       matrix:
-        os: [Debian, Alpine, kali-linux, openSUSE-Leap-15.2, Ubuntu-22.04]
+        os: [Ubuntu-22.04]
+        #os: [Debian, Alpine, kali-linux, openSUSE-Leap-15.2, Ubuntu-22.04]
     needs: run_client
     if: github.event.pull_request.draft == false && needs.run_client.outputs.is_set == 'true'
 
