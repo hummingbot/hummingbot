@@ -31,7 +31,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, macos-11, ubuntu-20.04]
+        os: [ubuntu-latest, macos-latest, macos-11, ubuntu-20.04, windows-latest]
     name: Hummingbot build/tests (Linux - ${{ matrix.os }}
     needs: run_client
     if: github.event.pull_request.draft == false && needs.run_client.outputs.is_set == 'true'
