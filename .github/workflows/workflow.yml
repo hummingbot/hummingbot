@@ -13,7 +13,6 @@ jobs:
     outputs:
       is_set: ${{ steps.check_files.outputs.is_set }}
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v3
       - uses: technote-space/get-diff-action@v6
@@ -28,15 +27,30 @@ jobs:
           echo "is_set=true" >> $GITHUB_OUTPUT
 
   build_hummingbot:
+    name: Hummingbot build/tests (${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, macos-11, ubuntu-20.04, windows-latest]
-    name: Hummingbot build/tests (${{ matrix.os }}
     needs: run_client
     if: github.event.pull_request.draft == false && needs.run_client.outputs.is_set == 'true'
 
+    defaults:
+      run:
+        shell: bash -l {0}
+
     steps:
+      - uses: conda-incubator/setup-miniconda@v2
+        with:
+          miniconda-version: "latest"
+          channels: conda-forge, defaults
+          use-only-tar-bz2: true  # IMPORTANT: This needs to be set for caching to work properly!
+          auto-update-conda: true
+          auto-activate-base: true
+      - name: Install conda
+        run: |
+            echo "begin: PATH=$PATH;"
+            which conda || true
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
