@@ -31,7 +31,11 @@ jobs:
     name: Hummingbot build + stable tests
     needs: run_client
     if: github.event.pull_request.draft == false && needs.run_client.outputs.is_set == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest, macos-11, ubuntu-20.04]
+        python-version: ["3.8"]
 
     steps:
       - uses: actions/checkout@v3
