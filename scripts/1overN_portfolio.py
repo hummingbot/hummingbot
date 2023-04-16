@@ -1,3 +1,4 @@
+import logging
 from decimal import Decimal
 
 from hummingbot.core.data_type.common import OrderType
@@ -9,6 +10,7 @@ class OneOverNPortfolio(ScriptStrategyBase):
     This strategy aims to create a 1/N cryptocurrency portfolio, providing perfect diversification without
     parametrization and giving a reasonable baseline performance.
     """
+
     exchange = "binance_paper_trade"
     base_currency = "USDT"
     quote_currencies = ["BTC", "ETH", "ONE"]
@@ -16,12 +18,13 @@ class OneOverNPortfolio(ScriptStrategyBase):
 
     #: Define markets to instruct Hummingbot to create connectors on the exchanges and markets you need
     markets = {exchange: pairs}
+    activeOrders = 0
 
     def on_tick(self):
         # TODO: checking for active orders works ONLY with LIMIT orders. Ask why. Find a better solution to the problem
         #       of atomic transactions on exchanges.
-        if 0 < len(self.get_active_orders(connector_name=self.exchange)):
-            self.logger().info("Wait until all active orders have completed...")
+        if 0 < self.activeOrders:
+            self.logger().info(f"Wait until all active orders have completed: {self.activeOrders}")
             return
 
         connector = self.connectors[self.exchange]
@@ -44,6 +47,7 @@ class OneOverNPortfolio(ScriptStrategyBase):
         for asset, balances in quote_balances.items():
             trading_pair = f"{asset}-{self.base_currency}"
             # TODO: should I put the amount to buy sell to get a orderbook conform value?
+            # noinspection PyUnresolvedReferences
             current_price = Decimal(connector.get_mid_price(trading_pair))
             total_balance = balances[0] * current_price
             available_balance = balances[1] * current_price
@@ -98,14 +102,41 @@ class OneOverNPortfolio(ScriptStrategyBase):
             trade_is_buy = True if deficit > Decimal('0') else False
             if trade_is_buy:
                 self.buy(connector_name=self.exchange, trading_pair=f"{asset}-{self.base_currency}",
-                         amount=abs(deficit), order_type=OrderType.LIMIT, price=base_balances[asset][2])
+                         amount=abs(deficit), order_type=OrderType.MARKET, price=base_balances[asset][2])
             else:
                 self.sell(connector_name=self.exchange, trading_pair=f"{asset}-{self.base_currency}",
-                          amount=abs(deficit), order_type=OrderType.LIMIT, price=base_balances[asset][2])
+                          amount=abs(deficit), order_type=OrderType.MARKET, price=base_balances[asset][2])
         return
 
-    def cancel_all_orders(self):
-        for order in self.get_active_orders(connector_name=self.exchange):
-            self.cancel(self.exchange, order.trading_pair, order.client_order_id)
-
     # TODO: def format status def format_status(self) -> str:
+
+    def did_create_buy_order(self, *args, **kwargs):
+        self.activeOrders += 1
+        logging.info(f"Created Buy - Active Orders ++: {self.activeOrders}")
+
+    def did_create_sell_order(self, *args, **kwargs):
+        self.activeOrders += 1
+        logging.info(f"Created Sell - Active Orders ++: {self.activeOrders}")
+
+    def did_complete_buy_order(self, *args, **kwargs):
+        self.activeOrders -= 1
+        logging.info(f"Completed Buy - Active Orders --: {self.activeOrders}")
+
+    def did_complete_sell_order(self, *args, **kwargs):
+        self.activeOrders -= 1
+        logging.info(f"Completed Sell - Active Orders --: {self.activeOrders}")
+
+    def did_cancel_order(self, *args, **kwargs):
+        self.activeOrders -= 1
+        logging.info(f"Canceled Order - Active Order --: {self.activeOrders}")
+
+    def did_expire_order(self, *args, **kwargs):
+        self.activeOrders -= 1
+        logging.info(f"Expired Order - Active Order --: {self.activeOrders}")
+
+    def did_fail_order(self, *args, **kwargs):
+        self.activeOrders -= 1
+        logging.info(f"Failed Order - Active Order --: {self.activeOrders}")
+
+    def did_fill_order(self, *args, **kwargs):
+        logging.info(f"Filled Order - Active Order ??: {self.activeOrders}")
