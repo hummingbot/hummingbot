@@ -25,6 +25,8 @@ runs:
           MINICONDA_FILENAME=Miniconda3-latest-Windows-x86_64.exe
           curl -o $MINICONDA_FILENAME "https://repo.continuum.io/miniconda/$MINICONDA_FILENAME"
           ./Miniconda3-latest-Windows-x86_64.exe //InstallationType=JustMe //RegisterPython=0 //S //D=%CONDA%
+          echo "::add-path::$HOME/miniconda3/bin"
+          echo "::add-path::$HOME/miniconda3/Scripts"
         fi
         conda install -c conda-forge pre_commit
 
