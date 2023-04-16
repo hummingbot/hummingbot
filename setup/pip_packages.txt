@@ -2,6 +2,7 @@ aioprocessing==2.0.0
 aioresponses==0.7.2
 cachetools==4.0.0
 commlib-py==0.10.6
+cython==3.0a7
 hiredis==2.1.1
 docker==6.0.1
 cytoolz==0.12.1

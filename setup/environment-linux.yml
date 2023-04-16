@@ -5,7 +5,7 @@ channels:
 dependencies:
   ### Packages needed for the build/install process
   - coverage>=5.5
-  - cython=0.29.24
+  # - cython=0.29.24
   - flake8>=3.7.9
   - nose>=1.3.7
   - nose-exclude
@@ -83,5 +83,10 @@ dependencies:
   - future=0.18.3
   - tornado=6.2
   #
+  ### Packages required by pip packages that are not available on conda-forge/defaults
+  ### These are installed via pip --no-deps to prevent them overriding the conda
+  ### packages above (see pip_packages.txt file).
+  ### Some care was taken to include as many conda packages as possible
+  ### to reduce the number of pip-installed packages.
   - pip:
     - git+https://github.com/CoinAlpha/python-signalr-client.git
