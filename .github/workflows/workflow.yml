@@ -35,7 +35,6 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest, macos-11, ubuntu-20.04]
-        python-version: ["3.8"]
 
     steps:
       - uses: actions/checkout@v3
@@ -53,7 +52,7 @@ jobs:
           path: README.md # placeholder file
           key: ${{ runner.os }}-build-${{ env.CACHE_NUMBER }}-${{ hashFiles('hummingbot/*', '**/*.py', '**/*.py*', '**/*.pxd', 'test/*') }}
 
-      # Check for setup/environmnet-linux.yml changes
+      # Check for setup/environment-linux.yml changes
       - name: Cache conda dependencies
         id: conda-dependencies
         uses: actions/cache@v3
