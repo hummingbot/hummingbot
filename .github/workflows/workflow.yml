@@ -32,6 +32,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, macos-11, ubuntu-20.04, windows-latest]
+        python-version: ["3.8"]
     needs: run_client
     if: github.event.pull_request.draft == false && needs.run_client.outputs.is_set == 'true'
 
@@ -47,6 +48,7 @@ jobs:
           use-only-tar-bz2: true  # IMPORTANT: This needs to be set for caching to work properly!
           auto-update-conda: true
           auto-activate-base: true
+          python-version: ${{ matrix.python-version }}
       - name: Install conda
         run: |
             echo "begin: PATH=$PATH;"
