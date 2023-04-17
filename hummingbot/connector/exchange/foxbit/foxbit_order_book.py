@@ -181,6 +181,7 @@ class FoxbitOrderBook(OrderBook):
 
     @classmethod
     def formatN(cls, f: float) -> str:
+        # format float as string with 10 decimals
         return f"{f:.10f}"
 
     @classmethod
