@@ -72,15 +72,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-      - uses: pguyot/arm-runner-action@v2
         with:
-          base_image: ${{ matrix.base_image }}
-          cpu: ${{ matrix.cpu }}
-          cpu_info: ${{ matrix.cpu_info }}
-          bind_mount_repository: true
-          shell: /bin/bash -eo pipefail
-          commands: |
-            uname -m > artifact
+          fetch-depth: 0
+
       # Use cache's hashFiles function to check for changes in core code
       - name: Check for code changes
         id: program-changes
@@ -92,26 +86,13 @@ jobs:
           path: README.md # placeholder file
           key: ${{ runner.os }}-build-${{ env.CACHE_NUMBER }}-${{ hashFiles('hummingbot/*', '**/*.py', '**/*.py*', '**/*.pxd', 'test/*') }}
 
-      # Check for setup/environment-linux.yml changes
-      - name: Cache conda dependencies
-        id: conda-dependencies
-        uses: actions/cache@v3
-        env:
-          # Increase this value to manually reset cache if setup/environment-linux.yml has not changed
-          CONDA_CACHE_NUMBER: 0
-        with:
-          path: |
-            /home/runner/conda_pkgs_dir/
-            /usr/share/miniconda/envs
-          key: ${{ runner.os }}-conda-${{ env.CONDA_CACHE_NUMBER }}-${{ hashFiles('setup/environment-linux.yml') }}
-
       # Install environment and Hummingbot
       - name: Install environment and Hummingbot
-        uses: ./.github/actions/install_env_and_hb
+        uses: ./.github/actions/install_env_and_hb_arm
         with:
           program-cache-hit: ${{steps.program-changes.outputs.cache-hit}}
           dependencies-cache-hit: ${{steps.conda-dependencies.outputs.cache-hit}}
-          shell: /bin/bash -eo pipefail
+          shell: bash -l {0}
 
       # Compile and run tests if code has changed
       - name: Run pre-commit hooks on diff

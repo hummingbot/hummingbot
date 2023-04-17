@@ -78,7 +78,7 @@ jobs:
           key: ${{ runner.os }}-conda-${{ env.CONDA_CACHE_NUMBER }}-${{ hashFiles('setup/environment-linux.yml') }}
 
       - name: Conda search
-        run: conda search --info --json --override-channels --channel conda-forge --channel defaults aiohttp=3.8.4
+        run: conda search --info --json --override-channels --channel conda-forge --channel defaults python aiohttp
 
       # Install environment and Hummingbot
       - name: Install environment and Hummingbot

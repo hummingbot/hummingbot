@@ -1,0 +1,37 @@
+name: "Install environment and Hummingbot"
+description: "Installs conda environment, all libraries and compiles Hummingbot"
+inputs:
+   program-cache-hit:
+     required: true
+     description: "Value of truth regarding the program cache being hit or not"
+   dependencies-cache-hit:
+     required: true
+     description: "Value of truth regarding the program cache being hit or not"
+   shell:
+     required: true
+     description: "Shell to use for the run step"
+runs:
+  using: "composite"
+  steps:
+    # Install python/conda to check if core code has changed
+    - uses: actions/setup-python@v3
+      if: ${{inputs.program-cache-hit}} != 'true' || ${{inputs.dependencies-cache-hit}} != 'true'
+      env:
+        WITHOUT_CYTHON_OPTIMIZATIONS: 'true'
+      with:
+        python-version: 3.x
+    - uses: pguyot/arm-runner-action@v2
+      with:
+        base_image: ${{ matrix.base_image }}
+        cpu: ${{ matrix.cpu }}
+        cpu_info: ${{ matrix.cpu_info }}
+        bind_mount_repository: true
+        shell: /bin/bash -eo pipefail
+        commands: |
+          conda install -c conda-forge pre_commit
+          ./install
+          source $CONDA/etc/profile.d/conda.sh
+          conda info --envs
+          conda activate hummingbot
+          conda env export
+          ./compile
