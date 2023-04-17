@@ -419,6 +419,7 @@ class PhemexPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.listening_task_funding_info = self.ev_loop.create_task(
             self.data_source.listen_for_funding_info(msg_queue_funding)
         )
+        self.async_tasks.extend([self.listening_task, self.listening_task_diffs, self.listening_task_trades, self.listening_task_funding_info])
 
         result: OrderBookMessage = self.async_run_with_timeout(msg_queue_diffs.get())
         self.assertIsInstance(result, OrderBookMessage)
