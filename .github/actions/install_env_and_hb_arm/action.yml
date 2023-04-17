@@ -22,12 +22,19 @@ runs:
         python-version: 3.x
     - uses: pguyot/arm-runner-action@v2
       with:
+        image_additional_mb: 1024
         base_image: ${{ matrix.base_image }}
         cpu: ${{ matrix.cpu }}
         cpu_info: ${{ matrix.cpu_info }}
         bind_mount_repository: true
         shell: /bin/bash -eo pipefail
         commands: |
+          apt update
+          apt install -y wget
+          apt-get install build-essential libssl-dev libffi-dev gcc python3-dev python-dev python3.7 -y
+          wget https://github.com/conda-forge/miniforge/releases/download/4.11.0-4/Miniforge3-4.11.0-4-Linux-aarch64.sh
+          sh Miniforge3-4.11.0-4-Linux-aarch64.sh
+          exec bash
           conda install -c conda-forge pre_commit
           ./install
           source $CONDA/etc/profile.d/conda.sh
@@ -35,3 +42,11 @@ runs:
           conda activate hummingbot
           conda env export
           ./compile
+          pre-commit run --files $(git diff --name-only origin/$GITHUB_BASE_REF)
+          make test
+          make report_coverage
+          git fetch --all -q
+          git checkout -b $GITHUB_SHA
+          coverage xml
+          diff-cover --compare-branch=origin/$GITHUB_BASE_REF --fail-under=80 coverage.xml
+                

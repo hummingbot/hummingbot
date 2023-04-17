@@ -80,6 +80,20 @@ jobs:
             /usr/share/miniconda/envs
           key: ${{ runner.os }}-conda-${{ env.CONDA_CACHE_NUMBER }}-${{ hashFiles('setup/environment-linux.yml') }}
 
+      # Install Miniconda
+      - name: Install Miniconda
+        run: |
+            apt-get update
+            apt-get install -y wget
+            wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+            bash miniconda.sh -b -p $CONDA
+            echo "export PATH=$CONDA/bin:$PATH" >> ~/.bashrc
+            source ~/.bashrc
+            conda init bash
+            conda config --set always_yes yes --set changeps1 no
+            conda update -q conda
+            conda info -a
+
       # Install environment and Hummingbot
       - name: Install environment and Hummingbot
         uses: ./.github/actions/install_env_and_hb
@@ -90,7 +104,6 @@ jobs:
 
       # Compile and run tests if code has changed
       - name: Run pre-commit hooks on diff
-        shell: wsl-bash {0}
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
         run: |
           source $CONDA/etc/profile.d/conda.sh
@@ -98,7 +111,6 @@ jobs:
           pre-commit run --files $(git diff --name-only origin/$GITHUB_BASE_REF)
 
       - name: Run stable tests and calculate coverage
-        shell: wsl-bash {0}
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
         run: |
           source $CONDA/etc/profile.d/conda.sh
@@ -106,7 +118,6 @@ jobs:
           make test
 
       - name: Check and report global coverage
-        shell: wsl-bash {0}
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
         run: |
           source $CONDA/etc/profile.d/conda.sh
@@ -114,7 +125,6 @@ jobs:
           make report_coverage
 
       - name: Validate coverage for the changes
-        shell: wsl-bash {0}
         if: github.event_name == 'pull_request' && (steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true')
         run: |
           source $CONDA/etc/profile.d/conda.sh
