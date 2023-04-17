@@ -27,7 +27,7 @@ jobs:
           echo "is_set=true" >> $GITHUB_OUTPUT
 
   build_hummingbot:
-    name: Hummingbot build/tests (${{ matrix.os }}
+    name: build/tests RasPi ${{ matrix.cpu }}
     needs: run_client
     runs-on: ubuntu-latest
     strategy:
@@ -78,15 +78,9 @@ jobs:
           cpu: ${{ matrix.cpu }}
           cpu_info: ${{ matrix.cpu_info }}
           bind_mount_repository: true
-          user: hummingbot:hummingbot
           shell: /bin/bash -eo pipefail
           commands: |
             uname -m > artifact
-      - name: Test created file persists
-        run: |
-          test -f artifact
-            
-
       # Use cache's hashFiles function to check for changes in core code
       - name: Check for code changes
         id: program-changes

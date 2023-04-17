@@ -27,7 +27,7 @@ jobs:
           echo "is_set=true" >> $GITHUB_OUTPUT
 
   build_hummingbot:
-    name: Hummingbot WSL:${{ matrix.os }}
+    name: build/test WSL:${{ matrix.os }}
     runs-on: windows-latest
     strategy:
       matrix:
@@ -41,20 +41,20 @@ jobs:
         shell: wsl-bash {0}
 
     steps:
-      - uses: conda-incubator/setup-miniconda@v2
-        with:
-          miniconda-version: "latest"
-          channels: conda-forge, defaults
-          use-only-tar-bz2: true  # IMPORTANT: This needs to be set for caching to work properly!
-          auto-update-conda: true
-          auto-activate-base: true
-          python-version: 3.8.2
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
       - uses: Vampire/setup-wsl@v2
         with:
             distribution: ${{ matrix.os }}
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      #- uses: conda-incubator/setup-miniconda@v2
+      #  with:
+      #    miniconda-version: "latest"
+      #    channels: conda-forge, defaults
+      #    use-only-tar-bz2: true  # IMPORTANT: This needs to be set for caching to work properly!
+      #    auto-update-conda: true
+      #    auto-activate-base: true
+      #    python-version: 3.8.2
 
       # Use cache's hashFiles function to check for changes in core code
       - name: Check for code changes
@@ -82,6 +82,7 @@ jobs:
 
       # Install environment and Hummingbot
       - name: Install environment and Hummingbot
+        shell: wsl-bash {0}
         uses: ./.github/actions/install_env_and_hb
         with:
           program-cache-hit: ${{steps.program-changes.outputs.cache-hit}}
@@ -89,6 +90,7 @@ jobs:
 
       # Compile and run tests if code has changed
       - name: Run pre-commit hooks on diff
+        shell: wsl-bash {0}
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
         run: |
           source $CONDA/etc/profile.d/conda.sh
@@ -96,6 +98,7 @@ jobs:
           pre-commit run --files $(git diff --name-only origin/$GITHUB_BASE_REF)
 
       - name: Run stable tests and calculate coverage
+        shell: wsl-bash {0}
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
         run: |
           source $CONDA/etc/profile.d/conda.sh
@@ -103,6 +106,7 @@ jobs:
           make test
 
       - name: Check and report global coverage
+        shell: wsl-bash {0}
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
         run: |
           source $CONDA/etc/profile.d/conda.sh
@@ -110,6 +114,7 @@ jobs:
           make report_coverage
 
       - name: Validate coverage for the changes
+        shell: wsl-bash {0}
         if: github.event_name == 'pull_request' && (steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true')
         run: |
           source $CONDA/etc/profile.d/conda.sh

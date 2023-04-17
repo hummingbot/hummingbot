@@ -27,7 +27,7 @@ jobs:
           echo "is_set=true" >> $GITHUB_OUTPUT
 
   build_hummingbot:
-    name: Hummingbot build/tests (${{ matrix.os }}
+    name: build/tests ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -50,14 +50,9 @@ jobs:
           auto-update-conda: true
           auto-activate-base: true
           python-version: ${{ matrix.python-version }}
-      - name: Install conda
-        run: |
-            echo "begin: PATH=$PATH;"
-            which conda || true
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-
       # Use cache's hashFiles function to check for changes in core code
       - name: Check for code changes
         id: program-changes
@@ -81,6 +76,9 @@ jobs:
             /home/runner/conda_pkgs_dir/
             /usr/share/miniconda/envs
           key: ${{ runner.os }}-conda-${{ env.CONDA_CACHE_NUMBER }}-${{ hashFiles('setup/environment-linux.yml') }}
+
+      - name: Conda search
+        run: conda search --info --json --override-channels --channel conda-forge --channel defaults aiohttp=3.8.4
 
       # Install environment and Hummingbot
       - name: Install environment and Hummingbot

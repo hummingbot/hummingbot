@@ -27,7 +27,7 @@ jobs:
           echo "is_set=true" >> $GITHUB_OUTPUT
 
   build_hummingbot:
-    name: Hummingbot build/tests (${{ matrix.os }}
+    name: build/tests (${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -41,10 +41,6 @@ jobs:
         shell: bash -l {0}
 
     steps:
-      - name: Install conda
-        run: |
-            echo "begin: PATH=$PATH;"
-            which conda || true
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
@@ -79,6 +75,7 @@ jobs:
         with:
           program-cache-hit: ${{steps.program-changes.outputs.cache-hit}}
           dependencies-cache-hit: ${{steps.conda-dependencies.outputs.cache-hit}}
+          shell: ${{defaults.run.shell}}
 
       # Compile and run tests if code has changed
       - name: Run pre-commit hooks on diff
