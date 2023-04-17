@@ -23,6 +23,8 @@ LINUX_AARCH64_ENV=setup/environment-linux-aarch64.yml
 WIN64_ENV=setup/environment-win64.yml
 ENV_FILE=$MACOS_ENV
 
+CONDA_AGENT=$(${CONDA_EXE} info --json | jq -r '.user_agent')
+
 if uname | egrep -qe "Linux"; then
     if uname -m | egrep -qe "aarch64"; then
         ENV_FILE=$LINUX_AARCH64_ENV
@@ -38,6 +40,8 @@ read -t 30 -p "Enter environment name [${VALID_ENV_NAME}](30s wait): " RESPONSE
 if [ "${RESPONSE}_" == "_" ]; then
     echo ""
     echo "  -> Using default environment name: ${VALID_ENV_NAME}"
+    echo "                   environment file: ${ENV_FILE}"
+    echo "                   Conda user_agent: ${CONDA_AGENT}"
     RESPONSE=${VALID_ENV_NAME}
 fi
 

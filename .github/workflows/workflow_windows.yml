@@ -126,7 +126,7 @@ jobs:
           diff-cover --compare-branch=origin/$GITHUB_BASE_REF --fail-under=80 coverage.xml
 
       # Notify results to discord
-      - uses: actions/setup-ruby@v1
+      - uses: ruby/setup-ruby@v1
       - name: Send Webhook Notification
         if: github.event_name != 'pull_request'
         env:

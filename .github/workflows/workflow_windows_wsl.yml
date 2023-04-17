@@ -27,7 +27,7 @@ jobs:
           echo "is_set=true" >> $GITHUB_OUTPUT
 
   build_hummingbot:
-    name: Hummingbot (${{ matrix.os }}
+    name: Hummingbot WSL:${{ matrix.os }}
     runs-on: windows-latest
     strategy:
       matrix:
@@ -124,7 +124,7 @@ jobs:
           diff-cover --compare-branch=origin/$GITHUB_BASE_REF --fail-under=80 coverage.xml
 
       # Notify results to discord
-      - uses: actions/setup-ruby@v1
+      - uses: ruby/setup-ruby@v1
       - name: Send Webhook Notification
         if: github.event_name != 'pull_request'
         env:
