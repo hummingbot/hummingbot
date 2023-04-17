@@ -9,6 +9,7 @@ from hummingbot.connector.exchange.foxbit import (
     foxbit_constants as CONSTANTS,
 )
 
+
 class FoxbitTradeFields(Enum):
     ID = 0
     INSTRUMENTID = 1
@@ -35,14 +36,17 @@ class FoxbitOrderBookFields(Enum):
     QUANTITY = 8
     SIDE = 9
 
+
 class FoxbitOrderBookAction(Enum):
     NEW = 0
     UPDATE = 1
     DELETION = 2
 
+
 class FoxbitOrderBookSide(Enum):
     BID = 0
     ASK = 1
+
 
 class FoxbitOrderBook(OrderBook):
 
@@ -71,14 +75,14 @@ class FoxbitOrderBook(OrderBook):
         cls._asks = {}
 
         for item in msg["bids"]:
-            cls.update_order_book(item[1], 
-                                  item[0], 
+            cls.update_order_book(item[1],
+                                  item[0],
                                   FoxbitOrderBookAction.NEW,
                                   FoxbitOrderBookSide.BID)
 
         for item in msg["asks"]:
-            cls.update_order_book(item[1], 
-                                  item[0], 
+            cls.update_order_book(item[1],
+                                  item[0],
                                   FoxbitOrderBookAction.NEW,
                                   FoxbitOrderBookSide.ASK)
 
@@ -105,13 +109,13 @@ class FoxbitOrderBook(OrderBook):
         """
 
         if msg[FoxbitOrderBookFields.SIDE.value] == 0:
-            cls.update_order_book(msg[FoxbitOrderBookFields.QUANTITY.value], 
+            cls.update_order_book(msg[FoxbitOrderBookFields.QUANTITY.value],
                                   msg[FoxbitOrderBookFields.PRICE.value],
                                   msg[FoxbitOrderBookFields.ACTIONTYPE.value],
                                   FoxbitOrderBookSide.BID)
         elif msg[FoxbitOrderBookFields.SIDE.value] == 1:
-            cls.update_order_book(msg[FoxbitOrderBookFields.QUANTITY.value], 
-                                  msg[FoxbitOrderBookFields.PRICE.value], 
+            cls.update_order_book(msg[FoxbitOrderBookFields.QUANTITY.value],
+                                  msg[FoxbitOrderBookFields.PRICE.value],
                                   msg[FoxbitOrderBookFields.ACTIONTYPE.value],
                                   FoxbitOrderBookSide.ASK)
 
@@ -160,21 +164,21 @@ class FoxbitOrderBook(OrderBook):
             if len(cls._bids) > CONSTANTS.ORDER_BOOK_DEPTH:
                 min_bid = min(cls._bids.keys())
                 del cls._bids[min_bid]
-            
+
             cls._bids = dict(sorted(cls._bids.items(), reverse=True))
-        
+
         else:
             if action == FoxbitOrderBookAction.DELETION:
                 del cls._asks[p]
             else:
                 cls._asks[p] = q
-            
+
             if len(cls._asks) > CONSTANTS.ORDER_BOOK_DEPTH:
                 max_ask = max(cls._asks.keys())
                 del cls._asks[max_ask]
-            
+
             cls._asks = dict(sorted(cls._asks.items()))
- 
+
     @classmethod
     def formatN(cls, f: float) -> str:
         return f"{f:.10f}"
