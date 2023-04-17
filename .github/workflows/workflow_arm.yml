@@ -36,34 +36,34 @@ jobs:
         target: [zero2_64_raspios]
         #target: [zero_raspbian, zero_raspios, zero_dietpi, zero2_raspios, zero2_dietpi, zero2_64_raspios, zero2_64_dietpi]
         include:
-        - target: zero_raspbian
-          cpu: arm1176
-          cpu_info: cpuinfo/raspberrypi_zero_w
-          base_image: raspbian_lite:latest
-        - target: zero_raspios
-          cpu: arm1176
-          cpu_info: cpuinfo/raspberrypi_zero_w
-          base_image: raspios_lite:latest
-        - target: zero_dietpi
-          cpu: arm1176
-          cpu_info: cpuinfo/raspberrypi_zero_w
-          base_image: dietpi:rpi_armv6_bullseye
-        - target: zero2_raspios
-          cpu: cortex-a7
-          cpu_info: cpuinfo/raspberrypi_zero2_w
-          base_image: raspios_lite:latest
-        - target: zero2_dietpi
-          cpu: cortex-a7
-          cpu_info: cpuinfo/raspberrypi_zero2_w
-          base_image: dietpi:rpi_armv7_bullseye
         - target: zero2_64_raspios
           cpu: cortex-a53
           cpu_info: cpuinfo/raspberrypi_zero2_w_arm64
           base_image: raspios_lite_arm64:latest
-        - target: zero2_64_dietpi
-          cpu: cortex-a53
-          cpu_info: cpuinfo/raspberrypi_zero2_w_arm64
-          base_image: dietpi:rpi_armv8_bullseye
+        #- target: zero_raspbian
+        #  cpu: arm1176
+        #  cpu_info: cpuinfo/raspberrypi_zero_w
+        #  base_image: raspbian_lite:latest
+        #- target: zero_raspios
+        #  cpu: arm1176
+        #  cpu_info: cpuinfo/raspberrypi_zero_w
+        #  base_image: raspios_lite:latest
+        #- target: zero_dietpi
+        #  cpu: arm1176
+        #  cpu_info: cpuinfo/raspberrypi_zero_w
+        #  base_image: dietpi:rpi_armv6_bullseye
+        #- target: zero2_raspios
+        #  cpu: cortex-a7
+        #  cpu_info: cpuinfo/raspberrypi_zero2_w
+        #  base_image: raspios_lite:latest
+        #- target: zero2_dietpi
+        #  cpu: cortex-a7
+        #  cpu_info: cpuinfo/raspberrypi_zero2_w
+        #  base_image: dietpi:rpi_armv7_bullseye
+        #- target: zero2_64_dietpi
+        #  cpu: cortex-a53
+        #  cpu_info: cpuinfo/raspberrypi_zero2_w_arm64
+        #  base_image: dietpi:rpi_armv8_bullseye
     if: github.event.pull_request.draft == false && needs.run_client.outputs.is_set == 'true'
 
     defaults:
@@ -72,17 +72,20 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
       - uses: pguyot/arm-runner-action@v2
         with:
           base_image: ${{ matrix.base_image }}
           cpu: ${{ matrix.cpu }}
           cpu_info: ${{ matrix.cpu_info }}
           bind_mount_repository: true
+          user: hummingbot:hummingbot
+          shell: /bin/bash -eo pipefail
           commands: |
-              test `uname -m` = ${{ matrix.target }}
-              grep Model /proc/cpuinfo
+            uname -m > artifact
+      - name: Test created file persists
+        run: |
+          test -f artifact
+            
 
       # Use cache's hashFiles function to check for changes in core code
       - name: Check for code changes
@@ -153,6 +156,8 @@ jobs:
 
       # Notify results to discord
       - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.0'
       - name: Send Webhook Notification
         if: github.event_name != 'pull_request'
         env:
