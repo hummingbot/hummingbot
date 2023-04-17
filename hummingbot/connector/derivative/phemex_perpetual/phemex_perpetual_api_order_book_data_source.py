@@ -13,6 +13,7 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
+from hummingbot.logger.logger import HummingbotLogger
 
 if TYPE_CHECKING:
     from hummingbot.connector.derivative.phemex_perpetual.phemex_perpetual_derivative import PhemexPerpetualDerivative
@@ -22,6 +23,8 @@ TradeStructure = namedtuple("Trade", "timestamp side price amount")
 
 
 class PhemexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
+    _logger: Optional[HummingbotLogger] = None
+
     def __init__(
         self,
         trading_pairs: List[str],
@@ -40,6 +43,9 @@ class PhemexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._funding_info_messages_queue_key = "perp_market24h_pack_p.update"
         self._snapshot_messages_queue_key = "snapshot"
         self.pong_received_event = asyncio.Event()
+
+    def _get_messages_queue_keys(self) -> List[str]:
+        return [self._funding_info_messages_queue_key, self._diff_messages_queue_key, self._trade_messages_queue_key]
 
     async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
@@ -123,9 +129,13 @@ class PhemexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             channel = self._trade_messages_queue_key
         elif event_message.get("method", None) == self._funding_info_messages_queue_key:
             channel = self._funding_info_messages_queue_key
-        elif event_message.get("result", None) == "pong":
-            self.pong_received_event.set()
         return channel
+
+    async def _process_message_for_unknown_channel(
+        self, event_message: Dict[str, Any], websocket_assistant: WSAssistant
+    ):
+        if event_message.get("result", None) == "pong":
+            self.pong_received_event.set()
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         timestamp: float = time.time()
@@ -158,7 +168,7 @@ class PhemexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                     "price": mapped_trade.price,
                     "amount": mapped_trade.amount,
                 },
-                timestamp=mapped_trade.timestamp // 1e9,
+                timestamp=mapped_trade.timestamp * 1e-9,
             )
 
             message_queue.put_nowait(trade_message)

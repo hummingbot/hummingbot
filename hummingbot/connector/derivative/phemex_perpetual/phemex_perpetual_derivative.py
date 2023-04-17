@@ -37,8 +37,6 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
-bpm_logger = None
-
 
 class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
     _position_mode: PositionMode
