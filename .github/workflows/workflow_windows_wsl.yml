@@ -41,12 +41,12 @@ jobs:
         shell: wsl-bash {0}
 
     steps:
-      - uses: Vampire/setup-wsl@v2
-        with:
-            distribution: ${{ matrix.os }}
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
+      - uses: Vampire/setup-wsl@v2
+        with:
+            distribution: ${{ matrix.os }}
       #- uses: conda-incubator/setup-miniconda@v2
       #  with:
       #    miniconda-version: "latest"
@@ -87,6 +87,7 @@ jobs:
         with:
           program-cache-hit: ${{steps.program-changes.outputs.cache-hit}}
           dependencies-cache-hit: ${{steps.conda-dependencies.outputs.cache-hit}}
+          shell: wsl-bash {0}
 
       # Compile and run tests if code has changed
       - name: Run pre-commit hooks on diff

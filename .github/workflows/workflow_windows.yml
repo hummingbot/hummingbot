@@ -86,6 +86,7 @@ jobs:
         with:
           program-cache-hit: ${{steps.program-changes.outputs.cache-hit}}
           dependencies-cache-hit: ${{steps.conda-dependencies.outputs.cache-hit}}
+          shell: bash -l {0}
 
       # Compile and run tests if code has changed
       - name: Run pre-commit hooks on diff
