@@ -31,7 +31,7 @@ runs:
         commands: |
           apt update
           apt install -y wget
-          apt-get install build-essential libssl-dev libffi-dev gcc python3-dev python-dev python3.7 -y
+          apt-get install build-essential libssl-dev libffi-dev gcc python3-dev python-dev python3 -y
           wget https://github.com/conda-forge/miniforge/releases/download/4.11.0-4/Miniforge3-4.11.0-4-Linux-aarch64.sh
           sh Miniforge3-4.11.0-4-Linux-aarch64.sh
           exec bash

@@ -47,14 +47,15 @@ jobs:
       - uses: Vampire/setup-wsl@v2
         with:
             distribution: ${{ matrix.os }}
-      #- uses: conda-incubator/setup-miniconda@v2
-      #  with:
-      #    miniconda-version: "latest"
-      #    channels: conda-forge, defaults
-      #    use-only-tar-bz2: true  # IMPORTANT: This needs to be set for caching to work properly!
-      #    auto-update-conda: true
-      #    auto-activate-base: true
-      #    python-version: 3.8.2
+      - uses: conda-incubator/setup-miniconda@v2
+        with:
+          miniconda-version: "latest"
+          channels: conda-forge, defaults
+          channel-priority: flexible
+          use-only-tar-bz2: true  # IMPORTANT: This needs to be set for caching to work properly!
+          auto-update-conda: true
+          auto-activate-base: true
+          python-version: 3.8.5
 
       # Use cache's hashFiles function to check for changes in core code
       - name: Check for code changes
@@ -77,22 +78,8 @@ jobs:
         with:
           path: |
             /home/runner/conda_pkgs_dir/
-            /usr/share/miniconda/envs
+            /usr/share/miniconda/envs/hummingbot
           key: ${{ runner.os }}-conda-${{ env.CONDA_CACHE_NUMBER }}-${{ hashFiles('setup/environment-linux.yml') }}
-
-      # Install Miniconda
-      - name: Install Miniconda
-        run: |
-            apt-get update
-            apt-get install -y wget
-            wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
-            bash miniconda.sh -b -p $CONDA
-            echo "export PATH=$CONDA/bin:$PATH" >> ~/.bashrc
-            source ~/.bashrc
-            conda init bash
-            conda config --set always_yes yes --set changeps1 no
-            conda update -q conda
-            conda info -a
 
       # Install environment and Hummingbot
       - name: Install environment and Hummingbot

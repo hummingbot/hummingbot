@@ -66,7 +66,7 @@ jobs:
         with:
           path: |
             /home/runner/conda_pkgs_dir/
-            /usr/share/miniconda/envs
+            /usr/share/miniconda/envs/hummingbot
           key: ${{ runner.os }}-conda-${{ env.CONDA_CACHE_NUMBER }}-${{ hashFiles('setup/environment-linux.yml') }}
 
       # Install environment and Hummingbot
