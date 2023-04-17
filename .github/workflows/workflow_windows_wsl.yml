@@ -82,7 +82,6 @@ jobs:
 
       # Install environment and Hummingbot
       - name: Install environment and Hummingbot
-        shell: wsl-bash {0}
         uses: ./.github/actions/install_env_and_hb
         with:
           program-cache-hit: ${{steps.program-changes.outputs.cache-hit}}
