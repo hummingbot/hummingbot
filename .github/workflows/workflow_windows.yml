@@ -102,7 +102,12 @@ jobs:
         run: |
           source $CONDA/etc/profile.d/conda.sh
           conda activate hummingbot
-          make test
+          coverage run -m unittest discover -s test -p "test_*.py" \
+            --exclude-dir="test/connector" \
+            --exclude-dir="test/debug" \
+            --exclude-dir="test/mock" \
+            --exclude-dir="test/hummingbot/connector/gateway/amm" \
+            --exclude-dir="test/hummingbot/connector/gateway/clob"
 
       - name: Check and report global coverage
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
