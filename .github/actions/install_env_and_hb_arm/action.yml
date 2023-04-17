@@ -35,11 +35,11 @@ runs:
           apt-get install build-essential libssl-dev libffi-dev gcc python3-dev python-dev python3 -y
           wget https://github.com/conda-forge/miniforge/releases/download/4.11.0-4/Miniforge3-4.11.0-4-Linux-aarch64.sh
           sh Miniforge3-4.11.0-4-Linux-aarch64.sh -b -p /home/user/miniconda3
+          source $CONDA/etc/profile.d/conda.sh
           conda init
           conda config --set always_yes yes --set changeps1 no
           conda update -q conda
           conda info -a
-          source $CONDA/etc/profile.d/conda.sh
           conda install -c conda-forge pre_commit
           ./install
           conda info --envs

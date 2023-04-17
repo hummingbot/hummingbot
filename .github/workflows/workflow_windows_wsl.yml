@@ -77,6 +77,7 @@ jobs:
           apt-get install -y wget
           wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
           sh miniconda.sh -b -p /home/user/miniconda3
+          source $CONDA/etc/profile.d/conda.sh
           conda init
           conda config --set always_yes yes --set changeps1 no
           conda update -q conda
