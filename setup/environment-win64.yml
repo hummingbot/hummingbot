@@ -57,8 +57,8 @@ dependencies:
   - base58=2.1.1
   - dateparser=1.0.0
   - ecdsa=0.18.0
-  - eth-account=0.5.9
-  - importlib-resources=5.12.0
+  - eth-account=0.6.0
+  - importlib-resources=5.10.0
   - ipfshttpclient=0.8.0a2
   - jsonschema>=4.13.0
   - lru-dict=1.1.8
@@ -74,7 +74,6 @@ dependencies:
   - pyblake2=1.1.2
   #
   ## Packages for injective-py
-  - aiocron=1.8
   - asn1crypto=1.5.1
   ## Needs 1.53.0 - grpcio=1.52.1
   ## Needs 1.53.0 - grpcio-tools=1.52.0
@@ -94,6 +93,7 @@ dependencies:
     #  - websocket-client==1.5.1
     #  - pydantic==1.10.4
     #  - request==1.28.2
+    #  - importlib-resources=5.12.0
     - aiocron==1.8
 
     - git+https://github.com/CoinAlpha/python-signalr-client.git

@@ -73,7 +73,6 @@ jobs:
           CONDA_CACHE_NUMBER: 0
         with:
           path: |
-            /home/runner/conda_pkgs_dir/
             /usr/share/miniconda/envs/hummingbot
           key: ${{ runner.os }}-conda-${{ env.CONDA_CACHE_NUMBER }}-${{ hashFiles('setup/environment-linux.yml') }}
 
