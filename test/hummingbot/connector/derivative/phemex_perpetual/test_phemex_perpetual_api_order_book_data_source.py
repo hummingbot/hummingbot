@@ -275,40 +275,6 @@ class PhemexPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(result.mark_price, Decimal(mock_response["result"]["markPriceRp"]))
         self.assertEqual(result.rate, Decimal(mock_response["result"]["fundingRateRr"]))
 
-    @aioresponses()
-    def test_get_funding_info(self, mock_api):
-        url = web_utils.public_rest_url(CONSTANTS.MARK_PRICE_URL, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        mock_response = {
-            "error": None,
-            "id": 0,
-            "result": {
-                "closeRp": "20731",
-                "fundingRateRr": "0.0001",
-                "highRp": "20818.8",
-                "indexPriceRp": "20737.09857143",
-                "lowRp": "20425.2",
-                "markPriceRp": "20737.788944",
-                "openInterestRv": "0",
-                "openRp": "20709",
-                "predFundingRateRr": "0.0001",
-                "symbol": self.ex_trading_pair,
-                "timestamp": 1667222412794076700,
-                "turnoverRv": "139029311.7517",
-                "volumeRq": "6747.727",
-            },
-        }
-        mock_api.get(regex_url, body=json.dumps(mock_response))
-
-        result = self.async_run_with_timeout(self.data_source.get_funding_info(trading_pair=self.trading_pair))
-
-        self.assertIsInstance(result, FundingInfo)
-        self.assertEqual(result.trading_pair, self.trading_pair)
-        self.assertEqual(result.index_price, Decimal(mock_response["result"]["indexPriceRp"]))
-        self.assertEqual(result.mark_price, Decimal(mock_response["result"]["markPriceRp"]))
-        self.assertEqual(result.rate, Decimal(mock_response["result"]["fundingRateRr"]))
-
     def test_listen_for_funding_info_successful(self):
         funding_info_event = {
             "data": [
