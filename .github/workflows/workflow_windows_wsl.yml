@@ -89,7 +89,6 @@ jobs:
 
       # Compile and run tests if code has changed
       - name: Run pre-commit hooks on diff
-        shell: bash
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
         run: |
           source $CONDA/etc/profile.d/conda.sh
@@ -98,7 +97,6 @@ jobs:
 
       - name: Run stable tests and calculate coverage
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
-        shell: bash
         run: |
           source $CONDA/etc/profile.d/conda.sh
           conda activate hummingbot
@@ -106,7 +104,6 @@ jobs:
 
       - name: Check and report global coverage
         if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
-        shell: bash
         run: |
           source $CONDA/etc/profile.d/conda.sh
           conda activate hummingbot
@@ -114,7 +111,6 @@ jobs:
 
       - name: Validate coverage for the changes
         if: github.event_name == 'pull_request' && (steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true')
-        shell: bash
         run: |
           source $CONDA/etc/profile.d/conda.sh
           conda activate hummingbot
@@ -125,6 +121,8 @@ jobs:
 
       # Notify results to discord
       - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.0'
       - name: Send Webhook Notification
         if: github.event_name != 'pull_request'
         env:

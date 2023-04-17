@@ -118,6 +118,8 @@ jobs:
 
       # Notify results to discord
       - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.0'
       - name: Send Webhook Notification
         if: github.event_name != 'pull_request'
         env:
