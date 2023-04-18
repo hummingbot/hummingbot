@@ -1,5 +1,5 @@
 import asyncio
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from hummingbot.connector.derivative.phemex_perpetual import (
     phemex_perpetual_constants as CONSTANTS,
@@ -7,6 +7,7 @@ from hummingbot.connector.derivative.phemex_perpetual import (
 )
 from hummingbot.connector.derivative.phemex_perpetual.phemex_perpetual_auth import PhemexPerpetualAuth
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest, WSResponse
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
@@ -26,6 +27,7 @@ class PhemexPerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._auth = auth
         self._api_factory = api_factory
         self._domain = domain
+        self.pong_received_event = asyncio.Event()
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         ws: WSAssistant = await self._get_ws_assistant()
@@ -71,6 +73,7 @@ class PhemexPerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 raise IOError(f"Private account channel subscription failed: {message}.")
 
             self.logger().info("Subscribed to the private account channel...")
+            safe_ensure_future(self.ping_loop(ws=websocket_assistant))
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -83,3 +86,31 @@ class PhemexPerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
         if self._ws_assistant is None:
             self._ws_assistant = await self._api_factory.get_ws_assistant()
         return self._ws_assistant
+
+    async def ping_loop(self, ws: WSAssistant):
+        count = 0
+        while ws._connection.connected:
+            ping_request: WSJSONRequest = WSJSONRequest({"id": 0, "method": "server.ping", "params": []})
+            async with self._api_factory.throttler.execute_task(limit_id=CONSTANTS.WSS_MESSAGE_LIMIT_ID):
+                await ws.send(ping_request)
+            try:
+                await asyncio.wait_for(self.pong_received_event.wait(), timeout=5)
+                self.pong_received_event.clear()
+                count = 0
+                await self._sleep(5.0)
+            except asyncio.TimeoutError:
+                count += 1
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                await ws._connection.disconnect()
+            finally:
+                if count == 3:
+                    await ws._connection.disconnect()
+
+    async def _process_event_message(self, event_message: Dict[str, Any], queue: asyncio.Queue):
+        if len(event_message) > 0:
+            if event_message.get("result", "") == "pong":
+                self.pong_received_event.set()
+            else:
+                queue.put_nowait(event_message)
