@@ -590,11 +590,12 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
         self._account_available_balances[account_data["currency"]] = total_balance - locked_balance
 
     async def _request_positions(self):
-        return await self._api_get(
+        positions = await self._api_get(
             path_url=CONSTANTS.POSITION_INFO,
             params={"currency": CONSTANTS.COLLATERAL_TOKEN},
             is_auth_required=True,
         )
+        return positions if positions is not None else {}
 
     async def _update_positions(self):
         positions = await self._request_positions()
