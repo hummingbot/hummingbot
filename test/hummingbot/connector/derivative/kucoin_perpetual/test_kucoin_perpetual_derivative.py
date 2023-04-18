@@ -20,7 +20,7 @@ from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
-from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 
 
 class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDerivativeTests):
@@ -519,7 +519,7 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
     @property
     def expected_supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.MARKET]
+        return [OrderType.LIMIT, OrderType.MARKET, OrderType.LIMIT_MAKER]
 
     @property
     def expected_trading_rule(self):
@@ -564,9 +564,9 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
     @property
     def expected_fill_fee(self) -> TradeFeeBase:
-        return DeductedFromReturnsTradeFee(
+        return AddedToCostTradeFee(
+            percent=Decimal('0.0006'),
             percent_token=self.quote_asset,
-            flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("0.1"))],
         )
 
     @property
@@ -915,24 +915,24 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             "topic": "/contractMarket/tradeOrders",
             "subject": "orderChange",
             "channelType": "private",
-            "data": [{
+            "data": {
                 "orderId": order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
                 "symbol": self.exchange_trading_pair,
                 "type": "filled",
                 "status": "done",
                 "orderType": order.order_type.name.lower(),
                 "side": order.trade_type.name.lower(),
-                "price": str(order.price),
+                "matchPrice": str(order.price),
                 "size": float(order.amount) * 1000,
                 "remainSize": "0",
-                "filledSize": float(order.amount) * 1000,
-                "fee": str(self.expected_fill_fee.flat_fees[0].amount),
+                "matchSize": float(order.amount) * 1000,
+                "fee": str(self.expected_fill_fee.percent),
                 "canceledSize": "0",
                 "clientOid": order.client_order_id or "",
                 "orderTime": 1545914149935808589,
                 "liquidity": "maker",
                 "ts": 1545914149935808589
-            }]
+            }
         }
 
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
@@ -941,24 +941,25 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             "topic": "/contractMarket/tradeOrders",
             "subject": "orderChange",
             "channelType": "private",
-            "data": [{
+            "data": {
                 "orderId": order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
+                "tradeId": self.expected_fill_trade_id,
                 "symbol": self.exchange_trading_pair,
-                "type": "filled",
+                "type": "match",
                 "status": "done",
                 "orderType": order.order_type.name.lower(),
                 "side": order.trade_type.name.lower(),
-                "price": str(order.price),
+                "matchPrice": str(order.price),
                 "size": float(order.amount) * 1000,
-                "fee": str(self.expected_fill_fee.flat_fees[0].amount),
+                "fee": str(self.expected_fill_fee.percent),
                 "remainSize": "0",
-                "filledSize": float(order.amount) * 1000,
+                "matchSize": float(order.amount) * 1000,
                 "canceledSize": "0",
                 "clientOid": order.client_order_id or "",
                 "orderTime": 1545914149935808589,
                 "liquidity": "maker",
                 "ts": 1545914149935808589
-            }]
+            }
         }
 
     def position_event_for_full_fill_websocket_update(self, order: InFlightOrder, unrealized_pnl: float):
@@ -1282,7 +1283,7 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                         "fixFee": "0.00000006",  # Fixed fees
                         "feeCurrency": "XBT",  # Charging currency
                         "stop": "",  # A mark to the stop order type
-                        "fee": str(self.expected_fill_fee.flat_fees[0].amount),  # Transaction fee
+                        "fee": str(self.expected_fill_fee.percent),  # Transaction fee
                         "orderType": order.order_type.name.lower(),  # Order type
                         "tradeType": "trade",  # Trade type (trade, liquidation, ADL or settlement)
                         "createdAt": 1558334496000,  # Time the order created
@@ -1309,19 +1310,22 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                             "liquidity": "taker",  # Liquidity- taker or maker
                             "forceTaker": True,  # Whether to force processing as a taker
                             "price": str(order.price),  # Filled price
+                            "matchPrice": str(order.price),  # Filled price
                             "size": float(order.amount),   # Order amount
                             "filledSize": float(order.amount),   # Filled amount
+                            "matchSize": float(order.amount),   # Filled amount
                             "value": "0.001204529",  # Order value
                             "feeRate": "0.0005",  # Floating fees
                             "fixFee": "0.00000006",  # Fixed fees
                             "feeCurrency": "XBT",  # Charging currency
                             "stop": "",  # A mark to the stop order type
-                            "fee": str(self.expected_fill_fee.flat_fees[0].amount),  # Transaction fee
+                            "fee": str(self.expected_fill_fee.percent),  # Transaction fee
                             "orderType": order.order_type.name.lower(),  # Order type
                             "tradeType": "trade",  # Trade type (trade, liquidation, ADL or settlement)
                             "createdAt": 1558334496000,  # Time the order created
                             "settleCurrency": order.base_asset,  # settlement currency
-                            "tradeTime": 1558334496000000000  # trade time in nanosecond
+                            "tradeTime": 1558334496000000000,  # trade time in nanosecond
+                            "ts": 1558334496000000000  # trade time in nanosecond
                         }
                     ]
             }

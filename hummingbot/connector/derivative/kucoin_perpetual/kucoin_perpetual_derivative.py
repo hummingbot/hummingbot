@@ -24,10 +24,10 @@ from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
+from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_gather
-from hummingbot.core.utils.estimate_fee import build_trade_fee
+from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
@@ -121,7 +121,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
         """
         :return a list of OrderType supported by this connector
         """
-        return [OrderType.LIMIT, OrderType.MARKET]
+        return [OrderType.LIMIT, OrderType.MARKET, OrderType.LIMIT_MAKER]
 
     def supported_position_modes(self):
         # KuCoin only supports ONEWAY mode for all perpetuals, no hedge mode
@@ -207,6 +207,8 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
         }
         if order_type.is_limit_type():
             data["price"] = float(price)
+            if order_type is OrderType.LIMIT_MAKER:
+                data["postOnly"] = True
         else:
             data["timeInForce"] = "IOC"
 
@@ -229,20 +231,28 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
                  quote_currency: str,
                  order_type: OrderType,
                  order_side: TradeType,
+                 position_action: PositionAction,
                  amount: Decimal,
                  price: Decimal = s_decimal_NaN,
                  is_maker: Optional[bool] = None) -> TradeFeeBase:
-        is_maker = is_maker or False
-        fee = build_trade_fee(
-            self.name,
-            is_maker,
-            base_currency=base_currency,
-            quote_currency=quote_currency,
-            order_type=order_type,
-            order_side=order_side,
-            amount=amount,
-            price=price,
-        )
+        is_maker = is_maker or (order_type is OrderType.LIMIT_MAKER)
+        trading_pair = combine_to_hb_trading_pair(base=base_currency, quote=quote_currency)
+        if trading_pair in self._trading_fees:
+            fees_data = self._trading_fees[trading_pair]
+            fee_value = Decimal(fees_data["makerFeeRate"]) if is_maker else Decimal(fees_data["takerFeeRate"])
+            fee = AddedToCostTradeFee(percent=fee_value)
+        else:
+            fee = build_perpetual_trade_fee(
+                self.name,
+                is_maker,
+                position_action=position_action,
+                base_currency=base_currency,
+                quote_currency=quote_currency,
+                order_type=order_type,
+                order_side=order_side,
+                amount=amount,
+                price=price,
+            )
         return fee
 
     async def _update_trading_fees(self):
@@ -502,10 +512,18 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
             order_msg = order_status_data["data"]
             client_order_id = str(order_msg["clientOid"])
 
+            ordered_canceled = order_msg["cancelExist"]
+            is_active = order_msg["isActive"]
+            new_state = tracked_order.current_state
+            if ordered_canceled:
+                new_state = OrderState.CANCELED
+            elif not is_active:
+                new_state = OrderState.FILLED
+
             order_update: OrderUpdate = OrderUpdate(
                 trading_pair=tracked_order.trading_pair,
                 update_timestamp=self.current_timestamp,
-                new_state=CONSTANTS.ORDER_STATE[order_msg["status"]],
+                new_state=new_state,
                 client_order_id=client_order_id,
                 exchange_order_id=order_msg["id"],
             )
@@ -630,7 +648,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
         event if the total executed amount equals to the specified order amount.
         :param trade_msg: The trade event message payload
         """
-        client_order_id = str(trade_msg["clientOid"])
+        client_order_id = str(trade_msg.get("clientOid"))
         fillable_order = self._order_tracker.all_fillable_orders.get(client_order_id)
         if fillable_order is not None:
             trade_update = self._parse_trade_update(trade_msg=trade_msg, tracked_order=fillable_order)
