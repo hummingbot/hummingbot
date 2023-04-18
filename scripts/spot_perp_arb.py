@@ -38,6 +38,7 @@ class SpotPerpArb(ScriptStrategyBase):
 
     leverage = 2
     is_position_mode_ready = False
+
     base_order_amount = Decimal("100")
     buy_spot_short_perp_profit_margin_bps = 20
     sell_spot_long_perp_profit_margin_bps = 20
@@ -46,7 +47,7 @@ class SpotPerpArb(ScriptStrategyBase):
 
     strategy_state = StrategyState.Closed
     completed_order_ids = []
-    last_arbitrage_reported_ts = 0
+    # last_arbitrage_reported_ts = 0
     next_arbitrage_opening_ts = 0
     next_arbitrage_opening_delay = 5
     in_flight_state_start_ts = 0
@@ -106,18 +107,10 @@ class SpotPerpArb(ScriptStrategyBase):
 
         # TODO: change to async on order execution
         # find opportunity and trade
-        if (
-            self.should_buy_spot_short_perp()
-            and self.can_buy_spot_short_perp()
-            and not self.is_perp_in_short
-        ):
+        if self.should_buy_spot_short_perp() and self.can_buy_spot_short_perp():
             self.buy_spot_short_perp()
             self.update_static_state()
-        elif (
-            self.should_sell_spot_long_perp()
-            and self.can_sell_spot_long_perp()
-            and not self.is_perp_in_long
-        ):
+        elif self.should_sell_spot_long_perp() and self.can_sell_spot_long_perp():
             self.sell_spot_long_perp()
             self.update_static_state()
 
@@ -341,28 +334,32 @@ class SpotPerpArb(ScriptStrategyBase):
         lines.extend(["", ""])
         self._append_balances_status(lines)
         lines.extend(["", ""])
+        self._append_bot_states(lines)
+        lines.extend(["", ""])
         return "\n".join(lines)
 
     def _append_buy_spot_short_perp_status(self, lines: List[str]) -> None:
         spot_buy_price = self.limit_taker_price(self.spot_connector, is_buy=True)
         perp_short_price = self.limit_taker_price(self.perp_connector, is_buy=False)
-        ret_percent = float((perp_short_price - spot_buy_price) / spot_buy_price) * 100
+        return_pbs = (
+            float((perp_short_price - spot_buy_price) / spot_buy_price) * 100 * 100
+        )
         lines.append("Buy Spot Short Perp Opportunity:")
         lines.append(f"Buy Spot: {spot_buy_price}")
         lines.append(f"Short Perp: {perp_short_price}")
-        lines.append(f"Return: {ret_percent:.2f}%")
-        lines.append(f"Is In Position: {self.is_perp_in_short}")
+        lines.append(f"Return (bps): {return_pbs:.1f}%")
         return
 
     def _append_sell_spot_long_perp_status(self, lines: List[str]) -> None:
         perp_long_price = self.limit_taker_price(self.perp_connector, is_buy=True)
         spot_sell_price = self.limit_taker_price(self.spot_connector, is_buy=False)
-        ret_percent = float((spot_sell_price - perp_long_price) / perp_long_price) * 100
+        return_pbs = (
+            float((spot_sell_price - perp_long_price) / perp_long_price) * 100 * 100
+        )
         lines.append("Long Perp Sell Spot Opportunity:")
         lines.append(f"Long Perp: {perp_long_price}")
         lines.append(f"Sell Spot: {spot_sell_price}")
-        lines.append(f"Return: {ret_percent:.2f}%")
-        lines.append(f"Is In Position: {self.is_perp_in_long}")
+        lines.append(f"Return (bps): {return_pbs:.1f}%")
         return
 
     def _append_balances_status(self, lines: List[str]) -> None:
@@ -374,6 +371,16 @@ class SpotPerpArb(ScriptStrategyBase):
         lines.append(f"Spot Base Balance: {spot_base_balance:.04f} {base}")
         lines.append(f"Spot Quote Balance: {spot_quote_balance:.04f} {quote}")
         lines.append(f"Perp Balance: {perp_quote_balance:04f} USDT")
+        return
+
+    def _append_bot_states(self, lines: List[str]) -> None:
+        lines.append("Bot States:")
+        lines.append(f"Current Timestamp: {self.current_timestamp}")
+        lines.append(f"Strategy State: {self.strategy_state.name}")
+        lines.append(f"Open Next Opportunity after: {self.next_arbitrage_opening_ts}")
+        lines.append(f"Last In Flight State at: {self.in_flight_state_start_ts}")
+        lines.append(f"Last Opened State at: {self.last_submit_order_ts}")
+        lines.append(f"Completed Ordered IDs: {self.completed_order_ids}")
         return
 
     def did_complete_buy_order(self, event: BuyOrderCompletedEvent) -> None:
