@@ -9,8 +9,6 @@ from hummingbot.connector.exchange.foxbit import (
 )
 from hummingbot.connector.exchange.foxbit.foxbit_order_book import (
     FoxbitOrderBook,
-    FoxbitOrderBookFields,
-    FoxbitTradeFields,
 )
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
