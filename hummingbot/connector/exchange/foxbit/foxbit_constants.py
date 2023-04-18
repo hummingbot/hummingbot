@@ -116,7 +116,7 @@ WS_ORDER_STATE = "OrderStateEvent"
 WS_ORDER_TRADE = "OrderTradeEvent"
 WS_TRADE_RESPONSE = "TradeDataUpdateEvent"
 
-ORDER_BOOK_DEPTH = 5
+ORDER_BOOK_DEPTH = 10
 
 RATE_LIMITS = [
     # Pools

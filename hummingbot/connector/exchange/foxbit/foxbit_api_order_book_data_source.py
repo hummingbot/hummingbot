@@ -112,32 +112,20 @@ class FoxbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         if CONSTANTS.WS_SUBSCRIBE_TRADES or CONSTANTS.WS_TRADE_RESPONSE in raw_message['n']:
             full_msg = eval(raw_message['o'].replace(",false,", ",False,"))
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_instrument_id(
-                instrument_id=full_msg[0][FoxbitTradeFields.INSTRUMENTID.value]
-            )
             for msg in full_msg:
                 trade_message = FoxbitOrderBook.trade_message_from_exchange(
-                    msg=msg,
-                    metadata={"trading_pair": trading_pair}
+                    msg=msg
                 )
                 message_queue.put_nowait(trade_message)
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        if CONSTANTS.WS_ORDER_STATE in raw_message['n']:
-            print(eval(raw_message['o']))
         if CONSTANTS.WS_ORDER_BOOK_RESPONSE or CONSTANTS.WS_ORDER_STATE in raw_message['n']:
             full_msg = eval(raw_message['o'])
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_instrument_id(
-                instrument_id=full_msg[0][FoxbitOrderBookFields.PRODUCTPAIRCODE.value]
-            )
             for msg in full_msg:
-                # ACTIONTYPE == 2 informs it is a deletion
-                if int(msg[FoxbitOrderBookFields.ACTIONTYPE.value]) < 2 and float(msg[FoxbitOrderBookFields.QUANTITY.value]) > 0.0:
-                    order_book_message: OrderBookMessage = FoxbitOrderBook.diff_message_from_exchange(
-                        msg=msg,
-                        metadata={"trading_pair": trading_pair, "first_update_id": self._first_update_id[trading_pair]}
-                    )
-                    message_queue.put_nowait(order_book_message)
+                order_book_message: OrderBookMessage = FoxbitOrderBook.diff_message_from_exchange(
+                    msg=msg
+                )
+                message_queue.put_nowait(order_book_message)
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
         channel = ""

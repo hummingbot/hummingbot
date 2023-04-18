@@ -48,11 +48,38 @@ class FoxbitOrderBookSide(Enum):
     ASK = 1
 
 
-class FoxbitOrderBook(OrderBook):
+class FoxbitOrderBookItem(Enum):
+    PRICE = 0
+    QUANTITY = 1
 
+
+class FoxbitOrderBook(OrderBook):
     _trading_pair = ''
+    _first_update_id = 0
+    _last_update_id = 0
     _bids = {}
     _asks = {}
+
+    @classmethod
+    def trade_message_from_exchange(cls,
+                                    msg: Dict[str, any],
+                                    metadata: Optional[Dict] = None,
+                                    ):
+        """
+        Creates a trade message with the information from the trade event sent by the exchange
+        :param msg: the trade event details sent by the exchange
+        :param metadata: a dictionary with extra information to add to trade message
+        :return: a trade message with the details of the trade as provided by the exchange
+        """
+        ts = int(msg[FoxbitTradeFields.CREATEDAT.value])
+        return OrderBookMessage(OrderBookMessageType.TRADE, {
+            "trading_pair": cls._trading_pair,
+            "trade_type": float(TradeType.SELL.value) if msg[FoxbitTradeFields.SIDE.value] == 1 else float(TradeType.BUY.value),
+            "trade_id": msg[FoxbitTradeFields.ID.value],
+            "update_id": ts,
+            "price": '%.10f' % float(msg[FoxbitTradeFields.PRICE.value]),
+            "amount": '%.10f' % float(msg[FoxbitTradeFields.QUANTITY.value])
+        }, timestamp=ts * 1e-3)
 
     @classmethod
     def snapshot_message_from_exchange(cls,
@@ -70,28 +97,31 @@ class FoxbitOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
 
+        cls.logger().info(f'Refreshing order book to {msg["trading_pair"]}.')
         cls._trading_pair = msg["trading_pair"]
+        cls._first_update_id = int(msg["sequence_id"])
+        cls._last_update_id = cls._first_update_id
         cls._bids = {}
         cls._asks = {}
 
         for item in msg["bids"]:
-            cls.update_order_book(item[1],
-                                  item[0],
-                                  FoxbitOrderBookAction.NEW,
+            cls.update_order_book('%.10f' % float(item[FoxbitOrderBookItem.QUANTITY.value]),
+                                  '%.10f' % float(item[FoxbitOrderBookItem.PRICE.value]),
+                                  FoxbitOrderBookAction.NEW.value,
                                   FoxbitOrderBookSide.BID)
 
         for item in msg["asks"]:
-            cls.update_order_book(item[1],
-                                  item[0],
-                                  FoxbitOrderBookAction.NEW,
+            cls.update_order_book('%.10f' % float(item[FoxbitOrderBookItem.QUANTITY.value]),
+                                  '%.10f' % float(item[FoxbitOrderBookItem.PRICE.value]),
+                                  FoxbitOrderBookAction.NEW.value,
                                   FoxbitOrderBookSide.ASK)
 
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "trading_pair": msg["trading_pair"],
-            "first_update_id": msg["sequence_id"],
-            "update_id": msg["sequence_id"],
-            "bids": [[cls.formatN(price), cls.formatN(quantity)] for price, quantity in cls._bids.items()],
-            "asks": [[cls.formatN(price), cls.formatN(quantity)] for price, quantity in cls._asks.items()]
+            "trading_pair": cls._trading_pair,
+            "first_update_id": cls._first_update_id,
+            "update_id": cls._last_update_id,
+            "bids": [[price, quantity] for price, quantity in cls._bids.items()],
+            "asks": [[price, quantity] for price, quantity in cls._asks.items()]
         }, timestamp=timestamp)
 
     @classmethod
@@ -108,85 +138,61 @@ class FoxbitOrderBook(OrderBook):
         :return: a diff message with the changes in the order book notified by the exchange
         """
 
-        if msg[FoxbitOrderBookFields.SIDE.value] == 0:
-            cls.update_order_book(msg[FoxbitOrderBookFields.QUANTITY.value],
-                                  msg[FoxbitOrderBookFields.PRICE.value],
+        if int(msg[FoxbitOrderBookFields.MDUPDATEID.value]) < cls._first_update_id:
+            cls.logger().info(f'Received a diff message out of date {msg}. First update id: {cls._first_update_id}')
+            return
+        if int(msg[FoxbitOrderBookFields.MDUPDATEID.value]) < cls._last_update_id:
+            cls.logger().info(f'Received a diff message out of date {msg}. Last update id: {cls._last_update_id}')
+            return
+        else:
+            cls._last_update_id = int(msg[FoxbitOrderBookFields.MDUPDATEID.value])
+
+        if msg[FoxbitOrderBookFields.SIDE.value] == FoxbitOrderBookSide.BID.value:
+            cls.update_order_book('%.10f' % float(msg[FoxbitOrderBookFields.QUANTITY.value]),
+                                  '%.10f' % float(msg[FoxbitOrderBookFields.PRICE.value]),
                                   msg[FoxbitOrderBookFields.ACTIONTYPE.value],
                                   FoxbitOrderBookSide.BID)
-        elif msg[FoxbitOrderBookFields.SIDE.value] == 1:
-            cls.update_order_book(msg[FoxbitOrderBookFields.QUANTITY.value],
-                                  msg[FoxbitOrderBookFields.PRICE.value],
+        elif msg[FoxbitOrderBookFields.SIDE.value] == FoxbitOrderBookSide.ASK.value:
+            cls.update_order_book('%.10f' % float(msg[FoxbitOrderBookFields.QUANTITY.value]),
+                                  '%.10f' % float(msg[FoxbitOrderBookFields.PRICE.value]),
                                   msg[FoxbitOrderBookFields.ACTIONTYPE.value],
                                   FoxbitOrderBookSide.ASK)
 
         return OrderBookMessage(
-            OrderBookMessageType.DIFF, {
-                "trading_pair": metadata["trading_pair"],
-                "first_update_id": int(metadata["first_update_id"]),
-                "update_id": int(msg[FoxbitOrderBookFields.MDUPDATEID.value]),
-                "bids": [[cls.formatN(price), cls.formatN(quantity)] for price, quantity in cls._bids.items()],
-                "asks": [[cls.formatN(price), cls.formatN(quantity)] for price, quantity in cls._asks.items()]
+            OrderBookMessageType.SNAPSHOT, {
+                "trading_pair": cls._trading_pair,
+                "first_update_id": cls._first_update_id,
+                "update_id": cls._last_update_id,
+                "bids": [[price, quantity] for price, quantity in cls._bids.items()],
+                "asks": [[price, quantity] for price, quantity in cls._asks.items()]
             }, timestamp=int(msg[FoxbitOrderBookFields.ACTIONDATETIME.value])
         )
 
     @classmethod
-    def trade_message_from_exchange(cls,
-                                    msg: Dict[str, any],
-                                    metadata: Optional[Dict] = None,
-                                    ):
-        """
-        Creates a trade message with the information from the trade event sent by the exchange
-        :param msg: the trade event details sent by the exchange
-        :param metadata: a dictionary with extra information to add to trade message
-        :return: a trade message with the details of the trade as provided by the exchange
-        """
-        ts = int(msg[FoxbitTradeFields.CREATEDAT.value])
-        return OrderBookMessage(OrderBookMessageType.TRADE, {
-            "trading_pair": metadata["trading_pair"],
-            "trade_type": float(TradeType.SELL.value) if msg[FoxbitTradeFields.SIDE.value] == 1 else float(TradeType.BUY.value),
-            "trade_id": msg[FoxbitTradeFields.ID.value],
-            "update_id": ts,
-            "price": cls.formatN(msg[FoxbitTradeFields.PRICE.value]),
-            "amount": cls.formatN(msg[FoxbitTradeFields.QUANTITY.value])
-        }, timestamp=ts * 1e-3)
-
-    @classmethod
     def update_order_book(cls, quantity: str, price: str, action: FoxbitOrderBookAction, side: FoxbitOrderBookSide):
-        q = cls.toFloat(quantity)
-        p = cls.toFloat(price)
+        q = float(quantity)
+        p = float(price)
 
         if side == FoxbitOrderBookSide.BID:
-            if action == FoxbitOrderBookAction.DELETION:
-                del cls._bids[p]
+            if action == FoxbitOrderBookAction.DELETION.value:
+                if p in cls._bids:
+                    del cls._bids[p]
             else:
                 cls._bids[p] = q
-
-            if len(cls._bids) > CONSTANTS.ORDER_BOOK_DEPTH:
-                min_bid = min(cls._bids.keys())
-                del cls._bids[min_bid]
+                if len(cls._bids) > CONSTANTS.ORDER_BOOK_DEPTH:
+                    min_bid = min(cls._bids.keys())
+                    del cls._bids[min_bid]
 
             cls._bids = dict(sorted(cls._bids.items(), reverse=True))
 
-        else:
-            if action == FoxbitOrderBookAction.DELETION:
-                del cls._asks[p]
+        elif side == FoxbitOrderBookSide.ASK:
+            if action == FoxbitOrderBookAction.DELETION.value:
+                if p in cls._asks:
+                    del cls._asks[p]
             else:
                 cls._asks[p] = q
-
-            if len(cls._asks) > CONSTANTS.ORDER_BOOK_DEPTH:
-                max_ask = max(cls._asks.keys())
-                del cls._asks[max_ask]
+                if len(cls._asks) > CONSTANTS.ORDER_BOOK_DEPTH:
+                    max_ask = max(cls._asks.keys())
+                    del cls._asks[max_ask]
 
             cls._asks = dict(sorted(cls._asks.items()))
-
-    @classmethod
-    def formatN(cls, f: float) -> str:
-        # format float as string with 10 decimals
-        return f"{f:.10f}"
-
-    @classmethod
-    def toFloat(cls, s: str) -> float:
-        try:
-            return float(s)
-        except ValueError:
-            return 0
