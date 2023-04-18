@@ -159,9 +159,8 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
             "KC-API-TIMESTAMP Invalid -- Time differs from server time by more than 5 seconds"
         )
         is_time_synchronizer_related = (
-        ts_error_target_str in error_description
-        or param_error_target_str in error_description
-        )
+                    ts_error_target_str in error_description or param_error_target_str in error_description
+                    )
         return is_time_synchronizer_related
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
@@ -812,7 +811,8 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
             mapping.pop(current_exchange_symbol)
             mapping[new_exchange_symbol] = trading_pair
         else:
-            self.logger().error(f"Could not resolve the exchange symbols {new_exchange_symbol} and {current_exchange_symbol}")
+            self.logger().error(
+                f"Could not resolve the exchange symbols {new_exchange_symbol} and {current_exchange_symbol}")
             mapping.pop(current_exchange_symbol)
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
