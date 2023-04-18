@@ -159,8 +159,8 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
             "KC-API-TIMESTAMP Invalid -- Time differs from server time by more than 5 seconds"
         )
         is_time_synchronizer_related = (
-                ts_error_target_str in error_description
-                or param_error_target_str in error_description
+        ts_error_target_str in error_description
+        or param_error_target_str in error_description
         )
         return is_time_synchronizer_related
 
