@@ -14,10 +14,10 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
 class StrategyState(Enum):
-    Closed = 0
-    Opening = 1
-    Opened = 2
-    Closing = 3
+    Closed = 0  # static state
+    Opening = 1  # in flight state
+    Opened = 2  # static state
+    Closing = 3  # in flight state
 
 
 # TODO: handle corner cases -- spot price and perp price never cross again after position is opened
@@ -50,6 +50,9 @@ class SpotPerpArb(ScriptStrategyBase):
     next_arbitrage_opening_ts = 0
     next_arbitrage_opening_delay = 5
     in_flight_state_start_ts = 0
+    in_flight_state_tolerance = 60
+    opened_state_start_ts = 0
+    opened_state_tolerance = 60 * 60 * 2
 
     def __init__(self, connectors: Dict[str, ConnectorBase]):
         super().__init__(connectors)
@@ -73,9 +76,13 @@ class SpotPerpArb(ScriptStrategyBase):
         # skip if orders are pending for completion
         self.update_in_flight_state()
         if self.strategy_state in (StrategyState.Opening, StrategyState.Closing):
-            if self.current_timestamp > self.in_flight_state_start_ts + 60:
+            if (
+                self.current_timestamp
+                > self.in_flight_state_start_ts + self.in_flight_state_tolerance
+            ):
                 self.logger().warning(
-                    f"Orders has been submitted but not completed yet for more than 60 seconds. Please check your orders!"
+                    f"Orders has been submitted but not completed yet "
+                    f"for more than {self.in_flight_state_tolerance} seconds. Please check your orders!"
                 )
             return
 
@@ -86,6 +93,17 @@ class SpotPerpArb(ScriptStrategyBase):
         ):
             return
 
+        # flag out if position waits too long without any sign of closing
+        if (
+            self.strategy_state == StrategyState.Opened
+            and self.current_timestamp
+            > self.opened_state_start_ts + self.opened_state_tolerance
+        ):
+            self.logger().warning(
+                f"Position has been opened for more than {self.opened_state_tolerance} seconds without any sign of closing. "
+                f"Consider undoing the position manually or lower the profitability margin."
+            )
+
         # TODO: change to async on order execution
         # find opportunity and trade
         if (
@@ -94,14 +112,14 @@ class SpotPerpArb(ScriptStrategyBase):
             and not self.is_perp_in_short
         ):
             self.buy_spot_short_perp()
-            self.set_to_in_flight_state()
+            self.update_static_state()
         elif (
             self.should_sell_spot_long_perp()
             and self.can_sell_spot_long_perp()
             and not self.is_perp_in_long
         ):
             self.sell_spot_long_perp()
-            self.set_to_in_flight_state()
+            self.update_static_state()
 
     def update_in_flight_state(self) -> None:
         if (
@@ -114,6 +132,7 @@ class SpotPerpArb(ScriptStrategyBase):
                 "Changed the state from Opening to Opened."
             )
             self.completed_order_ids.clear()
+            self.opened_state_start_ts = self.current_timestamp
         elif (
             self.strategy_state == StrategyState.Closing
             and len(self.completed_order_ids) == 2
@@ -130,7 +149,7 @@ class SpotPerpArb(ScriptStrategyBase):
             self.completed_order_ids.clear()
         return
 
-    def set_to_in_flight_state(self) -> None:
+    def update_static_state(self) -> None:
         if self.strategy_state == StrategyState.Closed:
             self.strategy_state = StrategyState.Opening
             self.logger().info("The state changed from Closed to Opening")
