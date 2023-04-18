@@ -195,7 +195,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
             **kwargs,
     ) -> Tuple[str, float]:
         data = {
-            "side": "buy" if trade_type == TradeType.BUY else "sell",
+            "side": "buy" if trade_type is TradeType.BUY else "sell",
             "symbol": await self.exchange_symbol_associated_to_pair(trading_pair),
             # size needs to be number of contracts, not amount of currency
             "size": self.get_quantity_of_contracts(trading_pair, amount),
@@ -222,13 +222,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
         if resp["code"] != CONSTANTS.RET_CODE_OK:
             formatted_ret_code = self._format_ret_code_for_print(resp['code'])
             raise IOError(f"Error submitting order {order_id}: {formatted_ret_code} - {resp['msg']}")
-        if "orderId" in resp["data"]:
-            return_order_id = resp["data"]["orderId"]
-        elif "clientOid" in resp["data"]:
-            return_order_id = resp["data"]["clientOid"]
-        else:
-            raise IOError(f"Could not retrieve order ID after placing order: {order_id} - {resp['msg']}")
-        return str(return_order_id), self.current_timestamp
+        return str(resp["data"]["orderId"]), self.current_timestamp
 
     def _get_fee(self,
                  base_currency: str,
@@ -601,7 +595,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
         Updates position
         :param position_msg: The position event message payload
         """
-        if position_msg["changeReason"] != "markPriceChange":
+        if "changeReason" in position_msg and position_msg["changeReason"] != "markPriceChange":
             ex_trading_pair = position_msg["symbol"]
             trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=ex_trading_pair)
             amount = Decimal(str(position_msg["currentQty"]))
@@ -622,6 +616,13 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
                 self._perpetual_trading.set_position(pos_key, position)
             else:
                 self._perpetual_trading.remove_position(pos_key)
+
+        elif "changeReason" in position_msg and position_msg["changeReason"] == "markPriceChange":
+            ex_trading_pair = position_msg["symbol"]
+            trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=ex_trading_pair)
+            existing_position = self._perpetual_trading.get_position(trading_pair)
+            if existing_position is not None:
+                existing_position.update_position(unrealized_pnl=Decimal(str(position_msg["unrealisedPnl"])))
 
     def _process_trade_event_message(self, trade_msg: Dict[str, Any]):
         """
