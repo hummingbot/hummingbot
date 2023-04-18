@@ -236,9 +236,13 @@ class PhemexPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 await asyncio.wait_for(self.pong_received_event.wait(), timeout=5)
                 self.pong_received_event.clear()
                 count = 0
+                await self._sleep(5.0)
             except asyncio.TimeoutError:
                 count += 1
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                await ws._connection.disconnect()
             finally:
                 if count == 3:
                     await ws._connection.disconnect()
-            await self._sleep(5.0)

@@ -236,7 +236,7 @@ class PhemexPerpetualAPIUserStreamDataSourceTest(unittest.TestCase):
             websocket_mock=ws_mock.return_value,
         )
 
-        self.assertEqual(2, len(sent_messages))
+        self.assertEqual(3, len(sent_messages))
 
         auth_message = sent_messages[1]
         expected_auth_message = {
