@@ -1,48 +1,60 @@
 from decimal import Decimal
+from enum import Enum
 from typing import Dict, List
 
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.utils import split_hb_trading_pair
-from hummingbot.core.data_type.common import (
-    OrderType,
-    PositionAction,
-    PositionMode,
-    TradeType,
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    PositionModeChangeEvent,
+    SellOrderCompletedEvent,
 )
-from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+
+
+class StrategyState(Enum):
+    Closed = 0
+    Opening = 1
+    Opened = 2
+    Closing = 3
 
 
 # TODO: handle corner cases -- spot price and perp price never cross again after position is opened
 class SpotPerpArb(ScriptStrategyBase):
     """
     PRECHECK:
-    1. enough base and quote balance in spot, enough quote balance in perp
+    1. enough base and quote balance in spot (base is optional if you do one side only), enough quote balance in perp
     2. better to empty your position in perp
-    3. check you have set one way (instead of hedge) in your futures account
+    3. check you have set one way mode (instead of hedge mode) in your futures account
+
+    REFERENCE: hummingbot/strategy/spot_perpetual_arbitrage
     """
 
     spot_connector = "kucoin"
     perp_connector = "kucoin_perpetual"
     trading_pair = "LINA-USDT"
+    markets = {spot_connector: {trading_pair}, perp_connector: {trading_pair}}
 
+    leverage = 2
+    is_position_mode_ready = False
     base_order_amount = Decimal("100")
-    buy_spot_short_perp_profit_margin_bps = -1
-    sell_spot_long_perp_profit_margin_bps = -1
+    buy_spot_short_perp_profit_margin_bps = 20
+    sell_spot_long_perp_profit_margin_bps = 20
     # buffer to account for slippage when placing limit taker orders
     slippage_buffer_bps = 5
 
-    leverage = 2
-    markets = {spot_connector: {trading_pair}, perp_connector: {trading_pair}}
-
-    is_perp_in_long = False
-    is_perp_in_short = False
+    strategy_state = StrategyState.Closed
+    completed_order_ids = []
+    last_arbitrage_reported_ts = 0
+    next_arbitrage_opening_ts = 0
+    next_arbitrage_opening_delay = 5
+    in_flight_state_start_ts = 0
 
     def __init__(self, connectors: Dict[str, ConnectorBase]):
         super().__init__(connectors)
         self.set_leverage()
 
-    # TODO: resolve error when setting leverage
     def set_leverage(self) -> None:
         perp_connector = self.connectors[self.perp_connector]
         perp_connector.set_position_mode(PositionMode.ONEWAY)
@@ -50,42 +62,82 @@ class SpotPerpArb(ScriptStrategyBase):
             trading_pair=self.trading_pair, leverage=self.leverage
         )
         self.logger().info(
-            f"Completed setting leverage to {self.leverage}x for {self.perp_connector} on {self.trading_pair}"
+            f"Setting leverage to {self.leverage}x for {self.perp_connector} on {self.trading_pair}"
         )
 
     def on_tick(self) -> None:
+        # precheck before running any trading logic
+        if not self.is_position_mode_ready:
+            return
+
+        # skip if orders are pending for completion
+        self.update_in_flight_state()
+        if self.strategy_state in (StrategyState.Opening, StrategyState.Closing):
+            if self.current_timestamp > self.in_flight_state_start_ts + 60:
+                self.logger().warning(
+                    f"Orders has been submitted but not completed yet for more than 60 seconds. Please check your orders!"
+                )
+            return
+
+        # skip if its still in buffer time before next arbitrage opportunity
+        if (
+            self.strategy_state == StrategyState.Closed
+            and self.current_timestamp < self.next_arbitrage_opening_ts
+        ):
+            return
+
+        # TODO: change to async on order execution
+        # find opportunity and trade
         if (
             self.should_buy_spot_short_perp()
             and self.can_buy_spot_short_perp()
             and not self.is_perp_in_short
         ):
             self.buy_spot_short_perp()
-            self.is_perp_in_short = True
+            self.set_to_in_flight_state()
         elif (
             self.should_sell_spot_long_perp()
             and self.can_sell_spot_long_perp()
             and not self.is_perp_in_long
         ):
             self.sell_spot_long_perp()
-            self.is_perp_in_long = True
+            self.set_to_in_flight_state()
 
-        if self.is_perp_complete_round_trip():
-            self.reset_perp_flag()
+    def update_in_flight_state(self) -> None:
+        if (
+            self.strategy_state == StrategyState.Opening
+            and len(self.completed_order_ids) == 2
+        ):
+            self.strategy_state = StrategyState.Opened
+            self.logger().info(
+                f"Position is opened with order_ids: {self.completed_order_ids}. "
+                "Changed the state from Opening to Opened."
+            )
+            self.completed_order_ids.clear()
+        elif (
+            self.strategy_state == StrategyState.Closing
+            and len(self.completed_order_ids) == 2
+        ):
+            self.strategy_state = StrategyState.Closed
+            self.next_arbitrage_opening_ts = (
+                self.current_timestamp + self.next_arbitrage_opening_ts
+            )
+            self.logger().info(
+                f"Position is closed with order_ids: {self.completed_order_ids}. "
+                f"Changed the state from Closing to Closed.\n"
+                f"No arbitrage opportunity will be opened after {self.next_arbitrage_opening_ts}"
+            )
+            self.completed_order_ids.clear()
+        return
 
-    def is_perp_complete_round_trip(self) -> bool:
-        """
-        reset flag when a round trip of trade is completed:
-        e.g. (long perp, sell spot) => (short perp, buy spot)
-        e.g. (short perp, buy spot) => (long perp, sell spot)
-        """
-        return self.is_perp_in_long and self.is_perp_in_short
-
-    def reset_perp_flag(self) -> None:
-        self.is_perp_in_long = False
-        self.is_perp_in_short = False
-        self.logger().info(
-            "A round trip is completed, reset is_perp_in_long and is_perp_in_short to False"
-        )
+    def set_to_in_flight_state(self) -> None:
+        if self.strategy_state == StrategyState.Closed:
+            self.strategy_state = StrategyState.Opening
+            self.logger().info("The state changed from Closed to Opening")
+        elif self.strategy_state == StrategyState.Opened:
+            self.strategy_state = StrategyState.Closing
+            self.logger().info("The state changed from Opened to Closing")
+        self.in_flight_state_start_ts = self.current_timestamp
         return
 
     def should_buy_spot_short_perp(self) -> bool:
@@ -124,8 +176,7 @@ class SpotPerpArb(ScriptStrategyBase):
             )
         return is_spot_enough and is_perp_enough
 
-    # TODO: handle partial fill (e.g. if spot is partial fill with 50%, then perp should be partial fill with 50%)
-    # TODO: explore borrowing/ lending from spot
+    # TODO: use OrderCandidate and check for budget
     def buy_spot_short_perp(self) -> None:
         spot_buy_price_with_slippage = self.limit_taker_price_with_slippage(
             self.spot_connector, is_buy=True
@@ -159,6 +210,8 @@ class SpotPerpArb(ScriptStrategyBase):
             f"Submitted short order in {self.perp_connector} for {self.trading_pair} "
             f"at price {perp_short_price_with_slippage:.06f}@{self.base_order_amount}"
         )
+
+        self.last_submit_order_ts = self.current_timestamp
         return
 
     def should_sell_spot_long_perp(self) -> bool:
@@ -229,6 +282,7 @@ class SpotPerpArb(ScriptStrategyBase):
             f"at price {spot_sell_price_with_slippage:.06f}@{self.base_order_amount}"
         )
 
+        self.last_submit_order_ts = self.current_timestamp
         return
 
     def limit_taker_price_with_slippage(
@@ -302,3 +356,26 @@ class SpotPerpArb(ScriptStrategyBase):
         lines.append(f"Spot Quote Balance: {spot_quote_balance:.04f} {quote}")
         lines.append(f"Perp Balance: {perp_quote_balance:04f} USDT")
         return
+
+    def did_complete_buy_order(self, event: BuyOrderCompletedEvent) -> None:
+        self.completed_order_ids.append(event.order_id)
+
+    def did_complete_sell_order(self, event: SellOrderCompletedEvent) -> None:
+        self.completed_order_ids.append(event.order_id)
+
+    def did_change_position_mode_succeed(self, _):
+        self.logger().info(
+            f"Completed setting position mode to ONEWAY for {self.perp_connector}"
+        )
+        self._position_mode_ready = True
+
+    def did_change_position_mode_fail(
+        self, position_mode_changed_event: PositionModeChangeEvent
+    ):
+        self.logger().error(
+            f"Failed to set position mode to ONEWAY. "
+            f"Reason: {position_mode_changed_event.message}."
+        )
+        self.logger().warning(
+            "Cannot continue. Please resolve the issue in the account."
+        )
