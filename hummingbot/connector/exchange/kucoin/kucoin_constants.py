@@ -3,6 +3,7 @@ import sys
 from hummingbot.core.api_throttler.data_types import RateLimit
 
 MAX_ORDER_ID_LEN = 40
+TRADING_FEES_SYMBOL_LIMIT = 10
 
 DEFAULT_DOMAIN = "main"
 HB_PARTNER_ID = "Hummingbot"
