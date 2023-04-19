@@ -969,7 +969,9 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
         return order_hash.lower() not in transaction.data.data.decode().lower()
 
     async def _process_transaction_event(self, transaction: StreamTxsResponse):
-        order: GatewayInFlightOrder = self._gateway_order_tracker.get_fillable_order_by_hash(hash=transaction.hash)
+        order: GatewayInFlightOrder = self._gateway_order_tracker.get_fillable_order_by_hash(
+            transaction_hash=transaction.hash
+        )
         if order is not None:
             messages = json.loads(s=transaction.messages)
             for message in messages:
