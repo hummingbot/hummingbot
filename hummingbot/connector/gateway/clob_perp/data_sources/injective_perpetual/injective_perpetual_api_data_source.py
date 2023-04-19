@@ -385,7 +385,7 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
         )
         transaction_hash: Optional[str] = cancelation_result.get("txHash")
 
-        if transaction_hash is None:
+        if transaction_hash in [None, ""]:
             async with self._order_placement_lock:
                 await self._update_account_address_and_create_order_hash_manager()
             raise ValueError(
