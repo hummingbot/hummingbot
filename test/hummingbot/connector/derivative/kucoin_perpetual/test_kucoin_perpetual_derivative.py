@@ -1515,7 +1515,9 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         )
         order: InFlightOrder = self.exchange.in_flight_orders["OID1"]
 
-        url = self.configure_fill_history_trade_response(order, mock_api,
+        self.configure_fill_history_trade_response(
+            order=order,
+            mock_api=mock_api,
             callback=lambda *args, **kwargs: request_sent_event.set())
         self.async_run_with_timeout(self.exchange._update_trade_history())
 
