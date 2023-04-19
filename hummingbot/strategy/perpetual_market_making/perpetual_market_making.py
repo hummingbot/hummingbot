@@ -484,14 +484,19 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
                 if self._create_timestamp <= self.current_timestamp:
                     # 1. Create base order proposals
                     proposal = self.create_base_proposal()
+                    self.logger().debug(f"Initial proposals: {proposal}")
                     # 2. Apply functions that limit numbers of buys and sells proposal
                     self.apply_order_levels_modifiers(proposal)
+                    self.logger().debug(f"Proposals after order level modifier: {proposal}")
                     # 3. Apply functions that modify orders price
                     self.apply_order_price_modifiers(proposal)
+                    self.logger().debug(f"Proposals after order price modifiers: {proposal}")
                     # 4. Apply budget constraint, i.e. can't buy/sell more than what you have.
                     self.apply_budget_constraint(proposal)
+                    self.logger().debug(f"Proposals after budget constraints: {proposal}")
 
                     self.filter_out_takers(proposal)
+                    self.logger().debug(f"Proposals after takers filter: {proposal}")
 
                 self.cancel_active_orders(proposal)
                 self.cancel_orders_below_min_spread()
