@@ -357,7 +357,7 @@ class KucoinExchange(ExchangePyBase):
                            for trading_pair in self._trading_pairs]
         fees_json = []
         for idx in range(0, len(trading_symbols), CONSTANTS.TRADING_FEES_SYMBOL_LIMIT):
-            sub_trading_symbols = trading_symbols[idx:idx+CONSTANTS.TRADING_FEES_SYMBOL_LIMIT]
+            sub_trading_symbols = trading_symbols[idx:idx + CONSTANTS.TRADING_FEES_SYMBOL_LIMIT]
             params = {"symbols": ",".join(sub_trading_symbols)}
             resp = await self._api_get(
                 path_url=CONSTANTS.FEE_PATH_URL,
