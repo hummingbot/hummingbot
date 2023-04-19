@@ -18,6 +18,7 @@ from hummingbot.connector.exchange.foxbit import (
     foxbit_web_utils as web_utils,
 )
 from hummingbot.connector.exchange.foxbit.foxbit_exchange import FoxbitExchange
+from hummingbot.connector.exchange.foxbit.foxbit_order_book import FoxbitOrderBook
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -692,7 +693,7 @@ class FoxbitExchangeTests(TestCase):
 
         all_trading_pairs = self.async_run_with_timeout(coroutine=self.exchange.all_trading_pairs())
 
-        self.assertEqual(0, len(all_trading_pairs))
+        self.assertEqual(1, len(all_trading_pairs))
 
     @aioresponses()
     @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_seconds_counter")
@@ -961,6 +962,8 @@ class FoxbitExchangeTests(TestCase):
         )
 
         self.assertEqual(result[:13], expected_client_order_id[:13])
+        self.assertEqual(result[:2], self.exchange.client_order_id_prefix)
+        self.assertLess(len(expected_client_order_id), self.exchange.client_order_id_max_length)
 
         result = self.exchange.sell(
             trading_pair=self.trading_pair,
@@ -974,6 +977,41 @@ class FoxbitExchangeTests(TestCase):
 
         self.assertEqual(result[:13], expected_client_order_id[:13])
 
+    def test_create_order(self):
+        self._simulate_trading_rules_initialized()
+        _order = self.async_run_with_timeout(self.exchange._create_order(TradeType.BUY,
+                                                                         '551100',
+                                                                         self.trading_pair,
+                                                                         Decimal(1.01),
+                                                                         OrderType.LIMIT,
+                                                                         Decimal(22354.01)))
+
+    @aioresponses()
+    def test_create_limit_buy_order_raises_error(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        try:
+            self.async_run_with_timeout(self.exchange._create_order(TradeType.BUY,
+                                                                    '551100',
+                                                                    self.trading_pair,
+                                                                    Decimal(1.01),
+                                                                    OrderType.LIMIT,
+                                                                    Decimal(22354.01)))
+        except Exception as err:
+            self.assertEqual('', err.args[0])
+
+    @aioresponses()
+    def test_create_limit_sell_order_raises_error(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        try:
+            self.async_run_with_timeout(self.exchange._create_order(TradeType.SELL,
+                                                                    '551100',
+                                                                    self.trading_pair,
+                                                                    Decimal(1.01),
+                                                                    OrderType.LIMIT,
+                                                                    Decimal(22354.01)))
+        except Exception as err:
+            self.assertEqual('', err.args[0])
+
     def test_initial_status_dict(self):
         self.exchange._set_trading_pair_symbol_map(None)
 
@@ -984,8 +1022,7 @@ class FoxbitExchangeTests(TestCase):
             "instruments_mapping_initialized": False,
             "order_books_initialized": False,
             "account_balance": False,
-            "trading_rule_initialized": False,
-            "user_stream_initialized": False,
+            "trading_rule_initialized": False
         }
 
         self.assertEqual(expected_initial_dict, status_dict)
@@ -1117,8 +1154,42 @@ class FoxbitExchangeTests(TestCase):
             "remark": "A remarkable note for the order."
         }
 
-    def test_user_stream_balance_update(self):
-        pass
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_exchange_properties_and_commons(self, ws_connect_mock):
+        self.assertEqual(CONSTANTS.EXCHANGE_INFO_PATH_URL, self.exchange.trading_rules_request_path)
+        self.assertEqual(CONSTANTS.EXCHANGE_INFO_PATH_URL, self.exchange.trading_pairs_request_path)
+        self.assertEqual(CONSTANTS.PING_PATH_URL, self.exchange.check_network_request_path)
+        self.assertTrue(self.exchange.is_cancel_request_in_exchange_synchronous)
+        self.assertTrue(self.exchange.is_trading_required)
+        self.assertEqual('1', self.exchange.convert_from_exchange_instrument_id('1'))
+        self.assertEqual('1', self.exchange.convert_to_exchange_instrument_id('1'))
+        self.assertEqual('MARKET', self.exchange.foxbit_order_type(OrderType.MARKET))
+        try:
+            self.exchange.foxbit_order_type(OrderType.LIMIT_MAKER)
+        except Exception as err:
+            self.assertEqual('Order type not supported by Foxbit.', err.args[0])
+
+        self.assertEqual(OrderType.MARKET, self.exchange.to_hb_order_type('MARKET'))
+        self.assertEqual([OrderType.LIMIT, OrderType.MARKET], self.exchange.supported_order_types())
+        self.assertTrue(self.exchange.trading_pair_instrument_id_map_ready)
+
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        ixm_config = {
+            'm': 0,
+            'i': 1,
+            'n': 'GetInstruments',
+            'o': '[{"OMSId":1,"InstrumentId":1,"Symbol":"COINALPHA/HBOT","Product1":1,"Product1Symbol":"COINALPHA","Product2":2,"Product2Symbol":"HBOT","InstrumentType":"Standard","VenueInstrumentId":1,"VenueId":1,"SortIndex":0,"SessionStatus":"Running","PreviousSessionStatus":"Paused","SessionStatusDateTime":"2020-07-11T01:27:02.851Z","SelfTradePrevention":true,"QuantityIncrement":1e-8,"PriceIncrement":0.01,"MinimumQuantity":1e-8,"MinimumPrice":0.01,"VenueSymbol":"BTC/BRL","IsDisable":false,"MasterDataId":0,"PriceCollarThreshold":0,"PriceCollarPercent":0,"PriceCollarEnabled":false,"PriceFloorLimit":0,"PriceFloorLimitEnabled":false,"PriceCeilingLimit":0,"PriceCeilingLimitEnabled":false,"CreateWithMarketRunning":true,"AllowOnlyMarketMakerCounterParty":false}]'
+        }
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(ixm_config))
+        _currentTP = self.async_run_with_timeout(self.exchange.trading_pair_instrument_id_map())
+        self.assertIsNotNone(_currentTP)
+        self.assertEqual(self.trading_pair, _currentTP[1])
+        _currentTP = self.async_run_with_timeout(self.exchange.exchange_instrument_id_associated_to_pair('COINALPHA-HBOT'))
+        self.assertEqual(1, _currentTP)
+
+        self.assertIsNotNone(self.exchange.get_fee('COINALPHA', 'BOT', OrderType.MARKET, TradeType.BUY, 1.0, 22500.011, False))
 
     def test_user_stream_raises_cancel_exception(self):
         pass

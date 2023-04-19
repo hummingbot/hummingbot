@@ -161,7 +161,7 @@ class FoxbitExchange(ExchangePyBase):
                 if not self.trading_pair_instrument_id_map_ready():
                     await self._initialize_trading_pair_instrument_id_map()
         current_map = self._trading_pair_instrument_id_map or bidict()
-        return current_map
+        return current_map.copy()
 
     async def exchange_instrument_id_associated_to_pair(self, trading_pair: str) -> str:
         """

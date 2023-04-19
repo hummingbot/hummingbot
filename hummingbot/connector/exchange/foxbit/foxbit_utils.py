@@ -37,7 +37,7 @@ def get_ws_message_frame(endpoint: str,
                          msg_type: str = "0",
                          payload: str = "",
                          ) -> Dict[str, Any]:
-    retValue = CONSTANTS.WS_MESSAGE_FRAME
+    retValue = CONSTANTS.WS_MESSAGE_FRAME.copy()
     retValue["m"] = msg_type
     retValue["i"] = _get_next_message_frame_sequence_number()
     retValue["n"] = endpoint
