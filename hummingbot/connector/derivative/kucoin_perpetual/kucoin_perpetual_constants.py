@@ -31,6 +31,7 @@ WS_HEARTBEAT_TIME_INTERVAL = 30
 
 ORDER_TYPE_MAP = {
     OrderType.LIMIT: "limit",
+    OrderType.LIMIT_MAKER: "limit",
     OrderType.MARKET: "market",
 }
 
