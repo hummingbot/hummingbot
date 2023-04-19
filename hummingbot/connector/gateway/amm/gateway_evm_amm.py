@@ -16,7 +16,14 @@ from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
-from hummingbot.core.event.events import OrderType, TradeType
+from hummingbot.core.event.events import (
+    OrderType,
+    TokenApprovalEvent,
+    TokenApprovalFailureEvent,
+    TokenApprovalSuccessEvent,
+    TradeType,
+)
+from hummingbot.core.gateway import check_transaction_exceptions
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils import async_ttl_cache
@@ -194,13 +201,16 @@ class GatewayEVMAMM(ConnectorBase):
             for key, value in self.in_flight_orders.items()
         }
 
-    def restore_tracking_states(self, saved_states: Dict[str, Any]):
+    def restore_tracking_states(self, saved_states: Dict[str, any]):
         """
-        Restore in-flight orders from saved tracking states, this is st the connector can pick up on where it left off
-        when it disconnects.
-        :param saved_states: The saved tracking_states.
+        *required
+        Updates inflight order statuses from API results
+        This is used by the MarketsRecorder class to orchestrate market classes at a higher level.
         """
-        self._order_tracker.restore_tracking_states(tracking_states=saved_states)
+        self._order_tracker._in_flight_orders.update({
+            key: GatewayInFlightOrder.from_json(value)
+            for key, value in saved_states.items()
+        })
 
     @staticmethod
     def create_market_order_id(side: TradeType, trading_pair: str) -> str:
@@ -249,6 +259,123 @@ class GatewayEVMAMM(ConnectorBase):
                 exc_info=True,
                 app_warning_msg=str(e)
             )
+
+    async def approve_token(self, token_symbol: str, **request_args) -> Optional[GatewayInFlightOrder]:
+        """
+        Approves contract as a spender for a token.
+        :param token_symbol: token to approve.
+        """
+        approval_id: str = self.create_approval_order_id(token_symbol)
+
+        self.logger().info(f"Initiating approval for {token_symbol}.")
+
+        self.start_tracking_order(order_id=approval_id,
+                                  trading_pair=token_symbol,
+                                  is_approval=True)
+        try:
+            resp: Dict[str, Any] = await self._get_gateway_instance().approve_token(
+                self.chain,
+                self.network,
+                self.address,
+                token_symbol,
+                self.connector_name,
+                **request_args
+            )
+
+            transaction_hash: Optional[str] = resp.get("approval", {}).get("hash")
+            nonce: Optional[int] = resp.get("nonce")
+            if transaction_hash is not None and nonce is not None:
+                tracked_order = self._order_tracker.fetch_order(client_order_id=approval_id)
+                tracked_order.update_exchange_order_id(transaction_hash)
+                tracked_order.nonce = nonce
+                self.logger().info(
+                    f"Maximum {token_symbol} approval for {self.connector_name} contract sent, hash: {transaction_hash}."
+                )
+                return tracked_order
+            else:
+                self.stop_tracking_order(approval_id)
+                self.logger().info(f"Approval for {token_symbol} on {self.connector_name} failed.")
+                return None
+        except Exception:
+            self.stop_tracking_order(approval_id)
+            self.logger().error(
+                f"Error submitting approval order for {token_symbol} on {self.connector_name}-{self.network}.",
+                exc_info=True
+            )
+            return None
+
+    async def update_allowances(self):
+        """
+        Allowances updated continously.
+        """
+        while True:
+            self._allowances = await self.get_allowances()
+            await asyncio.sleep(120)  # sleep for 2 mins
+
+    async def get_allowances(self) -> Dict[str, Decimal]:
+        """
+        Retrieves allowances for token in trading_pairs
+        :return: A dictionary of token and its allowance.
+        """
+        ret_val = {}
+        resp: Dict[str, Any] = await self._get_gateway_instance().get_allowances(
+            self.chain, self.network, self.address, list(self._tokens), self.connector_name
+        )
+        for token, amount in resp["approvals"].items():
+            ret_val[token] = Decimal(str(amount))
+        return ret_val
+
+    def parse_price_response(
+        self,
+        base: str,
+        quote: str,
+        amount: Decimal,
+        side: TradeType,
+        price_response: Dict[str, Any],
+        process_exception: bool = True
+    ) -> Optional[Decimal]:
+        """
+        Parses price response
+        :param base: The base asset
+        :param quote: The quote asset
+        :param amount: amount
+        :param side: trade side
+        :param price_response: Price response from Gateway.
+        :param process_exception: Flag to trigger error on exception
+        """
+        required_items = ["price", "gasLimit", "gasPrice", "gasCost", "gasPriceToken"]
+        if any(item not in price_response.keys() for item in required_items):
+            if "info" in price_response.keys():
+                self.logger().info(f"Unable to get price. {price_response['info']}")
+            else:
+                self.logger().info(f"Missing data from price result. Incomplete return result for ({price_response.keys()})")
+        else:
+            gas_price_token: str = price_response["gasPriceToken"]
+            gas_cost: Decimal = Decimal(price_response["gasCost"])
+            price: Decimal = Decimal(price_response["price"])
+            self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
+            if process_exception is True:
+                gas_limit: int = int(price_response["gasLimit"])
+                exceptions: List[str] = check_transaction_exceptions(
+                    allowances=self._allowances,
+                    balances=self._account_balances,
+                    base_asset=base,
+                    quote_asset=quote,
+                    amount=amount,
+                    side=side,
+                    gas_limit=gas_limit,
+                    gas_cost=gas_cost,
+                    gas_asset=gas_price_token,
+                    swaps_count=len(price_response.get("swaps", []))
+                )
+                for index in range(len(exceptions)):
+                    self.logger().warning(
+                        f"Warning! [{index + 1}/{len(exceptions)}] {side} order - {exceptions[index]}"
+                    )
+                if len(exceptions) > 0:
+                    return None
+            return Decimal(str(price))
+        return None
 
     @async_ttl_cache(ttl=5, maxsize=10)
     async def get_quote_price(
@@ -376,7 +503,7 @@ class GatewayEVMAMM(ConnectorBase):
                 **request_args
             )
             transaction_hash: Optional[str] = order_result.get("txHash")
-            if transaction_hash is not None:
+            if transaction_hash is not None and transaction_hash != "":
                 gas_cost: Decimal = Decimal(order_result.get("gasCost"))
                 gas_price_token: str = order_result.get("gasPriceToken")
                 self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
@@ -445,6 +572,61 @@ class GatewayEVMAMM(ConnectorBase):
         Stops tracking an order by simply removing it from _in_flight_orders dictionary in ClientOrderTracker.
         """
         self._order_tracker.stop_tracking_order(client_order_id=order_id)
+
+    async def update_token_approval_status(self, tracked_approvals: List[GatewayInFlightOrder]):
+        """
+        Calls REST API to get status update for each in-flight token approval transaction.
+        """
+        if len(tracked_approvals) < 1:
+            return
+        tx_hash_list: List[str] = await safe_gather(*[
+            tracked_approval.get_exchange_order_id() for tracked_approval in tracked_approvals
+        ])
+        transaction_states: List[Union[Dict[str, Any], Exception]] = await safe_gather(*[
+            self._get_gateway_instance().get_transaction_status(
+                self.chain,
+                self.network,
+                tx_hash
+            )
+            for tx_hash in tx_hash_list
+        ], return_exceptions=True)
+        for tracked_approval, transaction_status in zip(tracked_approvals, transaction_states):
+            token_symbol: str = self.get_token_symbol_from_approval_order_id(tracked_approval.client_order_id)
+            if isinstance(transaction_status, Exception):
+                self.logger().error(f"Error while trying to approve token {token_symbol} for {self.connector_name}: "
+                                    f"{transaction_status}")
+                continue
+            if "txHash" not in transaction_status:
+                self.logger().error(f"Error while trying to approve token {token_symbol} for {self.connector_name}: "
+                                    "txHash key not found in transaction status.")
+                continue
+            if transaction_status["txStatus"] == 1:
+                if transaction_status["txReceipt"]["status"] == 1:
+                    self.logger().info(f"Token approval for {tracked_approval.client_order_id} on {self.connector_name} "
+                                       f"successful.")
+                    tracked_approval.current_state = OrderState.APPROVED
+                    self.trigger_event(
+                        TokenApprovalEvent.ApprovalSuccessful,
+                        TokenApprovalSuccessEvent(
+                            self.current_timestamp,
+                            self.connector_name,
+                            token_symbol
+                        )
+                    )
+                else:
+                    self.logger().warning(
+                        f"Token approval for {tracked_approval.client_order_id} on {self.connector_name} failed."
+                    )
+                    tracked_approval.current_state = OrderState.FAILED
+                    self.trigger_event(
+                        TokenApprovalEvent.ApprovalFailed,
+                        TokenApprovalFailureEvent(
+                            self.current_timestamp,
+                            self.connector_name,
+                            token_symbol
+                        )
+                    )
+                self.stop_tracking_order(tracked_approval.client_order_id)
 
     async def update_canceling_transactions(self, canceled_tracked_orders: List[GatewayInFlightOrder]):
         """
