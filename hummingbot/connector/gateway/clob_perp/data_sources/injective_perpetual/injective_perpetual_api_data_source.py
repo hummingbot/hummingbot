@@ -246,8 +246,11 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
                     f" {in_flight_order.exchange_order_id}.",
                     exc_info=True,
                 )
-                raise
-            if await self._check_if_order_failed_based_on_transaction(transaction=tx_response, order=in_flight_order):
+                tx_response = None
+            if tx_response is None:
+                async with self._order_placement_lock:
+                    await self._update_account_address_and_create_order_hash_manager()
+            elif await self._check_if_order_failed_based_on_transaction(transaction=tx_response, order=in_flight_order):
                 status_update: OrderUpdate = self._parse_failed_order_update_from_transaction_hash_response(
                     order=in_flight_order, response=tx_response, order_misc_updates=misc_updates
                 )
