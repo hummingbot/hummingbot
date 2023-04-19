@@ -2,11 +2,14 @@ import os
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 import aioprocessing
 
 from hummingbot import root_path
+from hummingbot.connector.gateway.clob import clob_constants
+from hummingbot.connector.gateway.common_types import Chain
+from hummingbot.core.event.events import TradeType
 
 if TYPE_CHECKING:
     from hummingbot import ClientConfigAdapter
@@ -87,3 +90,48 @@ def get_gateway_paths(client_config_map: "ClientConfigAdapter") -> GatewayPaths:
 def set_hummingbot_pipe(conn: aioprocessing.AioConnection):
     global _hummingbot_pipe
     _hummingbot_pipe = conn
+
+
+def check_transaction_exceptions(
+        allowances: Dict[str, Decimal],
+        balances: Dict[str, Decimal],
+        base_asset: str,
+        quote_asset: str,
+        amount: Decimal,
+        side: TradeType,
+        gas_limit: int,
+        gas_cost: Decimal,
+        gas_asset: str,
+        swaps_count: int,
+        chain: Chain = Chain.ETHEREUM
+) -> List[str]:
+    """
+    Check trade data for Ethereum decentralized exchanges
+    """
+    exception_list = []
+    swaps_message: str = f"Total swaps: {swaps_count}"
+    gas_asset_balance: Decimal = balances.get(gas_asset, S_DECIMAL_0)
+
+    # check for sufficient gas
+    if gas_asset_balance < gas_cost:
+        exception_list.append(f"Insufficient {gas_asset} balance to cover gas:"
+                              f" Balance: {gas_asset_balance}. Est. gas cost: {gas_cost}. {swaps_message}")
+
+    asset_out: str = quote_asset if side is TradeType.BUY else base_asset
+    asset_out_allowance: Decimal = allowances.get(asset_out, S_DECIMAL_0)
+
+    # check for gas limit set to low
+    if chain == Chain.ETHEREUM:
+        gas_limit_threshold: int = 21000
+    elif chain == Chain.SOLANA:
+        gas_limit_threshold: int = clob_constants.FIVE_THOUSAND_LAMPORTS
+    else:
+        raise ValueError(f"Unsupported chain: {chain}")
+    if gas_limit < gas_limit_threshold:
+        exception_list.append(f"Gas limit {gas_limit} below recommended {gas_limit_threshold} threshold.")
+
+    # check for insufficient token allowance
+    if allowances[asset_out] < amount:
+        exception_list.append(f"Insufficient {asset_out} allowance {asset_out_allowance}. Amount to trade: {amount}")
+
+    return exception_list
