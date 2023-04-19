@@ -157,6 +157,8 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
         await self._update_markets()
         await self._start_streams()
         self._gateway_order_tracker.lost_order_count_limit = CONSTANTS.LOST_ORDER_COUNT_LIMIT
+        self.logger().debug(f"account: {self._account_id}")
+        self.logger().debug(f"balances: {await self.get_account_balances()}")
 
     async def stop(self):
         """
@@ -215,6 +217,10 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
         return False
 
     async def get_order_status_update(self, in_flight_order: GatewayInFlightOrder) -> OrderUpdate:
+        self.logger().debug(
+            f"Fetching order status update for {in_flight_order.client_order_id}"
+            f" with order hash {in_flight_order.exchange_order_id}"
+        )
         status_update: Optional[OrderUpdate] = None
         misc_updates = {
             "creation_transaction_hash": in_flight_order.creation_transaction_hash,
@@ -230,9 +236,17 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
 
         # Determine if order has failed from transaction hash
         if status_update is None and in_flight_order.creation_transaction_hash is not None:
-            tx_response: GetTxByTxHashResponse = await self._fetch_transaction_by_hash(
-                transaction_hash=in_flight_order.creation_transaction_hash
-            )
+            try:
+                tx_response: GetTxByTxHashResponse = await self._fetch_transaction_by_hash(
+                    transaction_hash=in_flight_order.creation_transaction_hash
+                )
+            except Exception:
+                self.logger().debug(
+                    f"Failed to fetch transaction {in_flight_order.creation_transaction_hash} for order"
+                    f" {in_flight_order.exchange_order_id}.",
+                    exc_info=True,
+                )
+                raise
             if await self._check_if_order_failed_based_on_transaction(transaction=tx_response, order=in_flight_order):
                 status_update: OrderUpdate = self._parse_failed_order_update_from_transaction_hash_response(
                     order=in_flight_order, response=tx_response, order_misc_updates=misc_updates
@@ -263,6 +277,7 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
     ) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
         perp_order_to_create = [self._compose_derivative_order_for_local_hash_computation(order=order)]
         async with self._order_placement_lock:
+            self.logger().debug(f"Creating order {order.client_order_id}")
             order_hashes: OrderHashResponse = self._order_hash_manager.compute_order_hashes(
                 spot_orders=[], derivative_orders=perp_order_to_create
             )
@@ -285,10 +300,12 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
                 transaction_hash: Optional[str] = order_result.get("txHash")
             except Exception:
                 await self._update_account_address_and_create_order_hash_manager()
+                self.logger().debug(f"Failed to create order {order.client_order_id}", exc_info=True)
                 raise
 
             self.logger().debug(
-                f"Placed order {order_hash} with nonce {self._order_hash_manager.current_nonce - 1}"
+                f"Placed order {order.client_order_id} with order hash {order_hash},"
+                f" nonce {self._order_hash_manager.current_nonce - 1},"
                 f" and tx hash {transaction_hash}."
             )
 
@@ -376,7 +393,10 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
                 f" INJ in the bank to cover transaction fees."
             )
 
-        self.logger().debug(f"Canceling order {order.exchange_order_id} with tx hash {transaction_hash}.")
+        self.logger().debug(
+            f"Canceling order {order.client_order_id}"
+            f" with order hash {order.exchange_order_id} and tx hash {transaction_hash}."
+        )
 
         transaction_hash = f"0x{transaction_hash.lower()}"
 
@@ -501,6 +521,10 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
         return balances_dict
 
     async def get_all_order_fills(self, in_flight_order: InFlightOrder) -> List[TradeUpdate]:
+        self.logger().debug(
+            f"Getting all roder fills for {in_flight_order.client_order_id}"
+            f" with order hash {in_flight_order.exchange_order_id}"
+        )
         exchange_order_id = await in_flight_order.get_exchange_order_id()
         trades: List[DerivativeTrade] = await self._fetch_order_fills(order=in_flight_order)
 
@@ -976,6 +1000,10 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
             messages = json.loads(s=transaction.messages)
             for message in messages:
                 if message["type"] in CONSTANTS.INJ_DERIVATIVE_TX_EVENT_TYPES:
+                    self.logger().debug(
+                        f"received transaction event of type {message['type']} for order {order.exchange_order_id}"
+                    )
+                    self.logger().debug(f"message: {message}")
                     safe_ensure_future(coro=self.get_order_status_update(in_flight_order=order))
 
     async def _listen_to_transactions_stream(self):
