@@ -565,7 +565,7 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     @property
     def expected_fill_fee(self) -> TradeFeeBase:
         return AddedToCostTradeFee(
-            percent=Decimal('0.0006'),
+            percent=Decimal('0.0002'),
             percent_token=self.quote_asset,
         )
 
@@ -574,7 +574,7 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return AddedToCostTradeFee(
             percent=Decimal('0'),
             percent_token=self.quote_asset,
-            flat_fees=[TokenAmount(amount=Decimal('0.0006'), token=self.quote_asset)]
+            flat_fees=[TokenAmount(amount=Decimal('0.0002'), token=self.quote_asset)]
         )
 
     @property
