@@ -200,6 +200,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
             "size": self.get_quantity_of_contracts(trading_pair, amount),
             "timeInForce": CONSTANTS.DEFAULT_TIME_IN_FORCE,
             "clientOid": order_id,
+            "reduceOnly": position_action == PositionAction.CLOSE,
             "type": CONSTANTS.ORDER_TYPE_MAP[order_type],
             "leverage": str(self.get_leverage(trading_pair)),
         }
@@ -467,7 +468,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
                     position_side=position_side,
                     unrealized_pnl=unrealized_pnl,
                     entry_price=entry_price,
-                    amount=amount * (Decimal("-1.0") if position_side == PositionSide.SHORT else Decimal("1.0")),
+                    amount=amount,
                     leverage=leverage,
                 )
                 self._perpetual_trading.set_position(pos_key, position)
@@ -671,6 +672,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
             position_action,
             execute_amount_diff,
             execute_price,
+            is_maker=trade_msg.get("liquidity") == "maker"
         )
         exec_price = Decimal(trade_msg["matchPrice"])
         exec_time = (
