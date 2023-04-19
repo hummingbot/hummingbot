@@ -6,6 +6,7 @@ from hummingbot.connector.exchange.foxbit import (
     foxbit_web_utils as web_utils,
 )
 
+
 class FoxbitUtilTestCases(unittest.TestCase):
 
     def test_public_rest_url(self):

@@ -221,7 +221,7 @@ class FoxbitOrderBookTests(TestCase):
         self.assertEqual(1, len(diff_msg.asks))
         self.assertEqual(0.0025, diff_msg.bids[0].price)
         self.assertEqual(10.3, diff_msg.bids[0].amount)
-        
+
         diff_msg = FoxbitOrderBook.diff_message_from_exchange(
             msg=[3,
                  0,
