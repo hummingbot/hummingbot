@@ -44,6 +44,7 @@ class GatewayInFlightOrder(InFlightOrder):
             leverage=leverage,
             position=position,
         )
+        self._fee_asset = trading_pair.split("-")[0]  # defaults to base asset
         self._gas_price = gas_price
         self._nonce: int = -1
         self._creation_transaction_hash: Optional[str] = creation_transaction_hash
@@ -59,6 +60,14 @@ class GatewayInFlightOrder(InFlightOrder):
     @gas_price.setter
     def gas_price(self, gas_price: Decimal):
         self._gas_price = gas_price
+
+    @property
+    def fee_asset(self) -> str:
+        return self._fee_asset
+
+    @fee_asset.setter
+    def fee_asset(self, fee_asset: str):
+        self._fee_asset = fee_asset
 
     @property
     def nonce(self) -> int:
