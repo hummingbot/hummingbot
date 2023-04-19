@@ -18,7 +18,6 @@ from hummingbot.connector.exchange.foxbit import (
     foxbit_web_utils as web_utils,
 )
 from hummingbot.connector.exchange.foxbit.foxbit_exchange import FoxbitExchange
-from hummingbot.connector.exchange.foxbit.foxbit_order_book import FoxbitOrderBook
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -985,6 +984,7 @@ class FoxbitExchangeTests(TestCase):
                                                                          Decimal(1.01),
                                                                          OrderType.LIMIT,
                                                                          Decimal(22354.01)))
+        self.assertIsNone(_order)
 
     @aioresponses()
     def test_create_limit_buy_order_raises_error(self, mock_api):
