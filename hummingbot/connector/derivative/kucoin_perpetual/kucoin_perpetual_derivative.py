@@ -200,7 +200,6 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
             "size": self.get_quantity_of_contracts(trading_pair, amount),
             "timeInForce": CONSTANTS.DEFAULT_TIME_IN_FORCE,
             "clientOid": order_id,
-            "reduceOnly": position_action == PositionAction.CLOSE,
             "type": CONSTANTS.ORDER_TYPE_MAP[order_type],
             "leverage": str(self.get_leverage(trading_pair)),
         }
@@ -365,7 +364,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
                         exchange_order_id=str(trade["orderId"]),
                         fee=fee,
                         fill_base_amount=contract_value,
-                        fill_quote_amount=trade["value"],
+                        fill_quote_amount=Decimal(trade["value"]),
                         fill_price=Decimal(trade["price"]),
                         fill_timestamp=trade["createdAt"] * 1e-3,
                     )
