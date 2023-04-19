@@ -54,7 +54,7 @@ def websocket_url() -> str:
 
 def format_ws_header(header: Dict[str, Any]) -> Dict[str, Any]:
     retValue = {}
-    retValue.update(CONSTANTS.WS_HEADER)
+    retValue.update(CONSTANTS.WS_HEADER.copy())
     retValue.update(header)
     return retValue
 
