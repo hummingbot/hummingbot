@@ -154,13 +154,6 @@ class GatewayNearAMM(GatewayEVMAMM):
         """
         pass
 
-    async def update_token_approval_status(self, tracked_approvals: List[GatewayInFlightOrder]):
-        """
-        Calls REST API to get status update for each in-flight token approval transaction.
-        :param tracked_approvals: tracked approval orders.
-        """
-        pass
-
     @async_ttl_cache(ttl=5, maxsize=10)
     async def get_quote_price(
             self,
