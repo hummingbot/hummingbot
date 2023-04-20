@@ -140,7 +140,7 @@ class SpotPerpArb(ScriptStrategyBase):
         ):
             self.strategy_state = StrategyState.Closed
             self.next_arbitrage_opening_ts = (
-                self.current_timestamp + self.next_arbitrage_opening_ts
+                self.current_timestamp + self.next_arbitrage_opening_delay
             )
             self.logger().info(
                 f"Position is closed with order_ids: {self.completed_order_ids}. "
