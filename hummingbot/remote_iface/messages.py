@@ -1,4 +1,4 @@
-from typing import Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from commlib.msg import PubSubMessage, RPCMessage
 
@@ -14,9 +14,9 @@ class NotifyMessage(PubSubMessage):
     msg: Optional[str] = ''
 
 
-class EventMessage(PubSubMessage):
+class InternalEventMessage(PubSubMessage):
     timestamp: Optional[int] = -1
-    type: Optional[str] = 'Unknown'
+    type: Optional[str] = 'ievent'
     data: Optional[dict] = {}
 
 
@@ -26,6 +26,13 @@ class LogMessage(PubSubMessage):
     level_no: int = 0
     level_name: str = ''
     logger_name: str = ''
+
+
+class ExternalEventMessage(PubSubMessage):
+    timestamp: Optional[int] = -1
+    sequence: Optional[int] = 0
+    type: Optional[str] = 'eevent'
+    data: Optional[Dict[str, Any]] = {}
 
 
 class StartCommandMessage(RPCMessage):
@@ -56,6 +63,7 @@ class ConfigCommandMessage(RPCMessage):
 
     class Response(RPCMessage.Response):
         changes: Optional[List[Tuple[str, Any]]] = []
+        config: Optional[Dict[str, Any]] = {}
         status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
         msg: Optional[str] = ''
 

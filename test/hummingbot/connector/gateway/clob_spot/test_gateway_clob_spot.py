@@ -1,7 +1,7 @@
 import asyncio
 import unittest
 from decimal import Decimal
-from test.hummingbot.connector.gateway.clob_spot.data_sources.mock_utils import InjectiveClientMock
+from test.hummingbot.connector.gateway.clob_spot.data_sources.injective.injective_mock_utils import InjectiveClientMock
 from typing import Awaitable, Dict, List, Mapping
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -22,6 +22,7 @@ from hummingbot.core.clock_mode import ClockMode
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
+from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
@@ -34,7 +35,6 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
 )
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.tracking_nonce import NonceCreator
 
 
 class GatewayCLOBSPOTTest(unittest.TestCase):
@@ -73,12 +73,15 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
         self.clob_data_source_mock.start()
 
         client_config_map = ClientConfigAdapter(ClientConfigMap())
+        connector_spec = {
+            "chain": "someChain",
+            "network": "mainnet",
+            "wallet_address": self.wallet_address,
+        }
         api_data_source = InjectiveAPIDataSource(
             trading_pairs=[self.trading_pair],
-            chain="someChain",
-            network="mainnet",
-            address=self.wallet_address,
-            client_config_map=client_config_map
+            connector_spec=connector_spec,
+            client_config_map=client_config_map,
         )
         self.exchange = GatewayCLOBSPOT(
             client_config_map=client_config_map,
@@ -214,6 +217,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
             "account_balance": False,
             "trading_rule_initialized": False,
             "user_stream_initialized": False,
+            "api_data_source_initialized": False,
         }
 
     @staticmethod
@@ -224,6 +228,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
             "account_balance": True,
             "trading_rule_initialized": True,
             "user_stream_initialized": True,
+            "api_data_source_initialized": True,
         }
 
     def place_buy_order(self, size: Decimal = Decimal("100"), price: Decimal = Decimal("10_000")):
@@ -360,11 +365,14 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
 
     def test_initial_status_dict(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
+        connector_spec = {
+            "chain": "someChain",
+            "network": "mainnet",
+            "wallet_address": self.wallet_address,
+        }
         api_data_source = InjectiveAPIDataSource(
             trading_pairs=[self.trading_pair],
-            chain="someChain",
-            network="mainnet",
-            address=self.wallet_address,
+            connector_spec=connector_spec,
             client_config_map=client_config_map,
         )
         exchange = GatewayCLOBSPOT(
@@ -388,7 +396,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
     def test_full_initialization_and_de_initialization(self, _: AsyncMock):
         self.clob_data_source_mock.configure_trades_response_no_trades()
         self.clob_data_source_mock.configure_trades_response_no_trades()
-        self.clob_data_source_mock.configure_get_account_balances_list_response(
+        self.clob_data_source_mock.configure_get_account_balances_response(
             base_total_balance=Decimal("10"),
             base_available_balance=Decimal("9"),
             quote_total_balance=Decimal("200"),
@@ -396,11 +404,14 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
         )
 
         client_config_map = ClientConfigAdapter(ClientConfigMap())
+        connector_spec = {
+            "chain": "someChain",
+            "network": "mainnet",
+            "wallet_address": self.wallet_address,
+        }
         api_data_source = InjectiveAPIDataSource(
             trading_pairs=[self.trading_pair],
-            chain="someChain",
-            network="mainnet",
-            address=self.wallet_address,
+            connector_spec=connector_spec,
             client_config_map=client_config_map,
         )
         exchange = GatewayCLOBSPOT(
@@ -632,7 +643,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
             timestamp=self.start_timestamp, transaction_hash=self.expected_transaction_hash
         )
 
-        self.exchange.cancel(trading_pair=order.trading_pair, order_id=order.client_order_id)
+        self.exchange.cancel(trading_pair=order.trading_pair, client_order_id=order.client_order_id)
         self.clob_data_source_mock.run_until_cancel_order_called()
 
         if self.exchange.is_cancel_request_in_exchange_synchronous:
@@ -672,7 +683,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
 
         self.clob_data_source_mock.configure_cancel_order_fails_response(exception=RuntimeError("some error"))
 
-        self.exchange.cancel(trading_pair=self.trading_pair, order_id="11")
+        self.exchange.cancel(trading_pair=self.trading_pair, client_order_id="11")
         self.clob_data_source_mock.run_until_cancel_order_called()
 
         self.assertEquals(0, len(self.order_cancelled_logger.event_log))
@@ -720,12 +731,129 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
         self.assertIn(CancellationResult(order1.client_order_id, True), cancellation_results)
         self.assertIn(CancellationResult(order2.client_order_id, False), cancellation_results)
 
+    def test_batch_order_cancel(self):
+        self.exchange._set_current_timestamp(self.start_timestamp)
+
+        self.exchange.start_tracking_order(
+            order_id="11",
+            exchange_order_id=self.expected_exchange_order_id,
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=self.expected_order_price,
+            amount=self.expected_order_size,
+            order_type=OrderType.LIMIT,
+        )
+        self.exchange.start_tracking_order(
+            order_id="12",
+            exchange_order_id=self.expected_exchange_order_id,
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.SELL,
+            price=self.expected_order_price,
+            amount=self.expected_order_size,
+            order_type=OrderType.LIMIT,
+        )
+
+        buy_order_to_cancel: InFlightOrder = self.exchange.in_flight_orders["11"]
+        sell_order_to_cancel: InFlightOrder = self.exchange.in_flight_orders["12"]
+        orders_to_cancel = [buy_order_to_cancel, sell_order_to_cancel]
+
+        self.clob_data_source_mock.configure_batch_order_cancel_response(
+            timestamp=self.start_timestamp,
+            transaction_hash="somehash",
+            canceled_orders=orders_to_cancel,
+        )
+
+        self.exchange.batch_order_cancel(orders_to_cancel=self.exchange.limit_orders)
+
+        self.clob_data_source_mock.run_until_all_items_delivered()
+
+        self.assertIn(buy_order_to_cancel.client_order_id, self.exchange.in_flight_orders)
+        self.assertIn(sell_order_to_cancel.client_order_id, self.exchange.in_flight_orders)
+        self.assertTrue(buy_order_to_cancel.is_pending_cancel_confirmation)
+        self.assertTrue(sell_order_to_cancel.is_pending_cancel_confirmation)
+
+    def test_batch_order_create(self):
+        self.exchange._set_current_timestamp(self.start_timestamp)
+
+        buy_order_to_create = LimitOrder(
+            client_order_id="",
+            trading_pair=self.trading_pair,
+            is_buy=True,
+            base_currency=self.base_asset,
+            quote_currency=self.quote_asset,
+            price=Decimal("10"),
+            quantity=Decimal("2"),
+        )
+        sell_order_to_create = LimitOrder(
+            client_order_id="",
+            trading_pair=self.trading_pair,
+            is_buy=False,
+            base_currency=self.base_asset,
+            quote_currency=self.quote_asset,
+            price=Decimal("11"),
+            quantity=Decimal("3"),
+        )
+        orders_to_create = [buy_order_to_create, sell_order_to_create]
+
+        orders: List[LimitOrder] = self.exchange.batch_order_create(orders_to_create=orders_to_create)
+
+        buy_order_to_create_in_flight = GatewayInFlightOrder(
+            client_order_id=orders[0].client_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            creation_timestamp=self.start_timestamp,
+            price=orders[0].price,
+            amount=orders[0].quantity,
+            exchange_order_id="someEOID0",
+        )
+        sell_order_to_create_in_flight = GatewayInFlightOrder(
+            client_order_id=orders[1].client_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.SELL,
+            creation_timestamp=self.start_timestamp,
+            price=orders[1].price,
+            amount=orders[1].quantity,
+            exchange_order_id="someEOID1",
+        )
+        orders_to_create_in_flight = [buy_order_to_create_in_flight, sell_order_to_create_in_flight]
+        self.clob_data_source_mock.configure_batch_order_create_response(
+            timestamp=self.start_timestamp,
+            transaction_hash="somehash",
+            created_orders=orders_to_create_in_flight,
+        )
+
+        self.assertEqual(2, len(orders))
+
+        self.clob_data_source_mock.run_until_all_items_delivered()
+
+        self.assertIn(buy_order_to_create_in_flight.client_order_id, self.exchange.in_flight_orders)
+        self.assertIn(sell_order_to_create_in_flight.client_order_id, self.exchange.in_flight_orders)
+
+        buy_create_event: BuyOrderCreatedEvent = self.buy_order_created_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, buy_create_event.timestamp)
+        self.assertEqual(self.trading_pair, buy_create_event.trading_pair)
+        self.assertEqual(OrderType.LIMIT, buy_create_event.type)
+        self.assertEqual(buy_order_to_create_in_flight.amount, buy_create_event.amount)
+        self.assertEqual(buy_order_to_create_in_flight.price, buy_create_event.price)
+        self.assertEqual(buy_order_to_create_in_flight.client_order_id, buy_create_event.order_id)
+        self.assertEqual(buy_order_to_create_in_flight.exchange_order_id, buy_create_event.exchange_order_id)
+        self.assertTrue(
+            self.is_logged(
+                "INFO",
+                f"Created {OrderType.LIMIT.name} {TradeType.BUY.name}"
+                f" order {buy_order_to_create_in_flight.client_order_id} for "
+                f"{buy_create_event.amount} {self.trading_pair}."
+            )
+        )
+
     def test_update_balances(self):
         expected_base_total_balance = Decimal("100")
         expected_base_available_balance = Decimal("90")
         expected_quote_total_balance = Decimal("10")
         expected_quote_available_balance = Decimal("8")
-        self.clob_data_source_mock.configure_get_account_balances_list_response(
+        self.clob_data_source_mock.configure_get_account_balances_response(
             base_total_balance=expected_base_total_balance,
             base_available_balance=expected_base_available_balance,
             quote_total_balance=expected_quote_total_balance,
@@ -746,7 +874,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
         expected_base_available_balance = Decimal("90")
         expected_quote_total_balance = Decimal("0")
         expected_quote_available_balance = Decimal("0")
-        self.clob_data_source_mock.configure_get_account_balances_list_response(
+        self.clob_data_source_mock.configure_get_account_balances_response(
             base_total_balance=expected_base_total_balance,
             base_available_balance=expected_base_available_balance,
             quote_total_balance=expected_quote_total_balance,
@@ -1329,10 +1457,9 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
 
     def test_user_stream_logs_errors(self):
         self.clob_data_source_mock.configure_faulty_base_balance_stream_event(timestamp=self.start_timestamp)
-
         self.clob_data_source_mock.run_until_all_items_delivered()
 
-        self.assertTrue(self.is_logged("ERROR", "Unexpected error in user stream listener loop."))
+        self.assertTrue(self.is_logged("INFO", "Restarting account balances stream."))
 
     def test_lost_order_included_in_order_fills_update_and_not_in_order_status_update(self):
         self.exchange._set_current_timestamp(self.start_timestamp)
@@ -1639,32 +1766,3 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
 
         self.assertEqual(self.quote_asset, fee.percent_token)
         self.assertEqual(Decimal("0.0006"), fee.percent)
-
-    def test_client_order_id_on_order(self):
-        mock_nonce_provider = MagicMock(spec=NonceCreator)
-        mock_nonce = 1640001112223334
-        mock_nonce_provider.get_tracking_nonce.return_value = mock_nonce
-
-        self.exchange._order_id_generator._nonce_provider = mock_nonce_provider
-
-        result = self.exchange.buy(
-            trading_pair=self.trading_pair,
-            amount=Decimal("1"),
-            order_type=OrderType.LIMIT,
-            price=Decimal("2"),
-        )
-
-        self.assertTrue(result.startswith(self.exchange.client_order_id_prefix))
-        self.assertTrue(self.exchange.client_order_id_max_length is None
-                        or self.exchange.client_order_id_max_length >= len(result))
-
-        result = self.exchange.sell(
-            trading_pair=self.trading_pair,
-            amount=Decimal("1"),
-            order_type=OrderType.LIMIT,
-            price=Decimal("2"),
-        )
-
-        self.assertTrue(result.startswith(self.exchange.client_order_id_prefix))
-        self.assertTrue(self.exchange.client_order_id_max_length is None
-                        or self.exchange.client_order_id_max_length >= len(result))
