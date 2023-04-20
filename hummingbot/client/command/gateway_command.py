@@ -178,7 +178,6 @@ class GatewayCommand(GatewayChainApiManager):
                     return
                 available_networks: List[Dict[str, Any]] = connector_config[0]["available_networks"]
                 trading_type: str = connector_config[0]["trading_type"][0]
-                additional_spenders: List[str] = connector_config[0].get("additional_spenders", [])
                 additional_prompts: Dict[str, str] = connector_config[0].get(  # These will be stored locally.
                     "additional_add_wallet_prompts",  # If Gateway requires additional, prompts with secure info,
                     {}  # a new attribute must be added (e.g. additional_secure_add_wallet_prompts)
@@ -312,7 +311,6 @@ class GatewayCommand(GatewayChainApiManager):
                     network=network,
                     trading_type=trading_type,
                     wallet_address=wallet_address,
-                    additional_spenders=additional_spenders,
                     additional_prompt_values=additional_prompt_values,
                 )
                 self.notify(f"The {connector} connector now uses wallet {wallet_address} on {chain}-{network}")

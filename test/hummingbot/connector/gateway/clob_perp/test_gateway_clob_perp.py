@@ -1774,7 +1774,6 @@ class GatewayCLOBPERPTest(unittest.TestCase):
                 "network": "mainnet",
                 "trading_type": "CLOB_PERP",
                 "wallet_address": "0xc7287236f64484b476cfbec0fd21bc49d85f8850c8885665003928a122041e18",  # noqa: mock
-                "additional_spenders": [],
             },
         ]
         init_fee_overrides_config()

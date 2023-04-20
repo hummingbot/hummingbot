@@ -2,7 +2,6 @@ import asyncio
 import copy
 import itertools as it
 import logging
-import re
 import time
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Type, Union, cast
@@ -26,10 +25,6 @@ from hummingbot.core.event.events import (
     RangePositionLiquidityRemovedEvent,
     RangePositionUpdateEvent,
     RangePositionUpdateFailureEvent,
-    TokenApprovalCancelledEvent,
-    TokenApprovalEvent,
-    TokenApprovalFailureEvent,
-    TokenApprovalSuccessEvent,
 )
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.network_iterator import NetworkStatus
@@ -54,7 +49,6 @@ class GatewayEVMAMMLP(ConnectorBase):
     API_CALL_TIMEOUT = 10.0
     POLL_INTERVAL = 1.0
     UPDATE_BALANCE_INTERVAL = 30.0
-    APPROVAL_ORDER_ID_PATTERN = re.compile(r"approve-(\w+)-(\w+)")
 
     _connector_name: str
     _name: str
@@ -74,7 +68,6 @@ class GatewayEVMAMMLP(ConnectorBase):
     _chain_info: Dict[str, Any]
     _status_polling_task: Optional[asyncio.Task]
     _get_chain_info_task: Optional[asyncio.Task]
-    _auto_approve_task: Optional[asyncio.Task]
     _poll_notifier: Optional[asyncio.Event]
     _nonce: Optional[int]
     _native_currency: str
@@ -87,7 +80,6 @@ class GatewayEVMAMMLP(ConnectorBase):
                  network: str,
                  address: str,
                  trading_pairs: List[str] = [],
-                 additional_spenders: List[str] = [],
                  trading_required: bool = True
                  ):
         """
@@ -104,8 +96,7 @@ class GatewayEVMAMMLP(ConnectorBase):
         self._chain = chain
         self._network = network
         self._trading_pairs = trading_pairs
-        self._all_spenders = additional_spenders
-        self._all_spenders.append(self._connector_name)
+        self._spenders = [self._connector_name]
         self._tokens = set()
         [self._tokens.update(set(trading_pair.split("-"))) for trading_pair in trading_pairs]
         self._wallet_address = address
@@ -118,7 +109,6 @@ class GatewayEVMAMMLP(ConnectorBase):
         self._chain_info = {}
         self._status_polling_task = None
         self._get_chain_info_task = None
-        self._auto_approve_task = None
         self._get_gas_estimate_task = None
         self._poll_notifier = None
         self._nonce: Optional[int] = None
@@ -175,28 +165,6 @@ class GatewayEVMAMMLP(ConnectorBase):
         except Exception:
             return []
 
-    @staticmethod
-    def is_approval_order(in_flight_order: GatewayInFlightLPOrder) -> bool:
-        return in_flight_order.client_order_id.split("-")[0] == "approve"
-
-    @property
-    def approval_orders(self) -> List[GatewayInFlightLPOrder]:
-        return [
-            approval_order
-            for approval_order in self._in_flight_orders.values()
-            if self.is_approval_order(approval_order)
-            and not approval_order.is_pending_cancel_confirmation
-        ]
-
-    @property
-    def amm_lp_orders(self) -> List[GatewayInFlightLPOrder]:
-        return [
-            in_flight_order
-            for in_flight_order in self._in_flight_orders.values()
-            if not self.is_approval_order(in_flight_order)
-            and not in_flight_order.is_pending_cancel_confirmation
-        ]
-
     @property
     def canceling_orders(self) -> List[GatewayInFlightLPOrder]:
         return [
@@ -216,25 +184,9 @@ class GatewayEVMAMMLP(ConnectorBase):
     def network_transaction_fee(self, new_fee: TokenAmount):
         self._network_transaction_fee = new_fee
 
-    def create_approval_order_id(self, spender: str, token_symbol: str) -> str:
-        return f"approve-{spender}-{token_symbol}"
-
-    def get_token_symbol_from_approval_order_id(self, approval_order_id: str) -> Optional[str]:
-        match = self.APPROVAL_ORDER_ID_PATTERN.search(approval_order_id)
-        if match:
-            return f"{match.group(1)}_{match.group(2)}"
-        return None
-
     @staticmethod
     def create_lp_order_id(action: LPType, trading_pair: str) -> str:
         return f"{action.name.lower()}-{trading_pair}-{get_tracking_nonce()}"
-
-    def is_pending_approval(self, spender_token: str) -> bool:
-        pending_approval_tokens: List[Optional[str]] = [
-            self.get_token_symbol_from_approval_order_id(order_id)
-            for order_id in self._in_flight_orders.keys()
-        ]
-        return True if spender_token in pending_approval_tokens else False
 
     async def load_token_data(self):
         tokens = await GatewayHttpClient.get_instance().get_tokens(self.chain, self.network)
@@ -280,50 +232,6 @@ class GatewayEVMAMMLP(ConnectorBase):
                 app_warning_msg=str(e)
             )
 
-    async def auto_approve(self):
-        """
-        Automatically approves trading pair tokens for contract(s).
-        It first checks if there are any already approved amount (allowance)
-        """
-        await self.update_allowances()
-        for spender_token, amount in self._allowances.items():
-            if amount <= s_decimal_0 and not self.is_pending_approval(spender_token):
-                spender, token = spender_token.split("_")
-                await self.approve_token(spender, token)
-
-    async def approve_token(self, spender: str, token_symbol: str, **request_args) -> Optional[GatewayInFlightLPOrder]:
-        """
-        Approves contract as a spender for a token.
-        :param spender: contract to approve for.
-        :param token_symbol: token to approve.
-        """
-        order_id: str = self.create_approval_order_id(spender, token_symbol)
-        resp: Dict[str, Any] = await self._get_gateway_instance().approve_token(
-            self.chain,
-            self.network,
-            self.address,
-            token_symbol,
-            spender,
-            **request_args
-        )
-        self.start_tracking_order(order_id, None, token_symbol)
-
-        if "hash" in resp.get("approval", {}).keys():
-            nonce: int = resp.get("nonce")
-            await self._update_nonce(nonce)
-            hash = resp["approval"]["hash"]
-            tracked_order = self._in_flight_orders.get(order_id)
-            tracked_order.update_exchange_order_id(hash)
-            tracked_order.nonce = nonce
-            self.logger().info(
-                f"Maximum {token_symbol} approval for {spender} contract sent, hash: {hash}."
-            )
-            return tracked_order
-        else:
-            self.logger().info(f"Missing data from approval result. Incomplete return result for ({resp.keys()})")
-            self.logger().info(f"Approval for {token_symbol} on {spender} failed.")
-            return None
-
     async def update_allowances(self):
         self._allowances = await self.get_allowances()
 
@@ -336,10 +244,10 @@ class GatewayEVMAMMLP(ConnectorBase):
         approval_lists: List[str] = await safe_gather(*[
             self._get_gateway_instance().get_allowances(
                 self.chain, self.network, self.address, list(self._tokens), spender
-            ) for spender in self._all_spenders
+            ) for spender in self._spenders
         ])
 
-        for spender, approval_list in zip(self._all_spenders, approval_lists):
+        for spender, approval_list in zip(self._spenders, approval_lists):
             for token, amount in approval_list["approvals"].items():
                 ret_val[f"{spender}_{token}"] = Decimal(str(amount))
         return ret_val
@@ -709,60 +617,6 @@ class GatewayEVMAMMLP(ConnectorBase):
         if order_id in self._in_flight_orders:
             del self._in_flight_orders[order_id]
 
-    async def update_token_approval_status(self, tracked_approvals: List[GatewayInFlightLPOrder]):
-        """
-        Calls REST API to get status update for each in-flight token approval transaction.
-        """
-        if len(tracked_approvals) < 1:
-            return
-        tx_hash_list: List[str] = await safe_gather(*[
-            tracked_approval.get_exchange_order_id() for tracked_approval in tracked_approvals
-        ])
-        transaction_states: List[Union[Dict[str, Any], Exception]] = await safe_gather(*[
-            self._get_gateway_instance().get_transaction_status(
-                self.chain,
-                self.network,
-                tx_hash
-            )
-            for tx_hash in tx_hash_list
-        ], return_exceptions=True)
-        for tracked_approval, transaction_status in zip(tracked_approvals, transaction_states):
-            token_symbol: str = self.get_token_symbol_from_approval_order_id(tracked_approval.client_order_id)
-            if isinstance(transaction_status, Exception):
-                self.logger().error(f"Error while trying to approve token {token_symbol} for {self.connector_name}: "
-                                    f"{transaction_status}")
-                continue
-            if "txHash" not in transaction_status:
-                self.logger().error(f"Error while trying to approve token {token_symbol} for {self.connector_name}: "
-                                    "txHash key not found in transaction status.")
-                continue
-            if transaction_status["txStatus"] == 1:
-                if transaction_status["txReceipt"]["status"] == 1:
-                    self.logger().info(f"Token approval for {tracked_approval.client_order_id} on {self.connector_name} "
-                                       f"successful.")
-                    self.trigger_event(
-                        TokenApprovalEvent.ApprovalSuccessful,
-                        TokenApprovalSuccessEvent(
-                            self.current_timestamp,
-                            self.connector_name,
-                            token_symbol
-                        )
-                    )
-                    safe_ensure_future(self.update_allowances())
-                else:
-                    self.logger().warning(
-                        f"Token approval for {tracked_approval.client_order_id} on {self.connector_name} failed."
-                    )
-                    self.trigger_event(
-                        TokenApprovalEvent.ApprovalFailed,
-                        TokenApprovalFailureEvent(
-                            self.current_timestamp,
-                            self.connector_name,
-                            token_symbol
-                        )
-                    )
-                self.stop_tracking_order(tracked_approval.client_order_id)
-
     async def update_canceling_transactions(self, canceled_tracked_orders: List[GatewayInFlightLPOrder]):
         """
         Update tracked orders that have a cancel_tx_hash.
@@ -793,32 +647,17 @@ class GatewayEVMAMMLP(ConnectorBase):
             if update_result["txStatus"] == 1:
                 if update_result["txReceipt"]["status"] == 1:
                     if tracked_order.current_state == OrderState.PENDING_CANCEL:
-                        if not self.is_approval_order(tracked_order):
-                            self.trigger_event(
-                                MarketEvent.OrderCancelled,
-                                OrderCancelledEvent(
-                                    self.current_timestamp,
-                                    tracked_order.client_order_id,
-                                    tracked_order.exchange_order_id,
-                                )
+                        self.trigger_event(
+                            MarketEvent.OrderCancelled,
+                            OrderCancelledEvent(
+                                self.current_timestamp,
+                                tracked_order.client_order_id,
+                                tracked_order.exchange_order_id,
                             )
-                            self.logger().info(f"The {tracked_order.lp_type.name} order "
-                                               f"{tracked_order.client_order_id} has been canceled "
-                                               f"according to the order status API.")
-                        elif self.is_approval_order(tracked_order):
-                            token_symbol: str = self.get_token_symbol_from_approval_order_id(
-                                tracked_order.client_order_id
-                            )
-                            self.trigger_event(
-                                TokenApprovalEvent.ApprovalCancelled,
-                                TokenApprovalCancelledEvent(
-                                    self.current_timestamp,
-                                    self.connector_name,
-                                    token_symbol
-                                )
-                            )
-                            self.logger().info(f"Token approval for {tracked_order.client_order_id} on "
-                                               f"{self.connector_name} has been canceled.")
+                        )
+                        self.logger().info(f"The {tracked_order.lp_type.name} order "
+                                           f"{tracked_order.client_order_id} has been canceled "
+                                           f"according to the order status API.")
                         tracked_order.current_state = OrderState.CANCELED
                     self.stop_tracking_order(tracked_order.client_order_id)
 
@@ -1041,7 +880,6 @@ class GatewayEVMAMMLP(ConnectorBase):
     async def start_network(self):
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
-            self._auto_approve_task = safe_ensure_future(self.auto_approve())
             self._get_gas_estimate_task = safe_ensure_future(self.get_gas_estimate())
         self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
 
@@ -1049,9 +887,6 @@ class GatewayEVMAMMLP(ConnectorBase):
         if self._status_polling_task is not None:
             self._status_polling_task.cancel()
             self._status_polling_task = None
-        if self._auto_approve_task is not None:
-            self._auto_approve_task.cancel()
-            self._auto_approve_task = None
         if self._get_chain_info_task is not None:
             self._get_chain_info_task.cancel()
             self._get_chain_info_task = None
@@ -1097,7 +932,6 @@ class GatewayEVMAMMLP(ConnectorBase):
                 await safe_gather(
                     self.update_balances(on_interval=True),
                     self.update_canceling_transactions(self.canceling_orders),
-                    self.update_token_approval_status(self.approval_orders),
                     self.update_order_status(self.amm_lp_orders),
                     self.update_nft(self.amm_lp_orders)
                 )

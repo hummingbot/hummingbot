@@ -31,7 +31,6 @@ class GatewayNearAMM(GatewayEVMAMM):
                  network: str,
                  address: str,
                  trading_pairs: List[str] = [],
-                 additional_spenders: List[str] = [],  # not implemented
                  trading_required: bool = True
                  ):
         """
@@ -48,7 +47,6 @@ class GatewayNearAMM(GatewayEVMAMM):
                          network=network,
                          address=address,
                          trading_pairs=trading_pairs,
-                         additional_spenders=additional_spenders,
                          trading_required=trading_required)
 
     @classmethod

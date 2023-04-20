@@ -78,7 +78,6 @@ class GatewaySOLCLOB(ConnectorBase):
             network: str,
             wallet_address: str,
             trading_pairs: List[str] = (),
-            additional_spenders: List[str] = [],  # not implemented
             trading_required: bool = True
     ):
         """
