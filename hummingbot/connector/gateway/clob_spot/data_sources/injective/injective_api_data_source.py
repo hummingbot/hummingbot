@@ -3,16 +3,17 @@ import json
 import time
 from asyncio import Lock
 from decimal import Decimal
+from enum import Enum
 from math import floor
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 
-from bidict import bidict
 from grpc.aio import UnaryStreamCall
 from pyinjective.async_client import AsyncClient
 from pyinjective.composer import Composer as ProtoMsgComposer
 from pyinjective.constant import Network
-from pyinjective.orderhash import OrderHashResponse, build_eip712_msg, hash_order
+from pyinjective.proto.exchange.injective_accounts_rpc_pb2 import StreamSubaccountBalanceResponse, SubaccountBalance
 from pyinjective.proto.exchange.injective_explorer_rpc_pb2 import GetTxByTxHashResponse, StreamTxsResponse
+from pyinjective.proto.exchange.injective_portfolio_rpc_pb2 import StreamAccountPortfolioResponse
 from pyinjective.proto.exchange.injective_spot_exchange_rpc_pb2 import (
     MarketsResponse,
     SpotMarketInfo,
@@ -23,29 +24,27 @@ from pyinjective.proto.exchange.injective_spot_exchange_rpc_pb2 import (
     StreamTradesResponse,
     TokenMeta,
 )
-from pyinjective.proto.injective.exchange.v1beta1.exchange_pb2 import DerivativeOrder, SpotOrder
+from pyinjective.proto.injective.exchange.v1beta1.exchange_pb2 import SpotOrder
+from pyinjective.wallet import Address
 
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.gateway.clob_spot.data_sources.gateway_clob_api_data_source_base import (
-    GatewayCLOBAPIDataSourceBase,
-)
+from hummingbot.connector.gateway.clob_spot.data_sources.clob_api_data_source_base import CLOBAPIDataSourceBase
 from hummingbot.connector.gateway.clob_spot.data_sources.injective.injective_constants import (
-    ACC_NONCE_PATH_RATE_LIMIT_ID,
     BACKEND_TO_CLIENT_ORDER_STATE_MAP,
     CLIENT_TO_BACKEND_ORDER_TYPES_MAP,
     CONNECTOR_NAME,
+    LOST_ORDER_COUNT_LIMIT,
     MARKETS_UPDATE_INTERVAL,
     MSG_BATCH_UPDATE_ORDERS,
     MSG_CANCEL_SPOT_ORDER,
     MSG_CREATE_SPOT_LIMIT_ORDER,
-    NONCE_PATH,
-    RATE_LIMITS,
     REQUESTS_SKIP_STEP,
 )
+from hummingbot.connector.gateway.clob_spot.data_sources.injective.injective_utils import OrderHashManager
+from hummingbot.connector.gateway.common_types import CancelOrderResult, PlaceOrderResult
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, split_hb_trading_pair
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book import OrderBookMessage
@@ -54,48 +53,11 @@ from hummingbot.core.data_type.trade_fee import MakerTakerExchangeFeeRates, Toke
 from hummingbot.core.event.events import AccountEvent, BalanceUpdateEvent, MarketEvent, OrderBookDataSourceEvent
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.logger import HummingbotLogger
 
 
-class OrderHashManager:
-    def __init__(self, network: Network, sub_account_id: str):
-        self._sub_account_id = sub_account_id
-        self._network = network
-        self._sub_account_nonce = 0
-        self._web_assistants_factory = WebAssistantsFactory(throttler=AsyncThrottler(rate_limits=RATE_LIMITS))
-
-    @property
-    def current_nonce(self) -> int:
-        return self._sub_account_nonce
-
-    async def start(self):
-        url = f"{self._network.lcd_endpoint}/{NONCE_PATH}/{self._sub_account_id}"
-        rest_assistant = await self._web_assistants_factory.get_rest_assistant()
-        res = await rest_assistant.execute_request(url=url, throttler_limit_id=ACC_NONCE_PATH_RATE_LIMIT_ID)
-        nonce = res["nonce"]
-        self._sub_account_nonce = nonce + 1
-
-    def compute_order_hashes(
-        self, spot_orders: List[SpotOrder], derivative_orders: List[DerivativeOrder]
-    ) -> OrderHashResponse:
-        order_hashes = OrderHashResponse(spot=[], derivative=[])
-
-        for o in spot_orders:
-            order_hash = hash_order(build_eip712_msg(o, self._sub_account_nonce))
-            order_hashes.spot.append(order_hash)
-            self._sub_account_nonce += 1
-
-        for o in derivative_orders:
-            order_hash = hash_order(build_eip712_msg(o, self._sub_account_nonce))
-            order_hashes.derivative.append(order_hash)
-            self._sub_account_nonce += 1
-
-        return order_hashes
-
-
-class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
+class InjectiveAPIDataSource(CLOBAPIDataSourceBase):
     """An interface class to the Injective blockchain.
 
     Note — The same wallet address should not be used with different instances of the client as this will cause
@@ -108,33 +70,28 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
     def __init__(
         self,
         trading_pairs: List[str],
-        chain: str,
-        network: str,
-        address: str,
+        connector_spec: Dict[str, Any],
         client_config_map: ClientConfigAdapter,
     ):
-        super().__init__()
-        self._trading_pairs = trading_pairs
-        self._connector_name = CONNECTOR_NAME
-        self._chain = chain
-        self._network = network
-        self._sub_account_id = address
-        self._account_address: Optional[str] = None
-        self._network_obj = Network.custom(
-            lcd_endpoint="https://k8s.global.mainnet.lcd.injective.network:443",
-            tm_websocket_endpoint="wss://k8s.global.mainnet.tm.injective.network:443/websocket",
-            grpc_endpoint="k8s.global.mainnet.chain.grpc.injective.network:443",
-            grpc_exchange_endpoint="k8s.global.mainnet.exchange.grpc.injective.network:443",
-            grpc_explorer_endpoint="k8s.mainnet.explorer.grpc.injective.network:443",
-            chain_id="injective-1",
-            env="mainnet"
+        super().__init__(
+            trading_pairs=trading_pairs, connector_spec=connector_spec, client_config_map=client_config_map
         )
+        self._connector_name = CONNECTOR_NAME
+        self._chain = connector_spec["chain"]
+        self._network = connector_spec["network"]
+        self._sub_account_id = connector_spec["wallet_address"]
+        self._account_address: str = Address(bytes.fromhex(self._sub_account_id[2:-24])).to_acc_bech32()
+        if self._network == "mainnet":
+            self._network_obj = Network.mainnet()
+        elif self._network == "testnet":
+            self._network_obj = Network.testnet()
+        else:
+            raise ValueError(f"Invalid network: {self._network}")
         self._client = AsyncClient(network=self._network_obj)
         self._composer = ProtoMsgComposer(network=self._network_obj.string())
         self._order_hash_manager: Optional[OrderHashManager] = None
-        self._client_config = client_config_map
 
-        self._trading_pair_to_active_spot_markets: Dict[str, SpotMarketInfo] = {}
+        self._markets_info: Dict[str, SpotMarketInfo] = {}
         self._market_id_to_active_spot_markets: Dict[str, SpotMarketInfo] = {}
         self._denom_to_token_meta: Dict[str, TokenMeta] = {}
         self._markets_update_task: Optional[asyncio.Task] = None
@@ -142,13 +99,41 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         self._trades_stream_listener: Optional[asyncio.Task] = None
         self._order_listeners: Dict[str, asyncio.Task] = {}
         self._order_books_stream_listener: Optional[asyncio.Task] = None
-        self._account_balances_stream_listener: Optional[asyncio.Task] = None
+        self._bank_balances_stream_listener: Optional[asyncio.Task] = None
+        self._subaccount_balances_stream_listener: Optional[asyncio.Task] = None
         self._transactions_stream_listener: Optional[asyncio.Task] = None
 
         self._order_placement_lock = Lock()
 
+        # Local Balance
+        self._account_balances: Dict[str, Dict[str, Decimal]] = {}
+        self._account_available_balances: Dict[str, Dict[str, Decimal]] = {}
+
+    @property
+    def real_time_balance_update(self) -> bool:
+        return True
+
+    @property
+    def events_are_streamed(self) -> bool:
+        return True
+
+    @staticmethod
+    def supported_stream_events() -> List[Enum]:
+        return [
+            MarketEvent.TradeUpdate,
+            MarketEvent.OrderUpdate,
+            AccountEvent.BalanceEvent,
+            OrderBookDataSourceEvent.TRADE_EVENT,
+            OrderBookDataSourceEvent.DIFF_EVENT,
+            OrderBookDataSourceEvent.SNAPSHOT_EVENT,
+        ]
+
     def get_supported_order_types(self) -> List[OrderType]:
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+
+    @property
+    def _is_default_subaccount(self):
+        return self._sub_account_id[-24:] == "000000000000000000000000"
 
     async def start(self):
         """Starts the event streaming."""
@@ -159,6 +144,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         )
         await self._update_markets()  # required for the streams
         await self._start_streams()
+        self._gateway_order_tracker.lost_order_count_limit = LOST_ORDER_COUNT_LIMIT
 
     async def stop(self):
         """Stops the event streaming."""
@@ -169,29 +155,13 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
     async def place_order(
         self, order: GatewayInFlightOrder, **kwargs
     ) -> Tuple[Optional[str], Dict[str, Any]]:
-        market = self._trading_pair_to_active_spot_markets[order.trading_pair]
-        spot_order_to_create = [
-            self._composer.SpotOrder(
-                market_id=market.market_id,
-                subaccount_id=self._sub_account_id,
-                fee_recipient=self._account_address,
-                price=float(order.price),
-                quantity=float(order.amount),
-                is_buy=order.trade_type == TradeType.BUY,
-                is_po=order.order_type == OrderType.LIMIT_MAKER,
-            ),
-        ]
+        spot_order_to_create = [self._compose_spot_order_for_local_hash_computation(order=order)]
 
         async with self._order_placement_lock:
             order_hashes = self._order_hash_manager.compute_order_hashes(
                 spot_orders=spot_order_to_create, derivative_orders=[]
             )
             order_hash = order_hashes.spot[0]
-
-            self.logger().debug(
-                f"Placing order {order.client_order_id} with order hash {order_hash} from nonce"
-                f" {self._order_hash_manager.current_nonce - 1}"
-            )  # todo: remove
 
             try:
                 order_result: Dict[str, Any] = await self._get_gateway_instance().clob_place_order(
@@ -211,8 +181,6 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
             transaction_hash: Optional[str] = order_result.get("txHash")
 
-            self.logger().debug(f"Placed order {order_hash} with tx hash {transaction_hash}")  # todo: remove
-
             if transaction_hash is None:
                 await self._update_account_address_and_create_order_hash_manager()
                 raise ValueError(
@@ -228,10 +196,57 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
         return order_hash, misc_updates
 
+    async def batch_order_create(self, orders_to_create: List[GatewayInFlightOrder]) -> List[PlaceOrderResult]:
+        spot_orders_to_create = [
+            self._compose_spot_order_for_local_hash_computation(order=order)
+            for order in orders_to_create
+        ]
+
+        async with self._order_placement_lock:
+            order_hashes = self._order_hash_manager.compute_order_hashes(
+                spot_orders=spot_orders_to_create, derivative_orders=[]
+            )
+            try:
+                update_result = await self._get_gateway_instance().clob_batch_order_modify(
+                    connector=self._connector_name,
+                    chain=self._chain,
+                    network=self._network,
+                    address=self._sub_account_id,
+                    orders_to_create=orders_to_create,
+                    orders_to_cancel=[],
+                )
+            except Exception:
+                await self._update_account_address_and_create_order_hash_manager()
+                raise
+
+            transaction_hash: Optional[str] = update_result.get("txHash")
+            exception = None
+
+            if transaction_hash is None:
+                await self._update_account_address_and_create_order_hash_manager()
+                self.logger().error("The batch order update transaction failed.")
+                exception = RuntimeError("The creation transaction has failed on the Injective chain.")
+
+        transaction_hash = f"0x{transaction_hash.lower()}"
+
+        place_order_results = [
+            PlaceOrderResult(
+                update_timestamp=self._time(),
+                client_order_id=order.client_order_id,
+                exchange_order_id=order_hash,
+                trading_pair=order.trading_pair,
+                misc_updates={
+                    "creation_transaction_hash": transaction_hash,
+                },
+                exception=exception,
+            ) for order, order_hash in zip(orders_to_create, order_hashes.spot)
+        ]
+
+        return place_order_results
+
     async def cancel_order(self, order: GatewayInFlightOrder) -> Tuple[bool, Dict[str, Any]]:
 
         await order.get_exchange_order_id()
-        self.logger().debug(f"Canceling order {order.exchange_order_id}")  # todo: remove
 
         cancelation_result = await self._get_gateway_instance().clob_cancel_order(
             connector=self._connector_name,
@@ -252,7 +267,6 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
             )
 
         transaction_hash = f"0x{transaction_hash.lower()}"
-        self.logger().debug(f"Canceled order {order.exchange_order_id} with tx hash {transaction_hash}")  # todo: remove
 
         misc_updates = {
             "cancelation_transaction_hash": transaction_hash
@@ -260,25 +274,55 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
         return True, misc_updates
 
-    async def get_trading_rules(self) -> Dict[str, TradingRule]:
-        self._check_markets_initialized() or await self._update_markets()
+    async def batch_order_cancel(self, orders_to_cancel: List[InFlightOrder]) -> List[CancelOrderResult]:
+        in_flight_orders_to_cancel = [
+            self._gateway_order_tracker.fetch_tracked_order(client_order_id=order.client_order_id)
+            for order in orders_to_cancel
+        ]
+        exchange_order_ids_to_cancel = await safe_gather(
+            *[order.get_exchange_order_id() for order in in_flight_orders_to_cancel],
+            return_exceptions=True,
+        )
+        found_orders_to_cancel = [
+            order
+            for order, result in zip(orders_to_cancel, exchange_order_ids_to_cancel)
+            if not isinstance(result, asyncio.TimeoutError)
+        ]
 
-        trading_rules = {
-            trading_pair: self._get_trading_rule_from_market(trading_pair=trading_pair, market=market)
-            for trading_pair, market in self._trading_pair_to_active_spot_markets.items()
-        }
-        return trading_rules
+        update_result = await self._get_gateway_instance().clob_batch_order_modify(
+            connector=self._connector_name,
+            chain=self._chain,
+            network=self._network,
+            address=self._sub_account_id,
+            orders_to_create=[],
+            orders_to_cancel=found_orders_to_cancel,
+        )
 
-    async def get_symbol_map(self) -> bidict[str, str]:
-        self._check_markets_initialized() or await self._update_markets()
+        transaction_hash: Optional[str] = update_result.get("txHash")
+        exception = None
 
-        mapping = bidict()
-        for trading_pair, market in self._trading_pair_to_active_spot_markets.items():
-            mapping[market.market_id] = trading_pair
-        return mapping
+        if transaction_hash is None:
+            await self._update_account_address_and_create_order_hash_manager()
+            self.logger().error("The batch order update transaction failed.")
+            exception = RuntimeError("The cancelation transaction has failed on the Injective chain.")
+
+        transaction_hash = f"0x{transaction_hash.lower()}"
+
+        cancel_order_results = [
+            CancelOrderResult(
+                client_order_id=order.client_order_id,
+                trading_pair=order.trading_pair,
+                misc_updates={
+                    "cancelation_transaction_hash": transaction_hash
+                },
+                exception=exception,
+            ) for order in orders_to_cancel
+        ]
+
+        return cancel_order_results
 
     async def get_last_traded_price(self, trading_pair: str) -> Decimal:
-        market = self._trading_pair_to_active_spot_markets[trading_pair]
+        market = self._markets_info[trading_pair]
         trades = await self._client.get_spot_trades(market_id=market.market_id)
         if len(trades.trades) != 0:
             price = self._convert_price_from_backend(price=trades.trades[0].price.price, market=market)
@@ -287,7 +331,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         return price
 
     async def get_order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
-        market = self._trading_pair_to_active_spot_markets[trading_pair]
+        market = self._markets_info[trading_pair]
         order_book_response = await self._client.get_spot_orderbook(market_id=market.market_id)
         price_scale = self._get_backend_price_scaler(market=market)
         size_scale = self._get_backend_denom_scaler(denom_meta=market.base_token_meta)
@@ -311,6 +355,16 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
             timestamp=last_update_timestamp_ms * 1e-3,
         )
         return snapshot_msg
+
+    def _update_local_balances(self, balances: Dict[str, Dict[str, Decimal]]):
+        # We need to keep local copy of total and available balance so we can trigger BalanceUpdateEvent with correct
+        # details. This is specifically for Injective during the processing of balance streams, where the messages does not
+        # detail the total_balance and available_balance across bank and subaccounts.
+        for asset_name, balance_entry in balances.items():
+            if "total_balance" in balance_entry:
+                self._account_balances[asset_name] = balance_entry["total_balance"]
+            if "available_balance" in balance_entry:
+                self._account_available_balances[asset_name] = balance_entry["available_balance"]
 
     async def get_account_balances(self) -> Dict[str, Dict[str, Decimal]]:
         """Returns a dictionary like
@@ -349,22 +403,38 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         self._check_markets_initialized() or await self._update_markets()
 
         balances_dict = {}
-        sub_account_balances = await self._client.get_subaccount_balances_list(subaccount_id=self._sub_account_id)
-        for balance in sub_account_balances.balances:
-            denom_meta = self._denom_to_token_meta[balance.denom]
-            asset_name = denom_meta.symbol
-            asset_scaler = self._get_backend_denom_scaler(denom_meta=denom_meta)
-            total_balance = Decimal(balance.deposit.total_balance) * asset_scaler
-            available_balance = Decimal(balance.deposit.available_balance) * asset_scaler
-            balances_dict[asset_name] = {
-                "total_balance": total_balance,
-                "available_balance": available_balance,
-            }
+        portfolio_balances = await self._client.get_account_portfolio(account_address=self._account_address)
+        if self._is_default_subaccount:
+            for balance in portfolio_balances.portfolio.bank_balances:
+                denom_meta = self._denom_to_token_meta.get(balance.denom)
+                if denom_meta:
+                    asset_name = denom_meta.symbol
+                    asset_scaler = self._get_backend_denom_scaler(denom_meta=denom_meta)
+                    total_balance = Decimal(balance.amount) * asset_scaler
+                    available_balance = total_balance   # Because it's bank account
+                    balances_dict[asset_name] = {
+                        "total_balance": total_balance,
+                        "available_balance": available_balance,
+                    }
+        for subacct_balance in portfolio_balances.portfolio.subaccounts:
+            if subacct_balance.subaccount_id.casefold() != self._sub_account_id.casefold():
+                continue
+            denom_meta = self._denom_to_token_meta.get(subacct_balance.denom)
+            if denom_meta:
+                asset_name = denom_meta.symbol
+                asset_scaler = self._get_backend_denom_scaler(denom_meta=denom_meta)
+                total_balance = Decimal(subacct_balance.deposit.total_balance) * asset_scaler
+                available_balance = Decimal(subacct_balance.deposit.available_balance) * asset_scaler
+
+                balance_element = balances_dict.get(asset_name, {'total_balance': 0, 'available_balance': 0})
+                balance_element['total_balance'] += total_balance
+                balance_element['available_balance'] += available_balance
+                balances_dict[asset_name] = balance_element
         return balances_dict
 
     async def get_all_order_fills(self, in_flight_order: GatewayInFlightOrder) -> List[TradeUpdate]:
         trading_pair = in_flight_order.trading_pair
-        market = self._trading_pair_to_active_spot_markets[trading_pair]
+        market = self._markets_info[trading_pair]
         direction = "buy" if in_flight_order.trade_type == TradeType.BUY else "sell"
 
         trade_updates = []
@@ -384,7 +454,6 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         return trade_updates
 
     async def get_order_status_update(self, in_flight_order: GatewayInFlightOrder) -> OrderUpdate:
-        self.logger().debug(f"Getting order status update for {in_flight_order.exchange_order_id}")  # todo: remove
         trading_pair = in_flight_order.trading_pair
         order_hash = await in_flight_order.get_exchange_order_id()
         misc_updates = {
@@ -392,7 +461,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
             "cancelation_transaction_hash": in_flight_order.cancel_tx_hash,
         }
 
-        market = self._trading_pair_to_active_spot_markets[trading_pair]
+        market = self._markets_info[trading_pair]
         direction = "buy" if in_flight_order.trade_type == TradeType.BUY else "sell"
         status_update = await self._get_booked_order_status_update(
             trading_pair=trading_pair,
@@ -406,10 +475,6 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
             order_mist_updates=misc_updates,
         )
         if status_update is None and in_flight_order.creation_transaction_hash is not None:
-            self.logger().debug(
-                f"Failed to find status update for {in_flight_order.exchange_order_id}. Attempting from transaction"
-                f" hash {in_flight_order.creation_transaction_hash}."
-            )  # todo: remove
             creation_transaction = await self._get_transaction_by_hash(
                 transaction_hash=in_flight_order.creation_transaction_hash
             )
@@ -425,9 +490,6 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
                     misc_updates=misc_updates,
                 )
         if status_update is None:
-            self.logger().debug(
-                f"Failed to find an order status update for {in_flight_order.exchange_order_id}"
-            )  # todo: remove
             raise IOError(f"No update found for order {in_flight_order.client_order_id}")
 
         if in_flight_order.current_state == OrderState.PENDING_CREATE and status_update.new_state != OrderState.OPEN:
@@ -460,7 +522,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         self._check_markets_initialized() or await self._update_markets()
 
         trading_fees = {}
-        for trading_pair, market in self._trading_pair_to_active_spot_markets.items():
+        for trading_pair, market in self._markets_info.items():
             fee_scaler = Decimal("1") - Decimal(market.service_provider_fee)
             maker_fee = Decimal(market.maker_fee_rate) * fee_scaler
             taker_fee = Decimal(market.taker_fee_rate) * fee_scaler
@@ -468,6 +530,24 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
                 maker=maker_fee, taker=taker_fee, maker_flat_fees=[], taker_flat_fees=[]
             )
         return trading_fees
+
+    def is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
+        return str(status_update_exception).startswith("No update found for order")
+
+    def is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
+        return False
+
+    def _compose_spot_order_for_local_hash_computation(self, order: GatewayInFlightOrder) -> SpotOrder:
+        market = self._markets_info[order.trading_pair]
+        return self._composer.SpotOrder(
+            market_id=market.market_id,
+            subaccount_id=self._sub_account_id,
+            fee_recipient=self._account_address,
+            price=float(order.price),
+            quantity=float(order.amount),
+            is_buy=order.trade_type == TradeType.BUY,
+            is_po=order.order_type == OrderType.LIMIT_MAKER,
+        )
 
     async def _get_booked_order_status_update(
         self,
@@ -507,8 +587,10 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
     async def _update_account_address_and_create_order_hash_manager(self):
         if not self._order_placement_lock.locked():
             raise RuntimeError("The order-placement lock must be acquired before creating the order hash manager.")
-        sub_account_balances = await self._client.get_subaccount_balances_list(subaccount_id=self._sub_account_id)
-        self._account_address = sub_account_balances.balances[0].account_address
+        response: Dict[str, Any] = await self._get_gateway_instance().clob_injective_balances(
+            chain=self._chain, network=self._network, address=self._sub_account_id
+        )
+        self._account_address: str = response["injectiveAddress"]
         await self._client.get_account(self._account_address)
         await self._client.sync_timeout_height()
         self._order_hash_manager = OrderHashManager(
@@ -518,7 +600,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
     def _check_markets_initialized(self) -> bool:
         return (
-            len(self._trading_pair_to_active_spot_markets) != 0
+            len(self._markets_info) != 0
             and len(self._market_id_to_active_spot_markets) != 0
             and len(self._denom_to_token_meta) != 0
         )
@@ -546,8 +628,8 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
                 base=market.base_token_meta.symbol, quote=market.quote_token_meta.symbol
             )
             markets_dict[trading_pair] = market
-        self._trading_pair_to_active_spot_markets.clear()
-        self._trading_pair_to_active_spot_markets.update(markets_dict)
+        self._markets_info.clear()
+        self._markets_info.update(markets_dict)
 
     def _update_market_id_to_active_spot_markets(self, markets: MarketsResponse):
         markets_dict = {market.market_id: market for market in markets.markets}
@@ -575,8 +657,11 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         self._order_books_stream_listener = (
             self._order_books_stream_listener or safe_ensure_future(coro=self._listen_to_order_books_stream())
         )
-        self._account_balances_stream_listener = (
-            self._account_balances_stream_listener or safe_ensure_future(coro=self._listen_to_account_balances_stream())
+        self._bank_balances_stream_listener = self._bank_balances_stream_listener or safe_ensure_future(
+            coro=self._listen_to_bank_balances_streams()
+        )
+        self._subaccount_balances_stream_listener = self._subaccount_balances_stream_listener or safe_ensure_future(
+            coro=self._listen_to_subaccount_balances_stream()
         )
         self._transactions_stream_listener = self._transactions_stream_listener or safe_ensure_future(
             coro=self._listen_to_transactions_stream()
@@ -590,8 +675,10 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         self._order_listeners = {}
         self._order_books_stream_listener and self._order_books_stream_listener.cancel()
         self._order_books_stream_listener = None
-        self._account_balances_stream_listener and self._account_balances_stream_listener.cancel()
-        self._account_balances_stream_listener = None
+        self._subaccount_balances_stream_listener and self._subaccount_balances_stream_listener.cancel()
+        self._subaccount_balances_stream_listener = None
+        self._bank_balances_stream_listener and self._bank_balances_stream_listener.cancel()
+        self._bank_balances_stream_listener = None
         self._transactions_stream_listener and self._transactions_stream_listener.cancel()
         self._transactions_stream_listener = None
 
@@ -657,7 +744,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         self._publisher.trigger_event(event_tag=OrderBookDataSourceEvent.TRADE_EVENT, message=trade_msg)
 
         exchange_order_id = trade.trade.order_hash
-        tracked_order = self._gateway_order_tracker.all_fillable_orders_by_exchange_id.get(exchange_order_id)
+        tracked_order = self._gateway_order_tracker.all_fillable_orders_by_exchange_order_id.get(exchange_order_id)
         client_order_id = "" if tracked_order is None else tracked_order.client_order_id
 
         trade_update = self._parse_backend_trade(
@@ -701,9 +788,8 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         timestamp: 1669198784000
         """
         order_hash = order.order.order_hash
-        in_flight_order = self._gateway_order_tracker.all_fillable_orders_by_exchange_id.get(order_hash)
+        in_flight_order = self._gateway_order_tracker.all_fillable_orders_by_exchange_order_id.get(order_hash)
         if in_flight_order is not None:
-            self.logger().debug(f"Received order status update for {in_flight_order.exchange_order_id}")  # todo: remove
             market_id = order.order.market_id
             trading_pair = self._get_trading_pair_from_market_id(market_id=market_id)
             order_update = OrderUpdate(
@@ -784,45 +870,103 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         )
         self._publisher.trigger_event(event_tag=OrderBookDataSourceEvent.SNAPSHOT_EVENT, message=snapshot_msg)
 
-    async def _listen_to_account_balances_stream(self):
-        while True:
-            stream: UnaryStreamCall = await self._client.stream_subaccount_balance(subaccount_id=self._sub_account_id)
-            try:
-                async for balance in stream:
-                    self._parse_balance_event(balance=balance)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().exception("Unexpected error in user stream listener loop.")
-            self.logger().info("Restarting account balances stream.")
-            stream.cancel()
+    def _parse_bank_balance_message(self, message: StreamAccountPortfolioResponse) -> BalanceUpdateEvent:
+        denom_meta: TokenMeta = self._denom_to_token_meta[message.denom]
+        denom_scaler: Decimal = Decimal(f"1e-{denom_meta.decimals}")
 
-    def _parse_balance_event(self, balance):
-        """
-        Balance update example:
+        available_balance: Decimal = Decimal(message.amount) * denom_scaler
+        total_balance: Decimal = available_balance
 
-        balance {
-          subaccount_id: "0x972a7e7d1db231f67e797fccfbd04d17f825fcde000000000000000000000000"  # noqa: documentation
-          account_address: "inj1ju48ulgakgclvlne0lx0h5zdzluztlx7suwq7z"  # noqa: documentation
-          denom: "peggy0xdAC17F958D2ee523a2206206994597C13D831ec7"
-          deposit {
-            available_balance: "21459060342.811393459150323702"
-          }
-        }
-        """
-        denom_meta = self._denom_to_token_meta[balance.balance.denom]
-        denom_scaler = self._get_backend_denom_scaler(denom_meta=denom_meta)
-        total_balance = balance.balance.deposit.total_balance
-        total_balance = Decimal(total_balance) * denom_scaler if total_balance != "" else None
-        available_balance = balance.balance.deposit.available_balance
-        available_balance = Decimal(available_balance) * denom_scaler if available_balance != "" else None
         balance_msg = BalanceUpdateEvent(
-            timestamp=balance.timestamp * 1e-3,
+            timestamp=self._time(),
             asset_name=denom_meta.symbol,
             total_balance=total_balance,
             available_balance=available_balance,
         )
+        self._update_local_balances(
+            balances={denom_meta.symbol: {"total_balance": total_balance, "available_balance": available_balance}}
+        )
+        return balance_msg
+
+    def _process_bank_balance_stream_event(self, message: StreamAccountPortfolioResponse):
+        balance_msg: BalanceUpdateEvent = self._parse_bank_balance_message(message=message)
         self._publisher.trigger_event(event_tag=AccountEvent.BalanceEvent, message=balance_msg)
+
+    async def _listen_to_bank_balances_streams(self):
+        while True:
+            stream: UnaryStreamCall = await self._client.stream_account_portfolio(
+                account_address=self._account_address, type="bank"
+            )
+            try:
+                async for bank_balance in stream:
+                    self._process_bank_balance_stream_event(message=bank_balance)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().exception("Unexpected error in account balance listener loop.")
+            self.logger().info("Restarting account balances stream.")
+            stream.cancel()
+
+    def _parse_subaccount_balance_message(self, message: StreamSubaccountBalanceResponse) -> BalanceUpdateEvent:
+        """
+        Balance Example:
+
+        balance {
+            subaccount_id: "0xc7dca7c15c364865f77a4fb67ab11dc95502e6fe000000000000000000000001"  # noqa: documentation
+            account_address: "inj1clw20s2uxeyxtam6f7m84vgae92s9eh7vygagt"  # noqa: documentation
+            denom: "inj"
+            deposit {
+                available_balance: "9980001000000000000"
+            }
+        }
+        timestamp: 1675902606000
+
+        """
+        subaccount_balance: SubaccountBalance = message.balance
+        denom_meta: TokenMeta = self._denom_to_token_meta[subaccount_balance.denom]
+        asset_name: str = denom_meta.symbol
+        denom_scaler: Decimal = Decimal(f"1e-{denom_meta.decimals}")
+
+        total_balance = subaccount_balance.deposit.total_balance
+        total_balance = Decimal(total_balance) * denom_scaler if total_balance != "" else Decimal("0")
+        available_balance = subaccount_balance.deposit.available_balance
+        available_balance = Decimal(available_balance) * denom_scaler if available_balance != "" else Decimal("0")
+
+        if self._is_default_subaccount:
+            if available_balance is not None:
+                available_balance += self._account_available_balances.get(asset_name, Decimal("0"))
+            if total_balance is not None:
+                total_balance += self._account_balances.get(asset_name, Decimal("0"))
+
+        balance_msg = BalanceUpdateEvent(
+            timestamp=self._time(),
+            asset_name=asset_name,
+            total_balance=total_balance,
+            available_balance=available_balance,
+        )
+        balance_dict: Dict[str, Dict[str, Decimal]] = {
+            asset_name: {"total_balance": total_balance, "available_balance": available_balance}
+        }
+        self._update_local_balances(balances=balance_dict)
+        return balance_msg
+
+    def _process_subaccount_balance_stream_event(self, message: StreamSubaccountBalanceResponse):
+        balance_msg: BalanceUpdateEvent = self._parse_subaccount_balance_message(message=message)
+        self._publisher.trigger_event(event_tag=AccountEvent.BalanceEvent, message=balance_msg)
+
+    async def _listen_to_subaccount_balances_stream(self):
+        while True:
+            # Uses InjectiveAccountsRPC since it provides both total_balance and available_balance in a single stream.
+            stream: UnaryStreamCall = await self._client.stream_subaccount_balance(subaccount_id=self._sub_account_id)
+            try:
+                async for balance_msg in stream:
+                    self._process_subaccount_balance_stream_event(message=balance_msg)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().exception("Unexpected error in account balance listener loop.")
+            self.logger().info("Restarting account balances stream.")
+            stream.cancel()
 
     async def _get_backend_order_status(
         self,
@@ -926,9 +1070,8 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
             stream.cancel()
 
     async def _parse_transaction_event(self, transaction: StreamTxsResponse):
-        order = self._gateway_order_tracker.get_fillable_order_by_hash(hash=transaction.hash)
+        order = self._gateway_order_tracker.get_fillable_order_by_hash(transaction_hash=transaction.hash)
         if order is not None:
-            self.logger().debug(f"Received transaction update for {order.exchange_order_id}")  # todo: remove
             messages = json.loads(s=transaction.messages)
             for message in messages:
                 if message["type"] in [MSG_CREATE_SPOT_LIMIT_ORDER, MSG_CANCEL_SPOT_ORDER, MSG_BATCH_UPDATE_ORDERS]:
@@ -941,9 +1084,13 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
         )
         return trading_pair
 
-    def _get_trading_rule_from_market(self, trading_pair: str, market: SpotMarketInfo) -> TradingRule:
-        min_price_tick_size = self._convert_price_from_backend(price=market.min_price_tick_size, market=market)
-        min_quantity_tick_size = self._convert_size_from_backend(size=market.min_quantity_tick_size, market=market)
+    def _parse_trading_rule(self, trading_pair: str, market_info: SpotMarketInfo) -> TradingRule:
+        min_price_tick_size = self._convert_price_from_backend(
+            price=market_info.min_price_tick_size, market=market_info
+        )
+        min_quantity_tick_size = self._convert_size_from_backend(
+            size=market_info.min_quantity_tick_size, market=market_info
+        )
         trading_rule = TradingRule(
             trading_pair=trading_pair,
             min_order_size=min_quantity_tick_size,
@@ -952,6 +1099,17 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
             min_quote_amount_increment=min_price_tick_size,
         )
         return trading_rule
+
+    def _get_exchange_trading_pair_from_market_info(self, market_info: Any) -> str:
+        return market_info.market_id
+
+    def _get_maker_taker_exchange_fee_rates_from_market_info(self, market_info: Any) -> MakerTakerExchangeFeeRates:
+        fee_scaler = Decimal("1") - Decimal(market_info.service_provider_fee)
+        maker_fee = Decimal(market_info.maker_fee_rate) * fee_scaler
+        taker_fee = Decimal(market_info.taker_fee_rate) * fee_scaler
+        return MakerTakerExchangeFeeRates(
+            maker=maker_fee, taker=taker_fee, maker_flat_fees=[], taker_flat_fees=[]
+        )
 
     def _convert_price_from_backend(self, price: str, market: SpotMarketInfo) -> Decimal:
         scale = self._get_backend_price_scaler(market=market)
@@ -963,7 +1121,7 @@ class InjectiveAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
     def _get_market_ids(self) -> List[str]:
         market_ids = [
-            self._trading_pair_to_active_spot_markets[trading_pair].market_id
+            self._markets_info[trading_pair].market_id
             for trading_pair in self._trading_pairs
         ]
         return market_ids
