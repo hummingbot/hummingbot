@@ -21,15 +21,15 @@ from hummingbot.client.ui import login_prompt
 from hummingbot.client.ui.style import load_style
 from hummingbot.core.event.event_listener import EventListener
 from hummingbot.core.event.events import HummingbotUIEvent
-from hummingbot.core.gateway import start_existing_gateway_container
 from hummingbot.core.utils import detect_available_port
 from hummingbot.core.utils.async_utils import safe_gather
 
 
 class UIStartListener(EventListener):
-    def __init__(self, hummingbot_app: HummingbotApplication, is_quickstart: Optional[bool] = False):
+    def __init__(self, hummingbot_app: HummingbotApplication, is_script: Optional[bool] = False, is_quickstart: Optional[bool] = False):
         super().__init__()
         self._hb_ref: ReferenceType = ref(hummingbot_app)
+        self._is_script = is_script
         self._is_quickstart = is_quickstart
 
     def __call__(self, _):
@@ -41,9 +41,11 @@ class UIStartListener(EventListener):
 
     async def ui_start_handler(self):
         hb: HummingbotApplication = self.hummingbot_app
-        if hb.strategy_config_map is not None:
-            write_config_to_yml(hb.strategy_config_map, hb.strategy_file_name, hb.client_config_map)
+        if hb.strategy_name is not None:
+            if not self._is_script:
+                write_config_to_yml(hb.strategy_config_map, hb.strategy_file_name, hb.client_config_map)
             hb.start(log_level=hb.client_config_map.log_level,
+                     script=hb.strategy_name if self._is_script else None,
                      is_quickstart=self._is_quickstart)
 
 
@@ -62,7 +64,7 @@ async def main_async(client_config_map: ClientConfigAdapter):
     start_listener: UIStartListener = UIStartListener(hb)
     hb.app.add_listener(HummingbotUIEvent.Start, start_listener)
 
-    tasks: List[Coroutine] = [hb.run(), start_existing_gateway_container(client_config_map)]
+    tasks: List[Coroutine] = [hb.run()]
     if client_config_map.debug_console:
         if not hasattr(__builtins__, "help"):
             import _sitebuiltins

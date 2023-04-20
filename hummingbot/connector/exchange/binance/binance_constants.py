@@ -31,12 +31,12 @@ WS_HEARTBEAT_TIME_INTERVAL = 30
 
 # Binance params
 
-SIDE_BUY = 'BUY'
-SIDE_SELL = 'SELL'
+SIDE_BUY = "BUY"
+SIDE_SELL = "SELL"
 
-TIME_IN_FORCE_GTC = 'GTC'  # Good till cancelled
-TIME_IN_FORCE_IOC = 'IOC'  # Immediate or cancel
-TIME_IN_FORCE_FOK = 'FOK'  # Fill or kill
+TIME_IN_FORCE_GTC = "GTC"  # Good till cancelled
+TIME_IN_FORCE_IOC = "IOC"  # Immediate or cancel
+TIME_IN_FORCE_FOK = "FOK"  # Fill or kill
 
 # Rate Limit Type
 REQUEST_WEIGHT = "REQUEST_WEIGHT"
@@ -107,3 +107,8 @@ RATE_LIMITS = [
                              LinkedLimitWeightPair(ORDERS_24HR, 1),
                              LinkedLimitWeightPair(RAW_REQUESTS, 1)])
 ]
+
+ORDER_NOT_EXIST_ERROR_CODE = -2013
+ORDER_NOT_EXIST_MESSAGE = "Order does not exist"
+UNKNOWN_ORDER_ERROR_CODE = -2011
+UNKNOWN_ORDER_MESSAGE = "Unknown order sent"

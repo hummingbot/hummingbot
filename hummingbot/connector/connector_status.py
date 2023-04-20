@@ -15,6 +15,7 @@ connector_status = {
     'bitmex_perpetual': 'bronze',
     'bitmex_testnet': 'bronze',
     'bitmex_perpetual_testnet': 'bronze',
+    'btc_markets': 'bronze',
     'bybit_perpetual': 'bronze',
     'bybit_perpetual_testnet': 'bronze',
     'bybit_testnet': 'bronze',
@@ -54,6 +55,11 @@ connector_status = {
     'mad_meerkat': 'bronze',
     'vvs': 'bronze',
     'ref': 'bronze',
+    'injective': 'bronze',
+    'xsswap': 'bronze',
+    'dexalot': 'bronze',
+    'kucoin_perpetual': 'silver',
+    'kucoin_perpetual_testnet': 'silver',
 }
 
 warning_messages = {

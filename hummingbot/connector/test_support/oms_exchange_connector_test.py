@@ -460,6 +460,21 @@ class OMSExchangeTests:
             all_urls.append(url)
             return all_urls
 
+        def configure_order_not_found_error_cancelation_response(
+                self, order: InFlightOrder, mock_api: aioresponses,
+                callback: Optional[Callable] = lambda *args, **kwargs: None
+        ) -> str:
+            # Implement the expected not found response when enabling test_cancel_order_not_found_in_the_exchange
+            raise NotImplementedError
+
+        def configure_order_not_found_error_order_status_response(
+                self, order: InFlightOrder, mock_api: aioresponses,
+                callback: Optional[Callable] = lambda *args, **kwargs: None
+        ) -> List[str]:
+            # Implement the expected not found response when enabling
+            # test_lost_order_removed_if_not_found_during_order_status_update
+            raise NotImplementedError
+
         def configure_completely_filled_order_status_response(
             self,
             order: InFlightOrder,
