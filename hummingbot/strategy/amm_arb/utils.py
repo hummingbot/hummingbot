@@ -1,14 +1,11 @@
 from decimal import Decimal
-from typing import List
 from enum import Enum
+from typing import List
 
-from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.core.utils.async_utils import safe_gather
-from .data_types import (
-    ArbProposal,
-    ArbProposalSide,
-    TokenAmount,
-)
+from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
+
+from .data_types import ArbProposal, ArbProposalSide, TokenAmount
 
 s_decimal_nan = Decimal("NaN")
 
