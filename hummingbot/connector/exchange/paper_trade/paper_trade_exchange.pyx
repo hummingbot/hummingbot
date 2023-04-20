@@ -650,8 +650,7 @@ cdef class PaperTradeExchange(ExchangeBase):
 
         order_candidate = OrderCandidate(
             trading_pair=trading_pair_str,
-            # Market orders are not maker orders
-            is_maker=False,
+            is_maker=True,
             order_type=OrderType.LIMIT,
             order_side=TradeType.BUY,
             amount=amount,

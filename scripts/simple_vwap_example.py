@@ -12,7 +12,10 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 class VWAPExample(ScriptStrategyBase):
     """
-    IMPORTANT: To run this example select CoinGecko as Rate Oracle.
+    BotCamp Cohort: Sept 2022
+    Design Template: https://hummingbot-foundation.notion.site/Simple-VWAP-Example-d43a929cc5bd45c6b1a72f63e6635618
+    Video: -
+    Description:
     This example lets you create one VWAP in a market using a percentage of the sum volume of the order book
     until a spread from the mid price.
     This example demonstrates:

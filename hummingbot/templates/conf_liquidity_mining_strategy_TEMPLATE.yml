@@ -54,6 +54,3 @@ max_spread: null
 
 # The maximum life time of your orders in seconds
 max_order_age: null
-
-# For more detailed information, see:
-# https://docs.hummingbot.io/strategies/liquidity-mining/#configuration-parameters
