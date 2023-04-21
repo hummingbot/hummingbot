@@ -241,6 +241,7 @@ class AbstractGatewayCLOBAPIDataSourceTests:
         def setUp(self) -> None:
             super().setUp()
 
+            self.ev_loop = asyncio.get_event_loop()
             self.log_records = []
             self.initial_timestamp = 1669100347
 
@@ -279,12 +280,15 @@ class AbstractGatewayCLOBAPIDataSourceTests:
             self.async_run_with_timeout(coro=self.data_source.start())
 
             self.additional_data_sources_to_stop_on_tear_down = []
+            self.async_tasks = []
 
         def tearDown(self) -> None:
             self.async_run_with_timeout(coro=self.data_source.stop())
             self.gateway_instance_mock_patch.stop()
             for data_source in self.additional_data_sources_to_stop_on_tear_down:
                 self.async_run_with_timeout(coro=data_source.stop())
+            for task in self.async_tasks:
+                task.cancel()
             super().tearDown()
 
         @staticmethod

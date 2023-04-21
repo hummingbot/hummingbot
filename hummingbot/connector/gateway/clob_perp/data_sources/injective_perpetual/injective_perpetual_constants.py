@@ -13,7 +13,8 @@ from hummingbot.core.data_type.common import OrderType, PositionMode, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState
 
 CONNECTOR_NAME = "injective_perpetual"
-LOST_ORDER_COUNT_LIMIT = 10
+LOST_ORDER_COUNT_LIMIT = 3
+ORDER_CHAIN_PROCESSING_TIMEOUT = 5
 
 DEFAULT_SUB_ACCOUNT_SUFFIX = "000000000000000000000000"
 

@@ -1068,7 +1068,7 @@ class InjectiveAPIDataSource(CLOBAPIDataSourceBase):
             stream.cancel()
 
     async def _parse_transaction_event(self, transaction: StreamTxsResponse):
-        order = self._gateway_order_tracker.get_fillable_order_by_hash(hash=transaction.hash)
+        order = self._gateway_order_tracker.get_fillable_order_by_hash(transaction_hash=transaction.hash)
         if order is not None:
             messages = json.loads(s=transaction.messages)
             for message in messages:
