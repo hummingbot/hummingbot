@@ -129,7 +129,7 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
         """
         :return a list of OrderType supported by this connector
         """
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+        return [OrderType.MARKET, OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
     def supported_position_modes(self):
         """
@@ -314,6 +314,8 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
             api_params["priceRp"] = price_str
         if order_type == OrderType.LIMIT_MAKER:
             api_params["timeInForce"] = "PostOnly"
+        elif order_type == OrderType.MARKET:
+            api_params["timeInForce"] = "ImmediateOrCancel"
         if self._position_mode is PositionMode.HEDGE:
             api_params["posSide"] = "Long" if trade_type is TradeType.BUY else "Short"
             if position_action == PositionAction.CLOSE:
