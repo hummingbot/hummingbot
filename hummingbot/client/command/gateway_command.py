@@ -435,31 +435,44 @@ class GatewayCommand(GatewayChainApiManager):
         # get connector specs
         conf: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(connector_chain_network)
         if conf is None:
-            self.notify(f"'{connector_chain_network}' is not available. You can add and review available gateway connectors with the command 'gateway connect'.")
+            self.notify(f"'{connector_chain_network}' is not connected.")
         else:
-            self.logger().info(f"Connector {conf['connector']} token {token} will now be approved for spending for '{connector_chain_network}'.")
+            self.logger().info(f"Approving {token} on '{connector_chain_network}'...")
             # get wallets for the selected chain
             gateway_connections_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
             if len(gateway_connections_conf) < 1:
-                self.notify("No existing wallet.\n")
+                self.notify(f"No existing wallet found for {connector_chain_network} .\n")
                 return
             connector_wallet: List[Dict[str, Any]] = [w for w in gateway_connections_conf if w["chain"] == conf['chain'] and w["connector"] == conf['connector'] and w["network"] == conf['network']]
             try:
                 resp: Dict[str, Any] = await self._get_gateway_instance().approve_token(conf['chain'], conf['network'], connector_wallet[0]['wallet_address'], token, conf['connector'])
                 transaction_hash: Optional[str] = resp.get("approval", {}).get("hash")
+                counter = 0
                 while True:
                     pollResp: Dict[str, Any] = await self._get_gateway_instance().get_transaction_status(conf['chain'], conf['network'], transaction_hash)
                     transaction_status: Optional[str] = pollResp.get("txStatus")
+
                     if transaction_status == 1:
-                        msg = f"{token} approval on {connector_chain_network} is successful for wallet: {connector_wallet[0]['wallet_address']}"
+                        msg = f"Approve {token} on {connector_chain_network} is successful for wallet: {connector_wallet[0]['wallet_address']}"
                         self.logger().info(msg)
                         self.notify(msg)
                         break
-                    elif transaction_status == 2:
-                        self.logger().info(f"Approve {token} transaction on {connector_chain_network} is pending with hash: {transaction_hash}")
-                        await asyncio.sleep(1)
+                    elif transaction_status == 0:
+                        msg = f"Approve {token} on {connector_chain_network} failed for wallet: {connector_wallet[0]['wallet_address']}"
+                        self.logger().info(msg)
+                        self.notify(msg)
+                        break
                     else:
-                        self.logger().info(f"Approve {token} transaction on {connector_chain_network} failed. Check the transaction hash: {transaction_hash} on block explorer")
+                        # print message every 5 tries
+                        if counter % 5 == 0:
+                            self.logger().info(f"Approve {token} on {connector_chain_network} is pending with status {transaction_status} and transaction hash: {transaction_hash}")
+                        await asyncio.sleep(1)
+
+                    counter += 1
+                    if counter == 60:
+                        msg = f"Approve {token} on {connector_chain_network} is taking longer than expected. Check the transaction hash: {transaction_hash} on block explorer"
+                        self.logger().info(msg)
+                        self.notify(msg)
                         break
 
             except Exception as e:
