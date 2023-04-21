@@ -124,6 +124,8 @@ class InFlightOrder:
         if self.exchange_order_id:
             self.exchange_order_id_update_event.set()
         self.completely_filled_event = asyncio.Event()
+        self.processed_by_exchange_event = asyncio.Event()
+        self.check_processed_by_exchange_condition()
 
     @property
     def attributes(self) -> Tuple[Any]:
@@ -238,6 +240,7 @@ class InFlightOrder:
         order.last_update_timestamp = data.get("last_update_timestamp", order.creation_timestamp)
 
         order.check_filled_condition()
+        order.check_processed_by_exchange_condition()
 
         return order
 
@@ -325,6 +328,7 @@ class InFlightOrder:
             self.update_exchange_order_id(order_update.exchange_order_id)
 
         self.current_state = order_update.new_state
+        self.check_processed_by_exchange_condition()
 
         updated: bool = prev_data != (self.exchange_order_id, self.current_state)
 
@@ -361,6 +365,13 @@ class InFlightOrder:
 
     async def wait_until_completely_filled(self):
         await self.completely_filled_event.wait()
+
+    def check_processed_by_exchange_condition(self):
+        if self.current_state.value > OrderState.PENDING_CREATE.value:
+            self.processed_by_exchange_event.set()
+
+    async def wait_until_processed_by_exchange(self):
+        await self.processed_by_exchange_event.wait()
 
     def build_order_created_message(self) -> str:
         return (
