@@ -55,7 +55,6 @@ class GatewayEVMAMMLP(ConnectorBase):
     _chain: str
     _network: str
     _trading_pairs: List[str]
-    _all_spenders: List[str]
     _tokens: Set[str]
     _wallet_address: str
     _trading_required: bool
@@ -865,7 +864,7 @@ class GatewayEVMAMMLP(ConnectorBase):
         """
         Checks if all tokens have allowance (an amount approved)
         """
-        return ((len(self._allowances.values()) == len(self._tokens) * len(self._all_spenders)) and
+        return ((len(self._allowances.values()) == len(self._tokens) * len(self._spenders)) and
                 (all(amount > s_decimal_0 for amount in self._allowances.values())))
 
     @property
