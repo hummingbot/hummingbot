@@ -30,7 +30,6 @@ connector_status = {
     'k2': 'bronze',
     'kraken': 'bronze',
     'kucoin': 'silver',
-    'kucoin_testnet': 'silver',
     'lbank': 'bronze',
     'loopring': 'bronze',
     'mexc': 'bronze',
