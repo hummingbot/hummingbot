@@ -107,18 +107,18 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingA
     gateway_connector_tokens_parser.add_argument("new_tokens", nargs="?", default=None, help="Report balance of these tokens - separate multiple tokens with commas (,)")
     gateway_connector_tokens_parser.set_defaults(func=hummingbot.gateway_connector_tokens)
 
-    gateway_approve_tokens_parser = gateway_subparsers.add_parser("approve-tokens", help="Approve tokens for gateway connectors")
-    gateway_approve_tokens_parser.add_argument("connector_chain_network", nargs="?", default=None, help="Name of connector you want to approve tokens for")
-    gateway_approve_tokens_parser.add_argument("tokens", nargs="?", default=None, help="Approve these tokens")
-    gateway_approve_tokens_parser.set_defaults(func=hummingbot.gateway_approve_tokens)
+    gateway_approve_parser = gateway_subparsers.add_parser("approve", help="Approve tokens for gateway connectors")
+    gateway_approve_parser.add_argument("connector_chain_network", nargs="?", default=None, help="Name of gateway connector you want to approve tokens for")
+    gateway_approve_parser.add_argument("tokens", nargs="?", default=None, help="Symbols of tokens to approve")
+    gateway_approve_parser.set_defaults(func=hummingbot.gateway_approve)
 
-    gateway_cert_parser = gateway_subparsers.add_parser("generate-certs", help="Create ssl certifcate for gateway")
+    gateway_cert_parser = gateway_subparsers.add_parser("generate-certs", help="Create certificates to link gateway")
     gateway_cert_parser.set_defaults(func=hummingbot.generate_certs)
 
-    gateway_status_parser = gateway_subparsers.add_parser("status", help="Check status of gateway docker instance")
+    gateway_status_parser = gateway_subparsers.add_parser("status", help="Check status of connected chains and networks")
     gateway_status_parser.set_defaults(func=hummingbot.gateway_status)
 
-    gateway_list_parser = gateway_subparsers.add_parser("list", help="List gateway connectors and chains and tiers")
+    gateway_list_parser = gateway_subparsers.add_parser("list", help="List supported connectors and chains")
     gateway_list_parser.set_defaults(func=hummingbot.gateway_list)
 
     gateway_test_parser = gateway_subparsers.add_parser("test-connection", help="Ping gateway api server")

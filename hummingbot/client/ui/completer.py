@@ -54,7 +54,7 @@ class HummingbotCompleter(Completer):
         self._export_completer = WordCompleter(["keys", "trades"], ignore_case=True)
         self._balance_completer = WordCompleter(["limit", "paper"], ignore_case=True)
         self._history_completer = WordCompleter(["--days", "--verbose", "--precision"], ignore_case=True)
-        self._gateway_completer = WordCompleter(["config", "connect", "connector-tokens", "generate-certs", "status", "test-connection", "list", "approve-tokens"], ignore_case=True)
+        self._gateway_completer = WordCompleter(["approve", "config", "connect", "connector-tokens", "generate-certs", "list", "status", "test-connection"], ignore_case=True)
         self._gateway_connect_completer = WordCompleter(GATEWAY_CONNECTORS, ignore_case=True)
         self._gateway_connector_tokens_completer = WordCompleter(
             sorted(
@@ -63,7 +63,7 @@ class HummingbotCompleter(Completer):
                 )
             ), ignore_case=True
         )
-        self._gateway_approve_tokens_completer = WordCompleter(
+        self._gateway_approve_completer = WordCompleter(
             sorted(
                 AllConnectorSettings.get_gateway_amm_connector_names().union(
                     AllConnectorSettings.get_gateway_clob_connector_names()
@@ -199,9 +199,9 @@ class HummingbotCompleter(Completer):
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("gateway connector-tokens ")
 
-    def _complete_gateway_approve_tokens_arguments(self, document: Document) -> bool:
+    def _complete_gateway_approve_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
-        return text_before_cursor.startswith("gateway approve-tokens ")
+        return text_before_cursor.startswith("gateway approve ")
 
     def _complete_gateway_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -346,8 +346,8 @@ class HummingbotCompleter(Completer):
             for c in self._gateway_connector_tokens_completer.get_completions(document, complete_event):
                 yield c
 
-        elif self._complete_gateway_approve_tokens_arguments(document):
-            for c in self._gateway_approve_tokens_completer.get_completions(document, complete_event):
+        elif self._complete_gateway_approve_arguments(document):
+            for c in self._gateway_approve_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_gateway_arguments(document):

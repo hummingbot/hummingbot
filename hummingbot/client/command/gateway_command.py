@@ -45,9 +45,9 @@ class GatewayCommand(GatewayChainApiManager):
         else:
             safe_ensure_future(self._show_gateway_connector_tokens(connector_chain_network), loop=self.ev_loop)
 
-    def gateway_approve_tokens(self, connector_chain_network: Optional[str], tokens: Optional[str]):
+    def gateway_approve(self, connector_chain_network: Optional[str], tokens: Optional[str]):
         if connector_chain_network is not None and tokens is not None:
-            safe_ensure_future(self._update_gateway_approve_tokens(connector_chain_network, tokens), loop=self.ev_loop)
+            safe_ensure_future(self._update_gateway_approve_token(connector_chain_network, tokens), loop=self.ev_loop)
         else:
             self.notify("\nPlease specify the connector_chain_network and a token to approve.\n")
 
@@ -424,20 +424,20 @@ class GatewayCommand(GatewayChainApiManager):
             table_format=self.client_config_map.tables_format).split("\n")]
         self.notify("\n".join(lines))
 
-    async def _update_gateway_approve_tokens(
+    async def _update_gateway_approve_token(
             self,           # type: HummingbotApplication
             connector_chain_network: str,
-            tokens: str,
+            token: str,
     ):
         """
-        Allow the user to approve tokens for spending.
+        Send an approve transaction for a given connector and poll for updates
         """
         # get connector specs
         conf: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(connector_chain_network)
         if conf is None:
             self.notify(f"'{connector_chain_network}' is not available. You can add and review available gateway connectors with the command 'gateway connect'.")
         else:
-            self.logger().info(f"Connector {conf['connector']} Tokens {tokens} will now be approved for spending for '{connector_chain_network}'.")
+            self.logger().info(f"Connector {conf['connector']} token {token} will now be approved for spending for '{connector_chain_network}'.")
             # get wallets for the selected chain
             gateway_connections_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
             if len(gateway_connections_conf) < 1:
@@ -445,29 +445,25 @@ class GatewayCommand(GatewayChainApiManager):
                 return
             connector_wallet: List[Dict[str, Any]] = [w for w in gateway_connections_conf if w["chain"] == conf['chain'] and w["connector"] == conf['connector'] and w["network"] == conf['network']]
             try:
-                resp: Dict[str, Any] = await self._get_gateway_instance().approve_token(conf['chain'], conf['network'], connector_wallet[0]['wallet_address'], tokens, conf['connector'])
+                resp: Dict[str, Any] = await self._get_gateway_instance().approve_token(conf['chain'], conf['network'], connector_wallet[0]['wallet_address'], token, conf['connector'])
                 transaction_hash: Optional[str] = resp.get("approval", {}).get("hash")
-                displayed_pending: bool = False
                 while True:
                     pollResp: Dict[str, Any] = await self._get_gateway_instance().get_transaction_status(conf['chain'], conf['network'], transaction_hash)
                     transaction_status: Optional[str] = pollResp.get("txStatus")
                     if transaction_status == 1:
-                        self.logger().info(f"Token {tokens} is approved for spending for '{conf['connector']}' for Wallet: {connector_wallet[0]['wallet_address']}.")
-                        self.notify(f"Token {tokens} is approved for spending for '{conf['connector']}' for Wallet: {connector_wallet[0]['wallet_address']}.")
+                        msg = f"{token} approval on {connector_chain_network} is successful for wallet: {connector_wallet[0]['wallet_address']}"
+                        self.logger().info(msg)
+                        self.notify(msg)
                         break
                     elif transaction_status == 2:
-                        if not displayed_pending:
-                            self.logger().info(f"Token {tokens} approval transaction is pending. Transaction hash: {transaction_hash}")
-                            displayed_pending = True
-                            await asyncio.sleep(2)
-                        continue
+                        self.logger().info(f"Approve {token} transaction on {connector_chain_network} is pending with hash: {transaction_hash}")
+                        await asyncio.sleep(1)
                     else:
-                        self.logger().info(f"Tokens {tokens} is not approved for spending. Please use manual approval.")
-                        self.notify(f"Tokens {tokens} is not approved for spending. Please use manual approval.")
+                        self.logger().info(f"Approve {token} transaction on {connector_chain_network} failed. Check the transaction hash: {transaction_hash} on block explorer")
                         break
 
             except Exception as e:
-                self.logger().error(f"Error approving tokens: {e}")
+                self.logger().error(f"Error approving {token}: {e}")
                 return
 
     def _get_gateway_instance(
