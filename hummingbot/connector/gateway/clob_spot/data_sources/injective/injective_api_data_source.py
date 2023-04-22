@@ -231,7 +231,7 @@ class InjectiveAPIDataSource(CLOBAPIDataSourceBase):
         )
         if status_update is None and in_flight_order.creation_transaction_hash is not None:
             try:
-                creation_transaction = await self._get_transaction_by_hash(
+                tx_response = await self._get_transaction_by_hash(
                     transaction_hash=in_flight_order.creation_transaction_hash
                 )
             except Exception:
@@ -245,11 +245,11 @@ class InjectiveAPIDataSource(CLOBAPIDataSourceBase):
                 async with self._order_placement_lock:
                     await self._update_account_address_and_create_order_hash_manager()
             elif await self._check_if_order_failed_based_on_transaction(
-                transaction=creation_transaction, order=in_flight_order
+                transaction=tx_response, order=in_flight_order
             ):
                 status_update = OrderUpdate(
                     trading_pair=in_flight_order.trading_pair,
-                    update_timestamp=creation_transaction.data.block_unix_timestamp * 1e-3,
+                    update_timestamp=tx_response.data.block_unix_timestamp * 1e-3,
                     new_state=OrderState.FAILED,
                     client_order_id=in_flight_order.client_order_id,
                     exchange_order_id=in_flight_order.exchange_order_id,
