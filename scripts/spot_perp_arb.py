@@ -1,6 +1,9 @@
+from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 from typing import Dict, List
+
+from csv import writer as csv_writer
 
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.utils import split_hb_trading_pair
@@ -39,15 +42,15 @@ class SpotPerpArb(ScriptStrategyBase):
 
     spot_connector = "kucoin"
     perp_connector = "kucoin_perpetual"
-    trading_pair = "ZEC-USDT"
+    trading_pair = "HIGH-USDT"
     markets = {spot_connector: {trading_pair}, perp_connector: {trading_pair}}
 
     leverage = 2
     is_position_mode_ready = False
 
     base_order_amount = Decimal("0.1")
-    buy_spot_short_perp_profit_margin_bps = -100
-    sell_spot_long_perp_profit_margin_bps = -10
+    buy_spot_short_perp_profit_margin_bps = 100
+    sell_spot_long_perp_profit_margin_bps = 100
     # buffer to account for slippage when placing limit taker orders
     slippage_buffer_bps = 15
 
@@ -61,9 +64,13 @@ class SpotPerpArb(ScriptStrategyBase):
     opened_state_start_ts = 0
     opened_state_tolerance = 60 * 60 * 2
 
+    # write order book csv
+    order_book_csv = f"./data/spot_perp_arb_order_book_{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}.csv"
+
     def __init__(self, connectors: Dict[str, ConnectorBase]):
         super().__init__(connectors)
         self.set_leverage()
+        self.init_order_book_csv()
 
     def set_leverage(self) -> None:
         perp_connector = self.connectors[self.perp_connector]
@@ -75,10 +82,57 @@ class SpotPerpArb(ScriptStrategyBase):
             f"Setting leverage to {self.leverage}x for {self.perp_connector} on {self.trading_pair}"
         )
 
+    def init_order_book_csv(self) -> None:
+        self.logger().info(f"Preparing order book csv...")
+        with open(self.order_book_csv, "a") as f_object:
+            writer = csv_writer(f_object)
+            writer.writerow(
+                [
+                    "timestamp",
+                    "spot_exchange",
+                    "perp_exchange",
+                    "spot_best_bid",
+                    "spot_best_ask",
+                    "perp_best_bid",
+                    "perp_best_ask",
+                ]
+            )
+        self.logger().info(f"Order book csv created: {self.order_book_csv}")
+
+    def append_order_book_csv(self) -> None:
+        spot_best_bid_price = self.connectors[self.spot_connector].get_price(
+            self.trading_pair, False
+        )
+        spot_best_ask_price = self.connectors[self.spot_connector].get_price(
+            self.trading_pair, True
+        )
+        perp_best_bid_price = self.connectors[self.perp_connector].get_price(
+            self.trading_pair, False
+        )
+        perp_best_ask_price = self.connectors[self.perp_connector].get_price(
+            self.trading_pair, True
+        )
+        row = [
+            str(self.current_timestamp),
+            self.spot_connector,
+            self.perp_connector,
+            str(spot_best_bid_price),
+            str(spot_best_ask_price),
+            str(perp_best_bid_price),
+            str(perp_best_ask_price),
+        ]
+        with open(self.order_book_csv, "a", newline="") as f_object:
+            writer = csv_writer(f_object)
+            writer.writerow(row)
+        self.logger().info(f"Order book csv updated: {self.order_book_csv}")
+        return
+
     def on_tick(self) -> None:
         # precheck before running any trading logic
         if not self.is_position_mode_ready:
             return
+
+        self.append_order_book_csv()
 
         # skip if orders are pending for completion
         self.update_in_flight_state()
@@ -140,7 +194,7 @@ class SpotPerpArb(ScriptStrategyBase):
         ):
             self.strategy_state = StrategyState.Closed
             self.next_arbitrage_opening_ts = (
-                self.current_timestamp + self.next_arbitrage_opening_delay
+                self.current_timestamp + self.next_arbitrage_opening_ts
             )
             self.logger().info(
                 f"Position is closed with order_ids: {self.completed_order_ids}. "
@@ -206,6 +260,9 @@ class SpotPerpArb(ScriptStrategyBase):
         perp_short_price_with_slippage = self.limit_taker_price_with_slippage(
             self.perp_connector, is_buy=False
         )
+        spot_buy_price = self.limit_taker_price(self.spot_connector, is_buy=True)
+        perp_short_price = self.limit_taker_price(self.perp_connector, is_buy=False)
+
         self.buy(
             self.spot_connector,
             self.trading_pair,
@@ -214,9 +271,10 @@ class SpotPerpArb(ScriptStrategyBase):
             price=spot_buy_price_with_slippage,
         )
         trade_state_log = self.trade_state_log()
+
         self.logger().info(
             f"Submitted buy order in {self.spot_connector} for {self.trading_pair} "
-            f"at price {spot_buy_price_with_slippage:.06f}@{self.base_order_amount} to {trade_state_log}"
+            f"at price {spot_buy_price_with_slippage:.06f}@{self.base_order_amount} to {trade_state_log}. (Buy price without slippage: {spot_buy_price})"
         )
         position_action = self.perp_trade_position_action()
         self.sell(
@@ -229,7 +287,7 @@ class SpotPerpArb(ScriptStrategyBase):
         )
         self.logger().info(
             f"Submitted short order in {self.perp_connector} for {self.trading_pair} "
-            f"at price {perp_short_price_with_slippage:.06f}@{self.base_order_amount} to {trade_state_log}"
+            f"at price {perp_short_price_with_slippage:.06f}@{self.base_order_amount} to {trade_state_log}. (Short price without slippage: {perp_short_price})"
         )
 
         self.opened_state_start_ts = self.current_timestamp
@@ -277,6 +335,9 @@ class SpotPerpArb(ScriptStrategyBase):
         spot_sell_price_with_slippage = self.limit_taker_price_with_slippage(
             self.spot_connector, is_buy=False
         )
+        perp_long_price = self.limit_taker_price(self.perp_connector, is_buy=True)
+        spot_sell_price = self.limit_taker_price(self.spot_connector, is_buy=False)
+
         position_action = self.perp_trade_position_action()
         self.buy(
             self.perp_connector,
@@ -289,7 +350,7 @@ class SpotPerpArb(ScriptStrategyBase):
         trade_state_log = self.trade_state_log()
         self.logger().info(
             f"Submitted long order in {self.perp_connector} for {self.trading_pair} "
-            f"at price {perp_long_price_with_slippage:.06f}@{self.base_order_amount} to {trade_state_log}"
+            f"at price {perp_long_price_with_slippage:.06f}@{self.base_order_amount} to {trade_state_log}. (Long price without slippage: {perp_long_price})"
         )
         self.sell(
             self.spot_connector,
@@ -300,7 +361,7 @@ class SpotPerpArb(ScriptStrategyBase):
         )
         self.logger().info(
             f"Submitted sell order in {self.spot_connector} for {self.trading_pair} "
-            f"at price {spot_sell_price_with_slippage:.06f}@{self.base_order_amount} to {trade_state_log}"
+            f"at price {spot_sell_price_with_slippage:.06f}@{self.base_order_amount} to {trade_state_log}. (Sell price without slippage: {spot_sell_price})"
         )
 
         self.opened_state_start_ts = self.current_timestamp
