@@ -656,19 +656,10 @@ class GatewayEVMAMM(ConnectorBase):
     def ready(self):
         return all(self.status_dict.values())
 
-    def has_allowances(self) -> bool:
-        """
-        Checks if all tokens have allowance
-        """
-        allowances_available = all(amount > s_decimal_0 for amount in self._allowances.values())
-        return ((len(self._allowances.values()) == len(self._tokens)) and
-                (allowances_available))
-
     @property
-    def status_dict(self) -> Dict[str, bool]:
+    def status_dict(self) -> Dict[str, Union[bool, str]]:
         return {
             "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
-            "allowances: ": self.has_allowances() if self._trading_required else True,
             "native_currency": self._native_currency is not None,
             "network_transaction_fee": self.network_transaction_fee is not None if self._trading_required else True,
         }
