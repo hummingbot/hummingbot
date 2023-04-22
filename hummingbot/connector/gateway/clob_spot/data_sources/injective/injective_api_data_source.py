@@ -179,27 +179,25 @@ class InjectiveAPIDataSource(CLOBAPIDataSourceBase):
         size_scale = self._get_backend_denom_scaler(denom_meta=market.base_token_meta)
         last_update_timestamp_ms = 0
         bids = []
-        if len(order_book_response.orderbooks) == 1:
-            # There's no ambiguity in the orderbooks single market_id response
-            orderbook = order_book_response.orderbooks[0].orderbook
-            for bid in orderbook.buys:
-                bids.append((Decimal(bid.price) * price_scale, Decimal(bid.quantity) * size_scale))
-                last_update_timestamp_ms = max(last_update_timestamp_ms, bid.timestamp)
-            asks = []
-            for ask in orderbook.sells:
-                asks.append((Decimal(ask.price) * price_scale, Decimal(ask.quantity) * size_scale))
-                last_update_timestamp_ms = max(last_update_timestamp_ms, ask.timestamp)
-            snapshot_msg = OrderBookMessage(
-                message_type=OrderBookMessageType.SNAPSHOT,
-                content={
-                    "trading_pair": trading_pair,
-                    "update_id": last_update_timestamp_ms,
-                    "bids": bids,
-                    "asks": asks,
-                },
-                timestamp=last_update_timestamp_ms * 1e-3,
-            )
-            return snapshot_msg
+        orderbook = order_book_response.orderbooks[0].orderbook
+        for bid in orderbook.buys:
+            bids.append((Decimal(bid.price) * price_scale, Decimal(bid.quantity) * size_scale))
+            last_update_timestamp_ms = max(last_update_timestamp_ms, bid.timestamp)
+        asks = []
+        for ask in orderbook.sells:
+            asks.append((Decimal(ask.price) * price_scale, Decimal(ask.quantity) * size_scale))
+            last_update_timestamp_ms = max(last_update_timestamp_ms, ask.timestamp)
+        snapshot_msg = OrderBookMessage(
+            message_type=OrderBookMessageType.SNAPSHOT,
+            content={
+                "trading_pair": trading_pair,
+                "update_id": last_update_timestamp_ms,
+                "bids": bids,
+                "asks": asks,
+            },
+            timestamp=last_update_timestamp_ms * 1e-3,
+        )
+        return snapshot_msg
 
     def is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
         return str(status_update_exception).startswith("No update found for order")

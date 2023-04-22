@@ -395,7 +395,6 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
     @patch("hummingbot.core.data_type.order_book_tracker.OrderBookTracker._sleep")
     def test_full_initialization_and_de_initialization(self, _: AsyncMock):
         self.clob_data_source_mock.configure_trades_response_no_trades()
-        self.clob_data_source_mock.configure_trades_response_no_trades()
         self.clob_data_source_mock.configure_get_account_balances_response(
             base_total_balance=Decimal("10"),
             base_available_balance=Decimal("9"),
@@ -1444,7 +1443,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
         if self.exchange.real_time_balance_update:
             target_total_balance = Decimal("15")
             target_available_balance = Decimal("10")
-            self.clob_data_source_mock.configure_account_base_balance_stream_event(
+            self.clob_data_source_mock.configure_account_quote_balance_stream_event(
                 timestamp=self.start_timestamp,
                 total_balance=target_total_balance,
                 available_balance=target_available_balance,
@@ -1452,8 +1451,8 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
 
             self.clob_data_source_mock.run_until_all_items_delivered()
 
-            self.assertEqual(target_total_balance, self.exchange.get_balance(self.base_asset))
-            self.assertEqual(target_available_balance, self.exchange.available_balances[self.base_asset])
+            self.assertEqual(target_total_balance, self.exchange.get_balance(self.quote_asset))
+            self.assertEqual(target_available_balance, self.exchange.available_balances[self.quote_asset])
 
     def test_user_stream_logs_errors(self):
         self.clob_data_source_mock.configure_faulty_base_balance_stream_event(timestamp=self.start_timestamp)
