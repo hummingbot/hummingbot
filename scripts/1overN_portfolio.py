@@ -39,7 +39,6 @@ class OneOverNPortfolio(ScriptStrategyBase):
     #: Define markets to instruct Hummingbot to create connectors on the exchanges and markets you need
     markets = {exchange: pairs}
     activeOrders = 0
-    status_str = ""
 
     def __init__(self, connectors: Dict[str, ConnectorBase]):
         super().__init__(connectors)
@@ -49,7 +48,7 @@ class OneOverNPortfolio(ScriptStrategyBase):
         self.base_balances = None
 
     def on_tick(self):
-        self.status_str = ""
+
         connector = self.connectors[self.exchange]
         #: check current balance of coins
         balance_df = self.get_balance_df()
@@ -57,7 +56,7 @@ class OneOverNPortfolio(ScriptStrategyBase):
         exchange_balance_df = balance_df.loc[balance_df["Exchange"] == self.exchange]
         self.base_balances = self.calculate_base_balances(exchange_balance_df)
         self.quote_balances = self.calculate_quote_balances(self.base_balances, connector)
-        status_str = ""
+
         #: Sum the available balances
         # TODO: add quote_currency balance correctly so that the full amount can be traded and it is not stuck when trades are canceled etc.
         self.total_available_balance = sum(balances[1] for balances in self.quote_balances.values())
@@ -99,8 +98,7 @@ class OneOverNPortfolio(ScriptStrategyBase):
             trade_number = i + 1
             trade_type = "sell" if deficit < Decimal('0') else "buy"
             self.logger().info(f"Trade {trade_number}: {trade_type} {asset}: {deficit}")
-        # Save the status for display
-        self.status_str = status_str
+
         if 0 < self.activeOrders:
             self.logger().info(f"Wait to trade until all active orders have completed: {self.activeOrders}")
             return
@@ -162,6 +160,9 @@ class OneOverNPortfolio(ScriptStrategyBase):
         return base_balances
 
     def format_status(self) -> str:
+        # checking if last member variable in on_tick is set, so we can start
+        if self.differences_dict is None:
+            return
         # create a table of base_balances and quote_balances and the summed up total of the quote_balances
         table_of_balances = "base balances         quote balances           price\n"
         for asset_name, base_balances in self.base_balances.items():
