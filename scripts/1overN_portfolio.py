@@ -25,11 +25,6 @@ class OneOverNPortfolio(ScriptStrategyBase):
     status_str = ""
 
     def on_tick(self):
-        # TODO: checking for active orders works ONLY with LIMIT orders. Ask why. Find a better solution to the problem
-        #       of atomic transactions on exchanges.
-        if 0 < self.activeOrders:
-            self.logger().info(f"Wait until all active orders have completed: {self.activeOrders}")
-            return
         self.status_str = ""
         connector = self.connectors[self.exchange]
         #: check current balance of coins
@@ -111,6 +106,11 @@ class OneOverNPortfolio(ScriptStrategyBase):
             trade_number = i + 1
             trade_type = "sell" if deficit < Decimal('0') else "buy"
             self.logger().info(f"Trade {trade_number}: {trade_type} {asset}: {deficit}")
+        # Save the status for display
+        self.status_str = status_str
+        if 0 < self.activeOrders:
+            self.logger().info(f"Wait to trade until all active orders have completed: {self.activeOrders}")
+            return
         for i, (asset, deficit) in enumerate(ordered_trades):
             # TODO: this is a quick fix to the trade engine error. We don't trade under 1 quote value, e.g. dollar.
             #  This is even a feature parameter that we can use to save trading fees.
@@ -130,8 +130,7 @@ class OneOverNPortfolio(ScriptStrategyBase):
                 # Handle the error by logging it or taking other appropriate actions
                 print(f"Caught an error: {e}")
                 self.activeOrders -= 1
-        # Save the status for display
-        self.status_str = status_str
+
         return
 
     def calculate_base_balances(self, base_balances, exchange_balance_df, status_str):
