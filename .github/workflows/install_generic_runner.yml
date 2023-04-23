@@ -119,8 +119,16 @@ jobs:
           conda activate hummingbot
           pre-commit run --files $(git diff --name-only origin/$GITHUB_BASE_REF)
 
-      - name: Run stable tests and calculate coverage
+      - name: Run stable tests and calculate coverage (make test)
+        id: test-with-make
         if: steps.checkout-hb-cache-hit.outputs.hb-cache-hit != 'true' || steps.checkout-hb-cache-hit.outputs.conda-cache-hit != 'true'
+        continue-on-error: true
+        run: |
+          conda activate hummingbot
+          make test
+
+      - name: Run stable tests and calculate coverage (with pytest)
+        if: steps.test-with-make.outcome == 'failure'
         run: |
           conda activate hummingbot
           coverage run -m pytest \
@@ -147,6 +155,7 @@ jobs:
 
       # Create JSON report
       - name: Create JSON report
+        if: always()
         uses: jsdaniell/create-json@v1.2.2
         with:
           name: ${{ matrix.target }}-build_report.json
@@ -180,11 +189,13 @@ jobs:
 
       # Verify conda environment
       - name: Verify JSON Report
+        if: always()
         run: |
           cat ${{ matrix.target }}-build_report.json
 
       # Notify results to discord
       - name: Discord Webhook Action
+        if: always()
         uses: tsickert/discord-webhook@v5.2.0
         with:
           webhook-url: ${{ secrets.WEBHOOK_URL }}

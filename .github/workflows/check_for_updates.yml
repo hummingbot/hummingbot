@@ -26,7 +26,25 @@ jobs:
           echo ${{ env.GIT_DIFF }}
           echo "is_set=true" >> $GITHUB_OUTPUT
 
-  build_on_Linux:
+  required_tests:
+    name: Evaluate Success/Failure of Required Tests
+    if: always()
+    needs:
+      - run_client
+      - build_on_Linux_Primary
+      - build_on_Linux
+      - build_on_macOS
+      - build_on_windows
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate required successful tests
+        uses: re-actors/alls-green@release/v1
+        with:
+          allowed-failures: build_on_Linux, build_on_macOS, build_on_windows
+          allowed-skips: build_on_Linux, build_on_macOS, build_on_windows
+          jobs: ${{ toJson(needs) }}
+
+  build_on_Linux_Primary:
     name: I/B/T x86 Linux
     needs: run_client
     uses: ./.github/workflows/install_generic_runner.yml
@@ -35,6 +53,18 @@ jobs:
   #    should_run: ${{ needs.run_client.outputs.is_set }}
       env-yml-file: setup/environment-linux.yml
       os-matrix: "['x86-ubuntu-latest']"
+      shell: 'bash -l {0}'
+    secrets: inherit
+
+  build_on_Linux:
+    name: I/B/T x86 Linux
+    needs: run_client
+    uses: ./.github/workflows/install_generic_runner.yml
+    with:
+      should_run: true
+  #    should_run: ${{ needs.run_client.outputs.is_set }}
+      env-yml-file: setup/environment-linux.yml
+      os-matrix: "['x86-ubuntu-20.04']"
       shell: 'bash -l {0}'
     secrets: inherit
 
@@ -60,6 +90,7 @@ jobs:
       os-matrix: "['x86-windows-latest']"
       shell: 'bash -l {0}'
     secrets: inherit
+
 #
 #  build_on_ARM:
 #    name: I/B/T ARM64 MacOS
@@ -101,4 +132,3 @@ jobs:
   #     should_run: true
   #     env-yml-file: setup/environment.yml
   #   secrets: inherit
-
