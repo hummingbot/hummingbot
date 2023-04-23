@@ -1,5 +1,6 @@
 import decimal
 import logging
+import math
 from decimal import Decimal
 
 from hummingbot.core.data_type.common import OrderType
@@ -14,13 +15,14 @@ class OneOverNPortfolio(ScriptStrategyBase):
 
     exchange = "binance_paper_trade"
     quote_currency = "USDT"
-    # top 10 coins by market cap, excluding stabelcoins
+    # top 10 coins by market cap, excluding stablecoins
     base_currencies = ["BTC", "ETH", "MATIC", "XRP", "BNB", "ADA", "DOT", "LTC", "DOGE", "SOL"]
     pairs = {f"{currency}-USDT" for currency in base_currencies}
 
     #: Define markets to instruct Hummingbot to create connectors on the exchanges and markets you need
     markets = {exchange: pairs}
     activeOrders = 0
+    status_str = ""
 
     def on_tick(self):
         # TODO: checking for active orders works ONLY with LIMIT orders. Ask why. Find a better solution to the problem
@@ -28,7 +30,7 @@ class OneOverNPortfolio(ScriptStrategyBase):
         if 0 < self.activeOrders:
             self.logger().info(f"Wait until all active orders have completed: {self.activeOrders}")
             return
-
+        self.status_str = ""
         connector = self.connectors[self.exchange]
         #: check current balance of coins
         balance_df = self.get_balance_df()
@@ -36,13 +38,10 @@ class OneOverNPortfolio(ScriptStrategyBase):
         exchange_balance_df = balance_df.loc[balance_df["Exchange"] == self.exchange]
         #: Create a dictionary with asset name as key and total and available balance measured in base currencies
         base_balances = {}
-        for _, row in exchange_balance_df.iterrows():
-            asset_name = row["Asset"]
-            if asset_name in self.base_currencies:
-                total_balance = Decimal(row["Total Balance"])
-                available_balance = Decimal(row["Available Balance"])
-                base_balances[asset_name] = (total_balance, available_balance)
-                self.logger().info(f"Available Balance in pieces: {available_balance} {asset_name}")
+        status_str = ""
+
+        status_str = self.calculate_base_balances(base_balances, exchange_balance_df, status_str)
+        self.logger().info(status_str)
 
         #: Multiply each balance with the current price to get the balances in the quote currency
         quote_balances = {}
@@ -55,7 +54,7 @@ class OneOverNPortfolio(ScriptStrategyBase):
             available_balance = balances[1] * current_price
             quote_balances[asset] = (total_balance, available_balance, current_price)
             self.logger().info(
-                f"Available Balance {asset} * {current_price} {self.quote_currency} = {available_balance} {self.quote_currency}")
+                f"{asset} * {current_price} {self.quote_currency} = {available_balance} {self.quote_currency}")
         #: Sum the available balances
         # TODO: add quote_currency balance correctly so that the full amount can be traded and it is not stuck when trades are canceled etc.
         total_available_balance = sum(balances[1] for balances in quote_balances.values())
@@ -72,10 +71,23 @@ class OneOverNPortfolio(ScriptStrategyBase):
         number_of_assets = Decimal(len(quote_balances))
         #: Calculate the difference between each percentage and 1/number_of_assets
         differences_dict = {}
+
         for asset, percentage in percentages_dict.items():
             deficit = (Decimal('1') / number_of_assets) - percentage
             differences_dict[asset] = deficit
             self.logger().info(f"Missing from 1/N {asset}: {deficit * 100}%")
+        diff_str = "Differences to 1/N:\n"
+        bar_length = 20
+        for asset, deficit in differences_dict.items():
+            deficit_percentage = deficit * 100
+            filled_length = math.ceil(abs(deficit) * bar_length)
+
+            if deficit > 0:
+                bar = f"{asset:6}: {' ' * bar_length}|{'#' * filled_length:<{bar_length}} +{deficit_percentage:.4f}%"
+            else:
+                bar = f"{asset:6}: {'#' * filled_length:>{bar_length}}|{' ' * bar_length} -{-deficit_percentage:.4f}%"
+            diff_str += bar + "\n"
+        status_str += diff_str
 
         # Calculate the absolute differences in quote currency
         # TODO: if we have any assets in quote currency left in the bank we need to trade it too. This can easily happen
@@ -118,9 +130,23 @@ class OneOverNPortfolio(ScriptStrategyBase):
                 # Handle the error by logging it or taking other appropriate actions
                 print(f"Caught an error: {e}")
                 self.activeOrders -= 1
+        # Save the status for display
+        self.status_str = status_str
         return
 
-    # TODO: def format status def format_status(self) -> str:
+    def calculate_base_balances(self, base_balances, exchange_balance_df, status_str):
+        status_str = status_str + "Available Balances (in Base currencies): \n"
+        for _, row in exchange_balance_df.iterrows():
+            asset_name = row["Asset"]
+            if asset_name in self.base_currencies:
+                total_balance = Decimal(row["Total Balance"])
+                available_balance = Decimal(row["Available Balance"])
+                base_balances[asset_name] = (total_balance, available_balance)
+                status_str = status_str + f"{available_balance:015,.5f} {asset_name} \n"
+        return status_str
+
+    def format_status(self) -> str:
+        return self.status_str
 
     def did_create_buy_order(self, *args, **kwargs):
         self.activeOrders += 1
