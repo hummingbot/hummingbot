@@ -1,0 +1,191 @@
+name: Parameterized Install/Build/Test
+
+on:
+  workflow_call:
+    inputs:
+      should_run:
+        required: false
+        type: boolean
+        default: false
+      env-yml-file:
+        required: false
+        type: string
+        default: setup/environment-linux.yml
+      os-matrix:
+        required: false
+        type: string
+        default: "['x86-ubuntu-latest', 'x86-ubuntu-20.04']"
+      shell:
+        required: false
+        type: string
+        default: "bash -l {0}"
+
+jobs:
+  validate_inputs:
+    name: Validate inputs
+    runs-on: ubuntu-latest
+    if: ${{ inputs.should_run == true }}
+    outputs:
+      matrix: ${{ steps.initialize-runner.outputs.matrix }}
+
+    steps:
+      # Checkout Hummingbot - not much can be done without that!
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      # Set up the selected runner
+      - name: Upload pre-defined runners
+        id: initialize-runner
+        shell: bash
+        env:
+          TARGETS: ${{ inputs.os-matrix }}
+        run: |
+          matrix=""
+          targets=$(printf "$TARGETS" | tr "'" '"' | jq -c '.[]'  | tr -d '"')
+          while read target; do
+            m=$(jq --arg target "$target" 'map(. | select((.target==$target)))' ././.github/variables/architectures.json)
+            m=$(echo $m | tr -d '[]')
+            if [ "$m" != "" ]; then
+              if [ "$matrix" != "" ]; then
+                matrix+=','
+              fi
+              matrix+=$m
+            fi
+          done < <(echo -e "$targets")
+          echo "matrix={\"include\":$(echo "[$matrix]")}" >> $GITHUB_OUTPUT
+
+  build_hummingbot:
+    needs: validate_inputs
+    name: build/tests ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.validate_inputs.outputs.matrix) }}
+
+    defaults:
+      run:
+        shell: ${{ inputs.shell }}
+
+    steps:
+      - name: Display Run
+        run: |
+          echo "I/B/T on ${{ matrix.runner }} for ${{ matrix.name }}"
+
+      # Checkout Hummingbot - not much can be done without that!
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      # Loading Custom Environment variables
+      - name: Set Environment Variables
+        run: sed "/#/d" ./.github/variables/hb_env_variables.env >> "$GITHUB_ENV"
+        shell: bash
+
+      # Checkout Hummingbot, set HB env variables and check cache
+      - name: Enabling cache for HB, Conda environment and Python dependencies
+        id: set-hb-cache-hit
+        uses: ./.github/actions/set_hb_env_cache
+        with:
+          runner: ${{ matrix.target }}
+          conda-env-hash: ${{ hashFiles(inputs.env-yml-file) }}
+
+      # Double-check Conda environment, adds a path to Miniconda (needs bash -l {0})
+      - uses: conda-incubator/setup-miniconda@v2
+        with:
+          miniconda-version: "latest"
+          python-version: ${{ env.HB_PYTHON_VERSION }}
+          auto-update-conda: true
+          auto-activate-base: true
+          use-only-tar-bz2: true
+
+      # Verify conda environment
+      - name: Verify conda environment
+        run: |
+          conda info | grep "user-agent"
+
+      # Install environment and Hummingbot
+      - name: Install environment and Hummingbot
+        uses: ./.github/actions/install_env_and_hb
+        with:
+          program-cache-hit: ${{steps.checkout-hb-cache-hit.outputs.hb-cache-hit}}
+          dependencies-cache-hit: ${{steps.checkout-hb-cache-hit.outputs.conda-cache-hit}}
+          shell: ${{ inputs.shell }}
+
+      # Compile and run tests if code has changed
+      - name: Run pre-commit hooks on diff
+        if: steps.checkout-hb-cache-hit.outputs.hb-cache-hit != 'true' || steps.checkout-hb-cache-hit.outputs.conda-cache-hit != 'true'
+        run: |
+          conda activate hummingbot
+          pre-commit run --files $(git diff --name-only origin/$GITHUB_BASE_REF)
+
+      - name: Run stable tests and calculate coverage
+        if: steps.checkout-hb-cache-hit.outputs.hb-cache-hit != 'true' || steps.checkout-hb-cache-hit.outputs.conda-cache-hit != 'true'
+        run: |
+          conda activate hummingbot
+          coverage run -m pytest \
+            --ignore="test/connector" \
+            --ignore="test/debug" \
+            --ignore="test/mock" \
+            --ignore="test/hummingbot/connector/gateway/amm" \
+            --ignore="test/hummingbot/connector/gateway/clob"
+
+      - name: Check and report global coverage
+        if: steps.checkout-hb-cache-hit.outputs.hb-cache-hit != 'true' || steps.checkout-hb-cache-hit.outputs.conda-cache-hit != 'true'
+        run: |
+          conda activate hummingbot
+          make report_coverage
+
+      - name: Validate coverage for the changes
+        if: github.event_name == 'pull_request' && (steps.checkout-hb-cache-hit.outputs.hb-cache-hit != 'true' || steps.checkout-hb-cache-hit.outputs.conda-cache-hit != 'true')
+        run: |
+          conda activate hummingbot
+          git fetch --all -q
+          git checkout -b $GITHUB_SHA
+          coverage xml
+          diff-cover --compare-branch=origin/$GITHUB_BASE_REF --fail-under=80 coverage.xml
+
+      # Create JSON report
+      - name: Create JSON report
+        uses: jsdaniell/create-json@v1.2.2
+        with:
+          name: ${{ matrix.target }}-build_report.json
+          json: |
+            {
+              "username": "Hummingbot Bot",
+              "avatar_url": "https://i.imgur.com/4M34hi2.png",
+              "content": "Build ${{ github.run_number }} for ${{ github.repository }} on ${{ matrix.name }} has finished.",
+              "embeds": [{
+                  "author": {
+                    "name": "Hummingbot CI ♫",
+                    "url": "https://hummingbot.io/",
+                    "icon_url": "https://docs.hummingbot.org/assets/img/logo.png"
+                  },
+                  "title": "I/B/T for ${{ github.event.pull_request.title }} on **${{ matrix.name }}** has finished.",
+                  "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+                  "description": "I/B/T for ${{ github.event.pull_request.title }} on **$${{ matrix.name }}** has finished.",
+                  "color": 1127128,
+                  "fields": [{
+                      "name": "Build Status",
+                      "value": "${{ job.status }}",
+                      "inline": true
+                    },
+                    {
+                      "name": "Build URL",
+                      "value": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+                      "inline": true
+                    }]
+                }]
+            }
+
+      # Verify conda environment
+      - name: Verify JSON Report
+        run: |
+          cat ${{ matrix.target }}-build_report.json
+
+      # Notify results to discord
+      - name: Discord Webhook Action
+        uses: tsickert/discord-webhook@v5.2.0
+        with:
+          webhook-url: ${{ secrets.WEBHOOK_URL }}
+          raw-data: ${{ matrix.target }}-build_report.json

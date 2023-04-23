@@ -1,0 +1,32 @@
+[
+  {
+    "target": "x86-ubuntu-latest",
+    "name": "x86 Ubuntu Latest",
+    "runner": "ubuntu-latest",
+    "extra_cmake_args": "-DCMAKE_CXX_FLAGS=-m64 -DCMAKE_C_FLAGS=-m64"
+  },
+  {
+    "target": "x86-ubuntu-20.04",
+    "name": "x86 Ubuntu 20.04",
+    "runner": "ubuntu-20.04",
+    "extra_cmake_args": "-DCMAKE_CXX_FLAGS=-m64 -DCMAKE_C_FLAGS=-m64"
+  },
+  {
+    "target": "x86-macos-latest",
+    "name": "x86 MacOS Latest",
+    "runner": "macos-latest",
+    "extra_cmake_args": ""
+  },
+  {
+    "target": "x86-windows-latest",
+    "name": "x86 Windows Latest",
+    "runner": "windows-latest",
+    "extra_cmake_args": ""
+  },
+  {
+    "target": "arm64_ubuntu_latest",
+    "name": "ARM64 Ubuntu Latest",
+    "runner": "buildjet-2vcpu-ubuntu_2204-arm",
+    "extra_cmake_args": ""
+  }
+]
