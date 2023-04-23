@@ -1157,6 +1157,76 @@ class BinanceExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                 price=Decimal("2"),
             ))
 
+    def test_format_trading_rules__min_notional_present(self):
+        trading_rules = [{
+            "symbol": "COINALPHAHBOT",
+            "baseAssetPrecision": 8,
+            "status": "TRADING",
+            "quotePrecision": 8,
+            "orderTypes": ["LIMIT", "MARKET"],
+            "filters": [
+                {
+                    "filterType": "PRICE_FILTER",
+                    "minPrice": "0.00000100",
+                    "maxPrice": "100000.00000000",
+                    "tickSize": "0.00000100"
+                }, {
+                    "filterType": "LOT_SIZE",
+                    "minQty": "0.00100000",
+                    "maxQty": "100000.00000000",
+                    "stepSize": "0.00100000"
+                }, {
+                    "filterType": "MIN_NOTIONAL",
+                    "minNotional": "0.00100000"
+                }
+            ],
+            "permissions": [
+                "SPOT"
+            ]
+        }]
+        exchange_info = {"symbols": trading_rules}
+
+        result = self.async_run_with_timeout(self.exchange._format_trading_rules(exchange_info))
+
+        self.assertEqual(result[0].min_notional_size, Decimal("0.00100000"))
+
+    def test_format_trading_rules__notional_but_no_min_notional_present(self):
+        trading_rules = [{
+            "symbol": "COINALPHAHBOT",
+            "baseAssetPrecision": 8,
+            "status": "TRADING",
+            "quotePrecision": 8,
+            "orderTypes": ["LIMIT", "MARKET"],
+            "filters": [
+                {
+                    "filterType": "PRICE_FILTER",
+                    "minPrice": "0.00000100",
+                    "maxPrice": "100000.00000000",
+                    "tickSize": "0.00000100"
+                }, {
+                    "filterType": "LOT_SIZE",
+                    "minQty": "0.00100000",
+                    "maxQty": "100000.00000000",
+                    "stepSize": "0.00100000"
+                }, {
+                    "filterType": "NOTIONAL",
+                    "minNotional": "10.00000000",
+                    "applyMinToMarket": False,
+                    "maxNotional": "10000.00000000",
+                    "applyMaxToMarket": False,
+                    "avgPriceMins": 5
+                }
+            ],
+            "permissions": [
+                "SPOT"
+            ]
+        }]
+        exchange_info = {"symbols": trading_rules}
+
+        result = self.async_run_with_timeout(self.exchange._format_trading_rules(exchange_info))
+
+        self.assertEqual(result[0].min_notional_size, Decimal("10"))
+
     def _validate_auth_credentials_taking_parameters_from_argument(self,
                                                                    request_call_tuple: RequestCall,
                                                                    params: Dict[str, Any]):
