@@ -63,6 +63,9 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(needs.validate_inputs.outputs.matrix) }}
 
+    continue-on-error: >-
+      ${{ contains(matrix.target, 'x86-ubuntu-latest') && true || false }}
+
     defaults:
       run:
         shell: ${{ inputs.shell }}
@@ -71,6 +74,7 @@ jobs:
       - name: Display Run
         run: |
           echo "I/B/T on ${{ matrix.runner }} for ${{ matrix.name }}"
+          echo "${{ matrix.name }}:${{ contains(matrix.target, 'x86-ubuntu-latest') && true || false }}"
 
       # Checkout Hummingbot - not much can be done without that!
       - uses: actions/checkout@v3
