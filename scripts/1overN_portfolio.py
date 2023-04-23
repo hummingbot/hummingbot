@@ -79,17 +79,16 @@ class OneOverNPortfolio(ScriptStrategyBase):
         # Calculate the absolute differences in quote currency
         # TODO: if we have any assets in quote currency left in the bank we need to trade it too. This can easily happen
         #       when orders get canceled. By doing so we can also fund the fonds with new cash in that way.
-        differences_in_quote_currency = {}
+        deficit_over_current_price = {}
         for asset, deficit in differences_dict.items():
             # TODO: take the bid when selling and ask when buying? generally take the price from the rate oracle
             #  instead from the exchange? this would imply (potentially) more price stability across exchanges if the
             #  source is adjusted
             current_price = quote_balances[asset][2]
-            difference_in_quote_currency = deficit / current_price  # TODO: rename it to  deficit_over_price
-            differences_in_quote_currency[asset] = difference_in_quote_currency
+            deficit_over_current_price[asset] = deficit / current_price
         #: Calculate the difference in pieces of each base asset
         differences_in_base_asset = {}
-        for asset, deficit in differences_in_quote_currency.items():
+        for asset, deficit in deficit_over_current_price.items():
             differences_in_base_asset[asset] = deficit * total_available_balance
         #: Create an ordered list of asset-deficit pairs starting from the smallest negative deficit ending with the
         #  biggest positive deficit
