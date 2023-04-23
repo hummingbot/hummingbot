@@ -162,7 +162,7 @@ class OneOverNPortfolio(ScriptStrategyBase):
     def format_status(self) -> str:
         # checking if last member variable in on_tick is set, so we can start
         if self.differences_dict is None:
-            return
+            return "SYSTEM NOT READY... booting"
         # create a table of base_balances and quote_balances and the summed up total of the quote_balances
         table_of_balances = "base balances         quote balances           price\n"
         for asset_name, base_balances in self.base_balances.items():
