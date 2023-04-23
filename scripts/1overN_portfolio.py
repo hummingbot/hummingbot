@@ -32,8 +32,8 @@ class OneOverNPortfolio(ScriptStrategyBase):
 
     exchange = "binance_paper_trade"
     quote_currency = "USDT"
-    # top 10 coins by market cap, excluding stablecoins , "LTC", "DOGE", "SOL"
-    base_currencies = ["BTC", "ETH", "MATIC", "XRP", "BNB", "ADA", "DOT"]
+    # top 10 coins by market cap, excluding stablecoins
+    base_currencies = ["BTC", "ETH", "MATIC", "XRP", "BNB", "ADA", "DOT", "LTC", "DOGE", "SOL"]
     pairs = {f"{currency}-USDT" for currency in base_currencies}
 
     #: Define markets to instruct Hummingbot to create connectors on the exchanges and markets you need
@@ -168,9 +168,9 @@ class OneOverNPortfolio(ScriptStrategyBase):
         for asset_name, base_balances in self.base_balances.items():
             quote_balance = self.quote_balances[asset_name][1]
             price = self.quote_balances[asset_name][2]
-            table_of_balances += f"{base_balances[1]:015,.5f} {asset_name:5} {quote_balance:015,.5f} {price:015,.5f} {self.quote_currency}\n"
-        table_of_balances += f"TOT ({self.quote_currency}): {self.total_available_balance:015,.5f}\n"
-        table_of_balances += f"TOT/{len(self.base_currencies)} ({self.quote_currency}): {self.total_available_balance / len(self.base_currencies):015,.5f}\n"
+            table_of_balances += f"{base_balances[1]:15,.5f} {asset_name:5} {quote_balance:15,.5f} {price:15,.5f} {self.quote_currency}\n"
+        table_of_balances += f"TOT    ({self.quote_currency}): {self.total_available_balance:15,.2f}\n"
+        table_of_balances += f"TOT/{len(self.base_currencies)} ({self.quote_currency}): {self.total_available_balance / len(self.base_currencies):15,.2f}\n"
         return f"active orders: {self.activeOrders}\n" + \
             table_of_balances + "\n" + \
             create_differences_bar_chart(self.differences_dict)
