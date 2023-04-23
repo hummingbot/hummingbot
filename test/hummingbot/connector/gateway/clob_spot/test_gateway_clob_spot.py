@@ -643,7 +643,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
             timestamp=self.start_timestamp, transaction_hash=self.expected_transaction_hash
         )
 
-        self.exchange.cancel(trading_pair=order.trading_pair, order_id=order.client_order_id)
+        self.exchange.cancel(trading_pair=order.trading_pair, client_order_id=order.client_order_id)
         self.clob_data_source_mock.run_until_cancel_order_called()
 
         if self.exchange.is_cancel_request_in_exchange_synchronous:
@@ -683,7 +683,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
 
         self.clob_data_source_mock.configure_cancel_order_fails_response(exception=RuntimeError("some error"))
 
-        self.exchange.cancel(trading_pair=self.trading_pair, order_id="11")
+        self.exchange.cancel(trading_pair=self.trading_pair, client_order_id="11")
         self.clob_data_source_mock.run_until_cancel_order_called()
 
         self.assertEquals(0, len(self.order_cancelled_logger.event_log))
