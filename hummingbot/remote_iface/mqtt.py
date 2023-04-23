@@ -12,6 +12,8 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 
 from hummingbot import get_logging_conf
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
+from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.logger import HummingbotLogger
 
@@ -217,9 +219,35 @@ class MQTTCommands:
                         invalid_params.append(param[0])
                 if len(invalid_params):
                     raise ValueError(f'Invalid param key(s): {invalid_params}')
+            strategy_config = {}
+            client_config = {}
+            if isinstance(self._hb_app.client_config_map, dict):  # pragma: no cover
+                client_config = self._hb_app.client_config_map
+                for key, value in client_config.items():
+                    if isinstance(value, ConfigVar):
+                        client_config[key] = value.value
+                    else:
+                        client_config[key] = value
+            elif isinstance(self._hb_app.client_config_map,
+                            ClientConfigAdapter):
+                client_config = self._hb_app.client_config_map.dict()
+            if isinstance(self._hb_app._strategy_config_map, dict):  # pragma: no cover
+                for key, value in self._hb_app._strategy_config_map.items():
+                    if isinstance(value, ConfigVar):
+                        strategy_config[key] = value.value
+                    else:
+                        strategy_config[key] = value
+            elif isinstance(self._hb_app._strategy_config_map,
+                            ClientConfigAdapter):
+                strategy_config = self._hb_app._strategy_config_map.dict()
+            response.config = {
+                "client": client_config,
+                "strategy": strategy_config
+            }
         except Exception as e:
             response.status = MQTT_STATUS_CODE.ERROR
             response.msg = str(e)
+            self._hb_app.logger().error(e)
         return response
 
     def _on_cmd_import(self, msg: ImportCommandMessage.Request):
@@ -549,7 +577,7 @@ class MQTTGateway(Node):
     def health(self):
         return self._health
 
-    def _remove_log_handlers(self):
+    def _remove_log_handlers(self):  # pragma: no cover
         loggers = list([logging.getLogger(name) for name in logging.root.manager.loggerDict])
         log_conf = get_logging_conf()
         if 'loggers' not in log_conf:
@@ -566,7 +594,7 @@ class MQTTGateway(Node):
         self._logh = MQTTLogHandler(self._hb_app, self)
         self.patch_loggers()
 
-    def patch_loggers(self):
+    def patch_loggers(self):  # pragma: no cover
         loggers = list([logging.getLogger(name) for name in logging.root.manager.loggerDict])
 
         log_conf = get_logging_conf()
@@ -958,10 +986,7 @@ class ExternalEventFactory:
                         event_name: str,
                         callback: Callable[[Dict[str, Any], str], None],
                         ) -> None:
-        gw = MQTTGateway.main()
-        if gw is None:
-            raise Exception('MQTTGateway is offline!')
-        gw.remove_external_event_listener(event_name, callback)
+        EEventListenerFactory.remove(event_name, callback)
 
 
 class ExternalTopicFactory:
@@ -983,5 +1008,4 @@ class ExternalTopicFactory:
 
     @classmethod
     def remove_listener(cls, listener):
-        listener.stop()
-        del listener
+        return ETopicListenerFactory.remove(listener)
