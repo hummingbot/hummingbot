@@ -14,7 +14,8 @@ class OneOverNPortfolio(ScriptStrategyBase):
 
     exchange = "binance_paper_trade"
     quote_currency = "USDT"
-    base_currencies = ["BTC", "ETH", "ONE"]
+    # top 10 coins by market cap, excluding stabelcoins
+    base_currencies = ["BTC", "ETH", "MATIC", "XRP", "BNB", "ADA", "DOT", "LTC", "DOGE", "SOL"]
     pairs = {f"{currency}-USDT" for currency in base_currencies}
 
     #: Define markets to instruct Hummingbot to create connectors on the exchanges and markets you need
