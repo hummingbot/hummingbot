@@ -2,9 +2,26 @@ import decimal
 import logging
 import math
 from decimal import Decimal
+from typing import Dict
 
+from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+
+
+def create_differences_bar_chart(differences_dict):
+    diff_str = "Differences to 1/N:\n"
+    bar_length = 20
+    for asset, deficit in differences_dict.items():
+        deficit_percentage = deficit * 100
+        filled_length = math.ceil(abs(deficit) * bar_length)
+
+        if deficit > 0:
+            bar = f"{asset:6}: {' ' * bar_length}|{'#' * filled_length:<{bar_length}} +{deficit_percentage:.4f}%"
+        else:
+            bar = f"{asset:6}: {'#' * filled_length:>{bar_length}}|{' ' * bar_length} -{-deficit_percentage:.4f}%"
+        diff_str += bar + "\n"
+    return diff_str
 
 
 class OneOverNPortfolio(ScriptStrategyBase):
@@ -15,14 +32,21 @@ class OneOverNPortfolio(ScriptStrategyBase):
 
     exchange = "binance_paper_trade"
     quote_currency = "USDT"
-    # top 10 coins by market cap, excluding stablecoins
-    base_currencies = ["BTC", "ETH", "MATIC", "XRP", "BNB", "ADA", "DOT", "LTC", "DOGE", "SOL"]
+    # top 10 coins by market cap, excluding stablecoins , "LTC", "DOGE", "SOL"
+    base_currencies = ["BTC", "ETH", "MATIC", "XRP", "BNB", "ADA", "DOT"]
     pairs = {f"{currency}-USDT" for currency in base_currencies}
 
     #: Define markets to instruct Hummingbot to create connectors on the exchanges and markets you need
     markets = {exchange: pairs}
     activeOrders = 0
     status_str = ""
+
+    def __init__(self, connectors: Dict[str, ConnectorBase]):
+        super().__init__(connectors)
+        self.total_available_balance = None
+        self.differences_dict = None
+        self.quote_balances = None
+        self.base_balances = None
 
     def on_tick(self):
         self.status_str = ""
@@ -31,58 +55,27 @@ class OneOverNPortfolio(ScriptStrategyBase):
         balance_df = self.get_balance_df()
         #: Filter by exchange "binance_paper_trade"
         exchange_balance_df = balance_df.loc[balance_df["Exchange"] == self.exchange]
-        #: Create a dictionary with asset name as key and total and available balance measured in base currencies
-        base_balances = {}
+        self.base_balances = self.calculate_base_balances(exchange_balance_df)
+        self.quote_balances = self.calculate_quote_balances(self.base_balances, connector)
         status_str = ""
-
-        status_str = self.calculate_base_balances(base_balances, exchange_balance_df, status_str)
-        self.logger().info(status_str)
-
-        #: Multiply each balance with the current price to get the balances in the quote currency
-        quote_balances = {}
-        for asset, balances in base_balances.items():
-            trading_pair = f"{asset}-{self.quote_currency}"
-            # TODO: should I put the amount to buy sell to get a orderbook conform value?
-            # noinspection PyUnresolvedReferences
-            current_price = Decimal(connector.get_mid_price(trading_pair))
-            total_balance = balances[0] * current_price
-            available_balance = balances[1] * current_price
-            quote_balances[asset] = (total_balance, available_balance, current_price)
-            self.logger().info(
-                f"{asset} * {current_price} {self.quote_currency} = {available_balance} {self.quote_currency}")
         #: Sum the available balances
         # TODO: add quote_currency balance correctly so that the full amount can be traded and it is not stuck when trades are canceled etc.
-        total_available_balance = sum(balances[1] for balances in quote_balances.values())
-        self.logger().info(f"TOT ({self.quote_currency}): {total_available_balance}")
+        self.total_available_balance = sum(balances[1] for balances in self.quote_balances.values())
+        self.logger().info(f"TOT ({self.quote_currency}): {self.total_available_balance}")
         self.logger().info(
-            f"TOT/{len(self.base_currencies)} ({self.quote_currency}): {total_available_balance / len(self.base_currencies)}")
+            f"TOT/{len(self.base_currencies)} ({self.quote_currency}): {self.total_available_balance / len(self.base_currencies)}")
         #: Calculate the percentage of each available_balance over total_available_balance
+        total_available_balance = self.total_available_balance
         percentages_dict = {}
-        for asset, balances in quote_balances.items():
+        for asset, balances in self.quote_balances.items():
             available_balance = balances[1]
             percentage = (available_balance / total_available_balance)
             percentages_dict[asset] = percentage
             self.logger().info(f"Total share {asset}: {percentage * 100}%")
-        number_of_assets = Decimal(len(quote_balances))
+        number_of_assets = Decimal(len(self.quote_balances))
         #: Calculate the difference between each percentage and 1/number_of_assets
-        differences_dict = {}
-
-        for asset, percentage in percentages_dict.items():
-            deficit = (Decimal('1') / number_of_assets) - percentage
-            differences_dict[asset] = deficit
-            self.logger().info(f"Missing from 1/N {asset}: {deficit * 100}%")
-        diff_str = "Differences to 1/N:\n"
-        bar_length = 20
-        for asset, deficit in differences_dict.items():
-            deficit_percentage = deficit * 100
-            filled_length = math.ceil(abs(deficit) * bar_length)
-
-            if deficit > 0:
-                bar = f"{asset:6}: {' ' * bar_length}|{'#' * filled_length:<{bar_length}} +{deficit_percentage:.4f}%"
-            else:
-                bar = f"{asset:6}: {'#' * filled_length:>{bar_length}}|{' ' * bar_length} -{-deficit_percentage:.4f}%"
-            diff_str += bar + "\n"
-        status_str += diff_str
+        differences_dict = self.calculate_deficit_percentages(number_of_assets, percentages_dict)
+        self.differences_dict = differences_dict
 
         # Calculate the absolute differences in quote currency
         # TODO: if we have any assets in quote currency left in the bank we need to trade it too. This can easily happen
@@ -92,7 +85,7 @@ class OneOverNPortfolio(ScriptStrategyBase):
             # TODO: take the bid when selling and ask when buying? generally take the price from the rate oracle
             #  instead from the exchange? this would imply (potentially) more price stability across exchanges if the
             #  source is adjusted
-            current_price = quote_balances[asset][2]
+            current_price = self.quote_balances[asset][2]
             deficit_over_current_price[asset] = deficit / current_price
         #: Calculate the difference in pieces of each base asset
         differences_in_base_asset = {}
@@ -114,7 +107,7 @@ class OneOverNPortfolio(ScriptStrategyBase):
         for i, (asset, deficit) in enumerate(ordered_trades):
             # TODO: this is a quick fix to the trade engine error. We don't trade under 1 quote value, e.g. dollar.
             #  This is even a feature parameter that we can use to save trading fees.
-            quote_price = quote_balances[asset][2]
+            quote_price = self.quote_balances[asset][2]
             if abs(deficit * quote_price) < 1:
                 self.logger().info(f"{abs(deficit * quote_price)} < 1 too small to trade")
                 continue
@@ -133,47 +126,89 @@ class OneOverNPortfolio(ScriptStrategyBase):
 
         return
 
-    def calculate_base_balances(self, base_balances, exchange_balance_df, status_str):
-        status_str = status_str + "Available Balances (in Base currencies): \n"
+    def calculate_deficit_percentages(self, number_of_assets, percentages_dict):
+        differences_dict = {}
+        for asset, percentage in percentages_dict.items():
+            deficit = (Decimal('1') / number_of_assets) - percentage
+            differences_dict[asset] = deficit
+            self.logger().info(f"Missing from 1/N {asset}: {deficit * 100}%")
+        return differences_dict
+
+    def calculate_quote_balances(self, base_balances, connector):
+        #: Multiply each balance with the current price to get the balances in the quote currency
+        quote_balances = {}
+        for asset, balances in base_balances.items():
+            trading_pair = f"{asset}-{self.quote_currency}"
+            # TODO: should I put the amount to buy sell to get a orderbook conform value?
+            # noinspection PyUnresolvedReferences
+            current_price = Decimal(connector.get_mid_price(trading_pair))
+            total_balance = balances[0] * current_price
+            available_balance = balances[1] * current_price
+            quote_balances[asset] = (total_balance, available_balance, current_price)
+            self.logger().info(
+                f"{asset} * {current_price} {self.quote_currency} = {available_balance} {self.quote_currency}")
+        return quote_balances
+
+    def calculate_base_balances(self, exchange_balance_df):
+        base_balances = {}
+
         for _, row in exchange_balance_df.iterrows():
             asset_name = row["Asset"]
             if asset_name in self.base_currencies:
                 total_balance = Decimal(row["Total Balance"])
                 available_balance = Decimal(row["Available Balance"])
                 base_balances[asset_name] = (total_balance, available_balance)
-                status_str = status_str + f"{available_balance:015,.5f} {asset_name} \n"
-        return status_str
+                logging.info(f"{available_balance:015,.5f} {asset_name} \n")
+        return base_balances
 
     def format_status(self) -> str:
-        return self.status_str
+        # create a table of base_balances and quote_balances and the summed up total of the quote_balances
+        table_of_balances = "base balances         quote balances           price\n"
+        for asset_name, base_balances in self.base_balances.items():
+            quote_balance = self.quote_balances[asset_name][1]
+            price = self.quote_balances[asset_name][2]
+            table_of_balances += f"{base_balances[1]:015,.5f} {asset_name:5} {quote_balance:015,.5f} {price:015,.5f} {self.quote_currency}\n"
+        table_of_balances += f"TOT ({self.quote_currency}): {self.total_available_balance:015,.5f}\n"
+        table_of_balances += f"TOT/{len(self.base_currencies)} ({self.quote_currency}): {self.total_available_balance / len(self.base_currencies):015,.5f}\n"
+        return f"active orders: {self.activeOrders}\n" + \
+            table_of_balances + "\n" + \
+            create_differences_bar_chart(self.differences_dict)
 
-    def did_create_buy_order(self, *args, **kwargs):
-        self.activeOrders += 1
-        logging.info(f"Created Buy - Active Orders ++: {self.activeOrders}")
 
-    def did_create_sell_order(self, *args, **kwargs):
-        self.activeOrders += 1
-        logging.info(f"Created Sell - Active Orders ++: {self.activeOrders}")
+def did_create_buy_order(self):
+    self.activeOrders += 1
+    logging.info(f"Created Buy - Active Orders ++: {self.activeOrders}")
 
-    def did_complete_buy_order(self, *args, **kwargs):
-        self.activeOrders -= 1
-        logging.info(f"Completed Buy - Active Orders --: {self.activeOrders}")
 
-    def did_complete_sell_order(self, *args, **kwargs):
-        self.activeOrders -= 1
-        logging.info(f"Completed Sell - Active Orders --: {self.activeOrders}")
+def did_create_sell_order(self):
+    self.activeOrders += 1
+    logging.info(f"Created Sell - Active Orders ++: {self.activeOrders}")
 
-    def did_cancel_order(self, *args, **kwargs):
-        self.activeOrders -= 1
-        logging.info(f"Canceled Order - Active Order --: {self.activeOrders}")
 
-    def did_expire_order(self, *args, **kwargs):
-        self.activeOrders -= 1
-        logging.info(f"Expired Order - Active Order --: {self.activeOrders}")
+def did_complete_buy_order(self):
+    self.activeOrders -= 1
+    logging.info(f"Completed Buy - Active Orders --: {self.activeOrders}")
 
-    def did_fail_order(self, *args, **kwargs):
-        self.activeOrders -= 1
-        logging.info(f"Failed Order - Active Order --: {self.activeOrders}")
 
-    def did_fill_order(self, *args, **kwargs):
-        logging.info(f"Filled Order - Active Order ??: {self.activeOrders}")
+def did_complete_sell_order(self):
+    self.activeOrders -= 1
+    logging.info(f"Completed Sell - Active Orders --: {self.activeOrders}")
+
+
+def did_cancel_order(self):
+    self.activeOrders -= 1
+    logging.info(f"Canceled Order - Active Order --: {self.activeOrders}")
+
+
+def did_expire_order(self):
+    self.activeOrders -= 1
+    logging.info(f"Expired Order - Active Order --: {self.activeOrders}")
+
+
+def did_fail_order(self):
+    self.activeOrders -= 1
+    logging.info(f"Failed Order - Active Order --: {self.activeOrders}")
+
+
+def did_fill_order(self):
+    logging.info(f"Filled Order - Active Order ??: {self.activeOrders}")
