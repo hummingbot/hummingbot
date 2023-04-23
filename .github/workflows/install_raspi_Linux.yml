@@ -1,0 +1,132 @@
+name: Custom Install/Build/Test for RasPi
+
+on:
+  workflow_call:
+    inputs:
+      should_run:
+        required: false
+        type: boolean
+        default: false
+      os-matrix:
+        required: false
+        type: string
+        default: "['zero2_64_raspios', 'zero2_64_dietpi']"
+
+jobs:
+  build_hummingbot:
+    name: build/tests RasPi [${{ matrix.cpu }}]
+    if: ${{ inputs.should_run == true }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJson(inputs.os-matrix) }}
+        #target: [zero_raspbian, zero_raspios, zero_dietpi, zero2_raspios, zero2_dietpi, zero2_64_raspios]
+        include:
+        - target: zero2_64_raspios
+          cpu: cortex-a53
+          cpu_info: cpuinfo/raspberrypi_zero2_w_arm64
+          base_image: raspios_lite_arm64:latest
+        - target: zero2_64_dietpi
+          cpu: cortex-a53
+          cpu_info: cpuinfo/raspberrypi_zero2_w_arm64
+          base_image: dietpi:rpi_armv8_bullseye
+        #- target: zero_raspbian
+        #  cpu: arm1176
+        #  cpu_info: cpuinfo/raspberrypi_zero_w
+        #  base_image: raspbian_lite:latest
+        #- target: zero_raspios
+        #  cpu: arm1176
+        #  cpu_info: cpuinfo/raspberrypi_zero_w
+        #  base_image: raspios_lite:latest
+        #- target: zero_dietpi
+        #  cpu: arm1176
+        #  cpu_info: cpuinfo/raspberrypi_zero_w
+        #  base_image: dietpi:rpi_armv6_bullseye
+        #- target: zero2_raspios
+        #  cpu: cortex-a7
+        #  cpu_info: cpuinfo/raspberrypi_zero2_w
+        #  base_image: raspios_lite:latest
+        #- target: zero2_dietpi
+        #  cpu: cortex-a7
+        #  cpu_info: cpuinfo/raspberrypi_zero2_w
+        #  base_image: dietpi:rpi_armv7_bullseye
+
+    defaults:
+      run:
+        shell: bash -l {0}
+
+    steps:
+      # Checkout Hummingbot - not much can be done without that!
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      # Loading Custom Environment variables
+      - name: Set Environment Variables
+        run: sed "/#/d" ./.github/variables/hb_env_variables.env >> "$GITHUB_ENV"
+        shell: bash
+
+      # Use cache's hashFiles function to check for changes in core code
+      - name: Check for code changes
+        id: program-changes
+        uses: actions/cache@v3
+        env:
+          # Increase this value to manually reset cache if program files have not changed
+          CACHE_NUMBER: 0
+        with:
+          path: README.md # placeholder file
+          key: RPI-${{ matrix.target }}-build-${{ env.CACHE_NUMBER }}-${{ hashFiles('hummingbot/*', '**/*.py', '**/*.py*', '**/*.pxd', 'test/*') }}
+
+      # Install environment and Hummingbot
+      # Given that this uses an emulation, everything is done in the same step
+      - name: Install environment and Hummingbot
+        uses: ./.github/actions/install_env_and_hb_arm
+        with:
+          program-cache-hit: ${{steps.program-changes.outputs.cache-hit}}
+          dependencies-cache-hit: ${{steps.conda-dependencies.outputs.cache-hit}}
+
+      # Create JSON report
+      - name: Create JSON report
+        uses: jsdaniell/create-json@v1.2.2
+        with:
+          name: RPI-${{ matrix.target }}-build_report.json
+          json: |
+            {
+              "username": "Hummingbot Bot",
+              "avatar_url": "https://i.imgur.com/4M34hi2.png",
+              "content": "Build ${{ github.run_number }} for ${{ github.repository }} on ${{ matrix.target }} has finished.",
+              "embeds": [{
+                  "author": {
+                    "name": "Hummingbot CI ♫",
+                    "url": "https://hummingbot.io/",
+                    "icon_url": "https://docs.hummingbot.org/assets/img/logo.png"
+                  },
+                  "title": "I/B/T for ${{ github.event.pull_request.title }} on **${{ matrix.target }}** has finished.",
+                  "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+                  "description": "I/B/T for ${{ github.event.pull_request.title }} on **${{ matrix.target }}** has finished.",
+                  "color": 1127128,
+                  "fields": [{
+                      "name": "Build Status",
+                      "value": "${{ job.status }}",
+                      "inline": true
+                    },
+                    {
+                      "name": "Build URL",
+                      "value": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+                      "inline": true
+                    }]
+                }]
+            }
+
+      # Verify conda environment
+      - name: Verify JSON Report
+        run: |
+          cat RPI-${{ matrix.target }}-build_report.json
+
+      # Notify results to discord
+      - name: Discord Webhook Action
+        uses: tsickert/discord-webhook@v5.2.0
+        with:
+          webhook-url: ${{ secrets.WEBHOOK_URL }}
+          raw-data: RPI-${{ matrix.target }}-build_report.json
