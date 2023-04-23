@@ -277,13 +277,7 @@ class ExchangePyBase(ExchangeBase, ABC):
         Includes the logic that has to be processed every time a new tick happens in the bot. Particularly it enables
         the execution of the status update polling loop using an event.
         """
-        last_user_stream_message_time = (
-            0 if self._user_stream_tracker is None else self._user_stream_tracker.last_recv_time
-        )
-        last_recv_diff = timestamp - last_user_stream_message_time
-        poll_interval = (
-            self.SHORT_POLL_INTERVAL if last_recv_diff > self.TICK_INTERVAL_LIMIT else self.LONG_POLL_INTERVAL
-        )
+        poll_interval = self._get_poll_interval(timestamp=timestamp)
         last_tick = int(self._last_timestamp / poll_interval)
         current_tick = int(timestamp / poll_interval)
         if current_tick > last_tick:
@@ -379,17 +373,17 @@ class ExchangePyBase(ExchangeBase, ABC):
         """
         return self._get_fee(base_currency, quote_currency, order_type, order_side, amount, price, is_maker)
 
-    def cancel(self, trading_pair: str, order_id: str):
+    def cancel(self, trading_pair: str, client_order_id: str):
         """
         Creates a promise to cancel an order in the exchange
 
         :param trading_pair: the trading pair the order to cancel operates with
-        :param order_id: the client id of the order to cancel
+        :param client_order_id: the client id of the order to cancel
 
         :return: the client id of the order to cancel
         """
-        safe_ensure_future(self._execute_cancel(trading_pair, order_id))
-        return order_id
+        safe_ensure_future(self._execute_cancel(trading_pair, client_order_id))
+        return client_order_id
 
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         """
@@ -535,7 +529,7 @@ class ExchangePyBase(ExchangeBase, ABC):
             f"Error submitting {trade_type.name.lower()} {order_type.name.upper()} order to {self.name_cap} for "
             f"{amount} {trading_pair} {price}.",
             exc_info=True,
-            app_warning_msg=f"Failed to submit buy order to {self.name_cap}. Check API key and network connection."
+            app_warning_msg=f"Failed to submit {trade_type.name.upper()} order to {self.name_cap}. Check API key and network connection."
         )
         self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
 
@@ -1104,3 +1098,13 @@ class ExchangePyBase(ExchangeBase, ABC):
     async def _make_trading_pairs_request(self) -> Any:
         exchange_info = await self._api_get(path_url=self.trading_pairs_request_path)
         return exchange_info
+
+    def _get_poll_interval(self, timestamp: float) -> float:
+        last_user_stream_message_time = (
+            0 if self._user_stream_tracker is None else self._user_stream_tracker.last_recv_time
+        )
+        last_recv_diff = timestamp - last_user_stream_message_time
+        poll_interval = (
+            self.SHORT_POLL_INTERVAL if last_recv_diff > self.TICK_INTERVAL_LIMIT else self.LONG_POLL_INTERVAL
+        )
+        return poll_interval
