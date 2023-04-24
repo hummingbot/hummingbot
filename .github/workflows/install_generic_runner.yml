@@ -213,9 +213,9 @@ jobs:
 
       # Notify results to discord
       - uses: ruby/setup-ruby@v1
-        if: github.event_name != 'pull_request' && discord-direct-webhook.outcome == 'failure'
+        if: github.event_name != 'pull_request' && steps.discord-direct-webhook.outcome == 'failure'
       - name: Send Webhook Notification
-        if: github.event_name != 'pull_request' && discord-direct-webhook.outcome == 'failure'
+        if: github.event_name != 'pull_request' && steps.discord-direct-webhook.outcome == 'failure'
         env:
           JOB_STATUS: ${{ job.status }}
           WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
