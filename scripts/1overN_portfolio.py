@@ -28,16 +28,22 @@ class OneOverNPortfolio(ScriptStrategyBase):
     """
     This strategy aims to create a 1/N cryptocurrency portfolio, providing perfect diversification without
     parametrization and giving a reasonable baseline performance.
+    https://www.notion.so/1-N-Index-Portfolio-26752a174c5a4648885b8c344f3f1013
+    Future improvements:
+    - add quote_currency balance as funding so that it can be traded, and it is not stuck when some trades are lost by
+        the exchange
+    - create a state machine so that all sells are executed before buy orders are submitted. Thus guaranteeing the
+        funding
     """
 
-    exchange = "binance_paper_trade"
+    exchange_name = "binance_paper_trade"
     quote_currency = "USDT"
     # top 10 coins by market cap, excluding stablecoins
     base_currencies = ["BTC", "ETH", "MATIC", "XRP", "BNB", "ADA", "DOT", "LTC", "DOGE", "SOL"]
     pairs = {f"{currency}-USDT" for currency in base_currencies}
 
     #: Define markets to instruct Hummingbot to create connectors on the exchanges and markets you need
-    markets = {exchange: pairs}
+    markets = {exchange_name: pairs}
     activeOrders = 0
 
     def __init__(self, connectors: Dict[str, ConnectorBase]):
@@ -48,17 +54,14 @@ class OneOverNPortfolio(ScriptStrategyBase):
         self.base_balances = None
 
     def on_tick(self):
-
-        connector = self.connectors[self.exchange]
         #: check current balance of coins
         balance_df = self.get_balance_df()
         #: Filter by exchange "binance_paper_trade"
-        exchange_balance_df = balance_df.loc[balance_df["Exchange"] == self.exchange]
+        exchange_balance_df = balance_df.loc[balance_df["Exchange"] == self.exchange_name]
         self.base_balances = self.calculate_base_balances(exchange_balance_df)
-        self.quote_balances = self.calculate_quote_balances(self.base_balances, connector)
+        self.quote_balances = self.calculate_quote_balances(self.base_balances)
 
         #: Sum the available balances
-        # TODO: add quote_currency balance correctly so that the full amount can be traded and it is not stuck when trades are canceled etc.
         self.total_available_balance = sum(balances[1] for balances in self.quote_balances.values())
         self.logger().info(f"TOT ({self.quote_currency}): {self.total_available_balance}")
         self.logger().info(
@@ -77,13 +80,8 @@ class OneOverNPortfolio(ScriptStrategyBase):
         self.differences_dict = differences_dict
 
         # Calculate the absolute differences in quote currency
-        # TODO: if we have any assets in quote currency left in the bank we need to trade it too. This can easily happen
-        #       when orders get canceled. By doing so we can also fund the fonds with new cash in that way.
         deficit_over_current_price = {}
         for asset, deficit in differences_dict.items():
-            # TODO: take the bid when selling and ask when buying? generally take the price from the rate oracle
-            #  instead from the exchange? this would imply (potentially) more price stability across exchanges if the
-            #  source is adjusted
             current_price = self.quote_balances[asset][2]
             deficit_over_current_price[asset] = deficit / current_price
         #: Calculate the difference in pieces of each base asset
@@ -103,19 +101,18 @@ class OneOverNPortfolio(ScriptStrategyBase):
             self.logger().info(f"Wait to trade until all active orders have completed: {self.activeOrders}")
             return
         for i, (asset, deficit) in enumerate(ordered_trades):
-            # TODO: this is a quick fix to the trade engine error. We don't trade under 1 quote value, e.g. dollar.
-            #  This is even a feature parameter that we can use to save trading fees.
             quote_price = self.quote_balances[asset][2]
+            # We don't trade under 1 quote value, e.g. dollar. We can save trading fees by increasing this amount
             if abs(deficit * quote_price) < 1:
                 self.logger().info(f"{abs(deficit * quote_price)} < 1 too small to trade")
                 continue
             trade_is_buy = True if deficit > Decimal('0') else False
             try:
                 if trade_is_buy:
-                    self.buy(connector_name=self.exchange, trading_pair=f"{asset}-{self.quote_currency}",
+                    self.buy(connector_name=self.exchange_name, trading_pair=f"{asset}-{self.quote_currency}",
                              amount=abs(deficit), order_type=OrderType.MARKET, price=quote_price)
                 else:
-                    self.sell(connector_name=self.exchange, trading_pair=f"{asset}-{self.quote_currency}",
+                    self.sell(connector_name=self.exchange_name, trading_pair=f"{asset}-{self.quote_currency}",
                               amount=abs(deficit), order_type=OrderType.MARKET, price=quote_price)
             except decimal.InvalidOperation as e:
                 # Handle the error by logging it or taking other appropriate actions
@@ -132,12 +129,12 @@ class OneOverNPortfolio(ScriptStrategyBase):
             self.logger().info(f"Missing from 1/N {asset}: {deficit * 100}%")
         return differences_dict
 
-    def calculate_quote_balances(self, base_balances, connector):
+    def calculate_quote_balances(self, base_balances):
         #: Multiply each balance with the current price to get the balances in the quote currency
         quote_balances = {}
+        connector = self.connectors[self.exchange_name]
         for asset, balances in base_balances.items():
             trading_pair = f"{asset}-{self.quote_currency}"
-            # TODO: should I put the amount to buy sell to get a orderbook conform value?
             # noinspection PyUnresolvedReferences
             current_price = Decimal(connector.get_mid_price(trading_pair))
             total_balance = balances[0] * current_price
@@ -149,7 +146,6 @@ class OneOverNPortfolio(ScriptStrategyBase):
 
     def calculate_base_balances(self, exchange_balance_df):
         base_balances = {}
-
         for _, row in exchange_balance_df.iterrows():
             asset_name = row["Asset"]
             if asset_name in self.base_currencies:
