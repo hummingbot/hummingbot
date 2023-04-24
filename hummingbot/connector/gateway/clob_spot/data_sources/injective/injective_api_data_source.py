@@ -82,7 +82,7 @@ class InjectiveAPIDataSource(CLOBAPIDataSourceBase):
         self._sub_account_id = connector_spec["wallet_address"]
         self._account_address: str = Address(bytes.fromhex(self._sub_account_id[2:-24])).to_acc_bech32()
         if self._network == "mainnet":
-            self._network_obj = Network.mainnet()
+            self._network_obj = Network.mainnet(node="lb")
         elif self._network == "testnet":
             self._network_obj = Network.testnet()
         else:
