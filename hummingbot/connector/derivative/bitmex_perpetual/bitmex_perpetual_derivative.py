@@ -648,7 +648,7 @@ class BitmexPerpetualDerivative(ExchangeBase, PerpetualTrading):
                 self.logger().network(
                     "Unexpected error while fetching trading rules.",
                     exc_info=True,
-                    app_warning_msg="Could not fetch new trading rules from Binance Perpetuals. "
+                    app_warning_msg="Could not fetch new trading rules from Bitmex Perpetuals. "
                                     "Check network connection.",
                 )
                 await self._sleep(0.5)
