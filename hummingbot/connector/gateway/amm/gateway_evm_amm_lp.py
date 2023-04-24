@@ -165,6 +165,15 @@ class GatewayEVMAMMLP(ConnectorBase):
             return []
 
     @property
+    def amm_lp_orders(self) -> List[GatewayInFlightLPOrder]:
+        return [
+            in_flight_order
+            for in_flight_order in self._in_flight_orders.values()
+            if not self.is_approval_order(in_flight_order)
+            and not in_flight_order.is_pending_cancel_confirmation
+        ]
+
+    @property
     def canceling_orders(self) -> List[GatewayInFlightLPOrder]:
         return [
             cancel_order
