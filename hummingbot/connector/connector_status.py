@@ -59,6 +59,8 @@ connector_status = {
     'dexalot': 'bronze',
     'kucoin_perpetual': 'silver',
     'kucoin_perpetual_testnet': 'silver',
+    'injective_perpetual': 'bronze',
+    'zigzag': 'bronze',
 }
 
 warning_messages = {
