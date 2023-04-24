@@ -68,7 +68,7 @@ jobs:
       matrix: ${{ fromJson(needs.validate_inputs.outputs.matrix) }}
 
     continue-on-error: >-
-      ${{ ! contains(matrix.target, inputs.must_succeed) && true || false }}
+      ${{ ! contains(inputs.must_succeed, matrix.target) && true || false }}
 
     defaults:
       run:
@@ -203,8 +203,25 @@ jobs:
 
       # Notify results to discord
       - name: Discord Webhook Action
+        id: discord-direct-webhook
         if: always()
+        continue-on-error: true
         uses: tsickert/discord-webhook@v5.2.0
         with:
           webhook-url: ${{ secrets.WEBHOOK_URL }}
           raw-data: ${{ matrix.target }}-build_report.json
+
+      # Notify results to discord
+      - uses: ruby/setup-ruby@v1
+        if: discord-direct-webhook.outcome == 'failure'
+      - name: Send Webhook Notification
+        if: github.event_name != 'pull_request'
+        env:
+          JOB_STATUS: ${{ job.status }}
+          WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
+          HOOK_OS_NAME: ${{ runner.os }}
+          WORKFLOW_NAME: ${{ github.workflow }}
+        run: |
+          git clone --depth 1 https://github.com/DiscordHooks/github-actions-discord-webhook.git webhook
+          bash webhook/send.sh $JOB_STATUS $WEBHOOK_URL
+        shell: bash
