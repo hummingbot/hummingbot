@@ -7,6 +7,16 @@ from typing import Dict
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy.strategy_py_base import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketOrderFailureEvent,
+    OrderCancelledEvent,
+    OrderExpiredEvent,
+    OrderFilledEvent,
+    SellOrderCompletedEvent,
+    SellOrderCreatedEvent,
+)
 
 
 def create_differences_bar_chart(differences_dict):
@@ -171,41 +181,33 @@ class OneOverNPortfolio(ScriptStrategyBase):
             table_of_balances + "\n" + \
             create_differences_bar_chart(self.differences_dict)
 
+    def did_create_buy_order(self, event: BuyOrderCreatedEvent):
+        self.activeOrders += 1
+        logging.info(f"Created Buy - Active Orders ++: {self.activeOrders}")
 
-def did_create_buy_order(self):
-    self.activeOrders += 1
-    logging.info(f"Created Buy - Active Orders ++: {self.activeOrders}")
+    def did_create_sell_order(self, event: SellOrderCreatedEvent):
+        self.activeOrders += 1
+        logging.info(f"Created Sell - Active Orders ++: {self.activeOrders}")
 
+    def did_complete_buy_order(self, event: BuyOrderCompletedEvent):
+        self.activeOrders -= 1
+        logging.info(f"Completed Buy - Active Orders --: {self.activeOrders}")
 
-def did_create_sell_order(self):
-    self.activeOrders += 1
-    logging.info(f"Created Sell - Active Orders ++: {self.activeOrders}")
+    def did_complete_sell_order(self, event: SellOrderCompletedEvent):
+        self.activeOrders -= 1
+        logging.info(f"Completed Sell - Active Orders --: {self.activeOrders}")
 
+    def did_cancel_order(self, event: OrderCancelledEvent):
+        self.activeOrders -= 1
+        logging.info(f"Canceled Order - Active Order --: {self.activeOrders}")
 
-def did_complete_buy_order(self):
-    self.activeOrders -= 1
-    logging.info(f"Completed Buy - Active Orders --: {self.activeOrders}")
+    def did_expire_order(self, event: OrderExpiredEvent):
+        self.activeOrders -= 1
+        logging.info(f"Expired Order - Active Order --: {self.activeOrders}")
 
+    def did_fail_order(self, event: MarketOrderFailureEvent):
+        self.activeOrders -= 1
+        logging.info(f"Failed Order - Active Order --: {self.activeOrders}")
 
-def did_complete_sell_order(self):
-    self.activeOrders -= 1
-    logging.info(f"Completed Sell - Active Orders --: {self.activeOrders}")
-
-
-def did_cancel_order(self):
-    self.activeOrders -= 1
-    logging.info(f"Canceled Order - Active Order --: {self.activeOrders}")
-
-
-def did_expire_order(self):
-    self.activeOrders -= 1
-    logging.info(f"Expired Order - Active Order --: {self.activeOrders}")
-
-
-def did_fail_order(self):
-    self.activeOrders -= 1
-    logging.info(f"Failed Order - Active Order --: {self.activeOrders}")
-
-
-def did_fill_order(self):
-    logging.info(f"Filled Order - Active Order ??: {self.activeOrders}")
+    def did_fill_order(self, event: OrderFilledEvent):
+        logging.info(f"Filled Order - Active Order ??: {self.activeOrders}")
