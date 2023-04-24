@@ -163,7 +163,7 @@ jobs:
 
       # Create JSON report
       - name: Create JSON report
-        if: always()
+        if: always() && github.event_name == 'pull_request'
         uses: jsdaniell/create-json@v1.2.2
         with:
           name: ${{ matrix.target }}-build_report.json
@@ -197,14 +197,14 @@ jobs:
 
       # Verify conda environment
       - name: Verify JSON Report
-        if: always()
+        if: always() && github.event_name == 'pull_request'
         run: |
           cat ${{ matrix.target }}-build_report.json
 
       # Notify results to discord
       - name: Discord Webhook Action
         id: discord-direct-webhook
-        if: always()
+        if: always() && github.event_name == 'pull_request'
         continue-on-error: true
         uses: tsickert/discord-webhook@v5.2.0
         with:
@@ -213,9 +213,9 @@ jobs:
 
       # Notify results to discord
       - uses: ruby/setup-ruby@v1
-        if: discord-direct-webhook.outcome == 'failure'
+        if: github.event_name != 'pull_request' && discord-direct-webhook.outcome == 'failure'
       - name: Send Webhook Notification
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && discord-direct-webhook.outcome == 'failure'
         env:
           JOB_STATUS: ${{ job.status }}
           WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
