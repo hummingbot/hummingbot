@@ -27,7 +27,6 @@ connector_status = {
     'gate_io_perpetual': 'silver',
     'hitbtc': 'bronze',
     'huobi': 'bronze',
-    'k2': 'bronze',
     'kraken': 'bronze',
     'kucoin': 'silver',
     'kucoin_testnet': 'silver',
