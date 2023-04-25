@@ -19,7 +19,7 @@ on:
         required: false
         type: string
         default: "bash -l {0}"
-      must_succeed:
+      must-succeed:
         required: false
         type: string
         default: x86-ubuntu-latest
@@ -68,7 +68,7 @@ jobs:
       matrix: ${{ fromJson(needs.validate_inputs.outputs.matrix) }}
 
     continue-on-error: >-
-      ${{ ! contains(inputs.must_succeed, matrix.target) && true || false }}
+      ${{ ! contains(inputs.must-succeed, matrix.target) && true || false }}
 
     defaults:
       run:
@@ -155,7 +155,7 @@ jobs:
       - name: Validate coverage for the changes
         id: coverage-check
         if: github.event_name == 'pull_request' && (steps.checkout-hb-cache-hit.outputs.hb-cache-hit != 'true' || steps.checkout-hb-cache-hit.outputs.conda-cache-hit != 'true')
-        continue-on-error: ${{ ! contains(inputs.must_succeed, matrix.target) && true || false }}
+        continue-on-error: ${{ ! contains(inputs.must-succeed, matrix.target) && true || false }}
         run: |
           conda activate hummingbot
           git fetch --all -q
