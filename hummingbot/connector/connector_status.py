@@ -29,7 +29,6 @@ connector_status = {
     'huobi': 'bronze',
     'kraken': 'bronze',
     'kucoin': 'silver',
-    'kucoin_testnet': 'silver',
     'lbank': 'bronze',
     'loopring': 'bronze',
     'mexc': 'bronze',
