@@ -67,5 +67,5 @@ class FoxbitAuthTests(TestCase):
             payload=auth.get_ws_authenticate_payload(),
         )
         subscribe_request: WSJSONRequest = WSJSONRequest(payload=web_utils.format_ws_header(header), is_auth_required=True)
-        retValue = auth.ws_authenticate(subscribe_request)
+        retValue = self.async_run_with_timeout(auth.ws_authenticate(subscribe_request))
         self.assertIsNotNone(retValue)
