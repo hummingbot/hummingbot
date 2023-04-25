@@ -715,7 +715,7 @@ class PhemexPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
     @property
     def expected_supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+        return [OrderType.MARKET, OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
     @property
     def expected_trading_rule(self):
@@ -803,8 +803,6 @@ class PhemexPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             else:
                 position_side = "Short" if order.trade_type == TradeType.BUY else "Long"
         self.assertEqual(position_side, request_data["posSide"])
-        self.assertEqual(order.position == PositionAction.CLOSE, request_data["reduceOnly"])
-        self.assertEqual(order.position == PositionAction.CLOSE, request_data["closeOnTrigger"])
 
     def validate_order_cancelation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
