@@ -2,8 +2,7 @@ import asyncio
 import json
 import re
 from decimal import Decimal
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
-from unittest import TestCase
+from typing import Any, Callable, Dict, List, Optional, Tuple
 from unittest.mock import AsyncMock, patch
 
 from aioresponses import aioresponses
@@ -18,84 +17,22 @@ from hummingbot.connector.exchange.foxbit import (
     foxbit_web_utils as web_utils,
 )
 from hummingbot.connector.exchange.foxbit.foxbit_exchange import FoxbitExchange
+from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
-from hummingbot.core.event.event_logger import EventLogger
-from hummingbot.core.event.events import MarketEvent
 
 
-class FoxbitExchangeTests(TestCase):
-    level = 0
-
-    @classmethod
-    def setUpClass(cls) -> None:
-        super().setUpClass()
-        cls.base_asset = "COINALPHA"
-        cls.quote_asset = "HBOT"
-        cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
+class FoxbitExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
     def setUp(self) -> None:
         super().setUp()
         self.mocking_assistant = NetworkMockingAssistant()
-        self.exchange = self.create_exchange_instance()
-
-        self.log_records = []
-        self.async_tasks: List[asyncio.Task] = []
-
-        self.exchange = self.create_exchange_instance()
-
-        self.exchange.logger().setLevel(1)
-        self.exchange.logger().addHandler(self)
-        self.exchange._order_tracker.logger().setLevel(1)
-        self.exchange._order_tracker.logger().addHandler(self)
-        if hasattr(self.exchange, "_time_synchronizer"):
-            self.exchange._time_synchronizer.add_time_offset_ms_sample(0)
-            self.exchange._time_synchronizer.logger().setLevel(1)
-            self.exchange._time_synchronizer.logger().addHandler(self)
-
-        self._initialize_event_loggers()
-
-        self.exchange._set_trading_pair_symbol_map(
-            bidict({self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset): self.trading_pair}))
-
-    def tearDown(self) -> None:
-        for task in self.async_tasks:
-            task.cancel()
-        super().tearDown()
-
-    def handle(self, record):
-        self.log_records.append(record)
-
-    def is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
-
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
-        ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
-
-    def _initialize_event_loggers(self):
-        self.buy_order_completed_logger = EventLogger()
-        self.buy_order_created_logger = EventLogger()
-        self.order_cancelled_logger = EventLogger()
-        self.order_failure_logger = EventLogger()
-        self.order_filled_logger = EventLogger()
-        self.sell_order_completed_logger = EventLogger()
-        self.sell_order_created_logger = EventLogger()
-
-        events_and_loggers = [
-            (MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger),
-            (MarketEvent.BuyOrderCreated, self.buy_order_created_logger),
-            (MarketEvent.OrderCancelled, self.order_cancelled_logger),
-            (MarketEvent.OrderFailure, self.order_failure_logger),
-            (MarketEvent.OrderFilled, self.order_filled_logger),
-            (MarketEvent.SellOrderCompleted, self.sell_order_completed_logger),
-            (MarketEvent.SellOrderCreated, self.sell_order_created_logger)]
-
-        for event, logger in events_and_loggers:
-            self.exchange.add_listener(event, logger)
+        mapping = bidict()
+        mapping[1] = self.trading_pair
+        self.exchange._trading_pair_instrument_id_map = mapping
 
     @property
     def all_symbols_url(self):
@@ -336,16 +273,8 @@ class FoxbitExchangeTests(TestCase):
     @property
     def balance_event_websocket_update(self):
         return {
-            "e": "outboundAccountPosition",
-            "E": 1564034571105,
-            "u": 1564034571073,
-            "B": [
-                {
-                    "a": self.base_asset,
-                    "f": "10",
-                    "l": "5"
-                }
-            ]
+            "n": "AccountPositionEvent",
+            "o": '{"ProductSymbol":"' + self.base_asset + '","Hold":"5.0","Amount": "15.0"}'
         }
 
     @property
@@ -381,7 +310,7 @@ class FoxbitExchangeTests(TestCase):
 
     @property
     def is_order_fill_http_update_included_in_status_update(self) -> bool:
-        return False
+        return True
 
     @property
     def is_order_fill_http_update_executed_during_websocket_order_event_processing(self) -> bool:
@@ -438,10 +367,16 @@ class FoxbitExchangeTests(TestCase):
         self.assertEqual(order.client_order_id, request_data["client_order_id"])
 
     def validate_order_status_request(self, order: InFlightOrder, request_call: RequestCall):
-        pass
+        request_params = request_call.kwargs["params"]
+        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                         request_params["symbol"])
+        self.assertEqual(order.client_order_id, request_params["origClientOrderId"])
 
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
-        self.fail()
+        request_params = request_call.kwargs["params"]
+        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                         request_params["symbol"])
+        self.assertEqual(order.exchange_order_id, str(request_params["orderId"]))
 
     def configure_successful_cancelation_response(
             self,
@@ -464,6 +399,18 @@ class FoxbitExchangeTests(TestCase):
         mock_api.put(regex_url, status=400, callback=callback)
         return url
 
+    def configure_order_not_found_error_cancelation_response(
+        self,
+        order: InFlightOrder,
+        mock_api: aioresponses,
+        callback: Optional[Callable] = lambda *args, **kwargs: None,
+    ) -> str:
+        url = web_utils.private_rest_url(CONSTANTS.CANCEL_ORDER_PATH_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        response = {"code": -2011, "msg": "Unknown order sent."}
+        mock_api.put(regex_url, status=400, body=json.dumps(response), callback=callback)
+        return url
+
     def configure_one_successful_one_erroneous_cancel_all_response(
             self,
             successful_order: InFlightOrder,
@@ -484,7 +431,7 @@ class FoxbitExchangeTests(TestCase):
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.private_rest_url(CONSTANTS.GET_ORDER_BY_ID.format(order.exchange_order_id))
+        url = web_utils.private_rest_url(CONSTANTS.GET_ORDER_BY_CLIENT_ID.format(order.client_order_id))
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_status_request_completely_filled_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
@@ -544,24 +491,36 @@ class FoxbitExchangeTests(TestCase):
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
         return url
 
+    def configure_order_not_found_error_order_status_response(
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> List[str]:
+        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        response = {"code": -2013, "msg": "Order does not exist."}
+        mock_api.get(regex_url, body=json.dumps(response), status=400, callback=callback)
+        return [url]
+
     def configure_partial_fill_trade_response(
             self,
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        # Trade fills are not requested in Foxbit as part of the status update
-        pass
+        url = web_utils.private_rest_url(path_url=CONSTANTS.MY_TRADES_PATH_URL)
+        regex_url = re.compile(url + r"\?.*")
+        response = self._order_fills_request_partial_fill_mock_response(order=order)
+        mock_api.get(regex_url, body=json.dumps(response), callback=callback)
+        return url
 
     def configure_full_fill_trade_response(
             self,
             order: InFlightOrder,
             mock_api: aioresponses,
-            callback: Optional[Callable]) -> str:
-        """
-        :return: the URL configured
-        """
-        # Trade fills are not requested in Foxbit as part of the status update
-        pass
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        url = web_utils.private_rest_url(path_url=CONSTANTS.MY_TRADES_PATH_URL)
+        regex_url = re.compile(url + r"\?.*")
+        response = self._order_fills_request_full_fill_mock_response(order=order)
+        mock_api.get(regex_url, body=json.dumps(response), callback=callback)
+        return url
 
     def order_event_for_new_order_websocket_update(self, order: InFlightOrder):
         return {
@@ -605,49 +564,36 @@ class FoxbitExchangeTests(TestCase):
 
     def order_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         return {
-            'OMSId': 1,
-            'ExecutionId': 1799532469708098,
-            'TradeId': 1594,
-            'OrderId': order.exchange_order_id,
-            'AccountId': 1799532469708098,
-            'AccountName': 'hbot@grupovitra.com.br',
-            'SubAccountId': 0,
-            'ClientOrderId': order.client_order_id,
-            'InstrumentId': 1,
-            'Side': 'Buy',
-            'OrderType': 'Limit',
-            'Quantity': str(order.amount),
-            'RemainingQuantity': '0.0',
-            'Price': str(order.price),
-            'Value': str(order.price * order.amount),
-            'CounterParty': 8719289677238762,
-            'OrderTradeRevision': 1,
-            'Direction': 'DownTick',
-            'IsBlockTrade': False,
-            'Fee': '0.00022',
-            'FeeProductId': 4,
-            'OrderOriginator': 1799532469708098,
-            'UserName': 'hbot@grupovitra.com.br',
-            'TradeTimeMS': 1667243261084,
-            'MakerTaker': 'Maker',
-            'AdapterTradeId': 0,
-            'InsideBid': None,
-            'InsideBidSize': None,
-            'InsideAsk': None,
-            'InsideAskSize': None,
-            'IsQuote': False,
-            'TradeTime': 638028400610842900
+            "n": "OrderStateEvent",
+            "o": "{'Side': 'Buy'," +
+            "'OrderId': " + order.client_order_id + "1'," +
+            "'Price': " + str(order.price) + "," +
+            "'Quantity': " + str(order.amount) + "," +
+            "'OrderType': 'Limit'," +
+            "'ClientOrderId': " + order.client_order_id + "," +
+            "'OrderState': 1," +
+            "'OrigQuantity': " + str(order.amount) + "," +
+            "'QuantityExecuted': " + str(order.amount) + "," +
+            "'AvgPrice': " + str(order.price) + "," +
+            "'ChangeReason': 'Fill'," +
+            "'Instrument': 1}"
         }
 
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
-        return None
-
-    def _all_executed_requests(self, api_mock: aioresponses, url: str) -> List[RequestCall]:
-        request_calls = []
-        for key, value in api_mock.requests.items():
-            if key[1].human_repr().startswith(url):
-                request_calls.extend(value)
-        return request_calls
+        return {
+            "n": "OrderTradeEvent",
+            "o": "{'InstrumentId': 1," +
+            "'OrderType': 'Limit'," +
+            "'OrderId': " + order.client_order_id + "1," +
+            "'ClientOrderId': " + order.client_order_id + "," +
+            "'Price': " + str(order.price) + "," +
+            "'Value': " + str(order.price) + "," +
+            "'Quantity': " + str(order.amount) + "," +
+            "'RemainingQuantity': 0.00," +
+            "'Side': 'Buy'," +
+            "'TradeId': 1," +
+            "'TradeTimeMS': 1640780000}"
+        }
 
     def _simulate_trading_rules_initialized(self):
         self.exchange._trading_rules = {
@@ -934,7 +880,7 @@ class FoxbitExchangeTests(TestCase):
             mock_api=mock_api,
             callback=lambda *args, **kwargs: request_sent_event.set())
 
-        self.exchange.cancel(trading_pair=self.trading_pair, order_id="11")
+        self.exchange.cancel(trading_pair=self.trading_pair, client_order_id="11")
         self.async_run_with_timeout(request_sent_event.wait())
 
         cancel_request = self._all_executed_requests(mock_api, url)[0]
@@ -943,7 +889,7 @@ class FoxbitExchangeTests(TestCase):
             order=order,
             request_call=cancel_request)
 
-        self.assertEquals(0, len(self.order_cancelled_logger.event_log))
+        self.assertEqual(0, len(self.order_cancelled_logger.event_log))
         self.assertTrue(any(log.msg.startswith(f"Failed to cancel order {order.client_order_id}")
                             for log in self.log_records))
 
@@ -1019,7 +965,7 @@ class FoxbitExchangeTests(TestCase):
 
         expected_initial_dict = {
             "symbols_mapping_initialized": False,
-            "instruments_mapping_initialized": False,
+            "instruments_mapping_initialized": True,
             "order_books_initialized": False,
             "account_balance": False,
             "trading_rule_initialized": False
@@ -1031,16 +977,6 @@ class FoxbitExchangeTests(TestCase):
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_get_last_trade_prices(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-        ixm_config = {
-            'm': 0,
-            'i': 1,
-            'n': 'GetInstruments',
-            'o': '[{"OMSId":1,"InstrumentId":1,"Symbol":"COINALPHA/HBOT","Product1":1,"Product1Symbol":"COINALPHA","Product2":2,"Product2Symbol":"HBOT","InstrumentType":"Standard","VenueInstrumentId":1,"VenueId":1,"SortIndex":0,"SessionStatus":"Running","PreviousSessionStatus":"Paused","SessionStatusDateTime":"2020-07-11T01:27:02.851Z","SelfTradePrevention":true,"QuantityIncrement":1e-8,"PriceIncrement":0.01,"MinimumQuantity":1e-8,"MinimumPrice":0.01,"VenueSymbol":"BTC/BRL","IsDisable":false,"MasterDataId":0,"PriceCollarThreshold":0,"PriceCollarPercent":0,"PriceCollarEnabled":false,"PriceFloorLimit":0,"PriceFloorLimitEnabled":false,"PriceCeilingLimit":0,"PriceCeilingLimitEnabled":false,"CreateWithMarketRunning":true,"AllowOnlyMarketMakerCounterParty":false}]'
-        }
-        self.mocking_assistant.add_websocket_aiohttp_message(
-            websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(ixm_config))
-
         ixm_response = {
             'm': 0,
             'i': 1,
@@ -1069,7 +1005,7 @@ class FoxbitExchangeTests(TestCase):
             "data": [
                 {
                     "sn": "OKMAKSDHRVVREK",
-                    "id": 4
+                    "id": 21
                 }
             ]
         }
@@ -1151,7 +1087,22 @@ class FoxbitExchangeTests(TestCase):
             "instant_amount_executed": "0.0",
             "created_at": "2022-09-08T17:06:32.999Z",
             "trades_count": "2",
-            "remark": "A remarkable note for the order."
+        }
+
+    def _order_fills_request_full_fill_mock_response(self, order: InFlightOrder):
+        return {
+            "n": "OrderTradeEvent",
+            "o": "{'InstrumentId': 1," +
+            "'OrderType': 'Limit'," +
+            "'OrderId': " + order.client_order_id + "1," +
+            "'ClientOrderId': " + order.client_order_id + "," +
+            "'Price': " + str(order.price) + "," +
+            "'Value': " + str(order.price) + "," +
+            "'Quantity': " + str(order.amount) + "," +
+            "'RemainingQuantity': 0.00," +
+            "'Side': 'Buy'," +
+            "'TradeId': 1," +
+            "'TradeTimeMS': 1640780000}"
         }
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
@@ -1191,8 +1142,53 @@ class FoxbitExchangeTests(TestCase):
 
         self.assertIsNotNone(self.exchange.get_fee('COINALPHA', 'BOT', OrderType.MARKET, TradeType.BUY, 1.0, 22500.011, False))
 
+    @aioresponses()
+    def test_update_order_status_when_filled(self, mock_api):
+        pass
+
+    @aioresponses()
+    def test_update_order_status_when_canceled(self, mock_api):
+        pass
+
+    @aioresponses()
+    def test_update_order_status_when_order_has_not_changed(self, mock_api):
+        pass
+
+    @aioresponses()
+    def test_user_stream_update_for_order_full_fill(self, mock_api):
+        pass
+
+    @aioresponses()
+    def test_update_order_status_when_request_fails_marks_order_as_not_found(self, mock_api):
+        pass
+
+    @aioresponses()
+    def test_update_order_status_when_order_has_not_changed_and_one_partial_fill(self, mock_api):
+        pass
+
+    @aioresponses()
+    def test_update_order_status_when_filled_correctly_processed_even_when_trade_fill_update_fails(self, mock_api):
+        pass
+
+    def test_user_stream_update_for_new_order(self):
+        pass
+
+    def test_user_stream_update_for_canceled_order(self):
+        pass
+
     def test_user_stream_raises_cancel_exception(self):
         pass
 
     def test_user_stream_logs_errors(self):
+        pass
+
+    @aioresponses()
+    def test_lost_order_included_in_order_fills_update_and_not_in_order_status_update(self, mock_api):
+        pass
+
+    def test_lost_order_removed_after_cancel_status_user_event_received(self):
+        pass
+
+    @aioresponses()
+    def test_lost_order_user_stream_full_fill_events_are_processed(self, mock_api):
         pass

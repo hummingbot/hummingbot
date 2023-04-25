@@ -803,18 +803,14 @@ class FoxbitExchange(ExchangePyBase):
         return trade_updates
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
-        # TODO: implement this method correctly for the connector
-        # The default implementation was added when the functionality to detect not found orders was introduced in the
-        # ExchangePyBase class. Also fix the unit test test_lost_order_removed_if_not_found_during_order_status_update
-        # when replacing the dummy implementation
-        return False
+        return str(CONSTANTS.ORDER_NOT_EXIST_ERROR_CODE) in str(
+            status_update_exception
+        ) and CONSTANTS.ORDER_NOT_EXIST_MESSAGE in str(status_update_exception)
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
-        # TODO: implement this method correctly for the connector
-        # The default implementation was added when the functionality to detect not found orders was introduced in the
-        # ExchangePyBase class. Also fix the unit test test_cancel_order_not_found_in_the_exchange when replacing the
-        # dummy implementation
-        return False
+        return str(CONSTANTS.UNKNOWN_ORDER_ERROR_CODE) in str(
+            cancelation_exception
+        ) and CONSTANTS.UNKNOWN_ORDER_MESSAGE in str(cancelation_exception)
 
     def _process_balance_message(self, account_info: Dict[str, Any]):
         asset_name = account_info.get("ProductSymbol")
