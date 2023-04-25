@@ -76,7 +76,7 @@ def endpoint_from_message(message: Dict[str, Any]) -> Optional[str]:
     return endpoint
 
 
-def payload_from_message(message: Dict[str, Any]) -> List[Dict[str, Any]]:
+def payload_from_message(message: Dict[str, Any]) -> Dict[str, Any]:
     payload = message
     if "data" in message:
         payload = message["data"]
