@@ -138,12 +138,6 @@ kucoin_maker_percent_fee:
 kucoin_percent_fee_token:
 kucoin_taker_fixed_fees:
 kucoin_taker_percent_fee:
-kucoin_testnet_buy_percent_fee_deducted_from_returns:
-kucoin_testnet_maker_fixed_fees:
-kucoin_testnet_maker_percent_fee:
-kucoin_testnet_percent_fee_token:
-kucoin_testnet_taker_fixed_fees:
-kucoin_testnet_taker_percent_fee:
 loopring_buy_percent_fee_deducted_from_returns:
 loopring_maker_fixed_fees:
 loopring_maker_percent_fee:
