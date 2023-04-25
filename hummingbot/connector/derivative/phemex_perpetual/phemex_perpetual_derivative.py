@@ -307,8 +307,6 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
             "ordType": "Market" if order_type is OrderType.MARKET else "Limit",
             "clOrdID": order_id,
             "posSide": "Merged",
-            "closeOnTrigger": position_action == PositionAction.CLOSE,
-            "reduceOnly": position_action == PositionAction.CLOSE,
         }
         if order_type.is_limit_type():
             api_params["priceRp"] = price_str
