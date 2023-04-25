@@ -81,7 +81,6 @@ jobs:
   build_on_windows:
     name: I/B/T x86 Windows
     needs: run_client
-    continue-on-error: true
     uses: ./.github/workflows/install_generic_runner.yml
     with:
       should_run: ${{ needs.run_client.outputs.is_set }}
