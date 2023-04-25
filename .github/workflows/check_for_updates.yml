@@ -49,7 +49,7 @@ jobs:
     needs: run_client
     uses: ./.github/workflows/install_generic_runner.yml
     with:
-      should_run: ${{ needs.run_client.outputs.is_set }}
+      should_run: ${{ needs.run_client.outputs.is_set == 'true' }}
       env-yml-file: setup/environment-linux.yml
       os-matrix: "['x86-ubuntu-latest']"
       must-succeed: "['x86-ubuntu-latest']"
@@ -61,7 +61,7 @@ jobs:
     needs: run_client
     uses: ./.github/workflows/install_generic_runner.yml
     with:
-      should_run: ${{ needs.run_client.outputs.is_set }}
+      should_run: ${{ needs.run_client.outputs.is_set == 'true' }}
       env-yml-file: setup/environment-linux.yml
       os-matrix: "['x86-ubuntu-20.04']"
       shell: 'bash -l {0}'
@@ -72,7 +72,7 @@ jobs:
     needs: run_client
     uses: ./.github/workflows/install_generic_runner.yml
     with:
-      should_run: ${{ needs.run_client.outputs.is_set }}
+      should_run: ${{ needs.run_client.outputs.is_set == 'true' }}
       env-yml-file: setup/environment.yml
       os-matrix: "['x86-macos-latest']"
       shell: 'bash -l {0}'
@@ -83,7 +83,7 @@ jobs:
     needs: run_client
     uses: ./.github/workflows/install_generic_runner.yml
     with:
-      should_run: ${{ needs.run_client.outputs.is_set }}
+      should_run: ${{ needs.run_client.outputs.is_set == 'true' }}
       env-yml-file: setup/environment-win64.yml
       os-matrix: "['x86-windows-latest']"
       shell: 'bash -l {0}'
@@ -96,7 +96,7 @@ jobs:
 #    uses: ./.github/workflows/install_generic_runner.yml
 #    with:
 #      should_run: true
-#      #should_run: ${{ needs.run_client.outputs.is_set }}
+#      #should_run: ${{ needs.run_client.outputs.is_set == 'true' }}
 #      env-yml-file: setup/environment.yml
 #      os-matrix: "['arm64-ubuntu-latest']"
 #      shell: 'bash -l {0}'
@@ -118,7 +118,7 @@ jobs:
 #    uses: ./.github/workflows/install_raspi_Linux.yml
 #    with:
 #      should_run: true
-#      # should_run: ${{ needs.run_client.outputs.is_set }}
+#      # should_run: ${{ needs.run_client.outputs.is_set == 'true' }}
 #      os-matrix: "['zero2_64_raspios']"
 #    secrets: inherit
 
