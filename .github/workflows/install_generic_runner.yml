@@ -147,13 +147,22 @@ jobs:
             --ignore="test/hummingbot/connector/gateway/clob"
 
       - name: Check and report global coverage
+        id: coverage-check
         if: steps.checkout-hb-cache-hit.outputs.hb-cache-hit != 'true' || steps.checkout-hb-cache-hit.outputs.conda-cache-hit != 'true'
+        continue-on-error: ${{ ! contains(inputs.must-succeed, matrix.target) && true || false }}
         run: |
           conda activate hummingbot
           make report_coverage
 
+      # Register the failed coverage check as a comment on the PR
+      - uses: mainmatter/continue-on-error-comment@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          outcome: ${{ steps.coverage-check.outcome }}
+          test-id: Error code FailedMakeCoverage
+
       - name: Validate coverage for the changes
-        id: coverage-check
+        id: coverage-validation
         if: github.event_name == 'pull_request' && (steps.checkout-hb-cache-hit.outputs.hb-cache-hit != 'true' || steps.checkout-hb-cache-hit.outputs.conda-cache-hit != 'true')
         continue-on-error: ${{ ! contains(inputs.must-succeed, matrix.target) && true || false }}
         run: |
@@ -162,13 +171,6 @@ jobs:
           git checkout -b $GITHUB_SHA
           coverage xml
           diff-cover --compare-branch=origin/$GITHUB_BASE_REF --fail-under=80 coverage.xml
-
-      # Register the failed coverage check as a comment on the PR
-      - uses: mainmatter/continue-on-error-comment@v1
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          outcome: ${{ steps.coverage-check.outcome }}
-          test-id: Error code FailedCoverage
 
       # Color the discord message based on the outcome of the build
       - name: Color JSON report
