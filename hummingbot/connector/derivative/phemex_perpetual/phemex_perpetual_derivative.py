@@ -490,7 +490,10 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
             except KeyError:
                 # Ignore results for which their symbols is not tracked by the connector
                 continue
-            position_side: PositionSide = PositionSide.LONG if position["posSide"] == "Long" else PositionSide.SHORT
+            if position["posSide"] == "Merged":
+                position_side: PositionSide = PositionSide.LONG if position["side"] == "Buy" else PositionSide.SHORT
+            else:
+                position_side: PositionSide = PositionSide.LONG if position["posSide"] == "Long" else PositionSide.SHORT
             position_mode = PositionMode.HEDGE if position["posMode"] == "Hedged" else PositionMode.ONEWAY
             amount = Decimal(position["size"])
             pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side, position_mode)
