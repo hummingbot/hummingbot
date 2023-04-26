@@ -616,11 +616,10 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
             if mid_price != s_decimal_NaN:
 
                 position_mode = PositionMode.HEDGE if position["posMode"] == "Hedged" else PositionMode.ONEWAY
-                position_side = (
-                    PositionSide.BOTH
-                    if position_mode is PositionMode.ONEWAY
-                    else PositionSide[position.get("posSide").upper()]
-                )
+                if position["posSide"] == "Merged":
+                    position_side: PositionSide = PositionSide.LONG if position["side"] == "Buy" else PositionSide.SHORT
+                else:
+                    position_side: PositionSide = PositionSide.LONG if position["posSide"] == "Long" else PositionSide.SHORT
 
                 entry_price = Decimal(position.get("avgEntryPriceRp"))
 

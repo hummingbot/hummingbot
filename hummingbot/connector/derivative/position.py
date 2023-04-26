@@ -55,7 +55,7 @@ class Position:
         return self._leverage
 
     def update_position(self,
-                        position_side: str = None,
+                        position_side: PositionSide = None,
                         unrealized_pnl: Decimal = None,
                         entry_price: Decimal = None,
                         amount: Decimal = None):
