@@ -11,7 +11,6 @@ HB_PARTNER_KEY = "8fb50686-81a8-408a-901c-07c5ac5bd758"
 # REST endpoints
 BASE_PATH_URL = {
     "main": "https://api.kucoin.com",
-    "testnet": "https://openapi-sandbox.kucoin.com",
 }
 PUBLIC_WS_DATA_PATH_URL = "/api/v1/bullet-public"
 PRIVATE_WS_DATA_PATH_URL = "/api/v1/bullet-private"
@@ -19,7 +18,7 @@ TICKER_PRICE_CHANGE_PATH_URL = "/api/v1/market/orderbook/level1"
 SNAPSHOT_NO_AUTH_PATH_URL = "/api/v1/market/orderbook/level2_100"
 ACCOUNTS_PATH_URL = "/api/v1/accounts"
 SERVER_TIME_PATH_URL = "/api/v1/timestamp"
-SYMBOLS_PATH_URL = "/api/v1/symbols"
+SYMBOLS_PATH_URL = "/api/v2/symbols"
 ORDERS_PATH_URL = "/api/v1/orders"
 FEE_PATH_URL = "/api/v1/trade-fees"
 ALL_TICKERS_PATH_URL = "/api/v1/market/allTickers"
