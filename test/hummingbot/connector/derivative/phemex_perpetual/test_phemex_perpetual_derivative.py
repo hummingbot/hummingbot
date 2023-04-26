@@ -158,7 +158,7 @@ class PhemexPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "sellLeavesQty": "0",
                     "sellLeavesValueRv": "0",
                     "sellValueToCostRr": "0.10126",
-                    "side": "Buy",
+                    "side": "Sell",
                     "size": str(order.amount),
                     "symbol": self.exchange_trading_pair,
                     "takerFeeRateRr": "-1",
