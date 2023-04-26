@@ -259,7 +259,7 @@ class BinanceExchange(ExchangePyBase):
                 filters = rule.get("filters")
                 price_filter = [f for f in filters if f.get("filterType") == "PRICE_FILTER"][0]
                 lot_size_filter = [f for f in filters if f.get("filterType") == "LOT_SIZE"][0]
-                min_notional_filter = [f for f in filters if f.get("filterType") == "MIN_NOTIONAL"][0]
+                min_notional_filter = [f for f in filters if f.get("filterType") in ["MIN_NOTIONAL", "NOTIONAL"]][0]
 
                 min_order_size = Decimal(lot_size_filter.get("minQty"))
                 tick_size = price_filter.get("tickSize")
