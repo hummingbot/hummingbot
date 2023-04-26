@@ -69,6 +69,7 @@ class ConnectorType(Enum):
     """
 
     EVM_AMM = "EVM_AMM"
+    ALGORAND_AMM = "ALGORAND_AMM"
     EVM_Perpetual = "EVM_Perpetual"
     EVM_AMM_LP = "EVM_AMM_LP"
     CLOB_SPOT = "CLOB_SPOT"
@@ -76,6 +77,9 @@ class ConnectorType(Enum):
     Connector = "connector"
     Exchange = "exchange"
     Derivative = "derivative"
+
+
+GATEWAY_GENERIC_CONNECTORS = [ConnectorType.ALGORAND_AMM, ConnectorType.EVM_AMM, ConnectorType.EVM_Perpetual, ConnectorType.NEAR_AMM, ConnectorType.EVM_AMM_LP]  # type: ignore
 
 
 class GatewayConnectionSetting:
@@ -195,7 +199,7 @@ class ConnectorSetting(NamedTuple):
     def module_name(self) -> str:
         # returns connector module name, e.g. binance_exchange
         if self.uses_gateway_generic_connector():
-            if self.type in [ConnectorType.EVM_AMM, ConnectorType.EVM_Perpetual, ConnectorType.NEAR_AMM, ConnectorType.EVM_AMM_LP]:
+            if self.type in GATEWAY_GENERIC_CONNECTORS:
                 return f"gateway.amm.gateway_{self._get_module_package()}"
             elif self.type == ConnectorType.CLOB_SPOT:
                 return f"gateway.clob_spot.gateway_{self._get_module_package()}"
@@ -509,7 +513,7 @@ class AllConnectorSettings:
 
     @classmethod
     def get_gateway_amm_connector_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.get_connector_settings().values() if cs.type in [ConnectorType.EVM_AMM, ConnectorType.NEAR_AMM]}
+        return {cs.name for cs in cls.get_connector_settings().values() if cs.type.name.endswith("_AMM")}
 
     @classmethod
     def get_gateway_evm_amm_lp_connector_names(cls) -> Set[str]:
