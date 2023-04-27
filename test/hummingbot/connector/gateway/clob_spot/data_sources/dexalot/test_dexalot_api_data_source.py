@@ -9,10 +9,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pandas as pd
 from aioresponses import aioresponses
 
-from hummingbot.connector.gateway.clob_spot.data_sources.clob_api_data_source_base import PlaceOrderResult
 from hummingbot.connector.gateway.clob_spot.data_sources.dexalot import dexalot_constants as CONSTANTS
 from hummingbot.connector.gateway.clob_spot.data_sources.dexalot.dexalot_api_data_source import DexalotAPIDataSource
 from hummingbot.connector.gateway.clob_spot.data_sources.dexalot.dexalot_constants import HB_TO_DEXALOT_STATUS_MAP
+from hummingbot.connector.gateway.common_types import PlaceOrderResult
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.test_support.gateway_clob_api_data_source_test import AbstractGatewayCLOBAPIDataSourceTests
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
@@ -489,10 +489,13 @@ class DexalotAPIDataSourceTest(AbstractGatewayCLOBAPIDataSourceTests.GatewayCLOB
         time_mock.return_value = self.initial_timestamp
         data_source.gateway_order_tracker = self.tracker
 
+        task = asyncio.get_event_loop().create_task(coro=snapshots_logger.wait_for(event_type=OrderBookMessage))
+        self.async_tasks.append(task)
         self.async_run_with_timeout(coro=data_source.start())
         self.mocking_assistant.run_until_all_aiohttp_messages_delivered(
             websocket_mock=self.ws_connect_mock.return_value
         )
+        self.async_run_with_timeout(coro=task)
 
         self.assertEqual(1, len(snapshots_logger.event_log))
 
@@ -565,10 +568,7 @@ class DexalotAPIDataSourceTest(AbstractGatewayCLOBAPIDataSourceTests.GatewayCLOB
         mock_max_order_create_per_batch = 2
 
         def sleep_mock_side_effect(delay):
-            if delay == self.data_source.current_block_time:
-                return None
-            else:
-                raise Exception
+            raise Exception
 
         sleep_mock.side_effect = sleep_mock_side_effect
 

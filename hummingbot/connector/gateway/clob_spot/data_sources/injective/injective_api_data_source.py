@@ -11,7 +11,6 @@ from grpc.aio import UnaryStreamCall
 from pyinjective.async_client import AsyncClient
 from pyinjective.composer import Composer as ProtoMsgComposer
 from pyinjective.constant import Network
-from pyinjective.orderhash import OrderHashResponse, build_eip712_msg, hash_order
 from pyinjective.proto.exchange.injective_accounts_rpc_pb2 import StreamSubaccountBalanceResponse, SubaccountBalance
 from pyinjective.proto.exchange.injective_explorer_rpc_pb2 import GetTxByTxHashResponse, StreamTxsResponse
 from pyinjective.proto.exchange.injective_portfolio_rpc_pb2 import StreamAccountPortfolioResponse
@@ -25,17 +24,12 @@ from pyinjective.proto.exchange.injective_spot_exchange_rpc_pb2 import (
     StreamTradesResponse,
     TokenMeta,
 )
-from pyinjective.proto.injective.exchange.v1beta1.exchange_pb2 import DerivativeOrder, SpotOrder
+from pyinjective.proto.injective.exchange.v1beta1.exchange_pb2 import SpotOrder
 from pyinjective.wallet import Address
 
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.gateway.clob_spot.data_sources.clob_api_data_source_base import (
-    CancelOrderResult,
-    CLOBAPIDataSourceBase,
-    PlaceOrderResult,
-)
+from hummingbot.connector.gateway.clob_spot.data_sources.clob_api_data_source_base import CLOBAPIDataSourceBase
 from hummingbot.connector.gateway.clob_spot.data_sources.injective.injective_constants import (
-    ACC_NONCE_PATH_RATE_LIMIT_ID,
     BACKEND_TO_CLIENT_ORDER_STATE_MAP,
     CLIENT_TO_BACKEND_ORDER_TYPES_MAP,
     CONNECTOR_NAME,
@@ -44,14 +38,13 @@ from hummingbot.connector.gateway.clob_spot.data_sources.injective.injective_con
     MSG_BATCH_UPDATE_ORDERS,
     MSG_CANCEL_SPOT_ORDER,
     MSG_CREATE_SPOT_LIMIT_ORDER,
-    NONCE_PATH,
-    RATE_LIMITS,
     REQUESTS_SKIP_STEP,
 )
+from hummingbot.connector.gateway.clob_spot.data_sources.injective.injective_utils import OrderHashManager
+from hummingbot.connector.gateway.common_types import CancelOrderResult, PlaceOrderResult
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, split_hb_trading_pair
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book import OrderBookMessage
@@ -61,44 +54,7 @@ from hummingbot.core.event.events import AccountEvent, BalanceUpdateEvent, Marke
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.logger import HummingbotLogger
-
-
-class OrderHashManager:
-    def __init__(self, network: Network, sub_account_id: str):
-        self._sub_account_id = sub_account_id
-        self._network = network
-        self._sub_account_nonce = 0
-        self._web_assistants_factory = WebAssistantsFactory(throttler=AsyncThrottler(rate_limits=RATE_LIMITS))
-
-    @property
-    def current_nonce(self) -> int:
-        return self._sub_account_nonce
-
-    async def start(self):
-        url = f"{self._network.lcd_endpoint}/{NONCE_PATH}/{self._sub_account_id}"
-        rest_assistant = await self._web_assistants_factory.get_rest_assistant()
-        res = await rest_assistant.execute_request(url=url, throttler_limit_id=ACC_NONCE_PATH_RATE_LIMIT_ID)
-        nonce = res["nonce"]
-        self._sub_account_nonce = nonce + 1
-
-    def compute_order_hashes(
-        self, spot_orders: List[SpotOrder], derivative_orders: List[DerivativeOrder]
-    ) -> OrderHashResponse:
-        order_hashes = OrderHashResponse(spot=[], derivative=[])
-
-        for o in spot_orders:
-            order_hash = hash_order(build_eip712_msg(o, self._sub_account_nonce))
-            order_hashes.spot.append(order_hash)
-            self._sub_account_nonce += 1
-
-        for o in derivative_orders:
-            order_hash = hash_order(build_eip712_msg(o, self._sub_account_nonce))
-            order_hashes.derivative.append(order_hash)
-            self._sub_account_nonce += 1
-
-        return order_hashes
 
 
 class InjectiveAPIDataSource(CLOBAPIDataSourceBase):
@@ -1114,7 +1070,7 @@ class InjectiveAPIDataSource(CLOBAPIDataSourceBase):
             stream.cancel()
 
     async def _parse_transaction_event(self, transaction: StreamTxsResponse):
-        order = self._gateway_order_tracker.get_fillable_order_by_hash(hash=transaction.hash)
+        order = self._gateway_order_tracker.get_fillable_order_by_hash(transaction_hash=transaction.hash)
         if order is not None:
             messages = json.loads(s=transaction.messages)
             for message in messages:
