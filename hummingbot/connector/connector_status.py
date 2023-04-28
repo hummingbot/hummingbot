@@ -54,7 +54,7 @@ connector_status = {
     'vvs': 'bronze',
     'ref': 'bronze',
     'injective': 'bronze',
-    'xsswap': 'bronze',
+    'xswap': 'bronze',
     'dexalot': 'bronze',
     'kucoin_perpetual': 'silver',
     'kucoin_perpetual_testnet': 'silver',
