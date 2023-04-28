@@ -49,7 +49,6 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
         super().__init__(
             trading_pairs=trading_pairs, connector_spec=connector_spec, client_config_map=client_config_map
         )
-        self._api_key = connector_spec["additional_prompt_values"]["api_key"]
         self._api_factory: Optional[WebAssistantsFactory] = None
         self._stream_listener: Optional[asyncio.Task] = None
         self._client_order_id_nonce_provider = NonceCreator.for_microseconds()
@@ -73,7 +72,7 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
         )
         auth = DexalotAuth(signer=signer, address=self._account_id)
         throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        self._api_factory = build_api_factory(throttler=throttler, api_key=self._api_key, auth=auth)
+        self._api_factory = build_api_factory(throttler=throttler, auth=auth)
         self._stream_listener = safe_ensure_future(self._listen_to_streams())
         self._gateway_order_tracker.lost_order_count_limit = CONSTANTS.LOST_ORDER_COUNT_LIMIT
         await super().start()
