@@ -1,0 +1,132 @@
+name: ci
+
+on:
+  push:
+    branches: [master, development, development_unofficial, 'refactor/unit_tests**', 'epic/**']
+  pull_request:
+    branches: [master, development, development_unofficial, 'refactor/unit_tests**', 'epic/**']
+    types: [ready_for_review, opened, synchronize, reopened]
+
+jobs:
+  run_client:
+    name: Check if client files changed
+    outputs:
+      is_set: ${{ steps.check_files.outputs.is_set }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: technote-space/get-diff-action@v6
+        with:
+          PATTERNS: |
+            **/*.+(py|pyx|pyd|yml)
+      - name: Check if client files are modified
+        id: check_files
+        if: env.GIT_DIFF
+        run: |
+          echo ${{ env.GIT_DIFF }}
+          echo "is_set=true" >> $GITHUB_OUTPUT
+
+  required_tests:
+    name: Evaluate Success/Failure of Required Tests
+    if: always()
+    needs:
+      - run_client
+      - build_on_Linux_Primary
+      - build_on_Linux
+      - build_on_macOS
+      - build_on_windows
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate required successful tests
+        uses: re-actors/alls-green@release/v1
+        with:
+          allowed-failures: build_on_Linux, build_on_macOS, build_on_windows
+          allowed-skips: build_on_Linux, build_on_macOS, build_on_windows
+          jobs: ${{ toJson(needs) }}
+
+  build_on_Linux_Primary:
+    name: I/B/T x86 Linux
+    needs: run_client
+    uses: ./.github/workflows/install_generic_runner.yml
+    with:
+      should_run: ${{ needs.run_client.outputs.is_set == 'true' }}
+      env-yml-file: setup/environment-linux.yml
+      os-matrix: "['x86-ubuntu-latest']"
+      must-succeed: "['x86-ubuntu-latest']"
+      shell: 'bash -l {0}'
+    secrets: inherit
+
+  build_on_Linux:
+    name: I/B/T x86 Linux
+    needs: run_client
+    uses: ./.github/workflows/install_generic_runner.yml
+    with:
+      should_run: ${{ needs.run_client.outputs.is_set == 'true' }}
+      env-yml-file: setup/environment-linux.yml
+      os-matrix: "['x86-ubuntu-20.04']"
+      shell: 'bash -l {0}'
+    secrets: inherit
+
+  build_on_macOS:
+    name: I/B/T x86 MacOS
+    needs: run_client
+    uses: ./.github/workflows/install_generic_runner.yml
+    with:
+      should_run: ${{ needs.run_client.outputs.is_set == 'true' }}
+      env-yml-file: setup/environment.yml
+      os-matrix: "['x86-macos-latest']"
+      shell: 'bash -l {0}'
+    secrets: inherit
+
+  build_on_windows:
+    name: I/B/T x86 Windows
+    needs: run_client
+    uses: ./.github/workflows/install_generic_runner.yml
+    with:
+      should_run: ${{ needs.run_client.outputs.is_set == 'true' }}
+      env-yml-file: setup/environment-win64.yml
+      os-matrix: "['x86-windows-latest']"
+      shell: 'bash -l {0}'
+    secrets: inherit
+
+#
+#  build_on_ARM:
+#    name: I/B/T ARM64 MacOS
+#    needs: run_client
+#    uses: ./.github/workflows/install_generic_runner.yml
+#    with:
+#      should_run: true
+#      #should_run: ${{ needs.run_client.outputs.is_set == 'true' }}
+#      env-yml-file: setup/environment.yml
+#      os-matrix: "['arm64-ubuntu-latest']"
+#      shell: 'bash -l {0}'
+#    secrets: inherit
+#
+#  # Custom Flows
+#  build_on_WSL:
+#    name: I/B/T x86 WSL
+#    needs: run_client
+#    uses: ./.github/workflows/install_x86_wsl.yml
+#    with:
+#      should_run: true
+#      os-matrix: "['Debian']"
+#    secrets: inherit
+#
+#  build_on_raspi:
+#    name: I/B/T RasPi
+#    needs: run_client
+#    uses: ./.github/workflows/install_raspi_Linux.yml
+#    with:
+#      should_run: true
+#      # should_run: ${{ needs.run_client.outputs.is_set == 'true' }}
+#      os-matrix: "['zero2_64_raspios']"
+#    secrets: inherit
+
+  # build_on_Rosetta:
+  #   name: I/B/T ARM64 Rosetta
+  #   needs: run_client
+  #   uses: ./.github/workflows/install_arm_linux.yml
+  #   with:
+  #     should_run: true
+  #     env-yml-file: setup/environment.yml
+  #   secrets: inherit

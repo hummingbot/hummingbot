@@ -17,7 +17,10 @@ if is_posix:
         os.environ["CFLAGS"] = "-std=c++11"
 
 if os.environ.get('WITHOUT_CYTHON_OPTIMIZATIONS'):
-    os.environ["CFLAGS"] += " -O0"
+    if "CFLAGS" in os.environ:
+        os.environ["CFLAGS"] = os.environ.get("CFLAGS") + " -O0"
+    else:
+        os.environ["CFLAGS"] = "-O0"
 
 
 # Avoid a gcc warning below:
@@ -32,7 +35,7 @@ class BuildExt(build_ext):
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20230330"
+    version = "20230426"
     packages = find_packages(include=["hummingbot", "hummingbot.*"])
     package_data = {
         "hummingbot": [

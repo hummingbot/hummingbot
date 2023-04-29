@@ -1,0 +1,184 @@
+name: Custom Install/Build/Test for WSL
+
+on:
+  workflow_call:
+    inputs:
+      should_run:
+        required: false
+        type: boolean
+        default: false
+      os-matrix:
+        required: false
+        type: string
+        default: "['Debian', 'Ubuntu-22.04']"
+
+jobs:
+  build_hummingbot:
+    name: build/tests ${{ matrix.os }}
+    if: ${{ inputs.should_run == true }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJson(inputs.os-matrix) }}
+        #os: [Debian, Alpine, kali-linux, openSUSE-Leap-15.2, Ubuntu-22.04]
+
+    env:
+      # colon separated list of env vars to be passed to wsl-bash:
+      WSLENV: MINICONDA_PATH:HB_PYTHON_VERSION:RELATIVE_MINICONDA_PATH:HB_ENV_NAME:LOCAL_PATH
+
+    defaults:
+      run:
+        shell: wsl-bash {0}
+
+    steps:
+      # Checkout Hummingbot - not much can be done without that!
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      # Loading Custom Environment variables
+      - name: Set Environment Variables
+        shell: bash
+        run: |
+          sed "/#/d" ./.github/variables/hb_env_variables.env >> $GITHUB_ENV
+
+      # Set up WSL
+      - uses: Vampire/setup-wsl@v2
+        with:
+            distribution: ${{ matrix.os }}
+
+      # Double-check Conda environment variables under WSL
+      - name: Verify environment variables
+        env:
+          MINICONDA_PATH: ${{ env.MINICONDA_PATH }}
+          HB_PYTHON_VERSION: ${{ env.HB_PYTHON_VERSION }}
+          HB_ENV_NAME: ${{ env.HB_ENV_NAME }}
+          RELATIVE_MINICONDA_PATH: ${{ env.RELATIVE_MINICONDA_PATH }}
+        run: |
+          echo "MINICONDA_PATH=${MINICONDA_PATH}"
+          echo "HB_PYTHON_VERSION=${HB_PYTHON_VERSION}"
+          echo "HB_ENV_NAME=${HB_ENV_NAME}"
+          echo "RELATIVE_MINICONDA_PATH=${RELATIVE_MINICONDA_PATH}"
+
+      # Register new Miniconda custom installation for cache
+      - run: |
+          apt-get update
+          apt-get install -y wget
+          wget https://repo.anaconda.com/miniconda/index.html -O miniconda_latest.html
+
+      # Checkout Hummingbot, set HB env variables and check cache
+      - name: Set Project Env. vars and check cache
+        id: set-hb-cache-hit
+        uses: ./.github/actions/set_hb_env_cache
+        with:
+          runner: WSL-${{ matrix.os }}
+          conda-env-hash: ${{ hashFiles('setup/environment-linux.yml') }}
+          conda-inst-hash: ${{ hashFiles('miniconda_latest.html') }}
+
+      # Install Custom Conda to work under WSL
+      - name: Install conda
+        if: steps.set-env-hb-cache-hit.outputs.cache-hit != 'true'
+        env:
+          RELATIVE_MINICONDA_PATH: ${{ env.RELATIVE_MINICONDA_PATH }}
+          LOCAL_PATH: ${{ env.GITHUB_PATH }}
+        run: |
+          wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+          sh miniconda.sh -b -p ${RELATIVE_MINICONDA_PATH}
+          source ${RELATIVE_MINICONDA_PATH}/etc/profile.d/conda.sh
+          conda init
+          conda config --set always_yes yes --set changeps1 no
+          conda update -q conda
+          echo "${RELATIVE_MINICONDA_PATH}/bin" >> "$LOCAL_PATH"
+          echo "${RELATIVE_MINICONDA_PATH}/condabin" >> "$LOCAL_PATH"
+
+      # Verify conda environment
+      - name: Verify conda environment
+        run: |
+          conda info | grep "user-agent"
+
+      # Install environment and Hummingbot
+      - name: Install environment and Hummingbot
+        uses: ./.github/actions/install_env_and_hb
+        with:
+          program-cache-hit: ${{steps.program-changes.outputs.cache-hit}}
+          dependencies-cache-hit: ${{steps.conda-dependencies.outputs.cache-hit}}
+          shell: ${{ inputs.shell }}
+
+      # Compile and run tests if code has changed
+      - name: Run pre-commit hooks on diff
+        if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
+        run: |
+          conda activate hummingbot
+          pre-commit run --files $(git diff --name-only origin/$GITHUB_BASE_REF)
+
+      - name: Run stable tests and calculate coverage
+        if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
+        run: |
+          conda activate hummingbot
+          coverage run -m pytest \
+            --ignore="test/connector" \
+            --ignore="test/debug" \
+            --ignore="test/mock" \
+            --ignore="test/hummingbot/connector/gateway/amm" \
+            --ignore="test/hummingbot/connector/gateway/clob"
+
+      - name: Check and report global coverage
+        if: steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true'
+        run: |
+          conda activate hummingbot
+          make report_coverage
+
+      - name: Validate coverage for the changes
+        if: github.event_name == 'pull_request' && (steps.program-changes.outputs.cache-hit != 'true' || steps.conda-dependencies.outputs.cache-hit != 'true')
+        run: |
+          conda activate hummingbot
+          git fetch --all -q
+          git checkout -b $GITHUB_SHA
+          coverage xml
+          diff-cover --compare-branch=origin/$GITHUB_BASE_REF --fail-under=80 coverage.xml
+
+      # Create JSON report
+      - name: Create JSON report
+        uses: jsdaniell/create-json@v1.2.2
+        with:
+          name: WSL-${{ matrix.os }}-build_report.json
+          json: |
+            {
+              "username": "Hummingbot Bot",
+              "avatar_url": "https://i.imgur.com/4M34hi2.png",
+              "content": "Build ${{ github.run_number }} for ${{ github.repository }} on ${{ matrix.os }} has finished.",
+              "embeds": [{
+                  "author": {
+                    "name": "Hummingbot CI ♫",
+                    "url": "https://hummingbot.io/",
+                    "icon_url": "https://docs.hummingbot.org/assets/img/logo.png"
+                  },
+                  "title": "I/B/T for ${{ github.event.pull_request.title }} on **${{ matrix.os }}** has finished.",
+                  "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+                  "description": "I/B/T for ${{ github.event.pull_request.title }} on **${{ matrix.os }}** has finished.",
+                  "color": 1127128,
+                  "fields": [{
+                      "name": "Build Status",
+                      "value": "${{ job.status }}",
+                      "inline": true
+                    },
+                    {
+                      "name": "Build URL",
+                      "value": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+                      "inline": true
+                    }]
+                }]
+            }
+
+      # Verify conda environment
+      - name: Verify JSON Report
+        run: |
+          cat WSL-${{ matrix.os }}-build_report.json
+
+      # Notify results to discord
+      - name: Discord Webhook Action
+        uses: tsickert/discord-webhook@v5.2.0
+        with:
+          webhook-url: ${{ secrets.WEBHOOK_URL }}
+          raw-data: WSL-${{ matrix.os }}-build_report.json

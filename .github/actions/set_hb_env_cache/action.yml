@@ -1,0 +1,65 @@
+name: "Enable Cache"
+description: "Register the cache for the HB, conda environment and installation"
+inputs:
+   runner:
+     required: true
+     description: "Runner to use for the run step"
+   conda-env-hash:
+     required: true
+     description: "Cache Key to use for the conda environment"
+   conda-inst-hash:
+     required: false
+     description: "Cache Key to use for the conda installation (When using custom Miniconda installation)"
+     default: "0"
+
+outputs:
+   hb-cache-hit:
+     description: "Value of truth regarding the program cache being hit or not"
+     value: ${{ steps.program-changes.outputs.cache-hit }}
+   conda-cache-hit:
+     description: "Value of truth regarding the conda cache being hit or not"
+     value: ${{ steps.conda-dependencies.outputs.cache-hit }}
+   conda-install-cache-hit:
+     description: "Value of truth regarding the conda installation cache being hit or not"
+     value: ${{ steps.conda-installation.outputs.cache-hit }}
+
+runs:
+  using: "composite"
+  steps:
+    # Use cache's hashFiles function to check for changes in core code
+    - name: Check for code changes
+      id: program-changes
+      env:
+        # Increase this value to manually reset cache if program files have not changed
+        CACHE_NUMBER: 0
+      uses: actions/cache@v3
+      with:
+        path: README.md # placeholder file
+        key: ${{ inputs.runner }}-build-${{ env.CACHE_NUMBER }}-${{ hashFiles('hummingbot/*', '**/*.py', '**/*.py*', '**/*.pxd', 'test/*') }}
+
+    # Check for dependencies changes
+    - name: Cache conda dependencies
+      id: conda-dependencies
+      env:
+        # Increase this value to manually reset cache if inputs.conda-env-hash has not changed
+        CACHE_NUMBER: 0
+      uses: actions/cache@v3
+      with:
+        path: |
+          $MINICONDA_PATH/envs/$HB_ENV_NAME
+          CONDA/envs/$HB_ENV_NAME
+        key: ${{ inputs.runner }}-conda-${{ env.CACHE_NUMBER }}-${{ inputs.conda-env-hash }}
+
+    # Check for installation changes
+    - name: Cache conda installation
+      if: inputs.conda-inst-hash != '' && inputs.conda-inst-hash != '0'
+      id: conda-installation
+      env:
+        # Increase this value to manually reset cache if inputs.conda-env-hash has not changed
+        CACHE_NUMBER: 0
+      uses: actions/cache@v3
+      with:
+        path: |
+          $MINICONDA_PATH
+          $RELATIVE_MINICONDA_PATH
+        key: ${{ inputs.runner }}-conda-install-${{ env.CACHE_NUMBER }}-${{ inputs.conda-inst-hash }}
