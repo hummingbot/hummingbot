@@ -1,8 +1,4 @@
-from typing import (
-    Dict,
-    List,
-    Tuple
-)
+from typing import Dict, List, Tuple
 
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.limit_order import LimitOrder

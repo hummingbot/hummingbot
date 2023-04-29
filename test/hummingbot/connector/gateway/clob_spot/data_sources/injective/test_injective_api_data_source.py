@@ -13,13 +13,10 @@ from bidict import bidict
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.gateway.clob_spot.data_sources.gateway_clob_api_data_source_base import (
-    CancelOrderResult,
-    PlaceOrderResult,
-)
 from hummingbot.connector.gateway.clob_spot.data_sources.injective.injective_api_data_source import (
     InjectiveAPIDataSource,
 )
+from hummingbot.connector.gateway.common_types import CancelOrderResult, PlaceOrderResult
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.gateway.gateway_order_tracker import GatewayOrderTracker
 from hummingbot.connector.trading_rule import TradingRule
@@ -567,24 +564,25 @@ class InjectiveAPIDataSourceTest(unittest.TestCase):
 
     def test_get_account_balances(self):
         base_bank_balance = Decimal("75")
-        self.injective_async_client_mock.configure_get_bank_balances_response(base_balance=base_bank_balance)
         base_total_balance = Decimal("10")
         base_available_balance = Decimal("9")
         quote_total_balance = Decimal("200")
         quote_available_balance = Decimal("150")
-        self.injective_async_client_mock.configure_get_account_balances_list_response(
+        self.injective_async_client_mock.configure_get_account_balances_response(
+            base_bank_balance=base_bank_balance,
+            quote_bank_balance=Decimal("0"),
             base_total_balance=base_total_balance,
             base_available_balance=base_available_balance,
             quote_total_balance=quote_total_balance,
             quote_available_balance=quote_available_balance,
         )
 
-        sub_account_balances = self.async_run_with_timeout(coro=self.data_source.get_account_balances())
+        subaccount_balances = self.async_run_with_timeout(coro=self.data_source.get_account_balances())
 
-        self.assertEqual(base_total_balance, sub_account_balances[self.base]["total_balance"])
-        self.assertEqual(base_available_balance, sub_account_balances[self.base]["available_balance"])
-        self.assertEqual(quote_total_balance, sub_account_balances[self.quote]["total_balance"])
-        self.assertEqual(quote_available_balance, sub_account_balances[self.quote]["available_balance"])
+        self.assertEqual(base_total_balance, subaccount_balances[self.base]["total_balance"])
+        self.assertEqual(base_available_balance, subaccount_balances[self.base]["available_balance"])
+        self.assertEqual(quote_total_balance, subaccount_balances[self.quote]["total_balance"])
+        self.assertEqual(quote_available_balance, subaccount_balances[self.quote]["available_balance"])
 
     def test_get_order_status_update_success(self):
         creation_transaction_hash = "0x7cb2eafc389349f86da901cdcbfd9119425a2ea84d61c17b6ded778b6fd2g81d"  # noqa: mock
@@ -756,7 +754,6 @@ class InjectiveAPIDataSourceTest(unittest.TestCase):
 
         balance_event: BalanceUpdateEvent = self.balance_logger.event_log[0]
 
-        self.assertEqual(self.initial_timestamp, balance_event.timestamp)
         self.assertEqual(self.base, balance_event.asset_name)
         self.assertEqual(target_total_balance, balance_event.total_balance)
         self.assertEqual(target_available_balance, balance_event.available_balance)

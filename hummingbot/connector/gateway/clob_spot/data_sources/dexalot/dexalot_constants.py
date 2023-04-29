@@ -12,7 +12,6 @@ MAX_ORDER_CREATIONS_PER_BATCH = 10
 MAX_ORDER_CANCELATIONS_PER_BATCH = 15
 MAX_ID_HEX_DIGITS = 64
 MAX_ID_BIT_COUNT = MAX_ID_HEX_DIGITS * 4
-CURRENT_BLOCK_TIME = 5  # ~2s for Gateway submission + 2s for block inclusion + 1s buffer
 LOST_ORDER_COUNT_LIMIT = 10
 
 DEFAULT_DOMAIN = "mainnet"
@@ -42,7 +41,7 @@ WS_AUTH_RATE_LIMIT_ID = "dexalotWSAuthRateLimitID"
 WS_SUB_RATE_LIMIT_ID = "dexalotWSSubRateLimitID"
 
 RATE_LIMITS = [
-    RateLimit(limit_id=GLOBAL_RATE_LIMIT_ID, limit=5, time_interval=3),
+    RateLimit(limit_id=GLOBAL_RATE_LIMIT_ID, limit=10, time_interval=6),
     RateLimit(
         limit_id=ORDERS_RATE_LIMIT_ID,
         limit=sys.maxsize,

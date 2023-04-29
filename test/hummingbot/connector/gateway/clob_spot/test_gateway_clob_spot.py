@@ -396,7 +396,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
     def test_full_initialization_and_de_initialization(self, _: AsyncMock):
         self.clob_data_source_mock.configure_trades_response_no_trades()
         self.clob_data_source_mock.configure_trades_response_no_trades()
-        self.clob_data_source_mock.configure_get_account_balances_list_response(
+        self.clob_data_source_mock.configure_get_account_balances_response(
             base_total_balance=Decimal("10"),
             base_available_balance=Decimal("9"),
             quote_total_balance=Decimal("200"),
@@ -643,7 +643,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
             timestamp=self.start_timestamp, transaction_hash=self.expected_transaction_hash
         )
 
-        self.exchange.cancel(trading_pair=order.trading_pair, order_id=order.client_order_id)
+        self.exchange.cancel(trading_pair=order.trading_pair, client_order_id=order.client_order_id)
         self.clob_data_source_mock.run_until_cancel_order_called()
 
         if self.exchange.is_cancel_request_in_exchange_synchronous:
@@ -683,7 +683,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
 
         self.clob_data_source_mock.configure_cancel_order_fails_response(exception=RuntimeError("some error"))
 
-        self.exchange.cancel(trading_pair=self.trading_pair, order_id="11")
+        self.exchange.cancel(trading_pair=self.trading_pair, client_order_id="11")
         self.clob_data_source_mock.run_until_cancel_order_called()
 
         self.assertEquals(0, len(self.order_cancelled_logger.event_log))
@@ -853,7 +853,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
         expected_base_available_balance = Decimal("90")
         expected_quote_total_balance = Decimal("10")
         expected_quote_available_balance = Decimal("8")
-        self.clob_data_source_mock.configure_get_account_balances_list_response(
+        self.clob_data_source_mock.configure_get_account_balances_response(
             base_total_balance=expected_base_total_balance,
             base_available_balance=expected_base_available_balance,
             quote_total_balance=expected_quote_total_balance,
@@ -874,7 +874,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
         expected_base_available_balance = Decimal("90")
         expected_quote_total_balance = Decimal("0")
         expected_quote_available_balance = Decimal("0")
-        self.clob_data_source_mock.configure_get_account_balances_list_response(
+        self.clob_data_source_mock.configure_get_account_balances_response(
             base_total_balance=expected_base_total_balance,
             base_available_balance=expected_base_available_balance,
             quote_total_balance=expected_quote_total_balance,
@@ -1457,10 +1457,9 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
 
     def test_user_stream_logs_errors(self):
         self.clob_data_source_mock.configure_faulty_base_balance_stream_event(timestamp=self.start_timestamp)
-
         self.clob_data_source_mock.run_until_all_items_delivered()
 
-        self.assertTrue(self.is_logged("ERROR", "Unexpected error in user stream listener loop."))
+        self.assertTrue(self.is_logged("INFO", "Restarting account balances stream."))
 
     def test_lost_order_included_in_order_fills_update_and_not_in_order_status_update(self):
         self.exchange._set_current_timestamp(self.start_timestamp)

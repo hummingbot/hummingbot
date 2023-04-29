@@ -836,7 +836,7 @@ class AbstractExchangeConnectorTests:
                 mock_api=mock_api,
                 callback=lambda *args, **kwargs: request_sent_event.set())
 
-            self.exchange.cancel(trading_pair=order.trading_pair, order_id=order.client_order_id)
+            self.exchange.cancel(trading_pair=order.trading_pair, client_order_id=order.client_order_id)
             self.async_run_with_timeout(request_sent_event.wait())
 
             cancel_request = self._all_executed_requests(mock_api, url)[0]
@@ -885,7 +885,7 @@ class AbstractExchangeConnectorTests:
                 mock_api=mock_api,
                 callback=lambda *args, **kwargs: request_sent_event.set())
 
-            self.exchange.cancel(trading_pair=self.trading_pair, order_id=self.client_order_id_prefix + "1")
+            self.exchange.cancel(trading_pair=self.trading_pair, client_order_id=self.client_order_id_prefix + "1")
             self.async_run_with_timeout(request_sent_event.wait())
 
             cancel_request = self._all_executed_requests(mock_api, url)[0]
@@ -924,7 +924,7 @@ class AbstractExchangeConnectorTests:
                 order=order, mock_api=mock_api, callback=lambda *args, **kwargs: request_sent_event.set()
             )
 
-            self.exchange.cancel(trading_pair=self.trading_pair, order_id=self.client_order_id_prefix + "1")
+            self.exchange.cancel(trading_pair=self.trading_pair, client_order_id=self.client_order_id_prefix + "1")
             self.async_run_with_timeout(request_sent_event.wait())
 
             self.assertFalse(order.is_done)
