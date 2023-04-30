@@ -1,0 +1,100 @@
+name: "Install environment and Hummingbot"
+description: "Installs conda environment, all libraries and compiles Hummingbot"
+inputs:
+   program-cache-hit:
+     required: true
+     description: "Value of truth regarding the program cache being hit or not"
+   dependencies-cache-hit:
+     required: true
+     description: "Value of truth regarding the program cache being hit or not"
+   shell:
+     required: false
+     description: "Shell to use for the run step"
+     default: bash -eo pipefail
+
+runs:
+  using: "composite"
+  steps:
+    # Install Miniconda3 - This likely needs to be done every time (can we use artifact? how?)
+    - name: Install Miniconda
+      uses: pguyot/arm-runner-action@v2
+      with:
+        image_additional_mb: 2048
+        base_image: ${{ matrix.base_image }}
+        cpu: ${{ matrix.cpu }}
+        cpu_info: ${{ matrix.cpu_info }}
+        bind_mount_repository: true
+        import_github_env: true
+        shell: ${{ inputs.shell }}
+        commands: |
+          apt-get update
+          apt-get install build-essential libssl-dev libffi-dev gcc python3-dev python-dev python3 -y
+          apt-get install -y wget
+          wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-aarch64.sh
+          sh Miniforge3-Linux-aarch64.sh -b -p $RELATIVE_MINICONDA_PATH
+          ls -l $RELATIVE_MINICONDA_PATH
+          source $RELATIVE_MINICONDA_PATH/etc/profile.d/conda.sh
+          conda init
+          conda config --set always_yes yes --set changeps1 no
+          conda update -q conda
+          conda info -a
+
+    # Verify the artifacts directory exists
+    - name: Verify artifact Miniconda directory exists
+      shell: bash
+      run: |
+        echo "MINICONDA_PATH: $RELATIVE_MINICONDA_PATH"
+        ls -l $RELATIVE_MINICONDA_PATH
+
+    - name: Install Hummingbot dependencies
+      uses: pguyot/arm-runner-action@v2
+      if: ${{inputs.dependencies-cache-hit}} != 'true'
+      with:
+        image_additional_mb: 2048
+        base_image: ${{ matrix.base_image }}
+        cpu: ${{ matrix.cpu }}
+        cpu_info: ${{ matrix.cpu_info }}
+        bind_mount_repository: true
+        shell: ${{ inputs.shell }}
+        import_github_env: true
+        commands: |
+          apt-get update
+          apt-get install build-essential libssl-dev libffi-dev gcc python3-dev python-dev python3 -y
+          apt-get install git -y
+          source $RELATIVE_MINICONDA_PATH/etc/profile.d/conda.sh
+          conda install -c conda-forge pre-commit
+          ./install
+
+    # Compile and run tests if code has changed
+    - name: Compile Hummingbot
+      uses: pguyot/arm-runner-action@v2
+      if: ${{inputs.program-cache-hit}} != 'true' || ${{inputs.dependencies-cache-hit}} != 'true'
+      with:
+        image_additional_mb: 2048
+        base_image: ${{ matrix.base_image }}
+        cpu: ${{ matrix.cpu }}
+        cpu_info: ${{ matrix.cpu_info }}
+        bind_mount_repository: true
+        shell: ${{ inputs.shell }}
+        import_github_env: true
+        commands: |
+          apt-get update
+          apt-get install build-essential libssl-dev libffi-dev gcc python3-dev python-dev python3 -y
+          source $RELATIVE_MINICONDA_PATH/etc/profile.d/conda.sh
+          conda info --envs
+          conda activate hummingbot
+          conda env export
+          ./compile
+          pre-commit run --files $(git diff --name-only origin/$GITHUB_BASE_REF)
+          coverage run -m pytest \
+            --ignore="test/connector" \
+            --ignore="test/debug" \
+            --ignore="test/mock" \
+            --ignore="test/hummingbot/connector/gateway/amm" \
+            --ignore="test/hummingbot/connector/gateway/clob"
+          make report_coverage
+          git fetch --all -q
+          git checkout -b $GITHUB_SHA
+          coverage xml
+          diff-cover --compare-branch=origin/$GITHUB_BASE_REF --fail-under=80 coverage.xml
+                
