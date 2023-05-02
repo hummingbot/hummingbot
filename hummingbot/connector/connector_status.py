@@ -27,10 +27,8 @@ connector_status = {
     'gate_io_perpetual': 'silver',
     'hitbtc': 'bronze',
     'huobi': 'bronze',
-    'k2': 'bronze',
     'kraken': 'bronze',
     'kucoin': 'silver',
-    'kucoin_testnet': 'silver',
     'lbank': 'bronze',
     'loopring': 'bronze',
     'mexc': 'bronze',
@@ -60,6 +58,11 @@ connector_status = {
     'dexalot': 'bronze',
     'kucoin_perpetual': 'silver',
     'kucoin_perpetual_testnet': 'silver',
+    'injective_perpetual': 'bronze',
+    'zigzag': 'bronze',
+    'bit_com_perpetual': 'bronze',
+    'bit_com_perpetual_testnet': 'bronze',
+    'hotbit': 'bronze',
 }
 
 warning_messages = {
