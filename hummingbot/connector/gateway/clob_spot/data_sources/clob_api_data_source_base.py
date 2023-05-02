@@ -1,6 +1,5 @@
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import Enum
 from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
@@ -8,6 +7,7 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 from bidict import bidict
 
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
+from hummingbot.connector.gateway.common_types import CancelOrderResult, PlaceOrderResult
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.gateway.gateway_order_tracker import GatewayOrderTracker
 from hummingbot.connector.trading_rule import TradingRule
@@ -20,25 +20,6 @@ from hummingbot.core.event.event_forwarder import EventForwarder
 from hummingbot.core.event.event_listener import EventListener
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.pubsub import HummingbotLogger, PubSub
-
-
-@dataclass
-class PlaceOrderResult:
-    update_timestamp: float
-    client_order_id: str
-    exchange_order_id: Optional[str]
-    trading_pair: str
-    misc_updates: Dict[str, Any] = field(default_factory=lambda: {})
-    exception: Optional[Exception] = None
-
-
-@dataclass
-class CancelOrderResult:
-    client_order_id: str
-    trading_pair: str
-    misc_updates: Dict[str, Any] = field(default_factory=lambda: {})
-    not_found: bool = False
-    exception: Optional[Exception] = None
 
 
 class CLOBAPIDataSourceBase(ABC):
