@@ -260,7 +260,7 @@ class ExchangePyBase(ExchangeBase, ABC):
 
         # Add 1% as a safety factor in case the prices changed while making the order.
         if notional_size < trading_rule.min_notional_size * Decimal("1.01"):
-            self.logger().warning("Quantizing order amount to 0 because order notional value is not up to expected minimum notional value.")
+            self.logger().warning("f"Quantizing order amount to 0 because order notional value is below {trading_rule.min_notional_size} market minimum notional value.")
             return s_decimal_0
         return quantized_amount
 
