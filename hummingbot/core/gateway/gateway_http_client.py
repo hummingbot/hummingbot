@@ -1229,6 +1229,41 @@ class GatewayHttpClient:
             ]
         return await self.api_request("post", "clob/batchOrders", request_payload)
 
+    async def clob_perp_batch_order_modify(
+        self,
+        connector: str,
+        chain: str,
+        network: str,
+        address: str,
+        orders_to_create: List[InFlightOrder],
+        orders_to_cancel: List[InFlightOrder],
+    ):
+        request_payload = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "address": address,
+        }
+        if len(orders_to_create) != 0:
+            request_payload["createOrderParams"] = [
+                {
+                    "market": order.trading_pair,
+                    "price": str(order.price),
+                    "amount": str(order.amount),
+                    "side": order.trade_type.name,
+                    "orderType": order.order_type.name,
+                    "leverage": order.leverage
+                } for order in orders_to_create
+            ]
+        if len(orders_to_cancel) != 0:
+            request_payload["cancelOrderParams"] = [
+                {
+                    "market": order.trading_pair,
+                    "orderId": order.exchange_order_id,
+                } for order in orders_to_cancel
+            ]
+        return await self.api_request("post", "clob/perp/batchOrders", request_payload)
+
     async def clob_injective_balances(
         self,
         chain: str,
@@ -1240,4 +1275,157 @@ class GatewayHttpClient:
             "network": network,
             "address": address,
         }
-        return await self.api_request("post", "injective/balances", request_payload)
+        return await self.api_request("post", "injective/balances", request_payload, use_body=True)
+
+    async def clob_perp_funding_info(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        trading_pair: str
+    ) -> Dict[str, Any]:
+        request_payload = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "market": trading_pair,
+        }
+        return await self.api_request("post", "clob/perp/funding/info", request_payload, use_body=True)
+
+    async def clob_perp_funding_payments(
+        self,
+        address: str,
+        chain: str,
+        connector: str,
+        network: str,
+        trading_pair: str,
+        **kwargs
+    ):
+        request_payload = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "market": trading_pair,
+            "address": address
+        }
+        request_payload.update(kwargs)
+        return await self.api_request("post", "clob/perp/funding/payments", request_payload, use_body=True)
+
+    async def clob_perp_get_orders(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        market: str,
+        address: str = None,
+        order_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "market": market
+        }
+
+        if address is not None:
+            request["address"] = address
+
+        if order_id is not None:
+            request["orderId"] = order_id
+
+        return await self.api_request("get", "clob/perp/orders", request)
+
+    async def clob_perp_get_order_trades(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        address: str = None,
+        order_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        request = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "address": address,
+            "orderId": order_id
+        }
+        return await self.api_request("get", "clob/perp/order/trades", request)
+
+    async def clob_perp_positions(
+        self,
+        address: str,
+        chain: str,
+        connector: str,
+        network: str,
+        trading_pairs: List[str],
+    ):
+        request_payload = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "markets": trading_pairs,
+            "address": address
+        }
+        return await self.api_request("post", "clob/perp/positions", request_payload, use_body=True)
+
+    async def clob_perp_last_trade_price(
+        self,
+        chain: str,
+        connector: str,
+        network: str,
+        trading_pair: str,
+    ) -> Dict[str, Any]:
+        request_payload = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "market": trading_pair
+        }
+        return await self.api_request("get", "clob/perp/lastTradePrice", request_payload)
+
+    async def clob_perp_place_order(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        address: str,
+        trading_pair: str,
+        trade_type: TradeType,
+        order_type: OrderType,
+        price: Decimal,
+        size: Decimal,
+        leverage: int,
+    ) -> Dict[str, Any]:
+        request_payload = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "address": address,
+            "market": trading_pair,
+            "price": str(price),
+            "amount": str(size),
+            "leverage": float(leverage),
+            "side": trade_type.name,
+            "orderType": order_type.name
+        }
+        return await self.api_request("post", "clob/perp/orders", request_payload, use_body=True)
+
+    async def clob_perp_cancel_order(
+        self,
+        chain: str,
+        network: str,
+        connector: str,
+        address: str,
+        trading_pair: str,
+        exchange_order_id: str
+    ) -> Dict[str, Any]:
+        request_payload = {
+            "chain": chain,
+            "network": network,
+            "connector": connector,
+            "address": address,
+            "market": trading_pair,
+            "orderId": exchange_order_id
+        }
+        return await self.api_request("delete", "clob/perp/orders", request_payload, use_body=True)
