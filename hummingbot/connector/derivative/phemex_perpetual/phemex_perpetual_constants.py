@@ -45,6 +45,7 @@ POSITION_INFO = "/g-accounts/accountPositions"
 POSITION_MODE = "/g-positions/switch-pos-mode-sync"
 POSITION_LEVERAGE = "/g-positions/leverage"
 USER_TRADE = "/exchange/order/v2/tradingList"
+FUNDING_PAYMENT = "/api-data/g-futures/funding-fees"
 
 
 # Funding Settlement Time Span
@@ -172,6 +173,12 @@ RATE_LIMITS = [
     ),
     RateLimit(
         limit_id=USER_TRADE,
+        limit=NO_LIMIT,
+        time_interval=ONE_SECOND,
+        linked_limits=[LinkedLimitWeightPair(API_CONTRACT_GENERAL_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=FUNDING_PAYMENT,
         limit=NO_LIMIT,
         time_interval=ONE_SECOND,
         linked_limits=[LinkedLimitWeightPair(API_CONTRACT_GENERAL_LIMIT)],

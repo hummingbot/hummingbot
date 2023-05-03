@@ -52,7 +52,7 @@ class PhemexPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
     @property
     def funding_payment_url(self):
-        url = web_utils.private_rest_url(path_url=CONSTANTS.USER_TRADE)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.FUNDING_PAYMENT)
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
@@ -91,26 +91,28 @@ class PhemexPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         return {
             "code": 0,
             "msg": "OK",
-            "data": [
-                {
-                    "createdAt": 1666226932259,
-                    "symbol": self.exchange_trading_pair,
-                    "currency": "USDT",
-                    "action": 1,
-                    "tradeType": 1,
-                    "execQtyRq": "0.01",
-                    "execPriceRp": "1271.9",
-                    "side": 1,
-                    "orderQtyRq": "0.78",
-                    "priceRp": "1271.9",
-                    "execValueRv": "200",
-                    "feeRateRr": "100",
-                    "execFeeRv": "0.0012719",
-                    "ordType": 2,
-                    "execId": "8718cae",
-                    "execStatus": 6,
-                },
-            ],
+            "data": {
+                "rows": [
+                    {
+                        "createTime": 1666226932259,
+                        "symbol": self.exchange_trading_pair,
+                        "currency": "USDT",
+                        "action": 1,
+                        "tradeType": 1,
+                        "execQtyRq": "0.01",
+                        "execPriceRp": "1271.9",
+                        "side": 1,
+                        "orderQtyRq": "0.78",
+                        "priceRp": "1271.9",
+                        "execValueRv": "200",
+                        "feeRateRr": "100",
+                        "execFeeRv": "200",
+                        "ordType": 2,
+                        "execId": "8718cae",
+                        "execStatus": 6,
+                    },
+                ],
+            }
         }
 
     def position_event_for_full_fill_websocket_update(self, order: InFlightOrder, unrealized_pnl: float):
