@@ -291,18 +291,19 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
             order_hash: str = order_hashes.derivative[0]
 
             try:
-                order_result: Dict[str, Any] = await self._get_gateway_instance().clob_perp_place_order(
-                    connector=self._connector_name,
-                    chain=self._chain,
-                    network=self._network,
-                    trading_pair=order.trading_pair,
-                    address=self._account_id,
-                    trade_type=order.trade_type,
-                    order_type=order.order_type,
-                    price=order.price,
-                    size=order.amount,
-                    leverage=order.leverage,
-                )
+                async with self._throttler.execute_task(limit_id=CONSTANTS.TRANSACTION_POST_LIMIT_ID):
+                    order_result: Dict[str, Any] = await self._get_gateway_instance().clob_perp_place_order(
+                        connector=self._connector_name,
+                        chain=self._chain,
+                        network=self._network,
+                        trading_pair=order.trading_pair,
+                        address=self._account_id,
+                        trade_type=order.trade_type,
+                        order_type=order.order_type,
+                        price=order.price,
+                        size=order.amount,
+                        leverage=order.leverage,
+                    )
 
                 transaction_hash: Optional[str] = order_result.get("txHash")
             except Exception:
@@ -341,14 +342,15 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
                 spot_orders=[], derivative_orders=derivative_orders_to_create
             )
             try:
-                update_result = await self._get_gateway_instance().clob_perp_batch_order_modify(
-                    connector=self._connector_name,
-                    chain=self._chain,
-                    network=self._network,
-                    address=self._account_id,
-                    orders_to_create=orders_to_create,
-                    orders_to_cancel=[],
-                )
+                async with self._throttler.execute_task(limit_id=CONSTANTS.TRANSACTION_POST_LIMIT_ID):
+                    update_result = await self._get_gateway_instance().clob_perp_batch_order_modify(
+                        connector=self._connector_name,
+                        chain=self._chain,
+                        network=self._network,
+                        address=self._account_id,
+                        orders_to_create=orders_to_create,
+                        orders_to_cancel=[],
+                    )
             except Exception:
                 await self._update_account_address_and_create_order_hash_manager()
                 raise
@@ -382,14 +384,15 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
     async def cancel_order(self, order: GatewayInFlightOrder) -> Tuple[bool, Optional[Dict[str, Any]]]:
         await order.get_exchange_order_id()
 
-        cancelation_result = await self._get_gateway_instance().clob_perp_cancel_order(
-            chain=self._chain,
-            network=self._network,
-            connector=self._connector_name,
-            address=self._account_id,
-            trading_pair=order.trading_pair,
-            exchange_order_id=order.exchange_order_id,
-        )
+        async with self._throttler.execute_task(limit_id=CONSTANTS.TRANSACTION_POST_LIMIT_ID):
+            cancelation_result = await self._get_gateway_instance().clob_perp_cancel_order(
+                chain=self._chain,
+                network=self._network,
+                connector=self._connector_name,
+                address=self._account_id,
+                trading_pair=order.trading_pair,
+                exchange_order_id=order.exchange_order_id,
+            )
         transaction_hash: Optional[str] = cancelation_result.get("txHash")
 
         if transaction_hash in [None, ""]:
@@ -426,14 +429,15 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
             if not isinstance(result, asyncio.TimeoutError)
         ]
 
-        update_result = await self._get_gateway_instance().clob_perp_batch_order_modify(
-            connector=self._connector_name,
-            chain=self._chain,
-            network=self._network,
-            address=self._account_id,
-            orders_to_create=[],
-            orders_to_cancel=found_orders_to_cancel,
-        )
+        async with self._throttler.execute_task(limit_id=CONSTANTS.TRANSACTION_POST_LIMIT_ID):
+            update_result = await self._get_gateway_instance().clob_perp_batch_order_modify(
+                connector=self._connector_name,
+                chain=self._chain,
+                network=self._network,
+                address=self._account_id,
+                orders_to_create=[],
+                orders_to_cancel=found_orders_to_cancel,
+            )
 
         transaction_hash: Optional[str] = update_result.get("txHash")
         exception = None
@@ -572,9 +576,10 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
     async def _update_account_address_and_create_order_hash_manager(self):
         if not self._order_placement_lock.locked():
             raise RuntimeError("The order-placement lock must be acquired before creating the order hash manager.")
-        response: Dict[str, Any] = await self._get_gateway_instance().clob_injective_balances(
-            chain=self._chain, network=self._network, address=self._account_id
-        )
+        async with self._throttler.execute_task(limit_id=CONSTANTS.BALANCES_LIMIT_ID):
+            response: Dict[str, Any] = await self._get_gateway_instance().clob_injective_balances(
+                chain=self._chain, network=self._network, address=self._account_id
+            )
         self._account_address: str = response["injectiveAddress"]
 
         async with self._throttler.execute_task(limit_id=CONSTANTS.ACCOUNT_LIMIT_ID):
@@ -590,7 +595,8 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
             *tasks_to_await_submitted_orders_to_be_processed_by_chain, return_exceptions=True  # await their processing
         )
         self._order_hash_manager = OrderHashManager(network=self._network_obj, sub_account_id=self._account_id)
-        await self._order_hash_manager.start()
+        async with self._throttler.execute_task(limit_id=CONSTANTS.NONCE_LIMIT_ID):
+            await self._order_hash_manager.start()
 
     def _check_markets_initialized(self) -> bool:
         return (
@@ -777,12 +783,13 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
         """
         According to Injective, Oracle Price refers to mark price.
         """
-        response = await self._client.get_oracle_prices(
-            base_symbol=market_info.oracle_base,
-            quote_symbol=market_info.oracle_quote,
-            oracle_type=market_info.oracle_type,
-            oracle_scale_factor=0,
-        )
+        async with self._throttler.execute_task(limit_id=CONSTANTS.ORACLE_PRICES_LIMIT_ID):
+            response = await self._client.get_oracle_prices(
+                base_symbol=market_info.oracle_base,
+                quote_symbol=market_info.oracle_quote,
+                oracle_type=market_info.oracle_type,
+                oracle_scale_factor=0,
+            )
         return Decimal(response.price)
 
     async def _request_last_trade_price(self, trading_pair: str) -> Decimal:
