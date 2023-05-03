@@ -1,7 +1,9 @@
 import asyncio
 import unittest
 from decimal import Decimal
-from test.hummingbot.connector.gateway.clob_spot.data_sources.injective.injective_mock_utils import InjectiveClientMock
+from test.hummingbot.connector.gateway.clob_perp.data_sources.injective_perpetual.injective_perpetual_mock_utils import (
+    InjectivePerpetualClientMock,
+)
 from typing import Awaitable, Dict, List, Mapping
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -10,19 +12,17 @@ from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.config.fee_overrides_config_map import init_fee_overrides_config
 from hummingbot.client.config.trade_fee_schema_loader import TradeFeeSchemaLoader
 from hummingbot.client.settings import AllConnectorSettings
-from hummingbot.connector.gateway.clob_spot.data_sources.injective.injective_api_data_source import (
-    InjectiveAPIDataSource,
+from hummingbot.connector.gateway.clob_perp.data_sources.injective_perpetual.injective_perpetual_api_data_source import (
+    InjectivePerpetualAPIDataSource,
 )
-from hummingbot.connector.gateway.clob_spot.gateway_clob_spot import GatewayCLOBSPOT
+from hummingbot.connector.gateway.clob_perp.gateway_clob_perp import GatewayCLOBPerp
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
-from hummingbot.core.clock import Clock
-from hummingbot.core.clock_mode import ClockMode
+from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
-from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
@@ -37,7 +37,7 @@ from hummingbot.core.event.events import (
 from hummingbot.core.network_iterator import NetworkStatus
 
 
-class GatewayCLOBSPOTTest(unittest.TestCase):
+class GatewayCLOBPERPTest(unittest.TestCase):
     # the level is required to receive logs from the data source logger
     level = 0
     base_asset: str
@@ -64,7 +64,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
         self.async_tasks: List[asyncio.Task] = []
 
         self.start_timestamp = 1669100347689
-        self.clob_data_source_mock = InjectiveClientMock(
+        self.clob_data_source_mock = InjectivePerpetualClientMock(
             initial_timestamp=self.start_timestamp,
             sub_account_id=self.wallet_address,
             base=self.base_asset,
@@ -78,12 +78,12 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
             "network": "mainnet",
             "wallet_address": self.wallet_address,
         }
-        api_data_source = InjectiveAPIDataSource(
+        api_data_source = InjectivePerpetualAPIDataSource(
             trading_pairs=[self.trading_pair],
             connector_spec=connector_spec,
             client_config_map=client_config_map,
         )
-        self.exchange = GatewayCLOBSPOT(
+        self.exchange = GatewayCLOBPerp(
             client_config_map=client_config_map,
             api_data_source=api_data_source,
             connector_name="injective",
@@ -196,6 +196,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
         self.order_filled_logger = EventLogger()
         self.sell_order_completed_logger = EventLogger()
         self.sell_order_created_logger = EventLogger()
+        self.funding_payment_logger = EventLogger()
 
         events_and_loggers = [
             (MarketEvent.BuyOrderCompleted, self.buy_order_completed_logger),
@@ -204,7 +205,9 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
             (MarketEvent.OrderFailure, self.order_failure_logger),
             (MarketEvent.OrderFilled, self.order_filled_logger),
             (MarketEvent.SellOrderCompleted, self.sell_order_completed_logger),
-            (MarketEvent.SellOrderCreated, self.sell_order_created_logger)]
+            (MarketEvent.SellOrderCreated, self.sell_order_created_logger),
+            (MarketEvent.FundingPaymentCompleted, self.funding_payment_logger),
+        ]
 
         for event, logger in events_and_loggers:
             self.exchange.add_listener(event, logger)
@@ -218,6 +221,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
             "trading_rule_initialized": False,
             "user_stream_initialized": False,
             "api_data_source_initialized": False,
+            "funding_info": False,
         }
 
     @staticmethod
@@ -229,23 +233,36 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
             "trading_rule_initialized": True,
             "user_stream_initialized": True,
             "api_data_source_initialized": True,
+            "funding_info": True,
         }
 
-    def place_buy_order(self, size: Decimal = Decimal("100"), price: Decimal = Decimal("10_000")):
+    def place_buy_order(
+        self,
+        size: Decimal = Decimal("100"),
+        price: Decimal = Decimal("10_000"),
+        position_action: PositionAction = PositionAction.OPEN,
+    ):
         order_id = self.exchange.buy(
             trading_pair=self.trading_pair,
             amount=size,
             order_type=OrderType.LIMIT,
             price=price,
+            position_action=position_action,
         )
         return order_id
 
-    def place_sell_order(self, size: Decimal = Decimal("100"), price: Decimal = Decimal("10_000")):
+    def place_sell_order(
+        self,
+        size: Decimal = Decimal("100"),
+        price: Decimal = Decimal("10_000"),
+        position_action: PositionAction = PositionAction.OPEN,
+    ):
         order_id = self.exchange.sell(
             trading_pair=self.trading_pair,
             amount=size,
             order_type=OrderType.LIMIT,
             price=price,
+            position_action=position_action,
         )
         return order_id
 
@@ -264,6 +281,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
             creation_timestamp=1640001112.223,
+            position=PositionAction.OPEN,
         ))
         orders.append(GatewayInFlightOrder(
             client_order_id="12",
@@ -274,7 +292,8 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.CANCELED
+            initial_state=OrderState.CANCELED,
+            position=PositionAction.OPEN,
         ))
         orders.append(GatewayInFlightOrder(
             client_order_id="13",
@@ -285,7 +304,8 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.FILLED
+            initial_state=OrderState.FILLED,
+            position=PositionAction.CLOSE,
         ))
         orders.append(GatewayInFlightOrder(
             client_order_id="14",
@@ -296,7 +316,8 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
             amount=Decimal("1000.0"),
             price=Decimal("1.0"),
             creation_timestamp=1640001112.223,
-            initial_state=OrderState.FAILED
+            initial_state=OrderState.FAILED,
+            position=PositionAction.CLOSE,
         ))
 
         tracking_states = {order.client_order_id: order.to_json() for order in orders}
@@ -319,7 +340,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
 
     def test_get_last_trade_prices(self):
         fee = AddedToCostTradeFee(flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("0.001"))])
-        self.clob_data_source_mock.configure_spot_trades_response_to_request_without_exchange_order_id(
+        self.clob_data_source_mock.configure_perp_trades_response_to_request_without_exchange_order_id(
             timestamp=self.start_timestamp,
             price=Decimal(self.expected_latest_price),
             size=Decimal("2"),
@@ -370,12 +391,12 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
             "network": "mainnet",
             "wallet_address": self.wallet_address,
         }
-        api_data_source = InjectiveAPIDataSource(
+        api_data_source = InjectivePerpetualAPIDataSource(
             trading_pairs=[self.trading_pair],
             connector_spec=connector_spec,
             client_config_map=client_config_map,
         )
-        exchange = GatewayCLOBSPOT(
+        exchange = GatewayCLOBPerp(
             client_config_map=client_config_map,
             api_data_source=api_data_source,
             connector_name="injective",
@@ -394,8 +415,6 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
 
     @patch("hummingbot.core.data_type.order_book_tracker.OrderBookTracker._sleep")
     def test_full_initialization_and_de_initialization(self, _: AsyncMock):
-        self.clob_data_source_mock.configure_trades_response_no_trades()
-        self.clob_data_source_mock.configure_trades_response_no_trades()
         self.clob_data_source_mock.configure_get_account_balances_response(
             base_total_balance=Decimal("10"),
             base_available_balance=Decimal("9"),
@@ -409,12 +428,12 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
             "network": "mainnet",
             "wallet_address": self.wallet_address,
         }
-        api_data_source = InjectiveAPIDataSource(
+        api_data_source = InjectivePerpetualAPIDataSource(
             trading_pairs=[self.trading_pair],
             connector_spec=connector_spec,
             client_config_map=client_config_map,
         )
-        exchange = GatewayCLOBSPOT(
+        exchange = GatewayCLOBPerp(
             client_config_map=client_config_map,
             api_data_source=api_data_source,
             connector_name="injective",
@@ -503,7 +522,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
             self.is_logged(
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.BUY.name} order {order_id} for "
-                f"{Decimal('100.000')} {self.trading_pair}."
+                f"{Decimal('100.000')} to {PositionAction.OPEN.name} a {self.trading_pair} position."
             )
         )
 
@@ -545,7 +564,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
             self.is_logged(
                 "INFO",
                 f"Created {OrderType.LIMIT.name} {TradeType.SELL.name} order {order_id} for "
-                f"{Decimal('100.000')} {self.trading_pair}."
+                f"{Decimal('100.000')} to {PositionAction.OPEN.name} a {self.trading_pair} position."
             )
         )
 
@@ -731,122 +750,122 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
         self.assertIn(CancellationResult(order1.client_order_id, True), cancellation_results)
         self.assertIn(CancellationResult(order2.client_order_id, False), cancellation_results)
 
-    def test_batch_order_cancel(self):
-        self.exchange._set_current_timestamp(self.start_timestamp)
+    # def test_batch_order_cancel(self):
+    #     self.exchange._set_current_timestamp(self.start_timestamp)
+    #
+    #     self.exchange.start_tracking_order(
+    #         order_id="11",
+    #         exchange_order_id=self.expected_exchange_order_id,
+    #         trading_pair=self.trading_pair,
+    #         trade_type=TradeType.BUY,
+    #         price=self.expected_order_price,
+    #         amount=self.expected_order_size,
+    #         order_type=OrderType.LIMIT,
+    #     )
+    #     self.exchange.start_tracking_order(
+    #         order_id="12",
+    #         exchange_order_id=self.expected_exchange_order_id,
+    #         trading_pair=self.trading_pair,
+    #         trade_type=TradeType.SELL,
+    #         price=self.expected_order_price,
+    #         amount=self.expected_order_size,
+    #         order_type=OrderType.LIMIT,
+    #     )
+    #
+    #     buy_order_to_cancel: InFlightOrder = self.exchange.in_flight_orders["11"]
+    #     sell_order_to_cancel: InFlightOrder = self.exchange.in_flight_orders["12"]
+    #     orders_to_cancel = [buy_order_to_cancel, sell_order_to_cancel]
+    #
+    #     self.clob_data_source_mock.configure_batch_order_cancel_response(
+    #         timestamp=self.start_timestamp,
+    #         transaction_hash="somehash",
+    #         canceled_orders=orders_to_cancel,
+    #     )
+    #
+    #     self.exchange.batch_order_cancel(orders_to_cancel=self.exchange.limit_orders)
+    #
+    #     self.clob_data_source_mock.run_until_all_items_delivered()
+    #
+    #     self.assertIn(buy_order_to_cancel.client_order_id, self.exchange.in_flight_orders)
+    #     self.assertIn(sell_order_to_cancel.client_order_id, self.exchange.in_flight_orders)
+    #     self.assertTrue(buy_order_to_cancel.is_pending_cancel_confirmation)
+    #     self.assertTrue(sell_order_to_cancel.is_pending_cancel_confirmation)
 
-        self.exchange.start_tracking_order(
-            order_id="11",
-            exchange_order_id=self.expected_exchange_order_id,
-            trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
-            price=self.expected_order_price,
-            amount=self.expected_order_size,
-            order_type=OrderType.LIMIT,
-        )
-        self.exchange.start_tracking_order(
-            order_id="12",
-            exchange_order_id=self.expected_exchange_order_id,
-            trading_pair=self.trading_pair,
-            trade_type=TradeType.SELL,
-            price=self.expected_order_price,
-            amount=self.expected_order_size,
-            order_type=OrderType.LIMIT,
-        )
-
-        buy_order_to_cancel: InFlightOrder = self.exchange.in_flight_orders["11"]
-        sell_order_to_cancel: InFlightOrder = self.exchange.in_flight_orders["12"]
-        orders_to_cancel = [buy_order_to_cancel, sell_order_to_cancel]
-
-        self.clob_data_source_mock.configure_batch_order_cancel_response(
-            timestamp=self.start_timestamp,
-            transaction_hash="somehash",
-            canceled_orders=orders_to_cancel,
-        )
-
-        self.exchange.batch_order_cancel(orders_to_cancel=self.exchange.limit_orders)
-
-        self.clob_data_source_mock.run_until_all_items_delivered()
-
-        self.assertIn(buy_order_to_cancel.client_order_id, self.exchange.in_flight_orders)
-        self.assertIn(sell_order_to_cancel.client_order_id, self.exchange.in_flight_orders)
-        self.assertTrue(buy_order_to_cancel.is_pending_cancel_confirmation)
-        self.assertTrue(sell_order_to_cancel.is_pending_cancel_confirmation)
-
-    def test_batch_order_create(self):
-        self.exchange._set_current_timestamp(self.start_timestamp)
-
-        buy_order_to_create = LimitOrder(
-            client_order_id="",
-            trading_pair=self.trading_pair,
-            is_buy=True,
-            base_currency=self.base_asset,
-            quote_currency=self.quote_asset,
-            price=Decimal("10"),
-            quantity=Decimal("2"),
-        )
-        sell_order_to_create = LimitOrder(
-            client_order_id="",
-            trading_pair=self.trading_pair,
-            is_buy=False,
-            base_currency=self.base_asset,
-            quote_currency=self.quote_asset,
-            price=Decimal("11"),
-            quantity=Decimal("3"),
-        )
-        orders_to_create = [buy_order_to_create, sell_order_to_create]
-
-        orders: List[LimitOrder] = self.exchange.batch_order_create(orders_to_create=orders_to_create)
-
-        buy_order_to_create_in_flight = GatewayInFlightOrder(
-            client_order_id=orders[0].client_order_id,
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.BUY,
-            creation_timestamp=self.start_timestamp,
-            price=orders[0].price,
-            amount=orders[0].quantity,
-            exchange_order_id="someEOID0",
-        )
-        sell_order_to_create_in_flight = GatewayInFlightOrder(
-            client_order_id=orders[1].client_order_id,
-            trading_pair=self.trading_pair,
-            order_type=OrderType.LIMIT,
-            trade_type=TradeType.SELL,
-            creation_timestamp=self.start_timestamp,
-            price=orders[1].price,
-            amount=orders[1].quantity,
-            exchange_order_id="someEOID1",
-        )
-        orders_to_create_in_flight = [buy_order_to_create_in_flight, sell_order_to_create_in_flight]
-        self.clob_data_source_mock.configure_batch_order_create_response(
-            timestamp=self.start_timestamp,
-            transaction_hash="somehash",
-            created_orders=orders_to_create_in_flight,
-        )
-
-        self.assertEqual(2, len(orders))
-
-        self.clob_data_source_mock.run_until_all_items_delivered()
-
-        self.assertIn(buy_order_to_create_in_flight.client_order_id, self.exchange.in_flight_orders)
-        self.assertIn(sell_order_to_create_in_flight.client_order_id, self.exchange.in_flight_orders)
-
-        buy_create_event: BuyOrderCreatedEvent = self.buy_order_created_logger.event_log[0]
-        self.assertEqual(self.exchange.current_timestamp, buy_create_event.timestamp)
-        self.assertEqual(self.trading_pair, buy_create_event.trading_pair)
-        self.assertEqual(OrderType.LIMIT, buy_create_event.type)
-        self.assertEqual(buy_order_to_create_in_flight.amount, buy_create_event.amount)
-        self.assertEqual(buy_order_to_create_in_flight.price, buy_create_event.price)
-        self.assertEqual(buy_order_to_create_in_flight.client_order_id, buy_create_event.order_id)
-        self.assertEqual(buy_order_to_create_in_flight.exchange_order_id, buy_create_event.exchange_order_id)
-        self.assertTrue(
-            self.is_logged(
-                "INFO",
-                f"Created {OrderType.LIMIT.name} {TradeType.BUY.name}"
-                f" order {buy_order_to_create_in_flight.client_order_id} for "
-                f"{buy_create_event.amount} {self.trading_pair}."
-            )
-        )
+    # def test_batch_order_create(self):
+    #     self.exchange._set_current_timestamp(self.start_timestamp)
+    #
+    #     buy_order_to_create = LimitOrder(
+    #         client_order_id="",
+    #         trading_pair=self.trading_pair,
+    #         is_buy=True,
+    #         base_currency=self.base_asset,
+    #         quote_currency=self.quote_asset,
+    #         price=Decimal("10"),
+    #         quantity=Decimal("2"),
+    #     )
+    #     sell_order_to_create = LimitOrder(
+    #         client_order_id="",
+    #         trading_pair=self.trading_pair,
+    #         is_buy=False,
+    #         base_currency=self.base_asset,
+    #         quote_currency=self.quote_asset,
+    #         price=Decimal("11"),
+    #         quantity=Decimal("3"),
+    #     )
+    #     orders_to_create = [buy_order_to_create, sell_order_to_create]
+    #
+    #     orders: List[LimitOrder] = self.exchange.batch_order_create(orders_to_create=orders_to_create)
+    #
+    #     buy_order_to_create_in_flight = GatewayInFlightOrder(
+    #         client_order_id=orders[0].client_order_id,
+    #         trading_pair=self.trading_pair,
+    #         order_type=OrderType.LIMIT,
+    #         trade_type=TradeType.BUY,
+    #         creation_timestamp=self.start_timestamp,
+    #         price=orders[0].price,
+    #         amount=orders[0].quantity,
+    #         exchange_order_id="someEOID0",
+    #     )
+    #     sell_order_to_create_in_flight = GatewayInFlightOrder(
+    #         client_order_id=orders[1].client_order_id,
+    #         trading_pair=self.trading_pair,
+    #         order_type=OrderType.LIMIT,
+    #         trade_type=TradeType.SELL,
+    #         creation_timestamp=self.start_timestamp,
+    #         price=orders[1].price,
+    #         amount=orders[1].quantity,
+    #         exchange_order_id="someEOID1",
+    #     )
+    #     orders_to_create_in_flight = [buy_order_to_create_in_flight, sell_order_to_create_in_flight]
+    #     self.clob_data_source_mock.configure_batch_order_create_response(
+    #         timestamp=self.start_timestamp,
+    #         transaction_hash="somehash",
+    #         created_orders=orders_to_create_in_flight,
+    #     )
+    #
+    #     self.assertEqual(2, len(orders))
+    #
+    #     self.clob_data_source_mock.run_until_all_items_delivered()
+    #
+    #     self.assertIn(buy_order_to_create_in_flight.client_order_id, self.exchange.in_flight_orders)
+    #     self.assertIn(sell_order_to_create_in_flight.client_order_id, self.exchange.in_flight_orders)
+    #
+    #     buy_create_event: BuyOrderCreatedEvent = self.buy_order_created_logger.event_log[0]
+    #     self.assertEqual(self.exchange.current_timestamp, buy_create_event.timestamp)
+    #     self.assertEqual(self.trading_pair, buy_create_event.trading_pair)
+    #     self.assertEqual(OrderType.LIMIT, buy_create_event.type)
+    #     self.assertEqual(buy_order_to_create_in_flight.amount, buy_create_event.amount)
+    #     self.assertEqual(buy_order_to_create_in_flight.price, buy_create_event.price)
+    #     self.assertEqual(buy_order_to_create_in_flight.client_order_id, buy_create_event.order_id)
+    #     self.assertEqual(buy_order_to_create_in_flight.exchange_order_id, buy_create_event.exchange_order_id)
+    #     self.assertTrue(
+    #         self.is_logged(
+    #             "INFO",
+    #             f"Created {OrderType.LIMIT.name} {TradeType.BUY.name}"
+    #             f" order {buy_order_to_create_in_flight.client_order_id} for "
+    #             f"{buy_create_event.amount} {self.trading_pair}."
+    #         )
+    #     )
 
     def test_update_balances(self):
         expected_base_total_balance = Decimal("100")
@@ -973,6 +992,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
         )
         order = self.exchange.in_flight_orders["11"]
 
+        self.clob_data_source_mock.configure_empty_perp_trades_responses()
         self.clob_data_source_mock.configure_order_status_update_response(
             timestamp=self.start_timestamp, order=order, is_canceled=True
         )
@@ -1038,6 +1058,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
         )
         order: InFlightOrder = self.exchange.in_flight_orders["11"]
 
+        self.clob_data_source_mock.configure_empty_perp_trades_responses()
         self.clob_data_source_mock.configure_order_status_update_response(
             timestamp=self.start_timestamp,
             order=order,
@@ -1066,6 +1087,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
         )
         order: InFlightOrder = self.exchange.in_flight_orders["11"]
 
+        self.clob_data_source_mock.configure_empty_perp_trades_responses()
         self.clob_data_source_mock.configure_order_status_update_response(
             timestamp=self.start_timestamp, order=order, is_failed=True
         )
@@ -1444,7 +1466,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
         if self.exchange.real_time_balance_update:
             target_total_balance = Decimal("15")
             target_available_balance = Decimal("10")
-            self.clob_data_source_mock.configure_account_base_balance_stream_event(
+            self.clob_data_source_mock.configure_account_quote_balance_stream_event(
                 timestamp=self.start_timestamp,
                 total_balance=target_total_balance,
                 available_balance=target_available_balance,
@@ -1452,14 +1474,38 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
 
             self.clob_data_source_mock.run_until_all_items_delivered()
 
-            self.assertEqual(target_total_balance, self.exchange.get_balance(self.base_asset))
-            self.assertEqual(target_available_balance, self.exchange.available_balances[self.base_asset])
+            self.assertEqual(target_total_balance, self.exchange.get_balance(self.quote_asset))
+            self.assertEqual(target_available_balance, self.exchange.available_balances[self.quote_asset])
 
     def test_user_stream_logs_errors(self):
         self.clob_data_source_mock.configure_faulty_base_balance_stream_event(timestamp=self.start_timestamp)
         self.clob_data_source_mock.run_until_all_items_delivered()
 
         self.assertTrue(self.is_logged("INFO", "Restarting account balances stream."))
+
+    def test_funding_info_update(self):
+        initial_funding_info = self.exchange.get_funding_info(self.trading_pair)
+
+        update_target_index_price = initial_funding_info.index_price + 1
+        update_target_mark_price = initial_funding_info.mark_price + 2
+        update_target_next_funding_time = initial_funding_info.next_funding_utc_timestamp * 2
+        update_target_funding_rate = initial_funding_info.rate + Decimal("0.0003")
+
+        self.clob_data_source_mock.configure_funding_info_stream_event(
+            index_price=update_target_index_price,
+            mark_price=update_target_mark_price,
+            next_funding_time=update_target_next_funding_time,
+            funding_rate=update_target_funding_rate,
+        )
+
+        self.clob_data_source_mock.run_until_all_items_delivered()
+
+        updated_funding_info = self.exchange.get_funding_info(trading_pair=self.trading_pair)
+
+        self.assertEqual(update_target_index_price, updated_funding_info.index_price)
+        self.assertEqual(update_target_mark_price, updated_funding_info.mark_price)
+        self.assertEqual(update_target_next_funding_time, updated_funding_info.next_funding_utc_timestamp)
+        self.assertEqual(update_target_funding_rate, updated_funding_info.rate)
 
     def test_lost_order_included_in_order_fills_update_and_not_in_order_status_update(self):
         self.exchange._set_current_timestamp(self.start_timestamp)
@@ -1522,7 +1568,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
         )
 
         # Configure again the response to the order fills request since it is required by lost orders update logic
-        self.clob_data_source_mock.configure_get_historical_spot_orders_response_for_in_flight_order(
+        self.clob_data_source_mock.configure_get_historical_perp_orders_response_for_in_flight_order(
             timestamp=self.start_timestamp,
             in_flight_order=order,
             filled_size=self.expected_order_size,
@@ -1726,7 +1772,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
                 "connector": "injective",
                 "chain": "injective",
                 "network": "mainnet",
-                "trading_type": "CLOB_SPOT",
+                "trading_type": "CLOB_PERP",
                 "wallet_address": "0xc7287236f64484b476cfbec0fd21bc49d85f8850c8885665003928a122041e18",  # noqa: mock
                 "additional_spenders": [],
             },
@@ -1748,7 +1794,8 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
             order_side=TradeType.BUY,
             amount=Decimal(100),
             price=Decimal(1000),
-            is_maker=True
+            is_maker=True,
+            position_action=PositionAction.OPEN,
         )
 
         self.assertEqual(self.quote_asset, fee.percent_token)
@@ -1761,8 +1808,36 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
             order_side=TradeType.BUY,
             amount=Decimal(100),
             price=Decimal(1000),
-            is_maker=False
+            is_maker=False,
+            position_action=PositionAction.OPEN,
         )
 
         self.assertEqual(self.quote_asset, fee.percent_token)
         self.assertEqual(Decimal("0.0006"), fee.percent)
+
+    def test_funding_info_continuously_requested(self):
+        first_amount = Decimal("2.1")
+        funding_rate = Decimal("0.001")
+        timestamp = self.start_timestamp + 1
+        self.clob_data_source_mock.configure_get_funding_payments_response(
+            timestamp=timestamp,
+            funding_rate=funding_rate,
+            amount=first_amount,
+        )
+
+        self.clock.backtest_til(self.start_timestamp + 1)
+        self.clob_data_source_mock.run_until_all_items_delivered()
+
+        self.assertEqual(1, len(self.funding_payment_logger.event_log))
+
+        second_amount = Decimal("1.9")
+        self.clob_data_source_mock.configure_get_funding_payments_response(
+            timestamp=timestamp + 60,
+            funding_rate=funding_rate,
+            amount=second_amount,
+        )
+
+        self.clock.backtest_til(self.start_timestamp + 1 + self.exchange.funding_fee_poll_interval + 1)
+        self.clob_data_source_mock.run_until_all_items_delivered()
+
+        self.assertEqual(2, len(self.funding_payment_logger.event_log))

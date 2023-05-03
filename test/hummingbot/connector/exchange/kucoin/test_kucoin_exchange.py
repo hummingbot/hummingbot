@@ -800,7 +800,7 @@ class KucoinExchangeTests(unittest.TestCase):
                         body=json.dumps(response),
                         callback=lambda *args, **kwargs: request_sent_event.set())
 
-        self.exchange.cancel(trading_pair=self.trading_pair, order_id="OID1")
+        self.exchange.cancel(trading_pair=self.trading_pair, client_order_id="OID1")
         self.async_run_with_timeout(request_sent_event.wait())
 
         cancel_request = next(((key, value) for key, value in mock_api.requests.items()
@@ -845,7 +845,7 @@ class KucoinExchangeTests(unittest.TestCase):
                         status=400,
                         callback=lambda *args, **kwargs: request_sent_event.set())
 
-        self.exchange.cancel(trading_pair=self.trading_pair, order_id="OID1")
+        self.exchange.cancel(trading_pair=self.trading_pair, client_order_id="OID1")
         self.async_run_with_timeout(request_sent_event.wait())
 
         cancel_request = next(((key, value) for key, value in mock_api.requests.items()
