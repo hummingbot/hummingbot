@@ -435,8 +435,7 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
                 await self._process_user_stream_event(event_message)
             except asyncio.CancelledError:
                 raise
-            except Exception as e:
-                print(e)
+            except Exception:
                 self.logger().error("Unexpected error in user stream listener loop.")
                 await self._sleep(5.0)
 
@@ -551,7 +550,6 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
                         )
                     )
             except Exception:
-                print(f"Error parsing the trading pair rule {rule}. Skipping...")
                 self.logger().error(f"Error parsing the trading pair rule: {rule}. Skipping.")
         return return_val
 
@@ -695,21 +693,19 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
     async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
         timestamp, funding_rate, payment = 0, Decimal("-1"), Decimal("-1")
         payment_response = await self._api_get(
-            path_url=CONSTANTS.USER_TRADE,
+            path_url=CONSTANTS.FUNDING_PAYMENT,
             params={
                 "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
-                "currency": CONSTANTS.COLLATERAL_TOKEN,
-                "execType": 4,
                 "offset": 0,
                 "limit": 200,
             },
             is_auth_required=True,
         )
-        payments = payment_response.get("data", [])
+        payments = payment_response.get("data", {}).get("rows", [])
         for funding_payment in payments:
-            payment = Decimal(funding_payment["execValueRv"])
+            payment = Decimal(funding_payment["execFeeRv"])
             funding_rate = Decimal(funding_payment["feeRateRr"])
-            timestamp = funding_payment["createdAt"]
+            timestamp = funding_payment["createTime"]
         return timestamp, funding_rate, payment
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
