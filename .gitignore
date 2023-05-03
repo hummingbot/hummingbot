@@ -88,3 +88,6 @@ coverage.xml
 .debug_console_ssh_host_key
 
 /conf_backup
+
+# External SDK files
+/**/.chain_cookie
