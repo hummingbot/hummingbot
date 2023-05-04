@@ -10,6 +10,7 @@ from pyinjective.constant import (
     testnet_config as TESTNET_TOKEN_META_CONFIG,
 )
 
+from hummingbot.connector.constants import MINUTE, SECOND
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.data_type.common import OrderType, PositionMode, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState
@@ -92,8 +93,6 @@ NETWORK_DENOM_TOKEN_META = {
     "devnet": _parse_network_config_to_denom_meta(config=DEVNET_TOKEN_META_CONFIG)
 }
 
-SECOND = 1
-MINUTE = 60
 NO_LIMIT = sys.maxsize
 CHAIN_RPC_LIMIT_ID = "ChainRPCLimitID"
 CHAIN_RPC_LIMIT = 120
