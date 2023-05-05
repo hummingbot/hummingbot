@@ -19,7 +19,7 @@ ORDER_CHAIN_PROCESSING_TIMEOUT = 5
 DEFAULT_SUB_ACCOUNT_SUFFIX = "000000000000000000000000"
 
 NETWORK_CONFIG = {
-    "mainnet": Network.mainnet(node="k8s"),
+    "mainnet": Network.mainnet(),
     "testnet": Network.testnet(),
     "devnet": Network.devnet()
 }
