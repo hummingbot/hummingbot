@@ -97,7 +97,7 @@ class PerpetualTrading:
             self._funding_info_updater_task = None
         self._funding_info.clear()
 
-    def position_key(self, trading_pair: str, side: PositionSide = None) -> str:
+    def position_key(self, trading_pair: str, side: PositionSide = None, mode: PositionMode = None) -> str:
         """
         Returns a key to a position in account_positions. On OneWay position mode this is the trading pair.
         On Hedge position mode this is a combination of trading pair and position side
@@ -105,10 +105,12 @@ class PerpetualTrading:
         :param side: The position side (long or short)
         :return: A key to the position in account_positions dictionary
         """
-        if self._position_mode == PositionMode.ONEWAY:
-            return trading_pair
-        elif self._position_mode == PositionMode.HEDGE:
-            return f"{trading_pair}{side.name}"
+        pos_key = ""
+        if mode is not None:
+            pos_key = f"{trading_pair}{side.name}" if mode == PositionMode.HEDGE else trading_pair
+        else:
+            pos_key = f"{trading_pair}{side.name}" if self._position_mode == PositionMode.HEDGE else trading_pair
+        return pos_key
 
     def get_position(self, trading_pair: str, side: PositionSide = None) -> Optional[Position]:
         """
