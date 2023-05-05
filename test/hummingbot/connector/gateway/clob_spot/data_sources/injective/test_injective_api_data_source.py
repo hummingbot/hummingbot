@@ -6,7 +6,7 @@ from pathlib import Path
 from test.hummingbot.connector.gateway.clob_spot.data_sources.injective.injective_mock_utils import InjectiveClientMock
 from test.mock.http_recorder import HttpPlayer
 from typing import Awaitable, List
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from bidict import bidict
 
@@ -742,7 +742,7 @@ class InjectiveAPIDataSourceTest(unittest.TestCase):
     def test_delivers_balance_events(self):
         target_total_balance = Decimal("20")
         target_available_balance = Decimal("19")
-        self.injective_async_client_mock.configure_account_base_balance_stream_event(
+        self.injective_async_client_mock.configure_account_quote_balance_stream_event(
             timestamp=self.initial_timestamp,
             total_balance=target_total_balance,
             available_balance=target_available_balance,
@@ -754,7 +754,7 @@ class InjectiveAPIDataSourceTest(unittest.TestCase):
 
         balance_event: BalanceUpdateEvent = self.balance_logger.event_log[0]
 
-        self.assertEqual(self.base, balance_event.asset_name)
+        self.assertEqual(self.quote, balance_event.asset_name)
         self.assertEqual(target_total_balance, balance_event.total_balance)
         self.assertEqual(target_available_balance, balance_event.available_balance)
 
@@ -803,10 +803,10 @@ class InjectiveAPIDataSourceTest(unittest.TestCase):
 
     @patch(
         "hummingbot.connector.gateway.clob_spot.data_sources.injective.injective_api_data_source"
-        ".InjectiveAPIDataSource._time"
+        ".InjectiveAPIDataSource._update_account_address_and_create_order_hash_manager",
+        new_callable=AsyncMock,
     )
-    def test_parses_transaction_event_for_order_creation_failure(self, time_mock):
-        time_mock.return_value = self.initial_timestamp + 1
+    def test_parses_transaction_event_for_order_creation_failure(self, _: AsyncMock):
         creation_transaction_hash = "0x7cb1eafc389349f86da901cdcbfd9119435a2ea84d61c17b6ded778b6fd2f81d"  # noqa: mock
         target_order_hash = "0x6ba1eafc389349f86da901cdcbfd9119425a2ea84d61c17b6ded778b6fd2f70c"  # noqa: mock
         in_flight_order = GatewayInFlightOrder(
