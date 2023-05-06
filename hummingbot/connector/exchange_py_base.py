@@ -249,6 +249,7 @@ class ExchangePyBase(ExchangeBase, ABC):
 
         # Check against min_order_size and min_notional_size. If not passing either check, return 0.
         if quantized_amount < trading_rule.min_order_size:
+            self.logger().warning(f"Quantizing order amount to 0 because order amount of {quantized_amount} is below {trading_rule.min_order_size} market minimum order size.")
             return s_decimal_0
 
         if price == s_decimal_0:
@@ -259,6 +260,7 @@ class ExchangePyBase(ExchangeBase, ABC):
 
         # Add 1% as a safety factor in case the prices changed while making the order.
         if notional_size < trading_rule.min_notional_size * Decimal("1.01"):
+            self.logger().warning(f"Quantizing order amount to 0 because order notional value is below {trading_rule.min_notional_size} market minimum notional value.")
             return s_decimal_0
         return quantized_amount
 
