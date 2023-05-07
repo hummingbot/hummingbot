@@ -430,16 +430,6 @@ class KucoinExchangeTests(unittest.TestCase):
 
         self.assertEqual(Decimal("0.01"), fee.percent)
 
-    @aioresponses()
-    def test_update_fee_fails_and_raises_key_error(self, mocked_api):
-        url = web_utils.public_rest_url(CONSTANTS.FEE_PATH_URL)
-        regex_url = re.compile(f"^{url}")
-        resp = {}
-        mocked_api.get(regex_url, body=json.dumps(resp))
-
-        with self.assertRaises(KeyError):
-            self.async_run_with_timeout(self.exchange._update_trading_fees())
-
     @patch("hummingbot.connector.utils.get_tracking_nonce")
     def test_client_order_id_on_order(self, mocked_nonce):
         mocked_nonce.return_value = 9

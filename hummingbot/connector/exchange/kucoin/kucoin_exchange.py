@@ -364,12 +364,8 @@ class KucoinExchange(ExchangePyBase):
                 params=params,
                 is_auth_required=True,
             )
-            try:
-                fees_json.extend(resp["data"])
-            except KeyError as e:
-                self.logger().error(f"Error parsing response for trading fees: {resp}")
-                raise e
-
+            fees_json.extend(resp["data"])
+            
         for fee_json in fees_json:
             trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=fee_json["symbol"])
             self._trading_fees[trading_pair] = fee_json
