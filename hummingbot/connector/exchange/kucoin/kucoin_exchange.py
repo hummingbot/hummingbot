@@ -365,7 +365,7 @@ class KucoinExchange(ExchangePyBase):
                 is_auth_required=True,
             )
             fees_json.extend(resp["data"])
-        
+
         for fee_json in fees_json:
             trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=fee_json["symbol"])
             self._trading_fees[trading_pair] = fee_json
