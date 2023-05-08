@@ -18,6 +18,7 @@ from hummingbot.connector.derivative.gate_io_perpetual.gate_io_perpetual_api_ord
 )
 from hummingbot.connector.derivative.gate_io_perpetual.gate_io_perpetual_derivative import GateIoPerpetualDerivative
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
+from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
@@ -265,6 +266,7 @@ class GateIoPerpetualAPIOrderBookDataSourceTests(TestCase):
 
     @aioresponses()
     def test_get_new_order_book_successful(self, mock_api):
+        self._simulate_trading_rules_initialized()
         endpoint = CONSTANTS.ORDER_BOOK_PATH_URL
         url = web_utils.public_rest_url(endpoint)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
@@ -280,10 +282,10 @@ class GateIoPerpetualAPIOrderBookDataSourceTests(TestCase):
         asks = list(order_book.ask_entries())
         self.assertEqual(2, len(bids))
         self.assertEqual(1.17, bids[0].price)
-        self.assertEqual(150, bids[0].amount)
+        self.assertEqual(0.00015, bids[0].amount)
         self.assertEqual(2, len(asks))
         self.assertEqual(1.52, asks[0].price)
-        self.assertEqual(100, asks[0].amount)
+        self.assertEqual(0.0001, asks[0].amount)
 
     @aioresponses()
     def test_get_new_order_book_raises_exception(self, mock_api):
@@ -428,6 +430,7 @@ class GateIoPerpetualAPIOrderBookDataSourceTests(TestCase):
             self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
 
     def test_listen_for_trades_successful(self):
+        self._simulate_trading_rules_initialized()
         mock_queue = AsyncMock()
         trade_event = {
             "channel": "futures.trades",
@@ -494,6 +497,7 @@ class GateIoPerpetualAPIOrderBookDataSourceTests(TestCase):
             self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange"))
 
     def test_listen_for_order_book_diffs_successful(self):
+        self._simulate_trading_rules_initialized()
         mock_queue = AsyncMock()
         diff_event = self.get_ws_diff_msg()
         mock_queue.get.side_effect = [diff_event, asyncio.CancelledError()]
@@ -558,6 +562,7 @@ class GateIoPerpetualAPIOrderBookDataSourceTests(TestCase):
 
     @aioresponses()
     def test_listen_for_order_book_snapshots_successful(self, mock_api):
+        self._simulate_trading_rules_initialized()
         msg_queue: asyncio.Queue = asyncio.Queue()
         endpoint = CONSTANTS.ORDER_BOOK_PATH_URL
         url = web_utils.public_rest_url(
@@ -583,10 +588,10 @@ class GateIoPerpetualAPIOrderBookDataSourceTests(TestCase):
         asks = msg.asks
         self.assertEqual(2, len(bids))
         self.assertEqual(1.17, bids[0].price)
-        self.assertEqual(150, bids[0].amount)
+        self.assertEqual(0.00015, bids[0].amount)
         self.assertEqual(2, len(asks))
         self.assertEqual(1.52, asks[0].price)
-        self.assertEqual(100, asks[0].amount)
+        self.assertEqual(0.0001, asks[0].amount)
 
     @aioresponses()
     def test_get_funding_info(self, mock_api):
@@ -606,3 +611,13 @@ class GateIoPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(Decimal(str(msg_result["mark_price"])), funding_info.mark_price)
         self.assertEqual(msg_result["funding_next_apply"], funding_info.next_funding_utc_timestamp)
         self.assertEqual(Decimal(str(msg_result["funding_rate_indicative"])), funding_info.rate)
+
+    def _simulate_trading_rules_initialized(self):
+        self.connector._trading_rules = {
+            self.trading_pair: TradingRule(
+                trading_pair=self.trading_pair,
+                min_order_size=Decimal(str(0.01)),
+                min_price_increment=Decimal(str(0.0001)),
+                min_base_amount_increment=Decimal(str(0.000001)),
+            )
+        }
