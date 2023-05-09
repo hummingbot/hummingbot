@@ -3,10 +3,7 @@ from decimal import Decimal
 from unittest import TestCase
 
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
-from hummingbot.core.event.events import (
-    OrderType,
-    TradeType,
-)
+from hummingbot.core.event.events import OrderType, TradeType
 from hummingbot.model.trade_fill import TradeFill
 
 
@@ -60,8 +57,10 @@ class TradeFillTests(TestCase):
             amount=Decimal(1),
             leverage=1,
             trade_fee=AddedToCostTradeFee().to_json(),
+            trade_fee_in_quote=Decimal(0),
             exchange_trade_id="EOID1",
-            position="NILL")
+            position="NILL",
+        )
 
         values = [getattr(trade_fill, attribute) for attribute in TradeFill.attribute_names_for_file_export()]
 
@@ -81,6 +80,7 @@ class TradeFillTests(TestCase):
             trade_fill.amount,
             trade_fill.leverage,
             trade_fill.trade_fee,
+            trade_fill.trade_fee_in_quote,
             trade_fill.position,
         ]
 
