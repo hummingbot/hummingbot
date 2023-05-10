@@ -12,13 +12,10 @@ from bidict import bidict
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange_base import ExchangeBase
-from hummingbot.connector.gateway.clob_spot.data_sources.clob_api_data_source_base import (
-    CancelOrderResult,
-    PlaceOrderResult,
-)
 from hummingbot.connector.gateway.clob_spot.data_sources.gateway_clob_api_data_source_base import (
     GatewayCLOBAPIDataSourceBase,
 )
+from hummingbot.connector.gateway.common_types import CancelOrderResult, PlaceOrderResult
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.gateway.gateway_order_tracker import GatewayOrderTracker
 from hummingbot.connector.trading_rule import TradingRule
@@ -244,6 +241,7 @@ class AbstractGatewayCLOBAPIDataSourceTests:
         def setUp(self) -> None:
             super().setUp()
 
+            self.ev_loop = asyncio.get_event_loop()
             self.log_records = []
             self.initial_timestamp = 1669100347
 
@@ -282,12 +280,15 @@ class AbstractGatewayCLOBAPIDataSourceTests:
             self.async_run_with_timeout(coro=self.data_source.start())
 
             self.additional_data_sources_to_stop_on_tear_down = []
+            self.async_tasks = []
 
         def tearDown(self) -> None:
             self.async_run_with_timeout(coro=self.data_source.stop())
             self.gateway_instance_mock_patch.stop()
             for data_source in self.additional_data_sources_to_stop_on_tear_down:
                 self.async_run_with_timeout(coro=data_source.stop())
+            for task in self.async_tasks:
+                task.cancel()
             super().tearDown()
 
         @staticmethod
@@ -502,10 +503,7 @@ class AbstractGatewayCLOBAPIDataSourceTests:
         )
         def test_place_order(self, sleep_mock: AsyncMock):
             def sleep_mock_side_effect(delay):
-                if delay == self.data_source.current_block_time:
-                    return None
-                else:
-                    raise Exception
+                raise Exception
 
             sleep_mock.side_effect = sleep_mock_side_effect
 
@@ -556,10 +554,7 @@ class AbstractGatewayCLOBAPIDataSourceTests:
         )
         def test_batch_order_create(self, sleep_mock: AsyncMock):
             def sleep_mock_side_effect(delay):
-                if delay == self.data_source.current_block_time:
-                    return None
-                else:
-                    raise Exception
+                raise Exception
 
             sleep_mock.side_effect = sleep_mock_side_effect
 
