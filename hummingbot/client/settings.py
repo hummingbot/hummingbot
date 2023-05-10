@@ -80,6 +80,68 @@ class ConnectorType(Enum):
     Exchange = "exchange"
     Derivative = "derivative"
 
+    # Define a CONSTANT that represents how these types differ from each other
+    # This lets us add new types and their structure here
+    # CONNECTORS_DICT = { "EVM_AMM":
+    #                         { market_type: "amm", product_type: "spot", use_gateway: True,  },
+    #                     "ALGORAND_AMM":
+    #                         { market_type: "amm", product_type: "spot", use_gateway: True },
+    #                     "EVM_Perpetual":
+    #                         { market_type: "amm", product_type: "perp", use_gateway: True },
+    #                     "EVM_AMM_LP":
+    #                         { market_type: "amm-range", product_type: "spot", use_gateway: True },
+    # # etc
+    # }
+
+    # Define class methods that return bool for each type
+    # is_gateway_connector
+    # is_amm_connector
+    # is_clob_connector
+
+    # This replaces the need for the following methods in ConnectorSettings
+    # uses_gateway_generic_connector
+    # uses_clob_connector
+    # GATEWAY_GENERIC_CONNECTORS
+
+    # I think you can also replace the need for the following class methods in lines 520+ below or move them here
+    # @classmethod
+    # def get_exchange_names(cls) -> Set[str]:
+    #     return {
+    #         cs.name for cs in cls.get_connector_settings().values()
+    #         if cs.type in [ConnectorType.Exchange, ConnectorType.CLOB_SPOT, ConnectorType.CLOB_PERP]
+    #     }.union(set(PAPER_TRADE_EXCHANGES))
+
+    # @classmethod
+    # def get_derivative_names(cls) -> Set[str]:
+    #     return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Derivative or cs.type is ConnectorType.EVM_Perpetual or cs.type is ConnectorType.CLOB_PERP}
+
+    # @classmethod
+    # def get_derivative_dex_names(cls) -> Set[str]:
+    #     return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.EVM_Perpetual}
+
+    # @classmethod
+    # def get_other_connector_names(cls) -> Set[str]:
+    #     return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Connector}
+
+    # @classmethod
+    # def get_eth_wallet_connector_names(cls) -> Set[str]:
+    #     return {cs.name for cs in cls.all_connector_settings.values() if cs.use_ethereum_wallet}
+
+    # @classmethod
+    # def get_gateway_amm_connector_names(cls) -> Set[str]:
+    #     return {cs.name for cs in cls.get_connector_settings().values() if cs.type.name.endswith("_AMM")}
+
+    # @classmethod
+    # def get_gateway_evm_amm_lp_connector_names(cls) -> Set[str]:
+    #     return {cs.name for cs in cls.all_connector_settings.values() if cs.type == ConnectorType.EVM_AMM_LP}
+
+    # @classmethod
+    # def get_gateway_clob_connector_names(cls) -> Set[str]:
+    #     return {
+    #         cs.name for cs in cls.all_connector_settings.values()
+    #         if cs.type == ConnectorType.CLOB_SPOT
+    #     }
+
 
 GATEWAY_GENERIC_CONNECTORS = [ConnectorType.ALGORAND_AMM, ConnectorType.EVM_AMM, ConnectorType.EVM_Perpetual, ConnectorType.NEAR_AMM, ConnectorType.EVM_AMM_LP]  # type: ignore
 
