@@ -89,13 +89,14 @@ class DexalotAPIDataSourceTest(AbstractGatewayCLOBAPIDataSourceTests.GatewayCLOB
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         self.mock_api.get(regex_url, body=json.dumps(response))
 
-    def build_api_data_source(self) -> DexalotAPIDataSource:
+    def build_api_data_source(self, with_api_key: bool = True) -> DexalotAPIDataSource:
+        api_key = self.api_key_mock if with_api_key else ""
         connector_spec = {
-            "api_key": "someAPIKey",
+            "api_key": api_key,
             "chain": "avalanche",
             "network": "dexalot",
             "wallet_address": self.account_id,
-            "additional_prompt_values": {"api_key": self.api_key_mock},
+            "additional_prompt_values": {"api_key": api_key},
         }
         data_source = DexalotAPIDataSource(
             trading_pairs=[self.trading_pair],
@@ -475,6 +476,48 @@ class DexalotAPIDataSourceTest(AbstractGatewayCLOBAPIDataSourceTests.GatewayCLOB
         self.async_run_with_timeout(self.data_source.stop())
 
         data_source = self.build_api_data_source()
+        self.additional_data_sources_to_stop_on_tear_down.append(data_source)
+        data_source.min_snapshots_update_interval = 0
+        data_source.max_snapshots_update_interval = 0
+
+        snapshots_logger = EventLogger()
+
+        data_source.add_listener(
+            event_tag=OrderBookDataSourceEvent.SNAPSHOT_EVENT, listener=snapshots_logger
+        )
+
+        self.configure_orderbook_snapshot_event(bids=[[9, 1], [8, 2]], asks=[[11, 3]])
+        time_mock.return_value = self.initial_timestamp
+        data_source.gateway_order_tracker = self.tracker
+
+        task = asyncio.get_event_loop().create_task(coro=snapshots_logger.wait_for(event_type=OrderBookMessage))
+        self.async_tasks.append(task)
+        self.async_run_with_timeout(coro=data_source.start())
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(
+            websocket_mock=self.ws_connect_mock.return_value
+        )
+        self.async_run_with_timeout(coro=task)
+
+        self.assertEqual(1, len(snapshots_logger.event_log))
+
+        snapshot_event: OrderBookMessage = snapshots_logger.event_log[0]
+
+        self.assertEqual(self.initial_timestamp, snapshot_event.timestamp)
+        self.assertEqual(2, len(snapshot_event.bids))
+        self.assertEqual(9, snapshot_event.bids[0].price)
+        self.assertEqual(1, snapshot_event.bids[0].amount)
+        self.assertEqual(1, len(snapshot_event.asks))
+        self.assertEqual(11, snapshot_event.asks[0].price)
+        self.assertEqual(3, snapshot_event.asks[0].amount)
+
+    @patch(
+        "hummingbot.connector.gateway.clob_spot.data_sources.dexalot.dexalot_api_data_source"
+        ".DexalotAPIDataSource._time"
+    )
+    def test_delivers_order_book_snapshot_events_without_api_key(self, time_mock: MagicMock):
+        self.async_run_with_timeout(self.data_source.stop())
+
+        data_source = self.build_api_data_source(with_api_key=False)
         self.additional_data_sources_to_stop_on_tear_down.append(data_source)
         data_source.min_snapshots_update_interval = 0
         data_source.max_snapshots_update_interval = 0
