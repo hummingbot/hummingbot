@@ -210,6 +210,13 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
             domain=self.domain,
         )
 
+    async def start_network(self):
+        """
+        Start all required tasks to update the status of the connector.
+        """
+        await self._update_trading_rules()
+        await super().start_network()
+
     async def _format_trading_rules(self, raw_trading_pair_info) -> List[TradingRule]:
         """
         Converts json API response into a dictionary of trading rules.
