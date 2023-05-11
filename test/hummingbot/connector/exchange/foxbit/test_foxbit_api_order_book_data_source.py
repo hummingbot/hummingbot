@@ -53,10 +53,11 @@ class FoxbitAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                                                         domain=self.domain)
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
-
+        self.data_source._live_stream_connected[1] = True
         self.resume_test_event = asyncio.Event()
 
         self.connector._set_trading_pair_symbol_map(bidict({self.ex_trading_pair: self.trading_pair}))
+        self.connector._set_trading_pair_instrument_id_map(bidict({1: self.ex_trading_pair}))
 
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()
@@ -162,7 +163,8 @@ class FoxbitAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         mock_api.get(regex_url, body=json.dumps(self._snapshot_response()))
 
         order_book: OrderBook = self.async_run_with_timeout(
-            self.data_source.get_new_order_book(self.trading_pair)
+            coroutine=self.data_source.get_new_order_book(self.trading_pair),
+            timeout=2000
         )
 
         expected_update_id = order_book.snapshot_uid
@@ -185,7 +187,8 @@ class FoxbitAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         mock_api.get(regex_url, status=400)
         with self.assertRaises(IOError):
             self.async_run_with_timeout(
-                self.data_source.get_new_order_book(self.trading_pair)
+                coroutine=self.data_source.get_new_order_book(self.trading_pair),
+                timeout=2000
             )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
@@ -237,14 +240,14 @@ class FoxbitAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
             websocket_mock=ws_connect_mock.return_value)
 
-        self.assertEqual(3, len(sent_subscription_messages))
+        self.assertEqual(2, len(sent_subscription_messages))
         expected_trade_subscription = {
             'Content-Type': 'application/json',
             'User-Agent': 'HBOT',
             'm': 0,
             'i': 2,
             'n': 'GetInstruments',
-            'o': '{"OMSId": 1}'
+            'o': '{"OMSId": 1, "InstrumentId": 1, "Depth": 10}'
         }
         self.assertEqual(expected_trade_subscription['o'], sent_subscription_messages[0]['o'])
 
@@ -254,7 +257,7 @@ class FoxbitAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             'm': 0,
             'i': 2,
             'n': 'SubscribeLevel2',
-            'o': '{"OMSId": 1, "InstrumentId": 1, "Depth": 10}'
+            'o': '{"InstrumentId": 1}'
         }
         self.assertEqual(expected_diff_subscription['o'], sent_subscription_messages[1]['o'])
 
