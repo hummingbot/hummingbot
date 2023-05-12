@@ -1,60 +1,42 @@
 # Set the base image
-FROM ubuntu:20.04 AS builder
+FROM continuumio/miniconda3:latest AS builder
 
-# Install linux dependencies
+# Install system dependencies
 RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y gcc \
-        build-essential pkg-config libusb-1.0 curl git \
-        sudo && \
+    apt-get install -y sudo libusb-1.0 gcc g++ python3-dev && \
     rm -rf /var/lib/apt/lists/*
 
-# Add hummingbot user and group
-RUN groupadd -g 8211 hummingbot && \
-    useradd -m -s /bin/bash -u 8211 -g 8211 hummingbot
-
-# Switch to hummingbot user
-USER hummingbot:hummingbot
 WORKDIR /home/hummingbot
 
-# Install miniconda
-RUN curl https://repo.anaconda.com/miniconda/Miniconda3-py38_4.10.3-Linux-x86_64.sh -o ~/miniconda.sh && \
-    /bin/bash ~/miniconda.sh -b && \
-    rm ~/miniconda.sh && \
-    ~/miniconda3/bin/conda update -n base conda -y && \
-    ~/miniconda3/bin/conda clean -tipy
-
-# Dropping default ~/.bashrc because it will return if not running as interactive shell, thus not invoking PATH settings
-RUN :> ~/.bashrc
-
-# Copy environment only to optimize build caching, so changes in sources will not cause conda env invalidation
-COPY --chown=hummingbot:hummingbot setup/environment-linux.yml setup/
-
-# ./install | create hummingbot environment
-RUN ~/miniconda3/bin/conda env create -f setup/environment-linux.yml && \
-    ~/miniconda3/bin/conda clean -tipy && \
-    # clear pip cache
-    rm -rf /home/hummingbot/.cache
+# Create conda environment
+COPY setup/environment.yml /tmp/environment.yml
+RUN conda env create -f /tmp/environment.yml && \
+    conda clean -afy && \
+    rm /tmp/environment.yml
 
 # Copy remaining files
-COPY --chown=hummingbot:hummingbot bin/ bin/
-COPY --chown=hummingbot:hummingbot hummingbot/ hummingbot/
-COPY --chown=hummingbot:hummingbot setup.py .
-COPY --chown=hummingbot:hummingbot LICENSE .
-COPY --chown=hummingbot:hummingbot README.md .
-COPY --chown=hummingbot:hummingbot DATA_COLLECTION.md .
+COPY bin/ bin/
+COPY hummingbot/ hummingbot/
+COPY scripts/ scripts/
+COPY setup.py .
+COPY LICENSE .
+COPY README.md .
+COPY DATA_COLLECTION.md .
 
 # activate hummingbot env when entering the CT
-RUN echo "source /home/hummingbot/miniconda3/etc/profile.d/conda.sh && conda activate $(head -1 setup/environment-linux.yml | cut -d' ' -f2)" >> ~/.bashrc
+SHELL [ "/bin/bash", "-lc" ]
+RUN echo "conda activate hummingbot" >> ~/.bashrc
 
-# ./compile + cleanup build folder
-RUN /home/hummingbot/miniconda3/envs/$(head -1 setup/environment-linux.yml | cut -d' ' -f2)/bin/python3 setup.py build_ext --inplace -j 8 && \
+RUN python3 setup.py build_ext --inplace -j 8 && \
     rm -rf build/ && \
     find . -type f -name "*.cpp" -delete
 
-# Build final image using artifacts from builer
-FROM ubuntu:20.04 AS release
-# Dockerfile author / maintainer 
-LABEL maintainer="CoinAlpha, Inc. <dev@coinalpha.com>"
+
+# Build final image using artifacts from builder
+FROM continuumio/miniconda3:latest AS release
+
+# Dockerfile author / maintainer
+LABEL maintainer="Fede Cardoso @dardonacci <federico@hummingbot.org>"
 
 # Build arguments
 ARG BRANCH=""
@@ -69,51 +51,26 @@ ENV COMMIT_SHA=${COMMIT}
 ENV COMMIT_BRANCH=${BRANCH}
 ENV BUILD_DATE=${DATE}
 
-ENV STRATEGY=${STRATEGY}
-ENV CONFIG_FILE_NAME=${CONFIG_FILE_NAME}
-ENV WALLET=${WALLET}
-ENV CONFIG_PASSWORD=${CONFIG_PASSWORD}
-
 ENV INSTALLATION_TYPE=docker
 
-# Add hummingbot user and group
-RUN groupadd -g 8211 hummingbot && \
-    useradd -m -s /bin/bash -u 8211 -g 8211 hummingbot
-
-# Create sym links
-RUN ln -s /conf /home/hummingbot/conf && \
-  ln -s /logs /home/hummingbot/logs && \
-  ln -s /certs /home/hummingbot/certs && \
-  ln -s /data /home/hummingbot/data && \
-  ln -s /pmm_scripts /home/hummingbot/pmm_scripts && \
-  ln -s /scripts /home/hummingbot/scripts
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y sudo libusb-1.0 && \
+    rm -rf /var/lib/apt/lists/*
 
 # Create mount points
-RUN mkdir -p /conf /conf/connectors /logs /data /pmm_scripts /scripts /certs && \
-  chown -R hummingbot:hummingbot /conf /conf/connectors /logs /data /pmm_scripts /scripts /certs
-VOLUME /conf /conf/connectors /logs /data /pmm_scripts /scripts /certs
-
-# Pre-populate pmm_scripts/ volume with default pmm_scripts
-COPY --chown=hummingbot:hummingbot pmm_scripts/ pmm_scripts/
-# Pre-populate scripts/ volume with default scripts
-COPY --chown=hummingbot:hummingbot scripts/ scripts/
-# Copy the conf folder structure
-COPY --chown=hummingbot:hummingbot conf/ conf/
-
-# Install packages required in runtime
-RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y sudo libusb-1.0 && \
-    rm -rf /var/lib/apt/lists/*
+RUN mkdir -p /home/hummingbot/conf /home/hummingbot/conf/connectors /home/hummingbot/conf/strategies /home/hummingbot/logs /home/hummingbot/data /home/hummingbot/certs /home/hummingbot/scripts
 
 WORKDIR /home/hummingbot
 
 # Copy all build artifacts from builder image
-COPY --from=builder --chown=hummingbot:hummingbot /home/ /home/
+COPY --from=builder /opt/conda/ /opt/conda/
+COPY --from=builder /home/ /home/
 
-# additional configs (sudo)
-COPY docker/etc /etc
 
 # Setting bash as default shell because we have .bashrc with customized PATH (setting SHELL affects RUN, CMD and ENTRYPOINT, but not manual commands e.g. `docker run image COMMAND`!)
 SHELL [ "/bin/bash", "-lc" ]
-CMD /home/hummingbot/miniconda3/envs/$(head -1 setup/environment-linux.yml | cut -d' ' -f2)/bin/python3 bin/hummingbot_quickstart.py \
-    --auto-set-permissions $(id -u hummingbot):$(id -g hummingbot)
+
+# Set the default command to run when starting the container
+
+CMD conda activate hummingbot && ./bin/hummingbot_quickstart.py
