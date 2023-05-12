@@ -1,18 +1,13 @@
+from csv import writer as csv_writer
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 from typing import Dict, List
 
-from csv import writer as csv_writer
-
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.utils import split_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode
-from hummingbot.core.event.events import (
-    BuyOrderCompletedEvent,
-    PositionModeChangeEvent,
-    SellOrderCompletedEvent,
-)
+from hummingbot.core.event.events import BuyOrderCompletedEvent, PositionModeChangeEvent, SellOrderCompletedEvent
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
@@ -83,7 +78,7 @@ class SpotPerpArb(ScriptStrategyBase):
         )
 
     def init_order_book_csv(self) -> None:
-        self.logger().info(f"Preparing order book csv...")
+        self.logger().info("Preparing order book csv...")
         with open(self.order_book_csv, "a") as f_object:
             writer = csv_writer(f_object)
             writer.writerow(
@@ -142,7 +137,7 @@ class SpotPerpArb(ScriptStrategyBase):
                 > self.in_flight_state_start_ts + self.in_flight_state_tolerance
             ):
                 self.logger().warning(
-                    f"Orders has been submitted but not completed yet "
+                    "Orders has been submitted but not completed yet "
                     f"for more than {self.in_flight_state_tolerance} seconds. Please check your orders!"
                 )
             return
@@ -162,7 +157,7 @@ class SpotPerpArb(ScriptStrategyBase):
         ):
             self.logger().warning(
                 f"Position has been opened for more than {self.opened_state_tolerance} seconds without any sign of closing. "
-                f"Consider undoing the position manually or lower the profitability margin."
+                "Consider undoing the position manually or lower the profitability margin."
             )
 
         # TODO: change to async on order execution
@@ -198,7 +193,7 @@ class SpotPerpArb(ScriptStrategyBase):
             )
             self.logger().info(
                 f"Position is closed with order_ids: {self.completed_order_ids}. "
-                f"Changed the state from Closing to Closed.\n"
+                "Changed the state from Closing to Closed.\n"
                 f"No arbitrage opportunity will be opened before {self.next_arbitrage_opening_ts}. "
                 f"(Current timestamp: {self.current_timestamp})"
             )
@@ -489,7 +484,7 @@ class SpotPerpArb(ScriptStrategyBase):
         self, position_mode_changed_event: PositionModeChangeEvent
     ):
         self.logger().error(
-            f"Failed to set position mode to ONEWAY. "
+            "Failed to set position mode to ONEWAY. "
             f"Reason: {position_mode_changed_event.message}."
         )
         self.logger().warning(
