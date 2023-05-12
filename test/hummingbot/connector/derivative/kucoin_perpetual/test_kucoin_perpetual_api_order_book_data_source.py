@@ -20,6 +20,7 @@ from hummingbot.connector.derivative.kucoin_perpetual.kucoin_perpetual_api_order
 )
 from hummingbot.connector.derivative.kucoin_perpetual.kucoin_perpetual_derivative import KucoinPerpetualDerivative
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
+from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
@@ -107,6 +108,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(TestCase):
 
     @aioresponses()
     def test_get_new_order_book_successful(self, mock_api):
+        self._simulate_trading_rules_initialized()
         url = web_utils.get_rest_url_for_endpoint(
             endpoint=CONSTANTS.ORDER_BOOK_ENDPOINT.format(symbol=self.trading_pair)
         )
@@ -140,10 +142,10 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(TestCase):
         asks = list(order_book.ask_entries())
         self.assertEqual(1, len(bids))
         self.assertEqual(4112.25, bids[0].price)
-        self.assertEqual(49.29, bids[0].amount)
+        self.assertEqual(49.29 * 0.000001, bids[0].amount)
         self.assertEqual(1, len(asks))
         self.assertEqual(4114.25, asks[0].price)
-        self.assertEqual(6.263, asks[0].amount)
+        self.assertEqual(6.263 * 0.000001, asks[0].amount)
 
     @aioresponses()
     def test_get_new_order_book_raises_exception(self, mock_api):
@@ -337,6 +339,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(TestCase):
             self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
 
     def test_listen_for_trades_successful(self):
+        self._simulate_trading_rules_initialized()
         mock_queue = AsyncMock()
         trade_event = {
             "type": "message",
@@ -407,6 +410,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(TestCase):
             self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange"))
 
     def test_listen_for_order_book_diffs_successful(self):
+        self._simulate_trading_rules_initialized()
         mock_queue = AsyncMock()
         diff_event = {
             "subject": "level2",
@@ -440,7 +444,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(0, len(bids))
         self.assertEqual(1, len(asks))
         self.assertEqual(5000.0, asks[0].price)
-        self.assertEqual(83, asks[0].amount)
+        self.assertEqual(83 * 0.000001, asks[0].amount)
         self.assertEqual(expected_update_id, asks[0].update_id)
 
     @aioresponses()
@@ -480,6 +484,7 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(TestCase):
 
     @aioresponses()
     def test_listen_for_order_book_snapshots_successful(self, mock_api):
+        self._simulate_trading_rules_initialized()
         logging.getLogger("asyncio").setLevel(logging.WARNING)
         msg_queue: asyncio.Queue = asyncio.Queue()
         url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.ORDER_BOOK_ENDPOINT.format(symbol=self.trading_pair))
@@ -521,14 +526,14 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(TestCase):
         asks = msg.asks
         self.assertEqual(2, len(bids))
         self.assertEqual(6500.12, bids[0].price)
-        self.assertEqual(0.45054140, bids[0].amount)
+        self.assertEqual(4.505414e-07, bids[0].amount)
         self.assertEqual(6500.11, bids[1].price)
-        self.assertEqual(0.45054140, bids[1].amount)
+        self.assertEqual(4.505414e-07, bids[1].amount)
         self.assertEqual(2, len(asks))
         self.assertEqual(6500.16, asks[0].price)
-        self.assertEqual(0.57753524, asks[0].amount)
+        self.assertEqual(5.7753524e-07, asks[0].amount)
         self.assertEqual(6500.15, asks[1].price)
-        self.assertEqual(0.57753524, asks[1].amount)
+        self.assertEqual(5.7753524e-07, asks[1].amount)
 
     def test_listen_for_funding_info_cancelled_when_listening(self):
         mock_queue = MagicMock()
@@ -643,3 +648,13 @@ class KucoinPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(self.trading_pair, funding_info.trading_pair)
         self.assertEqual(Decimal(str(future_info_response["data"]["indexPrice"])), funding_info.index_price)
         self.assertEqual(Decimal(str(future_info_response["data"]["markPrice"])), funding_info.mark_price)
+
+    def _simulate_trading_rules_initialized(self):
+        self.connector._trading_rules = {
+            self.trading_pair: TradingRule(
+                trading_pair=self.trading_pair,
+                min_order_size=Decimal(str(0.01)),
+                min_price_increment=Decimal(str(0.0001)),
+                min_base_amount_increment=Decimal(str(0.000001)),
+            )
+        }
