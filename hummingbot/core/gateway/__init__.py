@@ -16,8 +16,6 @@ if TYPE_CHECKING:
 _default_paths: Optional["GatewayPaths"] = None
 _hummingbot_pipe: Optional[aioprocessing.AioConnection] = None
 
-GATEWAY_DOCKER_REPO: str = "hummingbot/gateway"
-GATEWAY_DOCKER_TAG: str = "latest"
 S_DECIMAL_0: Decimal = Decimal(0)
 
 
@@ -84,11 +82,6 @@ def get_gateway_paths(client_config_map: "ClientConfigAdapter") -> GatewayPaths:
         mount_logs_path=mount_logs_path
     )
     return _default_paths
-
-
-def set_hummingbot_pipe(conn: aioprocessing.AioConnection):
-    global _hummingbot_pipe
-    _hummingbot_pipe = conn
 
 
 def check_transaction_exceptions(
