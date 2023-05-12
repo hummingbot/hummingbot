@@ -1,6 +1,7 @@
 import asyncio
 import json
 import re
+from copy import deepcopy
 from decimal import Decimal
 from typing import Any, Callable, List, Optional, Tuple
 from unittest.mock import AsyncMock, patch
@@ -1534,3 +1535,23 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertEqual(order.amount, fill_event.amount)
         expected_fee = self.expected_trade_history_fill_fee
         self.assertEqual(expected_fee, fill_event.trade_fee)
+
+    @aioresponses()
+    def test_start_network_update_trading_rules(self, mock_api):
+        self.exchange._set_current_timestamp(1000)
+
+        url = self.trading_rules_url
+
+        response = self.trading_rules_request_mock_response
+        results = response
+        duplicate = deepcopy(results['data'][0])
+        duplicate["symbol"] = f"{self.exchange_trading_pair}_12345"
+        duplicate["multiplier"] = str(float(duplicate["multiplier"]) + 1)
+        results['data'].append(duplicate)
+        mock_api.get(url, body=json.dumps(response))
+
+        self.async_run_with_timeout(self.exchange.start_network())
+
+        self.assertEqual(1, len(self.exchange.trading_rules))
+        self.assertIn(self.trading_pair, self.exchange.trading_rules)
+        self.assertEqual(repr(self.expected_trading_rule), repr(self.exchange.trading_rules[self.trading_pair]))

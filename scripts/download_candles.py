@@ -1,5 +1,8 @@
+from typing import Dict
+
 from hummingbot import data_path
 from hummingbot.client.hummingbot_application import HummingbotApplication
+from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesFactory
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
@@ -13,20 +16,26 @@ class DownloadCandles(ScriptStrategyBase):
     use it in production based on candles needed to compute technical indicators.
     """
     trading_pairs = ["APE-USDT", "BTC-USDT", "BNB-USDT"]
-    interval = "3m"
-
-    # we need to initialize the candles for each trading pair
-    candles = {trading_pair: {} for trading_pair in trading_pairs}
-    for trading_pair in trading_pairs:
-        candle = CandlesFactory.get_candle(connector="binance", trading_pair=trading_pair, interval=interval,
-                                           max_records=50000)
-        candle.start()
-        # we are storing the candles object and the csv path to save the candles
-        candles[trading_pair]["candles"] = candle
-        candles[trading_pair]["csv_path"] = data_path() + f"/candles_{trading_pair}_{interval}.csv"
-
+    intervals = ["3m", "1m", "5m"]
+    max_records = 50000
     # we can initialize any trading pair since we only need the candles
     markets = {"binance_paper_trade": {"BTC-USDT"}}
+
+    def __init__(self, connectors: Dict[str, ConnectorBase]):
+        super().__init__(connectors)
+        combinations = [(trading_pair, interval) for trading_pair in self.trading_pairs for interval in self.intervals]
+
+        self.candles = {f"{combinations[0]}_{combinations[1]}": {} for combinations in combinations}
+        # we need to initialize the candles for each trading pair
+        for combination in combinations:
+            candle = CandlesFactory.get_candle(connector="binance", trading_pair=combination[0],
+                                               interval=combination[1],
+                                               max_records=self.max_records)
+            candle.start()
+            # we are storing the candles object and the csv path to save the candles
+            self.candles[f"{combination[0]}_{combination[1]}"]["candles"] = candle
+            self.candles[f"{combination[0]}_{combination[1]}"][
+                "csv_path"] = data_path() + f"/candles_{combination[0]}_{combination[1]}.csv"
 
     def on_tick(self):
         for trading_pair, candles_info in self.candles.items():
