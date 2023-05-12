@@ -4,11 +4,9 @@ channels:
   - defaults
 dependencies:
   - aiounittest=1.4.1
-  - appnope=0.1.0
   - bidict
   - certifi=2021.5.30
   - coverage=5.5
-  - intel-openmp=2021.3.0
   - nomkl=1.0
   - nose=1.3.7
   - nose-exclude
@@ -24,7 +22,7 @@ dependencies:
   - scipy=1.6.2
   - six=1.14.0
   - sqlalchemy=1.4
-  - sqlite=3.31.1
+  - sqlite=3.30.1
   - tabulate==0.8.9
   - tzlocal=2.0.0
   - ujson=1.35
@@ -40,10 +38,11 @@ dependencies:
     - appdirs==1.4.3
     - async-timeout==3.0.1
     - asyncssh==2.7.2
+    - appnope==0.1.3
     - base58==2.1.1
     - cachetools==4.0.0
     - commlib-py==0.10.6
-    - cryptography==2.8
+    - cryptography==3.4.7
     - cython==3.0a7
     - cytoolz==0.11.0
     - diff-cover==5.1.2
@@ -60,7 +59,7 @@ dependencies:
     - flake8==3.7.9
     - hexbytes==0.2.0
     - importlib-metadata==0.23
-    - injective-py==0.6.0.7
+    - injective-py==0.6.1.6
     - mypy-extensions==0.4.3
     - pandas_ta==0.3.14b
     - pre-commit==2.18.1
@@ -81,4 +80,3 @@ dependencies:
     - websockets==9.1
     - yarl==1.4.2
     - git+https://github.com/CoinAlpha/python-signalr-client.git
-prefix: /usr/local/Caskroom/miniconda/base/envs/hummingbot
