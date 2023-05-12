@@ -702,7 +702,8 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
             is_auth_required=True,
         )
         payments = payment_response.get("data", {}).get("rows", [])
-        for funding_payment in payments:
+        if len(payments) > 0:
+            funding_payment = payments[0]
             payment = Decimal(funding_payment["execFeeRv"])
             funding_rate = Decimal(funding_payment["feeRateRr"])
             timestamp = funding_payment["createTime"]
