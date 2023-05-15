@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Dict, List, Optional
 import aioprocessing
 
 from hummingbot import root_path
-from hummingbot.connector.gateway.clob import clob_constants
 from hummingbot.connector.gateway.common_types import Chain
 from hummingbot.core.event.events import TradeType
 
@@ -123,8 +122,6 @@ def check_transaction_exceptions(
     # check for gas limit set to low
     if chain == Chain.ETHEREUM:
         gas_limit_threshold: int = 21000
-    elif chain == Chain.SOLANA:
-        gas_limit_threshold: int = clob_constants.FIVE_THOUSAND_LAMPORTS
     else:
         raise ValueError(f"Unsupported chain: {chain}")
     if gas_limit < gas_limit_threshold:
