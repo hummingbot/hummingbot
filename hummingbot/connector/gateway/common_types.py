@@ -4,7 +4,6 @@ from typing import Any, Dict, Optional
 
 
 class Chain(Enum):
-    SOLANA = ('solana', 'SOL')
     ETHEREUM = ('ethereum', 'ETH')
 
     def __init__(self, chain: str, native_currency: str):
