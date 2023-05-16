@@ -6,7 +6,7 @@ import pandas as pd
 native_tokens = {
     "ethereum": "ETH",
     "avalanche": "AVAX",
-    "solana": "SOL",
+    "cosmos": "ATOM",
     "polygon": "MATIC",
     "harmony": "ONE",
     "binance-smart-chain": "BNB",
