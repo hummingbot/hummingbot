@@ -7,7 +7,7 @@ native_tokens = {
     "ethereum": "ETH",
     "avalanche": "AVAX",
     "algorand": "ALGO",
-    "solana": "SOL",
+    "cosmos": "ATOM",
     "polygon": "MATIC",
     "harmony": "ONE",
     "binance-smart-chain": "BNB",
