@@ -1596,3 +1596,23 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 min_base_amount_increment=Decimal(str(0.000001)),
             )
         }
+
+    @aioresponses()
+    def test_start_network_update_trading_rules(self, mock_api):
+        self.exchange._set_current_timestamp(1000)
+
+        url = self.trading_rules_url
+
+        response = self.trading_rules_request_mock_response
+        results = response
+        duplicate = deepcopy(results[0])
+        duplicate["name"] = f"{self.exchange_trading_pair}_12345"
+        duplicate["quanto_multiplier"] = str(float(duplicate["quanto_multiplier"]) + 1)
+        results.append(duplicate)
+        mock_api.get(url, body=json.dumps(response))
+
+        self.async_run_with_timeout(self.exchange.start_network())
+
+        self.assertEqual(1, len(self.exchange.trading_rules))
+        self.assertIn(self.trading_pair, self.exchange.trading_rules)
+        self.assertEqual(repr(self.expected_trading_rule), repr(self.exchange.trading_rules[self.trading_pair]))
