@@ -13,8 +13,8 @@ class BacktestMM(ScriptStrategyBase):
     """
     BotCamp Cohort: 4
     Design Template: https://www.notion.so/hummingbot-foundation/Backtestable-Market-Making-Stategy-95c0d17e4042485bb90b7b2914af7f68?pvs=4
-    Video:
-    Description: This bot implments a simpler backtester for a market making strategy using the Binance candles feed.
+    Video: https://www.loom.com/share/e18380429e9443ceb1ef86eb131c14a2
+    Description: This bot implements a simpler backtester for a market making strategy using the Binance candles feed.
     After processing the user-defined backtesting parameters through historical OHLCV candles, it calculates a summary
     table displayed in 'status' and saves the data to a CSV file.
 
