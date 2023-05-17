@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, Text
 
 from hummingbot.model.db_migration.base_transformation import DatabaseTransformation
+from hummingbot.model.decimal_type_decorator import SqliteDecimal
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
 
 
@@ -137,7 +138,7 @@ class AddTradeFeeInQuote(DatabaseTransformation):
         super().__init__(*args, **kwargs)
 
     def apply(self, db_handle: SQLConnectionManager) -> SQLConnectionManager:
-        trade_fee = Column("trade_fee_in_quote", Integer, nullable=True)
+        trade_fee = Column("trade_fee_in_quote", SqliteDecimal, nullable=True)
         self.add_column(db_handle.engine, "TradeFill", trade_fee, dry_run=False)
         return db_handle
 
