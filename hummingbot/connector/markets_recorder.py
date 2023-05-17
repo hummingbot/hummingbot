@@ -248,7 +248,13 @@ class MarketsRecorder:
                 order_status: OrderStatus = OrderStatus(order_id=order_id,
                                                         timestamp=timestamp,
                                                         status=event_type.name)
-
+                fee_in_quote = evt.trade_fee.fee_amount_in_token(
+                    trading_pair=evt.trading_pair,
+                    price=evt.price,
+                    order_amount=evt.amount,
+                    token=quote_asset,
+                    exchange=market
+                )
                 trade_fill_record: TradeFill = TradeFill(
                     config_file_path=self.config_file_path,
                     strategy=self.strategy_name,
@@ -260,11 +266,11 @@ class MarketsRecorder:
                     order_id=order_id,
                     trade_type=evt.trade_type.name,
                     order_type=evt.order_type.name,
-                    price=Decimal(
-                        evt.price) if evt.price == evt.price else Decimal(0),
-                    amount=Decimal(evt.amount),
+                    price=evt.price,
+                    amount=evt.amount,
                     leverage=evt.leverage if evt.leverage else 1,
                     trade_fee=evt.trade_fee.to_json(),
+                    trade_fee_in_quote=fee_in_quote,
                     exchange_trade_id=evt.exchange_trade_id,
                     position=evt.position if evt.position else PositionAction.NIL.value,
                 )
