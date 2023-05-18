@@ -34,7 +34,7 @@ class CoinbaseAdvancedTradeUtilTestCases(unittest.TestCase):
         )
 
         # Test signin url endpoints
-        for endpoint in CONSTANTS.SIGNIN_ENDPOINTS:
+        for endpoint in CONSTANTS.SIGIN_URL_ENDPOINTS:
             self.assertEqual(
                 public_rest_url(endpoint),
                 CONSTANTS.SIGNIN_URL.format(domain=CONSTANTS.DEFAULT_DOMAIN) + endpoint
@@ -54,7 +54,7 @@ class CoinbaseAdvancedTradeUtilTestCases(unittest.TestCase):
         )
 
         # Test signin url endpoints
-        for endpoint in CONSTANTS.SIGNIN_ENDPOINTS:
+        for endpoint in CONSTANTS.SIGIN_URL_ENDPOINTS:
             self.assertEqual(
                 private_rest_url(endpoint),
                 CONSTANTS.SIGNIN_URL.format(domain=CONSTANTS.DEFAULT_DOMAIN) + endpoint
@@ -65,9 +65,9 @@ class CoinbaseAdvancedTradeUtilTestCases(unittest.TestCase):
         self.assertIsInstance(throttler, AsyncThrottler)
 
     @patch.object(WebAssistantsFactory, "__init__", return_value=None)
-    @patch("hummingbot.connector.exchange.coinbase_advanced_trade.cat_web_utils"
+    @patch("hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils"
            ".create_throttler", return_value=Mock())
-    @patch("hummingbot.connector.exchange.coinbase_advanced_trade.cat_web_utils"
+    @patch("hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils"
            ".get_current_server_time_s")
     def test_build_api_factory(self, mock_get_current_server_time_s, mock_create_throttler, mock_init):
         mock_get_current_server_time_s.return_value = 123456
@@ -87,7 +87,7 @@ class CoinbaseAdvancedTradeUtilTestCases(unittest.TestCase):
         build_api_factory_without_time_synchronizer_pre_processor(throttler)
         mock_factory.assert_called_once_with(throttler=throttler)
 
-    @patch('hummingbot.connector.exchange.coinbase_advanced_trade.cat_web_utils'
+    @patch('hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils'
            '.get_current_server_time_s')
     def test_get_current_server_time_ms(self, mock_get_time_s):
         async def async_test():
@@ -122,16 +122,16 @@ class CoinbaseAdvancedTradeUtilTestCases(unittest.TestCase):
                          expected_milliseconds)
 
     @patch(
-        'hummingbot.connector.exchange.coinbase_advanced_trade.cat_web_utils'
+        'hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils'
         '.build_api_factory_without_time_synchronizer_pre_processor',
         new_callable=Mock)
-    @patch('hummingbot.connector.exchange.coinbase_advanced_trade.cat_web_utils.public_rest_url')
+    @patch('hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils.public_rest_url')
     def test_get_current_server_time_s(self, mock_public_rest_url, mock_api_factory):
         async def async_test():
             # Prepare Mocks
             mock_public_rest_url.return_value = 'mock_url'
             mock_rest_assistant = AsyncMock()
-            mock_rest_assistant.execute_request.return_value = {"data": {"iso": "2007-04-05T14:30Z", "epoch": 1175783400}}
+            mock_rest_assistant.execute_request.return_value = {"data": {"epoch": 123456}}
 
             async def get_rest_assistant():
                 return mock_rest_assistant
@@ -148,7 +148,7 @@ class CoinbaseAdvancedTradeUtilTestCases(unittest.TestCase):
                 method=RESTMethod.GET,
                 throttler_limit_id=CONSTANTS.SERVER_TIME_EP,
             )
-            self.assertEqual(server_time, 1175783400)
+            self.assertEqual(server_time, 123456)
 
         asyncio.run(async_test())
 
