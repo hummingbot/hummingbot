@@ -18,7 +18,7 @@ class TestPositionExecutorDataTypes(TestCase):
                                 stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60)
         self.assertEqual(config.trading_pair, "ETH-USDT")
         self.assertEqual(config.exchange, "binance")
-        self.assertEqual(config.order_type, OrderType.LIMIT)
+        self.assertEqual(config.open_order_type, OrderType.LIMIT)
         self.assertEqual(config.side, PositionSide.LONG)
         self.assertEqual(config.entry_price, Decimal("100"))
         self.assertEqual(config.amount, Decimal("1"))
