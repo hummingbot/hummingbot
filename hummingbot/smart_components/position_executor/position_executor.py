@@ -173,7 +173,7 @@ class PositionExecutor:
 
     @property
     def open_order_type(self):
-        return self.position_config.order_type
+        return self.position_config.open_order_type
 
     @property
     def stop_loss_price(self):
