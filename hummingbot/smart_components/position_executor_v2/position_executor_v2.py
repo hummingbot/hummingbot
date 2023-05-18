@@ -166,6 +166,7 @@ class PositionExecutorV2(SmartComponentBase):
 
     @property
     def close_order(self):
+        # TODO: Set close order with event
         if self.executor_status == PositionExecutorStatus.CLOSED_BY_TAKE_PROFIT:
             return self.take_profit_order
         elif self.executor_status == PositionExecutorStatus.CLOSED_BY_STOP_LOSS:
