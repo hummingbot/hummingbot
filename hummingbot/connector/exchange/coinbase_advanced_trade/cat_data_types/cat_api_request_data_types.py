@@ -62,13 +62,6 @@ class _RequestAbstract(ABC):
         """
         raise NotImplementedError
 
-    @staticmethod
-    def is_auth_required() -> bool:
-        """
-        Returns the request data as a dictionary.
-        """
-        return True
-
 
 @dataclass(frozen=True)
 class _RequestGET(_RequestAbstract):
