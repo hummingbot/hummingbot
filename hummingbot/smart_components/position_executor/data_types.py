@@ -1,24 +1,28 @@
+import time
 from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel
 from pydantic.types import Decimal
 
-from hummingbot.core.data_type.common import OrderType, PositionSide
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
 
 
 class PositionConfig(BaseModel):
-    timestamp: float
     trading_pair: str
     exchange: str
-    order_type: OrderType
-    side: PositionSide
-    entry_price: Optional[Decimal] = None
+    side: TradeType
     amount: Decimal
-    stop_loss: Decimal
-    take_profit: Decimal
-    time_limit: int
+    take_profit: Optional[Decimal] = None
+    stop_loss: Optional[Decimal] = None
+    time_limit: Optional[int] = None
+    entry_price: Optional[Decimal] = None
+    timestamp: float = time.time()
+    open_order_type: OrderType = OrderType.MARKET
+    take_profit_order_type: OrderType = OrderType.MARKET
+    stop_loss_order_type: OrderType = OrderType.MARKET
+    time_limit_order_type: OrderType = OrderType.MARKET
 
 
 class PositionExecutorStatus(Enum):
