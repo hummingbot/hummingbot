@@ -35,9 +35,10 @@ class PositionExecutorV2(SmartComponentBase):
 
         # Order tracking
         self._open_order: TrackedOrder = TrackedOrder()
-        self._take_profit_order: TrackedOrder = TrackedOrder()
-        self._time_limit_order: TrackedOrder = TrackedOrder()
-        self._stop_loss_order: TrackedOrder = TrackedOrder()
+        self._close_order: TrackedOrder = TrackedOrder()
+        # self._take_profit_order: TrackedOrder = TrackedOrder()
+        # self._time_limit_order: TrackedOrder = TrackedOrder()
+        # self._stop_loss_order: TrackedOrder = TrackedOrder()
 
     @property
     def executor_status(self):
@@ -99,19 +100,11 @@ class PositionExecutorV2(SmartComponentBase):
 
     @property
     def cum_fees(self):
-        return self.open_order.cum_fees + self.take_profit_order.cum_fees + self.stop_loss_order.cum_fees + self.time_limit_order.cum_fees
-
-    @property
-    def timestamp(self):
-        return self.position_config.timestamp
-
-    @property
-    def time_limit(self):
-        return self.position_config.time_limit
+        return self.open_order.cum_fees + self.close_order.cum_fees
 
     @property
     def end_time(self):
-        return self.timestamp + self.time_limit
+        return self.position_config.timestamp + self.position_config.time_limit
 
     @property
     def side(self):
@@ -151,27 +144,7 @@ class PositionExecutorV2(SmartComponentBase):
 
     @property
     def close_order(self):
-        # TODO: Set close order with event
-        if self.executor_status == PositionExecutorStatus.CLOSED_BY_TAKE_PROFIT:
-            return self.take_profit_order
-        elif self.executor_status == PositionExecutorStatus.CLOSED_BY_STOP_LOSS:
-            return self.stop_loss_order
-        elif self.executor_status == PositionExecutorStatus.CLOSED_BY_TIME_LIMIT:
-            return self.time_limit_order
-        else:
-            return None
-
-    @property
-    def take_profit_order(self):
-        return self._take_profit_order
-
-    @property
-    def stop_loss_order(self):
-        return self._stop_loss_order
-
-    @property
-    def time_limit_order(self):
-        return self._time_limit_order
+        return self._close_order
 
     def control_position(self):
         if self.executor_status == PositionExecutorStatus.NOT_STARTED:
