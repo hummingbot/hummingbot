@@ -169,7 +169,7 @@ class AmmArbStrategy(StrategyPyBase):
     @staticmethod
     @lru_cache(maxsize=10)
     def is_gateway_market_evm_compatible(market_info: MarketTradingPairTuple) -> bool:
-        connector_spec: Dict[str, str] = GatewayConnectionSetting.get_connector_spec_from_market_name(market_info.market.name)
+        connector_spec: Dict[str, str] = GatewayConnectionSetting.get_connector_spec_from_market_name(market_info.market.connector_name)
         return connector_spec["chain_type"] == "EVM"
 
     def tick(self, timestamp: float):
