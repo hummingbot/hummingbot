@@ -43,6 +43,7 @@ class SmartComponentBase:
         self.connectors = {connector_name: connector for connector_name, connector in strategy.connectors.items() if
                            connector_name in connectors}
         self._status: SmartComponentStatus = SmartComponentStatus.NOT_STARTED
+        self._states: list = []
 
         self._create_buy_order_forwarder = SourceInfoEventForwarder(self.process_order_created_event)
         self._create_sell_order_forwarder = SourceInfoEventForwarder(self.process_order_created_event)
@@ -75,14 +76,23 @@ class SmartComponentBase:
         return order
 
     async def control_loop(self):
+        self._status = SmartComponentStatus.ACTIVE
+        self.on_start()
         while not self.terminated.is_set():
             self.control_position()
             await asyncio.sleep(self.update_interval)
+        self._status = SmartComponentStatus.TERMINATED
+        self.on_stop()
+
+    def on_stop(self):
+        pass
+
+    def on_start(self):
+        pass
 
     def terminate_control_loop(self):
         self.terminated.set()
         self.unregister_events()
-        self._status = SmartComponentStatus.TERMINATED
 
     def control_position(self):
         raise NotImplementedError
