@@ -169,7 +169,7 @@ class PositionExecutorV2(SmartComponentBase):
             order_type=self.open_order_type,
             amount=self.amount,
             price=self.entry_price,
-            trade_type=self.side,
+            side=self.side,
             position_action=PositionAction.OPEN,
         )
         self._open_order.order_id = order_id
@@ -212,7 +212,7 @@ class PositionExecutorV2(SmartComponentBase):
             price=price,
             order_type=self.take_profit_order_type,
             position_action=PositionAction.CLOSE,
-            trade_type=TradeType.BUY if self.side == TradeType.SELL else TradeType.SELL,
+            side=TradeType.BUY if self.side == TradeType.SELL else TradeType.SELL,
         )
         self.take_profit_order.order_id = order_id
         self.logger().info("Placing take profit order")
@@ -252,7 +252,7 @@ class PositionExecutorV2(SmartComponentBase):
             price=price,
             order_type=OrderType.MARKET,
             position_action=PositionAction.CLOSE,
-            trade_type=TradeType.BUY if self.side == TradeType.SELL else TradeType.SELL,
+            side=TradeType.BUY if self.side == TradeType.SELL else TradeType.SELL,
         )
         self.stop_loss_order.order_id = order_id
         self.logger().info("Placing stop loss order")
@@ -274,7 +274,7 @@ class PositionExecutorV2(SmartComponentBase):
             price=price,
             order_type=OrderType.MARKET,
             position_action=PositionAction.CLOSE,
-            trade_type=TradeType.BUY if self.side == TradeType.SELL else TradeType.SELL,
+            side=TradeType.BUY if self.side == TradeType.SELL else TradeType.SELL,
         )
         self.time_limit_order.order_id = order_id
         self.logger().info("Placing time limit order")
