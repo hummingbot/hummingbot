@@ -113,12 +113,12 @@ class SmartComponentBase:
                     connector_name: str,
                     trading_pair: str,
                     order_type: OrderType,
+                    side: TradeType,
                     amount: Decimal,
-                    trade_type: TradeType,
                     position_action: PositionAction = PositionAction.NIL,
                     price=Decimal("NaN"),
                     ):
-        if trade_type == TradeType.BUY:
+        if side == TradeType.BUY:
             return self._strategy.buy(connector_name, trading_pair, amount, order_type, price, position_action)
         else:
             return self._strategy.sell(connector_name, trading_pair, amount, order_type, price, position_action)
