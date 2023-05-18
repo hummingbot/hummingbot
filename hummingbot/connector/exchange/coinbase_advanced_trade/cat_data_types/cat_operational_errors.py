@@ -35,6 +35,7 @@ CANCEL_FAILURES = {
 UNKNOWN_CANCEL_ORDER = "UNKNOWN_CANCEL_ORDER"
 
 
+# Decorator to preprocess the operational errors from API calls (200 responses)
 def cat_api_call_operational_error_handler(coro_func: Callable[..., Coroutine[Any, Any, Dict[str, Any]]]
                                            ) -> Callable[..., Coroutine[Any, Any, Dict[str, Any]]]:
     """
@@ -44,57 +45,32 @@ def cat_api_call_operational_error_handler(coro_func: Callable[..., Coroutine[An
     :return: The decorated coroutine.
     """
 
-    def handle_error(result: Dict[str, Any]) -> None:
-        if not result['success']:
-            failure_reason: str = result['failure_reason']
-            error_response_json: Union[str, Dict[str, Any]] = result.get('error_response', '')
-
-            if isinstance(error_response_json, str):
-                error_response_json: Dict[str, Any] = json.loads(result['error_response'])
-
-            error_response: CoinbaseAdvancedTradeOperationalError = CoinbaseAdvancedTradeOperationalError.from_json(
-                error_response_json)
-
-            if ORDER_FAILURES.get(failure_reason, False):
-                raise CoinbaseAdvancedTradeOrderFailureError(failure_reason, error_response)
-
-            elif CANCEL_FAILURES.get(failure_reason, False):
-                raise CoinbaseAdvancedTradeCancelFailureError(failure_reason, error_response)
-
-            else:
-                raise error_response
-
     @functools.wraps(coro_func)
-    async def wrapper(*args, **kwargs) -> Dict[str, Any]:
+    async def wrapper(*args, **kwargs):
         response: Union[str, Dict[str, Any]] = await coro_func(*args, **kwargs)
-
         if isinstance(response, str):
             if response == "":
                 return {}
             response = json.loads(response)
 
         if isinstance(response, dict):
-            if 'results' in response:
-                # Multiple errors case.
-                for result in response['results']:
-                    if 'success' in result and not result['success']:
-                        handle_error(result)
-                return response
-
             if 'success' not in response:
-                # Only the POST "Create Order" response has the 'success' key
-                # Errors would then be handled by the protocol response handler
-                return response
-
+                raise ValueError(f"Invalid Coinbase Advanced Trade API response: {response}")
             if not response['success']:
-                # Single error case
-                handle_error(response)
-                return response
-            return response
+                failure_reason = response['failure_reason']
+                error_response_json = response.get('error_response', '')
+                if isinstance(error_response_json, str):
+                    error_response_json = json.loads(response['error_response'])
+                error_response = CoinbaseAdvancedTradeOperationalError.from_json(error_response_json)
+                if ORDER_FAILURES.get(failure_reason, False):
+                    raise CoinbaseAdvancedTradeOrderFailureError(failure_reason, error_response)
+                elif CANCEL_FAILURES.get(failure_reason, False):
+                    raise CoinbaseAdvancedTradeCancelFailureError(failure_reason, error_response)
+                else:
+                    raise error_response
+        return response
 
-        raise ValueError(f"Unexpected response type: {type(response)}")
-
-    return wrapper  # Corrected indentation
+    return wrapper
 
 
 class CoinbaseAdvancedTradeOperationalError(Exception):
