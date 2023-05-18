@@ -1,38 +1,39 @@
+from abc import ABC, abstractmethod
 from typing import Any, AsyncIterable, Dict
 
 from _decimal import Decimal
 
+from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.exchange.coinbase_advanced_trade import cat_constants as CONSTANTS
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_cumulative_trade import (
     CoinbaseAdvancedTradeCumulativeUpdate,
 )
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_exchange_mixins.cat_exchange_protocols import (
-    WebsocketMixinProtocol,
+from hummingbot.connector.exchange.coinbase_advanced_trade.cat_exchange_mixins.cat_accounts_mixin import (
+    _AccountsMixinAbstract,
+)
+from hummingbot.connector.exchange.coinbase_advanced_trade.cat_exchange_mixins.cat_utilities_abstract import (
+    _UtilitiesMixinAbstract,
 )
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_utils import DEFAULT_FEES
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 
 
-class _WebsocketMixinSuperCalls:
-    """
-    This class is used to call the methods of the super class of a subclass of its Mixin.
-    It allows a dynamic search of the methods in the super classes of its Mixin.
-    The methods must be defined in one of the super classes defined after its Mixin class.
-    """
+class _WebsocketMixinAbstract(ABC):
+    @abstractmethod
+    def order_tracker(self) -> ClientOrderTracker:
+        pass
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
+    @abstractmethod
     def iter_user_event_queue(self) -> AsyncIterable[Dict[str, Any]]:
-        return super()._iter_user_event_queue()
+        pass
 
 
-class WebsocketMixin(_WebsocketMixinSuperCalls):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-    async def _user_stream_event_listener(self: WebsocketMixinProtocol):
+class _WebsocketMixin(_AccountsMixinAbstract,
+                      _WebsocketMixinAbstract,
+                      _UtilitiesMixinAbstract,
+                      ABC):
+    async def _user_stream_event_listener(self):
         """
         This functions runs in background continuously processing the events received from the exchange by the user
         stream data source. It keeps reading events from the queue until the task is interrupted.
@@ -68,12 +69,10 @@ class WebsocketMixin(_WebsocketMixinSuperCalls):
         }
         """
         async for event_message in self.iter_user_event_queue():
-            print(event_message)
             assert isinstance(event_message, CoinbaseAdvancedTradeCumulativeUpdate)
 
-            fillable_order: InFlightOrder = self.order_tracker.all_fillable_orders.get(event_message.client_order_id)
-            updatable_order: InFlightOrder = self.order_tracker.all_updatable_orders.get(
-                event_message.client_order_id)
+            fillable_order: InFlightOrder = self.order_tracker().all_fillable_orders.get(event_message.client_order_id)
+            updatable_order: InFlightOrder = self.order_tracker().all_updatable_orders.get(event_message.client_order_id)
 
             new_state: OrderState = CONSTANTS.ORDER_STATE[event_message.status]
             partial: bool = event_message.remainder_base_amount > 0
@@ -82,8 +81,7 @@ class WebsocketMixin(_WebsocketMixinSuperCalls):
             if fillable_order is not None and any((new_state == OrderState.PARTIALLY_FILLED,
                                                    new_state == OrderState.OPEN)):
                 fill_base_amount: Decimal = event_message.cumulative_base_amount - fillable_order.executed_amount_base
-                transaction_fee: Decimal = Decimal(event_message.cumulative_fee) - fillable_order.cumulative_fee_paid(
-                    "USD")
+                transaction_fee: Decimal = Decimal(event_message.cumulative_fee) - fillable_order.cumulative_fee_paid("USD")
                 total_price: Decimal = event_message.average_price * event_message.cumulative_base_amount
                 fee = TradeFeeBase.new_spot_fee(
                     fee_schema=DEFAULT_FEES,
@@ -110,7 +108,7 @@ class WebsocketMixin(_WebsocketMixinSuperCalls):
                 )
                 # Maybe we should not emit a TradeUpdate?
                 # TODO: Check if we should emit a TradeUpdate in this case
-                self.order_tracker.process_trade_update(trade_update)
+                self.order_tracker().process_trade_update(trade_update)
 
             if updatable_order is not None:
                 order_update = OrderUpdate(
@@ -120,4 +118,4 @@ class WebsocketMixin(_WebsocketMixinSuperCalls):
                     client_order_id=event_message.client_order_id,
                     exchange_order_id=event_message.exchange_order_id,
                 )
-                self.order_tracker.process_order_update(order_update)
+                self.order_tracker().process_order_update(order_update)
