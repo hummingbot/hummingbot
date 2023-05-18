@@ -81,32 +81,17 @@ class PositionExecutorV2(SmartComponentBase):
 
     @property
     def close_price(self):
-        if self.executor_status == PositionExecutorStatus.CLOSED_BY_STOP_LOSS and self.stop_loss_order.order:
-            return self.stop_loss_order.average_executed_price
-        elif self.executor_status == PositionExecutorStatus.CLOSED_BY_TAKE_PROFIT and self.take_profit_order.order:
-            return self.take_profit_order.average_executed_price
-        elif self.executor_status == PositionExecutorStatus.CLOSED_BY_TIME_LIMIT and self.take_profit_order.order:
-            return self.time_limit_order.average_executed_price
-        else:
-            return None
+        if self.close_order.order:
+            return self.close_order.average_executed_price
 
     @property
     def pnl(self):
-        if self.executor_status in [PositionExecutorStatus.CLOSED_BY_TIME_LIMIT,
-                                    PositionExecutorStatus.CLOSED_BY_STOP_LOSS,
-                                    PositionExecutorStatus.CLOSED_BY_TAKE_PROFIT]:
-            if self.side == TradeType.BUY:
-                return (self.close_price - self.entry_price) / self.entry_price
-            else:
-                return (self.entry_price - self.close_price) / self.entry_price
-        elif self.executor_status == PositionExecutorStatus.ACTIVE_POSITION:
-            current_price = self.get_price(self.exchange, self.trading_pair)
-            if self.side == TradeType.SELL:
-                return (current_price - self.entry_price) / self.entry_price
-            else:
-                return (self.entry_price - current_price) / self.entry_price
+        close_price = self.close_price if self.close_price else self.get_price(self.exchange, self.trading_pair)
+        entry_price = self.entry_price if self.entry_price else self.get_price(self.exchange, self.trading_pair)
+        if self.side == TradeType.BUY:
+            return (close_price - entry_price) / entry_price
         else:
-            return Decimal("0")
+            return (entry_price - close_price) / entry_price
 
     @property
     def pnl_usd(self):
