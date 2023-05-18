@@ -6,7 +6,6 @@ from weakref import ReferenceType, ref
 
 import path_util  # noqa: F401
 
-from bin.docker_connection import fork_and_start
 from hummingbot import chdir_to_data_directory, init_logging
 from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
 from hummingbot.client.config.config_helpers import (
@@ -86,4 +85,4 @@ def main():
 
 
 if __name__ == "__main__":
-    fork_and_start(main)
+    main()
