@@ -119,7 +119,7 @@ class TestPositionExecutor(unittest.TestCase):
             client_order_id="OID-SELL-1",
             exchange_order_id="EOID4",
             trading_pair=position_config.trading_pair,
-            order_type=position_config.order_type,
+            order_type=position_config.open_order_type,
             trade_type=TradeType.SELL,
             amount=position_config.amount,
             price=position_config.entry_price,
@@ -155,7 +155,7 @@ class TestPositionExecutor(unittest.TestCase):
             client_order_id="OID-BUY-1",
             exchange_order_id="EOID4",
             trading_pair=position_config.trading_pair,
-            order_type=position_config.order_type,
+            order_type=position_config.open_order_type,
             trade_type=TradeType.BUY,
             amount=position_config.amount,
             price=position_config.entry_price,
@@ -191,7 +191,7 @@ class TestPositionExecutor(unittest.TestCase):
             client_order_id="OID-BUY-1",
             exchange_order_id="EOID4",
             trading_pair=position_config.trading_pair,
-            order_type=position_config.order_type,
+            order_type=position_config.open_order_type,
             trade_type=TradeType.BUY,
             amount=position_config.amount,
             price=position_config.entry_price,
@@ -227,7 +227,7 @@ class TestPositionExecutor(unittest.TestCase):
             client_order_id="OID-SELL-1",
             exchange_order_id="EOID4",
             trading_pair=position_config.trading_pair,
-            order_type=position_config.order_type,
+            order_type=position_config.open_order_type,
             trade_type=TradeType.SELL,
             amount=position_config.amount,
             price=position_executor.take_profit_price,
@@ -251,7 +251,7 @@ class TestPositionExecutor(unittest.TestCase):
             client_order_id="OID-BUY-1",
             exchange_order_id="EOID4",
             trading_pair=position_config.trading_pair,
-            order_type=position_config.order_type,
+            order_type=position_config.open_order_type,
             trade_type=TradeType.BUY,
             amount=position_config.amount,
             price=position_config.entry_price,
@@ -288,7 +288,7 @@ class TestPositionExecutor(unittest.TestCase):
             client_order_id="OID-BUY-1",
             exchange_order_id="EOID4",
             trading_pair=position_config.trading_pair,
-            order_type=position_config.order_type,
+            order_type=position_config.open_order_type,
             trade_type=TradeType.BUY,
             amount=position_config.amount,
             price=position_config.entry_price,
@@ -314,7 +314,7 @@ class TestPositionExecutor(unittest.TestCase):
             client_order_id="OID-SELL-1",
             exchange_order_id="EOID4",
             trading_pair=position_config.trading_pair,
-            order_type=position_config.order_type,
+            order_type=position_config.open_order_type,
             trade_type=TradeType.SELL,
             amount=position_config.amount,
             price=position_config.entry_price,
@@ -336,7 +336,7 @@ class TestPositionExecutor(unittest.TestCase):
             client_order_id="OID-BUY-1",
             exchange_order_id="EOID4",
             trading_pair=position_config.trading_pair,
-            order_type=position_config.order_type,
+            order_type=position_config.open_order_type,
             trade_type=TradeType.BUY,
             amount=position_config.amount,
             price=position_config.entry_price,
@@ -362,7 +362,7 @@ class TestPositionExecutor(unittest.TestCase):
             client_order_id="OID-SELL-1",
             exchange_order_id="EOID4",
             trading_pair=position_config.trading_pair,
-            order_type=position_config.order_type,
+            order_type=position_config.open_order_type,
             trade_type=TradeType.SELL,
             amount=position_config.amount,
             price=position_config.entry_price,
@@ -385,7 +385,7 @@ class TestPositionExecutor(unittest.TestCase):
             quote_asset="USDT",
             base_asset_amount=position_config.amount,
             quote_asset_amount=position_config.amount * position_config.entry_price,
-            order_type=position_config.order_type,
+            order_type=position_config.open_order_type,
             exchange_order_id="ED140"
         )
         market = MagicMock()
@@ -403,7 +403,7 @@ class TestPositionExecutor(unittest.TestCase):
             quote_asset="USDT",
             base_asset_amount=position_config.amount,
             quote_asset_amount=position_config.amount * position_config.entry_price,
-            order_type=position_config.order_type,
+            order_type=position_config.open_order_type,
             exchange_order_id="ED140"
         )
         market = MagicMock()
@@ -422,7 +422,7 @@ class TestPositionExecutor(unittest.TestCase):
             quote_asset="USDT",
             base_asset_amount=position_config.amount,
             quote_asset_amount=position_config.amount * position_config.entry_price,
-            order_type=position_config.order_type,
+            order_type=position_config.open_order_type,
             exchange_order_id="ED140"
         )
         market = MagicMock()
@@ -441,7 +441,7 @@ class TestPositionExecutor(unittest.TestCase):
             quote_asset="USDT",
             base_asset_amount=position_config.amount,
             quote_asset_amount=position_config.amount * position_config.entry_price,
-            order_type=position_config.order_type,
+            order_type=position_config.open_order_type,
             exchange_order_id="ED140"
         )
         market = MagicMock()
@@ -459,7 +459,7 @@ class TestPositionExecutor(unittest.TestCase):
             trading_pair="ETH-USDT",
             price=position_config.entry_price,
             amount=position_config.amount,
-            order_type=position_config.order_type,
+            order_type=position_config.open_order_type,
             trade_type=TradeType.SELL,
             trade_fee=AddedToCostTradeFee(flat_fees=[TokenAmount(token="USDT", amount=Decimal("0.2"))])
         )
@@ -477,7 +477,7 @@ class TestPositionExecutor(unittest.TestCase):
             trading_pair="ETH-USDT",
             price=position_config.entry_price,
             amount=position_config.amount,
-            order_type=position_config.order_type,
+            order_type=position_config.open_order_type,
             trade_type=TradeType.SELL,
             trade_fee=AddedToCostTradeFee(flat_fees=[TokenAmount(token="USDT", amount=Decimal("0.2"))])
         )
