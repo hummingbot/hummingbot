@@ -59,6 +59,7 @@ FEE_TAKER_KEY = "taker"
 ORDER_TYPE_MAP = {
     OrderType.LIMIT: "LIMIT",
     OrderType.LIMIT_MAKER: "LIMIT",
+    OrderType.MARKET: "MARKET",
 }
 
 ORDER_STATE = {
