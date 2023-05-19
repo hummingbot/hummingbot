@@ -138,7 +138,7 @@ class AddTradeFeeInQuote(DatabaseTransformation):
         super().__init__(*args, **kwargs)
 
     def apply(self, db_handle: SQLConnectionManager) -> SQLConnectionManager:
-        trade_fee = Column("trade_fee_in_quote", SqliteDecimal, nullable=True)
+        trade_fee = Column("trade_fee_in_quote", SqliteDecimal(6), nullable=True)
         self.add_column(db_handle.engine, "TradeFill", trade_fee, dry_run=False)
         return db_handle
 
