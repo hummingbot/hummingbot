@@ -27,13 +27,16 @@ class PositionConfig(BaseModel):
 
 class PositionExecutorStatus(Enum):
     NOT_STARTED = 1
-    ORDER_PLACED = 2
-    CANCELED_BY_TIME_LIMIT = 3
-    ACTIVE_POSITION = 4
-    CLOSE_PLACED = 5
-    CLOSED_BY_TIME_LIMIT = 6
-    CLOSED_BY_STOP_LOSS = 7
-    CLOSED_BY_TAKE_PROFIT = 8
+    ACTIVE_POSITION = 2
+    COMPLETED = 3
+
+
+class CloseType(Enum):
+    TIME_LIMIT = 1
+    STOP_LOSS = 2
+    TAKE_PROFIT = 3
+    EXPIRED = 4
+    EARLY_STOP = 5
 
 
 class TrackedOrder:
