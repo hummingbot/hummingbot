@@ -79,7 +79,7 @@ class SmartComponentBase:
         self._status = SmartComponentStatus.ACTIVE
         self.on_start()
         while not self.terminated.is_set():
-            self.control_position()
+            self.control_task()
             await asyncio.sleep(self.update_interval)
         self._status = SmartComponentStatus.TERMINATED
         self.on_stop()
@@ -94,7 +94,7 @@ class SmartComponentBase:
         self.terminated.set()
         self.unregister_events()
 
-    def control_position(self):
+    def control_task(self):
         raise NotImplementedError
 
     def register_events(self):
@@ -124,7 +124,7 @@ class SmartComponentBase:
             return self._strategy.sell(connector_name, trading_pair, amount, order_type, price, position_action)
 
     def get_price(self, connector_name: str, trading_pair: str, price_type: PriceType = PriceType.MidPrice):
-        return self.connectors[connector_name].get_price_by_type(connector_name, trading_pair, price_type)
+        return self.connectors[connector_name].get_price_by_type(trading_pair, price_type)
 
     def get_order_book(self, connector_name: str, trading_pair: str):
         return self.connectors[connector_name].get_order_book(connector_name, trading_pair)
