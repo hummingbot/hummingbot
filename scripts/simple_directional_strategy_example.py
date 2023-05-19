@@ -9,10 +9,11 @@ import pandas_ta as ta  # noqa: F401
 
 from hummingbot import data_path
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesFactory
 from hummingbot.smart_components.position_executor.data_types import PositionConfig
 from hummingbot.smart_components.position_executor.position_executor import PositionExecutor
+from hummingbot.smart_components.position_executor_v2.position_executor_v2 import PositionExecutorV2
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
@@ -22,7 +23,7 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
     IMPORTANT: Binance perpetual has to be in Single Asset Mode, soon we are going to support Multi Asset Mode.
     """
     # Define the trading pair and exchange that we want to use and the csv where we are going to store the entries
-    trading_pair = "ETH-USDT"
+    trading_pair = "DODO-BUSD"
     exchange = "binance_perpetual"
 
     # Maximum position executors at a time
@@ -36,11 +37,11 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
     time_limit = 60 * 5
 
     # Create the candles that we want to use and the thresholds for the indicators
-    eth_1m_candles = CandlesFactory.get_candle(connector=exchange,
-                                               trading_pair=trading_pair,
-                                               interval="1m", max_records=50)
-    rsi_lower_bound = 30
-    rsi_upper_bound = 70
+    candles = CandlesFactory.get_candle(connector=exchange,
+                                        trading_pair=trading_pair,
+                                        interval="1m", max_records=50)
+    rsi_lower_bound = 45
+    rsi_upper_bound = 55
 
     # Configure the leverage and order amount the bot is going to use
     set_leverage_flag = None
@@ -54,7 +55,16 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
     def __init__(self, connectors: Dict[str, ConnectorBase]):
         # Is necessary to start the Candles Feed.
         super().__init__(connectors)
-        self.eth_1m_candles.start()
+        self.candles.start()
+
+    def on_stop(self):
+        """
+        Without this functionality, the network iterator will continue running forever after stopping the strategy
+        That's why is necessary to introduce this new feature to make a custom stop with the strategy.
+        """
+        # we are going to close all the open positions when the bot stops
+        self.close_open_positions()
+        self.candles.stop()
 
     def get_active_executors(self):
         return [signal_executor for signal_executor in self.active_executors
@@ -65,19 +75,18 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
 
     def on_tick(self):
         self.check_and_set_leverage()
-        if len(self.get_active_executors()) < self.max_executors:
+        if len(self.get_active_executors()) < self.max_executors and self.candles.is_ready:
             signal_value = self.get_signal()
-            if signal_value > self.rsi_upper_bound or signal_value < self.rsi_lower_bound and self.is_margin_enough()\
-                    and self.eth_1m_candles.is_ready:
+            if signal_value > self.rsi_upper_bound or signal_value < self.rsi_lower_bound and self.is_margin_enough():
                 # The rule that we are going to implement is:
                 # | RSI > 70 --> Short |
                 # | RSI < 30 --> Long  |
                 price = self.connectors[self.exchange].get_mid_price(self.trading_pair)
-                signal_executor = PositionExecutor(
+                signal_executor = PositionExecutorV2(
                     position_config=PositionConfig(
                         timestamp=self.current_timestamp, trading_pair=self.trading_pair,
                         exchange=self.exchange, order_type=OrderType.MARKET,
-                        side=PositionSide.SHORT if signal_value > 50 else PositionSide.LONG,
+                        side=TradeType.SELL if signal_value > 50 else TradeType.BUY,
                         entry_price=price,
                         amount=self.order_amount_usd / price,
                         stop_loss=self.stop_loss,
@@ -89,20 +98,11 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
         self.clean_and_store_executors()
 
     def get_signal(self):
-        candle_df = self.eth_1m_candles.candles_df
+        candle_df = self.candles.candles_df
         # Let's add some technical indicators
         candle_df.ta.rsi(length=21, append=True)
         rsi_value = candle_df.iat[-1, -1]
         return rsi_value
-
-    def on_stop(self):
-        """
-        Without this functionality, the network iterator will continue running forever after stopping the strategy
-        That's why is necessary to introduce this new feature to make a custom stop with the strategy.
-        """
-        # we are going to close all the open positions when the bot stops
-        self.close_open_positions()
-        self.eth_1m_candles.stop()
 
     def format_status(self) -> str:
         """
@@ -117,7 +117,7 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
                 "\n########################################## Closed Executors ##########################################"])
 
         for executor in self.stored_executors:
-            lines.extend([f"|Signal id: {executor.timestamp}"])
+            lines.extend([f"|Signal id: {executor.position_config.timestamp}"])
             lines.extend(executor.to_format_status())
             lines.extend([
                 "-----------------------------------------------------------------------------------------------------------"])
@@ -127,18 +127,18 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
                 "\n########################################## Active Executors ##########################################"])
 
         for executor in self.active_executors:
-            lines.extend([f"|Signal id: {executor.timestamp}"])
+            lines.extend([f"|Signal id: {executor.position_config.timestamp}"])
             lines.extend(executor.to_format_status())
-        if self.eth_1m_candles.is_ready:
+        if self.candles.is_ready:
             lines.extend([
                 "\n############################################ Market Data ############################################\n"])
             lines.extend([f"Value: {self.get_signal()}"])
             columns_to_show = ["timestamp", "open", "low", "high", "close", "volume", "RSI_21"]
-            candles_df = self.eth_1m_candles.candles_df
+            candles_df = self.candles.candles_df
             # Let's add some technical indicators
             candles_df.ta.rsi(length=21, append=True)
             candles_df["timestamp"] = pd.to_datetime(candles_df["timestamp"], unit="ms")
-            lines.extend([f"Candles: {self.eth_1m_candles.name} | Interval: {self.eth_1m_candles.interval}\n"])
+            lines.extend([f"Candles: {self.candles.name} | Interval: {self.candles.interval}\n"])
             lines.extend(["    " + line for line in candles_df[columns_to_show].tail().to_string(index=False).split("\n")])
             lines.extend(["\n-----------------------------------------------------------------------------------------------------------\n"])
         else:
@@ -175,7 +175,7 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
             df_header.to_csv(self.csv_path, mode='a', header=False, index=False)
         for executor in executors_to_store:
             self.stored_executors.append(executor)
-            df = pd.DataFrame([(executor.timestamp,
+            df = pd.DataFrame([(executor.position_config.timestamp,
                                 executor.exchange,
                                 executor.trading_pair,
                                 executor.side,
