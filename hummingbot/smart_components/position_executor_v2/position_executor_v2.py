@@ -291,12 +291,15 @@ class PositionExecutorV2(SmartComponentBase):
             self.executor_status = PositionExecutorStatus.ACTIVE_POSITION
         elif self.close_order.order_id == event.order_id:
             self.close_timestamp = event.timestamp
-            self.logger().info(f"Closed by {self._close_type}")
             self.executor_status = PositionExecutorStatus.COMPLETED
+            self.logger().info(f"Closed by {self._close_type}")
+            self.terminate_control_loop()
         elif self.take_profit_order.order_id == event.order_id:
             self._close_type = CloseType.TAKE_PROFIT
+            self.executor_status = PositionExecutorStatus.COMPLETED
             self.close_timestamp = event.timestamp
             self.logger().info(f"Closed by {self._close_type}")
+            self.terminate_control_loop()
 
     def process_order_canceled_event(self, _, market, event: OrderCancelledEvent):
         if self.open_order.order_id == event.order_id:
@@ -334,7 +337,7 @@ class PositionExecutorV2(SmartComponentBase):
 | Trading Pair: {self.trading_pair} | Exchange: {self.exchange} | Side: {self.side} | Amount: {amount_in_quote:.4f} {quote_asset} - {self.amount:.4f} {base_asset}
 | Entry price: {self.entry_price:.4f}  | Close price: {self.close_price:.4f} --> PNL: {self.pnl * 100:.2f}%
 | Realized PNL: {self.pnl_usd:.4f} {quote_asset} | Total Fee: {self.cum_fees:.4f} {quote_asset} --> Net return: {(self.pnl_usd - self.cum_fees):.4f} {quote_asset}
-| Status: {self.status}
+| Close Type: {self._close_type}
 """])
         else:
             lines.extend([f"""
