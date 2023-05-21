@@ -219,7 +219,7 @@ class PerformanceMetrics:
         else:  # assume this is Trade object
             if trade.trade_fee.percent is not None:
                 fee_percent = Decimal(trade.trade_fee.percent)
-                fee_type = trade.trade_fee.fee_type
+                fee_type = trade.trade_fee.type_descriptor_for_json()
         if (fee_percent is not None) and (fee_type == DeductedFromReturnsTradeFee.type_descriptor_for_json()):
             impact = Decimal(str(trade.amount)) * Decimal(str(trade.price)) * fee_percent * Decimal("-1")
         return impact
