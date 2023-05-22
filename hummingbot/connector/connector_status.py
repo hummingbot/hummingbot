@@ -64,6 +64,9 @@ connector_status = {
     'bit_com_perpetual_testnet': 'bronze',
     'hotbit': 'bronze',
     'tinyman': 'bronze',
+    'foxbit': 'bronze',
+    'phemex_perpetual': 'bronze',
+    'phemex_perpetual_testnet': 'bronze',
 }
 
 warning_messages = {
