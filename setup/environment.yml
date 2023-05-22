@@ -1,7 +1,6 @@
 name: hummingbot
 channels:
   - conda-forge
-  - conda-canary
   - defaults
 dependencies:
   - aiounittest=1.4.1
