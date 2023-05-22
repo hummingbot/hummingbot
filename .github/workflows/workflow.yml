@@ -54,13 +54,13 @@ jobs:
         id: conda-dependencies
         uses: actions/cache@v2
         env:
-          # Increase this value to manually reset cache if setup/environment-linux.yml has not changed
+          # Increase this value to manually reset cache if setup/environment.yml has not changed
           CONDA_CACHE_NUMBER: 0
         with:
           path: |
             /home/runner/conda_pkgs_dir/
             /usr/share/miniconda/envs
-          key: ${{ runner.os }}-conda-${{ env.CONDA_CACHE_NUMBER }}-${{ hashFiles('setup/environment-linux.yml') }}
+          key: ${{ runner.os }}-conda-${{ env.CONDA_CACHE_NUMBER }}-${{ hashFiles('setup/environment.yml') }}
 
       # Install environment and Hummingbot
       - name: Install environment and Hummingbot
