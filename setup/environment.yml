@@ -4,10 +4,11 @@ channels:
   - defaults
 dependencies:
   - aiounittest=1.4.1
+  - appnope=0.1.0
   - bidict
-  - certifi=2021.5.30
   - coverage=5.5
   - gql
+  - intel-openmp=2021.3.0
   - nomkl=1.0
   - nose=1.3.7
   - nose-exclude
@@ -19,48 +20,35 @@ dependencies:
   - pydantic=1.9
   - pytables=3.6.1
   - python=3.8.2
-  - python-dateutil=2.8.1
   - scipy=1.6.2
-  - six=1.14.0
   - sqlalchemy=1.4
-  - sqlite=3.30.1
+  - sqlite=3.31.1
   - tabulate==0.8.9
-  - tzlocal=2.0.0
   - ujson=1.35
   - zlib=1.2.11
   - pip:
     - 0x-contract-addresses==3.0.0
     - 0x-contract-wrappers==2.0.0
     - 0x-order-utils==4.0.0
-    - aiohttp==3.7.4.post0
+    - aiohttp==3.*
     - aiokafka==0.7.1
     - aioprocessing==2.0.0
-    - aioresponses==0.7.2
+    - aioresponses
     - appdirs==1.4.3
-    - async-timeout==3.0.1
+    - async-timeout
     - asyncssh==2.7.2
-    - appnope==0.1.3
     - base58==2.1.1
     - cachetools==4.0.0
     - commlib-py==0.10.6
-    - cryptography==3.4.7
+    - cryptography==2.8
     - cython==3.0a7
-    - cytoolz==0.11.0
     - diff-cover==5.1.2
     - docker==5.0.3
-    - dydx-python==0.11.3
-    - dydx-v3-python==1.0.10
-    - eth-abi==2.1.1
-    - eth-account==0.5.5
-    - eth-bloom==1.0.4
-    - eth-keyfile==0.5.1
-    - eth-typing==2.2.1
-    - eth-utils==1.10.0
+    - dydx-v3-python==2.0.1
     - ethsnarks-loopring==0.1.5
     - flake8==3.7.9
-    - hexbytes==0.2.0
     - importlib-metadata==0.23
-    - injective-py==0.6.1.6
+    - injective-py==0.6.0.7
     - mypy-extensions==0.4.3
     - pandas_ta==0.3.14b
     - pre-commit==2.18.1
@@ -70,15 +58,14 @@ dependencies:
     - pyperclip==1.7.0
     - pytest==4.6.11
     - python-telegram-bot==12.4.2
-    - requests==2.22.0
+    - requests==2.*
     - rsa==4.7
     - ruamel-yaml==0.16.10
-    - setuptools==50.3.2
     - signalr-client-aio==0.0.1.6.2
     - simplejson==3.17.2
+    - substrate-interface==1.6.2
     - solders==0.1.4
-    - substrate-interface==1.*
-    - web3==5.23.0
+    - web3==5.*
     - websockets==9.1
-    - yarl==1.4.2
     - git+https://github.com/CoinAlpha/python-signalr-client.git
+prefix: /usr/local/Caskroom/miniconda/base/envs/hummingbot
