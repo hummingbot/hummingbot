@@ -18,7 +18,7 @@ class TimeSynchronizerTests(TestCase):
     async def configurable_timestamp_provider(timestamp: float) -> float:
         return timestamp
 
-    @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_seconds_counter")
+    @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_precise_time_s")
     @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._time")
     def test_time_with_registered_offsets_returns_local_time(self, time_mock, seconds_counter_mock):
         now = 1640000000.0
@@ -29,7 +29,7 @@ class TimeSynchronizerTests(TestCase):
         synchronized_time = time_provider.time()
         self.assertEqual(now + (2 - 3), synchronized_time)
 
-    @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_seconds_counter")
+    @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_precise_time_s")
     @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._time")
     def test_time_with_one_registered_offset(self, _, seconds_counter_mock):
         now = 1640000020.0
@@ -47,7 +47,7 @@ class TimeSynchronizerTests(TestCase):
             now - seconds_difference_getting_time + seconds_difference_when_calculating_current_time,
             synchronized_time)
 
-    @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_seconds_counter")
+    @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_precise_time_s")
     @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._time")
     def test_time_calculated_with_mean_of_all_offsets(self, _, seconds_counter_mock):
         first_time = 1640000003.0
