@@ -29,6 +29,7 @@ class PositionConfig(BaseModel):
     take_profit_order_type: OrderType = OrderType.MARKET
     stop_loss_order_type: OrderType = OrderType.MARKET
     time_limit_order_type: OrderType = OrderType.MARKET
+    leverage: Decimal = Decimal("1")
 
 
 class PositionExecutorStatus(Enum):
@@ -44,6 +45,7 @@ class CloseType(Enum):
     EXPIRED = 4
     EARLY_STOP = 5
     TRAILING_STOP = 6
+    INSUFFICIENT_BALANCE = 7
 
 
 class TrackedOrder:
