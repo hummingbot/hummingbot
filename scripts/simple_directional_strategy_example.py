@@ -22,7 +22,7 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
     """
     directional_strategy_name = "rsi_trading_strategy"
     # Define the trading pair and exchange that we want to use and the csv where we are going to store the entries
-    trading_pair = "ARPA-USDT"
+    trading_pair = "KAVA-USDT"
     exchange = "binance_perpetual"
 
     # Maximum position executors at a time
@@ -38,8 +38,8 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
     open_order_slippage_buffer = 0.005
     stop_loss_order_type = OrderType.MARKET
     take_profit_order_type = OrderType.MARKET
-    trailing_stop_activation_delta = 0.002
-    trailing_stop_trailing_delta = 0.0005
+    trailing_stop_activation_delta = 0.003
+    trailing_stop_trailing_delta = 0.0007
 
     # Create the candles that we want to use and the thresholds for the indicators
     candles = CandlesFactory.get_candle(connector=exchange,
@@ -48,8 +48,8 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
 
     # Configure the leverage and order amount the bot is going to use
     set_leverage_flag = None
-    leverage = 10
-    order_amount_usd = Decimal("10")
+    leverage = 1
+    order_amount_usd = Decimal("100")
 
     markets = {exchange: {trading_pair}}
 
@@ -124,11 +124,11 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
     def get_signal(self):
         candle_df = self.candles.candles_df
         # Let's add some technical indicators
-        candle_df.ta.rsi(length=21, append=True)
+        candle_df.ta.rsi(length=7, append=True)
         rsi_value = candle_df.iat[-1, -1]
-        if rsi_value > 55:
+        if rsi_value > 70:
             return -1
-        elif rsi_value < 45:
+        elif rsi_value < 30:
             return 1
         else:
             return 0
