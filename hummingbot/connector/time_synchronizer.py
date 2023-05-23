@@ -21,30 +21,15 @@ class TimeSynchronizer:
 
     def __init__(self):
         self._time_offset_ms: Deque[float] = deque(maxlen=5)
-        self._time_reference_s: float = self._time()
-        self._counter_reference_ns: int = time.monotonic_ns()
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
-        """
-        Get the logger for the `TimeSynchronizer` class.
-
-        :return: The logger object.
-        """
         if cls._logger is None:
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
     @property
     def time_offset_ms(self) -> float:
-        """
-        Get the time offset in milliseconds.
-
-        The time offset is calculated based on the registered deviations and returns the calculated current time
-        considering the offsets.
-
-        :return: The time offset in milliseconds.
-        """
         if not self._time_offset_ms:
             offset = (self._time() - self._current_precise_time_s()) * 1e3
         else:
@@ -56,17 +41,9 @@ class TimeSynchronizer:
         return offset
 
     def add_time_offset_ms_sample(self, offset: float):
-        """
-        Add a time offset sample to the internal list.
-
-        :param offset: The time offset to add in milliseconds.
-        """
         self._time_offset_ms.append(offset)
 
     def clear_time_offset_ms_samples(self):
-        """
-        Clear the list of time offset samples.
-        """
         self._time_offset_ms.clear()
 
     def time(self) -> float:
@@ -81,22 +58,16 @@ class TimeSynchronizer:
         Executes the time_provider passed as parameter to obtain the current time, and adds a new sample in the
         internal list.
 
-        :param time_provider: Awaitable object that returns the current time in milliseconds
+        :param time_provider: Awaitable object that returns the current time
         """
         try:
-            local_before_ns: int = self._current_precise_time_ns()
+            local_before_ms: float = self._current_precise_time_ms()
             server_time_ms: float = await time_provider
-            local_after_ns: int = self._current_precise_time_ns()
-            local_time_ms: float = (local_before_ns + local_after_ns) * 0.5 * 1e-6
-
-            # Verify server time in milliseconds
-            time_ratio = server_time_ms / local_time_ms
-            if not (0.01 <= time_ratio <= 100.0):
-                raise ValueError("Server time does not appear to be within 2 orders of magnitude of local time.")
-
-            time_offset_ms: float = server_time_ms - local_time_ms
+            local_after_ms: float = self._current_precise_time_ms()
+            local_server_time_pre_image_ms: float = (local_before_ms + local_after_ms) / 2.0
+            time_offset_ms: float = server_time_ms - local_server_time_pre_image_ms
             self.add_time_offset_ms_sample(time_offset_ms)
-        except (asyncio.CancelledError, ValueError):
+        except asyncio.CancelledError:
             raise
         except Exception:
             self.logger().network("Error getting server time.", exc_info=True,
@@ -115,38 +86,13 @@ class TimeSynchronizer:
             # Avoid warning for async without awaited function
             await asyncio.sleep(0)
 
-    def _elapsed_precise_ns(self) -> int:
-        """
-        Get the elapsed precise time in nanoseconds since the counter reference.
+    @staticmethod
+    def _current_precise_time_s() -> float:
+        return time.monotonic()
 
-        :return: The elapsed precise time in nanoseconds.
-        """
-        return time.monotonic_ns() - self._counter_reference_ns
-
-    def _current_precise_time_ns(self) -> int:
-        """
-        Get the current precise time in nanoseconds.
-
-        :return: The current precise time in nanoseconds.
-        """
-        return int(self._time_reference_s * 1e9) + self._elapsed_precise_ns()
-
-    def _current_precise_time_s(self) -> float:
-        """
-        Get the current precise time in seconds.
-
-        This is a more precise version of `time.time()`.
-
-        :return: The current precise time in seconds.
-        """
-        # This is a more precise version of time.time() - 2 * to simplify testing of existing code
-        return self._current_precise_time_ns() * 1e-9
+    def _current_precise_time_ms(self):
+        return self._current_precise_time_s() * 1e3
 
     @staticmethod
     def _time():
-        """
-        Get the current time.
-
-        :return: The current time.
-        """
         return time.time()
