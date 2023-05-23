@@ -84,7 +84,7 @@ class TestPositionExecutor(unittest.TestCase):
     def test_properties(self):
         position_config = self.get_position_config_market_short()
         position_executor = PositionExecutor(self.strategy, position_config)
-        self.assertEqual(position_executor.pnl_usd, Decimal("0"))
+        self.assertEqual(position_executor.trade_pnl_quote, Decimal("0"))
         position_executor.executor_status = PositionExecutorStatus.COMPLETED
         position_executor.close_type = CloseType.EARLY_STOP
         self.assertTrue(position_executor.is_closed)
@@ -119,7 +119,7 @@ class TestPositionExecutor(unittest.TestCase):
         self.assertIsNone(position_executor.open_order.order_id)
         self.assertEqual(position_executor.executor_status, PositionExecutorStatus.COMPLETED)
         self.assertEqual(position_executor.close_type, CloseType.EXPIRED)
-        self.assertEqual(position_executor.pnl, Decimal("0"))
+        self.assertEqual(position_executor.trade_pnl, Decimal("0"))
 
     def test_control_open_order_expiration(self):
         position_config = self.get_position_config_market_short()
@@ -132,7 +132,7 @@ class TestPositionExecutor(unittest.TestCase):
             trading_pair="ETH-USDT",
             order_id="OID-SELL-1")
         self.assertEqual(position_executor.executor_status, PositionExecutorStatus.NOT_STARTED)
-        self.assertEqual(position_executor.pnl, Decimal("0"))
+        self.assertEqual(position_executor.trade_pnl, Decimal("0"))
 
     def test_control_position_order_placed_not_cancel_open_order(self):
         position_config = self.get_position_config_market_short()
@@ -175,7 +175,7 @@ class TestPositionExecutor(unittest.TestCase):
         position_executor.executor_status = PositionExecutorStatus.ACTIVE_POSITION
         position_executor.control_task()
         self.assertEqual(position_executor.take_profit_order.order_id, "OID-BUY-1")
-        self.assertEqual(position_executor.pnl, Decimal("-0.01"))
+        self.assertEqual(position_executor.trade_pnl, Decimal("-0.01"))
 
     @patch("hummingbot.smart_components.position_executor.position_executor.PositionExecutor.get_price",
            return_value=Decimal("120"))
@@ -213,7 +213,7 @@ class TestPositionExecutor(unittest.TestCase):
         position_executor.control_task()
         self.assertEqual(position_executor.close_order.order_id, "OID-SELL-1")
         self.assertEqual(position_executor.close_type, CloseType.TAKE_PROFIT)
-        self.assertEqual(position_executor.pnl, Decimal("0.2"))
+        self.assertEqual(position_executor.trade_pnl, Decimal("0.2"))
 
     @patch("hummingbot.smart_components.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("70"))
     def test_control_position_active_position_close_by_stop_loss(self, _):
@@ -250,7 +250,7 @@ class TestPositionExecutor(unittest.TestCase):
         position_executor.control_task()
         self.assertEqual(position_executor.close_order.order_id, "OID-SELL-1")
         self.assertEqual(position_executor.close_type, CloseType.STOP_LOSS)
-        self.assertEqual(position_executor.pnl, Decimal("-0.3"))
+        self.assertEqual(position_executor.trade_pnl, Decimal("-0.3"))
 
     @patch("hummingbot.smart_components.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("100"))
     def test_control_position_active_position_close_by_time_limit(self, _):
@@ -287,7 +287,7 @@ class TestPositionExecutor(unittest.TestCase):
         position_executor.control_task()
         self.assertEqual(position_executor.close_order.order_id, "OID-SELL-2")
         self.assertEqual(position_executor.close_type, CloseType.TIME_LIMIT)
-        self.assertEqual(position_executor.pnl, Decimal("0.0"))
+        self.assertEqual(position_executor.trade_pnl, Decimal("0.0"))
 
     @patch("hummingbot.smart_components.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("70"))
     def test_control_position_close_placed_stop_loss_failed(self, _):
