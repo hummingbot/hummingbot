@@ -2,6 +2,7 @@ from decimal import Decimal
 from typing import Union
 
 from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
+from hummingbot.core.data_type.order_candidate import OrderCandidate, PerpetualOrderCandidate
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
     BuyOrderCreatedEvent,
@@ -28,6 +29,10 @@ class PositionExecutor(SmartComponentBase):
             error = "At least one of take_profit, stop_loss or time_limit must be set"
             self.logger().error(error)
             raise ValueError(error)
+        if position_config.time_limit_order_type != OrderType.MARKET or position_config.stop_loss_order_type != OrderType.MARKET:
+            error = "Only market orders are supported for time_limit and stop_loss"
+            self.logger().error(error)
+            raise ValueError(error)
         self._position_config: PositionConfig = position_config
         self.close_type = None
         self.close_timestamp = None
@@ -51,6 +56,10 @@ class PositionExecutor(SmartComponentBase):
     @property
     def is_closed(self):
         return self.executor_status == PositionExecutorStatus.COMPLETED
+
+    @property
+    def is_perpetual(self):
+        return self.exchange.split("_")[-1] == "perpetual"
 
     @property
     def position_config(self):
@@ -179,6 +188,9 @@ class PositionExecutor(SmartComponentBase):
 
     def time_limit_condition(self):
         return self._strategy.current_timestamp >= self.end_time
+
+    def on_start(self):
+        self.check_budget()
 
     def on_stop(self):
         if self.take_profit_order.order and self.take_profit_order.order.is_open:
@@ -418,3 +430,37 @@ class PositionExecutor(SmartComponentBase):
             trailing_stop_price = price * (1 + self.trailing_stop_config.trailing_delta)
             if trailing_stop_price < self._trailing_stop_price:
                 self._trailing_stop_price = trailing_stop_price
+
+    def check_budget(self):
+        if self.is_perpetual:
+            order_candidate = PerpetualOrderCandidate(
+                trading_pair=self.trading_pair,
+                is_maker=self.open_order_type.is_limit_type(),
+                order_type=self.open_order_type,
+                order_side=self.side,
+                amount=self.amount,
+                price=self.entry_price,
+                leverage=self.position_config.leverage,
+            )
+        else:
+            order_candidate = OrderCandidate(
+                trading_pair=self.trading_pair,
+                is_maker=self.open_order_type.is_limit_type(),
+                order_type=self.open_order_type,
+                order_side=self.side,
+                amount=self.amount,
+                price=self.entry_price,
+            )
+        adjusted_order_candidate = self.adjust_order_candidate(order_candidate)
+        if not adjusted_order_candidate:
+            self.terminate_control_loop()
+            self.close_type = CloseType.INSUFFICIENT_BALANCE
+            self.executor_status = PositionExecutorStatus.COMPLETED
+            error = "Not enough budget to open position."
+            self.logger().error(error)
+            raise ValueError(error)
+
+    def adjust_order_candidate(self, order_candidate):
+        adjusted_order_candidate: OrderCandidate = self.connectors[self.exchange].budget_checker.adjust_candidate(order_candidate)
+        if adjusted_order_candidate.amount > Decimal("0"):
+            return adjusted_order_candidate
