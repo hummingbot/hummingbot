@@ -1,8 +1,7 @@
 import datetime
 import os
-from collections import deque
 from decimal import Decimal
-from typing import Deque, Dict, List
+from typing import Dict, List
 
 import pandas as pd
 import pandas_ta as ta  # noqa: F401
@@ -11,9 +10,8 @@ from hummingbot import data_path
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesFactory
-from hummingbot.smart_components.position_executor.data_types import PositionConfig
+from hummingbot.smart_components.position_executor.data_types import PositionConfig, TrailingStop
 from hummingbot.smart_components.position_executor.position_executor import PositionExecutor
-from hummingbot.smart_components.position_executor_v2.position_executor_v2 import PositionExecutorV2
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
@@ -22,35 +20,43 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
     A simple trading strategy that uses RSI in one timeframe to determine whether to go long or short.
     IMPORTANT: Binance perpetual has to be in Single Asset Mode, soon we are going to support Multi Asset Mode.
     """
+    directional_strategy_name = "rsi_trading_strategy"
     # Define the trading pair and exchange that we want to use and the csv where we are going to store the entries
-    trading_pair = "DODO-BUSD"
+    trading_pair = "ARPA-USDT"
     exchange = "binance_perpetual"
 
     # Maximum position executors at a time
     max_executors = 1
     active_executors: List[PositionExecutor] = []
-    stored_executors: Deque[PositionExecutor] = deque(maxlen=10)  # Store only the last 10 executors for reporting
+    stored_executors: List[PositionExecutor] = []  # Store only the last 10 executors for reporting
 
     # Configure the parameters for the position
-    stop_loss = 0.002
-    take_profit = 0.004
-    time_limit = 60 * 5
+    stop_loss = 0.005
+    take_profit = 0.01
+    time_limit = 60 * 2
+    open_order_type = OrderType.MARKET
+    open_order_slippage_buffer = 0.005
+    stop_loss_order_type = OrderType.MARKET
+    take_profit_order_type = OrderType.MARKET
+    trailing_stop_activation_delta = 0.002
+    trailing_stop_trailing_delta = 0.0005
 
     # Create the candles that we want to use and the thresholds for the indicators
     candles = CandlesFactory.get_candle(connector=exchange,
                                         trading_pair=trading_pair,
                                         interval="1m", max_records=50)
-    rsi_lower_bound = 45
-    rsi_upper_bound = 55
 
     # Configure the leverage and order amount the bot is going to use
     set_leverage_flag = None
     leverage = 10
     order_amount_usd = Decimal("10")
 
-    today = datetime.datetime.today()
-    csv_path = data_path() + f"/{exchange}_{trading_pair}_{today.day:02d}-{today.month:02d}-{today.year}.csv"
     markets = {exchange: {trading_pair}}
+
+    def get_csv_path(self) -> str:
+        today = datetime.datetime.today()
+        csv_path = data_path() + f"/{self.directional_strategy_name}_position_executors_{self.exchange}_{self.trading_pair}_{today.day:02d}-{today.month:02d}-{today.year}.csv"
+        return csv_path
 
     def __init__(self, connectors: Dict[str, ConnectorBase]):
         # Is necessary to start the Candles Feed.
@@ -76,33 +82,56 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
     def on_tick(self):
         self.check_and_set_leverage()
         if len(self.get_active_executors()) < self.max_executors and self.candles.is_ready:
-            signal_value = self.get_signal()
-            if signal_value > self.rsi_upper_bound or signal_value < self.rsi_lower_bound and self.is_margin_enough():
-                # The rule that we are going to implement is:
-                # | RSI > 70 --> Short |
-                # | RSI < 30 --> Long  |
-                price = self.connectors[self.exchange].get_mid_price(self.trading_pair)
-                signal_executor = PositionExecutorV2(
-                    position_config=PositionConfig(
-                        timestamp=self.current_timestamp, trading_pair=self.trading_pair,
-                        exchange=self.exchange, order_type=OrderType.MARKET,
-                        side=TradeType.SELL if signal_value > 50 else TradeType.BUY,
-                        entry_price=price,
-                        amount=self.order_amount_usd / price,
-                        stop_loss=self.stop_loss,
-                        take_profit=self.take_profit,
-                        time_limit=self.time_limit),
+            position_config = self.get_position_config()
+            if position_config:
+                signal_executor = PositionExecutor(
                     strategy=self,
+                    position_config=position_config,
                 )
                 self.active_executors.append(signal_executor)
         self.clean_and_store_executors()
+
+    def get_position_config(self):
+        signal = self.get_signal()
+        if signal == 0:
+            return None
+        else:
+            price = self.connectors[self.exchange].get_mid_price(self.trading_pair)
+            side = TradeType.BUY if signal == 1 else TradeType.SELL
+            if self.open_order_type.is_limit_type():
+                price = price * (1 - signal * self.open_order_slippage_buffer)
+            position_config = PositionConfig(
+                timestamp=self.current_timestamp,
+                trading_pair=self.trading_pair,
+                exchange=self.exchange,
+                side=side,
+                amount=self.order_amount_usd / price,
+                take_profit=self.take_profit,
+                stop_loss=self.stop_loss,
+                time_limit=self.time_limit,
+                entry_price=price,
+                open_order_type=self.open_order_type,
+                take_profit_order_type=self.take_profit_order_type,
+                stop_loss_order_type=self.stop_loss_order_type,
+                time_limit_order_type=self.open_order_type,
+                trailing_stop=TrailingStop(
+                    activation_price_delta=self.trailing_stop_activation_delta,
+                    trailing_delta=self.trailing_stop_trailing_delta
+                )
+            )
+            return position_config
 
     def get_signal(self):
         candle_df = self.candles.candles_df
         # Let's add some technical indicators
         candle_df.ta.rsi(length=21, append=True)
         rsi_value = candle_df.iat[-1, -1]
-        return rsi_value
+        if rsi_value > 55:
+            return -1
+        elif rsi_value < 45:
+            return 1
+        else:
+            return 0
 
     def format_status(self) -> str:
         """
@@ -156,23 +185,33 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
 
     def clean_and_store_executors(self):
         executors_to_store = [executor for executor in self.active_executors if executor.is_closed]
-        if not os.path.exists(self.csv_path):
+        csv_path = self.get_csv_path()
+        if not os.path.exists(csv_path):
             df_header = pd.DataFrame([("timestamp",
                                        "exchange",
                                        "trading_pair",
                                        "side",
                                        "amount",
-                                       "pnl",
+                                       "trade_pnl",
+                                       "trade_pnl_quote",
+                                       "cum_fee_quote",
+                                       "net_pnl_quote",
+                                       "net_pnl",
                                        "close_timestamp",
+                                       "executor_status",
+                                       "close_type",
                                        "entry_price",
                                        "close_price",
-                                       "last_status",
                                        "sl",
                                        "tp",
                                        "tl",
-                                       "order_type",
-                                       "leverage")])
-            df_header.to_csv(self.csv_path, mode='a', header=False, index=False)
+                                       "open_order_type",
+                                       "take_profit_order_type",
+                                       "stop_loss_order_type",
+                                       "time_limit_order_type",
+                                       "leverage"
+                                       )])
+            df_header.to_csv(csv_path, mode='a', header=False, index=False)
         for executor in executors_to_store:
             self.stored_executors.append(executor)
             df = pd.DataFrame([(executor.position_config.timestamp,
@@ -180,17 +219,25 @@ class SimpleDirectionalStrategyExample(ScriptStrategyBase):
                                 executor.trading_pair,
                                 executor.side,
                                 executor.amount,
-                                executor.pnl,
+                                executor.trade_pnl,
+                                executor.trade_pnl_quote,
+                                executor.cum_fee_quote,
+                                executor.net_pnl_quote,
+                                executor.net_pnl,
                                 executor.close_timestamp,
+                                executor.executor_status,
+                                executor.close_type,
                                 executor.entry_price,
                                 executor.close_price,
-                                executor.status,
                                 executor.position_config.stop_loss,
                                 executor.position_config.take_profit,
                                 executor.position_config.time_limit,
                                 executor.open_order_type,
+                                executor.take_profit_order_type,
+                                executor.stop_loss_order_type,
+                                executor.time_limit_order_type,
                                 self.leverage)])
-            df.to_csv(self.csv_path, mode='a', header=False, index=False)
+            df.to_csv(self.get_csv_path(), mode='a', header=False, index=False)
         self.active_executors = [executor for executor in self.active_executors if not executor.is_closed]
 
     def close_open_positions(self):
