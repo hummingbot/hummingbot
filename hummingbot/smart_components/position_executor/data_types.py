@@ -43,6 +43,7 @@ class CloseType(Enum):
     TAKE_PROFIT = 3
     EXPIRED = 4
     EARLY_STOP = 5
+    TRAILING_STOP = 6
 
 
 class TrackedOrder:
