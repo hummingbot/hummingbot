@@ -195,6 +195,9 @@ class PolkadexExchange(ExchangePyBase):
         )
         return fee
 
+    async def _trading_fees_polling_loop(self):
+        pass
+
     async def _update_trading_fees(self):
         raise NotImplementedError  # pragma: no cover
 
