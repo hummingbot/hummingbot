@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from hummingbot.connector.utils import combine_to_hb_trading_pair, split_hb_trading_pair
 from hummingbot.core.data_type.common import PositionAction, TradeType
-from hummingbot.core.data_type.trade_fee import TokenAmount
+from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.logger import HummingbotLogger
 from hummingbot.model.trade_fill import TradeFill
@@ -194,6 +194,8 @@ class PerformanceMetrics:
                 self.s_vol_base += Decimal(str(trade.amount)) * Decimal("-1")
                 self.s_vol_quote += Decimal(str(trade.amount)) * Decimal(str(trade.price))
 
+            self.s_vol_quote += self._process_deducted_fees_impact_in_quote_vol(trade)
+
         self.tot_vol_base = self.b_vol_base + self.s_vol_base
         self.tot_vol_quote = self.b_vol_quote + self.s_vol_quote
 
@@ -206,26 +208,42 @@ class PerformanceMetrics:
 
         return buys, sells
 
+    def _process_deducted_fees_impact_in_quote_vol(self, trade):
+        fee_percent = None
+        fee_type = ""
+        impact = s_decimal_0
+        if self._is_trade_fill(trade):
+            if trade.trade_fee.get("percent") is not None:
+                fee_percent = Decimal(trade.trade_fee.get("percent"))
+                fee_type = trade.trade_fee.get("fee_type")
+        else:  # assume this is Trade object
+            if trade.trade_fee.percent is not None:
+                fee_percent = Decimal(trade.trade_fee.percent)
+                fee_type = trade.trade_fee.type_descriptor_for_json()
+        if (fee_percent is not None) and (fee_type == DeductedFromReturnsTradeFee.type_descriptor_for_json()):
+            impact = Decimal(str(trade.amount)) * Decimal(str(trade.price)) * fee_percent * Decimal("-1")
+        return impact
+
     async def _calculate_fees(self, quote: str, trades: List[Any]):
         for trade in trades:
             fee_percent = None
             trade_price = None
             trade_amount = None
             if self._is_trade_fill(trade):
-                if trade.trade_fee.get("percent") is not None and Decimal(trade.trade_fee["percent"]) > 0:
+                if trade.trade_fee.get("percent") is not None:
                     trade_price = Decimal(str(trade.price))
                     trade_amount = Decimal(str(trade.amount))
                     fee_percent = Decimal(str(trade.trade_fee["percent"]))
                 flat_fees = [TokenAmount(token=flat_fee["token"], amount=Decimal(flat_fee["amount"]))
                              for flat_fee in trade.trade_fee.get("flat_fees", [])]
             else:  # assume this is Trade object
-                if trade.trade_fee.percent is not None and trade.trade_fee.percent > 0:
+                if trade.trade_fee.percent is not None:
                     trade_price = Decimal(trade.price)
                     trade_amount = Decimal(trade.amount)
                     fee_percent = Decimal(trade.trade_fee.percent)
                 flat_fees = trade.trade_fee.flat_fees
 
-            if fee_percent is not None and fee_percent > 0:
+            if fee_percent is not None:
                 self.fees[quote] += trade_price * trade_amount * fee_percent
             for flat_fee in flat_fees:
                 self.fees[flat_fee.token] += flat_fee.amount

@@ -259,7 +259,7 @@ class AbstractExchangeConnectorTests:
                 self,
                 order: InFlightOrder,
                 mock_api: aioresponses,
-                callback: Optional[Callable]) -> str:
+                callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
             """
             :return: the URL configured
             """
