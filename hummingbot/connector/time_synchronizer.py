@@ -17,7 +17,6 @@ class TimeSynchronizer:
     to synchronize local time with the server's time.
     """
 
-    NaN = float("nan")
     _logger = None
 
     def __init__(self):
@@ -32,10 +31,11 @@ class TimeSynchronizer:
     @property
     def time_offset_ms(self) -> float:
         if not self._time_offset_ms:
-            offset = (self._time() - self._current_seconds_counter()) * 1e3
+            offset = (self._time() - self._current_precise_time_s()) * 1e3
         else:
             median = numpy.median(self._time_offset_ms)
-            weighted_average = numpy.average(self._time_offset_ms, weights=range(1, len(self._time_offset_ms) * 2 + 1, 2))
+            weighted_average = numpy.average(self._time_offset_ms,
+                                             weights=range(1, len(self._time_offset_ms) * 2 + 1, 2))
             offset = numpy.mean([median, weighted_average])
 
         return offset
@@ -51,7 +51,7 @@ class TimeSynchronizer:
         Returns the current time in seconds calculated base on the deviation samples.
         :return: Calculated current time considering the registered deviations
         """
-        return self._current_seconds_counter() + self.time_offset_ms * 1e-3
+        return self._current_precise_time_s() + self.time_offset_ms * 1e-3
 
     async def update_server_time_offset_with_time_provider(self, time_provider: Awaitable):
         """
@@ -61,9 +61,9 @@ class TimeSynchronizer:
         :param time_provider: Awaitable object that returns the current time
         """
         try:
-            local_before_ms: float = self._current_seconds_counter() * 1e3
+            local_before_ms: float = self._current_precise_time_ms()
             server_time_ms: float = await time_provider
-            local_after_ms: float = self._current_seconds_counter() * 1e3
+            local_after_ms: float = self._current_precise_time_ms()
             local_server_time_pre_image_ms: float = (local_before_ms + local_after_ms) / 2.0
             time_offset_ms: float = server_time_ms - local_server_time_pre_image_ms
             self.add_time_offset_ms_sample(time_offset_ms)
@@ -83,11 +83,16 @@ class TimeSynchronizer:
         if not self._time_offset_ms:
             await self.update_server_time_offset_with_time_provider(time_provider)
         else:
-            # This is done to avoid the warning message from asyncio framework saying a coroutine was not awaited
-            time_provider.close()
+            # Avoid warning for async without awaited function
+            await asyncio.sleep(0)
 
-    def _current_seconds_counter(self):
-        return time.perf_counter()
+    @staticmethod
+    def _current_precise_time_s() -> float:
+        return time.monotonic()
 
-    def _time(self):
+    def _current_precise_time_ms(self):
+        return self._current_precise_time_s() * 1e3
+
+    @staticmethod
+    def _time():
         return time.time()
