@@ -6,7 +6,7 @@ from hummingbot.core.data_type.common import OrderType, PriceType, TradeType
 from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.event.events import OrderFilledEvent
 from hummingbot.smart_components.position_executor.data_types import PositionConfig
-from hummingbot.smart_components.position_executor_v2.position_executor_v2 import PositionExecutorV2
+from hummingbot.smart_components.position_executor.position_executor import PositionExecutor
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
@@ -23,9 +23,9 @@ class SimplePMM(ScriptStrategyBase):
     bid_spread = 0.08
     ask_spread = 0.08
     order_refresh_time = 15
-    order_amount = 0.01
+    order_amount = 0.1
     create_timestamp = 0
-    trading_pair = "ETH-USDT"
+    trading_pair = "LTC-USDT"
     exchange = "kucoin"
     executors = []
     # Here you can use for example the LastTrade price to use in your strategy
@@ -60,7 +60,8 @@ class SimplePMM(ScriptStrategyBase):
 
     def place_orders(self, proposal: List[OrderCandidate]) -> None:
         for order in proposal:
-            executor = PositionExecutorV2(self, position_config=PositionConfig(
+            executor = PositionExecutor(self, position_config=PositionConfig(
+                timestamp=self.current_timestamp,
                 trading_pair=order.trading_pair,
                 exchange=self.exchange,
                 price=order.price,
@@ -68,18 +69,10 @@ class SimplePMM(ScriptStrategyBase):
                 side=order.order_side,
                 open_order_type=order.order_type,
                 take_profit=0.02,
-                stop_loss=0.04,
+                stop_loss=0.06,
                 time_limit=120,
             ))
             self.executors.append(executor)
-
-    def place_order(self, connector_name: str, order: OrderCandidate):
-        if order.order_side == TradeType.SELL:
-            self.sell(connector_name=connector_name, trading_pair=order.trading_pair, amount=order.amount,
-                      order_type=order.order_type, price=order.price)
-        elif order.order_side == TradeType.BUY:
-            self.buy(connector_name=connector_name, trading_pair=order.trading_pair, amount=order.amount,
-                     order_type=order.order_type, price=order.price)
 
     def cancel_all_orders(self):
         for order in self.get_active_orders(connector_name=self.exchange):
