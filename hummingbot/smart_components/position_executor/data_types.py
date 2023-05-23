@@ -9,6 +9,11 @@ from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
 
 
+class TrailingStop(BaseModel):
+    activation_price_delta: Decimal
+    trailing_delta: Decimal
+
+
 class PositionConfig(BaseModel):
     trading_pair: str
     exchange: str
@@ -16,6 +21,7 @@ class PositionConfig(BaseModel):
     amount: Decimal
     take_profit: Optional[Decimal] = None
     stop_loss: Optional[Decimal] = None
+    trailing_stop: Optional[TrailingStop] = None
     time_limit: Optional[int] = None
     entry_price: Optional[Decimal] = None
     timestamp: float = time.time()
