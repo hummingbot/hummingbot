@@ -17,21 +17,7 @@ if [ "${CONDA_EXE}_" == "_" ]; then
 fi
 
 CONDA_BIN=$(dirname ${CONDA_EXE})
-MACOS_ENV=setup/environment.yml
-LINUX_ENV=setup/environment-linux.yml
-LINUX_AARCH64_ENV=setup/environment-linux-aarch64.yml
-WIN64_ENV=setup/environment-win64.yml
-ENV_FILE=$MACOS_ENV
-
-if uname | egrep -qe "Linux"; then
-    if uname -m | egrep -qe "aarch64"; then
-        ENV_FILE=$LINUX_AARCH64_ENV
-    else
-        ENV_FILE=$LINUX_ENV
-    fi
-elif uname | egrep -qe "MINGW64"; then
-    ENV_FILE=$WIN64_ENV
-fi
+ENV_FILE=setup/environment.yml
 
 if ${CONDA_EXE} env list | egrep -qe "^hummingbot"; then
     ${CONDA_EXE} env update -f $ENV_FILE

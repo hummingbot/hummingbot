@@ -34,7 +34,7 @@ s_decimal_NaN = Decimal("nan")
 TRADING_PAIR_SPLITTER = re.compile(r"^(\w+)(USD)$")
 
 
-class GatewayEVMPerpetual(GatewayEVMAMM, PerpetualTrading):
+class GatewayEVMAMMPerpetual(GatewayEVMAMM, PerpetualTrading):
     """
     Defines basic funtions common to connectors that interract with perpetual contracts on Gateway.
     """
