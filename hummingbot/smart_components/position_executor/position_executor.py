@@ -95,18 +95,26 @@ class PositionExecutor(SmartComponentBase):
             return self.close_order.average_executed_price
 
     @property
-    def pnl(self):
+    def trade_pnl(self):
         if self.side == TradeType.BUY:
             return (self.close_price - self.entry_price) / self.entry_price
         else:
             return (self.entry_price - self.close_price) / self.entry_price
 
     @property
-    def pnl_usd(self):
-        return self.pnl * self.filled_amount * self.entry_price
+    def trade_pnl_quote(self):
+        return self.trade_pnl * self.filled_amount * self.entry_price
 
     @property
-    def cum_fees(self):
+    def net_pnl_quote(self):
+        return self.trade_pnl_quote - self.cum_fee_quote
+
+    @property
+    def net_pnl(self):
+        return self.net_pnl_quote / (self.filled_amount * self.entry_price)
+
+    @property
+    def cum_fee_quote(self):
         return self.open_order.cum_fees + self.close_order.cum_fees
 
     @property
@@ -238,8 +246,10 @@ class PositionExecutor(SmartComponentBase):
         self.logger().info("Placing close order")
 
     def control_stop_loss(self):
-        if self.stop_loss_condition() or self.trailing_stop_condition():
+        if self.stop_loss_condition():
             self.place_close_order(close_type=CloseType.STOP_LOSS)
+        elif self.trailing_stop_condition():
+            self.place_close_order(close_type=CloseType.TRAILING_STOP)
 
     def control_take_profit(self):
         if self.take_profit_order_type.is_limit_type():
@@ -341,15 +351,15 @@ class PositionExecutor(SmartComponentBase):
         if self.is_closed:
             lines.extend([f"""
 | Trading Pair: {self.trading_pair} | Exchange: {self.exchange} | Side: {self.side} | Amount: {amount_in_quote:.4f} {quote_asset} - {self.amount:.4f} {base_asset}
-| PNL: {self.pnl * 100:.2f}%
-| Realized PNL: {self.pnl_usd:.4f} {quote_asset} | Total Fee: {self.cum_fees:.4f} {quote_asset} --> Net return: {(self.pnl_usd - self.cum_fees):.4f} {quote_asset}
+| Entry price: {self.entry_price:.6f} | Close price: {self.close_price:.6f}  --> Trade PNL: {self.trade_pnl * 100:.2f}%
+| Realized PNL: {self.trade_pnl_quote:.6f} {quote_asset} | Total Fee: {self.cum_fee_quote:.6f} {quote_asset} --> Net return: {(self.net_pnl_quote):.6f} {quote_asset}
 | Close Type: {self.close_type}
-    """])
+"""])
         else:
             lines.extend([f"""
 | Trading Pair: {self.trading_pair} | Exchange: {self.exchange} | Side: {self.side} | Amount: {amount_in_quote:.4f} {quote_asset} - {self.amount:.4f} {base_asset}
-| Entry price: {self.entry_price:.4f}  | Current price: {current_price:.4f} --> PNL: {self.pnl * 100:.2f}%
-| Unrealized PNL: {self.pnl_usd:.4f} {quote_asset} | Total Fee: {self.cum_fees:.4f} {quote_asset} --> Net return: {(self.pnl_usd - self.cum_fees):.4f} {quote_asset}
+| Entry price: {self.entry_price:.6f} | Close price: {self.close_price:.6f} | Current price: {current_price:.6f} --> Trade PNL: {self.trade_pnl * 100:.2f}%
+| Unrealized PNL: {self.trade_pnl_quote:.6f} {quote_asset} | Total Fee: {self.cum_fee_quote:.6f} {quote_asset} --> Net return: {(self.net_pnl_quote):.4f} {quote_asset}
         """])
         time_scale = 67
         price_scale = 47
@@ -368,13 +378,14 @@ class PositionExecutor(SmartComponentBase):
             elif self.side == TradeType.SELL:
                 price_range = stop_loss_price - take_profit_price
                 progress = (stop_loss_price - current_price) / price_range
-            price_bar = [f'--{current_price:.4f}--' if i == int(price_scale * progress) else '-' for i in
+            price_bar = [f'--{current_price:.6f}--' if i == int(price_scale * progress) else '-' for i in
                          range(price_scale)]
-            price_bar.insert(0, f"SL:{stop_loss_price:.4f}")
-            price_bar.append(f"TP:{take_profit_price:.4f}")
+            price_bar.insert(0, f"SL:{stop_loss_price:.6f}")
+            price_bar.append(f"TP:{take_profit_price:.6f}")
             lines.extend(["".join(price_bar), "\n"])
             if self.trailing_stop_config:
-                lines.extend([f"Trailing stop status: {self._trailing_stop_activated:.4f}", f"Trailing stop price: {self._trailing_stop_price:.4f}"])
+                lines.extend([f"Trailing stop status: {self._trailing_stop_activated}",
+                              f"Trailing stop price: {self._trailing_stop_price:.6f}"])
             lines.extend(["-----------------------------------------------------------------------------------------------------------"])
         return lines
 
