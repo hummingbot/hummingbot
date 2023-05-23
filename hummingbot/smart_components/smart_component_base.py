@@ -76,8 +76,8 @@ class SmartComponentBase:
         return order
 
     async def control_loop(self):
-        self._status = SmartComponentStatus.ACTIVE
         self.on_start()
+        self._status = SmartComponentStatus.ACTIVE
         while not self.terminated.is_set():
             self.control_task()
             await asyncio.sleep(self.update_interval)
@@ -95,7 +95,7 @@ class SmartComponentBase:
         self.unregister_events()
 
     def control_task(self):
-        raise NotImplementedError
+        pass
 
     def register_events(self):
         """Start listening to events from the given market."""
