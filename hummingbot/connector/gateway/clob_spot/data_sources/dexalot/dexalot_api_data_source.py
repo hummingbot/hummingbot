@@ -7,10 +7,6 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import pandas as pd
 
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.gateway.clob_spot.data_sources.clob_api_data_source_base import (
-    CancelOrderResult,
-    PlaceOrderResult,
-)
 from hummingbot.connector.gateway.clob_spot.data_sources.dexalot import dexalot_constants as CONSTANTS
 from hummingbot.connector.gateway.clob_spot.data_sources.dexalot.dexalot_auth import DexalotAuth, WalletSigner
 from hummingbot.connector.gateway.clob_spot.data_sources.dexalot.dexalot_constants import (
@@ -23,6 +19,7 @@ from hummingbot.connector.gateway.clob_spot.data_sources.dexalot.dexalot_web_uti
 from hummingbot.connector.gateway.clob_spot.data_sources.gateway_clob_api_data_source_base import (
     GatewayCLOBAPIDataSourceBase,
 )
+from hummingbot.connector.gateway.common_types import CancelOrderResult, PlaceOrderResult
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_numeric_client_order_id
@@ -66,10 +63,6 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
     @property
     def events_are_streamed(self) -> bool:
         return False
-
-    @property
-    def current_block_time(self) -> float:
-        return CONSTANTS.CURRENT_BLOCK_TIME
 
     async def start(self):
         signer = WalletSigner(
@@ -581,13 +574,15 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
                 await self._sleep(1.0)
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
-        auth_response = await self._api_get(
-            path_url=CONSTANTS.WS_AUTH_PATH,
-            throttler_limit_id=CONSTANTS.WS_AUTH_RATE_LIMIT_ID,
-            is_auth_required=True,
-        )
-        token = auth_response["token"]
-        ws_url = f"{CONSTANTS.WS_PATH_URL[self._network]}?wstoken={token}"
+        ws_url = CONSTANTS.WS_PATH_URL[self._network]
+        if self._api_key is not None and len(self._api_key) > 0:
+            auth_response = await self._api_get(
+                path_url=CONSTANTS.WS_AUTH_PATH,
+                throttler_limit_id=CONSTANTS.WS_AUTH_RATE_LIMIT_ID,
+                is_auth_required=True,
+            )
+            token = auth_response["token"]
+            ws_url = f"{CONSTANTS.WS_PATH_URL[self._network]}?wstoken={token}"
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
         await ws.connect(ws_url=ws_url, ping_timeout=CONSTANTS.HEARTBEAT_TIME_INTERVAL)
         return ws

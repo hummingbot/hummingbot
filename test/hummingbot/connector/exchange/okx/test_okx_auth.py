@@ -63,6 +63,25 @@ class OkxAuthTests(TestCase):
         expected_passphrase = self.passphrase
         self.assertEqual(expected_passphrase, request.headers["OK-ACCESS-PASSPHRASE"])
 
+    def test_add_auth_headers_to_get_request_with_params(self):
+        request = RESTRequest(
+            method=RESTMethod.GET,
+            url="https://test.url/api/endpoint",
+            params = {'ordId': '123', 'instId': 'BTC-USDT'},
+            is_auth_required=True,
+            throttler_limit_id="/api/endpoint"
+        )
+
+        self.async_run_with_timeout(self.auth.rest_authenticate(request))
+
+        expected_timestamp = self._format_timestamp(timestamp=1000)
+        self.assertEqual(self.api_key, request.headers["OK-ACCESS-KEY"])
+        self.assertEqual(expected_timestamp, request.headers["OK-ACCESS-TIMESTAMP"])
+        expected_signature = self._sign(expected_timestamp + "GET" + f"{request.throttler_limit_id}?ordId=123&instId=BTC-USDT", key=self.secret_key)
+        self.assertEqual(expected_signature, request.headers["OK-ACCESS-SIGN"])
+        expected_passphrase = self.passphrase
+        self.assertEqual(expected_passphrase, request.headers["OK-ACCESS-PASSPHRASE"])
+
     def test_add_auth_headers_to_post_request(self):
         body = {"param_z": "value_param_z", "param_a": "value_param_a"}
         request = RESTRequest(
