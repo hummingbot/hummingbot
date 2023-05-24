@@ -96,7 +96,7 @@ class PositionExecutor(SmartComponentBase):
 
     @property
     def close_price(self):
-        if self.executor_status == PositionExecutorStatus.NOT_STARTED or self.close_type == CloseType.EXPIRED:
+        if self.executor_status == PositionExecutorStatus.NOT_STARTED or self.close_type in [CloseType.EXPIRED, CloseType.INSUFFICIENT_BALANCE]:
             return self.entry_price
         elif self.executor_status == PositionExecutorStatus.ACTIVE_POSITION:
             return self.get_price(self.exchange, self.trading_pair)
@@ -120,7 +120,10 @@ class PositionExecutor(SmartComponentBase):
 
     @property
     def net_pnl(self):
-        return self.net_pnl_quote / (self.filled_amount * self.entry_price)
+        if self.filled_amount == Decimal("0"):
+            return Decimal("0")
+        else:
+            return self.net_pnl_quote / (self.filled_amount * self.entry_price)
 
     @property
     def cum_fee_quote(self):
@@ -358,20 +361,20 @@ class PositionExecutor(SmartComponentBase):
         lines = []
         current_price = self.get_price(self.exchange, self.trading_pair)
         amount_in_quote = self.amount * self.entry_price
-        base_asset = self.trading_pair.split("-")[0]
         quote_asset = self.trading_pair.split("-")[1]
         if self.is_closed:
             lines.extend([f"""
-| Trading Pair: {self.trading_pair} | Exchange: {self.exchange} | Side: {self.side} | Amount: {amount_in_quote:.4f} {quote_asset} - {self.amount:.4f} {base_asset}
-| Entry price: {self.entry_price:.6f} | Close price: {self.close_price:.6f}  --> Trade PNL: {self.trade_pnl * 100:.2f}%
-| Realized PNL: {self.trade_pnl_quote:.6f} {quote_asset} | Total Fee: {self.cum_fee_quote:.6f} {quote_asset} --> Net return: {(self.net_pnl_quote):.6f} {quote_asset}
-| Close Type: {self.close_type}
+| Trading Pair: {self.trading_pair} | Exchange: {self.exchange} | Side: {self.side}
+| Entry price: {self.entry_price:.6f} | Close price: {self.close_price:.6f} | Amount: {amount_in_quote:.4f} {quote_asset}
+| Realized PNL: {self.trade_pnl_quote:.6f} {quote_asset} | Total Fee: {self.cum_fee_quote:.6f} {quote_asset}
+| PNL (%): {self.net_pnl * 100:.2f}% | PNL (abs): {self.net_pnl_quote:.6f} {quote_asset} | Close Type: {self.close_type}
 """])
         else:
             lines.extend([f"""
-| Trading Pair: {self.trading_pair} | Exchange: {self.exchange} | Side: {self.side} | Amount: {amount_in_quote:.4f} {quote_asset} - {self.amount:.4f} {base_asset}
-| Entry price: {self.entry_price:.6f} | Close price: {self.close_price:.6f} | Current price: {current_price:.6f} --> Trade PNL: {self.trade_pnl * 100:.2f}%
-| Unrealized PNL: {self.trade_pnl_quote:.6f} {quote_asset} | Total Fee: {self.cum_fee_quote:.6f} {quote_asset} --> Net return: {(self.net_pnl_quote):.4f} {quote_asset}
+| Trading Pair: {self.trading_pair} | Exchange: {self.exchange} | Side: {self.side} |
+| Entry price: {self.entry_price:.6f} | Close price: {self.close_price:.6f} | Amount: {amount_in_quote:.4f} {quote_asset}
+| Unrealized PNL: {self.trade_pnl_quote:.6f} {quote_asset} | Total Fee: {self.cum_fee_quote:.6f} {quote_asset}
+| PNL (%): {self.net_pnl * 100:.2f}% | PNL (abs): {self.net_pnl_quote:.6f} {quote_asset} | Close Type: {self.close_type}
         """])
         time_scale = 67
         price_scale = 47
@@ -458,7 +461,6 @@ class PositionExecutor(SmartComponentBase):
             self.executor_status = PositionExecutorStatus.COMPLETED
             error = "Not enough budget to open position."
             self.logger().error(error)
-            raise ValueError(error)
 
     def adjust_order_candidate(self, order_candidate):
         adjusted_order_candidate: OrderCandidate = self.connectors[self.exchange].budget_checker.adjust_candidate(order_candidate)
