@@ -1,7 +1,5 @@
 from decimal import Decimal
 
-import pandas as pd
-
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesFactory
 from hummingbot.strategy.directional_strategy_base import DirectionalStrategyBase
 
@@ -18,8 +16,8 @@ class MacdBB(DirectionalStrategyBase):
     stop_loss: float = 0.0075
     take_profit: float = 0.015
     time_limit: int = 60 * 55
-    trailing_stop_activation_delta = 0.004
-    trailing_stop_distance = 0.001
+    trailing_stop_activation_delta = 0.003
+    trailing_stop_trailing_delta = 0.0007
 
     candles = [CandlesFactory.get_candle(connector=exchange,
                                          trading_pair=trading_pair,
@@ -50,8 +48,6 @@ class MacdBB(DirectionalStrategyBase):
         lines = []
         columns_to_show = ["timestamp", "open", "low", "high", "close", "volume", "BBP_100_2.0", "MACDh_21_42_9", "MACD_21_42_9"]
         candles_df = self.get_processed_df()
-        candles_df["timestamp"] = pd.to_datetime(candles_df["timestamp"], unit="ms")
         lines.extend([f"Candles: {self.candles[0].name} | Interval: {self.candles[0].interval}\n"])
-        lines.extend(["    " + line for line in candles_df[columns_to_show].tail().to_string(index=False).split("\n")])
-        lines.extend(["\n-----------------------------------------------------------------------------------------------------------\n"])
+        lines.extend(self.candles_formatted_list(candles_df, columns_to_show))
         return lines

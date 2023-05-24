@@ -68,6 +68,14 @@ class DirectionalStrategyBase(ScriptStrategyBase):
         for candle in self.candles:
             candle.start()
 
+    def candles_formatted_list(self, candles_df: pd.DataFrame, columns_to_show: List):
+        lines = []
+        candles_df = candles_df.copy()
+        candles_df["timestamp"] = pd.to_datetime(candles_df["timestamp"], unit="ms")
+        lines.extend(["    " + line for line in candles_df[columns_to_show].tail().to_string(index=False).split("\n")])
+        lines.extend(["\n-----------------------------------------------------------------------------------------------------------\n"])
+        return lines
+
     def on_stop(self):
         """
         Without this functionality, the network iterator will continue running forever after stopping the strategy
