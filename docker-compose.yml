@@ -1,6 +1,6 @@
 version: "3.9"
 services:
-  bot:
+  hummingbot:
     container_name: hummingbot
     build:
       context: .
@@ -30,4 +30,4 @@ services:
     volumes:
       - ./data:/home/dashboard/data
     ports:
-      - "8501:8501"
+      - "8502:8501"
