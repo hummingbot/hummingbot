@@ -21,6 +21,8 @@ class TimeSynchronizer:
 
     def __init__(self):
         self._time_offset_ms: Deque[float] = deque(maxlen=5)
+        self._time_reference_s = self._time()
+        self._counter_reference_ns: int = time.monotonic_ns()
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -53,19 +55,20 @@ class TimeSynchronizer:
         """
         return self._current_precise_time_s() + self.time_offset_ms * 1e-3
 
-    async def update_server_time_offset_with_time_provider(self, time_provider: Awaitable):
+    async def update_server_time_offset_with_time_provider(self, time_provider_ms: Awaitable):
         """
         Executes the time_provider passed as parameter to obtain the current time, and adds a new sample in the
         internal list.
 
-        :param time_provider: Awaitable object that returns the current time
+        :param time_provider_ms: Awaitable object that returns the current time
         """
         try:
-            local_before_ms: float = self._current_precise_time_ms()
-            server_time_ms: float = await time_provider
-            local_after_ms: float = self._current_precise_time_ms()
-            local_server_time_pre_image_ms: float = (local_before_ms + local_after_ms) / 2.0
-            time_offset_ms: float = server_time_ms - local_server_time_pre_image_ms
+            local_before_ns: int = self._current_precise_time_ns()
+            server_time_ms: float = await time_provider_ms
+            local_after_ns: int = self._current_precise_time_ns()
+
+            local_server_time_pre_image_ns: float = (local_before_ns + local_after_ns) / 2.0
+            time_offset_ms: float = server_time_ms - local_server_time_pre_image_ns * 1e-6
             self.add_time_offset_ms_sample(time_offset_ms)
         except asyncio.CancelledError:
             raise
@@ -86,12 +89,17 @@ class TimeSynchronizer:
             # Avoid warning for async without awaited function
             await asyncio.sleep(0)
 
-    @staticmethod
-    def _current_precise_time_s() -> float:
-        return time.monotonic()
+    def _elapsed_precise_ns(self) -> int:
+        return time.monotonic_ns() - self._counter_reference_ns
 
-    def _current_precise_time_ms(self):
-        return self._current_precise_time_s() * 1e3
+    def _current_precise_time_ns(self) -> int:
+        return int(self._time_reference_s * 1e9) + self._elapsed_precise_ns()
+
+    def _current_precise_time_s(self) -> float:
+        return self._time_reference_s + self._elapsed_precise_ns() * 1e-9
+
+    def _current_second_counter(self) -> float:
+        return self._elapsed_precise_ns() * 1e-9
 
     @staticmethod
     def _time():
