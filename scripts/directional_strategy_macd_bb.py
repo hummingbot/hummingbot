@@ -9,14 +9,17 @@ from hummingbot.strategy.directional_strategy_base import DirectionalStrategyBas
 class MacdBB(DirectionalStrategyBase):
     directional_strategy_name: str = "MACD_BB"
     # Define the trading pair and exchange that we want to use and the csv where we are going to store the entries
-    trading_pair: str = "KAVA-USDT"
+    trading_pair: str = "FOOTBALL-USDT"
     exchange: str = "binance_perpetual"
-    order_amount_usd = Decimal("100")
+    order_amount_usd = Decimal("15")
+    leverage = 10
 
     # Configure the parameters for the position
-    stop_loss: float = 0.005
+    stop_loss: float = 0.0075
     take_profit: float = 0.015
     time_limit: int = 60 * 55
+    trailing_stop_activation_delta = 0.004
+    trailing_stop_distance = 0.001
 
     candles = [CandlesFactory.get_candle(connector=exchange,
                                          trading_pair=trading_pair,
