@@ -46,7 +46,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
 
     # Configure the leverage and order amount the bot is going to use
     set_leverage_flag = None
-    leverage = 10
+    leverage = 1
     order_amount_usd = Decimal("10")
     markets: Dict[str, Set[str]] = {}
 
@@ -120,7 +120,8 @@ class DirectionalStrategyBase(ScriptStrategyBase):
                 trailing_stop=TrailingStop(
                     activation_price_delta=self.trailing_stop_activation_delta,
                     trailing_delta=self.trailing_stop_trailing_delta
-                )
+                ),
+                leverage=self.leverage,
             )
             return position_config
 
@@ -151,8 +152,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
             lines.extend([f"|Signal id: {executor.position_config.timestamp}"])
             lines.extend(executor.to_format_status())
         if self.all_candles_ready:
-            lines.extend([
-                "\n############################################ Market Data ############################################\n"])
+            lines.extend(["\n################################## Market Data ##################################\n"])
             lines.extend([f"Value: {self.get_signal()}"])
             lines.extend(self.market_data_extra_info())
         else:
