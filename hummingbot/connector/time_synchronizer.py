@@ -98,9 +98,6 @@ class TimeSynchronizer:
     def _current_precise_time_s(self) -> float:
         return self._time_reference_s + self._elapsed_precise_ns() * 1e-9
 
-    def _current_second_counter(self) -> float:
-        return self._elapsed_precise_ns() * 1e-9
-
     @staticmethod
     def _time():
         return time.time()
