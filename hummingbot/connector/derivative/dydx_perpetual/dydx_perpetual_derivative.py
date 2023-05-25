@@ -174,7 +174,7 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
         return 120
 
     def supported_order_types(self) -> List[OrderType]:
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception) -> bool:
         return False
