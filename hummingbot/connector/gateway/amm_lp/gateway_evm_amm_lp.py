@@ -11,7 +11,7 @@ from async_timeout import timeout
 
 from hummingbot.client.settings import GatewayConnectionSetting
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.connector.gateway.amm.gateway_in_flight_lp_order import GatewayInFlightLPOrder
+from hummingbot.connector.gateway.amm_lp.gateway_in_flight_lp_order import GatewayInFlightLPOrder
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.in_flight_order import OrderState
 from hummingbot.core.data_type.limit_order import LimitOrder

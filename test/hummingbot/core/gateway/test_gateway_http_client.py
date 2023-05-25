@@ -77,7 +77,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
 
         uniswap: Dict[str, Any] = result["connectors"][0]
         self.assertEqual("uniswap", uniswap["name"])
-        self.assertEqual(["EVM_AMM"], uniswap["trading_type"])
+        self.assertEqual(["AMM"], uniswap["trading_type"])
 
     @async_test(loop=ev_loop)
     async def test_get_configuration(self):

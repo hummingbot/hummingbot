@@ -185,8 +185,7 @@ class CrossExchangeMarketMakingConfigMapPydanticTest(unittest.TestCase):
                                AllConnectorSettings.get_connector_settings().values()
                                if connector_setting.type in [
                                    ConnectorType.Exchange,
-                                   ConnectorType.EVM_AMM,
-                                   ConnectorType.NEAR_AMM,
+                                   ConnectorType.AMM,
                                    ConnectorType.CLOB_SPOT]
                                }
         expected_connectors = list(expected_connectors.union(settings.PAPER_TRADE_EXCHANGES))

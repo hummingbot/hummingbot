@@ -75,7 +75,7 @@ class BinancePerpetualCandles(CandlesBase):
                                                        throttler_limit_id=CONSTANTS.CANDLES_ENDPOINT,
                                                        params=params)
 
-        return np.array(candles)[:, [0, 1, 2, 3, 4, 5, 7, 8, 9, 10]].astype(np.float)
+        return np.array(candles)[:, [0, 1, 2, 3, 4, 5, 7, 8, 9, 10]].astype(float)
 
     async def fill_historical_candles(self):
         max_request_needed = (self._candles.maxlen // 1000) + 1
