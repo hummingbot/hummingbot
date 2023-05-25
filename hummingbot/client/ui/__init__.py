@@ -32,7 +32,7 @@ def login_prompt(secrets_manager_cls: Type[BaseSecretsManager], style: Style):
                 text="""
         Create a password to protect your sensitive data.
         This password is not shared with us nor with anyone else, so please store it securely.
-    
+
         Enter your new password:""",
                 password=True,
                 style=style).run()
