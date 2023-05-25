@@ -41,7 +41,7 @@ class RSI(DirectionalStrategyBase):
 
     def market_data_extra_info(self):
         lines = []
-        columns_to_show = ["timestamp", "open", "low", "high", "close", "volume", "RSI_21"]
+        columns_to_show = ["timestamp", "open", "low", "high", "close", "volume", "RSI_7"]
         candles_df = self.get_processed_df()
         lines.extend([f"Candles: {self.candles[0].name} | Interval: {self.candles[0].interval}\n"])
         lines.extend(self.candles_formatted_list(candles_df, columns_to_show))
