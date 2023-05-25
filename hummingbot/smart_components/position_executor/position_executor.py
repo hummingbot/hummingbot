@@ -365,7 +365,7 @@ class PositionExecutor(SmartComponentBase):
     def to_format_status(self, scale=1.0):
         lines = []
         current_price = self.get_price(self.exchange, self.trading_pair)
-        amount_in_quote = self.amount * self.entry_price
+        amount_in_quote = self.entry_price * self.filled_amount if self.filled_amount > Decimal("0") else self.amount
         quote_asset = self.trading_pair.split("-")[1]
         if self.is_closed:
             lines.extend([f"""
@@ -404,7 +404,7 @@ class PositionExecutor(SmartComponentBase):
                 price_bar = [f'--{current_price:.5f}--' if i == int(price_scale * progress) else '-' for i in range(price_scale)]
                 price_bar.insert(0, f"SL:{stop_loss_price:.5f}")
                 price_bar.append(f"TP:{take_profit_price:.5f}")
-                lines.extend(["".join(price_bar), "\n"])
+                lines.extend(["".join(price_bar)])
             if self.trailing_stop_config:
                 lines.extend([f"Trailing stop status: {self._trailing_stop_activated} Trailing stop price: {self._trailing_stop_price:.5f}"])
             lines.extend(["-----------------------------------------------------------------------------------------------------------"])
