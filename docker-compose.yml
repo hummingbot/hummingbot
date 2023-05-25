@@ -14,7 +14,7 @@ services:
       - ./scripts:/home/hummingbot/scripts
     environment:
       - CONFIG_PASSWORD=a
-      - CONFIG_FILE_NAME=directional_strategy_macd_bb.py
+      - CONFIG_FILE_NAME=directional_strategy_rsi.py
     logging:
       driver: "json-file"
       options:
@@ -26,8 +26,8 @@ services:
 
   dashboard:
     container_name: dashboard
-    image: dardonacci/dashboard:latest
+    image: hummingbot/dashboard:latest
     volumes:
       - ./data:/home/dashboard/data
     ports:
-      - "8502:8501"
+      - "8501:8501"
