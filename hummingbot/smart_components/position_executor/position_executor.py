@@ -406,7 +406,7 @@ class PositionExecutor(SmartComponentBase):
                 price_bar.append(f"TP:{take_profit_price:.5f}")
                 lines.extend(["".join(price_bar)])
             if self.trailing_stop_config:
-                lines.extend([f"Trailing stop status: {self._trailing_stop_activated} Trailing stop price: {self._trailing_stop_price:.5f}"])
+                lines.extend([f"Trailing stop status: {self._trailing_stop_activated} | Trailing stop price: {self._trailing_stop_price:.5f}"])
             lines.extend(["-----------------------------------------------------------------------------------------------------------"])
         return lines
 
