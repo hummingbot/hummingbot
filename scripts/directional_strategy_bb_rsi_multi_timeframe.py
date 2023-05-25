@@ -15,7 +15,7 @@ class MultiTimeframeBBRSI(DirectionalStrategyBase):
     # Configure the parameters for the position
     stop_loss: float = 0.0075
     take_profit: float = 0.015
-    time_limit: int = 60 * 55
+    time_limit: int = None
     trailing_stop_activation_delta = 0.004
     trailing_stop_trailing_delta = 0.001
 
@@ -25,7 +25,7 @@ class MultiTimeframeBBRSI(DirectionalStrategyBase):
                                   interval="1m", max_records=150),
         CandlesFactory.get_candle(connector=exchange,
                                   trading_pair=trading_pair,
-                                  interval="1m", max_records=150),
+                                  interval="3m", max_records=150),
     ]
     markets = {exchange: {trading_pair}}
 
@@ -54,7 +54,8 @@ class MultiTimeframeBBRSI(DirectionalStrategyBase):
         else:
             return 0
 
-    def get_processed_df(self, candles):
+    @staticmethod
+    def get_processed_df(candles):
         candles_df = candles.copy()
         # Let's add some technical indicators
         candles_df.ta.bbands(length=21, append=True)
