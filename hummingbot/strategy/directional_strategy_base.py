@@ -26,6 +26,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
 
     # Maximum position executors at a time
     max_executors: int = 1
+    position_mode: PositionMode = PositionMode.HEDGE
     active_executors: List[PositionExecutor] = []
     stored_executors: List[PositionExecutor] = []
 
@@ -172,7 +173,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
         if not self.set_leverage_flag:
             for connector in self.connectors.values():
                 for trading_pair in connector.trading_pairs:
-                    connector.set_position_mode(PositionMode.HEDGE)
+                    connector.set_position_mode(self.position_mode)
                     connector.set_leverage(trading_pair=trading_pair, leverage=self.leverage)
             self.set_leverage_flag = True
 
