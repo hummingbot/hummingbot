@@ -131,6 +131,8 @@ class PositionExecutor(SmartComponentBase):
 
     @property
     def end_time(self):
+        if not self.position_config.time_limit:
+            return None
         return self.position_config.timestamp + self.position_config.time_limit
 
     @property
@@ -208,7 +210,7 @@ class PositionExecutor(SmartComponentBase):
 
     def control_open_order(self):
         if not self.open_order.order_id:
-            if self.end_time >= self._strategy.current_timestamp:
+            if not self.end_time or self.end_time >= self._strategy.current_timestamp:
                 self.place_open_order()
             else:
                 self.executor_status = PositionExecutorStatus.COMPLETED
@@ -231,7 +233,7 @@ class PositionExecutor(SmartComponentBase):
         self.logger().info("Placing open order")
 
     def control_open_order_expiration(self):
-        if self.end_time <= self._strategy.current_timestamp:
+        if self.end_time and self.end_time <= self._strategy.current_timestamp:
             self._strategy.cancel(
                 connector_name=self.exchange,
                 trading_pair=self.trading_pair,
@@ -241,9 +243,12 @@ class PositionExecutor(SmartComponentBase):
 
     def control_barriers(self):
         if not self.close_order.order_id:
-            self.control_stop_loss()
-            self.control_take_profit()
-            self.control_time_limit()
+            if self.position_config.stop_loss:
+                self.control_stop_loss()
+            if self.position_config.take_profit:
+                self.control_take_profit()
+            if self.position_config.time_limit:
+                self.control_time_limit()
 
     def place_close_order(self, close_type: CloseType, price: Decimal = Decimal("NaN")):
         tp_partial_execution = self.take_profit_order.executed_amount_base if self.take_profit_order.executed_amount_base else Decimal("0")
@@ -357,7 +362,7 @@ class PositionExecutor(SmartComponentBase):
         elif self.take_profit_order.order_id == event.order_id:
             self.place_take_profit_limit_order()
 
-    def to_format_status(self):
+    def to_format_status(self, scale=1.0):
         lines = []
         current_price = self.get_price(self.exchange, self.trading_pair)
         amount_in_quote = self.amount * self.entry_price
@@ -376,31 +381,32 @@ class PositionExecutor(SmartComponentBase):
 | Unrealized PNL: {self.trade_pnl_quote:.6f} {quote_asset} | Total Fee: {self.cum_fee_quote:.6f} {quote_asset}
 | PNL (%): {self.net_pnl * 100:.2f}% | PNL (abs): {self.net_pnl_quote:.6f} {quote_asset} | Close Type: {self.close_type}
         """])
-        time_scale = 67
-        price_scale = 47
 
-        progress = 0
         if self.executor_status == PositionExecutorStatus.ACTIVE_POSITION:
-            seconds_remaining = (self.end_time - self._strategy.current_timestamp)
-            time_progress = (self.position_config.time_limit - seconds_remaining) / self.position_config.time_limit
-            time_bar = "".join(['*' if i < time_scale * time_progress else '-' for i in range(time_scale)])
-            lines.extend([f"Time limit: {time_bar}"])
-            stop_loss_price = self.stop_loss_price
-            take_profit_price = self.take_profit_price
-            if self.side == TradeType.BUY:
-                price_range = take_profit_price - stop_loss_price
-                progress = (current_price - stop_loss_price) / price_range
-            elif self.side == TradeType.SELL:
-                price_range = stop_loss_price - take_profit_price
-                progress = (stop_loss_price - current_price) / price_range
-            price_bar = [f'--{current_price:.6f}--' if i == int(price_scale * progress) else '-' for i in
-                         range(price_scale)]
-            price_bar.insert(0, f"SL:{stop_loss_price:.6f}")
-            price_bar.append(f"TP:{take_profit_price:.6f}")
-            lines.extend(["".join(price_bar), "\n"])
+            progress = 0
+            if self.position_config.time_limit:
+                time_scale = int(scale * 60)
+                seconds_remaining = (self.end_time - self._strategy.current_timestamp)
+                time_progress = (self.position_config.time_limit - seconds_remaining) / self.position_config.time_limit
+                time_bar = "".join(['*' if i < time_scale * time_progress else '-' for i in range(time_scale)])
+                lines.extend([f"Time limit: {time_bar}"])
+
+            if self.position_config.take_profit and self.position_config.stop_loss:
+                price_scale = int(scale * 60)
+                stop_loss_price = self.stop_loss_price
+                take_profit_price = self.take_profit_price
+                if self.side == TradeType.BUY:
+                    price_range = take_profit_price - stop_loss_price
+                    progress = (current_price - stop_loss_price) / price_range
+                elif self.side == TradeType.SELL:
+                    price_range = stop_loss_price - take_profit_price
+                    progress = (stop_loss_price - current_price) / price_range
+                price_bar = [f'--{current_price:.5f}--' if i == int(price_scale * progress) else '-' for i in range(price_scale)]
+                price_bar.insert(0, f"SL:{stop_loss_price:.5f}")
+                price_bar.append(f"TP:{take_profit_price:.5f}")
+                lines.extend(["".join(price_bar), "\n"])
             if self.trailing_stop_config:
-                lines.extend([f"Trailing stop status: {self._trailing_stop_activated}",
-                              f"Trailing stop price: {self._trailing_stop_price:.6f}"])
+                lines.extend([f"Trailing stop status: {self._trailing_stop_activated} Trailing stop price: {self._trailing_stop_price:.5f}"])
             lines.extend(["-----------------------------------------------------------------------------------------------------------"])
         return lines
 
