@@ -6,6 +6,8 @@ from bidict import bidict
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.data_type.in_flight_order import OrderState
 
+COINBASE_ADVANCED_TRADE_CLASS_PREFIX = "CoinbaseAdvancedTrade"
+
 DEFAULT_DOMAIN = "com"
 
 HBOT_ORDER_ID_PREFIX = "CBAT-"
@@ -24,11 +26,12 @@ EXCHANGE_RATES_QUOTE_EP = "/exchange-rates?currency={quote_token}"
 CURRENCIES_EP = "/currencies"
 CRYPTO_CURRENCIES_EP = "/currencies/crypto"
 
-SIGIN_URL_ENDPOINTS = {
+SIGNIN_ENDPOINTS = {
     SERVER_TIME_EP,
     EXCHANGE_RATES_USD_EP,
     EXCHANGE_RATES_QUOTE_EP,
     CURRENCIES_EP,
+    CRYPTO_CURRENCIES_EP,
 }
 
 # Public API endpoints or CoinbaseAdvancedTradeClient function
@@ -47,7 +50,7 @@ TRANSACTIONS_SUMMARY_EP = "/brokerage/transaction_summary"
 ACCOUNTS_LIST_EP = "/brokerage/accounts"
 ACCOUNT_EP = "/brokerage/accounts/{account_uuid}"
 
-REST_URL_ENDPOINTS = {
+REST_ENDPOINTS = {
     ALL_PAIRS_EP,
     PAIR_TICKER_EP,
     PAIR_TICKER_24HR_EP,
@@ -55,6 +58,7 @@ REST_URL_ENDPOINTS = {
     BATCH_CANCEL_EP,
     GET_ORDER_STATUS_EP,
     GET_STATUS_BATCH_EP,
+    FILLS_EP,
     TRANSACTIONS_SUMMARY_EP,
     ACCOUNTS_LIST_EP,
     ACCOUNT_EP,
@@ -63,7 +67,7 @@ REST_URL_ENDPOINTS = {
 WS_HEARTBEAT_TIME_INTERVAL = 30
 
 
-class WS_ACTION(Enum):
+class WebsocketAction(Enum):
     SUBSCRIBE = "subscribe"
     UNSUBSCRIBE = "unsubscribe"
 
@@ -112,17 +116,21 @@ ORDER_STATE = {
 # Oddly, order can be in unknown state ???
 ORDER_STATUS_NOT_FOUND_ERROR_CODE = "UNKNOWN_ORDER_STATUS"
 
+REST_RATE_LIMITS = [RateLimit(limit_id=endpoint,
+                              limit=MAX_REST_REQUESTS_S,
+                              time_interval=ONE_SECOND,
+                              linked_limits=[LinkedLimitWeightPair(REST_REQUESTS, 1)]) for endpoint in
+                    REST_ENDPOINTS]
+
+SIGNIN_RATE_LIMITS = [RateLimit(limit_id=endpoint,
+                                limit=MAX_SIGNIN_REQUESTS_H,
+                                time_interval=ONE_HOUR,
+                                linked_limits=[LinkedLimitWeightPair(REST_REQUESTS, 1)]) for endpoint in
+                      SIGNIN_ENDPOINTS]
+
 RATE_LIMITS = [
     # Pools
     RateLimit(limit_id=REST_REQUESTS, limit=MAX_REST_REQUESTS_S, time_interval=ONE_SECOND),
     RateLimit(limit_id=SIGNIN_REQUESTS, limit=MAX_SIGNIN_REQUESTS_H, time_interval=ONE_HOUR),
     RateLimit(limit_id=WSS_REQUESTS, limit=MAX_WSS_REQUESTS_S, time_interval=ONE_SECOND),
-
-    # Weighted Limits for REST URL endpoints
-    RateLimit(limit_id=ALL_PAIRS_EP, limit=MAX_REST_REQUESTS_S, time_interval=ONE_SECOND,
-              linked_limits=[LinkedLimitWeightPair(REST_REQUESTS, 1)]),
-
-    # Weighted Limits for SIGNIN URL endpoints
-    RateLimit(limit_id=SERVER_TIME_EP, limit=MAX_SIGNIN_REQUESTS_H, time_interval=ONE_HOUR,
-              linked_limits=[LinkedLimitWeightPair(SIGNIN_REQUESTS, 1)]),
-]
+] + REST_RATE_LIMITS + SIGNIN_RATE_LIMITS

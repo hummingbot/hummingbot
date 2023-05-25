@@ -1,54 +1,66 @@
-from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from _decimal import Decimal
 
 from hummingbot.connector.exchange.coinbase_advanced_trade import cat_constants as CONSTANTS
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_exchange_mixins.cat_api_calls_mixin import (
-    _APICallsMixinSuperCalls,
-)
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_exchange_mixins.cat_utilities_abstract import (
-    _UtilitiesMixinAbstract,
+from hummingbot.connector.exchange.coinbase_advanced_trade.cat_exchange_mixins.cat_exchange_protocols import (
+    CATAPICallsProtocol,
+    TradingPairsMixinProtocol,
 )
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_utils import ProductInfo, Products, is_product_tradable
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 
 
-class _TradingRulesMixinAbstract(ABC):
-    @abstractmethod
-    def trading_rules(self):
-        pass
+class _TradingPairsMixinSuperCalls:
+    """
+    This class is used to call the methods of the super class of a subclass of its Mixin.
+    It allows a dynamic search of the methods in the super classes of its Mixin.
+    The methods must be defined in one of the super classes defined after its Mixin class.
+    """
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
-class _TradingPairsMixinAbstract(ABC):
-    @abstractmethod
+    def trading_rules(self) -> Dict[str, TradingRule]:
+        # Defined in ExchangePyBase
+        return super().trading_rules()
+
     async def exchange_symbol_associated_to_pair(self, trading_pair: str) -> str:
-        pass
+        # Defined in ExchangeBase
+        return await super().exchange_symbol_associated_to_pair(trading_pair)
 
-    @abstractmethod
-    async def trading_pair_associated_to_exchange_symbol(self, trading_pair: str) -> str:
-        pass
+    async def trading_pair_associated_to_exchange_symbol(self, symbol: str) -> str:
+        # Defined in ExchangeBase
+        return await super().trading_pair_associated_to_exchange_symbol(symbol)
 
-    def _set_trading_pair_symbol_map(self, trading_pair_and_symbol_map: Optional[Mapping[str, str]]):
+    def set_trading_pair_symbol_map(self, trading_pair_and_symbol_map: Optional[Mapping[str, str]]):
+        # Defined in ExchangeBase
         super()._set_trading_pair_symbol_map(trading_pair_and_symbol_map)
 
 
-class _TradingPairsRulesMixin(_APICallsMixinSuperCalls,
-                              _TradingPairsMixinAbstract,
-                              _TradingRulesMixinAbstract,
-                              _UtilitiesMixinAbstract,
-                              ABC):
+class _LastTradePriceProtocol(TradingPairsMixinProtocol, CATAPICallsProtocol):
+    async def exchange_symbol_associated_to_pair(self, trading_pair: str) -> str:
+        ...
+
+    def set_last_trade_price(self, trading_pair: str, price: Decimal):
+        ...
+
+
+class TradingPairsRulesMixin(_TradingPairsMixinSuperCalls):
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
     @property
     def rate_limits_rules(self):
         return CONSTANTS.RATE_LIMITS
 
-    async def _initialize_market_assets(self) -> Tuple[ProductInfo]:
+    async def _initialize_market_assets(self: CATAPICallsProtocol) -> Tuple[ProductInfo]:
         """
         Fetch the list of trading pairs from the exchange and map them
         """
-        products: Products = await self._api_get(path_url=CONSTANTS.ALL_PAIRS_EP)
+        products: Products = await self.api_get(path_url=CONSTANTS.ALL_PAIRS_EP)
         valid_products: Tuple[ProductInfo] = tuple(filter(is_product_tradable, products["products"]))
         # products: Products = {"products": valid_products, "num_products": len(valid_products)}
         return valid_products
@@ -64,22 +76,22 @@ class _TradingPairsRulesMixin(_APICallsMixinSuperCalls,
             trading_pair_symbol_map[product["product_id"]] = \
                 combine_to_hb_trading_pair(base=product["base_currency_id"],
                                            quote=product["quote_currency_id"])
-        self._set_trading_pair_symbol_map(trading_pair_symbol_map)
+        self.set_trading_pair_symbol_map(trading_pair_symbol_map)
 
-    async def _get_last_traded_price(self, trading_pair: str) -> float:
+    async def _get_last_traded_price(self: _LastTradePriceProtocol, trading_pair: str) -> float:
         product_id = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
 
-        resp_json = await self._api_get(
+        resp_json = await self.api_get(
             path_url=CONSTANTS.PAIR_TICKER_24HR_EP.format(product_id=product_id) + "?limit=1",
         )
 
         return float(resp_json["trades"]["price"])
 
-    async def get_all_pairs_prices(self, quote: str = "USD") -> List[Dict[str, str]]:
+    async def get_all_pairs_prices(self: CATAPICallsProtocol, quote: str = "USD") -> List[Dict[str, str]]:
         """
         Fetches the prices of all symbols in the exchange with a default quote of USD
         """
-        resp_json = await self._api_get(
+        resp_json = await self.api_get(
             path_url=CONSTANTS.EXCHANGE_RATES_QUOTE_EP.format(quote_token=quote)
         )
         rates: List[Dict[str, str]] = []
@@ -104,6 +116,7 @@ class _TradingPairsRulesMixin(_APICallsMixinSuperCalls,
         for product in await self._initialize_market_assets():
             trading_rule: TradingRule = self._convert_product_to_trading_rule(product)
             self.trading_rules()[trading_rule.trading_pair] = trading_rule
+        await self._initialize_trading_pair_symbol_map()
 
     # Overriding ExchangePyBase hard-coded Exchange specific logic
     # This is to make sure they are not actually called

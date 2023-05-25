@@ -4,19 +4,19 @@ from decimal import Decimal
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
 from hummingbot.connector.exchange.coinbase_advanced_trade import cat_constants as CONSTANTS
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_constants import WS_ACTION
+from hummingbot.connector.exchange.coinbase_advanced_trade.cat_constants import WebsocketAction
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_cumulative_trade import (
     CoinbaseAdvancedTradeCumulativeUpdate,
 )
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_protocols import (
+from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_protocols import (  # CoinbaseAdvancedTradeWebAssistantsFactoryProtocol,; WSAssistant,
     CoinbaseAdvancedTradeAuthProtocol,
     CoinbaseAdvancedTradeExchangePairProtocol,
-    CoinbaseAdvancedTradeWebAssistantsFactoryProtocol,
-    CoinbaseAdvancedTradeWSAssistantProtocol,
 )
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_web_utils import get_timestamp_from_exchange_time
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 
 
 class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
@@ -31,7 +31,7 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
                  auth: CoinbaseAdvancedTradeAuthProtocol,
                  trading_pairs: List[str],
                  connector: CoinbaseAdvancedTradeExchangePairProtocol,
-                 api_factory: CoinbaseAdvancedTradeWebAssistantsFactoryProtocol,
+                 api_factory: WebAssistantsFactory,
                  domain: str = CONSTANTS.DEFAULT_DOMAIN):
         """
         Initialize the CoinbaseAdvancedTradeAPIUserStreamDataSource.
@@ -43,14 +43,13 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         :param domain: The domain for the WebSocket connection.
         """
         super().__init__()
-        self._auth: CoinbaseAdvancedTradeAuthProtocol = auth
         self._domain: str = domain
-        self._api_factory: CoinbaseAdvancedTradeWebAssistantsFactoryProtocol = api_factory
+        self._api_factory: WebAssistantsFactory = api_factory
         self._trading_pairs: List[str] = trading_pairs
         self._connector: CoinbaseAdvancedTradeExchangePairProtocol = connector
 
         self._subscription_lock: Optional[asyncio.Lock] = None
-        self._ws_assistant: Optional[CoinbaseAdvancedTradeWSAssistantProtocol] = None
+        self._ws_assistant: Optional[WSAssistant] = None
 
         # Localized message queue for pre-processing
         self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
@@ -83,7 +82,7 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
             self._ws_assistant = None
 
     # Implemented methods
-    async def _connected_websocket_assistant(self) -> CoinbaseAdvancedTradeWSAssistantProtocol:
+    async def _connected_websocket_assistant(self) -> WSAssistant:
         """
         Create and connect the WebSocket assistant.
 
@@ -92,12 +91,12 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         # Initialize the async context
         self._async_init()
 
-        self._ws_assistant: CoinbaseAdvancedTradeWSAssistantProtocol = await self._api_factory.get_ws_assistant()
+        self._ws_assistant: WSAssistant = await self._api_factory.get_ws_assistant()
         await self._ws_assistant.connect(ws_url=CONSTANTS.WSS_URL.format(domain=self._domain),
                                          ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
         return self._ws_assistant
 
-    async def _subscribe_channels(self, ws: CoinbaseAdvancedTradeWSAssistantProtocol) -> None:
+    async def _subscribe_channels(self, ws: WSAssistant) -> None:
         """
         Subscribes to the user events through the provided websocket connection.
         :param ws: the websocket assistant used to connect to the exchange
@@ -124,9 +123,9 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._async_init()
 
         channels, trading_pairs = self._get_target_channels_and_pairs(None, None)
-        await self._subscribe_or_unsubscribe(ws, WS_ACTION.SUBSCRIBE, channels, trading_pairs)
+        await self._subscribe_or_unsubscribe(ws, WebsocketAction.SUBSCRIBE, channels, trading_pairs)
 
-    async def _unsubscribe_channels(self, ws: CoinbaseAdvancedTradeWSAssistantProtocol,
+    async def _unsubscribe_channels(self, ws: WSAssistant,
                                     channels: Optional[List[str]] = None,
                                     trading_pairs: Optional[List[str]] = None) -> None:
         """
@@ -153,16 +152,16 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._async_init()
 
         channels, trading_pairs = self._get_target_channels_and_pairs(channels, trading_pairs)
-        await self._subscribe_or_unsubscribe(ws, WS_ACTION.UNSUBSCRIBE, channels, trading_pairs)
+        await self._subscribe_or_unsubscribe(ws, WebsocketAction.UNSUBSCRIBE, channels, trading_pairs)
 
     async def _subscribe_or_unsubscribe(self,
-                                        ws: CoinbaseAdvancedTradeWSAssistantProtocol,
-                                        action: WS_ACTION,
+                                        ws: WSAssistant,
+                                        action: WebsocketAction,
                                         channels: Optional[List[str]] = None,
                                         trading_pairs: Optional[List[str]] = None) -> None:
         """
-        Applies the WS_ACTION in argument to the list of channels/pairs through the provided websocket connection.
-        :param action: WS_ACTION defined in the CoinbaseAdvancedTradeConstants.
+        Applies the WebsocketAction in argument to the list of channels/pairs through the provided websocket connection.
+        :param action: WebsocketAction defined in the CoinbaseAdvancedTradeConstants.
         :param ws: the websocket assistant used to connect to the exchange
         :param channels: The channels to apply action to. If None, applies action to all.
         :param trading_pairs: The trading pairs to apply action to. If None, applies action to all.
@@ -197,7 +196,7 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
                         )
                         raise
 
-    async def _manage_queue(self, channel_symbol: str, action: WS_ACTION):
+    async def _manage_queue(self, channel_symbol: str, action: WebsocketAction):
         """
         Manage the queue of messages received from the websocket.
         :param channel_symbol: The channel symbol associated to the queue.
@@ -206,7 +205,7 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         # Initialize the async context
         self._async_init()
 
-        if action == WS_ACTION.UNSUBSCRIBE:
+        if action == WebsocketAction.UNSUBSCRIBE:
             async with self._message_queue_lock:
                 # Clear the queue for the channel and pair
                 while not self._message_queue[channel_symbol].empty():
@@ -220,9 +219,12 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 if len(self._message_queue) == 0 and self._message_queue_task and not self._message_queue_task.done():
                     self._message_queue_task.cancel()
                     self._message_queue_task = None
-        else:
+
+        if action == WebsocketAction.SUBSCRIBE:
             if self._message_queue_task is None or self._message_queue_task.done():
                 self._message_queue_task = asyncio.create_task(self._preprocess_messages())
+
+        raise ValueError(f"Unknown action {action.value}.")  # Should never happen
 
     def _get_target_channels_and_pairs(self,
                                        channels: Optional[List[str]],
@@ -245,14 +247,14 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
             except asyncio.TimeoutError:
                 raise
 
-    async def _process_websocket_messages(self, ws: CoinbaseAdvancedTradeWSAssistantProtocol, queue: asyncio.Queue):
+    async def _process_websocket_messages(self, ws: WSAssistant, queue: asyncio.Queue):
         """
         Processes the messages from the websocket connection and puts them into the intermediary queue.
         :param ws: the websocket assistant used to connect to the exchange
         :param queue: The intermediary queue to put the messages into.
         """
         async for ws_response in ws.iter_messages():  # type: ignore # PyCharm doesn't recognize iter_messages
-            data = ws_response.data
+            data: Dict[str, Any] = ws_response.data
             channel_symbol = f"{data['channel']}-{data['product_id']}"
             try:
                 # Dispatch each product to its own queue
