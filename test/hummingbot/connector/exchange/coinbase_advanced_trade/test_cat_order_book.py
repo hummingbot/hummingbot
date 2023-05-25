@@ -1,3 +1,4 @@
+import asyncio
 from unittest import TestCase
 
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_order_book import CoinbaseAdvancedTradeOrderBook
@@ -71,6 +72,9 @@ class CoinbaseAdvancedTradeOrderBookTests(TestCase):
         self.order_book.logger().setLevel(1)
         self.order_book.logger().addHandler(self)
 
+    async def symbol_to_pair(self, symbol: str) -> str:
+        return "COINALPHA-HBOT"
+
     def handle(self, record):
         self.log_records.append(record)
 
@@ -80,11 +84,11 @@ class CoinbaseAdvancedTradeOrderBookTests(TestCase):
             record in self.log_records)
 
     def test_level2_order_book_snapshot_message(self):
-        snapshot_message = CoinbaseAdvancedTradeOrderBook.level2_order_book_message(
+        snapshot_message = asyncio.run(CoinbaseAdvancedTradeOrderBook.level2_order_book_message(
             msg=self.snapshot_msg,
             timestamp=1640000000.0,
-            trading_pair="COINALPHA-HBOT"
-        )
+            symbol_to_pair=self.symbol_to_pair
+        ))
 
         update_id = int(get_timestamp_from_exchange_time("1970-01-01T00:00:00Z", "second"))
 
@@ -107,11 +111,11 @@ class CoinbaseAdvancedTradeOrderBookTests(TestCase):
         update_msg["sequence_num"] = 5
         update_msg["events"][0]["type"] = "update"
 
-        update_message = CoinbaseAdvancedTradeOrderBook.level2_order_book_message(
+        update_message = asyncio.run(CoinbaseAdvancedTradeOrderBook.level2_order_book_message(
             msg=update_msg,
             timestamp=1640000000.0,
-            trading_pair="COINALPHA-HBOT"
-        )
+            symbol_to_pair=self.symbol_to_pair
+        ))
 
         self.assertEqual("COINALPHA-HBOT", update_message.trading_pair)
         self.assertEqual(OrderBookMessageType.DIFF, update_message.type)
@@ -128,10 +132,10 @@ class CoinbaseAdvancedTradeOrderBookTests(TestCase):
         self.assertEqual(update_message.update_id, update_message.asks[0].update_id)
 
     def test_market_trades_order_book_snapshot_message(self):
-        trade_message = CoinbaseAdvancedTradeOrderBook.market_trades_order_book_message(
+        trade_message = asyncio.run(CoinbaseAdvancedTradeOrderBook.market_trades_order_book_message(
             msg=self.trade_msg,
-            trading_pair="COINALPHA-HBOT"
-        )
+            symbol_to_pair=self.symbol_to_pair
+        ))
         timestamp: float = get_timestamp_from_exchange_time(self.trade_msg["timestamp"], "s")
 
         self.assertEqual("COINALPHA-HBOT", trade_message.content["trading_pair"])
@@ -147,11 +151,12 @@ class CoinbaseAdvancedTradeOrderBookTests(TestCase):
     def test_level2_or_trade_message_from_exchange_level2(self):
         snapshot_msg = self.snapshot_msg
         snapshot_msg["sequence_num"] = 1
-        snapshot_message = CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
+
+        snapshot_message = asyncio.run(CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
             msg=snapshot_msg,
             timestamp=1640000000.0,
-            trading_pair="COINALPHA-HBOT"
-        )
+            symbol_to_pair=self.symbol_to_pair
+        ))
 
         self.assertEqual(snapshot_message.type, OrderBookMessageType.SNAPSHOT)
         self.assertEqual(snapshot_message.update_id, 1)
@@ -160,11 +165,11 @@ class CoinbaseAdvancedTradeOrderBookTests(TestCase):
     def test_level2_or_trade_message_from_exchange_market_trades(self):
         trade_msg = self.trade_msg
         trade_msg["sequence_num"] = 1
-        trade_message = CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
+        trade_message = asyncio.run(CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
             msg=trade_msg,
             timestamp=1640000000.0,
-            trading_pair="COINALPHA-HBOT"
-        )
+            symbol_to_pair=self.symbol_to_pair
+        ))
 
         timestamp: float = get_timestamp_from_exchange_time(self.trade_msg["timestamp"], "s")
 
@@ -179,11 +184,11 @@ class CoinbaseAdvancedTradeOrderBookTests(TestCase):
         snapshot_msg = self.snapshot_msg
         snapshot_msg["sequence_num"] = 50
 
-        CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
+        asyncio.run(CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
             msg=snapshot_msg,
             timestamp=1640000000.0,
-            trading_pair="COINALPHA-HBOT"
-        )
+            symbol_to_pair=self.symbol_to_pair
+        ))
 
         self.assertTrue(
             self.is_logged(log_level="WARNING", message="Received out of order message from l2_data, this indicates a "
@@ -194,11 +199,11 @@ class CoinbaseAdvancedTradeOrderBookTests(TestCase):
         trade_msg = self.trade_msg
         trade_msg["sequence_num"] = 50
 
-        CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
+        asyncio.run(CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
             msg=trade_msg,
             timestamp=1640000000.0,
-            trading_pair="COINALPHA-HBOT"
-        )
+            symbol_to_pair=self.symbol_to_pair
+        ))
 
         self.assertTrue(
             self.is_logged(log_level="WARNING",

@@ -12,6 +12,9 @@ from hummingbot.connector.exchange.coinbase_advanced_trade.cat_utils import (
 
 class CoinbaseAdvancedTradeUtilTestCases(unittest.TestCase):
 
+    quote_asset = None
+    base_asset = None
+
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
@@ -24,7 +27,7 @@ class CoinbaseAdvancedTradeUtilTestCases(unittest.TestCase):
     def test_default_fees(self):
         self.assertEqual(DEFAULT_FEES.maker_percent_fee_decimal, Decimal("0.004"))
         self.assertEqual(DEFAULT_FEES.taker_percent_fee_decimal, Decimal("0.006"))
-        self.assertTrue(DEFAULT_FEES.buy_percent_fee_deducted_from_returns)
+        self.assertFalse(DEFAULT_FEES.buy_percent_fee_deducted_from_returns)
 
     def test_is_product_tradable(self):
         valid_product: ProductInfo = {
