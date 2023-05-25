@@ -10,9 +10,11 @@ from hummingbot.connector.exchange.coinbase_advanced_trade.cat_api_user_stream_d
     CoinbaseAdvancedTradeAuthProtocol,
     CoinbaseAdvancedTradeExchangePairProtocol,
     CoinbaseAdvancedTradeWebAssistantsFactoryProtocol,
+)
+from hummingbot.connector.exchange.coinbase_advanced_trade.cat_constants import WebsocketAction
+from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_protocols import (
     CoinbaseAdvancedTradeWSAssistantProtocol,
 )
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_constants import WS_ACTION
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 
 
@@ -77,7 +79,6 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSourceTests(unittest.TestCase):
                    for record in self.log_records)
 
     def test_init(self):
-        self.assertEqual(self.auth, self.data_source._auth)
         self.assertEqual(self.trading_pairs, self.data_source._trading_pairs)
         self.assertEqual(self.connector, self.data_source._connector)
         self.assertEqual(self.api_factory, self.data_source._api_factory)
@@ -225,7 +226,7 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSourceTests(unittest.TestCase):
         async def async_test():
             ws_assistant = await self.data_source._connected_websocket_assistant()
             with patch.object(MockWebAssistant, "send", new_callable=AsyncMock) as mock_send:
-                await self.data_source._subscribe_or_unsubscribe(ws_assistant, WS_ACTION.SUBSCRIBE, ["user"],
+                await self.data_source._subscribe_or_unsubscribe(ws_assistant, WebsocketAction.SUBSCRIBE, ["user"],
                                                                  ["ETH-USD"])
                 mock_send.assert_called_once()
                 self.data_source._manage_queue.assert_called_once()
@@ -236,7 +237,7 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSourceTests(unittest.TestCase):
 
     def test_payload_format(self):
         async def run_test():
-            action = WS_ACTION.SUBSCRIBE
+            action = WebsocketAction.SUBSCRIBE
             channels = ["channel1", "channel2"]
             trading_pairs = ["pair1", "pair2"]
 
@@ -264,7 +265,7 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSourceTests(unittest.TestCase):
             ws_assistant = await self.data_source._connected_websocket_assistant()
             with patch.object(MockWebAssistant, "send", new_callable=AsyncMock, side_effect=Exception) as mock_error:
                 with self.assertRaises(Exception):
-                    await self.data_source._subscribe_or_unsubscribe(ws_assistant, WS_ACTION.SUBSCRIBE, ["user"],
+                    await self.data_source._subscribe_or_unsubscribe(ws_assistant, WebsocketAction.SUBSCRIBE, ["user"],
                                                                      ["ETH-USD"])
                 # The exception interrupts the subscription loop, but the exception is logged
                 self.assertTrue(
@@ -280,7 +281,7 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSourceTests(unittest.TestCase):
         async def async_test():
             ws_assistant = await self.data_source._connected_websocket_assistant()
             with patch.object(MockWebAssistant, "send", new_callable=AsyncMock) as mock_send:
-                await self.data_source._subscribe_or_unsubscribe(ws_assistant, WS_ACTION.UNSUBSCRIBE, ["user"],
+                await self.data_source._subscribe_or_unsubscribe(ws_assistant, WebsocketAction.UNSUBSCRIBE, ["user"],
                                                                  ["ETH-USD"])
                 mock_send.assert_called_once()
                 self.data_source._manage_queue.assert_called_once()
