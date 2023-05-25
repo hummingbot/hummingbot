@@ -278,7 +278,7 @@ class GatewayHttpClient:
     ) -> Dict[str, Any]:
         if isinstance(token_symbols, list):
             token_symbols = [x for x in token_symbols if isinstance(x, str) and x.strip() != '']
-            network_path = "near" if chain == "near" else "network"
+            network_path = chain if chain in ["near", "algorand"] else "network"
             request_params = {
                 "chain": chain,
                 "network": network,
@@ -302,9 +302,19 @@ class GatewayHttpClient:
             network: str,
             fail_silently: bool = True
     ) -> Dict[str, Any]:
-        network_path = "near" if chain == "near" else "network"
+        network_path = chain if chain in ["near"] else "network"
         return await self.api_request("get", f"{network_path}/tokens", {
             "chain": chain,
+            "network": network
+        }, fail_silently=fail_silently)
+
+    async def get_algorand_assets(
+            self,
+            network: str,
+            fail_silently: bool = True
+    ) -> Dict[str, Any]:
+        return await self.api_request("get", "algorand/assets", {
+            "chain": "algorand",
             "network": network
         }, fail_silently=fail_silently)
 
@@ -411,8 +421,8 @@ class GatewayHttpClient:
             request["connector"] = connector
         if address:
             request["address"] = address
-        network_path = "near" if chain == "near" else "network"
-        return await self.api_request("post", f"{network_path}/poll", request, fail_silently=fail_silently)
+        network_path = chain if chain in ["near", "algorand"] else "network"
+        return await self.api_request("post", f"{network_path}/poll", request, fail_silently=fail_silently)  # type: ignore
 
     async def wallet_sign(
         self,
