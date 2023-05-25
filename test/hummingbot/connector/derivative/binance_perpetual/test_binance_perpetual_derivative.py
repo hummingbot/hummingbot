@@ -2212,7 +2212,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         self.assertEqual(Decimal("103.12345678"), total_balances["BUSD"])
 
     @aioresponses()
-    @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_seconds_counter")
+    @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_precise_time_ns")
     def test_account_info_request_includes_timestamp(self, mock_api, mock_seconds_counter):
         mock_seconds_counter.return_value = 1000
 
