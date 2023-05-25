@@ -58,6 +58,13 @@ class DirectionalStrategyBase(ScriptStrategyBase):
         """
         return all([candle.is_ready for candle in self.candles])
 
+    @property
+    def is_perpetual(self):
+        """
+        Checks if the exchange is a perpetual market.
+        """
+        return "perpetual" in self.exchange
+
     def get_csv_path(self) -> str:
         today = datetime.datetime.today()
         csv_path = data_path() + f"/{self.directional_strategy_name}_position_executors_{self.exchange}_{self.trading_pair}_{today.day:02d}-{today.month:02d}-{today.year}.csv"
@@ -82,8 +89,9 @@ class DirectionalStrategyBase(ScriptStrategyBase):
         Without this functionality, the network iterator will continue running forever after stopping the strategy
         That's why is necessary to introduce this new feature to make a custom stop with the strategy.
         """
-        # we are going to close all the open positions when the bot stops
-        self.close_open_positions()
+        if self.is_perpetual:
+            # we are going to close all the open positions when the bot stops
+            self.close_open_positions()
         for candle in self.candles:
             candle.stop()
 
@@ -92,7 +100,8 @@ class DirectionalStrategyBase(ScriptStrategyBase):
                 if not signal_executor.is_closed]
 
     def on_tick(self):
-        self.check_and_set_leverage()
+        if self.is_perpetual:
+            self.check_and_set_leverage()
         if len(self.get_active_executors()) < self.max_executors and self.all_candles_ready:
             position_config = self.get_position_config()
             if position_config:
