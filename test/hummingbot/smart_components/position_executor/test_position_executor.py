@@ -434,21 +434,71 @@ class TestPositionExecutor(unittest.TestCase):
         position_config = self.get_position_config_market_long()
         type(self.strategy).current_timestamp = PropertyMock(return_value=1234567890)
         position_executor = PositionExecutor(self.strategy, position_config)
+        position_executor.open_order.order_id = "OID-BUY-1"
+        position_executor.open_order.order = InFlightOrder(
+            client_order_id="OID-BUY-1",
+            exchange_order_id="EOID4",
+            trading_pair=position_config.trading_pair,
+            order_type=position_config.open_order_type,
+            trade_type=TradeType.BUY,
+            amount=position_config.amount,
+            price=position_config.entry_price,
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.FILLED
+        )
+        position_executor.open_order.order.update_with_trade_update(
+            TradeUpdate(
+                trade_id="1",
+                client_order_id="OID-BUY-1",
+                exchange_order_id="EOID4",
+                trading_pair=position_config.trading_pair,
+                fill_price=position_config.entry_price,
+                fill_base_amount=position_config.amount,
+                fill_quote_amount=position_config.amount * position_config.entry_price,
+                fee=AddedToCostTradeFee(flat_fees=[TokenAmount(token="USDT", amount=Decimal("0.2"))]),
+                fill_timestamp=10,
+            )
+        )
         position_executor.executor_status = PositionExecutorStatus.ACTIVE_POSITION
         status = position_executor.to_format_status()
         self.assertIn("Trading Pair: ETH-USDT", status[0])
-        self.assertIn("PNL: 1.00%", status[0])
+        self.assertIn("PNL: 0.80%", status[0])
 
     @patch("hummingbot.smart_components.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("101"))
     def test_to_format_status_is_closed(self, _):
         position_config = self.get_position_config_market_long()
         type(self.strategy).current_timestamp = PropertyMock(return_value=1234567890)
         position_executor = PositionExecutor(self.strategy, position_config)
+        position_executor.open_order.order_id = "OID-BUY-1"
+        position_executor.open_order.order = InFlightOrder(
+            client_order_id="OID-BUY-1",
+            exchange_order_id="EOID4",
+            trading_pair=position_config.trading_pair,
+            order_type=position_config.open_order_type,
+            trade_type=TradeType.BUY,
+            amount=position_config.amount,
+            price=position_config.entry_price,
+            creation_timestamp=1640001112.223,
+            initial_state=OrderState.FILLED
+        )
+        position_executor.open_order.order.update_with_trade_update(
+            TradeUpdate(
+                trade_id="1",
+                client_order_id="OID-BUY-1",
+                exchange_order_id="EOID4",
+                trading_pair=position_config.trading_pair,
+                fill_price=position_config.entry_price,
+                fill_base_amount=position_config.amount,
+                fill_quote_amount=position_config.amount * position_config.entry_price,
+                fee=AddedToCostTradeFee(flat_fees=[TokenAmount(token="USDT", amount=Decimal("0.2"))]),
+                fill_timestamp=10,
+            )
+        )
         position_executor.executor_status = PositionExecutorStatus.COMPLETED
         type(position_executor).close_price = PropertyMock(return_value=Decimal(101))
         status = position_executor.to_format_status()
         self.assertIn("Trading Pair: ETH-USDT", status[0])
-        self.assertIn("PNL: 1.00%", status[0])
+        self.assertIn("PNL (%): 0.80%", status[0])
 
     def test_process_order_canceled_event(self):
         position_config = self.get_position_config_market_long()
