@@ -4,7 +4,7 @@ from hummingbot.data_feed.candles_feed.candles_factory import CandlesFactory
 from hummingbot.strategy.directional_strategy_base import DirectionalStrategyBase
 
 
-class RSI(DirectionalStrategyBase):
+class RSISpot(DirectionalStrategyBase):
     directional_strategy_name: str = "RSI_spot"
     # Define the trading pair and exchange that we want to use and the csv where we are going to store the entries
     trading_pair: str = "ETH-USDT"
