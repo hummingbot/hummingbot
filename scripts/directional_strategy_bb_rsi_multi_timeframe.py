@@ -5,6 +5,36 @@ from hummingbot.strategy.directional_strategy_base import DirectionalStrategyBas
 
 
 class MultiTimeframeBBRSI(DirectionalStrategyBase):
+    """
+    MultiTimeframeBBRSI strategy implementation based on the DirectionalStrategyBase.
+
+    This strategy combines multiple timeframes of Bollinger Bands (BB) and Relative Strength Index (RSI) indicators to
+    generate trading signals and execute trades based on the composed signal value. It defines the specific parameters
+    and configurations for the MultiTimeframeBBRSI strategy.
+
+    Parameters:
+        directional_strategy_name (str): The name of the strategy.
+        trading_pair (str): The trading pair to be traded.
+        exchange (str): The exchange to be used for trading.
+        order_amount_usd (Decimal): The amount of the order in USD.
+        leverage (int): The leverage to be used for trading.
+
+    Position Parameters:
+        stop_loss (float): The stop-loss percentage for the position.
+        take_profit (float): The take-profit percentage for the position.
+        time_limit (int or None): The time limit for the position in seconds. Set to `None` for no time limit.
+        trailing_stop_activation_delta (float): The activation delta for the trailing stop.
+        trailing_stop_trailing_delta (float): The trailing delta for the trailing stop.
+
+    Candlestick Configuration:
+        candles (List[CandlesBase]): The list of candlesticks used for generating signals.
+
+    Markets:
+        A dictionary specifying the markets and trading pairs for the strategy.
+
+    Inherits from:
+        DirectionalStrategyBase: Base class for creating directional strategies using the PositionExecutor.
+    """
     directional_strategy_name: str = "bb_rsi_multi_timeframe"
     # Define the trading pair and exchange that we want to use and the csv where we are going to store the entries
     trading_pair: str = "ETH-USDT"
@@ -30,6 +60,11 @@ class MultiTimeframeBBRSI(DirectionalStrategyBase):
     markets = {exchange: {trading_pair}}
 
     def get_signal(self):
+        """
+        Generates the trading signal based on the composed signal value from multiple timeframes.
+        Returns:
+            int: The trading signal (-1 for sell, 0 for hold, 1 for buy).
+        """
         signals = []
         for candle in self.candles:
             candles_df = self.get_processed_df(candle.candles_df)
@@ -56,6 +91,13 @@ class MultiTimeframeBBRSI(DirectionalStrategyBase):
 
     @staticmethod
     def get_processed_df(candles):
+        """
+        Retrieves the processed dataframe with Bollinger Bands and RSI values for a specific candlestick.
+        Args:
+            candles (pd.DataFrame): The raw candlestick dataframe.
+        Returns:
+            pd.DataFrame: The processed dataframe with Bollinger Bands and RSI values.
+        """
         candles_df = candles.copy()
         # Let's add some technical indicators
         candles_df.ta.bbands(length=21, append=True)
@@ -64,6 +106,11 @@ class MultiTimeframeBBRSI(DirectionalStrategyBase):
         return candles_df
 
     def market_data_extra_info(self):
+        """
+        Provides additional information about the market data for each candlestick.
+        Returns:
+            List[str]: A list of formatted strings containing market data information.
+        """
         lines = []
         columns_to_show = ["timestamp", "open", "low", "high", "close", "volume", "RSI_21_SMA_10", "BBP_21_2.0"]
         for candle in self.candles:
