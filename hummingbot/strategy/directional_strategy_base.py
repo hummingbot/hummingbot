@@ -18,6 +18,30 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 class DirectionalStrategyBase(ScriptStrategyBase):
     """
     Base class to create directional strategies using the PositionExecutor.
+
+    Attributes:
+        directional_strategy_name (str): The name of the directional strategy.
+        trading_pair (str): The trading pair to be used.
+        exchange (str): The exchange to be used.
+        max_executors (int): Maximum number of position executors to be active at a time.
+        position_mode (PositionMode): The position mode to be used.
+        active_executors (List[PositionExecutor]): List of currently active position executors.
+        stored_executors (List[PositionExecutor]): List of closed position executors that have been stored.
+        stop_loss (float): The stop loss percentage.
+        take_profit (float): The take profit percentage.
+        time_limit (int): The time limit for the position.
+        open_order_type (OrderType): The order type for opening the position.
+        open_order_slippage_buffer (int): The slippage buffer for the opening order.
+        take_profit_order_type (OrderType): The order type for the take profit order.
+        stop_loss_order_type (OrderType): The order type for the stop loss order.
+        time_limit_order_type (OrderType): The order type for the time limit order.
+        trailing_stop_activation_delta (float): The delta for activating the trailing stop.
+        trailing_stop_trailing_delta (float): The delta for trailing the stop loss.
+        candles (List[CandlesBase]): List of candlestick data sources to be used.
+        set_leverage_flag (None): Flag indicating whether leverage has been set.
+        leverage (float): The leverage to be used.
+        order_amount_usd (Decimal): The order amount in USD.
+        markets (Dict[str, Set[str]]): Dictionary mapping exchanges to trading pairs.
     """
     directional_strategy_name: str
     # Define the trading pair and exchange that we want to use and the csv where we are going to store the entries
