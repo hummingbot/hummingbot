@@ -462,7 +462,7 @@ class TestPositionExecutor(unittest.TestCase):
         position_executor.executor_status = PositionExecutorStatus.ACTIVE_POSITION
         status = position_executor.to_format_status()
         self.assertIn("Trading Pair: ETH-USDT", status[0])
-        self.assertIn("PNL: 0.80%", status[0])
+        self.assertIn("PNL (%): 0.80%", status[0])
 
     @patch("hummingbot.smart_components.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("101"))
     def test_to_format_status_is_closed(self, _):
