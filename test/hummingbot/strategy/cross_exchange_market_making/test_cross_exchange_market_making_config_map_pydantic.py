@@ -160,9 +160,11 @@ class CrossExchangeMarketMakingConfigMapPydanticTest(unittest.TestCase):
         schema_dict = json.loads(schema)
 
         self.assertIn("MakerMarkets", schema_dict["definitions"])
-        expected_connectors = {connector_setting.name for connector_setting in
-                               AllConnectorSettings.get_connector_settings().values()
-                               if connector_setting.type in [ConnectorType.Exchange, ConnectorType.CLOB_SPOT]}
+        expected_connectors = {
+            connector_setting.name for connector_setting in
+            AllConnectorSettings.get_connector_settings().values()
+            if connector_setting.type in [ConnectorType.Exchange, ConnectorType.CLOB_SPOT, ConnectorType.CLOB_PERP]
+        }
         print(expected_connectors)
         expected_connectors = list(expected_connectors.union(settings.PAPER_TRADE_EXCHANGES))
         expected_connectors.sort()
@@ -181,13 +183,11 @@ class CrossExchangeMarketMakingConfigMapPydanticTest(unittest.TestCase):
         schema_dict = json.loads(schema)
 
         self.assertIn("TakerMarkets", schema_dict["definitions"])
-        expected_connectors = {connector_setting.name for connector_setting in
-                               AllConnectorSettings.get_connector_settings().values()
-                               if connector_setting.type in [
-                                   ConnectorType.Exchange,
-                                   ConnectorType.AMM,
-                                   ConnectorType.CLOB_SPOT]
-                               }
+        expected_connectors = {
+            connector_setting.name for connector_setting in
+            AllConnectorSettings.get_connector_settings().values()
+            if connector_setting.type in [ConnectorType.Exchange, ConnectorType.CLOB_SPOT, ConnectorType.CLOB_PERP]
+        }
         expected_connectors = list(expected_connectors.union(settings.PAPER_TRADE_EXCHANGES))
         expected_connectors.sort()
         self.assertEqual(expected_connectors, schema_dict["definitions"]["TakerMarkets"]["enum"])
