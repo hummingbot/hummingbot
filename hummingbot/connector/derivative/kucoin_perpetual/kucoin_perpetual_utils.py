@@ -14,7 +14,7 @@ DEFAULT_FEES = TradeFeeSchema(
 
 CENTRALIZED = True
 
-EXAMPLE_PAIR = "BTC-USD"
+EXAMPLE_PAIR = "XBT-USDT"
 
 
 def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:

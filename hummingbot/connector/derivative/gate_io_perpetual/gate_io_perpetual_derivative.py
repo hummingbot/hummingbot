@@ -147,7 +147,7 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
         :return a list of OrderType supported by this connector.
         Note that Market order type is no longer required and will not be used.
         """
-        return [OrderType.LIMIT, OrderType.MARKET]
+        return [OrderType.LIMIT, OrderType.MARKET, OrderType.LIMIT_MAKER]
 
     def supported_position_modes(self):
         """
@@ -209,6 +209,13 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
             api_factory=self._web_assistants_factory,
             domain=self.domain,
         )
+
+    async def start_network(self):
+        """
+        Start all required tasks to update the status of the connector.
+        """
+        await self._update_trading_rules()
+        await super().start_network()
 
     async def _format_trading_rules(self, raw_trading_pair_info) -> List[TradingRule]:
         """
@@ -303,6 +310,8 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
             data.update({
                 "price": f"{price:f}",
             })
+            if order_type is OrderType.LIMIT_MAKER:
+                data.update({"tif": "poc"})
         else:
             data.update({
                 "price": "0",
