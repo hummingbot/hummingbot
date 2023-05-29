@@ -115,9 +115,6 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingA
     gateway_cert_parser = gateway_subparsers.add_parser("generate-certs", help="Create ssl certifcate for gateway")
     gateway_cert_parser.set_defaults(func=hummingbot.generate_certs)
 
-    gateway_status_parser = gateway_subparsers.add_parser("status", help="Check status of gateway docker instance")
-    gateway_status_parser.set_defaults(func=hummingbot.gateway_status)
-
     gateway_list_parser = gateway_subparsers.add_parser("list", help="List gateway connectors and chains and tiers")
     gateway_list_parser.set_defaults(func=hummingbot.gateway_list)
 
