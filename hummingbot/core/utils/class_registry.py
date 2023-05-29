@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Type
+from typing import Dict, Optional, Type, Union
 
 
 class ClassRegistryError(Exception):
@@ -113,9 +113,13 @@ class ClassRegistry:
                             f"Sub-class {class_name} already registered under {base.__name__}")
 
     @classmethod
-    def get_registry(cls) -> Dict[str, Type]:
+    def get_registry(cls) -> Union[Dict[str, Type], Dict[Type, Dict[str, Type]]]:
         """Return a copy of the registry to prevent modification."""
-        return cls.__registry.get(cls, {}).copy()
+        if cls is ClassRegistry:
+            return ClassRegistry.__registry.copy()
+        if cls in ClassRegistry.__registry:
+            return ClassRegistry.__registry[cls].copy()
+        return {}
 
     @classmethod
     def find_class_by_name(cls, class_name: str) -> Optional[Type]:

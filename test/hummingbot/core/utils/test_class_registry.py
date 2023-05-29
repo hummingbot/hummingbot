@@ -1,4 +1,5 @@
 import unittest
+from typing import Dict, Type
 
 from core.utils.class_registry import ClassRegistry, ClassRegistryError, find_substring_not_in_parent
 
@@ -57,6 +58,11 @@ class TestClassRegistry(unittest.TestCase):
         self.assertIn('MyBaseDerivedClass', registry)
         self.assertIn('Derived', registry)
         self.assertIs(registry['Derived'], registry['MyBaseDerivedClass'])
+
+    def test_get_registry_with_class(self):
+        registry: Dict[Type, Dict] = ClassRegistry.get_registry()
+        self.assertIn(self.MyBaseClass, registry)
+        self.assertIn('Derived', registry[self.MyBaseClass])
 
     def test_find_class_by_name(self):
         result = self.MyBaseClass.find_class_by_name('MyBaseDerivedClass')
