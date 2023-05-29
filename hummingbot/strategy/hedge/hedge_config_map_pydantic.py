@@ -224,7 +224,7 @@ class HedgeConfigMap(BaseStrategyConfigMap):
         return EmptyMarketConfigMap.construct()
 
     @validator("hedge_offsets", pre=True)
-    def validate_offsets(cls, offsets: Union[str, List[Decimal]], values: Dict):
+    def validate_hedge_offsets(cls, offsets: Union[str, List[Decimal]], values: Dict):
         """checks and ensure offsets are of decimal type"""
         if isinstance(offsets, str):
             offsets = offsets.split(",")
