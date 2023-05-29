@@ -10,11 +10,11 @@ from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 DEFAULT_FEES = TradeFeeSchema(
     maker_percent_fee_decimal=Decimal("0.0002"),
     taker_percent_fee_decimal=Decimal("0.0006"),
-)
+    percent_fee_token="USDT")
 
 CENTRALIZED = True
 
-EXAMPLE_PAIR = "BTC-USD"
+EXAMPLE_PAIR = "XBT-USDT"
 
 
 def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:

@@ -16,8 +16,8 @@ def exchange_on_validated(value: str):
 
 def validate_connector(value: str):
     connector = AllConnectorSettings.get_connector_settings().get(value, None)
-    if not connector or connector.type != ConnectorType.EVM_AMM_LP:
-        return "Only EVM_AMM_LP connectors allowed."
+    if not connector or connector.type != ConnectorType.AMM_LP:
+        return "Only AMM_LP connectors allowed."
 
 
 def market_validator(value: str) -> None:
