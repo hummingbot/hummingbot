@@ -70,7 +70,7 @@ class MarketConfigMap(BaseClientModel):
         ),
     )
 
-    @validator("offsets", pre=True)
+    @validator("offsets", pre=True, allow_reuse=True)
     def validate_offsets(cls, offsets: Union[str, List[Decimal]], values: Dict):
         """checks and ensure offsets are of decimal type"""
         if offsets is None:
