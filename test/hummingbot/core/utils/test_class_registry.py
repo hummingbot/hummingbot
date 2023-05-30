@@ -1,7 +1,7 @@
 import unittest
 from typing import Dict, Type
 
-from core.utils.class_registry import ClassRegistry, ClassRegistryError, find_substring_not_in_parent
+from hummingbot.core.utils.class_registry import ClassRegistry, ClassRegistryError, find_substring_not_in_parent
 
 
 class TestFindSubstringNotInParent(unittest.TestCase):
