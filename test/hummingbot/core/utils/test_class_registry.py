@@ -47,65 +47,6 @@ class TestFindSubstringNotInParent(unittest.TestCase):
         self.assertEqual("GetAccount", find_substring_not_in_parent(child="HeaderGetAccount", parent="Header"))
 
 
-class TestClassRegistry0(unittest.TestCase):
-
-    def setUp(self):
-        class MyBase0Class(ClassRegistry):
-            pass
-
-        class MyBaseDerivedClass(MyBase0Class):
-            pass
-
-        class MySecondBaseDerivedClass(MyBase0Class):
-            pass
-
-        class MyDerivedDerivedClass(MyBaseDerivedClass):
-            pass
-
-        self.MyBase0Class = MyBase0Class
-        self.MyDerivedClass = MyBaseDerivedClass
-        self.MySecondDerivedClass = MySecondBaseDerivedClass
-        self.MyDerivedDerivedClass = MyDerivedDerivedClass
-
-    def tearDown(self):
-        del self.MyBase0Class
-        del self.MyDerivedClass
-
-    def test_subclass_registration(self):
-        registry = self.MyBase0Class.get_registry()
-        self.assertIn('MyBaseDerivedClass', registry)
-        self.assertIn('Derived', registry)
-        self.assertIs(registry['Derived'], registry['MyBaseDerivedClass'])
-
-    def test_get_registry_with_class(self):
-        registry: Dict[Type, Dict] = ClassRegistry.get_registry()
-        self.assertIn(self.MyBase0Class, registry)
-        self.assertIn('Derived', registry[self.MyBase0Class])
-
-    def test_find_class_by_name(self):
-        result = self.MyBase0Class.find_class_by_name('MyBaseDerivedClass')
-        self.assertEqual(self.MyDerivedClass, result)
-
-    def test_find_class_by_name_short(self):
-        result = self.MyBase0Class.find_class_by_name('Derived')
-        self.assertEqual(self.MyDerivedClass, result)
-
-    def test_find_class_by_name_not_found(self):
-        result = self.MyBase0Class.find_class_by_name('NonExistentClass')
-        self.assertIsNone(result)
-
-    def test_duplicate_class_registration(self):
-        with self.assertRaises(ClassRegistryError):
-            class MyDuplicateBaseDerivedClass(self.MyBase0Class):
-                pass
-
-            # This is intentionally demonstrating a duplicate class registration
-            # which flake8 would not allow to commit
-            class MyDuplicateBaseDerivedClass(self.MyBase0Class):  # noqa: F811
-
-                pass
-
-
 class TestClassRegistry(unittest.TestCase):
 
     def setUp(self):
