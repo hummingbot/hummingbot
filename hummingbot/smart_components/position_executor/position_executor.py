@@ -312,7 +312,14 @@ class PositionExecutor(SmartComponentBase):
         self.logger().info("Removing take profit")
 
     def early_stop(self):
-        self.place_close_order(close_type=CloseType.EARLY_STOP)
+        if self.executor_status == PositionExecutorStatus.ACTIVE_POSITION:
+            self.place_close_order(close_type=CloseType.EARLY_STOP)
+        elif self.executor_status == PositionExecutorStatus.NOT_STARTED:
+            self._strategy.cancel(
+                connector_name=self.exchange,
+                trading_pair=self.trading_pair,
+                order_id=self._open_order.order_id
+            )
 
     def process_order_created_event(self, _, market, event: Union[BuyOrderCreatedEvent, SellOrderCreatedEvent]):
         if self.open_order.order_id == event.order_id:
@@ -365,7 +372,7 @@ class PositionExecutor(SmartComponentBase):
     def to_format_status(self, scale=1.0):
         lines = []
         current_price = self.get_price(self.exchange, self.trading_pair)
-        amount_in_quote = self.entry_price * self.filled_amount if self.filled_amount > Decimal("0") else self.amount
+        amount_in_quote = self.entry_price * (self.filled_amount if self.filled_amount > Decimal("0") else self.amount)
         quote_asset = self.trading_pair.split("-")[1]
         if self.is_closed:
             lines.extend([f"""
