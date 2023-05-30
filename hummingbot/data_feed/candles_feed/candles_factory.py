@@ -2,6 +2,7 @@ from hummingbot.data_feed.candles_feed.binance_perpetual_candles import BinanceP
 from hummingbot.data_feed.candles_feed.binance_spot_candles import BinanceSpotCandles
 from hummingbot.data_feed.candles_feed.kucoin_spot_candles.kucoin_spot_candles import KucoinSpotCandles
 
+
 class CandlesFactory:
     """
     The CandlesFactory class creates and returns a Candle object based on the specified connector and trading pair.
