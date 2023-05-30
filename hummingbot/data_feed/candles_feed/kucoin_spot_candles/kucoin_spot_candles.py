@@ -89,7 +89,7 @@ class KucoinSpotCandles(CandlesBase):
         candles = await rest_assistant.execute_request(url=self.candles_url,
                                                        throttler_limit_id=CONSTANTS.CANDLES_ENDPOINT,
                                                        params=params)
-        arr = [[row[0], row[1], row[3], row[4], row[2], row[5]] for row in candles['data']]
+        arr = [[row[0], row[1], row[3], row[4], row[2], row[5], row[6]] for row in candles['data']]
         return np.array(arr).astype(float)
 
     async def fill_historical_candles(self):
