@@ -36,6 +36,8 @@ MSG_CREATE_DERIVATIVE_LIMIT_ORDER = "/injective.exchange.v1beta1.MsgCreateDeriva
 MSG_CANCEL_DERIVATIVE_ORDER = "/injective.exchange.v1beta1.MsgCancelDerivativeOrder"
 MSG_BATCH_UPDATE_ORDERS = "/injective.exchange.v1beta1.MsgBatchUpdateOrders"
 
+MARKETS_LIST_URL = "https://raw.githubusercontent.com/InjectiveLabs/utils-go/master/pkg/curatedLists/hummingbot/markets.json"
+
 INJ_DERIVATIVE_TX_EVENT_TYPES = [
     MSG_CREATE_DERIVATIVE_LIMIT_ORDER,
     MSG_CANCEL_DERIVATIVE_ORDER,

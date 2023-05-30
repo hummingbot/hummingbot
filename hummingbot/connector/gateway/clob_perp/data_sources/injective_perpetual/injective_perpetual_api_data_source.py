@@ -6,6 +6,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
+import aiohttp
 from grpc.aio import UnaryStreamCall
 from pyinjective.async_client import AsyncClient
 from pyinjective.orderhash import OrderHashResponse
@@ -20,7 +21,6 @@ from pyinjective.proto.exchange.injective_derivative_exchange_rpc_pb2 import (
     FundingPaymentsResponse,
     FundingRate,
     FundingRatesResponse,
-    MarketsResponse,
     OrderbooksV2Response,
     OrdersHistoryResponse,
     PositionsResponse,
@@ -28,7 +28,6 @@ from pyinjective.proto.exchange.injective_derivative_exchange_rpc_pb2 import (
     StreamOrdersHistoryResponse,
     StreamPositionsResponse,
     StreamTradesResponse,
-    TokenMeta,
     TradesResponse,
 )
 from pyinjective.proto.exchange.injective_explorer_rpc_pb2 import GetTxByTxHashResponse, StreamTxsResponse, TxDetailData
@@ -98,7 +97,7 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
         # Market Info Attributes
         self._market_id_to_active_perp_markets: Dict[str, DerivativeMarketInfo] = {}
 
-        self._denom_to_token_meta: Dict[str, TokenMeta] = {}
+        self._denom_to_token_meta: Dict[str, Dict[str, Any]] = {}
 
         # Listener(s) and Loop Task(s)
         self._update_market_info_loop_task: Optional[asyncio.Task] = None
@@ -501,8 +500,8 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
             for bank_entry in bank_balances:
                 denom_meta = self._denom_to_token_meta.get(bank_entry.denom)
                 if denom_meta is not None:
-                    asset_name: str = denom_meta.symbol
-                    denom_scaler: Decimal = Decimal(f"1e-{denom_meta.decimals}")
+                    asset_name: str = denom_meta["symbol"]
+                    denom_scaler: Decimal = Decimal(f"1e-{denom_meta['decimals']}")
 
                     available_balance: Decimal = Decimal(bank_entry.amount) * denom_scaler
                     total_balance: Decimal = available_balance
@@ -517,8 +516,8 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
 
             denom_meta = self._denom_to_token_meta.get(entry.denom)
             if denom_meta is not None:
-                asset_name: str = denom_meta.symbol
-                denom_scaler: Decimal = Decimal(f"1e-{denom_meta.decimals}")
+                asset_name: str = denom_meta["symbol"]
+                denom_scaler: Decimal = Decimal(f"1e-{denom_meta['decimals']}")
 
                 total_balance: Decimal = Decimal(entry.deposit.total_balance) * denom_scaler
                 available_balance: Decimal = Decimal(entry.deposit.available_balance) * denom_scaler
@@ -620,30 +619,26 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
 
     async def _update_markets(self):
         """Fetches and updates trading pair maps of active perpetual markets."""
-        perpetual_markets: MarketsResponse = await self._fetch_derivative_markets()
-        self._update_market_map_attributes(markets=perpetual_markets)
-        spot_markets: MarketsResponse = await self._fetch_spot_markets()
-        self._update_denom_to_token_meta(markets=spot_markets)
+        perpetual_markets: Dict[str, Any] = await self._fetch_derivative_markets()
+        self._update_market_map_attributes(markets=json.loads(perpetual_markets))
 
-    async def _fetch_derivative_markets(self) -> MarketsResponse:
-        market_status: str = "active"
-        async with self._throttler.execute_task(limit_id=CONSTANTS.DERIVATIVE_MARKETS_LIMIT_ID):
-            derivative_markets = await self._client.get_derivative_markets(market_status=market_status)
-        return derivative_markets
+    async def _fetch_derivative_markets(self) -> Dict[str, Any]:
+        async with aiohttp.ClientSession() as client:
+            resp = await client.get(CONSTANTS.MARKETS_LIST_URL)
+            return await resp.text()
 
-    async def _fetch_spot_markets(self) -> MarketsResponse:
-        market_status: str = "active"
-        async with self._throttler.execute_task(limit_id=CONSTANTS.SPOT_MARKETS_LIMIT_ID):
-            spot_markets = await self._client.get_spot_markets(market_status=market_status)
-        return spot_markets
-
-    def _update_market_map_attributes(self, markets: MarketsResponse):
+    def _update_market_map_attributes(self, markets: Dict[str, Any]):
         """Parses MarketsResponse and re-populate the market map attributes"""
-        active_perp_markets: Dict[str, DerivativeMarketInfo] = {}
-        market_id_to_market_map: Dict[str, DerivativeMarketInfo] = {}
-        for market in markets.markets:
-            trading_pair: str = combine_to_hb_trading_pair(base=market.oracle_base, quote=market.oracle_quote)
-            market_id: str = market.market_id
+        active_perp_markets: Dict[str, Any] = {}
+        market_id_to_market_map: Dict[str, Any] = {}
+        for market in markets["markets"]:
+            base_meta = market.get("baseTokenMeta")
+            quote_meta = market.get("quoteTokenMeta")
+            if base_meta is not None and quote_meta is not None:
+                self._denom_to_token_meta[base_meta["symbol"]] = base_meta
+                self._denom_to_token_meta[quote_meta["symbol"]] = quote_meta
+                trading_pair: str = combine_to_hb_trading_pair(base=base_meta["symbol"], quote=quote_meta["symbol"])
+                market_id: str = market["marketId"]
 
             active_perp_markets[trading_pair] = market
             market_id_to_market_map[market_id] = market
@@ -653,14 +648,6 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
 
         self._markets_info.update(active_perp_markets)
         self._market_id_to_active_perp_markets.update(market_id_to_market_map)
-
-    def _update_denom_to_token_meta(self, markets: MarketsResponse):
-        self._denom_to_token_meta.clear()
-        for market in markets.markets:
-            if market.base_token_meta.symbol != "":  # the meta is defined
-                self._denom_to_token_meta[market.base_denom] = market.base_token_meta
-            if market.quote_token_meta.symbol != "":  # the meta is defined
-                self._denom_to_token_meta[market.quote_denom] = market.quote_token_meta
 
     def _parse_trading_rule(self, trading_pair: str, market_info: Any) -> TradingRule:
         min_price_tick_size = (
@@ -679,7 +666,7 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
     def _compose_derivative_order_for_local_hash_computation(self, order: GatewayInFlightOrder) -> DerivativeOrder:
         market = self._markets_info[order.trading_pair]
         return self._composer.DerivativeOrder(
-            market_id=market.market_id,
+            market_id=market["marketId"],
             subaccount_id=self._account_id.lower(),
             fee_recipient=self._account_address.lower(),
             price=float(order.price),
@@ -694,7 +681,7 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
         trading_pair: str = order.trading_pair
         order_hash: str = await order.get_exchange_order_id()
 
-        market: DerivativeMarketInfo = self._markets_info[trading_pair]
+        market: Dict[str, Any] = self._markets_info[trading_pair]
         direction: str = "buy" if order.trade_type == TradeType.BUY else "sell"
         trade_type: TradeType = order.trade_type
         order_type: OrderType = order.order_type
@@ -705,7 +692,7 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
         while not search_completed:
             async with self._throttler.execute_task(limit_id=CONSTANTS.HISTORICAL_DERIVATIVE_ORDERS_LIMIT_ID):
                 response: OrdersHistoryResponse = await self._client.get_historical_derivative_orders(
-                    market_id=market.market_id,
+                    market_id=market["marketId"],
                     subaccount_id=self._account_id,
                     direction=direction,
                     start_time=int(order.creation_timestamp * 1e3),
@@ -731,9 +718,9 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
         all_trades: List[DerivativeTrade] = []
         search_completed = False
 
-        market_info: DerivativeMarketInfo = self._markets_info[order.trading_pair]
+        market_info: Dict[str, Any] = self._markets_info[order.trading_pair]
 
-        market_id: str = market_info.market_id
+        market_id: str = market_info["marketId"]
         direction: str = "buy" if order.trade_type == TradeType.BUY else "sell"
 
         while not search_completed:
@@ -770,23 +757,23 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
 
     async def _request_last_funding_rate(self, trading_pair: str) -> Decimal:
         # NOTE: Can be removed when GatewayHttpClient.clob_perp_funding_info is used.
-        market_info: DerivativeMarketInfo = self._markets_info[trading_pair]
+        market_info: Dict[str, Any] = self._markets_info[trading_pair]
         async with self._throttler.execute_task(limit_id=CONSTANTS.FUNDING_RATES_LIMIT_ID):
             response: FundingRatesResponse = await self._client.get_funding_rates(
-                market_id=market_info.market_id, limit=1
+                market_id=market_info["marketId"], limit=1
             )
         funding_rate: FundingRate = response.funding_rates[0]  # We only want the latest funding rate.
         return Decimal(funding_rate.rate)
 
-    async def _request_oracle_price(self, market_info: DerivativeMarketInfo) -> Decimal:
+    async def _request_oracle_price(self, market_info: Dict[str, Any]) -> Decimal:
         # NOTE: Can be removed when GatewayHttpClient.clob_perp_funding_info is used.
         """
         According to Injective, Oracle Price refers to mark price.
         """
         async with self._throttler.execute_task(limit_id=CONSTANTS.ORACLE_PRICES_LIMIT_ID):
             response = await self._client.get_oracle_prices(
-                base_symbol=market_info.oracle_base,
-                quote_symbol=market_info.oracle_quote,
+                base_symbol=market_info["baseTokenMeta"]["symbol"],
+                quote_symbol=market_info["quoteTokenMeta"]["symbol"],
                 oracle_type=market_info.oracle_type,
                 oracle_scale_factor=0,
             )
@@ -794,11 +781,11 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
 
     async def _request_last_trade_price(self, trading_pair: str) -> Decimal:
         # NOTE: Can be replaced by calling GatewayHTTPClient.clob_perp_last_trade_price
-        market_info: DerivativeMarketInfo = self._markets_info[trading_pair]
+        market_info: Dict[str, Any] = self._markets_info[trading_pair]
         async with self._throttler.execute_task(limit_id=CONSTANTS.DERIVATIVE_TRADES_LIMIT_ID):
             response: TradesResponse = await self._client.get_derivative_trades(market_id=market_info.market_id)
         last_trade: DerivativeTrade = response.trades[0]
-        price_scaler: Decimal = Decimal(f"1e-{market_info.quote_token_meta.decimals}")
+        price_scaler: Decimal = Decimal(f"1e-{market_info['quoteTokenMeta']['decimals']}")
         last_trade_price: Decimal = Decimal(last_trade.position_delta.execution_price) * price_scaler
         return last_trade_price
 
@@ -824,9 +811,9 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
         """
         update_ts_ms: int = message.timestamp
         market_id: str = message.market_id
-        market: DerivativeMarketInfo = self._market_id_to_active_perp_markets[market_id]
-        trading_pair: str = combine_to_hb_trading_pair(base=market.oracle_base, quote=market.oracle_quote)
-        price_scaler: Decimal = Decimal(f"1e-{market.quote_token_meta.decimals}")
+        market: Dict[str, Any] = self._market_id_to_active_perp_markets[market_id]
+        trading_pair: str = combine_to_hb_trading_pair(base=market["baseTokenMeta"]["symbol"], quote=market["quoteTokenMeta"]["symbol"])
+        price_scaler: Decimal = Decimal(f"1e-{market['quoteTokenMeta']['decimals']}")
         bids = [(Decimal(bid.price) * price_scaler, Decimal(bid.quantity)) for bid in message.orderbook.buys]
         asks = [(Decimal(ask.price) * price_scaler, Decimal(ask.quantity)) for ask in message.orderbook.sells]
         snapshot_msg = OrderBookMessage(
@@ -864,11 +851,11 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
     ) -> Tuple[OrderBookMessage, TradeUpdate]:
         exchange_order_id: str = backend_trade.order_hash
         market_id: str = backend_trade.market_id
-        market: DerivativeMarketInfo = self._market_id_to_active_perp_markets[market_id]
-        trading_pair: str = combine_to_hb_trading_pair(base=market.oracle_base, quote=market.oracle_quote)
+        market: Dict[str, Any] = self._market_id_to_active_perp_markets[market_id]
+        trading_pair: str = combine_to_hb_trading_pair(base=market["baseTokenMeta"]["symbol"], quote=market["quoteTokenMeta"]["symbol"])
         trade_id: str = backend_trade.trade_id
 
-        price_scaler: Decimal = Decimal(f"1e-{market.quote_token_meta.decimals}")
+        price_scaler: Decimal = Decimal(f"1e-{market['quoteTokenMeta']['decimals']}")
         price: Decimal = Decimal(backend_trade.position_delta.execution_price) * price_scaler
         size: Decimal = Decimal(backend_trade.position_delta.execution_quantity)
         is_taker: bool = backend_trade.execution_side == "taker"
@@ -951,7 +938,7 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
 
     def _process_bank_balance_stream_event(self, message: StreamAccountPortfolioResponse):
         denom_meta = self._denom_to_token_meta[message.denom]
-        symbol = denom_meta.symbol
+        symbol = denom_meta["symbol"]
         safe_ensure_future(self._issue_balance_update(token=symbol))
 
     async def _listen_to_subaccount_balances_stream(self):
@@ -970,7 +957,7 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
 
     def _process_subaccount_balance_stream_event(self, message: StreamSubaccountBalanceResponse):
         denom_meta = self._denom_to_token_meta[message.balance.denom]
-        symbol = denom_meta.symbol
+        symbol = denom_meta["symbol"]
         safe_ensure_future(self._issue_balance_update(token=symbol))
 
     async def _issue_balance_update(self, token: str):
@@ -1100,7 +1087,7 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
 
     def _get_trading_pair_from_market_id(self, market_id: str) -> str:
         market = self._market_id_to_active_perp_markets[market_id]
-        trading_pair = combine_to_hb_trading_pair(base=market.oracle_base, quote=market.oracle_quote)
+        trading_pair = combine_to_hb_trading_pair(base=market["baseTokenMeta"]["symbol"], quote=market["quoteTokenMeta"]["symbol"])
         return trading_pair
 
     async def _listen_order_updates_stream(self, market_id: str):
@@ -1153,16 +1140,16 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
         return position
 
     def _parse_backend_position_to_position_event(self, backend_position: DerivativePosition) -> PositionUpdateEvent:
-        market_info: DerivativeMarketInfo = self._market_id_to_active_perp_markets[backend_position.market_id]
-        trading_pair: str = combine_to_hb_trading_pair(base=market_info.oracle_base, quote=market_info.oracle_quote)
+        market_info: Dict[str, Any] = self._market_id_to_active_perp_markets[backend_position.market_id]
+        trading_pair: str = combine_to_hb_trading_pair(base=market_info["baseTokenMeta"]["symbol"], quote=market_info["quoteTokenMeta"]["Symbol"])
         amount: Decimal = Decimal(backend_position.quantity)
         if backend_position.direction != "":
             position_side = PositionSide[backend_position.direction.upper()]
             entry_price: Decimal = (
-                Decimal(backend_position.entry_price) * Decimal(f"1e-{market_info.quote_token_meta.decimals}")
+                Decimal(backend_position.entry_price) * Decimal(f"1e-{market_info['quoteTokenMeta']['decimals']}")
             )
             mark_price: Decimal = (
-                Decimal(backend_position.mark_price) * Decimal(f"1e-{market_info.oracle_scale_factor}")
+                Decimal(backend_position.mark_price) * Decimal(f"1e-{market_info['minPriceTickSize']}")
             )
             leverage = Decimal(
                 round(
@@ -1223,12 +1210,12 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
     async def _request_funding_info(self, trading_pair: str) -> FundingInfo:
         # NOTE: Can be replaced with GatewayHttpClient.clob_perp_funding_info()
         self._check_markets_initialized() or await self._update_markets()
-        market_info: DerivativeMarketInfo = self._markets_info[trading_pair]
+        market_info: Dict[str, Any] = self._markets_info[trading_pair]
         last_funding_rate: Decimal = await self._request_last_funding_rate(trading_pair=trading_pair)
         oracle_price: Decimal = await self._request_oracle_price(market_info=market_info)
         last_trade_price: Decimal = await self._request_last_trade_price(trading_pair=trading_pair)
         async with self._throttler.execute_task(limit_id=CONSTANTS.SINGLE_DERIVATIVE_MARKET_LIMIT_ID):
-            updated_market_info = await self._client.get_derivative_market(market_id=market_info.market_id)
+            updated_market_info = await self._client.get_derivative_market(market_id=market_info["marketId"])
         funding_info = FundingInfo(
             trading_pair=trading_pair,
             index_price=last_trade_price,  # Default to using last trade price
@@ -1245,8 +1232,8 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
         while True:
             market_info = self._market_id_to_active_perp_markets[market_id]
             stream: UnaryStreamCall = await self._client.stream_oracle_prices(
-                base_symbol=market_info.oracle_base,
-                quote_symbol=market_info.oracle_quote,
+                base_symbol=market_info["baseTokenMeta"]["symbol"],
+                quote_symbol=market_info["quoteTokenMeta"]["symbol"],
                 oracle_type=market_info.oracle_type,
             )
             try:
@@ -1310,7 +1297,7 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
         self._positions_stream_listener = None
 
     def _get_exchange_trading_pair_from_market_info(self, market_info: Any) -> str:
-        return market_info.market_id
+        return market_info.get("market_id")
 
     def _get_maker_taker_exchange_fee_rates_from_market_info(
         self, market_info: Any
