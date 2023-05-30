@@ -30,5 +30,5 @@ NO_LIMIT = sys.maxsize
 
 RATE_LIMITS = [
     RateLimit(limit_id=PUBLIC_WS_DATA_PATH_URL, limit=NO_LIMIT, time_interval=1),
-    RateLimit(CANDLES_ENDPOINT, limit=1200, time_interval=60),
-    RateLimit(HEALTH_CHECK_ENDPOINT, limit=1200, time_interval=60)]
+    RateLimit(CANDLES_ENDPOINT, limit=30, time_interval=60),
+    RateLimit(HEALTH_CHECK_ENDPOINT, limit=30, time_interval=60)]
