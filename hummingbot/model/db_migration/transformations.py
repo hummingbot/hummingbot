@@ -1,4 +1,8 @@
-from sqlalchemy import Column, Integer, Text
+from sqlalchemy import (
+    Column,
+    Integer,
+    Text,
+)
 
 from hummingbot.model.db_migration.base_transformation import DatabaseTransformation
 from hummingbot.model.sql_connection_manager import SQLConnectionManager
@@ -130,21 +134,3 @@ class ConvertPriceAndAmountColumnsToBigint(DatabaseTransformation):
     @property
     def to_version(self):
         return 20220130
-
-
-class AddTradeFeeInQuote(DatabaseTransformation):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def apply(self, db_handle: SQLConnectionManager) -> SQLConnectionManager:
-        trade_fee = Column("trade_fee_in_quote", Integer, nullable=True)
-        self.add_column(db_handle.engine, "TradeFill", trade_fee, dry_run=False)
-        return db_handle
-
-    @property
-    def name(self):
-        return "AddTradeFeeInQuote"
-
-    @property
-    def to_version(self):
-        return 20230516
