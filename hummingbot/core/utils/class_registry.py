@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Type, Union
+from typing import Dict, Optional, Type, TypeVar, Union
 
 
 class ClassRegistryError(Exception):
@@ -32,7 +32,8 @@ def find_substring_not_in_parent(*, child: str, parent: str) -> Optional[str]:
         common_prefix_len += 1
 
     common_suffix_len = 0
-    while child[-1 - common_suffix_len] == parent[-1 - common_suffix_len]:
+    while all((child[-1 - common_suffix_len] == parent[-1 - common_suffix_len],
+               common_suffix_len < len(parent) - common_prefix_len)):
         common_suffix_len += 1
 
     if len(parent) == common_prefix_len + common_suffix_len:
@@ -40,6 +41,10 @@ def find_substring_not_in_parent(*, child: str, parent: str) -> Optional[str]:
         return unique_substring if unique_substring else None
 
     return None
+
+
+T = TypeVar("T")
+V = TypeVar("V")
 
 
 class ClassRegistry:
@@ -72,9 +77,9 @@ class ClassRegistry:
         get_registry() -> Dict[str, Type]: Get a copy of the registry to prevent modification.
         find_class_by_name(class_name: str) -> Optional[Type]: Find the class registered under the specified class name.
     """
-    __registry: Dict[Type, Dict[str, Type]] = {}
+    __registry: Dict[Type[T], Dict[str, Type[V]]] = {}
 
-    def __init_subclass__(cls, **kwargs):
+    def __init_subclass__(cls: Union[Type[T], Type[V]], **kwargs):
         """
         `__init_subclass__` method is called when a subclass is created.
 
@@ -99,6 +104,14 @@ class ClassRegistry:
             for base in cls.__bases__:
                 if issubclass(base, ClassRegistry) and base is not ClassRegistry:
                     class_name = cls.__name__
+
+                    # Multi-level subclassing, add it to the registry of the base class
+                    if base not in ClassRegistry.__registry:
+                        for sub_base in base.__bases__:
+                            if sub_base in ClassRegistry.__registry:
+                                base = sub_base
+                                break
+
                     # It's a subclass of a subclass of ClassRegistry, add it to the existing registry
                     if class_name not in ClassRegistry.__registry[base]:
                         ClassRegistry.__registry[base][class_name] = cls
@@ -113,7 +126,7 @@ class ClassRegistry:
                             f"Sub-class {class_name} already registered under {base.__name__}")
 
     @classmethod
-    def get_registry(cls) -> Union[Dict[str, Type], Dict[Type, Dict[str, Type]]]:
+    def get_registry(cls) -> Union[Dict[str, Type[T]], Dict[Type[T], Dict[str, Type[V]]]]:
         """Return a copy of the registry to prevent modification."""
         if cls is ClassRegistry:
             return ClassRegistry.__registry.copy()
@@ -122,7 +135,7 @@ class ClassRegistry:
         return {}
 
     @classmethod
-    def find_class_by_name(cls, class_name: str) -> Optional[Type]:
+    def find_class_by_name(cls, class_name: str) -> Optional[Type[V]]:
         """Return the class registered under the class_name
         :param class_name: The name of the class to return
         """
