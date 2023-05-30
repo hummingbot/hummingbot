@@ -1,5 +1,7 @@
 from hummingbot.data_feed.candles_feed.binance_perpetual_candles import BinancePerpetualCandles
 from hummingbot.data_feed.candles_feed.binance_spot_candles import BinanceSpotCandles
+from hummingbot.data_feed.candles_feed.gateio_perpetual_candles import GateioPerpetualCandles
+from hummingbot.data_feed.candles_feed.gateio_spot_candles import GateioSpotCandles
 
 
 class CandlesFactory:
@@ -15,5 +17,9 @@ class CandlesFactory:
             return BinancePerpetualCandles(trading_pair, interval, max_records)
         elif connector == "binance":
             return BinanceSpotCandles(trading_pair, interval, max_records)
+        elif connector == "gateio":
+            return GateioSpotCandles(trading_pair, interval, max_records)
+        elif connector == "gateio_perpetual":
+            return GateioPerpetualCandles(trading_pair, interval, max_records)
         else:
             raise Exception(f"The connector {connector} is not available. Please select another one.")
