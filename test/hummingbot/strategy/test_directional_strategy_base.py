@@ -56,6 +56,7 @@ class DirectionalStrategyBaseTest(unittest.TestCase):
         DirectionalStrategyBase.markets = {self.connector_name: {self.trading_pair}}
         DirectionalStrategyBase.candles = []
         DirectionalStrategyBase.exchange = self.connector_name
+        DirectionalStrategyBase.trading_pair = self.trading_pair
         self.strategy = DirectionalStrategyBase({self.connector_name: self.connector})
         self.strategy.logger().setLevel(1)
         self.strategy.logger().addHandler(self)
@@ -96,3 +97,13 @@ class DirectionalStrategyBaseTest(unittest.TestCase):
         self.strategy.stored_executors.append(position_executor_mock)
         self.strategy.active_executors.append(position_executor_mock)
         self.assertTrue("mock_position_executor" in self.strategy.format_status())
+
+    @patch("hummingbot.strategy.directional_strategy_base.DirectionalStrategyBase.get_signal", new_callable=MagicMock)
+    def test_get_position_config_signal_zero(self, signal):
+        signal.return_value = 0
+        self.assertIsNone(self.strategy.get_position_config())
+
+    @patch("hummingbot.strategy.directional_strategy_base.DirectionalStrategyBase.get_signal", new_callable=MagicMock)
+    def test_get_position_config_signal_positive(self, signal):
+        signal.return_value = 1
+        self.assertIsNotNone(self.strategy.get_position_config())
