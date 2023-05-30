@@ -4,6 +4,7 @@ import time
 from typing import Any, Dict, Optional
 
 import numpy as np
+import pandas as pd
 
 from hummingbot.core.network_iterator import NetworkStatus, safe_ensure_future
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
@@ -60,6 +61,12 @@ class KucoinSpotCandles(CandlesBase):
     def intervals(self):
         return CONSTANTS.INTERVALS
 
+    @property
+    def candles_df(self) -> pd.DataFrame:
+        df = pd.DataFrame(self._candles, columns=self.columns, dtype=float)
+        df["timestamp"] = df["timestamp"] * 1000
+        return df.sort_values(by="timestamp", ascending=True)
+
     async def check_network(self) -> NetworkStatus:
         rest_assistant = await self._api_factory.get_rest_assistant()
         await rest_assistant.execute_request(url=self.health_check_url,
@@ -74,7 +81,7 @@ class KucoinSpotCandles(CandlesBase):
                             end_time: Optional[int] = None,
                             limit: Optional[int] = 1500):
         rest_assistant = await self._api_factory.get_rest_assistant()
-        params = {"symbol": self._ex_trading_pair, "type": CONSTANTS.INTERVALS[self.interval], "limit": 1500}
+        params = {"symbol": self._ex_trading_pair, "type": CONSTANTS.INTERVALS[self.interval]}
         if start_time:
             params["startAt"] = start_time
         if end_time:
@@ -86,20 +93,20 @@ class KucoinSpotCandles(CandlesBase):
         return np.array(candles["data"]).astype(float)
 
     async def fill_historical_candles(self):
-        max_request_needed = (self._candles.maxlen // 1500) + 10
+        max_request_needed = (self._candles.maxlen // 1500) + 1
         requests_executed = 0
         while not self.is_ready:
             # missing_records = self._candles.maxlen - len(self._candles)
             try:
                 if requests_executed < max_request_needed:
-                    end_timestamp = int(self._candles[0][0])
+                    end_timestamp = int(self._candles[0][0] + 1)
                     # we have to add one more since, the last row is not going to be included
                     start_time = end_timestamp - (1500 * self.get_seconds_from_interval(self.interval)) + 1
                     candles = await self.fetch_candles(end_time=end_timestamp, start_time=start_time)
                     # we are computing agaefin the quantity of records again since the websocket process is able to
                     # modify the deque and if we extend it, the new observations are going to be dropped.
                     missing_records = self._candles.maxlen - len(self._candles)
-                    self._candles.extendleft(candles[-(missing_records + 1):-1])
+                    self._candles.extendleft(candles[::-1][-(missing_records + 1):-1])
                     requests_executed += 1
                 else:
                     self.logger().error(f"There is no data available for the quantity of "
@@ -162,9 +169,9 @@ class KucoinSpotCandles(CandlesBase):
                 candles = data["data"]["candles"]
                 timestamp = float(candles[0])
                 open = candles[1]
-                high = candles[2]
-                low = candles[3]
-                close = candles[4]
+                close = candles[2]
+                high = candles[3]
+                low = candles[4]
                 volume = candles[5]
                 quote_asset_volume = candles[6]
                 n_trades = 0.
