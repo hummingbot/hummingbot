@@ -158,7 +158,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
                 open_order_type=self.open_order_type,
                 take_profit_order_type=self.take_profit_order_type,
                 stop_loss_order_type=self.stop_loss_order_type,
-                time_limit_order_type=self.open_order_type,
+                time_limit_order_type=self.time_limit_order_type,
                 trailing_stop=TrailingStop(
                     activation_price_delta=self.trailing_stop_activation_delta,
                     trailing_delta=self.trailing_stop_trailing_delta
