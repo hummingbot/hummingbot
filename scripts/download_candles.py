@@ -1,3 +1,4 @@
+import os
 from typing import Dict
 
 from hummingbot import data_path
@@ -15,11 +16,19 @@ class DownloadCandles(ScriptStrategyBase):
     Is important to notice that the component will fail if all the candles are not available since the idea of it is to
     use it in production based on candles needed to compute technical indicators.
     """
-    trading_pairs = ["APE-USDT", "BTC-USDT", "BNB-USDT"]
-    intervals = ["3m", "1m", "5m"]
-    max_records = 50000
+    exchange = os.getenv("EXCHANGE", "binance_perpetual")
+    trading_pairs = os.getenv("TRADING_PAIRS", "DODO-BUSD,LTC-USDT").split(",")
+    intervals = os.getenv("INTERVALS", "1m,3m,5m,1h").split(",")
+    days_to_download = int(os.getenv("DAYS_TO_DOWNLOAD", "3"))
     # we can initialize any trading pair since we only need the candles
     markets = {"binance_paper_trade": {"BTC-USDT"}}
+
+    @staticmethod
+    def get_max_records(days_to_download: int, interval: str) -> int:
+        conversion = {"m": 1, "h": 60, "d": 1440}
+        unit = interval[-1]
+        quantity = int(interval[:-1])
+        return int(days_to_download * 24 * 60 * quantity / conversion[unit])
 
     def __init__(self, connectors: Dict[str, ConnectorBase]):
         super().__init__(connectors)
@@ -28,14 +37,14 @@ class DownloadCandles(ScriptStrategyBase):
         self.candles = {f"{combinations[0]}_{combinations[1]}": {} for combinations in combinations}
         # we need to initialize the candles for each trading pair
         for combination in combinations:
-            candle = CandlesFactory.get_candle(connector="binance", trading_pair=combination[0],
+            candle = CandlesFactory.get_candle(connector=self.exchange, trading_pair=combination[0],
                                                interval=combination[1],
-                                               max_records=self.max_records)
+                                               max_records=self.get_max_records(self.days_to_download, combination[1]))
             candle.start()
             # we are storing the candles object and the csv path to save the candles
             self.candles[f"{combination[0]}_{combination[1]}"]["candles"] = candle
             self.candles[f"{combination[0]}_{combination[1]}"][
-                "csv_path"] = data_path() + f"/candles_{combination[0]}_{combination[1]}.csv"
+                "csv_path"] = data_path() + f"/candles_{self.exchange}_{combination[0]}_{combination[1]}.csv"
 
     def on_tick(self):
         for trading_pair, candles_info in self.candles.items():
