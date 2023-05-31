@@ -27,7 +27,6 @@ INTERVALS = bidict({
     "1d": 86400,
     "7d": 604800,
     "1w": 2592000,
-    "30d": 2592000
 })
 PUBLIC_URL_POINTS_LIMIT_ID = "PublicPoints"
 
