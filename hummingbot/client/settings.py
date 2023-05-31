@@ -69,12 +69,11 @@ class ConnectorType(Enum):
     The types of exchanges that hummingbot client can communicate with.
     """
 
-    EVM_AMM = "EVM_AMM"
-    EVM_Perpetual = "EVM_Perpetual"
-    EVM_AMM_LP = "EVM_AMM_LP"
+    AMM = "AMM"
+    AMM_LP = "AMM_LP"
+    AMM_Perpetual = "AMM_Perpetual"
     CLOB_SPOT = "CLOB_SPOT"
     CLOB_PERP = "CLOB_PERP"
-    NEAR_AMM = "NEAR_AMM"
     Connector = "connector"
     Exchange = "exchange"
     Derivative = "derivative"
@@ -129,6 +128,7 @@ class GatewayConnectionSetting:
         chain: str,
         network: str,
         trading_type: str,
+        chain_type: str,
         wallet_address: str,
         additional_spenders: List[str],
         additional_prompt_values: Dict[str, str],
@@ -138,6 +138,7 @@ class GatewayConnectionSetting:
             "chain": chain,
             "network": network,
             "trading_type": trading_type,
+            "chain_type": chain_type,
             "wallet_address": wallet_address,
             "additional_spenders": additional_spenders,
             "additional_prompt_values": additional_prompt_values,
@@ -197,12 +198,12 @@ class ConnectorSetting(NamedTuple):
     def module_name(self) -> str:
         # returns connector module name, e.g. binance_exchange
         if self.uses_gateway_generic_connector():
-            if self.type in [ConnectorType.EVM_AMM, ConnectorType.EVM_Perpetual, ConnectorType.NEAR_AMM, ConnectorType.EVM_AMM_LP]:
-                return f"gateway.amm.gateway_{self._get_module_package()}"
-            elif self.type == ConnectorType.CLOB_SPOT:
-                return f"gateway.clob_spot.gateway_{self._get_module_package()}"
-            elif self.type == ConnectorType.CLOB_PERP:
-                return f"gateway.clob_perp.gateway_{self._get_module_package()}"
+            if 'AMM' in self.type.name:
+                # AMMs currently have multiple generic connectors. chain_type is used to determine the right connector to use.
+                connector_spec: Dict[str, str] = GatewayConnectionSetting.get_connector_spec_from_market_name(self.name)
+                return f"gateway.{self.type.name.lower()}.gateway_{connector_spec['chain_type'].lower()}_{self._get_module_package()}"
+            elif 'CLOB' in self.type.name:
+                return f"gateway.{self.type.name.lower()}.gateway_{self._get_module_package()}"
             else:
                 raise ValueError(f"Unsupported connector type: {self.type}")
         return f"{self.base_name()}_{self._get_module_package()}"
@@ -503,11 +504,11 @@ class AllConnectorSettings:
 
     @classmethod
     def get_derivative_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.Derivative or cs.type is ConnectorType.EVM_Perpetual or cs.type is ConnectorType.CLOB_PERP}
+        return {cs.name for cs in cls.all_connector_settings.values() if cs.type in [ConnectorType.Derivative, ConnectorType.AMM_Perpetual, ConnectorType.CLOB_PERP]}
 
     @classmethod
     def get_derivative_dex_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.EVM_Perpetual}
+        return {cs.name for cs in cls.all_connector_settings.values() if cs.type is ConnectorType.AMM_Perpetual}
 
     @classmethod
     def get_other_connector_names(cls) -> Set[str]:
@@ -519,11 +520,11 @@ class AllConnectorSettings:
 
     @classmethod
     def get_gateway_amm_connector_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.get_connector_settings().values() if cs.type in [ConnectorType.EVM_AMM, ConnectorType.NEAR_AMM]}
+        return {cs.name for cs in cls.get_connector_settings().values() if cs.type == ConnectorType.AMM}
 
     @classmethod
     def get_gateway_evm_amm_lp_connector_names(cls) -> Set[str]:
-        return {cs.name for cs in cls.all_connector_settings.values() if cs.type == ConnectorType.EVM_AMM_LP}
+        return {cs.name for cs in cls.all_connector_settings.values() if cs.type == ConnectorType.AMM_LP}
 
     @classmethod
     def get_gateway_clob_connector_names(cls) -> Set[str]:
