@@ -33,7 +33,6 @@ class RemoteIfaceMQTTTests(TestCase):
         cls.client_config_map = ClientConfigAdapter(ClientConfigMap())
         cls.hbapp = HummingbotApplication(client_config_map=cls.client_config_map)
         cls.ev_loop: asyncio.BaseEventLoop = asyncio.new_event_loop()
-        asyncio.set_event_loop(cls.ev_loop)
         cls.hbapp.ev_loop = cls.ev_loop
         cls.client_config_map.mqtt_bridge.mqtt_port = 1888
         cls.client_config_map.mqtt_bridge.mqtt_commands = 1
