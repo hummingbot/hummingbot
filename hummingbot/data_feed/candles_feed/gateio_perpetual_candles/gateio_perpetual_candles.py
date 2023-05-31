@@ -71,7 +71,7 @@ class GateioPerpetualCandles(CandlesBase):
     def get_exchange_trading_pair(self, trading_pair):
         return trading_pair.replace("-", "_")
 
-    def get_exchange_trading_pair_quanto_multiplier(self):
+    async def get_exchange_trading_pair_quanto_multiplier(self):
         rest_assistant = await self._api_factory.get_rest_assistant()
         data = await rest_assistant.execute_request(
             url=CONSTANTS.CONTRACT_INFO_URL.format(contract=self._ex_trading_pair),
@@ -169,7 +169,7 @@ class GateioPerpetualCandles(CandlesBase):
         async for ws_response in websocket_assistant.iter_messages():
             data: Dict[str, Any] = ws_response.data
 
-            if data.get("error") is not None and data.get("event") == "update" \
+            if data.get("event") == "update" \
                     and data.get(
                 "channel") == "futures.candlesticks":  # data will be None when the websocket is disconnected
                 for i in data["result"]:

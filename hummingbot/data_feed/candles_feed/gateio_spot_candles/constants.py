@@ -5,7 +5,7 @@ from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, Rate
 REST_URL = "https://api.gateio.ws/api/v4"
 HEALTH_CHECK_ENDPOINT = "/spot/currencies/BTC"
 CANDLES_ENDPOINT = "/spot/candlesticks"
-WS_CANDLES_ENDPOINT = "/spot.candlesticks"
+WS_CANDLES_ENDPOINT = "spot.candlesticks"
 
 WSS_URL = "wss://api.gateio.ws/ws/v4/"
 

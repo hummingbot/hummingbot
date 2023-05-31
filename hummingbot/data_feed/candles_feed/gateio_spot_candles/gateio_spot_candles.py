@@ -148,9 +148,9 @@ class GateioSpotCandles(CandlesBase):
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
         async for ws_response in websocket_assistant.iter_messages():
             data: Dict[str, Any] = ws_response.data
-            if data.get("error") is not None and data.get("event") == "update" \
+            if data.get("event") == "update" \
                     and data.get("channel") == "spot.candlesticks":
-                timestamp_ms = data["result"]["t"] + "000"
+                timestamp_ms = int(data["result"]["t"] + "000")
                 open = data["result"]["o"]
                 high = data["result"]["h"]
                 low = data["result"]["l"]
