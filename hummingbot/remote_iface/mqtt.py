@@ -527,6 +527,9 @@ class MQTTNotifier(NotifierBase):
 class MQTTGateway(Node):
     NODE_NAME: str = 'hbot.$instance_id'
     _instance: Optional["MQTTGateway"] = None
+    _INTERVAL_HEALTH_CHECK = 1.0
+    _INTERVAL_RESTART_SHORT = 5.0
+    _INTERVAL_RESTART_LONG = 10.0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -712,13 +715,13 @@ class MQTTGateway(Node):
         safe_ensure_future(self._monitor_health_loop(),
                            loop=self._ev_loop)
 
-    async def _monitor_health_loop(self, period: float = 1.0):
+    async def _monitor_health_loop(self):
         while not self._stop_event_async.is_set():
             # Maybe we can include more checks here to determine the health!
             self._health = await self._ev_loop.run_in_executor(
                 None, self._check_connections)
-            if self._health:
-                await asyncio.sleep(period)
+            if self.health:
+                await asyncio.sleep(self._INTERVAL_HEALTH_CHECK)
             else:
                 await self._restart_gateway()
 
@@ -728,7 +731,7 @@ class MQTTGateway(Node):
         try:
             self._restarting = True
             self.stop(False)
-            await asyncio.sleep(5.0)
+            await asyncio.sleep(self._INTERVAL_RESTART_SHORT)
 
             self._publishers = []
             self._subscribers = []
@@ -739,14 +742,14 @@ class MQTTGateway(Node):
             if self._hb_app.strategy is not None:
                 self.start_market_events_fw()
 
-            await asyncio.sleep(5.0)
+            await asyncio.sleep(self._INTERVAL_RESTART_SHORT)
             self._hb_app.logger().warning('MQTT reconnected.')
             self._restarting = False
 
         except Exception as e:
             self._hb_app.logger().error(f'MQTT failed to reconnect: {e}. Sleeping 10 seconds before retry.')
 
-        await asyncio.sleep(10.0)
+        await asyncio.sleep(self._INTERVAL_RESTART_LONG)
 
     def _stop_health_monitoring_loop(self):
         self._stop_event_async.set()
