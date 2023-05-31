@@ -32,7 +32,7 @@ class RemoteIfaceMQTTTests(TestCase):
         cls.fake_err_msg = "Some error"
         cls.client_config_map = ClientConfigAdapter(ClientConfigMap())
         cls.hbapp = HummingbotApplication(client_config_map=cls.client_config_map)
-        cls.ev_loop: asyncio.BaseEventLoop = asyncio.new_event_loop()
+        cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.hbapp.ev_loop = cls.ev_loop
         cls.client_config_map.mqtt_bridge.mqtt_port = 1888
         cls.client_config_map.mqtt_bridge.mqtt_commands = 1
@@ -63,8 +63,8 @@ class RemoteIfaceMQTTTests(TestCase):
 
     @classmethod
     def tearDownClass(cls) -> None:
-        cls.ev_loop.stop()
         cls.client_config_map.instance_id = cls.prev_instance_id
+        del cls.fake_mqtt_broker
         super().tearDownClass()
 
     def setUp(self) -> None:
@@ -1294,4 +1294,6 @@ class RemoteIfaceMQTTTests(TestCase):
         self.gateway._hb_app.client_config_map.mqtt_bridge.mqtt_namespace = 'test/'
         gw = MQTTGateway(self.hbapp)
         self.assertTrue(gw.namespace == 'test')
+        gw.stop()
+        del gw
         self.gateway._hb_app.client_config_map.mqtt_bridge.mqtt_namespace = prev_ns
