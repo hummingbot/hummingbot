@@ -12,7 +12,6 @@ from typing import Coroutine, List
 
 import path_util  # noqa: F401
 
-from bin.docker_connection import fork_and_start
 from bin.hummingbot import UIStartListener, detect_available_port
 from hummingbot import init_logging
 from hummingbot.client.config.config_crypt import BaseSecretsManager, ETHKeyFileSecretManger
@@ -153,4 +152,4 @@ def main():
 
 
 if __name__ == "__main__":
-    fork_and_start(main)
+    main()

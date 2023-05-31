@@ -1,0 +1,33 @@
+name: Bounty request
+description: Submit a bounty for this project 2.0
+title: "Bounty request"
+labels: bounty
+body:
+ - type: markdown
+   attributes:
+     value: |
+       ## **Before Submitting:**
+
+       * Please make sure to look on our GitHub issues to avoid duplicate tickets
+       * You can add additional `Labels` to support this ticket (connectors, strategies, etc)
+       * If this is something to do with installation and how to's we would recommend to visit our [Discord server](https://discord.gg/hummingbot) and [Hummingbot docs](https://docs.hummingbot.org/)
+ - type: textarea
+   id: bounty-description
+   attributes:
+     label: Description
+     description: "Describe what you want to do on this request"
+   validations:
+     required: true
+ - type: textarea
+   id: bounty-info
+   attributes: 
+     label: Bounty
+     value: |
+       - Sponsor: 
+       - Bounty amount: 
+       - Developer portion: 
+   validations: 
+     required: true
+   
+     
+  
