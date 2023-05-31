@@ -32,19 +32,32 @@ if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
 
 
+def ensure_gateway_online(func):
+    def wrapper(self, *args, **kwargs):
+        if self._gateway_monitor.gateway_status is GatewayStatus.OFFLINE:
+            self.logger().error("Gateway is offline")
+            return
+        return func(self, *args, **kwargs)
+    return wrapper
+
+
 class GatewayCommand(GatewayChainApiManager):
+    @ensure_gateway_online
     def gateway_connect(self, connector: str = None):
         safe_ensure_future(self._gateway_connect(connector), loop=self.ev_loop)
 
+    @ensure_gateway_online
     def gateway_status(self):
         safe_ensure_future(self._gateway_status(), loop=self.ev_loop)
 
+    @ensure_gateway_online
     def gateway_connector_tokens(self, connector_chain_network: Optional[str], new_tokens: Optional[str]):
         if connector_chain_network is not None and new_tokens is not None:
             safe_ensure_future(self._update_gateway_connector_tokens(connector_chain_network, new_tokens), loop=self.ev_loop)
         else:
             safe_ensure_future(self._show_gateway_connector_tokens(connector_chain_network), loop=self.ev_loop)
 
+    @ensure_gateway_online
     def gateway_approve_tokens(self, connector_chain_network: Optional[str], tokens: Optional[str]):
         if connector_chain_network is not None and tokens is not None:
             safe_ensure_future(self._update_gateway_approve_tokens(connector_chain_network, tokens), loop=self.ev_loop)
@@ -54,12 +67,15 @@ class GatewayCommand(GatewayChainApiManager):
     def generate_certs(self):
         safe_ensure_future(self._generate_certs(), loop=self.ev_loop)
 
+    @ensure_gateway_online
     def test_connection(self):
         safe_ensure_future(self._test_connection(), loop=self.ev_loop)
 
+    @ensure_gateway_online
     def gateway_list(self):
         safe_ensure_future(self._gateway_list(), loop=self.ev_loop)
 
+    @ensure_gateway_online
     def gateway_config(self,
                        key: Optional[str] = None,
                        value: str = None):
