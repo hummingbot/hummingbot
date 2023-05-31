@@ -12,6 +12,7 @@ from sqlalchemy.orm import Query, Session
 from hummingbot import data_path
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.utils import TradeFillOrderDetails
+from hummingbot.core.data_type.common import PriceType
 from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -31,6 +32,7 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
 )
 from hummingbot.model.funding_payment import FundingPayment
+from hummingbot.model.market_data import MarketData
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.order_status import OrderStatus
@@ -50,7 +52,9 @@ class MarketsRecorder:
                  sql: SQLConnectionManager,
                  markets: List[ConnectorBase],
                  config_file_path: str,
-                 strategy_name: str):
+                 strategy_name: str,
+                 store_market_data: bool = True,
+                 market_data_freq: float = 1.0,):
         if threading.current_thread() != threading.main_thread():
             raise EnvironmentError("MarketsRecorded can only be initialized from the main thread.")
 
@@ -59,6 +63,7 @@ class MarketsRecorder:
         self._markets: List[ConnectorBase] = markets
         self._config_file_path: str = config_file_path
         self._strategy_name: str = strategy_name
+        self._market_data_freq: float = market_data_freq
         # Internal collection of trade fills in connector will be used for remote/local history reconciliation
         for market in self._markets:
             trade_fills = self.get_trades_for_config(self._config_file_path, 2000)
@@ -97,6 +102,35 @@ class MarketsRecorder:
             (MarketEvent.RangePositionFeeCollected, self._update_range_position_forwarder),
             (MarketEvent.RangePositionClosed, self._close_range_position_forwarder),
         ]
+        if store_market_data:
+            self._start_market_data_recording()
+
+    def _start_market_data_recording(self):
+        self._ev_loop.create_task(self._record_market_data())
+
+    async def _record_market_data(self):
+        while True:
+            if all(ex.ready for ex in self._markets):
+                with self._sql_manager.get_new_session() as session:
+                    with session.begin():
+                        for market in self._markets:
+                            exchange = market.display_name
+                            for trading_pair in market.trading_pairs:
+                                mid_price = market.get_price_by_type(trading_pair, PriceType.MidPrice)
+                                best_bid = market.get_price_by_type(trading_pair, PriceType.BestBid)
+                                best_ask = market.get_price_by_type(trading_pair, PriceType.BestAsk)
+                                order_book = market.get_order_book(trading_pair)
+                                market_data = MarketData(
+                                    timestamp=self.db_timestamp,
+                                    exchange=exchange,
+                                    trading_pair=trading_pair,
+                                    mid_price=mid_price,
+                                    best_bid=best_bid,
+                                    best_ask=best_ask,
+                                    order_book={"bid": list(order_book.bid_entries()), "ask": list(order_book.ask_entries())}
+                                )
+                                session.add(market_data)
+            await asyncio.sleep(self._market_data_freq)
 
     @property
     def sql_manager(self) -> SQLConnectionManager:
