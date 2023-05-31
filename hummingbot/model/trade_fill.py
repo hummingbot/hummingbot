@@ -37,7 +37,7 @@ class TradeFill(HummingbotBase):
     amount = Column(SqliteDecimal(6), nullable=False)
     leverage = Column(Integer, nullable=False, default=1)
     trade_fee = Column(JSON, nullable=False)
-    trade_fee_in_quote = Column(SqliteDecimal(6), nullable=False)
+    trade_fee_in_quote = Column(SqliteDecimal(6))
     exchange_trade_id = Column(Text, primary_key=True, nullable=False)
     position = Column(Text, nullable=True, default=PositionAction.NIL.value)
     order = relationship("Order", back_populates="trade_fills")
