@@ -41,10 +41,10 @@ connector_status = {
     'ciex': 'bronze',
     'uniswap': 'gold',
     'uniswapLP': 'gold',
-    'pancakeswap': 'silver',
-    'sushiswap': 'silver',
-    'traderjoe': 'bronze',
-    'quickswap': 'bronze',
+    'pancakeswap': 'bronze',
+    'sushiswap': 'bronze',
+    'traderjoe': 'silver',
+    'quickswap': 'silver',
     'perp': 'bronze',
     'openocean': 'bronze',
     'pangolin': 'bronze',
@@ -63,6 +63,10 @@ connector_status = {
     'bit_com_perpetual': 'bronze',
     'bit_com_perpetual_testnet': 'bronze',
     'hotbit': 'bronze',
+    'tinyman': 'bronze',
+    'foxbit': 'bronze',
+    'phemex_perpetual': 'bronze',
+    'phemex_perpetual_testnet': 'bronze',
 }
 
 warning_messages = {
