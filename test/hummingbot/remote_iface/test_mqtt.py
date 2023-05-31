@@ -3,7 +3,7 @@ import time
 from decimal import Decimal
 from typing import Awaitable
 from unittest import TestCase
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 from async_timeout import timeout
 
@@ -22,6 +22,8 @@ from hummingbot.remote_iface.mqtt import MQTTGateway, MQTTMarketEventForwarder
 
 
 class RemoteIfaceMQTTTests(TestCase):
+    # logging.Level required to receive logs from the exchange
+    level = 0
 
     @classmethod
     def setUpClass(cls):
@@ -30,6 +32,9 @@ class RemoteIfaceMQTTTests(TestCase):
         cls.fake_err_msg = "Some error"
         cls.client_config_map = ClientConfigAdapter(ClientConfigMap())
         cls.hbapp = HummingbotApplication(client_config_map=cls.client_config_map)
+        cls.ev_loop: asyncio.BaseEventLoop = asyncio.new_event_loop()
+        asyncio.set_event_loop(cls.ev_loop)
+        cls.hbapp.ev_loop = cls.ev_loop
         cls.client_config_map.mqtt_bridge.mqtt_port = 1888
         cls.client_config_map.mqtt_bridge.mqtt_commands = 1
         cls.client_config_map.mqtt_bridge.mqtt_events = 1
@@ -46,7 +51,6 @@ class RemoteIfaceMQTTTests(TestCase):
             'balance/paper',
             'command_shortcuts',
         ]
-        cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
         cls.START_URI = 'hbot/$instance_id/start'
         cls.STOP_URI = 'hbot/$instance_id/stop'
         cls.CONFIG_URI = 'hbot/$instance_id/config'
@@ -60,11 +64,13 @@ class RemoteIfaceMQTTTests(TestCase):
 
     @classmethod
     def tearDownClass(cls) -> None:
+        cls.ev_loop.stop()
         cls.client_config_map.instance_id = cls.prev_instance_id
         super().tearDownClass()
 
     def setUp(self) -> None:
         super().setUp()
+        self.log_records = []
         # self.async_run_with_timeout(read_system_configs_from_yml())
         self.gateway = MQTTGateway(self.hbapp)
         # Do not patch loggers in TESTING
@@ -76,14 +82,33 @@ class RemoteIfaceMQTTTests(TestCase):
             "test_market_paper_trade": self.test_market
         }
         self.resume_test_event = asyncio.Event()
+        self.hbapp.logger().setLevel(1)
+        self.hbapp.logger().addHandler(self)
+        self.gateway.logger().setLevel(1)
+        self.gateway.logger().addHandler(self)
 
     def tearDown(self):
-        self.fake_mqtt_broker._transport._received_msgs = {}
-        self.fake_mqtt_broker._transport._subscriptions = {}
+        self.fake_mqtt_broker.clear()
         time.sleep(0.001)
         self.gateway.stop()
         del self.gateway
         super().tearDown()
+
+    def handle(self, record):
+        self.log_records.append(record)
+
+    def _is_logged(self, log_level: str, message: str) -> bool:
+        return any(record.levelname == log_level and str(record.getMessage()) == str(message) for record in self.log_records)
+
+    async def wait_for_logged(self, log_level: str, message: str):
+        try:
+            async with timeout(3):
+                while not self._is_logged(log_level=log_level, message=message):
+                    await asyncio.sleep(0.1)
+        except asyncio.TimeoutError as e:
+            print(f"Message: {message} was not logged.")
+            print(f"Received Logs: {[record.getMessage() for record in self.log_records]}")
+            raise e
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -999,6 +1024,36 @@ class RemoteIfaceMQTTTests(TestCase):
         self.gateway._publishers = prev_pub
         self.gateway._subscribers = prev__sub
         self.gateway._start_health_monitoring_loop = tmp
+
+    @patch("hummingbot.remote_iface.mqtt.MQTTGateway._INTERVAL_HEALTH_CHECK", 0.0)
+    @patch("hummingbot.remote_iface.mqtt.MQTTGateway._INTERVAL_RESTART_LONG", 0.0)
+    @patch("hummingbot.remote_iface.mqtt.MQTTGateway._INTERVAL_RESTART_SHORT", new_callable=PropertyMock)
+    @patch("hummingbot.remote_iface.mqtt.MQTTGateway.health", new_callable=PropertyMock)
+    @patch("commlib.transports.mqtt.MQTTTransport")
+    def test_mqtt_gateway_check_health_restarts(self,
+                                                mock_mqtt,
+                                                health_mock: PropertyMock,
+                                                interval_mock: PropertyMock):
+        interval_mock.return_value = 0.0
+        health_mock.return_value = True
+        self.start_mqtt(mock_mqtt=mock_mqtt)
+        self.ev_loop.run_until_complete(self.wait_for_logged("DEBUG", f"Started Heartbeat Publisher <hbot/{self.instance_id}/hb>"))
+        self.log_records = []
+        health_mock.return_value = False
+        interval_mock.return_value = None
+        self.ev_loop.run_until_complete(self.wait_for_logged("WARNING", "MQTT is disconnected, restarting."))
+        fake_err = "'<=' not supported between instances of 'NoneType' and 'int'"
+        self.ev_loop.run_until_complete(self.wait_for_logged("ERROR", f"MQTT failed to reconnect: {fake_err}. Sleeping 10 seconds before retry."))
+        self.log_records = []
+        interval_mock.return_value = 0.0
+        self.ev_loop.run_until_complete(self.wait_for_logged("WARNING", "MQTT reconnected."))
+        health_mock.return_value = True
+        self.assertTrue(
+            self._is_logged(
+                "WARNING",
+                "MQTT reconnected.",
+            )
+        )
 
     @patch("commlib.transports.mqtt.MQTTTransport")
     def test_mqtt_gateway_stop(self,
