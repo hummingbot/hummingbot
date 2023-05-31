@@ -74,13 +74,14 @@ class SettingsTest(unittest.TestCase):
             "connector": "vvs",
             "chain": "cronos",
             "network": "mainnet",
-            "trading_type": "EVM_AMM",
+            "trading_type": "AMM",
+            "chain_type": "EVM",
             "wallet_address": "0xA86b66F4e7DC45a943D71a11c7DDddE341246682",  # noqa: mock
             "additional_spenders": [],
         }
         conn_settings = ConnectorSetting(
             name="vvs_cronos_mainnet",
-            type=ConnectorType.EVM_AMM,
+            type=ConnectorType.AMM,
             example_pair="WETH-USDC",
             centralised=True,
             use_ethereum_wallet=False,
