@@ -731,7 +731,7 @@ class MQTTGateway(Node):
                 await self._restart_gateway()
 
     async def _restart_gateway(self):
-        self._hb_app.logger().warning('MQTT Gateway is disconnected, restarting.')
+        self._hb_app.logger().warning('MQTT Gateway is disconnected, attempting to reconnect.')
 
         try:
             self._restarting = True
@@ -748,8 +748,14 @@ class MQTTGateway(Node):
                 self.start_market_events_fw()
 
             await asyncio.sleep(self._INTERVAL_RESTART_SHORT)
-            self._hb_app.logger().warning('MQTT Gateway successfully reconnected.')
+
             self._restarting = False
+
+            self._health = await self._ev_loop.run_in_executor(
+                None, self._check_connections)
+
+            if self._health:
+                self._hb_app.logger().warning('MQTT Gateway successfully reconnected.')
 
         except Exception as e:
             self._hb_app.logger().error(f'MQTT Gateway failed to reconnect: {e}. Sleeping 10 seconds before retry.')
