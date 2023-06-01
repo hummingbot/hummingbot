@@ -44,6 +44,7 @@ from hummingbot.remote_iface.messages import (
     NotifyMessage,
     StartCommandMessage,
     StatusCommandMessage,
+    StatusUpdateMessage,
     StopCommandMessage,
 )
 
@@ -68,6 +69,7 @@ class TopicSpecs:
     LOGS: str = '/log'
     INTERNAL_EVENTS: str = '/events'
     NOTIFICATIONS: str = '/notify'
+    STATUS_UPDATES: str = '/status_updates'
     HEARTBEATS: str = '/hb'
     EXTERNAL_EVENTS: str = '/external/event/*'
 
@@ -524,6 +526,44 @@ class MQTTNotifier(NotifierBase):
         return None
 
 
+class MQTTStatusUpdates:
+    def __init__(self,
+                 hb_app: "HummingbotApplication",
+                 node: Node) -> None:
+        self._node = node
+        self._hb_app = hb_app
+        self._ev_loop: asyncio.AbstractEventLoop = self._hb_app.ev_loop
+
+        topic_prefix = TopicSpecs.PREFIX.format(
+            namespace=self._node.namespace,
+            instance_id=self._hb_app.instance_id
+        )
+        self._topic = f'{topic_prefix}{TopicSpecs.STATUS_UPDATES}'
+        self.status_updates_pub = self._node.create_publisher(
+            topic=self._topic,
+            msg_type=StatusUpdateMessage
+        )
+
+        if self._node.state == NodeState.RUNNING:
+            self.status_updates_pub.run()
+
+    def add_msg_to_queue(self, msg: str, msg_type: str = 'hbapp'):
+        if threading.current_thread() != threading.main_thread():  # pragma: no cover
+            self._ev_loop.call_soon_threadsafe(self.add_msg_to_queue, msg, msg_type)
+            return
+
+        self.status_updates_pub.publish(
+            StatusUpdateMessage(
+                msg=msg,
+                type=msg_type,
+                timestamp=int(time.time() * 1e3)
+            )
+        )
+
+    def stop(self):
+        self.status_updates_pub.stop()
+
+
 class MQTTGateway(Node):
     NODE_NAME: str = 'hbot.$instance_id'
     _instance: Optional["MQTTGateway"] = None
@@ -551,6 +591,7 @@ class MQTTGateway(Node):
         self._restarting = False
         self._stop_event_async = asyncio.Event()
         self._notifier: MQTTNotifier = None
+        self._status_updates: MQTTStatusUpdates = None
         self._market_events: MQTTMarketEventForwarder = None
         self._commands: MQTTCommands = None
         self._logh: MQTTLogHandler = None
@@ -637,6 +678,18 @@ class MQTTGateway(Node):
     def _remove_notifier(self):
         self._hb_app.notifiers.remove(self._notifier) if self._notifier \
             in self._hb_app.notifiers else None
+
+    def _init_status_updates(self):
+        self._status_updates = MQTTStatusUpdates(self._hb_app, self)
+
+    def _remove_status_updates(self):
+        if self._status_updates is not None:
+            self._status_updates.stop()
+            self._status_updates = None
+
+    def broadcast_status_update(self, *args, **kwargs):
+        if self._status_updates is not None:
+            self._status_updates.add_msg_to_queue(*args, **kwargs)
 
     def _init_commands(self):
         if self._hb_app.client_config_map.mqtt_bridge.mqtt_commands:
@@ -768,6 +821,7 @@ class MQTTGateway(Node):
     def start(self, with_health: bool = True) -> None:
         self._init_logger()
         self._init_notifier()
+        self._init_status_updates()
         self._init_commands()
         self._init_external_events()
 
@@ -775,9 +829,12 @@ class MQTTGateway(Node):
             self._start_health_monitoring_loop()
 
         self.run()
+        self.broadcast_status_update("online", msg_type="availability")
 
     def stop(self, with_health: bool = True):
+        self.broadcast_status_update("offline", msg_type="availability")
         super().stop()
+        self._remove_status_updates()
         self._remove_notifier()
         self._remove_log_handlers()
         self._remove_market_event_listeners()
