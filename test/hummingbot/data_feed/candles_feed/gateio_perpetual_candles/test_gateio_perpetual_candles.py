@@ -1,9 +1,9 @@
 import asyncio
 import json
 import re
+import time
 import unittest
 from typing import Awaitable
-import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses import aioresponses

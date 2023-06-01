@@ -1,15 +1,15 @@
 import asyncio
 import logging
-from typing import Any, Dict, Optional
 import time
+from typing import Any, Dict, Optional
 
 import numpy as np
 
 from hummingbot.core.network_iterator import NetworkStatus, safe_ensure_future
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
-from hummingbot.data_feed.candles_feed.gateio_spot_candles import constants as CONSTANTS
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
+from hummingbot.data_feed.candles_feed.gateio_spot_candles import constants as CONSTANTS
 from hummingbot.logger import HummingbotLogger
 
 
