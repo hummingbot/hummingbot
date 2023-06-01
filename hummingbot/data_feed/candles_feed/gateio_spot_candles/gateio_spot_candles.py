@@ -98,7 +98,7 @@ class GateioSpotCandles(CandlesBase):
         requests_executed = 0
         while not self.is_ready:
             missing_records = self._candles.maxlen - len(self._candles)
-            end_timestamp = int(self._candles[0][0])
+            end_timestamp = int(int(self._candles[0][0]) * 1e3)
             try:
                 if requests_executed < max_request_needed:
                     # we have to add one more since, the last row is not going to be included
@@ -148,8 +148,7 @@ class GateioSpotCandles(CandlesBase):
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
         async for ws_response in websocket_assistant.iter_messages():
             data: Dict[str, Any] = ws_response.data
-            if data.get("event") == "update" \
-                    and data.get("channel") == "spot.candlesticks":
+            if data.get("event") == "update" and data.get("channel") == "spot.candlesticks":
                 timestamp_ms = int(data["result"]["t"] + "000")
                 open = data["result"]["o"]
                 high = data["result"]["h"]
