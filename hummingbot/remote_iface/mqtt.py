@@ -527,6 +527,9 @@ class MQTTNotifier(NotifierBase):
 class MQTTGateway(Node):
     NODE_NAME: str = 'hbot.$instance_id'
     _instance: Optional["MQTTGateway"] = None
+    _INTERVAL_HEALTH_CHECK = 1.0
+    _INTERVAL_RESTART_SHORT = 5.0
+    _INTERVAL_RESTART_LONG = 10.0
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -544,6 +547,8 @@ class MQTTGateway(Node):
                  *args, **kwargs
                  ):
         self._health = False
+        self._initial_connection_succeeded = False
+        self._restarting = False
         self._stop_event_async = asyncio.Event()
         self._notifier: MQTTNotifier = None
         self._market_events: MQTTMarketEventForwarder = None
@@ -685,6 +690,8 @@ class MQTTGateway(Node):
         return conn_params
 
     def _check_connections(self) -> bool:
+        if self._restarting:
+            return False
         for c in self._publishers:
             if not c._transport.is_connected:
                 return False
@@ -703,36 +710,80 @@ class MQTTGateway(Node):
 
     def _start_health_monitoring_loop(self):
         if threading.current_thread() != threading.main_thread():  # pragma: no cover
-            self._ev_loop.call_soon_threadsafe(self.start_check_health_loop)
+            self._ev_loop.call_soon_threadsafe(self._start_health_monitoring_loop)
             return
         self._stop_event_async.clear()
         safe_ensure_future(self._monitor_health_loop(),
                            loop=self._ev_loop)
 
-    async def _monitor_health_loop(self, period: float = 1.0):
+    async def _monitor_health_loop(self):
         while not self._stop_event_async.is_set():
             # Maybe we can include more checks here to determine the health!
             self._health = await self._ev_loop.run_in_executor(
                 None, self._check_connections)
-            await asyncio.sleep(period)
+            if self.health:
+                if not self._initial_connection_succeeded:
+                    self._initial_connection_succeeded = True
+                    self._hb_app.logger().debug('Monitoring MQTT Gateway health for disconnections.')
 
-    def _stop_health_monitorint_loop(self):
+                await asyncio.sleep(self._INTERVAL_HEALTH_CHECK)
+            elif self._initial_connection_succeeded and not self._stop_event_async.is_set():
+                await self._restart_gateway()
+
+    async def _restart_gateway(self):
+        self._hb_app.logger().warning('MQTT Gateway is disconnected, attempting to reconnect.')
+
+        try:
+            self._restarting = True
+            self.stop(False)
+            await asyncio.sleep(self._INTERVAL_RESTART_SHORT)
+
+            self._publishers = []
+            self._subscribers = []
+            self._rpc_services = []
+            # self._rpc_clients = []
+
+            self.start(False)
+            if self._hb_app.strategy is not None:
+                self.start_market_events_fw()
+
+            await asyncio.sleep(self._INTERVAL_RESTART_SHORT)
+
+            self._restarting = False
+
+            self._health = await self._ev_loop.run_in_executor(
+                None, self._check_connections)
+
+            if self._health:
+                self._hb_app.logger().warning('MQTT Gateway successfully reconnected.')
+
+        except Exception as e:
+            self._hb_app.logger().error(f'MQTT Gateway failed to reconnect: {e}. Sleeping 10 seconds before retry.')
+
+        await asyncio.sleep(self._INTERVAL_RESTART_LONG)
+
+    def _stop_health_monitoring_loop(self):
         self._stop_event_async.set()
 
-    def start(self) -> None:
+    def start(self, with_health: bool = True) -> None:
         self._init_logger()
         self._init_notifier()
         self._init_commands()
         self._init_external_events()
-        self._start_health_monitoring_loop()
+
+        if with_health:
+            self._start_health_monitoring_loop()
+
         self.run()
 
-    def stop(self):
+    def stop(self, with_health: bool = True):
         super().stop()
         self._remove_notifier()
         self._remove_log_handlers()
         self._remove_market_event_listeners()
-        self._stop_health_monitorint_loop()
+
+        if with_health:
+            self._stop_health_monitoring_loop()
 
     def __del__(self):
         self.stop()
