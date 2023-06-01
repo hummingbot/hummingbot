@@ -120,7 +120,7 @@ class GateioPerpetualCandles(CandlesBase):
         requests_executed = 0
         while not self.is_ready:
             missing_records = self._candles.maxlen - len(self._candles)
-            end_timestamp = int(int(self._candles[0][0]) * 1e3)
+            end_timestamp = int(int(self._candles[0][0]) * 1e-3)
             try:
                 if requests_executed < max_request_needed:
                     # we have to add one more since, the last row is not going to be included
