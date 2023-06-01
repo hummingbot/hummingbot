@@ -1037,20 +1037,22 @@ class RemoteIfaceMQTTTests(TestCase):
         health_mock.return_value = True
         self.start_mqtt(mock_mqtt=mock_mqtt)
         self.ev_loop.run_until_complete(self.wait_for_logged("DEBUG", f"Started Heartbeat Publisher <hbot/{self.instance_id}/hb>"))
+        # self.ev_loop.run_until_complete(asyncio.sleep(0.1))
+        self.ev_loop.run_until_complete(self.wait_for_logged("DEBUG", "Monitoring MQTT Gateway health for disconnections."))
         self.log_records = []
         health_mock.return_value = False
         interval_mock.return_value = None
-        self.ev_loop.run_until_complete(self.wait_for_logged("WARNING", "MQTT is disconnected, restarting."))
+        self.ev_loop.run_until_complete(self.wait_for_logged("WARNING", "MQTT Gateway is disconnected, restarting."))
         fake_err = "'<=' not supported between instances of 'NoneType' and 'int'"
-        self.ev_loop.run_until_complete(self.wait_for_logged("ERROR", f"MQTT failed to reconnect: {fake_err}. Sleeping 10 seconds before retry."))
+        self.ev_loop.run_until_complete(self.wait_for_logged("ERROR", f"MQTT Gateway failed to reconnect: {fake_err}. Sleeping 10 seconds before retry."))
         self.log_records = []
         interval_mock.return_value = 0.0
-        self.ev_loop.run_until_complete(self.wait_for_logged("WARNING", "MQTT reconnected."))
+        self.ev_loop.run_until_complete(self.wait_for_logged("WARNING", "MQTT Gateway successfully reconnected."))
         health_mock.return_value = True
         self.assertTrue(
             self._is_logged(
                 "WARNING",
-                "MQTT reconnected.",
+                "MQTT Gateway successfully reconnected.",
             )
         )
 
