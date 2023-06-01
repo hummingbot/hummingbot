@@ -74,7 +74,7 @@ class GateioPerpetualCandles(CandlesBase):
     async def get_exchange_trading_pair_quanto_multiplier(self):
         rest_assistant = await self._api_factory.get_rest_assistant()
         data = await rest_assistant.execute_request(
-            url=CONSTANTS.CONTRACT_INFO_URL.format(contract=self._ex_trading_pair),
+            url=self.rest_url+CONSTANTS.CONTRACT_INFO_URL.format(contract=self._ex_trading_pair),
             throttler_limit_id=CONSTANTS.CONTRACT_INFO_URL
         )
         quanto_multiplier = float(data.get("quanto_multiplier"))
@@ -87,17 +87,19 @@ class GateioPerpetualCandles(CandlesBase):
                             limit: Optional[int] = 500):
         rest_assistant = await self._api_factory.get_rest_assistant()
         params = {"contract": self._ex_trading_pair, "interval": self.interval, "limit": limit}
+        if start_time or end_time:
+            del params["limit"]
         if start_time:
-            params["from"] = start_time
+            params["from"] = str(int(start_time * 1e-3))
         if end_time:
-            params["to"] = end_time
+            params["to"] = str(int(end_time * 1e-3))
 
         candles = await rest_assistant.execute_request(url=self.candles_url,
                                                        throttler_limit_id=CONSTANTS.CANDLES_ENDPOINT,
                                                        params=params)
         new_hb_candles = []
         for i in candles:
-            timestamp_ms = i.get("t") + "000"
+            timestamp_ms = i.get("t") * 1e3
             open = i.get("o")
             high = i.get("h")
             low = i.get("l")
