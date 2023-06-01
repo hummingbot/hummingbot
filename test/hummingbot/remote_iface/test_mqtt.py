@@ -1042,9 +1042,15 @@ class RemoteIfaceMQTTTests(TestCase):
         self.log_records = []
         health_mock.return_value = False
         interval_mock.return_value = None
-        self.ev_loop.run_until_complete(self.wait_for_logged("WARNING", "MQTT Gateway is disconnected, restarting."))
+        self.ev_loop.run_until_complete(self.wait_for_logged("WARNING", "MQTT Gateway is disconnected, attempting to reconnect."))
         fake_err = "'<=' not supported between instances of 'NoneType' and 'int'"
         self.ev_loop.run_until_complete(self.wait_for_logged("ERROR", f"MQTT Gateway failed to reconnect: {fake_err}. Sleeping 10 seconds before retry."))
+        self.assertFalse(
+            self._is_logged(
+                "WARNING",
+                "MQTT Gateway successfully reconnected.",
+            )
+        )
         self.log_records = []
         interval_mock.return_value = 0.0
         self.ev_loop.run_until_complete(self.wait_for_logged("WARNING", "MQTT Gateway successfully reconnected."))
