@@ -99,8 +99,7 @@ class TestGateioSpotCandles(unittest.TestCase):
     def test_fetch_candles(self, mock_api: aioresponses):
         start_time = 1685167200
         end_time = 1685172600
-        url = f"{CONSTANTS.REST_URL}{CONSTANTS.CANDLES_ENDPOINT}?to={end_time}&interval={self.interval}&limit=500" \
-              f"&from={start_time}&currency_pair={self.ex_trading_pair}"
+        url = f"{CONSTANTS.REST_URL}{CONSTANTS.CANDLES_ENDPOINT}"
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         data_mock = self.get_candles_rest_data_mock()
         mock_api.get(url=regex_url, body=json.dumps(data_mock))
