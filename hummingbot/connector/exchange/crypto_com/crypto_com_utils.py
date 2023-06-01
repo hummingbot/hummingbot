@@ -1,85 +1,33 @@
-import math
-from typing import Dict, List
+from decimal import Decimal
+from typing import Any, Dict
 
 from pydantic import Field, SecretStr
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce, get_tracking_nonce_low_res
-
-from . import crypto_com_constants as CONSTANTS
+from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 CENTRALIZED = True
-
 EXAMPLE_PAIR = "ETH-USDT"
 
-DEFAULT_FEES = [0.1, 0.1]
-
-HBOT_BROKER_ID = "HBOT-"
-
-
-# deeply merge two dictionaries
-def merge_dicts(source: Dict, destination: Dict) -> Dict:
-    for key, value in source.items():
-        if isinstance(value, dict):
-            # get node or create one
-            node = destination.setdefault(key, {})
-            merge_dicts(value, node)
-        else:
-            destination[key] = value
-
-    return destination
+DEFAULT_FEES = TradeFeeSchema(
+    maker_percent_fee_decimal=Decimal("0.001"),
+    taker_percent_fee_decimal=Decimal("0.001"),
+    buy_percent_fee_deducted_from_returns=True
+)
 
 
-# join paths
-def join_paths(*paths: List[str]) -> str:
-    return "/".join(paths)
-
-
-# get timestamp in milliseconds
-def get_ms_timestamp() -> int:
-    return get_tracking_nonce_low_res()
-
-
-# convert milliseconds timestamp to seconds
-def ms_timestamp_to_s(ms: int) -> int:
-    return math.floor(ms / 1e3)
-
-
-# Request ID class
-class RequestId:
+def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     """
-    Generate request ids
+    Verifies if a trading pair is enabled to operate, is a spot instrument and not deprecated based on its exchange information
+    :param exchange_info: the exchange information for a trading pair
+    :return: True if the trading pair is enabled, False otherwise
     """
-    _request_id: int = 0
-
-    @classmethod
-    def generate_request_id(cls) -> int:
-        return get_tracking_nonce()
-
-
-def convert_from_exchange_trading_pair(exchange_trading_pair: str) -> str:
-    return exchange_trading_pair.replace("_", "-")
-
-
-def convert_to_exchange_trading_pair(hb_trading_pair: str) -> str:
-    return hb_trading_pair.replace("-", "_")
-
-
-def get_new_client_order_id(is_buy: bool, trading_pair: str) -> str:
-    side = "B" if is_buy else "S"
-    return f"{HBOT_BROKER_ID}{side}-{trading_pair}-{get_tracking_nonce()}"
-
-
-def get_api_reason(code: str) -> str:
-    return CONSTANTS.API_REASONS.get(int(code), code)
-
-
-def get_rest_url(path_url: str, api_version: str = CONSTANTS.API_VERSION) -> str:
-    return f"{CONSTANTS.REST_URL}{api_version}{path_url}"
+    return exchange_info.get("tradable", False) and exchange_info.get("inst_type", "") == "CCY_PAIR" and \
+        "-dpre" not in exchange_info["symbol"]
 
 
 class CryptoComConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="crypto_com", client_data=None)
+    connector: str = Field(default="crypto_com", const=True, client_data=None)
     crypto_com_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
@@ -89,10 +37,10 @@ class CryptoComConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         )
     )
-    crypto_com_secret_key: SecretStr = Field(
+    crypto_com_api_secret: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Crypto.com secret key",
+            prompt=lambda cm: "Enter your Crypto.com API secret",
             is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,
