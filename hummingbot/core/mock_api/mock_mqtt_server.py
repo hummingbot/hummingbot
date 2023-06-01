@@ -55,6 +55,11 @@ class FakeMQTTBroker:
                         break
         return msg_found
 
+    def clear(self):
+        if self._transport is not None:
+            self._transport._received_msgs = {}
+            self._transport._subscriptions = {}
+
 
 class FakeMQTTTransport:
 
