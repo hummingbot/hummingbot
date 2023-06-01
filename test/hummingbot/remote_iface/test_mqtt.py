@@ -1039,8 +1039,10 @@ class RemoteIfaceMQTTTests(TestCase):
                                                 mock_mqtt,
                                                 health_mock: PropertyMock):
         health_mock.return_value = True
+        status_topic = f"hbot/{self.instance_id}/status_updates"
         self.start_mqtt(mock_mqtt=mock_mqtt)
         self.ev_loop.run_until_complete(self.wait_for_logged("DEBUG", f"Started Heartbeat Publisher <hbot/{self.instance_id}/hb>"))
+        self.ev_loop.run_until_complete(self.wait_for_rcv(status_topic, 'online'))
         self.ev_loop.run_until_complete(self.wait_for_logged("DEBUG", "Monitoring MQTT Gateway health for disconnections."))
         self.log_records.clear()
         health_mock.return_value = False
@@ -1054,6 +1056,7 @@ class RemoteIfaceMQTTTests(TestCase):
                 "MQTT Gateway successfully reconnected.",
             )
         )
+        self.assertTrue(self.is_msg_received(status_topic, 'offline'))
         self.log_records.clear()
         self.restart_interval_mock.return_value = 0.0
         self.hbapp.strategy = True

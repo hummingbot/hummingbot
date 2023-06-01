@@ -539,16 +539,29 @@ class MQTTStatusUpdates:
             instance_id=self._hb_app.instance_id
         )
         self._topic = f'{topic_prefix}{TopicSpecs.STATUS_UPDATES}'
-        self.notify_pub = self._node.create_publisher(
+        self.status_updates_pub = self._node.create_publisher(
             topic=self._topic,
             msg_type=StatusUpdateMessage
         )
+
+        if self._node.state == NodeState.RUNNING:
+            self.status_updates_pub.run()
 
     def add_msg_to_queue(self, msg: str, msg_type: str = 'hbapp'):
         if threading.current_thread() != threading.main_thread():  # pragma: no cover
             self._ev_loop.call_soon_threadsafe(self.add_msg_to_queue, msg, msg_type)
             return
-        self.notify_pub.publish(StatusUpdateMessage(msg=msg, type=msg_type, timestamp=int(time.time() * 1e3)))
+
+        self.status_updates_pub.publish(
+            StatusUpdateMessage(
+                msg=msg,
+                type=msg_type,
+                timestamp=int(time.time() * 1e3)
+            )
+        )
+
+    def stop(self):
+        self.status_updates_pub.stop()
 
 
 class MQTTGateway(Node):
@@ -670,7 +683,9 @@ class MQTTGateway(Node):
         self._status_updates = MQTTStatusUpdates(self._hb_app, self)
 
     def _remove_status_updates(self):
-        self._status_updates = None
+        if self._status_updates is not None:
+            self._status_updates.stop()
+            self._status_updates = None
 
     def broadcast_status_update(self, *args, **kwargs):
         if self._status_updates is not None:
