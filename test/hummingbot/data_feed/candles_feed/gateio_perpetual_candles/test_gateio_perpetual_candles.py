@@ -25,6 +25,7 @@ class TestGateioPerpetualCandles(unittest.TestCase):
         cls.interval = "1h"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = cls.base_asset + "_" + cls.quote_asset
+        cls.quanto_multiplier = 0.0001
 
     def setUp(self) -> None:
         super().setUp()
@@ -86,6 +87,10 @@ class TestGateioPerpetualCandles(unittest.TestCase):
         ]
         return data
 
+    def get_exchange_trading_pair_quanto_multiplier_data_mock(self):
+        data = 0.0001
+        return data
+
     def get_candles_ws_data_mock_1(self):
         data = {
             "time": 1542162490,
@@ -132,7 +137,7 @@ class TestGateioPerpetualCandles(unittest.TestCase):
     def test_fetch_candles(self, mock_api: aioresponses):
         start_time = 1685167200
         end_time = 1685172600
-        url = f"{CONSTANTS.REST_URL}{CONSTANTS.CANDLES_ENDPOINT}?to={end_time}&interval={self.interval}&limit=500" \
+        url = f"{CONSTANTS.REST_URL}{CONSTANTS.CANDLES_ENDPOINT}?to={end_time}&interval={self.interval}" \
               f"&from={start_time}&currency_pair={self.ex_trading_pair}"
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         data_mock = self.get_candles_rest_data_mock()
@@ -142,6 +147,19 @@ class TestGateioPerpetualCandles(unittest.TestCase):
 
         self.assertEqual(resp.shape[0], len(data_mock))
         self.assertEqual(resp.shape[1], 10)
+
+    @aioresponses()
+    def test_get_exchange_trading_pair_quanto_multiplier(self, mock_api: aioresponses):
+        start_time = 1685167200
+        end_time = 1685172600
+        url = CONSTANTS.REST_URL + CONSTANTS.CONTRACT_INFO_URL.format(contract=self.ex_trading_pair)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        data_mock = self.get_exchange_trading_pair_quanto_multiplier_data_mock()
+        mock_api.get(url=regex_url, body=json.dumps(data_mock))
+
+        resp = self.async_run_with_timeout(self.data_feed.fetch_candles(start_time=start_time, end_time=end_time))
+
+        self.assertEqual(resp, 0.0001)
 
     def test_candles_empty(self):
         self.assertTrue(self.data_feed.candles_df.empty)
