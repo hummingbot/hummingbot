@@ -14,6 +14,12 @@ class NotifyMessage(PubSubMessage):
     msg: Optional[str] = ''
 
 
+class StatusUpdateMessage(PubSubMessage):
+    timestamp: Optional[int] = -1
+    type: Optional[str] = ''
+    msg: Optional[str] = ''
+
+
 class InternalEventMessage(PubSubMessage):
     timestamp: Optional[int] = -1
     type: Optional[str] = 'ievent'
