@@ -623,17 +623,31 @@ class MQTTGateway(Node):
     def health(self):
         return self._health
 
+    def _safe_get_log_handlers(self, max_tries=3):
+        current_try = 0
+        while current_try < max_tries:
+            try:
+                return list([logging.getLogger(name) for name in logging.root.manager.loggerDict])
+            except RuntimeError:
+                current_try += 1
+
+        log_keys = logging.root.manager.loggerDict.keys()
+        return list([logging.getLogger(name) for name in log_keys])
+
     def _remove_log_handlers(self):  # pragma: no cover
-        loggers = list([logging.getLogger(name) for name in logging.root.manager.loggerDict])
+        loggers = self._safe_get_log_handlers()
         log_conf = get_logging_conf()
+
         if 'loggers' not in log_conf:
             return
+
         logs = [key for key, val in log_conf.get('loggers').items()]
         for logger in loggers:
             if 'hummingbot' in logger.name:
                 for log in logs:
                     if log in logger.name:
                         self.remove_log_handler(logger)
+
         self._logh = None
 
     def _init_logger(self):
@@ -641,7 +655,7 @@ class MQTTGateway(Node):
         self.patch_loggers()
 
     def patch_loggers(self):  # pragma: no cover
-        loggers = list([logging.getLogger(name) for name in logging.root.manager.loggerDict])
+        loggers = self._safe_get_log_handlers()
 
         log_conf = get_logging_conf()
         if 'root' in log_conf:
@@ -651,6 +665,7 @@ class MQTTGateway(Node):
 
         if 'loggers' not in log_conf:
             return
+
         log_conf_names = [key for key, val in log_conf.get('loggers').items()]
         loggers_filtered = [logger for logger in loggers if
                             logger.name in log_conf_names]
