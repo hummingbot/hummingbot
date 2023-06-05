@@ -533,12 +533,12 @@ class TestPositionExecutor(unittest.TestCase):
         self.assertEqual(position_executor.close_type, CloseType.EXPIRED)
         position_executor.terminate_control_loop()
 
-    @patch("hummingbot.smart_components.position_executor.position_executor.PositionExecutor.get_price")
-    def test_trailing_stop_condition(self, mock_get_price):
-        mock_get_price.side_effect = [Decimal("101"), Decimal("102"), Decimal("103"), Decimal("101")]
+    def test_trailing_stop_condition(self):
         position_config = self.get_position_config_trailing_stop()
         position_executor = PositionExecutor(self.strategy, position_config)
         position_executor.executor_status = PositionExecutorStatus.ACTIVE_POSITION
+        type(position_executor).close_price = PropertyMock(side_effect=[Decimal("101"), Decimal("102"), Decimal("103"), Decimal("101")])
+
         # First: not activated
         self.assertEqual(position_executor.trailing_stop_condition(), False)
         self.assertEqual(position_executor._trailing_stop_activated, False)
