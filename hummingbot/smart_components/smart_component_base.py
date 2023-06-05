@@ -1,5 +1,4 @@
 import asyncio
-import logging
 from decimal import Decimal
 from enum import Enum
 from typing import List, Tuple, Union
@@ -18,7 +17,6 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
 )
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
@@ -29,14 +27,6 @@ class SmartComponentStatus(Enum):
 
 
 class SmartComponentBase:
-    _logger = None
-
-    @classmethod
-    def logger(cls) -> HummingbotLogger:
-        if cls._logger is None:
-            cls._logger = logging.getLogger(__name__)
-        return cls._logger
-
     def __init__(self, strategy: ScriptStrategyBase, connectors: List[str], update_interval: float = 0.5):
         self._strategy: ScriptStrategyBase = strategy
         self.update_interval = update_interval
