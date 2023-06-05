@@ -1,3 +1,4 @@
+import logging
 from decimal import Decimal
 from typing import Union
 
@@ -12,6 +13,7 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
 )
+from hummingbot.logger import HummingbotLogger
 from hummingbot.smart_components.position_executor.data_types import (
     CloseType,
     PositionConfig,
@@ -23,6 +25,14 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
 class PositionExecutor(SmartComponentBase):
+    _logger = None
+
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        if cls._logger is None:
+            cls._logger = logging.getLogger(__name__)
+        return cls._logger
+
     def __init__(self, strategy: ScriptStrategyBase, position_config: PositionConfig):
         super().__init__(strategy, [position_config.exchange])
         if not (position_config.take_profit or position_config.stop_loss or position_config.time_limit):
