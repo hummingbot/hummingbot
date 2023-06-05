@@ -65,6 +65,11 @@ class _ClassRegistry:
 
     @classmethod
     def register_master_class(cls, class_obj: Type[T]):
+        """
+        Register a master class in the registry.
+
+        :param class_obj: The master class to register.
+        """
         if class_obj not in cls.__registry:
             cls.__registry[class_obj] = {}
         else:
@@ -72,6 +77,13 @@ class _ClassRegistry:
 
     @classmethod
     def register_sub_class_add_nickname(cls, master_class: Type[T], class_name: str, class_obj: Type[V]):
+        """
+        Register a subclass with a nickname under a master class in the registry.
+
+        :param master_class: The master class under which to register the sub-class.
+        :param class_name: The name of the subclass.
+        :param class_obj: The subclass to register.
+        """
         if master_class in cls.__registry:
             if class_name not in cls.__registry[master_class]:
                 cls.__registry[master_class][class_name] = class_obj
@@ -85,8 +97,11 @@ class _ClassRegistry:
 
     @classmethod
     def find_class_by_name(cls, class_name: str) -> Optional[Type[V]]:
-        """Return the class registered under the class_name
-        :param class_name: The name of the class to return
+        """
+        Find a class in the registry by its name.
+
+        :param class_name: The name of the class to find.
+        :return: The class registered under the given name, or None if not found.
         """
         return cls.__registry.get(cls, {}).get(class_name, None)
 
@@ -128,7 +143,7 @@ class ClassRegistry(_ClassRegistry):
         This method automatically registers any subclass of a ClassRegistry subclass.
         Direct subclasses becomes keys in the dictionary registry.
         Subclasses of direct subclasses are added to the registry for that direct subclass.
-        A typical usage would be to define a empty class representing a master type and subclass
+        A typical usage would be to define an empty class representing a master type and subclass
         that class to define a collection of similar classes.
 
         :param cls: The subclass being initialized.
