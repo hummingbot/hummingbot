@@ -143,7 +143,9 @@ class TestClassRegistry(unittest.TestCase):
     def test_get_registry_with_class(self):
         registry: Dict[Type, Dict] = ClassRegistry.get_registry()
         self.assertIn(self.MyBase0Class, registry)
+        self.assertIn('Derived0', registry[self.MyBase0Class])
         self.assertIn('Derived1', registry[self.MyBase0Class])
+        self.assertIn('Derived2', registry[self.MyBase0Class])
         self.assertIn('Derived0Derived1', registry[self.MyBase1Class])
 
     def test_find_class_by_name(self):

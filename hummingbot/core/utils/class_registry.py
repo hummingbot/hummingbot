@@ -18,24 +18,32 @@ def find_substring_not_in_parent(*, child: str, parent: str) -> Optional[str]:
         >>> find_substring_not_in_parent("123HeaderGetAccountFooter456", "123HeaderFooter456")
         'GetAccount'
     """
+    # If child and parent are the same, or one of them is empty, return None
     if child == parent or not child or not parent:
         return None
 
+    # If child starts with parent, return the remaining part of child
     if child.startswith(parent):
         return child[len(parent):]
 
+    # If child ends with parent, return the starting part of child
     if child.endswith(parent):
         return child[:len(child) - len(parent)]
 
+    # Initialize counters for common prefix and suffix lengths
     common_prefix_len = 0
+    common_suffix_len = 0
+
+    # Count common prefix length
     while child[common_prefix_len] == parent[common_prefix_len]:
         common_prefix_len += 1
 
-    common_suffix_len = 0
+    # Count common suffix length
     while all((child[-1 - common_suffix_len] == parent[-1 - common_suffix_len],
                common_suffix_len < len(parent) - common_prefix_len)):
         common_suffix_len += 1
 
+    # If total length of common prefix and suffix matches length of parent, return unique substring in child
     if len(parent) == common_prefix_len + common_suffix_len:
         unique_substring = child[common_prefix_len:-common_suffix_len or None]
         return unique_substring if unique_substring else None
@@ -47,7 +55,43 @@ T = TypeVar("T")
 V = TypeVar("V")
 
 
-class ClassRegistry:
+class _ClassRegistry:
+    """
+    Generic Registry indexed on class objects and holding a dictionary of classes
+    objects indexed on class names.
+    """
+
+    __registry: Dict[Type[T], Dict[str, Type[V]]] = {}
+
+    @classmethod
+    def register_master_class(cls, class_obj: Type[T]):
+        if class_obj not in cls.__registry:
+            cls.__registry[class_obj] = {}
+        else:
+            raise ClassRegistryError(f"Class {cls.__name__} already registered")
+
+    @classmethod
+    def register_sub_class_add_nickname(cls, master_class: Type[T], class_name: str, class_obj: Type[V]):
+        if master_class in cls.__registry:
+            if class_name not in cls.__registry[master_class]:
+                cls.__registry[master_class][class_name] = class_obj
+                if short_name := find_substring_not_in_parent(child=class_name, parent=master_class.__name__):
+                    cls.__registry[master_class][short_name] = class_obj
+            else:
+                raise ClassRegistryError(f"Sub-Class {class_name} already registered to {master_class.__name__}.")
+        else:
+            raise ClassRegistryError(
+                f"Failed to register Sub-Class {class_name} to unregistered {master_class.__name__}.")
+
+    @classmethod
+    def find_class_by_name(cls, class_name: str) -> Optional[Type[V]]:
+        """Return the class registered under the class_name
+        :param class_name: The name of the class to return
+        """
+        return cls.__registry.get(cls, {}).get(class_name, None)
+
+
+class ClassRegistry(_ClassRegistry):
     """
     This class provides a registry for classes that are subclasses of any subclass of `ClassRegistry`.
     It allows retrieving classes based on their names and maintains a registry of class hierarchies.
@@ -77,8 +121,6 @@ class ClassRegistry:
         get_registry() -> Dict[str, Type]: Get a copy of the registry to prevent modification.
         find_class_by_name(class_name: str) -> Optional[Type]: Find the class registered under the specified class name.
     """
-    __registry: Dict[Type[T], Dict[str, Type[V]]] = {}
-
     def __init_subclass__(cls: Union[Type[T], Type[V]], **kwargs):
         """
         `__init_subclass__` method is called when a subclass is created.
@@ -96,10 +138,7 @@ class ClassRegistry:
 
         # Create the register for any class directly subclassing ClassRegistry
         if ClassRegistry in cls.__bases__:
-            if cls not in ClassRegistry.__registry:
-                ClassRegistry.__registry[cls] = {}
-            else:
-                raise ClassRegistryError(f"Class {cls.__name__} already registered")
+            cls.register_master_class(cls)
         else:
             for base in cls.__bases__:
                 if issubclass(base, ClassRegistry) and base is not ClassRegistry:
@@ -113,30 +152,13 @@ class ClassRegistry:
                                 break
 
                     # It's a subclass of a subclass of ClassRegistry, add it to the existing registry
-                    if class_name not in ClassRegistry.__registry[base]:
-                        ClassRegistry.__registry[base][class_name] = cls
-                        short_name: str = find_substring_not_in_parent(child=class_name, parent=base.__name__)
-                        if short_name and short_name not in cls.__registry[base]:
-                            if short_name not in cls.__registry[base]:
-                                ClassRegistry.__registry[base][short_name] = cls
-                            else:
-                                raise ClassRegistryError(f"Sub-class shortname {short_name} collides with another clas")
-                    else:
-                        raise ClassRegistryError(
-                            f"Sub-class {class_name} already registered under {base.__name__}")
+                    cls.register_sub_class_add_nickname(base, class_name, cls)
 
     @classmethod
-    def get_registry(cls) -> Union[Dict[str, Type[T]], Dict[Type[T], Dict[str, Type[V]]]]:
+    def get_registry(cls: Union[Type[T], Type[V]]) -> Union[Dict[str, Type[T]], Dict[Type[T], Dict[str, Type[V]]]]:
         """Return a copy of the registry to prevent modification."""
         if cls is ClassRegistry:
             return ClassRegistry.__registry.copy()
         if cls in ClassRegistry.__registry:
             return ClassRegistry.__registry[cls].copy()
         return {}
-
-    @classmethod
-    def find_class_by_name(cls, class_name: str) -> Optional[Type[V]]:
-        """Return the class registered under the class_name
-        :param class_name: The name of the class to return
-        """
-        return cls.__registry.get(cls, {}).get(class_name, None)
