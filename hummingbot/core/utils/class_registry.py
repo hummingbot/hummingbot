@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Type, TypeVar, Union
+from typing import Any, Dict, Optional, Type, TypeVar, Union
 
 
 class ClassRegistryError(Exception):
@@ -136,6 +136,7 @@ class ClassRegistry(_ClassRegistry):
         get_registry() -> Dict[str, Type]: Get a copy of the registry to prevent modification.
         find_class_by_name(class_name: str) -> Optional[Type]: Find the class registered under the specified class name.
     """
+
     def __init_subclass__(cls: Union[Type[T], Type[V]], **kwargs):
         """
         `__init_subclass__` method is called when a subclass is created.
@@ -177,3 +178,42 @@ class ClassRegistry(_ClassRegistry):
         if cls in ClassRegistry.__registry:
             return ClassRegistry.__registry[cls].copy()
         return {}
+
+
+U = TypeVar('U', bound='ClassRegistryMixin')
+
+
+class ClassRegistryMixin:
+    """
+    Mixin class that provides functionality for retrieving classes from the registry
+    based on their names.
+    """
+
+    def __new__(cls: Type[U], class_name: str, **kwargs: Any) -> Any:
+        """
+        Create a new instance of a class based on its name.
+
+        :param class_name: The name of the class to create an instance of.
+        :param kwargs: Additional keyword arguments to pass to the class constructor.
+        :return: The newly created instance of the class.
+        """
+        if cls in ClassRegistry.get_registry():
+            target_class: Optional[Type[Any]] = cls.get_class_by_name(class_name)
+            if target_class is None:
+                raise ClassRegistryError(f"No class named '{class_name}' found in the registry for '{cls.__name__}'.")
+            else:
+                instance: Any = target_class(class_name, **kwargs)
+                return instance
+        else:
+            kwargs.pop('class_name', None)
+            return super().__new__(cls, **kwargs)
+
+    @classmethod
+    def get_class_by_name(cls: Type[U], class_name: str) -> Optional[Type[Any]]:
+        """
+        Get a class from the registry based on its name.
+
+        :param class_name: The name of the class to retrieve.
+        :return: The class registered under the given name, or None if not found.
+        """
+        return cls.find_class_by_name(class_name)
