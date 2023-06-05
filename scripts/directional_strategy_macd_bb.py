@@ -37,7 +37,7 @@ class MacdBB(DirectionalStrategyBase):
     """
     directional_strategy_name: str = "MACD_BB"
     # Define the trading pair and exchange that we want to use and the csv where we are going to store the entries
-    trading_pair: str = "FOOTBALL-USDT"
+    trading_pair: str = "BTC-USDT"
     exchange: str = "binance_perpetual"
     order_amount_usd = Decimal("15")
     leverage = 10
