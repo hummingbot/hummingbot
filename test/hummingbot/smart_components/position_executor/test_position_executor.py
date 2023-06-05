@@ -12,6 +12,7 @@ from hummingbot.core.event.events import (
     OrderCancelledEvent,
     OrderFilledEvent,
 )
+from hummingbot.logger import HummingbotLogger
 from hummingbot.smart_components.position_executor.data_types import (
     CloseType,
     PositionConfig,
@@ -103,6 +104,8 @@ class TestPositionExecutor(unittest.TestCase):
         self.assertEqual(position_executor.filled_amount, Decimal("0"))
         self.assertEqual(position_executor.trailing_stop_config, None)
         self.assertEqual(position_executor.close_price, None)
+        self.assertIsInstance(position_executor.logger(), HummingbotLogger)
+        position_executor.terminate_control_loop()
 
     def test_control_position_not_started_create_open_order(self):
         position_config = self.get_position_config_market_short()
@@ -110,6 +113,7 @@ class TestPositionExecutor(unittest.TestCase):
         position_executor = PositionExecutor(self.strategy, position_config)
         position_executor.control_task()
         self.assertEqual(position_executor.open_order.order_id, "OID-SELL-1")
+        position_executor.terminate_control_loop()
 
     def test_control_position_not_started_expired(self):
         position_config = self.get_position_config_market_short()
@@ -120,6 +124,7 @@ class TestPositionExecutor(unittest.TestCase):
         self.assertEqual(position_executor.executor_status, PositionExecutorStatus.COMPLETED)
         self.assertEqual(position_executor.close_type, CloseType.EXPIRED)
         self.assertEqual(position_executor.trade_pnl, Decimal("0"))
+        position_executor.terminate_control_loop()
 
     def test_control_open_order_expiration(self):
         position_config = self.get_position_config_market_short()
@@ -133,6 +138,7 @@ class TestPositionExecutor(unittest.TestCase):
             order_id="OID-SELL-1")
         self.assertEqual(position_executor.executor_status, PositionExecutorStatus.NOT_STARTED)
         self.assertEqual(position_executor.trade_pnl, Decimal("0"))
+        position_executor.terminate_control_loop()
 
     def test_control_position_order_placed_not_cancel_open_order(self):
         position_config = self.get_position_config_market_short()
@@ -141,6 +147,7 @@ class TestPositionExecutor(unittest.TestCase):
         position_executor.open_order.order_id = "OID-SELL-1"
         position_executor.control_task()
         position_executor._strategy.cancel.assert_not_called()
+        position_executor.terminate_control_loop()
 
     @patch("hummingbot.smart_components.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("101"))
     def test_control_position_active_position_create_take_profit(self, _):
@@ -176,6 +183,7 @@ class TestPositionExecutor(unittest.TestCase):
         position_executor.control_task()
         self.assertEqual(position_executor.take_profit_order.order_id, "OID-BUY-1")
         self.assertEqual(position_executor.trade_pnl, Decimal("-0.01"))
+        position_executor.terminate_control_loop()
 
     @patch("hummingbot.smart_components.position_executor.position_executor.PositionExecutor.get_price",
            return_value=Decimal("120"))
@@ -214,6 +222,7 @@ class TestPositionExecutor(unittest.TestCase):
         self.assertEqual(position_executor.close_order.order_id, "OID-SELL-1")
         self.assertEqual(position_executor.close_type, CloseType.TAKE_PROFIT)
         self.assertEqual(position_executor.trade_pnl, Decimal("0.2"))
+        position_executor.terminate_control_loop()
 
     @patch("hummingbot.smart_components.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("70"))
     def test_control_position_active_position_close_by_stop_loss(self, _):
@@ -251,6 +260,7 @@ class TestPositionExecutor(unittest.TestCase):
         self.assertEqual(position_executor.close_order.order_id, "OID-SELL-1")
         self.assertEqual(position_executor.close_type, CloseType.STOP_LOSS)
         self.assertEqual(position_executor.trade_pnl, Decimal("-0.3"))
+        position_executor.terminate_control_loop()
 
     @patch("hummingbot.smart_components.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("100"))
     def test_control_position_active_position_close_by_time_limit(self, _):
@@ -288,6 +298,7 @@ class TestPositionExecutor(unittest.TestCase):
         self.assertEqual(position_executor.close_order.order_id, "OID-SELL-2")
         self.assertEqual(position_executor.close_type, CloseType.TIME_LIMIT)
         self.assertEqual(position_executor.trade_pnl, Decimal("0.0"))
+        position_executor.terminate_control_loop()
 
     @patch("hummingbot.smart_components.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("70"))
     def test_control_position_close_placed_stop_loss_failed(self, _):
@@ -332,6 +343,7 @@ class TestPositionExecutor(unittest.TestCase):
         position_executor.control_task()
         self.assertEqual(position_executor.close_order.order_id, "OID-SELL-1")
         self.assertEqual(position_executor.close_type, CloseType.STOP_LOSS)
+        position_executor.terminate_control_loop()
 
     def test_process_order_completed_event_open_order(self):
         position_config = self.get_position_config_market_long()
@@ -350,6 +362,7 @@ class TestPositionExecutor(unittest.TestCase):
         market = MagicMock()
         position_executor.process_order_completed_event("102", market, event)
         self.assertEqual(position_executor.executor_status, PositionExecutorStatus.ACTIVE_POSITION)
+        position_executor.terminate_control_loop()
 
     def test_process_order_completed_event_close_order(self):
         position_config = self.get_position_config_market_long()
@@ -371,6 +384,7 @@ class TestPositionExecutor(unittest.TestCase):
         self.assertEqual(position_executor.close_timestamp, 1234567890)
         self.assertEqual(position_executor.close_type, CloseType.STOP_LOSS)
         self.assertEqual(position_executor.executor_status, PositionExecutorStatus.COMPLETED)
+        position_executor.terminate_control_loop()
 
     def test_process_order_completed_event_take_profit_order(self):
         position_config = self.get_position_config_market_long()
@@ -391,6 +405,7 @@ class TestPositionExecutor(unittest.TestCase):
         self.assertEqual(position_executor.close_timestamp, 1234567890)
         self.assertEqual(position_executor.executor_status, PositionExecutorStatus.COMPLETED)
         self.assertEqual(position_executor.close_type, CloseType.TAKE_PROFIT)
+        position_executor.terminate_control_loop()
 
     def test_process_order_filled_event_open_order_not_started(self):
         position_config = self.get_position_config_market_long()
@@ -409,6 +424,7 @@ class TestPositionExecutor(unittest.TestCase):
         market = MagicMock()
         position_executor.process_order_filled_event("102", market, event)
         self.assertEqual(position_executor.executor_status, PositionExecutorStatus.ACTIVE_POSITION)
+        position_executor.terminate_control_loop()
 
     def test_process_order_filled_event_open_order_started(self):
         position_config = self.get_position_config_market_long()
@@ -428,6 +444,7 @@ class TestPositionExecutor(unittest.TestCase):
         position_executor.executor_status = PositionExecutorStatus.ACTIVE_POSITION
         position_executor.process_order_filled_event("102", market, event)
         self.assertEqual(position_executor.executor_status, PositionExecutorStatus.ACTIVE_POSITION)
+        position_executor.terminate_control_loop()
 
     @patch("hummingbot.smart_components.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("101"))
     def test_to_format_status(self, _):
@@ -463,6 +480,7 @@ class TestPositionExecutor(unittest.TestCase):
         status = position_executor.to_format_status()
         self.assertIn("Trading Pair: ETH-USDT", status[0])
         self.assertIn("PNL (%): 0.80%", status[0])
+        position_executor.terminate_control_loop()
 
     @patch("hummingbot.smart_components.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("101"))
     def test_to_format_status_is_closed(self, _):
@@ -499,6 +517,7 @@ class TestPositionExecutor(unittest.TestCase):
         status = position_executor.to_format_status()
         self.assertIn("Trading Pair: ETH-USDT", status[0])
         self.assertIn("PNL (%): 0.80%", status[0])
+        position_executor.terminate_control_loop()
 
     def test_process_order_canceled_event(self):
         position_config = self.get_position_config_market_long()
@@ -512,37 +531,28 @@ class TestPositionExecutor(unittest.TestCase):
         position_executor.process_order_canceled_event("102", market, event)
         self.assertEqual(position_executor.executor_status, PositionExecutorStatus.COMPLETED)
         self.assertEqual(position_executor.close_type, CloseType.EXPIRED)
+        position_executor.terminate_control_loop()
 
-    @patch("hummingbot.smart_components.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("101"))
-    def test_trailing_stop_condition_not_met(self, _):
+    @patch("hummingbot.smart_components.position_executor.position_executor.PositionExecutor.get_price")
+    def test_trailing_stop_condition(self, mock_get_price):
+        mock_get_price.side_effect = [Decimal("101"), Decimal("102"), Decimal("103"), Decimal("101")]
         position_config = self.get_position_config_trailing_stop()
         position_executor = PositionExecutor(self.strategy, position_config)
-        position_executor.trailing_stop_condition()
+        position_executor.executor_status = PositionExecutorStatus.ACTIVE_POSITION
+        # First: not activated
+        self.assertEqual(position_executor.trailing_stop_condition(), False)
         self.assertEqual(position_executor._trailing_stop_activated, False)
 
-    @patch("hummingbot.smart_components.position_executor.position_executor.PositionExecutor.get_price",
-           return_value=Decimal("102"))
-    def test_trailing_stop_condition_activated(self, _):
-        position_config = self.get_position_config_trailing_stop()
-        position_executor = PositionExecutor(self.strategy, position_config)
+        # Second: activated but not triggered
         self.assertEqual(position_executor.trailing_stop_condition(), False)
         self.assertEqual(position_executor._trailing_stop_activated, True)
         self.assertEqual(position_executor._trailing_stop_price, Decimal("102"))
 
-    @patch("hummingbot.smart_components.position_executor.position_executor.PositionExecutor.get_price")
-    def test_trailing_stop_condition_activated_and_updated(self, mock_get_price):
-        mock_get_price.side_effect = [Decimal("102"), Decimal("103")]
-        position_config = self.get_position_config_trailing_stop()
-        position_executor = PositionExecutor(self.strategy, position_config)
-        self.assertEqual(position_executor.trailing_stop_condition(), False)
+        # Third: activated and updated
         self.assertEqual(position_executor.trailing_stop_condition(), False)
         self.assertEqual(position_executor._trailing_stop_activated, True)
         self.assertEqual(position_executor._trailing_stop_price, Decimal("102"))
 
-    @patch("hummingbot.smart_components.position_executor.position_executor.PositionExecutor.get_price")
-    def test_trailing_stop_condition_activated_and_triggered(self, mock_get_price):
-        mock_get_price.side_effect = [Decimal("102"), Decimal("101")]
-        position_config = self.get_position_config_trailing_stop()
-        position_executor = PositionExecutor(self.strategy, position_config)
-        self.assertEqual(position_executor.trailing_stop_condition(), False)
+        # Forth: triggered
         self.assertEqual(position_executor.trailing_stop_condition(), True)
+        position_executor.terminate_control_loop()

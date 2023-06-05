@@ -441,6 +441,8 @@ class PositionExecutor(SmartComponentBase):
                     return price < self._trailing_stop_price
                 else:
                     return price > self._trailing_stop_price
+            else:
+                return False
 
     def activation_price_condition(self, price):
         side = 1 if self.side == TradeType.BUY else -1
