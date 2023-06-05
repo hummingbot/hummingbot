@@ -105,7 +105,7 @@ class GateIoExchange(ExchangePyBase):
         return self._trading_required
 
     def supported_order_types(self):
-        return [OrderType.LIMIT]
+        return [OrderType.LIMIT, OrderType.MARKET, OrderType.LIMIT_MAKER]
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         # API documentation does not clarify the error message for timestamp related problems
@@ -194,15 +194,31 @@ class GateIoExchange(ExchangePyBase):
                            **kwargs) -> Tuple[str, float]:
         order_type_str = order_type.name.lower().split("_")[0]
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-
+        # When type is market, it refers to different currency according to side
+        # side : buy means quote currency, BTC_USDT means USDT
+        # side : sell means base currency，BTC_USDT means BTC
         data = {
             "text": order_id,
             "currency_pair": symbol,
             "side": trade_type.name.lower(),
             "type": order_type_str,
-            "price": f"{price:f}",
             "amount": f"{amount:f}",
         }
+        if order_type.is_limit_type():
+            data.update({
+                "price": f"{price:f}",
+            })
+            if order_type is OrderType.LIMIT_MAKER:
+                data.update({"tif": "poc"})
+        else:
+            data.update({
+                "tif": "ioc",
+            })
+            if trade_type.name.lower() == 'buy':
+                data.update({
+                    "amount": f"{price * amount:f}",
+                })
+
         # RESTRequest does not support json, and if we pass a dict
         # the underlying aiohttp will encode it to params
         data = data
