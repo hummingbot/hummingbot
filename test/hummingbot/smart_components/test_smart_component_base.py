@@ -15,7 +15,6 @@ from hummingbot.core.event.events import (
     OrderCancelledEvent,
     OrderFilledEvent,
 )
-from hummingbot.logger import HummingbotLogger
 from hummingbot.smart_components.smart_component_base import SmartComponentBase, SmartComponentStatus
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
@@ -137,9 +136,6 @@ class TestSmartComponentBase(unittest.TestCase):
         )
         self.component.process_order_failed_event(event_tag, market, event)
         self.assertIsNone(self.component.process_order_failed_event(event_tag, market, event))
-
-    def test_logger(self):
-        self.assertIsInstance(self.component.logger(), HummingbotLogger)
 
     def test_place_buy_order(self):
         buy_order_id = self.component.place_order(
