@@ -2,7 +2,7 @@ import logging
 from decimal import Decimal
 from typing import Union
 
-from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, PriceType, TradeType
 from hummingbot.core.data_type.order_candidate import OrderCandidate, PerpetualOrderCandidate
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -98,7 +98,8 @@ class PositionExecutor(SmartComponentBase):
         elif self.position_config.entry_price:
             return self.position_config.entry_price
         else:
-            return self.get_price(self.exchange, self.trading_pair)
+            price_type = PriceType.BestAsk if self.side == TradeType.BUY else PriceType.BestBid
+            return self.get_price(self.exchange, self.trading_pair, price_type=price_type)
 
     @property
     def trailing_stop_config(self):
@@ -109,7 +110,8 @@ class PositionExecutor(SmartComponentBase):
         if self.executor_status == PositionExecutorStatus.NOT_STARTED or self.close_type in [CloseType.EXPIRED, CloseType.INSUFFICIENT_BALANCE]:
             return self.entry_price
         elif self.executor_status == PositionExecutorStatus.ACTIVE_POSITION:
-            return self.get_price(self.exchange, self.trading_pair)
+            price_type = PriceType.BestBid if self.side == TradeType.BUY else PriceType.BestAsk
+            return self.get_price(self.exchange, self.trading_pair, price_type=price_type)
         else:
             return self.close_order.average_executed_price
 
@@ -191,15 +193,15 @@ class PositionExecutor(SmartComponentBase):
 
     def take_profit_condition(self):
         if self.side == TradeType.BUY:
-            return self.get_price(self.exchange, self.trading_pair) >= self.take_profit_price
+            return self.close_price >= self.take_profit_price
         else:
-            return self.get_price(self.exchange, self.trading_pair) <= self.take_profit_price
+            return self.close_price <= self.take_profit_price
 
     def stop_loss_condition(self):
         if self.side == TradeType.BUY:
-            return self.get_price(self.exchange, self.trading_pair) <= self.stop_loss_price
+            return self.close_price <= self.stop_loss_price
         else:
-            return self.get_price(self.exchange, self.trading_pair) >= self.stop_loss_price
+            return self.close_price >= self.stop_loss_price
 
     def time_limit_condition(self):
         return self._strategy.current_timestamp >= self.end_time
@@ -287,7 +289,7 @@ class PositionExecutor(SmartComponentBase):
                 self.place_take_profit_limit_order()
             elif self.take_profit_order.executed_amount_base != self.open_order.executed_amount_base:
                 self.renew_take_profit_order()
-        elif self.take_profit_order_type == OrderType.MARKET and self.take_profit_condition():
+        elif self.take_profit_condition():
             self.place_close_order(close_type=CloseType.TAKE_PROFIT)
 
     def control_time_limit(self):
@@ -295,12 +297,11 @@ class PositionExecutor(SmartComponentBase):
             self.place_close_order(close_type=CloseType.TIME_LIMIT)
 
     def place_take_profit_limit_order(self):
-        price = self.get_price(self.exchange, self.trading_pair) if self.take_profit_order_type == OrderType.MARKET else self.take_profit_price
         order_id = self.place_order(
             connector_name=self._position_config.exchange,
             trading_pair=self._position_config.trading_pair,
             amount=self.open_order.executed_amount_base,
-            price=price,
+            price=self.take_profit_price,
             order_type=self.take_profit_order_type,
             position_action=PositionAction.CLOSE,
             side=TradeType.BUY if self.side == TradeType.SELL else TradeType.SELL,
@@ -429,7 +430,7 @@ class PositionExecutor(SmartComponentBase):
 
     def trailing_stop_condition(self):
         if self.trailing_stop_config:
-            price = self.get_price(self.exchange, self.trading_pair)
+            price = self.close_price
             if not self._trailing_stop_activated and self.activation_price_condition(price):
                 self._trailing_stop_activated = True
                 self._trailing_stop_price = price
