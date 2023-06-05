@@ -62,7 +62,6 @@ connector_status = {
     'zigzag': 'bronze',
     'bit_com_perpetual': 'bronze',
     'bit_com_perpetual_testnet': 'bronze',
-    'hotbit': 'bronze',
     'tinyman': 'bronze',
     'foxbit': 'bronze',
     'phemex_perpetual': 'bronze',
