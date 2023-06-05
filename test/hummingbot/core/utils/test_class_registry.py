@@ -1,7 +1,12 @@
 import unittest
 from typing import Dict, Type
 
-from hummingbot.core.utils.class_registry import ClassRegistry, ClassRegistryError, find_substring_not_in_parent
+from hummingbot.core.utils.class_registry import (
+    ClassRegistry,
+    ClassRegistryError,
+    ClassRegistryMixin,
+    find_substring_not_in_parent,
+)
 
 
 class TestFindSubstringNotInParent(unittest.TestCase):
@@ -172,6 +177,49 @@ class TestClassRegistry(unittest.TestCase):
             # which flake8 would not allow to commit
             class MyBase0DuplicateDerivedClass(self.MyBase0Class):  # noqa: F811
                 pass
+
+
+class TestClassRegistryMixin(unittest.TestCase):
+    class MyClassType(ClassRegistryMixin, ClassRegistry):
+        pass
+
+    class MySubClassType(MyClassType):
+        pass
+
+    def setUp(self):
+        self.MyClassType = TestClassRegistryMixin.MyClassType
+        self.MySubClassType = TestClassRegistryMixin.MySubClassType
+
+    def test_register_and_retrieve(self):
+        # Register a class
+        self.assertIn(TestClassRegistryMixin.MyClassType, ClassRegistry.get_registry())
+        self.assertIn('MySubClassType', ClassRegistry.get_registry()[self.MyClassType])
+
+        # Retrieve a class
+        target_class = self.MyClassType.get_class_by_name('MySubClassType')
+        self.assertIs(target_class, self.MySubClassType)
+
+    def test_create_instance(self):
+        # Create an instance
+        instance = self.MyClassType('MySubClassType')
+        self.assertIsInstance(instance, self.MySubClassType)
+
+    def test_class_not_found(self):
+        # Attempt to retrieve a non-existent class
+        instance = self.MyClassType.get_class_by_name('NonExistentClass')
+        self.assertIsNone(instance)
+
+        # Attempt to create an instance of a non-existent class
+        with self.assertRaises(ClassRegistryError):
+            self.MyClassType('NonExistentClass')
+
+    def test_correct_string_parsing(self):
+        instance = self.MyClassType('MySubClassType')
+        self.assertIsInstance(instance, self.MySubClassType)
+
+    def test_incorrect_string_parsing(self):
+        with self.assertRaises(ClassRegistryError):
+            self.MyClassType('IncorrectClassName')
 
 
 if __name__ == '__main__':
