@@ -36,3 +36,4 @@ class ExitCommand:
             notifier.stop()
 
         self.app.exit()
+        self.mqtt_stop()
