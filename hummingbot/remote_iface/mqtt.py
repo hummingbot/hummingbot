@@ -623,7 +623,7 @@ class MQTTGateway(Node):
     def health(self):
         return self._health
 
-    def _safe_get_log_handlers(self, max_tries=3):
+    def _safe_get_log_handlers(self, max_tries=3):  # pragma: no cover
         current_try = 0
         while current_try < max_tries:
             try:
