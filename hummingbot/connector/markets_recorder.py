@@ -473,3 +473,10 @@ class MarketsRecorder:
                                                                                  claimed_fee_1=Decimal(evt.claimed_fee_1))
                 session.add(rp_fees)
                 self.save_market_states(self._config_file_path, connector, session=session)
+
+    @staticmethod
+    async def _sleep(delay):
+        """
+        A wrapper function that facilitates patching the sleep in unit tests without affecting the asyncio module
+        """
+        await asyncio.sleep(delay)
