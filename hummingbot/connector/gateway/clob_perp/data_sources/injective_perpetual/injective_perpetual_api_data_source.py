@@ -557,7 +557,7 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
 
         async with self._throttler.execute_task(limit_id=CONSTANTS.FUNDING_PAYMENT_LIMIT_ID):
             response: FundingPaymentsResponse = await self._client.get_funding_payments(
-                subaccount_id=self._account_id, market_id=self._markets_info[trading_pair].market_id, limit=1
+                subaccount_id=self._account_id, market_id=self._markets_info[trading_pair]["marketId"], limit=1
             )
 
         if len(response.payments) != 0:
@@ -938,8 +938,7 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
 
     def _process_bank_balance_stream_event(self, message: StreamAccountPortfolioResponse):
         denom_meta = self._denom_to_token_meta[message.denom]
-        symbol = denom_meta["symbol"]
-        safe_ensure_future(self._issue_balance_update(token=symbol))
+        safe_ensure_future(self._issue_balance_update(token=denom_meta["symbol"]))
 
     async def _listen_to_subaccount_balances_stream(self):
         while True:
@@ -1297,7 +1296,7 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
         self._positions_stream_listener = None
 
     def _get_exchange_trading_pair_from_market_info(self, market_info: Any) -> str:
-        return market_info.get("market_id")
+        return market_info.get("marketId")
 
     def _get_maker_taker_exchange_fee_rates_from_market_info(
         self, market_info: Any
@@ -1318,7 +1317,7 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
 
     def _get_market_ids(self) -> List[str]:
         market_ids = [
-            self._markets_info[trading_pair].market_id
+            self._markets_info[trading_pair]["marketId"]
             for trading_pair in self._trading_pairs
         ]
         return market_ids
