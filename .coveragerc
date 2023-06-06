@@ -24,7 +24,6 @@ omit =
         hummingbot/connector/exchange/hitbtc*
         hummingbot/connector/exchange/loopring*
         hummingbot/connector/exchange/paper_trade*
-        hummingbot/connector/exchange/polkadex*
         hummingbot/connector/exchange/probit*
         hummingbot/connector/gateway*
         hummingbot/connector/test_support/*
