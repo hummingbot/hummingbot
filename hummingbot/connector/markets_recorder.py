@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os.path
 import threading
 import time
@@ -32,6 +33,7 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
 )
+from hummingbot.logger import HummingbotLogger
 from hummingbot.model.funding_payment import FundingPayment
 from hummingbot.model.market_data import MarketData
 from hummingbot.model.market_state import MarketState
@@ -44,10 +46,17 @@ from hummingbot.model.trade_fill import TradeFill
 
 
 class MarketsRecorder:
+    _logger = None
     market_event_tag_map: Dict[int, MarketEvent] = {
         event_obj.value: event_obj
         for event_obj in MarketEvent.__members__.values()
     }
+
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        if cls._logger is None:
+            cls._logger = logging.getLogger(__name__)
+        return cls._logger
 
     def __init__(self,
                  sql: SQLConnectionManager,
