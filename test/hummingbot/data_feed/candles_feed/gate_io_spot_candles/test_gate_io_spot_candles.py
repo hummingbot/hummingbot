@@ -9,10 +9,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aioresponses import aioresponses
 
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
-from hummingbot.data_feed.candles_feed.gateio_perpetual_candles import GateioPerpetualCandles, constants as CONSTANTS
+from hummingbot.data_feed.candles_feed.gate_io_spot_candles import GateioSpotCandles, constants as CONSTANTS
 
 
-class TestGateioPerpetualCandles(unittest.TestCase):
+class TestGateioSpotCandles(unittest.TestCase):
     # the level is required to receive logs from the data source logger
     level = 0
 
@@ -25,13 +25,11 @@ class TestGateioPerpetualCandles(unittest.TestCase):
         cls.interval = "1h"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = cls.base_asset + "_" + cls.quote_asset
-        cls.quanto_multiplier = 0.0001
 
     def setUp(self) -> None:
         super().setUp()
         self.mocking_assistant = NetworkMockingAssistant()
-        self.data_feed = GateioPerpetualCandles(trading_pair=self.trading_pair, interval=self.interval)
-        self.data_feed.quanto_multiplier = 0.0001
+        self.data_feed = GateioSpotCandles(trading_pair=self.trading_pair, interval=self.interval)
 
         self.log_records = []
         self.data_feed.logger().setLevel(1)
@@ -46,91 +44,54 @@ class TestGateioPerpetualCandles(unittest.TestCase):
             record.levelname == log_level and record.getMessage() == message for
             record in self.log_records)
 
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
+    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 2):
         ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
 
     def get_candles_rest_data_mock(self):
         data = [
-            {
-                "t": 1685167200,
-                "v": 97151,
-                "c": "1.032",
-                "h": "1.032",
-                "l": "1.032",
-                "o": "1.032",
-                "sum": "3580"
-            }, {
-                "t": 1685167300,
-                "v": 97151,
-                "c": "1.032",
-                "h": "1.032",
-                "l": "1.032",
-                "o": "1.032",
-                "sum": "3580"
-            }, {
-                "t": 1685167400,
-                "v": 97151,
-                "c": "1.032",
-                "h": "1.032",
-                "l": "1.032",
-                "o": "1.032",
-                "sum": "3580"
-            }, {
-                "t": 1685172600,
-                "v": 97151,
-                "c": "1.032",
-                "h": "1.032",
-                "l": "1.032",
-                "o": "1.032",
-                "sum": "3580"
-            },
+            ['1685167200', '129807.73747903012', '26718.4', '26736.1', '26718.4', '26728.1', '4.856410775'],
+            ['1685169000', '657338.79714685262', '26746.2', '26758.1', '26709.2', '26718.4', '24.5891110488'],
+            ['1685170800', '202249.7345089816', '26723.1', '26746.2', '26720', '26746.2', '7.5659923741'],
+            ['1685172600', '121057.96936704352', '26723.1', '26723.1', '26710.1', '26723.1', '4.5305391649']
         ]
-        return data
-
-    def get_exchange_trading_pair_quanto_multiplier_data_mock(self):
-        data = {"quanto_multiplier": 0.0001}
         return data
 
     def get_candles_ws_data_mock_1(self):
         data = {
-            "time": 1542162490,
-            "time_ms": 1542162490123,
-            "channel": "futures.candlesticks",
+            "time": 1606292600,
+            "time_ms": 1606292600376,
+            "channel": "spot.candlesticks",
             "event": "update",
-            "error": None,
-            "result": [
-                {
-                    "t": 1545129300,
-                    "v": 27525555,
-                    "c": "95.4",
-                    "h": "96.9",
-                    "l": "89.5",
-                    "o": "94.3",
-                    "n": "1m_BTC_USD"
-                }
-            ]
+            "result": {
+                "t": "1606292500",
+                "v": "2362.32035",
+                "c": "19128.1",
+                "h": "19128.1",
+                "l": "19128.1",
+                "o": "19128.1",
+                "n": "1m_BTC_USDT",
+                "a": "3.8283"
+            }
         }
         return data
 
     def get_candles_ws_data_mock_2(self):
         data = {
-            "time": 1542162490,
-            "time_ms": 1542162490123,
-            "channel": "futures.candlesticks",
+            "time": 1606292600,
+            "time_ms": 1606292600376,
+            "channel": "spot.candlesticks",
             "event": "update",
-            "error": None,
-            "result": [
-                {
-                    "t": 1545139300,
-                    "v": 27525555,
-                    "c": "95.4",
-                    "h": "96.9",
-                    "l": "89.5",
-                    "o": "94.3",
-                    "n": "1m_BTC_USD"
-                }
-            ]
+            "result": {
+                "t": "1606292580",
+                "v": "2362.32035",
+                "c": "19128.1",
+                "h": "19128.1",
+                "l": "19128.1",
+                "o": "19128.1",
+                "n": "1m_BTC_USDT",
+                "a": "3.8283"
+            }
         }
         return data
 
@@ -147,16 +108,6 @@ class TestGateioPerpetualCandles(unittest.TestCase):
 
         self.assertEqual(resp.shape[0], len(data_mock))
         self.assertEqual(resp.shape[1], 10)
-
-    @aioresponses()
-    def test_get_exchange_trading_pair_quanto_multiplier(self, mock_api: aioresponses):
-        url = CONSTANTS.REST_URL + CONSTANTS.CONTRACT_INFO_URL.format(contract=self.ex_trading_pair)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        data_mock = self.get_exchange_trading_pair_quanto_multiplier_data_mock()
-        mock_api.get(url=regex_url, body=json.dumps(data_mock))
-        resp = self.async_run_with_timeout(self.data_feed.get_exchange_trading_pair_quanto_multiplier())
-
-        self.assertEqual(resp, 0.0001)
 
     def test_candles_empty(self):
         self.assertTrue(self.data_feed.candles_df.empty)
@@ -196,7 +147,7 @@ class TestGateioPerpetualCandles(unittest.TestCase):
             "Subscribed to public klines..."
         ))
 
-    @patch("hummingbot.data_feed.candles_feed.gateio_perpetual_candles.GateioPerpetualCandles._sleep")
+    @patch("hummingbot.data_feed.candles_feed.gate_io_spot_candles.GateioSpotCandles._sleep")
     @patch("aiohttp.ClientSession.ws_connect")
     def test_listen_for_subscriptions_raises_cancel_exception(self, mock_ws, _: AsyncMock):
         mock_ws.side_effect = asyncio.CancelledError
@@ -205,7 +156,7 @@ class TestGateioPerpetualCandles(unittest.TestCase):
             self.listening_task = self.ev_loop.create_task(self.data_feed.listen_for_subscriptions())
             self.async_run_with_timeout(self.listening_task)
 
-    @patch("hummingbot.data_feed.candles_feed.gateio_perpetual_candles.GateioPerpetualCandles._sleep")
+    @patch("hummingbot.data_feed.candles_feed.gate_io_spot_candles.GateioSpotCandles._sleep")
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_subscriptions_logs_exception_details(self, mock_ws, sleep_mock: AsyncMock):
         mock_ws.side_effect = Exception("TEST ERROR.")
@@ -256,7 +207,7 @@ class TestGateioPerpetualCandles(unittest.TestCase):
         self.assertEqual(self.data_feed.candles_df.shape[0], 1)
         self.assertEqual(self.data_feed.candles_df.shape[1], 10)
 
-    @patch("hummingbot.data_feed.candles_feed.gateio_perpetual_candles.GateioPerpetualCandles.fill_historical_candles",
+    @patch("hummingbot.data_feed.candles_feed.gate_io_spot_candles.GateioSpotCandles.fill_historical_candles",
            new_callable=AsyncMock)
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_process_websocket_messages_duplicated_candle_not_included(self, ws_connect_mock, fill_historical_candles):
@@ -278,7 +229,7 @@ class TestGateioPerpetualCandles(unittest.TestCase):
         self.assertEqual(self.data_feed.candles_df.shape[0], 1)
         self.assertEqual(self.data_feed.candles_df.shape[1], 10)
 
-    @patch("hummingbot.data_feed.candles_feed.gateio_perpetual_candles.GateioPerpetualCandles.fill_historical_candles")
+    @patch("hummingbot.data_feed.candles_feed.gate_io_spot_candles.GateioSpotCandles.fill_historical_candles")
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_process_websocket_messages_with_two_valid_messages(self, ws_connect_mock, _):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
