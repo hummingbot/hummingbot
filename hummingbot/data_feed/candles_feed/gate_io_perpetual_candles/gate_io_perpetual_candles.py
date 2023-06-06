@@ -158,7 +158,7 @@ class GateioPerpetualCandles(CandlesBase):
 
             await ws.send(subscribe_candles_request)
             if self.interval == '1m':
-                self.logger().warning("The 1m K-line on gateioperpetual is currently not very accurate due to discrepancies between the official ws and rs data...")
+                self.logger().warning("The 1m K-line on gateioperpetual is currently not accurate due to discrepancies between the official ws and rs data...")
             self.logger().info("Subscribed to public klines...")
         except asyncio.CancelledError:
             raise
