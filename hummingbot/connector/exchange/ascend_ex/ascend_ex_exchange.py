@@ -225,7 +225,7 @@ class AscendExExchange(ExchangePyBase):
         **kwargs,
     ) -> Tuple[str, float]:
         side = trade_type.name.lower()
-        order_type_str = "limit"
+        order_type_str = order_type
         timestamp = utils.get_ms_timestamp()
         data = {
             "time": timestamp,
@@ -234,9 +234,10 @@ class AscendExExchange(ExchangePyBase):
             "side": side,
             "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
             "orderType": order_type_str,
-            "orderPrice": str(price),
         }
-        if order_type is OrderType.LIMIT_MAKER:
+        if order_type is OrderType.LIMIT_MAKER or order_type is OrderType.LIMIT_MAKER:
+            price_str = f"{price:f}"
+            data["price"] = price_str
             data["postOnly"] = True
         exchange_order = await self._api_post(
             path_url=CONSTANTS.ORDER_PATH_URL,
