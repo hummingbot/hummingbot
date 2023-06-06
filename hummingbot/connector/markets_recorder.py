@@ -119,30 +119,36 @@ class MarketsRecorder:
 
     async def _record_market_data(self):
         while True:
-            if all(ex.ready for ex in self._markets):
-                with self._sql_manager.get_new_session() as session:
-                    with session.begin():
-                        for market in self._markets:
-                            exchange = market.display_name
-                            for trading_pair in market.trading_pairs:
-                                mid_price = market.get_price_by_type(trading_pair, PriceType.MidPrice)
-                                best_bid = market.get_price_by_type(trading_pair, PriceType.BestBid)
-                                best_ask = market.get_price_by_type(trading_pair, PriceType.BestAsk)
-                                order_book = market.get_order_book(trading_pair)
-                                depth = self._market_data_collection_config.market_data_collection_depth + 1
-                                market_data = MarketData(
-                                    timestamp=self.db_timestamp,
-                                    exchange=exchange,
-                                    trading_pair=trading_pair,
-                                    mid_price=mid_price,
-                                    best_bid=best_bid,
-                                    best_ask=best_ask,
-                                    order_book={
-                                        "bid": list(order_book.bid_entries())[:depth],
-                                        "ask": list(order_book.ask_entries())[:depth]}
-                                )
-                                session.add(market_data)
-            await asyncio.sleep(self._market_data_collection_config.market_data_collection_interval)
+            try:
+                if all(ex.ready for ex in self._markets):
+                    with self._sql_manager.get_new_session() as session:
+                        with session.begin():
+                            for market in self._markets:
+                                exchange = market.display_name
+                                for trading_pair in market.trading_pairs:
+                                    mid_price = market.get_price_by_type(trading_pair, PriceType.MidPrice)
+                                    best_bid = market.get_price_by_type(trading_pair, PriceType.BestBid)
+                                    best_ask = market.get_price_by_type(trading_pair, PriceType.BestAsk)
+                                    order_book = market.get_order_book(trading_pair)
+                                    depth = self._market_data_collection_config.market_data_collection_depth + 1
+                                    market_data = MarketData(
+                                        timestamp=self.db_timestamp,
+                                        exchange=exchange,
+                                        trading_pair=trading_pair,
+                                        mid_price=mid_price,
+                                        best_bid=best_bid,
+                                        best_ask=best_ask,
+                                        order_book={
+                                            "bid": list(order_book.bid_entries())[:depth],
+                                            "ask": list(order_book.ask_entries())[:depth]}
+                                    )
+                                    session.add(market_data)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().error("Unexpected error while recording market data.", e)
+            finally:
+                await self._sleep(self._market_data_collection_config.market_data_collection_interval)
 
     @property
     def sql_manager(self) -> SQLConnectionManager:
