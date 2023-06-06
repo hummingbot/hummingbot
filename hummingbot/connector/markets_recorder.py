@@ -73,6 +73,7 @@ class MarketsRecorder:
         self._config_file_path: str = config_file_path
         self._strategy_name: str = strategy_name
         self._market_data_collection_config: MarketDataCollectionConfigMap = market_data_collection
+        self._market_data_collection_task: Optional[asyncio.Task] = None
         # Internal collection of trade fills in connector will be used for remote/local history reconciliation
         for market in self._markets:
             trade_fills = self.get_trades_for_config(self._config_file_path, 2000)
@@ -111,11 +112,9 @@ class MarketsRecorder:
             (MarketEvent.RangePositionFeeCollected, self._update_range_position_forwarder),
             (MarketEvent.RangePositionClosed, self._close_range_position_forwarder),
         ]
-        if market_data_collection.market_data_collection_enabled:
-            self._start_market_data_recording()
 
     def _start_market_data_recording(self):
-        self._ev_loop.create_task(self._record_market_data())
+        self._market_data_collection_task = self._ev_loop.create_task(self._record_market_data())
 
     async def _record_market_data(self):
         while True:
@@ -170,11 +169,15 @@ class MarketsRecorder:
         for market in self._markets:
             for event_pair in self._event_pairs:
                 market.add_listener(event_pair[0], event_pair[1])
+        if self._market_data_collection_config.market_data_collection_enabled:
+            self._start_market_data_recording()
 
     def stop(self):
         for market in self._markets:
             for event_pair in self._event_pairs:
                 market.remove_listener(event_pair[0], event_pair[1])
+        if self._market_data_collection_task is not None:
+            self._market_data_collection_task.cancel()
 
     def get_orders_for_config_and_market(self, config_file_path: str, market: ConnectorBase,
                                          with_exchange_order_id_present: Optional[bool] = False,
