@@ -1,5 +1,8 @@
 import asyncio
+import importlib
+import inspect
 import platform
+import sys
 import threading
 import time
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set
@@ -17,7 +20,8 @@ from hummingbot.connector.connector_status import get_connector_status, warning_
 from hummingbot.core.clock import Clock, ClockMode
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.exceptions import OracleRateUnavailable
+from hummingbot.exceptions import InvalidScriptModule, OracleRateUnavailable
+from hummingbot.strategy.directional_strategy_base import DirectionalStrategyBase
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 from hummingbot.user.user_balances import UserBalances
 
@@ -192,12 +196,33 @@ class StartCommand(GatewayChainApiManager):
             self._mqtt.patch_loggers()
 
     def start_script_strategy(self):
-        script_strategy = ScriptStrategyBase.load_script_class(self.strategy_file_name)
+        script_strategy = self.load_script_class()
         markets_list = []
         for conn, pairs in script_strategy.markets.items():
             markets_list.append((conn, list(pairs)))
         self._initialize_markets(markets_list)
         self.strategy = script_strategy(self.markets)
+
+    def load_script_class(self):
+        """
+        Imports the script module based on its name (module file name) and returns the loaded script class
+
+        :param script_name: name of the module where the script class is defined
+        """
+        script_name = self.strategy_file_name
+        module = sys.modules.get(f"{settings.SCRIPT_STRATEGIES_MODULE}.{script_name}")
+        if module is not None:
+            script_module = importlib.reload(module)
+        else:
+            script_module = importlib.import_module(f".{script_name}", package=settings.SCRIPT_STRATEGIES_MODULE)
+        try:
+            script_class = next((member for member_name, member in inspect.getmembers(script_module)
+                                 if inspect.isclass(member) and
+                                 (issubclass(member, ScriptStrategyBase) or issubclass(member, DirectionalStrategyBase)) and
+                                 member not in [ScriptStrategyBase, DirectionalStrategyBase]))
+        except StopIteration:
+            raise InvalidScriptModule(f"The module {script_name} does not contain any subclass of ScriptStrategyBase")
+        return script_class
 
     def is_current_strategy_script_strategy(self) -> bool:
         script_file_name = settings.SCRIPT_STRATEGIES_PATH / f"{self.strategy_file_name}.py"
