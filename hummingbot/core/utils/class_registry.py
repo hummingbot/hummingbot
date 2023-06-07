@@ -1,7 +1,50 @@
-from typing import Any, Dict, Optional, Type, TypeVar, Union
+"""
+The module provides the following classes:
+
+ClassRegistry: A class registry that allows registering and retrieving classes by name. Subclasses of ClassRegistry
+can be registered as keys in the registry, and subclasses of those classes can be added to the registry.
+
+ClassRegistryMixin: A mixin class that provides functionality for retrieving classes from the registry based on their
+names. Classes using this mixin should not be instantiated directly. The module also includes supporting classes and
+functions for managing class registration and retrieval.
+
+Module name: class_registry.py
+Module description: A class registry mechanism for managing and accessing classes based on their names.
+Copyright (c) 2023, Memento "RC" Mori
+License: MIT
+Author: Memento "RC" Mori
+Creation date: 2023/05/15
+"""
+
+import logging
+from abc import ABCMeta
+from asyncio import Protocol
+from typing import Any, Dict, Optional, Tuple, Type, TypeVar, Union
+
+test_logger = logging.getLogger(__name__)
+enable_test_debug = False
+indentation = ''
+
+
+def configure_debug(debug_flag: bool):
+    """
+    Configure the debug flag.
+
+    :param debug_flag: Flag indicating whether debug mode should be enabled.
+    """
+    global enable_test_debug
+    enable_test_debug = debug_flag
+
+    if enable_test_debug:
+        test_logger.setLevel(logging.DEBUG)
+    else:
+        test_logger.setLevel(logging.INFO)
 
 
 class ClassRegistryError(Exception):
+    """
+    Exception class for ClassRegistry-related errors.
+    """
     pass
 
 
@@ -15,7 +58,7 @@ def find_substring_not_in_parent(*, child: str, parent: str) -> Optional[str]:
     :return: The 'augmentation' of child string based on parent. or None if there are any mismatches
 
     Example:
-        >>> find_substring_not_in_parent("123HeaderGetAccountFooter456", "123HeaderFooter456")
+        >>> find_substring_not_in_parent(child="123HeaderGetAccountFooter456", parent="123HeaderFooter456")
         'GetAccount'
     """
     # If child and parent are the same, or one of them is empty, return None
@@ -51,8 +94,16 @@ def find_substring_not_in_parent(*, child: str, parent: str) -> Optional[str]:
     return None
 
 
-T = TypeVar("T")
-V = TypeVar("V")
+class RegisterKey(Protocol):
+    __class_registry__register_key__: bool
+
+
+class RegisteredClass(Protocol):
+    __class_registry__registered_class__: bool
+
+
+T = TypeVar("T", bound=RegisterKey)
+V = TypeVar("V", bound=RegisteredClass)
 
 
 class _ClassRegistry:
@@ -80,7 +131,7 @@ class _ClassRegistry:
         """
         Register a subclass with a nickname under a master class in the registry.
 
-        :param master_class: The master class under which to register the sub-class.
+        :param master_class: The master class under which to register the subclass.
         :param class_name: The name of the subclass.
         :param class_obj: The subclass to register.
         """
@@ -95,15 +146,16 @@ class _ClassRegistry:
             raise ClassRegistryError(
                 f"Failed to register Sub-Class {class_name} to unregistered {master_class.__name__}.")
 
-    @classmethod
-    def find_class_by_name(cls, class_name: str) -> Optional[Type[V]]:
+    @staticmethod
+    def find_class_by_name(class_type: Type[T], class_name: str) -> Optional[Type[V]]:
         """
         Find a class in the registry by its name.
 
+        :param class_type: Class type of the class to find
         :param class_name: The name of the class to find.
         :return: The class registered under the given name, or None if not found.
         """
-        return cls.__registry.get(cls, {}).get(class_name, None)
+        return _ClassRegistry.__registry.get(class_type, {}).get(class_name, None)
 
 
 class ClassRegistry(_ClassRegistry):
@@ -137,7 +189,7 @@ class ClassRegistry(_ClassRegistry):
         find_class_by_name(class_name: str) -> Optional[Type]: Find the class registered under the specified class name.
     """
 
-    def __init_subclass__(cls: Union[Type[T], Type[V]], **kwargs):
+    def __init_subclass__(cls: Union[Type[T], Type[V]], *args, **kwargs):
         """
         `__init_subclass__` method is called when a subclass is created.
 
@@ -150,15 +202,25 @@ class ClassRegistry(_ClassRegistry):
         :param cls: The subclass being initialized.
         :param kwargs: Additional keyword arguments.
         """
-        super().__init_subclass__(**kwargs)
+        super().__init_subclass__(*args, **kwargs)
 
         # Create the register for any class directly subclassing ClassRegistry
         if ClassRegistry in cls.__bases__:
-            cls.register_master_class(cls)
+            if hasattr(cls, "__class_registry__register_key__") and cls.__class_registry__register_key__:
+                cls.register_master_class(cls)
+            else:
+                raise ClassRegistryError(f"Class {cls.__name__} is missing a register key. "
+                                         f"It must subclass ClassRegistryMixin along with the ClassRegistry.")
         else:
             for base in cls.__bases__:
                 if issubclass(base, ClassRegistry) and base is not ClassRegistry:
                     class_name = cls.__name__
+                    if (
+                            not hasattr(cls, "__class_registry__registered_class__")
+                            or not cls.__class_registry__registered_class__
+                    ):
+                        raise ClassRegistryError(f"Class {cls.__name__} is missing a register key. "
+                                                 f"It must subclass ClassRegistryMixin along with the ClassRegistry.")
 
                     # Multi-level subclassing, add it to the registry of the base class
                     if base not in ClassRegistry.__registry:
@@ -180,40 +242,93 @@ class ClassRegistry(_ClassRegistry):
         return {}
 
 
+class _NonInstantiableClassRegistry(ABCMeta):
+    """
+    Metaclass that prevents instantiation of ClassRegistry key without providing a valid class name.
+    A key classe should instantiate one of the classes registered in their register
+    """
+
+    def __new__(mcs: Type['_NonInstantiableClassRegistry'],
+                name: str,
+                bases: Tuple[Type[Any], ...],
+                attrs: Dict[str, Any]) -> Any:
+        """
+        Prevents instantiation of ClassRegistry key without providing a valid class name.
+        :param name:
+        :param bases:
+        :param attrs:
+        """
+        if bases:
+            if ClassRegistryMixin in bases:
+                if any(("__init__" in attrs,
+                        "__call__" in attrs,
+                        "__new__" in attrs,)):
+                    raise ClassRegistryError("ClassRegistryMixin sub-classes are not instantiable."
+                                             "They cannot define an __init__, __call__ or __new__ methods.")
+                attrs["__class_registry__register_key__"] = True
+                attrs["__class_registry__registered_class__"] = False
+            else:
+                if any(("__call__" in attrs,
+                        "__new__" in attrs,)):
+                    raise ClassRegistryError("ClassRegistryMixin sub-subclasses instantiable, but they cannot"
+                                             " define __call__ or __new__ methods.")
+                attrs["__class_registry__register_key__"] = False
+                attrs["__class_registry__registered_class__"] = True
+        return super().__new__(mcs, name, bases, attrs)
+
+    def __call__(cls: Union[Type[T], Type[V]], *args, **kwargs):
+        """
+        Creates a new instance of a registered class via a key class that has a registered class name.
+        Or when the key class instantiate a registered class after removing the first argument or 'class_name'
+        keyword argument.
+
+        :param args: Positional arguments passed to the class constructor.
+        :param kwargs: Keyword arguments passed to the class constructor.
+        :return: The newly created instance of the class.
+        :raises ClassRegistryError: If the class is not registered or the class name is not provided.
+        """
+
+        if cls.__class_registry__register_key__:
+            class_name = kwargs.pop("class_name", None)
+            if not class_name and args:
+                class_name: str = args[0]
+                args: Tuple[Any] = args[1:]
+
+            target_class: Optional[Type[V]] = None
+            if (
+                    class_name is None
+                    or not isinstance(class_name, str)
+                    or (target_class := ClassRegistry.find_class_by_name(cls, class_name)) is None
+            ):
+                raise ClassRegistryError(f"Type {cls.__name__} cannot be called:{cls.__name__}() without a class name"
+                                         f" or with an unregistered class name ({class_name}).")
+
+            instance = target_class.__new__(target_class)
+            if isinstance(instance, target_class):
+                target_class.__init__(instance, *args, **kwargs)  # type: ignore
+            return instance
+
+        instance = super().__call__(*args, **kwargs)
+        return instance
+
+
 U = TypeVar('U', bound='ClassRegistryMixin')
 
 
-class ClassRegistryMixin:
+class ClassRegistryMixin(metaclass=_NonInstantiableClassRegistry):
     """
     Mixin class that provides functionality for retrieving classes from the registry
     based on their names.
     """
-
-    def __new__(cls: Type[U], class_name: str, **kwargs: Any) -> Any:
-        """
-        Create a new instance of a class based on its name.
-
-        :param class_name: The name of the class to create an instance of.
-        :param kwargs: Additional keyword arguments to pass to the class constructor.
-        :return: The newly created instance of the class.
-        """
-        if cls in ClassRegistry.get_registry():
-            target_class: Optional[Type[Any]] = cls.get_class_by_name(class_name)
-            if target_class is None:
-                raise ClassRegistryError(f"No class named '{class_name}' found in the registry for '{cls.__name__}'.")
-            else:
-                instance: Any = target_class(class_name, **kwargs)
-                return instance
-        else:
-            kwargs.pop('class_name', None)
-            return super().__new__(cls, **kwargs)
+    def __init__(self, *args, **kwargs):
+        raise ClassRegistryError("ClassRegistryMixin sub-classes are not instantiable.")
 
     @classmethod
-    def get_class_by_name(cls: Type[U], class_name: str) -> Optional[Type[Any]]:
+    def get_class_by_name(cls: Type[T], class_name: str) -> Optional[Type[V]]:
         """
         Get a class from the registry based on its name.
 
         :param class_name: The name of the class to retrieve.
         :return: The class registered under the given name, or None if not found.
         """
-        return cls.find_class_by_name(class_name)
+        return ClassRegistry.find_class_by_name(cls, class_name)
