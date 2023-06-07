@@ -1,3 +1,5 @@
+import logging
+import sys
 import unittest
 from typing import Dict, Type
 
@@ -5,7 +7,9 @@ from hummingbot.core.utils.class_registry import (
     ClassRegistry,
     ClassRegistryError,
     ClassRegistryMixin,
+    configure_debug,
     find_substring_not_in_parent,
+    test_logger,
 )
 
 
@@ -180,15 +184,29 @@ class TestClassRegistry(unittest.TestCase):
 
 
 class TestClassRegistryMixin(unittest.TestCase):
-    class MyClassType(ClassRegistryMixin, ClassRegistry):
-        pass
+    global indentation
+
+    class MyClassType(ClassRegistry, ClassRegistryMixin, ):
+        def my_method(self, value):
+            return self.my_sub_attr + value
 
     class MySubClassType(MyClassType):
-        pass
+        def __init__(self, my_sub_attr=None, **kwargs):
+            self.my_sub_attr = my_sub_attr
+
+        def my_sub_method(self, value):
+            return self.my_sub_attr + value
 
     def setUp(self):
+        # Set DEBUG logging
+        # Set the debug flag in the logging configuration
+        logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
         self.MyClassType = TestClassRegistryMixin.MyClassType
         self.MySubClassType = TestClassRegistryMixin.MySubClassType
+
+    def tearDown(self):
+        # Reset the debug flag in the module
+        configure_debug(False)
 
     def test_register_and_retrieve(self):
         # Register a class
@@ -203,6 +221,27 @@ class TestClassRegistryMixin(unittest.TestCase):
         # Create an instance
         instance = self.MyClassType('MySubClassType')
         self.assertIsInstance(instance, self.MySubClassType)
+
+    def test_create_instance_without_mixin(self):
+        # Create an instance
+        instance = self.MySubClassType()
+        self.assertIsInstance(instance, self.MySubClassType)
+
+    def test_create_instance_with_attrs_and_methods(self):
+        instance = self.MyClassType('MySubClassType', my_sub_attr=10)
+        test_logger.debug(f"{indentation}<-'")
+        self.assertEqual(instance.my_sub_attr, 10)
+
+        result = instance.my_method(5)
+        self.assertEqual(result, 15)
+
+    def test_create_instance_without_mixin_with_attrs_and_methods(self):
+        instance = self.MySubClassType(20)
+        self.assertIsInstance(instance, self.MySubClassType)
+        self.assertEqual(instance.my_sub_attr, 20)
+
+        result = instance.my_method(10)
+        self.assertEqual(result, 30)
 
     def test_class_not_found(self):
         # Attempt to retrieve a non-existent class
@@ -220,6 +259,47 @@ class TestClassRegistryMixin(unittest.TestCase):
     def test_incorrect_string_parsing(self):
         with self.assertRaises(ClassRegistryError):
             self.MyClassType('IncorrectClassName')
+
+
+class TestNonInstantiableType(unittest.TestCase):
+    class MyClassType(ClassRegistryMixin, ClassRegistry):
+        def my_method(self, value):
+            return self.my_attr + value
+
+    class MySubClassType(MyClassType):
+        def __init__(self, my_sub_attr=None):
+            super().__init__()
+            self.my_sub_attr = my_sub_attr
+
+    def setUp(self):
+        self.MyClassType = TestNonInstantiableType.MyClassType
+        self.MySubClassType = TestNonInstantiableType.MySubClassType
+
+    def test_subclass_can_be_instantiated(self):
+        # Check that a subclass can be instantiated normally
+        instance = self.MySubClassType()
+        self.assertIsInstance(instance, self.MySubClassType)
+
+    def test_base_class_cannot_be_instantiated_directly(self):
+        # Check that the base class cannot be instantiated directly
+        with self.assertRaises(TypeError):
+            self.MyClassType()
+
+    def test_base_class_can_create_instance_of_subclass(self):
+        # Check that the base class can be used to create an instance of a subclass
+        instance = self.MyClassType('MySubClassType')
+        self.assertIsInstance(instance, self.MySubClassType)
+
+    def test_base_class_can_create_instance_of_subclass_with_kwargs(self):
+        # Check that the base class can be used to create an instance of a subclass with keyword arguments
+        instance = self.MyClassType('MySubClassType', my_sub_attr='test')
+        self.assertIsInstance(instance, self.MySubClassType)
+        self.assertEqual(instance.my_sub_attr, 'test')
+
+    def test_subclass_cannot_create_instance_of_itself(self):
+        # Check that a subclass cannot be used to create an instance of itself
+        with self.assertRaises(TypeError):
+            self.MySubClassType('MySubClassType')
 
 
 if __name__ == '__main__':
