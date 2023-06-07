@@ -4,7 +4,7 @@ The module provides the following classes:
 ClassRegistry: A class registry that allows registering and retrieving classes by name. Subclasses of ClassRegistry
 can be registered as keys in the registry, and subclasses of those classes can be added to the registry.
 
-ClassRegistryMixin: A mixin class that provides functionality for retrieving classes from the registry based on their
+ClassRegistryMetaMixin: A mixin class that provides functionality for retrieving classes from the registry based on their
 names. Classes using this mixin should not be instantiated directly. The module also includes supporting classes and
 functions for managing class registration and retrieval.
 
@@ -105,14 +105,39 @@ class RegisteredClass(Protocol):
 T = TypeVar("T", bound=RegisterKey)
 V = TypeVar("V", bound=RegisteredClass)
 
+_RegisteredClassType = Dict[str, Type[V]]
+_RegistryType = Dict[Type[T], _RegisteredClassType]
 
-class _ClassRegistry:
+
+class _ClassRegistration:
     """
     Generic Registry indexed on class objects and holding a dictionary of classes
     objects indexed on class names.
     """
 
-    __registry: Dict[Type[T], Dict[str, Type[V]]] = {}
+    __registry: _RegistryType = {}
+
+    @classmethod
+    def get_registry_keys(cls) -> Tuple[Type[T], ...]:
+        """
+        Get all registry keys, i.e. Class types of the classes defining the registered classes
+
+        :return: A tuple of all registered keys.
+        """
+        return tuple(cls.__registry.keys())
+
+    @classmethod
+    def get_registry_copy(cls: Union['_ClassRegistration', Type[T]]) -> Union[_RegisteredClassType, _RegistryType]:
+        """
+        Return a copy of the registry to prevent modification.
+
+        :return: Copy of the full registry, or copy of the registry for the given RegistryKey class.
+        """
+        if _ClassRegistration in cls.__bases__:
+            return cls.__registry.copy()
+        if cls in _ClassRegistration.__registry:
+            return _ClassRegistration.__registry[cls].copy()
+        return {}
 
     @classmethod
     def register_master_class(cls, class_obj: Type[T]):
@@ -155,10 +180,10 @@ class _ClassRegistry:
         :param class_name: The name of the class to find.
         :return: The class registered under the given name, or None if not found.
         """
-        return _ClassRegistry.__registry.get(class_type, {}).get(class_name, None)
+        return _ClassRegistration.__registry.get(class_type, {}).get(class_name, None)
 
 
-class ClassRegistry(_ClassRegistry):
+class ClassRegistry(_ClassRegistration):
     """
     This class provides a registry for classes that are subclasses of any subclass of `ClassRegistry`.
     It allows retrieving classes based on their names and maintains a registry of class hierarchies.
@@ -206,26 +231,16 @@ class ClassRegistry(_ClassRegistry):
 
         # Create the register for any class directly subclassing ClassRegistry
         if ClassRegistry in cls.__bases__:
-            if hasattr(cls, "__class_registry__register_key__") and cls.__class_registry__register_key__:
-                cls.register_master_class(cls)
-            else:
-                raise ClassRegistryError(f"Class {cls.__name__} is missing a register key. "
-                                         f"It must subclass ClassRegistryMixin along with the ClassRegistry.")
+            cls.register_master_class(cls)
         else:
+            registry_keys: Tuple[Type[T], ...] = ClassRegistry.get_registry_keys()
             for base in cls.__bases__:
-                if issubclass(base, ClassRegistry) and base is not ClassRegistry:
+                if issubclass(base, ClassRegistry):
                     class_name = cls.__name__
-                    if (
-                            not hasattr(cls, "__class_registry__registered_class__")
-                            or not cls.__class_registry__registered_class__
-                    ):
-                        raise ClassRegistryError(f"Class {cls.__name__} is missing a register key. "
-                                                 f"It must subclass ClassRegistryMixin along with the ClassRegistry.")
-
                     # Multi-level subclassing, add it to the registry of the base class
-                    if base not in ClassRegistry.__registry:
+                    if base not in registry_keys:
                         for sub_base in base.__bases__:
-                            if sub_base in ClassRegistry.__registry:
+                            if sub_base in registry_keys:
                                 base = sub_base
                                 break
 
@@ -234,12 +249,22 @@ class ClassRegistry(_ClassRegistry):
 
     @classmethod
     def get_registry(cls: Union[Type[T], Type[V]]) -> Union[Dict[str, Type[T]], Dict[Type[T], Dict[str, Type[V]]]]:
-        """Return a copy of the registry to prevent modification."""
-        if cls is ClassRegistry:
-            return ClassRegistry.__registry.copy()
-        if cls in ClassRegistry.__registry:
-            return ClassRegistry.__registry[cls].copy()
-        return {}
+        """
+        Return a copy of the registry to prevent modification.
+
+        :return: Copy of the full registry, or copy of the registry for the given RegistryKey class.
+        """
+        return cls.get_registry_copy()
+
+    @classmethod
+    def find_class_by_name(cls: Type[T], class_name: str) -> Optional[Type[V]]:
+        """
+        Get a class from the registry based on its name.
+
+        :param class_name: The name of the class to retrieve.
+        :return: The class registered under the given name, or None if not found.
+        """
+        return super().find_class_by_name(cls, class_name)
 
 
 class _NonInstantiableClassRegistry(ABCMeta):
@@ -259,18 +284,18 @@ class _NonInstantiableClassRegistry(ABCMeta):
         :param attrs:
         """
         if bases:
-            if ClassRegistryMixin in bases:
+            if ClassRegistryMetaMixin in bases:
                 if any(("__init__" in attrs,
                         "__call__" in attrs,
                         "__new__" in attrs,)):
-                    raise ClassRegistryError("ClassRegistryMixin sub-classes are not instantiable."
+                    raise ClassRegistryError("ClassRegistryMetaMixin sub-classes are not instantiable."
                                              "They cannot define an __init__, __call__ or __new__ methods.")
                 attrs["__class_registry__register_key__"] = True
                 attrs["__class_registry__registered_class__"] = False
             else:
                 if any(("__call__" in attrs,
                         "__new__" in attrs,)):
-                    raise ClassRegistryError("ClassRegistryMixin sub-subclasses instantiable, but they cannot"
+                    raise ClassRegistryError("ClassRegistryMetaMixin sub-subclasses instantiable, but they cannot"
                                              " define __call__ or __new__ methods.")
                 attrs["__class_registry__register_key__"] = False
                 attrs["__class_registry__registered_class__"] = True
@@ -298,7 +323,7 @@ class _NonInstantiableClassRegistry(ABCMeta):
             if (
                     class_name is None
                     or not isinstance(class_name, str)
-                    or (target_class := ClassRegistry.find_class_by_name(cls, class_name)) is None
+                    or (target_class := cls.find_class_by_name(class_name)) is None
             ):
                 raise ClassRegistryError(f"Type {cls.__name__} cannot be called:{cls.__name__}() without a class name"
                                          f" or with an unregistered class name ({class_name}).")
@@ -312,16 +337,11 @@ class _NonInstantiableClassRegistry(ABCMeta):
         return instance
 
 
-U = TypeVar('U', bound='ClassRegistryMixin')
-
-
-class ClassRegistryMixin(metaclass=_NonInstantiableClassRegistry):
+class ClassRegistryMetaMixin(metaclass=_NonInstantiableClassRegistry):
     """
     Mixin class that provides functionality for retrieving classes from the registry
     based on their names.
     """
-    def __init__(self, *args, **kwargs):
-        raise ClassRegistryError("ClassRegistryMixin sub-classes are not instantiable.")
 
     @classmethod
     def get_class_by_name(cls: Type[T], class_name: str) -> Optional[Type[V]]:
@@ -331,4 +351,4 @@ class ClassRegistryMixin(metaclass=_NonInstantiableClassRegistry):
         :param class_name: The name of the class to retrieve.
         :return: The class registered under the given name, or None if not found.
         """
-        return ClassRegistry.find_class_by_name(cls, class_name)
+        return cls.find_class_by_name(class_name)

@@ -1,15 +1,16 @@
 import logging
 import sys
 import unittest
-from typing import Dict, Type
+from typing import Any, Dict, Type
+
+from pydantic import BaseModel, ValidationError
 
 from hummingbot.core.utils.class_registry import (
     ClassRegistry,
     ClassRegistryError,
-    ClassRegistryMixin,
+    ClassRegistryMetaMixin,
     configure_debug,
     find_substring_not_in_parent,
-    test_logger,
 )
 
 
@@ -186,7 +187,7 @@ class TestClassRegistry(unittest.TestCase):
 class TestClassRegistryMixin(unittest.TestCase):
     global indentation
 
-    class MyClassType(ClassRegistry, ClassRegistryMixin, ):
+    class MyClassType(ClassRegistry, ClassRegistryMetaMixin, ):
         def my_method(self, value):
             return self.my_sub_attr + value
 
@@ -229,7 +230,6 @@ class TestClassRegistryMixin(unittest.TestCase):
 
     def test_create_instance_with_attrs_and_methods(self):
         instance = self.MyClassType('MySubClassType', my_sub_attr=10)
-        test_logger.debug(f"{indentation}<-'")
         self.assertEqual(instance.my_sub_attr, 10)
 
         result = instance.my_method(5)
@@ -262,7 +262,7 @@ class TestClassRegistryMixin(unittest.TestCase):
 
 
 class TestNonInstantiableType(unittest.TestCase):
-    class MyClassType(ClassRegistryMixin, ClassRegistry):
+    class MyClassType(ClassRegistryMetaMixin, ClassRegistry):
         def my_method(self, value):
             return self.my_attr + value
 
@@ -282,7 +282,7 @@ class TestNonInstantiableType(unittest.TestCase):
 
     def test_base_class_cannot_be_instantiated_directly(self):
         # Check that the base class cannot be instantiated directly
-        with self.assertRaises(TypeError):
+        with self.assertRaises(ClassRegistryError):
             self.MyClassType()
 
     def test_base_class_can_create_instance_of_subclass(self):
@@ -296,10 +296,69 @@ class TestNonInstantiableType(unittest.TestCase):
         self.assertIsInstance(instance, self.MySubClassType)
         self.assertEqual(instance.my_sub_attr, 'test')
 
-    def test_subclass_cannot_create_instance_of_itself(self):
-        # Check that a subclass cannot be used to create an instance of itself
-        with self.assertRaises(TypeError):
-            self.MySubClassType('MySubClassType')
+
+class TestPydanticSubclasses(unittest.TestCase):
+    class _PydanticBase(BaseModel):
+        string: str
+        integer: int
+        double: float
+        boolean: bool
+        dictionary: Dict[str, Any]
+
+        class Config:
+            arbitrary_types_allowed = True
+
+    class PydanticType(ClassRegistry):
+        pass
+
+    class PydanticSubClassType(_PydanticBase, PydanticType, ):
+        pass
+
+    def setUp(self):
+        self.PydanticType = TestPydanticSubclasses.PydanticType
+        self.PydanticSubClassType = TestPydanticSubclasses.PydanticSubClassType
+
+    def test_pydantic_subclass_registration(self):
+        registry = self.PydanticType.get_registry()
+        expected_full_name = 'PydanticSubClassType'
+        expected_short_name = 'SubClass'
+
+        self.assertIn(expected_full_name, registry)
+        self.assertIn(expected_short_name, registry)
+        self.assertIs(registry[expected_short_name], registry[expected_full_name])
+
+    def test_pydantic_subclass_registration_missing(self):
+        registry = self.PydanticType.get_registry()
+        unexpected_name = 'NonExistentSubClass'
+
+        self.assertNotIn(unexpected_name, registry)
+
+    def test_pydantic_subclass_correct_type(self):
+        registry = self.PydanticType.get_registry()
+        expected_full_name = 'PydanticSubClassType'
+
+        self.assertIs(registry[expected_full_name], self.PydanticSubClassType)
+
+    def test_pydantic_base_not_registered(self):
+        registry = self.PydanticType.get_registry()
+        unexpected_name = '_PydanticBase'
+
+        self.assertNotIn(unexpected_name, registry)
+
+    def test_pydantic_type_properties(self):
+        obj = self.PydanticSubClassType(string="test", integer=10, double=1.0, boolean=True,
+                                        dictionary={"key": "value"})
+
+        self.assertEqual(obj.string, "test")
+        self.assertEqual(obj.integer, 10)
+        self.assertEqual(obj.double, 1.0)
+        self.assertEqual(obj.boolean, True)
+        self.assertEqual(obj.dictionary, {"key": "value"})
+
+    def test_pydantic_type_invalid_creation(self):
+        with self.assertRaises(ValidationError):
+            self.PydanticSubClassType(string="test", integer="invalid_integer", double=1.0, boolean=True,
+                                      dictionary={"key": "value"})
 
 
 if __name__ == '__main__':
