@@ -207,12 +207,13 @@ class GateIoExchange(ExchangePyBase):
         if order_type.is_limit_type():
             data.update({
                 "price": f"{price:f}",
+                "time_in_force": "gtc"
             })
             if order_type is OrderType.LIMIT_MAKER:
-                data.update({"tif": "poc"})
+                data.update({"time_in_force": "poc"})
         else:
             data.update({
-                "tif": "ioc",
+                "time_in_force": "ioc",
             })
             if trade_type.name.lower() == 'buy':
                 data.update({
