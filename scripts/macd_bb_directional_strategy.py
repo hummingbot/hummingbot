@@ -194,7 +194,7 @@ class MACDBBDirectionalStrategy(ScriptStrategyBase):
                                 executor.trading_pair,
                                 executor.side,
                                 executor.amount,
-                                executor.pnl,
+                                executor.trade_pnl,
                                 executor.close_timestamp,
                                 executor.entry_price,
                                 executor.close_price,
