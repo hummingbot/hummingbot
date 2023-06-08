@@ -395,9 +395,13 @@ class GateIoExchange(ExchangePyBase):
                 if amount_left > 0:
                     state = OrderState.PARTIALLY_FILLED
             if event_type == "finish":
-                state = OrderState.FILLED
-                if amount_left > 0:
+                finish_as = order_msg.get("finish_as")
+                if finish_as == "filled":
+                    state = OrderState.FILLED
+                elif finish_as == "cancelled":
                     state = OrderState.CANCELED
+                elif finish_as == "open" and amount_left > 0:
+                    state = OrderState.PARTIALLY_FILLED
         else:
             status = order_msg.get("status")
             if status == "closed":
