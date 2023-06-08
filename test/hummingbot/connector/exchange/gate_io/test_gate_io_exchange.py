@@ -1287,7 +1287,8 @@ class TestGateIoExchange(unittest.TestCase):
                     "gt_fee": "0",
                     "gt_discount": True,
                     "rebated_fee": "0",
-                    "rebated_fee_currency": "USDT"
+                    "rebated_fee_currency": "USDT",
+                    "finish_as": "cancelled",
                 }
             ]
         }
@@ -1427,7 +1428,8 @@ class TestGateIoExchange(unittest.TestCase):
                     "gt_fee": "0",
                     "gt_discount": True,
                     "rebated_fee": "0",
-                    "rebated_fee_currency": "USDT"
+                    "rebated_fee_currency": "USDT",
+                    "finish_as": "filled",
                 }
             ]
         }

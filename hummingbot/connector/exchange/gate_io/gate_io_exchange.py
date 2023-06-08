@@ -386,6 +386,7 @@ class GateIoExchange(ExchangePyBase):
 
         # same field for both WS and REST
         amount_left = Decimal(order_msg.get("left"))
+        filled_amount = Decimal(order_msg.get("filled_total"))
 
         # WS
         if "event" in order_msg:
@@ -400,7 +401,7 @@ class GateIoExchange(ExchangePyBase):
                     state = OrderState.FILLED
                 elif finish_as == "cancelled":
                     state = OrderState.CANCELED
-                elif finish_as == "open" and amount_left > 0:
+                elif finish_as == "open" and filled_amount > 0:
                     state = OrderState.PARTIALLY_FILLED
         else:
             status = order_msg.get("status")
