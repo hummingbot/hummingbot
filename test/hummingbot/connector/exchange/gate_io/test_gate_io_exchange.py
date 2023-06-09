@@ -1678,7 +1678,6 @@ class TestGateIoExchange(unittest.TestCase):
         self.assertTrue(order.is_open)
         self.assertEqual(OrderState.OPEN, order.current_state)
 
-
     def test_user_stream_balance_update(self):
         self.exchange._set_current_timestamp(1640780000)
 
