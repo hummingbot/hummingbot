@@ -1,97 +1,116 @@
 import asyncio
-import logging
-import time
-from typing import Optional
+from typing import TYPE_CHECKING, List, Optional
 
-import aiohttp
-
-import hummingbot.connector.exchange.crypto_com.crypto_com_constants as CONSTANTS
+from hummingbot.connector.exchange.crypto_com import crypto_com_constants as CONSTANTS
 from hummingbot.connector.exchange.crypto_com.crypto_com_auth import CryptoComAuth
-from hummingbot.connector.exchange.crypto_com.crypto_com_websocket import CryptoComWebsocket
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.connector.exchange.crypto_com.crypto_com_exchange import CryptoComExchange
 
 
 class CryptoComAPIUserStreamDataSource(UserStreamTrackerDataSource):
-    MAX_RETRIES = 20
-    MESSAGE_TIMEOUT = 30.0
+
+    LISTEN_KEY_KEEP_ALIVE_INTERVAL = 1800  # Recommended to Ping/Update listen key to keep connection alive
+    HEARTBEAT_TIME_INTERVAL = 30.0
 
     _logger: Optional[HummingbotLogger] = None
 
-    @classmethod
-    def logger(cls) -> HummingbotLogger:
-        if cls._logger is None:
-            cls._logger = logging.getLogger(__name__)
-        return cls._logger
-
-    def __init__(
-        self,
-        crypto_com_auth: CryptoComAuth,
-        shared_client: Optional[aiohttp.ClientSession] = None,
-    ):
+    def __init__(self,
+                 auth: CryptoComAuth,
+                 trading_pairs: List[str],
+                 connector: 'CryptoComExchange',
+                 api_factory: WebAssistantsFactory,
+                 domain: str = CONSTANTS.DEFAULT_DOMAIN):
         super().__init__()
-        self._crypto_com_auth: CryptoComAuth = crypto_com_auth
-        self._shared_client = shared_client
+        self._auth: CryptoComAuth = auth
+        self._connector = connector
+        self._trading_pairs = trading_pairs
+        self._domain = domain
+        self._api_factory = api_factory
 
-        self._last_recv_time: float = 0
-        self._auth_successful_event = asyncio.Event()
-
-    @property
-    def ready(self) -> bool:
-        return self.last_recv_time > 0 and self._auth_successful_event.is_set()
-
-    @property
-    def last_recv_time(self) -> float:
-        return self._last_recv_time
-
-    def _get_shared_client(self) -> aiohttp.ClientSession:
+    async def _connected_websocket_assistant(self) -> WSAssistant:
         """
-        Retrieves the shared aiohttp.ClientSession. If no shared client is provided, create a new ClientSession.
-        """
-        if not self._shared_client:
-            self._shared_client = aiohttp.ClientSession()
-        return self._shared_client
-
-    async def _create_websocket_connection(self) -> CryptoComWebsocket:
-        """
-        Initialize sets up the websocket connection with a CryptoComWebsocket object.
+        Creates an instance of WSAssistant connected to the exchange, and authenticates it.
         """
         try:
-            ws = CryptoComWebsocket(auth=self._crypto_com_auth, shared_client=self._get_shared_client())
-            await ws.connect()
+            ws: WSAssistant = await self._get_ws_assistant()
+            # url = CONSTANTS.WSS_PRIVATE_URL
+            await ws.connect(ws_url=CONSTANTS.WSS_PRIVATE_URL, ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
+            self.logger().info("Connected to Cryto.com Private WebSocket.")
+
+            await self._sleep(1.0)  # Sleep for 1 second before sending the requests, recommended by the exchange.
+
+            # authenticate the websocket connection
+            payload = self._connector.generate_crypto_com_request(method=CONSTANTS.WS_AUTHENTICATE, params={})
+            auth_payload = self._auth.add_auth_to_params(params=payload)
+
+            auth_request: WSJSONRequest = WSJSONRequest(payload=auth_payload)
+            await ws.send(auth_request)
+            self.logger().info("Authenticated the Cryto.com Private WebSocket connection.")
+
             return ws
         except asyncio.CancelledError:
             raise
-        except Exception as e:
-            self.logger().network(f"Unexpected error occured connecting to {CONSTANTS.EXCHANGE_NAME} WebSocket API. "
-                                  f"({e})")
+        except Exception:
+            self.logger().exception("Unexpected error occurred connecting and authenticating to Crypto.com Private WebSocket...")
             raise
 
-    async def listen_for_user_stream(self, output: asyncio.Queue):
+    async def _subscribe_channels(self, websocket_assistant: WSAssistant):
         """
-        *required
-        Subscribe to user stream via web socket, and keep the connection open for incoming messages
+        Subscribes to the user balance, order and trade events through the provided websocket connection.
 
-        :param output: an async queue where the incoming messages are stored
+        :param websocket_assistant: the websocket assistant used to connect to the exchange
         """
-        ws = None
-        while True:
-            try:
-                ws = await self._create_websocket_connection()
-                await ws.subscribe_to_user_streams()
-                async for msg in ws.iter_messages():
-                    self._last_recv_time = time.time()
-                    if msg.get("method", "") == CryptoComWebsocket.AUTH_REQUEST and msg.get("code", -1) == 0:
-                        self._auth_successful_event.set()
-                    if msg.get("result") is None:
-                        continue
-                    output.put_nowait(msg)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().error(
-                    "Unexpected error when listening to user streams. Retrying after 5 seconds...", exc_info=True
-                )
-                await self._sleep(5)
-            finally:
-                ws and await ws.disconnect()
+        try:
+            channels = ["user.balance"]
+            for trading_pair in self._trading_pairs:
+                instrument_name = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+                channels.append(f"user.order.{instrument_name}")
+                channels.append(f"user.trade.{instrument_name}")
+
+            params = {
+                "channels": channels
+            }
+            payload = self._connector.generate_crypto_com_request(method=CONSTANTS.WS_SUBSCRIBE, params=params)
+            subscribe_request: WSJSONRequest = WSJSONRequest(payload=payload)
+
+            await websocket_assistant.send(subscribe_request)
+            self.logger().info("Subscribed to Crypto.com private channels.")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().exception("Unexpected error occurred subscribing to Crypto.com private channels...")
+            raise
+
+    async def _process_websocket_messages(self, websocket_assistant: WSAssistant, queue: asyncio.Queue):
+        async for ws_response in websocket_assistant.iter_messages():
+            data = ws_response.data
+
+            # deal with heartbeat messages
+            if data.get("method", "") == CONSTANTS.WS_PING:
+                # respond to the heartbeat message
+                pong = {
+                    "id": data.get("id"),
+                    "method": CONSTANTS.WS_PONG,
+                }
+
+                respond_heartbeat: WSJSONRequest = WSJSONRequest(payload=pong)
+                await websocket_assistant.send(respond_heartbeat)
+
+                continue
+
+            await self._process_event_message(event_message=data, queue=queue)
+
+    async def _get_ws_assistant(self) -> WSAssistant:
+        if self._ws_assistant is None:
+            self._ws_assistant = await self._api_factory.get_ws_assistant()
+        return self._ws_assistant
+
+    async def _on_user_stream_interruption(self, websocket_assistant: Optional[WSAssistant]):
+        await super()._on_user_stream_interruption(websocket_assistant=websocket_assistant)
+        await self._sleep(5)
