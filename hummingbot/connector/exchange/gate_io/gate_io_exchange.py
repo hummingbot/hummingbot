@@ -388,7 +388,6 @@ class GateIoExchange(ExchangePyBase):
         amount_left = Decimal(order_msg.get("left"))
         filled_amount = Decimal(order_msg.get("filled_total"))
 
-
         # WS
         if "event" in order_msg:
             event_type = order_msg.get("event")
