@@ -12,7 +12,7 @@ from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, PriceType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
@@ -207,14 +207,19 @@ class GateIoExchange(ExchangePyBase):
         if order_type.is_limit_type():
             data.update({
                 "price": f"{price:f}",
+                "time_in_force": "gtc"
             })
             if order_type is OrderType.LIMIT_MAKER:
-                data.update({"tif": "poc"})
+                data.update({"time_in_force": "poc"})
         else:
             data.update({
-                "tif": "ioc",
+                "time_in_force": "ioc",
             })
             if trade_type.name.lower() == 'buy':
+                if price.is_nan():
+                    price = self.get_price_by_type(
+                        trading_pair,
+                        price_type=PriceType.BestAsk if trade_type is TradeType.BUY else PriceType.BestBid)
                 data.update({
                     "amount": f"{price * amount:f}",
                 })
@@ -381,6 +386,8 @@ class GateIoExchange(ExchangePyBase):
 
         # same field for both WS and REST
         amount_left = Decimal(order_msg.get("left"))
+        filled_amount = Decimal(order_msg.get("filled_total"))
+
 
         # WS
         if "event" in order_msg:
@@ -390,9 +397,16 @@ class GateIoExchange(ExchangePyBase):
                 if amount_left > 0:
                     state = OrderState.PARTIALLY_FILLED
             if event_type == "finish":
-                state = OrderState.FILLED
-                if amount_left > 0:
+                # state = OrderState.FILLED
+                # if amount_left > 0:
+                #     state = OrderState.CANCELED
+                finish_as = order_msg.get("finish_as")
+                if finish_as == "filled":
+                    state = OrderState.FILLED
+                elif finish_as == "cancelled":
                     state = OrderState.CANCELED
+                elif finish_as == "open" and filled_amount > 0:
+                    state = OrderState.PARTIALLY_FILLED
         else:
             status = order_msg.get("status")
             if status == "closed":
