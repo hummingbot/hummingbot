@@ -215,17 +215,16 @@ class AscendExExchange(ExchangePyBase):
         self._set_trading_pair_symbol_map(mapping)
 
     async def _place_order(
-        self,
-        order_id: str,
-        trading_pair: str,
-        amount: Decimal,
-        trade_type: TradeType,
-        order_type: OrderType,
-        price: Decimal,
-        **kwargs,
+            self,
+            order_id: str,
+            trading_pair: str,
+            amount: Decimal,
+            trade_type: TradeType,
+            order_type: OrderType,
+            price: Decimal,
+            **kwargs,
     ) -> Tuple[str, float]:
         side = trade_type.name.lower()
-        order_type_str = order_type
         timestamp = utils.get_ms_timestamp()
         data = {
             "time": timestamp,
@@ -233,12 +232,14 @@ class AscendExExchange(ExchangePyBase):
             "id": order_id,
             "side": side,
             "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
-            "orderType": order_type_str,
         }
-        if order_type is OrderType.LIMIT_MAKER or order_type is OrderType.LIMIT_MAKER:
+        if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER:
             price_str = f"{price:f}"
-            data["price"] = price_str
+            data["orderPrice"] = price_str
             data["postOnly"] = True
+            data["orderType"] = "limit"
+        elif order_type is OrderType.MARKET:
+            data["orderType"] = "market"
         exchange_order = await self._api_post(
             path_url=CONSTANTS.ORDER_PATH_URL,
             data=data,
