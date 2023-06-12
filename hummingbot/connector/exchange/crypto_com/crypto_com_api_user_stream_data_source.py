@@ -67,19 +67,19 @@ class CryptoComAPIUserStreamDataSource(UserStreamTrackerDataSource):
         :param websocket_assistant: the websocket assistant used to connect to the exchange
         """
         try:
-            channels = ["user.balance"]
+            channels = [CONSTANTS.WS_USER_BALANCE_CHANNEL]
             for trading_pair in self._trading_pairs:
                 instrument_name = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                channels.append(f"user.order.{instrument_name}")
-                channels.append(f"user.trade.{instrument_name}")
+                channels.append(f"{CONSTANTS.WS_USER_ORDER_CHANNEL}.{instrument_name}")
+                channels.append(f"{CONSTANTS.WS_USER_TRADE_CHANNEL}.{instrument_name}")
 
             params = {
                 "channels": channels
             }
             payload = self._connector.generate_crypto_com_request(method=CONSTANTS.WS_SUBSCRIBE, params=params)
-            subscribe_request: WSJSONRequest = WSJSONRequest(payload=payload)
+            user_subscribe_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
-            await websocket_assistant.send(subscribe_request)
+            await websocket_assistant.send(user_subscribe_request)
             self.logger().info("Subscribed to Crypto.com private channels.")
         except asyncio.CancelledError:
             raise
@@ -91,20 +91,21 @@ class CryptoComAPIUserStreamDataSource(UserStreamTrackerDataSource):
         async for ws_response in websocket_assistant.iter_messages():
             data = ws_response.data
 
-            # deal with heartbeat messages
-            if data.get("method", "") == CONSTANTS.WS_PING:
-                # respond to the heartbeat message
-                pong = {
-                    "id": data.get("id"),
-                    "method": CONSTANTS.WS_PONG,
-                }
+            if data is not None:    # data will be None when the websocket is disconnected
+                # deal with heartbeat messages
+                if data.get("method", "") == CONSTANTS.WS_PING:
+                    # respond to the heartbeat message
+                    pong = {
+                        "id": data.get("id"),
+                        "method": CONSTANTS.WS_PONG,
+                    }
 
-                respond_heartbeat: WSJSONRequest = WSJSONRequest(payload=pong)
-                await websocket_assistant.send(respond_heartbeat)
+                    respond_heartbeat: WSJSONRequest = WSJSONRequest(payload=pong)
+                    await websocket_assistant.send(respond_heartbeat)
 
-                continue
+                    continue
 
-            await self._process_event_message(event_message=data, queue=queue)
+                await self._process_event_message(event_message=data, queue=queue)
 
     async def _get_ws_assistant(self) -> WSAssistant:
         if self._ws_assistant is None:

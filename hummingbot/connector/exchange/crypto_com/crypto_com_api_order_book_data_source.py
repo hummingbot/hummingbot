@@ -32,9 +32,10 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
                  api_factory: WebAssistantsFactory,
                  domain: str = CONSTANTS.DEFAULT_DOMAIN):
         super().__init__(trading_pairs)
+        self._trade_messages_queue_key = CONSTANTS.WS_TRADE_CHANNEL
+        self._diff_messages_queue_key = CONSTANTS.WS_DIFF_CHANNEL
+        self._snapshot_messages_queue_key = CONSTANTS.WS_SNAPSHOT_CHANNEL
         self._connector = connector
-        self._trade_messages_queue_key = CONSTANTS.TRADE_EVENT_TYPE
-        self._diff_messages_queue_key = CONSTANTS.DIFF_EVENT_TYPE
         self._domain = domain
         self._api_factory = api_factory
 
@@ -56,6 +57,8 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
             "depth": "50"
         }
 
+        params = self._connector.generate_crypto_com_request(method=CONSTANTS.SNAPSHOT_PATH_URL, params=params)
+
         rest_assistant = await self._api_factory.get_rest_assistant()
         data = await rest_assistant.execute_request(
             url=web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self._domain),
@@ -74,43 +77,46 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :param ws: the websocket assistant used to connect to the exchange
         """
         try:
-            trade_params = []
-            depth_params = []
+            trade_channels = []
+            depth_channels = []
             for trading_pair in self._trading_pairs:
-                symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                trade_params.append(f"{symbol.lower()}@trade")
-                depth_params.append(f"{symbol.lower()}@depth@100ms")
-            payload = {
-                "method": "SUBSCRIBE",
-                "params": trade_params,
-                "id": 1
+                instrument_name = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+                trade_channels.append(f"trade.{instrument_name}")
+                depth_channels.append(f"depth.{instrument_name}.50")
+
+            trade_params = {
+                "channels": trade_channels
             }
-            subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=payload)
-
-            payload = {
-                "method": "SUBSCRIBE",
-                "params": depth_params,
-                "id": 2
+            depth_params = {
+                "channels": depth_channels,
+                "book_subscription_type": "SNAPSHOT_AND_UPDATE",
+                "book_update_frequency": 10
             }
-            subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
-            await ws.send(subscribe_trade_request)
-            await ws.send(subscribe_orderbook_request)
+            trade_payload = self._connector.generate_crypto_com_request(method=CONSTANTS.WS_SUBSCRIBE, params=trade_params)
+            trade_subscribe_request: WSJSONRequest = WSJSONRequest(payload=trade_payload)
+            depth_payload = self._connector.generate_crypto_com_request(method=CONSTANTS.WS_SUBSCRIBE, params=depth_params)
+            depth_subscribe_request: WSJSONRequest = WSJSONRequest(payload=depth_payload)
 
-            self.logger().info("Subscribed to public order book and trade channels...")
+            await ws.send(trade_subscribe_request)
+            await ws.send(depth_subscribe_request)
+
+            self.logger().info("Subscribed to Crytp.com Public Order Book and Trade channels...")
         except asyncio.CancelledError:
             raise
         except Exception:
             self.logger().error(
-                "Unexpected error occurred subscribing to order book trading and delta streams...",
+                "Unexpected error occurred subscribing to Crytp.com Public Order Book and Trade channels...",
                 exc_info=True
             )
             raise
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
-        await ws.connect(ws_url=CONSTANTS.WSS_URL.format(self._domain),
-                         ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
+        await ws.connect(ws_url=CONSTANTS.WSS_PUBLIC_URL, ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
+        self.logger().info("Connected to Cryto.com Public WebSocket.")
+
+        await self._sleep(1.0)  # Sleep for 1 second before sending the requests, recommended by the exchange.
         return ws
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
@@ -124,23 +130,58 @@ class CryptoComAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return snapshot_msg
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        if "result" not in raw_message:
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["s"])
-            trade_message = CryptoComOrderBook.trade_message_from_exchange(
-                raw_message, {"trading_pair": trading_pair})
+        result = raw_message["result"]
+        # extracting instrument_name from subscription string
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=result["subscription"].split(".")[1])
+        for trade in result["data"]:
+            trade_message: OrderBookMessage = CryptoComOrderBook.trade_message_from_exchange(
+                trade, {"trading_pair": trading_pair})
             message_queue.put_nowait(trade_message)
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        if "result" not in raw_message:
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["s"])
-            order_book_message: OrderBookMessage = CryptoComOrderBook.diff_message_from_exchange(
-                raw_message, time.time(), {"trading_pair": trading_pair})
-            message_queue.put_nowait(order_book_message)
+        result = raw_message["result"]
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=result["instrument_name"])
+        for diff in result["data"]:
+            diff_message: OrderBookMessage = CryptoComOrderBook.diff_message_from_exchange(
+                diff, time.time(), {"trading_pair": trading_pair})
+            message_queue.put_nowait(diff_message)
+
+    async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
+        result = raw_message["result"]
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=result["instrument_name"])
+        for snapshot in result["data"]:
+            snapshot_message: OrderBookMessage = CryptoComOrderBook.snapshot_message_from_exchange(
+                snapshot, time.time(), {"trading_pair": trading_pair})
+            message_queue.put_nowait(snapshot_message)
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
         channel = ""
-        if "result" not in event_message:
-            event_type = event_message.get("e")
-            channel = (self._diff_messages_queue_key if event_type == CONSTANTS.DIFF_EVENT_TYPE
-                       else self._trade_messages_queue_key)
+        if "result" in event_message:
+            channel = event_message["result"].get("channel")
         return channel
+
+    async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
+        async for ws_response in websocket_assistant.iter_messages():
+            data: Dict[str, Any] = ws_response.data
+            if data is not None:  # data will be None when the websocket is disconnected
+                # deal with heartbeat messages
+                if data.get("method", "") == CONSTANTS.WS_PING:
+                    # respond to the heartbeat message
+                    pong = {
+                        "id": data.get("id"),
+                        "method": CONSTANTS.WS_PONG,
+                    }
+
+                    respond_heartbeat: WSJSONRequest = WSJSONRequest(payload=pong)
+                    await websocket_assistant.send(respond_heartbeat)
+
+                    continue
+
+                channel: str = self._channel_originating_message(event_message=data)
+                valid_channels = self._get_messages_queue_keys()
+                if channel in valid_channels:
+                    self._message_queue[channel].put_nowait(data)
+                else:
+                    await self._process_message_for_unknown_channel(
+                        event_message=data, websocket_assistant=websocket_assistant
+                    )
