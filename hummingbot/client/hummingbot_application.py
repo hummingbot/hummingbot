@@ -321,6 +321,7 @@ class HummingbotApplication(*commands):
             list(self.markets.values()),
             self.strategy_file_name,
             self.strategy_name,
+            self.client_config_map.market_data_collection,
         )
         self.markets_recorder.start()
         if self._mqtt is not None:

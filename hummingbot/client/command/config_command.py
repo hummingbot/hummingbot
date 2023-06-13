@@ -79,7 +79,12 @@ client_configs_to_display = ["autofill_import",
                              "create_command_timeout",
                              "other_commands_timeout",
                              "tables_format",
-                             "tick_size"]
+                             "tick_size",
+                             "market_data_collection",
+                             "market_data_collection_enabled",
+                             "market_data_collection_interval",
+                             "market_data_collection_depth",
+                             ]
 color_settings_to_display = ["top_pane",
                              "bottom_pane",
                              "output_pane",
