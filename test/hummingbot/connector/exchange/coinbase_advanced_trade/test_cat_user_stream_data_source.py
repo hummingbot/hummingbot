@@ -9,10 +9,10 @@ from hummingbot.connector.exchange.coinbase_advanced_trade.cat_api_user_stream_d
     CoinbaseAdvancedTradeAPIUserStreamDataSource,
     CoinbaseAdvancedTradeAuthProtocol,
     CoinbaseAdvancedTradeExchangePairProtocol,
-    CoinbaseAdvancedTradeWebAssistantsFactoryProtocol,
 )
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_constants import WebsocketAction
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_protocols import (
+    CoinbaseAdvancedTradeWebAssistantsFactoryProtocol,
     CoinbaseAdvancedTradeWSAssistantProtocol,
 )
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest

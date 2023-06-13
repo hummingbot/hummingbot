@@ -10,11 +10,8 @@ from hummingbot.connector.exchange.coinbase_advanced_trade.cat_api_user_stream_d
     CoinbaseAdvancedTradeAPIUserStreamDataSource,
 )
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_auth import CoinbaseAdvancedTradeAuth
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_api_errors import (
-    cat_api_call_http_error_handler,
-)
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_operational_errors import (
-    cat_api_call_operational_error_handler,
+from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_api_v3_response_types import (
+    CoinbaseAdvancedTradeGetTransactionSummaryResponse as _TransactionSummary,
 )
 
 # from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_protocols import (
@@ -26,10 +23,8 @@ from hummingbot.connector.exchange.coinbase_advanced_trade.cat_exchange_mixins.c
     TradingPairsRulesMixin,
 )
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_exchange_mixins.cat_websocket_mixin import WebsocketMixin
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_utils import TradingSummaryInfo
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
-from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -45,12 +40,18 @@ class _UtilitiesSuperCalls:
     This class is used to separate the methods inherited from ExchangePyBase
     in an attempt to reduce the size of the class definition.
     """
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    async def sleep(self, sleep: float):
+    @property
+    def current_timestamp(self) -> float:
+        # Defined in TimeIterator
+        return super().current_timestamp
+
+    async def _sleep(self, sleep: float):
         # Defined in ExchangePyBase
-        await super()._sleep(sleep=sleep)
+        await super()._sleep(sleep)
 
     def logger(self) -> HummingbotLogger:
         # Defined in ExchangePyBase
@@ -61,20 +62,17 @@ class _APICallsSuperCalls:
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    @cat_api_call_http_error_handler
-    @cat_api_call_operational_error_handler
+    # @cat_api_call_http_error_handler
     async def api_post(self, *args, **kwargs) -> Dict[str, Any]:
         kwargs["return_err"] = True
         return await super()._api_post(*args, **kwargs)
 
-    @cat_api_call_http_error_handler
-    @cat_api_call_operational_error_handler
+    # @cat_api_call_http_error_handler
     async def api_delete(self, *args, **kwargs) -> Dict[str, Any]:
         kwargs["return_err"] = True
         return await super()._api_delete(*args, **kwargs)
 
-    @cat_api_call_http_error_handler
-    @cat_api_call_operational_error_handler
+    # @cat_api_call_http_error_handler
     async def api_get(self, *args, **kwargs) -> Dict[str, Any]:
         kwargs["return_err"] = True
         return await super()._api_get(*args, **kwargs)
@@ -102,14 +100,6 @@ class CoinbaseAdvancedTradeExchange(
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         super().__init__(client_config_map=client_config_map)
-
-    @staticmethod
-    def coinbase_advanced_trade_order_type(order_type: OrderType) -> str:
-        return order_type.name.upper()
-
-    @staticmethod
-    def to_hb_order_type(coinbase_advanced_trade_type: str) -> OrderType:
-        return OrderType[coinbase_advanced_trade_type]
 
     @property
     def authenticator(self):
@@ -152,14 +142,20 @@ class CoinbaseAdvancedTradeExchange(
 
     @property
     def order_tracker(self) -> ClientOrderTracker:
+        # Defined in ExchangePyBase
         return self._order_tracker
+
+    @property
+    def exchange_order_ids(self) -> ClientOrderTracker:
+        # Defined in ExchangePyBase
+        return self._exchange_order_ids
 
     def iter_user_event_queue(self) -> AsyncIterable[Dict[str, Any]]:
         return self._iter_user_event_queue()
 
     @property
     def is_cancel_request_in_exchange_synchronous(self) -> bool:
-        return False
+        return True
 
     def get_balances_keys(self) -> Set[str]:
         return self._account_balances.keys()
@@ -200,13 +196,6 @@ class CoinbaseAdvancedTradeExchange(
         # time endpoint does not communicate an error code
         return False
 
-    def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
-        return CONSTANTS.ORDER_STATUS_NOT_FOUND_ERROR_CODE in str(status_update_exception)
-
-    @staticmethod
-    def _is_order_not_found_during_cancellation_error(cancelation_exception: Exception) -> bool:
-        return str(CONSTANTS.UNKNOWN_CANCEL_ORDER) in str(cancelation_exception)
-
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
             throttler=self._throttler,
@@ -234,7 +223,8 @@ class CoinbaseAdvancedTradeExchange(
         """
         Update fees information from the exchange
         """
-        fees: TradingSummaryInfo = await self._api_request("get", CONSTANTS.TRANSACTIONS_SUMMARY_EP)
+        fees: _TransactionSummary = _TransactionSummary(
+            **await self._api_request("get", CONSTANTS.TRANSACTIONS_SUMMARY_EP))
         self._trading_fees = fees
 
     async def _make_network_check_request(self):

@@ -1,7 +1,7 @@
 from typing import Callable, Optional, Union
 
 import hummingbot.connector.exchange.coinbase_advanced_trade.cat_constants as CONSTANTS
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_api_v2_response_data_types import (
+from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_api_v2_response_types import (
     CoinbaseAdvancedTradeTimeResponse,
 )
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
@@ -31,7 +31,7 @@ def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> s
     :param domain: the coinbase_advanced_trade domain to connect to ("com" or "us"). The default value is "com"
     :return: the full URL to the endpoint
     """
-    if path_url in CONSTANTS.SIGNIN_ENDPOINTS:
+    if any((path_url.startswith(p) for p in CONSTANTS.SIGNIN_ENDPOINTS)):
         return CONSTANTS.SIGNIN_URL.format(domain=domain) + path_url
     return CONSTANTS.REST_URL.format(domain=domain) + path_url
 

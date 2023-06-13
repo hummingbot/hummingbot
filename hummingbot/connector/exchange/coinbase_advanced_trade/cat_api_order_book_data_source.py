@@ -53,7 +53,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _parse_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         order_book_message: OrderBookMessage = await CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
-            raw_message, time.time(), self._connector.trading_pair_associated_to_exchange_symbol)
+            raw_message, time.time(), self._connector.exchange_symbol_associated_to_pair)
         message_queue.put_nowait(order_book_message)
 
     async def get_last_traded_prices(self,

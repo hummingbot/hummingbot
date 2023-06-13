@@ -23,13 +23,14 @@ WSS_URL = "wss://advanced-trade-ws.coinbase.{domain}/"
 SERVER_TIME_EP = "/time"
 EXCHANGE_RATES_USD_EP = "/exchange-rates"
 EXCHANGE_RATES_QUOTE_EP = "/exchange-rates?currency={quote_token}"
+EXCHANGE_RATES_QUOTE_LIMIT_ID = "ExchangeRatesQuote"
 CURRENCIES_EP = "/currencies"
 CRYPTO_CURRENCIES_EP = "/currencies/crypto"
 
 SIGNIN_ENDPOINTS = {
     SERVER_TIME_EP,
     EXCHANGE_RATES_USD_EP,
-    EXCHANGE_RATES_QUOTE_EP,
+    EXCHANGE_RATES_QUOTE_LIMIT_ID,
     CURRENCIES_EP,
     CRYPTO_CURRENCIES_EP,
 }
@@ -38,30 +39,34 @@ SIGNIN_ENDPOINTS = {
 # Product/pair required
 ALL_PAIRS_EP = "/brokerage/products"
 PAIR_TICKER_EP = "/brokerage/products/{product_id}"
+PAIR_TICKER_RATE_LIMIT_ID = "PairTicker"
 PAIR_TICKER_24HR_EP = "/brokerage/products/{product_id}/ticker"
+PAIR_TICKER_24HR_RATE_LIMIT_ID = "PairTicker24Hr"
 
 # Private API endpoints or CoinbaseAdvancedTradeClient function
 ORDER_EP = "/brokerage/orders"
 BATCH_CANCEL_EP = "/brokerage/orders/batch_cancel"
 GET_ORDER_STATUS_EP = "/brokerage/orders/historical/{order_id}"
+GET_ORDER_STATUS_RATE_LIMIT_ID = "GetOrderStatus"
 GET_STATUS_BATCH_EP = "/brokerage/orders/historical/batch"
 FILLS_EP = "/brokerage/orders/historical/fills"
 TRANSACTIONS_SUMMARY_EP = "/brokerage/transaction_summary"
 ACCOUNTS_LIST_EP = "/brokerage/accounts"
 ACCOUNT_EP = "/brokerage/accounts/{account_uuid}"
+ACCOUNT_RATE_LIMIT_ID = "Account"
 
 REST_ENDPOINTS = {
     ALL_PAIRS_EP,
-    PAIR_TICKER_EP,
-    PAIR_TICKER_24HR_EP,
+    PAIR_TICKER_RATE_LIMIT_ID,
+    PAIR_TICKER_24HR_RATE_LIMIT_ID,
     ORDER_EP,
     BATCH_CANCEL_EP,
-    GET_ORDER_STATUS_EP,
+    GET_ORDER_STATUS_RATE_LIMIT_ID,
     GET_STATUS_BATCH_EP,
     FILLS_EP,
     TRANSACTIONS_SUMMARY_EP,
     ACCOUNTS_LIST_EP,
-    ACCOUNT_EP,
+    ACCOUNT_RATE_LIMIT_ID,
 }
 
 WS_HEARTBEAT_TIME_INTERVAL = 30

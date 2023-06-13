@@ -1,22 +1,32 @@
-import json
-from dataclasses import asdict
 from enum import Enum
-from typing import Any, Dict, List, Optional, Protocol, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from _decimal import Decimal
 
 from hummingbot.connector.exchange.coinbase_advanced_trade import cat_constants as CONSTANTS
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_order_types import (
-    coinbase_advanced_trade_order_type_mapping,
+from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_api_v3_enums import (
+    CoinbaseAdvancedTradeOrderSide,
+)
+from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_api_v3_order_types import (
+    COINBASE_ADVANCED_TRADE_ORDER_TYPE_ENUM_MAPPING,
+    CoinbaseAdvancedTradeAPIOrderConfiguration,
+    CoinbaseAdvancedTradeOrderType,
+)
+from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_api_v3_request_types import (
+    CoinbaseAdvancedTradeCreateOrderRequest,
 )
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_exchange_mixins.cat_exchange_protocols import (
-    CATAPICallsProtocol,
-    TradingPairsMixinProtocol,
-    UtilitiesProtocol,
-    WebsocketMixinProtocol,
+    CoinbaseAdvancedTradeAPICallsMixinProtocol,
+    CoinbaseAdvancedTradeOrdersMixinProtocol,
+    CoinbaseAdvancedTradeTradingPairsMixinProtocol,
+    CoinbaseAdvancedTradeUtilitiesMixinProtocol,
+    CoinbaseAdvancedTradeWebsocketMixinProtocol,
 )
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_utils import DEFAULT_FEES
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_web_utils import set_exchange_time_from_timestamp
+from hummingbot.connector.exchange.coinbase_advanced_trade.cat_web_utils import (
+    get_timestamp_from_exchange_time,
+    set_exchange_time_from_timestamp,
+)
 from hummingbot.connector.exchange_base import s_decimal_NaN
 from hummingbot.connector.utils import TradeFillOrderDetails
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -55,31 +65,13 @@ class _OrdersMixinSuperCalls:
         return super().trigger_event(event_tag, message)
 
 
-class OrdersMixinProtocol(TradingPairsMixinProtocol,
-                          UtilitiesProtocol,
-                          CATAPICallsProtocol,
-                          WebsocketMixinProtocol,
-                          Protocol
-                          ):
+class _OrdersMixinProtocol(CoinbaseAdvancedTradeTradingPairsMixinProtocol,
+                           CoinbaseAdvancedTradeUtilitiesMixinProtocol,
+                           CoinbaseAdvancedTradeAPICallsMixinProtocol,
+                           CoinbaseAdvancedTradeWebsocketMixinProtocol,
+                           CoinbaseAdvancedTradeOrdersMixinProtocol
+                           ):
     _last_trades_poll_timestamp: float
-
-    @property
-    def last_poll_timestamp(self) -> float:
-        ...
-
-    @property
-    def current_trade_fills(self) -> Set:
-        ...
-
-    @property
-    def exchange_order_ids(self) -> Dict:
-        ...
-
-    def is_confirmed_new_order_filled_event(self, exchange_trade_id: str, exchange_order_id: str, trading_pair: str):
-        ...
-
-    def trigger_event(self, event_tag: Enum, message: Any):
-        ...
 
 
 def _create_trade_updates(trade_list: List[Any], client_order_id: str) -> List[TradeUpdate]:
@@ -110,7 +102,21 @@ class OrdersMixin(_OrdersMixinSuperCalls):
 
     @staticmethod
     def supported_order_types() -> List[OrderType]:
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
+        return [OrderType.MARKET, OrderType.LIMIT, OrderType.LIMIT_MAKER]
+
+    @staticmethod
+    def to_coinbase_advanced_trade_order_type(order_type: OrderType) -> str:
+        return COINBASE_ADVANCED_TRADE_ORDER_TYPE_ENUM_MAPPING.inverse.get(order_type)
+
+    @staticmethod
+    def to_hb_order_type(order_type: CoinbaseAdvancedTradeOrderType) -> OrderType:
+        return COINBASE_ADVANCED_TRADE_ORDER_TYPE_ENUM_MAPPING.get(order_type)
+
+    def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
+        return CONSTANTS.ORDER_STATUS_NOT_FOUND_ERROR_CODE in str(status_update_exception)
+
+    def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
+        return "UNKNOWN_CANCEL_ORDER" in str(cancelation_exception)
 
     def _get_fee(self,
                  base_currency: str,
@@ -122,11 +128,7 @@ class OrdersMixin(_OrdersMixinSuperCalls):
                  is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
         return AddedToCostTradeFee(DEFAULT_FEES)
 
-    @staticmethod
-    def _is_order_not_found_during_cancelation_error(cancellation_exception: Exception) -> bool:
-        return CONSTANTS.ORDER_STATUS_NOT_FOUND_ERROR_CODE in str(cancellation_exception)
-
-    async def _place_order(self: OrdersMixinProtocol,
+    async def _place_order(self: _OrdersMixinProtocol,
                            order_id: str,
                            trading_pair: str,
                            amount: Decimal,
@@ -178,24 +180,31 @@ class OrdersMixin(_OrdersMixinSuperCalls):
 
         """
         product_id = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        side = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
-        quote_size = str(amount * price)
-        base_size = str(amount)
-        limit_price = str(price)
+        side = CoinbaseAdvancedTradeOrderSide.BUY if trade_type is TradeType.BUY else CoinbaseAdvancedTradeOrderSide.SELL
 
-        selected_order_type = coinbase_advanced_trade_order_type_mapping[order_type]
-        order = selected_order_type(client_order_id=order_id,
-                                    product_id=product_id,
-                                    side=side,
-                                    base_size=base_size,
-                                    quote_size=quote_size,
-                                    limit_price=limit_price,
-                                    **kwargs)
+        order_configuration: CoinbaseAdvancedTradeAPIOrderConfiguration = \
+            CoinbaseAdvancedTradeAPIOrderConfiguration.create(
+                order_type,
+                base_size=amount,
+                quote_size=amount * price,
+                limit_price=price,
+                **kwargs
+            )
+        try:
+            order = CoinbaseAdvancedTradeCreateOrderRequest(
+                client_order_id=order_id,
+                product_id=product_id,
+                side=side,
+                order_configuration=order_configuration
+            )
+        except Exception as e:
+            print(order_configuration)
+            print(f"Exception {e}")
+            raise
 
-        # The errors are intercepted and handled in the _api_post method
         order_result: Dict = await self.api_post(
             path_url=CONSTANTS.ORDER_EP,
-            data=json.dumps(asdict(order), default=str),
+            data=order.to_dict_for_json(),
             is_auth_required=True)
 
         return order_result["order_id"], self.time_synchronizer.time()
@@ -206,9 +215,17 @@ class OrdersMixin(_OrdersMixinSuperCalls):
         https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_cancelorders
 
         """
-        return (await self._place_cancels(order_ids=[order_id]))[0]
+        # Coinbase Advanced Trade seems to require the exchange order ID to cancel an order
+        result = await self._place_cancels(order_ids=[tracked_order.exchange_order_id])
+        if result[0]["success"]:
+            return True
+        else:
+            if result[0]["failure_reason"] == "UNKNOWN_CANCEL_ORDER":
+                # return False
+                raise Exception(
+                    f"Order {order_id}:{tracked_order.exchange_order_id} not found on the exchange. UNKNOWN_CANCEL_ORDER")
 
-    async def _place_cancels(self: OrdersMixinProtocol, order_ids: List[str]) -> List[bool]:
+    async def _place_cancels(self: _OrdersMixinProtocol, order_ids: List[str]) -> List[Dict[str, Any]]:
         """
         Cancels an order with the exchange and returns the order ID and the timestamp of the order.
         https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_cancelorders
@@ -222,28 +239,30 @@ class OrdersMixin(_OrdersMixinSuperCalls):
             data=api_data,
             is_auth_required=True)
 
-        return [r["success"] for r in cancel_result["results"]]
+        return [r for r in cancel_result["results"]]
 
-    async def _request_order_status(self: OrdersMixinProtocol, tracked_order: InFlightOrder) -> OrderUpdate:
+    async def _request_order_status(self: _OrdersMixinProtocol, tracked_order: InFlightOrder) -> OrderUpdate:
         """
         Queries Order status by order_id.
         https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_gethistoricalorder
 
         """
         updated_order_data = await self.api_get(
-            path_url=CONSTANTS.GET_ORDER_STATUS_EP,
-            params={"order_id": tracked_order.client_order_id},
-            is_auth_required=True)
+            path_url=CONSTANTS.GET_ORDER_STATUS_EP.format(order_id=tracked_order.exchange_order_id),
+            params={},
+            is_auth_required=True,
+            limit_id=CONSTANTS.GET_ORDER_STATUS_RATE_LIMIT_ID,
+        )
 
-        status: str = updated_order_data["status"]
-        completion: Decimal = Decimal(updated_order_data["completion_percentage"])
+        status: str = updated_order_data['order']["status"]
+        completion: Decimal = Decimal(updated_order_data['order']["completion_percentage"])
         if status == "OPEN" and completion < Decimal("100"):
             status = "PARTIALLY_FILLED"
         new_state = CONSTANTS.ORDER_STATE[status]
 
         order_update = OrderUpdate(
             client_order_id=tracked_order.client_order_id,
-            exchange_order_id=str(updated_order_data["order_id"]),
+            exchange_order_id=str(updated_order_data['order']["order_id"]),
             trading_pair=tracked_order.trading_pair,
             update_timestamp=self.time_synchronizer.time(),
             new_state=new_state,
@@ -251,7 +270,7 @@ class OrdersMixin(_OrdersMixinSuperCalls):
 
         return order_update
 
-    async def _update_order_fills_from_trades(self: OrdersMixinProtocol):
+    async def _update_order_fills_from_trades(self: _OrdersMixinProtocol):
         """
         This is intended to be a backup measure to get filled events with trade ID for orders,
         in case Binance's user stream events are not working.
@@ -317,32 +336,34 @@ class OrdersMixin(_OrdersMixinSuperCalls):
                             fill_quote_amount=Decimal("0" if trade["size_in_quote"] is True else trade["size"]),
                             fill_price=Decimal(trade["price"]),
                             fill_timestamp=trade["trade_time"],
+                            is_taker=False
                         )
-                        self.order_tracker().process_trade_update(trade_update)
+                        self.order_tracker.process_trade_update(trade_update)
 
-                    elif self.is_confirmed_new_order_filled_event(str(trade["order_id"]), exchange_order_id,
+                    elif self.is_confirmed_new_order_filled_event(str(trade["trade_id"]),
+                                                                  str(exchange_order_id),
                                                                   trading_pair):
                         # This is a fill of an order registered in the DB but not tracked anymore
                         self.current_trade_fills.add(TradeFillOrderDetails(
                             market=self.display_name,
-                            exchange_trade_id=str(trade["id"]),
+                            exchange_trade_id=str(trade["trade_id"]),
                             symbol=trading_pair))
                         self.trigger_event(
                             MarketEvent.OrderFilled,
                             OrderFilledEvent(
-                                timestamp=float(trade["time"]),
-                                order_id=self._exchange_order_ids.get(str(trade["orderId"]), None),
+                                timestamp=float(get_timestamp_from_exchange_time(trade["trade_time"], "s")),
+                                order_id=self.exchange_order_ids.get(str(trade["order_id"]), None),
                                 trading_pair=trading_pair,
-                                trade_type=TradeType.BUY if trade["isBuyer"] else TradeType.SELL,
-                                order_type=OrderType.LIMIT_MAKER if trade["isMaker"] else OrderType.LIMIT,
+                                trade_type=TradeType.BUY if trade["side"] == "BUY" else TradeType.SELL,
+                                order_type=OrderType.LIMIT,
                                 price=Decimal(trade["price"]),
-                                amount=Decimal(trade["qty"]),
+                                amount=Decimal(trade["size"]),
                                 trade_fee=fee,
-                                exchange_trade_id=str(trade["id"])
+                                exchange_trade_id=str(trade["trade_id"])
                             ))
                         self.logger().info(f"Recreating missing trade in TradeFill: {trade}")
 
-    async def _all_trade_updates_for_order(self: OrdersMixinProtocol, order: InFlightOrder) -> List[TradeUpdate]:
+    async def _all_trade_updates_for_order(self: _OrdersMixinProtocol, order: InFlightOrder) -> List[TradeUpdate]:
         """
         Queries all trades for an order.
         https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_getfills
@@ -373,7 +394,7 @@ class OrdersMixin(_OrdersMixinSuperCalls):
                     fill_base_amount=Decimal(trade["size"]),
                     fill_quote_amount=Decimal("0" if trade["size_in_quote"] is True else trade["size"]),
                     fill_price=Decimal(trade["price"]),
-                    fill_timestamp=trade["trade_time"] * 1e-3,
+                    fill_timestamp=trade["trade_time"],
                 )
                 trade_updates.append(trade_update)
 
