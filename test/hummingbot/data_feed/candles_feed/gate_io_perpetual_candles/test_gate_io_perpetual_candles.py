@@ -241,8 +241,9 @@ class TestGateioPerpetualCandles(unittest.TestCase):
             self.is_logged("ERROR", "Unexpected error occurred subscribing to public klines...")
         )
 
+    @patch("hummingbot.data_feed.candles_feed.gate_io_perpetual_candles.GateioPerpetualCandles.fill_historical_candles", new_callable=AsyncMock)
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_process_websocket_messages_empty_candle(self, ws_connect_mock):
+    def test_process_websocket_messages_empty_candle(self, ws_connect_mock, fill_historical_candles_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         self.mocking_assistant.add_websocket_aiohttp_message(
@@ -255,6 +256,7 @@ class TestGateioPerpetualCandles(unittest.TestCase):
 
         self.assertEqual(self.data_feed.candles_df.shape[0], 1)
         self.assertEqual(self.data_feed.candles_df.shape[1], 10)
+        fill_historical_candles_mock.assert_called_once()
 
     @patch("hummingbot.data_feed.candles_feed.gate_io_perpetual_candles.GateioPerpetualCandles.fill_historical_candles",
            new_callable=AsyncMock)
