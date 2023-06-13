@@ -12,7 +12,7 @@ from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, PriceType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
@@ -105,7 +105,7 @@ class GateIoExchange(ExchangePyBase):
         return self._trading_required
 
     def supported_order_types(self):
-        return [OrderType.LIMIT]
+        return [OrderType.LIMIT, OrderType.MARKET, OrderType.LIMIT_MAKER]
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         # API documentation does not clarify the error message for timestamp related problems
@@ -194,15 +194,36 @@ class GateIoExchange(ExchangePyBase):
                            **kwargs) -> Tuple[str, float]:
         order_type_str = order_type.name.lower().split("_")[0]
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-
+        # When type is market, it refers to different currency according to side
+        # side : buy means quote currency, BTC_USDT means USDT
+        # side : sell means base currency，BTC_USDT means BTC
         data = {
             "text": order_id,
             "currency_pair": symbol,
             "side": trade_type.name.lower(),
             "type": order_type_str,
-            "price": f"{price:f}",
             "amount": f"{amount:f}",
         }
+        if order_type.is_limit_type():
+            data.update({
+                "price": f"{price:f}",
+                "time_in_force": "gtc"
+            })
+            if order_type is OrderType.LIMIT_MAKER:
+                data.update({"time_in_force": "poc"})
+        else:
+            data.update({
+                "time_in_force": "ioc",
+            })
+            if trade_type.name.lower() == 'buy':
+                if price.is_nan():
+                    price = self.get_price_by_type(
+                        trading_pair,
+                        price_type=PriceType.BestAsk if trade_type is TradeType.BUY else PriceType.BestBid)
+                data.update({
+                    "amount": f"{price * amount:f}",
+                })
+
         # RESTRequest does not support json, and if we pass a dict
         # the underlying aiohttp will encode it to params
         data = data
@@ -365,6 +386,7 @@ class GateIoExchange(ExchangePyBase):
 
         # same field for both WS and REST
         amount_left = Decimal(order_msg.get("left"))
+        filled_amount = Decimal(order_msg.get("filled_total"))
 
         # WS
         if "event" in order_msg:
@@ -374,14 +396,22 @@ class GateIoExchange(ExchangePyBase):
                 if amount_left > 0:
                     state = OrderState.PARTIALLY_FILLED
             if event_type == "finish":
-                state = OrderState.FILLED
-                if amount_left > 0:
+                finish_as = order_msg.get("finish_as")
+                if finish_as == "filled" or finish_as == "ioc":
+                    state = OrderState.FILLED
+                elif finish_as == "cancelled":
                     state = OrderState.CANCELED
+                elif finish_as == "open" and filled_amount > 0:
+                    state = OrderState.PARTIALLY_FILLED
         else:
             status = order_msg.get("status")
             if status == "closed":
-                state = OrderState.FILLED
-                if amount_left > 0:
+                finish_as = order_msg.get("finish_as")
+                if finish_as == "filled" or finish_as == "ioc":
+                    state = OrderState.FILLED
+                elif finish_as == "cancelled":
+                    state = OrderState.CANCELED
+                elif finish_as == "open" and filled_amount > 0:
                     state = OrderState.PARTIALLY_FILLED
             if status == "cancelled":
                 state = OrderState.CANCELED

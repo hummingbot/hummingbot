@@ -78,7 +78,6 @@ Exchanges may be centralized (**CEX**), or decentralized (**DEX**), in which cas
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Dexalot](https://docs.hummingbot.org/exchanges/dexalot/) | CLOB DEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Foxbit](https://docs.hummingbot.org/exchanges/foxbit/) | SPOT CEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [HitBTC](https://docs.hummingbot.org/exchanges/hitbtc/) | SPOT CEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Hotbit](https://docs.hummingbot.org/exchanges/hotbit/) | SPOT CEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Huobi](https://docs.hummingbot.org/exchanges/huobi/) | SPOT CEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Injective](https://docs.hummingbot.org/exchanges/injective/) | CLOB DEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Kraken](https://docs.hummingbot.org/exchanges/kraken/) | SPOT CEX |
