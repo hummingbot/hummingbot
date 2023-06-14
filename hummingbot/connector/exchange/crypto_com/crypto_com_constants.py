@@ -7,7 +7,7 @@ HBOT_ORDER_ID_PREFIX = "HBOT-"
 MAX_ORDER_ID_LEN = 32
 
 # Base URL
-REST_URL = "https://api.crypto.com/exchange/"
+REST_URL = "https://api.crypto.com/exchange"
 WSS_PRIVATE_URL = "wss://stream.crypto.com/exchange/v1/user"
 WSS_PUBLIC_URL = "wss://stream.crypto.com/exchange/v1/market"
 

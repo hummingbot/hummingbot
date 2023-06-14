@@ -16,7 +16,7 @@ def public_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> st
     :param domain: the Crypto.com domain to connect to ("com" or "us"). The default value is "com"
     :return: the full URL to the endpoint
     """
-    return CONSTANTS.REST_URL + CONSTANTS.PUBLIC_API_VERSION + path_url
+    return f"{CONSTANTS.REST_URL}/{CONSTANTS.PUBLIC_API_VERSION}/{path_url}"
 
 
 def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
@@ -26,7 +26,7 @@ def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> s
     :param domain: the Crypto.com domain to connect to ("com" or "us"). The default value is "com"
     :return: the full URL to the endpoint
     """
-    return CONSTANTS.REST_URL + CONSTANTS.PRIVATE_API_VERSION + path_url
+    return f"{CONSTANTS.REST_URL}/{CONSTANTS.PRIVATE_API_VERSION}/{path_url}"
 
 
 def build_api_factory(
