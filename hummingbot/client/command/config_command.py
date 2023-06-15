@@ -246,7 +246,12 @@ class ConfigCommand:
                     return
                 else:
                     config_map = self.strategy_config_map
-                    file_path = STRATEGIES_CONF_DIR_PATH / self.strategy_file_name
+                    if self.strategy_file_name is not None:
+                        file_path = STRATEGIES_CONF_DIR_PATH / self.strategy_file_name
+                    else:
+                        self.notify("Strategy file name is not configured.")
+                        return
+
                 if input_value is None:
                     self.notify("Please follow the prompt to complete configurations: ")
                 if key == "inventory_target_base_pct":
@@ -264,7 +269,7 @@ class ConfigCommand:
                     self.list_client_configs()
                 else:
                     self.list_strategy_configs()
-                self.app.app.style = load_style(self.client_config_map)
+                self.app.style = load_style(self.client_config_map)
         except asyncio.TimeoutError:
             self.logger().error("Prompt timeout")
         except Exception as err:
