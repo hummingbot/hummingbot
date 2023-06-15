@@ -55,22 +55,27 @@ class TimeSynchronizer:
         """
         return self._current_precise_time_s() + self.time_offset_ms * 1e-3
 
-    async def update_server_time_offset_with_time_provider(self, time_provider_ms: Awaitable):
+    async def update_server_time_offset_with_time_provider(self, time_provider: Awaitable):
         """
         Executes the time_provider passed as parameter to obtain the current time, and adds a new sample in the
         internal list.
 
-        :param time_provider_ms: Awaitable object that returns the current time
+        :param time_provider: Awaitable object that returns the current time in milliseconds
         """
         try:
             local_before_ns: int = self._current_precise_time_ns()
-            server_time_ms: float = await time_provider_ms
+            server_time_ms: float = await time_provider
             local_after_ns: int = self._current_precise_time_ns()
+            local_time_ms: float = (local_before_ns + local_after_ns) * 0.5 * 1e-6
 
-            local_server_time_pre_image_ns: float = (local_before_ns + local_after_ns) / 2.0
-            time_offset_ms: float = server_time_ms - local_server_time_pre_image_ns * 1e-6
+            # Verify server time in milliseconds
+            time_ratio = server_time_ms / local_time_ms
+            if not (0.01 <= time_ratio <= 100.0):
+                raise ValueError("Server time does not appear to be within 2 orders of magnitude of local time.")
+
+            time_offset_ms: float = server_time_ms - local_time_ms
             self.add_time_offset_ms_sample(time_offset_ms)
-        except asyncio.CancelledError:
+        except (asyncio.CancelledError, ValueError):
             raise
         except Exception:
             self.logger().network("Error getting server time.", exc_info=True,
