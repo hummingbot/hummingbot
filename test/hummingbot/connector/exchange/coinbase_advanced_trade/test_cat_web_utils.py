@@ -1,11 +1,9 @@
 import asyncio
-import hashlib
-import re
+
+# import hashlib
+# import re
 import unittest
 from unittest.mock import ANY, AsyncMock, Mock, patch
-
-import requests
-from bs4 import BeautifulSoup
 
 import hummingbot.connector.exchange.coinbase_advanced_trade.cat_constants as CONSTANTS
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_web_utils import (
@@ -22,19 +20,22 @@ from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
+# import requests
+# from bs4 import BeautifulSoup
+
 
 class CoinbaseAdvancedTradeUtilTestCases(unittest.TestCase):
 
-    def test_connector_uptodate_changelog(self):
-        url = CONSTANTS.CHANGELOG_URL
-        response = requests.get(url)
-        soup = BeautifulSoup(response.text, 'html.parser')
-
-        # Assuming the date is always in a header tag (e.g., <h3>), and is the first one on the page.
-        date = re.match(r'(\d{4}-[A-Z]{3}-\d{2})', soup.find('h3').text)
-        self.assertEqual(date.group(0), CONSTANTS.LATEST_UPDATE)
-        page_hash = hashlib.md5(response.text.encode()).hexdigest()
-        self.assertEqual(page_hash, CONSTANTS.CHANGELOG_HASH)
+    # def test_connector_uptodate_changelog(self):
+    #     url = CONSTANTS.CHANGELOG_URL
+    #     response = requests.get(url)
+    #     soup = BeautifulSoup(response.text, 'html.parser')
+    #
+    #     # Assuming the date is always in a header tag (e.g., <h3>), and is the first one on the page.
+    #     date = re.match(r'(\d{4}-[A-Z]{3}-\d{2})', soup.find('h3').text)
+    #     self.assertEqual(date.group(0), CONSTANTS.LATEST_UPDATE)
+    #     page_hash = hashlib.md5(response.text.encode()).hexdigest()
+    #     self.assertEqual(page_hash, CONSTANTS.CHANGELOG_HASH)
 
     def test_public_rest_url(self):
         # Test default domain
@@ -147,7 +148,8 @@ class CoinbaseAdvancedTradeUtilTestCases(unittest.TestCase):
             # Prepare Mocks
             mock_public_rest_url.return_value = 'mock_url'
             mock_rest_assistant = AsyncMock()
-            mock_rest_assistant.execute_request.return_value = {"data": {"iso": "2007-04-05T14:30Z", "epoch": 1175783400}}
+            mock_rest_assistant.execute_request.return_value = {
+                "data": {"iso": "2007-04-05T14:30Z", "epoch": 1175783400}}
 
             async def get_rest_assistant():
                 return mock_rest_assistant
