@@ -54,13 +54,13 @@ jobs:
         id: conda-dependencies
         uses: actions/cache@v2
         env:
-          # Increase this value to manually reset cache if setup/environment-linux.yml has not changed
+          # Increase this value to manually reset cache if setup/environment.yml has not changed
           CONDA_CACHE_NUMBER: 0
         with:
           path: |
             /home/runner/conda_pkgs_dir/
             /usr/share/miniconda/envs
-          key: ${{ runner.os }}-conda-${{ env.CONDA_CACHE_NUMBER }}-${{ hashFiles('setup/environment-linux.yml') }}
+          key: ${{ runner.os }}-conda-${{ env.CONDA_CACHE_NUMBER }}-${{ hashFiles('setup/environment.yml') }}
 
       # Install environment and Hummingbot
       - name: Install environment and Hummingbot
@@ -118,32 +118,6 @@ jobs:
           git clone --depth 1 https://github.com/DiscordHooks/github-actions-discord-webhook.git webhook
           bash webhook/send.sh $JOB_STATUS $WEBHOOK_URL
         shell: bash
-        
-  build-and-push:
-    needs: build_hummingbot
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-
-      - name: Login to DockerHub
-        uses: docker/login-action@v1 
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Build and push
-        id: docker_build
-        uses: docker/build-push-action@v2
-        with:
-          context: .
-          file: ./Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: hummingbot/hummingbot:latest
 
