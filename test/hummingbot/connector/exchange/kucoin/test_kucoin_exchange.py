@@ -974,7 +974,7 @@ class KucoinExchangeTests(unittest.TestCase):
     @aioresponses()
     @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_precise_time_ns")
     def test_update_time_synchronizer_successfully(self, mock_api, seconds_counter_mock):
-        seconds_counter_mock.side_effect = [0, 0, 0]
+        seconds_counter_mock.side_effect = [1640000003000000000, 1640000003000000000, 1640000003000000000]
 
         self.exchange._time_synchronizer.clear_time_offset_ms_samples()
         url = web_utils.public_rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
