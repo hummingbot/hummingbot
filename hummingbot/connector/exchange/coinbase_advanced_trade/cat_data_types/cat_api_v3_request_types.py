@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional
 
 from pydantic import Field
 
@@ -62,12 +62,6 @@ class CoinbaseAdvancedTradeRequestType(
         Returns the request data as a dictionary.
         """
         raise NotImplementedError
-
-
-def get_request_class_by_name(class_name: str) -> Type[CoinbaseAdvancedTradeRequestType]:
-    if c := CoinbaseAdvancedTradeRequestType.find_class_by_name(class_name):
-        return c
-    raise CoinbaseAdvancedTradeRequestError(f"No response class found for {class_name}")
 
 
 class _RequestBase(PydanticForJsonConfig):

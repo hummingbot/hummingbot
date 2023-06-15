@@ -36,6 +36,20 @@ def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> s
     return CONSTANTS.REST_URL.format(domain=domain) + path_url
 
 
+def symbol_to_pair(symbol: str) -> str:
+    """
+    Converts a symbol to a pair
+    """
+    return symbol
+
+
+def pair_to_symbol(trading_pair: str) -> str:
+    """
+    Converts a pair to a symbol
+    """
+    return trading_pair
+
+
 def build_api_factory(
         throttler: Optional[AsyncThrottler] = None,
         time_synchronizer: Optional[TimeSynchronizer] = None,

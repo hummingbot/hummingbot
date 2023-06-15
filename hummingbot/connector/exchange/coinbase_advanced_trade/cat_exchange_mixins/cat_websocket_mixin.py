@@ -11,7 +11,7 @@ from hummingbot.connector.exchange.coinbase_advanced_trade.cat_exchange_mixins.c
     CoinbaseAdvancedTradeUtilitiesMixinProtocol,
     CoinbaseAdvancedTradeWebsocketMixinProtocol,
 )
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_utils import DEFAULT_FEES
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_utils import DEFAULT_FEES
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 

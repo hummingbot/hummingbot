@@ -18,6 +18,14 @@
 #     CoinbaseAdvancedTradeListOrdersRequest,
 #     CoinbaseAdvancedTradeListProductsRequest,
 # )
+import unittest
+
+from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_api_v3_request_types import (
+    CoinbaseAdvancedTradeRequestType,
+)
+from hummingbot.connector.exchange.coinbase_advanced_trade.cat_utilities.cat_api_v3_class_validation_with_web_documentation import (
+    ClassValidationWithWebDocumentation,
+)
 
 # from pyppeteer import launch
 # from pyppeteer.element_handle import ElementHandle
@@ -313,3 +321,17 @@
 #
 # if __name__ == "__main__":
 #     unittest.main()
+
+# List of classes you want to test
+classes_under_test = [CoinbaseAdvancedTradeRequestType.get_registry()[key]
+                      for key in CoinbaseAdvancedTradeRequestType.get_registry().keys()
+                      if "CreateOrder" not in key]
+
+# classes_under_test = [CoinbaseAdvancedTradeCancelOrdersResponse]
+# Dynamically create a subclass for each class you want to test
+for class_under_test in classes_under_test:
+    name = f"Test{class_under_test.__name__}"
+    globals()[name] = type(name, (ClassValidationWithWebDocumentation.TestSuite,), {"class_under_test": class_under_test})
+
+if __name__ == "__main__":
+    unittest.main()

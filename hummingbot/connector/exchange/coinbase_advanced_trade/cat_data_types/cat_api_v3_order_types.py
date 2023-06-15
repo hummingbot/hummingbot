@@ -5,21 +5,16 @@ from typing import Optional, Type
 from bidict import bidict
 from pydantic import validator
 
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_api_v3_enums import (
-    CoinbaseAdvancedTradeStopDirection,
-)
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_utilities.cat_collect_pydantic_class_annotations import (
-    collect_pydantic_class_annotations,
-)
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_utilities.cat_dict_mockable_from_json_mixin import (
+from hummingbot.core.data_type.common import OrderType
+from hummingbot.core.utils.class_registry import ClassRegistry
+
+from ..cat_utilities.cat_collect_pydantic_class_annotations import collect_pydantic_class_annotations
+from ..cat_utilities.cat_dict_mockable_from_json_mixin import (
     DictMethodMockableFromJsonDocMixin,
     DictMethodMockableFromJsonOneOfManyDocMixin,
 )
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_utilities.cat_pydantic_for_json import (
-    PydanticForJsonConfig,
-)
-from hummingbot.core.data_type.common import OrderType
-from hummingbot.core.utils.class_registry import ClassRegistry
+from ..cat_utilities.cat_pydantic_for_json import PydanticForJsonConfig
+from .cat_api_v3_enums import CoinbaseAdvancedTradeStopDirection
 
 
 class CoinbaseAdvancedOrderTypeError(Exception):
@@ -172,7 +167,7 @@ class CoinbaseAdvancedTradeStopLimitGTDOrderType(_PydanticForJsonAllowExtra, Coi
     end_time: str
 
 
-COINBASE_ADVANCED_TRADE_ORDER_TYPE_REGISTRY = {
+_COINBASE_ADVANCED_TRADE_ORDER_TYPE_REGISTRY = {
     OrderType.MARKET: {
         "class": CoinbaseAdvancedTradeMarketIOCOrderType,
         "post_only": None,
@@ -258,7 +253,7 @@ class CoinbaseAdvancedTradeAPIOrderConfiguration(PydanticForJsonConfig, DictMeth
     @classmethod
     def create(cls, order_type: OrderType, **data):
         try:
-            order_type_info = COINBASE_ADVANCED_TRADE_ORDER_TYPE_REGISTRY[order_type]
+            order_type_info = _COINBASE_ADVANCED_TRADE_ORDER_TYPE_REGISTRY[order_type]
         except KeyError:
             raise CoinbaseAdvancedOrderTypeError(f'Unsupported order type: {order_type}.')
 
@@ -282,22 +277,20 @@ def create_coinbase_advanced_trade_order_type_members(cls: Type[Enum]) -> Type[E
     # Update the member map of the given class with the members from the original OrderType
     cls._member_map_.update(OrderType._member_map_)
 
-    def match_member_to_order_type(name: str, corresponding_name: str) -> None:
+    def match_member_to_order_type(name_: str, corresponding_name: str) -> None:
         """
         Match the member with the given name to the member with the given corresponding name
         from the original OrderType enum. If the corresponding name is not in the original
         OrderType enum, assign a new auto-generated value to the member.
 
-        :param name: The name of the member to be matched.
-        :type name: str
-        :param corresponding_name: The name of the corresponding member from the original OrderType enum.
-        :type corresponding_name: str
+        :param str name_: The name of the member to be matched.
+        :param str corresponding_name: The name of the corresponding member from the original OrderType enum.
         """
         if corresponding_name in OrderType.__members__:
-            if name not in OrderType.__members__:
-                cls._member_map_[name] = OrderType[corresponding_name]
+            if name_ not in OrderType.__members__:
+                cls._member_map_[name_] = OrderType[corresponding_name]
         else:
-            cls._member_map_[name] = auto()
+            cls._member_map_[name_] = auto()
 
     # Match the given order type enum members with the corresponding members from the original OrderType enum
     match_member_to_order_type("MARKET_IOC", "MARKET")

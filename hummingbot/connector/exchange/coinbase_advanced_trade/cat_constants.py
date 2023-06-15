@@ -6,6 +6,10 @@ from bidict import bidict
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.data_type.in_flight_order import OrderState
 
+CHANGELOG_URL = "https://docs.cloud.coinbase.com/advanced-trade-api/docs/changelog"
+LATEST_UPDATE = "2023-JUN-01"
+CHANGELOG_HASH = "3a99968df3223eb00502e2059012c9a5"
+
 COINBASE_ADVANCED_TRADE_CLASS_PREFIX = "CoinbaseAdvancedTrade"
 
 DEFAULT_DOMAIN = "com"

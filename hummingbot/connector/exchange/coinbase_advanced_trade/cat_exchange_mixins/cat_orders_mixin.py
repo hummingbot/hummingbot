@@ -22,11 +22,11 @@ from hummingbot.connector.exchange.coinbase_advanced_trade.cat_exchange_mixins.c
     CoinbaseAdvancedTradeUtilitiesMixinProtocol,
     CoinbaseAdvancedTradeWebsocketMixinProtocol,
 )
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_utils import DEFAULT_FEES
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_web_utils import (
     get_timestamp_from_exchange_time,
     set_exchange_time_from_timestamp,
 )
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_utils import DEFAULT_FEES
 from hummingbot.connector.exchange_base import s_decimal_NaN
 from hummingbot.connector.utils import TradeFillOrderDetails
 from hummingbot.core.data_type.common import OrderType, TradeType

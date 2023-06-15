@@ -1,7 +1,7 @@
 import unittest
 from decimal import Decimal
 
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_utils import DEFAULT_FEES
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_utils import DEFAULT_FEES
 
 
 class CoinbaseAdvancedTradeUtilTestCases(unittest.TestCase):
