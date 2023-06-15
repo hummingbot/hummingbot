@@ -2,36 +2,31 @@
 
 cd $(dirname $0)
 
-# Compatibility logic for older Anaconda versions.
-if [ "${CONDA_EXE} " == " " ]; then
-    CONDA_EXE=$((find /opt/conda/bin/conda || find ~/anaconda3/bin/conda || \
-	    find /usr/local/anaconda3/bin/conda || find ~/miniconda3/bin/conda  || \
-	    find /root/miniconda/bin/conda || find ~/Anaconda3/Scripts/conda || \
-	    find $CONDA/bin/conda) 2>/dev/null)
-fi
+source common_install.sh
 
-if [ "${CONDA_EXE}_" == "_" ]; then
-    echo "Please install Anaconda w/ Python 3.7+ first"
-    echo "See: https://www.anaconda.com/distribution/"
-    exit 1
-fi
+find_conda_exe CONDA_EXE
 
 CONDA_BIN=$(dirname ${CONDA_EXE})
-ENV_FILE=setup/environment.yml
+CONDA_AGENT=$(${CONDA_EXE} info --json | jq -r '.user_agent')
 
-if ${CONDA_EXE} env list | egrep -qe "^hummingbot"; then
-    ${CONDA_EXE} env update -f $ENV_FILE
+echo "*** Installing environment Conda environment for Hummingbot ***"
+
+ENV_FILE="setup/environment.yml"
+
+ENV_FILE=$(get_env_file ${ENV_FILE})
+
+ENV_NAME=$(get_env_name ${ENV_FILE})
+
+if ${CONDA_EXE} env list | awk '{ print $1 }' | egrep -e "^${ENV_NAME}$" 1>/dev/null; then
+    ${CONDA_EXE} env update -f $ENV_FILE --prune
 else
     ${CONDA_EXE} env create -f $ENV_FILE
 fi
 
-source "${CONDA_BIN}/activate" hummingbot
+source "${CONDA_BIN}/activate" ${ENV_NAME}
 
-# Add the project directory to module search paths.
-conda develop .
-
-# For some reason, this needs to be installed outside of the environment file,
-# or it'll give you the graphviz install error.
-pip install objgraph
-
+# Installing conflicting pip packages without their dependencies
+# They could override the environment plan with conda
+echo "Installing conflicting pip packages without their dependencies"
+pip install --no-deps -r setup/pip_packages.txt 1> logs/pip_install.log 2>&1
 pre-commit install

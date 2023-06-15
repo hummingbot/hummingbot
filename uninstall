@@ -2,21 +2,41 @@
 
 cd $(dirname $0)
 
-# Compatibility logic for older Anaconda versions.
-if [ "${CONDA_EXE} " == " " ]; then
-    CONDA_EXE=$((find /opt/conda/bin/conda || find ~/anaconda3/bin/conda || \
-	    find /usr/local/anaconda3/bin/conda || find ~/miniconda3/bin/conda  || \
-	    find /root/miniconda/bin/conda || find ~/Anaconda3/Scripts/conda) 2>/dev/null)
-fi
+source common_script.sh
 
-if [ "${CONDA_EXE}_" == "_" ]; then
-    echo "Please install Anaconda w/ Python 3.7+ first"
-    echo "See: https://www.continuum.io/downloads"
-    exit 1
-fi
+find_conda_exe CONDA_EXE
 
-if ${CONDA_EXE} env list | egrep -qe "^hummingbot"; then
-    ${CONDA_EXE} env remove -n hummingbot
+echo "*** Un-Installing environment Conda environment for Hummingbot ***"
+
+ENV_FILE="setup/environment.yml"
+
+ENV_FILE=$(get_env_file $ENV_FILE)
+
+ENV_NAME=$(get_env_name $ENV_FILE)
+
+echo    "  '-> Attempting to remove: ${ENV_NAME}"
+
+if ${CONDA_EXE} env list | awk '{ print $1 }' | egrep -e "^${ENV_NAME}$" 1>/dev/null; then
+    echo "  '-> Environment found."
+    echo "       Environment .yml: ${ENV_FILE}"
+    VALID_ENV_NAME=$(grep  'name:' ${ENV_FILE} | tail -n1 | awk '{ print $2}')
+    echo "          .yml env name: ${VALID_ENV_NAME}"
+
+    if [ ${ENV_NAME} != ${VALID_ENV_NAME} ]; then
+        echo "*** You are attempting to remove the environment:"
+        echo "       ${ENV_NAME}"
+        echo "    but the environment name in ${ENV_FILE} is:"
+        echo "       ${VALID_ENV_NAME}"
+    fi
+
+    read -t 10 -p "Do you want to continue? [y/N]: " RESPONSE
+    if [ "${RESPONSE}_" == "_" ] || [ "${RESPONSE}" != "y" ]; then
+        echo ""
+        echo "Aborting."
+        exit 1
+    fi
+
+    ${CONDA_EXE} env remove -n ${ENV_NAME}
 else
     echo "Environment already removed."
 fi
