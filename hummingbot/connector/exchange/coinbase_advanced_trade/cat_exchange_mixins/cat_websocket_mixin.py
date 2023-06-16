@@ -1,7 +1,8 @@
 import decimal
-from typing import AsyncIterable, Optional, TypeVar
+from typing import Any, AsyncIterable, Optional
 
 from _decimal import Decimal
+from pydantic.annotated_types import Dict
 
 from hummingbot.connector.exchange.coinbase_advanced_trade import cat_constants as CONSTANTS
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_cumulative_trade import (
@@ -15,33 +16,22 @@ from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_tra
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 
-T = TypeVar("T")
 
-
-class _WebsocketMixinSuperCalls:
-    """
-    This class is used to call the methods of the super class of a subclass of its Mixin.
-    It allows a dynamic search of the methods in the super classes of its Mixin.
-    The methods must be defined in one of the super classes defined after its Mixin class.
-    """
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-    def iter_user_event_queue(self) -> AsyncIterable[CoinbaseAdvancedTradeCumulativeUpdate]:
-        return super()._iter_user_event_queue()
-
-
-class _WebsocketUtilitiesProto(CoinbaseAdvancedTradeWebsocketMixinProtocol,
-                               CoinbaseAdvancedTradeUtilitiesMixinProtocol):
+class _WebLoggerProtocol(
+    CoinbaseAdvancedTradeWebsocketMixinProtocol,
+    CoinbaseAdvancedTradeUtilitiesMixinProtocol,
+):
     pass
 
 
-class WebsocketMixin(_WebsocketMixinSuperCalls):
+class WebsocketMixin:
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    async def _user_stream_event_listener(self: _WebsocketUtilitiesProto):
+    def iter_user_event_queue(self: CoinbaseAdvancedTradeWebsocketMixinProtocol) -> AsyncIterable[Dict[str, Any]]:
+        return self._iter_user_event_queue()
+
+    async def _user_stream_event_listener(self: _WebLoggerProtocol):
         """
         This functions runs in background continuously processing the events received from the exchange by the user
         stream data source. It keeps reading events from the queue until the task is interrupted.
@@ -102,8 +92,6 @@ class WebsocketMixin(_WebsocketMixinSuperCalls):
                     fill_price=fill_price,
                     fill_timestamp=event_message.fill_timestamp,
                 )
-                # Maybe we should not emit a TradeUpdate?
-                # TODO: Check if we should emit a TradeUpdate in this case
                 self.order_tracker.process_trade_update(trade_update)
 
             if updatable_order is not None:

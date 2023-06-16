@@ -1,8 +1,8 @@
-from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from _decimal import Decimal
 
+from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.exchange.coinbase_advanced_trade import cat_constants as CONSTANTS
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_api_v3_enums import (
     CoinbaseAdvancedTradeOrderSide,
@@ -36,41 +36,13 @@ from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 from hummingbot.core.utils.async_utils import safe_gather
 
 
-class _OrdersMixinSuperCalls:
-    """
-    This class is used to call the methods of the super class of a subclass of its Mixin.
-    It allows a dynamic search of the methods in the super classes of its Mixin.
-    The methods must be defined in one of the super classes defined after its Mixin class.
-    """
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-    @property
-    def current_trade_fills(self) -> Set:
-        # Defined in ConnectorBase
-        return super()._current_trade_fills
-
-    @property
-    def exchange_order_ids(self) -> Dict:
-        # Defined in ConnectorBase
-        return super()._exchange_order_ids
-
-    def is_confirmed_new_order_filled_event(self, exchange_trade_id: str, exchange_order_id: str, trading_pair: str):
-        # Defined in ConnectorBase
-        return super().is_confirmed_new_order_filled_event(exchange_trade_id, exchange_order_id, trading_pair)
-
-    def trigger_event(self, event_tag: Enum, message: Any):
-        # Defined in PubSub
-        return super().trigger_event(event_tag, message)
-
-
-class _OrdersMixinProtocol(CoinbaseAdvancedTradeTradingPairsMixinProtocol,
-                           CoinbaseAdvancedTradeUtilitiesMixinProtocol,
-                           CoinbaseAdvancedTradeAPICallsMixinProtocol,
-                           CoinbaseAdvancedTradeWebsocketMixinProtocol,
-                           CoinbaseAdvancedTradeOrdersMixinProtocol
-                           ):
+class _OrdersMixinProtocol(
+    CoinbaseAdvancedTradeTradingPairsMixinProtocol,
+    CoinbaseAdvancedTradeUtilitiesMixinProtocol,
+    CoinbaseAdvancedTradeAPICallsMixinProtocol,
+    CoinbaseAdvancedTradeWebsocketMixinProtocol,
+    CoinbaseAdvancedTradeOrdersMixinProtocol,
+):
     _last_trades_poll_timestamp: float
 
 
@@ -95,10 +67,37 @@ def _create_trade_updates(trade_list: List[Any], client_order_id: str) -> List[T
     return trade_updates
 
 
-class OrdersMixin(_OrdersMixinSuperCalls):
+class OrdersMixin:
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._last_trades_poll_timestamp: float = 0.0
+
+    @property
+    def last_poll_timestamp(self: CoinbaseAdvancedTradeOrdersMixinProtocol) -> float:
+        # Defined in ExchangePyBase
+        return self._last_poll_timestamp
+
+    @property
+    def client_order_id_max_length(self):
+        return CONSTANTS.MAX_ORDER_ID_LEN
+
+    @property
+    def client_order_id_prefix(self):
+        return CONSTANTS.HBOT_ORDER_ID_PREFIX
+
+    @property
+    def in_flight_orders(self: CoinbaseAdvancedTradeOrdersMixinProtocol) -> Dict[str, InFlightOrder]:
+        return self._order_tracker.active_orders
+
+    @property
+    def order_tracker(self: CoinbaseAdvancedTradeOrdersMixinProtocol) -> ClientOrderTracker:
+        # Defined in ExchangePyBase
+        return self._order_tracker
+
+    @property
+    def exchange_order_ids(self: CoinbaseAdvancedTradeOrdersMixinProtocol) -> ClientOrderTracker:
+        # Defined in ExchangePyBase
+        return self._exchange_order_ids
 
     @staticmethod
     def supported_order_types() -> List[OrderType]:
@@ -344,7 +343,7 @@ class OrdersMixin(_OrdersMixinSuperCalls):
                                                                   str(exchange_order_id),
                                                                   trading_pair):
                         # This is a fill of an order registered in the DB but not tracked anymore
-                        self.current_trade_fills.add(TradeFillOrderDetails(
+                        self._current_trade_fills.add(TradeFillOrderDetails(
                             market=self.display_name,
                             exchange_trade_id=str(trade["trade_id"]),
                             symbol=trading_pair))
@@ -352,7 +351,7 @@ class OrdersMixin(_OrdersMixinSuperCalls):
                             MarketEvent.OrderFilled,
                             OrderFilledEvent(
                                 timestamp=float(get_timestamp_from_exchange_time(trade["trade_time"], "s")),
-                                order_id=self.exchange_order_ids.get(str(trade["order_id"]), None),
+                                order_id=self._exchange_order_ids.get(str(trade["order_id"]), None),
                                 trading_pair=trading_pair,
                                 trade_type=TradeType.BUY if trade["side"] == "BUY" else TradeType.SELL,
                                 order_type=OrderType.LIMIT,

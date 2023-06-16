@@ -1,6 +1,6 @@
-from typing import Any, AsyncGenerator, Coroutine, Optional, Protocol, runtime_checkable
+from typing import Any, AsyncGenerator, Coroutine, Dict, Optional, Protocol, runtime_checkable
 
-from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest, WSResponse
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest, WSResponse
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 
@@ -72,3 +72,20 @@ class CoinbaseAdvancedTradeWebAssistantsFactoryAdapter(CoinbaseAdvancedTradeWebA
 @runtime_checkable
 class CoinbaseAdvancedTradeAuthProtocol(Protocol):
     pass
+
+
+@runtime_checkable
+class CoinbaseAdvancedTradeAPIRequestProtocol(Protocol):
+    endpoint: str
+    method: RESTMethod
+    limit_id: str
+
+    def data(self) -> Dict[str, Any]:
+        ...
+
+    def params(self) -> Dict[str, Any]:
+        ...
+
+    @staticmethod
+    def is_auth_required() -> bool:
+        ...
