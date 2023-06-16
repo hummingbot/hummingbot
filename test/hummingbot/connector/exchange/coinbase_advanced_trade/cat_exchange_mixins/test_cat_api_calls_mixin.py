@@ -3,10 +3,7 @@ import unittest
 from typing import Any, Dict
 from unittest.mock import AsyncMock
 
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_exchange import (
-    CoinbaseAdvancedTradeExchange,
-    _APICallsSuperCalls,
-)
+from hummingbot.connector.exchange.coinbase_advanced_trade.cat_exchange import CoinbaseAdvancedTradeExchange
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_exchange_mixins.cat_exchange_protocols import (
     CoinbaseAdvancedTradeAPICallsMixinProtocol,
 )
@@ -49,12 +46,12 @@ class ExchangeAPIMock:
         return await self._api_get()
 
 
-class APICallsMixinSubclass(_APICallsSuperCalls, ExchangeAPI):
+class APICallsMixinSubclass(ExchangeAPI):
     def __init__(self):
         super().__init__()
 
 
-class APICallsMixinSubclassMock(_APICallsSuperCalls, ExchangeAPIMock):
+class APICallsMixinSubclassMock(ExchangeAPIMock):
     def __init__(self):
         super().__init__()
 

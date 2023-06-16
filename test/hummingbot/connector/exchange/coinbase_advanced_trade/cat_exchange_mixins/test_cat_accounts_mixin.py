@@ -10,7 +10,9 @@ from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_ap
     CoinbaseAdvancedTradeAccount,
     CoinbaseAdvancedTradeListAccountsResponse,
 )
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_exchange_mixins.cat_accounts_mixin import AccountsMixin
+from hummingbot.connector.exchange.coinbase_advanced_trade.cat_exchange_mixins.cat_accounts_mixin import (
+    CoinbaseAdvancedTradeAccountsMixin,
+)
 
 
 # Create a helper function to create an AccountInfo object
@@ -58,7 +60,7 @@ def create_last_accounts_page():
     }
 
 
-# Create a subclass of AccountsMixin simulating Exchange inheritance
+# Create a subclass of CoinbaseAdvancedTradeAccountsMixin simulating Exchange inheritance
 class ExchangeAPI:
     def __init__(self):
         self.api_get_called: bool = False
@@ -72,7 +74,7 @@ class ExchangeAPI:
         return create_accounts()
 
 
-class ExchangeMixinSubclass(AccountsMixin, ExchangeAPI):
+class ExchangeMixinSubclass(CoinbaseAdvancedTradeAccountsMixin, ExchangeAPI):
     def __init__(self):
         super().__init__()
         self.remove_balances_called: bool = False
@@ -96,7 +98,7 @@ class ExchangeMixinSubclass(AccountsMixin, ExchangeAPI):
 
 class TestAccountsMixin(unittest.TestCase):
     def setUp(self):
-        self.accounts_mixin = AccountsMixin()
+        self.accounts_mixin = CoinbaseAdvancedTradeAccountsMixin()
         self.accounts = create_accounts()
         self.exchange_with_accounts_mixin = ExchangeMixinSubclass()
 

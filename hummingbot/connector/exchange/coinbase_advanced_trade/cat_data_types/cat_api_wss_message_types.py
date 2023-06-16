@@ -3,7 +3,6 @@ from typing import Callable, Tuple, Union
 
 from hummingbot.core.utils.class_registry import ClassRegistry
 
-from ..cat_data_types.cat_data_types_utilities import DataIterableMixin
 from ..cat_utilities.cat_dict_mockable_from_json_mixin import DictMethodMockableFromJsonDocMixin
 from ..cat_utilities.cat_pydantic_for_json import PydanticForJsonConfig, PydanticMockableForJson
 from .cat_api_v3_enums import (
@@ -15,6 +14,7 @@ from .cat_api_v3_enums import (
     CoinbaseAdvancedTradeWSSOrderType,
     CoinbaseAdvancedTradeWSSProductType,
 )
+from .cat_data_types_utilities import DataIterableMixin
 
 
 class CoinbaseAdvancedTradeMessageError(Exception):
