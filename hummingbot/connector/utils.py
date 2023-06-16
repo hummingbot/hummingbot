@@ -5,7 +5,7 @@ import os
 import platform
 from collections import namedtuple
 from hashlib import md5
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Awaitable, Dict, Optional, Tuple
 
 from zero_ex.order_utils import Order as ZeroExOrder
 
@@ -123,17 +123,17 @@ def get_new_numeric_client_order_id(nonce_creator: NonceCreator, max_id_bit_coun
 
 class TimeSynchronizerRESTPreProcessor(RESTPreProcessorBase):
     """
-    This pre processor is intended to be used in those connectors that require synchronization with the server time
+    This pre-processor is intended to be used in those connectors that require synchronization with the server time
     to accept API requests. It ensures the synchronizer has at least one server time sample before being used.
     """
 
-    def __init__(self, synchronizer: TimeSynchronizer, time_provider: Callable):
+    def __init__(self, synchronizer: TimeSynchronizer, time_provider: Awaitable):
         super().__init__()
         self._synchronizer = synchronizer
         self._time_provider = time_provider
 
     async def pre_process(self, request: RESTRequest) -> RESTRequest:
-        await self._synchronizer.update_server_time_if_not_initialized(time_provider=self._time_provider())
+        await self._synchronizer.update_server_time_if_not_initialized(time_provider=self._time_provider)
         return request
 
 

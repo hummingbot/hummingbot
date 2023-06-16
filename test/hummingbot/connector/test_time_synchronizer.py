@@ -117,7 +117,7 @@ class TimeSynchronizerTest(unittest.TestCase):
             await self.time_synchronizer.update_server_time_offset_with_time_provider(time_provider_ms)
             self.assertEqual(len(self.time_synchronizer._time_offset_ms), 1)
             self.assertEqual(server_time_ms - average_local_time_ms, self.time_synchronizer._time_offset_ms[0])
-        asyncio.run(async_test())
+        self.async_run_with_timeout(async_test())
 
     @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_precise_time_ns")
     def test_update_server_time_offset_with_time_provider_method_raises_on_seconds(self, mock_current_precise_time_ns):
@@ -132,7 +132,7 @@ class TimeSynchronizerTest(unittest.TestCase):
             time_provider_ms.set_result(server_time_ms)
             with self.assertRaises(ValueError):
                 await self.time_synchronizer.update_server_time_offset_with_time_provider(time_provider_ms)
-        asyncio.run(async_test())
+        self.async_run_with_timeout(async_test())
 
     @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_precise_time_ns")
     def test_update_server_time_offset_with_time_provider_method_raises_on_useconds(self, mock_current_precise_time_ns):
@@ -147,7 +147,7 @@ class TimeSynchronizerTest(unittest.TestCase):
             time_provider_ms.set_result(server_time_ms)
             with self.assertRaises(ValueError):
                 await self.time_synchronizer.update_server_time_offset_with_time_provider(time_provider_ms)
-        asyncio.run(async_test())
+        self.async_run_with_timeout(async_test())
 
     @patch("time.time")
     @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_precise_time_ns")
@@ -163,7 +163,7 @@ class TimeSynchronizerTest(unittest.TestCase):
             time_provider_ms.set_result(600)
             await self.time_synchronizer.update_server_time_if_not_initialized(time_provider_ms)
             self.assertEqual(len(self.time_synchronizer._time_offset_ms), 1)
-        asyncio.run(async_test())
+        self.async_run_with_timeout(async_test())
 
     @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_precise_time_s")
     @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_precise_time_ns")
