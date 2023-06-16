@@ -65,6 +65,8 @@ connector_status = {
     'foxbit': 'bronze',
     'phemex_perpetual': 'bronze',
     'phemex_perpetual_testnet': 'bronze',
+    'vertex': 'bronze',
+    'vertex_testnet': 'bronze',
 }
 
 warning_messages = {
