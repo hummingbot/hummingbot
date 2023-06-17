@@ -38,6 +38,8 @@ connector_status = {
     'perpetual_finance': 'bronze',
     'probit': 'bronze',
     'whitebit': 'bronze',
+    'woo_x': 'bronze',
+    'woo_x_testnet': 'bronze',
     'uniswap': 'gold',
     'uniswapLP': 'gold',
     'pancakeswap': 'bronze',
