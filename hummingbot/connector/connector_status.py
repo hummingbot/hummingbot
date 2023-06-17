@@ -38,7 +38,6 @@ connector_status = {
     'perpetual_finance': 'bronze',
     'probit': 'bronze',
     'whitebit': 'bronze',
-    'ciex': 'bronze',
     'uniswap': 'gold',
     'uniswapLP': 'gold',
     'pancakeswap': 'bronze',
