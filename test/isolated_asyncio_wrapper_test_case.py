@@ -134,6 +134,8 @@ class LocalClassEventLoopWrapperTestCase(unittest.TestCase):
             cls.local_event_loop.close()
             cls.local_event_loop = None
 
+        cls.local_event_loop = None
+
         asyncio.set_event_loop(cls.main_event_loop)
         cls.main_event_loop = None
         super().tearDownClass()

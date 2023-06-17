@@ -6,6 +6,7 @@ from test.isolated_asyncio_wrapper_test_case import (
     IsolatedAsyncioWrapperTestCase,
     LocalClassEventLoopWrapperTestCase,
     LocalTestEventLoopWrapperTestCase,
+    async_to_sync,
 )
 
 
@@ -360,6 +361,53 @@ class TestLocalTestEventLoopWrapperTestCase(unittest.TestCase):
         self.test_case.tearDown()
 
 
+class TestAsyncToSyncInLoop(unittest.TestCase):
+    @async_to_sync
+    async def async_add(self, a: int, b: int) -> int:
+        await asyncio.sleep(0.1)
+        return a + b
+
+    def test_async_add(self):
+        result = self.async_add(1, 2)
+        self.assertEqual(result, 3)
+
+    @async_to_sync
+    async def async_raise_exception(self) -> None:
+        await asyncio.sleep(0.1)
+        raise ValueError("Test exception")
+
+    def test_async_raise_exception(self):
+        with self.assertRaises(ValueError) as context:
+            self.async_raise_exception()
+        self.assertEqual(str(context.exception), "Test exception")
+
+    def test_main_event_loop_unchanged(self):
+        # Save the current event loop
+        try:
+            main_loop = asyncio.get_event_loop()
+        except RuntimeError:
+            # If no event loop exists, create one
+            main_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(main_loop)
+
+        # Run a function decorated with @async_to_sync
+        self.async_add(1, 2)
+
+        # Check that the current event loop is still the same
+        self.assertEqual(main_loop, asyncio.get_event_loop())
+
+    def test_main_event_loop_unchanged_after_exception(self):
+        # Save the current event loop
+        main_loop = asyncio.get_event_loop()
+
+        # Run a function decorated with @async_to_sync that raises an exception
+        with self.assertRaises(ValueError):
+            self.async_raise_exception()
+
+        # Check that the current event loop is still the same
+        self.assertEqual(main_loop, asyncio.get_event_loop())
+
+
 def load_tests(loader, tests, pattern):
     suite = unittest.TestSuite()
     suite.addTest(TestMainEventLoop('test_main_event_loop'))
@@ -382,13 +430,29 @@ def load_tests(loader, tests, pattern):
     suite.addTest(TestMainEventLoop('test_exception_handling'))
 
     # Coverage tests
-    suite.addTest(TestIsolatedAsyncioWrapperTestCase('test_setUpClass'))
-    suite.addTest(TestIsolatedAsyncioWrapperTestCase('test_tearDownClass'))
-    suite.addTest(TestLocalClassEventLoopWrapperTestCase('test_setUpClass'))
-    suite.addTest(TestLocalClassEventLoopWrapperTestCase('test_tearDownClass'))
-    suite.addTest(TestLocalTestEventLoopWrapperTestCase('test_setUp'))
-    suite.addTest(TestLocalTestEventLoopWrapperTestCase('test_tearDown'))
-    suite.addTest(TestLocalTestEventLoopWrapperTestCase('test_tearDownClass'))
+    suite.addTest(TestIsolatedAsyncioWrapperTestCase('test_setUpClass_with_existing_loop'))
+    suite.addTest(TestIsolatedAsyncioWrapperTestCase('test_setUpClass_without_existing_loop'))
+    suite.addTest(TestIsolatedAsyncioWrapperTestCase('test_tearDownClass_with_existing_loop'))
+    suite.addTest(TestIsolatedAsyncioWrapperTestCase('test_tearDownClass_without_existing_loop'))
+
+    suite.addTest(TestLocalClassEventLoopWrapperTestCase('test_setUpClass_with_existing_loop'))
+    suite.addTest(TestLocalClassEventLoopWrapperTestCase('test_setUpClass_without_existing_loop'))
+    suite.addTest(TestLocalClassEventLoopWrapperTestCase('test_tearDownClass_with_existing_loop'))
+    suite.addTest(TestLocalClassEventLoopWrapperTestCase('test_tearDownClass_without_existing_loop'))
+    suite.addTest(TestLocalClassEventLoopWrapperTestCase('test_run_async_with_timeout'))
+
+    suite.addTest(TestLocalTestEventLoopWrapperTestCase('test_setUp_with_existing_loop'))
+    suite.addTest(TestLocalTestEventLoopWrapperTestCase('test_setUp_without_existing_loop'))
+    suite.addTest(TestLocalTestEventLoopWrapperTestCase('test_tearDown_with_existing_loop'))
+    suite.addTest(TestLocalTestEventLoopWrapperTestCase('test_tearDown_without_existing_loop'))
+    suite.addTest(TestLocalTestEventLoopWrapperTestCase('test_tearDownClass_with_existing_loop'))
+    suite.addTest(TestLocalTestEventLoopWrapperTestCase('test_tearDownClass_without_existing_loop'))
+    suite.addTest(TestLocalTestEventLoopWrapperTestCase('test_run_async_with_timeout'))
+
+    suite.addTest(TestAsyncToSyncInLoop('test_async_add'))
+    suite.addTest(TestAsyncToSyncInLoop('test_async_raise_exception'))
+    suite.addTest(TestAsyncToSyncInLoop('test_main_event_loop_unchanged'))
+    suite.addTest(TestAsyncToSyncInLoop('test_main_event_loop_unchanged_after_exception'))
 
     return suite
 
