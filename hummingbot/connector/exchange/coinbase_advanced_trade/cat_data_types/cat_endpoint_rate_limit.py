@@ -1,7 +1,7 @@
 from typing import List, Optional
 
 import hummingbot.connector.exchange.coinbase_advanced_trade.cat_constants as CONSTANTS
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_exchange_mixins.cat_exchange_protocols import (
+from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_protocols import (
     CoinbaseAdvancedTradeAPIRequestProtocol,
 )
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit

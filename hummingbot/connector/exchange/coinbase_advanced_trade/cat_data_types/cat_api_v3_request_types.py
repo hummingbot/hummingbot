@@ -14,7 +14,7 @@ from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_ap
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_endpoint_rate_limit import (
     EndpointRateLimit,
 )
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_exchange_mixins.cat_exchange_protocols import (
+from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_protocols import (
     CoinbaseAdvancedTradeAPIRequestProtocol,
 )
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_utilities.cat_dict_mockable_from_json_mixin import (
