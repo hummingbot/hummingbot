@@ -1,5 +1,7 @@
-from logging import LogRecord
+from logging import Handler, LogRecord
 from typing import List
+
+from hummingbot.logger.logger import HummingbotLogger
 
 
 class LogLevel:
@@ -11,7 +13,7 @@ class LogLevel:
     CRITICAL = 50
 
 
-class TestLoggerMixin:
+class TestLoggerMixin(Handler):
     """
     Test logger mixin class that can be used to capture log records during testing.
 
@@ -34,6 +36,15 @@ class TestLoggerMixin:
         if super().__class__ is not object:
             super().__init__(*args, **kwargs)
         self.log_records: List[LogRecord] = []
+
+    def set_loggers(self, loggers: List[HummingbotLogger]):
+        """
+        Set up the test logger mixin by adding the test logger to the provided loggers list.
+        """
+        for logger in loggers:
+            if logger is not None:
+                logger.setLevel(self.level)
+                logger.addHandler(self)
 
     def handle(self, record):
         """
