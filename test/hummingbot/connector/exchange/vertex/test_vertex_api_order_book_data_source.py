@@ -49,7 +49,7 @@ class TestVertexAPIOrderBookDataSource(unittest.TestCase):
         self.connector = VertexExchange(
             client_config_map,
             "0x2162Db26939B9EAF0C5404217774d166056d31B5",
-            "5500eb16bf3692840e04fb6a63547b9a80b75d9cbb36b43ca5662127d4c19c83",
+            "5500eb16bf3692840e04fb6a63547b9a80b75d9cbb36b43ca5662127d4c19c83",  # noqa: mock
             trading_pairs=[self.trading_pair],
             domain=self.domain,
         )

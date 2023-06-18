@@ -33,7 +33,7 @@ def convert_timestamp(timestamp: Any) -> float:
 def trading_pair_to_product_id(trading_pair: str, is_perp: bool = False) -> int:
     tp = trading_pair.replace("-", "/")
     for k, v in CONSTANTS.PRODUCTS.items():
-        if (is_perp and "perp" not in v["symbol"].lower()):
+        if is_perp and "perp" not in v["symbol"].lower():
             continue
         if v["market"] == tp:
             return k
@@ -103,7 +103,7 @@ def convert_to_x18(data: Any, precision: Optional[Decimal] = None) -> Any:
 
 
 def generate_expiration(timestamp: float = None, order_type: Optional[str] = None) -> str:
-    default_max_time = 8640000000000000 # Forever
+    default_max_time = 8640000000000000  # NOTE: Forever
     default_day_time = 86400
     # Default significant bit is 0 for GTC
     # https://vertex-protocol.gitbook.io/docs/developer-resources/api/websocket-rest-api/executes/place-order
@@ -118,7 +118,7 @@ def generate_expiration(timestamp: float = None, order_type: Optional[str] = Non
 
     # NOTE: We can setup maxtime
     expiration = str(default_max_time | (sig_bit << 62))
-    
+
     if timestamp:
         unix_epoch = int(timestamp)
         expiration = str((unix_epoch + default_day_time) | (sig_bit << 62))

@@ -11,7 +11,7 @@ class WebUtilsTests(TestCase):
         self.assertEqual("https://prod.vertexprotocol-backend.com/query", url)
         url = web_utils.public_rest_url(path_url=CONSTANTS.QUERY_PATH_URL, domain=CONSTANTS.TESTNET_DOMAIN)
         self.assertEqual("https://test.vertexprotocol-backend.com/query", url)
-    
+
     def test_private_rest_url(self):
         url = web_utils.private_rest_url(path_url=CONSTANTS.QUERY_PATH_URL, domain=CONSTANTS.DEFAULT_DOMAIN)
         self.assertEqual("https://prod.vertexprotocol-backend.com/query", url)

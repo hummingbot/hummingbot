@@ -1,22 +1,21 @@
 from typing import Any, Dict, Optional
 
+from hummingbot.connector.exchange.vertex.vertex_constants import PRODUCTS
+from hummingbot.connector.exchange.vertex.vertex_utils import (
+    convert_from_x18,
+    convert_timestamp,
+    market_to_trading_pair,
+)
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
-from hummingbot.connector.exchange.vertex.vertex_constants import PRODUCTS
-from hummingbot.connector.exchange.vertex.vertex_utils import (
-    convert_timestamp,
-    convert_from_x18,
-    market_to_trading_pair
-)
 
 
 class VertexOrderBook(OrderBook):
     @classmethod
-    def snapshot_message_from_exchange_websocket(cls,
-                                                 msg: Dict[str, Any],
-                                                 timestamp: float,
-                                                 metadata: Optional[Dict] = None) -> OrderBookMessage:
+    def snapshot_message_from_exchange_websocket(
+        cls, msg: Dict[str, Any], timestamp: float, metadata: Optional[Dict] = None
+    ) -> OrderBookMessage:
         """
         Creates a snapshot message with the order book snapshot message
         :param msg: the response from the exchange when requesting the order book snapshot
@@ -27,17 +26,20 @@ class VertexOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         ts = msg["data"]["timestamp"]
-        return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "update_id": int(ts),
-            "bids": convert_from_x18(msg["data"]["bids"]),
-            "asks": convert_from_x18(msg["data"]["asks"])
-        }, timestamp=timestamp)
+        return OrderBookMessage(
+            OrderBookMessageType.SNAPSHOT,
+            {
+                "update_id": int(ts),
+                "bids": convert_from_x18(msg["data"]["bids"]),
+                "asks": convert_from_x18(msg["data"]["asks"]),
+            },
+            timestamp=timestamp,
+        )
 
     @classmethod
-    def snapshot_message_from_exchange_rest(cls,
-                                            msg: Dict[str, Any],
-                                            timestamp: float,
-                                            metadata: Optional[Dict] = None) -> OrderBookMessage:
+    def snapshot_message_from_exchange_rest(
+        cls, msg: Dict[str, Any], timestamp: float, metadata: Optional[Dict] = None
+    ) -> OrderBookMessage:
         """
         Creates a snapshot message with the order book snapshot message
         :param msg: the response from the exchange when requesting the order book snapshot
@@ -48,17 +50,20 @@ class VertexOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         ts = msg["data"]["timestamp"]
-        return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "update_id": int(ts),
-            "bids": convert_from_x18(msg["data"]["bids"]),
-            "asks": convert_from_x18(msg["data"]["asks"])
-        }, timestamp=timestamp)
+        return OrderBookMessage(
+            OrderBookMessageType.SNAPSHOT,
+            {
+                "update_id": int(ts),
+                "bids": convert_from_x18(msg["data"]["bids"]),
+                "asks": convert_from_x18(msg["data"]["asks"]),
+            },
+            timestamp=timestamp,
+        )
 
     @classmethod
-    def diff_message_from_exchange(cls,
-                                   msg: Dict[str, Any],
-                                   timestamp: Optional[float] = None,
-                                   metadata: Optional[Dict] = None) -> OrderBookMessage:
+    def diff_message_from_exchange(
+        cls, msg: Dict[str, Any], timestamp: Optional[float] = None, metadata: Optional[Dict] = None
+    ) -> OrderBookMessage:
         """
         Creates a diff message with the changes in the order book received from the exchange
         :param msg: the changes in the order book
@@ -69,12 +74,16 @@ class VertexOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         ts = convert_timestamp(msg["last_max_timestamp"])
-        return OrderBookMessage(OrderBookMessageType.DIFF, {
-            "trading_pair": market_to_trading_pair(PRODUCTS[msg["product_id"]]["market"]),
-            "update_id": int(msg["last_max_timestamp"]),
-            "bids": convert_from_x18(msg["bids"]),
-            "asks": convert_from_x18(msg["asks"])
-        }, timestamp=ts)
+        return OrderBookMessage(
+            OrderBookMessageType.DIFF,
+            {
+                "trading_pair": market_to_trading_pair(PRODUCTS[msg["product_id"]]["market"]),
+                "update_id": int(msg["last_max_timestamp"]),
+                "bids": convert_from_x18(msg["bids"]),
+                "asks": convert_from_x18(msg["asks"]),
+            },
+            timestamp=ts,
+        )
 
     @classmethod
     def trade_message_from_exchange(cls, msg: Dict[str, Any], metadata: Optional[Dict] = None):
@@ -87,11 +96,15 @@ class VertexOrderBook(OrderBook):
         if metadata:
             msg.update(metadata)
         ts = convert_timestamp(msg["timestamp"])
-        return OrderBookMessage(OrderBookMessageType.TRADE, {
-            "trading_pair": market_to_trading_pair(PRODUCTS[msg["product_id"]]["market"]),
-            "trade_type": float(TradeType.BUY.value) if msg["is_taker_buyer"] else float(TradeType.SELL.value),
-            "trade_id": int(msg["timestamp"]),
-            "update_id": int(msg["timestamp"]),
-            "price": convert_from_x18(msg["price"]),
-            "amount": convert_from_x18(msg["taker_qty"])
-        }, timestamp=ts)
+        return OrderBookMessage(
+            OrderBookMessageType.TRADE,
+            {
+                "trading_pair": market_to_trading_pair(PRODUCTS[msg["product_id"]]["market"]),
+                "trade_type": float(TradeType.BUY.value) if msg["is_taker_buyer"] else float(TradeType.SELL.value),
+                "trade_id": int(msg["timestamp"]),
+                "update_id": int(msg["timestamp"]),
+                "price": convert_from_x18(msg["price"]),
+                "amount": convert_from_x18(msg["taker_qty"]),
+            },
+            timestamp=ts,
+        )

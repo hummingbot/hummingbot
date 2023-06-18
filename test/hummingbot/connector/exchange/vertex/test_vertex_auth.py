@@ -13,7 +13,7 @@ class VertexAuthTests(TestCase):
         super().setUp()
         # NOTE: RANDOM KEYS GENERATED JUST FOR UNIT TESTS
         self.sender_address = "0x2162Db26939B9EAF0C5404217774d166056d31B5"
-        self.private_key = "5500eb16bf3692840e04fb6a63547b9a80b75d9cbb36b43ca5662127d4c19c83"
+        self.private_key = "5500eb16bf3692840e04fb6a63547b9a80b75d9cbb36b43ca5662127d4c19c83"  # noqa: mock
 
         self.auth = VertexAuth(
             vertex_arbitrum_address=self.sender_address,

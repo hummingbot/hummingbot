@@ -1,7 +1,7 @@
-import sha3
 import time
 from typing import Any, Tuple
 
+import sha3
 from coincurve import PrivateKey
 from eip712_structs import make_domain
 from eth_utils import big_endian_to_int
@@ -14,7 +14,6 @@ keccak_hash = lambda x: sha3.keccak_256(x).digest()
 
 
 class VertexAuth(AuthBase):
-
     def __init__(self, vertex_arbitrum_address: str, vertex_arbitrum_private_key: str):
         self.sender_address = vertex_arbitrum_address
         self.private_key = vertex_arbitrum_private_key
@@ -26,7 +25,7 @@ class VertexAuth(AuthBase):
 
         :param request: the request to be configured for authenticated interaction
         """
-        return request # pass-through
+        return request  # pass-through
 
     async def ws_authenticate(self, request: WSRequest) -> WSRequest:
         """

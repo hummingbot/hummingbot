@@ -39,7 +39,7 @@ class TestVertexAPIUserStreamDataSource(unittest.TestCase):
         # NOTE: RANDOM KEYS GENERATED JUST FOR UNIT TESTS
         self.auth = VertexAuth(
             "0x2162Db26939B9EAF0C5404217774d166056d31B5",
-            "5500eb16bf3692840e04fb6a63547b9a80b75d9cbb36b43ca5662127d4c19c83",
+            "5500eb16bf3692840e04fb6a63547b9a80b75d9cbb36b43ca5662127d4c19c83",  # noqa: mock
         )
 
         self.api_factory = web_utils.build_api_factory(throttler=self.throttler, auth=self.auth)
@@ -173,5 +173,5 @@ class TestVertexAPIUserStreamDataSource(unittest.TestCase):
             "stream": {"product_id": 1, "subaccount": "0x2162Db26939B9EAF0C5404217774d166056d31B5", "type": "fill"},
         }
         self.assertEqual(expected_message, sent_messages[-2])
-    
+
     # TODO: Need to assert that we send a ws.ping() frame on 30 s...
