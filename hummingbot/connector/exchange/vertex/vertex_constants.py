@@ -158,7 +158,10 @@ RATE_LIMITS = [
         limit_id=INDEXER_PATH_URL, limit=60, time_interval=1, linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]
     ),
     RateLimit(
-        limit_id=STATUS_REQUEST_TYPE, limit=60, time_interval=1, linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]
+        limit_id=STATUS_REQUEST_TYPE,
+        limit=60,
+        time_interval=1,
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
     ),
     RateLimit(
         limit_id=ORDER_REQUEST_TYPE,
@@ -242,24 +245,24 @@ ERRORS: Dict[int, Any] = {
         "code": 1000,
         "error_value": "RateLimit",
         "description": "Too Many Requests: You have exceeded the rate limit. Please reduce your request frequency and try again later.",
-        "message": ""
+        "message": "",
     },
     1001: {
         "code": 1001,
         "error_value": "BlacklistedAddress",
         "description": "This address has been blacklisted from accessing the sequencer due to a violation of the Terms of Service. If you believe this is an error, please contact the Vertex team for assistance.",
-        "message": ""
+        "message": "",
     },
     1002: {
         "code": 1002,
         "error_value": "BlockedLocation",
         "description": "Access from your current location ({location}) is blocked. Please check your location and try again.",
-        "message": ""
+        "message": "",
     },
     1003: {
         "code": 1003,
         "error_value": "BlockedSubdivision",
         "description": "Access from your current location ({location} - {subdivision}) is blocked. Please check your location and try again.",
-        "message": ""
+        "message": "",
     },
 }

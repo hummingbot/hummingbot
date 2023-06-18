@@ -1,4 +1,4 @@
-from eip712_structs import EIP712Struct, Uint, Int, Bytes, String, Address, Array
+from eip712_structs import Address, Array, Bytes, EIP712Struct, Int, String, Uint
 
 
 class EIP712Domain(EIP712Struct):

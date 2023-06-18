@@ -1,26 +1,25 @@
 import asyncio
+import time
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
-import time
 
 from bidict import bidict
 
+from hummingbot.connector.constants import s_decimal_0, s_decimal_NaN
 from hummingbot.connector.exchange.vertex import (
     vertex_constants as CONSTANTS,
+    vertex_eip712_structs as vertex_eip712_structs,
     vertex_utils as utils,
     vertex_web_utils as web_utils,
-    vertex_eip712_structs as vertex_eip712_structs
 )
-from hummingbot.core.data_type.in_flight_order import OrderState
 from hummingbot.connector.exchange.vertex.vertex_api_order_book_data_source import VertexAPIOrderBookDataSource
 from hummingbot.connector.exchange.vertex.vertex_api_user_stream_data_source import VertexAPIUserStreamDataSource
 from hummingbot.connector.exchange.vertex.vertex_auth import VertexAuth
 from hummingbot.connector.exchange_py_base import ExchangePyBase
-from hummingbot.connector.constants import s_decimal_0, s_decimal_NaN
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -28,12 +27,8 @@ from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
-
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
-
-s_logger = None
-s_decimal_NaN = Decimal("nan")
 
 
 class VertexExchange(ExchangePyBase):
@@ -187,7 +182,7 @@ class VertexExchange(ExchangePyBase):
             if is_maker:
                 fee_value = fee_data["maker"]
             else:
-                fee_value =fee_data["taker"]
+                fee_value = fee_data["taker"]
             fee = AddedToCostTradeFee(percent=fee_value)
         return fee
 
@@ -252,7 +247,7 @@ class VertexExchange(ExchangePyBase):
             if order_result.get("status") == "failure":
                 raise Exception(f"Failed to create order {order_result}")
 
-        except IOError as e:
+        except IOError:
             raise
 
         o_id = digest
@@ -289,7 +284,9 @@ class VertexExchange(ExchangePyBase):
             }
         }
 
-        cancel_result = await self._api_post(path_url=CONSTANTS.POST_PATH_URL, data=cancel_orders, limit_id=CONSTANTS.CANCEL_ORDERS_METHOD)
+        cancel_result = await self._api_post(
+            path_url=CONSTANTS.POST_PATH_URL, data=cancel_orders, limit_id=CONSTANTS.CANCEL_ORDERS_METHOD
+        )
         if cancel_result.get("status") == "failure":
             if cancel_result.get("error_code") and cancel_result["error_code"] == 2020:
                 # NOTE: This is the most elegant handling outside of passing through restrictive lost order limit to 0
@@ -297,7 +294,7 @@ class VertexExchange(ExchangePyBase):
                 self._order_tracker._trigger_order_completion(tracked_order)
                 self.logger().warning(f"Marked order canceled as the exchange holds no record: {order_id}")
                 return True
-  
+
         if isinstance(cancel_result, dict) and cancel_result["status"] == "success":
             return True
         return False
@@ -370,7 +367,7 @@ class VertexExchange(ExchangePyBase):
                         min_order_size=Decimal(min_order_size),
                         min_price_increment=Decimal(min_price_increment),
                         min_base_amount_increment=Decimal(min_base_amount_increment),
-                        min_notional_size=Decimal("0.01"), # NOTE: added to ensure proper functioning with strategies.
+                        min_notional_size=Decimal("0.01"),  # NOTE: added to ensure proper functioning with strategies.
                     )
                 )
 
@@ -462,7 +459,7 @@ class VertexExchange(ExchangePyBase):
                                 fee_schema=self.trade_fee_schema(),
                                 trade_type=tracked_order.trade_type,
                                 percent=fee_rate,
-                                percent_token="USDC", # NOTE: All fees are denominated in USDC
+                                percent_token="USDC",  # NOTE: All fees are denominated in USDC
                             )
                             trade_update = TradeUpdate(
                                 trade_id=str(event_message["timestamp"]),
@@ -497,10 +494,11 @@ class VertexExchange(ExchangePyBase):
                     total_balance = Decimal(amount)
                     self._account_available_balances[asset_name] = free_balance
                     self._account_balances[asset_name] = total_balance
-                    
 
             except asyncio.CancelledError:
-                self.logger().error(f"An Asyncio.CancelledError occurs when process message: {event_message}.", exc_info=True)
+                self.logger().error(
+                    f"An Asyncio.CancelledError occurs when process message: {event_message}.", exc_info=True
+                )
                 raise
             except Exception:
                 self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
@@ -515,12 +513,7 @@ class VertexExchange(ExchangePyBase):
 
             matches_response = await self._api_post(
                 path_url=CONSTANTS.INDEXER_PATH_URL,
-                data={
-                    "matches": {
-                        "product_ids": [product_id],
-                        "subaccount": self.sender_address
-                    }
-                },
+                data={"matches": {"product_ids": [product_id], "subaccount": self.sender_address}},
                 limit_id=CONSTANTS.INDEXER_PATH_URL,
             )
 
@@ -530,7 +523,7 @@ class VertexExchange(ExchangePyBase):
                     # NOTE: Vertex returns all orders and matches.
                     if trade["digest"] != order.exchange_order_id:
                         continue
-                   
+
                     exchange_order_id = str(trade["digest"])
                     # NOTE: Matches can be composed of multiple trade transactions.
                     # https://vertex-protocol.gitbook.io/docs/developer-resources/api/indexer-api/matches
@@ -584,7 +577,10 @@ class VertexExchange(ExchangePyBase):
                 limit_id=CONSTANTS.ORDER_REQUEST_TYPE,
             )
             if order_request_response.get("status") == "failure":
-                updated_order_data = {"status": "failure", "data": {"unfilled_amount": 100000000000, "amount": 1000000000000}}
+                updated_order_data = {
+                    "status": "failure",
+                    "data": {"unfilled_amount": 100000000000, "amount": 1000000000000},
+                }
             else:
                 updated_order_data = order_request_response
         except Exception as e:
@@ -595,14 +591,10 @@ class VertexExchange(ExchangePyBase):
             live_order = False
             try:
                 data = {
-                    "orders": {
-                        "digests": [tracked_order.exchange_order_id]
-                        },
-                    }
+                    "orders": {"digests": [tracked_order.exchange_order_id]},
+                }
                 indexed_order_data = await self._api_post(
-                    path_url=CONSTANTS.INDEXER_PATH_URL,
-                    data=data,
-                    limit_id=CONSTANTS.INDEXER_PATH_URL
+                    path_url=CONSTANTS.INDEXER_PATH_URL, data=data, limit_id=CONSTANTS.INDEXER_PATH_URL
                 )
                 orders = indexed_order_data.get("orders", [])
                 if len(orders) > 0:
@@ -631,7 +623,7 @@ class VertexExchange(ExchangePyBase):
             else:
                 # Override default canceled with complete if complete
                 new_state = OrderState.COMPLETED
-        
+
         order_update = OrderUpdate(
             client_order_id=tracked_order.client_order_id,
             exchange_order_id=str(tracked_order.exchange_order_id),
@@ -659,7 +651,7 @@ class VertexExchange(ExchangePyBase):
             oracle_price = Decimal(utils.convert_from_x18(spot_product_map[product_id]["oracle_price_x18"]))
             total_usdc_account_value = total_usdc_account_value + (balance * oracle_price)
             asset_name = CONSTANTS.PRODUCTS[product_id]["symbol"]
-            
+
             free_balance = Decimal(utils.convert_from_x18(spot_balance["balance"]["amount"]))
             total_balance = Decimal(
                 utils.convert_from_x18(
@@ -689,6 +681,8 @@ class VertexExchange(ExchangePyBase):
             del self._account_balances[asset_name]
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
+        # TODO: Review the recent addition of...
+        # https://prod.vertexprotocol-backend.com/symbols
         mapping = bidict()
         for symbol_data in filter(utils.is_exchange_information_valid, exchange_info["data"]["spot_products"]):
             trading_pair = CONSTANTS.PRODUCTS[symbol_data["product_id"]]["market"]
@@ -704,12 +698,7 @@ class VertexExchange(ExchangePyBase):
         product_id = utils.trading_pair_to_product_id(trading_pair)
 
         try:
-            data = {
-                "matches": {
-                    "product_ids": [product_id],
-                    "limit": 5
-                }
-            }
+            data = {"matches": {"product_ids": [product_id], "limit": 5}}
             matches_response = await self._api_post(
                 path_url=CONSTANTS.INDEXER_PATH_URL,
                 data=data,
@@ -751,7 +740,9 @@ class VertexExchange(ExchangePyBase):
             limit_id=CONSTANTS.SUBACCOUNT_INFO_REQUEST_TYPE,
         )
 
-        if response == None or "failure" in response["status"] or "data" not in response:
+        if response is None or "failure" in response["status"] or "data" not in response:
+            if "error_code" in response and response["error_code"] in CONSTANTS.ERRORS:
+                raise IOError(f"{response['error']}")
             raise IOError(f"Unable to get account info for sender address {sender_address}")
 
         return response["data"]
@@ -768,11 +759,11 @@ class VertexExchange(ExchangePyBase):
             limit_id=CONSTANTS.FEE_RATES_REQUEST_TYPE,
         )
 
-        if response == None or "failure" in response["status"] or "data" not in response:
+        if response is None or "failure" in response["status"] or "data" not in response:
             raise IOError(f"Unable to get trading fees sender address {sender_address}")
-        
+
         return response["data"]
-    
+
     async def _api_request(
         self,
         path_url,

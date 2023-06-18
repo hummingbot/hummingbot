@@ -5,18 +5,13 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 
 
 class VertexOrderBookTests(TestCase):
-
     def test_snapshot_message_from_exchange(self):
         snapshot_message = VertexOrderBook.snapshot_message_from_exchange_rest(
             msg={
                 "data": {
                     "timestamp": 1640000000.0,
-                    "bids": [
-                        ["4000000000000000000", "431000000000000000000"]
-                    ],
-                    "asks": [
-                        ["4000002000000000000", "12000000000000000000"]
-                    ]
+                    "bids": [["4000000000000000000", "431000000000000000000"]],
+                    "asks": [["4000002000000000000", "12000000000000000000"]],
                 }
             },
             timestamp=1640000000.0,
@@ -37,15 +32,11 @@ class VertexOrderBookTests(TestCase):
             msg={
                 "last_max_timestamp": 1640000000000000000.0,
                 "product_id": 1,
-                "bids": [
-                    ["4000000000000000000", "431000000000000000000"]
-                ],
-                "asks": [
-                    ["4000002000000000000", "12000000000000000000"]
-                ]
+                "bids": [["4000000000000000000", "431000000000000000000"]],
+                "asks": [["4000002000000000000", "12000000000000000000"]],
             },
             timestamp=1640000000000000000.0,
-            metadata={"trading_pair": "COINALPHA-HBOT"}
+            metadata={"trading_pair": "COINALPHA-HBOT"},
         )
 
         self.assertEqual("wBTC-USDC", diff_msg.trading_pair)
@@ -73,8 +64,7 @@ class VertexOrderBookTests(TestCase):
         }
 
         trade_message = VertexOrderBook.trade_message_from_exchange(
-            msg=trade_update,
-            metadata={"trading_pair": "COINALPHA-HBOT"}
+            msg=trade_update, metadata={"trading_pair": "COINALPHA-HBOT"}
         )
 
         self.assertEqual("wBTC-USDC", trade_message.trading_pair)

@@ -19,7 +19,6 @@ from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
-from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -59,7 +58,7 @@ class TestVertexExchange(unittest.TestCase):
         self.exchange = VertexExchange(
             self.client_config_map,
             "0x2162Db26939B9EAF0C5404217774d166056d31B5",
-            "5500eb16bf3692840e04fb6a63547b9a80b75d9cbb36b43ca5662127d4c19c83",
+            "5500eb16bf3692840e04fb6a63547b9a80b75d9cbb36b43ca5662127d4c19c83",  # noqa: mock
             trading_pairs=[self.trading_pair],
             domain=self.domain,
         )

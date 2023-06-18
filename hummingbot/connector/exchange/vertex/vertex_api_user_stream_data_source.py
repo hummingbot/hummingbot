@@ -1,7 +1,11 @@
 import asyncio
-from typing import Optional, Dict, Any, List
+from typing import Any, Dict, List, Optional
 
-from hummingbot.connector.exchange.vertex import vertex_constants as CONSTANTS, vertex_web_utils as web_utils, vertex_utils as utils
+from hummingbot.connector.exchange.vertex import (
+    vertex_constants as CONSTANTS,
+    vertex_utils as utils,
+    vertex_web_utils as web_utils,
+)
 from hummingbot.connector.exchange.vertex.vertex_auth import VertexAuth
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -11,7 +15,6 @@ from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 
 
 class VertexAPIUserStreamDataSource(UserStreamTrackerDataSource):
-
     def __init__(
         self,
         auth: VertexAuth,
@@ -26,9 +29,7 @@ class VertexAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._last_recv_time: float = 0
         self._domain = domain
         self._throttler = throttler
-        self._api_factory = api_factory or web_utils.build_api_factory(
-            throttler=self._throttler, auth=self._auth
-        )
+        self._api_factory = api_factory or web_utils.build_api_factory(throttler=self._throttler, auth=self._auth)
         self._ping_interval = 0
         self._last_ws_message_sent_timestamp = 0
 
@@ -39,7 +40,7 @@ class VertexAPIUserStreamDataSource(UserStreamTrackerDataSource):
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
         await ws.connect(ws_url=ws_url, message_timeout=self._ping_interval)
         return ws
-    
+
     async def _subscribe_channels(self, websocket_assistant: WSAssistant):
         """
         Subscribes to the trade events and diff orders events through the provided websocket connection.
@@ -48,7 +49,6 @@ class VertexAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         try:
             for trading_pair in self._trading_pairs:
-
                 product_id = utils.trading_pair_to_product_id(trading_pair)
 
                 fill_payload = {
@@ -76,7 +76,7 @@ class VertexAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 await websocket_assistant.send(subscribe_position_change_request)
 
                 self._last_ws_message_sent_timestamp = self._time()
-                
+
                 self.logger().info(f"Subscribed to subaccount fill and position change channels of {trading_pair}...")
         except asyncio.CancelledError:
             raise
@@ -91,16 +91,18 @@ class VertexAPIUserStreamDataSource(UserStreamTrackerDataSource):
             try:
                 seconds_until_next_ping = self._ping_interval - (self._time() - self._last_ws_message_sent_timestamp)
                 await asyncio.wait_for(
-                    super()._process_websocket_messages(
-                        websocket_assistant=websocket_assistant, queue=queue),
-                    timeout=seconds_until_next_ping)
+                    super()._process_websocket_messages(websocket_assistant=websocket_assistant, queue=queue),
+                    timeout=seconds_until_next_ping,
+                )
             except asyncio.TimeoutError:
                 ping_time = self._time()
                 await websocket_assistant.ping()
                 self._last_ws_message_sent_timestamp = ping_time
 
     async def _process_event_message(self, event_message: Dict[str, Any], queue: asyncio.Queue):
-        if (len(event_message) > 0
-                and "type" in event_message
-                and event_message.get("type") in [CONSTANTS.POSITION_CHANGE_EVENT_TYPE, CONSTANTS.FILL_EVENT_TYPE]):
+        if (
+            len(event_message) > 0
+            and "type" in event_message
+            and event_message.get("type") in [CONSTANTS.POSITION_CHANGE_EVENT_TYPE, CONSTANTS.FILL_EVENT_TYPE]
+        ):
             queue.put_nowait(event_message)

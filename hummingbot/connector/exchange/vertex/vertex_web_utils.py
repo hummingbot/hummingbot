@@ -1,5 +1,5 @@
-from typing import Optional
 import time
+from typing import Optional
 
 import hummingbot.connector.exchange.vertex.vertex_constants as CONSTANTS
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -17,6 +17,7 @@ def public_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> st
     """
     return CONSTANTS.BASE_URLS[domain] + path_url
 
+
 def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
     """
     Creates a full URL for provided REST endpoint
@@ -28,6 +29,7 @@ def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> s
     """
     return public_rest_url(path_url=path_url, domain=domain)
 
+
 def build_api_factory(
     throttler: Optional[AsyncThrottler] = None,
     auth: Optional[AuthBase] = None,
@@ -36,11 +38,11 @@ def build_api_factory(
     api_factory = WebAssistantsFactory(throttler=throttler, auth=auth)
     return api_factory
 
+
 def create_throttler() -> AsyncThrottler:
     return AsyncThrottler(CONSTANTS.RATE_LIMITS)
 
-async def get_current_server_time(
-    throttler: AsyncThrottler, domain: str = CONSTANTS.DEFAULT_DOMAIN
-) -> float:
+
+async def get_current_server_time(throttler: AsyncThrottler, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> float:
     server_time = float(time.time())
     return server_time

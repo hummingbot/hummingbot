@@ -2,7 +2,11 @@ import asyncio
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from hummingbot.connector.exchange.vertex import vertex_constants as CONSTANTS, vertex_web_utils as web_utils, vertex_utils as utils
+from hummingbot.connector.exchange.vertex import (
+    vertex_constants as CONSTANTS,
+    vertex_utils as utils,
+    vertex_web_utils as web_utils,
+)
 from hummingbot.connector.exchange.vertex.vertex_order_book import VertexOrderBook
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
@@ -16,7 +20,6 @@ if TYPE_CHECKING:
 
 
 class VertexAPIOrderBookDataSource(OrderBookTrackerDataSource):
-
     def __init__(
         self,
         trading_pairs: List[str],
@@ -46,7 +49,7 @@ class VertexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             snapshot, snapshot_timestamp, metadata={"trading_pair": trading_pair}
         )
         return snapshot_msg
-    
+
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
         """
         Retrieves a copy of the full order book from the exchange, for a particular trading pair.
@@ -55,7 +58,7 @@ class VertexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         :return: the response from the exchange (JSON dictionary)
         """
-        
+
         params = {
             "type": CONSTANTS.MARKET_LIQUIDITY_REQUEST_TYPE,
             "product_id": utils.trading_pair_to_product_id(trading_pair),
@@ -94,7 +97,7 @@ class VertexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                     "id": product_id,
                 }
                 subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trade_payload)
-                
+
                 order_book_payload = {
                     "method": CONSTANTS.WS_SUBSCRIBE_METHOD,
                     "stream": {"type": CONSTANTS.DIFF_EVENT_TYPE, "product_id": product_id},
@@ -137,7 +140,10 @@ class VertexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 seconds_until_next_ping = self._ping_interval - (self._time() - self._last_ws_message_sent_timestamp)
 
-                await asyncio.wait_for(super()._process_websocket_messages(websocket_assistant=websocket_assistant), timeout=seconds_until_next_ping)
+                await asyncio.wait_for(
+                    super()._process_websocket_messages(websocket_assistant=websocket_assistant),
+                    timeout=seconds_until_next_ping,
+                )
             except asyncio.TimeoutError:
                 ping_time = self._time()
                 await websocket_assistant.ping()
