@@ -10,6 +10,7 @@ class TestTestLoggerMixin(unittest.TestCase):
         self.logger = TestLoggerMixin()
 
     def test_handle(self):
+        self.logger.log_records = []
         record = LogRecord(name="test", level=LogLevel.INFO, pathname="", lineno=0, msg="test message", args=None,
                            exc_info=None)
         self.logger.handle(record)
@@ -17,20 +18,26 @@ class TestTestLoggerMixin(unittest.TestCase):
         self.assertEqual(self.logger.log_records[0].getMessage(), "test message")
 
     def test_is_logged(self):
+        self.logger.log_records = []
         record = LogRecord(name="test", level=LogLevel.INFO, pathname="", lineno=0, msg="test message", args=None,
                            exc_info=None)
         self.logger.handle(record)
-        self.assertTrue(self.logger.is_logged("test message", LogLevel.INFO))
-        self.assertFalse(self.logger.is_logged("test message", LogLevel.ERROR))
-        self.assertFalse(self.logger.is_logged("other message", LogLevel.INFO))
+        self.assertTrue(self.logger.is_logged(LogLevel.INFO, "test message", ))
+        self.assertFalse(self.logger.is_logged(LogLevel.ERROR, "test message", ))
+        self.assertFalse(self.logger.is_logged(LogLevel.INFO, "other message", ))
+
+        self.assertTrue(self.logger.is_logged("INFO", "test message", ))
+        self.assertFalse(self.logger.is_logged("ERROR", "test message", ))
+        self.assertFalse(self.logger.is_logged("INFO", "other message", ))
 
     def test_is_partially_logged(self):
+        self.logger.log_records = []
         record = LogRecord(name="test", level=LogLevel.INFO, pathname="", lineno=0, msg="test message", args=None,
                            exc_info=None)
         self.logger.handle(record)
-        self.assertTrue(self.logger.is_partially_logged("test", LogLevel.INFO))
-        self.assertFalse(self.logger.is_partially_logged("test", LogLevel.ERROR))
-        self.assertFalse(self.logger.is_partially_logged("other", LogLevel.INFO))
+        self.assertTrue(self.logger.is_partially_logged(LogLevel.INFO, "test"))
+        self.assertFalse(self.logger.is_partially_logged(LogLevel.ERROR, "test"))
+        self.assertFalse(self.logger.is_partially_logged(LogLevel.INFO, "other"))
 
     def test_set_loggers_single_logger(self):
         logger = HummingbotLogger("TestLogger")
