@@ -18,12 +18,11 @@ DEFAULT_FEES = TradeFeeSchema(
 
 def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     """
-    Verifies if a trading pair is enabled to operate, is a spot instrument and not deprecated based on its exchange information
+    Verifies if a trading pair is enabled to operate and is a spot instrument based on its exchange information
     :param exchange_info: the exchange information for a trading pair
     :return: True if the trading pair is enabled, False otherwise
     """
-    return exchange_info.get("tradable", False) and exchange_info.get("inst_type", "") == "CCY_PAIR" and \
-        "-dpre" not in exchange_info["symbol"]
+    return exchange_info.get("tradable", False) and exchange_info.get("inst_type", "") == "CCY_PAIR"
 
 
 class CryptoComConfigMap(BaseConnectorConfigMap):
