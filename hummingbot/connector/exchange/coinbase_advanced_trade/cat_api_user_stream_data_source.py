@@ -188,10 +188,13 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
                         self.logger().info(f"{action.value.capitalize()}d to {channel} for {trading_pair}...")
                     except asyncio.CancelledError:
                         await ws.disconnect()  # Close the connection
+                        await self.close()  # Clean the async context
                         raise
                     except Exception:
+                        await self.close()  # Clean the async context
                         self.logger().error(
-                            f"Unexpected error occurred {action.value.capitalize()}-ing to {channel} for {trading_pair}...",
+                            f"Unexpected error occurred {action.value.capitalize()}-ing "
+                            f"to {channel} for {trading_pair}...",
                             exc_info=True
                         )
                         raise

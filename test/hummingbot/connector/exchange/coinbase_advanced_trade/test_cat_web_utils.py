@@ -1,8 +1,7 @@
-import asyncio
-
 # import hashlib
 # import re
 import unittest
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import ANY, AsyncMock, Mock, patch
 
 import hummingbot.connector.exchange.coinbase_advanced_trade.cat_constants as CONSTANTS
@@ -24,7 +23,7 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 # from bs4 import BeautifulSoup
 
 
-class CoinbaseAdvancedTradeUtilTestCases(unittest.TestCase):
+class CoinbaseAdvancedTradeUtilTestCases(IsolatedAsyncioWrapperTestCase):
 
     # def test_connector_uptodate_changelog(self):
     #     url = CONSTANTS.CHANGELOG_URL
@@ -106,13 +105,10 @@ class CoinbaseAdvancedTradeUtilTestCases(unittest.TestCase):
 
     @patch('hummingbot.connector.exchange.coinbase_advanced_trade.cat_web_utils'
            '.get_current_server_time_s')
-    def test_get_current_server_time_ms(self, mock_get_time_s):
-        async def async_test():
-            mock_get_time_s.return_value = 1
-            result = await get_current_server_time_ms()
-            self.assertEqual(result, 1000)
-
-        asyncio.run(async_test())
+    async def test_get_current_server_time_ms(self, mock_get_time_s):
+        mock_get_time_s.return_value = 1
+        result = await get_current_server_time_ms()
+        self.assertEqual(result, 1000)
 
     def test_get_timestamp_from_exchange_time(self):
         # Test with seconds
@@ -143,32 +139,29 @@ class CoinbaseAdvancedTradeUtilTestCases(unittest.TestCase):
         '.build_api_factory_without_time_synchronizer_pre_processor',
         new_callable=Mock)
     @patch('hummingbot.connector.exchange.coinbase_advanced_trade.cat_web_utils.public_rest_url')
-    def test_get_current_server_time_s(self, mock_public_rest_url, mock_api_factory):
-        async def async_test():
-            # Prepare Mocks
-            mock_public_rest_url.return_value = 'mock_url'
-            mock_rest_assistant = AsyncMock()
-            mock_rest_assistant.execute_request.return_value = {
-                "data": {"iso": "2007-04-05T14:30Z", "epoch": 1175783400}}
+    async def test_get_current_server_time_s(self, mock_public_rest_url, mock_api_factory):
+        # Prepare Mocks
+        mock_public_rest_url.return_value = 'mock_url'
+        mock_rest_assistant = AsyncMock()
+        mock_rest_assistant.execute_request.return_value = {
+            "data": {"iso": "2007-04-05T14:30Z", "epoch": 1175783400}}
 
-            async def get_rest_assistant():
-                return mock_rest_assistant
+        async def get_rest_assistant():
+            return mock_rest_assistant
 
-            mock_api_factory.return_value.get_rest_assistant = get_rest_assistant
+        mock_api_factory.return_value.get_rest_assistant = get_rest_assistant
 
-            # Run Test
-            server_time = await get_current_server_time_s()
+        # Run Test
+        server_time = await get_current_server_time_s()
 
-            # Assertions
-            mock_public_rest_url.assert_called_with(path_url=CONSTANTS.SERVER_TIME_EP, domain=CONSTANTS.DEFAULT_DOMAIN)
-            mock_rest_assistant.execute_request.assert_called_with(
-                url='mock_url',
-                method=RESTMethod.GET,
-                throttler_limit_id=CONSTANTS.SERVER_TIME_EP,
-            )
-            self.assertEqual(server_time, 1175783400)
-
-        asyncio.run(async_test())
+        # Assertions
+        mock_public_rest_url.assert_called_with(path_url=CONSTANTS.SERVER_TIME_EP, domain=CONSTANTS.DEFAULT_DOMAIN)
+        mock_rest_assistant.execute_request.assert_called_with(
+            url='mock_url',
+            method=RESTMethod.GET,
+            throttler_limit_id=CONSTANTS.SERVER_TIME_EP,
+        )
+        self.assertEqual(server_time, 1175783400)
 
 
 if __name__ == "__main__":

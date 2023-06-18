@@ -1,5 +1,5 @@
-import asyncio
-from unittest import TestCase
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
+from test.logger_mxin import TestLoggerMixin
 
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_order_book import CoinbaseAdvancedTradeOrderBook
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_web_utils import get_timestamp_from_exchange_time
@@ -7,10 +7,8 @@ from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 
 
-class CoinbaseAdvancedTradeOrderBookTests(TestCase):
+class CoinbaseAdvancedTradeOrderBookTests(IsolatedAsyncioWrapperTestCase, TestLoggerMixin):
     # the level is required to receive logs from the data source logger
-    level = 0
-
     def setUp(self) -> None:
         super().setUp()
         self.snapshot_msg = {
@@ -66,25 +64,14 @@ class CoinbaseAdvancedTradeOrderBookTests(TestCase):
                 }
             ]
         }
-        self.log_records = []
-
         self.order_book = CoinbaseAdvancedTradeOrderBook()
-        self.order_book.logger().setLevel(1)
-        self.order_book.logger().addHandler(self)
+        self.set_loggers([self.order_book.logger()])
 
     async def symbol_to_pair(self, symbol: str) -> str:
         return "COINALPHA-HBOT"
 
-    def handle(self, record):
-        self.log_records.append(record)
-
-    def is_logged(self, log_level: str, message: str) -> bool:
-        return any(
-            record.levelname == log_level and message in record.getMessage() for
-            record in self.log_records)
-
-    def test_level2_order_book_snapshot_message(self):
-        snapshot_message = asyncio.run(CoinbaseAdvancedTradeOrderBook.level2_order_book_message(
+    async def test_level2_order_book_snapshot_message(self):
+        snapshot_message = await (CoinbaseAdvancedTradeOrderBook.level2_order_book_message(
             msg=self.snapshot_msg,
             timestamp=1640000000.0,
             symbol_to_pair=self.symbol_to_pair
@@ -106,12 +93,12 @@ class CoinbaseAdvancedTradeOrderBookTests(TestCase):
         self.assertEqual(0.002, snapshot_message.asks[0].amount)
         self.assertEqual(update_id, snapshot_message.asks[0].update_id)
 
-    def test_level2_order_book_update_message(self):
+    async def test_level2_order_book_update_message(self):
         update_msg = self.snapshot_msg
         update_msg["sequence_num"] = 5
         update_msg["events"][0]["type"] = "update"
 
-        update_message = asyncio.run(CoinbaseAdvancedTradeOrderBook.level2_order_book_message(
+        update_message = await (CoinbaseAdvancedTradeOrderBook.level2_order_book_message(
             msg=update_msg,
             timestamp=1640000000.0,
             symbol_to_pair=self.symbol_to_pair
@@ -131,8 +118,8 @@ class CoinbaseAdvancedTradeOrderBookTests(TestCase):
         self.assertEqual(0.002, update_message.asks[0].amount)
         self.assertEqual(update_message.update_id, update_message.asks[0].update_id)
 
-    def test_market_trades_order_book_snapshot_message(self):
-        trade_message = asyncio.run(CoinbaseAdvancedTradeOrderBook.market_trades_order_book_message(
+    async def test_market_trades_order_book_snapshot_message(self):
+        trade_message = await (CoinbaseAdvancedTradeOrderBook.market_trades_order_book_message(
             msg=self.trade_msg,
             symbol_to_pair=self.symbol_to_pair
         ))
@@ -148,11 +135,11 @@ class CoinbaseAdvancedTradeOrderBookTests(TestCase):
         self.assertIn(trade_message.content["trade_type"], [TradeType.SELL.value, TradeType.BUY.value])
         self.assertEqual(int(timestamp), trade_message.content["update_id"])
 
-    def test_level2_or_trade_message_from_exchange_level2(self):
+    async def test_level2_or_trade_message_from_exchange_level2(self):
         snapshot_msg = self.snapshot_msg
         snapshot_msg["sequence_num"] = 1
 
-        snapshot_message = asyncio.run(CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
+        snapshot_message = await (CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
             msg=snapshot_msg,
             timestamp=1640000000.0,
             symbol_to_pair=self.symbol_to_pair
@@ -162,10 +149,10 @@ class CoinbaseAdvancedTradeOrderBookTests(TestCase):
         self.assertEqual(snapshot_message.update_id, 1)
         self.assertEqual(snapshot_message.timestamp, 1640000000.0)
 
-    def test_level2_or_trade_message_from_exchange_market_trades(self):
+    async def test_level2_or_trade_message_from_exchange_market_trades(self):
         trade_msg = self.trade_msg
         trade_msg["sequence_num"] = 1
-        trade_message = asyncio.run(CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
+        trade_message = await (CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
             msg=trade_msg,
             timestamp=1640000000.0,
             symbol_to_pair=self.symbol_to_pair
@@ -180,33 +167,34 @@ class CoinbaseAdvancedTradeOrderBookTests(TestCase):
         self.assertEqual("0.3", trade_message.content["amount"])
         self.assertEqual(int(timestamp), trade_message.content["update_id"])
 
-    def test_level2_or_trade_message_from_exchange_lvel2_out_of_order(self):
+    async def test_level2_or_trade_message_from_exchange_lvel2_out_of_order(self):
         snapshot_msg = self.snapshot_msg
         snapshot_msg["sequence_num"] = 50
 
-        asyncio.run(CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
+        await (CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
             msg=snapshot_msg,
             timestamp=1640000000.0,
             symbol_to_pair=self.symbol_to_pair
         ))
 
         self.assertTrue(
-            self.is_logged(log_level="WARNING", message="Received out of order message from l2_data, this indicates a "
-                                                        "missed message")
+            self.is_partially_logged(log_level="WARNING",
+                                     message="Received out of order message from l2_data, this indicates a "
+                                             "missed message")
         )
 
-    def test_level2_or_trade_message_from_exchange_trade_out_of_order(self):
+    async def test_level2_or_trade_message_from_exchange_trade_out_of_order(self):
         trade_msg = self.trade_msg
         trade_msg["sequence_num"] = 50
 
-        asyncio.run(CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
+        await (CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
             msg=trade_msg,
             timestamp=1640000000.0,
             symbol_to_pair=self.symbol_to_pair
         ))
 
         self.assertTrue(
-            self.is_logged(log_level="WARNING",
-                           message="Received out of order message from market_trades, this indicates a "
-                                   "missed message")
+            self.is_partially_logged(log_level="WARNING",
+                                     message="Received out of order message from market_trades, this indicates a "
+                                             "missed message")
         )
