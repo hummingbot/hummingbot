@@ -18,7 +18,7 @@ from .cat_data_types.cat_api_v3_response_types import (
 #     CoinbaseAdvancedTradeWebAssistantsFactoryAdapter,
 # )
 from .cat_exchange_mixins.cat_accounts_mixin import CoinbaseAdvancedTradeAccountsMixin
-from .cat_exchange_mixins.cat_api_mixin import CoinbaseAdvancedTradeAPICallsMixin
+from .cat_exchange_mixins.cat_api_calls_mixin import CoinbaseAdvancedTradeAPICallsMixin
 from .cat_exchange_mixins.cat_exchange_protocols import CoinbaseAdvancedTradeTradingPairsMixinProtocol
 from .cat_exchange_mixins.cat_not_implemented_mixin import CoinbaseAdvancedTradeNotImplementedMixin
 from .cat_exchange_mixins.cat_orders_mixin import OrdersMixin
