@@ -1,143 +1,151 @@
-import asyncio
-import unittest
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from typing import Any, Dict
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_exchange import CoinbaseAdvancedTradeExchange
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_exchange_mixins.cat_exchange_protocols import (
-    CoinbaseAdvancedTradeAPICallsMixinProtocol,
+from hummingbot.connector.exchange.coinbase_advanced_trade.cat_exchange_mixins.cat_api_calls_mixin import (
+    CoinbaseAdvancedTradeAPICallsMixin,
 )
 
 
-class ExchangeAPI:
-    def __init__(self):
-        super().__init__()
-        self._api_post_called: bool = False
-        self._api_delete_called: bool = False
-        self._api_get_called: bool = False
-
-    async def _api_post(self, *args, **kwargs) -> dict:
-        self._api_post_called = True
-        return {}
-
-    async def _api_delete(self, *args, **kwargs) -> dict:
-        self._api_delete_called = True
-        return {}
-
-    async def _api_get(self, *args, **kwargs) -> dict:
-        self._api_get_called = True
-        return {}
-
-
-class ExchangeAPIMock:
-    def __init__(self):
-        super().__init__()
-        self._api_post = AsyncMock()
-        self._api_delete = AsyncMock()
-        self._api_get = AsyncMock()
-
-    async def _api_post(self, *args, **kwargs) -> Dict[str, Any]:
-        return await self._api_post()
-
-    async def _api_delete(self, *args, **kwargs) -> Dict[str, Any]:
-        return await self._api_delete()
-
-    async def _api_get(self, *args, **kwargs) -> Dict[str, Any]:
-        return await self._api_get()
-
-
-class APICallsMixinSubclass(ExchangeAPI):
-    def __init__(self):
-        super().__init__()
-
-
-class APICallsMixinSubclassMock(ExchangeAPIMock):
-    def __init__(self):
-        super().__init__()
-
-
-class TestAPICallsMixin(unittest.TestCase):
+class TestCoinbaseAdvancedTradeAPICallsMixin(IsolatedAsyncioWrapperTestCase):
     def setUp(self):
-        self.mixin = APICallsMixinSubclass()
-        self.mixin_mock = APICallsMixinSubclassMock()
+        # Create a mock object that simulates the behavior of a class that uses the mixin
+        self.mock_api = AsyncMock()
+        self.mixin = CoinbaseAdvancedTradeAPICallsMixin()
 
-    def test_api_post_calls_subclass_method(self):
-        async def run_test():
-            await self.mixin.api_post()
-            self.assertTrue(self.mixin._api_post_called)
+    async def test_api_post(self):
+        self.mixin._api_post = self.mock_api
+        await self.mixin.api_post("test", arg1="value1")
+        self.mock_api.assert_called_once_with("test", arg1="value1", return_err=True)
 
-        asyncio.run(run_test())
+    async def test_api_delete(self):
+        self.mixin._api_delete = self.mock_api
+        await self.mixin.api_delete("test", arg1="value1")
+        self.mock_api.assert_called_once_with("test", arg1="value1", return_err=True)
 
-    def test_api_delete_calls_subclass_method(self):
-        async def run_test():
-            await self.mixin.api_delete()
-            self.assertTrue(self.mixin._api_delete_called)
+    async def test_api_get(self):
+        self.mixin._api_get = self.mock_api
+        await self.mixin.api_get("test", arg1="value1")
+        self.mock_api.assert_called_once_with("test", arg1="value1", return_err=True)
 
-        asyncio.run(run_test())
+    async def test_inheritance(self):
+        class APIImplementation:
+            async def _api_post(self, *args, **kwargs) -> Dict[str, Any]:
+                return {}
 
-    def test_api_get_calls_subclass_method(self):
-        async def run_test():
-            await self.mixin.api_get()
-            self.assertTrue(self.mixin._api_get_called)
+            async def _api_delete(self, *args, **kwargs) -> Dict[str, Any]:
+                return {}
 
-        asyncio.run(run_test())
+            async def _api_get(self, *args, **kwargs) -> Dict[str, Any]:
+                return {}
 
-    def test_api_post_success(self):
-        async def run_test():
-            expected_response = {"success": True}
-            self.mixin_mock._api_post.return_value = expected_response
-            response = await self.mixin_mock.api_post()
-            self.assertEqual(response, expected_response)
+        class SubClass(CoinbaseAdvancedTradeAPICallsMixin, APIImplementation):
+            pass
 
-        asyncio.run(run_test())
+        test_obj = SubClass()
+        self.assertTrue(hasattr(test_obj, "api_post"))
+        self.assertTrue(hasattr(test_obj, "api_delete"))
+        self.assertTrue(hasattr(test_obj, "api_get"))
 
-    def test_api_delete_success(self):
-        async def run_test():
-            expected_response = {"success": True}
-            self.mixin_mock._api_delete.return_value = expected_response
-            response = await self.mixin_mock.api_delete()
-            self.assertEqual(response, expected_response)
+        # Mock the methods in the base class
+        with patch.object(APIImplementation, "_api_post", new_callable=AsyncMock) as mock_post, \
+                patch.object(APIImplementation, "_api_delete", new_callable=AsyncMock) as mock_delete, \
+                patch.object(APIImplementation, "_api_get", new_callable=AsyncMock) as mock_get:
+            await test_obj.api_post("test", arg1="value1")
+            mock_post.assert_called_once_with("test", arg1="value1", return_err=True)
 
-        asyncio.run(run_test())
+            await test_obj.api_delete("test", arg1="value1")
+            mock_delete.assert_called_once_with("test", arg1="value1", return_err=True)
 
-    def test_api_get_success(self):
-        async def run_test():
-            expected_response = {"success": True}
-            self.mixin_mock._api_get.return_value = expected_response
-            response = await self.mixin_mock.api_get()
-            self.assertEqual(response, expected_response)
+            await test_obj.api_get("test", arg1="value1")
+            mock_get.assert_called_once_with("test", arg1="value1", return_err=True)
 
-        asyncio.run(run_test())
+    async def test_inheritance_override(self):
+        class APIImplementation:
+            async def _api_post(self, *args, **kwargs) -> Dict[str, Any]:
+                return {}
 
-    def test_api_post_error(self):
-        async def run_test():
-            self.mixin_mock._api_post.side_effect = Exception("API Error")
-            with self.assertRaises(Exception):
-                await self.mixin_mock.api_post()
+            async def _api_delete(self, *args, **kwargs) -> Dict[str, Any]:
+                return {}
 
-        asyncio.run(run_test())
+            async def _api_get(self, *args, **kwargs) -> Dict[str, Any]:
+                return {}
 
-    def test_api_delete_error(self):
-        async def run_test():
-            self.mixin_mock._api_delete.side_effect = Exception("API Error")
-            with self.assertRaises(Exception):
-                await self.mixin_mock.api_delete()
+        class SubClass(
+            CoinbaseAdvancedTradeAPICallsMixin,
+            APIImplementation,
+        ):
+            async def _api_get(self, *args, **kwargs) -> Dict[str, Any]:
+                return {}
 
-        asyncio.run(run_test())
+        test_obj = SubClass()
+        self.assertTrue(hasattr(test_obj, "api_post"))
+        self.assertTrue(hasattr(test_obj, "api_delete"))
+        self.assertTrue(hasattr(test_obj, "api_get"))
 
-    def test_api_get_error(self):
-        async def run_test():
-            self.mixin_mock._api_get.side_effect = Exception("API Error")
-            with self.assertRaises(Exception):
-                await self.mixin_mock.api_get()
+        # Mock the methods in the base class
+        with patch.object(APIImplementation, "_api_post", new_callable=AsyncMock) as mock_post, \
+                patch.object(APIImplementation, "_api_delete", new_callable=AsyncMock) as mock_delete:
+            # Patching the _api_get method in the subclass
+            with patch.object(SubClass, "_api_get", new_callable=AsyncMock) as mock_get:
+                await test_obj.api_post("test", arg1="value1")
+                mock_post.assert_called_once_with("test", arg1="value1", return_err=True)
 
-        asyncio.run(run_test())
+                await test_obj.api_delete("test", arg1="value1")
+                mock_delete.assert_called_once_with("test", arg1="value1", return_err=True)
 
-    def test_conforms_to_protocol(self):
-        self.assertTrue(isinstance(APICallsMixinSubclass(), CoinbaseAdvancedTradeAPICallsMixinProtocol))
+                await test_obj.api_get("test", arg1="value1")
+                mock_get.assert_called_once_with("test", arg1="value1", return_err=True)
 
-        self.assertTrue(isinstance(CoinbaseAdvancedTradeExchange, CoinbaseAdvancedTradeAPICallsMixinProtocol))
+    async def test_daisy_chaining(self):
+        class TestClass1:
+            async def _api_post(self, *args, **kwargs) -> Dict[str, Any]:
+                return {}
 
+        class TestClass2(CoinbaseAdvancedTradeAPICallsMixin, TestClass1):
+            pass
 
-if __name__ == "__main__":
-    unittest.main()
+        test_obj = TestClass2()
+        self.assertTrue(hasattr(test_obj, "api_post"))
+
+    async def test_daisy_chaining_with_kwargs(self):
+        class BaseClass:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+            async def base_method(self, *args, **kwargs) -> Dict[str, Any]:
+                return {}
+
+            async def overwritten_in_mixin(self, *args, **kwargs) -> Dict[str, Any]:
+                return {}
+
+            async def overwritten_in_subclass(self, *args, **kwargs) -> Dict[str, Any]:
+                return {}
+
+        class OtherMixin:
+            def __init__(self, **kwargs):
+                if super().__class__ is not object:
+                    super().__init__(**kwargs)
+
+            async def overwritten_in_mixin(self, *args, **kwargs) -> Dict[str, Any]:
+                return {}
+
+        class SubClass(CoinbaseAdvancedTradeAPICallsMixin, OtherMixin, BaseClass):
+            def __init__(self, **kwargs):
+                super().__init__(**kwargs)
+
+            async def overwritten_in_subclass(self, *args, **kwargs) -> Dict[str, Any]:
+                return {}
+
+        test_obj = SubClass(test="test")
+        # Mock the methods in the base class
+        with patch.object(BaseClass, "base_method", new_callable=AsyncMock) as mock_method:
+            with patch.object(OtherMixin, "overwritten_in_mixin", new_callable=AsyncMock) as mock_mixin:
+                with patch.object(SubClass, "overwritten_in_subclass", new_callable=AsyncMock) as mock_subbclass:
+                    await test_obj.overwritten_in_subclass()
+                    await test_obj.overwritten_in_mixin()
+                    await test_obj.base_method()
+                    mock_method.assert_called_once_with()
+                    mock_mixin.assert_called_once_with()
+                    mock_subbclass.assert_called_once_with()
+                    self.assertEqual(test_obj.kwargs, {"test": "test"})

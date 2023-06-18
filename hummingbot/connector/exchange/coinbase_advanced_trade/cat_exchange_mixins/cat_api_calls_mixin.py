@@ -15,7 +15,8 @@ class _APICallsMixinProtocol(Protocol):
 
 class CoinbaseAdvancedTradeAPICallsMixin:
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+        if super().__class__ is not object:
+            super().__init__(**kwargs)
 
     # @cat_api_call_http_error_handler
     async def api_post(self: _APICallsMixinProtocol, *args, **kwargs) -> Dict[str, Any]:

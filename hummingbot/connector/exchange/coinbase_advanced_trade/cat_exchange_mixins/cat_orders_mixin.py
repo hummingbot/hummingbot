@@ -69,7 +69,8 @@ def _create_trade_updates(trade_list: List[Any], client_order_id: str) -> List[T
 
 class OrdersMixin:
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+        if super().__class__ is not object:
+            super().__init__(**kwargs)
         self._last_trades_poll_timestamp: float = 0.0
 
     @property

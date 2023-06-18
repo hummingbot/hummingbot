@@ -26,7 +26,8 @@ class _WebLoggerProtocol(
 
 class WebsocketMixin:
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+        if super().__class__ is not object:
+            super().__init__(**kwargs)
 
     def iter_user_event_queue(self: CoinbaseAdvancedTradeWebsocketMixinProtocol) -> AsyncIterable[Dict[str, Any]]:
         return self._iter_user_event_queue()

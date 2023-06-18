@@ -1,7 +1,8 @@
 import asyncio
 import unittest
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from typing import Any, Dict, Iterable, Set
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from _decimal import Decimal
 
@@ -96,7 +97,11 @@ class ExchangeMixinSubclass(CoinbaseAdvancedTradeAccountsMixin, ExchangeAPI):
         self.remove_balances_called = True
 
 
-class TestAccountsMixin(unittest.TestCase):
+async def overwritten_method(*args, **kwargs) -> Dict[str, Any]:
+    return {}
+
+
+class TestAccountsMixin(IsolatedAsyncioWrapperTestCase):
     def setUp(self):
         self.accounts_mixin = CoinbaseAdvancedTradeAccountsMixin()
         self.accounts = create_accounts()
@@ -111,82 +116,113 @@ class TestAccountsMixin(unittest.TestCase):
     def test_asset_uuid_map(self):
         self.assertEqual(self.accounts_mixin.asset_uuid_map, {})
 
-    def test_list_one_page_of_accounts(self):
-        async def run_test():
-            self.accounts_mixin.api_get = AsyncMock(return_value=self.accounts)
-            accounts = await self.accounts_mixin._list_one_page_of_accounts("0")
-            self.accounts_mixin.api_get.assert_called_once_with(
-                path_url=CONSTANTS.ACCOUNTS_LIST_EP,
-                params={"limit": 250},
-                is_auth_required=True,
-            )
-            self.assertEqual(accounts.has_next, True)
-            self.assertEqual(accounts.cursor, "789100")
-            self.assertEqual(accounts.accounts, tuple([CoinbaseAdvancedTradeAccount(**a) for a in self.accounts["accounts"]]))
+    async def test_list_one_page_of_accounts(self):
+        self.accounts_mixin.api_get = AsyncMock(return_value=self.accounts)
+        accounts = await self.accounts_mixin._list_one_page_of_accounts("0")
+        self.accounts_mixin.api_get.assert_called_once_with(
+            path_url=CONSTANTS.ACCOUNTS_LIST_EP,
+            params={"limit": 250},
+            is_auth_required=True,
+        )
+        self.assertEqual(accounts.has_next, True)
+        self.assertEqual(accounts.cursor, "789100")
+        self.assertEqual(accounts.accounts,
+                         tuple([CoinbaseAdvancedTradeAccount(**a) for a in self.accounts["accounts"]]))
 
-        asyncio.run(run_test())
+    async def test_list_one_page_of_accounts_in_exchange(self):
+        accounts = await self.exchange_with_accounts_mixin._list_one_page_of_accounts("0")
+        self.assertEqual(accounts, CoinbaseAdvancedTradeListAccountsResponse(**create_accounts()))
 
-    def test_list_one_page_of_accounts_in_exchange(self):
-        async def run_test():
-            accounts = await self.exchange_with_accounts_mixin._list_one_page_of_accounts("0")
-            self.assertEqual(accounts, CoinbaseAdvancedTradeListAccountsResponse(**create_accounts()))
+        self.assertEqual(self.exchange_with_accounts_mixin.api_get_called, True)
 
-            self.assertEqual(self.exchange_with_accounts_mixin.api_get_called, True)
+    async def test_list_trading_accounts(self):
+        self.accounts_mixin._list_one_page_of_accounts = AsyncMock(
+            return_value=CoinbaseAdvancedTradeListAccountsResponse(**self.accounts))
+        self.accounts_mixin._list_one_page_of_accounts.side_effect = [
+            CoinbaseAdvancedTradeListAccountsResponse(**create_last_accounts_page())]
+        trading_accounts = [account async for account in self.accounts_mixin._list_trading_accounts()]
+        self.assertEqual(2, len(trading_accounts))
+        self.accounts_mixin._list_one_page_of_accounts.assert_called_once()
+        self.assertEqual(trading_accounts, [CoinbaseAdvancedTradeAccount(**a) for a in self.accounts["accounts"]])
+        self.assertEqual(self.accounts_mixin.asset_uuid_map, {"BTC": "456"})
 
-        asyncio.run(run_test())
+    async def test_list_trading_accounts_in_exchange(self):
+        self.exchange_with_accounts_mixin._list_one_page_of_accounts = AsyncMock(
+            return_value=CoinbaseAdvancedTradeListAccountsResponse(**self.accounts))
+        self.exchange_with_accounts_mixin._list_one_page_of_accounts.side_effect = [
+            CoinbaseAdvancedTradeListAccountsResponse(**create_last_accounts_page())]
+        trading_accounts = [account async for account in self.exchange_with_accounts_mixin._list_trading_accounts()]
 
-    def test_list_trading_accounts(self):
-        async def run_test():
-            self.accounts_mixin._list_one_page_of_accounts = AsyncMock(return_value=CoinbaseAdvancedTradeListAccountsResponse(**self.accounts))
-            self.accounts_mixin._list_one_page_of_accounts.side_effect = [CoinbaseAdvancedTradeListAccountsResponse(**create_last_accounts_page())]
-            trading_accounts = [account async for account in self.accounts_mixin._list_trading_accounts()]
-            self.assertEqual(2, len(trading_accounts))
-            self.accounts_mixin._list_one_page_of_accounts.assert_called_once()
-            self.assertEqual(trading_accounts, [CoinbaseAdvancedTradeAccount(**a) for a in self.accounts["accounts"]])
-            self.assertEqual(self.accounts_mixin.asset_uuid_map, {"BTC": "456"})
+        self.assertEqual(trading_accounts, [CoinbaseAdvancedTradeAccount(**a) for a in self.accounts["accounts"]])
+        self.assertEqual(self.exchange_with_accounts_mixin.asset_uuid_map, {"BTC": "456"})
 
-        asyncio.run(run_test())
+    async def test_update_balances(self):
+        self.accounts_mixin._list_trading_accounts = MagicMock(
+            return_value=self.async_gen([CoinbaseAdvancedTradeAccount(**a) for a in self.accounts["accounts"]]))
+        self.accounts_mixin.get_balances_keys = MagicMock(return_value=set())
+        self.accounts_mixin.update_balance = MagicMock()
+        self.accounts_mixin.update_available_balance = MagicMock()
+        self.accounts_mixin.remove_balances = MagicMock()
 
-    def test_list_trading_accounts_in_exchange(self):
-        async def run_test():
-            self.exchange_with_accounts_mixin._list_one_page_of_accounts = AsyncMock(return_value=CoinbaseAdvancedTradeListAccountsResponse(**self.accounts))
-            self.exchange_with_accounts_mixin._list_one_page_of_accounts.side_effect = [CoinbaseAdvancedTradeListAccountsResponse(**create_last_accounts_page())]
-            trading_accounts = [account async for account in self.exchange_with_accounts_mixin._list_trading_accounts()]
+        await self.accounts_mixin._update_balances()
 
-            self.assertEqual(trading_accounts, [CoinbaseAdvancedTradeAccount(**a) for a in self.accounts["accounts"]])
-            self.assertEqual(self.exchange_with_accounts_mixin.asset_uuid_map, {"BTC": "456"})
+        self.accounts_mixin._list_trading_accounts.assert_called_once()
+        self.accounts_mixin.get_balances_keys.assert_called_once()
+        self.accounts_mixin.update_balance.assert_called_with("BTC", Decimal(1))
+        self.accounts_mixin.update_available_balance.assert_called_with("BTC", Decimal(5))
+        self.accounts_mixin.remove_balances.assert_called_once_with(set())
 
-        asyncio.run(run_test())
+    async def test_update_balances_in_exchange(self):
+        self.exchange_with_accounts_mixin._list_trading_accounts = MagicMock(
+            return_value=self.async_gen([CoinbaseAdvancedTradeAccount(**a) for a in self.accounts["accounts"]]))
+        await self.exchange_with_accounts_mixin._update_balances()
 
-    def test_update_balances(self):
-        async def run_test():
-            self.accounts_mixin._list_trading_accounts = MagicMock(return_value=self.async_gen([CoinbaseAdvancedTradeAccount(**a) for a in self.accounts["accounts"]]))
-            self.accounts_mixin.get_balances_keys = MagicMock(return_value=set())
-            self.accounts_mixin.update_balance = MagicMock()
-            self.accounts_mixin.update_available_balance = MagicMock()
-            self.accounts_mixin.remove_balances = MagicMock()
+        self.assertEqual(self.exchange_with_accounts_mixin.get_balances_keys_called, True)
+        self.assertEqual(self.exchange_with_accounts_mixin.update_balance_called, True)
+        self.assertEqual(self.exchange_with_accounts_mixin.update_available_balance_called, True)
+        self.assertEqual(self.exchange_with_accounts_mixin.remove_balances_called, True)
 
-            await self.accounts_mixin._update_balances()
+    async def test_daisy_chaining_with_kwargs(self):
+        class BaseClass:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
 
-            self.accounts_mixin._list_trading_accounts.assert_called_once()
-            self.accounts_mixin.get_balances_keys.assert_called_once()
-            self.accounts_mixin.update_balance.assert_called_with("BTC", Decimal(1))
-            self.accounts_mixin.update_available_balance.assert_called_with("BTC", Decimal(5))
-            self.accounts_mixin.remove_balances.assert_called_once_with(set())
+            async def base_method(self, *args, **kwargs) -> Dict[str, Any]:
+                return {}
 
-        asyncio.run(run_test())
+            async def overwritten_in_mixin(self, *args, **kwargs) -> Dict[str, Any]:
+                return {}
 
-    def test_update_balances_in_exchange(self):
-        async def run_test():
-            self.exchange_with_accounts_mixin._list_trading_accounts = MagicMock(return_value=self.async_gen([CoinbaseAdvancedTradeAccount(**a) for a in self.accounts["accounts"]]))
-            await self.exchange_with_accounts_mixin._update_balances()
+            async def overwritten_in_subclass(self, *args, **kwargs) -> Dict[str, Any]:
+                return {}
 
-            self.assertEqual(self.exchange_with_accounts_mixin.get_balances_keys_called, True)
-            self.assertEqual(self.exchange_with_accounts_mixin.update_balance_called, True)
-            self.assertEqual(self.exchange_with_accounts_mixin.update_available_balance_called, True)
-            self.assertEqual(self.exchange_with_accounts_mixin.remove_balances_called, True)
+        class OtherMixin:
+            def __init__(self, **kwargs):
+                if super().__class__ is not object:
+                    super().__init__(**kwargs)
 
-        asyncio.run(run_test())
+            async def overwritten_in_mixin(self, *args, **kwargs) -> Dict[str, Any]:
+                return {}
+
+        class SubClass(CoinbaseAdvancedTradeAccountsMixin, OtherMixin, BaseClass):
+            def __init__(self, **kwargs):
+                super().__init__(**kwargs)
+
+            async def overwritten_in_subclass(self, *args, **kwargs) -> Dict[str, Any]:
+                return {}
+
+        test_obj = SubClass(test="test")
+        # Mock the methods in the base class
+        with patch.object(BaseClass, "base_method", new_callable=AsyncMock) as mock_method:
+            with patch.object(OtherMixin, "overwritten_in_mixin", new_callable=AsyncMock) as mock_mixin:
+                with patch.object(SubClass, "overwritten_in_subclass", new_callable=AsyncMock) as mock_subbclass:
+                    await test_obj.overwritten_in_subclass()
+                    await test_obj.overwritten_in_mixin()
+                    await test_obj.base_method()
+                    mock_method.assert_called_once_with()
+                    mock_mixin.assert_called_once_with()
+                    mock_subbclass.assert_called_once_with()
+                    self.assertEqual(test_obj.kwargs, {"test": "test"})
 
 
 if __name__ == "__main__":

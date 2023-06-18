@@ -31,7 +31,8 @@ class _PairsAPILoggerProto(_TradingPairsProto, _APICallsProto, _UtilitiesProto):
 class TradingPairsRulesMixin:
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+        if super().__class__ is not object:
+            super().__init__(**kwargs)
         self._pair_symbol_map_initialized = False
 
     @property

@@ -9,7 +9,8 @@ class _NameProtocol(Protocol):
 
 class CoinbaseAdvancedTradeNotImplementedMixin:
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+        if super().__class__ is not object:
+            super().__init__(**kwargs)
 
     @property
     def trading_rules_request_path(self: _NameProtocol) -> str:
