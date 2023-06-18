@@ -69,7 +69,7 @@ class TestRunTestEventLoop(LocalTestEventLoopWrapperTestCase):
 class TestParallelExecution(unittest.TestCase):
     def test_parallel_execution(self):
         with concurrent.futures.ProcessPoolExecutor() as executor:
-            futures = [executor.submit(self.run_test, test) for test in
+            futures = [executor.submit(TestParallelExecution.run_test, test) for test in
                        [TestMainEventLoop, TestRunClassEventLoop, TestIsolated, TestRunTestEventLoop,
                         TestMainEventLoop]]
             for future in concurrent.futures.as_completed(futures):
@@ -398,7 +398,12 @@ class TestAsyncToSyncInLoop(unittest.TestCase):
 
     def test_main_event_loop_unchanged_after_exception(self):
         # Save the current event loop
-        main_loop = asyncio.get_event_loop()
+        try:
+            main_loop = asyncio.get_event_loop()
+        except RuntimeError:
+            # If no event loop exists, create one
+            main_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(main_loop)
 
         # Run a function decorated with @async_to_sync that raises an exception
         with self.assertRaises(ValueError):
@@ -408,7 +413,7 @@ class TestAsyncToSyncInLoop(unittest.TestCase):
         self.assertEqual(main_loop, asyncio.get_event_loop())
 
 
-def load_tests(loader, tests, pattern):
+def load_tests():
     suite = unittest.TestSuite()
     suite.addTest(TestMainEventLoop('test_main_event_loop'))
     suite.addTest(TestMainEventLoop('test_multiple_async_functions'))
