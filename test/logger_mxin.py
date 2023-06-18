@@ -41,6 +41,9 @@ class TestLoggerMixin(Handler):
         """
         Set up the test logger mixin by adding the test logger to the provided loggers list.
         """
+        # __init__() may not be called if the class is used as a mixin
+        # We forcefully create or initialize the log_records attribute here
+        self.log_records: List[LogRecord] = []
         for logger in loggers:
             if logger is not None:
                 logger.setLevel(self.level)
