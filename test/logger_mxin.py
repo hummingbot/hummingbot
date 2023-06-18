@@ -67,20 +67,20 @@ class TestLoggerMixin(Handler):
         """
         self.log_records.append(record)
 
-    def is_logged(self, level: Union[str, int], msg: str):
+    def is_logged(self, log_level: Union[str, int], message: str):
         """
         Check if a certain message has been logged at a certain level.
         """
-        if isinstance(level, int):
-            level = logging.getLevelName(level)
+        if isinstance(log_level, int):
+            log_level = logging.getLevelName(log_level)
 
-        return any([record.getMessage() == msg and record.levelname == level for record in self.log_records])
+        return any([record.getMessage() == message and record.levelname == log_level for record in self.log_records])
 
-    def is_partially_logged(self, level: Union[str, LogLevel], msg: str):
+    def is_partially_logged(self, log_level: Union[str, int], message: str):
         """
         Check if a part of a certain message has been logged at a certain level.
         """
-        if isinstance(level, int):
-            level = logging.getLevelName(level)
+        if isinstance(log_level, int):
+            log_level = logging.getLevelName(log_level)
 
-        return any([msg in record.getMessage() and record.levelname == level for record in self.log_records])
+        return any([message in record.getMessage() and record.levelname == log_level for record in self.log_records])
