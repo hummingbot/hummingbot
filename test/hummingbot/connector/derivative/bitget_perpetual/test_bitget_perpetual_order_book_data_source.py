@@ -626,7 +626,7 @@ class BitgetPerpetualAPIOrderBookDataSourceTests(TestCase):
             self.data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue)
         )
         try:
-            self.async_run_with_timeout(self.listening_task)
+            self.async_run_with_timeout(self.listening_task, timeout=2)
         except asyncio.CancelledError:
             pass
 
