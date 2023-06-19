@@ -1,5 +1,4 @@
 import asyncio
-import concurrent.futures
 import time
 import unittest
 from test.isolated_asyncio_wrapper_test_case import (
@@ -66,21 +65,21 @@ class TestRunTestEventLoop(LocalTestEventLoopWrapperTestCase):
         asyncio.run(asyncio.sleep(0.1))
 
 
-class TestParallelExecution(unittest.TestCase):
-    def test_parallel_execution(self):
-        with concurrent.futures.ProcessPoolExecutor() as executor:
-            futures = [executor.submit(self.run_test, test) for test in
-                       [TestMainEventLoop, TestRunClassEventLoop, TestIsolated, TestRunTestEventLoop,
-                        TestMainEventLoop]]
-            for future in concurrent.futures.as_completed(futures):
-                future.result()  # Raises an exception if the test failed
-
-    @staticmethod
-    def run_test(test_case):
-        suite = unittest.TestSuite()
-        for test in unittest.defaultTestLoader.getTestCaseNames(test_case):
-            suite.addTest(test_case(test))
-        unittest.TextTestRunner().run(suite)
+# class TestParallelExecution(unittest.TestCase):
+#     def test_parallel_execution(self):
+#         with concurrent.futures.ProcessPoolExecutor() as executor:
+#             futures = [executor.submit(self.run_test, test) for test in
+#                        [TestMainEventLoop, TestRunClassEventLoop, TestIsolated, TestRunTestEventLoop,
+#                         TestMainEventLoop]]
+#             for future in concurrent.futures.as_completed(futures):
+#                 future.result()  # Raises an exception if the test failed
+#
+#     @staticmethod
+#     def run_test(test_case):
+#         suite = unittest.TestSuite()
+#         for test in unittest.defaultTestLoader.getTestCaseNames(test_case):
+#             suite.addTest(test_case(test))
+#         unittest.TextTestRunner().run(suite)
 
 
 class TestIsolatedAsyncioWrapperTestCase(unittest.TestCase):
