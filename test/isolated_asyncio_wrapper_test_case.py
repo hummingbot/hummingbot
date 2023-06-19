@@ -38,7 +38,7 @@ def async_to_sync(func: Callable[..., Coroutine[Any, Any, T]]) -> Callable[..., 
     @functools.wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> T:
         try:
-            loop: asyncio.AbstractEventLoop = asyncio.get_event_loop_policy().get_event_loop()
+            loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         except RuntimeError:
             return asyncio.run(func(*args, **kwargs))
 
@@ -62,30 +62,46 @@ class IsolatedAsyncioWrapperTestCase(unittest.IsolatedAsyncioTestCase):
             # Test your async function here
             ...
     ```
-
-    Note:
-    - It is important to make sure that all async functions in the test case are prefixed with the `async` keyword.
-    - This class assumes that the tests are defined as methods in a subclass.
-
-    Attributes:
-    - `main_event_loop`: The reference to the main asyncio event loop.
     """
-    main_event_loop: Optional[asyncio.AbstractEventLoop] = None
+    main_event_loop = None
 
     @classmethod
     def setUpClass(cls) -> None:
-        super().setUpClass()
+        # Save the current event loop
         try:
-            cls.main_event_loop = asyncio.get_event_loop_policy().get_event_loop()
+            # This will trigger a RuntimeError if no event loop is running or no event loop is set.
+            # Meaning, set_event_loop(None) has been called.
+            cls.main_event_loop = asyncio.get_event_loop()
         except RuntimeError:
-            cls.main_event_loop = None
+            # If no event loop exists, create one
+            cls.main_event_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(cls.main_event_loop)
+        assert cls.main_event_loop is not None
+        super().setUpClass()
+
+    def setUp(self) -> None:
+        self.local_event_loop = asyncio.get_event_loop()
+        assert self.local_event_loop is not self.main_event_loop
+        super().setUp()
+
+    def tearDown(self) -> None:
+        super().tearDown()
+        if self.main_event_loop is not None and not self.main_event_loop.is_closed():
+            asyncio.set_event_loop(self.main_event_loop)
+            assert asyncio.get_event_loop() is self.main_event_loop
+        else:
+            asyncio.set_event_loop(asyncio.new_event_loop())
 
     @classmethod
     def tearDownClass(cls) -> None:
-        if cls.main_event_loop is not None:
-            asyncio.set_event_loop(cls.main_event_loop)
-        cls.main_event_loop = None
         super().tearDownClass()
+        # Ok, asyncio.IsolatedAsyncioTestCase kills the main event loop no matter it's initial state.
+        # We need to restore it here, otherwise any tests after this one will fail if it relies on the main event loop.
+        if cls.main_event_loop is not None and not cls.main_event_loop.is_closed():
+            asyncio.set_event_loop(cls.main_event_loop)
+        else:
+            asyncio.set_event_loop(asyncio.new_event_loop())
+        assert asyncio.get_event_loop() is not None
 
 
 class LocalClassEventLoopWrapperTestCase(unittest.TestCase):
@@ -116,17 +132,18 @@ class LocalClassEventLoopWrapperTestCase(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
-        super().setUpClass()
         try:
-            cls.main_event_loop = asyncio.get_event_loop_policy().get_event_loop()
+            cls.main_event_loop = asyncio.get_event_loop()
         except RuntimeError:
-            cls.main_event_loop = None
+            cls.main_event_loop = asyncio.new_event_loop()
 
         cls.local_event_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(cls.local_event_loop)
+        super().setUpClass()
 
     @classmethod
     def tearDownClass(cls) -> None:
+        super().tearDownClass()
         if cls.local_event_loop is not None and cls.local_event_loop.is_running():
             cls.local_event_loop.stop()
 
@@ -138,7 +155,6 @@ class LocalClassEventLoopWrapperTestCase(unittest.TestCase):
 
         asyncio.set_event_loop(cls.main_event_loop)
         cls.main_event_loop = None
-        super().tearDownClass()
 
     def run_async_with_timeout(self, coro: Awaitable, timeout: float = 1.0) -> Any:
         """
@@ -180,11 +196,11 @@ class LocalTestEventLoopWrapperTestCase(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
-        super().setUpClass()
         try:
-            cls.main_event_loop = asyncio.get_event_loop_policy().get_event_loop()
+            cls.main_event_loop = asyncio.get_event_loop()
         except RuntimeError:
             cls.main_event_loop = None
+        super().setUpClass()
 
     def setUp(self) -> None:
         super().setUp()
@@ -202,7 +218,11 @@ class LocalTestEventLoopWrapperTestCase(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls) -> None:
-        asyncio.set_event_loop(cls.main_event_loop)
+        if cls.main_event_loop is not None and not cls.main_event_loop.is_closed():
+            asyncio.set_event_loop(cls.main_event_loop)
+        else:
+            asyncio.set_event_loop(asyncio.new_event_loop())
+
         cls.main_event_loop = None
         super().tearDownClass()
 
