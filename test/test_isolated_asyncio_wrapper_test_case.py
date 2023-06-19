@@ -408,53 +408,53 @@ class TestAsyncToSyncInLoop(unittest.TestCase):
         self.assertEqual(main_loop, asyncio.get_event_loop())
 
 
-def load_tests(loader, tests, pattern):
-    suite = unittest.TestSuite()
-    suite.addTest(TestMainEventLoop('test_main_event_loop'))
-    suite.addTest(TestMainEventLoop('test_multiple_async_functions'))
-    suite.addTest(TestMainEventLoop('test_exception_handling'))
-
-    suite.addTest(TestParallelExecution('test_parallel_execution'))
-
-    suite.addTest(TestIsolated('test_isolated'))
-    suite.addTest(TestIsolated('test_another'))
-
-    suite.addTest(TestRunClassEventLoop('test_run'))
-    suite.addTest(TestRunClassEventLoop('test_another'))
-
-    suite.addTest(TestRunTestEventLoop('test_run'))
-    suite.addTest(TestRunTestEventLoop('test_another'))
-
-    suite.addTest(TestMainEventLoop('test_main_event_loop'))
-    suite.addTest(TestMainEventLoop('test_multiple_async_functions'))
-    suite.addTest(TestMainEventLoop('test_exception_handling'))
-
-    # Coverage tests
-    suite.addTest(TestIsolatedAsyncioWrapperTestCase('test_setUpClass_with_existing_loop'))
-    suite.addTest(TestIsolatedAsyncioWrapperTestCase('test_setUpClass_without_existing_loop'))
-    suite.addTest(TestIsolatedAsyncioWrapperTestCase('test_tearDownClass_with_existing_loop'))
-    suite.addTest(TestIsolatedAsyncioWrapperTestCase('test_tearDownClass_without_existing_loop'))
-
-    suite.addTest(TestLocalClassEventLoopWrapperTestCase('test_setUpClass_with_existing_loop'))
-    suite.addTest(TestLocalClassEventLoopWrapperTestCase('test_setUpClass_without_existing_loop'))
-    suite.addTest(TestLocalClassEventLoopWrapperTestCase('test_tearDownClass_with_existing_loop'))
-    suite.addTest(TestLocalClassEventLoopWrapperTestCase('test_tearDownClass_without_existing_loop'))
-    suite.addTest(TestLocalClassEventLoopWrapperTestCase('test_run_async_with_timeout'))
-
-    suite.addTest(TestLocalTestEventLoopWrapperTestCase('test_setUp_with_existing_loop'))
-    suite.addTest(TestLocalTestEventLoopWrapperTestCase('test_setUp_without_existing_loop'))
-    suite.addTest(TestLocalTestEventLoopWrapperTestCase('test_tearDown_with_existing_loop'))
-    suite.addTest(TestLocalTestEventLoopWrapperTestCase('test_tearDown_without_existing_loop'))
-    suite.addTest(TestLocalTestEventLoopWrapperTestCase('test_tearDownClass_with_existing_loop'))
-    suite.addTest(TestLocalTestEventLoopWrapperTestCase('test_tearDownClass_without_existing_loop'))
-    suite.addTest(TestLocalTestEventLoopWrapperTestCase('test_run_async_with_timeout'))
-
-    suite.addTest(TestAsyncToSyncInLoop('test_async_add'))
-    suite.addTest(TestAsyncToSyncInLoop('test_async_raise_exception'))
-    suite.addTest(TestAsyncToSyncInLoop('test_main_event_loop_unchanged'))
-    suite.addTest(TestAsyncToSyncInLoop('test_main_event_loop_unchanged_after_exception'))
-
-    return suite
+# def load_tests(loader, tests, pattern):
+#     suite = unittest.TestSuite()
+#     suite.addTest(TestMainEventLoop('test_main_event_loop'))
+#     suite.addTest(TestMainEventLoop('test_multiple_async_functions'))
+#     suite.addTest(TestMainEventLoop('test_exception_handling'))
+#
+#     suite.addTest(TestParallelExecution('test_parallel_execution'))
+#
+#     suite.addTest(TestIsolated('test_isolated'))
+#     suite.addTest(TestIsolated('test_another'))
+#
+#     suite.addTest(TestRunClassEventLoop('test_run'))
+#     suite.addTest(TestRunClassEventLoop('test_another'))
+#
+#     suite.addTest(TestRunTestEventLoop('test_run'))
+#     suite.addTest(TestRunTestEventLoop('test_another'))
+#
+#     suite.addTest(TestMainEventLoop('test_main_event_loop'))
+#     suite.addTest(TestMainEventLoop('test_multiple_async_functions'))
+#     suite.addTest(TestMainEventLoop('test_exception_handling'))
+#
+#     # Coverage tests
+#     suite.addTest(TestIsolatedAsyncioWrapperTestCase('test_setUpClass_with_existing_loop'))
+#     suite.addTest(TestIsolatedAsyncioWrapperTestCase('test_setUpClass_without_existing_loop'))
+#     suite.addTest(TestIsolatedAsyncioWrapperTestCase('test_tearDownClass_with_existing_loop'))
+#     suite.addTest(TestIsolatedAsyncioWrapperTestCase('test_tearDownClass_without_existing_loop'))
+#
+#     suite.addTest(TestLocalClassEventLoopWrapperTestCase('test_setUpClass_with_existing_loop'))
+#     suite.addTest(TestLocalClassEventLoopWrapperTestCase('test_setUpClass_without_existing_loop'))
+#     suite.addTest(TestLocalClassEventLoopWrapperTestCase('test_tearDownClass_with_existing_loop'))
+#     suite.addTest(TestLocalClassEventLoopWrapperTestCase('test_tearDownClass_without_existing_loop'))
+#     suite.addTest(TestLocalClassEventLoopWrapperTestCase('test_run_async_with_timeout'))
+#
+#     suite.addTest(TestLocalTestEventLoopWrapperTestCase('test_setUp_with_existing_loop'))
+#     suite.addTest(TestLocalTestEventLoopWrapperTestCase('test_setUp_without_existing_loop'))
+#     suite.addTest(TestLocalTestEventLoopWrapperTestCase('test_tearDown_with_existing_loop'))
+#     suite.addTest(TestLocalTestEventLoopWrapperTestCase('test_tearDown_without_existing_loop'))
+#     suite.addTest(TestLocalTestEventLoopWrapperTestCase('test_tearDownClass_with_existing_loop'))
+#     suite.addTest(TestLocalTestEventLoopWrapperTestCase('test_tearDownClass_without_existing_loop'))
+#     suite.addTest(TestLocalTestEventLoopWrapperTestCase('test_run_async_with_timeout'))
+#
+#     suite.addTest(TestAsyncToSyncInLoop('test_async_add'))
+#     suite.addTest(TestAsyncToSyncInLoop('test_async_raise_exception'))
+#     suite.addTest(TestAsyncToSyncInLoop('test_main_event_loop_unchanged'))
+#     suite.addTest(TestAsyncToSyncInLoop('test_main_event_loop_unchanged_after_exception'))
+#
+#     return suite
 
 
 if __name__ == "__main__":
