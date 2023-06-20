@@ -2,8 +2,8 @@ import asyncio
 import json
 import re
 import unittest
-from collections import Awaitable, deque
-from typing import Any, Dict
+from collections import deque
+from typing import Any, Awaitable, Dict
 from unittest.mock import AsyncMock, patch
 
 import ujson
