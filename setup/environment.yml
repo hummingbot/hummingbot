@@ -61,7 +61,7 @@ dependencies:
     - signalr-client-aio==0.0.1.6.2
     - substrate-interface==1.6.2
     - solders==0.1.4
-    - web3==5.23.1
+    - web3==5.*
     - websockets==9.1
     - ujson==5.7.0
     - git+https://github.com/CoinAlpha/python-signalr-client.git
