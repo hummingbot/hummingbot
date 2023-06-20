@@ -6,7 +6,6 @@ from typing import (
 )
 
 import ujson
-from aiokafka import ConsumerRecord
 
 from hummingbot.connector.exchange.loopring.loopring_order_book_message import LoopringOrderBookMessage
 from hummingbot.core.data_type.common import TradeType
@@ -57,16 +56,6 @@ cdef class LoopringOrderBook(OrderBook):
             "price": msg[4],
             "amount": msg[3]
         }, timestamp=ts * 1e-3)
-
-    @classmethod
-    def snapshot_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict] = None) -> OrderBookMessage:
-        msg = ujson.loads(record.value.decode())
-        return LoopringOrderBookMessage(OrderBookMessageType.SNAPSHOT, msg, timestamp=record.timestamp * 1e-3)
-
-    @classmethod
-    def diff_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict] = None) -> OrderBookMessage:
-        msg = ujson.loads(record.value.decode())
-        return LoopringOrderBookMessage(OrderBookMessageType.DIFF, msg)
 
     @classmethod
     def from_snapshot(cls, snapshot: OrderBookMessage):

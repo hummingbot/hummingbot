@@ -28,7 +28,6 @@ dependencies:
     - 0x-contract-wrappers==2.0.0
     - 0x-order-utils==4.0.0
     - aiohttp==3.*
-    - aiokafka==0.7.1
     - aioprocessing==2.0.0
     - aioresponses
     - appdirs==1.4.3
