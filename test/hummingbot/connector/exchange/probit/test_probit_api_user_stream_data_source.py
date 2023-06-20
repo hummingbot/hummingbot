@@ -1,8 +1,7 @@
 import asyncio
 import json
 import unittest
-from collections import Awaitable
-from typing import Optional
+from typing import Awaitable, Optional
 from unittest.mock import AsyncMock, patch
 
 from aiohttp import WSMsgType

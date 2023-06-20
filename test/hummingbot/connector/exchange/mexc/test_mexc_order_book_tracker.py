@@ -2,9 +2,8 @@
 import asyncio
 import json
 import unittest
-from collections import Awaitable
 from decimal import Decimal
-from typing import Any
+from typing import Any, Awaitable
 from unittest.mock import AsyncMock
 
 from aioresponses import aioresponses
