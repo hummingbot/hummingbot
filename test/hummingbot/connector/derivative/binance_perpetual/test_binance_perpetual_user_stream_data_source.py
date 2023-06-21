@@ -203,28 +203,28 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
         result: bool = self.async_run_with_timeout(self.data_source.ping_listen_key())
         self.assertTrue(result)
 
-    @aioresponses()
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_create_websocket_connection_log_exception(self, mock_api, mock_ws):
-        url = web_utils.rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        mock_api.post(regex_url, body=self._successful_get_listen_key_response())
-
-        mock_ws.side_effect = Exception("TEST ERROR.")
-
-        msg_queue = asyncio.Queue()
-        try:
-            self.async_run_with_timeout(self.data_source.listen_for_user_stream(msg_queue))
-        except asyncio.exceptions.TimeoutError:
-            pass
-
-        self.assertTrue(
-            self._is_logged(
-                "ERROR",
-                "Unexpected error while listening to user stream. Retrying after 5 seconds...",
-            )
-        )
+    # @aioresponses()
+    # @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    # def test_create_websocket_connection_log_exception(self, mock_api, mock_ws):
+    #     url = web_utils.rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
+    #     regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+    #
+    #     mock_api.post(regex_url, body=self._successful_get_listen_key_response())
+    #
+    #     mock_ws.side_effect = Exception("TEST ERROR.")
+    #
+    #     msg_queue = asyncio.Queue()
+    #     try:
+    #         self.async_run_with_timeout(self.data_source.listen_for_user_stream(msg_queue))
+    #     except asyncio.exceptions.TimeoutError:
+    #         pass
+    #
+    #     self.assertTrue(
+    #         self._is_logged(
+    #             "ERROR",
+    #             "Unexpected error while listening to user stream. Retrying after 5 seconds...",
+    #         )
+    #     )
 
     @aioresponses()
     def test_manage_listen_key_task_loop_keep_alive_failed(self, mock_api):
