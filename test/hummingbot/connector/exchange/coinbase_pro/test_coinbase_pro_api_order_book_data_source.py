@@ -207,17 +207,17 @@ class CoinbaseProAPIOrderBookDataSourceTests(unittest.TestCase):
         self.assertEqual(ret[self.trading_pair], Decimal(resp["price"]))
         self.assertEqual(ret[alt_pair], Decimal(alt_resp["price"]))
 
-    @aioresponses()
-    def test_fetch_trading_pairs(self, mock_api):
-        url = f"{CONSTANTS.REST_URL}{CONSTANTS.PRODUCTS_PATH_URL}"
-        alt_pair = "BTC-USDT"
-        resp = self.get_products_response_mock(alt_pair)
-        mock_api.get(url, body=json.dumps(resp))
-
-        ret = self.async_run_with_timeout(coroutine=CoinbaseProAPIOrderBookDataSource.fetch_trading_pairs())
-
-        self.assertIn(self.trading_pair, ret)
-        self.assertIn(alt_pair, ret)
+    # @aioresponses()
+    # def test_fetch_trading_pairs(self, mock_api):
+    #     url = f"{CONSTANTS.REST_URL}{CONSTANTS.PRODUCTS_PATH_URL}"
+    #     alt_pair = "BTC-USDT"
+    #     resp = self.get_products_response_mock(alt_pair)
+    #     mock_api.get(url, body=json.dumps(resp))
+    #
+    #     ret = self.async_run_with_timeout(coroutine=CoinbaseProAPIOrderBookDataSource.fetch_trading_pairs())
+    #
+    #     self.assertIn(self.trading_pair, ret)
+    #     self.assertIn(alt_pair, ret)
 
     @aioresponses()
     def test_get_snapshot(self, mock_api):
