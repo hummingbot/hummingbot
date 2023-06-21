@@ -148,7 +148,7 @@ def main():
     else:
         secrets_manager = secrets_manager_cls(args.config_password)
 
-    asyncio.get_event_loop().run_until_complete(quick_start(args, secrets_manager))
+    asyncio.run(quick_start(args, secrets_manager))
 
 
 if __name__ == "__main__":
