@@ -14,8 +14,6 @@ from hummingbot.client.config.config_helpers import (
     save_to_yml,
     update_connector_hb_config,
 )
-from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
-from hummingbot.core.utils.async_utils import safe_ensure_future
 
 
 class Security:
@@ -42,8 +40,7 @@ class Security:
         if not validate_password(secrets_manager):
             return False
         cls.secrets_manager = secrets_manager
-        coro = AsyncCallScheduler.shared_instance().call_async(cls.decrypt_all, timeout_seconds=30)
-        safe_ensure_future(coro)
+        cls.decrypt_all()
         return True
 
     @classmethod
