@@ -19,7 +19,11 @@ def extract_json_from_docstring(docstring: str) -> Optional[Dict]:
         return None
     json_match = re.search(r'```json\s*(\{.*?\})\s*```', docstring, re.DOTALL)
     if json_match:
-        return json.loads(json_match.group(1), strict=False)
+        try:
+            json_struct = json.loads(json_match.group(1), strict=False)
+        except json.JSONDecodeError:
+            return None
+        return json_struct
     else:
         return None
 

@@ -39,12 +39,6 @@ class _PydanticForJsonAllowExtra(PydanticForJsonConfig):
         return value
 
 
-def get_order_type_class_by_name(class_name: str) -> Type["CoinbaseAdvancedTradeOrderType"]:
-    if c := CoinbaseAdvancedTradeOrderType.find_class_by_name(class_name):
-        return c
-    raise CoinbaseAdvancedOrderTypeError(f"No response class found for {class_name}")
-
-
 class CoinbaseAdvancedTradeMarketIOCOrderType(_PydanticForJsonAllowExtra, CoinbaseAdvancedTradeOrderType):
     """
     Market IOC Order Type

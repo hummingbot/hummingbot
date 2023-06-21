@@ -2,6 +2,7 @@ import inspect
 import random
 import re
 import unittest
+from datetime import datetime
 from enum import Enum
 
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_utilities.cat_dict_mockable_from_json_mixin import (
@@ -16,7 +17,8 @@ def generate_substitute(value):
     if isinstance(value, str):
         if value.lower() in ['true', 'false']:
             return random.choice([True, False])
-        return "".join(random.choice('abcde') for _ in range(10))
+        # Generating numbers to not fail the dates passed as strings
+        return "".join(random.choice('123456789') for _ in range(10))
     elif isinstance(value, bool):
         return random.choice([True, False])
     elif isinstance(value, int):
@@ -75,6 +77,8 @@ class ClassValidationFromJsonDocstring:
         def path_to_dict(self, path, substitute):
             if isinstance(path[0], int):
                 # this is a list index, build a list instead of a dict
+                if len(path) == 1:
+                    return [substitute]
                 return [self.path_to_dict(path[1:], substitute) if i == path[0] else None for i in range(path[0] + 1)]
             elif len(path) == 1:
                 return {path[0]: substitute}
@@ -84,7 +88,17 @@ class ClassValidationFromJsonDocstring:
         def check_type(self, instance, struct):
             """Recursively check types for the instance."""
             for k, v in struct.items():
-                attr = getattr(instance, k)
+                if "__fields__" in dir(instance):
+                    attr_name = None
+                    for attr in instance.__fields__:
+                        if k == instance.__fields__[attr].alias:
+                            attr_name = attr
+                            break
+                    if attr_name is None:
+                        raise Exception(f"Attribute {k} not found in {instance.__class__.__name__}")
+                    attr = getattr(instance, attr_name)
+                else:
+                    attr = getattr(instance, k)
                 # print(f"Checking {k}\n\ttype {type(attr)}\n\t{v}")
                 if isinstance(v, dict):
                     if isinstance(attr, PydanticForJsonConfig):
@@ -105,6 +119,21 @@ class ClassValidationFromJsonDocstring:
                     # If the attribute is an Enum, compare its value instead of its type
                     if isinstance(attr, Enum):
                         self.assertEqual(attr.value, v), f"{k} enum value does not match"
+                    elif isinstance(attr, datetime):
+                        # Check if the datetime string matches the 'Z' format
+                        if isinstance(v, str):
+                            if (
+                                    (m := re.match(r"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})Z", v)) or
+                                    (m := re.match(r"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}).000Z", v)) or
+                                    (m := re.match(r"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}).000000Z", v))
+                            ):
+                                self.assertEqual(m.group(1),
+                                                 attr.strftime("%Y-%m-%dT%H:%M:%S"),
+                                                 f"{k} datetime strftime does not match {v}")
+                            else:
+                                self.assertTrue(v[:-1] in attr.strftime("%Y-%m-%dT%H:%M:%S.%f"), f"{k} datetime timestamp does not match")
+                        else:
+                            self.assertEqual(v, attr.timestamp(), f"{k} datetime timestamp does not match")
                     else:
                         # Check the field type
                         self.assertIsInstance(attr, type(v)), f"{k} is not of type {type(v)}"
@@ -164,5 +193,6 @@ class ClassValidationFromJsonDocstring:
                 original_value = get_nested_attr(self.instance, path)
                 if not isinstance(original_value, bool):
                     self.assertNotEqual(original_value, substituted_value)
+                    continue
                 substituted_value_instance = get_nested_attr(substituted_instance, path)
                 self.assertEqual(str(substituted_value_instance), str(substituted_value))

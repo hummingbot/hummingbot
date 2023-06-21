@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Dict, Optional
 
@@ -35,7 +36,11 @@ class PydanticForJsonConfig(BaseModel):
                          encoder: Optional[Callable[[Any], Any]] = None,
                          models_as_dict: bool = True
                          ) -> Dict[str, Any]:
-        d = json.loads(self.json(
+        """
+        This method is used to convert the Pydantic model to a dictionary
+        that can be serialized to json.
+        """
+        json_string: str = self.json(
             by_alias=by_alias,
             skip_defaults=skip_defaults,
             exclude_unset=exclude_unset,
@@ -43,8 +48,25 @@ class PydanticForJsonConfig(BaseModel):
             exclude_none=exclude_none,
             encoder=encoder,
             models_as_dict=models_as_dict,
-        ))
+        )
+
+        d = json.loads(json_string)
         return d
+
+
+class PydanticWithDatetimeForJsonConfig(PydanticForJsonConfig):
+    """
+    This class is used to configure the Pydantic models for json serialization
+    of classes that use Enums and Tuples.
+
+    """
+
+    class Config:
+        json_encoders = {
+            # TODO: Check on Coinbase Help for correct format
+            #  datetime: lambda v: v.strftime("%Y-%m-%dT%H:%M:%S") + f".{v.microsecond // 1000:03d}Z",
+            datetime: lambda v: v.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        }
 
 
 class PydanticMockableForJson(PydanticForJsonConfig, DictMethodMockableFromJsonDocMixin):

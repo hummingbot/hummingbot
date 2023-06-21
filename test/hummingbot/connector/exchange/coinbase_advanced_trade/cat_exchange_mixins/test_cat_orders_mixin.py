@@ -9,6 +9,9 @@ from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_ap
     CoinbaseAdvancedTradeAPIOrderConfiguration,
     CoinbaseAdvancedTradeOrderTypeEnum,
 )
+from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_api_v3_request_types import (
+    CoinbaseAdvancedTradeCreateOrderRequest,
+)
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_exchange_mixins.cat_orders_mixin import OrdersMixin
 from hummingbot.core.event.events import OrderType, TradeType
 
@@ -26,24 +29,42 @@ class TestOrdersMixin(IsolatedAsyncioWrapperTestCase):
            ".cat_api_v3_request_types.CoinbaseAdvancedTradeCreateOrderRequest")
     async def test_place_order(self, mock_order_request_class, mock_order_config):
         mock_order_request = mock_order_request_class.return_value
+        print(mock_order_request.to_dict_for_json())
         mock_order_request.to_dict_for_json.return_value = {"mocked": "data"}
+
         mock_order_config.return_value = CoinbaseAdvancedTradeAPIOrderConfiguration(
             market_market_ioc={"quote_size": "1", "base_size": "1"}
         )
+        expected_data = CoinbaseAdvancedTradeCreateOrderRequest.dict_sample_from_json_docstring(
+            {
+                'client_order_id': 'test_order',
+                'side': 'BUY',
+                'product_id': 'BTC-USD',
+                "order_configuration":
+                    {
+                        "market_market_ioc": {"quote_size": "1", "base_size": "1"}
+                    }
+            }
+        )
         await self.mixin._place_order("test_order", "BTC-USD", Decimal(1), TradeType.BUY, OrderType.MARKET,
                                       Decimal(40000))
+
         mock_order_config.assert_called_once_with(OrderType.MARKET, base_size=Decimal(1), quote_size=Decimal(40000),
                                                   limit_price=Decimal(40000))
         self.mixin.api_post.assert_called_once_with(path_url=CONSTANTS.ORDER_EP,
-                                                    data=mock_order_request().to_dict_for_json(), is_auth_required=True)
+                                                    data=expected_data,
+                                                    is_auth_required=True)
 
     def test_supported_order_types(self):
         self.assertEqual(self.mixin.supported_order_types(), [OrderType.MARKET, OrderType.LIMIT, OrderType.LIMIT_MAKER])
 
     def test_to_coinbase_advanced_trade_order_type(self):
-        self.assertEqual(self.mixin.to_coinbase_advanced_trade_order_type(OrderType.MARKET), "market")
-        self.assertEqual(self.mixin.to_coinbase_advanced_trade_order_type(OrderType.LIMIT), "limit")
-        self.assertEqual(self.mixin.to_coinbase_advanced_trade_order_type(OrderType.LIMIT_MAKER), "limit_maker")
+        self.assertEqual(CoinbaseAdvancedTradeOrderTypeEnum.MARKET,
+                         self.mixin.to_coinbase_advanced_trade_order_type(OrderType.MARKET))
+        self.assertEqual(CoinbaseAdvancedTradeOrderTypeEnum.LIMIT,
+                         self.mixin.to_coinbase_advanced_trade_order_type(OrderType.LIMIT))
+        self.assertEqual(CoinbaseAdvancedTradeOrderTypeEnum.LIMIT_MAKER,
+                         self.mixin.to_coinbase_advanced_trade_order_type(OrderType.LIMIT_MAKER))
 
     def test_to_hb_order_type(self):
         self.assertEqual(self.mixin.to_hb_order_type(CoinbaseAdvancedTradeOrderTypeEnum.MARKET), OrderType.MARKET)

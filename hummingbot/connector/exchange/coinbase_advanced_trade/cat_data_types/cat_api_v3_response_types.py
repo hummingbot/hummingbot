@@ -17,6 +17,9 @@ from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_ap
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_api_v3_order_types import (
     CoinbaseAdvancedTradeAPIOrderConfiguration,
 )
+from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_data_types_utilities import (
+    UnixTimestampSecondFieldToFloat,
+)
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_utilities.cat_dict_mockable_from_json_mixin import (
     DictMethodMockableFromJsonDocMixin,
 )
@@ -573,6 +576,108 @@ class CoinbaseAdvancedTradeGetOrderResponse(PydanticMockableForJson, CoinbaseAdv
 
 
 # --- Products ---
+
+class _PriceBookEntry(PydanticForJsonConfig):
+    """
+    PriceBookEntry Data Type
+    https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_getproductbook
+    ```json
+    {
+      "price": "string",
+      "size": "string"
+    }
+    ```
+    """
+    price: str
+    size: str
+
+
+class _PriceBook(PydanticForJsonConfig):
+    """
+    PriceBook Data Type
+    https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_getproductbook
+    ```json
+    {
+      "product_id": "string",
+      "bids": [...],
+      "asks": [...],
+      "time": "1609459200.123"
+    }
+    ```
+    """
+    product_id: str
+    bids: Tuple[_PriceBookEntry, ...]
+    asks: Tuple[_PriceBookEntry, ...]
+    time: UnixTimestampSecondFieldToFloat
+
+
+class CoinbaseAdvancedTradeGetProductBookResponse(PydanticMockableForJson, CoinbaseAdvancedTradeResponse):
+    """
+    GetProductBook Response Data Type
+    https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_getproductbook
+
+    One caveat: The time is immediately changed from a string to a float, thus
+    the time field is not a string as in the documentation.
+    ```json
+    {
+      "pricebooks":
+      [
+        {
+          "product_id": "string",
+          "bids": [
+            {
+              "price": "string",
+              "size": "string"
+            }
+          ],
+          "asks": [
+            {
+              "price": "string",
+              "size": "string"
+            }
+          ],
+          "time": 1609459200.123
+        }
+      ]
+    }
+    ```
+    """
+    pricebooks: Tuple[_PriceBook, ...]
+
+
+class CoinbaseAdvancedTradeGetBestBidAskResponse(PydanticMockableForJson, CoinbaseAdvancedTradeResponse):
+    """
+    GetProductBook Response Data Type
+    https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_getbestbidask
+
+    One caveat: The time is immediately changed from a string to a float, thus
+    the time field is not a string as in the documentation.
+    ```json
+    {
+      "pricebooks":
+      [
+        {
+          "product_id": "string",
+          "bids": [
+            {
+              "price": "string",
+              "size": "string"
+            }
+          ],
+          "asks": [
+            {
+              "price": "string",
+              "size": "string"
+            }
+          ],
+          "time": 1609459200.123
+        }
+      ]
+    }
+    ```
+    """
+    pricebooks: Tuple[_PriceBook, ...]
+
 
 class CoinbaseAdvancedTradeGetProductResponse(PydanticMockableForJson, CoinbaseAdvancedTradeResponse):
     """
