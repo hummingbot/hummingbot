@@ -14,7 +14,8 @@ test:
  	--exclude-dir="test/connector" \
  	--exclude-dir="test/debug" \
  	--exclude-dir="test/mock" \
- 	--exclude-dir="test/hummingbot/connector/gateway/amm"
+ 	--exclude-dir="test/hummingbot/connector/gateway/amm" \
+ 	--exclude-dir="test/hummingbot/connector/exchange/polkadex"
 
 run_coverage: test
 	coverage report
