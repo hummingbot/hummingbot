@@ -16,6 +16,7 @@ dependencies:
   - pip=23.1.2
   - prompt_toolkit=3.0.20
   - pydantic=1.9
+  - pytest==7.3.2
   - python=3.10.0
   - pytables=3.6.1
   - scipy=1.10.1
