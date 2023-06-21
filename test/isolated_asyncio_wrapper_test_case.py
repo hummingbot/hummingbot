@@ -1,6 +1,8 @@
 import asyncio
 import functools
 import unittest
+from asyncio import Task
+from collections.abc import Set
 from typing import Any, Awaitable, Callable, Coroutine, Optional, TypeVar
 
 T = TypeVar("T")
@@ -132,6 +134,7 @@ class LocalClassEventLoopWrapperTestCase(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
+        super().setUpClass()
         try:
             cls.main_event_loop = asyncio.get_event_loop()
         except RuntimeError:
@@ -139,22 +142,21 @@ class LocalClassEventLoopWrapperTestCase(unittest.TestCase):
 
         cls.local_event_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(cls.local_event_loop)
-        super().setUpClass()
 
     @classmethod
     def tearDownClass(cls) -> None:
-        super().tearDownClass()
-        if cls.local_event_loop is not None and cls.local_event_loop.is_running():
-            cls.local_event_loop.stop()
-
-        if cls.local_event_loop is not None and not cls.local_event_loop.is_closed():
+        if cls.local_event_loop is not None:
+            tasks: Set[Task] = asyncio.all_tasks(cls.local_event_loop)
+            for task in tasks:
+                task.cancel()
+            cls.local_event_loop.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
+            cls.local_event_loop.run_until_complete(cls.local_event_loop.shutdown_asyncgens())
             cls.local_event_loop.close()
             cls.local_event_loop = None
 
-        cls.local_event_loop = None
-
         asyncio.set_event_loop(cls.main_event_loop)
         cls.main_event_loop = None
+        super().tearDownClass()
 
     def run_async_with_timeout(self, coro: Awaitable, timeout: float = 1.0) -> Any:
         """
@@ -196,11 +198,11 @@ class LocalTestEventLoopWrapperTestCase(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
+        super().setUpClass()
         try:
             cls.main_event_loop = asyncio.get_event_loop()
         except RuntimeError:
             cls.main_event_loop = None
-        super().setUpClass()
 
     def setUp(self) -> None:
         super().setUp()
@@ -209,9 +211,12 @@ class LocalTestEventLoopWrapperTestCase(unittest.TestCase):
         self.assertEqual(asyncio.get_event_loop(), self.local_event_loop)
 
     def tearDown(self) -> None:
-        if self.local_event_loop is not None and self.local_event_loop.is_running():
-            self.local_event_loop.stop()
-        if self.local_event_loop is not None and not self.local_event_loop.is_closed():
+        if self.local_event_loop is not None:
+            tasks: Set[Task] = asyncio.all_tasks(self.local_event_loop)
+            for task in tasks:
+                task.cancel()
+            self.local_event_loop.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
+            self.local_event_loop.run_until_complete(self.local_event_loop.shutdown_asyncgens())
             self.local_event_loop.close()
             self.local_event_loop = None
         super().tearDown()

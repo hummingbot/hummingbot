@@ -34,9 +34,11 @@ class TestLocalClassEventLoopWrapperTestCase(unittest.TestCase):
 
     def test_tearDownClass_with_existing_loop(self):
         self.main_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self.main_loop)
 
         LocalClassEventLoopWrapperTestCase.main_event_loop = self.main_loop
+        LocalClassEventLoopWrapperTestCase.local_event_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(LocalClassEventLoopWrapperTestCase.local_event_loop)
+
         LocalClassEventLoopWrapperTestCase.tearDownClass()
         self.assertIsNone(LocalClassEventLoopWrapperTestCase.main_event_loop)
         self.assertIsNone(LocalClassEventLoopWrapperTestCase.local_event_loop)
