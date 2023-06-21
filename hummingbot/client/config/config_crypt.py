@@ -140,4 +140,5 @@ def _create_v3_keyfile_json(message_to_encrypt, password, kdf="pbkdf2", work_fac
             'mac': encode_hex_no_prefix(mac),
         },
         'version': 3,
+        'alias': '',  # Add this line to include the 'alias' field with an empty string value
     }

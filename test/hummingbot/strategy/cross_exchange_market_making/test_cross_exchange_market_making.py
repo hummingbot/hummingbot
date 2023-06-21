@@ -56,11 +56,13 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
 
     @patch("hummingbot.client.settings.AllConnectorSettings.get_exchange_names")
     @patch("hummingbot.client.settings.AllConnectorSettings.get_connector_settings")
     def setUp(self, get_connector_settings_mock, get_exchange_names_mock):
+        self.original_event_loop = asyncio.get_event_loop()
+        self.ev_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.ev_loop)
         get_exchange_names_mock.return_value = set(self.get_mock_connector_settings().keys())
         get_connector_settings_mock.return_value = self.get_mock_connector_settings()
 
@@ -154,6 +156,12 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
         self.maker_market.add_listener(MarketEvent.SellOrderCreated, self.maker_order_created_logger)
         self.taker_market.add_listener(MarketEvent.BuyOrderCreated, self.taker_order_created_logger)
         self.taker_market.add_listener(MarketEvent.SellOrderCreated, self.taker_order_created_logger)
+
+    def tearDown(self):
+        self.ev_loop.stop()
+        self.ev_loop.close()
+        asyncio.set_event_loop(self.original_event_loop)
+        super().tearDown()
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
