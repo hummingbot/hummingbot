@@ -1,6 +1,7 @@
 import asyncio
 import json
 import re
+import time
 import unittest
 from typing import Awaitable
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -8,10 +9,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from aioresponses import aioresponses
 
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
-from hummingbot.data_feed.candles_feed.binance_perpetual_candles import BinancePerpetualCandles, constants as CONSTANTS
+from hummingbot.data_feed.candles_feed.gate_io_perpetual_candles import GateioPerpetualCandles, constants as CONSTANTS
 
 
-class TestBinancePerpetualCandles(unittest.TestCase):
+class TestGateioPerpetualCandles(unittest.TestCase):
     # the level is required to receive logs from the data source logger
     level = 0
 
@@ -23,12 +24,14 @@ class TestBinancePerpetualCandles(unittest.TestCase):
         cls.quote_asset = "USDT"
         cls.interval = "1h"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
-        cls.ex_trading_pair = cls.base_asset + cls.quote_asset
+        cls.ex_trading_pair = cls.base_asset + "_" + cls.quote_asset
+        cls.quanto_multiplier = 0.0001
 
     def setUp(self) -> None:
         super().setUp()
         self.mocking_assistant = NetworkMockingAssistant()
-        self.data_feed = BinancePerpetualCandles(trading_pair=self.trading_pair, interval=self.interval)
+        self.data_feed = GateioPerpetualCandles(trading_pair=self.trading_pair, interval=self.interval)
+        self.data_feed.quanto_multiplier = 0.0001
 
         self.log_records = []
         self.data_feed.logger().setLevel(1)
@@ -49,123 +52,93 @@ class TestBinancePerpetualCandles(unittest.TestCase):
 
     def get_candles_rest_data_mock(self):
         data = [
-            [
-                1672981200000,
-                "16823.24000000",
-                "16823.63000000",
-                "16792.12000000",
-                "16810.18000000",
-                "6230.44034000",
-                1672984799999,
-                "104737787.36570630",
-                162086,
-                "3058.60695000",
-                "51418990.63131130",
-                "0"
-            ],
-            [
-                1672984800000,
-                "16809.74000000",
-                "16816.45000000",
-                "16779.96000000",
-                "16786.86000000",
-                "6529.22759000",
-                1672988399999,
-                "109693209.64287010",
-                175249,
-                "3138.11977000",
-                "52721850.46080600",
-                "0"
-            ],
-            [
-                1672988400000,
-                "16786.60000000",
-                "16802.87000000",
-                "16780.15000000",
-                "16794.06000000",
-                "5763.44917000",
-                1672991999999,
-                "96775667.56265520",
-                160778,
-                "3080.59468000",
-                "51727251.37008490",
-                "0"
-            ],
-            [
-                1672992000000,
-                "16794.33000000",
-                "16812.22000000",
-                "16791.47000000",
-                "16802.11000000",
-                "5475.13940000",
-                1672995599999,
-                "92000245.54341140",
-                164303,
-                "2761.40926000",
-                "46400964.30558100",
-                "0"
-            ],
+            {
+                "t": 1685167200,
+                "v": 97151,
+                "c": "1.032",
+                "h": "1.032",
+                "l": "1.032",
+                "o": "1.032",
+                "sum": "3580"
+            }, {
+                "t": 1685167300,
+                "v": 97151,
+                "c": "1.032",
+                "h": "1.032",
+                "l": "1.032",
+                "o": "1.032",
+                "sum": "3580"
+            }, {
+                "t": 1685167400,
+                "v": 97151,
+                "c": "1.032",
+                "h": "1.032",
+                "l": "1.032",
+                "o": "1.032",
+                "sum": "3580"
+            }, {
+                "t": 1685172600,
+                "v": 97151,
+                "c": "1.032",
+                "h": "1.032",
+                "l": "1.032",
+                "o": "1.032",
+                "sum": "3580"
+            },
         ]
+        return data
+
+    def get_exchange_trading_pair_quanto_multiplier_data_mock(self):
+        data = {"quanto_multiplier": 0.0001}
         return data
 
     def get_candles_ws_data_mock_1(self):
         data = {
-            "e": "kline",
-            "E": 123456789,
-            "s": "BTCUSDT",
-            "k": {"t": 123400000,
-                  "T": 123460000,
-                  "s": "BNBBTC",
-                  "i": "1m",
-                  "f": 100,
-                  "L": 200,
-                  "o": "0.0010",
-                  "c": "0.0020",
-                  "h": "0.0025",
-                  "l": "0.0015",
-                  "v": "1000",
-                  "n": 100,
-                  "x": False,
-                  "q": "1.0000",
-                  "V": "500",
-                  "Q": "0.500",
-                  "B": "123456"
-                  }
+            "time": 1542162490,
+            "time_ms": 1542162490123,
+            "channel": "futures.candlesticks",
+            "event": "update",
+            "error": None,
+            "result": [
+                {
+                    "t": 1545129300,
+                    "v": 27525555,
+                    "c": "95.4",
+                    "h": "96.9",
+                    "l": "89.5",
+                    "o": "94.3",
+                    "n": "1m_BTC_USD"
+                }
+            ]
         }
         return data
 
     def get_candles_ws_data_mock_2(self):
         data = {
-            "e": "kline",
-            "E": 123516789,
-            "s": "BTCUSDT",
-            "k": {"t": 123460000,
-                  "T": 123460000,
-                  "s": "BNBBTC",
-                  "i": "1m",
-                  "f": 100,
-                  "L": 200,
-                  "o": "0.0010",
-                  "c": "0.0020",
-                  "h": "0.0025",
-                  "l": "0.0015",
-                  "v": "1000",
-                  "n": 100,
-                  "x": False,
-                  "q": "1.0000",
-                  "V": "500",
-                  "Q": "0.500",
-                  "B": "123456"
-                  }
+            "time": 1542162490,
+            "time_ms": 1542162490123,
+            "channel": "futures.candlesticks",
+            "event": "update",
+            "error": None,
+            "result": [
+                {
+                    "t": 1545139300,
+                    "v": 27525555,
+                    "c": "95.4",
+                    "h": "96.9",
+                    "l": "89.5",
+                    "o": "94.3",
+                    "n": "1m_BTC_USD"
+                }
+            ]
         }
         return data
 
     @aioresponses()
     def test_fetch_candles(self, mock_api: aioresponses):
-        start_time = 1672981200000
-        end_time = 1672992000000
-        url = f"{CONSTANTS.REST_URL}{CONSTANTS.CANDLES_ENDPOINT}?endTime={end_time}&interval={self.interval}&limit=500" \
-              f"&startTime={start_time}&symbol={self.ex_trading_pair}"
+        start_time = 1685167200
+        end_time = 1685172600
+        url = f"{CONSTANTS.REST_URL}{CONSTANTS.CANDLES_ENDPOINT}"
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         data_mock = self.get_candles_rest_data_mock()
         mock_api.get(url=regex_url, body=json.dumps(data_mock))
@@ -174,6 +147,16 @@ class TestBinancePerpetualCandles(unittest.TestCase):
 
         self.assertEqual(resp.shape[0], len(data_mock))
         self.assertEqual(resp.shape[1], 10)
+
+    @aioresponses()
+    def test_get_exchange_trading_pair_quanto_multiplier(self, mock_api: aioresponses):
+        url = CONSTANTS.REST_URL + CONSTANTS.CONTRACT_INFO_URL.format(contract=self.ex_trading_pair)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        data_mock = self.get_exchange_trading_pair_quanto_multiplier_data_mock()
+        mock_api.get(url=regex_url, body=json.dumps(data_mock))
+        resp = self.async_run_with_timeout(self.data_feed.get_exchange_trading_pair_quanto_multiplier())
+
+        self.assertEqual(resp, 0.0001)
 
     def test_candles_empty(self):
         self.assertTrue(self.data_feed.candles_df.empty)
@@ -200,18 +183,20 @@ class TestBinancePerpetualCandles(unittest.TestCase):
 
         self.assertEqual(1, len(sent_subscription_messages))
         expected_kline_subscription = {
-            "method": "SUBSCRIBE",
-            "params": [f"{self.ex_trading_pair.lower()}@kline_{self.interval}"],
-            "id": 1}
-
-        self.assertEqual(expected_kline_subscription, sent_subscription_messages[0])
+            "time": int(time.time()),
+            "channel": CONSTANTS.WS_CANDLES_ENDPOINT,
+            "event": "subscribe",
+            "payload": [self.interval, self.ex_trading_pair]
+        }
+        self.assertEqual(expected_kline_subscription["channel"], sent_subscription_messages[0]["channel"])
+        self.assertEqual(expected_kline_subscription["payload"], sent_subscription_messages[0]["payload"])
 
         self.assertTrue(self.is_logged(
             "INFO",
             "Subscribed to public klines..."
         ))
 
-    @patch("hummingbot.data_feed.candles_feed.binance_perpetual_candles.BinancePerpetualCandles._sleep")
+    @patch("hummingbot.data_feed.candles_feed.gate_io_perpetual_candles.GateioPerpetualCandles._sleep")
     @patch("aiohttp.ClientSession.ws_connect")
     def test_listen_for_subscriptions_raises_cancel_exception(self, mock_ws, _: AsyncMock):
         mock_ws.side_effect = asyncio.CancelledError
@@ -220,7 +205,7 @@ class TestBinancePerpetualCandles(unittest.TestCase):
             self.listening_task = self.ev_loop.create_task(self.data_feed.listen_for_subscriptions())
             self.async_run_with_timeout(self.listening_task)
 
-    @patch("hummingbot.data_feed.candles_feed.binance_perpetual_candles.BinancePerpetualCandles._sleep")
+    @patch("hummingbot.data_feed.candles_feed.gate_io_perpetual_candles.GateioPerpetualCandles._sleep")
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_subscriptions_logs_exception_details(self, mock_ws, sleep_mock: AsyncMock):
         mock_ws.side_effect = Exception("TEST ERROR.")
@@ -256,10 +241,11 @@ class TestBinancePerpetualCandles(unittest.TestCase):
             self.is_logged("ERROR", "Unexpected error occurred subscribing to public klines...")
         )
 
-    @patch("hummingbot.data_feed.candles_feed.binance_perpetual_candles.BinancePerpetualCandles.fill_historical_candles", new_callable=AsyncMock)
+    @patch("hummingbot.data_feed.candles_feed.gate_io_perpetual_candles.GateioPerpetualCandles.fill_historical_candles", new_callable=AsyncMock)
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_process_websocket_messages_empty_candle(self, ws_connect_mock, fill_historical_candles_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=ws_connect_mock.return_value,
             message=json.dumps(self.get_candles_ws_data_mock_1()))
@@ -272,7 +258,8 @@ class TestBinancePerpetualCandles(unittest.TestCase):
         self.assertEqual(self.data_feed.candles_df.shape[1], 10)
         fill_historical_candles_mock.assert_called_once()
 
-    @patch("hummingbot.data_feed.candles_feed.binance_perpetual_candles.BinancePerpetualCandles.fill_historical_candles", new_callable=AsyncMock)
+    @patch("hummingbot.data_feed.candles_feed.gate_io_perpetual_candles.GateioPerpetualCandles.fill_historical_candles",
+           new_callable=AsyncMock)
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_process_websocket_messages_duplicated_candle_not_included(self, ws_connect_mock, fill_historical_candles):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
@@ -288,12 +275,12 @@ class TestBinancePerpetualCandles(unittest.TestCase):
 
         self.listening_task = self.ev_loop.create_task(self.data_feed.listen_for_subscriptions())
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value, timeout=2)
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
         self.assertEqual(self.data_feed.candles_df.shape[0], 1)
         self.assertEqual(self.data_feed.candles_df.shape[1], 10)
 
-    @patch("hummingbot.data_feed.candles_feed.binance_perpetual_candles.BinancePerpetualCandles.fill_historical_candles")
+    @patch("hummingbot.data_feed.candles_feed.gate_io_perpetual_candles.GateioPerpetualCandles.fill_historical_candles")
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_process_websocket_messages_with_two_valid_messages(self, ws_connect_mock, _):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
@@ -308,7 +295,7 @@ class TestBinancePerpetualCandles(unittest.TestCase):
 
         self.listening_task = self.ev_loop.create_task(self.data_feed.listen_for_subscriptions())
 
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value, timeout=2)
 
         self.assertEqual(self.data_feed.candles_df.shape[0], 2)
         self.assertEqual(self.data_feed.candles_df.shape[1], 10)
