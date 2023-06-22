@@ -57,7 +57,7 @@ class TestVertexExchange(unittest.TestCase):
         # NOTE: RANDOM KEYS GENERATED JUST FOR UNIT TESTS
         self.exchange = VertexExchange(
             self.client_config_map,
-            "0x2162Db26939B9EAF0C5404217774d166056d31B5",
+            "0x2162Db26939B9EAF0C5404217774d166056d31B5",  # noqa: mock
             "5500eb16bf3692840e04fb6a63547b9a80b75d9cbb36b43ca5662127d4c19c83",  # noqa: mock
             trading_pairs=[self.trading_pair],
             domain=self.domain,
@@ -133,7 +133,7 @@ class TestVertexExchange(unittest.TestCase):
                             "large_position_penalty_x18": "0",
                         },
                         "config": {
-                            "token": "0x5cc7c91690b2cbaee19a513473d73403e13fb431",
+                            "token": "0x5cc7c91690b2cbaee19a513473d73403e13fb431",  # noqa: mock
                             "interest_inflection_util_x18": "800000000000000000",
                             "interest_floor_x18": "10000000000000000",
                             "interest_small_cap_x18": "40000000000000000",
@@ -214,7 +214,7 @@ class TestVertexExchange(unittest.TestCase):
                             "large_position_penalty_x18": "0",
                         },
                         "config": {
-                            "token": "0x179522635726710dd7d2035a81d856de4aa7836c",
+                            "token": "0x179522635726710dd7d2035a81d856de4aa7836c",  # noqa: mock
                             "interest_inflection_util_x18": "800000000000000000",
                             "interest_floor_x18": "10000000000000000",
                             "interest_small_cap_x18": "40000000000000000",
@@ -250,7 +250,7 @@ class TestVertexExchange(unittest.TestCase):
                             "large_position_penalty_x18": "0",
                         },
                         "config": {
-                            "token": "0x5cc7c91690b2cbaee19a513473d73403e13fb431",
+                            "token": "0x5cc7c91690b2cbaee19a513473d73403e13fb431",  # noqa: mock
                             "interest_inflection_util_x18": "800000000000000000",
                             "interest_floor_x18": "10000000000000000",
                             "interest_small_cap_x18": "40000000000000000",
@@ -323,9 +323,9 @@ class TestVertexExchange(unittest.TestCase):
         matches = {
             "matches": [
                 {
-                    "digest": "0x7b76413f438b5dd83550901304d8afed47720358acbd923890cd9431a58d3092",
+                    "digest": "0x7b76413f438b5dd83550901304d8afed47720358acbd923890cd9431a58d3092",  # noqa: mock
                     "order": {
-                        "sender": "0x2162Db26939B9EAF0C5404217774d166056d31B564656661756c740000000000",
+                        "sender": "0x2162Db26939B9EAF0C5404217774d166056d31B564656661756c740000000000",  # noqa: mock
                         "priceX18": "25000000000000000000000",
                         "amount": "1000000000000000000",
                         "expiration": "4611687704073609553",
@@ -348,23 +348,23 @@ class TestVertexExchange(unittest.TestCase):
                             "amm": False,
                             "taker": {
                                 "order": {
-                                    "sender": "0x2162Db26939B9EAF0C5404217774d166056d31B564656661756c740000000000",
+                                    "sender": "0x2162Db26939B9EAF0C5404217774d166056d31B564656661756c740000000000",  # noqa: mock
                                     "price_x18": "25000000000000000000000",
                                     "amount": "1000000000000000000",
                                     "expiration": 4611687704073609553,
                                     "nonce": 1767528267032559689,
                                 },
-                                "signature": "0x",
+                                "signature": "0x",  # noqa: mock
                             },
                             "maker": {
                                 "order": {
-                                    "sender": "0xf8d240d9514c9a4715d66268d7af3b53d619642564656661756c740000000000",
+                                    "sender": "0xf8d240d9514c9a4715d66268d7af3b53d619642564656661756c740000000000",  # noqa: mock
                                     "price_x18": "25000000000000000000000",
                                     "amount": "-1000000000000000000",
                                     "expiration": 1685649491,
                                     "nonce": 1767527837317726208,
                                 },
-                                "signature": "0x",
+                                "signature": "0x",  # noqa: mock
                             },
                         }
                     },
@@ -379,9 +379,9 @@ class TestVertexExchange(unittest.TestCase):
         matches = {
             "matches": [
                 {
-                    "digest": "0x7b76413f438b5dd83550901304d8afed47720358acbd923890cd9431a58d3092",
+                    "digest": "0x7b76413f438b5dd83550901304d8afed47720358acbd923890cd9431a58d3092",  # noqa: mock
                     "order": {
-                        "sender": "0x2162Db26939B9EAF0C5404217774d166056d31B564656661756c740000000000",
+                        "sender": "0x2162Db26939B9EAF0C5404217774d166056d31B564656661756c740000000000",  # noqa: mock
                         "priceX18": "25000000000000000000000",
                         "amount": "1000000000000000000",
                         "expiration": "4611687704073609553",
@@ -405,14 +405,14 @@ class TestVertexExchange(unittest.TestCase):
             "status": "success",
             "data": {
                 "product_id": 1,
-                "sender": "0x2162Db26939B9EAF0C5404217774d166056d31B564656661756c740000000000",
+                "sender": "0x2162Db26939B9EAF0C5404217774d166056d31B564656661756c740000000000",  # noqa: mock
                 "price_x18": "25000000000000000000000",
                 "amount": "1000000000000000000",
                 "expiration": "1686250284884",
                 "order_type": "default",
                 "nonce": "1768161672830124761",
                 "unfilled_amount": "0",
-                "digest": "0x7b76413f438b5dd83550901304d8afed47720358acbd923890cd9431a58d3092",
+                "digest": "0x7b76413f438b5dd83550901304d8afed47720358acbd923890cd9431a58d3092",  # noqa: mock
                 "placed_at": 1686250288,
             },
         }
@@ -421,7 +421,7 @@ class TestVertexExchange(unittest.TestCase):
     def get_order_status_canceled_mock(self) -> Dict:
         order_status = {
             "status": "failure",
-            "data": "Order with the provided digest (0x20ebb4ed9285ded32381c2e41258a4db33d5ffbad23c1ee609e90b37aa58f3b7) could not be found. Please verify the order digest and try again.",
+            "data": "Order with the provided digest (0x20ebb4ed9285ded32381c2e41258a4db33d5ffbad23c1ee609e90b37aa58f3b7) could not be found. Please verify the order digest and try again.",  # noqa: mock
             "error_code": 2020,
         }
         return order_status
@@ -431,8 +431,8 @@ class TestVertexExchange(unittest.TestCase):
             "type": "fill",
             "timestamp": "1686256556393346680",
             "product_id": 1,
-            "subaccount": "0x2162Db26939B9EAF0C5404217774d166056d31B564656661756c740000000000",
-            "order_digest": "0x7b76413f438b5dd83550901304d8afed47720358acbd923890cd9431a58d3092",
+            "subaccount": "0x2162Db26939B9EAF0C5404217774d166056d31B564656661756c740000000000",  # noqa: mock
+            "order_digest": "0x7b76413f438b5dd83550901304d8afed47720358acbd923890cd9431a58d3092",  # noqa: mock
             "filled_qty": "500000000000000000",
             "remaining_qty": "500000000000000000",
             "original_qty": "1000000000000000000",
@@ -448,8 +448,8 @@ class TestVertexExchange(unittest.TestCase):
             "type": "fill",
             "timestamp": "1686256556393346680",
             "product_id": 1,
-            "subaccount": "0x2162Db26939B9EAF0C5404217774d166056d31B564656661756c740000000000",
-            "order_digest": "0x7b76413f438b5dd83550901304d8afed47720358acbd923890cd9431a58d3092",
+            "subaccount": "0x2162Db26939B9EAF0C5404217774d166056d31B564656661756c740000000000",  # noqa: mock
+            "order_digest": "0x7b76413f438b5dd83550901304d8afed47720358acbd923890cd9431a58d3092",  # noqa: mock
             "filled_qty": "1000000000000000000",
             "remaining_qty": "0",
             "original_qty": "1000000000000000000",
@@ -466,7 +466,7 @@ class TestVertexExchange(unittest.TestCase):
             "timestamp": "1686256783298303728",
             "product_id": 1,
             "is_lp": False,
-            "subaccount": "0x2162Db26939B9EAF0C5404217774d166056d31B564656661756c740000000000",
+            "subaccount": "0x2162Db26939B9EAF0C5404217774d166056d31B564656661756c740000000000",  # noqa: mock
             "amount": "1000000000000000000",
             "v_quote_amount": "0",
         }
@@ -684,7 +684,9 @@ class TestVertexExchange(unittest.TestCase):
             ((key, value) for key, value in mock_api.requests.items() if key[1].human_repr().startswith(url))
         )
         request_data = json.loads(order_request[1][0].kwargs["data"])["place_order"]["order"]
-        self.assertEqual("0x2162Db26939B9EAF0C5404217774d166056d31B564656661756c740000000000", request_data["sender"])
+        self.assertEqual(
+            "0x2162Db26939B9EAF0C5404217774d166056d31B564656661756c740000000000", request_data["sender"]  # noqa: mock
+        )
         self.assertEqual("10000000000000000000000", request_data["priceX18"])
         self.assertEqual("100000000000000000000", request_data["amount"])
 
@@ -732,7 +734,9 @@ class TestVertexExchange(unittest.TestCase):
             ((key, value) for key, value in mock_api.requests.items() if key[1].human_repr().startswith(url))
         )
         request_data = json.loads(order_request[1][0].kwargs["data"])["place_order"]["order"]
-        self.assertEqual("0x2162Db26939B9EAF0C5404217774d166056d31B564656661756c740000000000", request_data["sender"])
+        self.assertEqual(
+            "0x2162Db26939B9EAF0C5404217774d166056d31B564656661756c740000000000", request_data["sender"]  # noqa: mock
+        )
         self.assertEqual("10000000000000000000000", request_data["priceX18"])
         self.assertEqual("100000000000000000000", request_data["amount"])
 
@@ -784,7 +788,9 @@ class TestVertexExchange(unittest.TestCase):
             ((key, value) for key, value in mock_api.requests.items() if key[1].human_repr().startswith(url))
         )
         request_data = json.loads(order_request[1][0].kwargs["data"])["place_order"]["order"]
-        self.assertEqual("0x2162Db26939B9EAF0C5404217774d166056d31B564656661756c740000000000", request_data["sender"])
+        self.assertEqual(
+            "0x2162Db26939B9EAF0C5404217774d166056d31B564656661756c740000000000", request_data["sender"]  # noqa: mock
+        )
         self.assertEqual("10000000000000000000000", request_data["priceX18"])
         self.assertEqual("-100000000000000000000", request_data["amount"])
 
@@ -1059,7 +1065,7 @@ class TestVertexExchange(unittest.TestCase):
     def test_update_order_status_when_filled(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
         self.exchange._last_poll_timestamp = self.exchange.current_timestamp - 10 - 1
-        digest = "0x7b76413f438b5dd83550901304d8afed47720358acbd923890cd9431a58d3092"
+        digest = "0x7b76413f438b5dd83550901304d8afed47720358acbd923890cd9431a58d3092"  # noqa: mock
 
         self.exchange.start_tracking_order(
             order_id=digest,
@@ -1104,7 +1110,7 @@ class TestVertexExchange(unittest.TestCase):
     def test_update_order_status_when_cancelled(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
         self.exchange._last_poll_timestamp = self.exchange.current_timestamp - 10 - 1
-        digest = "0x7b76413f438b5dd83550901304d8afed47720358acbd923890cd9431a58d3092"
+        digest = "0x7b76413f438b5dd83550901304d8afed47720358acbd923890cd9431a58d3092"  # noqa: mock
 
         self.exchange.start_tracking_order(
             order_id=digest,
@@ -1138,7 +1144,7 @@ class TestVertexExchange(unittest.TestCase):
     def test_update_order_status_when_order_has_not_changed(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
         self.exchange._last_poll_timestamp = self.exchange.current_timestamp - 10 - 1
-        digest = "0x7b76413f438b5dd83550901304d8afed47720358acbd923890cd9431a58d3092"
+        digest = "0x7b76413f438b5dd83550901304d8afed47720358acbd923890cd9431a58d3092"  # noqa: mock
 
         self.exchange.start_tracking_order(
             order_id=digest,
@@ -1171,7 +1177,7 @@ class TestVertexExchange(unittest.TestCase):
     def test_update_order_status_when_request_fails_marks_order_as_not_found(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
         self.exchange._last_poll_timestamp = self.exchange.current_timestamp - 10 - 1
-        digest = "0x7b76413f438b5dd83550901304d8afed47720358acbd923890cd9431a58d3092"
+        digest = "0x7b76413f438b5dd83550901304d8afed47720358acbd923890cd9431a58d3092"  # noqa: mock
 
         self.exchange.start_tracking_order(
             order_id=digest,
@@ -1198,7 +1204,7 @@ class TestVertexExchange(unittest.TestCase):
     @aioresponses()
     def test_user_stream_update_for_new_order_does_not_update_status(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
-        digest = "0x7b76413f438b5dd83550901304d8afed47720358acbd923890cd9431a58d3092"
+        digest = "0x7b76413f438b5dd83550901304d8afed47720358acbd923890cd9431a58d3092"  # noqa: mock
 
         self.exchange.start_tracking_order(
             order_id=digest,
@@ -1241,7 +1247,7 @@ class TestVertexExchange(unittest.TestCase):
     @aioresponses()
     def test_user_stream_update_for_cancelled_order(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
-        digest = "0x7b76413f438b5dd83550901304d8afed47720358acbd923890cd9431a58d3092"
+        digest = "0x7b76413f438b5dd83550901304d8afed47720358acbd923890cd9431a58d3092"  # noqa: mock
 
         self.exchange.start_tracking_order(
             order_id=digest,
@@ -1286,7 +1292,7 @@ class TestVertexExchange(unittest.TestCase):
 
     def test_user_stream_update_for_order_partial_fill(self):
         self.exchange._set_current_timestamp(1640780000)
-        digest = "0x7b76413f438b5dd83550901304d8afed47720358acbd923890cd9431a58d3092"
+        digest = "0x7b76413f438b5dd83550901304d8afed47720358acbd923890cd9431a58d3092"  # noqa: mock
 
         self.exchange.start_tracking_order(
             order_id=digest,
@@ -1334,7 +1340,7 @@ class TestVertexExchange(unittest.TestCase):
 
     def test_user_stream_update_for_order_fill(self):
         self.exchange._set_current_timestamp(1640780000)
-        digest = "0x7b76413f438b5dd83550901304d8afed47720358acbd923890cd9431a58d3092"
+        digest = "0x7b76413f438b5dd83550901304d8afed47720358acbd923890cd9431a58d3092"  # noqa: mock
 
         self.exchange.start_tracking_order(
             order_id=digest,

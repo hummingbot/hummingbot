@@ -8,8 +8,8 @@ from hummingbot.connector.exchange.vertex import vertex_utils
 
 class VertexUtilTestCases(TestCase):
     def test_hex_to_bytes32(self):
-        hex_string = "0x5cc7c91690b2cbaee19a513473d73403e13fb431"
-        expected_bytes = b"\\\xc7\xc9\x16\x90\xb2\xcb\xae\xe1\x9aQ4s\xd74\x03\xe1?\xb41\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+        hex_string = "0x5cc7c91690b2cbaee19a513473d73403e13fb431"  # noqa: mock
+        expected_bytes = b"\\\xc7\xc9\x16\x90\xb2\xcb\xae\xe1\x9aQ4s\xd74\x03\xe1?\xb41\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"  # noqa: mock
         self.assertEqual(expected_bytes, vertex_utils.hex_to_bytes32(hex_string))
 
     def test_convert_timestamp(self):
@@ -86,8 +86,8 @@ class VertexUtilTestCases(TestCase):
         self.assertEqual(expected_nonce, vertex_utils.generate_nonce(timestamp, expiry_ms))
 
     def test_convert_address_to_sender(self):
-        address = "0xbbee07b3e8121227afcfe1e2b82772246226128e"
-        expected_sender = "0xbbee07b3e8121227afcfe1e2b82772246226128e64656661756c740000000000"
+        address = "0xbbee07b3e8121227afcfe1e2b82772246226128e"  # noqa: mock
+        expected_sender = "0xbbee07b3e8121227afcfe1e2b82772246226128e64656661756c740000000000"  # noqa: mock
         self.assertEqual(expected_sender, vertex_utils.convert_address_to_sender(address))
 
     def test_is_exchange_information_valid(self):

@@ -10,7 +10,9 @@ import hummingbot.connector.exchange.vertex.vertex_constants as CONSTANTS
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSRequest
 
-keccak_hash = lambda x: sha3.keccak_256(x).digest()
+
+def keccak_hash(x):
+    return sha3.keccak_256(x).digest()
 
 
 class VertexAuth(AuthBase):
