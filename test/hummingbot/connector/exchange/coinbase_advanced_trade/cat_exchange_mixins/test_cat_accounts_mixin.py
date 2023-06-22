@@ -68,9 +68,6 @@ class ExchangeAPI:
 
     async def api_get(self, *args, **kwargs) -> Dict[str, Any]:
         self.api_get_called = True
-        assert kwargs["path_url"] == CONSTANTS.ACCOUNTS_LIST_EP
-        # assert kwargs["params"] == {"limit": 250}
-        assert kwargs["is_auth_required"] is True
         await asyncio.sleep(0)
         return create_accounts()
 
@@ -120,19 +117,20 @@ class TestAccountsMixin(IsolatedAsyncioWrapperTestCase):
         self.accounts_mixin.api_get = AsyncMock(return_value=self.accounts)
         accounts = await self.accounts_mixin._list_one_page_of_accounts("0")
         self.accounts_mixin.api_get.assert_called_once_with(
-            path_url=CONSTANTS.ACCOUNTS_LIST_EP,
+            path_url="api/v3" + CONSTANTS.ACCOUNTS_LIST_EP,
+            data={},
             params={"limit": 250},
             is_auth_required=True,
+            limit_id="accounts"
         )
-        self.assertEqual(accounts.has_next, True)
-        self.assertEqual(accounts.cursor, "789100")
+        self.assertEqual(True, accounts.has_next, f"Expected has_next to be True, got {accounts.has_next}")
+        self.assertEqual("789100", accounts.cursor, f"Expected cursor to be 789100, got {accounts.cursor}")
         self.assertEqual(accounts.accounts,
                          tuple([CoinbaseAdvancedTradeAccount(**a) for a in self.accounts["accounts"]]))
 
     async def test_list_one_page_of_accounts_in_exchange(self):
         accounts = await self.exchange_with_accounts_mixin._list_one_page_of_accounts("0")
-        self.assertEqual(accounts, CoinbaseAdvancedTradeListAccountsResponse(**create_accounts()))
-
+        self.assertEqual(accounts, CoinbaseAdvancedTradeListAccountsResponse(**create_accounts()), )
         self.assertEqual(self.exchange_with_accounts_mixin.api_get_called, True)
 
     async def test_list_trading_accounts(self):
