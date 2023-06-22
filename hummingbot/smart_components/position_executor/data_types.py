@@ -1,35 +1,51 @@
+import time
 from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel
 from pydantic.types import Decimal
 
-from hummingbot.core.data_type.common import OrderType, PositionSide
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
 
 
+class TrailingStop(BaseModel):
+    activation_price_delta: Decimal
+    trailing_delta: Decimal
+
+
 class PositionConfig(BaseModel):
-    timestamp: float
     trading_pair: str
     exchange: str
-    order_type: OrderType
-    side: PositionSide
-    entry_price: Optional[Decimal] = None
+    side: TradeType
     amount: Decimal
-    stop_loss: Decimal
-    take_profit: Decimal
-    time_limit: int
+    take_profit: Optional[Decimal] = None
+    stop_loss: Optional[Decimal] = None
+    trailing_stop: Optional[TrailingStop] = None
+    time_limit: Optional[int] = None
+    entry_price: Optional[Decimal] = None
+    timestamp: float = time.time()
+    open_order_type: OrderType = OrderType.MARKET
+    take_profit_order_type: OrderType = OrderType.MARKET
+    stop_loss_order_type: OrderType = OrderType.MARKET
+    time_limit_order_type: OrderType = OrderType.MARKET
+    leverage: Decimal = Decimal("1")
 
 
 class PositionExecutorStatus(Enum):
     NOT_STARTED = 1
-    ORDER_PLACED = 2
-    CANCELED_BY_TIME_LIMIT = 3
-    ACTIVE_POSITION = 4
-    CLOSE_PLACED = 5
-    CLOSED_BY_TIME_LIMIT = 6
-    CLOSED_BY_STOP_LOSS = 7
-    CLOSED_BY_TAKE_PROFIT = 8
+    ACTIVE_POSITION = 2
+    COMPLETED = 3
+
+
+class CloseType(Enum):
+    TIME_LIMIT = 1
+    STOP_LOSS = 2
+    TAKE_PROFIT = 3
+    EXPIRED = 4
+    EARLY_STOP = 5
+    TRAILING_STOP = 6
+    INSUFFICIENT_BALANCE = 7
 
 
 class TrackedOrder:

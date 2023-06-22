@@ -1,14 +1,18 @@
+import asyncio
 import time
 from decimal import Decimal
+from typing import Awaitable
 from unittest import TestCase
 from unittest.mock import patch
 
+import numpy as np
 from sqlalchemy import create_engine
 
-from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.client_config_map import ClientConfigMap, MarketDataCollectionConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.markets_recorder import MarketsRecorder
-from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, PriceType, TradeType
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -17,12 +21,24 @@ from hummingbot.core.event.events import (
     OrderFilledEvent,
     SellOrderCreatedEvent,
 )
+from hummingbot.logger import HummingbotLogger
+from hummingbot.model.market_data import MarketData
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import SQLConnectionManager, SQLConnectionType
 from hummingbot.model.trade_fill import TradeFill
 
 
 class MarketsRecorderTests(TestCase):
+    @staticmethod
+    def async_run_with_timeout(coroutine: Awaitable, timeout: int = 1):
+        ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
+        return ret
+
+    def get_price_by_type(self, trading_pair, price_type):
+        pass
+
+    def get_order_book(self, trading_pair):
+        pass
 
     @patch("hummingbot.model.sql_connection_manager.create_engine")
     def setUp(self, engine_mock) -> None:
@@ -35,6 +51,8 @@ class MarketsRecorderTests(TestCase):
         self.base = "COINALPHA"
         self.quote = "HBOT"
         self.trading_pair = f"{self.base}-{self.quote}"
+        self.ready = True
+        self.trading_pairs = [self.trading_pair]
 
         engine_mock.return_value = create_engine("sqlite:///:memory:")
         self.manager = SQLConnectionManager(
@@ -54,19 +72,30 @@ class MarketsRecorderTests(TestCase):
             sql=self.manager,
             markets=[self],
             config_file_path=self.config_file_path,
-            strategy_name=self.strategy_name
+            strategy_name=self.strategy_name,
+            market_data_collection=MarketDataCollectionConfigMap(
+                market_data_collection_enabled=False,
+                market_data_collection_interval=60,
+                market_data_collection_depth=20,
+            ),
         )
 
         self.assertEqual(self.manager, recorder.sql_manager)
         self.assertEqual(self.config_file_path, recorder.config_file_path)
         self.assertEqual(self.strategy_name, recorder.strategy_name)
+        self.assertIsInstance(recorder.logger(), HummingbotLogger)
 
     def test_get_trade_for_config(self):
         recorder = MarketsRecorder(
             sql=self.manager,
             markets=[self],
             config_file_path=self.config_file_path,
-            strategy_name=self.strategy_name
+            strategy_name=self.strategy_name,
+            market_data_collection=MarketDataCollectionConfigMap(
+                market_data_collection_enabled=False,
+                market_data_collection_interval=60,
+                market_data_collection_depth=20,
+            ),
         )
 
         with self.manager.get_new_session() as session:
@@ -101,7 +130,12 @@ class MarketsRecorderTests(TestCase):
             sql=self.manager,
             markets=[self],
             config_file_path=self.config_file_path,
-            strategy_name=self.strategy_name
+            strategy_name=self.strategy_name,
+            market_data_collection=MarketDataCollectionConfigMap(
+                market_data_collection_enabled=False,
+                market_data_collection_interval=60,
+                market_data_collection_depth=20,
+            ),
         )
 
         event = BuyOrderCreatedEvent(
@@ -137,7 +171,12 @@ class MarketsRecorderTests(TestCase):
             sql=self.manager,
             markets=[self],
             config_file_path=self.config_file_path,
-            strategy_name=self.strategy_name
+            strategy_name=self.strategy_name,
+            market_data_collection=MarketDataCollectionConfigMap(
+                market_data_collection_enabled=False,
+                market_data_collection_interval=60,
+                market_data_collection_depth=20,
+            ),
         )
 
         event = SellOrderCreatedEvent(
@@ -173,7 +212,12 @@ class MarketsRecorderTests(TestCase):
             sql=self.manager,
             markets=[self],
             config_file_path=self.config_file_path,
-            strategy_name=self.strategy_name
+            strategy_name=self.strategy_name,
+            market_data_collection=MarketDataCollectionConfigMap(
+                market_data_collection_enabled=False,
+                market_data_collection_interval=60,
+                market_data_collection_depth=20,
+            ),
         )
 
         create_event = BuyOrderCreatedEvent(
@@ -225,7 +269,12 @@ class MarketsRecorderTests(TestCase):
             sql=self.manager,
             markets=[self],
             config_file_path=self.config_file_path,
-            strategy_name=self.strategy_name
+            strategy_name=self.strategy_name,
+            market_data_collection=MarketDataCollectionConfigMap(
+                market_data_collection_enabled=False,
+                market_data_collection_interval=60,
+                market_data_collection_depth=20,
+            ),
         )
 
         create_event = BuyOrderCreatedEvent(
@@ -266,3 +315,44 @@ class MarketsRecorderTests(TestCase):
         self.assertEqual(MarketEvent.BuyOrderCreated.name, order_status[0].status)
         self.assertEqual(MarketEvent.BuyOrderCompleted.name, order_status[1].status)
         self.assertEqual(0, len(trade_fills))
+
+    @patch("hummingbot.connector.markets_recorder.MarketsRecorder._sleep")
+    def test_market_data_collection_enabled(self, sleep_mock):
+        sleep_mock.side_effect = [0.1, asyncio.CancelledError]
+        recorder = MarketsRecorder(
+            sql=self.manager,
+            markets=[self],
+            config_file_path=self.config_file_path,
+            strategy_name=self.strategy_name,
+            market_data_collection=MarketDataCollectionConfigMap(
+                market_data_collection_enabled=True,
+                market_data_collection_interval=1,
+                market_data_collection_depth=20,
+            ),
+        )
+        with patch.object(self, "get_price_by_type") as get_price_by_type:
+            # Set the side_effect function to determine return values
+            def side_effect(trading_pair, price_type):
+                if price_type == PriceType.MidPrice:
+                    return Decimal("100")
+                elif price_type == PriceType.BestBid:
+                    return Decimal("99")
+                elif price_type == PriceType.BestAsk:
+                    return Decimal("101")
+
+            # Assign the side_effect function to the mock method
+            get_price_by_type.side_effect = side_effect
+            with patch.object(self, "get_order_book") as get_order_book:
+                order_book = OrderBook(dex=False)
+                bids_array = np.array([[1, 1, 1], [2, 1, 2], [3, 1, 3]], dtype=np.float64)
+                asks_array = np.array([[4, 1, 1], [5, 1, 2], [6, 1, 3], [7, 1, 4]], dtype=np.float64)
+                order_book.apply_numpy_snapshot(bids_array, asks_array)
+                get_order_book.return_value = order_book
+                with self.assertRaises(asyncio.CancelledError):
+                    self.async_run_with_timeout(recorder._record_market_data())
+        with self.manager.get_new_session() as session:
+            query = session.query(MarketData)
+            market_data = query.all()
+        self.assertEqual(market_data[0].best_ask, Decimal("101"))
+        self.assertEqual(market_data[0].best_bid, Decimal("99"))
+        self.assertEqual(market_data[0].mid_price, Decimal("100"))
