@@ -21,7 +21,7 @@
 import unittest
 
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_api_v3_request_types import (
-    CoinbaseAdvancedTradeRequestType,
+    CoinbaseAdvancedTradeRequest,
 )
 
 # from hummingbot.connector.exchange.coinbase_advanced_trade.cat_utilities.cat_api_v3_class_validation_with_web_documentation import (
@@ -327,8 +327,8 @@ from hummingbot.connector.exchange.coinbase_advanced_trade.cat_utilities.cat_cla
 #     unittest.main()
 
 # List of classes you want to test
-classes_under_test = [CoinbaseAdvancedTradeRequestType.get_registry()[key]
-                      for key in CoinbaseAdvancedTradeRequestType.get_registry().keys()
+classes_under_test = [CoinbaseAdvancedTradeRequest.get_registry()[key]
+                      for key in CoinbaseAdvancedTradeRequest.get_registry().keys()
                       if "CreateOrder" not in key]
 
 # classes_under_test = [CoinbaseAdvancedTradeGetTransactionSummaryRequest]

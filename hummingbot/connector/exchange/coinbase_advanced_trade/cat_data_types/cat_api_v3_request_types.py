@@ -9,7 +9,11 @@ from hummingbot.core.utils.class_registry import ClassRegistry
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 
 from ..cat_utilities.cat_dict_mockable_from_json_mixin import DictMethodMockableFromJsonDocMixin
-from ..cat_utilities.cat_pydantic_for_json import PydanticMockableForJson, PydanticWithDatetimeForJsonConfig
+from ..cat_utilities.cat_pydantic_for_json import (
+    PydanticConfigForJsonDatetimeToStr,
+    PydanticForJsonConfig,
+    PydanticMockableForJson,
+)
 from .cat_api_v3_enums import (
     CoinbaseAdvancedTradeExchangeOrderStatusEnum,
     CoinbaseAdvancedTradeExchangeOrderTypeEnum,
@@ -25,7 +29,7 @@ class CoinbaseAdvancedTradeRequestError(Exception):
     pass
 
 
-class CoinbaseAdvancedTradeRequestType(
+class CoinbaseAdvancedTradeRequest(
     ClassRegistry,
     DictMethodMockableFromJsonDocMixin,
     EndpointRateLimit,
@@ -58,8 +62,13 @@ class CoinbaseAdvancedTradeRequestType(
         raise NotImplementedError
 
 
-class _RequestBase(PydanticWithDatetimeForJsonConfig):
+class _RequestBase(PydanticForJsonConfig):
     """Base class for all Coinbase Advanced Trade API request dataclasses."""
+
+    class Config(PydanticConfigForJsonDatetimeToStr):
+        """Pydantic Config overrides."""
+        extra = "forbid"
+        allow_mutation = False
 
     @staticmethod
     def is_auth_required() -> bool:
@@ -69,14 +78,20 @@ class _RequestBase(PydanticWithDatetimeForJsonConfig):
     def dict(self, *args, **kwargs) -> Dict[str, Any]:
         """
         Overrides the default dict method to:
-           - remove Path Parameters from the request data.
-           - replace timestamps with ISO 8601 strings.
+            - exclude unset fields from the request data.
+            - exclude None fields from the request data.
+            - remove Path Parameters from the request data.
         """
-        _dict = super().dict(*args, **kwargs)
-        for k, v in _dict.items():
-            if self.__fields__[k].field_info.extra.get('path_param', False):
-                del _dict[k]
+        kwargs['exclude_unset'] = True
+        kwargs['exclude_none'] = True
+        _dict: Dict[str, Any] = super().dict(*args, **kwargs)
+        _dict: Dict[str, Any] = self._exclude_path_params(_dict)
         return _dict
+
+    def _exclude_path_params(self, _dict: Dict[str, Any]) -> Dict[str, Any]:
+        """Removes non-path parameters from the request data."""
+        return {k: v for k, v in _dict.items()
+                if not self.__fields__[k].field_info.extra.get('path_param', False)}
 
 
 class _RequestGET(_RequestBase):
@@ -115,7 +130,7 @@ class _RequestPOST(_RequestBase):
 
 class CoinbaseAdvancedTradeListAccountsRequest(_RequestGET,
                                                PydanticMockableForJson,
-                                               CoinbaseAdvancedTradeRequestType,
+                                               CoinbaseAdvancedTradeRequest,
                                                ):
     """
     Dataclass representing request parameters for ListAccountsEndpoint.
@@ -130,7 +145,8 @@ class CoinbaseAdvancedTradeListAccountsRequest(_RequestGET,
     }
     ```
     """
-    limit: Optional[int] = Field(None, lt=250, description='A pagination limit with default of 49 and maximum of 250. '
+    # TODO: Verify that the limit is 49 by default and 250 max.
+    limit: Optional[int] = Field(None, lt=251, description='A pagination limit with default of 49 and maximum of 250. '
                                                            'If has_next is true, additional orders are available to '
                                                            'be fetched with pagination and the cursor value in the '
                                                            'response can be passed as cursor parameter in the '
@@ -145,7 +161,7 @@ class CoinbaseAdvancedTradeListAccountsRequest(_RequestGET,
 
 class CoinbaseAdvancedTradeGetAccountRequest(_RequestGET,
                                              PydanticMockableForJson,
-                                             CoinbaseAdvancedTradeRequestType,
+                                             CoinbaseAdvancedTradeRequest,
                                              ):
     """
     Dataclass representing request parameters for GetAccountEndpoint.
@@ -171,7 +187,7 @@ class CoinbaseAdvancedTradeGetAccountRequest(_RequestGET,
 
 class CoinbaseAdvancedTradeCreateOrderRequest(_RequestPOST,
                                               PydanticMockableForJson,
-                                              CoinbaseAdvancedTradeRequestType,
+                                              CoinbaseAdvancedTradeRequest,
                                               ):
     """
     Dataclass representing request parameters for CreateOrderEndpoint.
@@ -229,7 +245,7 @@ class CoinbaseAdvancedTradeCreateOrderRequest(_RequestPOST,
 
 class CoinbaseAdvancedTradeCancelOrdersRequest(_RequestPOST,
                                                PydanticMockableForJson,
-                                               CoinbaseAdvancedTradeRequestType,
+                                               CoinbaseAdvancedTradeRequest,
                                                ):
     """
     Dataclass representing request parameters for CancelOrdersEndpoint.
@@ -254,7 +270,7 @@ class CoinbaseAdvancedTradeCancelOrdersRequest(_RequestPOST,
 
 class CoinbaseAdvancedTradeListOrdersRequest(_RequestGET,
                                              PydanticMockableForJson,
-                                             CoinbaseAdvancedTradeRequestType,
+                                             CoinbaseAdvancedTradeRequest,
                                              ):
     """
     Dataclass representing request parameters for ListOrdersEndpoint.
@@ -334,7 +350,7 @@ class CoinbaseAdvancedTradeListOrdersRequest(_RequestGET,
 
 class CoinbaseAdvancedTradeGetOrderRequest(_RequestGET,
                                            PydanticMockableForJson,
-                                           CoinbaseAdvancedTradeRequestType,
+                                           CoinbaseAdvancedTradeRequest,
                                            ):
     """
     Dataclass representing request parameters for GetOrderEndpoint.
@@ -367,7 +383,7 @@ class CoinbaseAdvancedTradeGetOrderRequest(_RequestGET,
 
 class CoinbaseAdvancedTradeListFillsRequest(_RequestGET,
                                             PydanticMockableForJson,
-                                            CoinbaseAdvancedTradeRequestType,
+                                            CoinbaseAdvancedTradeRequest,
                                             ):
     """
     Dataclass representing request parameters for ListFillsEndpoint.
@@ -417,7 +433,7 @@ class CoinbaseAdvancedTradeListFillsRequest(_RequestGET,
 
 class CoinbaseAdvancedTradeGetProductBookRequest(_RequestGET,
                                                  PydanticMockableForJson,
-                                                 CoinbaseAdvancedTradeRequestType,
+                                                 CoinbaseAdvancedTradeRequest,
                                                  ):
     """
     Dataclass representing request parameters for ListProductsEndpoint.
@@ -442,7 +458,7 @@ class CoinbaseAdvancedTradeGetProductBookRequest(_RequestGET,
 
 class CoinbaseAdvancedTradeGetBestBidAskRequest(_RequestGET,
                                                 PydanticMockableForJson,
-                                                CoinbaseAdvancedTradeRequestType,
+                                                CoinbaseAdvancedTradeRequest,
                                                 ):
     """
     Dataclass representing request parameters for ListProductsEndpoint.
@@ -469,7 +485,7 @@ class CoinbaseAdvancedTradeGetBestBidAskRequest(_RequestGET,
 
 class CoinbaseAdvancedTradeListProductsRequest(_RequestGET,
                                                PydanticMockableForJson,
-                                               CoinbaseAdvancedTradeRequestType,
+                                               CoinbaseAdvancedTradeRequest,
                                                ):
     """
     Dataclass representing request parameters for ListProductsEndpoint.
@@ -496,7 +512,7 @@ class CoinbaseAdvancedTradeListProductsRequest(_RequestGET,
 
 class CoinbaseAdvancedTradeGetProductRequest(_RequestGET,
                                              PydanticMockableForJson,
-                                             CoinbaseAdvancedTradeRequestType,
+                                             CoinbaseAdvancedTradeRequest,
                                              ):
     """
     Dataclass representing request parameters for GetProductEndpoint.
@@ -522,7 +538,7 @@ class CoinbaseAdvancedTradeGetProductRequest(_RequestGET,
 
 class CoinbaseAdvancedTradeGetProductCandlesRequest(_RequestGET,
                                                     PydanticMockableForJson,
-                                                    CoinbaseAdvancedTradeRequestType,
+                                                    CoinbaseAdvancedTradeRequest,
                                                     ):
     """
     Dataclass representing request parameters for GetProductCandlesEndpoint.
@@ -561,7 +577,7 @@ class CoinbaseAdvancedTradeGetProductCandlesRequest(_RequestGET,
 
 class CoinbaseAdvancedTradeGetMarketTradesRequest(_RequestGET,
                                                   PydanticMockableForJson,
-                                                  CoinbaseAdvancedTradeRequestType,
+                                                  CoinbaseAdvancedTradeRequest,
                                                   ):
     """
     Dataclass representing request parameters for GetMarketTradesEndpoint.
@@ -589,7 +605,7 @@ class CoinbaseAdvancedTradeGetMarketTradesRequest(_RequestGET,
 
 class CoinbaseAdvancedTradeGetTransactionSummaryRequest(_RequestGET,
                                                         PydanticMockableForJson,
-                                                        CoinbaseAdvancedTradeRequestType,
+                                                        CoinbaseAdvancedTradeRequest,
                                                         ):
     """
     Dataclass representing request parameters for TransactionSummaryEndpoint.

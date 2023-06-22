@@ -10,6 +10,22 @@ from hummingbot.connector.exchange.coinbase_advanced_trade.cat_utilities.cat_dic
 )
 
 
+class PydanticConfigForJson:
+    use_enum_values = False
+    json_encoders = {
+        Enum: lambda v: v.value,
+        tuple: lambda v: list(v),
+    }
+
+
+class PydanticConfigForJsonDatetimeToStr(PydanticConfigForJson):
+    json_encoders = {
+        # TODO: Check on Coinbase Help for correct format
+        #  datetime: lambda v: v.strftime("%Y-%m-%dT%H:%M:%S") + f".{v.microsecond // 1000:03d}Z",
+        datetime: lambda v: v.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+
+
 class PydanticForJsonConfig(BaseModel):
     """
     This class is used to configure the Pydantic models for json serialization
@@ -17,14 +33,8 @@ class PydanticForJsonConfig(BaseModel):
 
     """
 
-    class Config:
-        use_enum_values = False
-        extra = 'forbid'
-        allow_mutation = False
-        json_encoders = {
-            Enum: lambda v: v.value,
-            tuple: lambda v: list(v),
-        }
+    class Config(PydanticConfigForJson):
+        pass
 
     def to_dict_for_json(self,
                          *,
@@ -52,21 +62,6 @@ class PydanticForJsonConfig(BaseModel):
 
         d = json.loads(json_string)
         return d
-
-
-class PydanticWithDatetimeForJsonConfig(PydanticForJsonConfig):
-    """
-    This class is used to configure the Pydantic models for json serialization
-    of classes that use Enums and Tuples.
-
-    """
-
-    class Config:
-        json_encoders = {
-            # TODO: Check on Coinbase Help for correct format
-            #  datetime: lambda v: v.strftime("%Y-%m-%dT%H:%M:%S") + f".{v.microsecond // 1000:03d}Z",
-            datetime: lambda v: v.strftime("%Y-%m-%dT%H:%M:%SZ"),
-        }
 
 
 class PydanticMockableForJson(PydanticForJsonConfig, DictMethodMockableFromJsonDocMixin):

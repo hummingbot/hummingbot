@@ -1,21 +1,19 @@
 from typing import Any, Dict, Type
 
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_api_v3_request_types import (
-    CoinbaseAdvancedTradeRequestError,
-    CoinbaseAdvancedTradeRequestType,
-)
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_api_v3_response_types import (
-    CoinbaseAdvancedTradeErrorResponse,
-    CoinbaseAdvancedTradeResponse,
-)
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_exchange_mixins.cat_exchange_protocols import (
-    CoinbaseAdvancedTradeAPICallsMixinProtocol,
-)
+from pydantic.dataclasses import TypeVar
+
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
+
+from ..cat_exchange_mixins.cat_exchange_protocols import CoinbaseAdvancedTradeAPICallsMixinProtocol as _APICallsPtl
+from .cat_api_v3_request_types import CoinbaseAdvancedTradeRequest, CoinbaseAdvancedTradeRequestError
+from .cat_api_v3_response_types import CoinbaseAdvancedTradeErrorResponse, CoinbaseAdvancedTradeResponse
 
 
 class CoinbaseAdvancedTradeAPIEndpointError(Exception):
     pass
+
+
+T = TypeVar("T", bound="CoinbaseAdvancedTradeResponse")
 
 
 class CoinbaseAdvancedTradeAPIEndpoint:
@@ -27,19 +25,19 @@ class CoinbaseAdvancedTradeAPIEndpoint:
     endpoint_base: str = "api/v3/brokerage"
 
     def __init__(self,
-                 api_call: CoinbaseAdvancedTradeAPICallsMixinProtocol,
+                 api_call: _APICallsPtl,
                  request: str,
                  **kwargs,
                  ):
-        self.api_call: CoinbaseAdvancedTradeAPICallsMixinProtocol = api_call
+        self.api_call: _APICallsPtl = api_call
         self.request_class: Type[
-            CoinbaseAdvancedTradeRequestType] = CoinbaseAdvancedTradeRequestType.find_class_by_name(request)
+            CoinbaseAdvancedTradeRequest] = CoinbaseAdvancedTradeRequest.find_class_by_name(request)
 
         if self.request_class is None:
             raise CoinbaseAdvancedTradeAPIEndpointError(f"No Request endpoint found with name {request}")
 
         try:
-            self.request: CoinbaseAdvancedTradeRequestType = self.request_class(**kwargs)
+            self.request: CoinbaseAdvancedTradeRequest = self.request_class(**kwargs)
         except TypeError as e:
             raise CoinbaseAdvancedTradeAPIEndpointError(f"Error creating request object for {request}: {e}")
 
@@ -104,7 +102,7 @@ class CoinbaseAdvancedTradeAPIEndpoint:
         """
         return self.request.limit_id
 
-    async def execute(self) -> CoinbaseAdvancedTradeResponse:
+    async def execute(self) -> T:
         """
         Executes the API request and returns the response.
 
@@ -144,7 +142,7 @@ class CoinbaseAdvancedTradeAPIEndpoint:
             raise CoinbaseAdvancedTradeAPIEndpointError(f"Unsupported method {self.method}")
 
         try:
-            response_instance: CoinbaseAdvancedTradeResponse = self.response_class(**result)
+            response_instance: T = self.response_class(**result)
             return response_instance
         except TypeError as e:
             try:

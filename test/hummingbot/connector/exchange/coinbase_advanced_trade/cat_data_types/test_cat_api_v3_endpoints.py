@@ -72,7 +72,7 @@ class TestCoinbaseAdvancedTradeAPIEndpoint(IsolatedAsyncioWrapperTestCase):
                                is_auth_required=False,
                                limit_id="Mocked"):
         @patch.object(MockRequest, 'add_rate_limit')
-        @patch.object(request_data_types.CoinbaseAdvancedTradeRequestType, 'find_class_by_name')
+        @patch.object(request_data_types.CoinbaseAdvancedTradeRequest, 'find_class_by_name')
         @patch.object(response_data_types.CoinbaseAdvancedTradeResponse, 'find_class_by_name')
         async def test(mock_get_response_class, mock_get_request_class, mock_request_add_rate_limit):
             mock_get_request_class.return_value = MockRequest
@@ -127,7 +127,7 @@ class TestCoinbaseAdvancedTradeAPIEndpoint(IsolatedAsyncioWrapperTestCase):
 
         await test()
 
-    @patch.object(request_data_types.CoinbaseAdvancedTradeRequestType, 'find_class_by_name')
+    @patch.object(request_data_types.CoinbaseAdvancedTradeRequest, 'find_class_by_name')
     @patch.object(response_data_types.CoinbaseAdvancedTradeResponse, 'find_class_by_name')
     def test_endpoint_creation(self, mock_get_response_class, mock_get_request_class):
         mock_get_request_class.return_value = self.request_class
@@ -139,7 +139,7 @@ class TestCoinbaseAdvancedTradeAPIEndpoint(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(endpoint.response_class, self.response_class)
 
     @patch.object(MockRequest, 'add_rate_limit')
-    @patch.object(request_data_types.CoinbaseAdvancedTradeRequestType, 'find_class_by_name')
+    @patch.object(request_data_types.CoinbaseAdvancedTradeRequest, 'find_class_by_name')
     @patch.object(response_data_types.CoinbaseAdvancedTradeResponse, 'find_class_by_name')
     async def test_execute_default(self, mock_get_response_class, mock_get_request_class, mock_request_add_rate_limit):
         mock_get_request_class.return_value = self.request_class
@@ -189,7 +189,7 @@ class TestCoinbaseAdvancedTradeAPIEndpoint(IsolatedAsyncioWrapperTestCase):
         await self.run_execute_test('api_get', method=RESTMethod.GET, limit_id="NewLimitID")
 
     @patch.object(MockRequest, 'add_rate_limit')
-    @patch.object(request_data_types.CoinbaseAdvancedTradeRequestType, 'find_class_by_name')
+    @patch.object(request_data_types.CoinbaseAdvancedTradeRequest, 'find_class_by_name')
     @patch.object(response_data_types.CoinbaseAdvancedTradeResponse, 'find_class_by_name')
     async def test_invalid_method_exception(self, mock_get_response_class, mock_get_request_class,
                                             mock_request_add_rate_limit):
@@ -210,7 +210,7 @@ class TestCoinbaseAdvancedTradeAPIEndpoint(IsolatedAsyncioWrapperTestCase):
                                                                  method=RESTMethod.POST)
             await endpoint_instance.execute()
 
-    @patch.object(request_data_types.CoinbaseAdvancedTradeRequestType, 'find_class_by_name')
+    @patch.object(request_data_types.CoinbaseAdvancedTradeRequest, 'find_class_by_name')
     @patch.object(response_data_types.CoinbaseAdvancedTradeResponse, 'find_class_by_name')
     def test_invalid_request_class(self, mock_get_response_class, mock_get_request_class):
         mock_get_request_class.return_value = None  # This would cause a type error when it tries to instantiate None
@@ -219,7 +219,7 @@ class TestCoinbaseAdvancedTradeAPIEndpoint(IsolatedAsyncioWrapperTestCase):
         with self.assertRaises(CoinbaseAdvancedTradeAPIEndpointError):
             CoinbaseAdvancedTradeAPIEndpoint(self.api_call, "mock_request")
 
-    @patch.object(request_data_types.CoinbaseAdvancedTradeRequestType, 'find_class_by_name')
+    @patch.object(request_data_types.CoinbaseAdvancedTradeRequest, 'find_class_by_name')
     @patch.object(response_data_types.CoinbaseAdvancedTradeResponse, 'find_class_by_name')
     async def test_invalid_response_class(self, mock_get_response_class, mock_get_request_class):
         mock_get_request_class.return_value = self.request_class
