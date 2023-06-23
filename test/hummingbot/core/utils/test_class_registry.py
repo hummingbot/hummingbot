@@ -146,42 +146,42 @@ class TestClassRegistry(unittest.TestCase):
     def test_subclass_registration(self):
         registry = self.MyBase0Class.get_registry()
         expected_full_names = ['MyBase0Derived0Class', 'MyBase0Derived1Class', 'MyBase0Derived2Class']
-        expected_short_names = ['Derived0', 'Derived1', 'Derived2']
+        expected_short_class_names = ['Derived0', 'Derived1', 'Derived2']
 
-        for full_name, short_name in zip(expected_full_names, expected_short_names):
+        for full_name, short_class_name in zip(expected_full_names, expected_short_class_names):
             self.assertIn(full_name, registry)
-            self.assertIn(short_name, registry)
-            self.assertIs(registry[short_name], registry[full_name])
+            self.assertIn(short_class_name, registry)
+            self.assertIs(registry[short_class_name], registry[full_name])
 
-            # Check that the short_name() method is defined and returns the correct value
-            self.assertTrue(hasattr(registry[short_name], "short_class_name"))
-            self.assertTrue(short_name, getattr(registry[short_name], "short_class_name")())
-        self.assertEqual(len(expected_full_names) + len(expected_short_names), len(registry))
+            # Check that the short_class_name() method is defined and returns the correct value
+            self.assertTrue(hasattr(registry[short_class_name], "short_class_name"))
+            self.assertTrue(short_class_name, getattr(registry[short_class_name], "short_class_name")())
+        self.assertEqual(len(expected_full_names) + len(expected_short_class_names), len(registry))
 
     def test_deep_inheritance(self):
         registry = self.MyBase1Class.get_registry()
         expected_direct_full_names = ['MyBase1Derived0Class', 'MyBase1Derived1Class']
-        expected_direct_short_names = ['Derived0', 'Derived1']
+        expected_direct_short_class_names = ['Derived0', 'Derived1']
 
-        for full_name, short_name in zip(expected_direct_full_names, expected_direct_short_names):
+        for full_name, short_class_name in zip(expected_direct_full_names, expected_direct_short_class_names):
             self.assertIn(full_name, registry)
-            self.assertIn(short_name, registry)
-            self.assertIs(registry[short_name], registry[full_name])
+            self.assertIn(short_class_name, registry)
+            self.assertIs(registry[short_class_name], registry[full_name])
 
         expected_second_full_names = ['MyBase1Derived0Derived0Class',
                                       'MyBase1Derived0Derived1Class',
                                       'MyBase1Derived0Derived2Class']
-        expected_second_short_names = ['Derived0Derived0', 'Derived0Derived1', 'Derived0Derived2']
+        expected_second_short_class_names = ['Derived0Derived0', 'Derived0Derived1', 'Derived0Derived2']
 
-        for full_name, short_name in zip(expected_second_full_names, expected_second_short_names):
+        for full_name, short_class_name in zip(expected_second_full_names, expected_second_short_class_names):
             self.assertIn(full_name, registry)
-            self.assertIn(short_name, registry)
-            self.assertIs(registry[short_name], registry[full_name])
+            self.assertIn(short_class_name, registry)
+            self.assertIs(registry[short_class_name], registry[full_name])
 
         self.assertEqual(len(expected_direct_full_names) +
-                         len(expected_direct_short_names) +
+                         len(expected_direct_short_class_names) +
                          len(expected_second_full_names) +
-                         len(expected_second_short_names), len(registry))
+                         len(expected_second_short_class_names), len(registry))
 
     def test_get_registry_with_class(self):
         registry: Dict[Type, Dict] = ClassRegistry.get_registry()
@@ -251,12 +251,12 @@ class TestClassRegistryMixin(unittest.TestCase):
         target_class = self.MyClassType.get_class_by_name('MySubClassType')
         self.assertIs(target_class, self.MySubClassType)
 
-    def test_has_short_name(self):
+    def test_has_short_class_name(self):
         # Register a class
-        self.assertFalse(hasattr(self.MyClassType, 'short_name'))
+        self.assertFalse(hasattr(self.MyClassType, 'short_class_name'))
 
-        self.assertTrue(hasattr(self.MySubClassType, 'short_name'))
-        self.assertEqual(self.MySubClassType.short_name(), 'Sub')
+        self.assertTrue(hasattr(self.MySubClassType, 'short_class_name'))
+        self.assertEqual(self.MySubClassType.short_class_name(), 'Sub')
 
     def test_create_instance(self):
         # Create an instance
@@ -361,11 +361,11 @@ class TestPydanticSubclasses(unittest.TestCase):
     def test_pydantic_subclass_registration(self):
         registry = self.PydanticType.get_registry()
         expected_full_name = 'PydanticSubClassType'
-        expected_short_name = 'SubClass'
+        expected_short_class_name = 'SubClass'
 
         self.assertIn(expected_full_name, registry)
-        self.assertIn(expected_short_name, registry)
-        self.assertIs(registry[expected_short_name], registry[expected_full_name])
+        self.assertIn(expected_short_class_name, registry)
+        self.assertIs(registry[expected_short_class_name], registry[expected_full_name])
 
     def test_pydantic_subclass_registration_missing(self):
         registry = self.PydanticType.get_registry()
