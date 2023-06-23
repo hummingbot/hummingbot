@@ -20,7 +20,6 @@ dependencies:
   - python=3.8.2
   - scipy=1.6.2
   - sqlalchemy=1.4
-  - sqlite=3.31.1
   - tabulate==0.8.9
   - typing-extensions<4.6.0
   - ujson=1.35
