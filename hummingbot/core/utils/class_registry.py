@@ -15,8 +15,8 @@ License: MIT
 Author: Memento "RC" Mori
 Creation date: 2023/05/15
 """
-
 import logging
+import types
 from abc import ABCMeta
 from asyncio import Protocol
 from typing import Any, Dict, Optional, Tuple, Type, TypeVar, Union
@@ -155,6 +155,7 @@ class _ClassRegistration:
     def register_sub_class_add_nickname(cls, master_class: Type[T], class_name: str, class_obj: Type[V]):
         """
         Register a subclass with a nickname under a master class in the registry.
+        Creates a method: 'short_class_name' in the registered class that returns the nickname.
 
         :param master_class: The master class under which to register the subclass.
         :param class_name: The name of the subclass.
@@ -165,6 +166,14 @@ class _ClassRegistration:
                 cls.__registry[master_class][class_name] = class_obj
                 if short_name := find_substring_not_in_parent(child=class_name, parent=master_class.__name__):
                     cls.__registry[master_class][short_name] = class_obj
+                    existing_method = getattr(class_obj, "short_class_name", None)
+                    # We are creating lambda function, if there is an existing method of the same name, it must be
+                    # created by the class definition, we cannot override it. Note that we override if it is a Base
+                    # method
+                    if isinstance(existing_method, types.MethodType) and existing_method.__qualname__.split(".")[-2] == class_obj.__name__ is not None:
+                        raise ClassRegistryError(f"Short name method 'short_class_name' already exists {class_obj.__name__}."
+                                                 f"Unable to create this method for {class_obj.__name__}.")
+                    setattr(class_obj, "short_class_name", lambda: short_name)
             else:
                 raise ClassRegistryError(f"Sub-Class {class_name} already registered to {master_class.__name__}.")
         else:
@@ -187,22 +196,27 @@ class ClassRegistry(_ClassRegistration):
     """
     This class provides a registry for classes that are subclasses of any subclass of `ClassRegistry`.
     It allows retrieving classes based on their names and maintains a registry of class hierarchies.
-
-    ClassRegistry subclasses should be initialized as base classes for the target classes.
+    A sub-subclass of `ClassRegistry` has a method 'short_class_name' that returns the nickname of the class
+    within the registry of its master/type class.
 
     Example:
-        A typical usage can be to define an empty class representing a master type and subclass
-        that class to define a collection of similar classes. This is very useful in the case of
+        A typical usage can be to define an empty class representing a master type and subclasses
+        of that class define a collection of similar classes. This is very useful in the case of
         NamedTuple classes, which cannot be subclassed directly or implement registry with a metaclass.
 
         class MyClassType(ClassRegistry):
-            pass
+            def short_class_name(self):  # This method is optional, it indicates that the classes registered under
+                                         # this class will have a short_class_name method that returns their nickname.
+                pass
 
         class MySubClass(NamedTuple, MyClassType):
             pass
 
+        # This will register MySubClass under the name "MySubClass" and the nickname "Sub"
+        # A short_class_name method is created and returns "Sub"
         registry = MyBaseClass.get_registry()
         my_subclass = registry.get("MySubClass")
+        my_subclass.short_class_name()  # Returns "Sub"
 
     Class Attributes:
         __registry (Dict[Type, Dict[str, Type]]): The registry of classes, organized by base class.
