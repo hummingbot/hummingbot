@@ -18,31 +18,50 @@ from .cat_api_v3_enums import (
     CoinbaseAdvancedTradeExchangeOrderStatusEnum,
     CoinbaseAdvancedTradeExchangeOrderTypeEnum,
     CoinbaseAdvancedTradeOrderSide,
+    CoinbaseAdvancedTradeRateLimitType as _RateLimitType,
 )
 from .cat_api_v3_order_types import CoinbaseAdvancedTradeAPIOrderConfiguration
 from .cat_data_types_utilities import UnixTimestampSecondFieldToDatetime, UnixTimestampSecondFieldToStr
-from .cat_endpoint_rate_limit import EndpointRateLimit
-from .cat_protocols import CoinbaseAdvancedTradeAPIRequestProtocol
+from .cat_endpoint_rate_limit import CoinbaseAdvancedTradeEndpointRateLimit
 
 
-class CoinbaseAdvancedTradeRequestError(Exception):
+class CoinbaseAdvancedTradeRequestException(Exception):
     pass
 
 
 class CoinbaseAdvancedTradeRequest(
     ClassRegistry,
+    CoinbaseAdvancedTradeEndpointRateLimit,
     DictMethodMockableFromJsonDocMixin,
-    EndpointRateLimit,
     ABC
 ):
+    @classmethod
+    def short_class_name(cls) -> str:
+        # This method helps clarify that a subclass of this ClassRegistry will
+        # have a method called `short_class_name` that returns a string of the
+        # class name without the base class (CoinbaseAdvancedTradeRequest) name.
+        pass
+
+    @classmethod
+    def rate_limit_type(cls) -> _RateLimitType:
+        return _RateLimitType.REST
+
+    @classmethod
+    def limit_id(cls) -> str:
+        # The limit_id is automatically set to the class nickname.
+        # It should not be changed because the RateLimit class gets initialized
+        # with the limit_id at class creation, not at instantiation
+        return cls.short_class_name()
+
+    @classmethod
+    @abstractmethod
+    def method(cls) -> RESTMethod:
+        raise NotImplementedError
+
+    # --- Coinbase Advanced Trade API Request Instance properties ---
     @property
     @abstractmethod
     def endpoint(self) -> str:
-        raise NotImplementedError
-
-    @property
-    @abstractmethod
-    def method(self) -> RESTMethod:
         raise NotImplementedError
 
     @abstractmethod
@@ -97,8 +116,8 @@ class _RequestBase(PydanticForJsonConfig):
 class _RequestGET(_RequestBase):
     """Base class for GET Coinbase Advanced Trade API request dataclasses."""
 
-    @property
-    def method(self) -> RESTMethod:
+    @classmethod
+    def method(cls) -> RESTMethod:
         """Sets GET method"""
         return RESTMethod.GET
 
@@ -114,8 +133,8 @@ class _RequestGET(_RequestBase):
 class _RequestPOST(_RequestBase):
     """Base class for POST Coinbase Advanced Trade API request dataclasses."""
 
-    @property
-    def method(self) -> RESTMethod:
+    @classmethod
+    def method(cls) -> RESTMethod:
         """Set POST method"""
         return RESTMethod.POST
 
@@ -180,9 +199,6 @@ class CoinbaseAdvancedTradeGetAccountRequest(_RequestGET,
     @property
     def endpoint(self) -> str:
         return f"accounts/{self.account_uuid}"
-
-    def limit_id(self: CoinbaseAdvancedTradeAPIRequestProtocol) -> str:
-        return "GetAccount"
 
 
 class CoinbaseAdvancedTradeCreateOrderRequest(_RequestPOST,
@@ -377,9 +393,6 @@ class CoinbaseAdvancedTradeGetOrderRequest(_RequestGET,
     def endpoint(self) -> str:
         return f"orders/historical/{self.order_id}"
 
-    def limit_id(self: CoinbaseAdvancedTradeAPIRequestProtocol) -> str:
-        return "GetOrder"
-
 
 class CoinbaseAdvancedTradeListFillsRequest(_RequestGET,
                                             PydanticMockableForJson,
@@ -532,9 +545,6 @@ class CoinbaseAdvancedTradeGetProductRequest(_RequestGET,
     def endpoint(self) -> str:
         return f"products/{self.product_id}"
 
-    def limit_id(self: CoinbaseAdvancedTradeAPIRequestProtocol) -> str:
-        return "GetProduct"
-
 
 class CoinbaseAdvancedTradeGetProductCandlesRequest(_RequestGET,
                                                     PydanticMockableForJson,
@@ -571,9 +581,6 @@ class CoinbaseAdvancedTradeGetProductCandlesRequest(_RequestGET,
     def endpoint(self) -> str:
         return f"products/{self.product_id}/candles"
 
-    def limit_id(self: CoinbaseAdvancedTradeAPIRequestProtocol) -> str:
-        return "ProductCandles"
-
 
 class CoinbaseAdvancedTradeGetMarketTradesRequest(_RequestGET,
                                                   PydanticMockableForJson,
@@ -598,9 +605,6 @@ class CoinbaseAdvancedTradeGetMarketTradesRequest(_RequestGET,
     @property
     def endpoint(self) -> str:
         return f"products/{self.product_id}/ticker"
-
-    def limit_id(self: CoinbaseAdvancedTradeAPIRequestProtocol) -> str:
-        return "GetMarketTrades"
 
 
 class CoinbaseAdvancedTradeGetTransactionSummaryRequest(_RequestGET,

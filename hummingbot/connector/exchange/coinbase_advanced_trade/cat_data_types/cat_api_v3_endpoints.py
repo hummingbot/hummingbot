@@ -5,57 +5,58 @@ from pydantic.dataclasses import TypeVar
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 
 from ..cat_exchange_mixins.cat_exchange_protocols import CoinbaseAdvancedTradeAPICallsMixinProtocol as _APICallsPtl
-from .cat_api_v3_request_types import CoinbaseAdvancedTradeRequest, CoinbaseAdvancedTradeRequestError
-from .cat_api_v3_response_types import CoinbaseAdvancedTradeErrorResponse, CoinbaseAdvancedTradeResponse
+from .cat_api_v3_request_types import (
+    CoinbaseAdvancedTradeRequest as _Request,
+    CoinbaseAdvancedTradeRequestException as _RequestException,
+)
+from .cat_api_v3_response_types import (
+    CoinbaseAdvancedTradeErrorResponse as _ErrorResponse,
+    CoinbaseAdvancedTradeResponse as _Response,
+)
 
 
-class CoinbaseAdvancedTradeAPIEndpointError(Exception):
+class CoinbaseAdvancedTradeAPIEndpointException(Exception):
     pass
 
 
-T = TypeVar("T", bound="CoinbaseAdvancedTradeResponse")
+T = TypeVar("T", bound="_Response")
 
 
 class CoinbaseAdvancedTradeAPIEndpoint:
     """
-    Base class for Coinbase Advanced Trade API endpoints.
-
-    :param request: The request object for the API endpoint.
+    Base class for Coinbase Advanced Trade API endpoints. This class provides most ot the attributes and methods
+    of the Request, prepends the rate limit ID, tunes the endpoint url.
+    It facilitates making the API call, and returning the response by matching the Response class to the Request class
+    together
     """
     endpoint_base: str = "api/v3/brokerage"
 
     def __init__(self,
                  api_call: _APICallsPtl,
-                 request: str,
+                 request_name: str,
                  **kwargs,
                  ):
         self.api_call: _APICallsPtl = api_call
-        self.request_class: Type[
-            CoinbaseAdvancedTradeRequest] = CoinbaseAdvancedTradeRequest.find_class_by_name(request)
+        self.request_class: Type[_Request] = _Request.find_class_by_name(request_name)
 
         if self.request_class is None:
-            raise CoinbaseAdvancedTradeAPIEndpointError(f"No Request endpoint found with name {request}")
+            raise CoinbaseAdvancedTradeAPIEndpointException(f"No Request endpoint found with name {request_name}")
 
         try:
-            self.request: CoinbaseAdvancedTradeRequest = self.request_class(**kwargs)
+            self.request: _Request = self.request_class(**kwargs)
         except TypeError as e:
-            raise CoinbaseAdvancedTradeAPIEndpointError(f"Error creating request object for {request}: {e}")
+            raise CoinbaseAdvancedTradeAPIEndpointException(f"Error creating request object for {request_name}: {e}")
 
-        # Add the rate limit for the endpoint in the global RATE_LIMIT registry
-        self.request.add_rate_limit(self.endpoint_base)
-
-        # Lookup the response class in the endpoint map
         try:
-            response_class: Type[CoinbaseAdvancedTradeResponse] = CoinbaseAdvancedTradeResponse.find_class_by_name(
-                request)
-        except CoinbaseAdvancedTradeRequestError as e:
-            raise CoinbaseAdvancedTradeRequestError(f"Error creating request object for {request}: {e}")
+            response_class: Type[_Response] = _Response.find_class_by_name(request_name)
+        except _RequestException as e:
+            raise CoinbaseAdvancedTradeAPIEndpointException(f"Error creating request object for {request_name}: {e}")
 
         if response_class is None:
-            raise CoinbaseAdvancedTradeAPIEndpointError(
-                f"No endpoint found with shortname {request} (request class {self.request.__class__.__name__})")
+            raise CoinbaseAdvancedTradeAPIEndpointException(
+                f"No endpoint found with shortname {request_name} (request class {self.request.__class__.__name__})")
 
-        self.response_class: Type[CoinbaseAdvancedTradeResponse] = response_class
+        self.response_class: Type[_Response] = response_class
 
     @property
     def endpoint(self) -> str:
@@ -100,7 +101,7 @@ class CoinbaseAdvancedTradeAPIEndpoint:
         Get the request parameters for the API endpoint.
         :return: Dictionary containing the request parameters.
         """
-        return self.request.limit_id
+        return self.request.limit_id()
 
     async def execute(self) -> T:
         """
@@ -139,13 +140,13 @@ class CoinbaseAdvancedTradeAPIEndpoint:
                 limit_id=limit_id,
             )
         else:
-            raise CoinbaseAdvancedTradeAPIEndpointError(f"Unsupported method {self.method}")
+            raise CoinbaseAdvancedTradeAPIEndpointException(f"Unsupported method {self.method}")
 
         try:
             response_instance: T = self.response_class(**result)
             return response_instance
         except TypeError as e:
             try:
-                CoinbaseAdvancedTradeErrorResponse(**result)
+                _ErrorResponse(**result)
             except Exception:
-                raise CoinbaseAdvancedTradeAPIEndpointError(f"Unregistered Error for {self.request.endpoint}: {e}")
+                raise CoinbaseAdvancedTradeAPIEndpointException(f"Unregistered Error for {self.request.endpoint}: {e}")

@@ -199,3 +199,9 @@ class CoinbaseAdvancedTradeWSSChannel(StrEnum):
     ticker_batch = auto()
     l2_data = auto()
     user = auto()
+
+
+class CoinbaseAdvancedTradeRateLimitType(StrEnum):
+    REST = auto()
+    SIGNIN = auto()
+    WSS = auto()

@@ -7,7 +7,7 @@ import hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_
 import hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_api_v3_response_types as response_data_types
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_api_v3_endpoints import (
     CoinbaseAdvancedTradeAPIEndpoint,
-    CoinbaseAdvancedTradeAPIEndpointError,
+    CoinbaseAdvancedTradeAPIEndpointException,
 )
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 
@@ -196,7 +196,7 @@ class TestCoinbaseAdvancedTradeAPIEndpoint(IsolatedAsyncioWrapperTestCase):
         mock_get_request_class.return_value = self.request_class
         mock_get_response_class.return_value = self.response_class
 
-        with self.assertRaises(CoinbaseAdvancedTradeAPIEndpointError):
+        with self.assertRaises(CoinbaseAdvancedTradeAPIEndpointException):
             endpoint_instance = CoinbaseAdvancedTradeAPIEndpoint(self.api_call, "mock_request", method="INVALID_METHOD")
             await endpoint_instance.execute()
 
@@ -205,7 +205,7 @@ class TestCoinbaseAdvancedTradeAPIEndpoint(IsolatedAsyncioWrapperTestCase):
             async def api_post(self, *args, **kwargs) -> Dict[str, Any]:
                 raise Exception("API Post Error")
 
-        with self.assertRaises(CoinbaseAdvancedTradeAPIEndpointError):
+        with self.assertRaises(CoinbaseAdvancedTradeAPIEndpointException):
             endpoint_instance = CoinbaseAdvancedTradeAPIEndpoint(ExceptionAPICall(), "mock_request",
                                                                  method=RESTMethod.POST)
             await endpoint_instance.execute()
@@ -216,7 +216,7 @@ class TestCoinbaseAdvancedTradeAPIEndpoint(IsolatedAsyncioWrapperTestCase):
         mock_get_request_class.return_value = None  # This would cause a type error when it tries to instantiate None
         mock_get_response_class.return_value = self.response_class
 
-        with self.assertRaises(CoinbaseAdvancedTradeAPIEndpointError):
+        with self.assertRaises(CoinbaseAdvancedTradeAPIEndpointException):
             CoinbaseAdvancedTradeAPIEndpoint(self.api_call, "mock_request")
 
     @patch.object(request_data_types.CoinbaseAdvancedTradeRequest, 'find_class_by_name')
@@ -225,10 +225,10 @@ class TestCoinbaseAdvancedTradeAPIEndpoint(IsolatedAsyncioWrapperTestCase):
         mock_get_request_class.return_value = self.request_class
         mock_get_response_class.return_value = None  # This would cause a type error when it tries to instantiate None
 
-        with self.assertRaises(CoinbaseAdvancedTradeAPIEndpointError):
+        with self.assertRaises(CoinbaseAdvancedTradeAPIEndpointException):
             endpoint = CoinbaseAdvancedTradeAPIEndpoint(self.api_call, "mock_request")
             await endpoint.execute()
 
     # def test_empty_endpoint(self):
-    #     with self.assertRaises(CoinbaseAdvancedTradeAPIEndpointError):
+    #     with self.assertRaises(CoinbaseAdvancedTradeAPIEndpointException):
     #         self.run_execute_test('api_get', method=RESTMethod.GET, endpoint="")

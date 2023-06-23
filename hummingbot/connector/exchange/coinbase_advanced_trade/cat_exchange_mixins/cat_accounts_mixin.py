@@ -20,6 +20,7 @@ class _BalanceProtocol(_AccountsPtcl):
 
 class CoinbaseAdvancedTradeAccountsMixin:
     def __init__(self, **kwargs):
+        # Mixin daisy-chain
         if super().__class__ is not object:
             super().__init__(**kwargs)
         self._asset_uuid_map: Dict[str, str] = {}
