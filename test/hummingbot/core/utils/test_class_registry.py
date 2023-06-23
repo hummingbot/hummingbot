@@ -251,12 +251,12 @@ class TestClassRegistryMixin(unittest.TestCase):
         target_class = self.MyClassType.get_class_by_name('MySubClassType')
         self.assertIs(target_class, self.MySubClassType)
 
-    def test_has_short_name(self):
+    def test_has_short_class_name(self):
         # Register a class
-        self.assertFalse(hasattr(self.MyClassType, 'short_name'))
+        self.assertFalse(hasattr(self.MyClassType, 'short_class_name'))
 
-        self.assertTrue(hasattr(self.MySubClassType, 'short_name'))
-        self.assertEqual(self.MySubClassType.short_name(), 'Sub')
+        self.assertTrue(hasattr(self.MySubClassType, 'short_class_name'))
+        self.assertEqual(self.MySubClassType.short_class_name(), 'Sub')
 
     def test_create_instance(self):
         # Create an instance
