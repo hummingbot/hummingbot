@@ -94,16 +94,14 @@ def find_substring_not_in_parent(*, child: str, parent: str) -> Optional[str]:
     return None
 
 
-class RegisterKey(Protocol):
-    __class_registry__register_key__: bool
+class RegisteredClassProtocol(Protocol):
+    @classmethod
+    def short_class_name(cls) -> str:
+        ...
 
 
-class RegisteredClass(Protocol):
-    __class_registry__registered_class__: bool
-
-
-T = TypeVar("T", bound=RegisterKey)
-V = TypeVar("V", bound=RegisteredClass)
+T = TypeVar("T")
+V = TypeVar("V")
 
 _RegisteredClassType = Dict[str, Type[V]]
 _RegistryType = Dict[Type[T], _RegisteredClassType]
@@ -170,9 +168,13 @@ class _ClassRegistration:
                     # We are creating lambda function, if there is an existing method of the same name, it must be
                     # created by the class definition, we cannot override it. Note that we override if it is a Base
                     # method
-                    if isinstance(existing_method, types.MethodType) and existing_method.__qualname__.split(".")[-2] == class_obj.__name__ is not None:
-                        raise ClassRegistryError(f"Short name method 'short_class_name' already exists {class_obj.__name__}."
-                                                 f"Unable to create this method for {class_obj.__name__}.")
+                    if (
+                            isinstance(existing_method, types.MethodType) and
+                            existing_method.__qualname__.split(".")[-2] == class_obj.__name__ is not None
+                    ):
+                        raise ClassRegistryError(
+                            f"Short name method 'short_class_name' already exists {class_obj.__name__}."
+                            f"Unable to create this method for {class_obj.__name__}.")
                     setattr(class_obj, "short_class_name", lambda: short_name)
             else:
                 raise ClassRegistryError(f"Sub-Class {class_name} already registered to {master_class.__name__}.")
@@ -241,7 +243,6 @@ class ClassRegistry(_ClassRegistration):
         :param cls: The subclass being initialized.
         :param kwargs: Additional keyword arguments.
         """
-        super().__init_subclass__(*args, **kwargs)
 
         # Create the register for any class directly subclassing ClassRegistry
         if ClassRegistry in cls.__bases__:
@@ -260,6 +261,11 @@ class ClassRegistry(_ClassRegistration):
 
                     # It's a subclass of a subclass of ClassRegistry, add it to the existing registry
                     cls.register_sub_class_add_nickname(base, class_name, cls)
+
+        # Continue with the subclass initialization - We do this so that the added
+        # 'short_class_name' method is available to the subclass being initialized.
+        # and other base class __init_subclass__ methods.
+        super().__init_subclass__(*args, **kwargs)
 
     @classmethod
     def get_registry(cls: Union[Type[T], Type[V]]) -> Union[Dict[str, Type[T]], Dict[Type[T], Dict[str, Type[V]]]]:
