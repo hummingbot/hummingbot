@@ -5,9 +5,10 @@ from unittest.mock import patch
 
 import hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_api_v3_request_types as request_data_types
 import hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_api_v3_response_types as response_data_types
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_api_v3_endpoints import (
+from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_api_endpoints import (
     CoinbaseAdvancedTradeAPIEndpoint,
     CoinbaseAdvancedTradeAPIEndpointException,
+    CoinbaseAdvancedTradeAPIVersionEnum as _APIVersion,
 )
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 
@@ -28,7 +29,8 @@ class MockAPICall:
 
 @dataclass
 class MockRequest:
-    endpoint: str = "mock"
+    BASE_ENDPOINT: str = "Mocked"
+    endpoint_: str = "mocked"
     data_: Dict = field(default_factory=dict)
     params_: Dict = field(default_factory=dict)
     is_auth_required_: bool = False
@@ -36,6 +38,9 @@ class MockRequest:
     @classmethod
     def limit_id(cls) -> str:
         return "Mocked"
+
+    def base_endpoint(self) -> str:
+        return "Mocked/" + self.endpoint_
 
     @classmethod
     def method(cls) -> RESTMethod:
@@ -83,9 +88,9 @@ class TestCoinbaseAdvancedTradeAPIEndpoint(IsolatedAsyncioWrapperTestCase):
             mock_get_request_class.return_value = MockRequest
             mock_get_response_class.return_value = MockResponse
 
-            endpoint_instance = CoinbaseAdvancedTradeAPIEndpoint(self.api_call, "mock_request",
+            endpoint_instance = CoinbaseAdvancedTradeAPIEndpoint(self.api_call, _APIVersion.V3, "mock_request",
                                                                  # These are passed to the request instantiation
-                                                                 endpoint=endpoint,
+                                                                 endpoint_=endpoint,
                                                                  data_=data,
                                                                  params_=params,
                                                                  is_auth_required_=is_auth_required,
@@ -96,18 +101,11 @@ class TestCoinbaseAdvancedTradeAPIEndpoint(IsolatedAsyncioWrapperTestCase):
 
             # Request is correctly instantiated
             self.assertIsInstance(endpoint_instance.request, MockRequest)
-            self.assertEqual(endpoint_instance.request.endpoint, endpoint)
+            self.assertEqual(endpoint_instance.request.base_endpoint(), "Mocked/" + endpoint)
             self.assertEqual(endpoint_instance.request.data(), data)
             self.assertEqual(endpoint_instance.request.params(), params)
             self.assertEqual(endpoint_instance.request.is_auth_required(), is_auth_required)
             self.assertEqual(endpoint_instance.request.limit_id(), limit_id)
-
-            # Endpoint forwards the request parameters
-            self.assertEqual(f"{endpoint_instance.endpoint_base}/{endpoint}", endpoint_instance.endpoint)
-            self.assertEqual(data, endpoint_instance.data())
-            self.assertEqual(params, endpoint_instance.params())
-            self.assertEqual(is_auth_required, endpoint_instance.is_auth_required())
-            self.assertEqual(limit_id, endpoint_instance.limit_id())
 
             response: MockResponse = await endpoint_instance.execute()  # type: ignore # forcing MockResponse
 
@@ -115,7 +113,7 @@ class TestCoinbaseAdvancedTradeAPIEndpoint(IsolatedAsyncioWrapperTestCase):
             self.assertEqual(f"ok - api_delete called with "
                              "() {'path_url': "
                              # Concatenate the base url and the request.endpoint
-                             f"'{endpoint_instance.endpoint_base}/{endpoint}'"
+                             f"'Mocked/{endpoint}'"
                              f", 'data': "
                              f"{data}"
                              f", 'params': "
@@ -134,7 +132,7 @@ class TestCoinbaseAdvancedTradeAPIEndpoint(IsolatedAsyncioWrapperTestCase):
         mock_get_request_class.return_value = self.request_class
         mock_get_response_class.return_value = self.response_class
 
-        endpoint = CoinbaseAdvancedTradeAPIEndpoint(self.api_call, "mock_request")
+        endpoint = CoinbaseAdvancedTradeAPIEndpoint(self.api_call, _APIVersion.V3, "mock_request")
 
         self.assertEqual(endpoint.request_class, self.request_class)
         self.assertEqual(endpoint.response_class, self.response_class)
@@ -147,7 +145,7 @@ class TestCoinbaseAdvancedTradeAPIEndpoint(IsolatedAsyncioWrapperTestCase):
         mock_get_response_class.return_value = self.response_class
         default_request = self.request_class()
 
-        endpoint = CoinbaseAdvancedTradeAPIEndpoint(self.api_call, "mock_request")
+        endpoint = CoinbaseAdvancedTradeAPIEndpoint(self.api_call, _APIVersion.V3, "mock_request")
 
         response = await endpoint.execute()
         # Endpoint instantiates a default instance of the class
@@ -155,7 +153,7 @@ class TestCoinbaseAdvancedTradeAPIEndpoint(IsolatedAsyncioWrapperTestCase):
                                       "ok - api_delete called with "
                                       "() {'path_url': "
                                       # Concatenate the base url and the request.endpoint
-                                      f"'{endpoint.endpoint_base}/{default_request.endpoint}'"
+                                      f"'{default_request.base_endpoint()}'"
                                       f", 'data': "
                                       f"{default_request.data()}"
                                       f", 'params': "
@@ -197,7 +195,7 @@ class TestCoinbaseAdvancedTradeAPIEndpoint(IsolatedAsyncioWrapperTestCase):
         mock_get_response_class.return_value = self.response_class
 
         with self.assertRaises(CoinbaseAdvancedTradeAPIEndpointException):
-            endpoint_instance = CoinbaseAdvancedTradeAPIEndpoint(self.api_call, "mock_request", method="INVALID_METHOD")
+            endpoint_instance = CoinbaseAdvancedTradeAPIEndpoint(self.api_call, _APIVersion.V3, "mock_request", method="INVALID_METHOD")
             await endpoint_instance.execute()
 
     async def test_api_call_exception(self):
@@ -206,7 +204,7 @@ class TestCoinbaseAdvancedTradeAPIEndpoint(IsolatedAsyncioWrapperTestCase):
                 raise Exception("API Post Error")
 
         with self.assertRaises(CoinbaseAdvancedTradeAPIEndpointException):
-            endpoint_instance = CoinbaseAdvancedTradeAPIEndpoint(ExceptionAPICall(), "mock_request",
+            endpoint_instance = CoinbaseAdvancedTradeAPIEndpoint(ExceptionAPICall(), _APIVersion.V3, "mock_request",
                                                                  method=RESTMethod.POST)
             await endpoint_instance.execute()
 
@@ -217,7 +215,7 @@ class TestCoinbaseAdvancedTradeAPIEndpoint(IsolatedAsyncioWrapperTestCase):
         mock_get_response_class.return_value = self.response_class
 
         with self.assertRaises(CoinbaseAdvancedTradeAPIEndpointException):
-            CoinbaseAdvancedTradeAPIEndpoint(self.api_call, "mock_request")
+            CoinbaseAdvancedTradeAPIEndpoint(self.api_call, _APIVersion.V3, "mock_request")
 
     @patch.object(request_data_types.CoinbaseAdvancedTradeRequest, 'find_class_by_name')
     @patch.object(response_data_types.CoinbaseAdvancedTradeResponse, 'find_class_by_name')
@@ -226,7 +224,7 @@ class TestCoinbaseAdvancedTradeAPIEndpoint(IsolatedAsyncioWrapperTestCase):
         mock_get_response_class.return_value = None  # This would cause a type error when it tries to instantiate None
 
         with self.assertRaises(CoinbaseAdvancedTradeAPIEndpointException):
-            endpoint = CoinbaseAdvancedTradeAPIEndpoint(self.api_call, "mock_request")
+            endpoint = CoinbaseAdvancedTradeAPIEndpoint(self.api_call, _APIVersion.V3, "mock_request")
             await endpoint.execute()
 
     # def test_empty_endpoint(self):

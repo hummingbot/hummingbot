@@ -1,6 +1,10 @@
 from typing import Optional, Tuple
 
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_api_v3_enums import (
+from hummingbot.core.utils.class_registry import ClassRegistry
+
+from ..cat_utilities.cat_dict_mockable_from_json_mixin import DictMethodMockableFromJsonDocMixin
+from ..cat_utilities.cat_pydantic_for_json import PydanticForJsonConfig, PydanticMockableForJson
+from .cat_api_v3_enums import (
     CoinbaseAdvancedTradeCancelFailureReason,
     CoinbaseAdvancedTradeCreateOrderFailureReason,
     CoinbaseAdvancedTradeExchangeAccountTypeEnum,
@@ -14,20 +18,8 @@ from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_ap
     CoinbaseAdvancedTradeOrderSide,
     CoinbaseAdvancedTradePreviewFailureReason,
 )
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_api_v3_order_types import (
-    CoinbaseAdvancedTradeAPIOrderConfiguration,
-)
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_data_types_utilities import (
-    UnixTimestampSecondFieldToFloat,
-)
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_utilities.cat_dict_mockable_from_json_mixin import (
-    DictMethodMockableFromJsonDocMixin,
-)
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_utilities.cat_pydantic_for_json import (
-    PydanticForJsonConfig,
-    PydanticMockableForJson,
-)
-from hummingbot.core.utils.class_registry import ClassRegistry
+from .cat_api_v3_order_types import CoinbaseAdvancedTradeAPIOrderConfiguration
+from .cat_data_types_utilities import UnixTimestampSecondFieldToFloat
 
 
 class CoinbaseAdvancedTradeResponseError(Exception):
@@ -39,7 +31,8 @@ class CoinbaseAdvancedTradeResponse(
     DictMethodMockableFromJsonDocMixin,
 ):
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+        if super().__class__ != object:
+            super().__init__(**kwargs)
 
 
 class _Balance(PydanticForJsonConfig):

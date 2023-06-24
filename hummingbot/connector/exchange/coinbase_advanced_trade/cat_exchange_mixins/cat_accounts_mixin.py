@@ -2,7 +2,10 @@ from typing import AsyncGenerator, Dict, Iterable, Set
 
 from _decimal import Decimal
 
-from ..cat_data_types.cat_api_v3_endpoints import CoinbaseAdvancedTradeAPIEndpoint as _APIEndpoint
+from ..cat_data_types.cat_api_endpoints import (
+    CoinbaseAdvancedTradeAPIEndpoint as _APIEndpoint,
+    CoinbaseAdvancedTradeAPIVersionEnum as _APIVersion,
+)
 from ..cat_data_types.cat_api_v3_response_types import (
     CoinbaseAdvancedTradeAccount as _Account,
     CoinbaseAdvancedTradeListAccountsResponse as _ListAccountsResponse,
@@ -51,7 +54,10 @@ class CoinbaseAdvancedTradeAccountsMixin:
         params = {"limit": 250}
         if cursor != "0":
             params["cursor"] = cursor
-        resp: _ListAccountsResponse = await _APIEndpoint(self, "ListAccounts", **params).execute()
+        resp: _ListAccountsResponse = await _APIEndpoint(self,
+                                                         _APIVersion.V3,
+                                                         "ListAccounts",
+                                                         **params).execute()
         return resp
         # return CoinbaseAdvancedTradeListAccountsResponse(**(await self.api_get(
         #     path_url=CONSTANTS.ACCOUNTS_LIST_EP,

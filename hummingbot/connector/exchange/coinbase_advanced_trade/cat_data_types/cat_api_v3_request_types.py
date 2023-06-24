@@ -1,19 +1,14 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from pydantic import Field
 from pydantic.class_validators import validator
 
-from hummingbot.core.utils.class_registry import ClassRegistry, RegisteredClassProtocol
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod
+from hummingbot.core.utils.class_registry import ClassRegistry
 
-from ..cat_utilities.cat_dict_mockable_from_json_mixin import DictMethodMockableFromJsonDocMixin
-from ..cat_utilities.cat_pydantic_for_json import (
-    PydanticConfigForJsonDatetimeToStr,
-    PydanticForJsonConfig,
-    PydanticMockableForJson,
-)
+from ..cat_utilities.cat_pydantic_for_json import PydanticMockableForJson
+from .cat_api_request_bases import _RequestGET, _RequestPOST, _RequestProtocolAbstract
 from .cat_api_v3_enums import (
     CoinbaseAdvancedTradeExchangeOrderStatusEnum,
     CoinbaseAdvancedTradeExchangeOrderTypeEnum,
@@ -29,7 +24,20 @@ class CoinbaseAdvancedTradeRequestException(Exception):
     pass
 
 
-class CoinbaseAdvancedTradeRequest(ClassRegistry):
+class CoinbaseAdvancedTradeRequest(
+    ClassRegistry,
+    _RequestProtocolAbstract,
+    ABC,  # Defines the method that the subclasses must implement to match the Protocol
+):
+    BASE_ENDPOINT: str = "api/v3/brokerage"  # "/" is added between the base URI and the endpoint
+
+    # This definition allows CoinbaseAdvancedTradeRequest to be used as a Protocol that
+    # receives arguments in the constructor. The main purpose of this class is to be
+    # used as a Base class for similar subclasses
+    def __init__(self, *args, **kwargs):
+        if super().__class__ != object:
+            super().__init__(**kwargs)
+
     @classmethod
     def short_class_name(cls) -> str:
         # This method helps clarify that a subclass of this ClassRegistry will
@@ -41,104 +49,9 @@ class CoinbaseAdvancedTradeRequest(ClassRegistry):
             "the CoinbaseAdvancedTradeRequest.short_class_name() was called instead.\n"
         )
 
-
-class _RequestBase(
-    PydanticForJsonConfig,  # Pydantic base class for all Request
-    DictMethodMockableFromJsonDocMixin,  # Pydantic base class dict mockable from json doc
-):
-    """Base class for all Coinbase Advanced Trade API request dataclasses."""
-
-    class Config(PydanticConfigForJsonDatetimeToStr):
-        """Pydantic Config overrides."""
-        extra = "forbid"
-        allow_mutation = False
-
-    @classmethod
-    @abstractmethod
-    def method(cls) -> RESTMethod:
-        raise NotImplementedError
-
-    # --- Coinbase Advanced Trade API Request Instance properties ---
-    @property
-    @abstractmethod
-    def endpoint(self) -> str:
-        raise NotImplementedError
-
-    @abstractmethod
-    def data(self) -> Dict[str, Any]:
-        raise NotImplementedError
-
-    @abstractmethod
-    def params(self) -> Dict[str, Any]:
-        raise NotImplementedError
-
     @classmethod
     def linked_limit(cls) -> _RateLimitType:
         return _RateLimitType.REST  # This is either REST, WSS or SIGNIN, as Rate Limit categories
-
-    @classmethod
-    def limit_id(cls: RegisteredClassProtocol) -> str:
-        # The limit_id is automatically set to the class nickname.
-        # It should not be changed because the RateLimit class gets initialized
-        # with the limit_id at class creation, not at instantiation
-        return cls.short_class_name()
-
-    @staticmethod
-    def is_auth_required() -> bool:
-        """Returns True for all Coinbase Advanced Trade requests."""
-        return True
-
-    def dict(self, *args, **kwargs) -> Dict[str, Any]:
-        """
-        Overrides the default dict method to:
-            - exclude unset fields from the request data.
-            - exclude None fields from the request data.
-            - remove Path Parameters from the request data.
-        """
-        kwargs['exclude_unset'] = True
-        kwargs['exclude_none'] = True
-        _dict: Dict[str, Any] = super().dict(*args, **kwargs)
-        _dict: Dict[str, Any] = self._exclude_path_params(_dict)
-        return _dict
-
-    def _exclude_path_params(self, _dict: Dict[str, Any]) -> Dict[str, Any]:
-        """Removes non-path parameters from the request data."""
-        return {k: v for k, v in _dict.items()
-                if not self.__fields__[k].field_info.extra.get('path_param', False)}
-
-
-class _RequestGET(_RequestBase, ABC):
-    """Base class for GET Coinbase Advanced Trade API request dataclasses."""
-
-    @classmethod
-    def method(cls) -> RESTMethod:
-        """Sets GET method"""
-        return RESTMethod.GET
-
-    def params(self) -> Dict[str, Any]:
-        """Returns the request data as a dictionary."""
-        return self.dict()
-
-    def data(self) -> Dict[str, Any]:
-        """Returns an empty dictionary."""
-        return {}
-
-
-class _RequestPOST(_RequestBase, ABC):
-    """Base class for POST Coinbase Advanced Trade API request dataclasses."""
-
-    @classmethod
-    def method(cls) -> RESTMethod:
-        """Set POST method"""
-        return RESTMethod.POST
-
-    def params(self) -> Dict[str, Any]:
-        """Returns an empty dictionary."""
-        return {}
-
-    def data(self) -> Dict[str, Any]:
-        """Returns the request data as a dictionary."""
-        return self.dict()
 
 
 class CoinbaseAdvancedTradeListAccountsRequest(
@@ -169,7 +82,6 @@ class CoinbaseAdvancedTradeListAccountsRequest(
     cursor: Optional[str] = Field(None, description='Cursor used for pagination. When provided, the response returns '
                                                     'responses after this cursor.')
 
-    @property
     def endpoint(self) -> str:
         return "accounts"
 
@@ -194,7 +106,6 @@ class CoinbaseAdvancedTradeGetAccountRequest(
     """
     account_uuid: str = Field(..., extra={'path_param': True}, description="The account's UUID.")
 
-    @property
     def endpoint(self) -> str:
         return f"accounts/{self.account_uuid}"
 
@@ -254,7 +165,6 @@ class CoinbaseAdvancedTradeCreateOrderRequest(
     side: CoinbaseAdvancedTradeOrderSide = Field(None, description='Possible values: [UNKNOWN_ORDER_SIDE, BUY, SELL]')
     order_configuration: CoinbaseAdvancedTradeAPIOrderConfiguration = Field(None, description='Order configuration')
 
-    @property
     def endpoint(self) -> str:
         return "orders"
 
@@ -281,7 +191,6 @@ class CoinbaseAdvancedTradeCancelOrdersRequest(
     """
     order_ids: List[str] = Field(..., description='The IDs of orders cancel requests should be initiated for')
 
-    @property
     def endpoint(self) -> str:
         return "orders/batch_cancel"
 
@@ -351,7 +260,6 @@ class CoinbaseAdvancedTradeListOrdersRequest(
                                                                     'returned. Default is to return RETAIL_ADVANCED '
                                                                     'placement source.')
 
-    @property
     def endpoint(self) -> str:
         return "orders/historical/batch"
 
@@ -395,7 +303,6 @@ class CoinbaseAdvancedTradeGetOrderRequest(
     user_native_currency: Optional[str] = Field(None, description='Deprecated: User native currency to fetch order '
                                                                   'with.')
 
-    @property
     def endpoint(self) -> str:
         return f"orders/historical/{self.order_id}"
 
@@ -441,7 +348,6 @@ class CoinbaseAdvancedTradeListFillsRequest(
     cursor: Optional[str] = Field(None, description='Cursor used for pagination. When provided, the response returns '
                                                     'responses after this cursor.')
 
-    @property
     def endpoint(self) -> str:
         return "orders/historical/fills"
 
@@ -474,7 +380,6 @@ class CoinbaseAdvancedTradeGetProductBookRequest(
     product_id: str = Field(..., description='The trading pair to get book information for.')
     limit: Optional[int] = Field(None, description='Number of products to offset before returning.')
 
-    @property
     def endpoint(self) -> str:
         return "product_book"
 
@@ -503,7 +408,6 @@ class CoinbaseAdvancedTradeGetBestBidAskRequest(
     """
     product_ids: List[str] = Field(..., description='The trading pair to get book information for.')
 
-    @property
     def endpoint(self) -> str:
         return "best_bid_ask"
 
@@ -532,7 +436,6 @@ class CoinbaseAdvancedTradeListProductsRequest(
     offset: Optional[int] = Field(None, description='Number of products to offset before returning.')
     product_type: Optional[str] = Field(None, description='Type of products to return.')
 
-    @property
     def endpoint(self) -> str:
         return "products"
 
@@ -557,7 +460,6 @@ class CoinbaseAdvancedTradeGetProductRequest(
     """
     product_id: str = Field(..., extra={'path_param': True}, description='The trading pair to get information for.')
 
-    @property
     def endpoint(self) -> str:
         return f"products/{self.product_id}"
 
@@ -595,7 +497,6 @@ class CoinbaseAdvancedTradeGetProductCandlesRequest(
             datetime: lambda v: str(v.timestamp()),
         }
 
-    @property
     def endpoint(self) -> str:
         return f"products/{self.product_id}/candles"
 
@@ -622,7 +523,6 @@ class CoinbaseAdvancedTradeGetMarketTradesRequest(
     product_id: str = Field(..., extra={'path_param': True}, description="The trading pair, i.e., 'BTC-USD'.")
     limit: int = Field(..., description='Number of trades to return.')
 
-    @property
     def endpoint(self) -> str:
         return f"products/{self.product_id}/ticker"
 
@@ -653,7 +553,6 @@ class CoinbaseAdvancedTradeGetTransactionSummaryRequest(
     user_native_currency: Optional[str] = Field(None, description='String of the users native currency, default is USD')
     product_type: Optional[str] = Field(None, description='Type of product')
 
-    @property
     def endpoint(self) -> str:
         return "transaction_summary"
 

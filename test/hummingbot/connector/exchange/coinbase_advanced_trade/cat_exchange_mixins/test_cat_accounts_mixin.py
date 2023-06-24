@@ -121,7 +121,7 @@ class TestAccountsMixin(IsolatedAsyncioWrapperTestCase):
             data={},
             params={"limit": 250},
             is_auth_required=True,
-            limit_id="ListAccounts"
+            limit_id="ListAccountsREST"
         )
         self.assertEqual(True, accounts.has_next, f"Expected has_next to be True, got {accounts.has_next}")
         self.assertEqual("789100", accounts.cursor, f"Expected cursor to be 789100, got {accounts.cursor}")
