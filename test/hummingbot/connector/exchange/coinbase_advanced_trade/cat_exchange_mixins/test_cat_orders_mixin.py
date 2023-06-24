@@ -2,7 +2,7 @@ import unittest
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from typing import Any, Dict
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from hummingbot.connector.exchange.coinbase_advanced_trade import cat_constants as CONSTANTS
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_api_v3_order_types import (
@@ -21,15 +21,14 @@ class TestOrdersMixin(IsolatedAsyncioWrapperTestCase):
         self.mixin = OrdersMixin()
         self.mixin.exchange_symbol_associated_to_pair = AsyncMock(return_value="BTC-USD")
         self.mixin.api_post = AsyncMock(return_value={"order_id": "12345"})
-        self.mixin.time_synchronizer = AsyncMock()
-        self.mixin.time_synchronizer.time = AsyncMock(return_value=1624379186.738521)
+        self.mixin.time_synchronizer = MagicMock()
+        self.mixin.time_synchronizer.time = MagicMock(return_value=1624379186.738521)
 
     @patch.object(CoinbaseAdvancedTradeAPIOrderConfiguration, "create")
     @patch("hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types"
            ".cat_api_v3_request_types.CoinbaseAdvancedTradeCreateOrderRequest")
     async def test_place_order(self, mock_order_request_class, mock_order_config):
         mock_order_request = mock_order_request_class.return_value
-        print(mock_order_request.to_dict_for_json())
         mock_order_request.to_dict_for_json.return_value = {"mocked": "data"}
 
         mock_order_config.return_value = CoinbaseAdvancedTradeAPIOrderConfiguration(
@@ -46,7 +45,12 @@ class TestOrdersMixin(IsolatedAsyncioWrapperTestCase):
                     }
             }
         )
-        await self.mixin._place_order("test_order", "BTC-USD", Decimal(1), TradeType.BUY, OrderType.MARKET,
+        self.mixin.api_post = AsyncMock(return_value={"order_id": "12345"})
+        await self.mixin._place_order("test_order",
+                                      "BTC-USD",
+                                      Decimal(1),
+                                      TradeType.BUY,
+                                      OrderType.MARKET,
                                       Decimal(40000))
 
         mock_order_config.assert_called_once_with(OrderType.MARKET, base_size=Decimal(1), quote_size=Decimal(40000),

@@ -400,6 +400,25 @@ class TestPydanticSubclasses(unittest.TestCase):
             self.PydanticSubClassType(string="test", integer="invalid_integer", double=1.0, boolean=True,
                                       dictionary={"key": "value"})
 
+    def test_class_registration_after_change(self):
+        class MasterClass(ClassRegistry):
+            pass
+
+        class OtherSubClassInitializer:
+            def __init_subclass__(cls, **kwargs):
+                super().__init_subclass__(**kwargs)
+                assert hasattr(cls, 'short_class_name')
+
+        class MasterSubClass(MasterClass, OtherSubClassInitializer):
+            pass
+
+        with self.assertRaises(AssertionError):
+            class UnorderedSubClass(
+                OtherSubClassInitializer,
+                MasterClass
+            ):
+                pass
+
 
 if __name__ == '__main__':
     unittest.main()

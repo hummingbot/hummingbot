@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import Field
 from pydantic.class_validators import validator
 
-from hummingbot.core.utils.class_registry import ClassRegistry
+from hummingbot.core.utils.class_registry import ClassRegistry, RegisteredClassProtocol
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 
 from ..cat_utilities.cat_dict_mockable_from_json_mixin import DictMethodMockableFromJsonDocMixin
@@ -29,29 +29,29 @@ class CoinbaseAdvancedTradeRequestException(Exception):
     pass
 
 
-class CoinbaseAdvancedTradeRequest(
-    ClassRegistry,
-    CoinbaseAdvancedTradeEndpointRateLimit,
-    DictMethodMockableFromJsonDocMixin,
-    ABC
-):
+class CoinbaseAdvancedTradeRequest(ClassRegistry):
     @classmethod
     def short_class_name(cls) -> str:
         # This method helps clarify that a subclass of this ClassRegistry will
         # have a method called `short_class_name` that returns a string of the
         # class name without the base class (CoinbaseAdvancedTradeRequest) name.
-        pass
+        raise CoinbaseAdvancedTradeRequestException(
+            "The method short_class_name should have been dynamically created by ClassRegistry.\n"
+            "This exception indicates that the class hierarchy is not correctly implemented and"
+            "the CoinbaseAdvancedTradeRequest.short_class_name() was called instead.\n"
+        )
 
-    @classmethod
-    def rate_limit_type(cls) -> _RateLimitType:
-        return _RateLimitType.REST
 
-    @classmethod
-    def limit_id(cls) -> str:
-        # The limit_id is automatically set to the class nickname.
-        # It should not be changed because the RateLimit class gets initialized
-        # with the limit_id at class creation, not at instantiation
-        return cls.short_class_name()
+class _RequestBase(
+    PydanticForJsonConfig,  # Pydantic base class for all Request
+    DictMethodMockableFromJsonDocMixin,  # Pydantic base class dict mockable from json doc
+):
+    """Base class for all Coinbase Advanced Trade API request dataclasses."""
+
+    class Config(PydanticConfigForJsonDatetimeToStr):
+        """Pydantic Config overrides."""
+        extra = "forbid"
+        allow_mutation = False
 
     @classmethod
     @abstractmethod
@@ -72,22 +72,16 @@ class CoinbaseAdvancedTradeRequest(
     def params(self) -> Dict[str, Any]:
         raise NotImplementedError
 
-    @staticmethod
-    @abstractmethod
-    def is_auth_required() -> bool:
-        """
-        Returns the request data as a dictionary.
-        """
-        raise NotImplementedError
+    @classmethod
+    def linked_limit(cls) -> _RateLimitType:
+        return _RateLimitType.REST  # This is either REST, WSS or SIGNIN, as Rate Limit categories
 
-
-class _RequestBase(PydanticForJsonConfig):
-    """Base class for all Coinbase Advanced Trade API request dataclasses."""
-
-    class Config(PydanticConfigForJsonDatetimeToStr):
-        """Pydantic Config overrides."""
-        extra = "forbid"
-        allow_mutation = False
+    @classmethod
+    def limit_id(cls: RegisteredClassProtocol) -> str:
+        # The limit_id is automatically set to the class nickname.
+        # It should not be changed because the RateLimit class gets initialized
+        # with the limit_id at class creation, not at instantiation
+        return cls.short_class_name()
 
     @staticmethod
     def is_auth_required() -> bool:
@@ -113,7 +107,7 @@ class _RequestBase(PydanticForJsonConfig):
                 if not self.__fields__[k].field_info.extra.get('path_param', False)}
 
 
-class _RequestGET(_RequestBase):
+class _RequestGET(_RequestBase, ABC):
     """Base class for GET Coinbase Advanced Trade API request dataclasses."""
 
     @classmethod
@@ -130,7 +124,7 @@ class _RequestGET(_RequestBase):
         return {}
 
 
-class _RequestPOST(_RequestBase):
+class _RequestPOST(_RequestBase, ABC):
     """Base class for POST Coinbase Advanced Trade API request dataclasses."""
 
     @classmethod
@@ -147,10 +141,12 @@ class _RequestPOST(_RequestBase):
         return self.dict()
 
 
-class CoinbaseAdvancedTradeListAccountsRequest(_RequestGET,
-                                               PydanticMockableForJson,
-                                               CoinbaseAdvancedTradeRequest,
-                                               ):
+class CoinbaseAdvancedTradeListAccountsRequest(
+    _RequestGET,  # GET method settings
+    PydanticMockableForJson,  # Generate samples from docstring JSON
+    CoinbaseAdvancedTradeRequest,  # Sets the base type, registers the class
+    CoinbaseAdvancedTradeEndpointRateLimit,  # Rate limit (Must be after CoinbaseAdvancedTradeRequest)
+):
     """
     Dataclass representing request parameters for ListAccountsEndpoint.
 
@@ -178,10 +174,12 @@ class CoinbaseAdvancedTradeListAccountsRequest(_RequestGET,
         return "accounts"
 
 
-class CoinbaseAdvancedTradeGetAccountRequest(_RequestGET,
-                                             PydanticMockableForJson,
-                                             CoinbaseAdvancedTradeRequest,
-                                             ):
+class CoinbaseAdvancedTradeGetAccountRequest(
+    _RequestGET,  # GET method settings
+    PydanticMockableForJson,  # Generate samples from docstring JSON
+    CoinbaseAdvancedTradeRequest,  # Sets the base type, registers the class
+    CoinbaseAdvancedTradeEndpointRateLimit,  # Rate limit (Must be after CoinbaseAdvancedTradeRequest)
+):
     """
     Dataclass representing request parameters for GetAccountEndpoint.
 
@@ -201,10 +199,12 @@ class CoinbaseAdvancedTradeGetAccountRequest(_RequestGET,
         return f"accounts/{self.account_uuid}"
 
 
-class CoinbaseAdvancedTradeCreateOrderRequest(_RequestPOST,
-                                              PydanticMockableForJson,
-                                              CoinbaseAdvancedTradeRequest,
-                                              ):
+class CoinbaseAdvancedTradeCreateOrderRequest(
+    _RequestPOST,  # POST method settings
+    PydanticMockableForJson,  # Generate samples from docstring JSON
+    CoinbaseAdvancedTradeRequest,  # Sets the base type, registers the class
+    CoinbaseAdvancedTradeEndpointRateLimit,  # Rate limit (Must be after CoinbaseAdvancedTradeRequest)
+):
     """
     Dataclass representing request parameters for CreateOrderEndpoint.
 
@@ -259,10 +259,12 @@ class CoinbaseAdvancedTradeCreateOrderRequest(_RequestPOST,
         return "orders"
 
 
-class CoinbaseAdvancedTradeCancelOrdersRequest(_RequestPOST,
-                                               PydanticMockableForJson,
-                                               CoinbaseAdvancedTradeRequest,
-                                               ):
+class CoinbaseAdvancedTradeCancelOrdersRequest(
+    _RequestPOST,  # POST method settings
+    PydanticMockableForJson,  # Generate samples from docstring JSON
+    CoinbaseAdvancedTradeRequest,  # Sets the base type, registers the class
+    CoinbaseAdvancedTradeEndpointRateLimit,  # Rate limit (Must be after CoinbaseAdvancedTradeRequest)
+):
     """
     Dataclass representing request parameters for CancelOrdersEndpoint.
 
@@ -284,10 +286,12 @@ class CoinbaseAdvancedTradeCancelOrdersRequest(_RequestPOST,
         return "orders/batch_cancel"
 
 
-class CoinbaseAdvancedTradeListOrdersRequest(_RequestGET,
-                                             PydanticMockableForJson,
-                                             CoinbaseAdvancedTradeRequest,
-                                             ):
+class CoinbaseAdvancedTradeListOrdersRequest(
+    _RequestGET,  # GET method settings
+    PydanticMockableForJson,  # Generate samples from docstring JSON
+    CoinbaseAdvancedTradeRequest,  # Sets the base type, registers the class
+    CoinbaseAdvancedTradeEndpointRateLimit,  # Rate limit (Must be after CoinbaseAdvancedTradeRequest)
+):
     """
     Dataclass representing request parameters for ListOrdersEndpoint.
 
@@ -364,10 +368,12 @@ class CoinbaseAdvancedTradeListOrdersRequest(_RequestGET,
         }
 
 
-class CoinbaseAdvancedTradeGetOrderRequest(_RequestGET,
-                                           PydanticMockableForJson,
-                                           CoinbaseAdvancedTradeRequest,
-                                           ):
+class CoinbaseAdvancedTradeGetOrderRequest(
+    _RequestGET,  # GET method settings
+    PydanticMockableForJson,  # Generate samples from docstring JSON
+    CoinbaseAdvancedTradeRequest,  # Sets the base type, registers the class
+    CoinbaseAdvancedTradeEndpointRateLimit,  # Rate limit (Must be after CoinbaseAdvancedTradeRequest)
+):
     """
     Dataclass representing request parameters for GetOrderEndpoint.
 
@@ -394,10 +400,12 @@ class CoinbaseAdvancedTradeGetOrderRequest(_RequestGET,
         return f"orders/historical/{self.order_id}"
 
 
-class CoinbaseAdvancedTradeListFillsRequest(_RequestGET,
-                                            PydanticMockableForJson,
-                                            CoinbaseAdvancedTradeRequest,
-                                            ):
+class CoinbaseAdvancedTradeListFillsRequest(
+    _RequestGET,  # GET method settings
+    PydanticMockableForJson,  # Generate samples from docstring JSON
+    CoinbaseAdvancedTradeRequest,  # Sets the base type, registers the class
+    CoinbaseAdvancedTradeEndpointRateLimit,  # Rate limit (Must be after CoinbaseAdvancedTradeRequest)
+):
     """
     Dataclass representing request parameters for ListFillsEndpoint.
 
@@ -444,10 +452,12 @@ class CoinbaseAdvancedTradeListFillsRequest(_RequestGET,
         }
 
 
-class CoinbaseAdvancedTradeGetProductBookRequest(_RequestGET,
-                                                 PydanticMockableForJson,
-                                                 CoinbaseAdvancedTradeRequest,
-                                                 ):
+class CoinbaseAdvancedTradeGetProductBookRequest(
+    _RequestGET,  # GET method settings
+    PydanticMockableForJson,  # Generate samples from docstring JSON
+    CoinbaseAdvancedTradeRequest,  # Sets the base type, registers the class
+    CoinbaseAdvancedTradeEndpointRateLimit,  # Rate limit (Must be after CoinbaseAdvancedTradeRequest)
+):
     """
     Dataclass representing request parameters for ListProductsEndpoint.
 
@@ -469,10 +479,12 @@ class CoinbaseAdvancedTradeGetProductBookRequest(_RequestGET,
         return "product_book"
 
 
-class CoinbaseAdvancedTradeGetBestBidAskRequest(_RequestGET,
-                                                PydanticMockableForJson,
-                                                CoinbaseAdvancedTradeRequest,
-                                                ):
+class CoinbaseAdvancedTradeGetBestBidAskRequest(
+    _RequestGET,  # GET method settings
+    PydanticMockableForJson,  # Generate samples from docstring JSON
+    CoinbaseAdvancedTradeRequest,  # Sets the base type, registers the class
+    CoinbaseAdvancedTradeEndpointRateLimit,  # Rate limit (Must be after CoinbaseAdvancedTradeRequest)
+):
     """
     Dataclass representing request parameters for ListProductsEndpoint.
 
@@ -496,10 +508,12 @@ class CoinbaseAdvancedTradeGetBestBidAskRequest(_RequestGET,
         return "best_bid_ask"
 
 
-class CoinbaseAdvancedTradeListProductsRequest(_RequestGET,
-                                               PydanticMockableForJson,
-                                               CoinbaseAdvancedTradeRequest,
-                                               ):
+class CoinbaseAdvancedTradeListProductsRequest(
+    _RequestGET,  # GET method settings
+    PydanticMockableForJson,  # Generate samples from docstring JSON
+    CoinbaseAdvancedTradeRequest,  # Sets the base type, registers the class
+    CoinbaseAdvancedTradeEndpointRateLimit,  # Rate limit (Must be after CoinbaseAdvancedTradeRequest)
+):
     """
     Dataclass representing request parameters for ListProductsEndpoint.
 
@@ -523,10 +537,12 @@ class CoinbaseAdvancedTradeListProductsRequest(_RequestGET,
         return "products"
 
 
-class CoinbaseAdvancedTradeGetProductRequest(_RequestGET,
-                                             PydanticMockableForJson,
-                                             CoinbaseAdvancedTradeRequest,
-                                             ):
+class CoinbaseAdvancedTradeGetProductRequest(
+    _RequestGET,  # GET method settings
+    PydanticMockableForJson,  # Generate samples from docstring JSON
+    CoinbaseAdvancedTradeRequest,  # Sets the base type, registers the class
+    CoinbaseAdvancedTradeEndpointRateLimit,  # Rate limit (Must be after CoinbaseAdvancedTradeRequest)
+):
     """
     Dataclass representing request parameters for GetProductEndpoint.
 
@@ -546,10 +562,12 @@ class CoinbaseAdvancedTradeGetProductRequest(_RequestGET,
         return f"products/{self.product_id}"
 
 
-class CoinbaseAdvancedTradeGetProductCandlesRequest(_RequestGET,
-                                                    PydanticMockableForJson,
-                                                    CoinbaseAdvancedTradeRequest,
-                                                    ):
+class CoinbaseAdvancedTradeGetProductCandlesRequest(
+    _RequestGET,  # GET method settings
+    PydanticMockableForJson,  # Generate samples from docstring JSON
+    CoinbaseAdvancedTradeRequest,  # Sets the base type, registers the class
+    CoinbaseAdvancedTradeEndpointRateLimit,  # Rate limit (Must be after CoinbaseAdvancedTradeRequest)
+):
     """
     Dataclass representing request parameters for GetProductCandlesEndpoint.
 
@@ -582,10 +600,12 @@ class CoinbaseAdvancedTradeGetProductCandlesRequest(_RequestGET,
         return f"products/{self.product_id}/candles"
 
 
-class CoinbaseAdvancedTradeGetMarketTradesRequest(_RequestGET,
-                                                  PydanticMockableForJson,
-                                                  CoinbaseAdvancedTradeRequest,
-                                                  ):
+class CoinbaseAdvancedTradeGetMarketTradesRequest(
+    _RequestGET,  # GET method settings
+    PydanticMockableForJson,  # Generate samples from docstring JSON
+    CoinbaseAdvancedTradeRequest,  # Sets the base type, registers the class
+    CoinbaseAdvancedTradeEndpointRateLimit,  # Rate limit (Must be after CoinbaseAdvancedTradeRequest)
+):
     """
     Dataclass representing request parameters for GetMarketTradesEndpoint.
 
@@ -607,10 +627,12 @@ class CoinbaseAdvancedTradeGetMarketTradesRequest(_RequestGET,
         return f"products/{self.product_id}/ticker"
 
 
-class CoinbaseAdvancedTradeGetTransactionSummaryRequest(_RequestGET,
-                                                        PydanticMockableForJson,
-                                                        CoinbaseAdvancedTradeRequest,
-                                                        ):
+class CoinbaseAdvancedTradeGetTransactionSummaryRequest(
+    _RequestGET,  # GET method settings
+    PydanticMockableForJson,  # Generate samples from docstring JSON
+    CoinbaseAdvancedTradeRequest,  # Sets the base type, registers the class
+    CoinbaseAdvancedTradeEndpointRateLimit,  # Rate limit (Must be after CoinbaseAdvancedTradeRequest)
+):
     """
     Dataclass representing request parameters for TransactionSummaryEndpoint.
 

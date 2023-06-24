@@ -77,8 +77,14 @@ class CoinbaseAdvancedTradeAuthProtocol(Protocol):
 @runtime_checkable
 class CoinbaseAdvancedTradeAPIRequestProtocol(Protocol):
     endpoint: str
-    method: RESTMethod
-    limit_id: str
+
+    @classmethod
+    def limit_id(cls) -> str:
+        ...
+
+    @classmethod
+    def method(cls) -> RESTMethod:
+        ...
 
     def data(self) -> Dict[str, Any]:
         ...

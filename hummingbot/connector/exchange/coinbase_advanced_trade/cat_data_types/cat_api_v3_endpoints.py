@@ -72,7 +72,7 @@ class CoinbaseAdvancedTradeAPIEndpoint:
         Get the request method.
         :return: The request method.
         """
-        return self.request.method
+        return self.request.method()
 
     def data(self) -> Dict[str, Any]:
         """
@@ -95,7 +95,6 @@ class CoinbaseAdvancedTradeAPIEndpoint:
         """
         return self.request.is_auth_required()
 
-    @property
     def limit_id(self) -> str:
         """
         Get the request parameters for the API endpoint.
@@ -113,7 +112,7 @@ class CoinbaseAdvancedTradeAPIEndpoint:
         data: Dict[str, Any] = self.data()
         params: Dict[str, Any] = self.params()
         is_auth_required: bool = self.is_auth_required()
-        limit_id: str = self.limit_id
+        limit_id: str = self.limit_id()
 
         if self.method == RESTMethod.GET:
             result: Dict[str, Any] = await self.api_call.api_get(

@@ -3,7 +3,7 @@ import unittest
 from enum import Enum
 
 from _decimal import Decimal
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types import cat_api_v3_order_types
 
@@ -111,7 +111,7 @@ class TestCoinbaseAdvancedTradeAPIOrderConfiguration(unittest.TestCase):
 
     def test_invalid_configuration(self):
         # Try to assign invalid configuration
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ValueError):
             CoinbaseAdvancedTradeAPIOrderConfiguration(order_type="Invalid")
 
     def test_create_order_type_market(self):

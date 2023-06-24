@@ -16,7 +16,7 @@ class TestCoinbaseAdvancedTradeEndpointRateLimit(unittest.TestCase):
             return "mock_endpoint"
 
         @classmethod
-        def rate_limit_type(cls) -> _RateLimitType:
+        def linked_limit(cls) -> _RateLimitType:
             return _RateLimitType.REST
 
         @classmethod
@@ -79,7 +79,7 @@ class TestCoinbaseAdvancedTradeEndpointRateLimit(unittest.TestCase):
                     return "custom_endpoint"
 
                 @classmethod
-                def rate_limit_type(cls) -> _RateLimitType:
+                def linked_limit(cls) -> _RateLimitType:
                     return rate_limit_type
 
                 @classmethod
@@ -108,7 +108,7 @@ class TestCoinbaseAdvancedTradeEndpointRateLimit(unittest.TestCase):
                 return "override_endpoint"
 
             @classmethod
-            def rate_limit_type(cls) -> _RateLimitType:
+            def linked_limit(cls) -> _RateLimitType:
                 return _RateLimitType.REST
 
             @classmethod

@@ -7,7 +7,6 @@ from .cat_api_v3_enums import CoinbaseAdvancedTradeRateLimitType as _RateLimitTy
 
 
 class CoinbaseAdvancedTradeEndpointProtocol(Protocol):
-
     @classmethod
     def limit_id(cls) -> str:
         ...
@@ -68,7 +67,6 @@ class CoinbaseAdvancedTradeEndpointRateLimit(ABC):
     RATE_LIMITS = [v for v in REQ_TO_RATE_LIMIT_MAP.values()]
 
     def __init_subclass__(cls: _RateLimitPtl, **kwargs):
-        super().__init_subclass__(**kwargs)
 
         # The subclass can overwrite the default rate limit values, often the default values are used
         limit_id = cls.limit_id()
@@ -88,9 +86,16 @@ class CoinbaseAdvancedTradeEndpointRateLimit(ABC):
         if rate_limit not in cls.RATE_LIMITS:
             cls.RATE_LIMITS.append(rate_limit)
 
+            # TODO: Convince HB team to adopt this RateLimit register and remove the following lines
+            import hummingbot.connector.exchange.coinbase_advanced_trade.cat_constants as CONSTANTS
+            CONSTANTS.RATE_LIMITS.append(rate_limit)
+
+        # Initialize this class's rate limit object
+        super().__init_subclass__(**kwargs)
+
     @classmethod
     @abstractmethod
-    def rate_limit_type(cls) -> _RateLimitType:
+    def linked_limit(cls) -> _RateLimitType:
         """
         Get the rate limit type for the API endpoint.
         :return: The rate limit type.
@@ -104,7 +109,7 @@ class CoinbaseAdvancedTradeEndpointRateLimit(ABC):
         Get the rate limit identifier for the API endpoint.
         :return: The rate limit identifier.
         """
-        raise NotImplementedError
+        raise NotImplementedError(f"{cls.__name__} does not implement the `limit_id` method")
 
     @classmethod
     def rate_limit(cls) -> int:
@@ -112,7 +117,7 @@ class CoinbaseAdvancedTradeEndpointRateLimit(ABC):
         Get the rate limit value for the API endpoint.
         :return: The rate limit value.
         """
-        _type: _RateLimitType = cls.rate_limit_type()
+        _type: _RateLimitType = cls.linked_limit()
         return cls.REQ_TO_RATE_LIMIT_MAP[_type].limit
 
     @classmethod
@@ -121,7 +126,7 @@ class CoinbaseAdvancedTradeEndpointRateLimit(ABC):
         Get the rate limit time interval for the API endpoint.
         :return: The rate limit time interval.
         """
-        _type: _RateLimitType = cls.rate_limit_type()
+        _type: _RateLimitType = cls.linked_limit()
         return cls.REQ_TO_RATE_LIMIT_MAP[_type].time_interval
 
     @classmethod
@@ -130,7 +135,7 @@ class CoinbaseAdvancedTradeEndpointRateLimit(ABC):
         Get the rate limit time interval for the API endpoint.
         :return: The rate limit time interval.
         """
-        _type: _RateLimitType = cls.rate_limit_type()
+        _type: _RateLimitType = cls.linked_limit()
         return cls.REQ_TO_RATE_LIMIT_MAP[_type].weight
 
     @classmethod
@@ -139,7 +144,7 @@ class CoinbaseAdvancedTradeEndpointRateLimit(ABC):
         Get the linked limits for the API endpoint.
         :return: The linked limits.
         """
-        _type: _RateLimitType = cls.rate_limit_type()
+        _type: _RateLimitType = cls.linked_limit()
         return [
             LinkedLimitWeightPair(
                 limit_id=cls.REQ_TO_RATE_LIMIT_MAP[_type].limit_id,
