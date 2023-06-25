@@ -1,4 +1,4 @@
-""""Implements a Timer. It constrains the use of nanoseconds (int) internally for
+"""Implements a Timer. It constrains the use of nanoseconds (int) internally for
 time counting purpose. The preferred time function is perf_counter_ns() (set as default)
 
 Original package available at https://pypi.org/project/codetiming/
@@ -35,8 +35,12 @@ from hummingbot.logger.logger import HummingbotLogger
 from .timers import _NANOSECONDS, _SECONDS, Timers
 
 
-class TimerError(Exception):
-    """A custom exception used to report errors in use of Timer class"""
+class TimerNotStartedError(Exception):
+    """The Timer has not been started. Use .start() to start it"""
+
+
+class TimerAlreadyStartedError(Exception):
+    """The Timer is already started"""
 
 
 class Timer(ContextDecorator):
@@ -115,7 +119,7 @@ class Timer(ContextDecorator):
         :raises TimerError: if Timer is not started
         """
         if self._start_time is None:
-            raise TimerError("Timer is not running. Use .start() to start it")
+            raise TimerNotStartedError
         return True
 
     def has_elapsed_in_s(self, value: Union[Decimal, float, str, Tuple[int, Sequence[int], int]]) -> bool:
@@ -138,7 +142,7 @@ class Timer(ContextDecorator):
         :raises TimerError: if Timer is already started
         """
         if self._start_time is not None:
-            raise TimerError("Timer is running. Use .stop() to stop it")
+            raise TimerAlreadyStartedError
         self._start_time: _NANOSECONDS = self._now()
 
     def split_in_ns(self, record: bool = False) -> _NANOSECONDS:
