@@ -112,6 +112,20 @@ class KucoinExchange(ExchangePyBase):
         # API documentation does not clarify the error message for timestamp related problems
         return False
 
+    def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
+        # TODO: implement this method correctly for the connector
+        # The default implementation was added when the functionality to detect not found orders was introduced in the
+        # ExchangePyBase class. Also fix the unit test test_lost_order_removed_if_not_found_during_order_status_update
+        # when replacing the dummy implementation
+        return False
+
+    def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
+        # TODO: implement this method correctly for the connector
+        # The default implementation was added when the functionality to detect not found orders was introduced in the
+        # ExchangePyBase class. Also fix the unit test test_cancel_order_not_found_in_the_exchange when replacing the
+        # dummy implementation
+        return False
+
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
             throttler=self._throttler,
@@ -341,13 +355,17 @@ class KucoinExchange(ExchangePyBase):
     async def _update_trading_fees(self):
         trading_symbols = [await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
                            for trading_pair in self._trading_pairs]
-        params = {"symbols": ",".join(trading_symbols)}
-        resp = await self._api_get(
-            path_url=CONSTANTS.FEE_PATH_URL,
-            params=params,
-            is_auth_required=True,
-        )
-        fees_json = resp["data"]
+        fees_json = []
+        for idx in range(0, len(trading_symbols), CONSTANTS.TRADING_FEES_SYMBOL_LIMIT):
+            sub_trading_symbols = trading_symbols[idx:idx + CONSTANTS.TRADING_FEES_SYMBOL_LIMIT]
+            params = {"symbols": ",".join(sub_trading_symbols)}
+            resp = await self._api_get(
+                path_url=CONSTANTS.FEE_PATH_URL,
+                params=params,
+                is_auth_required=True,
+            )
+            fees_json.extend(resp["data"])
+
         for fee_json in fees_json:
             trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=fee_json["symbol"])
             self._trading_fees[trading_pair] = fee_json

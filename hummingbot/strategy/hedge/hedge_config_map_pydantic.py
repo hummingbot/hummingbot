@@ -199,6 +199,14 @@ class HedgeConfigMap(BaseStrategyConfigMap):
             prompt_on_new=True,
         ),
     )
+    enable_auto_set_position_mode: bool = Field(
+        default=False,
+        description="Whether to automatically set the exchange position mode to one-way or hedge based  ratio.",
+        client_data=ClientFieldData(
+            prompt=lambda mi: "Do you want to automatically set the exchange position mode to one-way or hedge [y/n]?",
+            prompt_on_new=False,
+        )
+    )
     connector_0: market_config_map = get_field(0)
     connector_1: market_config_map = get_field(1)
     connector_2: market_config_map = get_field(2)
@@ -248,9 +256,10 @@ class HedgeConfigMap(BaseStrategyConfigMap):
         """prompts for the markets to hedge"""
         exchange = mi.hedge_connector
         if mi.value_mode:
-            return f"Enter the trading pair you would like to hedge on {exchange}. (Example: BTC-USDT)"
-        return f"Enter the list of trading pair you would like to hedge on {exchange}. comma seperated. \
-            (Example: BTC-USDT,ETH-USDT) Only markets with the same base as the hedge markets will be hedged."
+            return f"Value mode: Enter the trading pair you would like to hedge on {exchange}. (Example: BTC-USDT)"
+        return f"Amount mode: Enter the list of trading pair you would like to hedge on {exchange}. comma seperated. \
+            (Example: BTC-USDT,ETH-USDT) Only markets with the same base as the hedge markets will be hedged." \
+                "WARNING: currently only supports hedging of base assets."
 
     @staticmethod
     def hedge_offsets_prompt(mi: "HedgeConfigMap") -> str:
