@@ -8,7 +8,7 @@ For instructions on operating `hummingbot` with Docker, navigate to [`hummingbot
 
 ---
 
-## Development commands: deploying to Docker Hub
+## Development commands: The following commands apply to deploying to Docker Hub
 
 ### Create docker image
 
