@@ -3,7 +3,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import Dict, List, NamedTuple, Optional
 
-from hummingbot.core.data_type.common import LPType, OrderType, PositionAction, PositionMode, TradeType
+from hummingbot.core.data_type.common import LPType, OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 
@@ -19,11 +19,14 @@ class MarketEvent(Enum):
     OrderCancelled = 106
     OrderFilled = 107
     OrderExpired = 108
+    OrderUpdate = 109
+    TradeUpdate = 110
     OrderFailure = 198
     TransactionFailure = 199
     BuyOrderCreated = 200
     SellOrderCreated = 201
     FundingPaymentCompleted = 202
+    FundingInfo = 203
     RangePositionLiquidityAdded = 300
     RangePositionLiquidityRemoved = 301
     RangePositionUpdate = 302
@@ -34,6 +37,12 @@ class MarketEvent(Enum):
 
 class OrderBookEvent(int, Enum):
     TradeEvent = 901
+
+
+class OrderBookDataSourceEvent(int, Enum):
+    SNAPSHOT_EVENT = 1001
+    DIFF_EVENT = 1002
+    TRADE_EVENT = 1003
 
 
 class TokenApprovalEvent(Enum):
@@ -49,6 +58,10 @@ class HummingbotUIEvent(Enum):
 class AccountEvent(Enum):
     PositionModeChangeSucceeded = 400
     PositionModeChangeFailed = 401
+    BalanceEvent = 402
+    PositionUpdate = 403
+    MarginCall = 404
+    LiquidationEvent = 405
 
 
 class MarketTransactionFailureEvent(NamedTuple):
@@ -134,6 +147,8 @@ class OrderBookTradeEvent(NamedTuple):
     type: TradeType
     price: Decimal
     amount: Decimal
+    trade_id: Optional[str] = None
+    is_taker: bool = True  # CEXs deliver trade events from the taker's perspective
 
 
 class OrderFilledEvent(NamedTuple):
@@ -146,19 +161,22 @@ class OrderFilledEvent(NamedTuple):
     amount: Decimal
     trade_fee: TradeFeeBase
     exchange_trade_id: str = ""
+    exchange_order_id: str = ""
     leverage: Optional[int] = 1
     position: Optional[str] = PositionAction.NIL.value
 
     @classmethod
-    def order_filled_events_from_order_book_rows(cls,
-                                                 timestamp: float,
-                                                 order_id: str,
-                                                 trading_pair: str,
-                                                 trade_type: TradeType,
-                                                 order_type: OrderType,
-                                                 trade_fee: TradeFeeBase,
-                                                 order_book_rows: List[OrderBookRow],
-                                                 exchange_trade_id: Optional[str] = None) -> List["OrderFilledEvent"]:
+    def order_filled_events_from_order_book_rows(
+        cls,
+        timestamp: float,
+        order_id: str,
+        trading_pair: str,
+        trade_type: TradeType,
+        order_type: OrderType,
+        trade_fee: TradeFeeBase,
+        order_book_rows: List[OrderBookRow],
+        exchange_trade_id: Optional[str] = None,
+    ) -> List["OrderFilledEvent"]:
         if exchange_trade_id is None:
             exchange_trade_id = order_id
         return [
@@ -171,7 +189,8 @@ class OrderFilledEvent(NamedTuple):
                 Decimal(row.price),
                 Decimal(row.amount),
                 trade_fee,
-                exchange_trade_id=f"{exchange_trade_id}_{index}")
+                exchange_trade_id=f"{exchange_trade_id}_{index}",
+            )
             for index, row in enumerate(order_book_rows)
         ]
 
@@ -189,7 +208,7 @@ class OrderFilledEvent(NamedTuple):
             Decimal(execution_report["L"]),
             Decimal(execution_report["l"]),
             AddedToCostTradeFee(flat_fees=[TokenAmount(execution_report["N"], Decimal(execution_report["n"]))]),
-            exchange_trade_id=execution_report["t"]
+            exchange_trade_id=execution_report["t"],
         )
 
 
@@ -306,3 +325,22 @@ class PositionModeChangeEvent:
     trading_pair: str
     position_mode: PositionMode
     message: Optional[str] = None
+
+
+@dataclass
+class BalanceUpdateEvent:
+    timestamp: float
+    asset_name: str
+    total_balance: Optional[Decimal] = None
+    available_balance: Optional[Decimal] = None
+
+
+@dataclass
+class PositionUpdateEvent:
+    timestamp: float
+    trading_pair: str
+    position_side: Optional[PositionSide]  # None if the event is for a closed position
+    unrealized_pnl: Decimal
+    entry_price: Decimal
+    amount: Decimal
+    leverage: Decimal

@@ -673,7 +673,7 @@ class TestGateIoExchange(unittest.TestCase):
                         status=400,
                         callback=lambda *args, **kwargs: request_sent_event.set())
 
-        self.exchange.cancel(trading_pair=self.trading_pair, order_id="OID1")
+        self.exchange.cancel(trading_pair=self.trading_pair, client_order_id="OID1")
         self.async_run_with_timeout(request_sent_event.wait())
 
         self.assertEqual(0, len(self.order_cancelled_logger.event_log))
@@ -949,11 +949,9 @@ class TestGateIoExchange(unittest.TestCase):
 
         self.assertTrue(
             self._is_logged(
-                "NETWORK",
-                f"Error fetching status update for the order {order.client_order_id}: "
-                f"Error executing request GET "
-                f"{CONSTANTS.REST_URL}/{CONSTANTS.ORDER_STATUS_PATH_URL.format(order_id=order.exchange_order_id)}. "
-                f"HTTP status is 404. Error: ."
+                "WARNING",
+                f"Error fetching status update for the order {order.client_order_id}: Error executing request GET "
+                f"{order_status_url}. HTTP status is 404. Error: ."
             )
         )
 
@@ -1410,6 +1408,38 @@ class TestGateIoExchange(unittest.TestCase):
             )
         )
 
+    def test_user_stream_balance_update(self):
+        self.exchange._set_current_timestamp(1640780000)
+
+        event_message = {
+            "time": 1605248616,
+            "channel": "spot.balances",
+            "event": "update",
+            "result": [
+                {
+                    "timestamp": "1605248616",
+                    "timestamp_ms": "1605248616123",
+                    "user": "1000001",
+                    "currency": self.base_asset,
+                    "change": "100",
+                    "total": "10500",
+                    "available": "10000"
+                }
+            ]
+        }
+
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [event_message, asyncio.CancelledError]
+        self.exchange._user_stream_tracker._user_stream = mock_queue
+
+        try:
+            self.async_run_with_timeout(self.exchange._user_stream_event_listener())
+        except asyncio.CancelledError:
+            pass
+
+        self.assertEqual(Decimal("10000"), self.exchange.available_balances[self.base_asset])
+        self.assertEqual(Decimal("10500"), self.exchange.get_balance(self.base_asset))
+
     def test_user_stream_raises_cancel_exception(self):
         self.exchange._set_current_timestamp(1640780000)
 
@@ -1428,7 +1458,7 @@ class TestGateIoExchange(unittest.TestCase):
 
         incomplete_event = {
             "time": 1605248616,
-            "channel": "spot.orders",
+            "channel": "spot.balances",
             "event": "update",
         }
 

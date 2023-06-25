@@ -174,7 +174,7 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
         return 120
 
     def supported_order_types(self) -> List[OrderType]:
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception) -> bool:
         return False
@@ -183,6 +183,20 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
         if "errors" in request_result and "msg" in request_result["errors"]:
             if "Timestamp must be within" in request_result["errors"]["msg"]:
                 return True
+        return False
+
+    def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
+        # TODO: implement this method correctly for the connector
+        # The default implementation was added when the functionality to detect not found orders was introduced in the
+        # ExchangePyBase class. Also fix the unit test test_lost_order_removed_if_not_found_during_order_status_update
+        # when replacing the dummy implementation
+        return False
+
+    def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
+        # TODO: implement this method correctly for the connector
+        # The default implementation was added when the functionality to detect not found orders was introduced in the
+        # ExchangePyBase class. Also fix the unit test test_cancel_order_not_found_in_the_exchange when replacing the
+        # dummy implementation
         return False
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):

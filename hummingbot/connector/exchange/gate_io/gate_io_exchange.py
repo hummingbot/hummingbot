@@ -53,8 +53,6 @@ class GateIoExchange(ExchangePyBase):
 
         super().__init__(client_config_map)
 
-        self._real_time_balance_update = False
-
     @property
     def authenticator(self):
         return GateIoAuth(
@@ -111,6 +109,20 @@ class GateIoExchange(ExchangePyBase):
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         # API documentation does not clarify the error message for timestamp related problems
+        return False
+
+    def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
+        # TODO: implement this method correctly for the connector
+        # The default implementation was added when the functionality to detect not found orders was introduced in the
+        # ExchangePyBase class. Also fix the unit test test_lost_order_removed_if_not_found_during_order_status_update
+        # when replacing the dummy implementation
+        return False
+
+    def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
+        # TODO: implement this method correctly for the connector
+        # The default implementation was added when the functionality to detect not found orders was introduced in the
+        # ExchangePyBase class. Also fix the unit test test_cancel_order_not_found_in_the_exchange when replacing the
+        # dummy implementation
         return False
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
@@ -334,6 +346,8 @@ class GateIoExchange(ExchangePyBase):
                 elif channel == CONSTANTS.USER_ORDERS_ENDPOINT_NAME:
                     for order_msg in results:
                         self._process_order_message(order_msg)
+                elif channel == CONSTANTS.USER_BALANCE_ENDPOINT_NAME:
+                    self._process_balance_message_ws(results)
 
             except asyncio.CancelledError:
                 raise
@@ -460,6 +474,12 @@ class GateIoExchange(ExchangePyBase):
         for asset_name in asset_names_to_remove:
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
+
+    def _process_balance_message_ws(self, balance_update):
+        for account in balance_update:
+            asset_name = account["currency"]
+            self._account_available_balances[asset_name] = Decimal(str(account["available"]))
+            self._account_balances[asset_name] = Decimal(str(account["total"]))
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()

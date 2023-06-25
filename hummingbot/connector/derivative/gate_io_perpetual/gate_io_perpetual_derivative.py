@@ -147,7 +147,7 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
         :return a list of OrderType supported by this connector.
         Note that Market order type is no longer required and will not be used.
         """
-        return [OrderType.LIMIT, OrderType.MARKET]
+        return [OrderType.LIMIT, OrderType.MARKET, OrderType.LIMIT_MAKER]
 
     def supported_position_modes(self):
         """
@@ -173,6 +173,20 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
         # API documentation does not clarify the error message for timestamp related problems
         return False
 
+    def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
+        # TODO: implement this method correctly for the connector
+        # The default implementation was added when the functionality to detect not found orders was introduced in the
+        # ExchangePyBase class. Also fix the unit test test_lost_order_removed_if_not_found_during_order_status_update
+        # when replacing the dummy implementation
+        return False
+
+    def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
+        # TODO: implement this method correctly for the connector
+        # The default implementation was added when the functionality to detect not found orders was introduced in the
+        # ExchangePyBase class. Also fix the unit test test_cancel_order_not_found_in_the_exchange when replacing the
+        # dummy implementation
+        return False
+
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
             throttler=self._throttler,
@@ -195,6 +209,13 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
             api_factory=self._web_assistants_factory,
             domain=self.domain,
         )
+
+    async def start_network(self):
+        """
+        Start all required tasks to update the status of the connector.
+        """
+        await self._update_trading_rules()
+        await super().start_network()
 
     async def _format_trading_rules(self, raw_trading_pair_info) -> List[TradingRule]:
         """
@@ -289,6 +310,8 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
             data.update({
                 "price": f"{price:f}",
             })
+            if order_type is OrderType.LIMIT_MAKER:
+                data.update({"tif": "poc"})
         else:
             data.update({
                 "price": "0",
@@ -584,18 +607,20 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
         ex_trading_pair = position_msg["contract"]
         trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=ex_trading_pair)
         amount = Decimal(str(position_msg["size"]))
+        trading_rule = self._trading_rules[trading_pair]
+        amount_precision = Decimal(trading_rule.min_base_amount_increment)
         position_side = PositionSide.LONG if Decimal(position_msg.get("size")) > 0 else PositionSide.SHORT
         pos_key = self._perpetual_trading.position_key(trading_pair, position_side)
         entry_price = Decimal(str(position_msg["entry_price"]))
         position = self._perpetual_trading.get_position(trading_pair, position_side)
         if position is not None:
             if amount == Decimal("0"):
-                del self._account_positions[pos_key]
+                self._perpetual_trading.remove_position(pos_key)
             else:
                 position.update_position(position_side=position_side,
                                          unrealized_pnl=None,
                                          entry_price=entry_price,
-                                         amount=amount)
+                                         amount=amount * amount_precision)
         else:
             await self._update_positions()
 

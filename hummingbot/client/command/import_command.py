@@ -1,4 +1,5 @@
 import asyncio
+import threading
 from typing import TYPE_CHECKING
 
 from hummingbot.client.config.client_config_map import AutofillImportEnum
@@ -13,7 +14,7 @@ from hummingbot.client.settings import CONF_PREFIX, STRATEGIES_CONF_DIR_PATH, re
 from hummingbot.core.utils.async_utils import safe_ensure_future
 
 if TYPE_CHECKING:
-    from hummingbot.client.hummingbot_application import HummingbotApplication
+    from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
 
 
 class ImportCommand:
@@ -23,6 +24,9 @@ class ImportCommand:
         if file_name is not None:
             file_name = format_config_file_name(file_name)
 
+        if threading.current_thread() != threading.main_thread():
+            self.ev_loop.call_soon_threadsafe(self.import_command, file_name)
+            return
         safe_ensure_future(self.import_config_file(file_name))
 
     async def import_config_file(self,  # type: HummingbotApplication
@@ -39,7 +43,15 @@ class ImportCommand:
             self.app.to_stop_config = False
             return
         strategy_path = STRATEGIES_CONF_DIR_PATH / file_name
-        config_map = await load_strategy_config_map_from_file(strategy_path)
+        try:
+            config_map = await load_strategy_config_map_from_file(strategy_path)
+        except Exception as e:
+            self.notify(f'Strategy import error: {str(e)}')
+            # Reset prompt settings
+            self.placeholder_mode = False
+            self.app.hide_input = False
+            self.app.change_prompt(prompt=">>> ")
+            raise
         self.strategy_file_name = file_name
         self.strategy_name = (
             config_map.strategy

@@ -95,7 +95,7 @@ class BaseTradingStrategyConfigMapTest(TestCase):
         self.assertIn("Exchanges", schema_dict["definitions"])
         expected_connectors = [connector_setting.name for connector_setting in
                                AllConnectorSettings.get_connector_settings().values()
-                               if connector_setting.type is ConnectorType.Exchange]
+                               if connector_setting.type in [ConnectorType.Exchange, ConnectorType.CLOB_SPOT]]
         expected_connectors.extend(settings.PAPER_TRADE_EXCHANGES)
         expected_connectors.sort()
         self.assertEqual(expected_connectors, schema_dict["definitions"]["Exchanges"]["enum"])
@@ -111,7 +111,7 @@ class BaseTradingStrategyMakerTakerConfigMapTests(TestCase):
         self.assertIn("MakerMarkets", schema_dict["definitions"])
         expected_connectors = [connector_setting.name for connector_setting in
                                AllConnectorSettings.get_connector_settings().values()
-                               if connector_setting.type is ConnectorType.Exchange]
+                               if connector_setting.type in [ConnectorType.Exchange, ConnectorType.CLOB_SPOT]]
         expected_connectors.extend(settings.PAPER_TRADE_EXCHANGES)
         expected_connectors.sort()
         self.assertEqual(expected_connectors, schema_dict["definitions"]["MakerMarkets"]["enum"])
@@ -124,7 +124,7 @@ class BaseTradingStrategyMakerTakerConfigMapTests(TestCase):
         self.assertIn("TakerMarkets", schema_dict["definitions"])
         expected_connectors = [connector_setting.name for connector_setting in
                                AllConnectorSettings.get_connector_settings().values()
-                               if connector_setting.type is ConnectorType.Exchange]
+                               if connector_setting.type in [ConnectorType.Exchange, ConnectorType.CLOB_SPOT]]
         expected_connectors.extend(settings.PAPER_TRADE_EXCHANGES)
         expected_connectors.sort()
         self.assertEqual(expected_connectors, schema_dict["definitions"]["TakerMarkets"]["enum"])

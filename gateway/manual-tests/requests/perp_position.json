@@ -1,8 +1,0 @@
-{
-  "address": "$ETH_ADDRESS",
-  "connector": "perp",
-  "chain": "ethereum",
-  "network": "optimism",
-  "quote": "USD",
-  "base": "AAVE"
-}
