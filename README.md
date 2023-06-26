@@ -78,7 +78,6 @@ Exchanges may be centralized (**CEX**), or decentralized (**DEX**), in which cas
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Dexalot](https://docs.hummingbot.org/exchanges/dexalot/) | CLOB DEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Foxbit](https://docs.hummingbot.org/exchanges/foxbit/) | SPOT CEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [HitBTC](https://docs.hummingbot.org/exchanges/hitbtc/) | SPOT CEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Hotbit](https://docs.hummingbot.org/exchanges/hotbit/) | SPOT CEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Huobi](https://docs.hummingbot.org/exchanges/huobi/) | SPOT CEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Injective](https://docs.hummingbot.org/exchanges/injective/) | CLOB DEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Kraken](https://docs.hummingbot.org/exchanges/kraken/) | SPOT CEX |
@@ -93,6 +92,7 @@ Exchanges may be centralized (**CEX**), or decentralized (**DEX**), in which cas
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Pangolin](https://docs.hummingbot.org/exchanges/pangolin/) | AMM DEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Perpetual Protocol](https://docs.hummingbot.org/exchanges/perp/) | PERP DEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Phemex Perpetual](https://docs.hummingbot.org/exchanges/perp/) | PERP DEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Polkadex](https://docs.hummingbot.org/exchanges/polkadex/) | SPOT DEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [ProBit](https://docs.hummingbot.org/exchanges/probit/) | SPOT CEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Ref Finance](https://docs.hummingbot.org/exchanges/ref/) | SPOT DEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Sushiswap](https://docs.hummingbot.org/exchanges/sushiswap/) | AMM DEX |
@@ -113,7 +113,7 @@ We provide customizable strategy templates for core trading strategies that user
 * [Cross Exchange Market Making](https://docs.hummingbot.org/strategies/cross-exchange-market-making/): Provide liquidity while hedging filled orders on another exchange
 * [AMM Arbitrage](https://docs.hummingbot.org/strategies/amm-arbitrage/): Exploits price differences between AMM and SPOT exchanges
 
-**CORE** strategies are selected via HBOT voting through quarterly [Polls](https://hummingbot.org/maintenance/certification/). In addition, the codebase includes **COMMUNITY** strategies that are maintained by individuals or firms in the community. See the [Hummingbot documentation](https://docs.hummingbot.org/strategies) for all strategies supported.
+**CORE** strategies are selected via HBOT voting through quarterly [Polls](https://docs.hummingbot.org/governance/polls/). In addition, the codebase includes **COMMUNITY** strategies that are maintained by individuals or firms in the community. See the [Hummingbot documentation](https://docs.hummingbot.org/strategies) for all strategies supported.
 
 ### Scripts
 
