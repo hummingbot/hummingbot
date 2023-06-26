@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os.path
 import threading
 import time
@@ -10,8 +11,10 @@ import pandas as pd
 from sqlalchemy.orm import Query, Session
 
 from hummingbot import data_path
+from hummingbot.client.config.client_config_map import MarketDataCollectionConfigMap
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.utils import TradeFillOrderDetails
+from hummingbot.core.data_type.common import PriceType
 from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -30,7 +33,9 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
 )
+from hummingbot.logger import HummingbotLogger
 from hummingbot.model.funding_payment import FundingPayment
+from hummingbot.model.market_data import MarketData
 from hummingbot.model.market_state import MarketState
 from hummingbot.model.order import Order
 from hummingbot.model.order_status import OrderStatus
@@ -41,16 +46,24 @@ from hummingbot.model.trade_fill import TradeFill
 
 
 class MarketsRecorder:
+    _logger = None
     market_event_tag_map: Dict[int, MarketEvent] = {
         event_obj.value: event_obj
         for event_obj in MarketEvent.__members__.values()
     }
 
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        if cls._logger is None:
+            cls._logger = logging.getLogger(__name__)
+        return cls._logger
+
     def __init__(self,
                  sql: SQLConnectionManager,
                  markets: List[ConnectorBase],
                  config_file_path: str,
-                 strategy_name: str):
+                 strategy_name: str,
+                 market_data_collection: MarketDataCollectionConfigMap):
         if threading.current_thread() != threading.main_thread():
             raise EnvironmentError("MarketsRecorded can only be initialized from the main thread.")
 
@@ -59,6 +72,8 @@ class MarketsRecorder:
         self._markets: List[ConnectorBase] = markets
         self._config_file_path: str = config_file_path
         self._strategy_name: str = strategy_name
+        self._market_data_collection_config: MarketDataCollectionConfigMap = market_data_collection
+        self._market_data_collection_task: Optional[asyncio.Task] = None
         # Internal collection of trade fills in connector will be used for remote/local history reconciliation
         for market in self._markets:
             trade_fills = self.get_trades_for_config(self._config_file_path, 2000)
@@ -98,6 +113,42 @@ class MarketsRecorder:
             (MarketEvent.RangePositionClosed, self._close_range_position_forwarder),
         ]
 
+    def _start_market_data_recording(self):
+        self._market_data_collection_task = self._ev_loop.create_task(self._record_market_data())
+
+    async def _record_market_data(self):
+        while True:
+            try:
+                if all(ex.ready for ex in self._markets):
+                    with self._sql_manager.get_new_session() as session:
+                        with session.begin():
+                            for market in self._markets:
+                                exchange = market.display_name
+                                for trading_pair in market.trading_pairs:
+                                    mid_price = market.get_price_by_type(trading_pair, PriceType.MidPrice)
+                                    best_bid = market.get_price_by_type(trading_pair, PriceType.BestBid)
+                                    best_ask = market.get_price_by_type(trading_pair, PriceType.BestAsk)
+                                    order_book = market.get_order_book(trading_pair)
+                                    depth = self._market_data_collection_config.market_data_collection_depth + 1
+                                    market_data = MarketData(
+                                        timestamp=self.db_timestamp,
+                                        exchange=exchange,
+                                        trading_pair=trading_pair,
+                                        mid_price=mid_price,
+                                        best_bid=best_bid,
+                                        best_ask=best_ask,
+                                        order_book={
+                                            "bid": list(order_book.bid_entries())[:depth],
+                                            "ask": list(order_book.ask_entries())[:depth]}
+                                    )
+                                    session.add(market_data)
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                self.logger().error("Unexpected error while recording market data.", e)
+            finally:
+                await self._sleep(self._market_data_collection_config.market_data_collection_interval)
+
     @property
     def sql_manager(self) -> SQLConnectionManager:
         return self._sql_manager
@@ -118,11 +169,15 @@ class MarketsRecorder:
         for market in self._markets:
             for event_pair in self._event_pairs:
                 market.add_listener(event_pair[0], event_pair[1])
+        if self._market_data_collection_config.market_data_collection_enabled:
+            self._start_market_data_recording()
 
     def stop(self):
         for market in self._markets:
             for event_pair in self._event_pairs:
                 market.remove_listener(event_pair[0], event_pair[1])
+        if self._market_data_collection_task is not None:
+            self._market_data_collection_task.cancel()
 
     def get_orders_for_config_and_market(self, config_file_path: str, market: ConnectorBase,
                                          with_exchange_order_id_present: Optional[bool] = False,
@@ -248,13 +303,7 @@ class MarketsRecorder:
                 order_status: OrderStatus = OrderStatus(order_id=order_id,
                                                         timestamp=timestamp,
                                                         status=event_type.name)
-                fee_in_quote = evt.trade_fee.fee_amount_in_token(
-                    trading_pair=evt.trading_pair,
-                    price=evt.price,
-                    order_amount=evt.amount,
-                    token=quote_asset,
-                    exchange=market
-                )
+
                 trade_fill_record: TradeFill = TradeFill(
                     config_file_path=self.config_file_path,
                     strategy=self.strategy_name,
@@ -270,7 +319,6 @@ class MarketsRecorder:
                     amount=evt.amount,
                     leverage=evt.leverage if evt.leverage else 1,
                     trade_fee=evt.trade_fee.to_json(),
-                    trade_fee_in_quote=fee_in_quote,
                     exchange_trade_id=evt.exchange_trade_id,
                     position=evt.position if evt.position else PositionAction.NIL.value,
                 )
@@ -427,3 +475,10 @@ class MarketsRecorder:
                                                                                  claimed_fee_1=Decimal(evt.claimed_fee_1))
                 session.add(rp_fees)
                 self.save_market_states(self._config_file_path, connector, session=session)
+
+    @staticmethod
+    async def _sleep(delay):
+        """
+        A wrapper function that facilitates patching the sleep in unit tests without affecting the asyncio module
+        """
+        await asyncio.sleep(delay)
