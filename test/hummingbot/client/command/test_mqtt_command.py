@@ -1,5 +1,4 @@
 import asyncio
-import unittest
 from typing import Awaitable
 from unittest import TestCase
 from unittest.mock import MagicMock, PropertyMock, patch
@@ -12,7 +11,6 @@ from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.core.mock_api.mock_mqtt_server import FakeMQTTBroker
 
 
-@unittest.skip("MQTT tests are not working")
 @patch("hummingbot.remote_iface.mqtt.MQTTGateway._INTERVAL_HEALTH_CHECK", 0.0)
 @patch("hummingbot.remote_iface.mqtt.MQTTGateway._INTERVAL_RESTART_LONG", 0.0)
 @patch("hummingbot.remote_iface.mqtt.MQTTGateway._INTERVAL_RESTART_SHORT", 0.0)

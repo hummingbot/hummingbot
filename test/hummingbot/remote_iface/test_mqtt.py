@@ -33,6 +33,8 @@ class RemoteIfaceMQTTTests(TestCase):
         cls.fake_err_msg = "Some error"
         cls.client_config_map = ClientConfigAdapter(ClientConfigMap())
         cls.hbapp = HummingbotApplication(client_config_map=cls.client_config_map)
+        cls.ev_loop: asyncio.BaseEventLoop = asyncio.get_event_loop()
+        cls.hbapp.ev_loop = cls.ev_loop
         cls.client_config_map.mqtt_bridge.mqtt_port = 1888
         cls.client_config_map.mqtt_bridge.mqtt_commands = 1
         cls.client_config_map.mqtt_bridge.mqtt_events = 1
@@ -69,10 +71,6 @@ class RemoteIfaceMQTTTests(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.log_records = []
-        self.original_event_loop = asyncio.get_event_loop()
-        self.ev_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self.ev_loop)
-        self.hbapp.ev_loop = self.ev_loop
         # self.async_run_with_timeout(read_system_configs_from_yml())
         self.gateway = MQTTGateway(self.hbapp)
         self.test_market: MockPaperExchange = MockPaperExchange(
@@ -111,10 +109,7 @@ class RemoteIfaceMQTTTests(TestCase):
     def tearDown(self):
         self.gateway.stop()
         del self.gateway
-        self.ev_loop.stop()
-        self.ev_loop.close()
-        asyncio.set_event_loop(self.original_event_loop)
-        self.original_event_loop.run_until_complete(asyncio.sleep(0.1))
+        self.ev_loop.run_until_complete(asyncio.sleep(0.1))
         self.fake_mqtt_broker.clear()
         self.restart_interval_patcher.stop()
         self.mqtt_transport_patcher.stop()
