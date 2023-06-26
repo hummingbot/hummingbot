@@ -14,6 +14,9 @@ SUBCOMMANDS = ['start', 'stop', 'restart']
 
 
 class MQTTCommand:
+    _mqtt_sleep_rate_connection_check: float = 1.0
+    _mqtt_sleep_rate_autostart_retry: float = 10.0
+
     def mqtt_start(self,  # type: HummingbotApplication
                    timeout: float = 30.0
                    ):
@@ -44,27 +47,42 @@ class MQTTCommand:
                                timeout: float = 30.0
                                ):
         start_t = time.time()
-        sleep_rate = 1  # seconds
         if self._mqtt is None:
-            try:
-                self._mqtt = MQTTGateway(self)
-                self._mqtt.start()
-                self.logger().info('Connecting MQTT Bridge...')
-                while True:
-                    if time.time() - start_t > timeout:
-                        raise Exception(
-                            f'Connection timed out after {timeout} seconds')
-                    if self._mqtt.health:
-                        self.logger().info('MQTT Bridge connected with success.')
-                        self.notify('MQTT Bridge connected with success.')
+            while True:
+                try:
+                    self._mqtt = MQTTGateway(self)
+                    self._mqtt.start()
+                    self.logger().info('Connecting MQTT Bridge...')
+                    while True:
+                        if time.time() - start_t > timeout:
+                            raise Exception(
+                                f'Connection timed out after {timeout} seconds')
+                        if self._mqtt.health:
+                            self.logger().info('MQTT Bridge connected with success.')
+                            self.notify('MQTT Bridge connected with success.')
+                            break
+                        await asyncio.sleep(self._mqtt_sleep_rate_connection_check)
+                    break
+                except Exception as e:
+                    if self.client_config_map.mqtt_bridge.mqtt_autostart:
+                        s = self._mqtt_sleep_rate_autostart_retry
+                        self.logger().error(
+                            f'Failed to connect MQTT Bridge: {str(e)}. Retrying in {s} seconds.')
+                        self.notify(
+                            f'MQTT Bridge failed to connect to the broker, retrying in {s} seconds.'
+                        )
+                    else:
+                        self.logger().error(
+                            f'Failed to connect MQTT Bridge: {str(e)}')
+                        self.notify('MQTT Bridge failed to connect to the broker.')
+                    self._mqtt.stop()
+                    self._mqtt = None
+
+                    if self.client_config_map.mqtt_bridge.mqtt_autostart:
+                        await asyncio.sleep(self._mqtt_sleep_rate_autostart_retry)
+                    else:
                         break
-                    await asyncio.sleep(sleep_rate)
-            except Exception as e:
-                self.logger().error(
-                    f'Failed to connect MQTT Bridge: {str(e)}')
-                self.notify('MQTT Bridge failed to connect to the broker.')
-                self._mqtt.stop()
-                self._mqtt = None
+
         else:
             self.logger().warning("MQTT Bridge is already running!")
             self.notify('MQTT Bridge is already running!')
