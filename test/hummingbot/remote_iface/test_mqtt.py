@@ -340,6 +340,7 @@ class RemoteIfaceMQTTTests(TestCase):
 
         topic = f"test_reply/hbot/{self.instance_id}/balance/limit"
         msg = {'status': 400, 'msg': self.fake_err_msg, 'data': ''}
+        self.ev_loop.run_until_complete(self.wait_for_rcv(topic, msg, msg_key='data'))
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
     def test_mqtt_command_balance_paper(self):
@@ -378,6 +379,7 @@ class RemoteIfaceMQTTTests(TestCase):
 
         topic = f"test_reply/hbot/{self.instance_id}/balance/paper"
         msg = {'status': 400, 'msg': self.fake_err_msg, 'data': ''}
+        self.ev_loop.run_until_complete(self.wait_for_rcv(topic, msg, msg_key='data'))
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
     def test_mqtt_command_command_shortcuts(self):
@@ -397,6 +399,7 @@ class RemoteIfaceMQTTTests(TestCase):
         reply_data = {'success': [True], 'status': 200, 'msg': ''}
         self.ev_loop.run_until_complete(self.wait_for_rcv(reply_topic, reply_data, msg_key='data'))
         for notify_msg in notify_msgs:
+            self.ev_loop.run_until_complete(self.wait_for_rcv(notify_topic, notify_msg))
             self.assertTrue(self.is_msg_received(notify_topic, notify_msg))
 
     @patch("hummingbot.client.hummingbot_application.HummingbotApplication._handle_shortcut")
@@ -416,6 +419,7 @@ class RemoteIfaceMQTTTests(TestCase):
 
         topic = f"test_reply/hbot/{self.instance_id}/command_shortcuts"
         msg = {'success': [], 'status': 400, 'msg': self.fake_err_msg}
+        self.ev_loop.run_until_complete(self.wait_for_rcv(topic, msg, msg_key='data'))
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
     def test_mqtt_command_config(self):
@@ -496,6 +500,7 @@ class RemoteIfaceMQTTTests(TestCase):
         )
         topic = f"test_reply/hbot/{self.instance_id}/config"
         msg = {'changes': [], 'config': {}, 'status': 400, 'msg': "Invalid param key(s): ['skata']"}
+        self.ev_loop.run_until_complete(self.wait_for_rcv(topic, msg, msg_key='data'))
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
     def test_mqtt_command_config_updates_multiple_params(self):
@@ -527,6 +532,7 @@ class RemoteIfaceMQTTTests(TestCase):
 
         topic = f"test_reply/hbot/{self.instance_id}/config"
         msg = {'changes': [], 'config': {}, 'status': 400, 'msg': self.fake_err_msg}
+        self.ev_loop.run_until_complete(self.wait_for_rcv(topic, msg, msg_key='data'))
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
     @patch("hummingbot.client.command.history_command.HistoryCommand.get_history_trades_json")
@@ -576,6 +582,7 @@ class RemoteIfaceMQTTTests(TestCase):
 
         topic = f"test_reply/hbot/{self.instance_id}/history"
         msg = {'status': 400, 'msg': self.fake_err_msg, 'trades': []}
+        self.ev_loop.run_until_complete(self.wait_for_rcv(topic, msg, msg_key='data'))
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
 
     @patch("hummingbot.client.command.import_command.load_strategy_config_map_from_file")
