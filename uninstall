@@ -2,7 +2,7 @@
 
 cd $(dirname $0)
 
-source common_script.sh
+source common_install.sh
 
 find_conda_exe CONDA_EXE
 

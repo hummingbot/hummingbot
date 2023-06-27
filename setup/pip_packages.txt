@@ -1,0 +1,16 @@
+aioprocessing==2.0.0
+aioresponses==0.7.2
+asyncio==3.4.3
+bech32==1.2.0
+bip32==3.4
+coincurve==18.0.0
+commlib-py==0.10.7
+cython==3.0a7
+cytoolz==0.12.1
+docker==6.0.1
+dydx-v3-python==2.0.1
+eip712-structs==1.1.0
+ethsnarks-loopring==0.1.5
+hdwallets==0.1.2
+injective-py==0.6.1.4
+pysha3==1.0.2
