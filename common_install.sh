@@ -6,7 +6,9 @@ find_conda_exe() {
 
     rm -f $tmp_file
 
+    # Hard-coded paths to Github miniconda
     local conda_exes=$( \
+      find /home/runner -type f -executable -name conda 2> /dev/null || \
       find ~/.conda -type f -executable -name conda 2> /dev/null && \
       find /opt/conda/bin -type f -executable -name conda 2> /dev/null && \
       find /usr/local -type f -executable -name conda 2> /dev/null && \
@@ -19,6 +21,11 @@ find_conda_exe() {
     if [ "${_conda_exe} " != " " ]; then
       selected_version=$(${_conda_exe} info --json 2>/dev/null | jq -r '.conda_version')
       selected_conda_exe=${_conda_exe}
+    else
+      selected_conda_exe=$(which conda 2>/dev/null)
+      if [ "${selected_conda_exe}_" != "_" ]; then
+        selected_version=$(${selected_conda_exe} info --json 2>/dev/null | jq -r '.conda_version')
+      fi
     fi
 
     # Finding the latest version of conda
@@ -44,7 +51,7 @@ find_conda_exe() {
     _conda_exe=${selected_conda_exe}
 
     if [ "${_conda_exe}_" == "_" ]; then
-        echo "Please install Anaconda w/ Python 3.8.2+ first"
+        echo "Please install Anaconda w/ Python 3.10+ first"
         echo "See: https://www.anaconda.com/distribution/"
         exit 1
     fi
