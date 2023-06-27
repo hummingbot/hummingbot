@@ -853,6 +853,8 @@ class MQTTGateway(Node):
     def stop(self, with_health: bool = True):
         self.broadcast_status_update("offline", msg_type="availability")
         super().stop()
+        if self._hb_thread:
+            self._hb_thread.stop()
         self._remove_status_updates()
         self._remove_notifier()
         self._remove_log_handlers()
