@@ -7,7 +7,7 @@ from hummingbot.core.data_type.trade_fee import TradeFeeSchema, TokenAmount
 
 class TradeFeeSchemaLoader:
     """
-    Utility class that contains the requried logic to load fee schemas applying any override the user
+    Utility class that contains the required logic to load fee schemas applying any override the user
     might have configured.
     """
 
