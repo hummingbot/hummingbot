@@ -15,8 +15,9 @@ class VertexOrderBookTests(TestCase):
                 }
             },
             timestamp=1640000000.0,
+            metadata={"trading_pair": "COINALPHA-HBOT"},
         )
-
+        self.assertEqual("COINALPHA-HBOT", snapshot_message.trading_pair)
         self.assertEqual(OrderBookMessageType.SNAPSHOT, snapshot_message.type)
         self.assertEqual(1640000000.0, snapshot_message.timestamp)
         self.assertEqual(1640000000, snapshot_message.update_id)
@@ -39,7 +40,7 @@ class VertexOrderBookTests(TestCase):
             metadata={"trading_pair": "COINALPHA-HBOT"},
         )
 
-        self.assertEqual("wBTC-USDC", diff_msg.trading_pair)
+        self.assertEqual("COINALPHA-HBOT", diff_msg.trading_pair)
         self.assertEqual(OrderBookMessageType.DIFF, diff_msg.type)
         self.assertEqual(1640000000.0, diff_msg.timestamp)
         self.assertEqual(1640000000000000000, diff_msg.update_id)
@@ -67,7 +68,7 @@ class VertexOrderBookTests(TestCase):
             msg=trade_update, metadata={"trading_pair": "COINALPHA-HBOT"}
         )
 
-        self.assertEqual("wBTC-USDC", trade_message.trading_pair)
+        self.assertEqual("COINALPHA-HBOT", trade_message.trading_pair)
         self.assertEqual(OrderBookMessageType.TRADE, trade_message.type)
         self.assertEqual(1640000000, trade_message.timestamp)
         self.assertEqual(-1, trade_message.update_id)

@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from hummingbot.connector.exchange.vertex import (
     vertex_constants as CONSTANTS,
@@ -13,17 +13,22 @@ from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 
+if TYPE_CHECKING:
+    from hummingbot.connector.exchange.vertex.vertex_exchange import VertexExchange
+
 
 class VertexAPIUserStreamDataSource(UserStreamTrackerDataSource):
     def __init__(
         self,
         auth: VertexAuth,
         trading_pairs: List[str],
+        connector: "VertexExchange",
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
         api_factory: Optional[WebAssistantsFactory] = None,
         throttler: Optional[AsyncThrottler] = None,
     ):
         super().__init__()
+        self._connector = connector
         self._auth: VertexAuth = auth
         self._trading_pairs = trading_pairs
         self._last_recv_time: float = 0
@@ -49,7 +54,9 @@ class VertexAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         try:
             for trading_pair in self._trading_pairs:
-                product_id = utils.trading_pair_to_product_id(trading_pair)
+                product_id = utils.trading_pair_to_product_id(
+                    trading_pair, self._connector._exchange_market_info[self._domain]
+                )
 
                 fill_payload = {
                     "method": CONSTANTS.WS_SUBSCRIBE_METHOD,

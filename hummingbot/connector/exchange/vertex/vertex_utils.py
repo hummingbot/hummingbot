@@ -30,24 +30,19 @@ def convert_timestamp(timestamp: Any) -> float:
     return float(timestamp) / 1e9
 
 
-def trading_pair_to_product_id(trading_pair: str, is_perp: bool = False) -> int:
+def trading_pair_to_product_id(trading_pair: str, exchange_market_info: Dict, is_perp: Optional[bool] = False) -> int:
     tp = trading_pair.replace("-", "/")
-    for k, v in CONSTANTS.PRODUCTS.items():
-        if is_perp and "perp" not in v["symbol"].lower():
+    for product_id in exchange_market_info:
+        if is_perp and "perp" not in exchange_market_info[product_id]["symbol"].lower():
             continue
-        if v["market"] == tp:
-            return k
+        if exchange_market_info[product_id]["market"] == tp:
+            return product_id
     return -1
 
 
 def market_to_trading_pair(market: str) -> str:
     """Converts a market symbol from Vertex to a trading pair."""
     return market.replace("/", "-")
-
-
-def product_id_to_trading_pair(product_id: int) -> str:
-    """Converts a product id from Vertex to a trading pair."""
-    return market_to_trading_pair(CONSTANTS.PRODUCTS[product_id]["market"])
 
 
 def convert_from_x18(data: Any, precision: Optional[Decimal] = None) -> Any:
@@ -160,7 +155,7 @@ class VertexConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         ),
     )
-    vertex_arbitrum_address: SecretStr = Field(
+    vertex_arbitrum_address: str = Field(
         default=...,
         client_data=ClientFieldData(
             prompt=lambda cm: "Enter your Arbitrum wallet address",
@@ -170,7 +165,7 @@ class VertexConfigMap(BaseConnectorConfigMap):
         ),
     )
     # NOTE: Vertex allows for spot leverage
-    vertex_spot_leverage: str = Field(
+    vertex_spot_leverage: bool = Field(
         default=False,
         client_data=ClientFieldData(
             prompt=lambda cm: "Enable spot leverage? This auto-borrows assets against your margin to trade with larger size. Set to True to enable borrowing (default: False).",
@@ -198,7 +193,7 @@ class VertexTestnetConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         ),
     )
-    vertex_testnet_arbitrum_address: SecretStr = Field(
+    vertex_testnet_arbitrum_address: str = Field(
         default=...,
         client_data=ClientFieldData(
             prompt=lambda cm: "Enter your Arbitrum TESTNET wallet address",

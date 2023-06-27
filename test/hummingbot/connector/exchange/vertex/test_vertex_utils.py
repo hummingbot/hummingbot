@@ -1,5 +1,6 @@
 import random
 from decimal import Decimal
+from typing import Dict
 from unittest import TestCase
 
 import hummingbot.connector.exchange.vertex.vertex_constants as CONSTANTS
@@ -7,6 +8,56 @@ from hummingbot.connector.exchange.vertex import vertex_utils
 
 
 class VertexUtilTestCases(TestCase):
+    def get_exchange_market_info_mock(self) -> Dict:
+        exchange_market_info = {
+            1: {
+                "product_id": 1,
+                "oracle_price_x18": "26377830075239748635916",
+                "risk": {
+                    "long_weight_initial_x18": "900000000000000000",
+                    "short_weight_initial_x18": "1100000000000000000",
+                    "long_weight_maintenance_x18": "950000000000000000",
+                    "short_weight_maintenance_x18": "1050000000000000000",
+                    "large_position_penalty_x18": "0",
+                },
+                "config": {
+                    "token": "0x5cc7c91690b2cbaee19a513473d73403e13fb431",
+                    "interest_inflection_util_x18": "800000000000000000",
+                    "interest_floor_x18": "10000000000000000",
+                    "interest_small_cap_x18": "40000000000000000",
+                    "interest_large_cap_x18": "1000000000000000000",
+                },
+                "state": {
+                    "cumulative_deposits_multiplier_x18": "1001494499342736176",
+                    "cumulative_borrows_multiplier_x18": "1005427534505418441",
+                    "total_deposits_normalized": "336222763183987406404281",
+                    "total_borrows_normalized": "106663044719707335242158",
+                },
+                "lp_state": {
+                    "supply": "62619418496845923388438072",
+                    "quote": {
+                        "amount": "91404440604308224485238211",
+                        "last_cumulative_multiplier_x18": "1000000008185212765",
+                    },
+                    "base": {
+                        "amount": "3531841597039580133389",
+                        "last_cumulative_multiplier_x18": "1001494499342736176",
+                    },
+                },
+                "book_info": {
+                    "size_increment": "1000000000000000",
+                    "price_increment_x18": "1000000000000000000",
+                    "min_size": "10000000000000000",
+                    "collected_fees": "56936143536016463686263",
+                    "lp_spread_x18": "3000000000000000",
+                },
+                "symbol": "wBTC",
+                "market": "wBTC/USDC",
+                "contract": "0x939b0915f9c3b657b9e9a095269a0078dd587491",  # noqa: mock
+            },
+        }
+        return exchange_market_info
+
     def test_hex_to_bytes32(self):
         hex_string = "0x5cc7c91690b2cbaee19a513473d73403e13fb431"  # noqa: mock
         expected_bytes = b"\\\xc7\xc9\x16\x90\xb2\xcb\xae\xe1\x9aQ4s\xd74\x03\xe1?\xb41\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"  # noqa: mock
@@ -20,20 +71,18 @@ class VertexUtilTestCases(TestCase):
     def test_trading_pair_to_product_id(self):
         trading_pair = "wBTC-USDC"
         expected_id = 1
-        self.assertEqual(expected_id, vertex_utils.trading_pair_to_product_id(trading_pair))
+        exchange_info = self.get_exchange_market_info_mock()
+        self.assertEqual(expected_id, vertex_utils.trading_pair_to_product_id(trading_pair, exchange_info))
         missing_trading_pair = "ABC-XYZ"
         expected_missing_id = -1
-        self.assertEqual(expected_missing_id, vertex_utils.trading_pair_to_product_id(missing_trading_pair))
+        self.assertEqual(
+            expected_missing_id, vertex_utils.trading_pair_to_product_id(missing_trading_pair, exchange_info)
+        )
 
     def test_market_to_trading_pair(self):
         market = "wBTC/USDC"
         expected_trading_pair = "wBTC-USDC"
         self.assertEqual(expected_trading_pair, vertex_utils.market_to_trading_pair(market))
-
-    def test_product_id_to_trading_pair(self):
-        product_id = 1
-        expected_trading_pair = "wBTC-USDC"
-        self.assertEqual(expected_trading_pair, vertex_utils.product_id_to_trading_pair(product_id))
 
     def test_convert_from_x18(self):
         data_numeric = 26369000000000000000000

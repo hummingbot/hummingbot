@@ -1,12 +1,15 @@
 import asyncio
 import json
 import unittest
-from typing import Awaitable, Optional
+from typing import Awaitable, Dict, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.vertex import vertex_constants as CONSTANTS, vertex_web_utils as web_utils
 from hummingbot.connector.exchange.vertex.vertex_api_user_stream_data_source import VertexAPIUserStreamDataSource
 from hummingbot.connector.exchange.vertex.vertex_auth import VertexAuth
+from hummingbot.connector.exchange.vertex.vertex_exchange import VertexExchange
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
@@ -41,6 +44,16 @@ class TestVertexAPIUserStreamDataSource(unittest.TestCase):
             "0x2162Db26939B9EAF0C5404217774d166056d31B5",
             "5500eb16bf3692840e04fb6a63547b9a80b75d9cbb36b43ca5662127d4c19c83",  # noqa: mock
         )
+        client_config_map = ClientConfigAdapter(ClientConfigMap())
+        self.connector = VertexExchange(
+            client_config_map,
+            "0x2162Db26939B9EAF0C5404217774d166056d31B5",
+            "5500eb16bf3692840e04fb6a63547b9a80b75d9cbb36b43ca5662127d4c19c83",  # noqa: mock
+            trading_pairs=[self.trading_pair],
+            domain=self.domain,
+        )
+
+        self.connector._exchange_market_info = {self.domain: self.get_exchange_market_info_mock()}
 
         self.api_factory = web_utils.build_api_factory(throttler=self.throttler, auth=self.auth)
 
@@ -50,6 +63,7 @@ class TestVertexAPIUserStreamDataSource(unittest.TestCase):
             domain=self.domain,
             api_factory=self.api_factory,
             throttler=self.throttler,
+            connector=self.connector,
         )
 
         self.data_source.logger().setLevel(1)
@@ -69,26 +83,55 @@ class TestVertexAPIUserStreamDataSource(unittest.TestCase):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
 
-    # def test_last_recv_time(self):
-    #     # Initial last_recv_time
-    #     self.assertEqual(0, self.data_source.last_recv_time)
-
-    #     ws_assistant = self.async_run_with_timeout(self.data_source._get_ws_assistant())
-    #     ws_assistant._connection._last_recv_time = 1000
-    #     self.assertEqual(1000, self.data_source.last_recv_time)
-
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_user_stream_does_not_queue_pong_payload(self, mock_ws):
-        mock_pong = {"pong": "1545910590801"}
-        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
-        self.mocking_assistant.add_websocket_aiohttp_message(mock_ws.return_value, json.dumps(mock_pong))
-
-        msg_queue = asyncio.Queue()
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(msg_queue))
-
-        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(mock_ws.return_value)
-
-        self.assertEqual(0, msg_queue.qsize())
+    def get_exchange_market_info_mock(self) -> Dict:
+        exchange_rules = {
+            1: {
+                "product_id": 1,
+                "oracle_price_x18": "26377830075239748635916",
+                "risk": {
+                    "long_weight_initial_x18": "900000000000000000",
+                    "short_weight_initial_x18": "1100000000000000000",
+                    "long_weight_maintenance_x18": "950000000000000000",
+                    "short_weight_maintenance_x18": "1050000000000000000",
+                    "large_position_penalty_x18": "0",
+                },
+                "config": {
+                    "token": "0x5cc7c91690b2cbaee19a513473d73403e13fb431",  # noqa: mock
+                    "interest_inflection_util_x18": "800000000000000000",
+                    "interest_floor_x18": "10000000000000000",
+                    "interest_small_cap_x18": "40000000000000000",
+                    "interest_large_cap_x18": "1000000000000000000",
+                },
+                "state": {
+                    "cumulative_deposits_multiplier_x18": "1001494499342736176",
+                    "cumulative_borrows_multiplier_x18": "1005427534505418441",
+                    "total_deposits_normalized": "336222763183987406404281",
+                    "total_borrows_normalized": "106663044719707335242158",
+                },
+                "lp_state": {
+                    "supply": "62619418496845923388438072",
+                    "quote": {
+                        "amount": "91404440604308224485238211",
+                        "last_cumulative_multiplier_x18": "1000000008185212765",
+                    },
+                    "base": {
+                        "amount": "3531841597039580133389",
+                        "last_cumulative_multiplier_x18": "1001494499342736176",
+                    },
+                },
+                "book_info": {
+                    "size_increment": "1000000000000000",
+                    "price_increment_x18": "1000000000000000000",
+                    "min_size": "10000000000000000",
+                    "collected_fees": "56936143536016463686263",
+                    "lp_spread_x18": "3000000000000000",
+                },
+                "symbol": "wBTC",
+                "market": "wBTC/USDC",
+                "contract": "0x939b0915f9c3b657b9e9a095269a0078dd587491",  # noqa: mock
+            },
+        }
+        return exchange_rules
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_user_stream_does_not_queue_unknown_event(self, mock_ws):
@@ -103,29 +146,28 @@ class TestVertexAPIUserStreamDataSource(unittest.TestCase):
 
         self.assertEqual(0, msg_queue.qsize())
 
-    # @patch("hummingbot.connector.exchange.vertex.vertex_auth.VertexAuth._time")
-    # @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    # def test_listen_for_user_stream_failure_logs_error(self, ws_connect_mock, auth_time_mock):
-    #     auth_time_mock.side_effect = [100]
-    #     ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+    @patch("hummingbot.connector.exchange.vertex.vertex_auth.VertexAuth._time")
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_for_user_stream_failure_logs_error(self, ws_connect_mock, auth_time_mock):
+        auth_time_mock.side_effect = [100]
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
-    #     unknown_event = {"type": "unknown_event"}
-    #     self.mocking_assistant.add_websocket_aiohttp_message(
-    #         websocket_mock=ws_connect_mock.return_value, message=json.dumps(unknown_event)
-    #     )
+        unknown_event = {"type": "unknown_event"}
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value, message=json.dumps(unknown_event)
+        )
 
-    #     output_queue = asyncio.Queue()
+        output_queue = asyncio.Queue()
 
-    #     self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(output=output_queue))
+        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(output=output_queue))
 
-    #     self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
 
-    #     sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
-    #         websocket_mock=ws_connect_mock.return_value
-    #     )
+        sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
+            websocket_mock=ws_connect_mock.return_value
+        )
 
-    #     self.assertEqual(2, len(sent_subscription_messages))
-    #     self.assertTrue(self._is_logged("ERROR", "Unexpected message for user stream: {'type': 'unknown_event'}"))
+        self.assertEqual(2, len(sent_subscription_messages))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")

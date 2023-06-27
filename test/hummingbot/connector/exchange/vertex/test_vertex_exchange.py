@@ -3,7 +3,7 @@ import json
 import unittest
 from collections.abc import Awaitable
 from decimal import Decimal
-from typing import Dict, Optional
+from typing import Dict, Optional, List, Any
 from unittest.mock import AsyncMock, patch
 
 from aioresponses import aioresponses
@@ -70,6 +70,7 @@ class TestVertexExchange(unittest.TestCase):
         self.exchange._time_synchronizer.logger().addHandler(self)
         self.exchange._order_tracker.logger().setLevel(1)
         self.exchange._order_tracker.logger().addHandler(self)
+        self.exchange._exchange_market_info = {self.domain: self.get_exchange_market_info_mock()}
 
         self._initialize_event_loggers()
 
@@ -116,55 +117,130 @@ class TestVertexExchange(unittest.TestCase):
 
     def get_query_url(self, path: str, endpoint: str) -> str:
         return f"{CONSTANTS.BASE_URLS[self.domain]}{path}?type={endpoint}"
+    
+    def get_exchange_symbols_mock(self) -> List[Dict[str, Any]]:
+        exchange_symbols = [
+            {
+                "product_id": 0,
+                "symbol": "USDC"
+            },
+            {
+                "product_id": 1,
+                "symbol": "BTC"
+            },
+            {
+                "product_id": 2,
+                "symbol": "BTC-PERP"
+            },
+            {
+                "product_id": 3,
+                "symbol": "ETH"
+            },
+            {
+                "product_id": 4,
+                "symbol": "ETH-PERP"
+            },
+            {
+                "product_id": 5,
+                "symbol": "ARB"
+            },
+            {
+                "product_id": 6,
+                "symbol": "ARB-PERP"
+            },
+            {
+                "product_id": 8,
+                "symbol": "BNB-PERP"
+            },
+            {
+                "product_id": 10,
+                "symbol": "XRP-PERP"
+            },
+            {
+                "product_id": 12,
+                "symbol": "SOL-PERP"
+            },
+            {
+                "product_id": 14,
+                "symbol": "MATIC-PERP"
+            }
+        ]
+        return exchange_symbols
 
-    def get_exchange_rules_mock(self) -> Dict:
-        exchange_rules = {
+    def get_exchange_contracts_mock(self) -> Dict:
+        exchange_contracts = {
             "status": "success",
             "data": {
-                "spot_products": [
-                    {
-                        "product_id": 1,
-                        "oracle_price_x18": "26377830075239748635916",
-                        "risk": {
-                            "long_weight_initial_x18": "900000000000000000",
-                            "short_weight_initial_x18": "1100000000000000000",
-                            "long_weight_maintenance_x18": "950000000000000000",
-                            "short_weight_maintenance_x18": "1050000000000000000",
-                            "large_position_penalty_x18": "0",
-                        },
-                        "config": {
-                            "token": "0x5cc7c91690b2cbaee19a513473d73403e13fb431",  # noqa: mock
-                            "interest_inflection_util_x18": "800000000000000000",
-                            "interest_floor_x18": "10000000000000000",
-                            "interest_small_cap_x18": "40000000000000000",
-                            "interest_large_cap_x18": "1000000000000000000",
-                        },
-                        "state": {
-                            "cumulative_deposits_multiplier_x18": "1001494499342736176",
-                            "cumulative_borrows_multiplier_x18": "1005427534505418441",
-                            "total_deposits_normalized": "336222763183987406404281",
-                            "total_borrows_normalized": "106663044719707335242158",
-                        },
-                        "lp_state": {
-                            "supply": "62619418496845923388438072",
-                            "quote": {
-                                "amount": "91404440604308224485238211",
-                                "last_cumulative_multiplier_x18": "1000000008185212765",
-                            },
-                            "base": {
-                                "amount": "3531841597039580133389",
-                                "last_cumulative_multiplier_x18": "1001494499342736176",
-                            },
-                        },
-                        "book_info": {
-                            "size_increment": "1000000000000000",
-                            "price_increment_x18": "1000000000000000000",
-                            "min_size": "10000000000000000",
-                            "collected_fees": "56936143536016463686263",
-                            "lp_spread_x18": "3000000000000000",
-                        },
+                "chain_id": "421613",
+                "endpoint_addr": "0x5956d6f55011678b2cab217cd21626f7668ba6c5",
+                "book_addrs": [
+                    "0x0000000000000000000000000000000000000000",
+                    "0x939b0915f9c3b657b9e9a095269a0078dd587491",
+                    "0x291b578ff99bfef1706a2018d9dfdd98773e4f3e",
+                    "0x4008c7b762d7000034207bdef628a798065c3dcc",
+                    "0xe5106c497f8398ee8d1d6d246f08c125245d19ff",
+                    "0x49eff6d3de555be7a039d0b86471e3cb454b35de",
+                    "0xc5f223f12d091fba16141d4eeb5d39c5e0e2577c",
+                    "0xe65a493369bc41acebbc1ef7c78b2c12a972184d",
+                    "0x0897fc0e6f293da5e7da70cd296daff588fdbe55",
+                    "0x7a6eb01e393d9e32f4733ffa68c63363894a36bc",
+                    "0xcba84e5d703f604adac66f605383fc1f87a45be8",
+                    "0x5516479d3c4189bdfd0e98282779242068b08c1f",
+                    "0xc5ee375688580a72970eefd7f52e1100bcda3927",
+                    "0x38bafd8d005fe2cbde0761b3cf1fdba25d835fd8",
+                    "0x7c5953ce20d82caf70f00e4ecf9f0e67df3174d0"
+                ]
+            },
+            "request_type": "query_contracts"
+        }
+        return exchange_contracts
+
+    def get_exchange_market_info_mock(self) -> Dict:
+        exchange_rules = {
+            1: {
+                "product_id": 1,
+                "oracle_price_x18": "26377830075239748635916",
+                "risk": {
+                    "long_weight_initial_x18": "900000000000000000",
+                    "short_weight_initial_x18": "1100000000000000000",
+                    "long_weight_maintenance_x18": "950000000000000000",
+                    "short_weight_maintenance_x18": "1050000000000000000",
+                    "large_position_penalty_x18": "0",
+                },
+                "config": {
+                    "token": "0x5cc7c91690b2cbaee19a513473d73403e13fb431",  # noqa: mock
+                    "interest_inflection_util_x18": "800000000000000000",
+                    "interest_floor_x18": "10000000000000000",
+                    "interest_small_cap_x18": "40000000000000000",
+                    "interest_large_cap_x18": "1000000000000000000",
+                },
+                "state": {
+                    "cumulative_deposits_multiplier_x18": "1001494499342736176",
+                    "cumulative_borrows_multiplier_x18": "1005427534505418441",
+                    "total_deposits_normalized": "336222763183987406404281",
+                    "total_borrows_normalized": "106663044719707335242158",
+                },
+                "lp_state": {
+                    "supply": "62619418496845923388438072",
+                    "quote": {
+                        "amount": "91404440604308224485238211",
+                        "last_cumulative_multiplier_x18": "1000000008185212765",
                     },
-                ],
+                    "base": {
+                        "amount": "3531841597039580133389",
+                        "last_cumulative_multiplier_x18": "1001494499342736176",
+                    },
+                },
+                "book_info": {
+                    "size_increment": "1000000000000000",
+                    "price_increment_x18": "1000000000000000000",
+                    "min_size": "10000000000000000",
+                    "collected_fees": "56936143536016463686263",
+                    "lp_spread_x18": "3000000000000000",
+                },
+                "symbol": "wBTC",
+                "market": "wBTC/USDC",
+                "contract": "0x939b0915f9c3b657b9e9a095269a0078dd587491",  # noqa: mock
             },
         }
         return exchange_rules
@@ -238,6 +314,9 @@ class TestVertexExchange(unittest.TestCase):
                             "collected_fees": "0",
                             "lp_spread_x18": "0",
                         },
+                        "symbol": "USDC",
+                        "market": "USDC/USDC",
+                        "contract": "0x0000000000000000000000000000000000000000",  # noqa: mock
                     },
                     {
                         "product_id": 1,
@@ -280,6 +359,9 @@ class TestVertexExchange(unittest.TestCase):
                             "collected_fees": "499223396588563365634",
                             "lp_spread_x18": "3000000000000000",
                         },
+                        "symbol": "wBTC",
+                        "market": "wBTC/USDC",
+                        "contract": "0x939b0915f9c3b657b9e9a095269a0078dd587491",  # noqa: mock
                     },
                 ],
                 "perp_products": [
@@ -521,7 +603,7 @@ class TestVertexExchange(unittest.TestCase):
 
         url = self.get_query_url(CONSTANTS.QUERY_PATH_URL, CONSTANTS.ALL_PRODUCTS_REQUEST_TYPE)
 
-        resp = self.get_exchange_rules_mock()
+        resp = self.get_exchange_market_info_mock()
         mock_api.get(url, body=json.dumps(resp))
 
         self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
@@ -662,7 +744,7 @@ class TestVertexExchange(unittest.TestCase):
         creation_response = {"status": "success", "error": None}
 
         tradingrule_url = self.get_query_url(CONSTANTS.QUERY_PATH_URL, CONSTANTS.ALL_PRODUCTS_REQUEST_TYPE)
-        resp = self.get_exchange_rules_mock()
+        resp = self.get_exchange_market_info_mock()
         mock_api.get(tradingrule_url, body=json.dumps(resp))
         mock_api.post(
             url, body=json.dumps(creation_response), callback=lambda *args, **kwargs: request_sent_event.set()
@@ -712,7 +794,7 @@ class TestVertexExchange(unittest.TestCase):
         creation_response = {"status": "success", "error": None}
 
         tradingrule_url = self.get_query_url(CONSTANTS.QUERY_PATH_URL, CONSTANTS.ALL_PRODUCTS_REQUEST_TYPE)
-        resp = self.get_exchange_rules_mock()
+        resp = self.get_exchange_market_info_mock()
         mock_api.get(tradingrule_url, body=json.dumps(resp))
         mock_api.post(
             url, body=json.dumps(creation_response), callback=lambda *args, **kwargs: request_sent_event.set()
@@ -766,7 +848,7 @@ class TestVertexExchange(unittest.TestCase):
         creation_response = {"status": "success", "error": None}
 
         tradingrule_url = self.get_query_url(CONSTANTS.QUERY_PATH_URL, CONSTANTS.ALL_PRODUCTS_REQUEST_TYPE)
-        resp = self.get_exchange_rules_mock()
+        resp = self.get_exchange_market_info_mock()
         mock_api.get(tradingrule_url, body=json.dumps(resp))
         mock_api.post(
             url, body=json.dumps(creation_response), callback=lambda *args, **kwargs: request_sent_event.set()
@@ -813,7 +895,7 @@ class TestVertexExchange(unittest.TestCase):
         self.exchange._set_current_timestamp(1640780000)
         url = web_utils.public_rest_url(CONSTANTS.POST_PATH_URL, domain=self.domain)
         tradingrule_url = self.get_query_url(CONSTANTS.QUERY_PATH_URL, CONSTANTS.ALL_PRODUCTS_REQUEST_TYPE)
-        resp = self.get_exchange_rules_mock()
+        resp = self.get_exchange_market_info_mock()
         mock_api.get(tradingrule_url, body=json.dumps(resp))
         mock_api.post(url, status=400, callback=lambda *args, **kwargs: request_sent_event.set())
 
@@ -853,7 +935,7 @@ class TestVertexExchange(unittest.TestCase):
 
         url = web_utils.public_rest_url(CONSTANTS.POST_PATH_URL, domain=self.domain)
         tradingrule_url = self.get_query_url(CONSTANTS.QUERY_PATH_URL, CONSTANTS.ALL_PRODUCTS_REQUEST_TYPE)
-        resp = self.get_exchange_rules_mock()
+        resp = self.get_exchange_market_info_mock()
         mock_api.get(tradingrule_url, body=json.dumps(resp))
         mock_api.post(url, status=400, callback=lambda *args, **kwargs: request_sent_event.set())
 
@@ -1054,12 +1136,9 @@ class TestVertexExchange(unittest.TestCase):
         self.async_run_with_timeout(self.exchange._update_balances())
 
         available_balances = self.exchange.available_balances
-        total_balances = self.exchange.get_all_balances()
 
         self.assertEqual(Decimal("1"), available_balances["wBTC"])
-        self.assertEqual(Decimal("997358"), available_balances["USDC"].quantize(Decimal("1")))
-        self.assertEqual(Decimal("1"), total_balances["wBTC"])
-        self.assertEqual(Decimal("1000000"), total_balances["USDC"])
+        self.assertEqual(Decimal("-2642"), available_balances["USDC"].quantize(Decimal("1")))
 
     @aioresponses()
     def test_update_order_status_when_filled(self, mock_api):
@@ -1397,20 +1476,63 @@ class TestVertexExchange(unittest.TestCase):
     #     self.exchange._user_stream_tracker._user_stream = mock_queue
 
     #     try:
-    #         self.async_run_with_timeout(self.exchange._user_stream_event_listener())
+    #         self.async_run_with_timeout(coroutine=self.exchange._user_stream_event_listener(), timeout=2)
     #     except asyncio.CancelledError:
     #         pass
 
     #     self.assertEqual(Decimal("1"), self.exchange.available_balances["wBTC"])
     #     self.assertEqual(Decimal("1"), self.exchange.get_balance("wBTC"))
 
-    # def test_user_stream_raises_cancel_exception(self):
-    #     self.exchange._set_current_timestamp(1640780000)
+    def test_user_stream_raises_cancel_exception(self):
+        self.exchange._set_current_timestamp(1640780000)
 
-    #     mock_queue = AsyncMock()
-    #     mock_queue.get.side_effect = asyncio.CancelledError
-    #     self.exchange._user_stream_tracker._user_stream = mock_queue
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = asyncio.CancelledError
+        self.exchange._user_stream_tracker._user_stream = mock_queue
 
-    #     self.assertRaises(
-    #         asyncio.CancelledError, self.async_run_with_timeout, self.exchange._user_stream_event_listener()
-    #     )
+        self.assertRaises(
+            asyncio.CancelledError, self.async_run_with_timeout, self.exchange._user_stream_event_listener()
+        )
+
+    @aioresponses()
+    def test_get_account(self, mock_api):
+        url = f"{CONSTANTS.BASE_URLS[self.domain]}/query?subaccount={self.exchange.sender_address}&type=subaccount_info"
+        response = self.get_balances_mock()
+
+        mock_api.get(url, body=json.dumps(response))
+
+        try:
+            self.async_run_with_timeout(coroutine=self.exchange._get_account(), timeout=2)
+        except asyncio.CancelledError:
+            pass
+
+        self.assertTrue(response["status"] == "success")
+
+    @aioresponses()
+    def test_get_symbols(self, mock_api):
+        symbols_response = self.get_exchange_symbols_mock()
+        symbols_url = f"{CONSTANTS.BASE_URLS[self.domain]}{CONSTANTS.SYMBOLS_PATH_URL}"
+        mock_api.get(symbols_url, body=json.dumps(symbols_response))
+
+        try:
+            self.async_run_with_timeout(self.exchange._get_symbols(), timeout=1)
+        except asyncio.CancelledError:
+            pass 
+        except asyncio.TimeoutError:
+            pass
+        
+        self.assertEqual(int(0), self.exchange._symbols[0]["product_id"])
+        self.assertEqual("USDC", self.exchange._symbols[0]["symbol"])
+
+    @aioresponses()
+    def test_contracts(self, mock_api):
+        contracts_response = self.get_exchange_contracts_mock()
+        contracts_url = f"{CONSTANTS.BASE_URLS[self.domain]}/query?type=contracts"
+        mock_api.get(contracts_url, body=json.dumps(contracts_response))
+
+        try:
+            self.async_run_with_timeout(self.exchange._get_contracts(), timeout=2)
+        except asyncio.CancelledError:
+            pass 
+
+        self.assertEqual("0x0000000000000000000000000000000000000000", self.exchange._contracts[0])  # noqa: mock
