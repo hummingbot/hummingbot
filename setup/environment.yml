@@ -17,7 +17,7 @@ dependencies:
   - prompt_toolkit=3.0.20
   - pydantic=1.9.2
   - pytest==7.3.2
-  - python=3.10.11
+  - python=3.10.12
   - pytables=3.8.0
   - scipy=1.10.1
   - tabulate==0.8.9
