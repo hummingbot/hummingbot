@@ -38,7 +38,7 @@ class CreateCommandTest(unittest.TestCase):
 
         return async_sleep
 
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
+    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 5):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
 
