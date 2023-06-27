@@ -3,15 +3,45 @@
 # Compatibility logic for older Anaconda versions.
 find_conda_exe() {
     local -n _conda_exe=$1
-    if [ "${_conda_exe} " == " " ]; then
-      _conda_exe=$(( \
-        find ~ -executable -name conda || \
-        find /opt/conda/bin -executable -name conda || \
-        find /usr/local -executable -name conda || \
-        find /root/*conda -executable -name conda
-        ) 2>/dev/null \
+
+    rm -f $tmp_file
+
+    local conda_exes=$( \
+      find ~/.conda -type f -executable -name conda 2> /dev/null && \
+      find /opt/conda/bin -type f -executable -name conda 2> /dev/null && \
+      find /usr/local -type f -executable -name conda 2> /dev/null && \
+      find /root/*conda -type f -executable -name conda 2> /dev/null \
       )
+
+    local selected_version="0.0.0"
+    local selected_conda_exe=""
+
+    if [ "${_conda_exe} " != " " ]; then
+      selected_version=$(${_conda_exe} info --json 2>/dev/null | jq -r '.conda_version')
+      selected_conda_exe=${_conda_exe}
     fi
+
+    # Finding the latest version of conda
+    for c in ${conda_exes}; do
+      echo "Checking conda executable: ${c}" >&2
+      current_version=$(${c} info --json 2>/dev/null | jq -r --arg version $selected_version '
+        .conda_version | split(".") | map(tonumber) as $current_version
+        | ($version | split(".") | map(tonumber)) as $version
+        | (if $current_version > $version then
+            $current_version
+          else
+            empty
+          end) as $selected_version
+        | $selected_version | join(".")
+      ')
+
+      if [ "${current_version}_" != "_" ]; then
+        selected_conda_exe=${c}
+        selected_version=${current_version}
+      fi
+    done
+
+    _conda_exe=${selected_conda_exe}
 
     if [ "${_conda_exe}_" == "_" ]; then
         echo "Please install Anaconda w/ Python 3.8.2+ first"
@@ -113,16 +143,4 @@ verify_pip_packages() {
     echo | cat >> $install_dir/conda_package_list.txt
   done < setup/pip_packages.txt
   grep -v -f <(cut -d '=' -f1 $install_dir/conda_package_list.txt) setup/pip_packages.txt 2> $install_dir/updated_pip_packages.txt
-
-  #rm -rf $install_dir
 }
-#      | .[$pkg][] | select(.version) | .version as $matching_versions
-#      | "      -> Packages found for: " + $pkg + "==" + $ver + " -> " + ($matching_versions | join(", "))
-#      | (stderr | .)
-#      | map(. | tostring) as $versions
-#      | closestGreaterVersion($versions) as $closest_greater_version
-#      | "\n      -> Version selected: " + $closest_greater_version
-#      | (stderr | .)
-#      | .name + "==" + .version
-  # Update pip packages
-#    conda search --json $package_name | jq -r --arg pkg "$package_name" --arg ver "$package_version" '.[$pkg][].version | select(startswith($ver))' | head -n 1 | sed 's/^/'$package_name'==/'
