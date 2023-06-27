@@ -5,10 +5,10 @@ find_conda_exe() {
     local -n _conda_exe=$1
     if [ "${_conda_exe} " == " " ]; then
       _conda_exe=$(( \
-        find ~ -name conda || \
-        find /opt/conda/bin -name conda || \
-        find /usr/local -name conda || \
-        find /root/*conda -name conda
+        find ~ -executable -name conda || \
+        find /opt/conda/bin -executable -name conda || \
+        find /usr/local -executable -name conda || \
+        find /root/*conda -executable -name conda
         ) 2>/dev/null \
       )
     fi
