@@ -15,15 +15,14 @@ dependencies:
   - pandas=1.5.3
   - pip=23.1.2
   - prompt_toolkit=3.0.20
-  - pydantic=1.9
+  - pydantic=1.9.2
   - pytest==7.3.2
-  - python=3.10.0
-  - pytables=3.6.1
+  - python=3.10.11
+  - pytables=3.8.0
   - scipy=1.10.1
-  - sqlalchemy=1.4
   - tabulate==0.8.9
   - typing-extensions<4.6.0
-  - zlib=1.2.11
+  - zlib=1.2.13
   - pip:
     - 0x-contract-addresses==3.0.0
     - 0x-contract-wrappers==2.0.0
@@ -40,7 +39,7 @@ dependencies:
     - cachetools==4.0.0
     - commlib-py==0.10.6
     - cryptography==3.4.7
-    - cython==3.0a7
+    - cython==3.0.0a10
     - diff-cover==5.1.2
     - docker==5.0.3
     - dydx-v3-python==2.0.1
@@ -61,6 +60,7 @@ dependencies:
     - rsa==4.7
     - ruamel-yaml==0.16.10
     - signalr-client-aio==0.0.1.6.2
+    - sqlalchemy==1.4.*
     - substrate-interface==1.6.2
     - solders==0.1.4
     - web3==5.31.4
