@@ -260,33 +260,34 @@ class BitmartAPIUserStreamDataSourceTests(unittest.TestCase):
                 self.data_source._subscribe_channels(ws_assistant))
             self.ev_loop.run_until_complete(self.listening_task)
 
-    # @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
-    # @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")
-    # def test_listening_process_logs_exception_during_events_subscription(self, sleep_mock, mock_ws):
-    #     self.connector._set_trading_pair_symbol_map({})
-    #
-    #     messages = asyncio.Queue()
-    #     sleep_mock.side_effect = asyncio.CancelledError
-    #     mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
-    #     # Add the authentication response for the websocket
-    #     self.mocking_assistant.add_websocket_aiohttp_message(
-    #         mock_ws.return_value,
-    #         json.dumps({"event": "login"}))
-    #
-    #     self.listening_task = self.ev_loop.create_task(
-    #         self.data_source.listen_for_user_stream(messages))
-    #
-    #     try:
-    #         self.async_run_with_timeout(self.listening_task, timeout=3)
-    #     except asyncio.CancelledError:
-    #         pass
-    #
-    #     self.assertTrue(self._is_logged(
-    #         "ERROR",
-    #         "Unexpected error occurred subscribing to order book trading and delta streams..."))
-    #     self.assertTrue(self._is_logged(
-    #         "ERROR",
-    #         "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
+    # @unittest.skip("Test with error")
+    @patch('aiohttp.ClientSession.ws_connect', new_callable=AsyncMock)
+    @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")
+    def test_listening_process_logs_exception_during_events_subscription(self, sleep_mock, mock_ws):
+        self.connector._set_trading_pair_symbol_map({})
+
+        messages = asyncio.Queue()
+        sleep_mock.side_effect = asyncio.CancelledError
+        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
+        # Add the authentication response for the websocket
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            mock_ws.return_value,
+            json.dumps({"event": "login"}))
+
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_user_stream(messages))
+
+        try:
+            self.async_run_with_timeout(self.listening_task, timeout=3)
+        except asyncio.CancelledError:
+            pass
+
+        self.assertTrue(self._is_logged(
+            "ERROR",
+            "Unexpected error occurred subscribing to order book trading and delta streams..."))
+        self.assertTrue(self._is_logged(
+            "ERROR",
+            "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_user_stream_processes_order_event(self, mock_ws):
