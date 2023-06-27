@@ -52,6 +52,9 @@ class VertexExchange(ExchangePyBase):
         self._domain = domain
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
+        self._exchange_market_info = {self._domain: {}}
+        self._symbols = {}
+        self._contracts = {}
         self._chain_id = CONSTANTS.CHAIN_IDS[self.domain]
         super().__init__(client_config_map)
 
@@ -111,6 +114,10 @@ class VertexExchange(ExchangePyBase):
     def is_trading_required(self) -> bool:
         return self._trading_required
 
+    async def start_network(self):
+        await self.build_exchange_market_info()
+        await super().start_network()
+
     def supported_order_types(self):
         return [OrderType.MARKET, OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
@@ -151,6 +158,7 @@ class VertexExchange(ExchangePyBase):
             auth=self._auth,
             trading_pairs=self._trading_pairs,
             api_factory=self._web_assistants_factory,
+            connector=self,
             domain=self.domain,
         )
 
@@ -210,9 +218,10 @@ class VertexExchange(ExchangePyBase):
             _order_type = CONSTANTS.TIME_IN_FORCE_GTC
 
         expiration = utils.generate_expiration(time.time(), order_type=_order_type)
-        product_id = utils.trading_pair_to_product_id(trading_pair)
+        product_id = utils.trading_pair_to_product_id(trading_pair, self._exchange_market_info[self._domain])
         nonce = utils.generate_nonce(time.time())
-        contract = CONSTANTS.PRODUCTS[product_id][self.domain]
+
+        contract = self._exchange_market_info[self._domain][product_id]["contract"]
 
         sender = utils.hex_to_bytes32(self.sender_address)
 
@@ -256,8 +265,11 @@ class VertexExchange(ExchangePyBase):
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         sender = utils.hex_to_bytes32(self.sender_address)
-        product_id = utils.trading_pair_to_product_id(tracked_order.trading_pair)
+        product_id = utils.trading_pair_to_product_id(
+            tracked_order.trading_pair, self._exchange_market_info[self._domain]
+        )
         nonce = utils.generate_nonce(time.time())
+        # NOTE: Dynamically adjust this
         endpoint_contract = CONSTANTS.CONTRACTS[self.domain]
 
         if tracked_order.exchange_order_id:
@@ -299,7 +311,7 @@ class VertexExchange(ExchangePyBase):
             return True
         return False
 
-    async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
+    async def _format_trading_rules(self, exchange_info_dict: Dict[int, Any]) -> List[TradingRule]:
         """
         Example:
              "spot_products": [
@@ -347,17 +359,14 @@ class VertexExchange(ExchangePyBase):
                 },
             ]
         """
-        trading_pair_rules = exchange_info_dict.get("data", [])
-        if len(trading_pair_rules) > 0:
-            trading_pair_rules = trading_pair_rules["spot_products"]
         retval = []
-        for rule in trading_pair_rules:
+        for rule in exchange_info_dict:
             try:
-                if rule["product_id"] == 0:
+                if rule == 0:
                     # NOTE: USDC product doesn't have a market
                     continue
-                trading_pair = utils.product_id_to_trading_pair(rule["product_id"])
-                rule_set = rule["book_info"]
+                trading_pair = utils.market_to_trading_pair(self._exchange_market_info[self._domain][rule]["market"])
+                rule_set: Dict[str, Any] = exchange_info_dict[rule]["book_info"]
                 min_order_size = utils.convert_from_x18(rule_set.get("min_size"))
                 min_price_increment = utils.convert_from_x18(rule_set.get("price_increment_x18"))
                 min_base_amount_increment = utils.convert_from_x18(rule_set.get("size_increment"))
@@ -416,7 +425,9 @@ class VertexExchange(ExchangePyBase):
             maker_fees = {idx: fee_rate for idx, fee_rate in enumerate(fee_rates["maker_fee_rates_x18"])}
             # NOTE: This builds our fee rates based on indexed product_id
             for trading_pair in self._trading_pairs:
-                product_id = utils.trading_pair_to_product_id(trading_pair=trading_pair)
+                product_id = utils.trading_pair_to_product_id(
+                    trading_pair=trading_pair, exchange_market_info=self._exchange_market_info[self._domain]
+                )
                 self._trading_fees[trading_pair] = {
                     "maker": Decimal(utils.convert_from_x18(maker_fees[product_id])),
                     "taker": Decimal(utils.convert_from_x18(taker_fees[product_id])),
@@ -489,7 +500,7 @@ class VertexExchange(ExchangePyBase):
                     # NOTE: Without balance update, we just call the API endpoint to update all balances.
                     product_id = event_message["product_id"]
                     amount = utils.convert_from_x18(event_message["amount"])
-                    asset_name = CONSTANTS.PRODUCTS[product_id]["symbol"]
+                    asset_name = self._exchange_market_info[self._domain][product_id]["symbol"]
                     free_balance = Decimal(amount)
                     total_balance = Decimal(amount)
                     self._account_available_balances[asset_name] = free_balance
@@ -509,7 +520,7 @@ class VertexExchange(ExchangePyBase):
         if order.exchange_order_id is not None:
             exchange_order_id = order.exchange_order_id
             trading_pair = order.trading_pair
-            product_id = utils.trading_pair_to_product_id(order.trading_pair)
+            product_id = utils.trading_pair_to_product_id(order.trading_pair, self._exchange_market_info[self._domain])
 
             matches_response = await self._api_post(
                 path_url=CONSTANTS.INDEXER_PATH_URL,
@@ -571,7 +582,9 @@ class VertexExchange(ExchangePyBase):
                 path_url=CONSTANTS.QUERY_PATH_URL,
                 params={
                     "type": CONSTANTS.ORDER_REQUEST_TYPE,
-                    "product_id": utils.trading_pair_to_product_id(tracked_order.trading_pair),
+                    "product_id": utils.trading_pair_to_product_id(
+                        tracked_order.trading_pair, self._exchange_market_info[self._domain]
+                    ),
                     "digest": tracked_order.exchange_order_id,
                 },
                 limit_id=CONSTANTS.ORDER_REQUEST_TYPE,
@@ -635,6 +648,8 @@ class VertexExchange(ExchangePyBase):
         return order_update
 
     async def _update_balances(self):
+        if not self._exchange_market_info[self._domain]:
+            await self.build_exchange_market_info()
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
         account = await self._get_account()
@@ -646,48 +661,106 @@ class VertexExchange(ExchangePyBase):
         perp_product_map = {product["product_id"]: product for product in account["perp_products"]}
 
         for spot_balance in account["spot_balances"]:
-            product_id = spot_balance["product_id"]
-            balance = Decimal(utils.convert_from_x18(spot_balance["balance"]["amount"]))
-            oracle_price = Decimal(utils.convert_from_x18(spot_product_map[product_id]["oracle_price_x18"]))
-            total_usdc_account_value = total_usdc_account_value + (balance * oracle_price)
-            asset_name = CONSTANTS.PRODUCTS[product_id]["symbol"]
-
-            free_balance = Decimal(utils.convert_from_x18(spot_balance["balance"]["amount"]))
-            total_balance = Decimal(
-                utils.convert_from_x18(
-                    spot_balance["balance"]["amount"],
-                )
-            )
-            self._account_available_balances[asset_name] = free_balance
-            self._account_balances[asset_name] = total_balance
-            remote_asset_names.add(asset_name)
+            try:
+                product_id = spot_balance["product_id"]
+                # USDC
+                if product_id == 0:
+                    balance = Decimal(utils.convert_from_x18(spot_balance["balance"]["amount"]))
+                    asset_name = self._exchange_market_info[self._domain][product_id]["symbol"]
+                    free_balance = Decimal(utils.convert_from_x18(spot_balance["balance"]["amount"]))
+                    total_balance = Decimal(
+                        utils.convert_from_x18(
+                            spot_balance["balance"]["amount"],
+                        )
+                    )
+                    self._account_available_balances[asset_name] = free_balance
+                    self._account_balances[asset_name] = total_balance
+                    remote_asset_names.add(asset_name)
+                elif product_id in self._exchange_market_info[self._domain]:
+                    balance = Decimal(utils.convert_from_x18(spot_balance["balance"]["amount"]))
+                    oracle_price = Decimal(utils.convert_from_x18(spot_product_map[product_id]["oracle_price_x18"]))
+                    total_usdc_account_value = total_usdc_account_value + (balance * oracle_price)
+                    asset_name = self._exchange_market_info[self._domain][product_id]["symbol"]
+                    free_balance = Decimal(utils.convert_from_x18(spot_balance["balance"]["amount"]))
+                    total_balance = Decimal(
+                        utils.convert_from_x18(
+                            spot_balance["balance"]["amount"],
+                        )
+                    )
+                    self._account_available_balances[asset_name] = free_balance
+                    self._account_balances[asset_name] = total_balance
+                    remote_asset_names.add(asset_name)
+            except Exception as e:
+                self.logger().warning(f"Balance Error: {spot_balance} {e}")
+                pass
 
         # NOTE: The entire account is cross margin, therefore we need to ensure we account for perp positions.
         for perp_balance in account["perp_balances"]:
-            product_id = perp_balance["product_id"]
-            balance = Decimal(utils.convert_from_x18(perp_balance["balance"]["amount"]))
+            try:
+                product_id = perp_balance["product_id"]
+                balance = Decimal(utils.convert_from_x18(perp_balance["balance"]["amount"]))
 
-            balance = Decimal(utils.convert_from_x18(perp_balance["balance"]["amount"]))
-            oracle_price = Decimal(utils.convert_from_x18(perp_product_map[product_id]["oracle_price_x18"]))
-            self._allocated_collateral_sum = self._allocated_collateral_sum + (balance * oracle_price)
+                balance = Decimal(utils.convert_from_x18(perp_balance["balance"]["amount"]))
+                oracle_price = Decimal(utils.convert_from_x18(perp_product_map[product_id]["oracle_price_x18"]))
+                self._allocated_collateral_sum = self._allocated_collateral_sum + (balance * oracle_price)
+            except Exception as e:
+                self.logger().warning(f"Perp Balance Error: {perp_balance} {e}")
+                pass
 
-        self._account_available_balances[quote] = self._account_available_balances[quote] - abs(
-            self._allocated_collateral_sum
-        )
+        if quote in self._account_available_balances:
+            self._account_available_balances[quote] = self._account_available_balances[quote] - abs(
+                self._allocated_collateral_sum
+            )
+        else:
+            self._account_available_balances[quote] = -abs(self._allocated_collateral_sum)
 
         asset_names_to_remove = local_asset_names.difference(remote_asset_names)
         for asset_name in asset_names_to_remove:
             del self._account_available_balances[asset_name]
             del self._account_balances[asset_name]
 
+    async def build_exchange_market_info(self):
+        exchange_info = await self._api_get(path_url=self.trading_pairs_request_path)
+        symbol_map = await self._get_symbols()
+        contract_info = await self._get_contracts()
+        self._exchange_market_info[self._domain] = {}
+
+        symbol_data = {}
+        for product in symbol_map:
+            symbol_data.update({product["product_id"]: product["symbol"]})
+
+        product_data = {}
+        for product in exchange_info["data"]["spot_products"]:
+            if product["product_id"] in symbol_data:
+                try:
+                    product_id = int(product["product_id"])
+                    # NOTE: Hardcoded USDC
+                    product.update({"symbol": f"{symbol_data[product_id]}"})
+                    product.update({"market": f"{symbol_data[product_id]}/USDC"})
+                    product.update({"contract": f"{contract_info[product_id]}"})
+                    product_data.update({product_id: product})
+                except Exception:
+                    pass
+
+        self._exchange_market_info[self._domain] = product_data
+        return product_data
+
+    async def _make_trading_rules_request(self) -> Any:
+        return self._exchange_market_info[self._domain]
+
+    async def _initialize_trading_pair_symbol_map(self):
+        try:
+            exchange_info = await self.build_exchange_market_info()
+            self._initialize_trading_pair_symbols_from_exchange_info(exchange_info=exchange_info)
+        except Exception:
+            self.logger().exception("There was an error requesting exchange info.")
+
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
-        # TODO: Review the recent addition of...
-        # https://prod.vertexprotocol-backend.com/symbols
         mapping = bidict()
-        for symbol_data in filter(utils.is_exchange_information_valid, exchange_info["data"]["spot_products"]):
-            trading_pair = CONSTANTS.PRODUCTS[symbol_data["product_id"]]["market"]
+        for product_id in filter(utils.is_exchange_information_valid, exchange_info):
+            trading_pair = exchange_info[product_id]["market"]
             # NOTE: USDC is an asset, however it doesn't have a "market"
-            if symbol_data["product_id"] == 0:
+            if product_id == 0:
                 continue
             base = trading_pair.split("/")[0]
             quote = trading_pair.split("/")[1]
@@ -695,7 +768,7 @@ class VertexExchange(ExchangePyBase):
         self._set_trading_pair_symbol_map(mapping)
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
-        product_id = utils.trading_pair_to_product_id(trading_pair)
+        product_id = utils.trading_pair_to_product_id(trading_pair, self._exchange_market_info[self._domain])
 
         try:
             data = {"matches": {"product_ids": [product_id], "limit": 5}}
@@ -742,10 +815,35 @@ class VertexExchange(ExchangePyBase):
 
         if response is None or "failure" in response["status"] or "data" not in response:
             if "error_code" in response and response["error_code"] in CONSTANTS.ERRORS:
-                raise IOError(f"{response['error']}")
+                raise IOError(f"IP address issue from Vertex {response}")
             raise IOError(f"Unable to get account info for sender address {sender_address}")
 
         return response["data"]
+
+    async def _get_symbols(self):
+        response = await self._api_get(path_url=CONSTANTS.SYMBOLS_PATH_URL)
+
+        if response is None or "status" in response:
+            raise IOError("Unable to get Vertex symbols")
+
+        self._symbols = response
+
+        return response
+
+    async def _get_contracts(self):
+        response = await self._api_get(
+            path_url=CONSTANTS.QUERY_PATH_URL, params={"type": CONSTANTS.CONTRACTS_REQUEST_TYPE}
+        )
+
+        if response is None or "failure" in response["status"] or "data" not in response:
+            raise IOError("Unable to get Vertex contracts")
+
+        # NOTE: List indexed to be matached according to product_id
+        contracts = response["data"]["book_addrs"]
+
+        self._contracts = contracts
+
+        return contracts
 
     async def _get_fee_rates(self):
         sender_address = self.sender_address

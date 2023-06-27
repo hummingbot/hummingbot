@@ -1,11 +1,6 @@
 from typing import Any, Dict, Optional
 
-from hummingbot.connector.exchange.vertex.vertex_constants import PRODUCTS
-from hummingbot.connector.exchange.vertex.vertex_utils import (
-    convert_from_x18,
-    convert_timestamp,
-    market_to_trading_pair,
-)
+from hummingbot.connector.exchange.vertex.vertex_utils import convert_from_x18, convert_timestamp
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
@@ -29,6 +24,7 @@ class VertexOrderBook(OrderBook):
         return OrderBookMessage(
             OrderBookMessageType.SNAPSHOT,
             {
+                "trading_pair": msg["trading_pair"],
                 "update_id": int(ts),
                 "bids": convert_from_x18(msg["data"]["bids"]),
                 "asks": convert_from_x18(msg["data"]["asks"]),
@@ -53,6 +49,7 @@ class VertexOrderBook(OrderBook):
         return OrderBookMessage(
             OrderBookMessageType.SNAPSHOT,
             {
+                "trading_pair": msg["trading_pair"],
                 "update_id": int(ts),
                 "bids": convert_from_x18(msg["data"]["bids"]),
                 "asks": convert_from_x18(msg["data"]["asks"]),
@@ -77,7 +74,7 @@ class VertexOrderBook(OrderBook):
         return OrderBookMessage(
             OrderBookMessageType.DIFF,
             {
-                "trading_pair": market_to_trading_pair(PRODUCTS[msg["product_id"]]["market"]),
+                "trading_pair": msg["trading_pair"],
                 "update_id": int(msg["last_max_timestamp"]),
                 "bids": convert_from_x18(msg["bids"]),
                 "asks": convert_from_x18(msg["asks"]),
@@ -99,7 +96,7 @@ class VertexOrderBook(OrderBook):
         return OrderBookMessage(
             OrderBookMessageType.TRADE,
             {
-                "trading_pair": market_to_trading_pair(PRODUCTS[msg["product_id"]]["market"]),
+                "trading_pair": msg["trading_pair"],
                 "trade_type": float(TradeType.BUY.value) if msg["is_taker_buyer"] else float(TradeType.SELL.value),
                 "trade_id": int(msg["timestamp"]),
                 "update_id": int(msg["timestamp"]),

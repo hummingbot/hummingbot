@@ -43,7 +43,7 @@ class VertexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
-        snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
+        snapshot = await self._request_order_book_snapshot(trading_pair)
         snapshot_timestamp = utils.convert_timestamp(snapshot["data"]["timestamp"])
         snapshot_msg: OrderBookMessage = VertexOrderBook.snapshot_message_from_exchange_rest(
             snapshot, snapshot_timestamp, metadata={"trading_pair": trading_pair}
@@ -58,10 +58,10 @@ class VertexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         :return: the response from the exchange (JSON dictionary)
         """
-
+        product_id = utils.trading_pair_to_product_id(trading_pair, self._connector._exchange_market_info[self._domain])
         params = {
             "type": CONSTANTS.MARKET_LIQUIDITY_REQUEST_TYPE,
-            "product_id": utils.trading_pair_to_product_id(trading_pair),
+            "product_id": product_id,
             "depth": CONSTANTS.ORDER_BOOK_DEPTH,
         }
         rest_assistant = await self._api_factory.get_rest_assistant()
@@ -75,11 +75,21 @@ class VertexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return data
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        trade_message: OrderBookMessage = VertexOrderBook.trade_message_from_exchange(raw_message)
+        trading_pair = utils.market_to_trading_pair(
+            self._connector._exchange_market_info[self._domain][raw_message["product_id"]]["market"]
+        )
+        metadata = {"trading_pair": trading_pair}
+        trade_message: OrderBookMessage = VertexOrderBook.trade_message_from_exchange(raw_message, metadata=metadata)
         message_queue.put_nowait(trade_message)
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        order_book_message: OrderBookMessage = VertexOrderBook.diff_message_from_exchange(raw_message)
+        trading_pair = utils.market_to_trading_pair(
+            self._connector._exchange_market_info[self._domain][raw_message["product_id"]]["market"]
+        )
+        metadata = {"trading_pair": trading_pair}
+        order_book_message: OrderBookMessage = VertexOrderBook.diff_message_from_exchange(
+            raw_message, metadata=metadata
+        )
         message_queue.put_nowait(order_book_message)
 
     async def _subscribe_channels(self, websocket_assistant: WSAssistant):
@@ -88,9 +98,12 @@ class VertexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         :param websocket_assistant: the websocket assistant used to connect to the exchange
         """
+
         try:
             for trading_pair in self._trading_pairs:
-                product_id = utils.trading_pair_to_product_id(trading_pair)
+                product_id = utils.trading_pair_to_product_id(
+                    trading_pair, self._connector._exchange_market_info[self._domain]
+                )
                 trade_payload = {
                     "method": CONSTANTS.WS_SUBSCRIBE_METHOD,
                     "stream": {"type": CONSTANTS.TRADE_EVENT_TYPE, "product_id": product_id},

@@ -65,6 +65,8 @@ class TestVertexAPIOrderBookDataSource(unittest.TestCase):
             throttler=self.throttler,
         )
 
+        self.connector._exchange_market_info = {self.domain: self.get_exchange_market_info_mock()}
+
         self._original_full_order_book_reset_time = self.ob_data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS
         self.ob_data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = -1
 
@@ -93,6 +95,56 @@ class TestVertexAPIOrderBookDataSource(unittest.TestCase):
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
+
+    def get_exchange_market_info_mock(self) -> Dict:
+        exchange_rules = {
+            1: {
+                "product_id": 1,
+                "oracle_price_x18": "26377830075239748635916",
+                "risk": {
+                    "long_weight_initial_x18": "900000000000000000",
+                    "short_weight_initial_x18": "1100000000000000000",
+                    "long_weight_maintenance_x18": "950000000000000000",
+                    "short_weight_maintenance_x18": "1050000000000000000",
+                    "large_position_penalty_x18": "0",
+                },
+                "config": {
+                    "token": "0x5cc7c91690b2cbaee19a513473d73403e13fb431",  # noqa: mock
+                    "interest_inflection_util_x18": "800000000000000000",
+                    "interest_floor_x18": "10000000000000000",
+                    "interest_small_cap_x18": "40000000000000000",
+                    "interest_large_cap_x18": "1000000000000000000",
+                },
+                "state": {
+                    "cumulative_deposits_multiplier_x18": "1001494499342736176",
+                    "cumulative_borrows_multiplier_x18": "1005427534505418441",
+                    "total_deposits_normalized": "336222763183987406404281",
+                    "total_borrows_normalized": "106663044719707335242158",
+                },
+                "lp_state": {
+                    "supply": "62619418496845923388438072",
+                    "quote": {
+                        "amount": "91404440604308224485238211",
+                        "last_cumulative_multiplier_x18": "1000000008185212765",
+                    },
+                    "base": {
+                        "amount": "3531841597039580133389",
+                        "last_cumulative_multiplier_x18": "1001494499342736176",
+                    },
+                },
+                "book_info": {
+                    "size_increment": "1000000000000000",
+                    "price_increment_x18": "1000000000000000000",
+                    "min_size": "10000000000000000",
+                    "collected_fees": "56936143536016463686263",
+                    "lp_spread_x18": "3000000000000000",
+                },
+                "symbol": "wBTC",
+                "market": "wBTC/USDC",
+                "contract": "0x939b0915f9c3b657b9e9a095269a0078dd587491",  # noqa: mock
+            },
+        }
+        return exchange_rules
 
     def get_exchange_rules_mock(self) -> Dict:
         exchange_rules = {
@@ -140,6 +192,9 @@ class TestVertexAPIOrderBookDataSource(unittest.TestCase):
                             "collected_fees": "56936143536016463686263",
                             "lp_spread_x18": "3000000000000000",
                         },
+                        "symbol": "wBTC",
+                        "market": "wBTC/USDC",
+                        "contract": "0x939b0915f9c3b657b9e9a095269a0078dd587491",  # noqa: mock
                     },
                 ],
             },
@@ -457,3 +512,23 @@ class TestVertexAPIOrderBookDataSource(unittest.TestCase):
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 
         self.assertEqual(int(snapshot_data["data"]["timestamp"]), msg.update_id)
+
+    def test_subscribe_channels_raises_cancel_exception(self):
+        mock_ws = MagicMock()
+        mock_ws.send.side_effect = asyncio.CancelledError
+
+        with self.assertRaises(asyncio.CancelledError):
+            self.listening_task = self.ev_loop.create_task(self.ob_data_source._subscribe_channels(mock_ws))
+            self.async_run_with_timeout(self.listening_task)
+
+    def test_subscribe_channels_raises_exception_and_logs_error(self):
+        mock_ws = MagicMock()
+        mock_ws.send.side_effect = Exception("Test Error")
+
+        with self.assertRaises(Exception):
+            self.listening_task = self.ev_loop.create_task(self.ob_data_source._subscribe_channels(mock_ws))
+            self.async_run_with_timeout(self.listening_task)
+
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error occurred subscribing to trading and order book stream...")
+        )

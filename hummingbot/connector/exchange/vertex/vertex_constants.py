@@ -52,6 +52,7 @@ TIME_IN_FORCE_POSTONLY = "POSTONLY"  # PostOnly
 POST_PATH_URL = "/execute"
 QUERY_PATH_URL = "/query"
 INDEXER_PATH_URL = "/indexer"
+SYMBOLS_PATH_URL = "/symbols"
 WS_PATH_URL = "/ws"
 WS_SUBSCRIBE_PATH_URL = "/subscribe"
 
@@ -69,6 +70,7 @@ MARKET_LIQUIDITY_REQUEST_TYPE = "market_liquidity"
 ALL_PRODUCTS_REQUEST_TYPE = "all_products"
 MARKET_PRICE_REQUEST_TYPE = "market_price"
 FEE_RATES_REQUEST_TYPE = "fee_rates"
+CONTRACTS_REQUEST_TYPE = "contracts"
 
 # WS API ENDPOINTS
 WS_SUBSCRIBE_METHOD = "subscribe"
@@ -133,6 +135,18 @@ PRODUCTS = {
         TESTNET_DOMAIN: "0xf9144ddc09bd6961cbed631f8be708d2d1e87f57",
     },
     8: {
+        "symbol": "ARB-PERP2",
+        "market": "ARB2/USDC",
+        DEFAULT_DOMAIN: None,
+        TESTNET_DOMAIN: "0xa0c85ffadceba288fbcba1dcb780956c01b25cdf",
+    },
+    9: {
+        "symbol": "ARB-PERP2",
+        "market": "ARB2/USDC",
+        DEFAULT_DOMAIN: None,
+        TESTNET_DOMAIN: "0xa0c85ffadceba288fbcba1dcb780956c01b25cdf",
+    },
+    10: {
         "symbol": "ARB-PERP2",
         "market": "ARB2/USDC",
         DEFAULT_DOMAIN: None,
