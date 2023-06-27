@@ -79,13 +79,8 @@ def main():
     chdir_to_data_directory()
     secrets_manager_cls = ETHKeyFileSecretManger
     client_config_map = load_client_config_map_from_file()
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        if login_prompt(secrets_manager_cls, style=load_style(client_config_map)):
-            loop.run_until_complete(main_async(client_config_map))
-    except KeyboardInterrupt:
-        pass
+    if login_prompt(secrets_manager_cls, style=load_style(client_config_map)):
+        asyncio.run(main_async(client_config_map))
 
 
 if __name__ == "__main__":
