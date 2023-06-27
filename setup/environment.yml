@@ -21,6 +21,7 @@ dependencies:
   - asyncssh>=2.7.2
   - aiounittest>=1.4.1
   - bidict
+  - cachetools>=4.1.0
   - cryptography>=2.8
   - numpy>=1.20.1
   - numpy-base>=1.20.1
@@ -32,7 +33,6 @@ dependencies:
   - ptpython>=3.0.20
   - pydantic>=1.10.4
   - pyperclip>=1.7.0
-  - python-telegram-bot==12.4.2
   - requests>=2.28.2
   - ruamel.yaml>=0.16.10
   - scipy>=1.6.2

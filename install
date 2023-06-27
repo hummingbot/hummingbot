@@ -8,6 +8,7 @@ echo "*** Installing Conda environment for Hummingbot ***"
 
 find_conda_exe CONDA_EXE
 
+CONDA_BIN=$(dirname ${CONDA_EXE})
 CONDA_AGENT=$(${CONDA_EXE} info --json | jq -r '.user_agent')
 
 _ENV_DIR="setup"
@@ -26,9 +27,7 @@ fi
 # Record updated environment file
 ${CONDA_EXE} env export -n ${ENV_NAME} > "${_ENV_DIR}/post_install_${ENV_FILE}"
 
-# What was this supposed to do? CONDA_BIN is likely not a correct path anyway
-# source "${CONDA_BIN}/activate" ${ENV_NAME}
-${CONDA_EXE} activate ${ENV_NAME}
+source "${CONDA_BIN}/activate" ${ENV_NAME}
 
 # Installing conflicting pip packages without their dependencies
 # They could override the environment plan with conda
