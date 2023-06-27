@@ -15,6 +15,7 @@ from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketEvent, OrderExpiredEvent, SellOrderCreatedEvent
 from hummingbot.core.mock_api.mock_mqtt_server import FakeMQTTBroker
+from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.model.order import Order
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.remote_iface.mqtt import MQTTGateway, MQTTMarketEventForwarder
@@ -29,6 +30,7 @@ class RemoteIfaceMQTTTests(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        AsyncCallScheduler.shared_instance().reset_event_loop()
         cls.instance_id = 'TEST_ID'
         cls.fake_err_msg = "Some error"
         cls.client_config_map = ClientConfigAdapter(ClientConfigMap())
@@ -67,6 +69,7 @@ class RemoteIfaceMQTTTests(TestCase):
         cls.client_config_map.instance_id = cls.prev_instance_id
         del cls.fake_mqtt_broker
         super().tearDownClass()
+        AsyncCallScheduler.shared_instance().reset_event_loop()
 
     def setUp(self) -> None:
         super().setUp()
