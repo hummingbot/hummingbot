@@ -110,6 +110,7 @@ class RemoteIfaceMQTTTests(TestCase):
         self.patch_loggers_mock.return_value = None
 
     def tearDown(self):
+        self.ev_loop.run_until_complete(asyncio.sleep(0.1))
         self.gateway.stop()
         del self.gateway
         self.ev_loop.run_until_complete(asyncio.sleep(0.1))
@@ -824,6 +825,7 @@ class RemoteIfaceMQTTTests(TestCase):
         self.ev_loop.run_until_complete(self.wait_for_rcv(topic, msg, msg_key='data'))
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
         self.hbapp.strategy = None
+        self.ev_loop.run_until_complete(asyncio.sleep(0.2))
 
     @patch("hummingbot.client.command.status_command.StatusCommand.strategy_status", new_callable=AsyncMock)
     def test_mqtt_command_status_sync(
@@ -855,6 +857,7 @@ class RemoteIfaceMQTTTests(TestCase):
         msg = {'status': 400, 'msg': 'No strategy is currently running!', 'data': ''}
         self.ev_loop.run_until_complete(self.wait_for_rcv(topic, msg, msg_key='data'))
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
+        self.ev_loop.run_until_complete(asyncio.sleep(0.2))
 
     def test_mqtt_command_stop_sync(self):
         self.start_mqtt()
