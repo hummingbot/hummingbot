@@ -215,7 +215,11 @@ class MQTTCommands:
                 invalid_params = []
                 for param in msg.params:
                     if param[0] in self._hb_app.configurable_keys():
-                        self._hb_app.config(param[0], param[1])
+                        self._ev_loop.call_soon_threadsafe(
+                            self._hb_app.config,
+                            param[0],
+                            param[1]
+                        )
                         response.changes.append((param[0], param[1]))
                     else:
                         invalid_params.append(param[0])
