@@ -4,26 +4,31 @@ cd $(dirname $0)
 
 source common_install.sh
 
+echo "*** Installing Conda environment for Hummingbot ***"
+
 find_conda_exe CONDA_EXE
 
-CONDA_BIN=$(dirname ${CONDA_EXE})
 CONDA_AGENT=$(${CONDA_EXE} info --json | jq -r '.user_agent')
 
-echo "*** Installing environment Conda environment for Hummingbot ***"
+_ENV_DIR="setup"
+ENV_FILE="environment.yml"
 
-ENV_FILE="setup/environment.yml"
+ENV_FILE=$(get_env_file "${_ENV_DIR}/${ENV_FILE}")
 
-ENV_FILE=$(get_env_file ${ENV_FILE})
-
-ENV_NAME=$(get_env_name ${ENV_FILE})
+ENV_NAME=$(get_env_name "${_ENV_DIR}/${ENV_FILE}")
 
 if ${CONDA_EXE} env list | awk '{ print $1 }' | egrep -e "^${ENV_NAME}$" 1>/dev/null; then
-    ${CONDA_EXE} env update -f $ENV_FILE --prune
+    ${CONDA_EXE} env update -f "${_ENV_DIR}/${ENV_FILE}" --prune
 else
-    ${CONDA_EXE} env create -f $ENV_FILE
+    ${CONDA_EXE} env create -f "${_ENV_DIR}/${ENV_FILE}"
 fi
 
-source "${CONDA_BIN}/activate" ${ENV_NAME}
+# Record updated environment file
+${CONDA_EXE} env export -n ${ENV_NAME} > "${_ENV_DIR}/post_install_${ENV_FILE}"
+
+# What was this supposed to do? CONDA_BIN is likely not a correct path anyway
+# source "${CONDA_BIN}/activate" ${ENV_NAME}
+${CONDA_EXE} activate ${ENV_NAME}
 
 # Installing conflicting pip packages without their dependencies
 # They could override the environment plan with conda

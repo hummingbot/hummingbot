@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# Compatibility logic for older Anaconda versions.
 find_conda_exe() {
     local -n _conda_exe=$1
 
@@ -29,8 +28,9 @@ find_conda_exe() {
     fi
 
     # Finding the latest version of conda
+    echo -n "   " >&2
     for c in ${conda_exes}; do
-      echo "Checking conda executable: ${c}" >&2
+      echo -n "." >&2
       current_version=$(${c} info --json 2>/dev/null | jq -r --arg version $selected_version '
         .conda_version | split(".") | map(tonumber) as $current_version
         | ($version | split(".") | map(tonumber)) as $version
@@ -47,6 +47,7 @@ find_conda_exe() {
         selected_version=${current_version}
       fi
     done
+    echo "." >&2
 
     _conda_exe=${selected_conda_exe}
 
@@ -55,14 +56,18 @@ find_conda_exe() {
         echo "See: https://www.anaconda.com/distribution/"
         exit 1
     fi
+
+    echo "Selected: ${selected_conda_exe}" >&2
 }
 
 get_env_file() {
     local env_file=$1
-    local env_dir=$(dirname ${env_file})
+
+    cd $(dirname $PWD/${env_file})
     local env_ext="${env_file##*.}"
 
-    local files=( $(find ${env_dir} -type f -name "*.${env_ext}" | tac) )
+    echo "Available environments:" >&2
+    local files=( $(find . -type f -name "*.${env_ext}" | tac) )
     local i=1
     for file in "${files[@]}"; do
         echo "   ${i}: ${file}" >&2
@@ -88,6 +93,7 @@ get_env_file() {
 
 get_env_name() {
     local env_file=$1
+
     local valid_env_name=$(grep  'name:' ${env_file} | tail -n1 | awk '{ print $2}')
     local response
     read -t 10 -p "Enter environment name [${valid_env_name}](10s wait): " response
