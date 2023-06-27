@@ -67,7 +67,7 @@ get_env_file() {
     local env_ext="${env_file##*.}"
 
     echo "Available environments:" >&2
-    local files=( $(find . -type f -name "*.${env_ext}" | tac) )
+    local files=( $(find . -type f -name "*.${env_ext}" -printf '%f\n' | tac) )
     local i=1
     for file in "${files[@]}"; do
         echo "   ${i}: ${file}" >&2
