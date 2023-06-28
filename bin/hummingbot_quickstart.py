@@ -147,12 +147,14 @@ def main():
             return
     else:
         secrets_manager = secrets_manager_cls(args.config_password)
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+
     try:
-        loop.run_until_complete(quick_start(args, secrets_manager))
-    except KeyboardInterrupt:
-        pass
+        ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+    except Exception:
+        ev_loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
+        asyncio.set_event_loop(ev_loop)
+
+    ev_loop.run_until_complete(quick_start(args, secrets_manager))
 
 
 if __name__ == "__main__":

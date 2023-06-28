@@ -15,6 +15,7 @@ from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketEvent, OrderExpiredEvent, SellOrderCreatedEvent
 from hummingbot.core.mock_api.mock_mqtt_server import FakeMQTTBroker
+from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 from hummingbot.model.order import Order
 from hummingbot.model.trade_fill import TradeFill
 from hummingbot.remote_iface.mqtt import MQTTGateway, MQTTMarketEventForwarder
@@ -29,6 +30,7 @@ class RemoteIfaceMQTTTests(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        AsyncCallScheduler.shared_instance().reset_event_loop()
         cls.instance_id = 'TEST_ID'
         cls.fake_err_msg = "Some error"
         cls.client_config_map = ClientConfigAdapter(ClientConfigMap())
@@ -67,6 +69,7 @@ class RemoteIfaceMQTTTests(TestCase):
         cls.client_config_map.instance_id = cls.prev_instance_id
         del cls.fake_mqtt_broker
         super().tearDownClass()
+        AsyncCallScheduler.shared_instance().reset_event_loop()
 
     def setUp(self) -> None:
         super().setUp()
@@ -107,6 +110,7 @@ class RemoteIfaceMQTTTests(TestCase):
         self.patch_loggers_mock.return_value = None
 
     def tearDown(self):
+        self.ev_loop.run_until_complete(asyncio.sleep(0.1))
         self.gateway.stop()
         del self.gateway
         self.ev_loop.run_until_complete(asyncio.sleep(0.1))
@@ -821,6 +825,7 @@ class RemoteIfaceMQTTTests(TestCase):
         self.ev_loop.run_until_complete(self.wait_for_rcv(topic, msg, msg_key='data'))
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
         self.hbapp.strategy = None
+        self.ev_loop.run_until_complete(asyncio.sleep(0.2))
 
     @patch("hummingbot.client.command.status_command.StatusCommand.strategy_status", new_callable=AsyncMock)
     def test_mqtt_command_status_sync(
@@ -852,6 +857,7 @@ class RemoteIfaceMQTTTests(TestCase):
         msg = {'status': 400, 'msg': 'No strategy is currently running!', 'data': ''}
         self.ev_loop.run_until_complete(self.wait_for_rcv(topic, msg, msg_key='data'))
         self.assertTrue(self.is_msg_received(topic, msg, msg_key='data'))
+        self.ev_loop.run_until_complete(asyncio.sleep(0.2))
 
     def test_mqtt_command_stop_sync(self):
         self.start_mqtt()
