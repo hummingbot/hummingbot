@@ -88,14 +88,15 @@ class BaseTradingStrategyConfigMapTest(TestCase):
         self.assertTrue(str(e.exception).startswith(error_msg))
 
     def test_jason_schema_includes_all_connectors_for_exchange_field(self):
-
         schema = BaseTradingStrategyConfigMap.schema_json()
         schema_dict = json.loads(schema)
 
         self.assertIn("Exchanges", schema_dict["definitions"])
-        expected_connectors = [connector_setting.name for connector_setting in
-                               AllConnectorSettings.get_connector_settings().values()
-                               if connector_setting.type in [ConnectorType.Exchange, ConnectorType.CLOB_SPOT]]
+        expected_connectors = [
+            connector_setting.name for connector_setting in
+            AllConnectorSettings.get_connector_settings().values()
+            if connector_setting.type in [ConnectorType.Exchange, ConnectorType.CLOB_SPOT, ConnectorType.CLOB_PERP]
+        ]
         expected_connectors.extend(settings.PAPER_TRADE_EXCHANGES)
         expected_connectors.sort()
         self.assertEqual(expected_connectors, schema_dict["definitions"]["Exchanges"]["enum"])
@@ -104,27 +105,29 @@ class BaseTradingStrategyConfigMapTest(TestCase):
 class BaseTradingStrategyMakerTakerConfigMapTests(TestCase):
 
     def test_maker_field_jason_schema_includes_all_connectors_for_exchange_field(self):
-
         schema = BaseTradingStrategyMakerTakerConfigMap.schema_json()
         schema_dict = json.loads(schema)
 
         self.assertIn("MakerMarkets", schema_dict["definitions"])
-        expected_connectors = [connector_setting.name for connector_setting in
-                               AllConnectorSettings.get_connector_settings().values()
-                               if connector_setting.type in [ConnectorType.Exchange, ConnectorType.CLOB_SPOT]]
+        expected_connectors = [
+            connector_setting.name for connector_setting in
+            AllConnectorSettings.get_connector_settings().values()
+            if connector_setting.type in [ConnectorType.Exchange, ConnectorType.CLOB_SPOT, ConnectorType.CLOB_PERP]
+        ]
         expected_connectors.extend(settings.PAPER_TRADE_EXCHANGES)
         expected_connectors.sort()
         self.assertEqual(expected_connectors, schema_dict["definitions"]["MakerMarkets"]["enum"])
 
     def test_taker_field_jason_schema_includes_all_connectors_for_exchange_field(self):
-
         schema = BaseTradingStrategyMakerTakerConfigMap.schema_json()
         schema_dict = json.loads(schema)
 
         self.assertIn("TakerMarkets", schema_dict["definitions"])
-        expected_connectors = [connector_setting.name for connector_setting in
-                               AllConnectorSettings.get_connector_settings().values()
-                               if connector_setting.type in [ConnectorType.Exchange, ConnectorType.CLOB_SPOT]]
+        expected_connectors = [
+            connector_setting.name for connector_setting in
+            AllConnectorSettings.get_connector_settings().values()
+            if connector_setting.type in [ConnectorType.Exchange, ConnectorType.CLOB_SPOT, ConnectorType.CLOB_PERP]
+        ]
         expected_connectors.extend(settings.PAPER_TRADE_EXCHANGES)
         expected_connectors.sort()
         self.assertEqual(expected_connectors, schema_dict["definitions"]["TakerMarkets"]["enum"])

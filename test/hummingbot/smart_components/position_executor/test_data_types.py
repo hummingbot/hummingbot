@@ -1,9 +1,10 @@
 from decimal import Decimal
 from unittest import TestCase
 
-from hummingbot.core.data_type.common import OrderType, PositionSide, TradeType
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.smart_components.position_executor.data_types import (
+    CloseType,
     PositionConfig,
     PositionExecutorStatus,
     TrackedOrder,
@@ -13,13 +14,13 @@ from hummingbot.smart_components.position_executor.data_types import (
 class TestPositionExecutorDataTypes(TestCase):
     def test_position_config_model(self):
         config = PositionConfig(timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
-                                order_type=OrderType.LIMIT,
-                                side=PositionSide.LONG, entry_price=Decimal("100"), amount=Decimal("1"),
+                                open_order_type=OrderType.LIMIT,
+                                side=TradeType.BUY, entry_price=Decimal("100"), amount=Decimal("1"),
                                 stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60)
         self.assertEqual(config.trading_pair, "ETH-USDT")
         self.assertEqual(config.exchange, "binance")
-        self.assertEqual(config.order_type, OrderType.LIMIT)
-        self.assertEqual(config.side, PositionSide.LONG)
+        self.assertEqual(config.open_order_type, OrderType.LIMIT)
+        self.assertEqual(config.side, TradeType.BUY)
         self.assertEqual(config.entry_price, Decimal("100"))
         self.assertEqual(config.amount, Decimal("1"))
         self.assertEqual(config.stop_loss, Decimal("0.05"))
@@ -29,20 +30,22 @@ class TestPositionExecutorDataTypes(TestCase):
     def test_position_executor_status_enum(self):
         self.assertEqual(PositionExecutorStatus.NOT_STARTED.name, "NOT_STARTED")
         self.assertEqual(PositionExecutorStatus.NOT_STARTED.value, 1)
-        self.assertEqual(PositionExecutorStatus.ORDER_PLACED.name, "ORDER_PLACED")
-        self.assertEqual(PositionExecutorStatus.ORDER_PLACED.value, 2)
-        self.assertEqual(PositionExecutorStatus.CANCELED_BY_TIME_LIMIT.name, "CANCELED_BY_TIME_LIMIT")
-        self.assertEqual(PositionExecutorStatus.CANCELED_BY_TIME_LIMIT.value, 3)
         self.assertEqual(PositionExecutorStatus.ACTIVE_POSITION.name, "ACTIVE_POSITION")
-        self.assertEqual(PositionExecutorStatus.ACTIVE_POSITION.value, 4)
-        self.assertEqual(PositionExecutorStatus.CLOSE_PLACED.name, "CLOSE_PLACED")
-        self.assertEqual(PositionExecutorStatus.CLOSE_PLACED.value, 5)
-        self.assertEqual(PositionExecutorStatus.CLOSED_BY_TIME_LIMIT.name, "CLOSED_BY_TIME_LIMIT")
-        self.assertEqual(PositionExecutorStatus.CLOSED_BY_TIME_LIMIT.value, 6)
-        self.assertEqual(PositionExecutorStatus.CLOSED_BY_STOP_LOSS.name, "CLOSED_BY_STOP_LOSS")
-        self.assertEqual(PositionExecutorStatus.CLOSED_BY_STOP_LOSS.value, 7)
-        self.assertEqual(PositionExecutorStatus.CLOSED_BY_TAKE_PROFIT.name, "CLOSED_BY_TAKE_PROFIT")
-        self.assertEqual(PositionExecutorStatus.CLOSED_BY_TAKE_PROFIT.value, 8)
+        self.assertEqual(PositionExecutorStatus.ACTIVE_POSITION.value, 2)
+        self.assertEqual(PositionExecutorStatus.COMPLETED.name, "COMPLETED")
+        self.assertEqual(PositionExecutorStatus.COMPLETED.value, 3)
+
+    def test_position_executor_close_types_enum(self):
+        self.assertEqual(CloseType.TIME_LIMIT.name, "TIME_LIMIT")
+        self.assertEqual(CloseType.TIME_LIMIT.value, 1)
+        self.assertEqual(CloseType.STOP_LOSS.name, "STOP_LOSS")
+        self.assertEqual(CloseType.STOP_LOSS.value, 2)
+        self.assertEqual(CloseType.TAKE_PROFIT.name, "TAKE_PROFIT")
+        self.assertEqual(CloseType.TAKE_PROFIT.value, 3)
+        self.assertEqual(CloseType.EXPIRED.name, "EXPIRED")
+        self.assertEqual(CloseType.EXPIRED.value, 4)
+        self.assertEqual(CloseType.EARLY_STOP.name, "EARLY_STOP")
+        self.assertEqual(CloseType.EARLY_STOP.value, 5)
 
     def test_tracked_order(self):
         order = TrackedOrder()

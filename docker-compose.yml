@@ -1,0 +1,33 @@
+version: "3.9"
+services:
+  hummingbot:
+    container_name: hummingbot
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./conf:/home/hummingbot/conf
+      - ./conf/connectors:/home/hummingbot/conf/connectors
+      - ./conf/strategies:/home/hummingbot/conf/strategies
+      - ./logs:/home/hummingbot/logs
+      - ./data:/home/hummingbot/data
+      - ./scripts:/home/hummingbot/scripts
+    environment:
+      - CONFIG_PASSWORD=a
+      - CONFIG_FILE_NAME=directional_strategy_rsi.py
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: 5
+    tty: true
+    stdin_open: true
+    network_mode: host
+
+  dashboard:
+    container_name: dashboard
+    image: hummingbot/dashboard:latest
+    volumes:
+      - ./data:/home/dashboard/data
+    ports:
+      - "8501:8501"
