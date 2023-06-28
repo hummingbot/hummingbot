@@ -1,19 +1,12 @@
 import unittest
-from decimal import Decimal
 from datetime import datetime
-from mock import MagicMock, PropertyMock
+from decimal import Decimal
+from unittest.mock import MagicMock, PropertyMock
 
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.event.events import (
-    BuyOrderCompletedEvent,
-    MarketEvent,
-    OrderCancelledEvent,
-)
+from hummingbot.core.event.events import BuyOrderCompletedEvent, MarketEvent, OrderCancelledEvent
 from hummingbot.strategy.data_types import OrderType
-from hummingbot.strategy.hanging_orders_tracker import (
-    CreatedPairOfOrders,
-    HangingOrdersTracker,
-)
+from hummingbot.strategy.hanging_orders_tracker import CreatedPairOfOrders, HangingOrdersTracker
 
 
 class TestHangingOrdersTracker(unittest.TestCase):
