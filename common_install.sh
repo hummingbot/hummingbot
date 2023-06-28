@@ -6,7 +6,7 @@ find_conda_exe() {
     rm -f $tmp_file
 
     # Hard-coded paths to Github miniconda
-    local conda_exes=$( \
+    local conda_dirs=$( \
       find /home/runner -type d -exec test -x {}/conda -a -e {}/activate \; -print 2> /dev/null || \
       find ~/.conda -type d -exec test -x {}/conda -a -e {}/activate \; -print 2> /dev/null && \
       find /opt/conda/bin -type d -exec test -x {}/conda -a -e {}/activate \; -print 2> /dev/null && \
@@ -29,9 +29,9 @@ find_conda_exe() {
 
     # Finding the latest version of conda
     echo -n "   " >&2
-    for c in ${conda_exes}; do
+    for c in ${conda_dirs}; do
       echo -n "." >&2
-      current_version=$(${c} info --json 2>/dev/null | jq -r --arg version $selected_version '
+      current_version=$(${c}/conda info --json 2>/dev/null | jq -r --arg version $selected_version '
         .conda_version | split(".") | map(tonumber) as $current_version
         | ($version | split(".") | map(tonumber)) as $version
         | (if $current_version > $version then
@@ -43,7 +43,7 @@ find_conda_exe() {
       ')
 
       if [ "${current_version}_" != "_" ]; then
-        selected_conda_exe=${c}
+        selected_conda_exe=${c}/conda
         selected_version=${current_version}
       fi
     done
