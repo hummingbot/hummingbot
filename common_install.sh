@@ -78,7 +78,7 @@ get_env_file() {
     while true; do
         read -t 10 -p "Enter your choice [1-${#files[@]}]: " user_input
         if [ "${user_input}_" == "_" ]; then
-            echo $env_file
+            echo ${files[0]}
             return
         fi
         if [[ ${user_input} -ge 1 && ${user_input} -le ${#files[@]} ]]; then
