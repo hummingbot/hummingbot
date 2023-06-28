@@ -22,41 +22,37 @@ with open(realpath(join(dirname(__file__), '../../VERSION'))) as version_file:
 def login_prompt(secrets_manager_cls: Type[BaseSecretsManager], style: Style):
     err_msg = None
     secrets_manager = None
-    if Security.new_password_required() and legacy_confs_exist():
-        secrets_manager = migrate_configs_prompt(secrets_manager_cls, style)
     if Security.new_password_required():
-        show_welcome(style)
-        password = input_dialog(
-            title="Set Password",
-            text="""
-    Create a password to protect your sensitive data.
-    This password is not shared with us nor with anyone else, so please store it securely.
-
-    If you have used hummingbot before and already have secure configs stored,
-    input your previous password in this prompt. The next step will automatically
-    migrate your existing configs.
-
-    Enter your new password:""",
-            password=True,
-            style=style).run()
-        if password is None:
-            return None
-        if password == str():
-            err_msg = "The password must not be empty."
+        if legacy_confs_exist():
+            secrets_manager = migrate_configs_prompt(secrets_manager_cls, style)
         else:
-            re_password = input_dialog(
+            show_welcome(style)
+            password = input_dialog(
                 title="Set Password",
-                text="Please re-enter your password:",
+                text="""
+        Create a password to protect your sensitive data.
+        This password is not shared with us nor with anyone else, so please store it securely.
+
+        Enter your new password:""",
                 password=True,
                 style=style).run()
-            if re_password is None:
+            if password is None:
                 return None
-            if password != re_password:
-                err_msg = "Passwords entered do not match, please try again."
+            if password == str():
+                err_msg = "The password must not be empty."
             else:
-                secrets_manager = secrets_manager_cls(password)
-                store_password_verification(secrets_manager)
-                migrate_non_secure_only_prompt(style)
+                re_password = input_dialog(
+                    title="Set Password",
+                    text="Please re-enter your password:",
+                    password=True,
+                    style=style).run()
+                if re_password is None:
+                    return None
+                if password != re_password:
+                    err_msg = "Passwords entered do not match, please try again."
+                else:
+                    secrets_manager = secrets_manager_cls(password)
+                    store_password_verification(secrets_manager)
     else:
         password = input_dialog(
             title="Welcome back to Hummingbot",

@@ -29,6 +29,7 @@ class FoxbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
     _logger: Optional[HummingbotLogger] = None
     _trading_pair_exc_id = {}
     _trading_pair_hb_dict = {}
+    _ORDER_BOOK_INTERVAL = 1.0
 
     def __init__(self,
                  trading_pairs: List[str],
@@ -79,7 +80,7 @@ class FoxbitAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         while (not (instrument_id in self._live_stream_connected) or self._live_stream_connected[instrument_id] is False) and wait_count < 30:
             self.logger().info("Waiting for real time stream before getting a snapshot")
-            await asyncio.sleep(1)
+            await asyncio.sleep(self._ORDER_BOOK_INTERVAL)
             wait_count += 1
 
         symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),

@@ -38,7 +38,6 @@ connector_status = {
     'perpetual_finance': 'bronze',
     'probit': 'bronze',
     'whitebit': 'bronze',
-    'ciex': 'bronze',
     'uniswap': 'gold',
     'uniswapLP': 'gold',
     'pancakeswap': 'bronze',
@@ -62,11 +61,11 @@ connector_status = {
     'zigzag': 'bronze',
     'bit_com_perpetual': 'bronze',
     'bit_com_perpetual_testnet': 'bronze',
-    'hotbit': 'bronze',
     'tinyman': 'bronze',
     'foxbit': 'bronze',
     'phemex_perpetual': 'bronze',
     'phemex_perpetual_testnet': 'bronze',
+    'polkadex': 'bronze',
 }
 
 warning_messages = {

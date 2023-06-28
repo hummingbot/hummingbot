@@ -182,6 +182,10 @@ class TestGateIoExchange(unittest.TestCase):
         )
         return order
 
+    @property
+    def expected_supported_order_types(self):
+        return [OrderType.LIMIT, OrderType.MARKET, OrderType.LIMIT_MAKER]
+
     def get_user_balances_mock(self) -> List:
         user_balances = [
             {
@@ -267,6 +271,10 @@ class TestGateIoExchange(unittest.TestCase):
                 min_base_amount_increment=Decimal(str(0.000001)),
             )
         }
+
+    def test_supported_order_types(self):
+        supported_types = self.exchange.supported_order_types()
+        self.assertEqual(self.expected_supported_order_types, supported_types)
 
     @aioresponses()
     def test_all_trading_pairs(self, mock_api):
@@ -474,6 +482,137 @@ class TestGateIoExchange(unittest.TestCase):
         self.assertEqual(OrderType.LIMIT, create_event.type)
         self.assertEqual(Decimal("1"), create_event.amount)
         self.assertEqual(Decimal("5.1"), create_event.price)
+        self.assertEqual(order_id, create_event.order_id)
+        self.assertEqual(resp["id"], create_event.exchange_order_id)
+
+    @aioresponses()
+    def test_create_limit_maker_order(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+        url = f"{CONSTANTS.REST_URL}/{CONSTANTS.ORDER_CREATE_PATH_URL}"
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        resp = self.get_order_create_response_mock()
+        mock_api.post(regex_url, body=json.dumps(resp), status=201)
+
+        order_id = "someId"
+        self.async_run_with_timeout(
+            coroutine=self.exchange._create_order(
+                trade_type=TradeType.BUY,
+                order_id=order_id,
+                trading_pair=self.trading_pair,
+                amount=Decimal("1"),
+                order_type=OrderType.LIMIT_MAKER,
+                price=Decimal("5.1"),
+            )
+        )
+
+        order_request = next(((key, value) for key, value in mock_api.requests.items()
+                              if key[1].human_repr().startswith(url)))
+        request_data = json.loads(order_request[1][0].kwargs["data"])
+        self.assertEqual(self.ex_trading_pair, request_data["currency_pair"])
+        self.assertEqual(TradeType.BUY.name.lower(), request_data["side"])
+        self.assertEqual("limit", request_data["type"])
+        self.assertEqual(Decimal("1"), Decimal(request_data["amount"]))
+        self.assertEqual(Decimal("5.1"), Decimal(request_data["price"]))
+        self.assertEqual(order_id, request_data["text"])
+
+        self.assertIn(order_id, self.exchange.in_flight_orders)
+
+        self.assertEqual(1, len(self.buy_order_created_logger.event_log))
+        create_event: BuyOrderCreatedEvent = self.buy_order_created_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
+        self.assertEqual(self.trading_pair, create_event.trading_pair)
+        self.assertEqual(OrderType.LIMIT_MAKER, create_event.type)
+        self.assertEqual(Decimal("1"), create_event.amount)
+        self.assertEqual(Decimal("5.1"), create_event.price)
+        self.assertEqual(order_id, create_event.order_id)
+        self.assertEqual(resp["id"], create_event.exchange_order_id)
+
+    @aioresponses()
+    @patch("hummingbot.connector.exchange.gate_io.gate_io_exchange.GateIoExchange.get_price")
+    def test_create_market_order(self, mock_api, get_price_mock):
+        get_price_mock.return_value = Decimal(5.1)
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+        url = f"{CONSTANTS.REST_URL}/{CONSTANTS.ORDER_CREATE_PATH_URL}"
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        resp = self.get_order_create_response_mock()
+        mock_api.post(regex_url, body=json.dumps(resp), status=201)
+
+        order_id = "someId"
+        self.async_run_with_timeout(
+            coroutine=self.exchange._create_order(
+                trade_type=TradeType.BUY,
+                order_id=order_id,
+                trading_pair=self.trading_pair,
+                amount=Decimal("1"),
+                order_type=OrderType.MARKET,
+                price=Decimal("5.1"),
+            )
+        )
+
+        order_request = next(((key, value) for key, value in mock_api.requests.items()
+                              if key[1].human_repr().startswith(url)))
+        request_data = json.loads(order_request[1][0].kwargs["data"])
+        self.assertEqual(self.ex_trading_pair, request_data["currency_pair"])
+        self.assertEqual(TradeType.BUY.name.lower(), request_data["side"])
+        self.assertEqual("market", request_data["type"])
+        self.assertEqual(Decimal("1") * Decimal("5.1"), Decimal(request_data["amount"]))
+        self.assertEqual(order_id, request_data["text"])
+
+        self.assertIn(order_id, self.exchange.in_flight_orders)
+
+        self.assertEqual(1, len(self.buy_order_created_logger.event_log))
+        create_event: BuyOrderCreatedEvent = self.buy_order_created_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
+        self.assertEqual(self.trading_pair, create_event.trading_pair)
+        self.assertEqual(OrderType.MARKET, create_event.type)
+        self.assertEqual(Decimal("1"), create_event.amount)
+        self.assertEqual(order_id, create_event.order_id)
+        self.assertEqual(resp["id"], create_event.exchange_order_id)
+
+    @aioresponses()
+    @patch("hummingbot.connector.exchange.gate_io.gate_io_exchange.GateIoExchange.get_price")
+    @patch("hummingbot.connector.exchange.gate_io.gate_io_exchange.GateIoExchange.get_price_by_type")
+    def test_create_market_order_price_is_nan(self, mock_api, get_price_mock, get_price_by_type_mock):
+        get_price_mock.return_value = None
+        get_price_by_type_mock.return_value = Decimal("5.1")
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+        url = f"{CONSTANTS.REST_URL}/{CONSTANTS.ORDER_CREATE_PATH_URL}"
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        resp = self.get_order_create_response_mock()
+        mock_api.post(regex_url, body=json.dumps(resp), status=201)
+
+        order_id = "someId"
+        self.async_run_with_timeout(
+            coroutine=self.exchange._create_order(
+                trade_type=TradeType.BUY,
+                order_id=order_id,
+                trading_pair=self.trading_pair,
+                amount=Decimal("1"),
+                order_type=OrderType.MARKET,
+                price=Decimal("5.1"),
+            )
+        )
+
+        order_request = next(((key, value) for key, value in mock_api.requests.items()
+                              if key[1].human_repr().startswith(url)))
+        request_data = json.loads(order_request[1][0].kwargs["data"])
+        self.assertEqual(self.ex_trading_pair, request_data["currency_pair"])
+        self.assertEqual(TradeType.BUY.name.lower(), request_data["side"])
+        self.assertEqual("market", request_data["type"])
+        self.assertEqual(Decimal("1") * Decimal("5.1"), Decimal(request_data["amount"]))
+        self.assertEqual(order_id, request_data["text"])
+
+        self.assertIn(order_id, self.exchange.in_flight_orders)
+
+        self.assertEqual(1, len(self.buy_order_created_logger.event_log))
+        create_event: BuyOrderCreatedEvent = self.buy_order_created_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
+        self.assertEqual(self.trading_pair, create_event.trading_pair)
+        self.assertEqual(OrderType.MARKET, create_event.type)
+        self.assertEqual(Decimal("1"), create_event.amount)
         self.assertEqual(order_id, create_event.order_id)
         self.assertEqual(resp["id"], create_event.exchange_order_id)
 
@@ -876,6 +1015,7 @@ class TestGateIoExchange(unittest.TestCase):
         order_status_resp["text"] = order.client_order_id
         order_status_resp["status"] = "closed"
         order_status_resp["left"] = "0"
+        order_status_resp["finish_as"] = "filled"
         mock_api.get(
             regex_order_status_url,
             body=json.dumps(order_status_resp),
@@ -910,6 +1050,73 @@ class TestGateIoExchange(unittest.TestCase):
                 f"BUY order {order.client_order_id} completely filled."
             )
         )
+
+    @aioresponses()
+    def test_update_order_status_when_cancelled(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="EOID1",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order: InFlightOrder = self.exchange.in_flight_orders["OID1"]
+        # Order Status Updates
+        order_status_url = (f"{CONSTANTS.REST_URL}/"
+                            f"{CONSTANTS.ORDER_STATUS_PATH_URL.format(order_id=order.exchange_order_id)}")
+        regex_order_status_url = re.compile(f"^{order_status_url}".replace(".", r"\.").replace("?", r"\?"))
+        order_status_resp = self.get_order_create_response_mock(
+            cancelled=False,
+            exchange_order_id=order.exchange_order_id)
+        order_status_resp["text"] = order.client_order_id
+        order_status_resp["status"] = "closed"
+        order_status_resp["finish_as"] = "cancelled"
+        mock_api.get(
+            regex_order_status_url,
+            body=json.dumps(order_status_resp),
+        )
+        # Simulate the order has been cancelled
+        self.async_run_with_timeout(self.exchange._update_order_status())
+        # self.async_run_with_timeout(order.wait_until_completely_filled())
+
+        self.assertTrue(order.is_done)
+
+    @aioresponses()
+    def test_update_order_status_when_partilly_filled(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="EOID1",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order: InFlightOrder = self.exchange.in_flight_orders["OID1"]
+        # Order Status Updates
+        order_status_url = (f"{CONSTANTS.REST_URL}/"
+                            f"{CONSTANTS.ORDER_STATUS_PATH_URL.format(order_id=order.exchange_order_id)}")
+        regex_order_status_url = re.compile(f"^{order_status_url}".replace(".", r"\.").replace("?", r"\?"))
+        order_status_resp = self.get_order_create_response_mock(
+            cancelled=False,
+            exchange_order_id=order.exchange_order_id)
+        order_status_resp["text"] = order.client_order_id
+        order_status_resp["status"] = "closed"
+        order_status_resp["filled_total"] = "0.5"
+        order_status_resp["finish_as"] = "open"
+        mock_api.get(
+            regex_order_status_url,
+            body=json.dumps(order_status_resp),
+        )
+        # Simulate the order has been cancelled
+        self.async_run_with_timeout(self.exchange._update_order_status())
+        self.assertTrue(order.is_open)
 
     @aioresponses()
     def test_update_order_status_registers_order_not_found(self, mock_api):
@@ -1193,7 +1400,8 @@ class TestGateIoExchange(unittest.TestCase):
                     "gt_fee": "0",
                     "gt_discount": True,
                     "rebated_fee": "0",
-                    "rebated_fee_currency": "USDT"
+                    "rebated_fee_currency": "USDT",
+                    "finish_as": "cancelled",
                 }
             ]
         }
@@ -1333,7 +1541,8 @@ class TestGateIoExchange(unittest.TestCase):
                     "gt_fee": "0",
                     "gt_discount": True,
                     "rebated_fee": "0",
-                    "rebated_fee_currency": "USDT"
+                    "rebated_fee_currency": "USDT",
+                    "finish_as": "filled",
                 }
             ]
         }
@@ -1407,6 +1616,67 @@ class TestGateIoExchange(unittest.TestCase):
                 f"BUY order {order.client_order_id} completely filled."
             )
         )
+
+    def test_user_stream_update_for_order_partially_fill(self):
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange.start_tracking_order(
+            order_id="OID1",
+            exchange_order_id="EOID1",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order = self.exchange.in_flight_orders["OID1"]
+        order.current_state = OrderState.OPEN
+
+        event_message = {
+            "time": 1605175506,
+            "channel": "spot.orders",
+            "event": "update",
+            "result": [
+                {
+                    "id": order.exchange_order_id,
+                    "user": 123456,
+                    "text": order.client_order_id,
+                    "create_time": "1605175506",
+                    "create_time_ms": "1605175506123",
+                    "update_time": "1605175506",
+                    "update_time_ms": "1605175506123",
+                    "event": "finish",
+                    "currency_pair": self.ex_trading_pair,
+                    "type": order.order_type.name.lower(),
+                    "account": "spot",
+                    "side": order.trade_type.name.lower(),
+                    "amount": str(order.amount),
+                    "price": str(order.price),
+                    "time_in_force": "gtc",
+                    "left": "0",
+                    "filled_total": "0.5",
+                    "fee": "0.00200000000000",
+                    "fee_currency": self.quote_asset,
+                    "point_fee": "0",
+                    "gt_fee": "0",
+                    "gt_discount": True,
+                    "rebated_fee": "0",
+                    "rebated_fee_currency": "USDT",
+                    "finish_as": "filled",
+                }
+            ]
+        }
+
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [event_message, asyncio.CancelledError]
+        self.exchange._user_stream_tracker._user_stream = mock_queue
+
+        try:
+            self.async_run_with_timeout(self.exchange._user_stream_event_listener())
+        except asyncio.CancelledError:
+            pass
+
+        self.assertTrue(order.is_open)
+        self.assertEqual(OrderState.OPEN, order.current_state)
 
     def test_user_stream_balance_update(self):
         self.exchange._set_current_timestamp(1640780000)

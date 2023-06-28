@@ -179,6 +179,7 @@ class FoxbitAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(145901, asks[0].price)
         self.assertEqual(8.65827849, asks[0].amount)
 
+    @patch("hummingbot.connector.exchange.foxbit.foxbit_api_order_book_data_source.FoxbitAPIOrderBookDataSource._ORDER_BOOK_INTERVAL", 0.0)
     @aioresponses()
     def test_get_new_order_book_raises_exception(self, mock_api):
         url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL.format(self.trading_pair), domain=self.domain)

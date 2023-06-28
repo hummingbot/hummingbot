@@ -31,11 +31,9 @@ omit =
         hummingbot/core/utils/kill_switch.py
         hummingbot/core/utils/wallet_setup.py
         hummingbot/connector/mock*
-        hummingbot/strategy/aroon_oscillator*
         hummingbot/strategy/*/start.py
         hummingbot/strategy/dev*
-        hummingbot/strategy/hedge*
-        hummingbot/user/user_balances.py        
+        hummingbot/user/user_balances.py
 dynamic_context = test_function
 branch = true
 
