@@ -47,7 +47,7 @@ def main():
         "0x-order-utils",
         "aioconsole",
         "aiohttp",
-        "aiokafka",
+        "asyncssh",
         "appdirs",
         "appnope",
         "async-timeout",
