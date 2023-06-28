@@ -289,7 +289,9 @@ class MQTTCommands:
                 response.msg = 'No strategy is currently running!'
                 return response
             if msg.async_backend:
-                self._hb_app.status()
+                self._ev_loop.call_soon_threadsafe(
+                    self._hb_app.status
+                )
             else:
                 res = call_sync(
                     self._hb_app.strategy_status(),
