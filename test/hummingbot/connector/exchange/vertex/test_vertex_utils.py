@@ -21,7 +21,7 @@ class VertexUtilTestCases(TestCase):
                     "large_position_penalty_x18": "0",
                 },
                 "config": {
-                    "token": "0x5cc7c91690b2cbaee19a513473d73403e13fb431",
+                    "token": "0x5cc7c91690b2cbaee19a513473d73403e13fb431",  # noqa: mock
                     "interest_inflection_util_x18": "800000000000000000",
                     "interest_floor_x18": "10000000000000000",
                     "interest_small_cap_x18": "40000000000000000",

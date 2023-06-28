@@ -25,7 +25,7 @@ class VertexAPIOrderBookDataSource(OrderBookTrackerDataSource):
         trading_pairs: List[str],
         connector: "VertexExchange",
         api_factory: Optional[WebAssistantsFactory] = None,
-        domain: str = CONSTANTS.BASE_URLS[CONSTANTS.DEFAULT_DOMAIN],
+        domain: str = CONSTANTS.DEFAULT_DOMAIN,
         throttler: Optional[AsyncThrottler] = None,
     ):
         super().__init__(trading_pairs)
