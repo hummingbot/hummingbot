@@ -165,15 +165,15 @@ class VertexConfigMap(BaseConnectorConfigMap):
         ),
     )
     # NOTE: Vertex allows for spot leverage
-    vertex_spot_leverage: bool = Field(
-        default=False,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enable spot leverage? This auto-borrows assets against your margin to trade with larger size. Set to True to enable borrowing (default: False).",
-            is_secure=False,
-            is_connect_key=False,
-            prompt_on_new=True,
-        ),
-    )
+    # vertex_spot_leverage: bool = Field(
+    #     default=False,
+    #     client_data=ClientFieldData(
+    #         prompt=lambda cm: "Enable spot leverage? This auto-borrows assets against your margin to trade with larger size. Set to True to enable borrowing (default: False).",
+    #         is_secure=False,
+    #         is_connect_key=False,
+    #         prompt_on_new=True,
+    #     ),
+    # )
 
     class Config:
         title = "vertex"
@@ -203,15 +203,15 @@ class VertexTestnetConfigMap(BaseConnectorConfigMap):
         ),
     )
 
-    vertex_testnet_spot_leverage: bool = Field(
-        default=False,
-        client_data=ClientFieldData(
-            prompt=lambda cm: "Enable spot leverage? This auto-borrows assets against your margin to trade with larger size. Set to True to enable borrowing (default: False).",
-            is_secure=False,
-            is_connect_key=False,
-            prompt_on_new=True,
-        ),
-    )
+    # vertex_testnet_spot_leverage: bool = Field(
+    #     default=False,
+    #     client_data=ClientFieldData(
+    #         prompt=lambda cm: "Enable spot leverage? This auto-borrows assets against your margin to trade with larger size. Set to True to enable borrowing (default: False).",
+    #         is_secure=False,
+    #         is_connect_key=False,
+    #         prompt_on_new=True,
+    #     ),
+    # )
 
     class Config:
         title = "vertex_testnet"

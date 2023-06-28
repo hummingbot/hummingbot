@@ -39,14 +39,13 @@ class VertexExchange(ExchangePyBase):
         client_config_map: "ClientConfigAdapter",
         vertex_arbitrum_address: str,
         vertex_arbitrum_private_key: str,
-        vertex_spot_leverage: bool = False,
         trading_pairs: Optional[List[str]] = None,
         trading_required: bool = True,
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
         self.sender_address = utils.convert_address_to_sender(vertex_arbitrum_address)
         self.private_key = vertex_arbitrum_private_key
-        self._use_spot_leverage = vertex_spot_leverage
+        self._use_spot_leverage = False
         # NOTE: Vertex doesn't submit all balance updates, instead it only updates the product on position change (not cancel)
         self.real_time_balance_update = False
         self._domain = domain

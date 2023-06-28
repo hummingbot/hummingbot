@@ -3,7 +3,7 @@ import json
 import unittest
 from collections.abc import Awaitable
 from decimal import Decimal
-from typing import Dict, Optional, List, Any
+from typing import Any, Dict, List, Optional
 from unittest.mock import AsyncMock, patch
 
 from aioresponses import aioresponses
@@ -117,53 +117,20 @@ class TestVertexExchange(unittest.TestCase):
 
     def get_query_url(self, path: str, endpoint: str) -> str:
         return f"{CONSTANTS.BASE_URLS[self.domain]}{path}?type={endpoint}"
-    
+
     def get_exchange_symbols_mock(self) -> List[Dict[str, Any]]:
         exchange_symbols = [
-            {
-                "product_id": 0,
-                "symbol": "USDC"
-            },
-            {
-                "product_id": 1,
-                "symbol": "BTC"
-            },
-            {
-                "product_id": 2,
-                "symbol": "BTC-PERP"
-            },
-            {
-                "product_id": 3,
-                "symbol": "ETH"
-            },
-            {
-                "product_id": 4,
-                "symbol": "ETH-PERP"
-            },
-            {
-                "product_id": 5,
-                "symbol": "ARB"
-            },
-            {
-                "product_id": 6,
-                "symbol": "ARB-PERP"
-            },
-            {
-                "product_id": 8,
-                "symbol": "BNB-PERP"
-            },
-            {
-                "product_id": 10,
-                "symbol": "XRP-PERP"
-            },
-            {
-                "product_id": 12,
-                "symbol": "SOL-PERP"
-            },
-            {
-                "product_id": 14,
-                "symbol": "MATIC-PERP"
-            }
+            {"product_id": 0, "symbol": "USDC"},
+            {"product_id": 1, "symbol": "BTC"},
+            {"product_id": 2, "symbol": "BTC-PERP"},
+            {"product_id": 3, "symbol": "ETH"},
+            {"product_id": 4, "symbol": "ETH-PERP"},
+            {"product_id": 5, "symbol": "ARB"},
+            {"product_id": 6, "symbol": "ARB-PERP"},
+            {"product_id": 8, "symbol": "BNB-PERP"},
+            {"product_id": 10, "symbol": "XRP-PERP"},
+            {"product_id": 12, "symbol": "SOL-PERP"},
+            {"product_id": 14, "symbol": "MATIC-PERP"},
         ]
         return exchange_symbols
 
@@ -172,26 +139,26 @@ class TestVertexExchange(unittest.TestCase):
             "status": "success",
             "data": {
                 "chain_id": "421613",
-                "endpoint_addr": "0x5956d6f55011678b2cab217cd21626f7668ba6c5",
+                "endpoint_addr": "0x5956d6f55011678b2cab217cd21626f7668ba6c5",  # noqa: mock
                 "book_addrs": [
-                    "0x0000000000000000000000000000000000000000",
-                    "0x939b0915f9c3b657b9e9a095269a0078dd587491",
-                    "0x291b578ff99bfef1706a2018d9dfdd98773e4f3e",
-                    "0x4008c7b762d7000034207bdef628a798065c3dcc",
-                    "0xe5106c497f8398ee8d1d6d246f08c125245d19ff",
-                    "0x49eff6d3de555be7a039d0b86471e3cb454b35de",
-                    "0xc5f223f12d091fba16141d4eeb5d39c5e0e2577c",
-                    "0xe65a493369bc41acebbc1ef7c78b2c12a972184d",
-                    "0x0897fc0e6f293da5e7da70cd296daff588fdbe55",
-                    "0x7a6eb01e393d9e32f4733ffa68c63363894a36bc",
-                    "0xcba84e5d703f604adac66f605383fc1f87a45be8",
-                    "0x5516479d3c4189bdfd0e98282779242068b08c1f",
-                    "0xc5ee375688580a72970eefd7f52e1100bcda3927",
-                    "0x38bafd8d005fe2cbde0761b3cf1fdba25d835fd8",
-                    "0x7c5953ce20d82caf70f00e4ecf9f0e67df3174d0"
-                ]
+                    "0x0000000000000000000000000000000000000000",  # noqa: mock
+                    "0x939b0915f9c3b657b9e9a095269a0078dd587491",  # noqa: mock
+                    "0x291b578ff99bfef1706a2018d9dfdd98773e4f3e",  # noqa: mock
+                    "0x4008c7b762d7000034207bdef628a798065c3dcc",  # noqa: mock
+                    "0xe5106c497f8398ee8d1d6d246f08c125245d19ff",  # noqa: mock
+                    "0x49eff6d3de555be7a039d0b86471e3cb454b35de",  # noqa: mock
+                    "0xc5f223f12d091fba16141d4eeb5d39c5e0e2577c",  # noqa: mock
+                    "0xe65a493369bc41acebbc1ef7c78b2c12a972184d",  # noqa: mock
+                    "0x0897fc0e6f293da5e7da70cd296daff588fdbe55",  # noqa: mock
+                    "0x7a6eb01e393d9e32f4733ffa68c63363894a36bc",  # noqa: mock
+                    "0xcba84e5d703f604adac66f605383fc1f87a45be8",  # noqa: mock
+                    "0x5516479d3c4189bdfd0e98282779242068b08c1f",  # noqa: mock
+                    "0xc5ee375688580a72970eefd7f52e1100bcda3927",  # noqa: mock
+                    "0x38bafd8d005fe2cbde0761b3cf1fdba25d835fd8",  # noqa: mock
+                    "0x7c5953ce20d82caf70f00e4ecf9f0e67df3174d0",  # noqa: mock
+                ],
             },
-            "request_type": "query_contracts"
+            "request_type": "query_contracts",
         }
         return exchange_contracts
 
@@ -1517,10 +1484,10 @@ class TestVertexExchange(unittest.TestCase):
         try:
             self.async_run_with_timeout(self.exchange._get_symbols(), timeout=1)
         except asyncio.CancelledError:
-            pass 
+            pass
         except asyncio.TimeoutError:
             pass
-        
+
         self.assertEqual(int(0), self.exchange._symbols[0]["product_id"])
         self.assertEqual("USDC", self.exchange._symbols[0]["symbol"])
 
@@ -1533,6 +1500,6 @@ class TestVertexExchange(unittest.TestCase):
         try:
             self.async_run_with_timeout(self.exchange._get_contracts(), timeout=2)
         except asyncio.CancelledError:
-            pass 
+            pass
 
         self.assertEqual("0x0000000000000000000000000000000000000000", self.exchange._contracts[0])  # noqa: mock
