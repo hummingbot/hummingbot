@@ -251,7 +251,8 @@ class AscendExExchange(ExchangePyBase):
         if exchange_order.get("code") == 0:
             return (
                 str(exchange_order["data"]["info"]["orderId"]),
-                int(exchange_order["data"]["info"]["timestamp"]) * 1e-3,
+                int(exchange_order["data"]["info"].get("timestamp") or exchange_order["data"]["info"]
+                ["lastExecTime"]) * 1e-3,
             )
         else:
             raise IOError(str(exchange_order))
