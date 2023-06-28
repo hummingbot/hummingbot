@@ -7,11 +7,11 @@ find_conda_exe() {
 
     # Hard-coded paths to Github miniconda
     local conda_exes=$( \
-      find /home/runner -type f -executable -name conda 2> /dev/null || \
-      find ~/.conda -type f -executable -name conda 2> /dev/null && \
-      find /opt/conda/bin -type f -executable -name conda 2> /dev/null && \
-      find /usr/local -type f -executable -name conda 2> /dev/null && \
-      find /root/*conda -type f -executable -name conda 2> /dev/null \
+      find /home/runner -type d -exec test -x {}/conda -a -e {}/activate \; -print 2> /dev/null || \
+      find ~/.conda -type d -exec test -x {}/conda -a -e {}/activate \; -print 2> /dev/null && \
+      find /opt/conda/bin -type d -exec test -x {}/conda -a -e {}/activate \; -print 2> /dev/null && \
+      find /usr/local -type d -exec test -x {}/conda -a -e {}/activate \; -print 2> /dev/null && \
+      find /root/*conda -type d -exec test -x {}/conda -a -e {}/activate \; -print 2> /dev/null \
       )
 
     local selected_version="0.0.0"
@@ -93,6 +93,8 @@ get_env_file() {
 
 get_env_name() {
     local env_file=$1
+
+    cd $(dirname $PWD/${env_file})
 
     local valid_env_name=$(grep  'name:' ${env_file} | tail -n1 | awk '{ print $2}')
     local response
