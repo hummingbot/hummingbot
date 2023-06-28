@@ -146,7 +146,7 @@ class TestGateIoPerpetualAPIUserStreamDataSource(unittest.TestCase):
             "time": int(self.mock_time_provider.time()),
             "channel": CONSTANTS.USER_ORDERS_ENDPOINT_NAME,
             "event": "subscribe",
-            "payload": [self.user_id, self.ex_trading_pair],
+            "payload": [self.user_id, "!all"],
             "auth": {
                 "KEY": self.api_key,
                 "SIGN": '0fb3b313fe07c7d23164a4ae86adf306a48f5787c54b9a7595f0a50a164c01eb54d8de5d5ad65fbc3ea94e60e73446d999d23424e52f715713ee6cb32a7d0df1',# noqa: mock
@@ -157,7 +157,7 @@ class TestGateIoPerpetualAPIUserStreamDataSource(unittest.TestCase):
             "time": int(self.mock_time_provider.time()),
             "channel": CONSTANTS.USER_TRADES_ENDPOINT_NAME,
             "event": "subscribe",
-            "payload": [self.user_id, self.ex_trading_pair],
+            "payload": [self.user_id, "!all"],
             "auth": {
                 "KEY": self.api_key,
                 "SIGN": 'a7681c836307cbb57c7ba7a66862120770c019955953e5ec043fd00e93722d478096f0a8238e3f893dcb3e0f084dc67a2a7ff6e6e08bc1bf0ad80fee57fff113',# noqa: mock
