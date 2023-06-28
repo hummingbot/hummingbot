@@ -1,18 +1,14 @@
 #!/usr/bin/env python
 
 import asyncio
-from async_timeout import timeout
 import logging
-from typing import (
-    Optional,
-    Coroutine,
-    NamedTuple,
-    Callable
-)
+from typing import Callable, Coroutine, NamedTuple, Optional
+
+from async_timeout import timeout
 
 import hummingbot
-from hummingbot.logger import HummingbotLogger
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.logger import HummingbotLogger
 
 
 class AsyncCallSchedulerItem(NamedTuple):
@@ -42,7 +38,7 @@ class AsyncCallScheduler:
         self._coro_queue: asyncio.Queue = asyncio.Queue()
         self._coro_scheduler_task: Optional[asyncio.Task] = None
         self._call_interval: float = call_interval
-        self._ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+        self.reset_event_loop()
 
     @property
     def coro_queue(self) -> asyncio.Queue:
@@ -55,6 +51,9 @@ class AsyncCallScheduler:
     @property
     def started(self) -> bool:
         return self._coro_scheduler_task is not None
+
+    def reset_event_loop(self):
+        self._ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
 
     def start(self):
         if self._coro_scheduler_task is not None:
