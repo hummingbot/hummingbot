@@ -1,6 +1,6 @@
 name: Feature request
-description: Suggest an idea for this project 2.0
-title: "Feature request"
+description: Suggest an idea that will improve the Hummingbot codebase
+title: "SUMMARY OF FEATURE REQUEST"
 labels: enhancement
 body:
  - type: markdown
