@@ -115,7 +115,7 @@ class AscendExExchange(ExchangePyBase):
         return self._trading_required
 
     def supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
     async def get_all_pairs_prices(self) -> Dict[str, Any]:
         """
@@ -225,7 +225,6 @@ class AscendExExchange(ExchangePyBase):
         **kwargs,
     ) -> Tuple[str, float]:
         side = trade_type.name.lower()
-        order_type_str = "limit"
         timestamp = utils.get_ms_timestamp()
         data = {
             "time": timestamp,
@@ -233,9 +232,14 @@ class AscendExExchange(ExchangePyBase):
             "id": order_id,
             "side": side,
             "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
-            "orderType": order_type_str,
-            "orderPrice": str(price),
         }
+        if order_type.is_limit_type():
+            data["orderPrice"] = str(price)
+            data["orderType"] = "limit"
+            data["timeInForce"] = "GTC"
+        else:
+            data["orderType"] = "market"
+            data["timeInForce"] = "IOC"
         if order_type is OrderType.LIMIT_MAKER:
             data["postOnly"] = True
         exchange_order = await self._api_post(
