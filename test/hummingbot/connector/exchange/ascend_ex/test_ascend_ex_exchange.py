@@ -1078,7 +1078,7 @@ class AscendExExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
-        get_price_mock.return_value =  Decimal("10_000")
+        get_price_mock.return_value = Decimal("10_000")
         url = self.order_creation_url
 
         creation_response = self.order_creation_request_successful_mock_response
