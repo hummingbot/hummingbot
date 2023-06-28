@@ -44,8 +44,7 @@ class GateIoPerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         try:
             user_info_symbols = [self._user_id]
-            symbols = [await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                       for trading_pair in self._trading_pairs]
+            symbols = ["!all"]
             user_info_symbols.extend(symbols)
             orders_change_payload = {
                 "time": int(self._time()),
