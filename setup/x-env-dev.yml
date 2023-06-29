@@ -17,7 +17,6 @@ dependencies:
   - setuptools>=50.3.2
   ### Packages used within HB and helping reduce the footprint of pip-installed packages
   - aiohttp>=3.8.4
-  - aiokafka>=0.7.1
   - asyncssh>=2.7.2
   - aiounittest>=1.4.1
   - bidict

@@ -6,7 +6,7 @@ source common_install.sh
 
 echo "*** Installing Conda environment for Hummingbot ***"
 
-find_conda_exe CONDA_EXE
+CONDA_EXE=$(find_conda_exe)
 
 CONDA_BIN=$(dirname ${CONDA_EXE})
 CONDA_AGENT=$(${CONDA_EXE} info --json | jq -r '.user_agent')
@@ -25,7 +25,7 @@ else
 fi
 
 # Record updated environment file
-${CONDA_EXE} env export -n ${ENV_NAME} > "${_ENV_DIR}/post_install_${ENV_FILE}"
+${CONDA_EXE} env export -n ${ENV_NAME} > "${_ENV_DIR}/.installed:${ENV_FILE}"
 
 source "${CONDA_BIN}/activate" ${ENV_NAME}
 
