@@ -56,7 +56,7 @@ class RSISpot(DirectionalStrategyBase):
     candles = [CandlesFactory.get_candle(connector=exchange,
                                          trading_pair=trading_pair,
                                          interval="1m", max_records=150)]
-    markets = {exchange: {trading_pair}}
+    markets = {"binance_paper_trade": {trading_pair}}
 
     def get_signal(self):
         """
@@ -66,9 +66,9 @@ class RSISpot(DirectionalStrategyBase):
         """
         candles_df = self.get_processed_df()
         rsi_value = candles_df.iat[-1, -1]
-        if rsi_value > 70:
+        if rsi_value > 50:
             return -1
-        elif rsi_value < 30:
+        elif rsi_value < 40:
             return 1
         else:
             return 0
