@@ -70,6 +70,7 @@ find_conda_exe() {
 
   echo "conda_exe: ${conda_exe}" >&2
   echo "jq: $(which jq)" >&2
+  echo "jq: $(which conda)" >&2
 
   if [ -z "${conda_exe}" ]; then
       local -a paths=(~/.conda /opt/conda/bin /usr/local /root/*conda)
