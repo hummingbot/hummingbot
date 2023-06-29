@@ -1,9 +1,8 @@
 import asyncio
 import unittest
-from collections import Awaitable
 from decimal import Decimal
 from test.mock.mock_cli import CLIMockingAssistant
-from typing import Union
+from typing import Awaitable, Union
 from unittest.mock import MagicMock, patch
 
 from pydantic import Field
