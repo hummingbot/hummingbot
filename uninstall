@@ -6,7 +6,7 @@ source common_install.sh
 
 echo "*** Un-Installing a Conda environment for Hummingbot ***"
 
-find_conda_exe CONDA_EXE
+CONDA_EXE=$(find_conda_exe)
 
 _ENV_DIR="setup"
 ENV_FILE="environment.yml"
