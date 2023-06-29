@@ -6,7 +6,7 @@ from hummingbot.client.settings import (
     AllConnectorSettings,
     ConnectorType,
     required_exchanges,
-    required_connector_trading_pairs,
+    requried_connector_trading_pairs,
 )
 
 
@@ -27,7 +27,7 @@ def market_validator(value: str) -> None:
 
 def market_on_validated(value: str) -> None:
     connector = uniswap_v3_lp_config_map.get("connector").value
-    required_connector_trading_pairs[connector] = [value]
+    requried_connector_trading_pairs[connector] = [value]
 
 
 def market_prompt() -> str:

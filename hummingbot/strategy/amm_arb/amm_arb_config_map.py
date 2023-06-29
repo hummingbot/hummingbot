@@ -8,7 +8,7 @@ from hummingbot.client.config.config_validators import (
     validate_market_trading_pair,
 )
 from hummingbot.client.config.config_var import ConfigVar
-from hummingbot.client.settings import AllConnectorSettings, required_exchanges, required_connector_trading_pairs
+from hummingbot.client.settings import AllConnectorSettings, required_exchanges, requried_connector_trading_pairs
 
 
 def exchange_on_validated(value: str) -> None:
@@ -21,7 +21,7 @@ def market_1_validator(value: str) -> None:
 
 
 def market_1_on_validated(value: str) -> None:
-    required_connector_trading_pairs[amm_arb_config_map["connector_1"].value] = [value]
+    requried_connector_trading_pairs[amm_arb_config_map["connector_1"].value] = [value]
 
 
 def market_2_validator(value: str) -> None:
@@ -30,7 +30,7 @@ def market_2_validator(value: str) -> None:
 
 
 def market_2_on_validated(value: str) -> None:
-    required_connector_trading_pairs[amm_arb_config_map["connector_2"].value] = [value]
+    requried_connector_trading_pairs[amm_arb_config_map["connector_2"].value] = [value]
 
 
 def market_1_prompt() -> str:
