@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 # Global variables
 required_exchanges: Set[str] = set()
-requried_connector_trading_pairs: Dict[str, List[str]] = {}
+required_connector_trading_pairs: Dict[str, List[str]] = {}
 # Set these two variables if a strategy uses oracle for rate conversion
 required_rate_oracle: bool = False
 rate_oracle_pairs: List[str] = []
@@ -580,7 +580,7 @@ def ethereum_required_trading_pairs() -> List[str]:
     Check if the trading pairs require an ethereum wallet (ERC-20 tokens).
     """
     ret_val = []
-    for conn, t_pair in requried_connector_trading_pairs.items():
+    for conn, t_pair in required_connector_trading_pairs.items():
         if AllConnectorSettings.get_connector_settings()[conn].use_ethereum_wallet:
             ret_val += t_pair
     return ret_val
@@ -591,7 +591,7 @@ def gateway_connector_trading_pairs(connector: str) -> List[str]:
     Returns trading pair used by specified gateway connnector.
     """
     ret_val = []
-    for conn, t_pair in requried_connector_trading_pairs.items():
+    for conn, t_pair in required_connector_trading_pairs.items():
         if AllConnectorSettings.get_connector_settings()[conn].uses_gateway_generic_connector() and \
            conn == connector:
             ret_val += t_pair
