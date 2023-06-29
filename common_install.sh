@@ -71,6 +71,7 @@ find_conda_exe() {
   echo "conda_exe: ${conda_exe}" >&2
   echo "jq: $(which jq)" >&2
   echo "jq: $(which conda)" >&2
+  echo "jq: $(which activate)" >&2
 
   if [ -z "${conda_exe}" ]; then
       local -a paths=(~/.conda /opt/conda/bin /usr/local /root/*conda)
@@ -165,7 +166,7 @@ get_env_file() {
   cd "$(dirname "$(_verify_path "${env_file}")")" || exit
 
   local env_ext="${env_file##*.}"
-  local -a files=($(_list_files_on_pattern "." ".${env_ext}"))
+  local -a files=($(_list_files_on_pattern "." ".${env_ext}")) || exit
   IFS=$'\n' files=($(sort <<<"${files[*]}"))
   unset IFS
 

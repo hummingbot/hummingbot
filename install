@@ -13,7 +13,7 @@ CONDA_BIN=$(dirname ${CONDA_EXE})
 _ENV_DIR="setup"
 ENV_FILE="environment.yml"
 
-ENV_FILE=$(get_env_file "${_ENV_DIR}/${ENV_FILE}")
+ENV_FILE=$(get_env_file "${_ENV_DIR}/${ENV_FILE}") || exit 1
 
 ENV_NAME=$(get_env_name "${_ENV_DIR}/${ENV_FILE}")
 
