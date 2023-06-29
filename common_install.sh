@@ -90,7 +90,6 @@ find_conda_exe() {
   echo "Selected: ${conda_exe}" >&2
   echo "${conda_exe}"
 }
-}
 
 _verify_path() {
   local path="$1"
