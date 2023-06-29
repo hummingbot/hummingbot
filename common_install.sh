@@ -67,7 +67,13 @@ _find_latest_conda_version() {
 
 find_conda_exe() {
   # Github miniconda path
-  local conda_exe=$(_find_conda_in_dir "/usr/share/miniconda")
+  local conda_exe=$(_find_conda_in_dir "/home/runner")
+
+  echo "conda_exe: ${conda_exe}" >&2
+  echo "CONDA_PATH: ${CONDA_PATH}" >&2
+  echo "CONDA_EXE: ${CONDA_EXE}" >&2
+  echo "CONDA: ${CONDA}" >&2
+
 
   if [ -z "${conda_exe}" ]; then
       local -a paths=(~/.conda /opt/conda/bin /usr/share /usr/local /root/*conda)
