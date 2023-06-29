@@ -6,7 +6,7 @@ source $(dirname "$0")/common_install.sh
 
 echo "*** Un-Installing a Conda environment for Hummingbot ***"
 
-CONDA_EXE=$(find_conda_exe)
+CONDA_EXE=$(find_conda_exe) || exit 1
 
 _ENV_DIR="setup"
 ENV_FILE="environment.yml"

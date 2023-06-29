@@ -3,10 +3,11 @@
 # Function to find conda in the hard-coded Github miniconda path
 _find_conda_in_dir() {
     local github_path="$1"
+    local maxdepth=$2 || 5
 
     while IFS= read -r -d $'\0'; do
         conda_runner_path="$REPLY"
-    done < <(find "${github_path}" -maxdepth 5 -type d -exec sh -c '[ -x "$0"/conda ] && [ -e "$0"/activate ]' {} \; -print0 2> /dev/null)
+    done < <(find "${github_path}" -maxdepth "${maxdepth}" -type d -exec sh -c '[ -x "$0"/conda ] && [ -e "$0"/activate ]' {} \; -print0 2> /dev/null)
 
     if [[ -n "$conda_runner_path" ]]; then
       echo "${conda_runner_path}/conda"
@@ -80,8 +81,8 @@ find_conda_exe() {
   fi
 
   if [ -z "${conda_exe}" ]; then
-    echo "Please install Anaconda w/ Python 3.10+ first"
-    echo "See: https://www.anaconda.com/distribution/"
+    echo "Please install Anaconda w/ Python 3.10+ first" >&2
+    echo "See: https://www.anaconda.com/distribution/" >&2
     exit 1
   fi
 
