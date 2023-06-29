@@ -2,14 +2,13 @@
 
 cd $(dirname $0)
 
-source common_install.sh
+source $(dirname "$0")/common_install.sh
 
 echo "*** Installing Conda environment for Hummingbot ***"
 
 CONDA_EXE=$(find_conda_exe)
 
 CONDA_BIN=$(dirname ${CONDA_EXE})
-CONDA_AGENT=$(${CONDA_EXE} info --json | jq -r '.user_agent')
 
 _ENV_DIR="setup"
 ENV_FILE="environment.yml"
