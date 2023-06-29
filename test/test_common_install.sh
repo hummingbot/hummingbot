@@ -239,10 +239,10 @@ test_find_conda_exe_in_github() {
 
 test_find_conda_exe() {
   _find_conda_in_paths() {
-    if [ $# -ge 4 ]  # ~/.conda /opt/conda/bin /usr/local /root/*conda*/bin + paths
+    if [ $# -ge 5 ]  # ~/.conda /opt/conda/bin /usr/share /usr/local /root/*conda*/bin + paths
     then
       paths=()
-      for ((i=4; i<${#}; i++)); do
+      for ((i=5; i<${#}; i++)); do
         paths+="${@:i+1:1}/conda"
       done
       echo "${test_dir1}/conda ${test_dir2}/conda ${test_dir3}/conda ${paths[@]}"

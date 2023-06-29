@@ -66,15 +66,11 @@ _find_latest_conda_version() {
 }
 
 find_conda_exe() {
-  local conda_exe=$(_find_conda_in_dir "/home/runner" 10)
-
-  echo "conda_exe: ${conda_exe}" >&2
-  echo "jq: $(which jq)" >&2
-  echo "jq: $(which conda)" >&2
-  echo "jq: $(which activate)" >&2
+  # Github miniconda path
+  local conda_exe=$(_find_conda_in_dir "/usr/share/miniconda")
 
   if [ -z "${conda_exe}" ]; then
-      local -a paths=(~/.conda /opt/conda/bin /usr/local /root/*conda)
+      local -a paths=(~/.conda /opt/conda/bin /usr/share /usr/local /root/*conda)
       if [[ -n "${CONDA_PATH}" ]]; then
         paths+=("${CONDA_PATH}")
       fi
@@ -93,6 +89,7 @@ find_conda_exe() {
 
   echo "Selected: ${conda_exe}" >&2
   echo "${conda_exe}"
+}
 }
 
 _verify_path() {
