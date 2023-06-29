@@ -67,7 +67,7 @@ _find_latest_conda_version() {
 
 find_conda_exe() {
   # Github miniconda path
-  local conda_exe=$(_find_conda_in_dir "/home/runner" 10)
+  local conda_exe=$(_find_conda_in_dir "/home" 10)
 
   echo "conda_exe: ${conda_exe}" >&2
   echo "CONDA_PATH: ${CONDA_PATH}" >&2
