@@ -39,3 +39,9 @@ debug_price_shim: false
 
 # After how many seconds should blockchain transactions be cancelled if they are not included in a block?
 gateway_transaction_cancel_interval: 600
+
+# What rate source should be used for quote assets pair - between fixed_rate_source and rate_oracle_source?
+conversion_rate_source: null
+
+# When fixed_rate_source is configured as the conversion_rate_source, what's the quote2-quote1 fixed conversion rate?
+fixed_rate_source_quotes_rate: null
