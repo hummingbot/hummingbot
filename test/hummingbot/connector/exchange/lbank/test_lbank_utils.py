@@ -1,7 +1,7 @@
 import json
 import unittest
+from unittest.mock import MagicMock, patch
 
-from mock.mock import MagicMock, patch
 from pydantic import SecretStr, ValidationError, validate_model
 
 from hummingbot.connector.exchange.lbank.lbank_auth import LbankAuth
