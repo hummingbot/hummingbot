@@ -39,6 +39,8 @@ dependencies:
   - sqlalchemy>=1.4,<1.4.99
   - tabulate>=0.8.9
   - ujson>=1.35
+  # This needs to be restricted to <2.0 - tests fail otherwise
+  - urllib3>=1.26.6,<2.0
   - websockets>=9.1
   - yaml
   - zlib>=1.2.11

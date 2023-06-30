@@ -2,12 +2,30 @@
 
 # Function to find conda in the hard-coded Github miniconda path
 _find_conda_in_dir() {
-    local root_path="$1"
-    local maxdepth=$2 || 5
+    local root_path=$1
+    local maxdepth=$2
+
+    if [[ ! -d "${root_path}" ]]; then
+      return
+    fi
+
+    if [[ -x "${root_path}/conda" ]] && [[ -e "${root_path}/activate" ]]; then
+      echo "${root_path}/conda"
+      return
+    fi
+
+    if [[ -z "${maxdepth}" ]]; then
+      maxdepth=5
+    fi
 
     while IFS= read -r -d $'\0'; do
-        conda_runner_path="$REPLY"
-    done < <(find "${root_path}" -maxdepth "${maxdepth}" -type d -exec sh -c '[ -x "$0"/conda ] && [ -e "$0"/activate ]' {} \; -print0 2> /dev/null)
+      conda_runner_path="$REPLY"
+    done < <(find "${root_path}" \
+               -maxdepth "${maxdepth}" \
+               -type d \
+               -exec sh -c '[ -x "$0"/conda ] && [ -e "$0"/activate ]' {} \; \
+               -print0 \
+            2> /dev/null)
 
     if [[ -n "$conda_runner_path" ]]; then
       echo "${conda_runner_path}/conda"
@@ -71,10 +89,9 @@ find_conda_exe() {
 
   if [ -z "${conda_exe}" ]; then
     local -a paths=( \
-      ~/.conda \
-      /opt/conda/bin \
       "/usr/share/*conda*" \
       /usr/local \
+      /opt \
       "/root/*conda*" \
     )
     if [[ -n "${CONDA_PATH}" ]]; then

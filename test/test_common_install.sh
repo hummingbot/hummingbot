@@ -572,7 +572,7 @@ run_test_cases_common_install() {
     exit 1
   fi
 
-  test__select_index_from_list
+  test__select_index_from_list 2> /dev/null >1 /dev/null
   if [ $? -ne 0 ]; then
     echo "FAIL: test__select_index_from_list"
     exit 1

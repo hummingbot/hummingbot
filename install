@@ -7,7 +7,6 @@ source $(dirname "$0")/common_install.sh
 echo "*** Installing Conda environment for Hummingbot ***"
 
 CONDA_EXE=$(find_conda_exe) || exit 1
-
 CONDA_BIN=$(dirname ${CONDA_EXE})
 
 _ENV_DIR="setup"
@@ -24,12 +23,12 @@ else
 fi
 
 # Record updated environment file
-${CONDA_EXE} env export -n ${ENV_NAME} > "${_ENV_DIR}/.installed:${ENV_FILE}"
+${CONDA_EXE} env export -n ${ENV_NAME} > "${_ENV_DIR}/x-installed:${ENV_FILE}"
 
 source "${CONDA_BIN}/activate" ${ENV_NAME}
 
 # Installing conflicting pip packages without their dependencies
 # They could override the environment plan with conda
 echo "Installing conflicting pip packages without their dependencies"
-pip install --no-deps -r setup/pip_packages.txt 1> logs/pip_install.log 2>&1
+python -m pip install --no-deps -r setup/pip_packages.txt 1> logs/pip_install.log 2>&1
 pre-commit install
