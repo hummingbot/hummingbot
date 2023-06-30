@@ -1,4 +1,4 @@
-name: hummingbot-development
+name: hummingbot
 channels:
   - conda-forge
   - defaults

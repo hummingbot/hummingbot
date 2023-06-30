@@ -69,17 +69,13 @@ find_conda_exe() {
   # Github miniconda path
   local conda_exe=$(_find_conda_in_dir "/usr/share/miniconda/bin" 2)
 
-  echo "conda_exe: ${conda_exe}" >&2
-  echo "whereis: $(find /usr/share/miniconda/bin -name conda -o -name activate)" >&2
-
-
   if [ -z "${conda_exe}" ]; then
     local -a paths=( \
       ~/.conda \
       /opt/conda/bin \
-      /usr/share \
+      "/usr/share/*conda*" \
       /usr/local \
-      /root/*conda \
+      "/root/*conda*" \
     )
     if [[ -n "${CONDA_PATH}" ]]; then
       paths+=("${CONDA_PATH}")
