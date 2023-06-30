@@ -67,7 +67,7 @@ _find_latest_conda_version() {
 
 find_conda_exe() {
   # Github miniconda path
-  local conda_exe=$(_find_conda_in_dir "/home" 10)
+  local conda_exe=$(_find_conda_in_dir "/usr/share/miniconda/bin" 2)
 
   echo "conda_exe: ${conda_exe}" >&2
   echo "CONDA_PATH: ${CONDA_PATH}" >&2
@@ -77,15 +77,21 @@ find_conda_exe() {
 
 
   if [ -z "${conda_exe}" ]; then
-      local -a paths=(~/.conda /opt/conda/bin /usr/share /usr/local /root/*conda)
-      if [[ -n "${CONDA_PATH}" ]]; then
-        paths+=("${CONDA_PATH}")
-      fi
-      if [[ -n "${CONDA_EXE}" ]]; then
-        paths+=($(dirname "${CONDA_EXE}"))
-      fi
-      local conda_dirs=($(_find_conda_in_paths "${paths[@]}"))
-      conda_exe=$(_find_latest_conda_version "${conda_dirs[@]}")
+    local -a paths=( \
+      ~/.conda \
+      /opt/conda/bin \
+      /usr/share \
+      /usr/local \
+      /root/*conda \
+    )
+    if [[ -n "${CONDA_PATH}" ]]; then
+      paths+=("${CONDA_PATH}")
+    fi
+    if [[ -n "${CONDA_EXE}" ]]; then
+      paths+=($(dirname "${CONDA_EXE}"))
+    fi
+    local conda_dirs=($(_find_conda_in_paths "${paths[@]}"))
+    conda_exe=$(_find_latest_conda_version "${conda_dirs[@]}")
   fi
 
   if [ -z "${conda_exe}" ]; then
