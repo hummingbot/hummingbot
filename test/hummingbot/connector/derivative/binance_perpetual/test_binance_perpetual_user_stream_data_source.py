@@ -203,6 +203,7 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
         result: bool = self.async_run_with_timeout(self.data_source.ping_listen_key())
         self.assertTrue(result)
 
+    # @unittest.skip("Test with error")
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_create_websocket_connection_log_exception(self, mock_api, mock_ws):

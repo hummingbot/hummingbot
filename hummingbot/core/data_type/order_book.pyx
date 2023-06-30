@@ -13,7 +13,6 @@ from typing import (
 
 import numpy as np
 import pandas as pd
-from aiokafka import ConsumerRecord
 
 from cython.operator cimport(
     address as ref,
@@ -475,14 +474,6 @@ cdef class OrderBook(PubSub):
 
     def get_quote_volume_for_price(self, is_buy: bool, price: float) -> OrderBookQueryResult:
         return self.c_get_quote_volume_for_price(is_buy, price)
-
-    @classmethod
-    def snapshot_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict] = None) -> OrderBookMessage:
-        pass
-
-    @classmethod
-    def diff_message_from_kafka(cls, record: ConsumerRecord, metadata: Optional[Dict] = None) -> OrderBookMessage:
-        pass
 
     def restore_from_snapshot_and_diffs(self, snapshot: OrderBookMessage, diffs: List[OrderBookMessage]):
         replay_position = bisect.bisect_right(diffs, snapshot)
