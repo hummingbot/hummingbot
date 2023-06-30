@@ -72,8 +72,8 @@ find_conda_exe() {
   echo "conda_exe: ${conda_exe}" >&2
   echo "CONDA_PATH: ${CONDA_PATH}" >&2
   echo "CONDA_EXE: ${CONDA_EXE}" >&2
-  echo "CONDA: ${CONDA}" >&2
-  echo "whereis: $(whereis conda)" >&2
+  echo "CONDA: $(ls -l /usr/bin/conda)" >&2
+  echo "whereis: $(find /usr/share/miniconda)" >&2
 
 
   if [ -z "${conda_exe}" ]; then
