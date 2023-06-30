@@ -23,8 +23,8 @@ def start(self):
     concurrent_orders_submission = amm_arb_config_map.get("concurrent_orders_submission").value
     debug_price_shim = amm_arb_config_map.get("debug_price_shim").value
     gateway_transaction_cancel_interval = amm_arb_config_map.get("gateway_transaction_cancel_interval").value
-    conversion_rate_source = amm_arb_config_map.get("conversion_rate_source").value
-    fixed_rate_source_quotes_rate = amm_arb_config_map.get("fixed_rate_source_quotes_rate").value
+    rate_oracle_enabled = amm_arb_config_map.get("rate_oracle_enabled").value
+    fixed_conversion_rate = amm_arb_config_map.get("fixed_conversion_rate").value
 
     self._initialize_markets([(connector_1, [market_1]), (connector_2, [market_2])])
     base_1, quote_1 = market_1.split("-")
@@ -56,13 +56,11 @@ def start(self):
         )
 
     rate_source = None
-    if conversion_rate_source == "rate_oracle_source":
+    if rate_oracle_enabled:
         rate_source = RateOracle.get_instance()
-    elif conversion_rate_source == "fixed_rate_source":
-        rate_source = FixedRateSource()
-        rate_source.add_rate(f"{quote_2}-{quote_1}", Decimal(str(fixed_rate_source_quotes_rate)))   # reverse rate is already handled in FixedRateSource find_rate method.
     else:
-        raise ValueError(f"Invalid conversion rate source: {conversion_rate_source}")
+        rate_source = FixedRateSource()
+        rate_source.add_rate(f"{quote_2}-{quote_1}", Decimal(str(fixed_conversion_rate)))   # reverse rate is already handled in FixedRateSource find_rate method.
 
     self.strategy = AmmArbStrategy()
     self.strategy.init_params(market_info_1=market_info_1,

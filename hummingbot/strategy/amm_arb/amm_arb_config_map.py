@@ -157,18 +157,19 @@ amm_arb_config_map = {
         default=600,
         validator=lambda v: validate_int(v, min_value=1, inclusive=True),
         type_str="int"),
-    "conversion_rate_source": ConfigVar(
-        key="conversion_rate_source",
-        prompt="What is the source of conversion rate? (rate_oracle_source/fixed_rate_source) >>> ",
+    "rate_oracle_enabled": ConfigVar(
+        key="rate_oracle_enabled",
+        prompt="Do you want to use the rate oracle? (Yes/No) If No, the bot will use "
+               "fixed rate source for conversion rates >>> ",
         prompt_on_new=True,
-        default="rate_oracle_source",
-        validator=conversion_rate_source_validator,
-        type_str="str"),
-    "fixed_rate_source_quotes_rate": ConfigVar(
-        key="fixed_rate_source_quotes_rate",
+        default=False,
+        validator=validate_bool,
+        type_str="bool"),
+    "fixed_conversion_rate": ConfigVar(
+        key="fixed_conversion_rate",
         prompt=f"What is the fixed conversion rate for the quote assets pair {get_quotes_pair()}? () >>> ",
         required_if=lambda: amm_arb_config_map.get("conversion_rate_source").value == "fixed_rate_source",
         type_str="decimal",
-        validator=lambda v: validate_decimal(v, Decimal("0")),
+        validator=lambda v: validate_decimal(v, Decimal("0"), inclusive=False),
         default=Decimal("1")),
 }
