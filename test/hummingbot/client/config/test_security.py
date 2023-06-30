@@ -6,12 +6,24 @@ from typing import Awaitable
 
 from hummingbot.client.config import config_crypt, config_helpers, security
 from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger, store_password_verification, validate_password
-from hummingbot.client.config.config_helpers import ClientConfigAdapter, get_connector_config_yml_path, save_to_yml
+from hummingbot.client.config.config_helpers import (
+    ClientConfigAdapter,
+    api_keys_from_connector_config_map,
+    get_connector_config_yml_path,
+    save_to_yml,
+)
 from hummingbot.client.config.security import Security
 from hummingbot.connector.exchange.binance.binance_utils import BinanceConfigMap
+from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 
 
 class SecurityTest(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        AsyncCallScheduler.shared_instance().reset_event_loop()
+
     def setUp(self) -> None:
         super().setUp()
         self.ev_loop = asyncio.get_event_loop()
@@ -39,7 +51,12 @@ class SecurityTest(unittest.TestCase):
         self.reset_security()
         super().tearDown()
 
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
+    @classmethod
+    def tearDownClass(cls) -> None:
+        super().tearDownClass()
+        AsyncCallScheduler.shared_instance().reset_event_loop()
+
+    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 3):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
 
@@ -50,6 +67,10 @@ class SecurityTest(unittest.TestCase):
         file_path = get_connector_config_yml_path(self.connector)
         save_to_yml(file_path, config_map)
         return config_map
+
+    @staticmethod
+    def reset_decryption_done():
+        Security._decryption_done = asyncio.Event()
 
     @staticmethod
     def reset_security():
@@ -71,50 +92,61 @@ class SecurityTest(unittest.TestCase):
         another_secrets_manager = ETHKeyFileSecretManger("another-password")
 
         self.assertFalse(validate_password(another_secrets_manager))
-    #
-    # def test_login(self):
-    #     password = "som-password"
-    #     secrets_manager = ETHKeyFileSecretManger(password)
-    #     store_password_verification(secrets_manager)
-    #
-    #     Security.login(secrets_manager)
-    #     config_map = self.store_binance_config()
-    #     self.async_run_with_timeout(Security.wait_til_decryption_done(), timeout=2)
-    #
-    #     self.assertTrue(Security.is_decryption_done())
-    #     self.assertTrue(Security.any_secure_configs())
-    #     self.assertTrue(Security.connector_config_file_exists(self.connector))
-    #
-    #     api_keys = Security.api_keys(self.connector)
-    #     expected_keys = api_keys_from_connector_config_map(config_map)
-    #
-    #     self.assertEqual(expected_keys, api_keys)
 
-    # def test_update_secure_config(self):
-    #     password = "som-password"
-    #     secrets_manager = ETHKeyFileSecretManger(password)
-    #     store_password_verification(secrets_manager)
-    #     Security.login(secrets_manager)
-    #     binance_config = ClientConfigAdapter(
-    #         BinanceConfigMap(binance_api_key=self.api_key, binance_api_secret=self.api_secret)
-    #     )
-    #     self.async_run_with_timeout(Security.wait_til_decryption_done())
-    #
-    #     Security.update_secure_config(binance_config)
-    #     self.reset_security()
-    #
-    #     Security.login(secrets_manager)
-    #     self.async_run_with_timeout(Security.wait_til_decryption_done(), timeout=2)
-    #     binance_loaded_config = Security.decrypted_value(binance_config.connector)
-    #
-    #     self.assertEqual(binance_config, binance_loaded_config)
-    #
-    #     binance_config.binance_api_key = "someOtherApiKey"
-    #     Security.update_secure_config(binance_config)
-    #     self.reset_security()
-    #
-    #     Security.login(secrets_manager)
-    #     self.async_run_with_timeout(Security.wait_til_decryption_done(), timeout=2)
-    #     binance_loaded_config = Security.decrypted_value(binance_config.connector)
-    #
-    #     self.assertEqual(binance_config, binance_loaded_config)
+    def test_login(self):
+        password = "som-password"
+        secrets_manager = ETHKeyFileSecretManger(password)
+        store_password_verification(secrets_manager)
+
+        Security.login(secrets_manager)
+        self.async_run_with_timeout(Security.wait_til_decryption_done())
+        config_map = self.store_binance_config()
+        self.ev_loop.run_until_complete(asyncio.sleep(0.1))
+        self.reset_decryption_done()
+        Security.decrypt_all()
+        self.async_run_with_timeout(Security.wait_til_decryption_done())
+
+        self.assertTrue(Security.is_decryption_done())
+        self.assertTrue(Security.any_secure_configs())
+        self.assertTrue(Security.connector_config_file_exists(self.connector))
+
+        api_keys = Security.api_keys(self.connector)
+        expected_keys = api_keys_from_connector_config_map(config_map)
+
+        self.assertEqual(expected_keys, api_keys)
+
+    def test_update_secure_config(self):
+        password = "som-password"
+        secrets_manager = ETHKeyFileSecretManger(password)
+        store_password_verification(secrets_manager)
+
+        Security.login(secrets_manager)
+        self.async_run_with_timeout(Security.wait_til_decryption_done())
+        self.ev_loop.run_until_complete(asyncio.sleep(0.1))
+
+        binance_config = ClientConfigAdapter(
+            BinanceConfigMap(binance_api_key=self.api_key, binance_api_secret=self.api_secret)
+        )
+        Security.update_secure_config(binance_config)
+        self.ev_loop.run_until_complete(asyncio.sleep(0.1))
+
+        self.reset_decryption_done()
+        Security.decrypt_all()
+        self.ev_loop.run_until_complete(asyncio.sleep(0.1))
+        self.async_run_with_timeout(Security.wait_til_decryption_done())
+
+        binance_loaded_config = Security.decrypted_value(binance_config.connector)
+
+        self.assertEqual(binance_config, binance_loaded_config)
+
+        binance_config.binance_api_key = "someOtherApiKey"
+        Security.update_secure_config(binance_config)
+
+        self.reset_decryption_done()
+        Security.decrypt_all()
+        self.ev_loop.run_until_complete(asyncio.sleep(0.1))
+        self.async_run_with_timeout(Security.wait_til_decryption_done())
+
+        binance_loaded_config = Security.decrypted_value(binance_config.connector)
+
+        self.assertEqual(binance_config, binance_loaded_config)
