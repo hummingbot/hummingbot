@@ -303,13 +303,17 @@ class MarketsRecorder:
                 order_status: OrderStatus = OrderStatus(order_id=order_id,
                                                         timestamp=timestamp,
                                                         status=event_type.name)
-                fee_in_quote = evt.trade_fee.fee_amount_in_token(
-                    trading_pair=evt.trading_pair,
-                    price=evt.price,
-                    order_amount=evt.amount,
-                    token=quote_asset,
-                    exchange=market
-                )
+                try:
+                    fee_in_quote = evt.trade_fee.fee_amount_in_token(
+                        trading_pair=evt.trading_pair,
+                        price=evt.price,
+                        order_amount=evt.amount,
+                        token=quote_asset,
+                        exchange=market
+                    )
+                except Exception as e:
+                    self.logger().error(f"Error calculating fee in quote: {e}, will be stored in the DB as 0.")
+                    fee_in_quote = 0
                 trade_fill_record: TradeFill = TradeFill(
                     config_file_path=self.config_file_path,
                     strategy=self.strategy_name,
