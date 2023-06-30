@@ -1,7 +1,6 @@
-import mock
 import unittest
 from copy import deepcopy
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import hummingbot.strategy.perpetual_market_making.perpetual_market_making_config_map as config_map_module
 from hummingbot.client.settings import AllConnectorSettings
@@ -109,8 +108,8 @@ class TestPMMConfigMap(unittest.TestCase):
 
     def test_validate_derivative_trading_pair(self):
         fetcher_mock = MagicMock()
-        type(fetcher_mock).ready = mock.PropertyMock(return_value=True)
-        type(fetcher_mock).trading_pairs = mock.PropertyMock(return_value={"test_market": ["BTC-USDT"]})
+        type(fetcher_mock).ready = PropertyMock(return_value=True)
+        type(fetcher_mock).trading_pairs = PropertyMock(return_value={"test_market": ["BTC-USDT"]})
         TradingPairFetcher._sf_shared_instance = fetcher_mock
 
         perpetual_mm_config_map.get("derivative").value = "test_market"
@@ -146,8 +145,8 @@ class TestPMMConfigMap(unittest.TestCase):
             config_map_module.price_source_market_prompt()
         )
 
-    @mock.patch("hummingbot.client.settings.AllConnectorSettings.get_derivative_names")
-    @mock.patch("hummingbot.client.settings.AllConnectorSettings.get_exchange_names")
+    @patch("hummingbot.client.settings.AllConnectorSettings.get_derivative_names")
+    @patch("hummingbot.client.settings.AllConnectorSettings.get_exchange_names")
     def test_price_source_derivative_validator(self, get_derivatives_mock, get_exchange_mock):
         get_derivatives_mock.return_value = ["derivative_connector"]
         get_exchange_mock.return_value = ["exchange_connector"]
@@ -175,8 +174,8 @@ class TestPMMConfigMap(unittest.TestCase):
 
     def test_validate_price_source_market(self):
         fetcher_mock = MagicMock()
-        type(fetcher_mock).ready = mock.PropertyMock(return_value=True)
-        type(fetcher_mock).trading_pairs = mock.PropertyMock(return_value={"test_market": ["BTC-USDT"]})
+        type(fetcher_mock).ready = PropertyMock(return_value=True)
+        type(fetcher_mock).trading_pairs = PropertyMock(return_value={"test_market": ["BTC-USDT"]})
         TradingPairFetcher._sf_shared_instance = fetcher_mock
 
         perpetual_mm_config_map.get("price_source_derivative").value = "test_market"
