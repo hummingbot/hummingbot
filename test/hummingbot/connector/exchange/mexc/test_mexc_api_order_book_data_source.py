@@ -2,8 +2,8 @@ import asyncio
 import json
 import re
 import unittest
-from collections import Awaitable, deque
-from typing import Any, Dict
+from collections import deque
+from typing import Any, Awaitable, Dict
 from unittest.mock import AsyncMock, patch
 
 import ujson
@@ -79,6 +79,7 @@ class MexcAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertEqual(results[self.trading_pair], 57902.52)
 
+    # @unittest.skip("Test with error")
     @aioresponses()
     def test_fetch_trading_pairs_with_error_status_in_response(self, mock_api):
         mock_response = {}
