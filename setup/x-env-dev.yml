@@ -4,6 +4,7 @@ channels:
   - defaults
 dependencies:
   ### Packages needed for the build/install process
+  - conda-build>=3.21.4
   - coverage>=5.5
   # - cython=0.29.35
   - flake8>=3.7.9
@@ -22,6 +23,7 @@ dependencies:
   - bidict
   - cachetools>=4.1.0
   - cryptography>=2.8
+  - gql
   - numpy>=1.20.1
   - numpy-base>=1.20.1
   - pandas>=1.2.1
