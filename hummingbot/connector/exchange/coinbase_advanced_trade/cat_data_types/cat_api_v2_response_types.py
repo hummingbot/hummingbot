@@ -1,4 +1,4 @@
-from typing import NamedTuple
+from pydantic import BaseModel
 
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_utilities.cat_dict_mockable_from_json_mixin import (
     DictMethodMockableFromJsonDocMixin,
@@ -19,12 +19,12 @@ class CoinbaseAdvancedTradeV2Response(
             super().__init__(**kwargs)
 
 
-class _TimeResponse(NamedTuple):
+class _TimeResponse(BaseModel):
     iso: str
     epoch: int
 
 
-class CoinbaseAdvancedTradeTimeResponse(NamedTuple, CoinbaseAdvancedTradeV2Response):
+class CoinbaseAdvancedTradeTimeResponse(BaseModel, CoinbaseAdvancedTradeV2Response):
     """
     https://docs.cloud.coinbase.com/sign-in-with-coinbase/docs/api-time
     ```json
