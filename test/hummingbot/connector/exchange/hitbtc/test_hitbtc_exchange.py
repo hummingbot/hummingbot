@@ -145,20 +145,6 @@ class HitbtcExchangeUnitTest(unittest.TestCase):
 
         self.assertEqual(str(fee.percent), "0.0005")
 
-    def _test_iter_user_event_queue(self):
-        user_stream = MagicMock()
-        user_stream.get = MagicMock(side_effect=[AsyncMock(), AsyncMock(), AsyncMock(), asyncio.CancelledError])
-
-        self.exchange._user_stream_tracker.user_stream = user_stream
-
-        async def consume_user_events():
-            async for event_message in self.exchange._iter_user_event_queue():
-                pass
-
-        self.run_async(consume_user_events)
-
-        self.assertEqual(3, user_stream.get.call_count)
-
     def _test_user_stream_event_listener(self):
         params = [MagicMock(), MagicMock()]
 
@@ -171,8 +157,7 @@ class HitbtcExchangeUnitTest(unittest.TestCase):
         self.exchange._process_order_message.assert_called_with(params[1])
         self.exchange._process_balance_message.assert_not_called()
 
-    @aioresponses()
-    def _test_get_open_orders(self, mock_api):
+    def _test_get_open_orders(self):
         self.exchange._api_request = AsyncMock(
             return_value=[
                 {
