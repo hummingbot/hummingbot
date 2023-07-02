@@ -2,14 +2,14 @@ import asyncio
 import json
 import re
 import unittest
-from typing import Any, Awaitable, Dict
+from typing import Any, Awaitable, Dict, List
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from aiohttp import WSMsgType
-from aioresponses import aioresponses
 from bidict import bidict
 
 import hummingbot.connector.exchange.bitmart.bitmart_constants as CONSTANTS
+from aioresponses import aioresponses
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.bitmart import bitmart_utils
@@ -145,7 +145,7 @@ class BitmartAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         regex_url = re.compile(f"{CONSTANTS.REST_URL}/{CONSTANTS.GET_LAST_TRADING_PRICES_PATH_URL}")
         mock_get.get(regex_url, body=json.dumps(mock_response))
 
-        results = self.ev_loop.run_until_complete(
+        results: List = self.ev_loop.run_until_complete(
             asyncio.gather(self.data_source.get_last_traded_prices([self.trading_pair])))
         results: Dict[str, Any] = results[0]
 
@@ -483,3 +483,50 @@ class BitmartAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         self.assertTrue(
             self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange"))
+
+    @patch("hummingbot.connector.exchange.bitmart.bitmart_api_order_book_data_source.BitmartAPIOrderBookDataSource"
+           "._request_order_book_snapshot")
+    def test_order_book_snapshot(self, mock_request_order_book_snapshot):
+        # Prepare mock data
+        snapshot_response = {
+            "data": {
+                "timestamp": 1625020800000,
+                "buys": [
+                    {"price": "30000.0", "amount": "0.1"},
+                    {"price": "29500.0", "amount": "0.2"}
+                ],
+                "sells": [
+                    {"price": "30500.0", "amount": "0.3"},
+                    {"price": "31000.0", "amount": "0.4"}
+                ]
+            }
+        }
+        mock_request_order_book_snapshot.return_value = snapshot_response
+
+        # Create an instance of the data source
+        data_source = BitmartAPIOrderBookDataSource(
+            trading_pairs=[self.trading_pair],
+            connector=None,
+            api_factory=None
+        )
+
+        # Run the method under test
+        order_book_msg = self.async_run_with_timeout(data_source._order_book_snapshot(self.trading_pair))
+
+        # Verify the results
+        self.assertIsInstance(order_book_msg, OrderBookMessage)
+        self.assertEqual(OrderBookMessageType.SNAPSHOT, order_book_msg.type)
+        self.assertEqual(self.trading_pair, order_book_msg.content["trading_pair"])
+        self.assertEqual(int(snapshot_response["data"]["timestamp"]), order_book_msg.content["update_id"])
+        self.assertEqual(float(snapshot_response["data"]["timestamp"]) * 1e-3, order_book_msg.timestamp)
+        self.assertEqual([
+            ((snapshot_response["data"]["buys"][0]["price"]), (snapshot_response["data"]["buys"][0]["amount"])),
+            ((snapshot_response["data"]["buys"][1]["price"]), (snapshot_response["data"]["buys"][1]["amount"]))
+        ], order_book_msg.content["bids"])
+        self.assertEqual([
+            ((snapshot_response["data"]["sells"][0]["price"]), (snapshot_response["data"]["sells"][0]["amount"])),
+            ((snapshot_response["data"]["sells"][1]["price"]), (snapshot_response["data"]["sells"][1]["amount"]))
+        ], order_book_msg.content["asks"])
+
+        # Ensure the _request_order_book_snapshot and _parse_order_book_snapshot_message methods were called
+        mock_request_order_book_snapshot.assert_called_once_with(self.trading_pair)

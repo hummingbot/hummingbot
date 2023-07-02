@@ -72,7 +72,8 @@ class DataFeedBase(NetworkBase):
                         raise Exception(f"Data feed {self.name} server is down. Status is {status_text}")
         except asyncio.CancelledError:
             raise
-        except Exception:
+        except Exception as e:
+            print(e)
             return NetworkStatus.NOT_CONNECTED
         return NetworkStatus.CONNECTED
 
