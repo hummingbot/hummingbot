@@ -61,7 +61,3 @@ class TestDataFeedBase(unittest.TestCase):
         asyncio.set_event_loop(loop)
         result = loop.run_until_complete(self.data_feed.check_network())
         self.assertEqual(result, NetworkStatus.NOT_CONNECTED)
-
-
-if __name__ == "__main__":
-    unittest.main()
