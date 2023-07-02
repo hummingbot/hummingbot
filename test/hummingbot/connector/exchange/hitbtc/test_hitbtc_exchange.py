@@ -260,17 +260,18 @@ class HitbtcExchangeUnitTest(unittest.TestCase):
                 }
             ]))
         mock_api.get(
-            "https://api.hitbtc.com/api/2/public/symbol", status=200, body=json.dumps([{
-                "id": "ETHUSDT",
-                "baseCurrency": "ETH",
-                "quoteCurrency": "USD",
-            },
+            "https://api.hitbtc.com/api/2/public/symbol", status=200, body=json.dumps([
+                {
+                    "id": "ETHUSDT",
+                    "baseCurrency": "ETH",
+                    "quoteCurrency": "USD",
+                },
                 {
 
-                "id": "BTCUSDT",
-                "baseCurrency": "BTC",
-                "quoteCurrency": "USD",
-            }]))
+                    "id": "BTCUSDT",
+                    "baseCurrency": "BTC",
+                    "quoteCurrency": "USD",
+                }]))
         self.exchange.get_last_traded_price = AsyncMock(side_effect=[Decimal("100.0"), Decimal("200.0")])
 
         trading_pairs = ["ETH-USDT", "BTC-USDT"]
