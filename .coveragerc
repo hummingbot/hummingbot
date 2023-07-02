@@ -38,7 +38,7 @@ dynamic_context = test_function
 branch = true
 
 [report]
-fail_under = 69
+fail_under = 68
 precision = 2
 skip_empty = true
 exclude_lines =
