@@ -4,6 +4,7 @@ channels:
   - defaults
 dependencies:
   ### Packages needed for the build/install process
+  - bs4
   - conda-build>=3.21.4
   - coverage>=5.5
   # - cython=0.29.35
@@ -13,6 +14,7 @@ dependencies:
   - nose-exclude
   - pip>=21.1.2
   - pre-commit>=2.18.1
+  - pyppeteer
   - python>=3.10,<3.11
   - pytest>=4.6.11
   - setuptools>=50.3.2
