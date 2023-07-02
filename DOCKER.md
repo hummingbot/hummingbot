@@ -8,19 +8,20 @@ For instructions on operating `hummingbot` with Docker, navigate to [`hummingbot
 
 ---
 
-## Development commands: deploying to Docker Hub
+## Development commands: The following commands apply to deploying to Docker Hub.
 
 ### Create docker image
 
 ```sh
-# Create a label for image
-export TAG=my-label
+# Define a tag for the Docker image, like a version number
+# For example, TAG=my-label
+export TAG=<your_tag>
 
-# Build docker image
-$ docker build -t coinalpha/hummingbot:$TAG -f Dockerfile .
+# Build Docker image with the given tag and the Dockerfile in the current directory
+docker build -t coinalpha/hummingbot:${TAG} -f Dockerfile .
 
-# Push docker image to docker hub
-$ docker push coinalpha/hummingbot:$TAG
+# Push the Docker image with the given tag to the Docker Hub repository
+docker push coinalpha/hummingbot:${TAG}
 ```
 
 #### Build and Push
