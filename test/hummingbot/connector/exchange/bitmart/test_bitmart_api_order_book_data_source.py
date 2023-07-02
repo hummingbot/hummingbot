@@ -22,6 +22,9 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage, Order
 
 class BitmartAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     # logging.Level required to receive logs from the data source logger
+    ev_loop = None
+    quote_asset = None
+    base_asset = None
     level = 0
 
     @classmethod
