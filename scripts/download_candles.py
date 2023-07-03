@@ -28,7 +28,7 @@ class DownloadCandles(ScriptStrategyBase):
         conversion = {"m": 1, "h": 60, "d": 1440}
         unit = interval[-1]
         quantity = int(interval[:-1])
-        return int(days_to_download * 24 * 60 * quantity / conversion[unit])
+        return int(days_to_download * 24 * 60 / (quantity * conversion[unit]))
 
     def __init__(self, connectors: Dict[str, ConnectorBase]):
         super().__init__(connectors)

@@ -304,11 +304,11 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
             "text": order_id,
             "contract": symbol,
             "size": float(-size) if trade_type.name.lower() == 'sell' else float(size),
-            "tif": "gtc",
         }
         if order_type.is_limit_type():
             data.update({
                 "price": f"{price:f}",
+                "tif": "gtc",
             })
             if order_type is OrderType.LIMIT_MAKER:
                 data.update({"tif": "poc"})
