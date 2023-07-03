@@ -399,14 +399,18 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
                 client_order_id=in_flight_order.client_order_id,
                 exchange_order_id=exchange_order_id,
             )
-        elif (
+        elif (  # transaction has failed
             transaction_data is not None
             and (
-                transaction_data["txStatus"] == -1
-                or transaction_data.get("txReceipt", {}).get("status") == 0
+                transaction_data.get("txReceipt", {}).get("status") == 0
             )
         ):
-            raise ValueError(f"Transaction {in_flight_order.creation_transaction_hash} not found.")
+            order_update = OrderUpdate(
+                trading_pair=in_flight_order.trading_pair,
+                update_timestamp=self._time(),
+                new_state=OrderState.FAILED,
+                client_order_id=in_flight_order.client_order_id,
+            )
         else:  # transaction is still being processed
             order_update = OrderUpdate(
                 trading_pair=in_flight_order.trading_pair,
