@@ -375,6 +375,7 @@ class TestBitComPerpetualAPIUserStreamDataSource(unittest.TestCase):
             self._is_logged("ERROR",
                             "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
 
+    # @unittest.skip("Test with error")
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")
     def test_listen_for_user_stream_iter_message_throws_exception(self, sleep_mock, mock_ws):
