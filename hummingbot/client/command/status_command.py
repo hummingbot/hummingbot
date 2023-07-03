@@ -1,4 +1,5 @@
 import asyncio
+import threading
 import time
 from collections import OrderedDict, deque
 from typing import TYPE_CHECKING, Dict, List
@@ -121,6 +122,10 @@ class StatusCommand:
 
     def status(self,  # type: HummingbotApplication
                live: bool = False):
+        if threading.current_thread() != threading.main_thread():
+            self.ev_loop.call_soon_threadsafe(self.status, live)
+            return
+
         safe_ensure_future(self.status_check_all(live=live), loop=self.ev_loop)
 
     async def status_check_all(self,  # type: HummingbotApplication
