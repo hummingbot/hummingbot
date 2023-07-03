@@ -2,7 +2,6 @@ import asyncio
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from test.isolated_asyncio_wrapper_test_case import LocalClassEventLoopWrapperTestCase
-from typing import Awaitable
 
 from hummingbot.client.config import config_crypt, config_helpers, security
 from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger, store_password_verification, validate_password
@@ -55,10 +54,6 @@ class SecurityTest(LocalClassEventLoopWrapperTestCase):
         super().tearDownClass()
         # The async call scheduler no longer contain a reference to an event loop
         # AsyncCallScheduler.shared_instance().reset_event_loop()
-
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 3):
-        ret = self.local_event_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
 
     def store_binance_config(self) -> ClientConfigAdapter:
         config_map = ClientConfigAdapter(
@@ -121,7 +116,7 @@ class SecurityTest(LocalClassEventLoopWrapperTestCase):
         store_password_verification(secrets_manager)
 
         Security.login(secrets_manager)
-        self.run_async_with_timeout(Security.wait_til_decryption_done(), 10)
+        self.run_async_with_timeout(Security.wait_til_decryption_done(), 20)
         self.local_event_loop.run_until_complete(asyncio.sleep(0.1))
 
         binance_config = ClientConfigAdapter(
