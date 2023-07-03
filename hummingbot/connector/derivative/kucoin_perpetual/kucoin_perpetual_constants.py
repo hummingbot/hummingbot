@@ -31,6 +31,7 @@ WS_HEARTBEAT_TIME_INTERVAL = 30
 
 ORDER_TYPE_MAP = {
     OrderType.LIMIT: "limit",
+    OrderType.LIMIT_MAKER: "limit",
     OrderType.MARKET: "market",
 }
 
@@ -125,8 +126,8 @@ RATE_LIMITS = [
     RateLimit(limit_id=QUERY_ACTIVE_ORDER_PATH_URL, limit=30, time_interval=3),
     RateLimit(limit_id=GET_WALLET_BALANCE_PATH_URL, limit=30, time_interval=3),
     RateLimit(limit_id=GET_CONTRACT_INFO_PATH_URL, limit=NO_LIMIT, time_interval=1),
-    RateLimit(limit_id=CREATE_ORDER_PATH_URL, limit=30, time_interval=3),
-    RateLimit(limit_id=CANCEL_ORDER_PATH_URL, limit=40, time_interval=3),
+    RateLimit(limit_id=CREATE_ORDER_PATH_URL, limit=25, time_interval=3),
+    RateLimit(limit_id=CANCEL_ORDER_PATH_URL, limit=35, time_interval=3),
     RateLimit(limit_id=GET_FILL_INFO_PATH_URL, limit=9, time_interval=3),
     RateLimit(limit_id=GET_RECENT_FILLS_INFO_PATH_URL, limit=9, time_interval=3),
     RateLimit(limit_id=GET_FUNDING_HISTORY_PATH_URL, limit=9, time_interval=3),

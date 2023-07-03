@@ -217,13 +217,16 @@ class GatewayEVMAMM(ConnectorBase):
             for key, value in self.in_flight_orders.items()
         }
 
-    def restore_tracking_states(self, saved_states: Dict[str, Any]):
+    def restore_tracking_states(self, saved_states: Dict[str, any]):
         """
-        Restore in-flight orders from saved tracking states, this is st the connector can pick up on where it left off
-        when it disconnects.
-        :param saved_states: The saved tracking_states.
+        *required
+        Updates inflight order statuses from API results
+        This is used by the MarketsRecorder class to orchestrate market classes at a higher level.
         """
-        self._order_tracker.restore_tracking_states(tracking_states=saved_states)
+        self._order_tracker._in_flight_orders.update({
+            key: GatewayInFlightOrder.from_json(value)
+            for key, value in saved_states.items()
+        })
 
     def create_approval_order_id(self, token_symbol: str) -> str:
         return f"approve-{self.connector_name}-{token_symbol}"
@@ -333,7 +336,12 @@ class GatewayEVMAMM(ConnectorBase):
             return None
 
     async def update_allowances(self):
-        self._allowances = await self.get_allowances()
+        """
+        Allowances updated continously.
+        """
+        while True:
+            self._allowances = await self.get_allowances()
+            await asyncio.sleep(120)  # sleep for 2 mins
 
     async def get_allowances(self) -> Dict[str, Decimal]:
         """
@@ -550,7 +558,7 @@ class GatewayEVMAMM(ConnectorBase):
                 **request_args
             )
             transaction_hash: Optional[str] = order_result.get("txHash")
-            if transaction_hash is not None:
+            if transaction_hash is not None and transaction_hash != "":
                 gas_cost: Decimal = Decimal(order_result.get("gasCost"))
                 gas_price_token: str = order_result.get("gasPriceToken")
                 self.network_transaction_fee = TokenAmount(gas_price_token, gas_cost)
@@ -664,7 +672,6 @@ class GatewayEVMAMM(ConnectorBase):
                             token_symbol
                         )
                     )
-                    safe_ensure_future(self.update_allowances())
                 else:
                     self.logger().warning(
                         f"Token approval for {tracked_approval.client_order_id} on {self.connector_name} failed."

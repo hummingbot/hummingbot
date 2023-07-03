@@ -338,3 +338,51 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
                 await clock_task
             except asyncio.CancelledError:
                 pass
+
+    def test_order_restoration(self):
+        self._connector.restore_tracking_states(
+            saved_states={
+                "sell-WETH-USDT-1680822551019999": {
+                    "client_order_id": "sell-WETH-USDT-1680822551019999",
+                    "exchange_order_id": "0xcf31a0b408fb162de7c842d164292d604347d79d0d3c5be3a36a785c123c322a",  # noqa: mock
+                    "trading_pair": "WETH-USDT",
+                    "order_type": "LIMIT",
+                    "trade_type": "SELL",
+                    "price": "1848.189431481628356",
+                    "amount": "0.010000",
+                    "executed_amount_base": "0.010000",
+                    "executed_amount_quote": "18.481894314816283560000",
+                    "last_state": "5",
+                    "leverage": "1",
+                    "position": "NIL",
+                    "creation_timestamp": 1680822551.0,
+                    "last_update_timestamp": 1680822555.0,
+                    "order_fills": {
+                        "0xcf31a0b408fb162de7c842d164292d604347d79d0d3c5be3a36a785c123c322a": {  # noqa: mock
+                            "trade_id": "0xcf31a0b408fb162de7c842d164292d604347d79d0d3c5be3a36a785c123c322a",  # noqa: mock
+                            "client_order_id": "sell-WETH-USDT-1680822551019999",
+                            "exchange_order_id": "0xcf31a0b408fb162de7c842d164292d604347d79d0d3c5be3a36a785c123c322a",  # noqa: mock
+                            "trading_pair": "WETH-USDT",
+                            "fill_timestamp": 1680822555.0,
+                            "fill_price": "1848.189431481628356",
+                            "fill_base_amount": "0.010000",
+                            "fill_quote_amount": "18.481894314816283560000",
+                            "fee": {
+                                "fee_type": "AddedToCost",
+                                "percent": "0",
+                                "percent_token": None,
+                                "flat_fees": [{"token": "ETH", "amount": "0.0001152116000000000063955285512"}],
+                            },
+                            "is_taker": True,
+                        }
+                    },
+                    "nonce": None,
+                    "cancel_tx_hash": None,
+                    "creation_transaction_hash": None,
+                    "gas_price": "None",
+                }
+            }
+        )
+        inflight_orders = self._connector.in_flight_orders
+        self.assertEqual(len(inflight_orders), 1)
+        # more asserts

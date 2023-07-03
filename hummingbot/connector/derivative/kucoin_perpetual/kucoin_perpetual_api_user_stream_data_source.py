@@ -140,14 +140,6 @@ class KucoinPerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
             }
             subscribe_positions_request = WSJSONRequest(position_change_payload)
 
-            execution_change_payload = {
-                "id": web_utils.next_message_id(),
-                "type": "subscribe",
-                "topic": f"{CONSTANTS.WS_EXECUTION_DATA_TOPIC}:{symbols_str}",
-                "privateChannel": False,
-                "response": False,
-            }
-            subscribe_executions_request = WSJSONRequest(execution_change_payload)
             wallet_change_payload = {
                 "id": web_utils.next_message_id(),
                 "type": "subscribe",
@@ -159,7 +151,6 @@ class KucoinPerpetualAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
             await ws.send(subscribe_orders_request)
             await ws.send(subscribe_positions_request)
-            await ws.send(subscribe_executions_request)
             await ws.send(subscribe_wallet_request)
 
             self.logger().info(

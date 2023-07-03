@@ -14,6 +14,12 @@ class NotifyMessage(PubSubMessage):
     msg: Optional[str] = ''
 
 
+class StatusUpdateMessage(PubSubMessage):
+    timestamp: Optional[int] = -1
+    type: Optional[str] = ''
+    msg: Optional[str] = ''
+
+
 class InternalEventMessage(PubSubMessage):
     timestamp: Optional[int] = -1
     type: Optional[str] = 'ievent'
@@ -63,6 +69,7 @@ class ConfigCommandMessage(RPCMessage):
 
     class Response(RPCMessage.Response):
         changes: Optional[List[Tuple[str, Any]]] = []
+        config: Optional[Dict[str, Any]] = {}
         status: Optional[int] = MQTT_STATUS_CODE.SUCCESS
         msg: Optional[str] = ''
 

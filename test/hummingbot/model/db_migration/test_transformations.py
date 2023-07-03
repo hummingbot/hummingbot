@@ -1,7 +1,7 @@
 from unittest import TestCase
 from unittest.mock import MagicMock
 
-from hummingbot.model.db_migration.transformations import ConvertPriceAndAmountColumnsToBigint
+from hummingbot.model.db_migration.transformations import AddTradeFeeInQuote, ConvertPriceAndAmountColumnsToBigint
 
 
 class ConvertPriceAndAmountColumnsToBigintTests(TestCase):
@@ -33,3 +33,11 @@ class ConvertPriceAndAmountColumnsToBigintTests(TestCase):
         self.assertIn("CAST(price * 1000000 AS INTEGER", executed_queries[9])
         self.assertEquals('drop table TradeFill;', executed_queries[10])
         self.assertEquals('alter table TradeFill_dg_tmp rename to TradeFill;', executed_queries[11])
+
+
+class AddTradeFeeInQuoteTests(TestCase):
+    def test_name(self):
+        self.assertEqual("AddTradeFeeInQuote", AddTradeFeeInQuote(self).name)
+
+    def test_to_version(self):
+        self.assertEqual(20230516, AddTradeFeeInQuote(self).to_version)

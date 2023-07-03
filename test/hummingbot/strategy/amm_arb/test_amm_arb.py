@@ -59,7 +59,7 @@ class MockAMM(ConnectorBase):
 
     @property
     def connector_name(self):
-        return "uniswap"
+        return "uniswap_ethereum_mainnet"
 
     @property
     def status_dict(self):
@@ -399,12 +399,23 @@ class AmmArbUnitTest(unittest.TestCase):
 
     @async_test(loop=ev_loop)
     @unittest.mock.patch("hummingbot.strategy.amm_arb.amm_arb.AmmArbStrategy.is_gateway_market", return_value=True)
+    @unittest.mock.patch("hummingbot.client.settings.GatewayConnectionSetting.get_connector_spec_from_market_name")
     @unittest.mock.patch.object(MockAMM, "cancel_outdated_orders")
     async def test_cancel_outdated_orders(
             self,
             cancel_outdated_orders_func: unittest.mock.AsyncMock,
+            get_connector_spec_from_market_name_mock: unittest.mock.MagicMock,
             _: unittest.mock.Mock
     ):
+        get_connector_spec_from_market_name_mock.return_value = {
+            "connector": "uniswap",
+            "chain": "ethereum",
+            "network": "mainnet",
+            "trading_type": "AMM",
+            "chain_type": "EVM",
+            "wallet_address": "0xA86b66F4e7DC45a943D71a11c7DDddE341246682",  # noqa: mock
+            "additional_spenders": [],
+        }
         await asyncio.sleep(2)
         cancel_outdated_orders_func.assert_awaited()
 

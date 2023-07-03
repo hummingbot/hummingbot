@@ -7,7 +7,7 @@ from typing import Callable, Dict, List, Optional, Tuple, cast
 import pandas as pd
 
 from hummingbot.client.performance import PerformanceMetrics
-from hummingbot.client.settings import AllConnectorSettings
+from hummingbot.client.settings import AllConnectorSettings, GatewayConnectionSetting
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
 from hummingbot.connector.gateway.gateway_price_shim import GatewayPriceShim
@@ -166,6 +166,12 @@ class AmmArbStrategy(StrategyPyBase):
             AllConnectorSettings.get_gateway_amm_connector_names()
         )
 
+    @staticmethod
+    @lru_cache(maxsize=10)
+    def is_gateway_market_evm_compatible(market_info: MarketTradingPairTuple) -> bool:
+        connector_spec: Dict[str, str] = GatewayConnectionSetting.get_connector_spec_from_market_name(market_info.market.name)
+        return connector_spec["chain_type"] == "EVM"
+
     def tick(self, timestamp: float):
         """
         Clock tick entry point, is run every second (on normal tick setting).
@@ -230,10 +236,10 @@ class AmmArbStrategy(StrategyPyBase):
     async def apply_gateway_transaction_cancel_interval(self):
         # XXX (martin_kou): Concurrent cancellations are not supported before the nonce architecture is fixed.
         # See: https://app.shortcut.com/coinalpha/story/24553/nonce-architecture-in-current-amm-trade-and-evm-approve-apis-is-incorrect-and-causes-trouble-with-concurrent-requests
-        gateway_connectors: List[GatewayEVMAMM] = []
-        if self.is_gateway_market(self._market_info_1):
+        gateway_connectors = []
+        if self.is_gateway_market(self._market_info_1) and self.is_gateway_market_evm_compatible(self._market_info_1):
             gateway_connectors.append(cast(GatewayEVMAMM, self._market_info_1.market))
-        if self.is_gateway_market(self._market_info_2):
+        if self.is_gateway_market(self._market_info_2) and self.is_gateway_market_evm_compatible(self._market_info_2):
             gateway_connectors.append(cast(GatewayEVMAMM, self._market_info_2.market))
 
         for gateway in gateway_connectors:

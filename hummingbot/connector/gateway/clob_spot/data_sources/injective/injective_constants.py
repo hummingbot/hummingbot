@@ -10,12 +10,14 @@ NONCE_PATH = "injective/exchange/v1beta1/exchange"
 CONNECTOR_NAME = "injective"
 REQUESTS_SKIP_STEP = 100
 LOST_ORDER_COUNT_LIMIT = 10
+ORDER_CHAIN_PROCESSING_TIMEOUT = 5
 MARKETS_UPDATE_INTERVAL = 8 * 60 * 60
+DEFAULT_SUB_ACCOUNT_SUFFIX = "000000000000000000000000"
 CLIENT_TO_BACKEND_ORDER_TYPES_MAP: Dict[Tuple[TradeType, OrderType], str] = {
-    (TradeType.BUY, OrderType.LIMIT): "buy_po",
+    (TradeType.BUY, OrderType.LIMIT): "buy",
     (TradeType.BUY, OrderType.LIMIT_MAKER): "buy_po",
     (TradeType.BUY, OrderType.MARKET): "take_buy",
-    (TradeType.SELL, OrderType.LIMIT): "sell_po",
+    (TradeType.SELL, OrderType.LIMIT): "sell",
     (TradeType.SELL, OrderType.LIMIT_MAKER): "sell_po",
     (TradeType.SELL, OrderType.MARKET): "take_sell",
 }

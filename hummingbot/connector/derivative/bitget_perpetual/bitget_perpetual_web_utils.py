@@ -13,7 +13,7 @@ def public_rest_url(path_url: str, domain: str = None) -> str:
     """
     Creates a full URL for provided public REST endpoint
     :param path_url: a public REST endpoint
-    :param domain: the Binance domain to connect to ("com" or "us"). The default value is "com"
+    :param domain: the Bitget domain to connect to ("com" or "us"). The default value is "com"
     :return: the full URL to the endpoint
     """
     return get_rest_url_for_endpoint(path_url, domain)
@@ -23,7 +23,7 @@ def private_rest_url(path_url: str, domain: str = None) -> str:
     """
     Creates a full URL for provided private REST endpoint
     :param path_url: a private REST endpoint
-    :param domain: the Binance domain to connect to ("com" or "us"). The default value is "com"
+    :param domain: the Bitget domain to connect to ("com" or "us"). The default value is "com"
     :return: the full URL to the endpoint
     """
     return get_rest_url_for_endpoint(path_url, domain)

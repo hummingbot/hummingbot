@@ -19,8 +19,8 @@ class GatewayOrderTracker(ClientOrderTracker):
                 orders_by_hashes[order.cancel_tx_hash] = order
         return orders_by_hashes
 
-    def get_fillable_order_by_hash(self, hash: str) -> Optional[GatewayInFlightOrder]:
-        order = self.all_fillable_orders_by_hash.get(hash)
+    def get_fillable_order_by_hash(self, transaction_hash: str) -> Optional[GatewayInFlightOrder]:
+        order = self.all_fillable_orders_by_hash.get(transaction_hash)
         return order
 
     @staticmethod

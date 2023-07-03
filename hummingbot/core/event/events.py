@@ -3,7 +3,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import Dict, List, NamedTuple, Optional
 
-from hummingbot.core.data_type.common import LPType, OrderType, PositionAction, PositionMode, TradeType
+from hummingbot.core.data_type.common import LPType, OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 
@@ -26,6 +26,7 @@ class MarketEvent(Enum):
     BuyOrderCreated = 200
     SellOrderCreated = 201
     FundingPaymentCompleted = 202
+    FundingInfo = 203
     RangePositionLiquidityAdded = 300
     RangePositionLiquidityRemoved = 301
     RangePositionUpdate = 302
@@ -58,6 +59,9 @@ class AccountEvent(Enum):
     PositionModeChangeSucceeded = 400
     PositionModeChangeFailed = 401
     BalanceEvent = 402
+    PositionUpdate = 403
+    MarginCall = 404
+    LiquidationEvent = 405
 
 
 class MarketTransactionFailureEvent(NamedTuple):
@@ -162,15 +166,17 @@ class OrderFilledEvent(NamedTuple):
     position: Optional[str] = PositionAction.NIL.value
 
     @classmethod
-    def order_filled_events_from_order_book_rows(cls,
-                                                 timestamp: float,
-                                                 order_id: str,
-                                                 trading_pair: str,
-                                                 trade_type: TradeType,
-                                                 order_type: OrderType,
-                                                 trade_fee: TradeFeeBase,
-                                                 order_book_rows: List[OrderBookRow],
-                                                 exchange_trade_id: Optional[str] = None) -> List["OrderFilledEvent"]:
+    def order_filled_events_from_order_book_rows(
+        cls,
+        timestamp: float,
+        order_id: str,
+        trading_pair: str,
+        trade_type: TradeType,
+        order_type: OrderType,
+        trade_fee: TradeFeeBase,
+        order_book_rows: List[OrderBookRow],
+        exchange_trade_id: Optional[str] = None,
+    ) -> List["OrderFilledEvent"]:
         if exchange_trade_id is None:
             exchange_trade_id = order_id
         return [
@@ -183,7 +189,8 @@ class OrderFilledEvent(NamedTuple):
                 Decimal(row.price),
                 Decimal(row.amount),
                 trade_fee,
-                exchange_trade_id=f"{exchange_trade_id}_{index}")
+                exchange_trade_id=f"{exchange_trade_id}_{index}",
+            )
             for index, row in enumerate(order_book_rows)
         ]
 
@@ -201,7 +208,7 @@ class OrderFilledEvent(NamedTuple):
             Decimal(execution_report["L"]),
             Decimal(execution_report["l"]),
             AddedToCostTradeFee(flat_fees=[TokenAmount(execution_report["N"], Decimal(execution_report["n"]))]),
-            exchange_trade_id=execution_report["t"]
+            exchange_trade_id=execution_report["t"],
         )
 
 
@@ -326,3 +333,14 @@ class BalanceUpdateEvent:
     asset_name: str
     total_balance: Optional[Decimal] = None
     available_balance: Optional[Decimal] = None
+
+
+@dataclass
+class PositionUpdateEvent:
+    timestamp: float
+    trading_pair: str
+    position_side: Optional[PositionSide]  # None if the event is for a closed position
+    unrealized_pnl: Decimal
+    entry_price: Decimal
+    amount: Decimal
+    leverage: Decimal

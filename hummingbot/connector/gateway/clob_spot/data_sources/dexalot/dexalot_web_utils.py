@@ -8,7 +8,7 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 def build_api_factory(
     throttler: AsyncThrottler, api_key: str, auth: AuthBase
 ) -> WebAssistantsFactory:
-    """The API KEY is required for "public" endpoints as well. "Signed" endpoints
+    """The API KEY(if available) is used for "public" endpoints as well. "Signed" endpoints
     require the additional signing of the message with the secret wallet key."""
     rest_pre_processors = [
         APIKeyStitcher(api_key=api_key),
@@ -25,5 +25,6 @@ class APIKeyStitcher(RESTPreProcessorBase):
 
     async def pre_process(self, request: RESTRequest) -> RESTRequest:
         request.headers = request.headers if request.headers is not None else {}
-        request.headers["x-apikey"] = self._api_key
+        if self._api_key is not None and len(self._api_key) > 0:
+            request.headers["x-apikey"] = self._api_key
         return request

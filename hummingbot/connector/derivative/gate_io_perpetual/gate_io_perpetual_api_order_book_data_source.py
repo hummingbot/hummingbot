@@ -62,8 +62,10 @@ class GateIoPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             {
                 "trading_pair": trading_pair,
                 "update_id": snapshot_response["id"],
-                "bids": [[i['p'], i['s']] for i in snapshot_response["bids"]],
-                "asks": [[i['p'], i['s']] for i in snapshot_response["asks"]],
+                "bids": [[i['p'], self._connector._format_size_to_amount(trading_pair, Decimal(str(i['s'])))] for i in
+                         snapshot_response["bids"]],
+                "asks": [[i['p'], self._connector._format_size_to_amount(trading_pair, Decimal(str(i['s'])))] for i in
+                         snapshot_response["asks"]],
             },
             timestamp=snapshot_timestamp)
         return snapshot_msg
@@ -102,7 +104,7 @@ class GateIoPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 "trade_id": trade_data["id"],
                 "update_id": trade_timestamp,
                 "price": trade_data["price"],
-                "amount": abs(trade_data["size"]),
+                "amount": abs(self._connector._format_size_to_amount(trading_pair, (Decimal(str(trade_data["size"])))))
             }
             trade_message: Optional[OrderBookMessage] = OrderBookMessage(
                 message_type=OrderBookMessageType.TRADE,
@@ -122,8 +124,10 @@ class GateIoPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             "trading_pair": trading_pair,
             "update_id": update_id,
             "first_update_id": diff_data["U"],
-            "bids": [[i['p'], i['s']] for i in diff_data["b"]],
-            "asks": [[i['p'], i['s']] for i in diff_data["a"]],
+            "bids": [[i['p'], self._connector._format_size_to_amount(trading_pair, Decimal(str(i['s'])))] for i in
+                     diff_data["b"]],
+            "asks": [[i['p'], self._connector._format_size_to_amount(trading_pair, Decimal(str(i['s'])))] for i in
+                     diff_data["a"]],
         }
         diff_message: OrderBookMessage = OrderBookMessage(
             OrderBookMessageType.DIFF,

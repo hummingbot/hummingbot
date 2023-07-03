@@ -2,9 +2,8 @@ import asyncio
 import json
 import re
 import unittest
-from collections import Awaitable
 from decimal import Decimal
-from typing import Dict, NamedTuple, Optional
+from typing import Awaitable, Dict, NamedTuple, Optional
 from unittest.mock import AsyncMock, patch
 
 from aioresponses import aioresponses
@@ -722,7 +721,7 @@ class TestBybitExchange(unittest.TestCase):
                         body=json.dumps(response),
                         callback=lambda *args, **kwargs: request_sent_event.set())
 
-        self.exchange.cancel(order_id="OID1", trading_pair=self.trading_pair)
+        self.exchange.cancel(client_order_id="OID1", trading_pair=self.trading_pair)
         self.async_run_with_timeout(request_sent_event.wait())
 
         cancel_request = next(((key, value) for key, value in mock_api.requests.items()
@@ -765,7 +764,7 @@ class TestBybitExchange(unittest.TestCase):
                         status=400,
                         callback=lambda *args, **kwargs: request_sent_event.set())
 
-        self.exchange.cancel(order_id="OID1", trading_pair=self.trading_pair)
+        self.exchange.cancel(client_order_id="OID1", trading_pair=self.trading_pair)
         self.async_run_with_timeout(request_sent_event.wait())
 
         cancel_request = next(((key, value) for key, value in mock_api.requests.items()
