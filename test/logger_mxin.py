@@ -1,4 +1,7 @@
+# import asyncio
 import logging
+
+# from asyncio import timeout
 from logging import Handler, LogRecord
 from typing import List, Protocol, Union
 
@@ -49,6 +52,13 @@ class TestLoggerMixin(Handler):
     def _initialize(self: _LoggerProtocol):
         self.log_records: List[LogRecord] = []
 
+    @staticmethod
+    def _to_loglevel(log_level: Union[str, int]):
+        if isinstance(log_level, str):
+            return getattr(logging, log_level.upper())
+        else:
+            return log_level
+
     def set_loggers(self, loggers: List[HummingbotLogger]):
         """
         Set up the test logger mixin by adding the test logger to the provided loggers list.
@@ -58,7 +68,7 @@ class TestLoggerMixin(Handler):
         self._initialize()
         for logger in loggers:
             if logger is not None:
-                logger.setLevel(self.level)
+                logger.setLevel(1)
                 logger.addHandler(self)
 
     def handle(self, record: LogRecord):
@@ -71,16 +81,12 @@ class TestLoggerMixin(Handler):
         """
         Check if a certain message has been logged at a certain level.
         """
-        if isinstance(log_level, int):
-            log_level = logging.getLevelName(log_level)
-
+        log_level = self._to_loglevel(log_level)
         return any([record.getMessage() == message and record.levelname == log_level for record in self.log_records])
 
     def is_partially_logged(self, log_level: Union[str, int], message: str):
         """
         Check if a part of a certain message has been logged at a certain level.
         """
-        if isinstance(log_level, int):
-            log_level = logging.getLevelName(log_level)
-
+        log_level = self._to_loglevel(log_level)
         return any([message in record.getMessage() and record.levelname == log_level for record in self.log_records])
