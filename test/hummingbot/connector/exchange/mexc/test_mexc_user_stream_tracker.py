@@ -1,5 +1,5 @@
 import asyncio
-from collections import Awaitable
+from typing import Awaitable
 from unittest import TestCase
 from unittest.mock import AsyncMock, patch
 

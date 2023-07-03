@@ -151,6 +151,38 @@ class MQTTBridgeConfigMap(BaseClientModel):
         title = "mqtt_bridge"
 
 
+class MarketDataCollectionConfigMap(BaseClientModel):
+    market_data_collection_enabled: bool = Field(
+        default=True,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Enable/Disable Market Data Collection"
+            ),
+        ),
+    )
+    market_data_collection_interval: int = Field(
+        default=60,
+        ge=1,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Set the market data collection interval in seconds (Default=60)"
+            ),
+        ),
+    )
+    market_data_collection_depth: int = Field(
+        default=20,
+        ge=2,
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "Set the order book collection depth (Default=20)"
+            ),
+        ),
+    )
+
+    class Config:
+        title = "market_data_collection"
+
+
 class ColorConfigMap(BaseClientModel):
     top_pane: str = Field(
         default="#000000",
@@ -995,6 +1027,7 @@ class ClientConfigMap(BaseClientModel):
             ),
         ),
     )
+    market_data_collection: MarketDataCollectionConfigMap = Field(default=MarketDataCollectionConfigMap())
 
     class Config:
         title = "client_config_map"
