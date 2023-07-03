@@ -22,6 +22,7 @@ dependencies:
   - aiohttp>=3.8.4
   - asyncssh>=2.7.2
   - aiounittest>=1.4.1
+  - async-timeout
   - bidict
   - cachetools>=4.1.0
   - cryptography>=2.8
