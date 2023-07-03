@@ -303,7 +303,17 @@ class MarketsRecorder:
                 order_status: OrderStatus = OrderStatus(order_id=order_id,
                                                         timestamp=timestamp,
                                                         status=event_type.name)
-
+                try:
+                    fee_in_quote = evt.trade_fee.fee_amount_in_token(
+                        trading_pair=evt.trading_pair,
+                        price=evt.price,
+                        order_amount=evt.amount,
+                        token=quote_asset,
+                        exchange=market
+                    )
+                except Exception as e:
+                    self.logger().error(f"Error calculating fee in quote: {e}, will be stored in the DB as 0.")
+                    fee_in_quote = 0
                 trade_fill_record: TradeFill = TradeFill(
                     config_file_path=self.config_file_path,
                     strategy=self.strategy_name,
@@ -319,6 +329,7 @@ class MarketsRecorder:
                     amount=evt.amount,
                     leverage=evt.leverage if evt.leverage else 1,
                     trade_fee=evt.trade_fee.to_json(),
+                    trade_fee_in_quote=fee_in_quote,
                     exchange_trade_id=evt.exchange_trade_id,
                     position=evt.position if evt.position else PositionAction.NIL.value,
                 )
