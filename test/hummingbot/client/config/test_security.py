@@ -1,7 +1,7 @@
 import asyncio
-import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from test.isolated_asyncio_wrapper_test_case import LocalClassEventLoopWrapperTestCase
 from typing import Awaitable
 
 from hummingbot.client.config import config_crypt, config_helpers, security
@@ -14,19 +14,18 @@ from hummingbot.client.config.config_helpers import (
 )
 from hummingbot.client.config.security import Security
 from hummingbot.connector.exchange.binance.binance_utils import BinanceConfigMap
-from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
 
 
-class SecurityTest(unittest.TestCase):
+class SecurityTest(LocalClassEventLoopWrapperTestCase):
 
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        AsyncCallScheduler.shared_instance().reset_event_loop()
+        # The async call scheduler no longer contain a reference to an event loop
+        # AsyncCallScheduler.shared_instance().reset_event_loop()
 
     def setUp(self) -> None:
         super().setUp()
-        self.ev_loop = asyncio.get_event_loop()
         self.new_conf_dir_path = TemporaryDirectory()
         self.default_pswrd_verification_path = security.PASSWORD_VERIFICATION_PATH
         self.default_connectors_conf_dir_path = config_helpers.CONNECTORS_CONF_DIR_PATH
@@ -54,10 +53,11 @@ class SecurityTest(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         super().tearDownClass()
-        AsyncCallScheduler.shared_instance().reset_event_loop()
+        # The async call scheduler no longer contain a reference to an event loop
+        # AsyncCallScheduler.shared_instance().reset_event_loop()
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 3):
-        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
+        ret = self.local_event_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
 
     def store_binance_config(self) -> ClientConfigAdapter:
@@ -99,12 +99,12 @@ class SecurityTest(unittest.TestCase):
         store_password_verification(secrets_manager)
 
         Security.login(secrets_manager)
-        self.async_run_with_timeout(Security.wait_til_decryption_done())
+        self.run_async_with_timeout(Security.wait_til_decryption_done())
         config_map = self.store_binance_config()
-        self.ev_loop.run_until_complete(asyncio.sleep(0.1))
+        self.local_event_loop.run_until_complete(asyncio.sleep(0.1))
         self.reset_decryption_done()
         Security.decrypt_all()
-        self.async_run_with_timeout(Security.wait_til_decryption_done())
+        self.run_async_with_timeout(Security.wait_til_decryption_done())
 
         self.assertTrue(Security.is_decryption_done())
         self.assertTrue(Security.any_secure_configs())
@@ -121,19 +121,19 @@ class SecurityTest(unittest.TestCase):
         store_password_verification(secrets_manager)
 
         Security.login(secrets_manager)
-        self.async_run_with_timeout(Security.wait_til_decryption_done())
-        self.ev_loop.run_until_complete(asyncio.sleep(0.1))
+        self.run_async_with_timeout(Security.wait_til_decryption_done(), 10)
+        self.local_event_loop.run_until_complete(asyncio.sleep(0.1))
 
         binance_config = ClientConfigAdapter(
             BinanceConfigMap(binance_api_key=self.api_key, binance_api_secret=self.api_secret)
         )
         Security.update_secure_config(binance_config)
-        self.ev_loop.run_until_complete(asyncio.sleep(0.1))
+        self.local_event_loop.run_until_complete(asyncio.sleep(0.1))
 
         self.reset_decryption_done()
         Security.decrypt_all()
-        self.ev_loop.run_until_complete(asyncio.sleep(0.1))
-        self.async_run_with_timeout(Security.wait_til_decryption_done())
+        self.local_event_loop.run_until_complete(asyncio.sleep(0.1))
+        self.run_async_with_timeout(Security.wait_til_decryption_done())
 
         binance_loaded_config = Security.decrypted_value(binance_config.connector)
 
@@ -144,8 +144,8 @@ class SecurityTest(unittest.TestCase):
 
         self.reset_decryption_done()
         Security.decrypt_all()
-        self.ev_loop.run_until_complete(asyncio.sleep(0.1))
-        self.async_run_with_timeout(Security.wait_til_decryption_done())
+        self.local_event_loop.run_until_complete(asyncio.sleep(0.1))
+        self.run_async_with_timeout(Security.wait_til_decryption_done())
 
         binance_loaded_config = Security.decrypted_value(binance_config.connector)
 

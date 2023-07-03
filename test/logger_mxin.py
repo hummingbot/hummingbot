@@ -1,6 +1,9 @@
+import asyncio
 import logging
 from logging import Handler, LogRecord
-from typing import List, Protocol, Union
+from typing import Callable, List, Protocol, Union
+
+from async_timeout import timeout
 
 from hummingbot.logger.logger import HummingbotLogger
 
@@ -49,6 +52,12 @@ class TestLoggerMixin(Handler):
     def _initialize(self: _LoggerProtocol):
         self.log_records: List[LogRecord] = []
 
+    @staticmethod
+    def _to_loglevel(log_level: Union[str, int]) -> str:
+        if isinstance(log_level, int):
+            log_level = logging.getLevelName(log_level)
+        return log_level
+
     def set_loggers(self, loggers: List[HummingbotLogger]):
         """
         Set up the test logger mixin by adding the test logger to the provided loggers list.
@@ -58,7 +67,7 @@ class TestLoggerMixin(Handler):
         self._initialize()
         for logger in loggers:
             if logger is not None:
-                logger.setLevel(self.level)
+                logger.setLevel(1)
                 logger.addHandler(self)
 
     def handle(self, record: LogRecord):
@@ -71,16 +80,36 @@ class TestLoggerMixin(Handler):
         """
         Check if a certain message has been logged at a certain level.
         """
-        if isinstance(log_level, int):
-            log_level = logging.getLevelName(log_level)
-
+        log_level = self._to_loglevel(log_level)
         return any([record.getMessage() == message and record.levelname == log_level for record in self.log_records])
 
     def is_partially_logged(self, log_level: Union[str, int], message: str):
         """
         Check if a part of a certain message has been logged at a certain level.
         """
-        if isinstance(log_level, int):
-            log_level = logging.getLevelName(log_level)
-
+        log_level = self._to_loglevel(log_level)
         return any([message in record.getMessage() and record.levelname == log_level for record in self.log_records])
+
+    async def wait_for_logged(self,
+                              log_level: str,
+                              message: str,
+                              partial: bool = False,
+                              wait_s: float = 3) -> None:
+        """
+        Wait for a certain message to be logged at a certain level.
+        """
+        log_level = self._to_loglevel(log_level)
+        log_method: Callable[[str | int, str], bool] = self.is_partially_logged if partial else self.is_logged
+        try:
+            async with timeout(wait_s):
+                while not log_method(log_level, message):
+                    await asyncio.sleep(0.1)
+        except asyncio.TimeoutError as e:
+            # Used within a class derived from unittest.TestCase
+            if callable(getattr(self, "fail", None)):
+                getattr(self, "fail")(f"Message: {message} was not logged.\n"
+                                      f"Received Logs: {[record.getMessage() for record in self.log_records]}")
+            else:
+                print(f"Message: {message} was not logged.")
+                print(f"Received Logs: {[record.getMessage() for record in self.log_records]}")
+                raise e
