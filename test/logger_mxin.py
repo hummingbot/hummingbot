@@ -1,9 +1,9 @@
-# import asyncio
+import asyncio
 import logging
-
-# from asyncio import timeout
 from logging import Handler, LogRecord
-from typing import List, Protocol, Union
+from typing import Callable, List, Protocol, Union
+
+from async_timeout import timeout
 
 from hummingbot.logger.logger import HummingbotLogger
 
@@ -53,11 +53,10 @@ class TestLoggerMixin(Handler):
         self.log_records: List[LogRecord] = []
 
     @staticmethod
-    def _to_loglevel(log_level: Union[str, int]):
-        if isinstance(log_level, str):
-            return getattr(logging, log_level.upper())
-        else:
-            return log_level
+    def _to_loglevel(log_level: Union[str, int]) -> str:
+        if isinstance(log_level, int):
+            log_level = logging.getLevelName(log_level)
+        return log_level
 
     def set_loggers(self, loggers: List[HummingbotLogger]):
         """
@@ -90,3 +89,27 @@ class TestLoggerMixin(Handler):
         """
         log_level = self._to_loglevel(log_level)
         return any([message in record.getMessage() and record.levelname == log_level for record in self.log_records])
+
+    async def wait_for_logged(self,
+                              log_level: str,
+                              message: str,
+                              partial: bool = False,
+                              wait_s: float = 3) -> None:
+        """
+        Wait for a certain message to be logged at a certain level.
+        """
+        log_level = self._to_loglevel(log_level)
+        log_method: Callable[[str | int, str], bool] = self.is_partially_logged if partial else self.is_logged
+        try:
+            async with timeout(wait_s):
+                while not log_method(log_level, message):
+                    await asyncio.sleep(0.1)
+        except asyncio.TimeoutError as e:
+            # Used within a class derived from unittest.TestCase
+            if callable(getattr(self, "fail", None)):
+                getattr(self, "fail")(f"Message: {message} was not logged.\n"
+                                      f"Received Logs: {[record.getMessage() for record in self.log_records]}")
+            else:
+                print(f"Message: {message} was not logged.")
+                print(f"Received Logs: {[record.getMessage() for record in self.log_records]}")
+                raise e
