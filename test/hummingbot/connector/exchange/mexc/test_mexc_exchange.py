@@ -3,9 +3,8 @@ import functools
 import json
 import re
 import time
-from collections import Awaitable
 from decimal import Decimal
-from typing import Any, Callable, Dict, List
+from typing import Any, Awaitable, Callable, Dict, List
 from unittest import TestCase
 from unittest.mock import AsyncMock, PropertyMock, patch
 
