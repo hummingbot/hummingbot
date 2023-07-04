@@ -11,6 +11,10 @@ class HummingbotBaseException(Exception):
 
 
 class ArgumentParserError(HummingbotBaseException):
+    def __init__(self, command: str, message: str):
+        self.command = command
+        self.message = message
+        super().__init__(f"Error while parsing command '{command}': {message}")
     """
     Unable to parse a command (like start, stop, etc) from the hummingbot client
     """
