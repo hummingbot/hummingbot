@@ -268,7 +268,7 @@ class BitmexAPIOrderBookDataSource(OrderBookTrackerDataSource):
             snapshot_dict, snapshot_timestamp, metadata={"trading_pair": trading_pair}
         )
         order_book = self.order_book_create_function()
-        order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
+        order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, int(snapshot_msg.update_id))
         return order_book
 
     async def _subscribe_to_order_book_streams(self) -> WSAssistant:

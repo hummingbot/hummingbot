@@ -18,7 +18,7 @@ from hummingbot.core.event.events import OrderBookEvent
 from hummingbot.strategy.asset_price_delegate import AssetPriceDelegate
 
 cdef class TradesForwarder(EventListener):
-    def __init__(self, indicator: 'TradingIntensityIndicator'):
+    def __init__(self, indicator: TradingIntensityIndicator):
         self._indicator = indicator
 
     cdef c_call(self, object arg):

@@ -1,6 +1,7 @@
+import time
 import unittest
 from decimal import Decimal
-import time
+
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.event.events import LimitOrderStatus
 
@@ -45,9 +46,9 @@ class LimitOrderUnitTest(unittest.TestCase):
         self.assertEqual(LimitOrderStatus.OPEN, order.status)
         self.assertEqual(100, order.age())
         end_time = created + (50 * 1e6)
-        self.assertEqual(50, order.age_til(end_time))
+        self.assertEqual(50, order.age_til(int(end_time)))
         end_time = created - (50 * 1e6)
-        self.assertEqual(-1, order.age_til(end_time))
+        self.assertEqual(-1, order.age_til(int(end_time)))
 
     def test_to_pandas(self):
         # Fix the timestamp here so that we can test order age accurately
@@ -60,7 +61,7 @@ class LimitOrderUnitTest(unittest.TestCase):
             LimitOrder("HBOT_2", "A-B ", False, "A", "B", Decimal("2.5"), Decimal("1"), Decimal("0"), created, LimitOrderStatus.OPEN),
             LimitOrder(f"HBOT_{str(created)}", "A-B ", False, "A", "B", Decimal("2"), Decimal("1"), Decimal(0), created, LimitOrderStatus.CANCELED),
         ]
-        df = LimitOrder.to_pandas(orders, 1.5, end_time_order_age=now_ts)
+        df = LimitOrder.to_pandas(orders, 1.5, end_time_order_age=int(now_ts))
         # Except df output is as below
 
         # Order ID Type  Price Spread  Amount      Age Hang
@@ -80,7 +81,7 @@ class LimitOrderUnitTest(unittest.TestCase):
         self.assertEqual("n/a", df["Hang"][0])
 
         # Test to see if hanging orders are displayed correctly
-        df = LimitOrder.to_pandas(orders, 1.5, ["HBOT_1", "HBOT_2"], end_time_order_age=now_ts)
+        df = LimitOrder.to_pandas(orders, 1.5, ["HBOT_1", "HBOT_2"], end_time_order_age=int(now_ts))
         # Except df output is as below
         # Order ID Type  Price Spread  Amount      Age Hang
         #   HBOT_2 sell    2.5 66.67%     1.0 00:01:40  yes
