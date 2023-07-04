@@ -2,7 +2,7 @@ import os
 import pathlib
 import subprocess
 import sys
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 from Cython.Build import cythonize
@@ -51,47 +51,49 @@ class BuildExt(build_ext):
         super().build_extensions()
 
 
-def find_py_with_cython_inline() -> List[Extension]:
-    extensions: List[Extension] = []
-    # Static typing case (importing cython for @cython decorators)
-    py_files = pathlib.Path().glob(pattern="hummingbot/**/*.py")
-    for py_file in py_files:
-        parent = str(py_file.parent).replace("/", ".")
-        obj = py_file.stem
+include_dirs: List[str] = ["hummingbot/core",
+                           "hummingbot/core/data_type",
+                           "hummingbot/core/cpp"]
+numpy_warning: Tuple[str, str] = ("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")
 
-        with open(py_file, "r", encoding="utf8") as f:
-            for i, line in enumerate(f):
-                if " cython " in line:
-                    extensions.append(Extension(parent + "." + obj,
-                                                sources=[str(py_file)],
-                                                include_dirs=["hummingbot/core",
-                                                              "hummingbot/core/data_type",
-                                                              "hummingbot/core/cpp"],
-                                                define_macros=[("NPY_NO_DEPRECATED_API",
-                                                                "NPY_1_7_API_VERSION")] + coverage_macros,
-                                                language="c++"))
-                    print(extensions)
-                    break
+
+def get_extension(name: str, sources: List[str]) -> Extension:
+    return Extension(name,
+                     sources=sources,
+                     include_dirs=include_dirs,
+                     define_macros=[numpy_warning] + coverage_macros,
+                     language="c++")
+
+
+def py_inline_cython_callback(file: str, parent: str, obj: str) -> Extension:
+    with open(file, "r", encoding="utf8") as f:
+        for i, line in enumerate(f):
+            if " cython " in line:
+                return get_extension(parent + "." + obj, [file])
+
+
+def pxd_py_callback(file: str, parent: str, obj: str) -> Extension:
+    py_file: str = os.path.splitext(file)[0] + ".py"
+    if os.path.isfile(py_file):
+        return get_extension(parent + "." + obj, [py_file])
+
+
+def find_files_with_pattern(pattern: str, callback) -> List[Extension]:
+    extensions: List[Extension] = []
+    files = pathlib.Path().glob(pattern=pattern)
+    for file in files:
+        parent = str(file.parent).replace("/", ".")
+        obj = file.stem
+        extensions.append(callback(str(file), parent, obj))
     return extensions
+
+
+def find_py_with_cython_inline() -> List[Extension]:
+    return find_files_with_pattern("hummingbot/**/*.py", py_inline_cython_callback)
 
 
 def find_py_with_pxd() -> List[Extension]:
-    extensions: List[Extension] = []
-    pxd_files = pathlib.Path().glob(pattern="hummingbot/**/*.pxd")
-    for pxd_file in pxd_files:
-        parent = str(pxd_file.parent).replace("/", ".")
-        obj = pxd_file.stem
-        py_file = os.path.splitext(pxd_file)[0] + ".py"
-        if os.path.isfile(py_file):
-            extensions.append(Extension(parent + "." + obj,
-                                        sources=[py_file],
-                                        include_dirs=["hummingbot/core",
-                                                      "hummingbot/core/data_type",
-                                                      "hummingbot/core/cpp"],
-                                        define_macros=[("NPY_NO_DEPRECATED_API",
-                                                        "NPY_1_7_API_VERSION")] + coverage_macros,
-                                        language="c++"))
-    return extensions
+    return find_files_with_pattern("hummingbot/**/*.pxd", pxd_py_callback)
 
 
 def main():
