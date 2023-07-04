@@ -1,5 +1,6 @@
 name: hummingbot-development
 channels:
+  - mementorc
   - conda-forge
   - defaults
 dependencies:
@@ -21,9 +22,16 @@ dependencies:
   ### Packages used within HB and helping reduce the footprint of pip-installed packages
   - aiohttp>=3.8.4
   - asyncssh>=2.7.2
+  - aioprocessing
   - aiounittest>=1.4.1
+  - aioresponses
+  - async-timeout
   - bidict
+  - bech32
+  - bip32
   - cachetools>=4.1.0
+  - coincurve
+  - commlib-py
   - cryptography>=2.8
   - gql
   - numpy>=1.20.1
