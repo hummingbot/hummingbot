@@ -1,6 +1,6 @@
 name: Bug Report
-description: Create a bug report to help us improve 2.0
-title: "Bug Report"
+description: Create a bug report to help us improve
+title: "SUMMARY OF BUG"
 labels: bug
 body:
  - type: markdown
