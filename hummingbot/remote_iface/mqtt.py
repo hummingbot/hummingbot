@@ -215,7 +215,11 @@ class MQTTCommands:
                 invalid_params = []
                 for param in msg.params:
                     if param[0] in self._hb_app.configurable_keys():
-                        self._hb_app.config(param[0], param[1])
+                        self._ev_loop.call_soon_threadsafe(
+                            self._hb_app.config,
+                            param[0],
+                            param[1]
+                        )
                         response.changes.append((param[0], param[1]))
                     else:
                         invalid_params.append(param[0])
@@ -285,7 +289,9 @@ class MQTTCommands:
                 response.msg = 'No strategy is currently running!'
                 return response
             if msg.async_backend:
-                self._hb_app.status()
+                self._ev_loop.call_soon_threadsafe(
+                    self._hb_app.status
+                )
             else:
                 res = call_sync(
                     self._hb_app.strategy_status(),
@@ -849,6 +855,8 @@ class MQTTGateway(Node):
     def stop(self, with_health: bool = True):
         self.broadcast_status_update("offline", msg_type="availability")
         super().stop()
+        if self._hb_thread:
+            self._hb_thread.stop()
         self._remove_status_updates()
         self._remove_notifier()
         self._remove_log_handlers()
