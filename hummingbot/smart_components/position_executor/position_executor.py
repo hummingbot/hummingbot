@@ -214,7 +214,7 @@ class PositionExecutor(SmartComponentBase):
             self.logger().info(f"Take profit order status: {self.take_profit_order.order.current_state}")
             self.remove_take_profit()
 
-    def control_task(self):
+    async def control_task(self):
         if self.executor_status == PositionExecutorStatus.NOT_STARTED:
             self.control_open_order()
         elif self.executor_status == PositionExecutorStatus.ACTIVE_POSITION:
