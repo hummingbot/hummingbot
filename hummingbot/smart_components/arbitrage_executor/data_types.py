@@ -10,14 +10,10 @@ class ExchangePair(BaseModel):
 
 
 class ArbitrageConfig(BaseModel):
-    markets: list[ExchangePair]
-    amount: Decimal
-    min_profitability: Decimal
-
-
-class ArbitrageOpportunity(BaseModel):
     buying_market: ExchangePair
     selling_market: ExchangePair
+    order_amount: Decimal
+    min_profitability: Decimal
 
 
 class ArbitrageExecutorStatus(Enum):
