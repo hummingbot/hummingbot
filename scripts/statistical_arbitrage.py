@@ -52,7 +52,7 @@ class StatisticalArbitrage(DirectionalStrategyBase):
     def get_processed_df(candles):
 
         candles_df = candles.copy()
-        # calc z-score
+        #     calc z-score
         #     model = sm.OLS(candles[0], candles[1]).fit()
         #     hedge_ratio = model.params[0]
         #     spread = pd.Series(candles[0]) - (pd.Series(candles[1]) * hedge_ratio)
