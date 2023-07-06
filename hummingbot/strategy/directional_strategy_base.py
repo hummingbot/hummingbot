@@ -65,6 +65,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
     time_limit_order_type: OrderType = OrderType.MARKET
     trailing_stop_activation_delta = 0.003
     trailing_stop_trailing_delta = 0.001
+    delay_between_signals = 30
 
     # Create the candles that we want to use and the thresholds for the indicators
     candles: List[CandlesBase]
@@ -88,6 +89,15 @@ class DirectionalStrategyBase(ScriptStrategyBase):
         Checks if the exchange is a perpetual market.
         """
         return "perpetual" in self.exchange
+
+    @property
+    def max_active_executors_condition(self):
+        return len(self.get_active_executors()) < self.max_executors
+
+    @property
+    def time_between_signals_condition(self):
+        seconds_since_last_signal = self.current_timestamp - self.get_timestamp_of_last_executor()
+        return seconds_since_last_signal > self.delay_between_signals
 
     def get_csv_path(self) -> str:
         today = datetime.datetime.today()
@@ -119,14 +129,25 @@ class DirectionalStrategyBase(ScriptStrategyBase):
         for candle in self.candles:
             candle.stop()
 
-    def get_active_executors(self):
+    def get_active_executors(self) -> List[PositionExecutor]:
         return [signal_executor for signal_executor in self.active_executors
                 if not signal_executor.is_closed]
 
+    def get_closed_executors(self) -> List[PositionExecutor]:
+        return [signal_executor for signal_executor in self.active_executors
+                if signal_executor.is_closed]
+
+    def get_timestamp_of_last_executor(self):
+        if len(self.stored_executors) > 0:
+            return self.stored_executors[-1].close_timestamp
+        else:
+            return 0
+
     def on_tick(self):
+        self.clean_and_store_executors()
         if self.is_perpetual:
             self.check_and_set_leverage()
-        if len(self.get_active_executors()) < self.max_executors and self.all_candles_ready:
+        if self.max_active_executors_condition and self.all_candles_ready and self.time_between_signals_condition:
             position_config = self.get_position_config()
             if position_config:
                 signal_executor = PositionExecutor(
@@ -134,7 +155,6 @@ class DirectionalStrategyBase(ScriptStrategyBase):
                     position_config=position_config,
                 )
                 self.active_executors.append(signal_executor)
-        self.clean_and_store_executors()
 
     def get_position_config(self):
         signal = self.get_signal()
