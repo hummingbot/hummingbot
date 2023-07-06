@@ -246,4 +246,4 @@ Arbitrage Status: {self.arbitrage_status}""")
             lines.extend(f"""
 Total Profit (%): {self.net_pnl_pct} | Total Profit ({quote}): {self.net_pnl}
 """)
-        return "\n".join(lines)
+        return lines
