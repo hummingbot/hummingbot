@@ -49,9 +49,10 @@ class RSI(DirectionalStrategyBase):
     # Configure the parameters for the position
     stop_loss: float = 0.0075
     take_profit: float = 0.015
-    time_limit: int = 60 * 55
+    time_limit: int = 60 * 1
     trailing_stop_activation_delta = 0.004
     trailing_stop_trailing_delta = 0.001
+    delay_between_signals = 10
 
     candles = [CandlesFactory.get_candle(connector=exchange,
                                          trading_pair=trading_pair,
@@ -64,14 +65,15 @@ class RSI(DirectionalStrategyBase):
         Returns:
             int: The trading signal (-1 for sell, 0 for hold, 1 for buy).
         """
-        candles_df = self.get_processed_df()
-        rsi_value = candles_df.iat[-1, -1]
-        if rsi_value > 70:
-            return -1
-        elif rsi_value < 30:
-            return 1
-        else:
-            return 0
+        return 1
+        # candles_df = self.get_processed_df()
+        # rsi_value = candles_df.iat[-1, -1]
+        # if rsi_value > 70:
+        #     return -1
+        # elif rsi_value < 30:
+        #     return 1
+        # else:
+        #     return 0
 
     def get_processed_df(self):
         """
