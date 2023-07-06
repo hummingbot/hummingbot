@@ -42,9 +42,9 @@ class StatisticalArbitrage(DirectionalStrategyBase):
             signals.append(signal_value)
 
         if signals[0] > 2:
-            return 1
+            return 0  # 1
         elif signals[0] < -2:
-            return -1
+            return 0  # -1
         else:
             return 0
 
