@@ -521,6 +521,14 @@ class TestVertexExchange(unittest.TestCase):
         }
         return event
 
+    def get_max_withdrawable_mock(self) -> Dict:
+        event = {
+            "status": "success",
+            "data": {"max_withdrawable": "1000000000000000000"},
+            "request_type": "query_max_withdrawable",
+        }
+        return event
+
     def _simulate_trading_rules_initialized(self):
         self.exchange._trading_rules = {
             self.trading_pair: TradingRule(
@@ -530,6 +538,18 @@ class TestVertexExchange(unittest.TestCase):
                 min_base_amount_increment=Decimal(str(0.000001)),
             )
         }
+
+    def mock_balance_updates(self, mock_api) -> None:
+        bal_url = (
+            f"{CONSTANTS.BASE_URLS[self.domain]}/query?subaccount={self.exchange.sender_address}&type=subaccount_info"
+        )
+        bal_response = self.get_balances_mock()
+        mock_api.get(bal_url, body=json.dumps(bal_response))
+
+        for i in [0, 1]:
+            max_url = f"{CONSTANTS.BASE_URLS[self.domain]}/query?product_id={i}&sender={self.exchange.sender_address}&spot_leverage=false&type=max_withdrawable"
+            max_response = self.get_max_withdrawable_mock()
+            mock_api.get(max_url, body=json.dumps(max_response))
 
     def test_supported_order_types(self):
         supported_types = self.exchange.supported_order_types()
@@ -716,7 +736,7 @@ class TestVertexExchange(unittest.TestCase):
         mock_api.post(
             url, body=json.dumps(creation_response), callback=lambda *args, **kwargs: request_sent_event.set()
         )
-
+        self.mock_balance_updates(mock_api)
         self.test_task = asyncio.get_event_loop().create_task(
             self.exchange._create_order(
                 trade_type=TradeType.BUY,
@@ -767,6 +787,7 @@ class TestVertexExchange(unittest.TestCase):
             url, body=json.dumps(creation_response), callback=lambda *args, **kwargs: request_sent_event.set()
         )
 
+        self.mock_balance_updates(mock_api)
         self.test_task = asyncio.get_event_loop().create_task(
             self.exchange._create_order(
                 trade_type=TradeType.BUY,
@@ -820,7 +841,7 @@ class TestVertexExchange(unittest.TestCase):
         mock_api.post(
             url, body=json.dumps(creation_response), callback=lambda *args, **kwargs: request_sent_event.set()
         )
-
+        self.mock_balance_updates(mock_api)
         self.test_task = asyncio.get_event_loop().create_task(
             self.exchange._create_order(
                 trade_type=TradeType.SELL,
@@ -975,6 +996,7 @@ class TestVertexExchange(unittest.TestCase):
 
         mock_api.post(url, body=json.dumps(response), callback=lambda *args, **kwargs: request_sent_event.set())
 
+        self.mock_balance_updates(mock_api)
         self.exchange.cancel(client_order_id="ABC1", trading_pair=self.trading_pair)
         self.async_run_with_timeout(request_sent_event.wait())
 
@@ -1048,11 +1070,10 @@ class TestVertexExchange(unittest.TestCase):
         response = {"status": "success", "error": None}
 
         mock_api.post(url, body=json.dumps(response))
-
+        self.mock_balance_updates(mock_api)
         url = web_utils.public_rest_url(CONSTANTS.POST_PATH_URL, domain=self.domain)
 
         mock_api.post(url, status=400)
-
         cancellation_results = self.async_run_with_timeout(self.exchange.cancel_all(10))
 
         self.assertEqual(2, len(cancellation_results))
@@ -1100,12 +1121,15 @@ class TestVertexExchange(unittest.TestCase):
         response = self.get_balances_mock()
 
         mock_api.get(url, body=json.dumps(response))
+        for i in [0, 1]:
+            max_url = f"{CONSTANTS.BASE_URLS[self.domain]}/query?product_id={i}&sender={self.exchange.sender_address}&spot_leverage=false&type=max_withdrawable"
+            max_response = self.get_max_withdrawable_mock()
+            mock_api.get(max_url, body=json.dumps(max_response))
         self.async_run_with_timeout(self.exchange._update_balances())
 
         available_balances = self.exchange.available_balances
 
         self.assertEqual(Decimal("1"), available_balances["wBTC"])
-        self.assertEqual(Decimal("-2642"), available_balances["USDC"].quantize(Decimal("1")))
 
     @aioresponses()
     def test_update_order_status_when_filled(self, mock_api):
@@ -1449,6 +1473,15 @@ class TestVertexExchange(unittest.TestCase):
 
     #     self.assertEqual(Decimal("1"), self.exchange.available_balances["wBTC"])
     #     self.assertEqual(Decimal("1"), self.exchange.get_balance("wBTC"))
+
+    @aioresponses()
+    def test_get_account_max_withdrawable(self, mock_api):
+        for i in [0, 1]:
+            max_url = f"{CONSTANTS.BASE_URLS[self.domain]}/query?product_id={i}&sender={self.exchange.sender_address}&spot_leverage=false&type=max_withdrawable"
+            max_response = self.get_max_withdrawable_mock()
+            mock_api.get(max_url, body=json.dumps(max_response))
+        res = self.async_run_with_timeout(self.exchange._get_account_max_withdrawable())
+        self.assertEqual(Decimal("1"), res[0])
 
     def test_user_stream_raises_cancel_exception(self):
         self.exchange._set_current_timestamp(1640780000)

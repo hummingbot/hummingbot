@@ -18,6 +18,8 @@ EXCHANGE_NAME = "vertex"
 DEFAULT_DOMAIN = "vertex"
 TESTNET_DOMAIN = "vertex_testnet"
 
+QUOTE = "USDC"
+
 BASE_URLS = {
     DEFAULT_DOMAIN: "https://prod.vertexprotocol-backend.com",
     TESTNET_DOMAIN: "https://test.vertexprotocol-backend.com",
@@ -71,6 +73,8 @@ ALL_PRODUCTS_REQUEST_TYPE = "all_products"
 MARKET_PRICE_REQUEST_TYPE = "market_price"
 FEE_RATES_REQUEST_TYPE = "fee_rates"
 CONTRACTS_REQUEST_TYPE = "contracts"
+SUBACCOUNT_ORDERS_REQUEST_TYPE = "subaccount_orders"
+MAX_WITHDRAWABLE_REQUEST_TYPE = "max_withdrawable"
 
 # WS API ENDPOINTS
 WS_SUBSCRIBE_METHOD = "subscribe"
@@ -217,6 +221,27 @@ RATE_LIMITS = [
         limit=30,
         time_interval=1,
         weight=2,
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=CONTRACTS_REQUEST_TYPE,
+        limit=60,
+        time_interval=1,
+        weight=1,
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=SUBACCOUNT_ORDERS_REQUEST_TYPE,
+        limit=30,
+        time_interval=1,
+        weight=2,
+        linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
+    ),
+    RateLimit(
+        limit_id=MAX_WITHDRAWABLE_REQUEST_TYPE,
+        limit=120,
+        time_interval=10,
+        weight=5,
         linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)],
     ),
     # NOTE: For spot with no leverage, there are different limits.

@@ -260,6 +260,7 @@ class VertexExchange(ExchangePyBase):
 
         o_id = digest
         transact_time = int(time.time())
+        await self._update_balances()
         return o_id, transact_time
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
@@ -298,6 +299,7 @@ class VertexExchange(ExchangePyBase):
         cancel_result = await self._api_post(
             path_url=CONSTANTS.POST_PATH_URL, data=cancel_orders, limit_id=CONSTANTS.CANCEL_ORDERS_METHOD
         )
+        await self._update_balances()
         if cancel_result.get("status") == "failure":
             if cancel_result.get("error_code") and cancel_result["error_code"] == 2020:
                 # NOTE: This is the most elegant handling outside of passing through restrictive lost order limit to 0
@@ -496,14 +498,6 @@ class VertexExchange(ExchangePyBase):
 
                 elif event_type == CONSTANTS.POSITION_CHANGE_EVENT_TYPE:
                     await self._update_balances()
-                    # NOTE: Without balance update, we just call the API endpoint to update all balances.
-                    product_id = event_message["product_id"]
-                    amount = utils.convert_from_x18(event_message["amount"])
-                    asset_name = self._exchange_market_info[self._domain][product_id]["symbol"]
-                    free_balance = Decimal(amount)
-                    total_balance = Decimal(amount)
-                    self._account_available_balances[asset_name] = free_balance
-                    self._account_balances[asset_name] = total_balance
 
             except asyncio.CancelledError:
                 self.logger().error(
@@ -649,69 +643,34 @@ class VertexExchange(ExchangePyBase):
     async def _update_balances(self):
         if not self._exchange_market_info[self._domain]:
             await self.build_exchange_market_info()
+
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
         account = await self._get_account()
-        quote = "USDC"
-        total_usdc_account_value = s_decimal_0
+        available_balances = await self._get_account_max_withdrawable()
         self._allocated_collateral_sum = s_decimal_0
 
-        spot_product_map = {product["product_id"]: product for product in account["spot_products"]}
-        perp_product_map = {product["product_id"]: product for product in account["perp_products"]}
-
+        # Loop for all the balances returned for account
         for spot_balance in account["spot_balances"]:
             try:
                 product_id = spot_balance["product_id"]
-                # USDC
-                if product_id == 0:
-                    balance = Decimal(utils.convert_from_x18(spot_balance["balance"]["amount"]))
-                    asset_name = self._exchange_market_info[self._domain][product_id]["symbol"]
-                    free_balance = Decimal(utils.convert_from_x18(spot_balance["balance"]["amount"]))
-                    total_balance = Decimal(
-                        utils.convert_from_x18(
-                            spot_balance["balance"]["amount"],
-                        )
-                    )
-                    self._account_available_balances[asset_name] = free_balance
-                    self._account_balances[asset_name] = total_balance
-                    remote_asset_names.add(asset_name)
-                elif product_id in self._exchange_market_info[self._domain]:
-                    balance = Decimal(utils.convert_from_x18(spot_balance["balance"]["amount"]))
-                    oracle_price = Decimal(utils.convert_from_x18(spot_product_map[product_id]["oracle_price_x18"]))
-                    total_usdc_account_value = total_usdc_account_value + (balance * oracle_price)
-                    asset_name = self._exchange_market_info[self._domain][product_id]["symbol"]
-                    free_balance = Decimal(utils.convert_from_x18(spot_balance["balance"]["amount"]))
-                    total_balance = Decimal(
-                        utils.convert_from_x18(
-                            spot_balance["balance"]["amount"],
-                        )
-                    )
-                    self._account_available_balances[asset_name] = free_balance
-                    self._account_balances[asset_name] = total_balance
-                    remote_asset_names.add(asset_name)
+                # If we don't have it in our exchange defined list, we don't care
+                if product_id not in self._exchange_market_info[self._domain] and product_id != 0:
+                    continue
+
+                asset_name = self._exchange_market_info[self._domain][product_id]["symbol"]
+                total_balance = Decimal(utils.convert_from_x18(spot_balance["balance"]["amount"]))
+
+                available_balance = s_decimal_0
+                if product_id in available_balances:
+                    available_balance = available_balances[product_id]
+
+                self._account_available_balances[asset_name] = available_balance
+                self._account_balances[asset_name] = total_balance
+                remote_asset_names.add(asset_name)
             except Exception as e:
                 self.logger().warning(f"Balance Error: {spot_balance} {e}")
                 pass
-
-        # NOTE: The entire account is cross margin, therefore we need to ensure we account for perp positions.
-        for perp_balance in account["perp_balances"]:
-            try:
-                product_id = perp_balance["product_id"]
-                balance = Decimal(utils.convert_from_x18(perp_balance["balance"]["amount"]))
-
-                balance = Decimal(utils.convert_from_x18(perp_balance["balance"]["amount"]))
-                oracle_price = Decimal(utils.convert_from_x18(perp_product_map[product_id]["oracle_price_x18"]))
-                self._allocated_collateral_sum = self._allocated_collateral_sum + (balance * oracle_price)
-            except Exception as e:
-                self.logger().warning(f"Perp Balance Error: {perp_balance} {e}")
-                pass
-
-        if quote in self._account_available_balances:
-            self._account_available_balances[quote] = self._account_available_balances[quote] - abs(
-                self._allocated_collateral_sum
-            )
-        else:
-            self._account_available_balances[quote] = -abs(self._allocated_collateral_sum)
 
         asset_names_to_remove = local_asset_names.difference(remote_asset_names)
         for asset_name in asset_names_to_remove:
@@ -828,6 +787,50 @@ class VertexExchange(ExchangePyBase):
         self._symbols = response
 
         return response
+
+    async def _get_account_max_withdrawable(self):
+        sender_address = self.sender_address
+        available_balances = {}
+        trading_pairs = self._trading_pairs
+
+        params = {
+            "type": CONSTANTS.MAX_WITHDRAWABLE_REQUEST_TYPE,
+            "product_id": 0,
+            "sender": sender_address,
+            "spot_leverage": str(self._use_spot_leverage).lower(),
+        }
+        response = await self._api_get(path_url=CONSTANTS.QUERY_PATH_URL, params=params)
+
+        if response is None or "failure" in response["status"] or "data" not in response:
+            raise IOError(f"Unable to get available balance of product {0} for {sender_address}")
+
+        available_balances.update({0: Decimal(utils.convert_from_x18(response["data"]["max_withdrawable"]))})
+
+        if len(self._trading_pairs) == 0:
+            trading_pairs = []
+            for product_id in self._exchange_market_info[self._domain]:
+                if product_id != 0:
+                    trading_pairs.append(self._exchange_market_info[self._domain][product_id]["market"])
+        for trading_pair in trading_pairs:
+            product_id = utils.trading_pair_to_product_id(
+                trading_pair=trading_pair, exchange_market_info=self._exchange_market_info[self._domain]
+            )
+            params = {
+                "type": CONSTANTS.MAX_WITHDRAWABLE_REQUEST_TYPE,
+                "product_id": product_id,
+                "sender": sender_address,
+                "spot_leverage": str(self._use_spot_leverage).lower(),
+            }
+            response = await self._api_get(path_url=CONSTANTS.QUERY_PATH_URL, params=params)
+
+            if response is None or "failure" in response["status"] or "data" not in response:
+                raise IOError(f"Unable to get available balance of product {product_id} for {sender_address}")
+
+            available_balances.update(
+                {product_id: Decimal(utils.convert_from_x18(response["data"]["max_withdrawable"]))}
+            )
+
+        return available_balances
 
     async def _get_contracts(self):
         response = await self._api_get(
