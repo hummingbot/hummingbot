@@ -14,9 +14,11 @@ class ArbitrageConfig(BaseModel):
     selling_market: ExchangePair
     order_amount: Decimal
     min_profitability: Decimal
+    max_retries: int = 3
 
 
 class ArbitrageExecutorStatus(Enum):
     NOT_STARTED = 1
     ACTIVE_ARBITRAGE = 2
     COMPLETED = 3
+    FAILED = 4
