@@ -65,15 +65,14 @@ class RSI(DirectionalStrategyBase):
         Returns:
             int: The trading signal (-1 for sell, 0 for hold, 1 for buy).
         """
-        return 1
-        # candles_df = self.get_processed_df()
-        # rsi_value = candles_df.iat[-1, -1]
-        # if rsi_value > 70:
-        #     return -1
-        # elif rsi_value < 30:
-        #     return 1
-        # else:
-        #     return 0
+        candles_df = self.get_processed_df()
+        rsi_value = candles_df.iat[-1, -1]
+        if rsi_value > 70:
+            return -1
+        elif rsi_value < 30:
+            return 1
+        else:
+            return 0
 
     def get_processed_df(self):
         """
