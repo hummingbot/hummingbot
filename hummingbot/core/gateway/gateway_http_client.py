@@ -265,7 +265,7 @@ class GatewayHttpClient:
         return await self.api_request(method="post", path_url="wallet/add", params=request)
 
     async def get_configuration(self, fail_silently: bool = False) -> Dict[str, Any]:
-        return await self.api_request("get", "network/config", fail_silently=fail_silently)
+        return await self.api_request("get", "chain/config", fail_silently=fail_silently)
 
     async def get_balances(
             self,
@@ -278,7 +278,6 @@ class GatewayHttpClient:
     ) -> Dict[str, Any]:
         if isinstance(token_symbols, list):
             token_symbols = [x for x in token_symbols if isinstance(x, str) and x.strip() != '']
-            network_path = chain if chain in ["near", "algorand"] else "network"
             request_params = {
                 "chain": chain,
                 "network": network,
@@ -289,7 +288,7 @@ class GatewayHttpClient:
                 request_params["connector"] = connector
             return await self.api_request(
                 method="post",
-                path_url=f"{network_path}/balances",
+                path_url="chain/balances",
                 params=request_params,
                 fail_silently=fail_silently,
             )
@@ -302,8 +301,7 @@ class GatewayHttpClient:
             network: str,
             fail_silently: bool = True
     ) -> Dict[str, Any]:
-        network_path = chain if chain in ["near"] else "network"
-        return await self.api_request("get", f"{network_path}/tokens", {
+        return await self.api_request("get", "chain/tokens", {
             "chain": chain,
             "network": network
         }, fail_silently=fail_silently)
@@ -313,10 +311,10 @@ class GatewayHttpClient:
             network: str,
             fail_silently: bool = True
     ) -> Dict[str, Any]:
-        return await self.api_request("get", "algorand/assets", {
+        return await self.get_tokens(**{
             "chain": "algorand",
-            "network": network
-        }, fail_silently=fail_silently)
+            "network": network,
+            "fail_silently": fail_silently})
 
     async def get_network_status(
             self,
@@ -328,7 +326,7 @@ class GatewayHttpClient:
         if chain is not None and network is not None:
             req_data["chain"] = chain
             req_data["network"] = network
-        return await self.api_request("get", "network/status", req_data, fail_silently=fail_silently)
+        return await self.api_request("get", "chain/status", req_data, fail_silently=fail_silently)
 
     async def approve_token(
             self,
@@ -356,7 +354,7 @@ class GatewayHttpClient:
             request_payload["maxPriorityFeePerGas"] = str(max_priority_fee_per_gas)
         return await self.api_request(
             "post",
-            "evm/approve",
+            "chain/approve",
             request_payload
         )
 
@@ -369,7 +367,7 @@ class GatewayHttpClient:
             spender: str,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
-        return await self.api_request("post", "evm/allowances", {
+        return await self.api_request("post", "chain/allowances", {
             "chain": chain,
             "network": network,
             "address": address,
@@ -421,8 +419,7 @@ class GatewayHttpClient:
             request["connector"] = connector
         if address:
             request["address"] = address
-        network_path = chain if chain in ["near", "algorand"] else "network"
-        return await self.api_request("post", f"{network_path}/poll", request, fail_silently=fail_silently)  # type: ignore
+        return await self.api_request("post", "chain/poll", request, fail_silently=fail_silently)  # type: ignore
 
     async def wallet_sign(
         self,
@@ -446,7 +443,7 @@ class GatewayHttpClient:
             address: str,
             fail_silently: bool = False
     ) -> Dict[str, Any]:
-        return await self.api_request("post", "evm/nextNonce", {
+        return await self.api_request("post", "chain/nextNonce", {
             "chain": chain,
             "network": network,
             "address": address
@@ -459,7 +456,7 @@ class GatewayHttpClient:
             address: str,
             nonce: int
     ) -> Dict[str, Any]:
-        return await self.api_request("post", "evm/cancel", {
+        return await self.api_request("post", "chain/cancel", {
             "chain": chain,
             "network": network,
             "address": address,
@@ -1000,8 +997,9 @@ class GatewayHttpClient:
             "chain": chain,
             "network": network,
             "address": address,
+            "token_symbols": [],
         }
-        return await self.api_request("post", "injective/balances", request_payload, use_body=True)
+        return await self.get_balances(**request_payload)
 
     async def clob_perp_funding_info(
         self,
