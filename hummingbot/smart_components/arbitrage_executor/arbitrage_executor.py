@@ -45,9 +45,9 @@ class ArbitrageExecutor(SmartComponentBase):
         self._buy_order: TrackedOrder = TrackedOrder()
         self._sell_order: TrackedOrder = TrackedOrder()
 
-        self._last_buy_price = None
-        self._last_sell_price = None
-        self._last_tx_cost = None
+        self._last_buy_price = Decimal("1")
+        self._last_sell_price = Decimal("1")
+        self._last_tx_cost = Decimal("1")
         self._cumulative_failures = 0
         super().__init__(strategy, list(connectors), update_interval)
 
@@ -232,18 +232,18 @@ class ArbitrageExecutor(SmartComponentBase):
         trade_pnl_pct = (self._last_sell_price - self._last_buy_price) / self._last_buy_price
         tx_cost_pct = self._last_tx_cost / self.order_amount
         base, quote = split_hb_trading_pair(trading_pair=self.buying_market.trading_pair)
-        lines.extend(f"""
-Buy:
-    Exchange: {self.buying_market.exchange} | Trading Pair: {self.buying_market.trading_pair} | Price: {self._last_buy_price}
-Sell
-    Exchange: {self.selling_market.exchange} | Trading Pair: {self.selling_market.trading_pair} | Price: {self._last_sell_price}
-Order Amount: {self.order_amount}
+        lines.extend([f"""
+Arbitrage Status: {self.arbitrage_status}
+
+Buy:  Exchange: {self.buying_market.exchange} | Trading Pair: {self.buying_market.trading_pair}
+Sell: Exchange: {self.selling_market.exchange} | Trading Pair: {self.selling_market.trading_pair}
+Order Amount: {self.order_amount:.2f}
+
 Real-time Profit analysis:
-    Trade PnL (%): {trade_pnl_pct} | TX Cost (%): {tx_cost_pct}
-    Net PnL (%): {trade_pnl_pct - tx_cost_pct}
-Arbitrage Status: {self.arbitrage_status}""")
+    Buy Price: {self._last_buy_price:.4f} | Sell Price: {self._last_sell_price:.4f} |
+    Trade PnL (%): {trade_pnl_pct * 100:.2f} % | TX Cost (%): -{tx_cost_pct * 100:.2f} % | Net PnL (%): {(trade_pnl_pct - tx_cost_pct) * 100:.2f} %
+-------------------------------------------------------------------------------
+"""])
         if self.arbitrage_status == ArbitrageExecutorStatus.COMPLETED:
-            lines.extend(f"""
-Total Profit (%): {self.net_pnl_pct} | Total Profit ({quote}): {self.net_pnl}
-""")
+            lines.extend([f"Total Profit (%): {self.net_pnl_pct * 100:.2f} | Total Profit ({quote}): {self.net_pnl:.4f}"])
         return lines
