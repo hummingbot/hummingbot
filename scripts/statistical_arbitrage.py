@@ -52,37 +52,20 @@ class StatisticalArbitrage(DirectionalStrategyBase):
     def get_processed_df(candles):
 
         candles_df = candles.copy()
-        #     calc z-score
+        #    calc z-score
         #     model = sm.OLS(candles[0], candles[1]).fit()
         #     hedge_ratio = model.params[0]
         #     spread = pd.Series(candles[0]) - (pd.Series(candles[1]) * hedge_ratio)
 
         #     df = pd.DataFrame(spread)
-        #     mean = df.rolling(center=False, window=z_score_window).mean()
-        #     std = df.rolling(center=False, window=z_score_window).std()
+        #     mean = df.rolling(center=False, window=21).mean()
+        #     std = df.rolling(center=False, window=21).std()
         #     x = df.rolling(center=False, window=1).mean()
         #
-        # candles_df.ta.zscore(close=spread, length=21, std=std, append=True)
+        # candles_df.ta.zscore(length=21, std=std, append=True)
         candles_df.ta.zscore(length=21, append=True)
 
         return candles_df
-
-    # Calculate metrics
-    # def calc_zscore(self):
-    #     candles_1 = self.candles[0]
-    #     candles_2 = self.candles[1]
-    #
-    #     model = sm.OLS(candles_1, candles_2).fit()
-    #     hedge_ratio = model.params[0]
-    #     spread = pd.Series(candles_1) - (pd.Series(candles_2) * hedge_ratio)
-    #
-    #     df = pd.DataFrame(spread)
-    #     mean = df.rolling(center=False, window=21).mean()
-    #     std = df.rolling(center=False, window=21).std()
-    #     x = df.rolling(center=False, window=1).mean()
-    #     df["ZSCORE"] = (x - mean) / std
-    #
-    #     return df["ZSCORE"].astype(float).values
 
     def market_data_extra_info(self):
         """
