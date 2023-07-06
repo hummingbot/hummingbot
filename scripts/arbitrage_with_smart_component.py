@@ -7,7 +7,7 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 class ArbitrageWithSmartComponent(ScriptStrategyBase):
     exchange_A = "binance_paper_trade"
-    exchange_B = "uniswap_polygon_mainnet"
+    exchange_B = "quickswap_polygon_mainnet"
     trading_pair = "USDC-USDT"
     markets = {exchange_A: {trading_pair},
                exchange_B: {trading_pair}}
