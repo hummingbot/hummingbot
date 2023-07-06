@@ -52,17 +52,12 @@ class StatisticalArbitrage(DirectionalStrategyBase):
     def get_processed_df(candles):
 
         candles_df = candles.copy()
-        #    calc z-score
-        #     model = sm.OLS(candles[0], candles[1]).fit()
-        #     hedge_ratio = model.params[0]
-        #     spread = pd.Series(candles[0]) - (pd.Series(candles[1]) * hedge_ratio)
-
-        #     df = pd.DataFrame(spread)
-        #     mean = df.rolling(center=False, window=21).mean()
-        #     std = df.rolling(center=False, window=21).std()
-        #     x = df.rolling(center=False, window=1).mean()
-        #
-        # candles_df.ta.zscore(length=21, std=std, append=True)
+        # calc z-score
+        # model = sm.OLS(candles[0], candles[1]).fit()
+        # hedge_ratio = model.params[0]
+        # spread = pd.Series(candles[0]) - (pd.Series(candles[1]) * hedge_ratio)
+        # spread_df = pd.DataFrame(spread)
+        # candles_df.ta.zscore(spread_df, length=21, append=True)
         candles_df.ta.zscore(length=21, append=True)
 
         return candles_df
