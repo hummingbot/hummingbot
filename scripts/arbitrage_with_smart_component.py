@@ -7,11 +7,12 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
 class ArbitrageWithSmartComponent(ScriptStrategyBase):
-    exchange_pair_1 = ExchangePair(exchange="uniswap_polygon_mainnet", trading_pair="WMATIC-USDT")
+    exchange_pair_1 = ExchangePair(exchange="binance", trading_pair="MATIC-USDT")
     exchange_pair_2 = ExchangePair(exchange="quickswap_polygon_mainnet", trading_pair="WMATIC-USDT")
     markets = {exchange_pair_1.exchange: {exchange_pair_1.trading_pair},
                exchange_pair_2.exchange: {exchange_pair_2.trading_pair}}
     order_amount_usd = Decimal("12")
+    min_profitability = Decimal("-0.004")
     active_buy_arbitrages = []
     active_sell_arbitrages = []
 
@@ -62,7 +63,7 @@ class ArbitrageWithSmartComponent(ScriptStrategyBase):
                 buying_market=buying_exchange_pair,
                 selling_market=selling_exchange_pair,
                 order_amount=order_amount,
-                min_profitability=Decimal("0.005"),
+                min_profitability=self.min_profitability,
                 tx_token="MATIC",  # This is temporal and should be equal to the base asset that the rate oracle has
             )
             arbitrage_executor = ArbitrageExecutor(strategy=self,
