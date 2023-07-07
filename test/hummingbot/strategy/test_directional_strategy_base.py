@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pandas as pd
 
@@ -107,3 +107,13 @@ class DirectionalStrategyBaseTest(unittest.TestCase):
     def test_get_position_config_signal_positive(self, signal):
         signal.return_value = 1
         self.assertIsNotNone(self.strategy.get_position_config())
+
+    def test_time_between_signals_condition(self):
+        self.strategy.delay_between_signals = 10
+        stored_executor_mock = MagicMock()
+        stored_executor_mock.close_timestamp = self.start_timestamp
+        self.strategy.stored_executors = [stored_executor_mock]
+        type(self.strategy).current_timestamp = PropertyMock(return_value=self.start_timestamp + 5)
+        self.assertFalse(self.strategy.time_between_signals_condition)
+        type(self.strategy).current_timestamp = PropertyMock(return_value=self.start_timestamp + 15)
+        self.assertTrue(self.strategy.time_between_signals_condition)
