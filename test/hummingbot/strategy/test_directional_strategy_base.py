@@ -113,7 +113,23 @@ class DirectionalStrategyBaseTest(unittest.TestCase):
         stored_executor_mock = MagicMock()
         stored_executor_mock.close_timestamp = self.start_timestamp
         self.strategy.stored_executors = [stored_executor_mock]
+        # First scenario waiting for delay
         type(self.strategy).current_timestamp = PropertyMock(return_value=self.start_timestamp + 5)
         self.assertFalse(self.strategy.time_between_signals_condition)
+
+        # Second scenario delay passed
         type(self.strategy).current_timestamp = PropertyMock(return_value=self.start_timestamp + 15)
         self.assertTrue(self.strategy.time_between_signals_condition)
+
+        # Third scenario no stored executors
+        self.strategy.stored_executors = []
+        self.assertTrue(self.strategy.time_between_signals_condition)
+
+    def test_max_active_executors_condition(self):
+        self.strategy.max_executors = 1
+        active_executor_mock = MagicMock()
+        active_executor_mock.is_closed = False
+        self.strategy.active_executors = [active_executor_mock]
+        self.assertFalse(self.strategy.max_active_executors_condition)
+        self.strategy.active_executors = []
+        self.assertTrue(self.strategy.max_active_executors_condition)
