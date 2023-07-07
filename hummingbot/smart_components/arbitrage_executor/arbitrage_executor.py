@@ -151,19 +151,21 @@ class ArbitrageExecutor(SmartComponentBase):
 
     async def get_tx_cost_pct(self) -> Decimal:
         base, quote = split_hb_trading_pair(trading_pair=self.buying_market.trading_pair)
+        # TODO: also due the fact that we don't have a good rate oracle source we have to use a fixed token
+        base_without_wrapped = base.replace("W", "")
         buy_fee = await self.get_tx_cost_in_asset(
             exchange=self.buying_market.exchange,
             trading_pair=self.buying_market.trading_pair,
             is_buy=True,
             order_amount=self.order_amount,
-            asset=base
+            asset=base_without_wrapped
         )
         sell_fee = await self.get_tx_cost_in_asset(
             exchange=self.selling_market.exchange,
             trading_pair=self.selling_market.trading_pair,
             is_buy=False,
             order_amount=self.order_amount,
-            asset=base)
+            asset=base_without_wrapped)
         self._last_tx_cost = buy_fee + sell_fee
         return self._last_tx_cost / self.order_amount
 
@@ -234,14 +236,8 @@ class ArbitrageExecutor(SmartComponentBase):
         base, quote = split_hb_trading_pair(trading_pair=self.buying_market.trading_pair)
         lines.extend([f"""
 Arbitrage Status: {self.arbitrage_status}
-
-Buy:  Exchange: {self.buying_market.exchange} | Trading Pair: {self.buying_market.trading_pair}
-Sell: Exchange: {self.selling_market.exchange} | Trading Pair: {self.selling_market.trading_pair}
-Order Amount: {self.order_amount:.2f}
-
-Real-time Profit analysis:
-    Buy Price: {self._last_buy_price:.4f} | Sell Price: {self._last_sell_price:.4f} |
-    Trade PnL (%): {trade_pnl_pct * 100:.2f} % | TX Cost (%): -{tx_cost_pct * 100:.2f} % | Net PnL (%): {(trade_pnl_pct - tx_cost_pct) * 100:.2f} %
+- ARB: {self.buying_market.exchange}:{self.buying_market.trading_pair}  --> {self.selling_market.exchange}:{self.selling_market.trading_pair} | Amount: {self.order_amount:.2f}
+- Trade PnL (%): {trade_pnl_pct * 100:.2f} % | TX Cost (%): -{tx_cost_pct * 100:.2f} % | Net PnL (%): {(trade_pnl_pct - tx_cost_pct) * 100:.2f} %
 -------------------------------------------------------------------------------
 """])
         if self.arbitrage_status == ArbitrageExecutorStatus.COMPLETED:
