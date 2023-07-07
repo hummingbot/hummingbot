@@ -130,7 +130,7 @@ class ArbitrageExecutor(SmartComponentBase):
         self.place_sell_arbitrage_order()
 
     def place_buy_arbitrage_order(self):
-        self.buy_order = self.place_order(
+        self.buy_order.order_id = self.place_order(
             connector_name=self.buying_market.exchange,
             trading_pair=self.buying_market.trading_pair,
             order_type=OrderType.MARKET,
@@ -140,7 +140,7 @@ class ArbitrageExecutor(SmartComponentBase):
         )
 
     def place_sell_arbitrage_order(self):
-        self.sell_order = self.place_order(
+        self.sell_order.order_id = self.place_order(
             connector_name=self.selling_market.exchange,
             trading_pair=self.selling_market.trading_pair,
             order_type=OrderType.MARKET,
