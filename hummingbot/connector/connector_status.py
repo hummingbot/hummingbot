@@ -36,7 +36,6 @@ connector_status = {
     'ndax_testnet': 'bronze',
     'okx': 'bronze',
     'perpetual_finance': 'bronze',
-    'probit': 'bronze',
     'whitebit': 'bronze',
     'uniswap': 'gold',
     'uniswapLP': 'gold',
