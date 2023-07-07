@@ -105,6 +105,17 @@ class IsolatedAsyncioWrapperTestCase(unittest.IsolatedAsyncioTestCase):
             asyncio.set_event_loop(asyncio.new_event_loop())
         assert asyncio.get_event_loop() is not None
 
+    def run_async_with_timeout(self, coroutine: Awaitable, timeout: float = 1.0) -> Any:
+        """
+        Run the given coroutine with a timeout.
+
+        :param Awaitable coroutine: The coroutine to be executed.
+        :param float timeout: The timeout value in seconds.
+        :return: The result of the coroutine.
+        :rtype: Any
+        """
+        return self.local_event_loop.run_until_complete(asyncio.wait_for(coroutine, timeout=timeout))
+
 
 class LocalClassEventLoopWrapperTestCase(unittest.TestCase):
     """
@@ -158,16 +169,16 @@ class LocalClassEventLoopWrapperTestCase(unittest.TestCase):
         cls.main_event_loop = None
         super().tearDownClass()
 
-    def run_async_with_timeout(self, coro: Awaitable, timeout: float = 1.0) -> Any:
+    def run_async_with_timeout(self, coroutine: Awaitable, timeout: float = 1.0) -> Any:
         """
         Run the given coroutine with a timeout.
 
-        :param Awaitable coro: The coroutine to be executed.
+        :param Awaitable coroutine: The coroutine to be executed.
         :param float timeout: The timeout value in seconds.
         :return: The result of the coroutine.
         :rtype: Any
         """
-        return self.local_event_loop.run_until_complete(asyncio.wait_for(coro, timeout=timeout))
+        return self.local_event_loop.run_until_complete(asyncio.wait_for(coroutine, timeout=timeout))
 
 
 class LocalTestEventLoopWrapperTestCase(unittest.TestCase):
@@ -231,13 +242,13 @@ class LocalTestEventLoopWrapperTestCase(unittest.TestCase):
         cls.main_event_loop = None
         super().tearDownClass()
 
-    def run_async_with_timeout(self, coro: Awaitable, timeout: float = 1.0) -> Any:
+    def run_async_with_timeout(self, coroutine: Awaitable, timeout: float = 1.0) -> Any:
         """
         Run the given coroutine with a timeout.
 
-        :param Awaitable coro: The coroutine to be executed.
+        :param Awaitable coroutine: The coroutine to be executed.
         :param float timeout: The timeout value in seconds.
         :return: The result of the coroutine.
         :rtype: Any
         """
-        return self.local_event_loop.run_until_complete(asyncio.wait_for(coro, timeout=timeout))
+        return self.local_event_loop.run_until_complete(asyncio.wait_for(coroutine, timeout=timeout))
