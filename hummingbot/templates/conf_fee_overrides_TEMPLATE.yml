@@ -168,15 +168,3 @@ okx_maker_percent_fee:
 okx_percent_fee_token:
 okx_taker_fixed_fees:
 okx_taker_percent_fee:
-probit_buy_percent_fee_deducted_from_returns:
-probit_kr_buy_percent_fee_deducted_from_returns:
-probit_kr_maker_fixed_fees:
-probit_kr_maker_percent_fee:
-probit_kr_percent_fee_token:
-probit_kr_taker_fixed_fees:
-probit_kr_taker_percent_fee:
-probit_maker_fixed_fees:
-probit_maker_percent_fee:
-probit_percent_fee_token:
-probit_taker_fixed_fees:
-probit_taker_percent_fee:
