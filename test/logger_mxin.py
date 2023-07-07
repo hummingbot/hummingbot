@@ -5,7 +5,7 @@ from typing import Callable, List, Protocol, Union
 
 from async_timeout import timeout
 
-from hummingbot.logger.logger import HummingbotLogger
+from hummingbot.logger import HummingbotLogger
 
 
 class LogLevel:
