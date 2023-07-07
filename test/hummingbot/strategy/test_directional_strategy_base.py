@@ -109,7 +109,7 @@ class DirectionalStrategyBaseTest(unittest.TestCase):
         self.assertIsNotNone(self.strategy.get_position_config())
 
     def test_time_between_signals_condition(self):
-        self.strategy.delay_between_signals = 10
+        self.strategy.cooldown_after_execution = 10
         stored_executor_mock = MagicMock()
         stored_executor_mock.close_timestamp = self.start_timestamp
         self.strategy.stored_executors = [stored_executor_mock]
