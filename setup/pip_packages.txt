@@ -11,6 +11,6 @@ dydx-v3-python==2.0.1
 eip712-structs==1.1.0
 ethsnarks-loopring==0.1.5
 hdwallets==0.1.2
-injective-py==0.6.1.4
+injective-py>=0.6.1.4,<0.6.3.0
 pysha3==1.0.2
 python-telegram-bot==12.4.2
