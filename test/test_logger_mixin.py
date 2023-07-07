@@ -3,7 +3,7 @@ import unittest
 from logging import Logger, LogRecord
 from test.logger_mxin import LogLevel, TestLoggerMixin
 
-from hummingbot.logger.logger import HummingbotLogger
+from hummingbot.logger import HummingbotLogger
 
 
 class TestTestLoggerMixin(unittest.TestCase):
