@@ -31,7 +31,7 @@ coverage_macros = []
 coverage_compiler_directives = dict()
 coverage_include_path = []
 
-if not IS_PY_DEBUG:
+if IS_PY_DEBUG:
     print('Extension IS_CYTHON_COVERAGE=True!')
     # Adding cython line trace for coverage report
     coverage_macros += ("CYTHON_TRACE_NOGIL", 1), ("CYTHON_TRACE", 1)
@@ -84,7 +84,9 @@ def find_files_with_pattern(pattern: str, callback) -> List[Extension]:
     for file in files:
         parent = str(file.parent).replace("/", ".")
         obj = file.stem
-        extensions.append(callback(str(file), parent, obj))
+        extension: Extension = callback(str(file), parent, obj)
+        if extension is not None:
+            extensions.append(extension)
     return extensions
 
 
@@ -139,12 +141,12 @@ def main():
     cythonized_py = []
     if not IS_PY_DEBUG:
         python_sources = find_py_with_pxd() + find_py_with_cython_inline()
-        cythonized_py = cythonize(python_sources, compiler_directives=coverage_compiler_directives, **cython_kwargs)
+        if python_sources is not None:
+            cythonized_py = cythonize(python_sources, compiler_directives=coverage_compiler_directives, **cython_kwargs)
 
     cythonized_pyx = cythonize(Extension("*",
                                          sources=["hummingbot/**/*.pyx"],
-                                         # This is no longer needed with the prod version of Cython
-                                         # define_macros=[("NPY_NO_DEPRECATED_API", "NPY_1_7_API_VERSION")],
+                                         define_macros=[numpy_warning],
                                          language="c++"),
                                compiler_directives=compiler_directives, **cython_kwargs)
 

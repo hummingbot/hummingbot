@@ -30,5 +30,9 @@ source "${CONDA_BIN}/activate" ${ENV_NAME}
 # Installing conflicting pip packages without their dependencies
 # They could override the environment plan with conda
 echo "Installing conflicting pip packages without their dependencies"
-python -m pip install --no-deps -r setup/pip_packages.txt 1> logs/pip_install.log 2>&1
+read -t 10 -p "Do you want to continue? [Y/n]: " RESPONSE
+if [ "${RESPONSE}_" == "_" ] || [ "${RESPONSE}" != "n" ]; then
+  python -m pip install --no-deps -r setup/pip_packages.txt 1> logs/pip_install.log 2>&1
+fi
+
 pre-commit install
