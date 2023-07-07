@@ -44,6 +44,8 @@ from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 
 class HedgedMarketMakingUnitTest(unittest.TestCase):
+    main_ev_loop = None
+    ev_loop = None
     start: pd.Timestamp = pd.Timestamp("2019-01-01", tz="UTC")
     end: pd.Timestamp = pd.Timestamp("2019-01-01 01:00:00", tz="UTC")
     start_timestamp: float = start.timestamp()
@@ -56,7 +58,9 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.ev_loop = asyncio.get_event_loop()
+        cls.main_ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+        cls.ev_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(cls.ev_loop)
 
     @patch("hummingbot.client.settings.AllConnectorSettings.get_exchange_names")
     @patch("hummingbot.client.settings.AllConnectorSettings.get_connector_settings")
@@ -157,6 +161,12 @@ class HedgedMarketMakingUnitTest(unittest.TestCase):
 
     def tearDown(self):
         super().tearDown()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.ev_loop.stop()
+        asyncio.set_event_loop(cls.main_ev_loop)
+        super().tearDownClass()
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
