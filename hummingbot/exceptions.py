@@ -121,4 +121,9 @@ class InvalidOrderType(HummingbotBaseException):
     """
 
     def __init__(self, order_type: str):
-        self.order_
+        self.order_type = order_type
+        super().__init__(f"Invalid order type: {order_type}")
+
+    def log(self, level: int = logging.ERROR):
+        super().log(level)
+        self.logger.error(f"Invalid order type: {self.order_type}")
