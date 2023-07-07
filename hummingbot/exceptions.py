@@ -110,3 +110,15 @@ class OrderNotFound(HummingbotBaseException):
     def log(self, level: int = logging.ERROR):
         super().log(level)
         self.logger.error(f"Order with ID '{self.order_id}' could not be found")
+
+
+class InvalidOrderType(HummingbotBaseException):
+    """
+    The order type is invalid
+
+    Args:
+        order_type (str): The invalid order type.
+    """
+
+    def __init__(self, order_type: str):
+        self.order_
