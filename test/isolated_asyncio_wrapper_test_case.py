@@ -3,7 +3,7 @@ import functools
 import unittest
 from asyncio import Task
 from collections.abc import Set
-from typing import Any, Awaitable, Callable, Coroutine, Optional, TypeVar
+from typing import Any, Awaitable, Callable, Coroutine, List, Optional, TypeVar
 
 T = TypeVar("T")
 
@@ -115,6 +115,34 @@ class IsolatedAsyncioWrapperTestCase(unittest.IsolatedAsyncioTestCase):
         :rtype: Any
         """
         return self.local_event_loop.run_until_complete(asyncio.wait_for(coroutine, timeout=timeout))
+
+    @staticmethod
+    async def await_task_completion(tasks_name: Optional[str | List[str]]) -> None:
+        """
+        Await the completion of the given task.
+
+        Warning: This method relies on undocumented method of Task (get_coro()),
+        as well as internals of Python coroutines (cr_code.co_name).
+
+        :param str tasks_name: The task name (or names) to be awaited.
+        :return: The result of the task.
+        """
+
+        def get_coro_func_name(task):
+            coro = task.get_coro()
+            return coro.cr_code.co_name
+
+        if tasks_name is None:
+            return
+        if isinstance(tasks_name, str):
+            tasks_name = [tasks_name]
+        tasks: Set[Task] = asyncio.all_tasks()
+        tasks = {task for task in tasks for task_name in tasks_name if task_name == get_coro_func_name(task)}
+
+        if tasks:
+            await asyncio.wait(tasks)
+
+        await asyncio.sleep(0)
 
 
 class LocalClassEventLoopWrapperTestCase(unittest.TestCase):
