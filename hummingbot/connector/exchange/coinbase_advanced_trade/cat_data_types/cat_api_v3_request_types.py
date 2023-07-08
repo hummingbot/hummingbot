@@ -160,13 +160,31 @@ class CoinbaseAdvancedTradeCreateOrderRequest(
     }
     ```
     """
-    client_order_id: str = Field(..., description='Client set unique uuid for this order')
-    product_id: str = Field(..., description="The product this order was created for e.g. 'BTC-USD'")
-    side: CoinbaseAdvancedTradeOrderSide = Field(None, description='Possible values: [UNKNOWN_ORDER_SIDE, BUY, SELL]')
-    order_configuration: CoinbaseAdvancedTradeAPIOrderConfiguration = Field(None, description='Order configuration')
+    client_order_id: str = Field(
+        ...,
+        alias="order_id",
+        description='Client set unique uuid for this order')
+    product_id: str = Field(
+        ...,
+        alias=["symbol"],
+        description="The product this order was created for e.g. 'BTC-USD'")
+    side: CoinbaseAdvancedTradeOrderSide = Field(
+        ...,
+        alias="trade_type",
+        description='Possible values: [UNKNOWN_ORDER_SIDE, BUY, SELL]')
+    order_configuration: CoinbaseAdvancedTradeAPIOrderConfiguration = Field(
+        ...,
+        alias="order_type",
+        description='Order configuration')
 
     def endpoint(self) -> str:
         return "orders"
+
+    @validator('order_configuration', pre=True)
+    def validate_order_configuration(cls, v, values, **kwargs):
+        order_type = values.get('order_type')
+        values.pop('order_type')
+        return CoinbaseAdvancedTradeAPIOrderConfiguration.create(order_type, **values)
 
 
 class CoinbaseAdvancedTradeCancelOrdersRequest(

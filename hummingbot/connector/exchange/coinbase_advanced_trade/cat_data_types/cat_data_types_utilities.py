@@ -2,11 +2,13 @@ from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from decimal import Decimal
 from pprint import pprint
-from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Type, TypeVar, Union, cast
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Type, TypedDict, TypeVar, Union, cast
 
 from pydantic.class_validators import validator
 from pydantic.fields import Field
 from pydantic.generics import Generic, GenericModel
+
+from hummingbot.core.data_type.common import OrderType, TradeType
 
 _max_timestamp = datetime(year=3000, month=1, day=1).timestamp()  # Corresponds to 6AM UTC
 _min_timestamp = datetime(year=2000, month=1, day=1).timestamp()  # Corresponds to 6AM UTC
@@ -298,3 +300,12 @@ class NestedDataIterableMixin(DataIterableMixin[T], Generic[T, V], ABC):
                 yield from item.iter()
             elif isinstance(item, (List, Tuple, Set)):
                 yield from item
+
+
+class HuBotOrder(TypedDict):
+    order_id: str
+    symbol: str
+    amount: Decimal
+    trade_type: TradeType
+    order_type: OrderType
+    price: Decimal

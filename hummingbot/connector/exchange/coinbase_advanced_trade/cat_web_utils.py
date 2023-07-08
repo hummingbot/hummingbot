@@ -87,7 +87,7 @@ def create_throttler() -> AsyncThrottler:
 async def get_current_server_time_s(
         throttler: Optional[AsyncThrottler] = None,
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
-) -> int:
+) -> float:
     throttler = throttler or create_throttler()
     api_factory = build_api_factory_without_time_synchronizer_pre_processor(throttler=throttler)
     rest_assistant = await api_factory.get_rest_assistant()
@@ -96,7 +96,7 @@ async def get_current_server_time_s(
         method=RESTMethod.GET,
         throttler_limit_id=CONSTANTS.SERVER_TIME_EP,
     )
-    server_time: int = int(get_timestamp_from_exchange_time(response["data"]["iso"], "s"))
+    server_time: float = float(get_timestamp_from_exchange_time(response["data"]["iso"], "s"))
     return server_time
 
 
@@ -105,15 +105,7 @@ async def get_current_server_time_ms(
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
 ) -> int:
     server_time_s = await get_current_server_time_s(throttler=throttler, domain=domain)
-    return server_time_s * 1000
-
-
-async def get_current_server_time(
-        throttler: Optional[AsyncThrottler] = None,
-        domain: str = CONSTANTS.DEFAULT_DOMAIN,
-) -> int:
-    server_time_s = await get_current_server_time_s(throttler=throttler, domain=domain)
-    return server_time_s * 1000
+    return int(server_time_s * 1000)
 
 
 def get_timestamp_from_exchange_time(exchange_time: str, unit: str) -> float:

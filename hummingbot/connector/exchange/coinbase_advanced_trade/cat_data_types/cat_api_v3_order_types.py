@@ -3,7 +3,7 @@ from enum import Enum, auto
 from typing import Optional, Type
 
 from bidict import bidict
-from pydantic import validator
+from pydantic import Field, validator
 
 from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.utils.class_registry import ClassRegistry
@@ -50,8 +50,8 @@ class CoinbaseAdvancedTradeMarketIOCOrderType(_PydanticForJsonAllowExtra, Coinba
     }
     ```
     """
-    quote_size: str
-    base_size: str
+    quote_size: str = Field(None)
+    base_size: str = Field(..., alias="amount")
 
 
 class CoinbaseAdvancedTradeLimitGTCOrderType(_PydanticForJsonAllowExtra, CoinbaseAdvancedTradeOrderType):
@@ -66,8 +66,8 @@ class CoinbaseAdvancedTradeLimitGTCOrderType(_PydanticForJsonAllowExtra, Coinbas
     }
     ```
     """
-    base_size: str
-    limit_price: str
+    base_size: str = Field(..., alias="amount")
+    limit_price: str = Field(..., alias="price")
     post_only: bool = False
 
 
@@ -99,8 +99,8 @@ class CoinbaseAdvancedTradeLimitGTDOrderType(_PydanticForJsonAllowExtra, Coinbas
     }
     ```
     """
-    base_size: str
-    limit_price: str
+    base_size: str = Field(..., alias="amount")
+    limit_price: str = Field(..., alias="price")
     post_only: bool = False
     end_time: str
 
@@ -134,8 +134,8 @@ class CoinbaseAdvancedTradeStopLimitGTCOrderType(_PydanticForJsonAllowExtra, Coi
     }
     ```
     """
-    base_size: str
-    limit_price: str
+    base_size: str = Field(..., alias="amount")
+    limit_price: str = Field(..., alias="price")
     stop_price: str
     stop_direction: CoinbaseAdvancedTradeStopDirection
 
@@ -154,8 +154,8 @@ class CoinbaseAdvancedTradeStopLimitGTDOrderType(_PydanticForJsonAllowExtra, Coi
     }
     ```
     """
-    base_size: str
-    limit_price: str
+    base_size: str = Field(..., alias="amount")
+    limit_price: str = Field(..., alias="price")
     stop_price: str
     stop_direction: CoinbaseAdvancedTradeStopDirection
     end_time: str

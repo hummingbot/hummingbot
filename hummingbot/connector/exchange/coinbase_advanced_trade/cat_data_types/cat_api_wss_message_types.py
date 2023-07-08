@@ -29,9 +29,26 @@ class CoinbaseAdvancedTradeEventMessage(
         super().__init__(**kwargs)
 
 
-class _MarketTrades(PydanticForJsonConfig):
+class CoinbaseAdvancedTradeHeartbeatsEventMessage(
+    PydanticMockableForJson,
+    CoinbaseAdvancedTradeEventMessage,
+):
     """
-    Market Trades channel messages
+    Heartbeat
+    https://docs.cloud.coinbase.com/advanced-trade-api/docs/ws-channels#heartbeats-channel    ```json
+    {
+      "current_time": "2023-06-23 20:31:56.121961769 +0000 UTC m=+91717.525857105",
+      "heartbeat_counter": "3049",
+    }
+    ```
+    """
+    current_time: str
+    heartbeat_counter: str
+
+
+class _MarketTrade(PydanticForJsonConfig):
+    """
+    Market Trade
     https://docs.cloud.coinbase.com/advanced-trade-api/docs/ws-channels#market-trades-channel
     ```json
     {
@@ -55,7 +72,7 @@ class _MarketTrades(PydanticForJsonConfig):
 class CoinbaseAdvancedTradeMarketTradesEventMessage(
     PydanticMockableForJson,
     CoinbaseAdvancedTradeEventMessage,
-    DataIterableMixin[_MarketTrades]
+    DataIterableMixin[_MarketTrade]
 ):
     """
     Market Trades channel messages
@@ -78,7 +95,7 @@ class CoinbaseAdvancedTradeMarketTradesEventMessage(
     ```
     """
     type: CoinbaseAdvancedTradeWSSEventType
-    trades: Tuple[_MarketTrades, ...]
+    trades: Tuple[_MarketTrade, ...]
 
     @property
     def iter_field_name(self) -> str:
@@ -346,6 +363,7 @@ class CoinbaseAdvancedTradeLevel2EventMessage(
 
 
 _EventTypes = Union[
+    CoinbaseAdvancedTradeHeartbeatsEventMessage,
     CoinbaseAdvancedTradeMarketTradesEventMessage,
     CoinbaseAdvancedTradeTickerEventMessage,
     CoinbaseAdvancedTradeLevel2EventMessage,

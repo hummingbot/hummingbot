@@ -54,10 +54,7 @@ class CoinbaseAdvancedTradeAccountsMixin:
         params = {"limit": 250}
         if cursor != "0":
             params["cursor"] = cursor
-        resp: _ListAccountsResponse = await _APIEndpoint(self,
-                                                         _APIVersion.V3,
-                                                         "ListAccounts",
-                                                         **params).execute()
+        resp: _ListAccountsResponse = await _APIEndpoint(self, _APIVersion.V3, "ListAccounts", **params).execute()
         return resp
         # return CoinbaseAdvancedTradeListAccountsResponse(**(await self.api_get(
         #     path_url=CONSTANTS.ACCOUNTS_LIST_EP,

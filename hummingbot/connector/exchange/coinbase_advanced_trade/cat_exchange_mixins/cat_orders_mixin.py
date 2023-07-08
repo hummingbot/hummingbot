@@ -1,32 +1,8 @@
+from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
-
-from _decimal import Decimal
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.exchange.coinbase_advanced_trade import cat_constants as CONSTANTS
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_api_v3_enums import (
-    CoinbaseAdvancedTradeOrderSide,
-)
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_api_v3_order_types import (
-    COINBASE_ADVANCED_TRADE_ORDER_TYPE_ENUM_MAPPING,
-    CoinbaseAdvancedTradeAPIOrderConfiguration,
-    CoinbaseAdvancedTradeOrderType,
-)
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_api_v3_request_types import (
-    CoinbaseAdvancedTradeCreateOrderRequest,
-)
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_exchange_mixins.cat_exchange_protocols import (
-    CoinbaseAdvancedTradeAPICallsMixinProtocol,
-    CoinbaseAdvancedTradeOrdersMixinProtocol,
-    CoinbaseAdvancedTradeTradingPairsMixinProtocol,
-    CoinbaseAdvancedTradeUtilitiesMixinProtocol,
-    CoinbaseAdvancedTradeWebsocketMixinProtocol,
-)
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_web_utils import (
-    get_timestamp_from_exchange_time,
-    set_exchange_time_from_timestamp,
-)
-from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_utils import DEFAULT_FEES
 from hummingbot.connector.exchange_base import s_decimal_NaN
 from hummingbot.connector.utils import TradeFillOrderDetails
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -34,6 +10,27 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 from hummingbot.core.utils.async_utils import safe_gather
+
+from ..cat_data_types.cat_api_endpoints import (
+    CoinbaseAdvancedTradeAPIEndpoint as _APIEndpoint,
+    CoinbaseAdvancedTradeAPIVersionEnum as _APIVersion,
+)
+from ..cat_data_types.cat_api_v3_enums import CoinbaseAdvancedTradeOrderSide as _OrderSide
+from ..cat_data_types.cat_api_v3_order_types import (
+    COINBASE_ADVANCED_TRADE_ORDER_TYPE_ENUM_MAPPING,
+    CoinbaseAdvancedTradeAPIOrderConfiguration as _OrderConfiguration,
+    CoinbaseAdvancedTradeOrderType,
+)
+from ..cat_data_types.cat_api_v3_response_types import CoinbaseAdvancedTradeCreateOrderResponse as _OrderResponse
+from ..cat_web_utils import get_timestamp_from_exchange_time, set_exchange_time_from_timestamp
+from ..coinbase_advanced_trade_utils import DEFAULT_FEES
+from .cat_exchange_protocols import (
+    CoinbaseAdvancedTradeAPICallsMixinProtocol,
+    CoinbaseAdvancedTradeOrdersMixinProtocol,
+    CoinbaseAdvancedTradeTradingPairsMixinProtocol,
+    CoinbaseAdvancedTradeUtilitiesMixinProtocol,
+    CoinbaseAdvancedTradeWebsocketMixinProtocol,
+)
 
 
 class _OrdersMixinProtocol(
@@ -140,74 +137,33 @@ class OrdersMixin:
         Places an order with the exchange and returns the order ID and the timestamp of the order.
         reference: https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_postorder
         Maximum open orders: 500
-
-        Example:
-            payload = json.dumps({
-              "client_order_id": "client_order_id",
-              "product_id": "product_id",
-              "side": "BUY",
-              "order_configuration": {
-                "market_market_ioc": {
-                  "quote_size": "1",
-                  "base_size": "1"
-                },
-                "limit_limit_gtc": {
-                  "base_size": "1",
-                  "limit_price": "1",
-                  "post_only": False
-                },
-                "limit_limit_gtd": {
-                  "base_size": "1",
-                  "limit_price": "1",
-                  "end_time": "2023-05-04T16:17",
-                  "post_only": True
-                },
-                "stop_limit_stop_limit_gtc": {
-                  "base_size": "1",
-                  "limit_price": "1",
-                  "stop_price": "1",
-                  "stop_direction": "STOP_DIRECTION_STOP_UP"
-                },
-                "stop_limit_stop_limit_gtd": {
-                  "base_size": "1",
-                  "limit_price": "1",
-                  "stop_price": "1",
-                  "end_time": "2023-05-04T16:17",
-                  "stop_direction": "STOP_DIRECTION_STOP_DOWN"
-                }
-              }
-            })
-
         """
         product_id = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        side = CoinbaseAdvancedTradeOrderSide.BUY if trade_type is TradeType.BUY else CoinbaseAdvancedTradeOrderSide.SELL
+        side = _OrderSide.BUY if trade_type is TradeType.BUY else _OrderSide.SELL
 
-        order_configuration: CoinbaseAdvancedTradeAPIOrderConfiguration = \
-            CoinbaseAdvancedTradeAPIOrderConfiguration.create(
+        order_configuration: _OrderConfiguration = \
+            _OrderConfiguration.create(
                 order_type,
                 base_size=amount,
                 quote_size=amount * price,
                 limit_price=price,
                 **kwargs
             )
-        try:
-            order = CoinbaseAdvancedTradeCreateOrderRequest(
-                client_order_id=order_id,
-                product_id=product_id,
-                side=side,
-                order_configuration=order_configuration
-            )
-        except Exception as e:
-            print(order_configuration)
-            print(f"Exception {e}")
-            raise
+        order = {
+            "client_order_id": order_id,
+            "product_id": product_id,
+            "side": side,
+            "order_configuration": order_configuration
+        }
 
-        order_result: Dict = await self.api_post(
-            path_url=CONSTANTS.ORDER_EP,
-            data=order.to_dict_for_json(),
-            is_auth_required=True)
+        order_result: _OrderResponse = await _APIEndpoint(self, _APIVersion.V3, "CreateOrder", **order).execute()
 
-        return order_result["order_id"], self.time_synchronizer.time()
+        # order_result: Dict = await self.api_post(
+        #    path_url=CONSTANTS.ORDER_EP,
+        #    data=order.to_dict_for_json(),
+        #    is_auth_required=True)
+
+        return order_result.order_id, self.time_synchronizer.time()
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         """
