@@ -1,105 +1,203 @@
-from unittest import TestCase
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
+from test.logger_mxin import TestLoggerMixin
 
 from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_order_book import (
     CoinbaseAdvancedTradeV2OrderBook,
 )
+from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_web_utils import (
+    get_timestamp_from_exchange_time,
+)
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 
 
-class CoinbaseAdvancedTradeV2OrderBookTests(TestCase):
+class CoinbaseAdvancedTradeV2OrderBookTests(IsolatedAsyncioWrapperTestCase, TestLoggerMixin):
+    def setUp(self) -> None:
+        super().setUp()
+        self.snapshot_msg = {
+            "channel": "l2_data",
+            "client_id": "",
+            "timestamp": "2023-02-09T20:32:50.714964855Z",
+            "sequence_num": 0,
+            "events": [
+                {
+                    "type": "snapshot",
+                    "product_id": "BTC-USD",
+                    "updates": [
+                        {
+                            "side": "bid",
+                            "event_time": "1970-01-01T00:00:00Z",
+                            "price_level": "21921.73",
+                            "new_quantity": "0.06317902"
+                        },
+                        {
+                            "side": "bid",
+                            "event_time": "1970-01-01T00:00:00Z",
+                            "price_level": "21921.3",
+                            "new_quantity": "0.02"
+                        },
+                        {
+                            "side": "ask",
+                            "event_time": "1970-01-01T00:00:00Z",
+                            "price_level": "2192.3",
+                            "new_quantity": "0.002"
+                        },
+                    ]
+                }
+            ]
+        }
+        self.trade_msg = {
+            "channel": "market_trades",
+            "client_id": "",
+            "timestamp": "2023-02-09T20:19:35.39625135Z",
+            "sequence_num": 0,
+            "events": [
+                {
+                    "type": "snapshot",
+                    "trades": [
+                        {
+                            "trade_id": "12345",
+                            "product_id": "ETH-USD",
+                            "price": "1260.01",
+                            "size": "0.3",
+                            "side": "BUY",
+                            "time": "2019-08-14T20:42:27.265Z",
+                        }
+                    ]
+                }
+            ]
+        }
+        self.order_book = CoinbaseAdvancedTradeV2OrderBook()
+        self.set_loggers([self.order_book.logger()])
 
-    def test_snapshot_message_from_exchange(self):
-        snapshot_message = CoinbaseAdvancedTradeV2OrderBook.snapshot_message_from_exchange(
-            msg={
-                "lastUpdateId": 1,
-                "bids": [
-                    ["4.00000000", "431.00000000"]
-                ],
-                "asks": [
-                    ["4.00000200", "12.00000000"]
-                ]
-            },
+    async def symbol_to_pair(self, symbol: str) -> str:
+        return "COINALPHA-HBOT"
+
+    async def test_level2_order_book_snapshot_message(self):
+        snapshot_message = await (CoinbaseAdvancedTradeV2OrderBook.level2_order_book_message(
+            msg=self.snapshot_msg,
             timestamp=1640000000.0,
-            metadata={"trading_pair": "COINALPHA-HBOT"}
-        )
+            symbol_to_pair=self.symbol_to_pair
+        ))
+
+        update_id = int(get_timestamp_from_exchange_time("1970-01-01T00:00:00Z", "second"))
 
         self.assertEqual("COINALPHA-HBOT", snapshot_message.trading_pair)
         self.assertEqual(OrderBookMessageType.SNAPSHOT, snapshot_message.type)
         self.assertEqual(1640000000.0, snapshot_message.timestamp)
-        self.assertEqual(1, snapshot_message.update_id)
+        self.assertEqual(0, snapshot_message.update_id)
         self.assertEqual(-1, snapshot_message.trade_id)
-        self.assertEqual(1, len(snapshot_message.bids))
-        self.assertEqual(4.0, snapshot_message.bids[0].price)
-        self.assertEqual(431.0, snapshot_message.bids[0].amount)
-        self.assertEqual(1, snapshot_message.bids[0].update_id)
+        self.assertEqual(2, len(snapshot_message.bids))
+        self.assertEqual(21921.73, snapshot_message.bids[0].price)
+        self.assertEqual(0.06317902, snapshot_message.bids[0].amount)
+        self.assertEqual(update_id, snapshot_message.bids[0].update_id)
         self.assertEqual(1, len(snapshot_message.asks))
-        self.assertEqual(4.000002, snapshot_message.asks[0].price)
-        self.assertEqual(12.0, snapshot_message.asks[0].amount)
-        self.assertEqual(1, snapshot_message.asks[0].update_id)
+        self.assertEqual(2192.3, snapshot_message.asks[0].price)
+        self.assertEqual(0.002, snapshot_message.asks[0].amount)
+        self.assertEqual(update_id, snapshot_message.asks[0].update_id)
 
-    def test_diff_message_from_exchange(self):
-        diff_msg = CoinbaseAdvancedTradeV2OrderBook.diff_message_from_exchange(
-            msg={
-                "e": "depthUpdate",
-                "E": 123456789,
-                "s": "COINALPHAHBOT",
-                "U": 1,
-                "u": 2,
-                "b": [
-                    [
-                        "0.0024",
-                        "10"
-                    ]
-                ],
-                "a": [
-                    [
-                        "0.0026",
-                        "100"
-                    ]
-                ]
-            },
+    async def test_level2_order_book_update_message(self):
+        update_msg = self.snapshot_msg
+        update_msg["sequence_num"] = 5
+        update_msg["events"][0]["type"] = "update"
+
+        update_message = await (CoinbaseAdvancedTradeV2OrderBook.level2_order_book_message(
+            msg=update_msg,
             timestamp=1640000000.0,
-            metadata={"trading_pair": "COINALPHA-HBOT"}
-        )
+            symbol_to_pair=self.symbol_to_pair
+        ))
 
-        self.assertEqual("COINALPHA-HBOT", diff_msg.trading_pair)
-        self.assertEqual(OrderBookMessageType.DIFF, diff_msg.type)
-        self.assertEqual(1640000000.0, diff_msg.timestamp)
-        self.assertEqual(2, diff_msg.update_id)
-        self.assertEqual(1, diff_msg.first_update_id)
-        self.assertEqual(-1, diff_msg.trade_id)
-        self.assertEqual(1, len(diff_msg.bids))
-        self.assertEqual(0.0024, diff_msg.bids[0].price)
-        self.assertEqual(10.0, diff_msg.bids[0].amount)
-        self.assertEqual(2, diff_msg.bids[0].update_id)
-        self.assertEqual(1, len(diff_msg.asks))
-        self.assertEqual(0.0026, diff_msg.asks[0].price)
-        self.assertEqual(100.0, diff_msg.asks[0].amount)
-        self.assertEqual(2, diff_msg.asks[0].update_id)
+        self.assertEqual("COINALPHA-HBOT", update_message.trading_pair)
+        self.assertEqual(OrderBookMessageType.DIFF, update_message.type)
+        self.assertEqual(1640000000.0, update_message.timestamp)
+        self.assertEqual(5, update_message.update_id)
+        self.assertEqual(-1, update_message.trade_id)
+        self.assertEqual(2, len(update_message.bids))
+        self.assertEqual(21921.73, update_message.bids[0].price)
+        self.assertEqual(0.06317902, update_message.bids[0].amount)
+        self.assertEqual(update_message.update_id, update_message.bids[0].update_id)
+        self.assertEqual(1, len(update_message.asks))
+        self.assertEqual(2192.3, update_message.asks[0].price)
+        self.assertEqual(0.002, update_message.asks[0].amount)
+        self.assertEqual(update_message.update_id, update_message.asks[0].update_id)
 
-    def test_trade_message_from_exchange(self):
-        trade_update = {
-            "e": "trade",
-            "E": 1234567890123,
-            "s": "COINALPHAHBOT",
-            "t": 12345,
-            "p": "0.001",
-            "q": "100",
-            "b": 88,
-            "a": 50,
-            "T": 123456785,
-            "m": True,
-            "M": True
-        }
+    async def test_market_trades_order_book_snapshot_message(self):
+        trade_message = await (CoinbaseAdvancedTradeV2OrderBook.market_trades_order_book_message(
+            msg=self.trade_msg,
+            symbol_to_pair=self.symbol_to_pair
+        ))
+        timestamp: float = get_timestamp_from_exchange_time(self.trade_msg["timestamp"], "s")
 
-        trade_message = CoinbaseAdvancedTradeV2OrderBook.trade_message_from_exchange(
-            msg=trade_update,
-            metadata={"trading_pair": "COINALPHA-HBOT"}
-        )
-
-        self.assertEqual("COINALPHA-HBOT", trade_message.trading_pair)
+        self.assertEqual("COINALPHA-HBOT", trade_message.content["trading_pair"])
         self.assertEqual(OrderBookMessageType.TRADE, trade_message.type)
-        self.assertEqual(1234567890.123, trade_message.timestamp)
-        self.assertEqual(-1, trade_message.update_id)
-        self.assertEqual(-1, trade_message.first_update_id)
-        self.assertEqual(12345, trade_message.trade_id)
+
+        self.assertEqual(12345, trade_message.content["trade_id"])
+        self.assertEqual("1260.01", trade_message.content["price"])
+        self.assertEqual("0.3", trade_message.content["amount"])
+        # Check trade type - this will depend on the 'side' value in the message
+        self.assertIn(trade_message.content["trade_type"], [TradeType.SELL.value, TradeType.BUY.value])
+        self.assertEqual(int(timestamp), trade_message.content["update_id"])
+
+    async def test_level2_or_trade_message_from_exchange_level2(self):
+        snapshot_msg = self.snapshot_msg
+        snapshot_msg["sequence_num"] = 1
+
+        snapshot_message = await (CoinbaseAdvancedTradeV2OrderBook.level2_or_trade_message_from_exchange(
+            msg=snapshot_msg,
+            timestamp=1640000000.0,
+            symbol_to_pair=self.symbol_to_pair
+        ))
+
+        self.assertEqual(snapshot_message.type, OrderBookMessageType.SNAPSHOT)
+        self.assertEqual(snapshot_message.update_id, 1)
+        self.assertEqual(snapshot_message.timestamp, 1640000000.0)
+
+    async def test_level2_or_trade_message_from_exchange_market_trades(self):
+        trade_msg = self.trade_msg
+        trade_msg["sequence_num"] = 1
+        trade_message = await (CoinbaseAdvancedTradeV2OrderBook.level2_or_trade_message_from_exchange(
+            msg=trade_msg,
+            timestamp=1640000000.0,
+            symbol_to_pair=self.symbol_to_pair
+        ))
+
+        timestamp: float = get_timestamp_from_exchange_time(self.trade_msg["timestamp"], "s")
+
+        self.assertEqual(trade_message.type, OrderBookMessageType.TRADE)
+        self.assertEqual(trade_message.update_id, -1)
+        self.assertEqual(12345, trade_message.content["trade_id"])
+        self.assertEqual("1260.01", trade_message.content["price"])
+        self.assertEqual("0.3", trade_message.content["amount"])
+        self.assertEqual(int(timestamp), trade_message.content["update_id"])
+
+    async def test_level2_or_trade_message_from_exchange_lvel2_out_of_order(self):
+        snapshot_msg = self.snapshot_msg
+        snapshot_msg["sequence_num"] = 50
+
+        await (CoinbaseAdvancedTradeV2OrderBook.level2_or_trade_message_from_exchange(
+            msg=snapshot_msg,
+            timestamp=1640000000.0,
+            symbol_to_pair=self.symbol_to_pair
+        ))
+
+        self.assertTrue(
+            self.is_partially_logged(log_level="WARNING",
+                                     message="Received out of order message from l2_data, this indicates a "
+                                             "missed message")
+        )
+
+    async def test_level2_or_trade_message_from_exchange_trade_out_of_order(self):
+        trade_msg = self.trade_msg
+        trade_msg["sequence_num"] = 50
+
+        await (CoinbaseAdvancedTradeV2OrderBook.level2_or_trade_message_from_exchange(
+            msg=trade_msg,
+            timestamp=1640000000.0,
+            symbol_to_pair=self.symbol_to_pair
+        ))
+
+        self.assertTrue(
+            self.is_partially_logged(log_level="WARNING",
+                                     message="Received out of order message from market_trades, this indicates a "
+                                             "missed message")
+        )
