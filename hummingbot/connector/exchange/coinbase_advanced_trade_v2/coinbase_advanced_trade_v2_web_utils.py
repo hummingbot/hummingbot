@@ -1,6 +1,5 @@
 from typing import Callable, Dict, Optional, Union
 
-import hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_constants as CONSTANTS
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.utils import TimeSynchronizerRESTPreProcessor
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -8,8 +7,10 @@ from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
+from . import coinbase_advanced_trade_v2_constants as constants
 
-def public_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
+
+def public_rest_url(path_url: str, domain: str = constants.DEFAULT_DOMAIN) -> str:
     """
     Creates a full URL for provided public REST endpoint
     :param path_url: a public REST endpoint
@@ -19,12 +20,12 @@ def public_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> st
     if "api/v3" in path_url or "v2" in path_url:
         return f"https://api.coinbase.{domain}/{path_url}"
 
-    if path_url in CONSTANTS.SIGNIN_ENDPOINTS:
-        return CONSTANTS.SIGNIN_URL.format(domain=domain) + path_url
-    return CONSTANTS.REST_URL.format(domain=domain) + path_url
+    if path_url in constants.SIGNIN_ENDPOINTS:
+        return constants.SIGNIN_URL.format(domain=domain) + path_url
+    return constants.REST_URL.format(domain=domain) + path_url
 
 
-def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
+def private_rest_url(path_url: str, domain: str = constants.DEFAULT_DOMAIN) -> str:
     """
     Creates a full URL for provided private REST endpoint
     :param path_url: a private REST endpoint
@@ -35,9 +36,9 @@ def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> s
     if "api/v3" in path_url or "v2" in path_url:
         return f"https://api.coinbase.{domain}/{path_url}"
 
-    if any((path_url.startswith(p) for p in CONSTANTS.SIGNIN_ENDPOINTS)):
-        return CONSTANTS.SIGNIN_URL.format(domain=domain) + path_url
-    return CONSTANTS.REST_URL.format(domain=domain) + path_url
+    if any((path_url.startswith(p) for p in constants.SIGNIN_ENDPOINTS)):
+        return constants.SIGNIN_URL.format(domain=domain) + path_url
+    return constants.REST_URL.format(domain=domain) + path_url
 
 
 def symbol_to_pair(symbol: str) -> str:
@@ -57,7 +58,7 @@ def pair_to_symbol(trading_pair: str) -> str:
 def build_api_factory(
         throttler: Optional[AsyncThrottler] = None,
         time_synchronizer: Optional[TimeSynchronizer] = None,
-        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+        domain: str = constants.DEFAULT_DOMAIN,
         time_provider: Optional[Callable] = None,
         auth: Optional[AuthBase] = None, ) -> WebAssistantsFactory:
     throttler = throttler or create_throttler()
@@ -81,20 +82,20 @@ def build_api_factory_without_time_synchronizer_pre_processor(throttler: AsyncTh
 
 
 def create_throttler() -> AsyncThrottler:
-    return AsyncThrottler(CONSTANTS.RATE_LIMITS)
+    return AsyncThrottler(constants.RATE_LIMITS)
 
 
 async def get_current_server_time_s(
         throttler: Optional[AsyncThrottler] = None,
-        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+        domain: str = constants.DEFAULT_DOMAIN,
 ) -> float:
     throttler = throttler or create_throttler()
     api_factory = build_api_factory_without_time_synchronizer_pre_processor(throttler=throttler)
     rest_assistant = await api_factory.get_rest_assistant()
     response: Dict = await rest_assistant.execute_request(
-        url=public_rest_url(path_url=CONSTANTS.SERVER_TIME_EP, domain=domain),
+        url=public_rest_url(path_url=constants.SERVER_TIME_EP, domain=domain),
         method=RESTMethod.GET,
-        throttler_limit_id=CONSTANTS.SERVER_TIME_EP,
+        throttler_limit_id=constants.SERVER_TIME_EP,
     )
     server_time: float = float(get_timestamp_from_exchange_time(response["data"]["iso"], "s"))
     return server_time
@@ -102,7 +103,7 @@ async def get_current_server_time_s(
 
 async def get_current_server_time_ms(
         throttler: Optional[AsyncThrottler] = None,
-        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+        domain: str = constants.DEFAULT_DOMAIN,
 ) -> int:
     server_time_s = await get_current_server_time_s(throttler=throttler, domain=domain)
     return int(server_time_s * 1000)

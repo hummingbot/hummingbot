@@ -3,10 +3,11 @@ from decimal import Decimal
 
 from pydantic import Field, SecretStr
 
-import hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_constants as CONSTANTS
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.core.web_assistant.connections.data_types import EndpointRESTRequest
+
+from . import coinbase_advanced_trade_v2_constants as constants
 
 CENTRALIZED = True
 EXAMPLE_PAIR = "ZRX-ETH"
@@ -27,7 +28,7 @@ class CoinbaseAdvancedTradeV2RESTRequest(EndpointRESTRequest):
 
     @property
     def base_url(self) -> str:
-        return CONSTANTS.REST_URL
+        return constants.REST_URL
 
     def _ensure_endpoint_for_auth(self):
         if self.is_auth_required and self.endpoint is None:

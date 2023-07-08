@@ -1,71 +1,112 @@
-from typing import Dict, Optional
+from typing import Any, Awaitable, Callable, Dict
 
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
+from .coinbase_advanced_trade_v2_constants import WS_ORDER_SUBSCRIPTION_CHANNELS
+from .coinbase_advanced_trade_v2_web_utils import get_timestamp_from_exchange_time
+
 
 class CoinbaseAdvancedTradeV2OrderBook(OrderBook):
+    """
+    Coinbase Advanced Trade Order Book class
+    """
+    # Mapping of WS channels to their respective sequence numbers
+    _sequence_nums: Dict[str, int] = {channel: 0 for channel in WS_ORDER_SUBSCRIPTION_CHANNELS.inv.keys()}
 
     @classmethod
-    def snapshot_message_from_exchange(cls,
-                                       msg: Dict[str, any],
-                                       timestamp: float,
-                                       metadata: Optional[Dict] = None) -> OrderBookMessage:
+    async def level2_or_trade_message_from_exchange(cls,
+                                                    msg: Dict[str, any],
+                                                    timestamp: float,
+                                                    symbol_to_pair: Callable[[str], Awaitable]) -> OrderBookMessage:
         """
-        Creates a snapshot message with the order book snapshot message
+        Process messages from the order book or trade channel
+        https://docs.cloud.coinbase.com/advanced-trade-api/docs/ws-channels#level2-channel
+        The snapshot is the first message received form the 'level2' channel. It has a sequence_num = 0
         :param msg: the response from the exchange when requesting the order book snapshot
         :param timestamp: the snapshot timestamp
-        :param metadata: a dictionary with extra information to add to the snapshot data
+        :param symbol_to_pair: Method to retrieve a Hummingbot trading pair from an exchange symbol
         :return: a snapshot message with the snapshot information received from the exchange
         """
-        if metadata:
-            msg.update(metadata)
-        return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "trading_pair": msg["trading_pair"],
-            "update_id": msg["lastUpdateId"],
-            "bids": msg["bids"],
-            "asks": msg["asks"]
-        }, timestamp=timestamp)
+        channel = msg["channel"]
+
+        if channel not in cls._sequence_nums:
+            raise ValueError(f"Unexpected channel: {channel}")
+
+        expected_sequence_num = cls._sequence_nums[channel]
+
+        if msg["sequence_num"] != expected_sequence_num:
+            cls.logger().warning(f"Received out of order message from {channel}, this indicates a missed message"
+                                 f"\nExpected:{expected_sequence_num} - "
+                                 f"Got:{msg['sequence_num']}")
+
+        cls._sequence_nums[channel] = msg["sequence_num"] + 1
+
+        if channel == "market_trades":
+            return await cls.market_trades_order_book_message(msg, symbol_to_pair)
+
+        elif channel == "l2_data":
+            return await cls.level2_order_book_message(msg, timestamp, symbol_to_pair)
+
+        raise ValueError(f"Unexpected channel: {channel}")
 
     @classmethod
-    def diff_message_from_exchange(cls,
-                                   msg: Dict[str, any],
-                                   timestamp: Optional[float] = None,
-                                   metadata: Optional[Dict] = None) -> OrderBookMessage:
+    async def level2_order_book_message(cls,
+                                        msg: Dict[str, any],
+                                        timestamp: float,
+                                        symbol_to_pair: Callable[[str], Awaitable]) -> OrderBookMessage:
         """
-        Creates a diff message with the changes in the order book received from the exchange
-        :param msg: the changes in the order book
-        :param timestamp: the timestamp of the difference
-        :param metadata: a dictionary with extra information to add to the difference data
-        :return: a diff message with the changes in the order book notified by the exchange
+        Process messages from the order book or trade channel
+        https://docs.cloud.coinbase.com/advanced-trade-api/docs/ws-channels#level2-channel
+        The snapshot is the first message received form the 'level2' channel. It has a sequence_num = 0
+        :param msg: the response from the exchange when requesting the order book snapshot
+        :param timestamp: the snapshot timestamp
+        :param symbol_to_pair: Method to retrieve a Hummingbot trading pair from an exchange symbol
+        :return: a snapshot message with the snapshot information received from the exchange
         """
-        if metadata:
-            msg.update(metadata)
-        return OrderBookMessage(OrderBookMessageType.DIFF, {
-            "trading_pair": msg["trading_pair"],
-            "first_update_id": msg["U"],
-            "update_id": msg["u"],
-            "bids": msg["b"],
-            "asks": msg["a"]
-        }, timestamp=timestamp)
+        for event in msg["events"]:
+            trading_pair = await symbol_to_pair(event["product_id"])
+            obm_content = {"trading_pair": trading_pair,
+                           "update_id": msg["sequence_num"],
+                           "bids": [],
+                           "asks": []
+                           }
+            for update in event.get("updates", []):
+                if update["side"] == "bid":
+                    obm_content["bids"].append([update["price_level"], update["new_quantity"]])
+                else:
+                    obm_content["asks"].append([update["price_level"], update["new_quantity"]])
+
+            if event["type"] == "snapshot":
+                obm_content["first_update_id"] = 0
+                return OrderBookMessage(OrderBookMessageType.SNAPSHOT,
+                                        obm_content,
+                                        timestamp=timestamp)
+            return OrderBookMessage(OrderBookMessageType.DIFF,
+                                    obm_content,
+                                    timestamp=timestamp)
 
     @classmethod
-    def trade_message_from_exchange(cls, msg: Dict[str, any], metadata: Optional[Dict] = None):
+    async def market_trades_order_book_message(cls, msg: Dict[str, Any],
+                                               symbol_to_pair: Callable[[str], Awaitable]) -> OrderBookMessage:
         """
-        Creates a trade message with the information from the trade event sent by the exchange
-        :param msg: the trade event details sent by the exchange
-        :param metadata: a dictionary with extra information to add to trade message
-        :return: a trade message with the details of the trade as provided by the exchange
+        Process messages from the market trades channel
+        https://docs.cloud.coinbase.com/advanced-trade-api/docs/ws-channels#market-trades-channel
+        :param msg: the response from the exchange when requesting the order book snapshot
+        :param symbol_to_pair: Method to retrieve a Hummingbot trading pair from an exchange symbol
+        :return: a trade message with the trade information received from the exchange
         """
-        if metadata:
-            msg.update(metadata)
-        ts = msg["E"]
-        return OrderBookMessage(OrderBookMessageType.TRADE, {
-            "trading_pair": msg["trading_pair"],
-            "trade_type": float(TradeType.SELL.value) if msg["m"] else float(TradeType.BUY.value),
-            "trade_id": msg["t"],
-            "update_id": ts,
-            "price": msg["p"],
-            "amount": msg["q"]
-        }, timestamp=ts * 1e-3)
+        for event in msg["events"]:
+            for trade in event["trades"]:
+                ts: float = get_timestamp_from_exchange_time(msg["timestamp"], "s")
+                trading_pair = await symbol_to_pair(trade["product_id"])
+
+                return OrderBookMessage(OrderBookMessageType.TRADE, {
+                    "trading_pair": trading_pair,
+                    "trade_type": float(TradeType.SELL.value) if trade["side"] else float(TradeType.BUY.value),
+                    "trade_id": int(trade["trade_id"]),
+                    "update_id": int(ts),
+                    "price": trade["price"],
+                    "amount": trade["size"]
+                }, timestamp=ts)
