@@ -31,7 +31,7 @@ coverage_macros = []
 coverage_compiler_directives = dict()
 coverage_include_path = []
 
-if IS_PY_DEBUG:
+if not IS_PY_DEBUG:
     print('Extension IS_CYTHON_COVERAGE=True!')
     # Adding cython line trace for coverage report
     coverage_macros += ("CYTHON_TRACE_NOGIL", 1), ("CYTHON_TRACE", 1)
