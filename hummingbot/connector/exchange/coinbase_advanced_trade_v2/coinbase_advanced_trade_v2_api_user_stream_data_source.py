@@ -16,7 +16,7 @@ from .coinbase_advanced_trade_v2_auth import CoinbaseAdvancedTradeV2Auth
 from .coinbase_advanced_trade_v2_web_utils import get_timestamp_from_exchange_time
 
 
-class CoinbaseAdvancedTradeCumulativeUpdate(NamedTuple):
+class CoinbaseAdvancedTradeV2CumulativeUpdate(NamedTuple):
     client_order_id: str
     exchange_order_id: str
     status: str
@@ -338,7 +338,7 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSource(UserStreamTrackerDataSource
         for event in event_message.get("events"):
             timestamp_s: float = get_timestamp_from_exchange_time(event["timestamp"], "second")
             for order in event["orders"]:
-                yield CoinbaseAdvancedTradeCumulativeUpdate(
+                yield CoinbaseAdvancedTradeV2CumulativeUpdate(
                     exchange_order_id=order["order_id"],
                     client_order_id=order["client_order_id"],
                     status=order["status"],

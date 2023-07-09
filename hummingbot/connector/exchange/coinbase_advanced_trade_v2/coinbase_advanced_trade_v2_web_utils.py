@@ -101,6 +101,14 @@ async def get_current_server_time_s(
     return server_time
 
 
+# Ok, forgot HB does not like units on time ...
+async def get_current_server_time(
+        throttler: Optional[AsyncThrottler] = None,
+        domain: str = constants.DEFAULT_DOMAIN,
+) -> float:
+    return await get_current_server_time_s(throttler=throttler, domain=domain)
+
+
 async def get_current_server_time_ms(
         throttler: Optional[AsyncThrottler] = None,
         domain: str = constants.DEFAULT_DOMAIN,
