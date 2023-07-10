@@ -60,7 +60,6 @@ connector_status = {
     'bit_com_perpetual': 'bronze',
     'bit_com_perpetual_testnet': 'bronze',
     'tinyman': 'bronze',
-    'foxbit': 'bronze',
     'phemex_perpetual': 'bronze',
     'phemex_perpetual_testnet': 'bronze',
     'polkadex': 'bronze',
