@@ -58,14 +58,15 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
         :param request: the request to be configured for authenticated interaction
         :returns: the authenticated request
         """
-        timestamp: int = await self._get_synced_timestamp_s()
+        _timestamp: int = await self._get_synced_timestamp_s()
+        timestamp: str = str(_timestamp)
 
         try:
             url = request.url.split('?')[0]  # ex: /v3/orders
         except IndexError:
             raise ValueError("Invalid url: Necessary for authentication")
 
-        message = str(timestamp) + str(request.method) + url + str(request.data or '')
+        message = timestamp + str(request.method) + url + str(request.data or '')
         signature = self._generate_signature(message=message)
 
         if request.headers is not None:
@@ -105,10 +106,11 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
         Concatenating and comma-separating the timestamp, channel name, and product Ids, for example: 1660838876level2ETH-USD,ETH-EUR.
         Signing the above message with the passphrase and base64-encoding the signature.
         """
-        timestamp: int = await self._get_synced_timestamp_s()
+        _timestamp: int = await self._get_synced_timestamp_s()
+        timestamp: str = str(_timestamp)
 
         products: str = ",".join(request.payload["product_ids"])
-        message: str = str(timestamp) + str(request.payload["channel"]) + products
+        message: str = timestamp + str(request.payload["channel"]) + products
         signature: str = self._generate_signature(message=message)
 
         payload: Dict[str, str] = dict(request.payload)
