@@ -76,7 +76,7 @@ class CoinbaseAdvancedTradeV2Auth(AuthBase):
             "accept": 'application/json',
             "CB-ACCESS-KEY": self.api_key,
             "CB-ACCESS-SIGN": signature,
-            "CB-ACCESS-TIMESTAMP": timestamp,
+            "CB-ACCESS-TIMESTAMP": str(timestamp),
         })
         request.headers = headers
 
