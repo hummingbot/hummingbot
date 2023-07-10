@@ -6,7 +6,11 @@ from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSJSONRequest, WSRequest
 
-from .coinbase_advanced_trade_v2_web_utils import get_current_server_time_ms
+from .coinbase_advanced_trade_v2_web_utils import (
+    endpoint_from_url,
+    get_current_server_time_ms,
+    get_current_server_time_s,
+)
 
 
 class CoinbaseAdvancedTradeV2Auth(AuthBase):
@@ -58,15 +62,13 @@ class CoinbaseAdvancedTradeV2Auth(AuthBase):
         :param request: the request to be configured for authenticated interaction
         :returns: the authenticated request
         """
-        timestamp: int = await self._get_synced_timestamp_s()
+        # _timestamp: int = await self._get_synced_timestamp_s()
+        _timestamp: float = await get_current_server_time_s()
+        timestamp: str = str(int(_timestamp))
 
-        try:
-            url = request.url.split('?')[0]  # ex: /v3/orders
-        except IndexError:
-            raise ValueError("Invalid url: Necessary for authentication")
-
-        message = str(timestamp) + str(request.method) + url + str(request.data or '')
-        signature = self._generate_signature(message=message)
+        endpoint: str = endpoint_from_url(request.url).split('?')[0]  # ex: /v3/orders
+        message = timestamp + str(request.method) + endpoint + str(request.data or '')
+        signature: str = self._generate_signature(message=message)
 
         if request.headers is not None:
             headers: Dict[str, str] = dict(request.headers)
@@ -76,7 +78,7 @@ class CoinbaseAdvancedTradeV2Auth(AuthBase):
             "accept": 'application/json',
             "CB-ACCESS-KEY": self.api_key,
             "CB-ACCESS-SIGN": signature,
-            "CB-ACCESS-TIMESTAMP": str(timestamp),
+            "CB-ACCESS-TIMESTAMP": timestamp,
         })
         request.headers = headers
 
@@ -105,10 +107,12 @@ class CoinbaseAdvancedTradeV2Auth(AuthBase):
         Concatenating and comma-separating the timestamp, channel name, and product Ids, for example: 1660838876level2ETH-USD,ETH-EUR.
         Signing the above message with the passphrase and base64-encoding the signature.
         """
-        timestamp: int = await self._get_synced_timestamp_s()
+        # _timestamp: int = await self._get_synced_timestamp_s()
+        _timestamp: float = await get_current_server_time_s()
+        timestamp: str = str(int(_timestamp))
 
         products: str = ",".join(request.payload["product_ids"])
-        message: str = str(timestamp) + str(request.payload["channel"]) + products
+        message: str = timestamp + str(request.payload["channel"]) + products
         signature: str = self._generate_signature(message=message)
 
         payload: Dict[str, str] = dict(request.payload)
@@ -121,14 +125,14 @@ class CoinbaseAdvancedTradeV2Auth(AuthBase):
 
         return request
 
-    def _generate_signature(self, message: str) -> str:
+    def _generate_signature(self, *, message: str) -> str:
         """
         Generates an HMAC SHA256 signature from a message and the API secret key.
 
         :param message: the message to sign
         :returns: the signature
         """
-        digest: str = hmac.new(self.secret_key.encode("utf8"), message.encode("utf8"), hashlib.sha256).hexdigest()
+        digest: str = hmac.new(self.secret_key.encode("utf8"), message.encode("utf8"), hashlib.sha256).digest().hex()
         return digest
 
     async def _get_synced_timestamp_s(self) -> int:

@@ -369,7 +369,7 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
         Fetch the list of trading pairs from the exchange and map them
         """
         try:
-            products: Dict[str, Any] = await self._api_get(path_url=constants.ALL_PAIRS_EP)
+            products: Dict[str, Any] = await self._api_get(path_url=constants.ALL_PAIRS_EP, is_auth_required=True)
             return (p for p in products.get("products") if all((p.get("product_type", None) == "SPOT",
                                                                 p.get("trading_disabled", None) is False,
                                                                 p.get("is_disabled", None) is False,
@@ -399,8 +399,15 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
 
         async for account in self._list_trading_accounts():  # type: ignore # Known Pycharm issue
             asset_name: str = account.get("currency")
-            self.update_balance(asset_name, Decimal(account.get("hold").get("value")))
-            self.update_available_balance(asset_name, Decimal(account.get("available_balance").get("value")))
+            hold_value: Decimal = Decimal(account.get("hold").get("value"))
+            available_balance: Decimal = Decimal(account.get("available_balance").get("value"))
+
+            # Skip assets with zero balance
+            if hold_value == Decimal("0") and available_balance == Decimal("0"):
+                continue
+
+            self.update_balance(asset_name, hold_value + available_balance)
+            self.update_available_balance(asset_name, available_balance)
             remote_asset_names.add(asset_name)
 
         # Request removal of non-valid assets
@@ -414,11 +421,12 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
         params = {"limit": 250}
         if cursor != "0":
             params["cursor"] = cursor
-        return await self._api_get(
+        response: Dict[str, Any] = await self._api_get(
             path_url=constants.ACCOUNTS_LIST_EP,
             params=params,
             is_auth_required=True,
         )
+        return response
 
     async def _list_trading_accounts(self) -> AsyncGenerator[Dict[str, Any], None]:
         has_next_page = True
@@ -437,7 +445,8 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
 
         trade: Dict[str, Any] = await self._api_get(
             path_url=constants.PAIR_TICKER_24HR_EP.format(product_id=product_id) + "?limit=1",
-            limit_id=constants.PAIR_TICKER_24HR_RATE_LIMIT_ID
+            limit_id=constants.PAIR_TICKER_24HR_RATE_LIMIT_ID,
+            is_auth_required=True
         )
         return float(trade.get("trades")[0]["price"])
 
@@ -445,7 +454,7 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
         """
         Fetches the prices of all symbols in the exchange with a default quote of USD
         """
-        products: List[Dict[str, Any]] = await self._api_get(path_url=constants.ALL_PAIRS_EP)
+        products: List[Dict[str, Any]] = await self._api_get(path_url=constants.ALL_PAIRS_EP, is_auth_required=True)
         return ({p.get("product_id"): p.get("price")} for p in products if all((p.get("product_type", None) == "SPOT",
                                                                                 p.get("trading_disabled",
                                                                                       None) is False,
@@ -457,7 +466,7 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
         """
         Update fees information from the exchange
         """
-        fees: Dict[str, Any] = await self._api_request("get", constants.TRANSACTIONS_SUMMARY_EP)
+        fees: Dict[str, Any] = await self._api_request("get", constants.TRANSACTIONS_SUMMARY_EP, is_auth_required=True)
         self._trading_fees = fees
 
     async def _user_stream_event_listener(self):
@@ -665,7 +674,7 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
         return trade_updates
 
     async def _make_network_check_request(self):
-        await self._api_get(path_url=constants.SERVER_TIME_EP)
+        await self._api_get(path_url=constants.SERVER_TIME_EP, is_auth_required=False)
 
     async def _format_trading_rules(self, e: Dict[str, Any]) -> List[TradingRule]:
         raise NotImplementedError(f"This method is not implemented by {self.name} connector")

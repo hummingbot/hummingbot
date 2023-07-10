@@ -1,3 +1,4 @@
+import re
 from typing import Callable, Dict, Optional, Union
 
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
@@ -39,6 +40,22 @@ def private_rest_url(path_url: str, domain: str = constants.DEFAULT_DOMAIN) -> s
     if any((path_url.startswith(p) for p in constants.SIGNIN_ENDPOINTS)):
         return constants.SIGNIN_URL.format(domain=domain) + path_url
     return constants.REST_URL.format(domain=domain) + path_url
+
+
+def endpoint_from_url(path_url: str, domain: str = constants.DEFAULT_DOMAIN) -> str:
+    """
+    Recreates the endpoint from the url
+    :param path_url: URL to the endpoint
+    :param domain: the coinbase_advanced_trade_v2 domain to connect to ("com" or "us"). The default value is "com"
+    :return: the full URL to the endpoint
+    """
+    endpoint: str = re.split(domain, path_url)[1]
+
+    # Must start with '/'
+    if not endpoint.startswith("/"):
+        endpoint = "/" + endpoint
+
+    return endpoint
 
 
 def build_api_factory(
