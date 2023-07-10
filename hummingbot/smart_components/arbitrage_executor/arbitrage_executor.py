@@ -69,8 +69,8 @@ class ArbitrageExecutor(SmartComponentBase):
     @property
     def net_pnl(self) -> Decimal:
         if self.arbitrage_status == ArbitrageExecutorStatus.COMPLETED:
-            sell_quote_amount = self.sell_order.order.executed_amount * self.sell_order.order.average_price
-            buy_quote_amount = self.buy_order.order.executed_amount * self.buy_order.order.average_price
+            sell_quote_amount = self.sell_order.order.executed_amount_base * self.sell_order.order.average_price
+            buy_quote_amount = self.buy_order.order.executed_amount_base * self.buy_order.order.average_price
             cum_fees = self.buy_order.order.cum_fee_quote + self.sell_order.order.cum_fee_quote
             return sell_quote_amount - buy_quote_amount - cum_fees
         else:
@@ -120,7 +120,7 @@ class ArbitrageExecutor(SmartComponentBase):
                 self.check_order_status()
 
     def check_order_status(self):
-        if self.buy_order.order.is_filled and self.sell_order.order.is_filled:
+        if self.buy_order.order and self.buy_order.order.is_filled and self.sell_order.order and self.sell_order.order.is_filled:
             self.arbitrage_status = ArbitrageExecutorStatus.COMPLETED
             self.terminate_control_loop()
 
