@@ -1,4 +1,4 @@
-from typing import Any, Awaitable, Callable, Dict
+from typing import Any, Callable, Coroutine, Dict
 
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
@@ -16,10 +16,11 @@ class CoinbaseAdvancedTradeV2OrderBook(OrderBook):
     _sequence_nums: Dict[str, int] = {channel: 0 for channel in WS_ORDER_SUBSCRIPTION_CHANNELS.inv.keys()}
 
     @classmethod
-    async def level2_or_trade_message_from_exchange(cls,
-                                                    msg: Dict[str, any],
-                                                    timestamp: float,
-                                                    symbol_to_pair: Callable[[str], Awaitable]) -> OrderBookMessage:
+    async def level2_or_trade_message_from_exchange(
+            cls,
+            msg: Dict[str, any],
+            timestamp: float,
+            symbol_to_pair: Callable[[...], Coroutine[None, None, str]]) -> OrderBookMessage:
         """
         Process messages from the order book or trade channel
         https://docs.cloud.coinbase.com/advanced-trade-api/docs/ws-channels#level2-channel
@@ -52,10 +53,11 @@ class CoinbaseAdvancedTradeV2OrderBook(OrderBook):
         raise ValueError(f"Unexpected channel: {channel}")
 
     @classmethod
-    async def level2_order_book_message(cls,
-                                        msg: Dict[str, any],
-                                        timestamp: float,
-                                        symbol_to_pair: Callable[[str], Awaitable]) -> OrderBookMessage:
+    async def level2_order_book_message(
+            cls,
+            msg: Dict[str, any],
+            timestamp: float,
+            symbol_to_pair: Callable[[...], Coroutine[None, None, str]]) -> OrderBookMessage:
         """
         Process messages from the order book or trade channel
         https://docs.cloud.coinbase.com/advanced-trade-api/docs/ws-channels#level2-channel
@@ -88,8 +90,10 @@ class CoinbaseAdvancedTradeV2OrderBook(OrderBook):
                                     timestamp=timestamp)
 
     @classmethod
-    async def market_trades_order_book_message(cls, msg: Dict[str, Any],
-                                               symbol_to_pair: Callable[[str], Awaitable]) -> OrderBookMessage:
+    async def market_trades_order_book_message(
+            cls,
+            msg: Dict[str, Any],
+            symbol_to_pair: Callable[[...], Coroutine[None, None, str]]) -> OrderBookMessage:
         """
         Process messages from the market trades channel
         https://docs.cloud.coinbase.com/advanced-trade-api/docs/ws-channels#market-trades-channel

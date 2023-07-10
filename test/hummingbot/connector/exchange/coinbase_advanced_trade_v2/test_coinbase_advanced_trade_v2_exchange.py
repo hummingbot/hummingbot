@@ -213,7 +213,7 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
                             "currency": self.base_asset
                         },
                         "hold": {
-                            "value": "15",
+                            "value": "5",
                             "currency": self.base_asset
                         }
                     },
@@ -225,7 +225,7 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
                             "currency": self.quote_asset
                         },
                         "hold": {
-                            "value": "2000",
+                            "value": "0",
                             "currency": self.quote_asset
                         }
                     }
@@ -250,7 +250,7 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
                             "currency": self.base_asset
                         },
                         "hold": {
-                            "value": "15",
+                            "value": "5",
                             "currency": self.base_asset
                         }
                     },

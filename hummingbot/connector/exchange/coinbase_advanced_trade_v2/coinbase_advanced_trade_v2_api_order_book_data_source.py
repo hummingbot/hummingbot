@@ -55,7 +55,8 @@ class CoinbaseAdvancedTradeV2APIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _parse_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         order_book_message: OrderBookMessage = await CoinbaseAdvancedTradeV2OrderBook.level2_or_trade_message_from_exchange(
-            raw_message, time.time(), await self._connector.exchange_symbol_associated_to_pair)
+            raw_message, time.time(),
+            self._connector.exchange_symbol_associated_to_pair)
         message_queue.put_nowait(order_book_message)
 
     async def get_last_traded_prices(self,
@@ -185,8 +186,8 @@ class CoinbaseAdvancedTradeV2APIOrderBookDataSource(OrderBookTrackerDataSource):
             )
             raise
 
-    async def _process_websocket_messages(self, ws: WSAssistant):
-        async for ws_response in ws.iter_messages():
+    async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
+        async for ws_response in websocket_assistant.iter_messages():
             data: Dict[str, Any] = ws_response.data
             if data is not None and "channel" in data:  # data will be None when the websocket is disconnected
                 if data["channel"] in constants.WS_ORDER_SUBSCRIPTION_CHANNELS:

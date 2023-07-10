@@ -62,8 +62,9 @@ class CoinbaseAdvancedTradeV2Auth(AuthBase):
         :param request: the request to be configured for authenticated interaction
         :returns: the authenticated request
         """
-        # _timestamp: int = await self._get_synced_timestamp_s()
-        _timestamp: float = await get_current_server_time_s()
+        # TODO: Understand what the issue is with the time sync
+        _timestamp: int = await self._get_synced_timestamp_s()
+        # _timestamp: float = await get_current_server_time_s()
         timestamp: str = str(int(_timestamp))
 
         endpoint: str = endpoint_from_url(request.url).split('?')[0]  # ex: /v3/orders

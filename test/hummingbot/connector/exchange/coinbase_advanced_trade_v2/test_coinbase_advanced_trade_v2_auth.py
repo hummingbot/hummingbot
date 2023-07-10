@@ -95,17 +95,19 @@ class CoinbaseAdvancedTradeV2AuthTests(IsolatedAsyncioWrapperTestCase):
 
         auth = CoinbaseAdvancedTradeV2Auth(api_key=self.api_key, secret_key=self.secret_key,
                                            time_provider=self.time_synchronizer_mock)
-        url = "/time"
+        url = "https://api.coinbase.com/v2/time"
         request = RESTRequest(method=RESTMethod.GET, url=url, params=params, is_auth_required=True)
         # Mocking get_current_server_time_ms as an MagicMock on purpose since it is called
         # to get an Awaitable, but not awaited, which would generate a sys error and not look nice
         with patch('hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_auth'
-                   '.get_current_server_time_ms',
-                   new_callable=MagicMock):
+                   '.get_current_server_time_s',
+                   new_callable=AsyncMock) as mocked_time:
+            mocked_time.return_value = 1234567890.0
             configured_request = await auth.rest_authenticate(request)
 
         full_params.update({"timestamp": "1234567890"})
-        encoded_params = "1234567890" + str(RESTMethod.GET) + url + str(request.data or '')
+        # full url is parsed-down to endpoint only
+        encoded_params = "1234567890" + str(RESTMethod.GET) + "/v2/time" + str(request.data or '')
         expected_signature = hmac.new(
             self.secret_key.encode("utf-8"),
             encoded_params.encode("utf-8"),
@@ -113,7 +115,7 @@ class CoinbaseAdvancedTradeV2AuthTests(IsolatedAsyncioWrapperTestCase):
 
         self.assertEqual("application/json", configured_request.headers["accept"])
         self.assertEqual(self.api_key, configured_request.headers["CB-ACCESS-KEY"])
-        self.assertEqual(1234567890, configured_request.headers["CB-ACCESS-TIMESTAMP"])
+        self.assertEqual("1234567890", configured_request.headers["CB-ACCESS-TIMESTAMP"])
         self.assertEqual(expected_signature, configured_request.headers["CB-ACCESS-SIGN"])
 
     @aioresponses()
@@ -125,8 +127,8 @@ class CoinbaseAdvancedTradeV2AuthTests(IsolatedAsyncioWrapperTestCase):
         # Mocking get_current_server_time_ms as an MagicMock on purpose since it is called
         # to get an Awaitable, but not awaited, which would generate a sys error and not look nice
         with patch('hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_auth'
-                   '.get_current_server_time_ms',
-                   new_callable=MagicMock) as mock_get_current_server_time_ms:
+                   '.get_current_server_time_s',
+                   new_callable=AsyncMock) as mock_get_current_server_time_ms:
             mock_get_current_server_time_ms.return_value = 12345678900
 
             authenticated_request = await self.auth.ws_authenticate(ws_request)
