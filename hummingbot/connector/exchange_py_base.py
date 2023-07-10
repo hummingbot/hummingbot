@@ -432,8 +432,9 @@ class ExchangePyBase(ExchangeBase, ABC):
             return
 
         if amount < trading_rule.min_order_size:
-            self.logger().warning(f"{trade_type.name.title()} order amount {amount} is lower than the minimum order"
-                                  f" size {trading_rule.min_order_size}. The order will not be created.")
+            self.logger().warning(f"{trade_type.name.title()} order amount {amount} is lower than the minimum order "
+                                  f"size {trading_rule.min_order_size}. The order will not be created, increase the "
+                                  f"amount to be higher than the minimum order size.")
             self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
             return
 
@@ -445,8 +446,8 @@ class ExchangePyBase(ExchangeBase, ABC):
 
         if notional_size < trading_rule.min_notional_size:
             self.logger().warning(f"{trade_type.name.title()} order notional {notional_size} is lower than the "
-                                  f"minimum notional size {trading_rule.min_notional_size}. "
-                                  "The order will not be created.")
+                                  f"minimum notional size {trading_rule.min_notional_size}. The order will not be "
+                                  f"created. Increase the amount or the price to be higher than the minimum notional.")
             self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
             return
         try:
