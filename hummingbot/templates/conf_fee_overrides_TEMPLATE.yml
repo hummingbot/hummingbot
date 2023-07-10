@@ -96,12 +96,6 @@ coinbase_pro_maker_percent_fee:
 coinbase_pro_percent_fee_token:
 coinbase_pro_taker_fixed_fees:
 coinbase_pro_taker_percent_fee:
-crypto_com_buy_percent_fee_deducted_from_returns:
-crypto_com_maker_fixed_fees:
-crypto_com_maker_percent_fee:
-crypto_com_percent_fee_token:
-crypto_com_taker_fixed_fees:
-crypto_com_taker_percent_fee:
 dydx_perpetual_buy_percent_fee_deducted_from_returns:
 dydx_perpetual_maker_fixed_fees:
 dydx_perpetual_maker_percent_fee:
