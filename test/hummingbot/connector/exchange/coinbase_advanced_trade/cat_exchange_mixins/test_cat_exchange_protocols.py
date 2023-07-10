@@ -1,8 +1,10 @@
 import unittest
 
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_exchange import CoinbaseAdvancedTradeExchange
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_exchange_mixins.cat_exchange_protocols import (
     _exchange_mixin_protocols,
+)
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_exchange import (
+    CoinbaseAdvancedTradeExchange,
 )
 
 

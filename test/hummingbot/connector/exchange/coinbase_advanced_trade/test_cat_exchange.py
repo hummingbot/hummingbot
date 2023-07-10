@@ -26,10 +26,12 @@ from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_ap
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_cumulative_trade import (
     CoinbaseAdvancedTradeCumulativeUpdate,
 )
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_exchange import CoinbaseAdvancedTradeExchange
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_web_utils import (
     get_timestamp_from_exchange_time,
     set_exchange_time_from_timestamp,
+)
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_exchange import (
+    CoinbaseAdvancedTradeExchange,
 )
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
 from hummingbot.connector.utils import get_new_client_order_id

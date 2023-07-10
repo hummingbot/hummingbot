@@ -3,20 +3,19 @@ from collections import defaultdict
 from decimal import Decimal
 from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
-from hummingbot.connector.exchange.coinbase_advanced_trade import cat_constants as CONSTANTS
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_constants import WebsocketAction
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_cumulative_trade import (
-    CoinbaseAdvancedTradeCumulativeUpdate,
-)
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_protocols import (  # CoinbaseAdvancedTradeWebAssistantsFactoryProtocol,; WSAssistant,
-    CoinbaseAdvancedTradeAuthProtocol,
-    CoinbaseAdvancedTradeExchangePairProtocol,
-)
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_web_utils import get_timestamp_from_exchange_time
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
+
+from . import cat_constants as CONSTANTS
+from .cat_constants import WebsocketAction
+from .cat_data_types.cat_cumulative_trade import CoinbaseAdvancedTradeCumulativeUpdate
+from .cat_data_types.cat_protocols import (  # CoinbaseAdvancedTradeWebAssistantsFactoryProtocol,; WSAssistant,
+    CoinbaseAdvancedTradeAuthProtocol,
+    CoinbaseAdvancedTradeExchangePairProtocol,
+)
+from .cat_web_utils import get_timestamp_from_exchange_time
 
 
 class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):

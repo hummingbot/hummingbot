@@ -19,8 +19,8 @@ from ..cat_data_types.cat_api_wss_message_types import (
     CoinbaseAdvancedTradeWSSUserFill,
 )
 from ..cat_data_types.cat_cumulative_trade import CoinbaseAdvancedTradeCumulativeUpdate
+from ..cat_utils import DEFAULT_FEES
 from ..cat_web_utils import get_timestamp_from_exchange_time, symbol_to_pair
-from ..coinbase_advanced_trade_utils import DEFAULT_FEES
 from .cat_api_custom_types import OrderBookAsksBidsType
 from .cat_api_v3_enums import CoinbaseAdvancedTradeWSSOrderBidAskSide
 

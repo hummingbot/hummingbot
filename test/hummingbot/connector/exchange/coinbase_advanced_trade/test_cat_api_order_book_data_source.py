@@ -12,7 +12,9 @@ from hummingbot.connector.exchange.coinbase_advanced_trade import cat_constants 
 from hummingbot.connector.exchange.coinbase_advanced_trade.cat_api_order_book_data_source import (
     CoinbaseAdvancedTradeAPIOrderBookDataSource,
 )
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_exchange import CoinbaseAdvancedTradeExchange
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_exchange import (
+    CoinbaseAdvancedTradeExchange,
+)
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 

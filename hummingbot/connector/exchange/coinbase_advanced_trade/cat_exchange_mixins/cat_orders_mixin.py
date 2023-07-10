@@ -22,8 +22,8 @@ from ..cat_data_types.cat_api_v3_order_types import (
     CoinbaseAdvancedTradeOrderType,
 )
 from ..cat_data_types.cat_api_v3_response_types import CoinbaseAdvancedTradeCreateOrderResponse as _OrderResponse
+from ..cat_utils import DEFAULT_FEES
 from ..cat_web_utils import get_timestamp_from_exchange_time, set_exchange_time_from_timestamp
-from ..coinbase_advanced_trade_utils import DEFAULT_FEES
 from .cat_exchange_protocols import (
     CoinbaseAdvancedTradeAPICallsMixinProtocol,
     CoinbaseAdvancedTradeOrdersMixinProtocol,

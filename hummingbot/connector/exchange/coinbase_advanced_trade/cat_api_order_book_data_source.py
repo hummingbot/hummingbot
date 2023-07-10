@@ -1,14 +1,8 @@
 import asyncio
 import time
 from collections import defaultdict
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
-from hummingbot.connector.exchange.coinbase_advanced_trade import cat_constants as CONSTANTS
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_data_types.cat_protocols import (
-    CoinbaseAdvancedTradeExchangePairProtocol,
-    CoinbaseAdvancedTradeWSAssistantProtocol,
-)
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_order_book import CoinbaseAdvancedTradeOrderBook
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -17,8 +11,12 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
-if TYPE_CHECKING:
-    pass
+from . import cat_constants as CONSTANTS
+from .cat_data_types.cat_protocols import (
+    CoinbaseAdvancedTradeExchangePairProtocol,
+    CoinbaseAdvancedTradeWSAssistantProtocol,
+)
+from .cat_order_book import CoinbaseAdvancedTradeOrderBook
 
 
 class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):

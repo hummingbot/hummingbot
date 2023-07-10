@@ -2,10 +2,11 @@ import hashlib
 import hmac
 from typing import Awaitable, Dict
 
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_web_utils import get_current_server_time_ms
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSJSONRequest, WSRequest
+
+from .cat_web_utils import get_current_server_time_ms
 
 
 class CoinbaseAdvancedTradeAuth(AuthBase):

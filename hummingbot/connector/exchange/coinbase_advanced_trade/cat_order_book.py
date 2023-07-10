@@ -1,10 +1,11 @@
 from typing import Any, Awaitable, Callable, Dict
 
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_constants import WS_ORDER_SUBSCRIPTION_CHANNELS
-from hummingbot.connector.exchange.coinbase_advanced_trade.cat_web_utils import get_timestamp_from_exchange_time
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+
+from .cat_constants import WS_ORDER_SUBSCRIPTION_CHANNELS
+from .cat_web_utils import get_timestamp_from_exchange_time
 
 
 class CoinbaseAdvancedTradeOrderBook(OrderBook):
