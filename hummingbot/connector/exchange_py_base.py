@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, AsyncIterable, Callable, Dict, List, Opti
 from async_timeout import timeout
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
-from hummingbot.connector.constants import MINUTE, TWELVE_HOURS, s_decimal_0, s_decimal_NaN
+from hummingbot.connector.constants import MINUTE, TWELVE_HOURS, s_decimal_NaN
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
@@ -412,7 +412,7 @@ class ExchangePyBase(ExchangeBase, ABC):
 
         if order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]:
             price = self.quantize_order_price(trading_pair, price)
-        amount = self.quantize_order_amount(trading_pair=trading_pair, amount=amount)
+        quantized_amount = self.quantize_order_amount(trading_pair=trading_pair, amount=amount)
 
         self.start_tracking_order(
             order_id=order_id,
@@ -421,7 +421,7 @@ class ExchangePyBase(ExchangeBase, ABC):
             order_type=order_type,
             trade_type=trade_type,
             price=price,
-            amount=amount,
+            amount=quantized_amount,
             **kwargs,
         )
         order = self._order_tracker.active_orders[order_id]
@@ -431,18 +431,18 @@ class ExchangePyBase(ExchangeBase, ABC):
             self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
             return
 
-        if amount < trading_rule.min_order_size:
+        if quantized_amount < trading_rule.min_order_size:
             self.logger().warning(f"{trade_type.name.title()} order amount {amount} is lower than the minimum order "
                                   f"size {trading_rule.min_order_size}. The order will not be created, increase the "
                                   f"amount to be higher than the minimum order size.")
             self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
             return
 
-        if price == s_decimal_0 or price.is_nan():
-            current_price: Decimal = self.get_price(trading_pair, False)
-            notional_size = current_price * amount
+        if price:
+            notional_size = price * quantized_amount
         else:
-            notional_size = price * amount
+            current_price: Decimal = self.get_price(trading_pair, False)
+            notional_size = current_price * quantized_amount
 
         if notional_size < trading_rule.min_notional_size:
             self.logger().warning(f"{trade_type.name.title()} order notional {notional_size} is lower than the "
@@ -459,7 +459,7 @@ class ExchangePyBase(ExchangeBase, ABC):
             self._on_order_failure(
                 order_id=order_id,
                 trading_pair=trading_pair,
-                amount=amount,
+                amount=quantized_amount,
                 trade_type=trade_type,
                 order_type=order_type,
                 price=price,
