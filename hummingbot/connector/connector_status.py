@@ -65,6 +65,8 @@ connector_status = {
     'phemex_perpetual': 'bronze',
     'phemex_perpetual_testnet': 'bronze',
     'polkadex': 'bronze',
+    'vertex': 'bronze',
+    'vertex_testnet': 'bronze',
 }
 
 warning_messages = {
