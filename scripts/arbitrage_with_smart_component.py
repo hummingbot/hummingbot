@@ -47,16 +47,18 @@ class ArbitrageWithSmartComponent(ScriptStrategyBase):
             price = RateOracle.get_instance().get_pair_rate(base_usd_pair_temp)
             order_amount = self.order_amount_usd / price
 
-            quote_asset_for_buying_exchange = self.connectors[buying_exchange_pair.exchange].get_available_balance(
-                buying_exchange_pair.trading_pair.split("-")[1])
             base_asset_for_selling_exchange = self.connectors[selling_exchange_pair.exchange].get_available_balance(
                 selling_exchange_pair.trading_pair.split("-")[0])
-
             if order_amount > base_asset_for_selling_exchange:
-                self.logger().info(f"Insufficient balance for {selling_exchange_pair.trading_pair.split('-')[0]}")
+                self.logger().info(f"Insufficient balance in exchange {selling_exchange_pair.exchange}"
+                                   f"for sell {selling_exchange_pair.trading_pair.split('-')[0]} Actual: {base_asset_for_selling_exchange}")
                 return
-            if order_amount * price > quote_asset_for_buying_exchange:
-                self.logger().info(f"Insufficient balance for {buying_exchange_pair.trading_pair.split('-')[1]}")
+
+            quote_asset_for_buying_exchange = self.connectors[buying_exchange_pair.exchange].get_available_balance(
+                buying_exchange_pair.trading_pair.split("-")[1])
+            if self.order_amount_usd > quote_asset_for_buying_exchange:
+                self.logger().info(f"Insufficient balance in exchange {buying_exchange_pair.exchange} "
+                                   f"for buy {buying_exchange_pair.trading_pair.split('-')[1]} Actual: {quote_asset_for_buying_exchange}")
                 return
 
             arbitrage_config = ArbitrageConfig(
