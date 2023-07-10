@@ -37,7 +37,6 @@ connector_status = {
     'okx': 'bronze',
     'perpetual_finance': 'bronze',
     'probit': 'bronze',
-    'whitebit': 'bronze',
     'uniswap': 'gold',
     'uniswapLP': 'gold',
     'pancakeswap': 'bronze',
