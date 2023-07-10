@@ -65,7 +65,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
     time_limit_order_type: OrderType = OrderType.MARKET
     trailing_stop_activation_delta = 0.003
     trailing_stop_trailing_delta = 0.001
-    delay_between_signals = 30
+    cooldown_after_execution = 30
 
     # Create the candles that we want to use and the thresholds for the indicators
     candles: List[CandlesBase]
@@ -97,7 +97,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
     @property
     def time_between_signals_condition(self):
         seconds_since_last_signal = self.current_timestamp - self.get_timestamp_of_last_executor()
-        return seconds_since_last_signal > self.delay_between_signals
+        return seconds_since_last_signal > self.cooldown_after_execution
 
     def get_csv_path(self) -> str:
         today = datetime.datetime.today()
