@@ -97,7 +97,6 @@ Exchanges may be centralized (**CEX**), or decentralized (**DEX**), in which cas
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Sushiswap](https://docs.hummingbot.org/exchanges/sushiswap/) | AMM DEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Tinyman](https://docs.hummingbot.org/exchanges/tinyman/) | SPOT DEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [VVS Finance](https://docs.hummingbot.org/exchanges/vvs/) | AMM DEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [WhiteBit](https://docs.hummingbot.org/exchanges/whitebit/) | SPOT CEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [XSWAP](https://docs.hummingbot.org/exchanges/xswap/) | AMM DEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Zigzag](https://docs.hummingbot.org/exchanges/zigzag/) | SPOT DEX |
 
