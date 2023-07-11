@@ -7,9 +7,10 @@ HEALTH_CHECK_ENDPOINT = "risk-limit-info"
 CANDLES_ENDPOINT = "barhist"
 SUB_ENDPOINT_NAME = "sub"
 
-WSS_URL = "wss://ascendex.com:443/api/pro/v1/websocket-for-hummingbot-liq-mining"
-#Plesae note that the one-month bar (1m) always resets at the month start.
-#The intervalInMillis value for the one-month bar is only indicative.
+WSS_URL = "wss://ascendex.com:443/api/pro/v1/websocket-for-hummingbot-liq-mining/stream"
+
+# Plesae note that the one-month bar (1m) always resets at the month start.
+# The intervalInMillis value for the one-month bar is only indicative.
 INTERVALS = bidict({
     "1m": "1",
     "5m": "5",
@@ -30,4 +31,5 @@ ALL_ENDPOINTS_LIMIT = "All"
 RATE_LIMITS = [
     RateLimit(ALL_ENDPOINTS_LIMIT, limit=100, time_interval=1),
     RateLimit(CANDLES_ENDPOINT, limit=100, time_interval=1, linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
-    RateLimit(HEALTH_CHECK_ENDPOINT, limit=100, time_interval=1, linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)])]
+    RateLimit(HEALTH_CHECK_ENDPOINT, limit=100, time_interval=1,
+              linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)])]

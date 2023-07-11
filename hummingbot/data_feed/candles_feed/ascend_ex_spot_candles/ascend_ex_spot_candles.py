@@ -61,13 +61,12 @@ class AscendExSpotCandles(CandlesBase):
     def get_exchange_trading_pair(self, trading_pair):
         return trading_pair.replace("-", "/")
 
-
     async def fetch_candles(self,
                             start_time: Optional[int] = None,
                             end_time: Optional[int] = None,
                             limit: Optional[int] = 500):
         rest_assistant = await self._api_factory.get_rest_assistant()
-        params = {"symbol": self._ex_trading_pair, "interval": self.interval, "n": limit}
+        params = {"symbol": self._ex_trading_pair, "interval": CONSTANTS.INTERVALS[self.interval], "n": limit}
         if start_time:
             params["from"] = start_time
         if end_time:
@@ -126,7 +125,8 @@ class AscendExSpotCandles(CandlesBase):
         :param ws: the websocket assistant used to connect to the exchange
         """
         try:
-            payload = {"op": CONSTANTS.SUB_ENDPOINT_NAME, "ch": f"bar:{self.interval}:{self._ex_trading_pair}"}
+            payload = {"op": CONSTANTS.SUB_ENDPOINT_NAME,
+                       "ch": f"bar:{CONSTANTS.INTERVALS[self.interval]}:{self._ex_trading_pair}"}
             subscribe_candles_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
             await ws.send(subscribe_candles_request)
@@ -143,6 +143,10 @@ class AscendExSpotCandles(CandlesBase):
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
         async for ws_response in websocket_assistant.iter_messages():
             data: Dict[str, Any] = ws_response.data
+            if data.get("m") == "ping":
+                pong_payloads = {"op": "pong"}
+                pong_request = WSJSONRequest(payload=pong_payloads)
+                await websocket_assistant.send(request=pong_request)
             if data is not None and data.get("m") == "bar":  # data will be None when the websocket is disconnected
                 timestamp = data["data"]["ts"]
                 open = data["data"]["o"]

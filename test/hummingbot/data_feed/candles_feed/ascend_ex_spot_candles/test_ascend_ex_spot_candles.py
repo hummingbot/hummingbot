@@ -164,7 +164,7 @@ class TestAscendExSpotCandles(unittest.TestCase):
 
         resp = self.async_run_with_timeout(self.data_feed.fetch_candles(start_time=start_time, end_time=end_time))
 
-        self.assertEqual(resp.shape[0], len(data_mock))
+        self.assertEqual(resp.shape[0], len(data_mock['data']))
         self.assertEqual(resp.shape[1], 10)
 
     def test_candles_empty(self):
@@ -195,7 +195,7 @@ class TestAscendExSpotCandles(unittest.TestCase):
             "op": CONSTANTS.SUB_ENDPOINT_NAME,
             "ch": f"bar:{self.interval}:{self.ex_trading_pair}"
         }
-        self.assertEqual(expected_kline_subscription["ch"], sent_subscription_messages["ch"])
+        self.assertEqual(expected_kline_subscription["ch"], sent_subscription_messages[0]["ch"])
 
         self.assertTrue(self.is_logged(
             "INFO",
