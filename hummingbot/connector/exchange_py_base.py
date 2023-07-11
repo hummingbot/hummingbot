@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, AsyncIterable, Callable, Dict, List, Opti
 from async_timeout import timeout
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
-from hummingbot.connector.constants import MINUTE, TWELVE_HOURS, s_decimal_NaN
+from hummingbot.connector.constants import MINUTE, TWELVE_HOURS, s_decimal_0, s_decimal_NaN
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
@@ -425,7 +425,7 @@ class ExchangePyBase(ExchangeBase, ABC):
             **kwargs,
         )
         order = self._order_tracker.active_orders[order_id]
-        if not price or price.is_nan():
+        if not price or price.is_nan() or price == s_decimal_0:
             current_price: Decimal = self.get_price(trading_pair, False)
             notional_size = current_price * quantized_amount
         else:
