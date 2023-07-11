@@ -1,7 +1,7 @@
 from decimal import Decimal
 from unittest import TestCase
 
-from hummingbot.connector.exchange.injective.injective_market import InjectiveSpotMarket, InjectiveToken
+from hummingbot.connector.exchange.injective_v2.injective_market import InjectiveSpotMarket, InjectiveToken
 
 
 class InjectiveSpotMarketTests(TestCase):
@@ -74,3 +74,33 @@ class InjectiveSpotMarketTests(TestCase):
         converted_price = self._inj_usdt_market.price_from_chain_format(chain_price=chain_price)
 
         self.assertEqual(expected_price, converted_price)
+
+    def test_min_price_tick_size(self):
+        market = self._inj_usdt_market
+        expected_value = market.price_from_chain_format(chain_price=Decimal(market.market_info["minPriceTickSize"]))
+
+        self.assertEqual(expected_value, market.min_price_tick_size())
+
+    def test_min_quantity_tick_size(self):
+        market = self._inj_usdt_market
+        expected_value = market.quantity_from_chain_format(
+            chain_quantity=Decimal(market.market_info["minQuantityTickSize"])
+        )
+
+        self.assertEqual(expected_value, market.min_quantity_tick_size())
+
+
+class InjectiveTokenTests(TestCase):
+
+    def test_convert_value_from_chain_format(self):
+        token = InjectiveToken(
+            denom="inj",
+            symbol="INJ",
+            unique_symbol="INJ",
+            name="Injective Protocol",
+            decimals=18,
+        )
+
+        converted_value = token.value_from_chain_format(chain_value=Decimal("100_000_000_000_000_000_000"))
+
+        self.assertEqual(Decimal("100"), converted_value)
