@@ -7,11 +7,13 @@ from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_
     build_api_factory,
     build_api_factory_without_time_synchronizer_pre_processor,
     create_throttler,
+    endpoint_from_url,
     get_current_server_time_ms,
     get_current_server_time_s,
     get_timestamp_from_exchange_time,
     private_rest_url,
     public_rest_url,
+    set_exchange_time_from_timestamp,
 )
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
@@ -161,6 +163,20 @@ class CoinbaseAdvancedTradeUtilTestCases(IsolatedAsyncioWrapperTestCase):
             throttler_limit_id=CONSTANTS.SERVER_TIME_EP,
         )
         self.assertEqual(server_time, 1175783400)
+
+    def test_endpoint_from_url(self):
+        # Test with a variety of URLs
+        self.assertEqual(endpoint_from_url("https://api.coinbase.com/test"), "/test")
+        with self.assertRaises(ValueError):
+            endpoint_from_url("https://api.coinbase.us")
+        with self.assertRaises(ValueError):
+            self.assertEqual(endpoint_from_url("https://api.coinbase.us/test", "com"), "/test")
+        self.assertEqual(endpoint_from_url("https://api.coinbase.us/test", "us"), "/test")
+
+    def test_set_exchange_time_from_timestamp(self):
+        # Test with a variety of timestamps and units
+        self.assertEqual(set_exchange_time_from_timestamp(1683808496.789012, "s"), '2023-05-11T12:34:56.789012Z')
+        self.assertEqual(set_exchange_time_from_timestamp(1683808496789.012, "ms"), '2023-05-11T12:34:56.789012Z')
 
 
 if __name__ == "__main__":

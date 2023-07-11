@@ -176,6 +176,9 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSource(UserStreamTrackerDataSource
         :param channels: The channels to apply action to. If None, applies action to all.
         :param trading_pairs: The trading pairs to apply action to. If None, applies action to all.
         """
+        if channels is None or len(channels) == 0:
+            return
+
         # Initialize the async context
         self._async_init()
 
@@ -190,21 +193,18 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSource(UserStreamTrackerDataSource
                         "channel": channel,
                     }
 
-                    await self._manage_queue(f"{channel}-{symbol}", action)
+                    await self._manage_queue(f"{channel}:{symbol}", action)
 
                     try:
                         # Change subscription to the channel and pair
                         await ws.send(WSJSONRequest(payload=payload))
                         self.logger().info(f"{action.capitalize()}d to {channel} for {trading_pair}...")
-                    except asyncio.CancelledError:
-                        await ws.disconnect()  # Close the connection
-                        await self.close()  # Clean the async context
-                        raise
-                    except Exception:
+                    except (asyncio.CancelledError, Exception) as e:
                         await self.close()  # Clean the async context
                         self.logger().error(
                             f"Unexpected error occurred {action.capitalize()}-ing "
-                            f"to {channel} for {trading_pair}...",
+                            f"to {channel} for {trading_pair}...\n"
+                            f"Exception: {e}",
                             exc_info=True
                         )
                         raise
@@ -216,6 +216,14 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSource(UserStreamTrackerDataSource
         :param action: The action to apply to the queue.
         """
         # Initialize the async context
+        if action not in ["subscribe", "unsubscribe"]:
+            self.logger().error(
+                f"Unsupported action {action.capitalize()} "
+                f"to {channel_symbol}...\n",
+                exc_info=True
+            )
+            return
+
         self._async_init()
 
         if action == "unsubscribe":
@@ -223,7 +231,7 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSource(UserStreamTrackerDataSource
                 # Clear the queue for the channel and pair
                 while not self._message_queue[channel_symbol].empty():
                     try:
-                        _, _ = self._message_queue[channel_symbol].get_nowait()
+                        _, _ = await self._message_queue[channel_symbol].get()
                         self._message_queue[channel_symbol].task_done()
                     except asyncio.QueueEmpty:
                         break
@@ -236,8 +244,6 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSource(UserStreamTrackerDataSource
         if action == "subscribe":
             if self._message_queue_task is None or self._message_queue_task.done():
                 self._message_queue_task = asyncio.create_task(self._preprocess_messages())
-
-        raise ValueError(f"Unknown action {action}.")  # Should never happen
 
     def _get_target_channels_and_pairs(self,
                                        channels: Optional[List[str]],
@@ -268,7 +274,7 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSource(UserStreamTrackerDataSource
         """
         async for ws_response in ws.iter_messages():  # type: ignore # PyCharm doesn't recognize iter_messages
             data: Dict[str, Any] = ws_response.data
-            channel_symbol = f"{data['channel']}-{data['product_id']}"
+            channel_symbol = f"{data['channel']}:{data['product_id']}"
             try:
                 # Dispatch each product to its own queue
                 await self._try_except_queue_put(item=(data, queue),

@@ -1,4 +1,4 @@
-from typing import Any, Callable, Coroutine, Dict
+from typing import Any, Callable, Coroutine, Dict, Optional
 
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
@@ -18,9 +18,9 @@ class CoinbaseAdvancedTradeV2OrderBook(OrderBook):
     @classmethod
     async def level2_or_trade_message_from_exchange(
             cls,
-            msg: Dict[str, any],
+            msg: Dict[str, Any],
             timestamp: float,
-            symbol_to_pair: Callable[[...], Coroutine[None, None, str]]) -> OrderBookMessage:
+            symbol_to_pair: Callable[[...], Coroutine[None, None, str]]) -> Optional[OrderBookMessage]:
         """
         Process messages from the order book or trade channel
         https://docs.cloud.coinbase.com/advanced-trade-api/docs/ws-channels#level2-channel
@@ -30,10 +30,16 @@ class CoinbaseAdvancedTradeV2OrderBook(OrderBook):
         :param symbol_to_pair: Method to retrieve a Hummingbot trading pair from an exchange symbol
         :return: a snapshot message with the snapshot information received from the exchange
         """
+        if "events" not in msg or "channel" not in msg:
+            cls.logger().warning(f"Unexpected message from Coinbase Advanced Trade: {msg}"
+                                 f" - missing 'events'or 'channel'  key")
+            return None
+
         channel = msg["channel"]
 
         if channel not in cls._sequence_nums:
-            raise ValueError(f"Unexpected channel: {channel}")
+            cls.logger().warning(f"Unexpected message 'channel' from Coinbase Advanced Trade: {channel}")
+            return None
 
         expected_sequence_num = cls._sequence_nums[channel]
 
@@ -45,19 +51,19 @@ class CoinbaseAdvancedTradeV2OrderBook(OrderBook):
         cls._sequence_nums[channel] = msg["sequence_num"] + 1
 
         if channel == "market_trades":
-            return await cls.market_trades_order_book_message(msg, symbol_to_pair)
+            return await cls._market_trades_order_book_message(msg, symbol_to_pair)
 
         elif channel == "l2_data":
-            return await cls.level2_order_book_message(msg, timestamp, symbol_to_pair)
+            return await cls._level2_order_book_message(msg, timestamp, symbol_to_pair)
 
         raise ValueError(f"Unexpected channel: {channel}")
 
     @classmethod
-    async def level2_order_book_message(
+    async def _level2_order_book_message(
             cls,
             msg: Dict[str, any],
             timestamp: float,
-            symbol_to_pair: Callable[[...], Coroutine[None, None, str]]) -> OrderBookMessage:
+            symbol_to_pair: Callable[[...], Coroutine[None, None, str]]) -> Optional[OrderBookMessage]:
         """
         Process messages from the order book or trade channel
         https://docs.cloud.coinbase.com/advanced-trade-api/docs/ws-channels#level2-channel
@@ -85,12 +91,16 @@ class CoinbaseAdvancedTradeV2OrderBook(OrderBook):
                 return OrderBookMessage(OrderBookMessageType.SNAPSHOT,
                                         obm_content,
                                         timestamp=timestamp)
-            return OrderBookMessage(OrderBookMessageType.DIFF,
-                                    obm_content,
-                                    timestamp=timestamp)
+            if event["type"] == "update":
+                return OrderBookMessage(OrderBookMessageType.DIFF,
+                                        obm_content,
+                                        timestamp=timestamp)
+
+            cls.logger().warning(f"Unexpected event type: {event['type']}")
+            return None
 
     @classmethod
-    async def market_trades_order_book_message(
+    async def _market_trades_order_book_message(
             cls,
             msg: Dict[str, Any],
             symbol_to_pair: Callable[[...], Coroutine[None, None, str]]) -> OrderBookMessage:
@@ -106,11 +116,14 @@ class CoinbaseAdvancedTradeV2OrderBook(OrderBook):
                 ts: float = get_timestamp_from_exchange_time(msg["timestamp"], "s")
                 trading_pair = await symbol_to_pair(trade["product_id"])
 
-                return OrderBookMessage(OrderBookMessageType.TRADE, {
-                    "trading_pair": trading_pair,
-                    "trade_type": float(TradeType.SELL.value) if trade["side"] else float(TradeType.BUY.value),
-                    "trade_id": int(trade["trade_id"]),
-                    "update_id": int(ts),
-                    "price": trade["price"],
-                    "amount": trade["size"]
-                }, timestamp=ts)
+                return OrderBookMessage(
+                    OrderBookMessageType.TRADE,
+                    {
+                        "trading_pair": trading_pair,
+                        "trade_type": float(TradeType.SELL.value) if trade["side"] else float(TradeType.BUY.value),
+                        "trade_id": int(trade["trade_id"]),
+                        "update_id": int(ts),
+                        "price": trade["price"],
+                        "amount": trade["size"]
+                    },
+                    timestamp=ts)

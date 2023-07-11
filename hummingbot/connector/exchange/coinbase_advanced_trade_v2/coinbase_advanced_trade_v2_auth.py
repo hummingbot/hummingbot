@@ -1,16 +1,13 @@
 import hashlib
 import hmac
-from typing import Awaitable, Dict
+import time
+from typing import Dict
 
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSJSONRequest, WSRequest
 
-from .coinbase_advanced_trade_v2_web_utils import (
-    endpoint_from_url,
-    get_current_server_time_ms,
-    get_current_server_time_s,
-)
+from .coinbase_advanced_trade_v2_web_utils import endpoint_from_url
 
 
 class CoinbaseAdvancedTradeV2Auth(AuthBase):
@@ -63,8 +60,8 @@ class CoinbaseAdvancedTradeV2Auth(AuthBase):
         :returns: the authenticated request
         """
         # TODO: Understand what the issue is with the time sync
-        _timestamp: int = await self._get_synced_timestamp_s()
-        # _timestamp: float = await get_current_server_time_s()
+        # _timestamp: int = await self._get_synced_timestamp_s()
+        _timestamp: int = int(time.time())
         timestamp: str = str(int(_timestamp))
 
         endpoint: str = endpoint_from_url(request.url).split('?')[0]  # ex: /v3/orders
@@ -109,7 +106,7 @@ class CoinbaseAdvancedTradeV2Auth(AuthBase):
         Signing the above message with the passphrase and base64-encoding the signature.
         """
         # _timestamp: int = await self._get_synced_timestamp_s()
-        _timestamp: float = await get_current_server_time_s()
+        _timestamp: int = int(time.time())
         timestamp: str = str(int(_timestamp))
 
         products: str = ",".join(request.payload["product_ids"])
@@ -136,21 +133,23 @@ class CoinbaseAdvancedTradeV2Auth(AuthBase):
         digest: str = hmac.new(self.secret_key.encode("utf8"), message.encode("utf8"), hashlib.sha256).digest().hex()
         return digest
 
-    async def _get_synced_timestamp_s(self) -> int:
-        """
-        Helper function to get a synced timestamp in seconds.
+# TODO: Understand what the issue is with the time sync
 
-        If the `_time_sync_last_updated_s` value is less than 0 or TIME_SYNC_UPDATE seconds have elapsed since it was
-        last updated, it triggers an update of the server time offset by calling the
-        `update_server_time_offset_with_time_provider` function on `self.time_provider` with the current server time
-        in milliseconds.
-
-        :return: A synced timestamp in seconds.
-        """
-        if self._time_sync_last_updated_s < 0 or self._time_sync_last_updated_s + self.TIME_SYNC_UPDATE_S < self.time_provider.time():
-            # Time synchronizer expects time in milliseconds
-            awaitable: Awaitable[float] = get_current_server_time_ms()
-            await self.time_provider.update_server_time_offset_with_time_provider(awaitable)
-            self._time_sync_last_updated_s: float = self.time_provider.time()
-
-        return int(self.time_provider.time())
+#    async def _get_synced_timestamp_s(self) -> int:
+#        """
+#        Helper function to get a synced timestamp in seconds.
+#
+#        If the `_time_sync_last_updated_s` value is less than 0 or TIME_SYNC_UPDATE seconds have elapsed since it was
+#        last updated, it triggers an update of the server time offset by calling the
+#        `update_server_time_offset_with_time_provider` function on `self.time_provider` with the current server time
+#        in milliseconds.
+#
+#        :return: A synced timestamp in seconds.
+#        """
+#        if self._time_sync_last_updated_s < 0 or self._time_sync_last_updated_s + self.TIME_SYNC_UPDATE_S < self.time_provider.time():
+#            # Time synchronizer expects time in milliseconds
+#            awaitable: Awaitable[float] = get_current_server_time_ms()
+#            await self.time_provider.update_server_time_offset_with_time_provider(awaitable)
+#            self._time_sync_last_updated_s: float = self.time_provider.time()
+#
+#        return int(self.time_provider.time())

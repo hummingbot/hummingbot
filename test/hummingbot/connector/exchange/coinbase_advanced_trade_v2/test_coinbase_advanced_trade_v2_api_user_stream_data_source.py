@@ -75,8 +75,6 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSourceTests(
             connector=self.connector,
             api_factory=self.api_factory
         )
-        self.data_source._manage_queue = AsyncMock()
-
         self.set_loggers([self.data_source.logger()])
 
     async def asyncSetUp(self) -> None:
@@ -87,6 +85,7 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSourceTests(
         self.resume_test_event = asyncio.Event()
 
     async def asyncTearDown(self) -> None:
+        await self.data_source.close()
         await super().asyncTearDown()
 
     def tearDown(self) -> None:
@@ -198,7 +197,7 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSourceTests(
                 await self.data_source._unsubscribe_channels(ws_assistant)
             # The exception interrupts the subscription loop, but the exception is logged
             self.assertTrue(
-                self.is_logged("ERROR", "Unexpected error occurred Unsubscribe-ing to user for ETH-USD..."))
+                self.is_partially_logged("ERROR", "Unexpected error occurred Unsubscribe-ing to user for ETH-USD..."))
             self.assertEqual(1, mock_error.call_count)
             self.assertNotEqual(len(self.data_source._queue_keys) * len(self.data_source._trading_pairs),
                                 mock_error.call_count)
@@ -238,13 +237,32 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSourceTests(
 
     async def test_subscribe_or_unsubscribe_with_exception_logging(self):
         ws_assistant = await self.data_source._connected_websocket_assistant()
-        with patch.object(MockWebAssistant, "send", new_callable=AsyncMock, side_effect=Exception) as mock_error:
-            with self.assertRaises(Exception):
-                await self.data_source._subscribe_or_unsubscribe(ws_assistant, "subscribe", ["user"],
-                                                                 ["ETH-USD"])
-            # The exception interrupts the subscription loop, but the exception is logged
+        with patch.object(MockWebAssistant, "disconnect", new_callable=AsyncMock) as mock_disconnect:
+            with patch.object(MockWebAssistant, "send", new_callable=AsyncMock, side_effect=Exception) as mock_error:
+                with self.assertRaises(Exception):
+                    await self.data_source._subscribe_or_unsubscribe(ws_assistant, "subscribe", ["user"],
+                                                                     ["ETH-USD"])
+                # The exception interrupts the subscription loop, but the exception is logged
+            mock_disconnect.assert_called_once()
             self.assertTrue(
-                self.is_logged("ERROR", "Unexpected error occurred Subscribe-ing to user for ETH-USD..."))
+                self.is_partially_logged("ERROR", "Unexpected error occurred Subscribe-ing to user for ETH-USD..."))
+            self.assertEqual(1, mock_error.call_count)
+            self.assertNotEqual(len(self.data_source._queue_keys) * len(self.data_source._trading_pairs),
+                                mock_error.call_count)
+        await self.data_source.close()
+
+    async def test_subscribe_or_unsubscribe_with_cancel_logging(self):
+        ws_assistant = await self.data_source._connected_websocket_assistant()
+        with patch.object(MockWebAssistant, "disconnect", new_callable=AsyncMock) as mock_disconnect:
+            with patch.object(MockWebAssistant, "send", new_callable=AsyncMock,
+                              side_effect=asyncio.CancelledError) as mock_error:
+                with self.assertRaises(asyncio.CancelledError):
+                    await self.data_source._subscribe_or_unsubscribe(ws_assistant, "subscribe", ["user"],
+                                                                     ["ETH-USD"])
+            # The cancelled error causes a ws_assistant call to disconnect()
+            mock_disconnect.assert_called_once()
+            self.assertTrue(
+                self.is_partially_logged("ERROR", "Unexpected error occurred Subscribe-ing to user for ETH-USD..."))
             self.assertEqual(1, mock_error.call_count)
             self.assertNotEqual(len(self.data_source._queue_keys) * len(self.data_source._trading_pairs),
                                 mock_error.call_count)
@@ -259,6 +277,41 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSourceTests(
             self.data_source._manage_queue.assert_called_once()
 
         await self.data_source.close()
+
+    async def test_subscribe_or_unsubscribe_unsubscribe_empty_channels(self):
+        ws_assistant = await self.data_source._connected_websocket_assistant()
+        # This is needed, with an exception, the tasks of the DS prevent the test to finish
+        try:
+            with patch.object(MockWebAssistant, "send", new_callable=AsyncMock) as mock_send:
+                await self.data_source._subscribe_or_unsubscribe(ws_assistant, "unsubscribe", [],
+                                                                 ["ETH-USD"])
+                mock_send.assert_not_called()
+                self.data_source._manage_queue.assert_not_called()
+        except Exception:
+            await self.data_source.close()
+            self.fail("Should not have thrown an exc")
+
+        await self.data_source.close()
+
+    async def test_manage_queue_unsubscribe(self):
+        self.data_source._message_queue = {"channel_symbol": asyncio.Queue()}
+        await self.data_source._message_queue["channel_symbol"].put(("test", "test"))
+        self.data_source._message_queue_task = asyncio.create_task(asyncio.sleep(1))  # a dummy task
+        await self.data_source._manage_queue("channel_symbol", "unsubscribe")
+        self.assertTrue(self.data_source._message_queue_task.done())
+        self.assertFalse("channel_symbol" in self.data_source._message_queue)
+
+    async def test_manage_queue_subscribe(self):
+        self.data_source._preprocess_messages = AsyncMock()
+        await self.data_source._manage_queue("channel_symbol", "subscribe")
+        self.assertIsNotNone(self.data_source._message_queue_task)
+        await self.data_source.close()
+
+    async def test_manage_queue_invalid_action(self):
+        await self.data_source._manage_queue("channel_symbol", "invalid_action")
+        self.assertTrue(
+            self.is_partially_logged("ERROR", "Unsupported action "))
+        self.assertIsNone(self.data_source._message_queue_task)
 
 
 if __name__ == '__main__':

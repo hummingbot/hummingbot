@@ -1,7 +1,15 @@
 import unittest
 from decimal import Decimal
 
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_utils import DEFAULT_FEES
+from pydantic import SecretStr
+
+import hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_constants as CONSTANTS
+from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_utils import (
+    DEFAULT_FEES,
+    CoinbaseAdvancedTradeV2ConfigMap,
+    CoinbaseAdvancedTradeV2RESTRequest,
+)
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 
 
 class CoinbaseAdvancedTradeUtilTestCases(unittest.TestCase):
@@ -22,3 +30,25 @@ class CoinbaseAdvancedTradeUtilTestCases(unittest.TestCase):
         self.assertEqual(DEFAULT_FEES.maker_percent_fee_decimal, Decimal("0.004"))
         self.assertEqual(DEFAULT_FEES.taker_percent_fee_decimal, Decimal("0.006"))
         self.assertFalse(DEFAULT_FEES.buy_percent_fee_deducted_from_returns)
+
+    def test_coinbase_advanced_trade_v2_rest_request(self):
+        # Test without authentication
+        req = CoinbaseAdvancedTradeV2RESTRequest(is_auth_required=False, method=RESTMethod.GET, endpoint="/test")
+        self.assertEqual(req.base_url, CONSTANTS.REST_URL)
+
+        # Test with authentication but without endpoint
+        with self.assertRaises(ValueError):
+            CoinbaseAdvancedTradeV2RESTRequest(is_auth_required=True, method=RESTMethod.GET)
+
+        # Test with authentication and endpoint
+        req = CoinbaseAdvancedTradeV2RESTRequest(is_auth_required=True, endpoint="/test", method=RESTMethod.GET)
+        self.assertEqual(req.base_url, CONSTANTS.REST_URL)
+
+    def test_coinbase_advanced_trade_v2_config_map(self):
+        config_map = CoinbaseAdvancedTradeV2ConfigMap(
+            coinbase_advanced_trade_v2_api_key="test_key",
+            coinbase_advanced_trade_v2_api_secret="test_secret"
+        )
+        self.assertEqual(config_map.connector, "coinbase_advanced_trade_v2")
+        self.assertEqual(config_map.coinbase_advanced_trade_v2_api_key, SecretStr("test_key"))
+        self.assertEqual(config_map.coinbase_advanced_trade_v2_api_secret, SecretStr("test_secret"))

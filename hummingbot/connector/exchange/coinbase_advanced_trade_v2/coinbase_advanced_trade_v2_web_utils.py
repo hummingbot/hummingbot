@@ -49,6 +49,9 @@ def endpoint_from_url(path_url: str, domain: str = constants.DEFAULT_DOMAIN) -> 
     :param domain: the coinbase_advanced_trade_v2 domain to connect to ("com" or "us"). The default value is "com"
     :return: the full URL to the endpoint
     """
+    if domain not in path_url:
+        raise ValueError(f"The domain {domain} is not part of the provided URL {path_url}")
+
     endpoint: str = re.split(domain, path_url)[1]
 
     # Must start with '/'

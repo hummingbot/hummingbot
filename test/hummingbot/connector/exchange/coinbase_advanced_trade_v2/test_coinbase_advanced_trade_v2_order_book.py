@@ -74,7 +74,7 @@ class CoinbaseAdvancedTradeV2OrderBookTests(IsolatedAsyncioWrapperTestCase, Test
         return "COINALPHA-HBOT"
 
     async def test_level2_order_book_snapshot_message(self):
-        snapshot_message = await (CoinbaseAdvancedTradeV2OrderBook.level2_order_book_message(
+        snapshot_message = await (CoinbaseAdvancedTradeV2OrderBook._level2_order_book_message(
             msg=self.snapshot_msg,
             timestamp=1640000000.0,
             symbol_to_pair=self.symbol_to_pair
@@ -101,7 +101,7 @@ class CoinbaseAdvancedTradeV2OrderBookTests(IsolatedAsyncioWrapperTestCase, Test
         update_msg["sequence_num"] = 5
         update_msg["events"][0]["type"] = "update"
 
-        update_message = await (CoinbaseAdvancedTradeV2OrderBook.level2_order_book_message(
+        update_message = await (CoinbaseAdvancedTradeV2OrderBook._level2_order_book_message(
             msg=update_msg,
             timestamp=1640000000.0,
             symbol_to_pair=self.symbol_to_pair
@@ -122,7 +122,7 @@ class CoinbaseAdvancedTradeV2OrderBookTests(IsolatedAsyncioWrapperTestCase, Test
         self.assertEqual(update_message.update_id, update_message.asks[0].update_id)
 
     async def test_market_trades_order_book_snapshot_message(self):
-        trade_message = await (CoinbaseAdvancedTradeV2OrderBook.market_trades_order_book_message(
+        trade_message = await (CoinbaseAdvancedTradeV2OrderBook._market_trades_order_book_message(
             msg=self.trade_msg,
             symbol_to_pair=self.symbol_to_pair
         ))
@@ -201,3 +201,59 @@ class CoinbaseAdvancedTradeV2OrderBookTests(IsolatedAsyncioWrapperTestCase, Test
                                      message="Received out of order message from market_trades, this indicates a "
                                              "missed message")
         )
+
+    async def test_level2_or_trade_message_from_exchange_unexpected_channel(self):
+        msg = self.snapshot_msg.copy()
+        msg["channel"] = "unexpected_channel"
+        out = await CoinbaseAdvancedTradeV2OrderBook.level2_or_trade_message_from_exchange(
+            msg=msg,
+            timestamp=1640000000.0,
+            symbol_to_pair=self.symbol_to_pair
+        )
+        self.assertIsNone(out)
+
+    async def test_level2_or_trade_message_from_exchange_missing_events(self):
+        msg = self.snapshot_msg.copy()
+        del msg["events"]
+        out = await CoinbaseAdvancedTradeV2OrderBook.level2_or_trade_message_from_exchange(
+            msg=msg,
+            timestamp=1640000000.0,
+            symbol_to_pair=self.symbol_to_pair
+        )
+        self.assertIsNone(out)
+
+    async def test__level2_order_book_message_unexpected_type(self):
+        msg = {"events": {}, "type": "unexpected_type", "data": {}}
+        out = await CoinbaseAdvancedTradeV2OrderBook._level2_order_book_message(
+            msg=msg,
+            timestamp=1640000000.0,
+            symbol_to_pair=self.symbol_to_pair
+        )
+        self.assertIsNone(out)
+
+    async def test_level2_order_book_message_missing_events(self):
+        msg = {"type": "l2_data", "data": {}}
+        with self.assertRaises(KeyError):
+            await CoinbaseAdvancedTradeV2OrderBook._level2_order_book_message(
+                msg=msg,
+                timestamp=1640000000.0,
+                symbol_to_pair=self.symbol_to_pair
+            )
+
+    async def test_market_trades_order_book_message_unexpected_type(self):
+        msg = {"events": {}, "type": "unexpected_type", "data": {}}
+        out = await CoinbaseAdvancedTradeV2OrderBook._market_trades_order_book_message(
+            msg=msg,
+            symbol_to_pair=self.symbol_to_pair
+        )
+        self.assertIsNone(out)
+
+    async def test_market_trades_order_book_message_missing_fields(self):
+        msg = {"type": "market_trades", "data": {"id": 1, "time": "2022-01-01T00:00:00.000Z"}}
+        # This raises because this message is missing the 'events' field
+        # (which normally should be handled by the calling method)
+        with self.assertRaises(KeyError):
+            await CoinbaseAdvancedTradeV2OrderBook._market_trades_order_book_message(
+                msg=msg,
+                symbol_to_pair=self.symbol_to_pair
+            )
