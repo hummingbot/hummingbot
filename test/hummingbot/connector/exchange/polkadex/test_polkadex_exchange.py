@@ -766,7 +766,7 @@ class PolkadexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         )
 
         order_id_for_invalid_order = self.place_buy_order(
-            amount=Decimal("0.0001"), price=Decimal("0.0000001")
+            amount=Decimal("0.0001"), price=Decimal("0.0001")
         )
         # The second order is used only to have the event triggered and avoid using timeouts for tests
         order_id = self.place_buy_order()

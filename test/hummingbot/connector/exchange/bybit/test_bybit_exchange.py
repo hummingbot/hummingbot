@@ -641,7 +641,7 @@ class TestBybitExchange(unittest.TestCase):
                                         trading_pair=self.trading_pair,
                                         amount=Decimal("0.0001"),
                                         order_type=OrderType.LIMIT,
-                                        price=Decimal("0.0000001")))
+                                        price=Decimal("0.0001")))
         # The second order is used only to have the event triggered and avoid using timeouts for tests
         asyncio.get_event_loop().create_task(
             self.exchange._create_order(trade_type=TradeType.BUY,

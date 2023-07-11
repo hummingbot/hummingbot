@@ -934,7 +934,7 @@ class TestVertexExchange(unittest.TestCase):
                 trading_pair=self.trading_pair,
                 amount=Decimal("0.0001"),
                 order_type=OrderType.LIMIT,
-                price=Decimal("0.0000001"),
+                price=Decimal("0.0001"),
             )
         )
         # The second order is used only to have the event triggered and avoid using timeouts for tests
