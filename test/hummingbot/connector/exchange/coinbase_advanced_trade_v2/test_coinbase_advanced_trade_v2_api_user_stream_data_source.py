@@ -205,12 +205,12 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSourceTests(
 
     async def test_subscribe_or_unsubscribe_subscribe(self):
         ws_assistant = await self.data_source._connected_websocket_assistant()
+        self.data_source._manage_queue = AsyncMock()
         with patch.object(MockWebAssistant, "send", new_callable=AsyncMock) as mock_send:
             await self.data_source._subscribe_or_unsubscribe(ws_assistant, "subscribe", ["user"],
                                                              ["ETH-USD"])
             mock_send.assert_called_once()
             self.data_source._manage_queue.assert_called_once()
-
         await self.data_source.close()
 
     async def test_payload_format(self):
@@ -270,6 +270,7 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSourceTests(
 
     async def test_subscribe_or_unsubscribe_unsubscribe(self):
         ws_assistant = await self.data_source._connected_websocket_assistant()
+        self.data_source._manage_queue = AsyncMock()
         with patch.object(MockWebAssistant, "send", new_callable=AsyncMock) as mock_send:
             await self.data_source._subscribe_or_unsubscribe(ws_assistant, "unsubscribe", ["user"],
                                                              ["ETH-USD"])
@@ -282,6 +283,7 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSourceTests(
         ws_assistant = await self.data_source._connected_websocket_assistant()
         # This is needed, with an exception, the tasks of the DS prevent the test to finish
         try:
+            self.data_source._manage_queue = AsyncMock()
             with patch.object(MockWebAssistant, "send", new_callable=AsyncMock) as mock_send:
                 await self.data_source._subscribe_or_unsubscribe(ws_assistant, "unsubscribe", [],
                                                                  ["ETH-USD"])
@@ -298,7 +300,7 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSourceTests(
         await self.data_source._message_queue["channel_symbol"].put(("test", "test"))
         self.data_source._message_queue_task = asyncio.create_task(asyncio.sleep(1))  # a dummy task
         await self.data_source._manage_queue("channel_symbol", "unsubscribe")
-        self.assertTrue(self.data_source._message_queue_task.done())
+        self.assertIsNone(self.data_source._message_queue_task)
         self.assertFalse("channel_symbol" in self.data_source._message_queue)
 
     async def test_manage_queue_subscribe(self):

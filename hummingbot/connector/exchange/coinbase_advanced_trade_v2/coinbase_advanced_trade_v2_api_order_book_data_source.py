@@ -3,18 +3,18 @@ import time
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
-from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
+from . import coinbase_advanced_trade_v2_constants as constants, coinbase_advanced_trade_v2_web_utils as web_utils
+
 if TYPE_CHECKING:
     from .coinbase_advanced_trade_v2_exchange import CoinbaseAdvancedTradeV2Exchange
 
-from . import coinbase_advanced_trade_v2_constants as constants
 from .coinbase_advanced_trade_v2_order_book import CoinbaseAdvancedTradeV2OrderBook
 
 
@@ -112,25 +112,8 @@ class CoinbaseAdvancedTradeV2APIOrderBookDataSource(OrderBookTrackerDataSource):
             except Exception:
                 self.logger().exception("Unexpected error when processing public trade updates from exchange")
 
-    async def get_new_order_book(self, trading_pair: str) -> OrderBook:
-        raise NotImplementedError("Coinbase Advanced Trade does not implement this method.")
-
     def _get_messages_queue_keys(self) -> Tuple[str]:
         return tuple(constants.WS_ORDER_SUBSCRIPTION_KEYS)
-
-    # --- Implementation of abstract methods from the Base class ---
-    # Unused methods
-    async def _parse_order_book_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        raise NotImplementedError("Coinbase Advanced Trade does not implement this method.")
-
-    async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        raise NotImplementedError("Coinbase Advanced Trade does not implement this method.")
-
-    async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        raise NotImplementedError("Coinbase Advanced Trade does not implement this method.")
-
-    async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
-        raise NotImplementedError("Coinbase Advanced Trade does not implement this method.")
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
         if event_message and "channel" in event_message and event_message["channel"]:
@@ -197,3 +180,46 @@ class CoinbaseAdvancedTradeV2APIOrderBookDataSource(OrderBookTrackerDataSource):
                         f"Unrecognized websocket message received from Coinbase Advanced Trade: {data['channel']}")
             else:
                 self.logger().warning(f"Unrecognized websocket message received from Coinbase Advanced Trade: {data}")
+
+    async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
+        """
+        Retrieves a copy of the full order book from the exchange, for a particular trading pair.
+
+        :param trading_pair: the trading pair for which the order book will be retrieved
+        :return: the response from the exchange (JSON dictionary)
+        """
+        params = {
+            "product_id": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
+            "limit": "1000"
+        }
+
+        rest_assistant = await self._api_factory.get_rest_assistant()
+        data = await rest_assistant.execute_request(
+            url=web_utils.public_rest_url(path_url=constants.SNAPSHOT_EP, domain=self._domain),
+            params=params,
+            method=RESTMethod.GET,
+            throttler_limit_id=constants.SNAPSHOT_EP,
+        )
+
+        return data
+
+    async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
+        snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
+        snapshot_timestamp: float = time.time()
+        snapshot_msg: OrderBookMessage = CoinbaseAdvancedTradeV2OrderBook.snapshot_message_from_exchange(
+            snapshot,
+            snapshot_timestamp,
+            metadata={"trading_pair": trading_pair}
+        )
+        return snapshot_msg
+
+    # --- Implementation of abstract methods from the Base class ---
+    # Unused methods
+    async def _parse_order_book_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
+        raise NotImplementedError("Coinbase Advanced Trade does not implement this method.")
+
+    async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
+        raise NotImplementedError("Coinbase Advanced Trade does not implement this method.")
+
+    async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
+        raise NotImplementedError("Coinbase Advanced Trade does not implement this method.")

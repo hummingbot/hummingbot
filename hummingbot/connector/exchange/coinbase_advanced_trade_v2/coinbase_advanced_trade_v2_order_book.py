@@ -16,6 +16,27 @@ class CoinbaseAdvancedTradeV2OrderBook(OrderBook):
     _sequence_nums: Dict[str, int] = {channel: 0 for channel in WS_ORDER_SUBSCRIPTION_CHANNELS.inv.keys()}
 
     @classmethod
+    def snapshot_message_from_exchange(cls,
+                                       msg: Dict[str, any],
+                                       timestamp: float,
+                                       metadata: Optional[Dict] = None) -> OrderBookMessage:
+        """
+        Creates a snapshot message with the order book snapshot message
+        :param msg: the response from the exchange when requesting the order book snapshot
+        :param timestamp: the snapshot timestamp
+        :param metadata: a dictionary with extra information to add to the snapshot data
+        :return: a snapshot message with the snapshot information received from the exchange
+        """
+        if metadata:
+            msg.update(metadata)
+        return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
+            "trading_pair": msg["trading_pair"],
+            "update_id": int(get_timestamp_from_exchange_time(msg["pricebook"]["time"], "s")),
+            "bids": ((d["price"], d["size"]) for d in msg["pricebook"]["bids"]),
+            "asks": ((d["price"], d["size"]) for d in msg["pricebook"]["asks"])
+        }, timestamp=timestamp)
+
+    @classmethod
     async def level2_or_trade_message_from_exchange(
             cls,
             msg: Dict[str, Any],

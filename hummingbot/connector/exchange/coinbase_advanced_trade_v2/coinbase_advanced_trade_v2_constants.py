@@ -39,15 +39,12 @@ SIGNIN_ENDPOINTS = {
     CRYPTO_CURRENCIES_EP,
 }
 
-# Public API endpoints or CoinbaseAdvancedTradeClient function
-# Product/pair required
+# Private API endpoints
 ALL_PAIRS_EP = "/brokerage/products"
 PAIR_TICKER_EP = "/brokerage/products/{product_id}"
 PAIR_TICKER_RATE_LIMIT_ID = "PairTicker"
 PAIR_TICKER_24HR_EP = "/brokerage/products/{product_id}/ticker"
 PAIR_TICKER_24HR_RATE_LIMIT_ID = "PairTicker24Hr"
-
-# Private API endpoints or CoinbaseAdvancedTradeClient function
 ORDER_EP = "/brokerage/orders"
 BATCH_CANCEL_EP = "/brokerage/orders/batch_cancel"
 GET_ORDER_STATUS_EP = "/brokerage/orders/historical/{order_id}"
@@ -58,6 +55,7 @@ TRANSACTIONS_SUMMARY_EP = "/brokerage/transaction_summary"
 ACCOUNTS_LIST_EP = "/brokerage/accounts"
 ACCOUNT_EP = "/brokerage/accounts/{account_uuid}"
 ACCOUNT_RATE_LIMIT_ID = "Account"
+SNAPSHOT_EP = "/brokerage/product_book"
 
 REST_ENDPOINTS = {
     ALL_PAIRS_EP,
@@ -71,6 +69,7 @@ REST_ENDPOINTS = {
     TRANSACTIONS_SUMMARY_EP,
     ACCOUNTS_LIST_EP,
     ACCOUNT_RATE_LIMIT_ID,
+    SNAPSHOT_EP,
 }
 
 WS_HEARTBEAT_TIME_INTERVAL = 30

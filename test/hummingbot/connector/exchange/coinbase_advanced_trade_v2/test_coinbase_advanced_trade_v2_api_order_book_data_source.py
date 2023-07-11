@@ -1,21 +1,30 @@
 import asyncio
 import json
+import re
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from typing import Awaitable
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from aioresponses import aioresponses
 from bidict import bidict
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2 import coinbase_advanced_trade_v2_constants as CONSTANTS
+from hummingbot.connector.exchange.coinbase_advanced_trade_v2 import (
+    coinbase_advanced_trade_v2_constants as CONSTANTS,
+    coinbase_advanced_trade_v2_web_utils as web_utils,
+)
 from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_api_order_book_data_source import (
     CoinbaseAdvancedTradeV2APIOrderBookDataSource,
 )
 from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_exchange import (
     CoinbaseAdvancedTradeV2Exchange,
 )
+from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_web_utils import (
+    get_timestamp_from_exchange_time,
+)
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 
 
@@ -162,72 +171,64 @@ class CoinbaseAdvancedTradeV2APIOrderBookDataSourceUnitTests(IsolatedAsyncioWrap
         }
         return resp
 
-    def _snapshot_response(self):
+    @staticmethod
+    def _snapshot_response():
         resp = {
-            "channel": "l2_data",
-            "client_id": "",
-            "timestamp": "2023-02-09T20:32:50.714964855Z",
-            "sequence_num": 0,
-            "events": [
-                {
-                    "type": "snapshot",
-                    "product_id": "BTC-USD",
-                    "updates": [
-                        {
-                            "side": "bid",
-                            "event_time": "1970-01-01T00:00:00Z",
-                            "price_level": "21921.73",
-                            "new_quantity": "0.06317902"
-                        },
-                        {
-                            "side": "bid",
-                            "event_time": "1970-01-01T00:00:00Z",
-                            "price_level": "21921.3",
-                            "new_quantity": "0.02"
-                        },
-                    ]
-                }
-            ]
+            "pricebook": {
+                "product_id": "BTC-ETH",
+                "bids": [
+                    {
+                        "price": "4",
+                        "size": "431"
+                    }
+                ],
+                "asks": [
+                    {
+                        "price": "4.000002",
+                        "size": "12"
+                    }
+                ],
+                "time": "2023-07-11T22:34:09+02:00"
+            }
         }
         return resp
 
-    #    @aioresponses()
-    #    def test_get_new_order_book_successful(self, mock_api):
-    #        url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
-    #        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-    #
-    #        resp = self._snapshot_response()
-    #
-    #        mock_api.get(regex_url, body=json.dumps(resp))
-    #
-    #        order_book: OrderBook = self.async_run_with_timeout(
-    #            self.data_source.get_new_order_book(self.trading_pair)
-    #        )
-    #
-    #        expected_update_id = resp["lastUpdateId"]
-    #
-    #        self.assertEqual(expected_update_id, order_book.snapshot_uid)
-    #        bids = list(order_book.bid_entries())
-    #        asks = list(order_book.ask_entries())
-    #        self.assertEqual(1, len(bids))
-    #        self.assertEqual(4, bids[0].price)
-    #        self.assertEqual(431, bids[0].amount)
-    #        self.assertEqual(expected_update_id, bids[0].update_id)
-    #        self.assertEqual(1, len(asks))
-    #        self.assertEqual(4.000002, asks[0].price)
-    #        self.assertEqual(12, asks[0].amount)
-    #        self.assertEqual(expected_update_id, asks[0].update_id)
+    @aioresponses()
+    def test_get_new_order_book_successful(self, mock_api):
+        url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_EP, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-    #    @aioresponses()
-    #    def test_get_new_order_book_raises_exception(self, mock_api):
-    #        url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
-    #        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-    #
-    #        mock_api.get(regex_url, status=400)
-    #        with self.assertRaises(IOError):
-    #            self.async_run_with_timeout(
-    #                self.data_source.get_new_order_book(self.trading_pair)
-    #            )
+        resp = self._snapshot_response()
+
+        mock_api.get(regex_url, body=json.dumps(resp))
+
+        order_book: OrderBook = self.async_run_with_timeout(
+            self.data_source.get_new_order_book(self.trading_pair)
+        )
+
+        expected_update_id = get_timestamp_from_exchange_time(resp["pricebook"]["time"], "s")
+
+        self.assertEqual(expected_update_id, order_book.snapshot_uid)
+        bids = list(order_book.bid_entries())
+        asks = list(order_book.ask_entries())
+        self.assertEqual(1, len(bids))
+        self.assertEqual(4, bids[0].price)
+        self.assertEqual(431, bids[0].amount)
+        self.assertEqual(expected_update_id, bids[0].update_id)
+        self.assertEqual(1, len(asks))
+        self.assertEqual(4.000002, asks[0].price)
+        self.assertEqual(12, asks[0].amount)
+        self.assertEqual(expected_update_id, asks[0].update_id)
+
+    @aioresponses()
+    def test_get_new_order_book_raises_exception(self, mock_api):
+        url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_EP, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.get(regex_url, status=400)
+        with self.assertRaises(IOError):
+            self.async_run_with_timeout(
+                self.data_source.get_new_order_book(self.trading_pair)
+            )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_subscriptions_subscribes_to_trades_and_order_diffs(self, ws_connect_mock):
