@@ -610,7 +610,9 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
         self.assertTrue(
             self.is_logged(
                 "WARNING",
-                "Buy order amount 0 is lower than the minimum order size 0.001. The order will not be created."
+                "Buy order amount 0.0001 is lower than the minimum order "
+                "size 0.01. The order will not be created, increase the "
+                "amount to be higher than the minimum order size."
             )
         )
         self.assertTrue(
