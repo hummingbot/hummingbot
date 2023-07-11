@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
-from hummingbot.connector.constants import s_decimal_NaN
+from hummingbot.connector.constants import s_decimal_0, s_decimal_NaN
 from hummingbot.connector.exchange_base import TradeType
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.gateway.clob_spot.data_sources.gateway_clob_api_data_source_base import CLOBAPIDataSourceBase
@@ -370,11 +370,11 @@ class GatewayCLOBSPOT(ExchangePyBase):
         )
         order = self._order_tracker.active_orders[order_id]
 
-        if price:
-            notional_size = price * quantized_amount
-        else:
+        if not price or price.is_nan() or price == s_decimal_0:
             current_price: Decimal = self.get_price(trading_pair, False)
             notional_size = current_price * quantized_amount
+        else:
+            notional_size = price * quantized_amount
 
         if order_type not in self.supported_order_types():
             self.logger().error(f"{order_type} is not in the list of supported order types")
