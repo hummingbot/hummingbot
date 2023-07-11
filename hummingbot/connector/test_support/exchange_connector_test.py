@@ -783,11 +783,11 @@ class AbstractExchangeConnectorTests:
                           callback=lambda *args, **kwargs: request_sent_event.set())
 
             order_id_for_invalid_order = self.place_buy_order(
-                amount=Decimal("0.0001"), price=Decimal("0.0000001")
+                amount=Decimal("0.0001"), price=Decimal("0.0001")
             )
             # The second order is used only to have the event triggered and avoid using timeouts for tests
             order_id = self.place_buy_order()
-            self.async_run_with_timeout(request_sent_event.wait())
+            self.async_run_with_timeout(request_sent_event.wait(), timeout=3)
 
             self.assertNotIn(order_id_for_invalid_order, self.exchange.in_flight_orders)
             self.assertNotIn(order_id, self.exchange.in_flight_orders)
