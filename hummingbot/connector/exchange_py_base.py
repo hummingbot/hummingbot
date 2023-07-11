@@ -425,11 +425,11 @@ class ExchangePyBase(ExchangeBase, ABC):
             **kwargs,
         )
         order = self._order_tracker.active_orders[order_id]
-        if price:
-            notional_size = price * quantized_amount
-        else:
+        if not price or price.is_nan():
             current_price: Decimal = self.get_price(trading_pair, False)
             notional_size = current_price * quantized_amount
+        else:
+            notional_size = price * quantized_amount
 
         if order_type not in self.supported_order_types():
             self.logger().error(f"{order_type} is not in the list of supported order types")
