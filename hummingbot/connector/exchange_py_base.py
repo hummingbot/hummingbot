@@ -425,26 +425,25 @@ class ExchangePyBase(ExchangeBase, ABC):
             **kwargs,
         )
         order = self._order_tracker.active_orders[order_id]
-
-        if order_type not in self.supported_order_types():
-            self.logger().error(f"{order_type} is not in the list of supported order types")
-            self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
-            return
-
-        if quantized_amount < trading_rule.min_order_size:
-            self.logger().warning(f"{trade_type.name.title()} order amount {amount} is lower than the minimum order "
-                                  f"size {trading_rule.min_order_size}. The order will not be created, increase the "
-                                  f"amount to be higher than the minimum order size.")
-            self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
-            return
-
         if price:
             notional_size = price * quantized_amount
         else:
             current_price: Decimal = self.get_price(trading_pair, False)
             notional_size = current_price * quantized_amount
 
-        if notional_size < trading_rule.min_notional_size:
+        if order_type not in self.supported_order_types():
+            self.logger().error(f"{order_type} is not in the list of supported order types")
+            self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
+            return
+
+        elif quantized_amount < trading_rule.min_order_size:
+            self.logger().warning(f"{trade_type.name.title()} order amount {amount} is lower than the minimum order "
+                                  f"size {trading_rule.min_order_size}. The order will not be created, increase the "
+                                  f"amount to be higher than the minimum order size.")
+            self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
+            return
+
+        elif notional_size < trading_rule.min_notional_size:
             self.logger().warning(f"{trade_type.name.title()} order notional {notional_size} is lower than the "
                                   f"minimum notional size {trading_rule.min_notional_size}. The order will not be "
                                   f"created. Increase the amount or the price to be higher than the minimum notional.")
