@@ -8,7 +8,7 @@ dependencies:
   - bs4
   - conda-build>=3.21.4
   - coverage>=5.5
-  - cython>=3.0.0b3
+  - cython>=3.0.0rc1
   - cython-lint>=0.15.0
   - flake8>=3.7.9
   - diff-cover>=5.1.2
