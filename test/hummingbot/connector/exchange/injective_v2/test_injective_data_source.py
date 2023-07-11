@@ -1,14 +1,14 @@
 import asyncio
 import re
-from test.hummingbot.connector.exchange.injective.programmable_query_executor import ProgrammableQueryExecutor
+from test.hummingbot.connector.exchange.injective_v2.programmable_query_executor import ProgrammableQueryExecutor
 from typing import Awaitable, Optional, Union
 from unittest import TestCase
 from unittest.mock import patch
 
 from pyinjective.wallet import Address, PrivateKey
 
-from hummingbot.connector.exchange.injective.injective_data_source import InjectiveDataSource
-from hummingbot.connector.exchange.injective.injective_market import InjectiveSpotMarket
+from hummingbot.connector.exchange.injective_v2.injective_data_source import InjectiveDataSource
+from hummingbot.connector.exchange.injective_v2.injective_market import InjectiveSpotMarket
 
 
 class InjectiveGranteeDataSourceTests(TestCase):
@@ -157,7 +157,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
         spot_markets_response = self._spot_markets_response()
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
 
-        self.async_run_with_timeout(self.data_source._update_markets())
+        self.async_run_with_timeout(self.data_source.update_markets())
 
         inj_usdt_market_info = self._inj_usdt_market_info()
         self.assertIn(inj_usdt_market_info["baseDenom"], self.data_source._tokens_map)
