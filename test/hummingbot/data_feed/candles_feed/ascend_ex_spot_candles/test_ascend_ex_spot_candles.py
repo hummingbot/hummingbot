@@ -192,7 +192,7 @@ class TestAscendExSpotCandles(unittest.TestCase):
         self.assertEqual(1, len(sent_subscription_messages))
         expected_kline_subscription = {
             "op": CONSTANTS.SUB_ENDPOINT_NAME,
-            "ch": f"bar:{self.interval}:{self.ex_trading_pair}"
+            "ch": f"bar:{CONSTANTS.INTERVALS[self.interval]}:{self.ex_trading_pair}"
         }
         self.assertEqual(expected_kline_subscription["ch"], sent_subscription_messages[0]["ch"])
 
