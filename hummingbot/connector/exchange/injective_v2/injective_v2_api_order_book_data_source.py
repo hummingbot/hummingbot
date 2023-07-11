@@ -1,24 +1,23 @@
 import asyncio
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
-from hummingbot.connector.exchange.injective import injective_constants as CONSTANTS
-from hummingbot.connector.exchange.injective.injective_data_source import InjectiveDataSource
+from hummingbot.connector.exchange.injective_v2 import injective_constants as CONSTANTS
+from hummingbot.connector.exchange.injective_v2.injective_data_source import InjectiveDataSource
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.event.event_forwarder import EventForwarder
 from hummingbot.core.event.events import OrderBookDataSourceEvent
 
-# if TYPE_CHECKING:
-#     from hummingbot.connector.exchange.polkadex.polkadex_exchange import PolkadexExchange
+if TYPE_CHECKING:
+    from hummingbot.connector.exchange.injective_v2.injective_v2_exchange import InjectiveV2Exchange
 
 
-class InjectiveAPIOrderBookDataSource(OrderBookTrackerDataSource):
+class InjectiveV2APIOrderBookDataSource(OrderBookTrackerDataSource):
 
     def __init__(
         self,
         trading_pairs: List[str],
-        # connector: "InjectiveExchange",
-        connector,
+        connector: "InjectiveV2Exchange",
         data_source: InjectiveDataSource,
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):

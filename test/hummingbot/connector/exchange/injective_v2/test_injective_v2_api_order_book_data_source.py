@@ -1,28 +1,33 @@
 import asyncio
 import re
 from decimal import Decimal
-from test.hummingbot.connector.exchange.injective.programmable_query_executor import ProgrammableQueryExecutor
+from test.hummingbot.connector.exchange.injective_v2.programmable_query_executor import ProgrammableQueryExecutor
 from typing import Awaitable, Optional, Union
 from unittest import TestCase
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from bidict import bidict
 from pyinjective.wallet import Address, PrivateKey
 
-from hummingbot.connector.exchange.injective.injective_api_order_book_data_source import InjectiveAPIOrderBookDataSource
-from hummingbot.connector.exchange.injective.injective_data_source import InjectiveDataSource
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
+from hummingbot.connector.exchange.injective_v2.injective_v2_api_order_book_data_source import (
+    InjectiveV2APIOrderBookDataSource,
+)
+from hummingbot.connector.exchange.injective_v2.injective_v2_exchange import InjectiveV2Exchange
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
 
-class InjectiveAPIOrderBookDataSourceTests(TestCase):
+class InjectiveV2APIOrderBookDataSourceTests(TestCase):
     # the level is required to receive logs from the data source logger
     level = 0
 
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-        cls.base_asset = "COINALPHA"
-        cls.quote_asset = "HBOT"
+        cls.base_asset = "INJ"
+        cls.quote_asset = "USDT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = f"{cls.base_asset}/{cls.quote_asset}"
         cls.market_id = "0x0611780ba69656949525013d947713300f56c37b6175e02f26bffa495c3208fe"  # noqa: mock
@@ -35,38 +40,26 @@ class InjectiveAPIOrderBookDataSourceTests(TestCase):
         self.async_tasks = []
         asyncio.set_event_loop(self.async_loop)
 
-        # client_config_map = ClientConfigAdapter(ClientConfigMap())
-        # self.connector = InjectiveExchange(
-        #     client_config_map=client_config_map,
-        #     polkadex_seed_phrase="",
-        #     trading_pairs=[self.trading_pair],
-        #     trading_required=False,
-        # )
-        # self.connector._data_source._query_executor = ProgrammableQueryExecutor()
-        self.connector = AsyncMock()
-        self.connector.exchange_symbol_associated_to_pair.return_value = self.market_id
+        client_config_map = ClientConfigAdapter(ClientConfigMap())
 
-        # self.data_source = InjectiveAPIOrderBookDataSource(
-        #     trading_pairs=[self.trading_pair],
-        #     connector=self.connector,
-        #     data_source=self.connector._data_source,
-        # )
         _, grantee_private_key = PrivateKey.generate()
         _, granter_private_key = PrivateKey.generate()
-        self.injective_data_source = InjectiveDataSource.for_grantee(
-            private_key=grantee_private_key.to_hex(),
-            subaccount_index=0,
-            granter_address=Address(bytes.fromhex(granter_private_key.to_public_key().to_hex())).to_acc_bech32(),
-            granter_subaccount_index=0,
+        self.connector = InjectiveV2Exchange(
+            client_config_map=client_config_map,
+            injective_private_key=grantee_private_key.to_hex(),
+            injective_subaccount_index=0,
+            injective_granter_address=Address(bytes.fromhex(granter_private_key.to_public_key().to_hex())).to_acc_bech32(),
+            injective_granter_subaccount_index=0,
+            trading_pairs=[self.trading_pair],
         )
-        self.data_source = InjectiveAPIOrderBookDataSource(
+        self.data_source = InjectiveV2APIOrderBookDataSource(
             trading_pairs=[self.trading_pair],
             connector=self.connector,
-            data_source=self.injective_data_source,
+            data_source=self.connector._data_source,
         )
 
         self.query_executor = ProgrammableQueryExecutor()
-        self.data_source._data_source._query_executor = self.query_executor
+        self.connector._data_source._query_executor = self.query_executor
 
         self.log_records = []
         self._logs_event: Optional[asyncio.Event] = None
@@ -75,7 +68,7 @@ class InjectiveAPIOrderBookDataSourceTests(TestCase):
         self.data_source._data_source.logger().setLevel(1)
         self.data_source._data_source.logger().addHandler(self)
 
-        # self.connector._set_trading_pair_symbol_map(bidict({self.ex_trading_pair: self.trading_pair}))
+        self.connector._set_trading_pair_symbol_map(bidict({self.market_id: self.trading_pair}))
 
     def tearDown(self) -> None:
         self.async_run_with_timeout(self.data_source._data_source.stop())
