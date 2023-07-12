@@ -159,7 +159,7 @@ amm_arb_config_map = {
     "rate_oracle_enabled": ConfigVar(
         key="rate_oracle_enabled",
         prompt="Do you want to use the rate oracle? (Yes/No) >>> ",
-        default=True,
+        default=False,
         validator=validate_bool,
         type_str="bool"),
     "quote_conversion_rate": ConfigVar(

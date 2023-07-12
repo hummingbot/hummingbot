@@ -230,6 +230,11 @@ class TradeFeeBase(ABC):
     def _are_tokens_interchangeable(self, first_token: str, second_token: str):
         interchangeable_tokens = [
             {"WETH", "ETH"},
+            {"WBNB", "BNB"},
+            {"WMATIC", "MATIC"},
+            {"WAVAX", "AVAX"},
+            {"WONE", "ONE"},
+            {"USDC", "USDC.E"},
             {"WBTC", "BTC"}
         ]
         return first_token == second_token or any(({first_token, second_token} <= interchangeable_pair

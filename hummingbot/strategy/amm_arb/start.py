@@ -60,6 +60,7 @@ def start(self):
     else:
         rate_source = FixedRateSource()
         rate_source.add_rate(f"{quote_2}-{quote_1}", Decimal(str(quote_conversion_rate)))   # reverse rate is already handled in FixedRateSource find_rate method.
+        rate_source.add_rate(f"{quote_1}-{quote_2}", Decimal(str(1 / quote_conversion_rate)))   # reverse rate is already handled in FixedRateSource find_rate method.
 
     self.strategy = AmmArbStrategy()
     self.strategy.init_params(market_info_1=market_info_1,
