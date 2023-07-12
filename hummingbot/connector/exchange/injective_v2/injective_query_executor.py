@@ -1,4 +1,3 @@
-import collections
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
@@ -63,21 +62,21 @@ class BaseInjectiveQueryExecutor(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def spot_order_book_updates_stream(self, market_ids: List[str]) -> collections.AsyncIterable:
+    async def spot_order_book_updates_stream(self, market_ids: List[str]):
         raise NotImplementedError  # pragma: no cover
 
     @abstractmethod
-    async def public_spot_trades_stream(self, market_ids: List[str]) -> collections.AsyncIterable:
+    async def public_spot_trades_stream(self, market_ids: List[str]):
         raise NotImplementedError  # pragma: no cover
 
     @abstractmethod
-    async def subaccount_balance_stream(self, subaccount_id: str) -> collections.AsyncIterable:
+    async def subaccount_balance_stream(self, subaccount_id: str):
         raise NotImplementedError  # pragma: no cover
 
     @abstractmethod
     async def subaccount_historical_spot_orders_stream(
         self, market_id: str, subaccount_id: str
-    ) -> collections.AsyncIterable:
+    ):
         raise NotImplementedError
 
 
@@ -186,26 +185,26 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
         result = json_format.MessageToDict(response)
         return result
 
-    async def spot_order_book_updates_stream(self, market_ids: List[str]) -> collections.AsyncIterable:
+    async def spot_order_book_updates_stream(self, market_ids: List[str]):
         stream = await self._sdk_client.stream_spot_orderbook_update(market_ids=market_ids)
         async for update in stream:
             order_book_update = update.orderbook_level_updates
             yield json_format.MessageToDict(order_book_update)
 
-    async def public_spot_trades_stream(self, market_ids: List[str]) -> collections.AsyncIterable:
+    async def public_spot_trades_stream(self, market_ids: List[str]):
         stream = await self._sdk_client.stream_spot_trades(market_ids=market_ids)
         async for trade in stream:
             trade_data = trade.trade
             yield json_format.MessageToDict(trade_data)
 
-    async def subaccount_balance_stream(self, subaccount_id: str) -> collections.AsyncIterable:
+    async def subaccount_balance_stream(self, subaccount_id: str):
         stream = await self._sdk_client.stream_subaccount_balance(subaccount_id=subaccount_id)
         async for event in stream:
             yield json_format.MessageToDict(event)
 
     async def subaccount_historical_spot_orders_stream(
         self, market_id: str, subaccount_id: str
-    ) -> collections.AsyncIterable:
+    ):
         stream = await self._sdk_client.stream_historical_spot_orders(market_id=market_id, subaccount_id=subaccount_id)
         async for event in stream:
             event_data = event.order
