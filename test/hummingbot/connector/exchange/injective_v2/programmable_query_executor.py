@@ -1,5 +1,4 @@
 import asyncio
-import collections
 from typing import Any, Dict, List, Optional
 
 from hummingbot.connector.exchange.injective_v2.injective_query_executor import BaseInjectiveQueryExecutor
@@ -77,24 +76,24 @@ class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
         response = await self._historical_spot_orders_responses.get()
         return response
 
-    async def spot_order_book_updates_stream(self, market_ids: List[str]) -> collections.AsyncIterable:
+    async def spot_order_book_updates_stream(self, market_ids: List[str]):
         while True:
             next_ob_update = await self._spot_order_book_updates.get()
             yield next_ob_update
 
-    async def public_spot_trades_stream(self, market_ids: List[str]) -> collections.AsyncIterable:
+    async def public_spot_trades_stream(self, market_ids: List[str]):
         while True:
             next_trade = await self._public_spot_trade_updates.get()
             yield next_trade
 
-    async def subaccount_balance_stream(self, subaccount_id: str) -> collections.AsyncIterable:
+    async def subaccount_balance_stream(self, subaccount_id: str):
         while True:
             next_event = await self._subaccount_balance_events.get()
             yield next_event
 
     async def subaccount_historical_spot_orders_stream(
         self, market_id: str, subaccount_id: str
-    ) -> collections.AsyncIterable:
+    ):
         while True:
             next_event = await self._historical_spot_order_events.get()
             yield next_event
