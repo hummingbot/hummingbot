@@ -659,10 +659,10 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.exchange._set_trading_pair_symbol_map(None)
         self.exchange._data_source._market_and_trading_pair_map = None
         queue_mock = AsyncMock()
-        queue_mock.get.side_effect = Exception
-        self.exchange._data_source._query_executor._all_assets_responses = queue_mock
+        queue_mock.get.side_effect = Exception("Test error")
+        self.exchange._data_source._query_executor._spot_markets_responses = queue_mock
 
-        result: List[str] = self.async_run_with_timeout(self.exchange.all_trading_pairs())
+        result: List[str] = self.async_run_with_timeout(self.exchange.all_trading_pairs(), timeout=10)
 
         self.assertEqual(0, len(result))
 
