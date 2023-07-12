@@ -15,7 +15,7 @@ DEFAULT_FEES = TradeFeeSchema(
 
 
 class InjectiveConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="injective", const=True, client_data=None)
+    connector: str = Field(default="injective_v2", const=True, client_data=None)
     injective_private_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
