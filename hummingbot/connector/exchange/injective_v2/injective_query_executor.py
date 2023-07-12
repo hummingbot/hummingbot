@@ -86,10 +86,10 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
         super().__init__()
         self._sdk_client = sdk_client
 
-    async def ping(self):
+    async def ping(self):  # pragma: no cover
         await self._sdk_client.ping()
 
-    async def spot_markets(self, status: str) -> List[Dict[str, Any]]:
+    async def spot_markets(self, status: str) -> List[Dict[str, Any]]:  # pragma: no cover
         response = await self._sdk_client.get_spot_markets(status=status)
         markets = []
 
@@ -98,7 +98,7 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
 
         return markets
 
-    async def get_spot_orderbook(self, market_id: str) -> Dict[str, Any]:
+    async def get_spot_orderbook(self, market_id: str) -> Dict[str, Any]:  # pragma: no cover
         order_book_response = await self._sdk_client.get_spot_orderbookV2(market_id=market_id)
         order_book_data = order_book_response.orderbook
         result = {
@@ -110,7 +110,7 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
 
         return result
 
-    async def get_tx_by_hash(self, tx_hash: str) -> Dict[str, Any]:
+    async def get_tx_by_hash(self, tx_hash: str) -> Dict[str, Any]:  # pragma: no cover
         try:
             transaction_response = await self._sdk_client.get_tx_by_hash(tx_hash=tx_hash)
         except RpcError as rpc_exception:
@@ -122,7 +122,7 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
         result = json_format.MessageToDict(transaction_response)
         return result
 
-    async def get_tx_block_height(self, tx_hash: str) -> int:
+    async def get_tx_block_height(self, tx_hash: str) -> int:  # pragma: no cover
         try:
             transaction_response = await self._sdk_client.get_tx(tx_hash=tx_hash)
         except RpcError as rpc_exception:
@@ -134,19 +134,19 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
         result = transaction_response.tx_response.height
         return result
 
-    async def account_portfolio(self, account_address: str) -> Dict[str, Any]:
+    async def account_portfolio(self, account_address: str) -> Dict[str, Any]:  # pragma: no cover
         portfolio_response = await self._sdk_client.get_account_portfolio(account_address=account_address)
         result = json_format.MessageToDict(portfolio_response.portfolio)
         return result
 
-    async def simulate_tx(self, tx_byte: bytes) -> Dict[str, Any]:
+    async def simulate_tx(self, tx_byte: bytes) -> Dict[str, Any]:  # pragma: no cover
         response, success = await self._sdk_client.simulate_tx(tx_byte=tx_byte)
         if not success:
             raise RuntimeError(f"Transaction simulation failure ({response})")
         result = json_format.MessageToDict(response)
         return result
 
-    async def send_tx_sync_mode(self, tx_byte: bytes) -> Dict[str, Any]:
+    async def send_tx_sync_mode(self, tx_byte: bytes) -> Dict[str, Any]:  # pragma: no cover
         response = await self._sdk_client.send_tx_sync_mode(tx_byte=tx_byte)
         result = json_format.MessageToDict(response)
         return result
@@ -158,7 +158,7 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
             start_time: Optional[int] = None,
             skip: Optional[int] = None,
             limit: Optional[int] = None,
-    ) -> Dict[str, Any]:
+    ) -> Dict[str, Any]:  # pragma: no cover
         response = await self._sdk_client.get_spot_trades(
             market_ids=market_ids,
             subaccount_id=subaccount_id,
@@ -175,7 +175,7 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
             subaccount_id: str,
             start_time: int,
             skip: int,
-    ) -> Dict[str, Any]:
+    ) -> Dict[str, Any]:  # pragma: no cover
         response = await self._sdk_client.get_historical_spot_orders(
             market_ids=market_ids,
             subaccount_id=subaccount_id,
@@ -185,26 +185,26 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
         result = json_format.MessageToDict(response)
         return result
 
-    async def spot_order_book_updates_stream(self, market_ids: List[str]):
+    async def spot_order_book_updates_stream(self, market_ids: List[str]):  # pragma: no cover
         stream = await self._sdk_client.stream_spot_orderbook_update(market_ids=market_ids)
         async for update in stream:
             order_book_update = update.orderbook_level_updates
             yield json_format.MessageToDict(order_book_update)
 
-    async def public_spot_trades_stream(self, market_ids: List[str]):
+    async def public_spot_trades_stream(self, market_ids: List[str]):  # pragma: no cover
         stream = await self._sdk_client.stream_spot_trades(market_ids=market_ids)
         async for trade in stream:
             trade_data = trade.trade
             yield json_format.MessageToDict(trade_data)
 
-    async def subaccount_balance_stream(self, subaccount_id: str):
+    async def subaccount_balance_stream(self, subaccount_id: str):  # pragma: no cover
         stream = await self._sdk_client.stream_subaccount_balance(subaccount_id=subaccount_id)
         async for event in stream:
             yield json_format.MessageToDict(event)
 
     async def subaccount_historical_spot_orders_stream(
         self, market_id: str, subaccount_id: str
-    ):
+    ):  # pragma: no cover
         stream = await self._sdk_client.stream_historical_spot_orders(market_id=market_id, subaccount_id=subaccount_id)
         async for event in stream:
             event_data = event.order
