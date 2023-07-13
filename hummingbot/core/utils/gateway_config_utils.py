@@ -14,7 +14,8 @@ native_tokens = {
     "cronos": "CRO",
     "near": "NEAR",
     "injective": "INJ",
-    "xdc": "XDC"
+    "xdc": "XDC",
+    "tezos": "XTZ",
 }
 
 SUPPORTED_CHAINS = set(native_tokens.keys())
