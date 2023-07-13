@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+import numpy as np
 import pandas as pd
 import pandas_ta as ta
 
@@ -29,7 +30,7 @@ class StatisticalArbitrageLeft(DirectionalStrategyBase):
     exchange: str = "binance_perpetual"
     order_amount_usd = Decimal("15")
     leverage = 10
-    length = 100
+    length = 21
 
     # Configure the parameters for the position
     zscore_entry: int = -2
@@ -46,10 +47,10 @@ class StatisticalArbitrageLeft(DirectionalStrategyBase):
     candles = [
         CandlesFactory.get_candle(connector=exchange,
                                   trading_pair=trading_pair,
-                                  interval="1h", max_records=1000),
+                                  interval="1h", max_records=300),
         CandlesFactory.get_candle(connector=exchange,
                                   trading_pair=trading_pair_right,
-                                  interval="1h", max_records=1000),
+                                  interval="1h", max_records=300),
     ]
     markets = {exchange: {trading_pair}}
 
@@ -59,13 +60,13 @@ class StatisticalArbitrageLeft(DirectionalStrategyBase):
         z_score = candles_df.iat[-1, -1]
 
         # all execution are only on the left side trading pair
-        if z_score < self.zscore_entry:
+        if z_score < self.zscore_entry:  # -2
             return 1  # long 1
-        elif z_score < self.zscore_entry_sl:
+        elif z_score < self.zscore_entry_sl:  # -3
             return -1  # stop loss long  -1
-        elif z_score > self.zscore_exit:
+        elif z_score > self.zscore_exit:  # 2
             return -1  # short  -1
-        elif z_score > self.zscore_exit_sl:
+        elif z_score > self.zscore_exit_sl:  # 3
             return 1  # stop loss short  1
         else:
             return 0
@@ -77,7 +78,9 @@ class StatisticalArbitrageLeft(DirectionalStrategyBase):
 
         # calculate the spread and z-score based on the candles of 2 trading pairs
         df = pd.merge(candles_df_1, candles_df_2, on="timestamp", how='inner', suffixes=('', '_right'))
-        hedge_ratio = df["close"].tail(self.length).mean() / df["close_right"].tail(self.length).mean()
+
+        hedge_ratio = np.corrcoef(df["close"][-self.length:], df["close_right"][-self.length:])[0, 1]
+        # hedge_ratio = df["close"].tail(self.length).mean() / df["close_right"].tail(self.length).mean()
 
         df["spread"] = df["close"] - (df["close_right"] * hedge_ratio)
         df["z_score"] = ta.zscore(df["spread"], length=self.length)
