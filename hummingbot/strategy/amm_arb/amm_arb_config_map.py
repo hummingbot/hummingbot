@@ -53,21 +53,6 @@ def order_amount_prompt() -> str:
     return f"What is the amount of {base_asset} per order? >>> "
 
 
-def conversion_rate_source_validator(value: str) -> str:
-    if value not in {"rate_oracle_source", "fixed_rate_source"}:
-        return "Invalid conversion rate source."
-    return None
-
-
-def get_quotes_pair() -> str:
-    market_1 = amm_arb_config_map["market_1"].value
-    market_2 = amm_arb_config_map["market_2"].value
-    _, quote_asset_1 = market_1.split("-")
-    _, quote_asset_2 = market_2.split("-")
-
-    return f"{quote_asset_2}-{quote_asset_1}"
-
-
 amm_arb_config_map = {
     "strategy": ConfigVar(
         key="strategy",
