@@ -634,7 +634,7 @@ class InjectiveDataSource(ABC):
             except RuntimeError as simulation_ex:
                 if CONSTANTS.ACCOUNT_SEQUENCE_MISMATCH_ERROR in str(simulation_ex):
                     await self.initialize_trading_account()
-                    raise
+                raise
 
         gas_limit = int(simulation_result["gasInfo"]["gasUsed"]) + CONSTANTS.EXTRA_TRANSACTION_GAS
         fee = [self.composer.Coin(
