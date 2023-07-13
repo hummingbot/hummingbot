@@ -72,7 +72,6 @@ Exchanges may be centralized (**CEX**), or decentralized (**DEX**), in which cas
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Bybit](https://docs.hummingbot.org/exchanges/bybit/) | SPOT CEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Bybit (perp)](https://docs.hummingbot.org/exchanges/bitmex-perpetual/) | PERP CEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Coinbase](https://docs.hummingbot.org/exchanges/coinbase/) | SPOT CEX |
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Crypto.com](https://docs.hummingbot.org/exchanges/crypto-com/) | SPOT CEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [DeFi Kingdoms](https://docs.hummingbot.org/exchanges/defikingdoms/) | AMM DEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Defira](https://docs.hummingbot.org/exchanges/defira/) | AMM DEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Dexalot](https://docs.hummingbot.org/exchanges/dexalot/) | CLOB DEX |
@@ -127,6 +126,7 @@ See the [Scripts](https://docs.hummingbot.org/scripts/) section in the documenta
 * [Brokers](https://github.com/hummingbot/brokers): Different brokers that can be used to communicate with multiple instances of Hummingbot
 * [Deploy Examples](https://github.com/hummingbot/deploy-examples): Deploy Hummingbot in various configurations with Docker
 * [Remote Client](https://github.com/hummingbot/hbot-remote-client-py): A remote client for Hummingbot in Python
+* [Dashboard](https://github.com/hummingbot/dashboard): Hummingbot Dashboard community project  
 
 ## Contributions
 
