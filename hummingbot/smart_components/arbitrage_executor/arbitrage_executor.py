@@ -32,7 +32,25 @@ class ArbitrageExecutor(SmartComponentBase):
             AllConnectorSettings.get_gateway_amm_connector_names()
         )
 
+    @staticmethod
+    def _are_tokens_interchangeable(first_token: str, second_token: str):
+        interchangeable_tokens = [
+            {"WETH", "ETH"},
+            {"WBTC", "BTC"},
+            {"WBNB", "BNB"},
+            {"WMATIC", "MATIC"},
+            {"WAVAX", "AVAX"},
+            {"WONE", "ONE"},
+            {"USDC", "USDC.E"},
+        ]
+        return first_token == second_token or any(({first_token, second_token} <= interchangeable_pair
+                                                   for interchangeable_pair
+                                                   in interchangeable_tokens))
+
     def __init__(self, strategy: ScriptStrategyBase, arbitrage_config: ArbitrageConfig, update_interval: float = 0.5):
+        if not self.is_arbitrage_valid(pair1=arbitrage_config.buying_market.trading_pair,
+                                       pair2=arbitrage_config.selling_market.trading_pair):
+            raise Exception("Arbitrage is not valid since the trading pairs are not interchangeable.")
         connectors = [arbitrage_config.buying_market.exchange, arbitrage_config.selling_market.exchange]
         self.buying_market = arbitrage_config.buying_market
         self.selling_market = arbitrage_config.selling_market
@@ -51,20 +69,11 @@ class ArbitrageExecutor(SmartComponentBase):
         self._cumulative_failures = 0
         super().__init__(strategy, list(connectors), update_interval)
 
-    # def generate_all_opportunities(self):
-    #     opportunities = []
-    #     for pair1, pair2 in itertools.combinations(self.arbitrage_config.markets, 2):
-    #         if self.validate_pair(pair1, pair2):
-    #             opportunity = ArbitrageOpportunity(buying_market=pair1.exchange,
-    #                                                selling_market=pair2.exchange)
-    #             opportunities.append(opportunity)
-    #     return opportunities
-    #
-    # @staticmethod
-    # def validate_pair(pair1, pair2):
-    #     base_asset1, quote_asset1 = pair1.trading_pair.split('/')
-    #     base_asset2, quote_asset2 = pair2.trading_pair.split('/')
-    #     return base_asset1 == base_asset2 and quote_asset1 == quote_asset2
+    def is_arbitrage_valid(self, pair1, pair2):
+        base_asset1, quote_asset1 = split_hb_trading_pair(pair1)
+        base_asset2, quote_asset2 = split_hb_trading_pair(pair2)
+        return self._are_tokens_interchangeable(base_asset1, base_asset2) and \
+            self._are_tokens_interchangeable(quote_asset1, quote_asset2)
 
     @property
     def net_pnl(self) -> Decimal:
