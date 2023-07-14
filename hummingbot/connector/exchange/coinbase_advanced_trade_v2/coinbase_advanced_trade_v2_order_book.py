@@ -53,7 +53,7 @@ class CoinbaseAdvancedTradeV2OrderBook(OrderBook):
         """
         if "events" not in msg or "channel" not in msg:
             cls.logger().warning(f"Unexpected message from Coinbase Advanced Trade: {msg}"
-                                 f" - missing 'events'or 'channel'  key")
+                                 f" - missing 'events' or 'channel'  key")
             return None
 
         channel = msg["channel"]

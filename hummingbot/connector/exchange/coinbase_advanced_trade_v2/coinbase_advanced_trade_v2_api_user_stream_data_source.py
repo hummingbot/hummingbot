@@ -4,9 +4,11 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any, AsyncGenerator, Dict, List, NamedTuple, Optional, Tuple
 
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
+from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest, WSResponse
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
+
+from .coinbase_advanced_trade_v2_utils import DebugToFile
 
 if TYPE_CHECKING:
     from .coinbase_advanced_trade_v2_exchange import CoinbaseAdvancedTradeV2Exchange
@@ -102,11 +104,14 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSource(UserStreamTrackerDataSource
         self._async_init()
 
         self._ws_assistant: WSAssistant = await self._api_factory.get_ws_assistant()
-        await self._ws_assistant.connect(ws_url=constants.WSS_URL.format(domain=self._domain),
-                                         ping_timeout=constants.WS_HEARTBEAT_TIME_INTERVAL)
+        with DebugToFile.log_with_bullet(
+                message="Connecting to Coinbase Advanced Trade user stream...",
+                bullet="-"):
+            await self._ws_assistant.connect(ws_url=constants.WSS_URL.format(domain=self._domain),
+                                             ping_timeout=constants.WS_HEARTBEAT_TIME_INTERVAL)
         return self._ws_assistant
 
-    async def _subscribe_channels(self, ws: WSAssistant) -> None:
+    async def _subscribe_channels(self, websocket_assistant: WSAssistant) -> None:
         """
         Subscribes to the user events through the provided websocket connection.
         :param ws: the websocket assistant used to connect to the exchange
@@ -133,7 +138,8 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSource(UserStreamTrackerDataSource
         self._async_init()
 
         channels, trading_pairs = self._get_target_channels_and_pairs(None, None)
-        await self._subscribe_or_unsubscribe(ws, "subscribe", channels, trading_pairs)
+        DebugToFile.log_debug(f"Subscribing to channels: {channels} and trading pairs: {trading_pairs}")
+        await self._subscribe_or_unsubscribe(websocket_assistant, "subscribe", channels, trading_pairs)
 
     async def _unsubscribe_channels(self, ws: WSAssistant,
                                     channels: Optional[List[str]] = None,
@@ -182,32 +188,38 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSource(UserStreamTrackerDataSource
         # Initialize the async context
         self._async_init()
 
-        async with self._subscription_lock:
-            for channel in channels:
-                for trading_pair in trading_pairs:
-                    symbol: str = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+        with DebugToFile.log_with_bullet(
+                message=f"{action.capitalize()}ing to {channels} for {trading_pairs}...",
+                bullet="["):
+            async with self._subscription_lock:
+                for channel in channels:
+                    for trading_pair in trading_pairs:
+                        symbol: str = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
 
-                    payload = {
-                        "type": action,
-                        "product_ids": [symbol],
-                        "channel": channel,
-                    }
+                        payload = {
+                            "type": action,
+                            "product_ids": [symbol],
+                            "channel": channel,
+                        }
 
-                    await self._manage_queue(f"{channel}:{symbol}", action)
+                        await self._manage_queue(f"{channel}:{symbol}", action)
 
-                    try:
-                        # Change subscription to the channel and pair
-                        await ws.send(WSJSONRequest(payload=payload))
-                        self.logger().info(f"{action.capitalize()}d to {channel} for {trading_pair}...")
-                    except (asyncio.CancelledError, Exception) as e:
-                        await self.close()  # Clean the async context
-                        self.logger().error(
-                            f"Unexpected error occurred {action.capitalize()}-ing "
-                            f"to {channel} for {trading_pair}...\n"
-                            f"Exception: {e}",
-                            exc_info=True
-                        )
-                        raise
+                        try:
+                            # Change subscription to the channel and pair
+                            await ws.send(WSJSONRequest(payload=payload, is_auth_required=True))
+                            ws_response: WSResponse = await ws.receive()
+                            self.logger().info(f"{action.capitalize()}d to {channel} for {trading_pair}...")
+                            DebugToFile.log_debug(f"Subscribing to {channel} channel for {symbol}...")
+                            DebugToFile.log_debug(f"User: {ws_response}")
+                        except (asyncio.CancelledError, Exception) as e:
+                            await self.close()  # Clean the async context
+                            self.logger().error(
+                                f"Unexpected error occurred {action.capitalize()}-ing "
+                                f"to {channel} for {trading_pair}...\n"
+                                f"Exception: {e}",
+                                exc_info=True
+                            )
+                            raise
 
     async def _manage_queue(self, channel_symbol: str, action: str):
         """
@@ -266,22 +278,38 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSource(UserStreamTrackerDataSource
             except asyncio.TimeoutError:
                 raise
 
-    async def _process_websocket_messages(self, ws: WSAssistant, queue: asyncio.Queue):
+    async def _process_websocket_messages(self, websocket_assistant: WSAssistant, queue: asyncio.Queue):
         """
         Processes the messages from the websocket connection and puts them into the intermediary queue.
         :param ws: the websocket assistant used to connect to the exchange
         :param queue: The intermediary queue to put the messages into.
         """
-        async for ws_response in ws.iter_messages():  # type: ignore # PyCharm doesn't recognize iter_messages
+        async for ws_response in websocket_assistant.iter_messages():  # type: ignore # PyCharm doesn't recognize iter_messages
+
+            if "type" in ws_response.data and ws_response.data["type"] == 'error':
+                self.logger().error(f"Error received from websocket: {ws_response}")
+                raise Exception(f"Error received from websocket: {ws_response}")
+
             data: Dict[str, Any] = ws_response.data
-            channel_symbol = f"{data['channel']}:{data['product_id']}"
-            try:
-                # Dispatch each product to its own queue
-                await self._try_except_queue_put(item=(data, queue),
-                                                 queue=self._message_queue[channel_symbol])
-            except asyncio.QueueFull:
-                self.logger().error("Timeout while waiting to put message into raw queue. Message dropped.")
-                raise
+            DebugToFile.log_debug(f"{ws_response}")
+
+            if len(data["events"]) == 0:
+                continue
+
+            for event in data["events"]:
+                DebugToFile.log_debug(f"{event}")
+                if "orders" not in event or len(event["orders"]) == 0:
+                    continue
+
+                for order in event["orders"]:
+                    channel_symbol = f"{data['channel']}:{order['product_id']}"
+                    try:
+                        # Dispatch each product to its own queue
+                        await self._try_except_queue_put(item=(data, queue),
+                                                         queue=self._message_queue[channel_symbol])
+                    except asyncio.QueueFull:
+                        self.logger().error("Timeout while waiting to put message into raw queue. Message dropped.")
+                        raise
 
     async def _preprocess_messages(self):
         """Takes messages from the intermediary queue, preprocesses them, and puts them into the final queue."""
@@ -289,6 +317,8 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSource(UserStreamTrackerDataSource
         self._async_init()
 
         while True:
+            # When there are no channels, this for blocks the event loop
+            await asyncio.sleep(0)
             for channel_symbol in self._message_queue:
                 async with self._message_queue_lock:
                     message, final_queue = await self._message_queue[channel_symbol].get()

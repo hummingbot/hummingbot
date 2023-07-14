@@ -6,6 +6,8 @@ from bidict import bidict
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.data_type.in_flight_order import OrderState
 
+EXCHANGE_NAME = "Coinbase Advanced Trade"
+
 CHANGELOG_URL = "https://docs.cloud.coinbase.com/advanced-trade-api/docs/changelog"
 LATEST_UPDATE = "2023-JUN-01"
 CHANGELOG_HASH = "3a99968df3223eb00502e2059012c9a5"
@@ -97,7 +99,7 @@ SIDE_SELL = "SELL"
 
 # Rate Limit Type
 REST_REQUESTS = "REST_REQUESTS"
-MAX_REST_REQUESTS_S = 10
+MAX_REST_REQUESTS_S = 20
 
 SIGNIN_REQUESTS = "SIGNIN_REQUESTS"
 MAX_SIGNIN_REQUESTS_H = 10000

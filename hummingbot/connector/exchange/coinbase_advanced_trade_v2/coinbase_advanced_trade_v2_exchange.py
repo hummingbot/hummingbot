@@ -1,10 +1,16 @@
 import decimal
+import logging
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, AsyncGenerator, Dict, Generator, Iterable, List, Optional, Tuple, cast
 
+from bidict import bidict
+
+from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange_py_base import ExchangePyBase
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.connector.utils import TradeFillOrderDetails
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -14,9 +20,6 @@ from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
-from ...client_order_tracker import ClientOrderTracker
-from ...time_synchronizer import TimeSynchronizer
-from ...utils import TradeFillOrderDetails
 from . import coinbase_advanced_trade_v2_constants as constants, coinbase_advanced_trade_v2_web_utils as web_utils
 from .coinbase_advanced_trade_v2_api_order_book_data_source import CoinbaseAdvancedTradeV2APIOrderBookDataSource
 from .coinbase_advanced_trade_v2_api_user_stream_data_source import (
@@ -24,7 +27,7 @@ from .coinbase_advanced_trade_v2_api_user_stream_data_source import (
     CoinbaseAdvancedTradeV2CumulativeUpdate,
 )
 from .coinbase_advanced_trade_v2_auth import CoinbaseAdvancedTradeV2Auth
-from .coinbase_advanced_trade_v2_utils import DEFAULT_FEES
+from .coinbase_advanced_trade_v2_utils import DEFAULT_FEES, DebugToFile
 from .coinbase_advanced_trade_v2_web_utils import get_timestamp_from_exchange_time, set_exchange_time_from_timestamp
 
 if TYPE_CHECKING:
@@ -44,6 +47,9 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
                  trading_required: bool = True,
                  domain: str = constants.DEFAULT_DOMAIN,
                  ):
+        DebugToFile.setup_logger("coinbase_advanced_trade.log", level=logging.DEBUG)
+        DebugToFile.log_debug(f"Initializing {constants.EXCHANGE_NAME} API connector: {self}")
+
         self._api_key = coinbase_advanced_trade_v2_api_key
         self.secret_key = coinbase_advanced_trade_v2_api_secret
         self._domain = domain
@@ -54,6 +60,8 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
 
         self._asset_uuid_map: Dict[str, str] = {}
         self._pair_symbol_map_initialized = False
+        self._market_assets_initialized = False
+        self._market_assets: List[Dict[str, Any]] = []
 
     @property
     def asset_uuid_map(self) -> Dict[str, str]:
@@ -147,6 +155,11 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
 
     def supported_order_types(self) -> List[OrderType]:
         return [OrderType.MARKET, OrderType.LIMIT, OrderType.LIMIT_MAKER]
+
+    async def start_network(self):
+        await self._initialize_market_assets()
+        await self._update_trading_rules()
+        await super().start_network()
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         # time endpoint does not communicate an error code
@@ -242,10 +255,13 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
         }
 
         try:
-            order_result = await self._api_post(
-                path_url=constants.ORDER_EP,
-                data=api_params,
-                is_auth_required=True)
+            with DebugToFile.log_with_bullet(
+                    message=f"Cancelling order {constants.ORDER_EP}",
+                    bullet="*"):
+                order_result = await self._api_post(
+                    path_url=constants.ORDER_EP,
+                    data=api_params,
+                    is_auth_required=True)
             o_id = str(order_result["order_id"])
             transact_time = self.time_synchronizer.time()
         except IOError as e:
@@ -265,7 +281,12 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
         https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_cancelorders
         """
         # Coinbase Advanced Trade seems to require the exchange order ID to cancel an order
-        result = await self._place_cancels(order_ids=[tracked_order.exchange_order_id])
+        with DebugToFile.log_with_bullet(
+                message=f"Cancelling order {order_id}:{tracked_order.exchange_order_id}",
+                bullet="*"):
+            result = await self._place_cancels(order_ids=[tracked_order.exchange_order_id])
+            DebugToFile.log_debug(f"Cancel result: {result}")
+
         if result[0]["success"]:
             return True
         else:
@@ -283,10 +304,13 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
         api_data = {
             "order_ids": order_ids
         }
-        cancel_result: Dict[str, Any] = await self._api_post(
-            path_url=constants.BATCH_CANCEL_EP,
-            data=api_data,
-            is_auth_required=True)
+        with DebugToFile.log_with_bullet(
+                message=f"API Call: {constants.BATCH_CANCEL_EP}",
+                bullet="*"):
+            cancel_result: Dict[str, Any] = await self._api_post(
+                path_url=constants.BATCH_CANCEL_EP,
+                data=api_data,
+                is_auth_required=True)
 
         return [r for r in cancel_result["results"]]
 
@@ -296,12 +320,16 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
         https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_gethistoricalorder
 
         """
-        updated_order_data = await self._api_get(
-            path_url=constants.GET_ORDER_STATUS_EP.format(order_id=tracked_order.exchange_order_id),
-            params={},
-            is_auth_required=True,
-            limit_id=constants.GET_ORDER_STATUS_RATE_LIMIT_ID,
-        )
+        with DebugToFile.log_with_bullet(
+                message=f"API Call: {constants.GET_ORDER_STATUS_EP.format(order_id=tracked_order.exchange_order_id)}",
+                bullet="*"):
+            updated_order_data = await self._api_get(
+                path_url=constants.GET_ORDER_STATUS_EP.format(order_id=tracked_order.exchange_order_id),
+                params={},
+                is_auth_required=True,
+                limit_id=constants.GET_ORDER_STATUS_RATE_LIMIT_ID,
+            )
+            DebugToFile.log_debug(message=f"API Response: {updated_order_data}")
 
         status: str = updated_order_data['order']["status"]
         completion: Decimal = Decimal(updated_order_data['order']["completion_percentage"])
@@ -322,65 +350,98 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
     # Overwriting this method from ExchangePyBase that seems to force mis-handling data flow
     # as well as duplicating expensive API calls (call for all products)
     async def _update_trading_rules(self):
+        DebugToFile.log_debug(message="Updating trading rules...")
         self.trading_rules.clear()
-        trading_pair_symbol_map: Dict[str, str] = {}
-        products: Generator[dict[str, Any], Any, None] = await self._initialize_market_assets()
+        trading_pair_symbol_map: bidict[str, str] = bidict()
+
+        DebugToFile.log_debug(message=f"Market asset initialized: {self._market_assets_initialized}")
+        if not self._market_assets_initialized:
+            with DebugToFile.log_with_bullet(message="Initializing the markets...", bullet="*"):
+                await self._initialize_market_assets()
+                DebugToFile.log_debug(message=f"products: {self._market_assets}")
+
+        products: List[Dict[str, Any]] = self._market_assets
 
         if products is None:
             return
 
-        for product in products:
-            # Coinbase Advanced Trade API returns the trading pair in the format of "BASE-QUOTE"
-            trading_pair: str = product.get("product_id")
-            try:
-                trading_rule: TradingRule = TradingRule(
-                    trading_pair=trading_pair,
-                    min_order_size=Decimal(product.get("base_min_size"), None),
-                    max_order_size=Decimal(product.get("base_max_size", None)),
-                    min_price_increment=Decimal(product.get("quote_increment", None)),
-                    min_base_amount_increment=Decimal(product.get("base_increment", None)),
-                    min_quote_amount_increment=Decimal(product.get("quote_increment", None)),
-                    min_notional_size=Decimal(product.get("quote_min_size", None)),
-                    min_order_value=Decimal(product.get("base_min_size", None)) * Decimal(product.get("price", None)),
-                    max_price_significant_digits=Decimal(product.get("quote_increment", None)),
-                    supports_limit_orders=product.get("supports_limit_orders", None),
-                    supports_market_orders=product.get("supports_market_orders", None),
-                    buy_order_collateral_token=None,
-                    sell_order_collateral_token=None
-                )
-            except TypeError:
-                self.logger().error(
-                    f"Error parsing trading pair rule for {product.get('product_id')}, skipping.", exc_info=True,
-                )
-                continue
+        with DebugToFile.log_with_bullet(message="Creating trading rules...", bullet="*"):
+            for product in products:
+                # Coinbase Advanced Trade API returns the trading pair in the format of "BASE-QUOTE"
+                trading_pair: str = product.get("product_id")
+                try:
+                    trading_rule: TradingRule = TradingRule(
+                        trading_pair=trading_pair,
+                        min_order_size=Decimal(product.get("base_min_size"), None),
+                        max_order_size=Decimal(product.get("base_max_size", None)),
+                        min_price_increment=Decimal(product.get("quote_increment", None)),
+                        min_base_amount_increment=Decimal(product.get("base_increment", None)),
+                        min_quote_amount_increment=Decimal(product.get("quote_increment", None)),
+                        min_notional_size=Decimal(product.get("quote_min_size", None)),
+                        min_order_value=Decimal(product.get("base_min_size", None)) * Decimal(
+                            product.get("price", None)),
+                        max_price_significant_digits=Decimal(product.get("quote_increment", None)),
+                        supports_limit_orders=product.get("supports_limit_orders", None),
+                        supports_market_orders=product.get("supports_market_orders", None),
+                        buy_order_collateral_token=None,
+                        sell_order_collateral_token=None
+                    )
+                except TypeError:
+                    self.logger().error(
+                        f"Error parsing trading pair rule for {product.get('product_id')}, skipping.", exc_info=True,
+                    )
+                    DebugToFile.log_debug(message=f"Error: {trading_pair}")
+                    continue
 
-            self.trading_rules[trading_pair] = trading_rule
+                self.trading_rules[trading_pair] = trading_rule
 
-            trading_pair_symbol_map[product.get("product_id", None)] = trading_pair
+                trading_pair_symbol_map[product.get("product_id", None)] = trading_pair
         self._set_trading_pair_symbol_map(trading_pair_symbol_map)
 
     async def _initialize_trading_pair_symbol_map(self):
-        if not self._pair_symbol_map_initialized:
-            await self._update_trading_rules()
-            self._pair_symbol_map_initialized: bool = True
+        with DebugToFile.log_with_bullet(
+                message=f"Trading pair symbol map:{self._pair_symbol_map_initialized}",
+                bullet="|"):
+            if not self._pair_symbol_map_initialized:
+                with DebugToFile.log_with_bullet(
+                        message="Trading rules",
+                        bullet="'"):
+                    # await asyncio.sleep(10)
+                    await self._update_trading_rules()
+                self._pair_symbol_map_initialized: bool = True
 
-    async def _initialize_market_assets(self) -> Generator[Dict[str, Any], Any, None]:
+    async def _initialize_market_assets(self):
         """
         Fetch the list of trading pairs from the exchange and map them
         """
         try:
-            products: Dict[str, Any] = await self._api_get(path_url=constants.ALL_PAIRS_EP, is_auth_required=True)
-            return (p for p in products.get("products") if all((p.get("product_type", None) == "SPOT",
-                                                                p.get("trading_disabled", None) is False,
-                                                                p.get("is_disabled", None) is False,
-                                                                p.get("cancel_only", None) is False,
-                                                                p.get("auction_mode", None) is False)))
+            params: Dict[str, Any] = {
+                "limit": 1,
+                "offset": 0,
+                "product_type": "SPOT",
+            }
+            with DebugToFile.log_with_bullet(
+                    message=f"API call:{constants.ALL_PAIRS_EP}\n{params}",
+                    bullet="|"):
+                products: Dict[str, Any] = await self._api_get(
+                    path_url=constants.ALL_PAIRS_EP,
+                    params={},  # params,
+                    is_auth_required=True)
+                DebugToFile.log_debug(f"Products: {products['num_products']}")
+            self._market_assets = [p for p in products.get("products") if all((p.get("product_type", None) == "SPOT",
+                                                                               p.get("trading_disabled", None) is False,
+                                                                               p.get("is_disabled", None) is False,
+                                                                               p.get("cancel_only", None) is False,
+                                                                               p.get("auction_mode", None) is False))]
+            self._market_assets_initialized = True
         except Exception:
+            DebugToFile.log_debug("Error getting all trading pairs from Coinbase Advanced Trade")
             self.logger().exception("Error getting all trading pairs from Coinbase Advanced Trade.")
 
     async def _status_polling_loop_fetch_updates(self):
-        await self._update_order_fills_from_trades()
-        await super()._status_polling_loop_fetch_updates()
+        with DebugToFile.log_with_bullet(message="Fills from trades", bullet="|"):
+            await self._update_order_fills_from_trades()
+            await super()._status_polling_loop_fetch_updates()
 
     def update_balance(self, asset: str, balance: Decimal):
         self._account_balances[asset] = balance
@@ -397,21 +458,24 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
 
-        async for account in self._list_trading_accounts():  # type: ignore # Known Pycharm issue
-            asset_name: str = account.get("currency")
-            hold_value: Decimal = Decimal(account.get("hold").get("value"))
-            available_balance: Decimal = Decimal(account.get("available_balance").get("value"))
+        with DebugToFile.log_with_bullet(message="Accounts", bullet="|"):
+            async for account in self._list_trading_accounts():  # type: ignore # Known Pycharm issue
+                asset_name: str = account.get("currency")
+                hold_value: Decimal = Decimal(account.get("hold").get("value"))
+                available_balance: Decimal = Decimal(account.get("available_balance").get("value"))
 
-            # Skip assets with zero balance
-            if hold_value == Decimal("0") and available_balance == Decimal("0"):
-                continue
+                # Skip assets with zero balance
+                if hold_value == Decimal("0") and available_balance == Decimal("0"):
+                    continue
 
-            self.update_balance(asset_name, hold_value + available_balance)
-            self.update_available_balance(asset_name, available_balance)
-            remote_asset_names.add(asset_name)
+                self.update_balance(asset_name, hold_value + available_balance)
+                self.update_available_balance(asset_name, available_balance)
+                remote_asset_names.add(asset_name)
+                DebugToFile.log_debug(f"Asset:{asset_name}")
 
         # Request removal of non-valid assets
         self.remove_balances(local_asset_names.difference(remote_asset_names))
+        DebugToFile.log_debug(f"Accounts Local:{len(local_asset_names)}-Remote:{len(remote_asset_names)}")
 
     async def _list_one_page_of_accounts(self, cursor: str) -> Dict[str, Any]:
         """
@@ -421,40 +485,56 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
         params = {"limit": 250}
         if cursor != "0":
             params["cursor"] = cursor
-        response: Dict[str, Any] = await self._api_get(
-            path_url=constants.ACCOUNTS_LIST_EP,
-            params=params,
-            is_auth_required=True,
-        )
+        with DebugToFile.log_with_bullet(message=f"API call:{constants.ACCOUNTS_LIST_EP}\n{params}", bullet="|"):
+            response: Dict[str, Any] = await self._api_get(
+                path_url=constants.ACCOUNTS_LIST_EP,
+                params=params,
+                is_auth_required=True,
+            )
+            DebugToFile.log_debug(f"'->Response: {response}")
         return response
 
     async def _list_trading_accounts(self) -> AsyncGenerator[Dict[str, Any], None]:
         has_next_page = True
         cursor = "0"
 
-        while has_next_page:
-            page: Dict[str, Any] = await self._list_one_page_of_accounts(cursor)
-            has_next_page = page.get("has_next")
-            cursor = page.get("cursor")
-            for account in page.get("accounts"):
-                self._asset_uuid_map[account.get("currency")] = account.get("uuid")
-                yield account
+        with DebugToFile.log_with_bullet(message="Listing all accounts", bullet="+"):
+            while has_next_page:
+                with DebugToFile.log_with_bullet(message="Listing one page", bullet=":"):
+                    page: Dict[str, Any] = await self._list_one_page_of_accounts(cursor)
+                has_next_page = page.get("has_next")
+                cursor = page.get("cursor")
+                for account in page.get("accounts"):
+                    self._asset_uuid_map[account.get("currency")] = account.get("uuid")
+                    yield account
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         product_id = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+        params: Dict[str, Any] = {
+            "limit": 1,
+        }
 
-        trade: Dict[str, Any] = await self._api_get(
-            path_url=constants.PAIR_TICKER_24HR_EP.format(product_id=product_id) + "?limit=1",
-            limit_id=constants.PAIR_TICKER_24HR_RATE_LIMIT_ID,
-            is_auth_required=True
-        )
+        with DebugToFile.log_with_bullet(
+                message=f"Listing all accounts{constants.PAIR_TICKER_24HR_EP.format(product_id=product_id)}",
+                bullet="+"):
+            trade: Dict[str, Any] = await self._api_get(
+                path_url=constants.PAIR_TICKER_24HR_EP.format(product_id=product_id),
+                params=params,
+                limit_id=constants.PAIR_TICKER_24HR_RATE_LIMIT_ID,
+                is_auth_required=True
+            )
         return float(trade.get("trades")[0]["price"])
 
     async def get_all_pairs_prices(self) -> Generator[dict[Any, Any], Any, None]:
         """
         Fetches the prices of all symbols in the exchange with a default quote of USD
         """
-        products: List[Dict[str, Any]] = await self._api_get(path_url=constants.ALL_PAIRS_EP, is_auth_required=True)
+        with DebugToFile.log_with_bullet(
+                message=f"List pairs: {constants.ALL_PAIRS_EP}",
+                bullet="+"):
+            products: List[Dict[str, Any]] = await self._api_get(
+                path_url=constants.ALL_PAIRS_EP,
+                is_auth_required=True)
         return ({p.get("product_id"): p.get("price")} for p in products if all((p.get("product_type", None) == "SPOT",
                                                                                 p.get("trading_disabled",
                                                                                       None) is False,
@@ -466,7 +546,9 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
         """
         Update fees information from the exchange
         """
-        fees: Dict[str, Any] = await self._api_request("get", constants.TRANSACTIONS_SUMMARY_EP, is_auth_required=True)
+        with DebugToFile.log_with_bullet(message="API call:{}".format(constants.TRANSACTIONS_SUMMARY_EP), bullet="i"):
+            fees: Dict[str, Any] = await self._api_get(path_url=constants.TRANSACTIONS_SUMMARY_EP,
+                                                       is_auth_required=True)
         self._trading_fees = fees
 
     async def _user_stream_event_listener(self):
@@ -475,6 +557,7 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
         stream data source. It keeps reading events from the queue until the task is interrupted.
         The events received are order updates.
         """
+        DebugToFile.log_debug("Starting user stream listener loop.")
         async for event_message in self._iter_user_event_queue():
             try:
                 assert isinstance(event_message, CoinbaseAdvancedTradeV2CumulativeUpdate)
@@ -582,7 +665,9 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
                     is_auth_required=True))
 
             self.logger().debug(f"Polling for order fills of {len(tasks)} trading pairs.")
+
             results = await safe_gather(*tasks, return_exceptions=True)
+            DebugToFile.log_debug(f"Gather Fill API calls: {results}")
 
             for trades, trading_pair in zip(results, trading_pairs):
                 if isinstance(trades, Exception):
@@ -591,7 +676,8 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
                         app_warning_msg=f"Failed to fetch trade update for {trading_pair}."
                     )
                     continue
-                for trade in trades:
+                for trade in trades["fills"]:
+                    DebugToFile.log_debug(f"Trade: {trade}")
                     exchange_order_id = trade["order_id"]
                     quote_token: str = trading_pair.split("-")[1]
                     fee = AddedToCostTradeFee(flat_fees=[TokenAmount(amount=Decimal(trade["commission"]),
@@ -645,13 +731,15 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
         if order.exchange_order_id is not None:
             order_id = int(order.exchange_order_id)
             product_id = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
-            all_fills_response: Dict[str, Any] = await self._api_get(
-                path_url=constants.FILLS_EP,
-                params={
-                    "product_id": product_id,
-                    "order_id": order_id
-                },
-                is_auth_required=True)
+            params = {
+                "product_id": product_id,
+                "order_id": order_id
+            }
+            with DebugToFile.log_with_bullet(message=f"API Call:{constants.FILLS_EP}\n{params}", bullet="🌐"):
+                all_fills_response: Dict[str, Any] = await self._api_get(
+                    path_url=constants.FILLS_EP,
+                    params=params,
+                    is_auth_required=True)
 
             for trade in all_fills_response["fills"]:
                 exchange_order_id = trade["order_id"]
@@ -674,7 +762,8 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
         return trade_updates
 
     async def _make_network_check_request(self):
-        await self._api_get(path_url=constants.SERVER_TIME_EP, is_auth_required=False)
+        with DebugToFile.log_with_bullet(message="Network check", bullet=";"):
+            await self._api_get(path_url=constants.SERVER_TIME_EP, is_auth_required=False)
 
     async def _format_trading_rules(self, e: Dict[str, Any]) -> List[TradingRule]:
         raise NotImplementedError(f"This method is not implemented by {self.name} connector")

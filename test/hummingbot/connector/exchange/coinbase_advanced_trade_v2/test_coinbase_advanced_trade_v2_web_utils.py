@@ -1,9 +1,13 @@
+import asyncio
 import unittest
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
-from unittest.mock import ANY, AsyncMock, Mock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, Mock, patch
 
 import hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_constants as CONSTANTS
 from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_web_utils import (
+    CoinbaseAdvancedTradeWSSMessage,
+    PipelineMessageItem,
+    PipelineMessageProcessor,
     build_api_factory,
     build_api_factory_without_time_synchronizer_pre_processor,
     create_throttler,
@@ -177,6 +181,186 @@ class CoinbaseAdvancedTradeUtilTestCases(IsolatedAsyncioWrapperTestCase):
         # Test with a variety of timestamps and units
         self.assertEqual(set_exchange_time_from_timestamp(1683808496.789012, "s"), '2023-05-11T12:34:56.789012Z')
         self.assertEqual(set_exchange_time_from_timestamp(1683808496789.012, "ms"), '2023-05-11T12:34:56.789012Z')
+
+
+class TestPipelineMessageProcessor(IsolatedAsyncioWrapperTestCase):
+
+    def setUp(self):
+        self.mock_preprocessor = AsyncMock(return_value=[{"item": 0}, {"item": 1}])
+        mock_logger = MagicMock()
+        mock_logger.error = MagicMock()
+        self.mock_logger = MagicMock(return_value=mock_logger)
+        self.processor = PipelineMessageProcessor(self.mock_preprocessor, self.mock_logger)
+        self.wss_message: CoinbaseAdvancedTradeWSSMessage = CoinbaseAdvancedTradeWSSMessage(
+            channel="market_trades",
+            client_id="",
+            timestamp="2023-02-09T20:19:35.39625135Z",
+            sequence_num=0,
+            events=()
+        )
+
+    async def asyncTearDown(self):
+        await self.processor.stop()
+
+    def test_queue_property_init(self):
+        self.assertIs(self.processor._message_queue, None)
+        self.assertIs(self.processor._message_queue_task, None)
+        self.assertIs(self.processor._preprocessor, self.mock_preprocessor)
+        self.assertIs(self.processor.logger, self.mock_logger)
+        self.assertFalse(self.processor._is_started)
+
+    @patch('asyncio.create_task')
+    async def test_start(self, mock_create_task):
+        await self.processor.start()
+        self.assertTrue(self.processor._is_started)
+        self.assertIsInstance(self.processor._message_queue, asyncio.Queue)
+        self.assertIsNotNone(self.processor._message_queue_task)
+        self.assertIs(self.processor._preprocessor, self.mock_preprocessor)
+        self.assertIs(self.processor.logger, self.mock_logger)
+        self.assertIn("PipelineMessageProcessor._preprocess_messages", repr(mock_create_task.call_args_list))
+        mock_create_task.assert_called_once()
+
+        # The pipeline is waiting for messages
+        self.mock_preprocessor.assert_not_called()
+        self.mock_preprocessor.assert_not_awaited()
+
+        await self.processor.stop()
+
+    async def test_process_messages(self):
+        async def mock_preprocessor(message):
+            self.assertEqual(message, self.wss_message)
+            yield {"item": 0}
+            yield {"item": 1}
+
+        self.processor._preprocessor = mock_preprocessor
+
+        await self.processor.start()
+        self.assertIs(self.processor._preprocessor, mock_preprocessor)
+
+        # Add an item to the queue so that the _preprocess_messages coroutine has something to process
+        out_queue = asyncio.Queue()
+        pipeline_message = PipelineMessageItem(self.wss_message, out_queue)
+        await self.processor.queue.put(pipeline_message)
+
+        # Sleep for a short while to allow the event loop to run the task
+        await asyncio.sleep(0.1)
+
+        # Check if the preprocessor has been called by examining the queue
+        self.assertFalse(out_queue.empty())
+        self.assertEqual(out_queue.qsize(), 2)
+        self.assertEqual({"item": 0}, out_queue.get_nowait())
+        self.assertEqual({"item": 1}, out_queue.get_nowait())
+
+        await self.processor.stop()
+
+    async def test_process_messages_with_exception(self):
+        async def mock_preprocessor(message):
+            self.assertEqual(message, self.wss_message)
+            yield ValueError("Test Exception")
+            yield {"item": 1}
+
+        self.processor._preprocessor = mock_preprocessor
+
+        await self.processor.start()
+        self.assertIs(self.processor._preprocessor, mock_preprocessor)
+
+        # Add an item to the queue so that the _preprocess_messages coroutine has something to process
+        out_queue = asyncio.Queue()
+        pipeline_message = PipelineMessageItem(self.wss_message, out_queue)
+        await self.processor.queue.put(pipeline_message)
+
+        # Sleep for a short while to allow the event loop to run the task
+        await asyncio.sleep(0.1)
+
+        # Check if the preprocessor has been called by examining the queue
+        self.assertFalse(out_queue.empty())
+        self.assertEqual(2, out_queue.qsize())
+        self.assertEqual({"item": 1}, out_queue.get_nowait())
+        self.error.assert_called_once_with(
+            "Exception while processing message: Test exception. Message dropped")
+
+        await self.processor.stop()
+
+    async def test_preprocess_messages_cancelled(self):
+        await self.processor.start()
+        task = asyncio.create_task(self.processor._preprocess_messages())
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+        self.mock_logger.error.assert_not_called()
+
+    async def test_preprocess_messages_preprocessor_exception(self):
+        expected_exception_msg = 'Test exception'
+
+        class MockAsyncIterator:
+            def __init__(self, items, raise_exception=False):
+                self.items = items
+                self.raise_exception = raise_exception
+
+            def __aiter__(self):
+                return self
+
+            async def __anext__(self):
+                if self.raise_exception:
+                    raise Exception(expected_exception_msg)
+                try:
+                    return self.items.pop(0)
+                except IndexError:
+                    raise StopAsyncIteration
+
+        def get_mock_async_iterator(message):
+            self.assertEqual(message, self.wss_message)
+            return MockAsyncIterator([{"item": 0}, {"item": 1}], raise_exception=True)
+
+        self.processor._preprocessor = get_mock_async_iterator
+
+        await self.processor.start()
+        out_queue = asyncio.Queue()
+        pipeline_message = PipelineMessageItem(self.wss_message, out_queue)
+        await self.processor.queue.put(pipeline_message)
+        await asyncio.sleep(0.1)
+        self.mock_logger.assert_called_once()
+        self.mock_logger().error.assert_called_once_with(
+            f'Exception while processing message: {expected_exception_msg}. Message dropped')
+
+    @patch('hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_web_utils'
+           '.try_except_queue_put', side_effect=asyncio.QueueFull)
+    async def test_preprocess_messages_queuefull_exception(self, mock_try_except_queue_put):
+        class MockAsyncIterator:
+            def __init__(self, items, raise_exception=False):
+                self.items = items
+                self.raise_exception = raise_exception
+
+            def __aiter__(self):
+                return self
+
+            async def __anext__(self):
+                try:
+                    return self.items.pop(0)
+                except IndexError:
+                    raise StopAsyncIteration
+
+        def get_mock_async_iterator(message):
+            self.assertEqual(message, self.wss_message)
+            return MockAsyncIterator([{"item": 0}], raise_exception=True)
+
+        self.processor._preprocessor = get_mock_async_iterator
+        await self.processor.start()
+        out_queue = asyncio.Queue(maxsize=1)
+        pipeline_message = PipelineMessageItem(self.wss_message, out_queue)
+        await self.processor.queue.put(pipeline_message)
+        await out_queue.put('fill queue')
+        await asyncio.sleep(0.1)
+        self.mock_logger().error.assert_called_once_with('Timeout while waiting to put order into the out queue')
+
+    async def test_stop(self):
+        await self.processor.start()
+        await self.processor.stop()
+        self.assertFalse(self.processor._is_started)
+        self.assertTrue(self.processor._message_queue.empty())
+        self.assertTrue(self.processor._message_queue_task.cancelled())
 
 
 if __name__ == "__main__":

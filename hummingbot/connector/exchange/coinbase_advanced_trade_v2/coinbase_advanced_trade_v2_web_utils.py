@@ -1,5 +1,6 @@
+import asyncio
 import re
-from typing import Callable, Dict, Optional, Union
+from typing import Any, AsyncIterable, Callable, Dict, NamedTuple, Optional, Tuple, TypeVar, Union
 
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.utils import TimeSynchronizerRESTPreProcessor
@@ -7,6 +8,7 @@ from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.logger import HummingbotLogger
 
 from . import coinbase_advanced_trade_v2_constants as constants
 
@@ -18,11 +20,9 @@ def public_rest_url(path_url: str, domain: str = constants.DEFAULT_DOMAIN) -> st
     :param domain: the Coinbase Advanced Trade domain to connect to ("com" or "us"). The default value is "com"
     :return: the full URL to the endpoint
     """
-    if "api/v3" in path_url or "v2" in path_url:
-        return f"https://api.coinbase.{domain}/{path_url}"
-
     if path_url in constants.SIGNIN_ENDPOINTS:
         return constants.SIGNIN_URL.format(domain=domain) + path_url
+
     return constants.REST_URL.format(domain=domain) + path_url
 
 
@@ -33,12 +33,9 @@ def private_rest_url(path_url: str, domain: str = constants.DEFAULT_DOMAIN) -> s
     :param domain: the coinbase_advanced_trade_v2 domain to connect to ("com" or "us"). The default value is "com"
     :return: the full URL to the endpoint
     """
-    # TODO: Temporary hard-coding of URL to circumvent the previous URL logic
-    if "api/v3" in path_url or "v2" in path_url:
-        return f"https://api.coinbase.{domain}/{path_url}"
-
     if any((path_url.startswith(p) for p in constants.SIGNIN_ENDPOINTS)):
         return constants.SIGNIN_URL.format(domain=domain) + path_url
+
     return constants.REST_URL.format(domain=domain) + path_url
 
 
@@ -152,3 +149,126 @@ def set_exchange_time_from_timestamp(timestamp: Union[int, float], timestamp_uni
 
     from datetime import datetime
     return datetime.utcfromtimestamp(timestamp).isoformat() + "Z"
+
+
+class CoinbaseAdvancedTradeWSSMessage(NamedTuple):
+    """
+    Coinbase Advanced Trade Websocket API message
+    https://docs.cloud.coinbase.com/advanced-trade-api/docs/ws-channels
+    ```json
+    {
+      "channel": "market_trades",
+      "client_id": "",
+      "timestamp": "2023-02-09T20:19:35.39625135Z",
+      "sequence_num": 0,
+      "events": [
+        ...
+      ]
+    }
+    ```
+    """
+
+    channel: str
+    client_id: str
+    timestamp: str
+    sequence_num: int
+    events: Tuple
+
+
+async def try_except_queue_put(item: Any, queue: asyncio.Queue):
+    """
+    Try to put the order into the queue, except if the queue is full.
+    :param item: The order to put into the queue.
+    :param queue: The queue to put the order into.
+    """
+    try:
+        queue.put_nowait(item)
+    except asyncio.QueueFull:
+        try:
+            await asyncio.wait_for(queue.put(item), timeout=1.0)
+        except asyncio.TimeoutError:
+            raise asyncio.QueueFull
+
+
+T = TypeVar("T")
+
+
+class PipelineMessageItem(NamedTuple):
+    message: CoinbaseAdvancedTradeWSSMessage
+    out_queue: asyncio.Queue[CoinbaseAdvancedTradeWSSMessage]
+
+
+MessageProcessorType = Callable[[CoinbaseAdvancedTradeWSSMessage], AsyncIterable[Dict[str, Any]]]
+
+
+class PipelineMessageProcessor:
+    """
+    A message processor that preprocesses messages from a websocket feed.
+    """
+
+    __slots__ = (
+        "_message_queue",
+        "_message_queue_task",
+        "_preprocessor",
+        "_is_started",
+        "logger",
+    )
+
+    def __init__(self,
+                 preprocessor: MessageProcessorType,
+                 logger: Callable[[], HummingbotLogger]):
+        self._message_queue: Optional[asyncio.Queue[PipelineMessageItem]] = None
+        self._message_queue_task: Optional[asyncio.Task] = None
+        self._preprocessor: MessageProcessorType = preprocessor
+        self.logger = logger
+        self._is_started = False
+
+    @property
+    def queue(self) -> Optional[asyncio.Queue[PipelineMessageItem]]:
+        return self._message_queue
+
+    @property
+    def is_started(self) -> bool:
+        return self._is_started
+
+    async def start(self):
+        self._is_started = True
+        if not self._message_queue:
+            self._message_queue: asyncio.Queue[PipelineMessageItem] = asyncio.Queue()
+        if not self._message_queue_task or self._message_queue_task.done():
+            self._message_queue_task = asyncio.create_task(self._preprocess_messages())
+
+    async def stop(self):
+        self._is_started = False
+
+        if self._message_queue is not None:
+            while not self._message_queue.empty():
+                try:
+                    self._message_queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    pass
+
+        if self._message_queue_task and not self._message_queue_task.done():
+            self._message_queue_task.cancel()
+            try:
+                await self._message_queue_task
+            except asyncio.CancelledError:
+                pass
+
+    async def _preprocess_messages(self, redirect_queue: Optional[asyncio.Queue] = None):
+        while self._is_started:
+            try:
+                message_out_queue: PipelineMessageItem = await self._message_queue.get()
+            except asyncio.CancelledError:
+                break
+
+            try:
+                async for item in self._preprocessor(message_out_queue.message):
+                    if redirect_queue is None:
+                        redirect_queue = message_out_queue.out_queue
+                    try:
+                        await try_except_queue_put(item=item, queue=redirect_queue)
+                    except asyncio.QueueFull:
+                        self.logger().error("Timeout while waiting to put order into the out queue")
+            except Exception as e:
+                self.logger().error(f"Exception while processing message: {e}. Message dropped")
