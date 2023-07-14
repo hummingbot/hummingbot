@@ -617,8 +617,8 @@ class MexcExchange(ExchangeBase):
             'order_type': order_type_str,
             'trade_type': "BID" if is_buy else "ASK",
             'symbol': convert_to_exchange_trading_pair(trading_pair),
-            'quantity': str(amount),
-            'price': str(price)
+            'quantity': format(Decimal(str(amount)), "f"),
+            'price': format(Decimal(str(price)), "f")
         }
 
         exchange_order_id = await self._api_request(
