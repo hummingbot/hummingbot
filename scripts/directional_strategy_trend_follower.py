@@ -9,7 +9,7 @@ class TrendFollowingStrategy(DirectionalStrategyBase):
     directional_strategy_name = "trend_following"
     trading_pair = "DOGE-USDT"
     exchange = "binance_perpetual"
-    order_amount_usd = Decimal("15")
+    order_amount_usd = Decimal("20")
     leverage = 10
 
     # Configure the parameters for the position
