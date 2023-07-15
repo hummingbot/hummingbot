@@ -187,7 +187,7 @@ class TradeFeeBase(ABC):
         if exchange is not None and trading_pair in exchange.order_books:
             rate = exchange.get_price_by_type(trading_pair, PriceType.MidPrice)
         else:
-            local_rate_source: RateOracle = rate_source or RateOracle.get_instance()
+            local_rate_source: Optional[RateOracle] = rate_source or RateOracle.get_instance()
             rate: Decimal = local_rate_source.get_pair_rate(trading_pair)
             if rate is None:
                 raise ValueError(f"Could not find the exchange rate for {trading_pair} using the rate source "
@@ -230,6 +230,11 @@ class TradeFeeBase(ABC):
     def _are_tokens_interchangeable(self, first_token: str, second_token: str):
         interchangeable_tokens = [
             {"WETH", "ETH"},
+            {"WBNB", "BNB"},
+            {"WMATIC", "MATIC"},
+            {"WAVAX", "AVAX"},
+            {"WONE", "ONE"},
+            {"USDC", "USDC.E"},
             {"WBTC", "BTC"}
         ]
         return first_token == second_token or any(({first_token, second_token} <= interchangeable_pair

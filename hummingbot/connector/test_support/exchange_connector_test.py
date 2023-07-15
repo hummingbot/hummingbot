@@ -783,11 +783,11 @@ class AbstractExchangeConnectorTests:
                           callback=lambda *args, **kwargs: request_sent_event.set())
 
             order_id_for_invalid_order = self.place_buy_order(
-                amount=Decimal("0.0001"), price=Decimal("0.0000001")
+                amount=Decimal("0.0001"), price=Decimal("0.0001")
             )
             # The second order is used only to have the event triggered and avoid using timeouts for tests
             order_id = self.place_buy_order()
-            self.async_run_with_timeout(request_sent_event.wait())
+            self.async_run_with_timeout(request_sent_event.wait(), timeout=3)
 
             self.assertNotIn(order_id_for_invalid_order, self.exchange.in_flight_orders)
             self.assertNotIn(order_id, self.exchange.in_flight_orders)
@@ -801,7 +801,9 @@ class AbstractExchangeConnectorTests:
             self.assertTrue(
                 self.is_logged(
                     "WARNING",
-                    "Buy order amount 0 is lower than the minimum order size 0.01. The order will not be created."
+                    "Buy order amount 0.0001 is lower than the minimum order "
+                    "size 0.01. The order will not be created, increase the "
+                    "amount to be higher than the minimum order size."
                 )
             )
             self.assertTrue(
