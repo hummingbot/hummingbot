@@ -2,7 +2,7 @@
 ###   AMM Arbitrage strategy config   ###
 ##########################################
 
-template_version: 5
+template_version: 6
 strategy: null
 
 # The following configurations are only required for the AMM arbitrage trading strategy
@@ -39,3 +39,9 @@ debug_price_shim: false
 
 # After how many seconds should blockchain transactions be cancelled if they are not included in a block?
 gateway_transaction_cancel_interval: 600
+
+# What rate source should be used for quote assets pair - between fixed_rate_source and rate_oracle_source?
+rate_oracle_enabled: false
+
+# What is the fixed_rate used to convert quote assets?
+quote_conversion_rate: 1

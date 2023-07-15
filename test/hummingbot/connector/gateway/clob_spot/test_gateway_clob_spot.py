@@ -592,7 +592,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
         self.clob_data_source_mock.configure_place_order_fails_response(exception=RuntimeError("some error"))
 
         order_id_for_invalid_order = self.place_buy_order(
-            size=Decimal("0.0001"), price=Decimal("0.0000001")
+            size=Decimal("0.0001"), price=Decimal("0.0001")
         )
         # The second order is used only to have the event triggered and avoid using timeouts for tests
         order_id = self.place_buy_order()
@@ -610,7 +610,9 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
         self.assertTrue(
             self.is_logged(
                 "WARNING",
-                "Buy order amount 0 is lower than the minimum order size 0.001. The order will not be created."
+                "Buy order amount 0.0001 is lower than the minimum order "
+                "size 0.001. The order will not be created, increase the "
+                "amount to be higher than the minimum order size."
             )
         )
         self.assertTrue(
