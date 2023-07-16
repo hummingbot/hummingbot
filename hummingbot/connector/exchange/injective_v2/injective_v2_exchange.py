@@ -84,7 +84,8 @@ class InjectiveV2Exchange(ExchangePyBase):
 
     @property
     def name(self) -> str:
-        return CONSTANTS.EXCHANGE_NAME
+        suffix = "" if self.domain == CONSTANTS.DEFAULT_DOMAIN else f"_{self.domain}"
+        return CONSTANTS.EXCHANGE_NAME + suffix
 
     @property
     def authenticator(self) -> AuthBase:
