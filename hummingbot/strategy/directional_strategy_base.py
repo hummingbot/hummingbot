@@ -46,10 +46,11 @@ class DirectionalStrategyBase(ScriptStrategyBase):
     directional_strategy_name: str
     # Define the trading pair and exchange that we want to use and the csv where we are going to store the entries
     trading_pair: str
+    trading_pair_2: str
     exchange: str
 
     # Maximum position executors at a time
-    max_executors: int = 1
+    max_executors: int = 2
     position_mode: PositionMode = PositionMode.HEDGE
     active_executors: List[PositionExecutor] = []
     stored_executors: List[PositionExecutor] = []
@@ -65,6 +66,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
     time_limit_order_type: OrderType = OrderType.MARKET
     trailing_stop_activation_delta = 0.003
     trailing_stop_trailing_delta = 0.001
+    cooldown_after_execution = 30
 
     # Create the candles that we want to use and the thresholds for the indicators
     candles: List[CandlesBase]
@@ -88,6 +90,15 @@ class DirectionalStrategyBase(ScriptStrategyBase):
         Checks if the exchange is a perpetual market.
         """
         return "perpetual" in self.exchange
+
+    @property
+    def max_active_executors_condition(self):
+        return len(self.get_active_executors()) < self.max_executors
+
+    @property
+    def time_between_signals_condition(self):
+        seconds_since_last_signal = self.current_timestamp - self.get_timestamp_of_last_executor()
+        return seconds_since_last_signal > self.cooldown_after_execution
 
     def get_csv_path(self) -> str:
         today = datetime.datetime.today()
@@ -119,53 +130,96 @@ class DirectionalStrategyBase(ScriptStrategyBase):
         for candle in self.candles:
             candle.stop()
 
-    def get_active_executors(self):
+    def get_active_executors(self) -> List[PositionExecutor]:
         return [signal_executor for signal_executor in self.active_executors
                 if not signal_executor.is_closed]
 
+    def get_closed_executors(self) -> List[PositionExecutor]:
+        return [signal_executor for signal_executor in self.active_executors
+                if signal_executor.is_closed]
+
+    def get_timestamp_of_last_executor(self):
+        if len(self.stored_executors) > 0:
+            return self.stored_executors[-1].close_timestamp
+        else:
+            return 0
+
     def on_tick(self):
+        self.clean_and_store_executors()
         if self.is_perpetual:
             self.check_and_set_leverage()
-        if len(self.get_active_executors()) < self.max_executors and self.all_candles_ready:
-            position_config = self.get_position_config()
-            if position_config:
-                signal_executor = PositionExecutor(
-                    strategy=self,
-                    position_config=position_config,
-                )
-                self.active_executors.append(signal_executor)
-        self.clean_and_store_executors()
+        if self.max_active_executors_condition and self.all_candles_ready and self.time_between_signals_condition:
+            #  edit to get 2 opposing trades from different trading pairs
+            positions_to_open = self.get_position_config()
+            if positions_to_open is not None:  # Add a conditional check
+                for position_config in positions_to_open:
+                    signal_executor = PositionExecutor(
+                        strategy=self,
+                        position_config=position_config,
+                    )
+                    self.active_executors.append(signal_executor)
 
     def get_position_config(self):
+        # added another set of opposing position signal below
         signal = self.get_signal()
         if signal == 0:
             return None
         else:
+            positions = []
             price = self.connectors[self.exchange].get_mid_price(self.trading_pair)
-            side = TradeType.BUY if signal == 1 else TradeType.SELL
             if self.open_order_type.is_limit_type():
                 price = price * (1 - signal * self.open_order_slippage_buffer)
-            position_config = PositionConfig(
-                timestamp=self.current_timestamp,
-                trading_pair=self.trading_pair,
-                exchange=self.exchange,
-                side=side,
-                amount=self.order_amount_usd / price,
-                take_profit=self.take_profit,
-                stop_loss=self.stop_loss,
-                time_limit=self.time_limit,
-                entry_price=price,
-                open_order_type=self.open_order_type,
-                take_profit_order_type=self.take_profit_order_type,
-                stop_loss_order_type=self.stop_loss_order_type,
-                time_limit_order_type=self.time_limit_order_type,
-                trailing_stop=TrailingStop(
-                    activation_price_delta=self.trailing_stop_activation_delta,
-                    trailing_delta=self.trailing_stop_trailing_delta
-                ),
-                leverage=self.leverage,
-            )
-            return position_config
+
+            for trading_pair in self.markets[self.exchange]:
+                side = TradeType.BUY if signal == 1 else TradeType.SELL
+                position_config = PositionConfig(
+                    timestamp=self.current_timestamp,
+                    trading_pair=self.trading_pair,
+                    exchange=self.exchange,
+                    side=side,
+                    amount=self.order_amount_usd / price,
+                    take_profit=self.take_profit,
+                    stop_loss=self.stop_loss,
+                    time_limit=self.time_limit,
+                    entry_price=price,
+                    open_order_type=self.open_order_type,
+                    take_profit_order_type=self.take_profit_order_type,
+                    stop_loss_order_type=self.stop_loss_order_type,
+                    time_limit_order_type=self.time_limit_order_type,
+                    trailing_stop=TrailingStop(
+                        activation_price_delta=self.trailing_stop_activation_delta,
+                        trailing_delta=self.trailing_stop_trailing_delta
+                    ),
+                    leverage=self.leverage,
+                )
+                positions.append(position_config)
+
+                # opposing position signal
+                price_2 = self.connectors[self.exchange].get_mid_price(self.trading_pair_2)
+                opposing_side = TradeType.SELL if side == TradeType.BUY else TradeType.BUY
+                opposing_position_config = PositionConfig(
+                    timestamp=self.current_timestamp,
+                    trading_pair=self.trading_pair_2,
+                    exchange=self.exchange,
+                    side=opposing_side,
+                    amount=self.order_amount_usd / price_2,
+                    take_profit=self.take_profit,
+                    stop_loss=self.stop_loss,
+                    time_limit=self.time_limit,
+                    entry_price=price_2,
+                    open_order_type=self.open_order_type,
+                    take_profit_order_type=self.take_profit_order_type,
+                    stop_loss_order_type=self.stop_loss_order_type,
+                    time_limit_order_type=self.time_limit_order_type,
+                    trailing_stop=TrailingStop(
+                        activation_price_delta=self.trailing_stop_activation_delta,
+                        trailing_delta=self.trailing_stop_trailing_delta
+                    ),
+                    leverage=self.leverage,
+                )
+                positions.append(opposing_position_config)
+
+            return positions
 
     def get_signal(self):
         """Base method to get the signal from the candles."""
@@ -208,6 +262,9 @@ class DirectionalStrategyBase(ScriptStrategyBase):
                 for trading_pair in connector.trading_pairs:
                     connector.set_position_mode(self.position_mode)
                     connector.set_leverage(trading_pair=trading_pair, leverage=self.leverage)
+                for trading_pair_2 in connector.trading_pairs:
+                    connector.set_position_mode(self.position_mode)
+                    connector.set_leverage(trading_pair=trading_pair_2, leverage=self.leverage)
             self.set_leverage_flag = True
 
     def clean_and_store_executors(self):
