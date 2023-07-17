@@ -137,12 +137,18 @@ class UserBalances:
         results = await safe_gather(*tasks)
         return {ex: err_msg for ex, err_msg in zip(exchanges, results)}
 
-    async def all_balances_all_exchanges(self, client_config_map: ClientConfigMap) -> Dict[str, Dict[str, Decimal]]:
+    async def all_balances_all_exchanges(self, client_config_map: ClientConfigMap, for_gateway: bool = False) -> Dict[str, Dict[str, Decimal]]:
         await self.update_exchanges(client_config_map)
-        return {k: v.get_all_balances() for k, v in sorted(self._markets.items(), key=lambda x: x[0])}
+        if for_gateway:
+            return {k: v.get_all_balances() for k, v in sorted(self._markets.items(), key=lambda x: x[0]) if self.is_gateway_market(k)}
+        else:
+            return {k: v.get_all_balances() for k, v in sorted(self._markets.items(), key=lambda x: x[0]) if not self.is_gateway_market(k)}
 
-    def all_available_balances_all_exchanges(self) -> Dict[str, Dict[str, Decimal]]:
-        return {k: v.available_balances for k, v in sorted(self._markets.items(), key=lambda x: x[0])}
+    def all_available_balances_all_exchanges(self, for_gateway: bool = False) -> Dict[str, Dict[str, Decimal]]:
+        if for_gateway:
+            return {k: v.available_balances for k, v in sorted(self._markets.items(), key=lambda x: x[0]) if self.is_gateway_market(k)}
+        else:
+            return {k: v.available_balances for k, v in sorted(self._markets.items(), key=lambda x: x[0]) if not self.is_gateway_market(k)}
 
     async def balances(self, exchange, client_config_map: ClientConfigMap, *symbols) -> Dict[str, Decimal]:
         if await self.update_exchange_balance(exchange, client_config_map) is None:
