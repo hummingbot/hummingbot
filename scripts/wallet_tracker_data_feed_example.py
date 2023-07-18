@@ -23,10 +23,7 @@ class AMMDataFeedExample(ScriptStrategyBase):
         self.wallet_balance_data_feed.stop()
 
     def on_tick(self):
-        if self.wallet_balance_data_feed.is_ready():
-            self.logger().info(f"AMM Data Feed is ready.\n{self.wallet_balance_data_feed._wallet_balances}")
-        else:
-            self.logger().info("AMM Data Feed is not ready.")
+        pass
 
     def format_status(self) -> str:
         if self.wallet_balance_data_feed.is_ready():
