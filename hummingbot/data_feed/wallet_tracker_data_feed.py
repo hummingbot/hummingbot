@@ -102,7 +102,7 @@ class WalletTrackerDataFeed(NetworkBase):
         await asyncio.gather(*wallet_balances_tasks)
 
     async def _update_balances_by_wallet(self, wallet: str) -> None:
-        data = await GatewayHttpClient.get_instance().get_balances(
+        data = await self.gateway_client.get_balances(
             self.chain,
             self.network,
             wallet,
