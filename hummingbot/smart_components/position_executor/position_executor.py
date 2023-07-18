@@ -34,7 +34,6 @@ class PositionExecutor(SmartComponentBase):
         return cls._logger
 
     def __init__(self, strategy: ScriptStrategyBase, position_config: PositionConfig):
-        super().__init__(strategy, [position_config.exchange])
         if not (position_config.take_profit or position_config.stop_loss or position_config.time_limit):
             error = "At least one of take_profit, stop_loss or time_limit must be set"
             self.logger().error(error)
@@ -54,6 +53,7 @@ class PositionExecutor(SmartComponentBase):
         self._take_profit_order: TrackedOrder = TrackedOrder()
         self._trailing_stop_price = Decimal("0")
         self._trailing_stop_activated = False
+        super().__init__(strategy, [position_config.exchange])
 
     @property
     def executor_status(self):
