@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from decimal import Decimal
 from typing import Dict, Optional, Set
 
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
@@ -18,12 +19,14 @@ class WalletTrackerDataFeed(NetworkBase):
         chain: str,
         network: str,
         wallets: Set[str],
+        tokens: Set[str],
         update_interval: float = 1.0,
     ) -> None:
         super().__init__()
         self._ev_loop = asyncio.get_event_loop()
         self._chain = chain
         self._network = network
+        self._tokens = tokens
         self._wallet_balances: Dict[str, Dict[str, float]] = {wallet: {} for wallet in wallets}
         self._update_interval = update_interval
         self.fetch_data_loop_task: Optional[asyncio.Task] = None
@@ -47,7 +50,7 @@ class WalletTrackerDataFeed(NetworkBase):
         return self._network
 
     def is_ready(self) -> bool:
-        pass
+        return True
 
     async def check_network(self) -> NetworkStatus:
         is_gateway_online = await self.gateway_client.ping_gateway()
@@ -85,7 +88,14 @@ class WalletTrackerDataFeed(NetworkBase):
         await asyncio.gather(*wallet_balances_tasks)
 
     async def _update_balances_by_wallet(self, wallet: str) -> None:
-        pass
+        data = await GatewayHttpClient.get_instance().get_balances(
+            self.chain,
+            self.network,
+            wallet,
+            list(self._tokens)
+        )
+        balance = data['balances']
+        self._wallet_balances[wallet] = {token: Decimal(balance) for token, balance in balance}
 
     @staticmethod
     async def _async_sleep(delay: float) -> None:
