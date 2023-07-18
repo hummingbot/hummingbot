@@ -3,6 +3,8 @@ import logging
 from decimal import Decimal
 from typing import Dict, Optional, Set
 
+import pandas as pd
+
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.network_base import NetworkBase
 from hummingbot.core.network_iterator import NetworkStatus
@@ -49,8 +51,20 @@ class WalletTrackerDataFeed(NetworkBase):
     def network(self) -> str:
         return self._network
 
+    @property
+    def tokens(self) -> Set[str]:
+        return self._tokens
+
+    @property
+    def wallet_balances(self) -> Dict[str, Dict[str, float]]:
+        return self._wallet_balances
+
+    @property
+    def wallet_balances_df(self) -> pd.DataFrame:
+        return pd.DataFrame(self._wallet_balances).T
+
     def is_ready(self) -> bool:
-        return True
+        return all(len(wallet_balances) > 0 for wallet_balances in self._wallet_balances.values())
 
     async def check_network(self) -> NetworkStatus:
         is_gateway_online = await self.gateway_client.ping_gateway()
@@ -94,8 +108,7 @@ class WalletTrackerDataFeed(NetworkBase):
             wallet,
             list(self._tokens)
         )
-        balance = data['balances']
-        self._wallet_balances[wallet] = {token: Decimal(balance) for token, balance in balance}
+        self._wallet_balances[wallet] = {token: Decimal(balance) for token, balance in data['balances'].items()}
 
     @staticmethod
     async def _async_sleep(delay: float) -> None:
