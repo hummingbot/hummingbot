@@ -78,7 +78,13 @@ async def main_async(client_config_map: ClientConfigAdapter):
 def main():
     chdir_to_data_directory()
     secrets_manager_cls = ETHKeyFileSecretManger
-    ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+
+    try:
+        ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+    except Exception:
+        ev_loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
+        asyncio.set_event_loop(ev_loop)
+
     client_config_map = load_client_config_map_from_file()
     if login_prompt(secrets_manager_cls, style=load_style(client_config_map)):
         ev_loop.run_until_complete(main_async(client_config_map))
