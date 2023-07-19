@@ -287,7 +287,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
         self.create_task(self.data_source.listen_for_order_book_diffs(self.async_loop, msg_queue))
 
-        self.async_run_with_timeout(msg_queue.get())
+        self.async_run_with_timeout(msg_queue.get(), timeout=5)
 
         self.assertTrue(
             self.is_logged(
