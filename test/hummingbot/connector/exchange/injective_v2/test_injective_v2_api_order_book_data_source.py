@@ -282,12 +282,12 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         }
         self.query_executor._spot_order_book_updates.put_nowait(order_book_data)
 
-        self.async_run_with_timeout(self.data_source.listen_for_subscriptions())
+        self.async_run_with_timeout(self.data_source.listen_for_subscriptions(), timeout=5)
 
         msg_queue: asyncio.Queue = asyncio.Queue()
         self.create_task(self.data_source.listen_for_order_book_diffs(self.async_loop, msg_queue))
 
-        self.async_run_with_timeout(msg_queue.get(), timeout=5)
+        self.async_run_with_timeout(msg_queue.get())
 
         self.assertTrue(
             self.is_logged(
