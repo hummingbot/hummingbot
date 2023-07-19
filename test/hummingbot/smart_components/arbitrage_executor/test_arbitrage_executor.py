@@ -142,10 +142,6 @@ class TestArbitrageExecutor(IsolatedAsyncioWrapperTestCase, TestLoggerMixin):
             pass
         self.is_logged("ERROR", "Error calculating profitability: Price not available")
 
-    def test_is_amm(self):
-        self.assertTrue(self.executor.is_amm("uniswap_polygon_mainnet"))
-        self.assertFalse(self.executor.is_amm("binance"))
-
     def test_to_format_status_not_started(self):
         self.executor.arbitrage_status = ArbitrageExecutorStatus.NOT_STARTED
         format_status = "".join(self.executor.to_format_status())
