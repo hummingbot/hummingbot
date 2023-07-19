@@ -41,11 +41,14 @@ class ArbitrageExecutor(SmartComponentBase):
             {"WMATIC", "MATIC"},
             {"WAVAX", "AVAX"},
             {"WONE", "ONE"},
-            {"USDC", "USDC.E"},
         ]
-        return first_token == second_token or any(({first_token, second_token} <= interchangeable_pair
-                                                   for interchangeable_pair
-                                                   in interchangeable_tokens))
+        same_token_condition = first_token == second_token
+        tokens_interchangeable_condition = any(({first_token, second_token} <= interchangeable_pair
+                                                for interchangeable_pair
+                                                in interchangeable_tokens))
+        # for now, we will consider all the stablecoins interchangeable
+        stable_coins_condition = "USD" in first_token and "USD" in second_token
+        return same_token_condition or tokens_interchangeable_condition or stable_coins_condition
 
     def __init__(self, strategy: ScriptStrategyBase, arbitrage_config: ArbitrageConfig, update_interval: float = 0.5):
         if not self.is_arbitrage_valid(pair1=arbitrage_config.buying_market.trading_pair,
@@ -88,7 +91,7 @@ class ArbitrageExecutor(SmartComponentBase):
     @property
     def net_pnl_pct(self) -> Decimal:
         if self.arbitrage_status == ArbitrageExecutorStatus.COMPLETED:
-            return self.net_pnl / self.buy_order.order.executed_amount
+            return self.net_pnl / self.buy_order.order.executed_amount_base
         else:
             return Decimal("0")
 
@@ -120,7 +123,7 @@ class ArbitrageExecutor(SmartComponentBase):
                 if profitability > self.min_profitability:
                     await self.execute_arbitrage()
             except Exception as e:
-                self.logger().error("Error calculating profitability", e)
+                self.logger().error(f"Error calculating profitability: {e}")
         elif self.arbitrage_status == ArbitrageExecutorStatus.ACTIVE_ARBITRAGE:
             if self._cumulative_failures > self.max_retries:
                 self.arbitrage_status = ArbitrageExecutorStatus.FAILED
@@ -161,7 +164,7 @@ class ArbitrageExecutor(SmartComponentBase):
     async def get_tx_cost_pct(self) -> Decimal:
         base, quote = split_hb_trading_pair(trading_pair=self.buying_market.trading_pair)
         # TODO: also due the fact that we don't have a good rate oracle source we have to use a fixed token
-        base_without_wrapped = base.replace("W", "")
+        base_without_wrapped = base[1:] if base.startswith("W") else base
         buy_fee = await self.get_tx_cost_in_asset(
             exchange=self.buying_market.exchange,
             trading_pair=self.buying_market.trading_pair,
@@ -239,16 +242,19 @@ class ArbitrageExecutor(SmartComponentBase):
             self._cumulative_failures += 1
 
     def to_format_status(self):
-        lines = []
-        trade_pnl_pct = (self._last_sell_price - self._last_buy_price) / self._last_buy_price
-        tx_cost_pct = self._last_tx_cost / self.order_amount
-        base, quote = split_hb_trading_pair(trading_pair=self.buying_market.trading_pair)
-        lines.extend([f"""
-Arbitrage Status: {self.arbitrage_status}
-- ARB: {self.buying_market.exchange}:{self.buying_market.trading_pair}  --> {self.selling_market.exchange}:{self.selling_market.trading_pair} | Amount: {self.order_amount:.2f}
-- Trade PnL (%): {trade_pnl_pct * 100:.2f} % | TX Cost (%): -{tx_cost_pct * 100:.2f} % | Net PnL (%): {(trade_pnl_pct - tx_cost_pct) * 100:.2f} %
--------------------------------------------------------------------------------
-"""])
-        if self.arbitrage_status == ArbitrageExecutorStatus.COMPLETED:
-            lines.extend([f"Total Profit (%): {self.net_pnl_pct * 100:.2f} | Total Profit ({quote}): {self.net_pnl:.4f}"])
-        return lines
+        try:
+            lines = []
+            trade_pnl_pct = (self._last_sell_price - self._last_buy_price) / self._last_buy_price
+            tx_cost_pct = self._last_tx_cost / self.order_amount
+            base, quote = split_hb_trading_pair(trading_pair=self.buying_market.trading_pair)
+            lines.extend([f"""
+    Arbitrage Status: {self.arbitrage_status}
+    - ARB: {self.buying_market.exchange}:{self.buying_market.trading_pair}  --> {self.selling_market.exchange}:{self.selling_market.trading_pair} | Amount: {self.order_amount:.2f}
+    - Trade PnL (%): {trade_pnl_pct * 100:.2f} % | TX Cost (%): -{tx_cost_pct * 100:.2f} % | Net PnL (%): {(trade_pnl_pct - tx_cost_pct) * 100:.2f} %
+    -------------------------------------------------------------------------------
+    """])
+            if self.arbitrage_status == ArbitrageExecutorStatus.COMPLETED:
+                lines.extend([f"Total Profit (%): {self.net_pnl_pct * 100:.2f} | Total Profit ({quote}): {self.net_pnl:.4f}"])
+            return lines
+        except Exception:
+            return "There was an error while formatting the status for the executor."
