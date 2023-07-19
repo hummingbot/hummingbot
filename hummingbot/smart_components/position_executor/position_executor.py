@@ -325,7 +325,7 @@ class PositionExecutor(SmartComponentBase):
     def early_stop(self):
         if self.executor_status == PositionExecutorStatus.ACTIVE_POSITION:
             self.place_close_order(close_type=CloseType.EARLY_STOP)
-        elif self.executor_status == PositionExecutorStatus.NOT_STARTED:
+        elif self.executor_status == PositionExecutorStatus.NOT_STARTED and self._open_order.order_id:
             self._strategy.cancel(
                 connector_name=self.exchange,
                 trading_pair=self.trading_pair,
