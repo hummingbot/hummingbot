@@ -50,22 +50,22 @@ class FixedGrid(ScriptStrategyBase):
     def __init__(self, connectors: Dict[str, ConnectorBase]):
         super().__init__(connectors)
 
-        self.minimum_spread = (self.grid_price_ceiling - self.grid_price_floor) / (1 + 2*sum([pow(self.spread_scale_factor, n) for n in range(1, int(self.n_levels / 2))]))
+        self.minimum_spread = (self.grid_price_ceiling - self.grid_price_floor) / (1 + 2 * sum([pow(self.spread_scale_factor, n) for n in range(1, int(self.n_levels / 2))]))
         self.price_levels.append(self.grid_price_floor)
         for i in range(2, int(self.n_levels / 2) + 1):
-            price = self.grid_price_floor + self.minimum_spread*sum([pow(self.spread_scale_factor, int(self.n_levels / 2) - n) for n in range(1, i)])
+            price = self.grid_price_floor + self.minimum_spread * sum([pow(self.spread_scale_factor, int(self.n_levels / 2) - n) for n in range(1, i)])
             self.price_levels.append(price)
         for i in range(1, int(self.n_levels / 2) + 1):
-            self.order_amount_levels.append(self.order_amount*pow(self.amount_scale_factor, int(self.n_levels / 2) - i))
+            self.order_amount_levels.append(self.order_amount * pow(self.amount_scale_factor, int(self.n_levels / 2) - i))
 
         for i in range(int(self.n_levels / 2) + 1, self.n_levels + 1):
-            price = self.price_levels[int(self.n_levels / 2) - 1] + self.minimum_spread*sum([pow(self.spread_scale_factor, n) for n in range(0, i - int(self.n_levels / 2))])
+            price = self.price_levels[int(self.n_levels / 2) - 1] + self.minimum_spread * sum([pow(self.spread_scale_factor, n) for n in range(0, i - int(self.n_levels / 2))])
             self.price_levels.append(price)
-            self.order_amount_levels.append(self.order_amount*pow(self.amount_scale_factor, i - int(self.n_levels / 2) - 1))
+            self.order_amount_levels.append(self.order_amount * pow(self.amount_scale_factor, i - int(self.n_levels / 2) - 1))
 
         for i in range(1, self.n_levels + 1):
             self.base_inv_levels.append(sum(self.order_amount_levels[i:self.n_levels]))
-            self.quote_inv_levels.append(sum([self.price_levels[n]*self.order_amount_levels[n] for n in range(0, i - 1)]))
+            self.quote_inv_levels.append(sum([self.price_levels[n] * self.order_amount_levels[n] for n in range(0, i - 1)]))
         for i in range(self.n_levels):
             self.quote_inv_levels_current_price.append(self.quote_inv_levels[i] / self.price_levels[i])
 
@@ -114,7 +114,7 @@ class FixedGrid(ScriptStrategyBase):
                     # Calculate additional base required with 5% tolerance
                     base_required = (Decimal(self.base_inv_levels[self.current_level]) - Decimal(base_balance)) * Decimal(1.05)
                     self.rebalance_order_buy = True
-                    self.rebalance_order_amount = Decimal(base_required)                  
+                    self.rebalance_order_amount = Decimal(base_required)
             elif quote_balance < self.quote_inv_levels_current_price[self.current_level]:
                 self.inv_correct = False
                 msg = (f"WARNING: Insuffient {quote_asset} balance for grid bot. Will attempt to rebalance")
@@ -127,7 +127,7 @@ class FixedGrid(ScriptStrategyBase):
                     self.notify_hb_app_with_timestamp(msg)
                     return
                 else:
-                    # Calculate additional quote required with 5% tolerance 
+                    # Calculate additional quote required with 5% tolerance
                     quote_required = (Decimal(self.quote_inv_levels_current_price[self.current_level]) - Decimal(quote_balance)) * Decimal(1.05)
                     self.rebalance_order_buy = False
                     self.rebalance_order_amount = Decimal(quote_required)
@@ -158,7 +158,7 @@ class FixedGrid(ScriptStrategyBase):
                                            order_side=TradeType.BUY, amount=size, price=price)
                 buys.append(buy_order)
 
-        for i in range(self.current_level + 1,self.n_levels):
+        for i in range(self.current_level + 1, self.n_levels):
             price = self.price_levels[i]
             size = self.order_amount_levels[i]
             if size > 0:
@@ -177,7 +177,7 @@ class FixedGrid(ScriptStrategyBase):
             ref_price = self.connectors[self.exchange].get_price_by_type(self.trading_pair, self.price_source)
             price = ref_price * (Decimal("100") - self.rebalance_order_spread) / Decimal("100")
             size = self.rebalance_order_amount
-            
+
             msg = (f"Placing buy order to rebalance; amount: {size}, price: {price}")
             self.log_with_clock(logging.INFO, msg)
             self.notify_hb_app_with_timestamp(msg)
@@ -189,7 +189,7 @@ class FixedGrid(ScriptStrategyBase):
                     buy_order = OrderCandidate(trading_pair=self.trading_pair, is_maker=True, order_type=OrderType.MARKET,
                                                order_side=TradeType.BUY, amount=size, price=price)
                 buys.append(buy_order)
-        
+
         if self.rebalance_order_buy is False:
             ref_price = self.connectors[self.exchange].get_price_by_type(self.trading_pair, self.price_source)
             price = ref_price * (Decimal("1") + self.rebalance_order_spread) / Decimal("100")
@@ -207,7 +207,6 @@ class FixedGrid(ScriptStrategyBase):
                 sells.append(sell_order)
 
         return buys + sells
-    
 
     def did_fill_order(self, event: OrderFilledEvent):
         msg = (f"{event.trade_type.name} {round(event.amount, 2)} {event.trading_pair} {self.exchange} at {round(event.price, 2)}")
@@ -253,15 +252,15 @@ class FixedGrid(ScriptStrategyBase):
             next_cycle = self.current_timestamp + self.grid_orders_refresh_time
             if self.create_timestamp <= self.current_timestamp:
                 self.create_timestamp = next_cycle
-                
+
     def place_order(self, connector_name: str, order: OrderCandidate):
         if order.order_side == TradeType.SELL:
             self.sell(connector_name=connector_name, trading_pair=order.trading_pair, amount=order.amount,
                       order_type=order.order_type, price=order.price)
         elif order.order_side == TradeType.BUY:
             self.buy(connector_name=connector_name, trading_pair=order.trading_pair, amount=order.amount,
-                     order_type=order.order_type, price=order.price)           
-    
+                     order_type=order.order_type, price=order.price)
+
     def grid_assets_df(self) -> pd.DataFrame:
         market, trading_pair, base_asset, quote_asset = self.get_market_trading_pair_tuples()[0]
         price = self.connectors[self.exchange].get_price_by_type(self.trading_pair, self.price_source)
@@ -273,7 +272,7 @@ class FixedGrid(ScriptStrategyBase):
         total_in_quote = base_value + quote_balance
         base_ratio = base_value / total_in_quote if total_in_quote > 0 else 0
         quote_ratio = quote_balance / total_in_quote if total_in_quote > 0 else 0
-        data=[
+        data = [
             ["", base_asset, quote_asset],
             ["Total Balance", round(base_balance, 4), round(quote_balance, 4)],
             ["Available Balance", round(available_base_balance, 4), round(available_quote_balance, 4)],
@@ -290,7 +289,7 @@ class FixedGrid(ScriptStrategyBase):
         market, trading_pair, base_asset, quote_asset = self.get_market_trading_pair_tuples()[0]
         base_balance = float(market.get_balance(base_asset))
         quote_balance = float(market.get_balance(quote_asset) / self.price_levels[self.current_level])
-                
+
         grid_data.append(["Grid spread", round(self.grid_spread, 4)])
         grid_data.append(["Current grid level", self.current_level + 1])
         grid_data.append([f"{base_asset} required", round(self.base_inv_levels[self.current_level], 4)])
@@ -301,11 +300,10 @@ class FixedGrid(ScriptStrategyBase):
 
         return pd.DataFrame(data=grid_data, columns=grid_columns).replace(np.nan, '', regex=True)
 
-
     def format_status(self) -> str:
         """
          Displays the status of the Fixed Grid strategy
-         Returns status of the current strategy on user balances and current active orders. 
+         Returns status of the current strategy on user balances and current active orders.
          """
         if not self.ready_to_trade:
             return "Market connectors are not ready."
