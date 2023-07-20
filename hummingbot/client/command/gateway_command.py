@@ -400,17 +400,22 @@ class GatewayCommand(GatewayChainApiManager):
         chain_network_address_to_connector_tokens: Dict(Tuple[str, str, str], Dict[str, List[str]]) = {}
         for conf in gateway_connections_conf:
             if (conf["chain"], conf["network"], conf["wallet_address"]) not in chain_network_address_to_connector_tokens:
-                chain_network_address_to_connector_tokens[(conf["chain"], conf["network"], conf["wallet_address"])] = {conf["connector"]: conf["tokens"]}
+                chain_network_address_to_connector_tokens[(conf["chain"], conf["network"], conf["wallet_address"])] = {conf["connector"]: conf.get("tokens", [])}
             else:
-                chain_network_address_to_connector_tokens[(conf["chain"], conf["network"], conf["wallet_address"])][conf["connector"]] = conf["tokens"]
+                chain_network_address_to_connector_tokens[(conf["chain"], conf["network"], conf["wallet_address"])][conf["connector"]] = conf.get("tokens", [])
 
         # get balances and allowances for each chain-network-address tuple and display them in a table format
-        for chain_network_address, connector_to_tokens in chain_network_address_to_connector_tokens:
+        for chain_network_address, connector_to_tokens in chain_network_address_to_connector_tokens.items():
 
             self.notify(f"wallet: {chain_network_address[2]}")
             self.notify(f"chain-network: {chain_network_address[0]}-{chain_network_address[1]}")
 
             all_tokens = list(set(list(itertools.chain.from_iterable(connector_to_tokens.values()))))
+
+            if len(all_tokens) < 1:
+                self.notify("No tokens to report balances and allowances for.\n")
+                return
+
             token_balances: Dict[str, Any] = await self._get_gateway_instance().get_balances(
                 *chain_network_address, all_tokens
             )
