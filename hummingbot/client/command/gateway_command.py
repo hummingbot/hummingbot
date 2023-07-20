@@ -394,15 +394,20 @@ class GatewayCommand(GatewayChainApiManager):
         # get gateway connections
         gateway_connections_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
         if len(gateway_connections_conf) < 1:
-            self.notify("No existing connection.\n")
+            self.notify("No existing gateway connection.\n")
             return
 
         chain_network_address_to_connector_tokens: Dict(Tuple[str, str, str], Dict[str, List[str]]) = {}
         for conf in gateway_connections_conf:
             if (conf["chain"], conf["network"], conf["wallet_address"]) not in chain_network_address_to_connector_tokens:
-                chain_network_address_to_connector_tokens[(conf["chain"], conf["network"], conf["wallet_address"])] = {conf["connector"]: conf.get("tokens", [])}
+                tokens_str = conf.get('tokens', '')
+                if tokens_str == "":
+                    tokens = []
+                else:
+                    tokens = [token.strip() for token in tokens_str.split(',')]
+                chain_network_address_to_connector_tokens[(conf["chain"], conf["network"], conf["wallet_address"])] = {conf["connector"]: tokens}
             else:
-                chain_network_address_to_connector_tokens[(conf["chain"], conf["network"], conf["wallet_address"])][conf["connector"]] = conf.get("tokens", [])
+                chain_network_address_to_connector_tokens[(conf["chain"], conf["network"], conf["wallet_address"])][conf["connector"]] = tokens
 
         # get balances and allowances for each chain-network-address tuple and display them in a table format
         for chain_network_address, connector_to_tokens in chain_network_address_to_connector_tokens.items():
@@ -428,14 +433,14 @@ class GatewayCommand(GatewayChainApiManager):
                 )
                 connector_to_token_allowances[connector] = token_allowances
 
-            allowances: List[str] = {}
+            allowances: List[str] = []
             for token in all_tokens:
                 allowance_str = ""
                 for connector, token_allowances in connector_to_token_allowances.items():
                     if token in token_allowances:
                         allowance_str += f"{connector}: {token_allowances[token]} | "
-
-                allowances.append(allowance_str[:-3])
+                allowance_str = "None" if allowance_str == "" else allowance_str[:-3]
+                allowances.append(allowance_str)
 
             balances_allowances_df: pd.DataFrame = build_balances_allowances_display(all_tokens, balances, allowances)
 
