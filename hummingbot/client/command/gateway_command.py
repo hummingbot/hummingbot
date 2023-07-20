@@ -18,6 +18,7 @@ from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.gateway.gateway_status_monitor import GatewayStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import (
+    build_balances_allowances_display,
     build_config_dict_display,
     build_connector_display,
     build_connector_tokens_display,
@@ -49,6 +50,10 @@ class GatewayCommand(GatewayChainApiManager):
     @ensure_gateway_online
     def gateway_status(self):
         safe_ensure_future(self._gateway_status(), loop=self.ev_loop)
+
+    @ensure_gateway_online
+    def gateway_balance(self):
+        safe_ensure_future(self._gateway_balance(), loop=self.ev_loop)
 
     @ensure_gateway_online
     def gateway_connector_tokens(self, connector_chain_network: Optional[str], new_tokens: Optional[str]):
@@ -384,6 +389,54 @@ class GatewayCommand(GatewayChainApiManager):
         )
         wallet_address: str = response["address"]
         return wallet_address, additional_prompt_values
+
+    async def _gateway_balance(self):
+        # get gateway connections
+        gateway_connections_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
+        if len(gateway_connections_conf) < 1:
+            self.notify("No existing connection.\n")
+            return
+
+        chain_network_address_to_connector_tokens: Dict(Tuple[str, str, str], Dict[str, List[str]]) = {}
+        for conf in gateway_connections_conf:
+            if (conf["chain"], conf["network"], conf["wallet_address"]) not in chain_network_address_to_connector_tokens:
+                chain_network_address_to_connector_tokens[(conf["chain"], conf["network"], conf["wallet_address"])] = {conf["connector"]: conf["tokens"]}
+            else:
+                chain_network_address_to_connector_tokens[(conf["chain"], conf["network"], conf["wallet_address"])][conf["connector"]] = conf["tokens"]
+
+        # get balances and allowances for each chain-network-address tuple and display them in a table format
+        for chain_network_address, connector_to_tokens in chain_network_address_to_connector_tokens:
+
+            self.notify(f"wallet: {chain_network_address[2]}")
+            self.notify(f"chain-network: {chain_network_address[0]}-{chain_network_address[1]}")
+
+            all_tokens = list(set(list(itertools.chain.from_iterable(connector_to_tokens.values()))))
+            token_balances: Dict[str, Any] = await self._get_gateway_instance().get_balances(
+                *chain_network_address, all_tokens
+            )
+            balances: List[str] = [str(token_balances.get(token)) for token in all_tokens]
+
+            connector_to_token_allowances: Dict[str, Dict[str, Any]] = {}
+            for connector, tokens in connector_to_tokens.items():
+                token_allowances: Dict[str, Any] = await self._get_gateway_instance().get_allowances(
+                    *chain_network_address, tokens, connector
+                )
+                connector_to_token_allowances[connector] = token_allowances
+
+            allowances: List[str] = {}
+            for token in all_tokens:
+                allowance_str = ""
+                for connector, token_allowances in connector_to_token_allowances.items():
+                    if token in token_allowances:
+                        allowance_str += f"{connector}: {token_allowances[token]} | "
+
+                allowances.append(allowance_str[:-3])
+
+            balances_allowances_df: pd.DataFrame = build_balances_allowances_display(all_tokens, balances, allowances)
+
+            # display balances and allowances for each chain-network-address tuple in a table format
+            balances_allowances_df: pd.DataFrame = build_balances_allowances_display(all_tokens, balances, allowances)
+            self.notify(balances_allowances_df.to_string(index=False))
 
     async def _show_gateway_connector_tokens(
             self,           # type: HummingbotApplication
