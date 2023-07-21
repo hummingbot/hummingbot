@@ -397,6 +397,8 @@ class GatewayCommand(GatewayChainApiManager):
             self.notify("No existing gateway connection.\n")
             return
 
+        self.notify("Updating gateway balances and allowances, please wait...")
+
         chain_network_address_to_connector_tokens: Dict(Tuple[str, str, str], Dict[str, List[str]]) = {}
         for conf in gateway_connections_conf:
             tokens_str = conf.get('tokens', '')
@@ -412,14 +414,12 @@ class GatewayCommand(GatewayChainApiManager):
         # get balances and allowances for each chain-network-address tuple and display them in a table format
         for chain_network_address, connector_to_tokens in chain_network_address_to_connector_tokens.items():
 
-            self.notify(f"wallet: {chain_network_address[2]}")
+            self.notify(f"\nwallet: {chain_network_address[2]}")
             self.notify(f"chain-network: {chain_network_address[0]}-{chain_network_address[1]}")
 
             all_tokens = list(set(list(itertools.chain.from_iterable(connector_to_tokens.values()))))
-
-            if len(all_tokens) < 1:
-                self.notify("No tokens to report balances and allowances for.\n")
-                continue
+            native_token: str = native_tokens[chain_network_address[0]]
+            all_tokens = list(set(all_tokens + [native_token]))
 
             token_balances: Dict[str, Any] = await self._get_gateway_instance().get_balances(
                 *chain_network_address, all_tokens
