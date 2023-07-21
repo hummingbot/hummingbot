@@ -399,12 +399,12 @@ class GatewayCommand(GatewayChainApiManager):
 
         chain_network_address_to_connector_tokens: Dict(Tuple[str, str, str], Dict[str, List[str]]) = {}
         for conf in gateway_connections_conf:
+            tokens_str = conf.get('tokens', '')
+            if tokens_str == "":
+                tokens = []
+            else:
+                tokens = [token.strip() for token in tokens_str.split(',')]
             if (conf["chain"], conf["network"], conf["wallet_address"]) not in chain_network_address_to_connector_tokens:
-                tokens_str = conf.get('tokens', '')
-                if tokens_str == "":
-                    tokens = []
-                else:
-                    tokens = [token.strip() for token in tokens_str.split(',')]
                 chain_network_address_to_connector_tokens[(conf["chain"], conf["network"], conf["wallet_address"])] = {conf["connector"]: tokens}
             else:
                 chain_network_address_to_connector_tokens[(conf["chain"], conf["network"], conf["wallet_address"])][conf["connector"]] = tokens
