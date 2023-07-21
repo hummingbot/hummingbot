@@ -419,7 +419,7 @@ class GatewayCommand(GatewayChainApiManager):
 
             if len(all_tokens) < 1:
                 self.notify("No tokens to report balances and allowances for.\n")
-                return
+                continue
 
             token_balances: Dict[str, Any] = await self._get_gateway_instance().get_balances(
                 *chain_network_address, all_tokens
