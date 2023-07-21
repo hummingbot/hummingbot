@@ -19,7 +19,6 @@ from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.gateway.gateway_status_monitor import GatewayStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.gateway_config_utils import (
-    build_balances_allowances_display,
     build_config_dict_display,
     build_connector_display,
     build_connector_tokens_display,
@@ -418,6 +417,8 @@ class GatewayCommand(GatewayChainApiManager):
             self.notify(f"\nwallet: {chain_network_address[2]}")
             self.notify(f"chain-network: {chain_network_address[0]}-{chain_network_address[1]}")
 
+            connectors: List[str] = list(connector_to_tokens.keys())
+
             all_tokens = list(set(list(itertools.chain.from_iterable(connector_to_tokens.values()))))
             native_token: str = native_tokens[chain_network_address[0]]
             all_tokens = list(set(all_tokens + [native_token]))
@@ -435,19 +436,17 @@ class GatewayCommand(GatewayChainApiManager):
                 )
                 connector_to_token_allowances[connector] = token_allowances.get("approvals", {})
 
-            allowances: List[str] = []
-            for token in all_tokens:
-                allowance_str = ""
-                for connector, token_allowances in connector_to_token_allowances.items():
-                    if token in token_allowances:
-                        allowance_str += f"{connector}: {token_allowances[token]} | "
-                allowance_str = "None" if allowance_str == "" else allowance_str[:-3]
-                allowances.append(allowance_str)
+            raw_data: List[List[str]] = [all_tokens, balances]
+            for connector in connectors:
+                raw_data.append([str(round(Decimal(connector_to_token_allowances[connector].get(token, "0")), 4)) for token in all_tokens])
 
-            balances_allowances_df: pd.DataFrame = build_balances_allowances_display(all_tokens, balances, allowances)
+            data = []
+            columns: List[str] = ["Symbol", "Balance", *connectors]
+            for i in range(len(raw_data[0])):
+                data.append([raw_data[j][i] for j in range(len(raw_data))])
 
             # display balances and allowances for each chain-network-address tuple in a table format
-            balances_allowances_df: pd.DataFrame = build_balances_allowances_display(all_tokens, balances, allowances)
+            balances_allowances_df: pd.DataFrame = pd.DataFrame(data=data, columns=columns)
             self.notify(balances_allowances_df.to_string(index=False))
 
     async def _show_gateway_connector_tokens(
