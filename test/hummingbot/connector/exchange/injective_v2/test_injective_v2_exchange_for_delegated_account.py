@@ -16,8 +16,12 @@ from pyinjective.wallet import Address, PrivateKey
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.exchange.injective_v2 import injective_constants as CONSTANTS
 from hummingbot.connector.exchange.injective_v2.injective_v2_exchange import InjectiveV2Exchange
+from hummingbot.connector.exchange.injective_v2.injective_v2_utils import (
+    InjectiveConfigMap,
+    InjectiveDelegatedAccountMode,
+    InjectiveTestnetNetworkMode,
+)
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
 from hummingbot.connector.trading_rule import TradingRule
@@ -375,15 +379,24 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
     def create_exchange_instance(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
+        network_config = InjectiveTestnetNetworkMode()
+
+        account_config = InjectiveDelegatedAccountMode(
+            private_key=self.trading_account_private_key,
+            subaccount_index=self.trading_account_subaccount_index,
+            granter_address=self.portfolio_account_injective_address,
+            granter_subaccount_index=self.portfolio_account_subaccount_index,
+        )
+
+        injective_config = InjectiveConfigMap(
+            network=network_config,
+            account_type=account_config,
+        )
 
         exchange = InjectiveV2Exchange(
             client_config_map=client_config_map,
-            injective_private_key=self.trading_account_private_key,
-            injective_subaccount_index=self.trading_account_subaccount_index,
-            injective_granter_address=self.portfolio_account_injective_address,
-            injective_granter_subaccount_index=self.portfolio_account_subaccount_index,
+            connector_configuration=injective_config,
             trading_pairs=[self.trading_pair],
-            domain=CONSTANTS.TESTNET_DOMAIN,
         )
 
         exchange._data_source._query_executor = ProgrammableQueryExecutor()
@@ -1187,14 +1200,24 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
     def test_user_stream_balance_update(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
+        network_config = InjectiveTestnetNetworkMode()
+
+        account_config = InjectiveDelegatedAccountMode(
+            private_key=self.trading_account_private_key,
+            subaccount_index=self.trading_account_subaccount_index,
+            granter_address=self.portfolio_account_injective_address,
+            granter_subaccount_index=1,
+        )
+
+        injective_config = InjectiveConfigMap(
+            network=network_config,
+            account_type=account_config,
+        )
+
         exchange_with_non_default_subaccount = InjectiveV2Exchange(
             client_config_map=client_config_map,
-            injective_private_key=self.trading_account_private_key,
-            injective_subaccount_index=self.trading_account_subaccount_index,
-            injective_granter_address=self.portfolio_account_injective_address,
-            injective_granter_subaccount_index=1,
+            connector_configuration=injective_config,
             trading_pairs=[self.trading_pair],
-            domain=CONSTANTS.TESTNET_DOMAIN,
         )
 
         exchange_with_non_default_subaccount._data_source._query_executor = self.exchange._data_source._query_executor

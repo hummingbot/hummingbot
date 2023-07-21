@@ -22,6 +22,7 @@ class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
         self._public_spot_trade_updates = asyncio.Queue()
         self._subaccount_balance_events = asyncio.Queue()
         self._historical_spot_order_events = asyncio.Queue()
+        self._transaction_events = asyncio.Queue()
 
     async def ping(self):
         response = await self._ping_responses.get()
@@ -96,4 +97,9 @@ class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
     ):
         while True:
             next_event = await self._historical_spot_order_events.get()
+            yield next_event
+
+    async def transactions_stream(self,):
+        while True:
+            next_event = await self._transaction_events.get()
             yield next_event
