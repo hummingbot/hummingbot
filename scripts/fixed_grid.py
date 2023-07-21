@@ -1,19 +1,16 @@
 import logging
 from decimal import Decimal
-from typing import List, Dict
-import pandas as pd
-import numpy as np
+from typing import Dict, List
 
+import numpy as np
+import pandas as pd
+
+from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PriceType, TradeType
 from hummingbot.core.data_type.order_candidate import OrderCandidate
-from hummingbot.core.event.events import (
-    OrderFilledEvent,
-    BuyOrderCompletedEvent,
-    SellOrderCompletedEvent,
-)
-from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
-from hummingbot.connector.connector_base import ConnectorBase
+from hummingbot.core.event.events import BuyOrderCompletedEvent, OrderFilledEvent, SellOrderCompletedEvent
 from hummingbot.core.utils import map_df_to_str
+from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
 class FixedGrid(ScriptStrategyBase):
