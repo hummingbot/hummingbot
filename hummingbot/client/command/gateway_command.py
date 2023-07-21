@@ -2,6 +2,7 @@
 import asyncio
 import itertools
 import time
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import pandas as pd
@@ -424,14 +425,15 @@ class GatewayCommand(GatewayChainApiManager):
             token_balances: Dict[str, Any] = await self._get_gateway_instance().get_balances(
                 *chain_network_address, all_tokens
             )
-            balances: List[str] = [str(token_balances.get(token)) for token in all_tokens]
+            token_balances = token_balances.get("balances", {})
+            balances: List[str] = [str(round(Decimal(token_balances.get(token, "0")), 4)) for token in all_tokens]
 
             connector_to_token_allowances: Dict[str, Dict[str, Any]] = {}
             for connector, tokens in connector_to_tokens.items():
                 token_allowances: Dict[str, Any] = await self._get_gateway_instance().get_allowances(
                     *chain_network_address, tokens, connector
                 )
-                connector_to_token_allowances[connector] = token_allowances
+                connector_to_token_allowances[connector] = token_allowances.get("approvals", {})
 
             allowances: List[str] = []
             for token in all_tokens:
@@ -488,7 +490,7 @@ class GatewayCommand(GatewayChainApiManager):
             self.notify(f"'{connector_chain_network}' is not available. You can add and review available gateway connectors with the command 'gateway connect'.")
         else:
             GatewayConnectionSetting.upsert_connector_spec_tokens(connector_chain_network, new_tokens)
-            self.notify(f"The 'balance' command will now report token balances {new_tokens} for '{connector_chain_network}'.")
+            self.notify(f"The 'gateway balance' command will now report token balances {new_tokens} for '{connector_chain_network}'.")
 
     async def _gateway_list(
         self           # type: HummingbotApplication
