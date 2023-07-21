@@ -302,7 +302,7 @@ class FixedGrid(ScriptStrategyBase):
 
     def format_status(self) -> str:
         """
-         Displays the status of the Fixed Grid strategy
+         Displays the status of the fixed grid strategy
          Returns status of the current strategy on user balances and current active orders.
          """
         if not self.ready_to_trade:
