@@ -438,12 +438,16 @@ class GatewayCommand(GatewayChainApiManager):
 
             raw_data: List[List[str]] = [all_tokens, balances]
             for connector in connectors:
-                raw_data.append([str(round(Decimal(connector_to_token_allowances[connector].get(token, "0")), 4)) for token in all_tokens])
+                raw_data.append([str(round(Decimal(connector_to_token_allowances[connector].get(token, "NaN")), 4)) for token in all_tokens])
 
             data = []
             columns: List[str] = ["Symbol", "Balance", *connectors]
             for i in range(len(raw_data[0])):
-                data.append([raw_data[j][i] for j in range(len(raw_data))])
+                data.extend([
+                    [
+                        raw_data[j][i] for j in range(len(raw_data))
+                    ]
+                ])
 
             # display balances and allowances for each chain-network-address tuple in a table format
             balances_allowances_df: pd.DataFrame = pd.DataFrame(data=data, columns=columns)
