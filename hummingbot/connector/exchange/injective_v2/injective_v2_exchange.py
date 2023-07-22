@@ -857,10 +857,11 @@ class InjectiveV2Exchange(ExchangePyBase):
         orders_with_inconsistent_hash = []
 
         for order in orders:
-            if order.creation_transaction_hash is not None and order.current_state == OrderState.PENDING_CREATE:
+            if order.creation_transaction_hash is not None and order.is_pending_create:
                 orders_by_creation_tx[order.creation_transaction_hash].append(order)
 
         for transaction_hash, orders in orders_by_creation_tx.items():
+            all_orders = orders.copy()
             try:
                 order_updates = await self._data_source.order_updates_for_transaction(
                     transaction_hash=transaction_hash, transaction_orders=orders
@@ -868,19 +869,25 @@ class InjectiveV2Exchange(ExchangePyBase):
 
                 for order_update in order_updates:
                     tracked_order = self._order_tracker.active_orders.get(order_update.client_order_id)
-                    if (tracked_order is not None
-                            and tracked_order.exchange_order_id is not None
-                            and tracked_order.exchange_order_id != order_update.exchange_order_id):
-                        tracked_order.update_exchange_order_id(order_update.exchange_order_id)
-                        orders_with_inconsistent_hash.append(tracked_order)
+                    if tracked_order is not None:
+                        all_orders.remove(tracked_order)
+                        if (tracked_order.exchange_order_id is not None
+                                and tracked_order.exchange_order_id != order_update.exchange_order_id):
+                            tracked_order.update_exchange_order_id(order_update.exchange_order_id)
+                            orders_with_inconsistent_hash.append(tracked_order)
                     self._order_tracker.process_order_update(order_update=order_update)
+
+                for not_found_order in all_orders:
+                    self._update_order_after_failure(
+                        order_id=not_found_order.client_order_id,
+                        trading_pair=not_found_order.trading_pair
+                    )
+
             except ValueError:
                 self.logger().debug(f"Transaction not included in a block yet ({transaction_hash})")
 
         if len(orders_with_inconsistent_hash) > 0:
             async with self._data_source.order_creation_lock:
-                for order in orders_with_inconsistent_hash:
-                    self._update_order_after_failure(order_id=order.client_order_id, trading_pair=order.trading_pair)
                 active_orders = [
                     order for order in self._order_tracker.active_orders.values()
                     if order not in orders_with_inconsistent_hash and order.current_state == OrderState.PENDING_CREATE
@@ -900,6 +907,11 @@ class InjectiveV2Exchange(ExchangePyBase):
             )
 
             for order_update in order_updates:
+                tracked_order = self._order_tracker.active_orders.get(order_update.client_order_id)
+                if (tracked_order is not None
+                        and tracked_order.exchange_order_id is not None
+                        and tracked_order.exchange_order_id != order_update.exchange_order_id):
+                    tracked_order.update_exchange_order_id(order_update.exchange_order_id)
                 self._order_tracker.process_order_update(order_update=order_update)
 
     async def _process_queued_orders(self):
