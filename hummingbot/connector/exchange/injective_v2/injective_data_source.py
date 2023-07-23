@@ -1029,7 +1029,7 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         async with self.throttler.execute_task(limit_id=CONSTANTS.GET_TRANSACTION_LIMIT_ID):
             transaction_info = await self.query_executor.get_tx_by_hash(tx_hash=transaction_hash)
 
-        return str(base64.b64decode(transaction_info["data"]["logs"]))
+        return str(base64.b64decode(transaction_info["data"]["data"]))
 
     async def timeout_height(self) -> int:
         if not self._is_timeout_height_initialized:
