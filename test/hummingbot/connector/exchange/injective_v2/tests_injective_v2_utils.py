@@ -4,8 +4,10 @@ from pyinjective import Address, PrivateKey
 from pyinjective.constant import Network
 
 import hummingbot.connector.exchange.injective_v2.injective_v2_utils as utils
-from hummingbot.connector.exchange.injective_v2.injective_data_source import (
+from hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source import (
     InjectiveGranteeDataSource,
+)
+from hummingbot.connector.exchange.injective_v2.data_sources.injective_vaults_data_source import (
     InjectiveVaultsDataSource,
 )
 from hummingbot.connector.exchange.injective_v2.injective_v2_utils import (

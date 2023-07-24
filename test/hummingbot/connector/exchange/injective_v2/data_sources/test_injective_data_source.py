@@ -10,7 +10,12 @@ from unittest.mock import patch
 from pyinjective.constant import Network
 from pyinjective.wallet import Address, PrivateKey
 
-from hummingbot.connector.exchange.injective_v2.injective_data_source import InjectiveDataSource
+from hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source import (
+    InjectiveGranteeDataSource,
+)
+from hummingbot.connector.exchange.injective_v2.data_sources.injective_vaults_data_source import (
+    InjectiveVaultsDataSource,
+)
 from hummingbot.connector.exchange.injective_v2.injective_market import InjectiveSpotMarket
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -31,7 +36,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
         _, grantee_private_key = PrivateKey.generate()
         _, granter_private_key = PrivateKey.generate()
 
-        self.data_source = InjectiveDataSource.for_grantee(
+        self.data_source = InjectiveGranteeDataSource(
             private_key=grantee_private_key.to_hex(),
             subaccount_index=0,
             granter_address=Address(bytes.fromhex(granter_private_key.to_public_key().to_hex())).to_acc_bech32(),
@@ -367,7 +372,7 @@ class InjectiveVaultsDataSourceTests(TestCase):
         _, self._grantee_private_key = PrivateKey.generate()
         self._vault_address = "inj1zlwdkv49rmsug0pnwu6fmwnl267lfr34yvhwgp"
 
-        self.data_source = InjectiveDataSource.for_vault(
+        self.data_source = InjectiveVaultsDataSource(
             private_key=self._grantee_private_key.to_hex(),
             subaccount_index=0,
             vault_contract_address=self._vault_address,
