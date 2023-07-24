@@ -7,14 +7,16 @@ from pydantic.class_validators import validator
 from pyinjective.constant import Network
 
 from hummingbot.client.config.config_data_types import BaseClientModel, BaseConnectorConfigMap, ClientFieldData
-from hummingbot.connector.exchange.injective_v2.injective_data_source import (
+from hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source import (
     InjectiveGranteeDataSource,
+)
+from hummingbot.connector.exchange.injective_v2.data_sources.injective_vaults_data_source import (
     InjectiveVaultsDataSource,
 )
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 if TYPE_CHECKING:
-    from hummingbot.connector.exchange.injective_v2.injective_data_source import InjectiveDataSource
+    from hummingbot.connector.exchange.injective_v2.data_sources.injective_data_source import InjectiveDataSource
 
 CENTRALIZED = False
 EXAMPLE_PAIR = "INJ-USDT"
@@ -262,7 +264,10 @@ ACCOUNT_MODES = {
 
 class InjectiveConfigMap(BaseConnectorConfigMap):
     connector: str = Field(default="injective_v2", const=True, client_data=None)
-    receive_connector_configuration: bool = Field(default=True, const=True, client_data=None)
+    receive_connector_configuration: bool = Field(
+        default=True, const=True,
+        client_data=ClientFieldData(),
+    )
     network: Union[tuple(NETWORK_MODES.values())] = Field(
         default=InjectiveMainnetNetworkMode(),
         client_data=ClientFieldData(

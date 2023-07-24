@@ -312,7 +312,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
             )
         )
 
-    @patch("hummingbot.connector.exchange.injective_v2.injective_data_source.InjectiveGranteeDataSource._initialize_timeout_height")
+    @patch("hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source.InjectiveGranteeDataSource._initialize_timeout_height")
     def test_listen_for_order_book_diffs_successful(self, _):
         spot_markets_response = self._spot_markets_response()
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
