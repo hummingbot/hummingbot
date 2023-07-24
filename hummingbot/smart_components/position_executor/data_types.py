@@ -1,4 +1,3 @@
-import time
 from enum import Enum
 from typing import Optional
 
@@ -15,6 +14,7 @@ class TrailingStop(BaseModel):
 
 
 class PositionConfig(BaseModel):
+    timestamp: float
     trading_pair: str
     exchange: str
     side: TradeType
@@ -24,7 +24,6 @@ class PositionConfig(BaseModel):
     trailing_stop: Optional[TrailingStop] = None
     time_limit: Optional[int] = None
     entry_price: Optional[Decimal] = None
-    timestamp: float = time.time()
     open_order_type: OrderType = OrderType.MARKET
     take_profit_order_type: OrderType = OrderType.MARKET
     stop_loss_order_type: OrderType = OrderType.MARKET
