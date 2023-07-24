@@ -57,7 +57,7 @@ class LoggerMixinForTest(Handler):
         """
         Initialize the test logger mixin by setting the default log level and initializing the log records list.
         """
-        self.level = 1
+        self.level: _IntOrStr = 1
         self.log_records: List[LogRecord] = []
 
     @staticmethod
@@ -94,16 +94,19 @@ class LoggerMixinForTest(Handler):
         """
         self.log_records.append(record)
 
-    def is_logged(self, log_level: _IntOrStr, message: str):
+    def is_logged(self, log_level: _IntOrStr, message: str) -> bool:
         """
         Check if a certain message has been logged at a certain level.
         :params int | str log_level: The log level to check.
         :params str message: The message to check.
         """
         log_level = self._to_loglevel(log_level)
-        return any([record.getMessage() == message and record.levelname == log_level for record in self.log_records])
+        return any(
+            record.getMessage() == message and record.levelname == log_level
+            for record in self.log_records
+        )
 
-    def is_partially_logged(self, log_level: _IntOrStr, message: str):
+    def is_partially_logged(self, log_level: _IntOrStr, message: str) -> bool:
         """
         Check if a certain message has been 'partially' logged at a certain level.
         This is useful for checking if a message has been logged with a dynamic value.
@@ -111,7 +114,10 @@ class LoggerMixinForTest(Handler):
         :params str message: The message to check.
         """
         log_level = self._to_loglevel(log_level)
-        return any([message in record.getMessage() and record.levelname == log_level for record in self.log_records])
+        return any(
+            message in record.getMessage() and record.levelname == log_level
+            for record in self.log_records
+        )
 
     async def wait_for_logged(self,
                               log_level: _IntOrStr,
