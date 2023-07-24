@@ -29,7 +29,7 @@ class PositionConfig(BaseModel):
     take_profit_order_type: OrderType = OrderType.MARKET
     stop_loss_order_type: OrderType = OrderType.MARKET
     time_limit_order_type: OrderType = OrderType.MARKET
-    leverage: Decimal = Decimal("1")
+    leverage: int = 1
 
 
 class PositionExecutorStatus(Enum):
