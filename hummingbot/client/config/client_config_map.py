@@ -600,7 +600,7 @@ class GatewayConfigMap(BaseClientModel):
 
 class GlobalTokenConfigMap(BaseClientModel):
     global_token_name: str = Field(
-        default="USD",
+        default="USDT",
         client_data=ClientFieldData(
             prompt=lambda
                 cm: "What is your default display token? (e.g. USD,EUR,BTC)",
