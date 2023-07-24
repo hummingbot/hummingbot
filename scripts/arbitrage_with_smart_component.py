@@ -66,7 +66,6 @@ class ArbitrageWithSmartComponent(ScriptStrategyBase):
                 selling_market=selling_exchange_pair,
                 order_amount=order_amount,
                 min_profitability=self.min_profitability,
-                tx_token="MATIC",  # This is temporal and should be equal to the base asset that the rate oracle has
             )
             arbitrage_executor = ArbitrageExecutor(strategy=self,
                                                    arbitrage_config=arbitrage_config)
