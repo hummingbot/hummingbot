@@ -315,6 +315,7 @@ class OrderBookTracker:
                     timestamp=trade_message.timestamp,
                     price=float(trade_message.content["price"]),
                     amount=float(trade_message.content["amount"]),
+                    trade_id=trade_message.trade_id,
                     type=TradeType.SELL if
                     trade_message.content["trade_type"] == float(TradeType.SELL.value) else TradeType.BUY
                 ))
