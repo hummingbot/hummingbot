@@ -22,11 +22,13 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 
 from . import coinbase_advanced_trade_v2_constants as constants, coinbase_advanced_trade_v2_web_utils as web_utils
 from .coinbase_advanced_trade_v2_api_order_book_data_source import CoinbaseAdvancedTradeV2APIOrderBookDataSource
-from .coinbase_advanced_trade_v2_api_user_stream_data_source import (
+from .coinbase_advanced_trade_v2_api_user_stream_data_source import (  # _StreamDataSource,
     CoinbaseAdvancedTradeV2APIUserStreamDataSource,
     CoinbaseAdvancedTradeV2CumulativeUpdate,
 )
 from .coinbase_advanced_trade_v2_auth import CoinbaseAdvancedTradeV2Auth
+
+# from .coinbase_advanced_trade_v2_stream_data_source import _StreamTracker
 from .coinbase_advanced_trade_v2_utils import DEFAULT_FEES, DebugToFile
 from .coinbase_advanced_trade_v2_web_utils import get_timestamp_from_exchange_time, set_exchange_time_from_timestamp
 
@@ -187,6 +189,18 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
             api_factory=self._web_assistants_factory,
             domain=self.domain,
         )
+
+#    def _create_stream_data_source(self) -> Dict[str, _StreamDataSource]:
+#        stream_data_sources: Dict[str, _StreamDataSource] = {}
+#        for trading_pair in self._trading_pairs:
+#            stream_data_sources[trading_pair] = _StreamDataSource(
+#                channel="user",
+#                pair=trading_pair,
+#                ws_factory=self._web_assistants_factory.get_ws_assistant,  # type: ignore # Pycharm issue with Protocol
+#                pair_to_symbol=self.exchange_symbol_associated_to_pair,
+#                symbol_to_pair=self.trading_pair_associated_to_exchange_symbol,
+#            )
+#        return stream_data_sources
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
         return constants.ORDER_STATUS_NOT_FOUND_ERROR_CODE in str(status_update_exception)
