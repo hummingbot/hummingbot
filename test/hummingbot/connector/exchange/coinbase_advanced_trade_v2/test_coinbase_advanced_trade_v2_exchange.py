@@ -91,7 +91,8 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
                     "supports_limit_orders": True,
                     "supports_market_orders": True
                 }
-            ]
+            ],
+            "num_products": 1,
         }
         return test_substitute
         # return CoinbaseAdvancedTradeListProductsResponse.dict_sample_from_json_docstring(test_substitute)
@@ -188,7 +189,8 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
                     "auction_mode": False,
                     "product_type": "SPOT"
                 }
-            ]
+            ],
+            "num_products": 1,
         }
 
     @property
@@ -740,7 +742,7 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
             "side": "BUY"
         }
 
-        mock_response = [trade_fill, trade_fill_non_tracked_order]
+        mock_response = {"fills": [trade_fill, trade_fill_non_tracked_order]}
         mock_api.get(regex_url, body=json.dumps(mock_response))
 
         self.exchange.add_exchange_order_ids_from_market_recorder(
@@ -794,7 +796,7 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
         url = web_utils.private_rest_url(CONSTANTS.FILLS_EP)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-        mock_response = []
+        mock_response = {"fills": []}
         mock_api.get(regex_url, body=json.dumps(mock_response))
 
         self.async_run_with_timeout(self.exchange._update_order_fills_from_trades())
@@ -849,7 +851,7 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
             "side": "BUY"
         }
 
-        mock_response = [trade_fill_non_tracked_order, trade_fill_non_tracked_order]
+        mock_response = {"fills": [trade_fill_non_tracked_order, trade_fill_non_tracked_order]}
         mock_api.get(regex_url, body=json.dumps(mock_response))
 
         self.exchange.add_exchange_order_ids_from_market_recorder(

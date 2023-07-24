@@ -5,16 +5,15 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest, WSResponse
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
 from . import coinbase_advanced_trade_v2_constants as constants, coinbase_advanced_trade_v2_web_utils as web_utils
-from .coinbase_advanced_trade_v2_utils import DebugToFile
 
 if TYPE_CHECKING:
-    from .coinbase_advanced_trade_v2_exchange import CoinbaseAdvancedTradeV2Exchange
+    from .coinbase_advanced_trade_v2_exchange import CoinbaseAdvancedTradeV2Exchange, DebugToFile
 
 from .coinbase_advanced_trade_v2_order_book import CoinbaseAdvancedTradeV2OrderBook
 
@@ -159,9 +158,6 @@ class CoinbaseAdvancedTradeV2APIOrderBookDataSource(OrderBookTrackerDataSource):
                             "channel": channel,
                         }
                         await ws.send(WSJSONRequest(payload=payload, is_auth_required=True))
-                        ws_response: WSResponse = await ws.receive()
-                        DebugToFile.log_debug(f"Subscribing to {channel} channel for {symbol}...")
-                        DebugToFile.log_debug(f"OrderBook: {ws_response}")
 
             self.logger().info("Subscribed to public order book and trade channels...")
         except asyncio.CancelledError:

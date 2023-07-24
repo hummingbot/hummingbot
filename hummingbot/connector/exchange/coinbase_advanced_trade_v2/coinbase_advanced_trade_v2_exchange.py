@@ -1,11 +1,14 @@
 import decimal
+import inspect
 import logging
+import os
 from decimal import Decimal
+from os.path import join
 from typing import TYPE_CHECKING, Any, AsyncGenerator, Dict, Generator, Iterable, List, Optional, Tuple, cast
 
 from bidict import bidict
 
-from hummingbot.connector.client_order_tracker import ClientOrderTracker
+from hummingbot import prefix_path
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
@@ -29,7 +32,7 @@ from .coinbase_advanced_trade_v2_api_user_stream_data_source import (  # _Stream
 from .coinbase_advanced_trade_v2_auth import CoinbaseAdvancedTradeV2Auth
 
 # from .coinbase_advanced_trade_v2_stream_data_source import _StreamTracker
-from .coinbase_advanced_trade_v2_utils import DEFAULT_FEES, DebugToFile
+from .coinbase_advanced_trade_v2_utils import DEFAULT_FEES
 from .coinbase_advanced_trade_v2_web_utils import get_timestamp_from_exchange_time, set_exchange_time_from_timestamp
 
 if TYPE_CHECKING:
@@ -145,18 +148,28 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
     def in_flight_orders(self) -> Dict[str, InFlightOrder]:
         return self._order_tracker.active_orders
 
-    @property
-    def order_tracker(self) -> ClientOrderTracker:
-        # Defined in ExchangePyBase
-        return self._order_tracker
-
-    @property
-    def exchange_order_ids(self) -> ClientOrderTracker:
-        # Defined in ExchangePyBase
-        return self._exchange_order_ids
+#    @property
+#    def order_tracker(self) -> ClientOrderTracker:
+#        # Defined in ExchangePyBase
+#        return self._order_tracker
+#
+#    @property
+#    def exchange_order_ids(self) -> ClientOrderTracker:
+#        # Defined in ExchangePyBase
+#        return self._exchange_order_ids
 
     def supported_order_types(self) -> List[OrderType]:
         return [OrderType.MARKET, OrderType.LIMIT, OrderType.LIMIT_MAKER]
+
+    async def all_trading_pairs(self) -> List[str]:
+        """
+        List of all trading pairs supported by the connector
+
+        :return: List of trading pair symbols in the Hummingbot format
+        """
+        # Defined in ExchangeBase, but need to debug!
+        mapping = await self.trading_pair_symbol_map()
+        return list(mapping.values())
 
     async def start_network(self):
         await self._initialize_market_assets()
@@ -303,11 +316,11 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
 
         if result[0]["success"]:
             return True
-        else:
-            if result[0]["failure_reason"] == "UNKNOWN_CANCEL_ORDER":
-                # return False
-                raise Exception(
-                    f"Order {order_id}:{tracked_order.exchange_order_id} not found on the exchange. UNKNOWN_CANCEL_ORDER")
+
+        if result[0]["failure_reason"] == "UNKNOWN_CANCEL_ORDER":
+            # return False
+            raise Exception(
+                f"Order {order_id}:{tracked_order.exchange_order_id} not found on the exchange. UNKNOWN_CANCEL_ORDER")
 
     async def _place_cancels(self, order_ids: List[str]) -> List[Dict[str, Any]]:
         """
@@ -376,7 +389,7 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
 
         products: List[Dict[str, Any]] = self._market_assets
 
-        if products is None:
+        if products is None or not products:
             return
 
         with DebugToFile.log_with_bullet(message="Creating trading rules...", bullet="*"):
@@ -430,16 +443,16 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
         """
         try:
             params: Dict[str, Any] = {
-                "limit": 1,
-                "offset": 0,
-                "product_type": "SPOT",
+                # "limit": 1,
+                # "offset": 0,
+                # "product_type": "SPOT",
             }
             with DebugToFile.log_with_bullet(
                     message=f"API call:{constants.ALL_PAIRS_EP}\n{params}",
                     bullet="|"):
                 products: Dict[str, Any] = await self._api_get(
                     path_url=constants.ALL_PAIRS_EP,
-                    params={},  # params,
+                    params=params,
                     is_auth_required=True)
                 DebugToFile.log_debug(f"Products: {products['num_products']}")
             self._market_assets = [p for p in products.get("products") if all((p.get("product_type", None) == "SPOT",
@@ -448,9 +461,9 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
                                                                                p.get("cancel_only", None) is False,
                                                                                p.get("auction_mode", None) is False))]
             self._market_assets_initialized = True
-        except Exception:
-            DebugToFile.log_debug("Error getting all trading pairs from Coinbase Advanced Trade")
-            self.logger().exception("Error getting all trading pairs from Coinbase Advanced Trade.")
+        except Exception as e:
+            DebugToFile.log_debug(f"Error getting all trading pairs from Coinbase Advanced Trade: {e}")
+            self.logger().exception(f"Error getting all trading pairs from Coinbase Advanced Trade: {e}")
 
     async def _status_polling_loop_fetch_updates(self):
         with DebugToFile.log_with_bullet(message="Fills from trades", bullet="|"):
@@ -560,7 +573,7 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
         """
         Update fees information from the exchange
         """
-        with DebugToFile.log_with_bullet(message="API call:{}".format(constants.TRANSACTIONS_SUMMARY_EP), bullet="i"):
+        with DebugToFile.log_with_bullet(message=f"API call:{constants.TRANSACTIONS_SUMMARY_EP}", bullet="i"):
             fees: Dict[str, Any] = await self._api_get(path_url=constants.TRANSACTIONS_SUMMARY_EP,
                                                        is_auth_required=True)
         self._trading_fees = fees
@@ -580,8 +593,8 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
                 await self._sleep(5.0)
                 continue
 
-            fillable_order: InFlightOrder = self.order_tracker.all_fillable_orders.get(event_message.client_order_id)
-            updatable_order: InFlightOrder = self.order_tracker.all_updatable_orders.get(
+            fillable_order: InFlightOrder = self._order_tracker.all_fillable_orders.get(event_message.client_order_id)
+            updatable_order: InFlightOrder = self._order_tracker.all_updatable_orders.get(
                 event_message.client_order_id)
 
             new_state: OrderState = constants.ORDER_STATE[event_message.status]
@@ -627,7 +640,7 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
                     fill_price=fill_price,
                     fill_timestamp=event_message.fill_timestamp,
                 )
-                self.order_tracker.process_trade_update(trade_update)
+                self._order_tracker.process_trade_update(trade_update)
 
             if updatable_order is not None:
                 order_update = OrderUpdate(
@@ -637,7 +650,7 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
                     client_order_id=event_message.client_order_id,
                     exchange_order_id=event_message.exchange_order_id,
                 )
-                self.order_tracker.process_order_update(order_update)
+                self._order_tracker.process_order_update(order_update)
 
     async def _update_order_fills_from_trades(self):
         """
@@ -660,10 +673,10 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
             query_time = set_exchange_time_from_timestamp(self._last_trades_poll_coinbase_advanced_trade_v2_timestamp,
                                                           "s")
             self._last_trades_poll_coinbase_advanced_trade_v2_timestamp = self.time_synchronizer.time()
-            order_by_exchange_id_map = {}
-            for order in self.order_tracker.all_fillable_orders.values():
-                order_by_exchange_id_map[order.exchange_order_id] = order
-
+            order_by_exchange_id_map = {
+                order.exchange_order_id: order
+                for order in self._order_tracker.all_fillable_orders.values()
+            }
             tasks = []
             trading_pairs = self.trading_pairs
             for trading_pair in trading_pairs:
@@ -711,7 +724,7 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
                             fill_timestamp=trade["trade_time"],
                             is_taker=False
                         )
-                        self.order_tracker.process_trade_update(trade_update)
+                        self._order_tracker.process_trade_update(trade_update)
 
                     elif self.is_confirmed_new_order_filled_event(str(trade["trade_id"]),
                                                                   str(exchange_order_id),
@@ -790,3 +803,139 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
 
     def _make_trading_pairs_request(self) -> Any:
         raise NotImplementedError(f"This method is not implemented by {self.name} connector")
+
+
+class FlushingFileHandler(logging.FileHandler):
+    def emit(self, record):
+        super().emit(record)  # First, do the original emit work.
+        self.flush()  # Then, force an immediate flush.
+
+
+class DebugToFile:
+    indent: str = ""
+    _logger: logging.Logger
+    _csv_logger: logging.Logger
+
+    @classmethod
+    def setup_logger(cls, log_file: str, level=logging.NOTSET):
+        if os.environ.get("DEBUG_FILE_LOGGING", "0") == "0":
+            return
+        log_file = join(prefix_path(), "logs", log_file)
+        csv_file = f"{log_file}.csv"
+
+        if not hasattr(cls, "_logger"):
+            file_handler = FlushingFileHandler(log_file, mode='w')
+            csv_handler = FlushingFileHandler(csv_file, mode='w')
+            file_handler.close()
+            csv_handler.close()
+        file_handler = FlushingFileHandler(log_file, mode='a')
+        csv_handler = FlushingFileHandler(csv_file, mode='a')
+
+        cls._logger = logging.getLogger("DebugLogger")
+        cls._csv_logger = logging.getLogger("CSVLogger")
+
+        cls._logger.disabled = False
+        cls._csv_logger.disabled = False
+
+        cls._logger.propagate = False
+        cls._csv_logger.propagate = False
+        # stream_handler = logging.StreamHandler()
+
+        cls._logger.setLevel(level)
+        cls._csv_logger.setLevel(level)
+
+        # Remove all handlers associated with the logger object.
+        for handler in cls._logger.handlers[:]:
+            cls._logger.removeHandler(handler)
+
+        for handler in cls._csv_logger.handlers[:]:
+            cls._csv_logger.removeHandler(handler)
+
+        if file_handler not in cls._logger.handlers:
+            cls._logger.addHandler(file_handler)
+            cls._csv_logger.addHandler(csv_handler)
+        # cls._logger.addHandler(stream_handler)
+
+    @classmethod
+    def stop_logger(cls):
+        if os.environ.get("DEBUG_FILE_LOGGING", "0") == "0":
+            return
+        if hasattr(cls, "_logger"):
+            cls._logger.disabled = True
+            cls._csv_logger.disabled = True
+
+    class LogDebugContext:
+        def __init__(self, outer, *, message: str, bullet: str = " "):
+            if os.environ.get("DEBUG_FILE_LOGGING", "0") == "0":
+                return
+            self.outer = outer
+            self.message = message
+            self.bullet = bullet
+
+        def __enter__(self):
+            if os.environ.get("DEBUG_FILE_LOGGING", "0") == "0":
+                return
+            self.outer.log_debug(message=self.message, bullet=self.bullet)
+            self.outer.add_indent(bullet=self.bullet)
+            return self.outer
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            if os.environ.get("DEBUG_FILE_LOGGING", "0") == "0":
+                return
+            self.outer.remove_indent()
+            self.outer.log_debug("Done")
+
+    @classmethod
+    def log_with_bullet(cls, *, message, bullet: str):
+        return cls.LogDebugContext(cls, message=message, bullet=bullet)
+
+    @classmethod
+    def log_debug(cls, message,
+                  indent_next: bool = False,
+                  unindent_next: bool = False,
+                  *,
+                  condition: bool = True,
+                  bullet: str = " "):
+        if os.environ.get("DEBUG_FILE_LOGGING", "0") == "0":
+            return
+        if cls._logger is None:
+            print("DebugToFile.setup_logger() must be called before using DebugToFile.log_debug()")
+            return
+        if not condition:
+            return
+
+        caller_frame = inspect.stack()[1]
+        filename = os.path.basename(caller_frame.filename).split('.')[0]
+        lineno = caller_frame.lineno
+        func_name = caller_frame.function
+
+        if len(filename) > 17:
+            filename = f"...{filename[-17:]}"
+        if len(func_name) > 17:
+            func_name = f"...{func_name[-17:]}"
+        if len(message) > 100:
+            message = f"{message[:200]}..."
+
+        indented_message = message.replace('\n', '\n' + cls.indent)
+
+        cls._logger.debug(f"{cls.indent}{indented_message}")
+
+        cls._csv_logger.debug(f"[{filename:>20}:{func_name:>20}:{lineno:>4}],"
+                              f"{cls.indent}{indented_message}")
+
+        if indent_next:
+            cls.add_indent(bullet=bullet)
+        if unindent_next:
+            cls.remove_indent()
+
+    @classmethod
+    def add_indent(cls, *, bullet: str = " "):
+        if os.environ.get("DEBUG_FILE_LOGGING", "0") == "0":
+            return
+        cls.indent += f"{bullet}   "
+
+    @classmethod
+    def remove_indent(cls):
+        if os.environ.get("DEBUG_FILE_LOGGING", "0") == "0":
+            return
+        cls.indent = cls.indent[:-4]

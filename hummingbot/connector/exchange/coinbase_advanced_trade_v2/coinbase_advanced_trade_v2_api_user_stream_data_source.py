@@ -8,10 +8,8 @@ from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest, 
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 
-from .coinbase_advanced_trade_v2_utils import DebugToFile
-
 if TYPE_CHECKING:
-    from .coinbase_advanced_trade_v2_exchange import CoinbaseAdvancedTradeV2Exchange
+    from .coinbase_advanced_trade_v2_exchange import CoinbaseAdvancedTradeV2Exchange, DebugToFile
 
 from . import coinbase_advanced_trade_v2_constants as constants
 from .coinbase_advanced_trade_v2_auth import CoinbaseAdvancedTradeV2Auth
@@ -104,6 +102,7 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSource(UserStreamTrackerDataSource
         self._async_init()
 
         self._ws_assistant: WSAssistant = await self._api_factory.get_ws_assistant()
+
         with DebugToFile.log_with_bullet(
                 message="Connecting to Coinbase Advanced Trade user stream...",
                 bullet="-"):
@@ -238,7 +237,11 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSource(UserStreamTrackerDataSource
 
         self._async_init()
 
-        if action == "unsubscribe":
+        if action == "subscribe":
+            if self._message_queue_task is None or self._message_queue_task.done():
+                self._message_queue_task = asyncio.create_task(self._preprocess_messages())
+
+        elif action == "unsubscribe":
             async with self._message_queue_lock:
                 # Clear the queue for the channel and pair
                 while not self._message_queue[channel_symbol].empty():
@@ -252,10 +255,6 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSource(UserStreamTrackerDataSource
                 if len(self._message_queue) == 0 and self._message_queue_task and not self._message_queue_task.done():
                     self._message_queue_task.cancel()
                     self._message_queue_task = None
-
-        if action == "subscribe":
-            if self._message_queue_task is None or self._message_queue_task.done():
-                self._message_queue_task = asyncio.create_task(self._preprocess_messages())
 
     def _get_target_channels_and_pairs(self,
                                        channels: Optional[List[str]],

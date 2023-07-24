@@ -7,7 +7,6 @@ from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSJSONRequest, WSRequest
 
-from .coinbase_advanced_trade_v2_utils import DebugToFile
 from .coinbase_advanced_trade_v2_web_utils import endpoint_from_url
 
 
@@ -63,24 +62,23 @@ class CoinbaseAdvancedTradeV2Auth(AuthBase):
         # TODO: Understand what the issue is with the time sync
         # _timestamp: int = await self._get_synced_timestamp_s()
         _timestamp: int = int(time.time())
-        timestamp: str = str(int(_timestamp))
+        timestamp: str = str(_timestamp)
 
         endpoint: str = endpoint_from_url(request.url).split('?')[0]  # ex: /v3/orders
+        from .coinbase_advanced_trade_v2_exchange import DebugToFile
         DebugToFile.log_debug(f"endpoint: {endpoint}")
         message = timestamp + str(request.method) + endpoint + str(request.data or '')
         signature: str = self._generate_signature(message=message)
 
-        if request.headers is not None:
-            headers: Dict[str, str] = dict(request.headers)
-        else:
-            headers: Dict[str, str] = {}
-        headers.update({
+        headers: Dict[str, str] = (
+            dict(request.headers) if request.headers is not None else {}
+        ) | {
             "accept": 'application/json',
             "content-type": 'application/json',
             "CB-ACCESS-KEY": self.api_key,
             "CB-ACCESS-SIGN": signature,
             "CB-ACCESS-TIMESTAMP": timestamp,
-        })
+        }
         request.headers = headers
 
         return request
@@ -110,19 +108,19 @@ class CoinbaseAdvancedTradeV2Auth(AuthBase):
         """
         # _timestamp: int = await self._get_synced_timestamp_s()
         _timestamp: int = int(time.time())
-        timestamp: str = str(int(_timestamp))
+        timestamp: str = str(_timestamp)
 
         products: str = ",".join(request.payload["product_ids"])
         message: str = timestamp + str(request.payload["channel"]) + products
+        from .coinbase_advanced_trade_v2_exchange import DebugToFile
         DebugToFile.log_debug(f"message: {message}")
         signature: str = self._generate_signature(message=message)
 
-        payload: Dict[str, str] = dict(request.payload)
-        payload.update({
+        payload: Dict[str, str] = dict(request.payload) | {
             "api_key": self.api_key,
             "signature": signature,
             "timestamp": timestamp,
-        })
+        }
         request.payload = payload
 
         return request
