@@ -3,9 +3,11 @@ import logging
 import os
 from dataclasses import dataclass
 from decimal import Decimal
+from os.path import join
 
 from pydantic import Field, SecretStr
 
+from hummingbot import prefix_path
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.core.web_assistant.connections.data_types import EndpointRESTRequest
@@ -79,8 +81,10 @@ class DebugToFile:
 
     @classmethod
     def setup_logger(cls, log_file: str, level=logging.NOTSET):
-        log_file = os.path.dirname(os.path.realpath(__file__)) + "../../../logs/" + log_file
-        csv_file = log_file + ".csv"
+        if os.environ.get("DEBUG_FILE_LOGGING", "0") == "0":
+            return
+        log_file = join(prefix_path(), "logs", log_file)
+        csv_file = f"{log_file}.csv"
 
         if not hasattr(cls, "_logger"):
             file_handler = FlushingFileHandler(log_file, mode='w')
@@ -117,6 +121,8 @@ class DebugToFile:
 
     @classmethod
     def stop_logger(cls):
+        if os.environ.get("DEBUG_FILE_LOGGING", "0") == "0":
+            return
         if hasattr(cls, "_logger"):
             cls._logger.disabled = True
             cls._csv_logger.disabled = True
@@ -138,6 +144,8 @@ class DebugToFile:
 
     @classmethod
     def log_with_bullet(cls, *, message, bullet: str):
+        if os.environ.get("DEBUG_FILE_LOGGING", "0") == "0":
+            return
         return cls.LogDebugContext(cls, message=message, bullet=bullet)
 
     @classmethod
@@ -147,6 +155,8 @@ class DebugToFile:
                   *,
                   condition: bool = True,
                   bullet: str = " "):
+        if os.environ.get("DEBUG_FILE_LOGGING", "0") == "0":
+            return
         if cls._logger is None:
             print("DebugToFile.setup_logger() must be called before using DebugToFile.log_debug()")
             return
@@ -159,11 +169,11 @@ class DebugToFile:
         func_name = caller_frame.function
 
         if len(filename) > 17:
-            filename = "..." + filename[-17:]
+            filename = f"...{filename[-17:]}"
         if len(func_name) > 17:
-            func_name = "..." + func_name[-17:]
+            func_name = f"...{func_name[-17:]}"
         if len(message) > 100:
-            message = message[:200] + "..."
+            message = f"{message[:200]}..."
 
         indented_message = message.replace('\n', '\n' + cls.indent)
 
@@ -179,8 +189,12 @@ class DebugToFile:
 
     @classmethod
     def add_indent(cls, *, bullet: str = " "):
-        cls.indent += bullet + "   "
+        if os.environ.get("DEBUG_FILE_LOGGING", "0") == "0":
+            return
+        cls.indent += f"{bullet}   "
 
     @classmethod
     def remove_indent(cls):
+        if os.environ.get("DEBUG_FILE_LOGGING", "0") == "0":
+            return
         cls.indent = cls.indent[:-4]
