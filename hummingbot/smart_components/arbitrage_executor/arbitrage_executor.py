@@ -242,8 +242,8 @@ class ArbitrageExecutor(SmartComponentBase):
             self._cumulative_failures += 1
 
     def to_format_status(self):
+        lines = []
         try:
-            lines = []
             trade_pnl_pct = (self._last_sell_price - self._last_buy_price) / self._last_buy_price
             tx_cost_pct = self._last_tx_cost / self.order_amount
             base, quote = split_hb_trading_pair(trading_pair=self.buying_market.trading_pair)
@@ -257,4 +257,6 @@ class ArbitrageExecutor(SmartComponentBase):
                 lines.extend([f"Total Profit (%): {self.net_pnl_pct * 100:.2f} | Total Profit ({quote}): {self.net_pnl:.4f}"])
             return lines
         except Exception:
-            return "There was an error while formatting the status for the executor."
+            msg = "There was an error while formatting the status for the executor."
+            self.logger.exception(msg)
+            return lines.extend(msg)
