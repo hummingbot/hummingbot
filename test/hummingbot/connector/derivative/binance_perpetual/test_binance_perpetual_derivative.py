@@ -1998,8 +1998,9 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.assertTrue(self._is_logged(
             "WARNING",
-            f"{trade_type.name.title()} order amount 0 is lower than the minimum order"
-            f" size {min_order_size}. The order will not be created."
+            f"{trade_type.name.title()} order amount {amount} is lower than the minimum order "
+            f"size {trading_rules[0].min_order_size}. The order will not be created, increase the "
+            f"amount to be higher than the minimum order size."
         ))
 
     def test_create_order_min_notional_size_failure(self):
