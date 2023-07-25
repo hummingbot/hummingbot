@@ -45,7 +45,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         self._client = AsyncClient(
             network=self._network,
             insecure=not use_secure_connection,
-            chain_cookie_location=f"{os.path.dirname(__file__)}.injective_cookie",
+            chain_cookie_location=f"{os.path.join(os.path.dirname(__file__), '../.injective_cookie')}",
         )
         self._composer = Composer(network=self._network.string())
         self._query_executor = PythonSDKInjectiveQueryExecutor(sdk_client=self._client)
