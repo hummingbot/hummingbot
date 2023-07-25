@@ -41,6 +41,9 @@ no_restart_pmm_keys = ["order_amount",
                        "price_ceiling_pct",
                        "price_floor_pct",
                        "price_band_refresh_time"
+                       "order_optimization_enabled",
+                       "bid_order_optimization_depth",
+                       "ask_order_optimization_depth"
                        ]
 client_configs_to_display = ["autofill_import",
                              "kill_switch_mode",
