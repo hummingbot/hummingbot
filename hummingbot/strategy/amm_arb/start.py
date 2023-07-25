@@ -4,6 +4,8 @@ from typing import cast
 from hummingbot.connector.gateway.amm.gateway_evm_amm import GatewayEVMAMM
 from hummingbot.connector.gateway.common_types import Chain
 from hummingbot.connector.gateway.gateway_price_shim import GatewayPriceShim
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
+from hummingbot.core.utils.fixed_rate_source import FixedRateSource
 from hummingbot.strategy.amm_arb.amm_arb import AmmArbStrategy
 from hummingbot.strategy.amm_arb.amm_arb_config_map import amm_arb_config_map
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
@@ -21,6 +23,8 @@ def start(self):
     concurrent_orders_submission = amm_arb_config_map.get("concurrent_orders_submission").value
     debug_price_shim = amm_arb_config_map.get("debug_price_shim").value
     gateway_transaction_cancel_interval = amm_arb_config_map.get("gateway_transaction_cancel_interval").value
+    rate_oracle_enabled = amm_arb_config_map.get("rate_oracle_enabled").value
+    quote_conversion_rate = amm_arb_config_map.get("quote_conversion_rate").value
 
     self._initialize_markets([(connector_1, [market_1]), (connector_2, [market_2])])
     base_1, quote_1 = market_1.split("-")
@@ -51,6 +55,13 @@ def start(self):
             amm_market_info.trading_pair
         )
 
+    if rate_oracle_enabled:
+        rate_source = RateOracle.get_instance()
+    else:
+        rate_source = FixedRateSource()
+        rate_source.add_rate(f"{quote_2}-{quote_1}", Decimal(str(quote_conversion_rate)))   # reverse rate is already handled in FixedRateSource find_rate method.
+        rate_source.add_rate(f"{quote_1}-{quote_2}", Decimal(str(1 / quote_conversion_rate)))   # reverse rate is already handled in FixedRateSource find_rate method.
+
     self.strategy = AmmArbStrategy()
     self.strategy.init_params(market_info_1=market_info_1,
                               market_info_2=market_info_2,
@@ -60,4 +71,5 @@ def start(self):
                               market_2_slippage_buffer=market_2_slippage_buffer,
                               concurrent_orders_submission=concurrent_orders_submission,
                               gateway_transaction_cancel_interval=gateway_transaction_cancel_interval,
+                              rate_source=rate_source,
                               )
