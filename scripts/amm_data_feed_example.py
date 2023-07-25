@@ -44,3 +44,5 @@ class AMMDataFeedExample(ScriptStrategyBase):
             prices_str = format_df_for_printout(df, table_format="psql")
             lines.append(f"AMM Data Feed is ready.\n{prices_str}")
             return "\n".join(lines)
+        else:
+            return "AMM Data Feed is not ready."

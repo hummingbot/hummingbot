@@ -697,9 +697,14 @@ class MexcExchange(ExchangeBase):
     def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
             price: Decimal = s_decimal_NaN, **kwargs) -> str:
         tracking_nonce = int(get_tracking_nonce())
-        order_id = str(f"buy-{trading_pair}-{tracking_nonce}")
+        order_id = self._shorten_trading_pair("buy", trading_pair, tracking_nonce)
         safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
         return order_id
+
+    def _shorten_trading_pair(self, prefix, trading_pair, tracking_nonce, max_length=32):
+        max_nonce_length = max_length - len(prefix) - len(trading_pair) - 2
+        tracking_nonce = str(tracking_nonce)[-max_nonce_length:]
+        return f"{prefix}-{trading_pair}-{tracking_nonce}"
 
     async def execute_sell(self,
                            order_id: str,
@@ -707,7 +712,6 @@ class MexcExchange(ExchangeBase):
                            amount: Decimal,
                            order_type: OrderType,
                            price: Optional[Decimal] = s_decimal_0):
-
         trading_rule = self._trading_rules[trading_pair]
 
         if not order_type.is_limit_type():
@@ -769,7 +773,7 @@ class MexcExchange(ExchangeBase):
              price: Decimal = s_decimal_NaN, **kwargs) -> str:
 
         tracking_nonce = int(get_tracking_nonce())
-        order_id = str(f"sell-{trading_pair}-{tracking_nonce}")
+        order_id = self._shorten_trading_pair("sell", trading_pair, tracking_nonce)
 
         safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
         return order_id
@@ -908,6 +912,7 @@ class MexcExchange(ExchangeBase):
         trading_rule = self._trading_rules[trading_pair]
 
         quantized_amount = ExchangeBase.quantize_order_amount(self, trading_pair, amount)
+
         current_price = self.get_price(trading_pair, False)
 
         calc_price = current_price if price == s_decimal_0 else price
