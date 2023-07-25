@@ -438,7 +438,12 @@ class GatewayCommand(GatewayChainApiManager):
 
             raw_data: List[List[str]] = [all_tokens, balances]
             for connector in connectors:
-                raw_data.append([str(round(Decimal(connector_to_token_allowances[connector].get(token, "NaN")), 4)) for token in all_tokens])
+                # add allowances for each connector for all tokens - if token is not approved, add "NaN" to the list
+                allowances: List[Decimal] = [Decimal(connector_to_token_allowances[connector].get(token, "NaN")) for token in all_tokens]
+                # rounding to 4 decimal places (following from the rounding in the balance command)
+                allowances_rounded: List[str] = [round(allowance, 4) for allowance in allowances]
+                allowances_str: List[str] = [str(allowance) for allowance in allowances_rounded]
+                raw_data.append(allowances_str)
 
             data = []
             columns: List[str] = ["Symbol", "Balance", *connectors]
