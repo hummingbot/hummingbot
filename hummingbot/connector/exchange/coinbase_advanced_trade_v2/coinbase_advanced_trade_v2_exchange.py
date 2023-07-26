@@ -339,7 +339,7 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
                 data=api_data,
                 is_auth_required=True)
 
-        return [r for r in cancel_result["results"]]
+        return list(cancel_result["results"])
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         """

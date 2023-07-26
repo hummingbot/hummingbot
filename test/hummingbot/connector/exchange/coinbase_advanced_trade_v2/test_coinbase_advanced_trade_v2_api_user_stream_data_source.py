@@ -22,6 +22,9 @@ class MockWebAssistant:
     async def disconnect(self) -> Coroutine[Any, Any, Coroutine[Any, Any, None]]:
         pass
 
+    async def receive(self) -> Coroutine[Any, Any, Coroutine[Any, Any, None]]:
+        pass
+
     async def send(self, request: WSJSONRequest) -> Coroutine[Any, Any, None]:
         pass
 
@@ -67,7 +70,7 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSourceTests(
         self.trading_pairs = ["ETH-USD", "BTC-USD"]
         self.connector = MockExchangePair()
         self.api_factory = MockWebAssistantsFactory()
-        self.ws_assistant_mock = AsyncMock()
+        self.ws_assistant_mock = AsyncMock(spec=MockWebAssistant)
 
         self.data_source = CoinbaseAdvancedTradeV2APIUserStreamDataSource(
             auth=self.auth,
@@ -223,13 +226,15 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSourceTests(
         await self.data_source._subscribe_or_unsubscribe(self.ws_assistant_mock, action, channels, trading_pairs)
 
         expected_payloads = [
-            {"type": action, "product_ids": ["symbol"], "channel": channel}
+            {"type": action,
+             "product_ids": ["symbol"],
+             "channel": channel}
             for channel in channels
             for _ in trading_pairs
         ]
 
         self.ws_assistant_mock.send.assert_has_calls(
-            [call(WSJSONRequest(payload=payload)) for payload in expected_payloads],
+            [call(WSJSONRequest(payload=payload, throttler_limit_id=None, is_auth_required=True)) for payload in expected_payloads],
             any_order=True
         )
 

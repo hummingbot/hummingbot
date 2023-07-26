@@ -9,7 +9,7 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 
 if TYPE_CHECKING:
-    from .coinbase_advanced_trade_v2_exchange import CoinbaseAdvancedTradeV2Exchange, DebugToFile
+    from .coinbase_advanced_trade_v2_exchange import CoinbaseAdvancedTradeV2Exchange
 
 from . import coinbase_advanced_trade_v2_constants as constants
 from .coinbase_advanced_trade_v2_auth import CoinbaseAdvancedTradeV2Auth
@@ -102,7 +102,7 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSource(UserStreamTrackerDataSource
         self._async_init()
 
         self._ws_assistant: WSAssistant = await self._api_factory.get_ws_assistant()
-
+        from .coinbase_advanced_trade_v2_exchange import DebugToFile
         with DebugToFile.log_with_bullet(
                 message="Connecting to Coinbase Advanced Trade user stream...",
                 bullet="-"):
@@ -137,6 +137,7 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSource(UserStreamTrackerDataSource
         self._async_init()
 
         channels, trading_pairs = self._get_target_channels_and_pairs(None, None)
+        from .coinbase_advanced_trade_v2_exchange import DebugToFile
         DebugToFile.log_debug(f"Subscribing to channels: {channels} and trading pairs: {trading_pairs}")
         await self._subscribe_or_unsubscribe(websocket_assistant, "subscribe", channels, trading_pairs)
 
@@ -187,6 +188,7 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSource(UserStreamTrackerDataSource
         # Initialize the async context
         self._async_init()
 
+        from .coinbase_advanced_trade_v2_exchange import DebugToFile
         with DebugToFile.log_with_bullet(
                 message=f"{action.capitalize()}ing to {channels} for {trading_pairs}...",
                 bullet="["):
@@ -290,6 +292,7 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSource(UserStreamTrackerDataSource
                 raise Exception(f"Error received from websocket: {ws_response}")
 
             data: Dict[str, Any] = ws_response.data
+            from .coinbase_advanced_trade_v2_exchange import DebugToFile
             DebugToFile.log_debug(f"{ws_response}")
 
             if len(data["events"]) == 0:

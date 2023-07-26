@@ -147,6 +147,7 @@ class CoinbaseAdvancedTradeV2APIOrderBookDataSource(OrderBookTrackerDataSource):
         }
         """
         try:
+            from .coinbase_advanced_trade_v2_exchange import DebugToFile
             with DebugToFile.log_with_bullet(message="Subscribing ...", bullet="]"):
                 for trading_pair in self._trading_pairs:
                     symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
