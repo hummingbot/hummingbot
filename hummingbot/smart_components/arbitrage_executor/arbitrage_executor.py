@@ -32,6 +32,10 @@ class ArbitrageExecutor(SmartComponentBase):
             AllConnectorSettings.get_gateway_amm_connector_names()
         )
 
+    @property
+    def is_closed(self):
+        return self.arbitrage_status in [ArbitrageExecutorStatus.COMPLETED, ArbitrageExecutorStatus.FAILED]
+
     @staticmethod
     def _are_tokens_interchangeable(first_token: str, second_token: str):
         interchangeable_tokens = [
@@ -50,7 +54,7 @@ class ArbitrageExecutor(SmartComponentBase):
         stable_coins_condition = "USD" in first_token and "USD" in second_token
         return same_token_condition or tokens_interchangeable_condition or stable_coins_condition
 
-    def __init__(self, strategy: ScriptStrategyBase, arbitrage_config: ArbitrageConfig, update_interval: float = 0.5):
+    def __init__(self, strategy: ScriptStrategyBase, arbitrage_config: ArbitrageConfig, update_interval: float = 1.0):
         if not self.is_arbitrage_valid(pair1=arbitrage_config.buying_market.trading_pair,
                                        pair2=arbitrage_config.selling_market.trading_pair):
             raise Exception("Arbitrage is not valid since the trading pairs are not interchangeable.")
@@ -81,9 +85,9 @@ class ArbitrageExecutor(SmartComponentBase):
     @property
     def net_pnl(self) -> Decimal:
         if self.arbitrage_status == ArbitrageExecutorStatus.COMPLETED:
-            sell_quote_amount = self.sell_order.order.executed_amount_base * self.sell_order.order.average_price
-            buy_quote_amount = self.buy_order.order.executed_amount_base * self.buy_order.order.average_price
-            cum_fees = self.buy_order.order.cum_fee_quote + self.sell_order.order.cum_fee_quote
+            sell_quote_amount = self.sell_order.order.executed_amount_base * self.sell_order.average_executed_price
+            buy_quote_amount = self.buy_order.order.executed_amount_base * self.buy_order.average_executed_price
+            cum_fees = self.buy_order.cum_fees + self.sell_order.cum_fees
             return sell_quote_amount - buy_quote_amount - cum_fees
         else:
             return Decimal("0")
@@ -132,7 +136,8 @@ class ArbitrageExecutor(SmartComponentBase):
                 self.check_order_status()
 
     def check_order_status(self):
-        if self.buy_order.order and self.buy_order.order.is_filled and self.sell_order.order and self.sell_order.order.is_filled:
+        if self.buy_order.order and self.buy_order.order.is_filled and \
+                self.sell_order.order and self.sell_order.order.is_filled:
             self.arbitrage_status = ArbitrageExecutorStatus.COMPLETED
             self.terminate_control_loop()
 
@@ -198,6 +203,8 @@ class ArbitrageExecutor(SmartComponentBase):
 
     async def get_trade_pnl_pct(self):
         self._last_buy_price, self._last_sell_price = await self.get_buy_and_sell_prices()
+        if not self._last_buy_price or not self._last_sell_price:
+            raise Exception("Could not get buy and sell prices")
         return (self._last_sell_price - self._last_buy_price) / self._last_buy_price
 
     async def get_tx_cost_in_asset(self, exchange: str, trading_pair: str, is_buy: bool, order_amount: Decimal, asset: str):
@@ -228,9 +235,9 @@ class ArbitrageExecutor(SmartComponentBase):
     def process_order_created_event(self, _, market, event: Union[BuyOrderCreatedEvent, SellOrderCreatedEvent]):
         if self.buy_order.order_id == event.order_id:
             self.buy_order.order = self.get_in_flight_order(self.buying_market.exchange, event.order_id)
-            self.logger().info("Open Order Created")
+            self.logger().info("Buy Order Created")
         elif self.sell_order.order_id == event.order_id:
-            self.logger().info("Close Order Created")
+            self.logger().info("Sell Order Created")
             self.sell_order.order = self.get_in_flight_order(self.selling_market.exchange, event.order_id)
 
     def process_order_failed_event(self, _, market, event: MarketOrderFailureEvent):
@@ -243,7 +250,7 @@ class ArbitrageExecutor(SmartComponentBase):
 
     def to_format_status(self):
         lines = []
-        try:
+        if self._last_buy_price and self._last_sell_price:
             trade_pnl_pct = (self._last_sell_price - self._last_buy_price) / self._last_buy_price
             tx_cost_pct = self._last_tx_cost / self.order_amount
             base, quote = split_hb_trading_pair(trading_pair=self.buying_market.trading_pair)
@@ -256,7 +263,7 @@ class ArbitrageExecutor(SmartComponentBase):
             if self.arbitrage_status == ArbitrageExecutorStatus.COMPLETED:
                 lines.extend([f"Total Profit (%): {self.net_pnl_pct * 100:.2f} | Total Profit ({quote}): {self.net_pnl:.4f}"])
             return lines
-        except Exception:
-            msg = "There was an error while formatting the status for the executor."
-            self.logger.exception(msg)
+        else:
+            msg = ["There was an error while formatting the status for the executor."]
+            self.logger().warning(msg)
             return lines.extend(msg)
