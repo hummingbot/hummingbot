@@ -7,17 +7,19 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 class ArbitrageWithSmartComponent(ScriptStrategyBase):
     # Parameters
-    exchange_pair_1 = ExchangePair(exchange="kucoin", trading_pair="MATIC-USDT")
+    exchange_pair_1 = ExchangePair(exchange="binance", trading_pair="MATIC-USDT")
     exchange_pair_2 = ExchangePair(exchange="uniswap_polygon_mainnet", trading_pair="WMATIC-USDT")
-    order_amount = Decimal("10")  # in base asset
+    order_amount = Decimal("35")  # in base asset
     min_profitability = Decimal("0.004")
 
     markets = {exchange_pair_1.exchange: {exchange_pair_1.trading_pair},
                exchange_pair_2.exchange: {exchange_pair_2.trading_pair}}
     active_buy_arbitrages = []
     active_sell_arbitrages = []
+    closed_arbitrage_executors = []
 
     def on_tick(self):
+        self.cleanup_arbitrages()
         if len(self.active_buy_arbitrages) < 1:
             buy_arbitrage_executor = self.create_arbitrage_executor(
                 buying_exchange_pair=self.exchange_pair_1,
@@ -45,14 +47,15 @@ class ArbitrageWithSmartComponent(ScriptStrategyBase):
                 selling_exchange_pair.trading_pair.split("-")[0])
             if self.order_amount > base_asset_for_selling_exchange:
                 self.logger().info(f"Insufficient balance in exchange {selling_exchange_pair.exchange}"
-                                   f"for sell {selling_exchange_pair.trading_pair.split('-')[0]} Actual: {base_asset_for_selling_exchange}")
+                                   f"to sell {selling_exchange_pair.trading_pair.split('-')[0]} Actual: {base_asset_for_selling_exchange}")
                 return
 
+            # TODO: This check is not accurate since we don't know the actual price of the asset because we removed the Rate Oracle
             quote_asset_for_buying_exchange = self.connectors[buying_exchange_pair.exchange].get_available_balance(
                 buying_exchange_pair.trading_pair.split("-")[1])
             if self.order_amount > quote_asset_for_buying_exchange:
                 self.logger().info(f"Insufficient balance in exchange {buying_exchange_pair.exchange} "
-                                   f"for buy {buying_exchange_pair.trading_pair.split('-')[1]} Actual: {quote_asset_for_buying_exchange}")
+                                   f"to buy {buying_exchange_pair.trading_pair.split('-')[1]} Actual: {quote_asset_for_buying_exchange}")
                 return
 
             arbitrage_config = ArbitrageConfig(
@@ -69,9 +72,22 @@ class ArbitrageWithSmartComponent(ScriptStrategyBase):
 
     def format_status(self) -> str:
         status = []
+        status.extend([f"Closed Arbtriages: {len(self.closed_arbitrage_executors)}"])
+        for arbitrage in self.closed_arbitrage_executors:
+            status.extend(arbitrage.to_format_status())
         status.extend([f"Active Arbitrages: {len(self.active_sell_arbitrages) + len(self.active_buy_arbitrages)}"])
         for arbitrage in self.active_sell_arbitrages:
             status.extend(arbitrage.to_format_status())
         for arbitrage in self.active_buy_arbitrages:
             status.extend(arbitrage.to_format_status())
         return "\n".join(status)
+
+    def cleanup_arbitrages(self):
+        for arbitrage in self.active_buy_arbitrages:
+            if arbitrage.is_closed:
+                self.closed_arbitrage_executors.append(arbitrage)
+                self.active_buy_arbitrages.remove(arbitrage)
+        for arbitrage in self.active_sell_arbitrages:
+            if arbitrage.is_closed:
+                self.closed_arbitrage_executors.append(arbitrage)
+                self.active_sell_arbitrages.remove(arbitrage)
