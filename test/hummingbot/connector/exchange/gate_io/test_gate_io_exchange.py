@@ -1159,7 +1159,7 @@ class TestGateIoExchange(unittest.TestCase):
         self.assertTrue(
             self._is_logged(
                 "WARNING",
-                f"Error fetching status update for the order {order.client_order_id}: Error executing request GET "
+                f"Error fetching status update for the active order {order.client_order_id}: Error executing request GET "
                 f"{order_status_url}. HTTP status is 404. Error: ."
             )
         )

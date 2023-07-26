@@ -201,7 +201,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         }
         self.query_executor._public_spot_trade_updates.put_nowait(trade_data)
 
-        self.async_run_with_timeout(self.data_source.listen_for_subscriptions())
+        self.async_run_with_timeout(self.data_source.listen_for_subscriptions(), timeout=2)
 
         msg_queue = asyncio.Queue()
         self.create_task(self.data_source.listen_for_trades(self.async_loop, msg_queue))

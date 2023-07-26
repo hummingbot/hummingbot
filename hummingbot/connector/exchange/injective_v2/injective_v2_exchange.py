@@ -695,7 +695,7 @@ class InjectiveV2Exchange(ExchangePyBase):
         try:
             order_updates = await self._data_source.spot_order_updates(
                 market_ids=all_market_ids,
-                start_time=oldest_order_creation_time
+                start_time=oldest_order_creation_time - self.LONG_POLL_INTERVAL
             )
 
             for order_update in order_updates:
