@@ -171,8 +171,8 @@ class DirectionalStrategyBase(ScriptStrategyBase):
                 exchange=self.exchange,
                 side=side,
                 amount=self.order_amount_usd / price,
-                take_profit=self.take_profit,
-                stop_loss=self.stop_loss,
+                take_profit=Decimal(self.take_profit),
+                stop_loss=Decimal(self.stop_loss),
                 time_limit=self.time_limit,
                 entry_price=price,
                 open_order_type=self.open_order_type,
@@ -180,8 +180,8 @@ class DirectionalStrategyBase(ScriptStrategyBase):
                 stop_loss_order_type=self.stop_loss_order_type,
                 time_limit_order_type=self.time_limit_order_type,
                 trailing_stop=TrailingStop(
-                    activation_price_delta=self.trailing_stop_activation_delta,
-                    trailing_delta=self.trailing_stop_trailing_delta
+                    activation_price_delta=Decimal(self.trailing_stop_activation_delta),
+                    trailing_delta=Decimal(self.trailing_stop_trailing_delta)
                 ),
                 leverage=self.leverage,
             )
