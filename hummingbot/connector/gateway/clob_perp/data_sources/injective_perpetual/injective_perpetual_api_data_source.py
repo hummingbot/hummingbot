@@ -53,6 +53,7 @@ from hummingbot.connector.gateway.common_types import CancelOrderResult, PlaceOr
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, split_hb_trading_pair
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
@@ -89,6 +90,7 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
         self._network_obj = CONSTANTS.NETWORK_CONFIG[self._network]
         self._client = AsyncClient(network=self._network_obj)
         self._account_address: Optional[str] = None
+        self._throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
 
         self._composer = Composer(network=self._network_obj.string())
         self._order_hash_manager: Optional[OrderHashManager] = None
@@ -171,7 +173,8 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
     async def check_network_status(self) -> NetworkStatus:
         status = NetworkStatus.CONNECTED
         try:
-            await self._client.ping()
+            async with self._throttler.execute_task(limit_id=CONSTANTS.PING_LIMIT_ID):
+                await self._client.ping()
             await self._get_gateway_instance().ping_gateway()
         except asyncio.CancelledError:
             raise
@@ -188,9 +191,10 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
     async def get_order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         market_info = self._markets_info[trading_pair]
         price_scaler: Decimal = Decimal(f"1e-{market_info.quote_token_meta.decimals}")
-        response: OrderbooksV2Response = await self._client.get_derivative_orderbooksV2(
-            market_ids=[market_info.market_id]
-        )
+        async with self._throttler.execute_task(limit_id=CONSTANTS.ORDER_BOOK_LIMIT_ID):
+            response: OrderbooksV2Response = await self._client.get_derivative_orderbooksV2(
+                market_ids=[market_info.market_id]
+            )
 
         snapshot_ob: DerivativeLimitOrderbookV2 = response.orderbooks[0].orderbook
         snapshot_timestamp_ms: float = max(
@@ -287,18 +291,19 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
             order_hash: str = order_hashes.derivative[0]
 
             try:
-                order_result: Dict[str, Any] = await self._get_gateway_instance().clob_perp_place_order(
-                    connector=self._connector_name,
-                    chain=self._chain,
-                    network=self._network,
-                    trading_pair=order.trading_pair,
-                    address=self._account_id,
-                    trade_type=order.trade_type,
-                    order_type=order.order_type,
-                    price=order.price,
-                    size=order.amount,
-                    leverage=order.leverage,
-                )
+                async with self._throttler.execute_task(limit_id=CONSTANTS.TRANSACTION_POST_LIMIT_ID):
+                    order_result: Dict[str, Any] = await self._get_gateway_instance().clob_perp_place_order(
+                        connector=self._connector_name,
+                        chain=self._chain,
+                        network=self._network,
+                        trading_pair=order.trading_pair,
+                        address=self._account_id,
+                        trade_type=order.trade_type,
+                        order_type=order.order_type,
+                        price=order.price,
+                        size=order.amount,
+                        leverage=order.leverage,
+                    )
 
                 transaction_hash: Optional[str] = order_result.get("txHash")
             except Exception:
@@ -337,14 +342,15 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
                 spot_orders=[], derivative_orders=derivative_orders_to_create
             )
             try:
-                update_result = await self._get_gateway_instance().clob_perp_batch_order_modify(
-                    connector=self._connector_name,
-                    chain=self._chain,
-                    network=self._network,
-                    address=self._account_id,
-                    orders_to_create=orders_to_create,
-                    orders_to_cancel=[],
-                )
+                async with self._throttler.execute_task(limit_id=CONSTANTS.TRANSACTION_POST_LIMIT_ID):
+                    update_result = await self._get_gateway_instance().clob_perp_batch_order_modify(
+                        connector=self._connector_name,
+                        chain=self._chain,
+                        network=self._network,
+                        address=self._account_id,
+                        orders_to_create=orders_to_create,
+                        orders_to_cancel=[],
+                    )
             except Exception:
                 await self._update_account_address_and_create_order_hash_manager()
                 raise
@@ -378,14 +384,15 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
     async def cancel_order(self, order: GatewayInFlightOrder) -> Tuple[bool, Optional[Dict[str, Any]]]:
         await order.get_exchange_order_id()
 
-        cancelation_result = await self._get_gateway_instance().clob_perp_cancel_order(
-            chain=self._chain,
-            network=self._network,
-            connector=self._connector_name,
-            address=self._account_id,
-            trading_pair=order.trading_pair,
-            exchange_order_id=order.exchange_order_id,
-        )
+        async with self._throttler.execute_task(limit_id=CONSTANTS.TRANSACTION_POST_LIMIT_ID):
+            cancelation_result = await self._get_gateway_instance().clob_perp_cancel_order(
+                chain=self._chain,
+                network=self._network,
+                connector=self._connector_name,
+                address=self._account_id,
+                trading_pair=order.trading_pair,
+                exchange_order_id=order.exchange_order_id,
+            )
         transaction_hash: Optional[str] = cancelation_result.get("txHash")
 
         if transaction_hash in [None, ""]:
@@ -422,14 +429,15 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
             if not isinstance(result, asyncio.TimeoutError)
         ]
 
-        update_result = await self._get_gateway_instance().clob_perp_batch_order_modify(
-            connector=self._connector_name,
-            chain=self._chain,
-            network=self._network,
-            address=self._account_id,
-            orders_to_create=[],
-            orders_to_cancel=found_orders_to_cancel,
-        )
+        async with self._throttler.execute_task(limit_id=CONSTANTS.TRANSACTION_POST_LIMIT_ID):
+            update_result = await self._get_gateway_instance().clob_perp_batch_order_modify(
+                connector=self._connector_name,
+                chain=self._chain,
+                network=self._network,
+                address=self._account_id,
+                orders_to_create=[],
+                orders_to_cancel=found_orders_to_cancel,
+            )
 
         transaction_hash: Optional[str] = update_result.get("txHash")
         exception = None
@@ -455,9 +463,10 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
 
     async def fetch_positions(self) -> List[Position]:
         market_ids = self._get_market_ids()
-        backend_positions: PositionsResponse = await self._client.get_derivative_positions(
-            market_ids=market_ids, subaccount_id=self._account_id
-        )
+        async with self._throttler.execute_task(limit_id=CONSTANTS.POSITIONS_LIMIT_ID):
+            backend_positions: PositionsResponse = await self._client.get_derivative_positions(
+                market_ids=market_ids, subaccount_id=self._account_id
+            )
 
         positions = [
             self._parse_backed_position_to_position(backend_position=backed_position)
@@ -477,9 +486,10 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
                 await self._update_account_address_and_create_order_hash_manager()
         self._check_markets_initialized() or await self._update_markets()
 
-        portfolio_response: AccountPortfolioResponse = await self._client.get_account_portfolio(
-            account_address=self._account_address
-        )
+        async with self._throttler.execute_task(limit_id=CONSTANTS.ACCOUNT_PORTFOLIO_LIMIT_ID):
+            portfolio_response: AccountPortfolioResponse = await self._client.get_account_portfolio(
+                account_address=self._account_address
+            )
 
         portfolio: Portfolio = portfolio_response.portfolio
         bank_balances: List[Coin] = portfolio.bank_balances
@@ -546,9 +556,10 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
         if trading_pair not in self._markets_info:
             return timestamp, funding_rate, payment
 
-        response: FundingPaymentsResponse = await self._client.get_funding_payments(
-            subaccount_id=self._account_id, market_id=self._markets_info[trading_pair].market_id, limit=1
-        )
+        async with self._throttler.execute_task(limit_id=CONSTANTS.FUNDING_PAYMENT_LIMIT_ID):
+            response: FundingPaymentsResponse = await self._client.get_funding_payments(
+                subaccount_id=self._account_id, market_id=self._markets_info[trading_pair].market_id, limit=1
+            )
 
         if len(response.payments) != 0:
             latest_funding_payment: FundingPayment = response.payments[0]  # List of payments sorted by latest
@@ -565,13 +576,16 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
     async def _update_account_address_and_create_order_hash_manager(self):
         if not self._order_placement_lock.locked():
             raise RuntimeError("The order-placement lock must be acquired before creating the order hash manager.")
-        response: Dict[str, Any] = await self._get_gateway_instance().clob_injective_balances(
-            chain=self._chain, network=self._network, address=self._account_id
-        )
+        async with self._throttler.execute_task(limit_id=CONSTANTS.BALANCES_LIMIT_ID):
+            response: Dict[str, Any] = await self._get_gateway_instance().clob_injective_balances(
+                chain=self._chain, network=self._network, address=self._account_id
+            )
         self._account_address: str = response["injectiveAddress"]
 
-        await self._client.get_account(address=self._account_address)
-        await self._client.sync_timeout_height()
+        async with self._throttler.execute_task(limit_id=CONSTANTS.ACCOUNT_LIMIT_ID):
+            await self._client.get_account(address=self._account_address)
+        async with self._throttler.execute_task(limit_id=CONSTANTS.SYNC_TIMEOUT_HEIGHT_LIMIT_ID):
+            await self._client.sync_timeout_height()
         tasks_to_await_submitted_orders_to_be_processed_by_chain = [
             asyncio.wait_for(order.wait_until_processed_by_exchange(), timeout=CONSTANTS.ORDER_CHAIN_PROCESSING_TIMEOUT)
             for order in self._gateway_order_tracker.active_orders.values()
@@ -581,7 +595,8 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
             *tasks_to_await_submitted_orders_to_be_processed_by_chain, return_exceptions=True  # await their processing
         )
         self._order_hash_manager = OrderHashManager(network=self._network_obj, sub_account_id=self._account_id)
-        await self._order_hash_manager.start()
+        async with self._throttler.execute_task(limit_id=CONSTANTS.NONCE_LIMIT_ID):
+            await self._order_hash_manager.start()
 
     def _check_markets_initialized(self) -> bool:
         return (
@@ -612,11 +627,15 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
 
     async def _fetch_derivative_markets(self) -> MarketsResponse:
         market_status: str = "active"
-        return await self._client.get_derivative_markets(market_status=market_status)
+        async with self._throttler.execute_task(limit_id=CONSTANTS.DERIVATIVE_MARKETS_LIMIT_ID):
+            derivative_markets = await self._client.get_derivative_markets(market_status=market_status)
+        return derivative_markets
 
     async def _fetch_spot_markets(self) -> MarketsResponse:
         market_status: str = "active"
-        return await self._client.get_spot_markets(market_status=market_status)
+        async with self._throttler.execute_task(limit_id=CONSTANTS.SPOT_MARKETS_LIMIT_ID):
+            spot_markets = await self._client.get_spot_markets(market_status=market_status)
+        return spot_markets
 
     def _update_market_map_attributes(self, markets: MarketsResponse):
         """Parses MarketsResponse and re-populate the market map attributes"""
@@ -684,15 +703,16 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
         skip = 0
         search_completed = False
         while not search_completed:
-            response: OrdersHistoryResponse = await self._client.get_historical_derivative_orders(
-                market_id=market.market_id,
-                subaccount_id=self._account_id,
-                direction=direction,
-                start_time=int(order.creation_timestamp * 1e3),
-                limit=CONSTANTS.FETCH_ORDER_HISTORY_LIMIT,
-                skip=skip,
-                order_types=[CONSTANTS.CLIENT_TO_BACKEND_ORDER_TYPES_MAP[(trade_type, order_type)]],
-            )
+            async with self._throttler.execute_task(limit_id=CONSTANTS.HISTORICAL_DERIVATIVE_ORDERS_LIMIT_ID):
+                response: OrdersHistoryResponse = await self._client.get_historical_derivative_orders(
+                    market_id=market.market_id,
+                    subaccount_id=self._account_id,
+                    direction=direction,
+                    start_time=int(order.creation_timestamp * 1e3),
+                    limit=CONSTANTS.FETCH_ORDER_HISTORY_LIMIT,
+                    skip=skip,
+                    order_types=[CONSTANTS.CLIENT_TO_BACKEND_ORDER_TYPES_MAP[(trade_type, order_type)]],
+                )
             if len(response.orders) == 0:
                 search_completed = True
             else:
@@ -717,13 +737,14 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
         direction: str = "buy" if order.trade_type == TradeType.BUY else "sell"
 
         while not search_completed:
-            trades = await self._client.get_derivative_trades(
-                market_id=market_id,
-                subaccount_id=self._account_id,
-                direction=direction,
-                skip=skip,
-                start_time=int(order.creation_timestamp * 1e3),
-            )
+            async with self._throttler.execute_task(limit_id=CONSTANTS.DERIVATIVE_TRADES_LIMIT_ID):
+                trades = await self._client.get_derivative_trades(
+                    market_id=market_id,
+                    subaccount_id=self._account_id,
+                    direction=direction,
+                    skip=skip,
+                    start_time=int(order.creation_timestamp * 1e3),
+                )
             if len(trades.trades) == 0:
                 search_completed = True
             else:
@@ -733,7 +754,9 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
         return all_trades
 
     async def _fetch_transaction_by_hash(self, transaction_hash: str) -> GetTxByTxHashResponse:
-        return await self._client.get_tx_by_hash(tx_hash=transaction_hash)
+        async with self._throttler.execute_task(limit_id=CONSTANTS.TRANSACTION_BY_HASH_LIMIT_ID):
+            transaction = await self._client.get_tx_by_hash(tx_hash=transaction_hash)
+        return transaction
 
     def _update_local_balances(self, balances: Dict[str, Dict[str, Decimal]]):
         # We need to keep local copy of total and available balance so we can trigger BalanceUpdateEvent with correct
@@ -748,7 +771,10 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
     async def _request_last_funding_rate(self, trading_pair: str) -> Decimal:
         # NOTE: Can be removed when GatewayHttpClient.clob_perp_funding_info is used.
         market_info: DerivativeMarketInfo = self._markets_info[trading_pair]
-        response: FundingRatesResponse = await self._client.get_funding_rates(market_id=market_info.market_id, limit=1)
+        async with self._throttler.execute_task(limit_id=CONSTANTS.FUNDING_RATES_LIMIT_ID):
+            response: FundingRatesResponse = await self._client.get_funding_rates(
+                market_id=market_info.market_id, limit=1
+            )
         funding_rate: FundingRate = response.funding_rates[0]  # We only want the latest funding rate.
         return Decimal(funding_rate.rate)
 
@@ -757,18 +783,20 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
         """
         According to Injective, Oracle Price refers to mark price.
         """
-        response = await self._client.get_oracle_prices(
-            base_symbol=market_info.oracle_base,
-            quote_symbol=market_info.oracle_quote,
-            oracle_type=market_info.oracle_type,
-            oracle_scale_factor=0,
-        )
+        async with self._throttler.execute_task(limit_id=CONSTANTS.ORACLE_PRICES_LIMIT_ID):
+            response = await self._client.get_oracle_prices(
+                base_symbol=market_info.oracle_base,
+                quote_symbol=market_info.oracle_quote,
+                oracle_type=market_info.oracle_type,
+                oracle_scale_factor=0,
+            )
         return Decimal(response.price)
 
     async def _request_last_trade_price(self, trading_pair: str) -> Decimal:
         # NOTE: Can be replaced by calling GatewayHTTPClient.clob_perp_last_trade_price
         market_info: DerivativeMarketInfo = self._markets_info[trading_pair]
-        response: TradesResponse = await self._client.get_derivative_trades(market_id=market_info.market_id)
+        async with self._throttler.execute_task(limit_id=CONSTANTS.DERIVATIVE_TRADES_LIMIT_ID):
+            response: TradesResponse = await self._client.get_derivative_trades(market_id=market_info.market_id)
         last_trade: DerivativeTrade = response.trades[0]
         price_scaler: Decimal = Decimal(f"1e-{market_info.quote_token_meta.decimals}")
         last_trade_price: Decimal = Decimal(last_trade.position_delta.execution_price) * price_scaler
@@ -1199,7 +1227,8 @@ class InjectivePerpetualAPIDataSource(CLOBPerpAPIDataSourceBase):
         last_funding_rate: Decimal = await self._request_last_funding_rate(trading_pair=trading_pair)
         oracle_price: Decimal = await self._request_oracle_price(market_info=market_info)
         last_trade_price: Decimal = await self._request_last_trade_price(trading_pair=trading_pair)
-        updated_market_info = await self._client.get_derivative_market(market_id=market_info.market_id)
+        async with self._throttler.execute_task(limit_id=CONSTANTS.SINGLE_DERIVATIVE_MARKET_LIMIT_ID):
+            updated_market_info = await self._client.get_derivative_market(market_id=market_info.market_id)
         funding_info = FundingInfo(
             trading_pair=trading_pair,
             index_price=last_trade_price,  # Default to using last trade price

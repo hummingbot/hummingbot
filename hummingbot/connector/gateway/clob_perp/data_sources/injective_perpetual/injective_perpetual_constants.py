@@ -1,3 +1,4 @@
+import sys
 from configparser import ConfigParser
 from decimal import Decimal
 from typing import Dict, Tuple
@@ -9,6 +10,8 @@ from pyinjective.constant import (
     testnet_config as TESTNET_TOKEN_META_CONFIG,
 )
 
+from hummingbot.connector.constants import MINUTE, SECOND
+from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.data_type.common import OrderType, PositionMode, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState
 
@@ -19,7 +22,7 @@ ORDER_CHAIN_PROCESSING_TIMEOUT = 5
 DEFAULT_SUB_ACCOUNT_SUFFIX = "000000000000000000000000"
 
 NETWORK_CONFIG = {
-    "mainnet": Network.mainnet(node="k8s"),
+    "mainnet": Network.mainnet(),
     "testnet": Network.testnet(),
     "devnet": Network.devnet()
 }
@@ -89,3 +92,161 @@ NETWORK_DENOM_TOKEN_META = {
     "testnet": _parse_network_config_to_denom_meta(config=TESTNET_TOKEN_META_CONFIG),
     "devnet": _parse_network_config_to_denom_meta(config=DEVNET_TOKEN_META_CONFIG)
 }
+
+NO_LIMIT = sys.maxsize
+CHAIN_RPC_LIMIT_ID = "ChainRPCLimitID"
+CHAIN_RPC_LIMIT = 120
+INDEXER_RPC_LIMIT_ID = "IndexerRPCLimitID"
+REST_LIMIT_ID = "RESTLimitID"
+REST_LIMIT = 120
+TRANSACTION_POST_LIMIT_ID = "TransactionPostLimitID"
+TRANSACTION_POST_LIMIT = REST_LIMIT
+BALANCES_LIMIT_ID = "BalancesLimitID"
+BALANCES_LIMIT = REST_LIMIT
+NONCE_LIMIT_ID = "NonceLimitID"
+NONCE_LIMIT = REST_LIMIT
+PING_LIMIT_ID = "PingLimitID"
+ORDER_BOOK_LIMIT_ID = "OrderBookLimitID"
+POSITIONS_LIMIT_ID = "PositionsLimitID"
+ACCOUNT_PORTFOLIO_LIMIT_ID = "AccountPortfolioLimitID"
+FUNDING_PAYMENT_LIMIT_ID = "GetFundingPaymentLimitID"
+ACCOUNT_LIMIT_ID = "AccountLimitID"
+SYNC_TIMEOUT_HEIGHT_LIMIT_ID = "SyncTimeoutHeightLimitID"
+SYNC_TIMEOUT_HEIGHT_LIMIT = CHAIN_RPC_LIMIT
+DERIVATIVE_MARKETS_LIMIT_ID = "DerivativeMarketsLimitID"
+SINGLE_DERIVATIVE_MARKET_LIMIT_ID = "SingleDerivativeMarketLimitID"
+SPOT_MARKETS_LIMIT_ID = "SpotMarketsLimitID"
+HISTORICAL_DERIVATIVE_ORDERS_LIMIT_ID = "HistoricalDerivativeOrdersLimitID"
+DERIVATIVE_TRADES_LIMIT_ID = "DerivativeTradesLimitID"
+TRANSACTION_BY_HASH_LIMIT_ID = "TransactionByHashLimitID"
+FUNDING_RATES_LIMIT_ID = "FundingRatesLimitID"
+ORACLE_PRICES_LIMIT_ID = "OraclePricesLimitID"
+
+RATE_LIMITS = [
+    RateLimit(limit_id=CHAIN_RPC_LIMIT_ID, limit=CHAIN_RPC_LIMIT, time_interval=MINUTE),
+    RateLimit(limit_id=INDEXER_RPC_LIMIT_ID, limit=NO_LIMIT, time_interval=SECOND),
+    RateLimit(limit_id=REST_LIMIT_ID, limit=REST_LIMIT, time_interval=MINUTE),
+    RateLimit(
+        limit_id=TRANSACTION_POST_LIMIT_ID,
+        limit=TRANSACTION_POST_LIMIT,
+        time_interval=MINUTE,
+        linked_limits=[
+            LinkedLimitWeightPair(
+                limit_id=REST_LIMIT_ID,  # Gateway uses httpClient to post transactions
+                weight=1,
+            ),
+        ],
+    ),
+    RateLimit(
+        limit_id=BALANCES_LIMIT_ID,
+        limit=BALANCES_LIMIT,
+        time_interval=MINUTE,
+        linked_limits=[
+            LinkedLimitWeightPair(
+                limit_id=REST_LIMIT_ID,  # Gateway uses httpClient to post transactions
+                weight=1,
+            ),
+        ],
+    ),
+    RateLimit(
+        limit_id=NONCE_LIMIT_ID,
+        limit=NONCE_LIMIT,
+        time_interval=MINUTE,
+        linked_limits=[
+            LinkedLimitWeightPair(
+                limit_id=REST_LIMIT_ID,  # the OrderHashManager issues a REST call to get the account nonce
+                weight=1,
+            ),
+        ],
+    ),
+    RateLimit(
+        limit_id=PING_LIMIT_ID,
+        limit=NO_LIMIT,
+        time_interval=SECOND,
+        linked_limits=[LinkedLimitWeightPair(limit_id=INDEXER_RPC_LIMIT_ID, weight=1)],
+    ),
+    RateLimit(
+        limit_id=ORDER_BOOK_LIMIT_ID,
+        limit=NO_LIMIT,
+        time_interval=SECOND,
+        linked_limits=[LinkedLimitWeightPair(limit_id=INDEXER_RPC_LIMIT_ID, weight=1)],
+    ),
+    RateLimit(
+        limit_id=POSITIONS_LIMIT_ID,
+        limit=NO_LIMIT,
+        time_interval=SECOND,
+        linked_limits=[LinkedLimitWeightPair(limit_id=INDEXER_RPC_LIMIT_ID, weight=1)],
+    ),
+    RateLimit(
+        limit_id=ACCOUNT_PORTFOLIO_LIMIT_ID,
+        limit=NO_LIMIT,
+        time_interval=SECOND,
+        linked_limits=[LinkedLimitWeightPair(limit_id=INDEXER_RPC_LIMIT_ID, weight=1)],
+    ),
+    RateLimit(
+        limit_id=FUNDING_PAYMENT_LIMIT_ID,
+        limit=NO_LIMIT,
+        time_interval=SECOND,
+        linked_limits=[LinkedLimitWeightPair(limit_id=INDEXER_RPC_LIMIT_ID, weight=1)],
+    ),
+    RateLimit(
+        limit_id=ACCOUNT_LIMIT_ID,
+        limit=NO_LIMIT,
+        time_interval=SECOND,
+        linked_limits=[LinkedLimitWeightPair(limit_id=INDEXER_RPC_LIMIT_ID, weight=1)],
+    ),
+    RateLimit(
+        limit_id=SYNC_TIMEOUT_HEIGHT_LIMIT_ID,
+        limit=SYNC_TIMEOUT_HEIGHT_LIMIT,
+        time_interval=MINUTE,
+        linked_limits=[LinkedLimitWeightPair(limit_id=CHAIN_RPC_LIMIT_ID, weight=1)],
+    ),
+    RateLimit(
+        limit_id=DERIVATIVE_MARKETS_LIMIT_ID,
+        limit=NO_LIMIT,
+        time_interval=SECOND,
+        linked_limits=[LinkedLimitWeightPair(limit_id=INDEXER_RPC_LIMIT_ID, weight=1)],
+    ),
+    RateLimit(
+        limit_id=SINGLE_DERIVATIVE_MARKET_LIMIT_ID,
+        limit=NO_LIMIT,
+        time_interval=SECOND,
+        linked_limits=[LinkedLimitWeightPair(limit_id=INDEXER_RPC_LIMIT_ID, weight=1)],
+    ),
+    RateLimit(
+        limit_id=SPOT_MARKETS_LIMIT_ID,
+        limit=NO_LIMIT,
+        time_interval=SECOND,
+        linked_limits=[LinkedLimitWeightPair(limit_id=INDEXER_RPC_LIMIT_ID, weight=1)],
+    ),
+    RateLimit(
+        limit_id=HISTORICAL_DERIVATIVE_ORDERS_LIMIT_ID,
+        limit=NO_LIMIT,
+        time_interval=SECOND,
+        linked_limits=[LinkedLimitWeightPair(limit_id=INDEXER_RPC_LIMIT_ID, weight=1)],
+    ),
+    RateLimit(
+        limit_id=DERIVATIVE_TRADES_LIMIT_ID,
+        limit=NO_LIMIT,
+        time_interval=SECOND,
+        linked_limits=[LinkedLimitWeightPair(limit_id=INDEXER_RPC_LIMIT_ID, weight=1)],
+    ),
+    RateLimit(
+        limit_id=TRANSACTION_BY_HASH_LIMIT_ID,
+        limit=NO_LIMIT,
+        time_interval=SECOND,
+        linked_limits=[LinkedLimitWeightPair(limit_id=INDEXER_RPC_LIMIT_ID, weight=1)],
+    ),
+    RateLimit(
+        limit_id=FUNDING_RATES_LIMIT_ID,
+        limit=NO_LIMIT,
+        time_interval=SECOND,
+        linked_limits=[LinkedLimitWeightPair(limit_id=INDEXER_RPC_LIMIT_ID, weight=1)],
+    ),
+    RateLimit(
+        limit_id=ORACLE_PRICES_LIMIT_ID,
+        limit=NO_LIMIT,
+        time_interval=SECOND,
+        linked_limits=[LinkedLimitWeightPair(limit_id=INDEXER_RPC_LIMIT_ID, weight=1)],
+    ),
+]

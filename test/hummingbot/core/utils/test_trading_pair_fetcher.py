@@ -116,7 +116,7 @@ class TestTradingPairFetcher(unittest.TestCase):
                 use_eth_gas_lookup=False),
             "perp_ethereum_optimism": ConnectorSetting(
                 name='perp_ethereum_optimism',
-                type=ConnectorType.EVM_Perpetual,
+                type=ConnectorType.AMM_Perpetual,
                 example_pair='ZRX-ETH',
                 centralised=False,
                 use_ethereum_wallet=False,
@@ -234,6 +234,8 @@ class TestTradingPairFetcher(unittest.TestCase):
             "connector": "perp",
             "chain": "optimism",
             "network": "ethereum",
+            "trading_type": "AMM_Perpetual",
+            "chain_type": "EVM",
             "wallet_address": "0x..."
         }
 

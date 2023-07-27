@@ -12,7 +12,6 @@ from typing import Coroutine, List
 
 import path_util  # noqa: F401
 
-from bin.docker_connection import fork_and_start
 from bin.hummingbot import UIStartListener, detect_available_port
 from hummingbot import init_logging
 from hummingbot.client.config.config_crypt import BaseSecretsManager, ETHKeyFileSecretManger
@@ -149,8 +148,14 @@ def main():
     else:
         secrets_manager = secrets_manager_cls(args.config_password)
 
-    asyncio.get_event_loop().run_until_complete(quick_start(args, secrets_manager))
+    try:
+        ev_loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+    except Exception:
+        ev_loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
+        asyncio.set_event_loop(ev_loop)
+
+    ev_loop.run_until_complete(quick_start(args, secrets_manager))
 
 
 if __name__ == "__main__":
-    fork_and_start(main)
+    main()

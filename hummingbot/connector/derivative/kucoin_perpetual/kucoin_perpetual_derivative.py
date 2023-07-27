@@ -739,6 +739,13 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
         self._account_balances[symbol] = Decimal(available_balance + Decimal(str(wallet_msg["holdBalance"])))
         self._account_available_balances[symbol] = available_balance
 
+    async def start_network(self):
+        """
+        Start all required tasks to update the status of the connector.
+        """
+        await self._update_trading_rules()
+        await super().start_network()
+
     async def _format_trading_rules(self, instrument_info_dict: Dict[str, Any]) -> List[TradingRule]:
         """
         Converts JSON API response into a local dictionary of trading rules.

@@ -24,11 +24,11 @@ if TYPE_CHECKING:
 
 class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     def __init__(
-        self,
-        trading_pairs: List[str],
-        connector: 'KucoinPerpetualDerivative',
-        api_factory: WebAssistantsFactory,
-        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+            self,
+            trading_pairs: List[str],
+            connector: 'KucoinPerpetualDerivative',
+            api_factory: WebAssistantsFactory,
+            domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
         super().__init__(trading_pairs)
         self._connector = connector
@@ -134,8 +134,8 @@ class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             asks = []
             price = diffs_data["change"].split(",")[0]
             side = diffs_data["change"].split(",")[1]
-            quantity = diffs_data["change"].split(",")[2]
-            row_tuple = (price, quantity)
+            quantity = Decimal(diffs_data["change"].split(",")[2])
+            row_tuple = (price, self._connector.get_value_of_contracts(trading_pair, quantity))
             if side == "buy":
                 bids.append(row_tuple)
             else:
@@ -163,7 +163,7 @@ class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             "trading_pair": trading_pair,
             "trade_type": float(TradeType.BUY.value) if trade_data["side"] == "buy" else float(
                 TradeType.SELL.value),
-            "amount": Decimal(trade_data["size"]),
+            "amount": self._connector.get_value_of_contracts(trading_pair, Decimal(trade_data["size"])),
             "price": Decimal(trade_data["price"])
         }
         trade_message: Optional[OrderBookMessage] = OrderBookMessage(
@@ -217,7 +217,7 @@ class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             update_id = int(snapshot_data["sequence"])
         else:
             update_id = self._nonce_provider.get_tracking_nonce(timestamp=timestamp)
-        bids, asks = self._get_bids_and_asks_from_rest_msg_data(snapshot_data)
+        bids, asks = self._get_bids_and_asks_from_rest_msg_data(trading_pair, snapshot_data)
         order_book_message_content = {
             "trading_pair": trading_pair,
             "update_id": update_id,
@@ -245,23 +245,22 @@ class KucoinPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
         return data
 
-    @staticmethod
     def _get_bids_and_asks_from_rest_msg_data(
-        snapshot: List[Dict[str, Union[str, int, float]]]
+            self, trading_pair, snapshot: List[Dict[str, Union[str, int, float]]]
     ) -> Tuple[List[Tuple[float, float]], List[Tuple[float, float]]]:
         bids = [
-            (float(row[0]), float(row[1]))
+            (float(row[0]), self._connector.get_value_of_contracts(trading_pair, Decimal(row[1])))
             for row in snapshot['bids']
         ]
         asks = [
-            (float(row[0]), float(row[1]))
+            (float(row[0]), self._connector.get_value_of_contracts(trading_pair, Decimal(row[1])))
             for row in snapshot['asks']
         ]
         return bids, asks
 
     @staticmethod
     def _get_bids_and_asks_from_ws_msg_data(
-        snapshot: Dict[str, List[Dict[str, Union[str, int, float]]]]
+            snapshot: Dict[str, List[Dict[str, Union[str, int, float]]]]
     ) -> Tuple[List[Tuple[float, float]], List[Tuple[float, float]]]:
         bids = []
         asks = []

@@ -28,15 +28,16 @@ from pyinjective.proto.exchange.injective_portfolio_rpc_pb2 import (
 )
 from pyinjective.proto.exchange.injective_spot_exchange_rpc_pb2 import (
     MarketsResponse,
-    OrderbookResponse,
+    OrderbooksV2Response,
     OrdersHistoryResponse,
     Paging,
     PriceLevel,
-    SpotLimitOrderbook,
+    SingleSpotLimitOrderbookV2,
+    SpotLimitOrderbookV2,
     SpotMarketInfo,
     SpotOrderHistory,
     SpotTrade,
-    StreamOrderbookResponse,
+    StreamOrderbookV2Response,
     StreamOrdersHistoryResponse,
     StreamTradesResponse,
     TokenMeta,
@@ -167,7 +168,7 @@ class InjectiveClientMock:
 
         self.injective_async_client_mock.stream_spot_trades.return_value = StreamMock()
         self.injective_async_client_mock.stream_historical_spot_orders.return_value = StreamMock()
-        self.injective_async_client_mock.stream_spot_orderbooks.return_value = StreamMock()
+        self.injective_async_client_mock.stream_spot_orderbook_snapshot.return_value = StreamMock()
         self.injective_async_client_mock.stream_account_portfolio.return_value = StreamMock()
         self.injective_async_client_mock.stream_subaccount_balance.return_value = StreamMock()
         self.injective_async_client_mock.stream_txs.return_value = StreamMock()
@@ -528,6 +529,10 @@ class InjectiveClientMock:
         )
         self.injective_async_client_mock.stream_subaccount_balance.return_value.add(balance_event)
 
+        self.configure_get_account_balances_response(
+            quote_total_balance=total_balance, quote_available_balance=available_balance,
+        )
+
     def configure_faulty_base_balance_stream_event(self, timestamp: float):
         timestamp_ms = int(timestamp * 1e3)
         deposit = Account_SubaccountDeposit(
@@ -573,28 +578,30 @@ class InjectiveClientMock:
     ):
         timestamp_ms = int(timestamp * 1e3)
         orderbook = self.create_orderbook_mock(timestamp_ms=timestamp_ms, bids=bids, asks=asks)
-        orderbook_response = OrderbookResponse(orderbook=orderbook)
+        single_orderbook = SingleSpotLimitOrderbookV2(market_id=self.market_id, orderbook=orderbook)
+        orderbook_response = OrderbooksV2Response()
+        orderbook_response.orderbooks.append(single_orderbook)
 
-        self.injective_async_client_mock.get_spot_orderbook.return_value = orderbook_response
+        self.injective_async_client_mock.get_spot_orderbooksV2.return_value = orderbook_response
 
     def configure_orderbook_snapshot_stream_event(
         self, timestamp: float, bids: List[Tuple[float, float]], asks: List[Tuple[float, float]]
     ):
         timestamp_ms = int(timestamp * 1e3)
         orderbook = self.create_orderbook_mock(timestamp_ms=timestamp_ms, bids=bids, asks=asks)
-        orderbook_response = StreamOrderbookResponse(
+        orderbook_response = StreamOrderbookV2Response(
             orderbook=orderbook,
             operation_type="update",
             timestamp=timestamp_ms,
             market_id=self.market_id,
         )
 
-        self.injective_async_client_mock.stream_spot_orderbooks.return_value.add(orderbook_response)
+        self.injective_async_client_mock.stream_spot_orderbook_snapshot.return_value.add(orderbook_response)
 
     def create_orderbook_mock(
         self, timestamp_ms: float, bids: List[Tuple[float, float]], asks: List[Tuple[float, float]]
-    ) -> SpotLimitOrderbook:
-        orderbook = SpotLimitOrderbook()
+    ) -> SpotLimitOrderbookV2:
+        orderbook = SpotLimitOrderbookV2()
 
         for price, size in bids:
             scaled_price = price * Decimal(f"1e{self.quote_decimals - self.base_decimals}")
@@ -817,6 +824,30 @@ class InjectiveClientMock:
         mock_response.orders.append(order)
         self.injective_async_client_mock.get_historical_spot_orders.return_value = mock_response
 
+    def configure_account_quote_balance_stream_event(
+        self, timestamp: float, total_balance: Decimal, available_balance: Decimal
+    ):
+        timestamp_ms = int(timestamp * 1e3)
+        deposit = Account_SubaccountDeposit(
+            total_balance=str(total_balance * Decimal(f"1e{self.quote_decimals}")),
+            available_balance=str(available_balance * Decimal(f"1e{self.quote_decimals}")),
+        )
+        balance = SubaccountBalance(
+            subaccount_id=self.sub_account_id,
+            account_address="someAccountAddress",
+            denom=self.quote_denom,
+            deposit=deposit,
+        )
+        balance_event = StreamSubaccountBalanceResponse(
+            balance=balance,
+            timestamp=timestamp_ms,
+        )
+        self.injective_async_client_mock.stream_subaccount_balance.return_value.add(balance_event)
+
+        self.configure_get_account_balances_response(
+            quote_total_balance=total_balance, quote_available_balance=available_balance,
+        )
+
     def get_spot_order_history(
         self,
         timestamp: float,
@@ -857,14 +888,16 @@ class InjectiveClientMock:
         pass
 
     def configure_get_account_balances_response(
-        self,
-        base_bank_balance: Decimal = s_decimal_0,
-        quote_bank_balance: Decimal = s_decimal_0,
-        base_total_balance: Decimal = s_decimal_0,
-        base_available_balance: Decimal = s_decimal_0,
-        quote_total_balance: Decimal = s_decimal_0,
-        quote_available_balance: Decimal = s_decimal_0,
+            self,
+            base_bank_balance: Decimal = s_decimal_0,
+            quote_bank_balance: Decimal = s_decimal_0,
+            base_total_balance: Decimal = s_decimal_0,
+            base_available_balance: Decimal = s_decimal_0,
+            quote_total_balance: Decimal = s_decimal_0,
+            quote_available_balance: Decimal = s_decimal_0,
+            sub_account_id: Optional[str] = None,
     ):
+        sub_account_id = sub_account_id or self.sub_account_id
         subaccount_list = []
         bank_coin_list = []
 
@@ -874,7 +907,7 @@ class InjectiveClientMock:
                 available_balance=str(base_available_balance * Decimal(f"1e{self.base_decimals}")),
             )
             base_balance = SubaccountBalanceV2(
-                subaccount_id=self.sub_account_id,
+                subaccount_id=sub_account_id,
                 denom=self.base_denom,
                 deposit=base_deposit
             )
@@ -882,11 +915,11 @@ class InjectiveClientMock:
 
         if quote_total_balance != s_decimal_0:
             quote_deposit = SubaccountDeposit(
-                total_balance = str(quote_total_balance * Decimal(f"1e{self.quote_decimals}")),
-                available_balance = str(quote_available_balance * Decimal(f"1e{self.quote_decimals}")),
+                total_balance=str(quote_total_balance * Decimal(f"1e{self.quote_decimals}")),
+                available_balance=str(quote_available_balance * Decimal(f"1e{self.quote_decimals}")),
             )
             quote_balance = SubaccountBalanceV2(
-                subaccount_id=self.sub_account_id,
+                subaccount_id=sub_account_id,
                 denom=self.quote_denom,
                 deposit=quote_deposit,
             )
@@ -905,7 +938,8 @@ class InjectiveClientMock:
         portfolio = Portfolio(account_address="someAccountAddress", bank_balances=bank_coin_list,
                               subaccounts=subaccount_list)
 
-        self.injective_async_client_mock.get_account_portfolio.return_value = AccountPortfolioResponse(portfolio=portfolio)
+        self.injective_async_client_mock.get_account_portfolio.return_value = AccountPortfolioResponse(
+            portfolio=portfolio)
 
     def configure_get_tx_by_hash_creation_response(
         self,

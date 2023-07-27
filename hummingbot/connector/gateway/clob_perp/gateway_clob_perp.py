@@ -3,9 +3,8 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
-from hummingbot.connector.constants import s_decimal_NaN
+from hummingbot.connector.constants import FUNDING_FEE_POLL_INTERVAL, s_decimal_NaN
 from hummingbot.connector.derivative.position import Position
-from hummingbot.connector.gateway.clob import clob_constants as CONSTANTS
 from hummingbot.connector.gateway.clob_perp.data_sources.clob_perp_api_data_source_base import CLOBPerpAPIDataSourceBase
 from hummingbot.connector.gateway.clob_perp.gateway_clob_perp_api_order_book_data_source import (
     GatewayCLOBPerpAPIOrderBookDataSource,
@@ -150,7 +149,7 @@ class GatewayCLOBPerp(PerpetualDerivativePyBase):
 
     @property
     def funding_fee_poll_interval(self) -> int:
-        return CONSTANTS.FUNDING_FEE_POLL_INTERVAL
+        return FUNDING_FEE_POLL_INTERVAL
 
     @property
     def supported_position_modes(self) -> List[PositionMode]:

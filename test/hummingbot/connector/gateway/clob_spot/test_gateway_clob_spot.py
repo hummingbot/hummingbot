@@ -395,7 +395,6 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
     @patch("hummingbot.core.data_type.order_book_tracker.OrderBookTracker._sleep")
     def test_full_initialization_and_de_initialization(self, _: AsyncMock):
         self.clob_data_source_mock.configure_trades_response_no_trades()
-        self.clob_data_source_mock.configure_trades_response_no_trades()
         self.clob_data_source_mock.configure_get_account_balances_response(
             base_total_balance=Decimal("10"),
             base_available_balance=Decimal("9"),
@@ -593,7 +592,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
         self.clob_data_source_mock.configure_place_order_fails_response(exception=RuntimeError("some error"))
 
         order_id_for_invalid_order = self.place_buy_order(
-            size=Decimal("0.0001"), price=Decimal("0.0000001")
+            size=Decimal("0.0001"), price=Decimal("0.0001")
         )
         # The second order is used only to have the event triggered and avoid using timeouts for tests
         order_id = self.place_buy_order()
@@ -611,7 +610,9 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
         self.assertTrue(
             self.is_logged(
                 "WARNING",
-                "Buy order amount 0 is lower than the minimum order size 0.001. The order will not be created."
+                "Buy order amount 0.0001 is lower than the minimum order "
+                "size 0.001. The order will not be created, increase the "
+                "amount to be higher than the minimum order size."
             )
         )
         self.assertTrue(
@@ -1444,7 +1445,7 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
         if self.exchange.real_time_balance_update:
             target_total_balance = Decimal("15")
             target_available_balance = Decimal("10")
-            self.clob_data_source_mock.configure_account_base_balance_stream_event(
+            self.clob_data_source_mock.configure_account_quote_balance_stream_event(
                 timestamp=self.start_timestamp,
                 total_balance=target_total_balance,
                 available_balance=target_available_balance,
@@ -1452,8 +1453,8 @@ class GatewayCLOBSPOTTest(unittest.TestCase):
 
             self.clob_data_source_mock.run_until_all_items_delivered()
 
-            self.assertEqual(target_total_balance, self.exchange.get_balance(self.base_asset))
-            self.assertEqual(target_available_balance, self.exchange.available_balances[self.base_asset])
+            self.assertEqual(target_total_balance, self.exchange.get_balance(self.quote_asset))
+            self.assertEqual(target_available_balance, self.exchange.available_balances[self.quote_asset])
 
     def test_user_stream_logs_errors(self):
         self.clob_data_source_mock.configure_faulty_base_balance_stream_event(timestamp=self.start_timestamp)

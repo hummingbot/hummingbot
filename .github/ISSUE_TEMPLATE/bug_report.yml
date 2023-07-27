@@ -1,0 +1,56 @@
+name: Bug Report
+description: Create a bug report to help us improve
+title: "SUMMARY OF BUG"
+labels: bug
+body:
+ - type: markdown
+   attributes:
+     value: |
+       ## **Before Submitting:**
+       
+       * Please make sure to look on our GitHub issues to avoid duplicate tickets
+       * You can add additional `Labels` to support this ticket (connectors, strategies, etc)
+       * If this is something to do with installation and how to's we would recommend to visit our [Discord server](https://discord.gg/hummingbot) and [Hummingbot docs](https://docs.hummingbot.org/)
+ - type: textarea
+   id: what-happened
+   attributes:
+     label: Describe the bug
+     description: A clear and concise description of the bug or issue. Please make sure to add screenshots and error message to help us investigate
+     placeholder: Tell us what happened?
+   validations:
+     required: true
+ - type: textarea
+   id: reproduce
+   attributes:
+     label: Steps to reproduce
+     description: A concise description of the steps to reproduce the buggy behavior
+     value: |
+       1. 
+       2. 
+       3. 
+   validations:
+     required: true
+ - type: input
+   id: version
+   attributes:
+     label: Release version
+     description: Include your bot version number (Can be found at the upper left corner of your CLI)
+   validations:
+     required: true
+ - type: dropdown
+   id: build
+   attributes:
+     label: Type of installation
+     description: What type of installation did you use?
+     options:
+       - Source 
+       - Docker
+   validations:
+     required: true
+ - type: textarea
+   id: attachment
+   attributes:
+     label: Attach required files
+     description: Please attach your config file and log file located on the "../hummingbot/logs/" folder. It would be difficult for us to help you without those! 
+   validations:
+     required: false

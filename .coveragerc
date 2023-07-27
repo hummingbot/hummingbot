@@ -24,18 +24,15 @@ omit =
         hummingbot/connector/exchange/hitbtc*
         hummingbot/connector/exchange/loopring*
         hummingbot/connector/exchange/paper_trade*
-        hummingbot/connector/exchange/probit*
         hummingbot/connector/gateway*
         hummingbot/connector/test_support/*
         hummingbot/core/utils/gateway_config_utils.py
         hummingbot/core/utils/kill_switch.py
         hummingbot/core/utils/wallet_setup.py
         hummingbot/connector/mock*
-        hummingbot/strategy/aroon_oscillator*
         hummingbot/strategy/*/start.py
         hummingbot/strategy/dev*
-        hummingbot/strategy/hedge*
-        hummingbot/user/user_balances.py        
+        hummingbot/user/user_balances.py
 dynamic_context = test_function
 branch = true
 

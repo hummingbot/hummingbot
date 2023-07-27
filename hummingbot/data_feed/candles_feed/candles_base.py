@@ -3,6 +3,7 @@ from collections import deque
 from typing import Optional
 
 import pandas as pd
+from bidict import bidict
 
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.network_base import NetworkBase
@@ -19,6 +20,24 @@ class CandlesBase(NetworkBase):
     Also implements the Throttler module for API rate limiting, but it's not so necessary since the realtime data should
     be updated via websockets mainly.
     """
+    interval_to_seconds = bidict({
+        "1s": 1,
+        "1m": 60,
+        "3m": 180,
+        "5m": 300,
+        "15m": 900,
+        "30m": 1800,
+        "1h": 3600,
+        "2h": 7200,
+        "4h": 14400,
+        "6h": 21600,
+        "8h": 28800,
+        "12h": 43200,
+        "1d": 86400,
+        "3d": 259200,
+        "1w": 604800,
+        "1M": 2592000
+    })
     columns = ["timestamp", "open", "high", "low", "close", "volume", "quote_asset_volume",
                "n_trades", "taker_buy_base_volume", "taker_buy_quote_volume"]
 
@@ -33,7 +52,8 @@ class CandlesBase(NetworkBase):
         if interval in self.intervals.keys():
             self.interval = interval
         else:
-            self.logger().exception(f"Interval {interval} is not supported. Available Intervals: {self.intervals.keys()}")
+            self.logger().exception(
+                f"Interval {interval} is not supported. Available Intervals: {self.intervals.keys()}")
             raise
 
     async def start_network(self):
@@ -166,3 +186,11 @@ class CandlesBase(NetworkBase):
     async def _on_order_stream_interruption(self, websocket_assistant: Optional[WSAssistant] = None):
         websocket_assistant and await websocket_assistant.disconnect()
         self._candles.clear()
+
+    def get_seconds_from_interval(self, interval: str) -> int:
+        """
+        This method returns the number of seconds from the interval string.
+        :param interval: interval string
+        :return: number of seconds
+        """
+        return self.interval_to_seconds[interval]
