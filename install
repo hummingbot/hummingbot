@@ -22,9 +22,6 @@ else
     ${CONDA_EXE} env create -f "${_ENV_DIR}/${ENV_FILE}"
 fi
 
-# Record updated environment file
-${CONDA_EXE} env export -n ${ENV_NAME} > "${_ENV_DIR}/x-installed:${ENV_FILE}"
-
 source "${CONDA_BIN}/activate" ${ENV_NAME}
 
 # Installing conflicting pip packages without their dependencies
@@ -34,5 +31,9 @@ read -t 10 -p "Do you want to continue? [Y/n]: " RESPONSE
 if [ "${RESPONSE}_" == "_" ] || [ "${RESPONSE}" != "n" ]; then
   python -m pip install --no-deps -r setup/pip_packages.txt 1> logs/pip_install.log 2>&1
 fi
+
+# Record updated environment file
+${CONDA_EXE} env export -n ${ENV_NAME} > "/tmp/x-installed:${ENV_FILE}"
+$(update_environment_yml "${_ENV_DIR}/x-installed:${ENV_FILE}" "/tmp/x-installed:${ENV_FILE}")
 
 pre-commit install

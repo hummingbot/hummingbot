@@ -275,6 +275,32 @@ verify_pip_packages() {
   grep -v -f <(cut -d '=' -f1 $install_dir/conda_package_list.txt) setup/pip_packages.txt 2> $install_dir/updated_pip_packages.txt
 }
 
+update_environment_yml() {
+    # $1 is the path to the environment.yml file
+    # $2 is the path to the conda env export output file
+
+    local env_file=$1
+    local export_file=$2
+    local temp_file="${env_file}.tmp"
+
+    cp "$env_file" "$temp_file"
+
+    # Loop over the dependencies in the exported environment
+    grep -P "^\s+-" "$export_file" | while read -r line; do
+        # Extract the package name and version
+        local package=$(echo "$line" | awk -F "=" '{print $1}' | xargs)
+        local version=$(echo "$line" | awk -F "=" '{print $2}' | xargs)
+
+        # Update the version in the environment.yml file
+        if [ -n "${package}" ] && [ -n "${version}" ]; then
+          sed -i -r "s/(${package}>?=[^ ]*)/${package}>=${version}/g" "$temp_file"
+        fi
+    done
+
+    mv "$temp_file" "$env_file".new
+    echo "Updated $env_file with versions from $export_file"
+}
+
 # Check if the script is being sourced
 if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
   return 0

@@ -17,7 +17,7 @@ dependencies:
   - pip>=21.1.2
   - pre-commit>=2.18.1
   - pyppeteer
-  - python>=3.10,<3.11
+  - python>=3.10
   - pytest>=4.6.11
   - setuptools>=50.3.2
   ### Packages used within HB and helping reduce the footprint of pip-installed packages
@@ -95,7 +95,6 @@ dependencies:
   #
   ## Packages for ethsnarks-loopring
   - bitstring>=4.0.1
-  - pyblake2>=1.1.2
   #
   ## Packages for injective-py
   - aiocron>=1.8
