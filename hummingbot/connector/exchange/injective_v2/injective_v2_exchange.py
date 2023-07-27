@@ -781,7 +781,7 @@ class InjectiveV2Exchange(ExchangePyBase):
     async def _initialize_trading_pair_symbol_map(self):
         exchange_info = None
         try:
-            mapping = await self._data_source.market_and_trading_pair_map()
+            mapping = await self._data_source.spot_market_and_trading_pair_map()
             self._set_trading_pair_symbol_map(mapping)
         except Exception:
             self.logger().exception("There was an error requesting exchange info.")

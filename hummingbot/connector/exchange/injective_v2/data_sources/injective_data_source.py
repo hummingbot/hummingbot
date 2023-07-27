@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from decimal import Decimal
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from google.protobuf import any_pb2
 from pyinjective import Transaction
@@ -14,12 +14,13 @@ from pyinjective.composer import Composer, injective_exchange_tx_pb
 
 from hummingbot.connector.exchange.injective_v2 import injective_constants as CONSTANTS
 from hummingbot.connector.exchange.injective_v2.injective_events import InjectiveEvent
-from hummingbot.connector.exchange.injective_v2.injective_market import InjectiveToken
+from hummingbot.connector.exchange.injective_v2.injective_market import InjectiveDerivativeMarket, InjectiveToken
 from hummingbot.connector.gateway.common_types import CancelOrderResult, PlaceOrderResult
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
 from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase, TradeFeeSchema
@@ -106,11 +107,19 @@ class InjectiveDataSource(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def market_and_trading_pair_map(self):
+    async def spot_market_and_trading_pair_map(self):
         raise NotImplementedError
 
     @abstractmethod
-    async def market_info_for_id(self, market_id: str):
+    async def spot_market_info_for_id(self, market_id: str):
+        raise NotImplementedError
+
+    @abstractmethod
+    async def derivative_market_and_trading_pair_map(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    async def derivative_market_info_for_id(self, market_id: str):
         raise NotImplementedError
 
     @abstractmethod
@@ -184,8 +193,26 @@ class InjectiveDataSource(ABC):
         if not self.is_started():
             await self.initialize_trading_account()
             if not self.is_started():
-                self.add_listening_task(asyncio.create_task(self._listen_to_public_trades(market_ids=market_ids)))
-                self.add_listening_task(asyncio.create_task(self._listen_to_order_book_updates(market_ids=market_ids)))
+                spot_markets = []
+                derivative_markets = []
+                for market_id in market_ids:
+                    if market_id in await self.spot_market_and_trading_pair_map():
+                        spot_markets.append(market_id)
+                    else:
+                        derivative_markets.append(market_id)
+
+                if len(spot_markets) > 0:
+                    self.add_listening_task(asyncio.create_task(self._listen_to_public_spot_trades(market_ids=spot_markets)))
+                    self.add_listening_task(asyncio.create_task(self._listen_to_spot_order_book_updates(market_ids=spot_markets)))
+                if len(derivative_markets) > 0:
+                    self.add_listening_task(
+                        asyncio.create_task(self._listen_to_public_derivative_trades(market_ids=derivative_markets)))
+                    self.add_listening_task(
+                        asyncio.create_task(self._listen_to_derivative_order_book_updates(market_ids=derivative_markets)))
+                    for market_id in derivative_markets:
+                        self.add_listening_task(
+                            asyncio.create_task(self._listen_to_funding_info_updates(market_id=market_id))
+                        )
                 self.add_listening_task(asyncio.create_task(self._listen_to_account_balance_updates()))
                 self.add_listening_task(asyncio.create_task(self._listen_to_chain_transactions()))
 
@@ -229,11 +256,34 @@ class InjectiveDataSource(ABC):
                 self.logger().exception(f"Error parsing the trading pair rule: {market.market_info}. Skipping...")
         return trading_rules
 
-    async def order_book_snapshot(self, market_id: str, trading_pair: str) -> OrderBookMessage:
-        async with self.throttler.execute_task(limit_id=CONSTANTS.ORDERBOOK_LIMIT_ID):
+    async def spot_order_book_snapshot(self, market_id: str, trading_pair: str) -> OrderBookMessage:
+        async with self.throttler.execute_task(limit_id=CONSTANTS.SPOT_ORDERBOOK_LIMIT_ID):
             snapshot_data = await self.query_executor.get_spot_orderbook(market_id=market_id)
 
-        market = await self.market_info_for_id(market_id=market_id)
+        market = await self.spot_market_info_for_id(market_id=market_id)
+        bids = [(market.price_from_chain_format(chain_price=Decimal(price)),
+                 market.quantity_from_chain_format(chain_quantity=Decimal(quantity)))
+                for price, quantity, _ in snapshot_data["buys"]]
+        asks = [(market.price_from_chain_format(chain_price=Decimal(price)),
+                 market.quantity_from_chain_format(chain_quantity=Decimal(quantity)))
+                for price, quantity, _ in snapshot_data["sells"]]
+        snapshot_msg = OrderBookMessage(
+            message_type=OrderBookMessageType.SNAPSHOT,
+            content={
+                "trading_pair": trading_pair,
+                "update_id": snapshot_data["sequence"],
+                "bids": bids,
+                "asks": asks,
+            },
+            timestamp=snapshot_data["timestamp"] * 1e-3,
+        )
+        return snapshot_msg
+
+    async def perpetual_order_book_snapshot(self, market_id: str, trading_pair: str) -> OrderBookMessage:
+        async with self.throttler.execute_task(limit_id=CONSTANTS.DERIVATIVE_ORDERBOOK_LIMIT_ID):
+            snapshot_data = await self.query_executor.get_derivative_orderbook(market_id=market_id)
+
+        market = await self.derivative_market_info_for_id(market_id=market_id)
         bids = [(market.price_from_chain_format(chain_price=Decimal(price)),
                  market.quantity_from_chain_format(chain_quantity=Decimal(quantity)))
                 for price, quantity, _ in snapshot_data["buys"]]
@@ -472,6 +522,21 @@ class InjectiveDataSource(ABC):
 
         return fees
 
+    async def funding_info(self, market_id: str) -> FundingInfo:
+        funding_rate = await self._last_funding_rate(market_id=market_id)
+        oracle_price = await self._oracle_price(market_id=market_id)
+        last_traded_price = await self.last_traded_price(market_id=market_id)
+        updated_market_info = await self._updated_derivative_market_info_for_id(market_id=market_id)
+
+        funding_info = FundingInfo(
+            trading_pair=await self.trading_pair_for_market(market_id=market_id),
+            index_price=last_traded_price,  # Use the last traded price as the index_price
+            mark_price=oracle_price,
+            next_funding_utc_timestamp=updated_market_info.next_funding_timestamp(),
+            rate=funding_rate,
+        )
+        return funding_info
+
     @abstractmethod
     async def _initialize_timeout_height(self):
         raise NotImplementedError
@@ -485,11 +550,23 @@ class InjectiveDataSource(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def _order_book_updates_stream(self, market_ids: List[str]):
+    def _spot_order_book_updates_stream(self, market_ids: List[str]):
         raise NotImplementedError
 
     @abstractmethod
-    def _public_trades_stream(self, market_ids: List[str]):
+    def _public_spot_trades_stream(self, market_ids: List[str]):
+        raise NotImplementedError
+
+    @abstractmethod
+    def _derivative_order_book_updates_stream(self, market_ids: List[str]):
+        raise NotImplementedError
+
+    @abstractmethod
+    def _public_derivative_trades_stream(self, market_ids: List[str]):
+        raise NotImplementedError
+
+    @abstractmethod
+    def _oracle_prices_stream(self, oracle_base: str, oracle_quote: str, oracle_type: str):
         raise NotImplementedError
 
     @abstractmethod
@@ -524,6 +601,18 @@ class InjectiveDataSource(ABC):
 
     @abstractmethod
     def _order_cancel_message(self, spot_orders_to_cancel: List[injective_exchange_tx_pb.OrderData]) -> any_pb2.Any:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def _last_funding_rate(self, market_id: str) -> Decimal:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def _oracle_price(self, market_id: str) -> Decimal:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def _updated_derivative_market_info_for_id(self, market_id: str) -> InjectiveDerivativeMarket:
         raise NotImplementedError
 
     @abstractmethod
@@ -563,7 +652,7 @@ class InjectiveDataSource(ABC):
 
     async def _parse_trade_entry(self, trade_info: Dict[str, Any]) -> TradeUpdate:
         exchange_order_id: str = trade_info["orderHash"]
-        market = await self.market_info_for_id(market_id=trade_info["marketId"])
+        market = await self.spot_market_info_for_id(market_id=trade_info["marketId"])
         trading_pair = await self.trading_pair_for_market(market_id=trade_info["marketId"])
         trade_id: str = trade_info["tradeId"]
 
@@ -648,89 +737,87 @@ class InjectiveDataSource(ABC):
 
         return result
 
-    async def _listen_to_order_book_updates(self, market_ids: List[str]):
-        while True:
-            try:
-                updates_stream = self._order_book_updates_stream(market_ids=market_ids)
-                async for update in updates_stream:
-                    try:
-                        await self._process_order_book_update(order_book_update=update)
-                    except asyncio.CancelledError:
-                        raise
-                    except Exception as ex:
-                        self.logger().warning(f"Invalid orderbook diff event format ({ex})\n{update}")
-            except asyncio.CancelledError:
-                raise
-            except Exception as ex:
-                self.logger().error(f"Error while listening to order book updates, reconnecting ... ({ex})")
+    async def _listen_to_spot_order_book_updates(self, market_ids: List[str]):
+        await self._listen_stream_events(
+            stream=self._spot_order_book_updates_stream(market_ids=market_ids),
+            event_processor=self._process_order_book_update,
+            event_name_for_errors="spot order book",
+        )
 
-    async def _listen_to_public_trades(self, market_ids: List[str]):
-        while True:
-            try:
-                public_trades_stream = self._public_trades_stream(market_ids=market_ids)
-                async for trade in public_trades_stream:
-                    try:
-                        await self._process_public_trade_update(trade_update=trade)
-                    except asyncio.CancelledError:
-                        raise
-                    except Exception as ex:
-                        self.logger().warning(f"Invalid public trade event format ({ex})\n{trade}")
-            except asyncio.CancelledError:
-                raise
-            except Exception as ex:
-                self.logger().error(f"Error while listening to public trades, reconnecting ... ({ex})")
+    async def _listen_to_public_spot_trades(self, market_ids: List[str]):
+        await self._listen_stream_events(
+            stream=self._public_spot_trades_stream(market_ids=market_ids),
+            event_processor=self._process_public_spot_trade_update,
+            event_name_for_errors="public spot trade",
+        )
+
+    async def _listen_to_derivative_order_book_updates(self, market_ids: List[str]):
+        await self._listen_stream_events(
+            stream=self._derivative_order_book_updates_stream(market_ids=market_ids),
+            event_processor=self._process_order_book_update,
+            event_name_for_errors="derivative order book",
+        )
+
+    async def _listen_to_public_derivative_trades(self, market_ids: List[str]):
+        await self._listen_stream_events(
+            stream=self._public_derivative_trades_stream(market_ids=market_ids),
+            event_processor=self._process_public_derivative_trade_update,
+            event_name_for_errors="public derivative trade",
+        )
+
+    async def _listen_to_funding_info_updates(self, market_id: str):
+        market = await self.derivative_market_info_for_id(market_id=market_id)
+        await self._listen_stream_events(
+            stream=self._oracle_prices_stream(
+                oracle_base=market.oracle_base(), oracle_quote=market.oracle_quote(), oracle_type=market.oracle_type()
+            ),
+            event_processor=self._process_oracle_price_update,
+            event_name_for_errors="funding info",
+            market_id=market_id,
+        )
 
     async def _listen_to_account_balance_updates(self):
-        while True:
-            try:
-                balance_stream = self._subaccount_balance_stream()
-                async for balance_event in balance_stream:
-                    try:
-                        await self._process_subaccount_balance_update(balance_event=balance_event)
-                    except asyncio.CancelledError:
-                        raise
-                    except Exception as ex:
-                        self.logger().warning(f"Invalid balance event format ({ex})\n{balance_event}")
-            except asyncio.CancelledError:
-                raise
-            except Exception as ex:
-                self.logger().error(f"Error while listening to balance updates, reconnecting ... ({ex})")
+        await self._listen_stream_events(
+            stream=self._subaccount_balance_stream(),
+            event_processor=self._process_subaccount_balance_update,
+            event_name_for_errors="balance",
+        )
 
     async def _listen_to_subaccount_order_updates(self, market_id: str):
-        while True:
-            try:
-                orders_stream = self._subaccount_orders_stream(market_id=market_id)
-                async for order_event in orders_stream:
-                    try:
-                        await self._process_subaccount_order_update(order_event=order_event)
-                    except asyncio.CancelledError:
-                        raise
-                    except Exception as ex:
-                        self.logger().warning(f"Invalid order event format ({ex})\n{order_event}")
-            except asyncio.CancelledError:
-                raise
-            except Exception as ex:
-                self.logger().error(f"Error while listening to subaccount orders updates, reconnecting ... ({ex})")
+        await self._listen_stream_events(
+            stream=self._subaccount_orders_stream(market_id=market_id),
+            event_processor=self._process_subaccount_order_update,
+            event_name_for_errors="subaccount order",
+        )
 
     async def _listen_to_chain_transactions(self):
+        await self._listen_stream_events(
+            stream = self._transactions_stream(),
+            event_processor=self._process_transaction_update,
+            event_name_for_errors="transaction",
+        )
+
+    async def _listen_stream_events(self, stream, event_processor: Callable, event_name_for_errors: str, **kwargs):
         while True:
             try:
-                transactions_stream = self._transactions_stream()
-                async for transaction_event in transactions_stream:
+                async for event in stream:
                     try:
-                        await self._process_transaction_update(transaction_event=transaction_event)
+                        await event_processor(event, **kwargs)
                     except asyncio.CancelledError:
                         raise
                     except Exception as ex:
-                        self.logger().warning(f"Invalid transaction event format ({ex})\n{transaction_event}")
+                        self.logger().warning(f"Invalid {event_name_for_errors} event format ({ex})\n{event}")
             except asyncio.CancelledError:
                 raise
             except Exception as ex:
-                self.logger().error(f"Error while listening to transactions stream, reconnecting ... ({ex})")
+                self.logger().error(f"Error while listening to {event_name_for_errors} stream, reconnecting ... ({ex})")
 
     async def _process_order_book_update(self, order_book_update: Dict[str, Any]):
         market_id = order_book_update["marketId"]
-        market_info = await self.market_info_for_id(market_id=market_id)
+        if market_id in await self.spot_market_and_trading_pair_map():
+            market_info = await self.spot_market_info_for_id(market_id=market_id)
+        else:
+            market_info = await self.derivative_market_info_for_id(market_id=market_id)
 
         trading_pair = await self.trading_pair_for_market(market_id=market_id)
         bids = [(market_info.price_from_chain_format(chain_price=Decimal(bid["price"])),
@@ -755,9 +842,9 @@ class InjectiveDataSource(ABC):
             event_tag=OrderBookDataSourceEvent.DIFF_EVENT, message=diff_message
         )
 
-    async def _process_public_trade_update(self, trade_update: Dict[str, Any]):
+    async def _process_public_spot_trade_update(self, trade_update: Dict[str, Any]):
         market_id = trade_update["marketId"]
-        market_info = await self.market_info_for_id(market_id=market_id)
+        market_info = await self.spot_market_info_for_id(market_id=market_id)
 
         trading_pair = await self.trading_pair_for_market(market_id=market_id)
         timestamp = int(trade_update["executedAt"]) * 1e-3
@@ -782,6 +869,48 @@ class InjectiveDataSource(ABC):
 
         update = await self._parse_trade_entry(trade_info=trade_update)
         self.publisher.trigger_event(event_tag=MarketEvent.TradeUpdate, message=update)
+
+    async def _process_public_derivative_trade_update(self, trade_update: Dict[str, Any]):
+        market_id = trade_update["marketId"]
+        market_info = await self.derivative_market_info_for_id(market_id=market_id)
+
+        trading_pair = await self.trading_pair_for_market(market_id=market_id)
+        timestamp = int(trade_update["executedAt"]) * 1e-3
+        trade_type = (float(TradeType.BUY.value)
+                      if trade_update["positionDelta"]["tradeDirection"] == "buy"
+                      else float(TradeType.SELL.value))
+        message_content = {
+            "trade_id": trade_update["tradeId"],
+            "trading_pair": trading_pair,
+            "trade_type": trade_type,
+            "amount": market_info.quantity_from_chain_format(
+                chain_quantity=Decimal(str(trade_update["positionDelta"]["executionQuantity"]))),
+            "price": market_info.price_from_chain_format(
+                chain_price=Decimal(str(trade_update["positionDelta"]["executionPrice"]))),
+        }
+        trade_message = OrderBookMessage(
+            message_type=OrderBookMessageType.TRADE,
+            content=message_content,
+            timestamp=timestamp,
+        )
+        self.publisher.trigger_event(
+            event_tag=OrderBookDataSourceEvent.TRADE_EVENT, message=trade_message
+        )
+
+        update = await self._parse_trade_entry(trade_info=trade_update)
+        self.publisher.trigger_event(event_tag=MarketEvent.TradeUpdate, message=update)
+
+    async def _process_oracle_price_update(self, oracle_price_update: Dict[str, Any], market_id: str):
+        trading_pair = await self.trading_pair_for_market(market_id=market_id)
+        funding_info = await self.funding_info(market_id=market_id)
+        funding_info_update = FundingInfoUpdate(
+            trading_pair=trading_pair,
+            index_price=funding_info.index_price,
+            mark_price=funding_info.mark_price,
+            next_funding_utc_timestamp=funding_info.next_funding_utc_timestamp,
+            rate=funding_info.rate,
+        )
+        self.publisher.trigger_event(event_tag=MarketEvent.FundingInfo, message=funding_info_update)
 
     async def _process_subaccount_balance_update(self, balance_event: Dict[str, Any]):
         updated_token = await self.token(denom=balance_event["balance"]["denom"])
