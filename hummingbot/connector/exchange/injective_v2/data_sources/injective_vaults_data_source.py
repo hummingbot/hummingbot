@@ -144,14 +144,14 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
             await self._initialize_timeout_height()
         return self._client.timeout_height
 
-    async def market_and_trading_pair_map(self):
+    async def spot_market_and_trading_pair_map(self):
         if self._market_and_trading_pair_map is None:
             async with self._markets_initialization_lock:
                 if self._market_and_trading_pair_map is None:
                     await self.update_markets()
         return self._market_and_trading_pair_map.copy()
 
-    async def market_info_for_id(self, market_id: str):
+    async def spot_market_info_for_id(self, market_id: str):
         if self._market_info_map is None:
             async with self._markets_initialization_lock:
                 if self._market_info_map is None:
@@ -275,7 +275,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         spot_order_hashes = re.findall(r"[\"'](0x\w+)[\"']", spot_order_hashes_text)
 
         for order_info, order_hash in zip(transaction_spot_orders, spot_order_hashes):
-            market = await self.market_info_for_id(market_id=order_info["market_id"])
+            market = await self.spot_market_info_for_id(market_id=order_info["market_id"])
             price = market.price_from_chain_format(chain_price=Decimal(order_info["order_info"]["price"]))
             amount = market.quantity_from_chain_format(chain_quantity=Decimal(order_info["order_info"]["quantity"]))
             trade_type = TradeType.BUY if order_info["order_type"] in [1, 7, 9] else TradeType.SELL
@@ -354,15 +354,22 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         return token
 
     async def _last_traded_price(self, market_id: str) -> Decimal:
-        async with self.throttler.execute_task(limit_id=CONSTANTS.SPOT_TRADES_LIMIT_ID):
-            trades_response = await self.query_executor.get_spot_trades(
-                market_ids=[market_id],
-                limit=1,
-            )
+        if market_id in await self.spot_market_and_trading_pair_map():
+            async with self.throttler.execute_task(limit_id=CONSTANTS.SPOT_TRADES_LIMIT_ID):
+                trades_response = await self.query_executor.get_spot_trades(
+                    market_ids=[market_id],
+                    limit=1,
+                )
+        else:
+            async with self.throttler.execute_task(limit_id=CONSTANTS.SPOT_TRADES_LIMIT_ID):
+                trades_response = await self.query_executor.get_derivative_trades(
+                    market_ids=[market_id],
+                    limit=1,
+                )
 
         price = Decimal("nan")
         if len(trades_response["trades"]) > 0:
-            market = await self.market_info_for_id(market_id=market_id)
+            market = await self.spot_market_info_for_id(market_id=market_id)
             price = market.price_from_chain_format(chain_price=Decimal(trades_response["trades"][0]["price"]["price"]))
 
         return price
@@ -370,11 +377,11 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
     def _calculate_order_hashes(self, orders: List[GatewayInFlightOrder]) -> List[str]:
         raise NotImplementedError
 
-    def _order_book_updates_stream(self, market_ids: List[str]):
+    def _spot_order_book_updates_stream(self, market_ids: List[str]):
         stream = self._query_executor.spot_order_book_updates_stream(market_ids=market_ids)
         return stream
 
-    def _public_trades_stream(self, market_ids: List[str]):
+    def _public_spot_trades_stream(self, market_ids: List[str]):
         stream = self._query_executor.public_spot_trades_stream(market_ids=market_ids)
         return stream
 

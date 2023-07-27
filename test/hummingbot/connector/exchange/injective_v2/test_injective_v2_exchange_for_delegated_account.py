@@ -401,7 +401,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         )
 
         exchange._data_source._query_executor = ProgrammableQueryExecutor()
-        exchange._data_source._market_and_trading_pair_map = bidict({self.market_id: self.trading_pair})
+        exchange._data_source._spot_market_and_trading_pair_map = bidict({self.market_id: self.trading_pair})
         return exchange
 
     def validate_auth_credentials_present(self, request_call: RequestCall):
@@ -671,7 +671,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     @aioresponses()
     def test_all_trading_pairs_does_not_raise_exception(self, mock_api):
         self.exchange._set_trading_pair_symbol_map(None)
-        self.exchange._data_source._market_and_trading_pair_map = None
+        self.exchange._data_source._spot_market_and_trading_pair_map = None
         queue_mock = AsyncMock()
         queue_mock.get.side_effect = Exception("Test error")
         self.exchange._data_source._query_executor._spot_markets_responses = queue_mock
@@ -1442,7 +1442,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
         tasks = [
             asyncio.get_event_loop().create_task(
-                self.exchange._data_source._listen_to_public_trades(market_ids=[self.market_id])
+                self.exchange._data_source._listen_to_public_spot_trades(market_ids=[self.market_id])
             ),
             asyncio.get_event_loop().create_task(
                 self.exchange._data_source._listen_to_subaccount_order_updates(market_id=self.market_id)
@@ -1587,7 +1587,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
         tasks = [
             asyncio.get_event_loop().create_task(
-                self.exchange._data_source._listen_to_public_trades(market_ids=[self.market_id])
+                self.exchange._data_source._listen_to_public_spot_trades(market_ids=[self.market_id])
             ),
             asyncio.get_event_loop().create_task(
                 self.exchange._data_source._listen_to_subaccount_order_updates(market_id=self.market_id)

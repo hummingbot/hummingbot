@@ -16,7 +16,11 @@ from pyinjective.wallet import Address, PrivateKey
 
 from hummingbot.connector.exchange.injective_v2 import injective_constants as CONSTANTS
 from hummingbot.connector.exchange.injective_v2.data_sources.injective_data_source import InjectiveDataSource
-from hummingbot.connector.exchange.injective_v2.injective_market import InjectiveSpotMarket, InjectiveToken
+from hummingbot.connector.exchange.injective_v2.injective_market import (
+    InjectiveDerivativeMarket,
+    InjectiveSpotMarket,
+    InjectiveToken,
+)
 from hummingbot.connector.exchange.injective_v2.injective_query_executor import PythonSDKInjectiveQueryExecutor
 from hummingbot.connector.gateway.common_types import PlaceOrderResult
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
@@ -78,8 +82,10 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         self._is_timeout_height_initialized = False
         self._is_trading_account_initialized = False
         self._markets_initialization_lock = asyncio.Lock()
-        self._market_info_map: Optional[Dict[str, InjectiveSpotMarket]] = None
-        self._market_and_trading_pair_map: Optional[Mapping[str, str]] = None
+        self._spot_market_info_map: Optional[Dict[str, InjectiveSpotMarket]] = None
+        self._derivative_market_info_map: Optional[Dict[str, InjectiveSpotMarket]] = None
+        self._spot_market_and_trading_pair_map: Optional[Mapping[str, str]] = None
+        self._derivative_market_and_trading_pair_map: Optional[Mapping[str, str]] = None
         self._tokens_map: Optional[Dict[str, InjectiveToken]] = None
         self._token_symbol_symbol_and_denom_map: Optional[Mapping[str, str]] = None
 
@@ -144,44 +150,61 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
             await self._initialize_timeout_height()
         return self._client.timeout_height
 
-    async def market_and_trading_pair_map(self):
-        if self._market_and_trading_pair_map is None:
+    async def spot_market_and_trading_pair_map(self):
+        if self._spot_market_and_trading_pair_map is None:
             async with self._markets_initialization_lock:
-                if self._market_and_trading_pair_map is None:
+                if self._spot_market_and_trading_pair_map is None:
                     await self.update_markets()
-        return self._market_and_trading_pair_map.copy()
+        return self._spot_market_and_trading_pair_map.copy()
 
-    async def market_info_for_id(self, market_id: str):
-        if self._market_info_map is None:
+    async def spot_market_info_for_id(self, market_id: str):
+        if self._spot_market_info_map is None:
             async with self._markets_initialization_lock:
-                if self._market_info_map is None:
+                if self._spot_market_info_map is None:
                     await self.update_markets()
 
-        return self._market_info_map[market_id]
+        return self._spot_market_info_map[market_id]
+
+    async def derivative_market_and_trading_pair_map(self):
+        if self._derivative_market_and_trading_pair_map is None:
+            async with self._markets_initialization_lock:
+                if self._derivative_market_and_trading_pair_map is None:
+                    await self.update_markets()
+        return self._derivative_market_and_trading_pair_map.copy()
+
+    async def derivative_market_info_for_id(self, market_id: str):
+        if self._derivative_market_info_map is None:
+            async with self._markets_initialization_lock:
+                if self._derivative_market_info_map is None:
+                    await self.update_markets()
+
+        return self._derivative_market_info_map[market_id]
 
     async def trading_pair_for_market(self, market_id: str):
-        if self._market_and_trading_pair_map is None:
+        if self._spot_market_and_trading_pair_map is None or self._derivative_market_and_trading_pair_map is None:
             async with self._markets_initialization_lock:
-                if self._market_and_trading_pair_map is None:
+                if self._spot_market_and_trading_pair_map is None or self._derivative_market_and_trading_pair_map is None:
                     await self.update_markets()
 
-        return self._market_and_trading_pair_map[market_id]
+        return self._spot_market_and_trading_pair_map.get(
+            market_id, self._derivative_market_and_trading_pair_map[market_id]
+        )
 
     async def market_id_for_trading_pair(self, trading_pair: str) -> str:
-        if self._market_and_trading_pair_map is None:
+        if self._spot_market_and_trading_pair_map is None:
             async with self._markets_initialization_lock:
-                if self._market_and_trading_pair_map is None:
+                if self._spot_market_and_trading_pair_map is None:
                     await self.update_markets()
 
-        return self._market_and_trading_pair_map.inverse[trading_pair]
+        return self._spot_market_and_trading_pair_map.inverse[trading_pair]
 
     async def all_markets(self):
-        if self._market_info_map is None:
+        if self._spot_market_info_map is None:
             async with self._markets_initialization_lock:
-                if self._market_info_map is None:
+                if self._spot_market_info_map is None:
                     await self.update_markets()
 
-        return list(self._market_info_map.values())
+        return list(self._spot_market_info_map.values())
 
     async def token(self, denom: str) -> InjectiveToken:
         if self._tokens_map is None:
@@ -224,9 +247,13 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
     async def update_markets(self):
         self._tokens_map = {}
         self._token_symbol_symbol_and_denom_map = bidict()
-        markets = await self._query_executor.spot_markets(status="active")
-        markets_map = {}
-        market_id_to_trading_pair = bidict()
+        spot_markets_map = {}
+        derivative_markets_map = {}
+        spot_market_id_to_trading_pair = bidict()
+        derivative_market_id_to_trading_pair = bidict()
+
+        async with self.throttler.execute_task(limit_id=CONSTANTS.SPOT_MARKETS_LIMIT_ID):
+            markets = await self._query_executor.spot_markets(status="active")
 
         for market_info in markets:
             try:
@@ -247,15 +274,29 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
                     quote_token=quote_token,
                     market_info=market_info
                 )
-                market_id_to_trading_pair[market.market_id] = market.trading_pair()
-                markets_map[market.market_id] = market
+                spot_market_id_to_trading_pair[market.market_id] = market.trading_pair()
+                spot_markets_map[market.market_id] = market
             except KeyError:
-                self.logger().debug(f"The market {market_info['marketId']} will be excluded because it could not be "
-                                    f"parsed ({market_info})")
+                self.logger().debug(f"The spot market {market_info['marketId']} will be excluded because it could not "
+                                    f"be parsed ({market_info})")
                 continue
 
-        self._market_info_map = markets_map
-        self._market_and_trading_pair_map = market_id_to_trading_pair
+        async with self.throttler.execute_task(limit_id=CONSTANTS.DERIVATIVE_MARKETS_LIMIT_ID):
+            markets = await self._query_executor.derivative_markets(status="active")
+        for market_info in markets:
+            try:
+                market = self._parse_derivative_market_info(market_info=market_info)
+                derivative_market_id_to_trading_pair[market.market_id] = market.trading_pair()
+                derivative_markets_map[market.market_id] = market
+            except KeyError:
+                self.logger().debug(f"The derivative market {market_info['marketId']} will be excluded because it could"
+                                    f" not be parsed ({market_info})")
+                continue
+
+        self._spot_market_info_map = spot_markets_map
+        self._spot_market_and_trading_pair_map = spot_market_id_to_trading_pair
+        self._derivative_market_info_map = derivative_markets_map
+        self._derivative_market_and_trading_pair_map = derivative_market_id_to_trading_pair
 
     async def order_updates_for_transaction(
             self, transaction_hash: str, transaction_orders: List[GatewayInFlightOrder]
@@ -274,7 +315,7 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         spot_order_hashes = re.findall(r"(0[xX][0-9a-fA-F]{64})", transaction_data)
 
         for order_info, order_hash in zip(transaction_spot_orders, spot_order_hashes):
-            market = await self.market_info_for_id(market_id=order_info["market_id"])
+            market = await self.spot_market_info_for_id(market_id=order_info["market_id"])
             price = market.price_from_chain_format(chain_price=Decimal(order_info["order_info"]["price"]))
             amount = market.quantity_from_chain_format(chain_quantity=Decimal(order_info["order_info"]["quantity"]))
             trade_type = TradeType.BUY if "BUY" in order_info["order_type"] else TradeType.SELL
@@ -303,10 +344,10 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
 
     def real_tokens_trading_pair(self, unique_trading_pair: str) -> str:
         resulting_trading_pair = unique_trading_pair
-        if (self._market_and_trading_pair_map is not None
-                and self._market_info_map is not None):
-            market_id = self._market_and_trading_pair_map.inverse.get(unique_trading_pair)
-            market = self._market_info_map.get(market_id)
+        if (self._spot_market_and_trading_pair_map is not None
+                and self._spot_market_info_map is not None):
+            market_id = self._spot_market_and_trading_pair_map.inverse.get(unique_trading_pair)
+            market = self._spot_market_info_map.get(market_id)
             if market is not None:
                 resulting_trading_pair = combine_to_hb_trading_pair(
                     base=market.base_token.symbol,
@@ -352,19 +393,72 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
 
         return token
 
-    async def _last_traded_price(self, market_id: str) -> Decimal:
-        async with self.throttler.execute_task(limit_id=CONSTANTS.SPOT_TRADES_LIMIT_ID):
-            trades_response = await self.query_executor.get_spot_trades(
-                market_ids=[market_id],
-                limit=1,
-            )
+    def _parse_derivative_market_info(self, market_info: Dict[str, Any]) -> InjectiveDerivativeMarket:
+        _, ticker_quote = market_info["ticker"].split("/")
+        quote_token = self._token_from_market_info(
+            denom=market_info["quoteDenom"],
+            token_meta=market_info["quoteTokenMeta"],
+            candidate_symbol=ticker_quote,
+        )
+        market = InjectiveDerivativeMarket(
+            market_id=market_info["marketId"],
+            quote_token=quote_token,
+            market_info=market_info
+        )
+        return market
 
+    async def _last_traded_price(self, market_id: str) -> Decimal:
         price = Decimal("nan")
-        if len(trades_response["trades"]) > 0:
-            market = await self.market_info_for_id(market_id=market_id)
-            price = market.price_from_chain_format(chain_price=Decimal(trades_response["trades"][0]["price"]["price"]))
+        if market_id in await self.spot_market_and_trading_pair_map():
+            market = await self.spot_market_info_for_id(market_id=market_id)
+            async with self.throttler.execute_task(limit_id=CONSTANTS.SPOT_TRADES_LIMIT_ID):
+                trades_response = await self.query_executor.get_spot_trades(
+                    market_ids=[market_id],
+                    limit=1,
+                )
+            if len(trades_response["trades"]) > 0:
+                price = market.price_from_chain_format(
+                    chain_price=Decimal(trades_response["trades"][0]["price"]["price"]))
+
+        else:
+            market = await self.derivative_market_info_for_id(market_id=market_id)
+            async with self.throttler.execute_task(limit_id=CONSTANTS.SPOT_TRADES_LIMIT_ID):
+                trades_response = await self.query_executor.get_derivative_trades(
+                    market_ids=[market_id],
+                    limit=1,
+                )
+            if len(trades_response["trades"]) > 0:
+                price = market.price_from_chain_format(
+                    chain_price=Decimal(trades_response["trades"][0]["positionDelta"]["executionPrice"]))
 
         return price
+
+    async def _last_funding_rate(self, market_id: str) -> Decimal:
+        async with self.throttler.execute_task(limit_id=CONSTANTS.FUNDING_RATES_LIMIT_ID):
+            response = await self.query_executor.get_funding_rates(market_id=market_id, limit=1)
+        rate = Decimal(response["fundingRates"][0]["rate"])
+
+        return rate
+
+    async def _oracle_price(self, market_id: str) -> Decimal:
+        market = await self.derivative_market_info_for_id(market_id=market_id)
+        async with self.throttler.execute_task(limit_id=CONSTANTS.ORACLE_PRICES_LIMIT_ID):
+            response = await self.query_executor.get_oracle_prices(
+                base_symbol=market.oracle_base(),
+                quote_symbol=market.oracle_quote(),
+                oracle_type=market.oracle_type(),
+                oracle_scale_factor=0,
+            )
+        price = Decimal(response["price"])
+
+        return price
+
+    async def _updated_derivative_market_info_for_id(self, market_id: str) -> InjectiveDerivativeMarket:
+        async with self.throttler.execute_task(limit_id=CONSTANTS.DERIVATIVE_MARKETS_LIMIT_ID):
+            market_info = await self._query_executor.derivative_market(market_id=market_id)
+
+        market = self._parse_derivative_market_info(market_info=market_info)
+        return market
 
     def _calculate_order_hashes(self, orders) -> List[str]:
         hash_manager = self.order_hash_manager()
@@ -373,12 +467,26 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         )
         return hash_manager_result.spot
 
-    def _order_book_updates_stream(self, market_ids: List[str]):
+    def _spot_order_book_updates_stream(self, market_ids: List[str]):
         stream = self._query_executor.spot_order_book_updates_stream(market_ids=market_ids)
         return stream
 
-    def _public_trades_stream(self, market_ids: List[str]):
+    def _public_spot_trades_stream(self, market_ids: List[str]):
         stream = self._query_executor.public_spot_trades_stream(market_ids=market_ids)
+        return stream
+
+    def _derivative_order_book_updates_stream(self, market_ids: List[str]):
+        stream = self._query_executor.derivative_order_book_updates_stream(market_ids=market_ids)
+        return stream
+
+    def _public_derivative_trades_stream(self, market_ids: List[str]):
+        stream = self._query_executor.public_derivative_trades_stream(market_ids=market_ids)
+        return stream
+
+    def _oracle_prices_stream(self, oracle_base: str, oracle_quote: str, oracle_type: str):
+        stream = self._query_executor.oracle_prices_stream(
+            oracle_base=oracle_base, oracle_quote=oracle_quote, oracle_type=oracle_type
+        )
         return stream
 
     def _subaccount_balance_stream(self):

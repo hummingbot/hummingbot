@@ -103,7 +103,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
 
         market_info = self._inj_usdt_market_info()
         inj_usdt_market: InjectiveSpotMarket = self.async_run_with_timeout(
-            self.data_source.market_info_for_id(market_info["marketId"])
+            self.data_source.spot_market_info_for_id(market_info["marketId"])
         )
         inj_token = inj_usdt_market.base_token
         usdt_token = inj_usdt_market.quote_token
@@ -124,7 +124,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
 
         market_info = self._usdc_solana_usdc_eth_market_info()
         usdc_solana_usdc_eth_market: InjectiveSpotMarket = self.async_run_with_timeout(
-            self.data_source.market_info_for_id(market_info["marketId"])
+            self.data_source.spot_market_info_for_id(market_info["marketId"])
         )
         usdc_solana_token = usdc_solana_usdc_eth_market.base_token
         usdc_eth_token = usdc_solana_usdc_eth_market.quote_token
@@ -209,16 +209,16 @@ class InjectiveGranteeDataSourceTests(TestCase):
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
 
         inj_usdt_market: InjectiveSpotMarket = self.async_run_with_timeout(
-            self.data_source.market_info_for_id(self._inj_usdt_market_info()["marketId"])
+            self.data_source.spot_market_info_for_id(self._inj_usdt_market_info()["marketId"])
         )
         usdt_usdc_market: InjectiveSpotMarket = self.async_run_with_timeout(
-            self.data_source.market_info_for_id(self._usdt_usdc_market_info()["marketId"])
+            self.data_source.spot_market_info_for_id(self._usdt_usdc_market_info()["marketId"])
         )
         usdt_usdc_eth_market: InjectiveSpotMarket = self.async_run_with_timeout(
-            self.data_source.market_info_for_id(self._usdt_usdc_eth_market_info()["marketId"])
+            self.data_source.spot_market_info_for_id(self._usdt_usdc_eth_market_info()["marketId"])
         )
         usdc_solana_usdc_eth_market: InjectiveSpotMarket = self.async_run_with_timeout(
-            self.data_source.market_info_for_id(self._usdc_solana_usdc_eth_market_info()["marketId"])
+            self.data_source.spot_market_info_for_id(self._usdc_solana_usdc_eth_market_info()["marketId"])
         )
 
         self.assertEqual(inj_usdt_market.quote_token, usdt_usdc_market.base_token)
