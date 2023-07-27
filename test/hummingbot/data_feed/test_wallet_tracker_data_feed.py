@@ -1,14 +1,15 @@
 import asyncio
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
-from test.logger_mxin import LogLevel, TestLoggerMixin
 from unittest.mock import AsyncMock, patch
+
+from logger_mixin_for_test import LoggerMixinForTest, LogLevel
 
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.data_feed.wallet_tracker_data_feed import WalletTrackerDataFeed
 
 
-class TestWalletTrackerDataFeed(IsolatedAsyncioWrapperTestCase, TestLoggerMixin):
+class TestWalletTrackerDataFeed(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
     @classmethod
     def setUpClass(cls):
