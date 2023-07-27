@@ -251,19 +251,16 @@ class CoinbaseAdvancedTradeV2APIOrderBookDataSourceUnitTests(IsolatedAsyncioWrap
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
             websocket_mock=ws_connect_mock.return_value)
 
-        self.assertEqual(2, len(sent_subscription_messages))
-        expected_trade_subscription = {
-            "type": "subscribe",
-            "product_ids": [f"{self.ex_trading_pair.upper()}"],
-            "channel": "market_trades",
-        }
-        self.assertEqual(expected_trade_subscription, sent_subscription_messages[1])
-        expected_diff_subscription = {
-            "type": "subscribe",
-            "product_ids": [f"{self.ex_trading_pair.upper()}"],
-            "channel": "level2",
-        }
-        self.assertEqual(expected_diff_subscription, sent_subscription_messages[0])
+        self.assertEqual(3, len(sent_subscription_messages))
+
+        subs = {"market_trades": False, "level2": False, "heartbeats": False}
+        for message in sent_subscription_messages:
+            self.assertEqual("subscribe", message["type"])
+            self.assertEqual(self.ex_trading_pair.upper(), message["product_ids"][0])
+            subs[message["channel"]] = True
+        self.assertTrue(subs["market_trades"])
+        self.assertTrue(subs["level2"])
+        self.assertTrue(subs["heartbeats"])
 
         self.assertTrue(self._is_logged(
             "INFO",

@@ -13,7 +13,7 @@ from hummingbot.logger import HummingbotLogger
 from . import coinbase_advanced_trade_v2_constants as constants, coinbase_advanced_trade_v2_web_utils as web_utils
 
 if TYPE_CHECKING:
-    from .coinbase_advanced_trade_v2_exchange import CoinbaseAdvancedTradeV2Exchange, DebugToFile
+    from .coinbase_advanced_trade_v2_exchange import CoinbaseAdvancedTradeV2Exchange
 
 from .coinbase_advanced_trade_v2_order_book import CoinbaseAdvancedTradeV2OrderBook
 
@@ -174,8 +174,9 @@ class CoinbaseAdvancedTradeV2APIOrderBookDataSource(OrderBookTrackerDataSource):
         async for ws_response in websocket_assistant.iter_messages():
             data: Dict[str, Any] = ws_response.data
 
+            from .coinbase_advanced_trade_v2_exchange import DebugToFile
             DebugToFile.log_debug(f"{ws_response}")
-            if "type" in ws_response.data and ws_response.data["type"] == 'error':
+            if ws_response.data and "type" in ws_response.data and ws_response.data["type"] == 'error':
                 self.logger().error(f"Error received from websocket: {ws_response}")
                 raise Exception(f"Error received from websocket: {ws_response}")
 
