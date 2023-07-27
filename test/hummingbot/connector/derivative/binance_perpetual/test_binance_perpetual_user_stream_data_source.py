@@ -204,8 +204,9 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
         self.assertTrue(result)
 
     @aioresponses()
+    @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_create_websocket_connection_log_exception(self, mock_api, mock_ws):
+    def test_create_websocket_connection_log_exception(self, mock_api, mock_ws, _):
         url = web_utils.rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 

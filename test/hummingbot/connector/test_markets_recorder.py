@@ -3,7 +3,7 @@ import time
 from decimal import Decimal
 from typing import Awaitable
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 from sqlalchemy import create_engine
@@ -242,6 +242,66 @@ class MarketsRecorderTests(TestCase):
             price=Decimal(1010),
             amount=create_event.amount,
             trade_fee=AddedToCostTradeFee(),
+            exchange_trade_id="TradeId1"
+        )
+
+        recorder._did_fill_order(MarketEvent.OrderFilled.value, self, fill_event)
+
+        with self.manager.get_new_session() as session:
+            query = session.query(Order)
+            orders = query.all()
+            order = orders[0]
+            order_status = order.status
+            trade_fills = order.trade_fills
+
+        self.assertEqual(1, len(orders))
+        self.assertEqual(self.config_file_path, orders[0].config_file_path)
+        self.assertEqual(create_event.order_id, orders[0].id)
+        self.assertEqual(2, len(order_status))
+        self.assertEqual(MarketEvent.BuyOrderCreated.name, order_status[0].status)
+        self.assertEqual(MarketEvent.OrderFilled.name, order_status[1].status)
+        self.assertEqual(1, len(trade_fills))
+        self.assertEqual(self.config_file_path, trade_fills[0].config_file_path)
+        self.assertEqual(fill_event.order_id, trade_fills[0].order_id)
+
+    def test_trade_fee_in_quote_not_available(self):
+        recorder = MarketsRecorder(
+            sql=self.manager,
+            markets=[self],
+            config_file_path=self.config_file_path,
+            strategy_name=self.strategy_name,
+            market_data_collection=MarketDataCollectionConfigMap(
+                market_data_collection_enabled=False,
+                market_data_collection_interval=60,
+                market_data_collection_depth=20,
+            ),
+        )
+
+        create_event = BuyOrderCreatedEvent(
+            timestamp=1642010000,
+            type=OrderType.LIMIT,
+            trading_pair=self.trading_pair,
+            amount=Decimal(1),
+            price=Decimal(1000),
+            order_id="OID1-1642010000000000",
+            creation_timestamp=1640001112.223,
+            exchange_order_id="EOID1",
+        )
+
+        recorder._did_create_order(MarketEvent.BuyOrderCreated.value, self, create_event)
+
+        trade_fee = MagicMock()
+        trade_fee.fee_amount_in_token = MagicMock(side_effect=[Exception("Fee amount in quote not available")])
+        trade_fee.to_json = MagicMock(return_value={"test": "test"})
+        fill_event = OrderFilledEvent(
+            timestamp=1642020000,
+            order_id=create_event.order_id,
+            trading_pair=create_event.trading_pair,
+            trade_type=TradeType.BUY,
+            order_type=create_event.type,
+            price=Decimal(1010),
+            amount=create_event.amount,
+            trade_fee=trade_fee,
             exchange_trade_id="TradeId1"
         )
 
