@@ -277,29 +277,41 @@ verify_pip_packages() {
 }
 
 update_environment_yml() {
-    # $1 is the path to the environment.yml file
-    # $2 is the path to the conda env export output file
+  local env_file="$1"
+  local export_file="$2"
+  local updated_file="$3"
 
-    local env_file=$1
-    local export_file=$2
-    local temp_file="${env_file}.tmp"
+  local install_dir="/tmp/hb_install"
+  rm -rf $install_dir
+  mkdir -p $install_dir
 
-    cp "$env_file" "$temp_file"
+  local temp_file="$install_dir/env.yml"
 
-    # Loop over the dependencies in the exported environment
-    grep -P "^\s+-" "$export_file" | while read -r line; do
-        # Extract the package name and version
-        local package=$(echo "$line" | awk -F "=" '{print $1}' | xargs)
-        local version=$(echo "$line" | awk -F "=" '{print $2}' | xargs)
+  cp "$env_file" "$temp_file"
 
-        # Update the version in the environment.yml file
-        if [ -n "${package}" ] && [ -n "${version}" ]; then
-          sed -i -r "s/(${package}>?=[^ ]*)/${package}>=${version}/g" "$temp_file"
-        fi
-    done
+  # Loop over the dependencies in the exported environment
+  grep -P "^\s+-" "$env_file" | while read -r line; do
+    # Extract the package name and version
+    local package=$(echo "$line" | sed -e 's/^ *- *//' | awk -F "[>=]" '{print $1}' | xargs)
+    local old_version=$(echo "$line" | awk -F "=" '{print $2}' | xargs)
+    local upper_version=$(echo "$line" | awk -F "<" '{print $2}' | xargs)
 
-    mv "$temp_file" "$env_file"
-    echo "Updated $env_file with versions from $export_file"
+    # Grab the latest version of the package from conda
+    local version=$(grep -P "${package}=" "$export_file" | grep -v : | tail -n1 | awk -F "[=]" '{print $2}' | xargs)
+    # echo "  '-> Found >${package}< ${version}" >&2
+
+    # Update the version in the environment.yml file
+    if [ -n "${package}" ] && [ -n "${version}" ] && [ -n "${upper_version}" ]; then
+      sed -i -r "s/${package}>?=[^ ]*/${package}>=${version},<${upper_version}/g" "$temp_file"
+    elif [ -n "${package}" ] && [ -n "${version}" ] && [ -n "${old_version}" ]; then
+      sed -i -r "s/${package}>?=[^ ]*/${package}>=${version}/g" "$temp_file"
+    elif [ -n "${package}" ] && [ -n "${version}" ]; then
+      sed -i -r "s/${package}$/${package}>=${version}/g" "$temp_file"
+    fi
+  done
+
+  mv "$temp_file" "$updated_file"
+  echo "Updated $updated_file with installed versions" >&2
 }
 
 # Check if the script is being sourced

@@ -31,7 +31,7 @@ source "${CONDA_BIN}/activate" ${ENV_NAME}
 
 # Installing conflicting pip packages without their dependencies
 # They could override the environment plan with conda
-if [ "${ENV_NAME}" == "hummingbot-development"]; then
+if [ "${ENV_NAME}" == "hummingbot-development" ]; then
   echo "Skipping pip packages installation for development environment"
 else
   echo "Installing conflicting pip packages without their dependencies"
@@ -42,7 +42,8 @@ else
 fi
 
 # Record updated environment file
-${CONDA_EXE} env export -n ${ENV_NAME} > "/tmp/x-installed:${ENV_FILE}"
-$(update_environment_yml "${_ENV_DIR}/x-installed:${ENV_FILE}" "/tmp/x-installed:${ENV_FILE}")
+${CONDA_EXE} env export -n ${ENV_NAME} > "${_ENV_DIR}/x-installed:${ENV_FILE}"
+# Directly reformat the exported environment file
+update_environment_yml "${_ENV_DIR}/${ENV_FILE}" "${_ENV_DIR}/x-installed:${ENV_FILE}" "${_ENV_DIR}/x-installed:${ENV_FILE}"
 
 pre-commit install
