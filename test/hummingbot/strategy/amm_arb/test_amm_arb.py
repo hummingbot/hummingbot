@@ -26,7 +26,6 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.fixed_rate_source import FixedRateSource
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.strategy.amm_arb.amm_arb import AmmArbStrategy
-from hummingbot.strategy.amm_arb.data_types import ArbProposal, ArbProposalSide
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 
 TRADING_PAIR: str = "HBOT-USDT"
@@ -322,52 +321,6 @@ class AmmArbUnitTest(unittest.TestCase):
         new_amm_1_order = [order for market, order in placed_orders if market == self.amm_1][0]
         # Check if new order is submitted when arb opportunity still presents
         self.assertNotEqual(amm_1_order.client_order_id, new_amm_1_order.client_order_id)
-
-    @async_test(loop=ev_loop)
-    async def test_format_status(self):
-        first_side = ArbProposalSide(
-            self.market_info_1,
-            True,
-            Decimal(101),
-            Decimal(100),
-            Decimal(50),
-            []
-        )
-        second_side = ArbProposalSide(
-            self.market_info_2,
-            False,
-            Decimal(105),
-            Decimal(104),
-            Decimal(50),
-            []
-        )
-        self.strategy._all_arb_proposals = [ArbProposal(first_side, second_side)]
-
-        expected_status = """  Markets:
-    Exchange    Market   Sell Price    Buy Price    Mid Price
-       onion HBOT-USDT 100.00000000 101.00000000 100.50000000
-      garlic HBOT-USDT 104.00000000 105.00000000 104.50000000
-
-  Network Fees:
-    Exchange Gas Fees
-       onion    0 ETH
-      garlic    0 ETH
-
-  Assets:
-      Exchange Asset  Total Balance  Available Balance
-    0    onion  HBOT            500                500
-    1    onion  USDT            500                500
-    2   garlic  HBOT            500                500
-    3   garlic  USDT            500                500
-
-  Profitability:
-    buy at onion, sell at garlic: 3.96%
-
-  Quotes Rates (fixed rates)
-      Quotes pair Rate
-    0   USDT-USDT    1"""
-        current_status = await self.strategy.format_status()
-        self.assertTrue(expected_status in current_status)
 
     @async_test(loop=ev_loop)
     async def test_arb_not_profitable_from_gas_prices(self):

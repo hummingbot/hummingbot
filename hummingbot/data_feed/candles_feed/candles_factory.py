@@ -1,3 +1,4 @@
+from hummingbot.data_feed.candles_feed.ascend_ex_spot_candles.ascend_ex_spot_candles import AscendExSpotCandles
 from hummingbot.data_feed.candles_feed.binance_perpetual_candles import BinancePerpetualCandles
 from hummingbot.data_feed.candles_feed.binance_spot_candles import BinanceSpotCandles
 from hummingbot.data_feed.candles_feed.gate_io_perpetual_candles import GateioPerpetualCandles
@@ -24,5 +25,7 @@ class CandlesFactory:
             return GateioPerpetualCandles(trading_pair, interval, max_records)
         elif connector == "kucoin":
             return KucoinSpotCandles(trading_pair, interval, max_records)
+        elif connector == "ascend_ex":
+            return AscendExSpotCandles(trading_pair, interval, max_records)
         else:
             raise Exception(f"The connector {connector} is not available. Please select another one.")
