@@ -127,6 +127,7 @@ _list_files_on_pattern(){
   local dir="$1"
   local pattern="$2"
 
+  echo "Searching for files matching '${pattern}' in '${dir}'" >&2
   if [ -z "${pattern}" ]; then
     echo "Please provide a pattern to search for" >&2
     exit 1
@@ -135,7 +136,7 @@ _list_files_on_pattern(){
   local -a files
   while IFS= read -r -d $'\0'; do
     files+=("${REPLY}")
-  done < <(find "${dir}" -maxdepth 1 -type f -name "*${pattern}*" -printf '%P\0')
+  done < <(find "${dir}" -maxdepth 1 -type f -name "${pattern}" -printf '%P\0')
 
   echo "${files[@]}"
 }
@@ -185,7 +186,7 @@ get_env_file() {
   cd "$(dirname "$(_verify_path "${env_file}")")" || exit
 
   local env_ext="${env_file##*.}"
-  local -a files=($(_list_files_on_pattern "." ".${env_ext}")) || exit
+  local -a files=($(_list_files_on_pattern "." "*.${env_ext}")) || exit
   IFS=$'\n' files=($(sort <<<"${files[*]}"))
   unset IFS
 
@@ -297,7 +298,7 @@ update_environment_yml() {
         fi
     done
 
-    mv "$temp_file" "$env_file".new
+    mv "$temp_file" "$env_file"
     echo "Updated $env_file with versions from $export_file"
 }
 

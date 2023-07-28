@@ -2,7 +2,7 @@ import logging
 from logging import Handler, LogRecord
 from typing import List, Protocol, Union
 
-from hummingbot.logger.logger import HummingbotLogger
+from hummingbot.logger import HummingbotLogger
 
 
 class LogLevel:

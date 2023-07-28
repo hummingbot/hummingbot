@@ -17,7 +17,7 @@ dependencies:
   - pip>=21.1.2
   - pre-commit>=2.18.1
   - pyppeteer
-  - python>=3.10
+  - python>=3.11
   - pytest>=4.6.11
   - setuptools>=50.3.2
   ### Packages used within HB and helping reduce the footprint of pip-installed packages
@@ -36,7 +36,7 @@ dependencies:
   - cryptography>=2.8
   - cytoolz>=0.12.1
   - dydx-v3-python>=2.0.1
-  - eip712
+  - eip712_structs
   - ethsnarks-loopring>=0.1.5
   - hdwallets>=0.1.2
   - injective-py>=0.6.1.4,<0.6.3.0
