@@ -127,6 +127,7 @@ _list_files_on_pattern(){
   local dir="$1"
   local pattern="$2"
 
+  echo "Searching for files matching '${pattern}' in '${dir}'" >&2
   if [ -z "${pattern}" ]; then
     echo "Please provide a pattern to search for" >&2
     exit 1
