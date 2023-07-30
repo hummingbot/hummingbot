@@ -127,7 +127,6 @@ _list_files_on_pattern(){
   local dir="$1"
   local pattern="$2"
 
-  echo "Searching for files matching '${pattern}' in '${dir}'" >&2
   if [ -z "${pattern}" ]; then
     echo "Please provide a pattern to search for" >&2
     exit 1
@@ -254,21 +253,19 @@ verify_pip_packages() {
   while read -r package; do
     read -r package_name op package_version <<< $(_decipher_pip_package_entry "${package}")
     echo "      Searching for ${package_name}:${package_version}" >&2
-    conda search --json "${package_name}" | jq -r --arg pkg "${package_name}" --arg ver "${package_version}" '
-      if .[$pkg] == null or (.[$pkg] | map(has("version")) | all(false)) then
-        | empty
+    conda search --override-channels -c conda-forge -c defaults --json "${package_name}" | jq -r --arg pkg "${package_name}" --arg ver "${package_version}" '
+      if (.[$pkg] == null or (.[$pkg] | map(has("version")) | all) == false) then
+        empty
       else
-        .[$pkg][] | select(.version) | .version  as $version
+        .[$pkg][] | select(has("version")) | .version as $version
         | ($version | split(".") | map(tonumber)) as $arrayed_version
         | ($ver | split(".") | map(tonumber)) as $arrayed_ver
-        |  (if $arrayed_version >= $arrayed_ver then
+        | if $arrayed_version >= $arrayed_ver then
             $pkg + "==" + $version
           else
             empty
-          end) as $selected_version
-        | $selected_version
+          end
         | halt_error
-        | .name + "=" + .version
       end
     ' 2>> $install_dir/conda_package_list.txt
     echo >> $install_dir/conda_package_list.txt

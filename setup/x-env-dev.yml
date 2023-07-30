@@ -5,107 +5,64 @@ channels:
   - mementorc
 dependencies:
   ### Packages needed for the build/install process
-  - bs4
-  - conda-build>=3.21.4
-  - coverage>=5.5
+  - bs4>=4.12.2
+  - conda-build>=3.26.0
+  - coverage>=7.2.7
   - cython>=3.0.0
-  - cython-lint>=0.15.0
-  - flake8>=3.7.9
-  - diff-cover>=5.1.2
+  - flake8>=6.0.0
+  - diff-cover>=7.7.0
   - nose>=1.3.7
-  - nose-exclude
-  - pip>=21.1.2
-  - pre-commit>=2.18.1
-  - pyppeteer
-  - python>=3.11
-  - pytest>=4.6.11
-  - setuptools>=50.3.2
+  - nose-exclude>=0.5.0
+  - pip>=23.2.1
+  - pre-commit>=3.3.3
+  - pyppeteer>=1.0.2
+  - python>=3.10.12,<3.11
+  - pytest>=7.4.0
+  - setuptools>=68.0.0
   ### Packages used within HB and helping reduce the footprint of pip-installed packages
-  - aiohttp>=3.8.4
-  - asyncssh>=2.7.2
-  - aioprocessing>=2.0.0
-  - aioresponses>=0.7.2
-  - aiounittest>=1.4.1
-  - async-timeout
-  - bech32>=1.2.0
-  - bidict
-  - bip32>=3.4
-  - cachetools>=4.1.0
+  - aiohttp>=3.8.5
+  - asyncssh>=2.13.2
+  - aioprocessing>=2.0.1
+  - aioresponses>=0.7.4
+  - aiounittest>=1.4.2
+  - async-timeout>=4.0.2
+  - bidict>=0.22.1
+  - cachetools>=5.3.1
   - coincurve>=18.0.0
-  - commlib-py>=0.10.7
-  - cryptography>=2.8
-  - cytoolz>=0.12.1
-  - dydx-v3-python>=2.0.1
-  - eip712_structs
-  - ethsnarks-loopring>=0.1.5
-  - hdwallets>=0.1.2
-  - injective-py>=0.6.1.4,<0.6.3.0
-  - gql
-  - numpy>=1.20.1
-  - numpy-base>=1.20.1
-  - pandas>=1.2.1
-  - pandas-ta>=0.3.14b0
-  - prompt_toolkit>=3.0.20
-  - protobuf>=4.21.0
-  - psutil>=5.7.2
+  - commlib-py>=0.10.8a
+  - cryptography>=41.0.2
+  - dydx-v3-python>=2.0.2a
+  - eip712_structs>=1.1.1a1
+  - ethsnarks-loopring>=0.1.6a1
+  - injective-py>=0.6.2.8a,<0.6.3.0
+  - gql>=3.4.1
+  - numpy>=1.25.0
+  - numpy-base>=1.25.0
+  - pandas>=2.0.3
+  - pandas-ta>=0.3.14b
+  - prompt_toolkit>=3.0.39
+  - protobuf>=4.23.3
+  - psutil>=5.9.5
   - ptpython>=3.0.20
   # This needs to be restricted to <2.0 - tests fail otherwise
-  - pydantic>=1.10.4,<2.0.0
-  - pyperclip>=1.7.0
-  - requests>=2.28.2
-  - ruamel.yaml>=0.16.10
-  - safe-pysha3>=1.0.2
-  - scipy>=1.6.2
-  - six>=1.14.0
-  - sqlalchemy>=1.4,<1.4.99
-  - signalr-client>=0.0.1
-  - tabulate>=0.8.9
-  - ujson>=1.35
+  - pydantic>=1.10.12,<2.0.0
+  - pyperclip>=1.8.2
+  - requests>=2.31.0
+  - ruamel.yaml>=0.2.5
+  - scipy>=1.11.1
+  - six>=1.16.0
+  - sqlalchemy>=1.4.49,<1.4.99
+  - signalr-client>=0.0.7
+  - tabulate>=0.9.0
+  - ujson>=5.7.0
   # This needs to be restricted to <2.0 - tests fail otherwise
-  - urllib3>=1.26.6,<2.0
-  - websockets>=9.1
-  - yaml
-  - zlib>=1.2.11
-  ### Packages required by pip packages that are available on conda-forge/defaults
-  #
-  ## Packages for commlib-py
-  - hiredis>=2.1.1
-  - paho-mqtt>=1.6.1
-  - pika>=1.3.1
-  #
-  ## Packages for docker
-  - websocket-client>=1.5.1
-  #
-  ### Packages for dydx-v3-python - Need to make sure we don't require a package that creates a fictitious conflict
-  - backports.zoneinfo>=0.2.1
-  - base58>=2.1.1
-  - dateparser>=1.0.0
-  - ecdsa>=0.18.0
-  - eth-account>=0.5.9
-  - importlib-resources>=5.12.0
-  - ipfshttpclient>=0.8.0a2
-  - jsonschema>=4.13.0
-  - lru-dict>=1.1.8
-  - mpmath>=1.0.0
-  - pkgutil-resolve-name>=1.3.10
-  - pyrsistent>=0.18.0
-  - sympy=>1.6.2
-  # This creates major conflicts and long resolution time
-  - web3>=5.31.4
-  #
-  ## Packages for ethsnarks-loopring
-  - bitstring>=4.0.1
-  #
-  ## Packages for injective-py
-  - aiocron>=1.8
-  - asn1crypto>=1.5.1
-  - grpcio>=1.53.0
-  - grpcio-tools>=1.53.0
-  - mnemonic>=0.20
-  #
+  - urllib3>=1.26.15,<2.0
+  - websockets>=10.4
+  - yaml>=0.2.5
+  - zlib>=1.2.13
   ## Packages for python-telegram-bot
   - future>=0.18.3
-  - tornado>=6.2
+  - tornado>=6.3.2
   #
   ### Packages required by pip packages that are not available on conda-forge/defaults
   ### These are installed via pip --no-deps to prevent them overriding the conda
@@ -114,5 +71,50 @@ dependencies:
   ### to reduce the number of pip-installed packages.
   - pip:
       - python-telegram-bot==12.4.2
+
+  ### Packages no longer needed to be specifically installed
+#  - bech32>=1.2.0
+#  - bip32>=3.5.1a
+#  - cytoolz>=0.12.2
+#  - eip712>=0.2.1
+#  - hdwallets>=0.1.2
+#  - safe-pysha3>=1.0.4
+  ### Packages required by pip packages that are available on conda-forge/defaults
+  #
+  ## Packages for commlib-py
+#  - hiredis>=2.2.3
+#  - paho-mqtt>=1.6.1
+#  - pika>=1.3.1
+  #
+  ## Packages for docker
+#  - websocket-client>=1.6.1
+  #
+  ### Packages for dydx-v3-python - Need to make sure we don't require a package that creates a fictitious conflict
+#  - backports.zoneinfo>=0.2.1
+#  - base58>=2.1.1
+#  - dateparser>=1.1.8
+#  - ecdsa>=0.18.0
+#  - eth-account>=0.8.0
+#  - importlib-resources>=6.0.0
+#  - ipfshttpclient>=0.8.0a2
+#  - jsonschema>=4.18.4
+#  - lru-dict>=1.2.0
+#  - mpmath>=1.3.0
+#  - pkgutil-resolve-name>=1.3.10
+#  - pyrsistent>=0.19.3
+#  - sympy>=1.12
+  # This creates major conflicts and long resolution time
+#  - web3>=6.7.0
+  #
+  ## Packages for ethsnarks-loopring
+#  - bitstring>=4.0.2
+  #
+  ## Packages for injective-py
+#  - aiocron>=1.8
+#  - asn1crypto>=1.5.1
+#  - grpcio>=1.56.2
+#  - grpcio-tools>=1.54.2
+#  - mnemonic>=0.20
+  #
   #   - git+https://github.com/CoinAlpha/python-signalr-client.git
   #   # - git+https://github.com/robotics-4-all/commlib-py.git@master
