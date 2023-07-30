@@ -127,6 +127,7 @@ _list_files_on_pattern(){
   local dir="$1"
   local pattern="$2"
 
+  echo "Searching for files matching '${pattern}' in '${dir}'" >&2
   if [ -z "${pattern}" ]; then
     echo "Please provide a pattern to search for" >&2
     exit 1
@@ -135,7 +136,7 @@ _list_files_on_pattern(){
   local -a files
   while IFS= read -r -d $'\0'; do
     files+=("${REPLY}")
-  done < <(find "${dir}" -maxdepth 1 -type f -name "*${pattern}*" -printf '%P\0')
+  done < <(find "${dir}" -maxdepth 1 -type f -name "${pattern}" -printf '%P\0')
 
   echo "${files[@]}"
 }
@@ -185,7 +186,7 @@ get_env_file() {
   cd "$(dirname "$(_verify_path "${env_file}")")" || exit
 
   local env_ext="${env_file##*.}"
-  local -a files=($(_list_files_on_pattern "." ".${env_ext}")) || exit
+  local -a files=($(_list_files_on_pattern "." "*.${env_ext}")) || exit
   IFS=$'\n' files=($(sort <<<"${files[*]}"))
   unset IFS
 
@@ -253,26 +254,62 @@ verify_pip_packages() {
   while read -r package; do
     read -r package_name op package_version <<< $(_decipher_pip_package_entry "${package}")
     echo "      Searching for ${package_name}:${package_version}" >&2
-    conda search --json "${package_name}" | jq -r --arg pkg "${package_name}" --arg ver "${package_version}" '
-      if .[$pkg] == null or (.[$pkg] | map(has("version")) | all(false)) then
-        | empty
+    conda search --override-channels -c conda-forge -c defaults --json "${package_name}" | jq -r --arg pkg "${package_name}" --arg ver "${package_version}" '
+      if (.[$pkg] == null or (.[$pkg] | map(has("version")) | all) == false) then
+        empty
       else
-        .[$pkg][] | select(.version) | .version  as $version
+        .[$pkg][] | select(has("version")) | .version as $version
         | ($version | split(".") | map(tonumber)) as $arrayed_version
         | ($ver | split(".") | map(tonumber)) as $arrayed_ver
-        |  (if $arrayed_version >= $arrayed_ver then
+        | if $arrayed_version >= $arrayed_ver then
             $pkg + "==" + $version
           else
             empty
-          end) as $selected_version
-        | $selected_version
+          end
         | halt_error
-        | .name + "=" + .version
       end
     ' 2>> $install_dir/conda_package_list.txt
     echo >> $install_dir/conda_package_list.txt
   done < setup/pip_packages.txt
   grep -v -f <(cut -d '=' -f1 $install_dir/conda_package_list.txt) setup/pip_packages.txt 2> $install_dir/updated_pip_packages.txt
+}
+
+update_environment_yml() {
+  local env_file="$1"
+  local export_file="$2"
+  local updated_file="$3"
+
+  local install_dir="/tmp/hb_install"
+  rm -rf $install_dir
+  mkdir -p $install_dir
+
+  local temp_file="$install_dir/env.yml"
+
+  cp "$env_file" "$temp_file"
+
+  # Loop over the dependencies in the exported environment
+  grep -P "^\s+-" "$env_file" | while read -r line; do
+    # Extract the package name and version
+    local package=$(echo "$line" | sed -e 's/^ *- *//' | awk -F "[>=]" '{print $1}' | xargs)
+    local old_version=$(echo "$line" | awk -F "=" '{print $2}' | xargs)
+    local upper_version=$(echo "$line" | awk -F "<" '{print $2}' | xargs)
+
+    # Grab the latest version of the package from conda
+    local version=$(grep -P "${package}=" "$export_file" | grep -v : | tail -n1 | awk -F "[=]" '{print $2}' | xargs)
+    # echo "  '-> Found >${package}< ${version}" >&2
+
+    # Update the version in the environment.yml file
+    if [ -n "${package}" ] && [ -n "${version}" ] && [ -n "${upper_version}" ]; then
+      sed -i -r "s/${package}>?=[^ ]*/${package}>=${version},<${upper_version}/g" "$temp_file"
+    elif [ -n "${package}" ] && [ -n "${version}" ] && [ -n "${old_version}" ]; then
+      sed -i -r "s/${package}>?=[^ ]*/${package}>=${version}/g" "$temp_file"
+    elif [ -n "${package}" ] && [ -n "${version}" ]; then
+      sed -i -r "s/${package}$/${package}>=${version}/g" "$temp_file"
+    fi
+  done
+
+  mv "$temp_file" "$updated_file"
+  echo "Updated $updated_file with installed versions" >&2
 }
 
 # Check if the script is being sourced
