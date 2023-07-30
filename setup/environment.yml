@@ -5,7 +5,7 @@ channels:
 dependencies:
   ### Packages needed for the build/install process
   - coverage>=7.2.7
-  # - cython=0.29.35
+  - cython>=3.0.0
   - flake8>=6.1.0
   - diff-cover>=7.7.0
   - nose>=1.3.7
