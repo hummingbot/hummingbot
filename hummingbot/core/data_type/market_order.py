@@ -1,5 +1,8 @@
-from typing import NamedTuple, List
+from typing import List, NamedTuple
+
 import pandas as pd
+
+from hummingbot.core.data_type.common import PositionAction
 
 
 class MarketOrder(NamedTuple):
@@ -10,6 +13,7 @@ class MarketOrder(NamedTuple):
     quote_asset: str
     amount: float
     timestamp: float
+    position: PositionAction = PositionAction.NIL
 
     @classmethod
     def to_pandas(cls, market_orders: List["MarketOrder"]) -> pd.DataFrame:

@@ -1,40 +1,36 @@
 import asyncio
 from collections import defaultdict
 from decimal import Decimal
-from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
-
-from async_timeout import timeout
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
-from hummingbot.connector.constants import s_decimal_NaN
-from hummingbot.connector.exchange.injective_v2 import (
+from hummingbot.connector.constants import FUNDING_FEE_POLL_INTERVAL, s_decimal_NaN
+from hummingbot.connector.derivative.injective_v2_perpetual import (
     injective_constants as CONSTANTS,
-    injective_v2_web_utils as web_utils,
+    injective_v2_perpetual_web_utils as web_utils,
 )
+from hummingbot.connector.derivative.injective_v2_perpetual.injective_v2_perpetual_api_order_book_data_source import (
+    InjectiveV2PerpetualAPIOrderBookDataSource,
+)
+from hummingbot.connector.derivative.injective_v2_perpetual.injective_v2_perpetual_utils import InjectiveConfigMap
 from hummingbot.connector.exchange.injective_v2.injective_events import InjectiveEvent
-from hummingbot.connector.exchange.injective_v2.injective_v2_api_order_book_data_source import (
-    InjectiveV2APIOrderBookDataSource,
-)
-from hummingbot.connector.exchange.injective_v2.injective_v2_utils import InjectiveConfigMap
-from hummingbot.connector.exchange_py_base import ExchangePyBase
-from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
+from hummingbot.connector.gateway.gateway_in_flight_order import GatewayPerpetualInFlightOrder
 from hummingbot.connector.gateway.gateway_order_tracker import GatewayOrderTracker
+from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.core.data_type.perpetual_api_order_book_data_source import PerpetualAPIOrderBookDataSource
 from hummingbot.core.data_type.trade_fee import TradeFeeBase, TradeFeeSchema
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.event.event_forwarder import EventForwarder
 from hummingbot.core.event.events import AccountEvent, BalanceUpdateEvent, MarketEvent
-from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.core.utils.estimate_fee import build_trade_fee
+from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
@@ -42,7 +38,7 @@ if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 
-class InjectiveV2Exchange(ExchangePyBase):
+class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
     web_utils = web_utils
 
     def __init__(
@@ -66,8 +62,8 @@ class InjectiveV2Exchange(ExchangePyBase):
         self._latest_polled_order_fill_time: float = self._time()
         self._orders_transactions_check_task: Optional[asyncio.Task] = None
         self._last_received_message_timestamp = 0
-        self._orders_queued_to_create: List[GatewayInFlightOrder] = []
-        self._orders_queued_to_cancel: List[GatewayInFlightOrder] = []
+        self._orders_queued_to_create: List[GatewayPerpetualInFlightOrder] = []
+        self._orders_queued_to_cancel: List[GatewayPerpetualInFlightOrder] = []
 
         self._orders_transactions_check_task = None
         self._queued_orders_task = None
@@ -122,55 +118,38 @@ class InjectiveV2Exchange(ExchangePyBase):
         return self._trading_required
 
     @property
-    def status_dict(self) -> Dict[str, bool]:
-        status = super().status_dict
-        status["data_source_initialized"] = self._data_source.is_started()
-        return status
+    def funding_fee_poll_interval(self) -> int:
+        return FUNDING_FEE_POLL_INTERVAL
 
-    async def start_network(self):
-        await super().start_network()
+    def supported_position_modes(self) -> List[PositionMode]:
+        return [PositionMode.ONEWAY]
 
-        market_ids = [
-            await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-            for trading_pair in self._trading_pairs
-        ]
-        await self._data_source.start(market_ids=market_ids)
+    def get_buy_collateral_token(self, trading_pair: str) -> str:
+        trading_rule: TradingRule = self._trading_rules[trading_pair]
+        return trading_rule.buy_order_collateral_token
 
-        if self.is_trading_required:
-            self._orders_transactions_check_task = safe_ensure_future(self._check_orders_transactions())
-            self._queued_orders_task = safe_ensure_future(self._process_queued_orders())
-
-    async def stop_network(self):
-        """
-        This function is executed when the connector is stopped. It performs a general cleanup and stops all background
-        tasks that require the connection with the exchange to work.
-        """
-        await super().stop_network()
-        await self._data_source.stop()
-        self._forwarders = []
-        if self._orders_transactions_check_task is not None:
-            self._orders_transactions_check_task.cancel()
-            self._orders_transactions_check_task = None
-        if self._queued_orders_task is not None:
-            self._queued_orders_task.cancel()
-            self._queued_orders_task = None
+    def get_sell_collateral_token(self, trading_pair: str) -> str:
+        trading_rule: TradingRule = self._trading_rules[trading_pair]
+        return trading_rule.sell_order_collateral_token
 
     def supported_order_types(self) -> List[OrderType]:
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+        return self._data_source.supported_order_types()
 
     def start_tracking_order(
-        self,
-        order_id: str,
-        exchange_order_id: Optional[str],
-        trading_pair: str,
-        trade_type: TradeType,
-        price: Decimal,
-        amount: Decimal,
-        order_type: OrderType,
-        **kwargs,
+            self,
+            order_id: str,
+            exchange_order_id: Optional[str],
+            trading_pair: str,
+            trade_type: TradeType,
+            price: Decimal,
+            amount: Decimal,
+            order_type: OrderType,
+            position_action: PositionAction = PositionAction.NIL,
+            **kwargs,
     ):
+        leverage = self.get_leverage(trading_pair=trading_pair)
         self._order_tracker.start_tracking_order(
-            GatewayInFlightOrder(
+            GatewayPerpetualInFlightOrder(
                 client_order_id=order_id,
                 exchange_order_id=exchange_order_id,
                 trading_pair=trading_pair,
@@ -179,6 +158,8 @@ class InjectiveV2Exchange(ExchangePyBase):
                 amount=amount,
                 price=price,
                 creation_timestamp=self.current_timestamp,
+                leverage=leverage,
+                position=position_action,
             )
         )
 
@@ -211,6 +192,7 @@ class InjectiveV2Exchange(ExchangePyBase):
                     filled_quantity=order.filled_quantity,
                     creation_timestamp=order.creation_timestamp,
                     status=order.status,
+                    position=order.position,
                 )
             )
         safe_ensure_future(self._execute_batch_order_create(orders_to_create=orders_with_ids_to_create))
@@ -224,83 +206,35 @@ class InjectiveV2Exchange(ExchangePyBase):
         """
         safe_ensure_future(coro=self._execute_batch_cancel(orders_to_cancel=orders_to_cancel))
 
-    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
+    async def _update_positions(self):
+        raise NotImplementedError
+
+    async def _trading_pair_position_mode_set(self, mode: PositionMode, trading_pair: str) -> Tuple[bool, str]:
+        raise NotImplementedError
+
+    async def _set_trading_pair_leverage(self, trading_pair: str, leverage: int) -> Tuple[bool, str]:
         """
-        Cancels all currently active orders. The cancellations are performed in parallel tasks.
-
-        :param timeout_seconds: the maximum time (in seconds) the cancel logic should run
-
-        :return: a list of CancellationResult instances, one for each of the orders to be cancelled
+        Leverage is set on a per order basis. See place_order()
         """
-        incomplete_orders = {}
-        limit_orders = []
-        successful_cancellations = []
+        return True, ""
 
-        for order in self.in_flight_orders.values():
-            if not order.is_done:
-                incomplete_orders[order.client_order_id] = order
-                limit_orders.append(order.to_limit_order())
-
-        if len(limit_orders) > 0:
-            try:
-                async with timeout(timeout_seconds):
-                    cancellation_results = await self._execute_batch_cancel(orders_to_cancel=limit_orders)
-                    for cr in cancellation_results:
-                        if cr.success:
-                            del incomplete_orders[cr.order_id]
-                            successful_cancellations.append(CancellationResult(cr.order_id, True))
-            except Exception:
-                self.logger().network(
-                    "Unexpected error cancelling orders.",
-                    exc_info=True,
-                    app_warning_msg="Failed to cancel order. Check API key and network connection."
-                )
-        failed_cancellations = [CancellationResult(oid, False) for oid in incomplete_orders.keys()]
-        return successful_cancellations + failed_cancellations
-
-    async def check_network(self) -> NetworkStatus:
-        """
-        Checks connectivity with the exchange using the API
-        """
-        try:
-            status = await self._data_source.check_network()
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            status = NetworkStatus.NOT_CONNECTED
-        return status
-
-    def trigger_event(self, event_tag: Enum, message: any):
-        # Reimplemented because Injective connector has trading pairs with modified token names, because market tickers
-        # are not always unique.
-        # We need to change the original trading pair in all events to the real tokens trading pairs to not impact the
-        # bot events processing
-        trading_pair = getattr(message, "trading_pair", None)
-        if trading_pair is not None:
-            new_trading_pair = self._data_source.real_tokens_trading_pair(unique_trading_pair=trading_pair)
-            if isinstance(message, tuple):
-                message = message._replace(trading_pair=new_trading_pair)
-            else:
-                setattr(message, "trading_pair", new_trading_pair)
-
-        super().trigger_event(event_tag=event_tag, message=message)
+    async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[float, Decimal, Decimal]:
+        raise NotImplementedError
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception) -> bool:
-        return False
+        raise NotImplementedError
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
-        return CONSTANTS.ORDER_NOT_FOUND_ERROR_MESSAGE in str(status_update_exception)
+        raise NotImplementedError
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
-        # For Injective the cancelation is done by sending a transaction to the chain.
-        # The cancel request is not validated until the transaction is included in a block, and so this does not apply
-        return False
+        raise NotImplementedError
 
-    async def _place_cancel(self, order_id: str, tracked_order: GatewayInFlightOrder):
+    async def _place_cancel(self, order_id: str, tracked_order: GatewayPerpetualInFlightOrder):
         # Not required because of _execute_order_cancel redefinition
         raise NotImplementedError
 
-    async def _execute_order_cancel(self, order: GatewayInFlightOrder) -> str:
+    async def _execute_order_cancel(self, order: GatewayPerpetualInFlightOrder) -> str:
         # Order cancelation requests for single orders are queued to be executed in batch if possible
         self._orders_queued_to_cancel.append(order)
         return None
@@ -310,7 +244,7 @@ class InjectiveV2Exchange(ExchangePyBase):
         # Not required because of _place_order_and_process_update redefinition
         raise NotImplementedError
 
-    async def _place_order_and_process_update(self, order: GatewayInFlightOrder, **kwargs) -> str:
+    async def _place_order_and_process_update(self, order: GatewayPerpetualInFlightOrder, **kwargs) -> str:
         # Order creation requests for single orders are queued to be executed in batch if possible
         self._orders_queued_to_create.append(order)
         return None
@@ -330,10 +264,10 @@ class InjectiveV2Exchange(ExchangePyBase):
                 inflight_orders_to_create.append(valid_order)
         await self._execute_batch_inflight_order_create(inflight_orders_to_create=inflight_orders_to_create)
 
-    async def _execute_batch_inflight_order_create(self, inflight_orders_to_create: List[GatewayInFlightOrder]):
+    async def _execute_batch_inflight_order_create(self, inflight_orders_to_create: List[GatewayPerpetualInFlightOrder]):
         try:
             place_order_results = await self._data_source.create_orders(
-                spot_orders=inflight_orders_to_create
+                perpetual_orders=inflight_orders_to_create
             )
             for place_order_result, in_flight_order in (
                 zip(place_order_results, inflight_orders_to_create)
@@ -379,7 +313,7 @@ class InjectiveV2Exchange(ExchangePyBase):
         order_type: OrderType,
         price: Optional[Decimal] = None,
         **kwargs
-    ) -> Optional[GatewayInFlightOrder]:
+    ) -> Optional[GatewayPerpetualInFlightOrder]:
         trading_rule = self._trading_rules[trading_pair]
 
         if order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]:
@@ -419,7 +353,7 @@ class InjectiveV2Exchange(ExchangePyBase):
     def _update_order_after_creation_success(
         self,
         exchange_order_id: Optional[str],
-        order: GatewayInFlightOrder,
+        order: GatewayPerpetualInFlightOrder,
         update_timestamp: float,
         misc_updates: Optional[Dict[str, Any]] = None
     ):
@@ -476,9 +410,11 @@ class InjectiveV2Exchange(ExchangePyBase):
 
         return results
 
-    async def _execute_batch_order_cancel(self, orders_to_cancel: List[GatewayInFlightOrder]) -> List[CancellationResult]:
+    async def _execute_batch_order_cancel(
+            self, orders_to_cancel: List[GatewayPerpetualInFlightOrder],
+    ) -> List[CancellationResult]:
         try:
-            cancel_order_results = await self._data_source.cancel_orders(spot_orders=orders_to_cancel)
+            cancel_order_results = await self._data_source.cancel_orders(perpetual_orders=orders_to_cancel)
             cancelation_results = []
             for cancel_order_result in cancel_order_results:
                 success = True
@@ -525,7 +461,7 @@ class InjectiveV2Exchange(ExchangePyBase):
 
         return cancelation_results
 
-    def _update_order_after_cancelation_success(self, order: GatewayInFlightOrder):
+    def _update_order_after_cancelation_success(self, order: GatewayPerpetualInFlightOrder):
         order_update: OrderUpdate = OrderUpdate(
             client_order_id=order.client_order_id,
             trading_pair=order.trading_pair,
@@ -551,7 +487,7 @@ class InjectiveV2Exchange(ExchangePyBase):
                 percent_token=fee_schema.percent_fee_token,
             )
         else:
-            fee = build_trade_fee(
+            fee = build_perpetual_trade_fee(
                 self.name,
                 is_maker,
                 base_currency=base_currency,
@@ -567,62 +503,20 @@ class InjectiveV2Exchange(ExchangePyBase):
         self._trading_fees = await self._data_source.get_trading_fees()
 
     async def _user_stream_event_listener(self):
-        while True:
-            try:
-                event_message = await self._all_trading_events_queue.get()
-                channel = event_message["channel"]
-                event_data = event_message["data"]
-
-                if channel == "transaction":
-                    transaction_hash = event_data["hash"]
-                    await self._check_created_orders_status_for_transaction(transaction_hash=transaction_hash)
-                elif channel == "trade":
-                    trade_update = event_data
-                    tracked_order = self._order_tracker.all_fillable_orders_by_exchange_order_id.get(
-                        trade_update.exchange_order_id
-                    )
-                    if tracked_order is not None:
-                        new_trade_update = TradeUpdate(
-                            trade_id=trade_update.trade_id,
-                            client_order_id=tracked_order.client_order_id,
-                            exchange_order_id=trade_update.exchange_order_id,
-                            trading_pair=trade_update.trading_pair,
-                            fill_timestamp=trade_update.fill_timestamp,
-                            fill_price=trade_update.fill_price,
-                            fill_base_amount=trade_update.fill_base_amount,
-                            fill_quote_amount=trade_update.fill_quote_amount,
-                            fee=trade_update.fee,
-                            is_taker=trade_update.is_taker,
-                        )
-                        self._order_tracker.process_trade_update(new_trade_update)
-                elif channel == "order":
-                    order_update = event_data
-                    tracked_order = self._order_tracker.all_updatable_orders_by_exchange_order_id.get(
-                        order_update.exchange_order_id)
-                    if tracked_order is not None:
-                        new_order_update = OrderUpdate(
-                            trading_pair=order_update.trading_pair,
-                            update_timestamp=order_update.update_timestamp,
-                            new_state=order_update.new_state,
-                            client_order_id=tracked_order.client_order_id,
-                            exchange_order_id=order_update.exchange_order_id,
-                            misc_updates=order_update.misc_updates,
-                        )
-                        self._order_tracker.process_order_update(order_update=new_order_update)
-                elif channel == "balance":
-                    if event_data.total_balance is not None:
-                        self._account_balances[event_data.asset_name] = event_data.total_balance
-                    if event_data.available_balance is not None:
-                        self._account_available_balances[event_data.asset_name] = event_data.available_balance
-
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().exception("Unexpected error in user stream listener loop")
+        raise NotImplementedError
 
     async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
-        # Not used in Injective
-        raise NotImplementedError  # pragma: no cover
+        raise NotImplementedError
+
+    async def _update_trading_rules(self):
+        await self._data_source.update_markets()
+        await self._initialize_trading_pair_symbol_map()
+        trading_rules_list = await self._data_source.all_trading_rules()
+        trading_rules = {}
+        for trading_rule in trading_rules_list:
+            trading_rules[trading_rule.trading_pair] = trading_rule
+        self._trading_rules.clear()
+        self._trading_rules.update(trading_rules)
 
     async def _update_balances(self):
         all_balances = await self._data_source.all_account_balances()
@@ -634,114 +528,11 @@ class InjectiveV2Exchange(ExchangePyBase):
             self._account_balances[token] = token_balance_info["total_balance"]
             self._account_available_balances[token] = token_balance_info["available_balance"]
 
-    async def _all_trade_updates_for_order(self, order: GatewayInFlightOrder) -> List[TradeUpdate]:
-        # Not required because of _update_orders_fills redefinition
+    async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         raise NotImplementedError
 
-    async def _update_orders_fills(self, orders: List[GatewayInFlightOrder]):
-        oldest_order_creation_time = self.current_timestamp
-        all_market_ids = set()
-        orders_by_hash = {}
-
-        for order in orders:
-            oldest_order_creation_time = min(oldest_order_creation_time, order.creation_timestamp)
-            all_market_ids.add(await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair))
-            if order.exchange_order_id is not None:
-                orders_by_hash[order.exchange_order_id] = order
-
-        try:
-            start_time = min(oldest_order_creation_time, self._latest_polled_order_fill_time)
-            trade_updates = await self._data_source.spot_trade_updates(market_ids=all_market_ids, start_time=start_time)
-            for trade_update in trade_updates:
-                tracked_order = orders_by_hash.get(trade_update.exchange_order_id)
-                if tracked_order is not None:
-                    new_trade_update = TradeUpdate(
-                        trade_id=trade_update.trade_id,
-                        client_order_id=tracked_order.client_order_id,
-                        exchange_order_id=trade_update.exchange_order_id,
-                        trading_pair=trade_update.trading_pair,
-                        fill_timestamp=trade_update.fill_timestamp,
-                        fill_price=trade_update.fill_price,
-                        fill_base_amount=trade_update.fill_base_amount,
-                        fill_quote_amount=trade_update.fill_quote_amount,
-                        fee=trade_update.fee,
-                        is_taker=trade_update.is_taker,
-                    )
-                    self._latest_polled_order_fill_time = max(self._latest_polled_order_fill_time, trade_update.fill_timestamp)
-                    self._order_tracker.process_trade_update(new_trade_update)
-        except asyncio.CancelledError:
-            raise
-        except Exception as ex:
-            self.logger().warning(
-                f"Failed to fetch trade updates. Error: {ex}",
-                exc_info=ex,
-            )
-
-    async def _request_order_status(self, tracked_order: GatewayInFlightOrder) -> OrderUpdate:
-        # Not required due to the redefinition of _update_orders_with_error_handler
+    async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         raise NotImplementedError
-
-    async def _update_orders_with_error_handler(self, orders: List[GatewayInFlightOrder], error_handler: Callable):
-        oldest_order_creation_time = self.current_timestamp
-        all_market_ids = set()
-        orders_by_hash = {}
-
-        for order in orders:
-            oldest_order_creation_time = min(oldest_order_creation_time, order.creation_timestamp)
-            all_market_ids.add(await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair))
-            if order.exchange_order_id is not None:
-                orders_by_hash[order.exchange_order_id] = order
-
-        try:
-            order_updates = await self._data_source.spot_order_updates(
-                market_ids=all_market_ids,
-                start_time=oldest_order_creation_time - self.LONG_POLL_INTERVAL
-            )
-
-            for order_update in order_updates:
-                tracked_order = orders_by_hash.get(order_update.exchange_order_id)
-                if tracked_order is not None:
-                    try:
-                        new_order_update = OrderUpdate(
-                            trading_pair=order_update.trading_pair,
-                            update_timestamp=order_update.update_timestamp,
-                            new_state=order_update.new_state,
-                            client_order_id=tracked_order.client_order_id,
-                            exchange_order_id=order_update.exchange_order_id,
-                            misc_updates=order_update.misc_updates,
-                        )
-
-                        if tracked_order.current_state == OrderState.PENDING_CREATE and new_order_update.new_state != OrderState.OPEN:
-                            open_update = OrderUpdate(
-                                trading_pair=order_update.trading_pair,
-                                update_timestamp=order_update.update_timestamp,
-                                new_state=OrderState.OPEN,
-                                client_order_id=tracked_order.client_order_id,
-                                exchange_order_id=order_update.exchange_order_id,
-                                misc_updates=order_update.misc_updates,
-                            )
-                            self._order_tracker.process_order_update(open_update)
-
-                        del orders_by_hash[order_update.exchange_order_id]
-                        self._order_tracker.process_order_update(new_order_update)
-                    except asyncio.CancelledError:
-                        raise
-                    except Exception as ex:
-                        await error_handler(tracked_order, ex)
-
-            if len(orders_by_hash) > 0:
-                # await self._data_source.check_order_hashes_synchronization(orders=orders_by_hash.values())
-                for order in orders_by_hash.values():
-                    not_found_error = RuntimeError(
-                        f"There was a problem updating order {order.client_order_id} "
-                        f"({CONSTANTS.ORDER_NOT_FOUND_ERROR_MESSAGE})"
-                    )
-                    await error_handler(order, not_found_error)
-        except asyncio.CancelledError:
-            raise
-        except Exception as request_error:
-            for order in orders_by_hash.values():
-                await error_handler(order, request_error)
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return WebAssistantsFactory(throttler=self._throttler)
@@ -750,8 +541,8 @@ class InjectiveV2Exchange(ExchangePyBase):
         tracker = GatewayOrderTracker(connector=self)
         return tracker
 
-    def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
-        return InjectiveV2APIOrderBookDataSource(
+    def _create_order_book_data_source(self) -> PerpetualAPIOrderBookDataSource:
+        return InjectiveV2PerpetualAPIOrderBookDataSource(
             trading_pairs=self.trading_pairs,
             connector=self,
             data_source=self._data_source,
@@ -781,21 +572,11 @@ class InjectiveV2Exchange(ExchangePyBase):
     async def _initialize_trading_pair_symbol_map(self):
         exchange_info = None
         try:
-            mapping = await self._data_source.spot_market_and_trading_pair_map()
+            mapping = await self._data_source.derivative_market_and_trading_pair_map()
             self._set_trading_pair_symbol_map(mapping)
         except Exception:
             self.logger().exception("There was an error requesting exchange info.")
         return exchange_info
-
-    async def _update_trading_rules(self):
-        await self._data_source.update_markets()
-        await self._initialize_trading_pair_symbol_map()
-        trading_rules_list = await self._data_source.all_trading_rules()
-        trading_rules = {}
-        for trading_rule in trading_rules_list:
-            trading_rules[trading_rule.trading_pair] = trading_rule
-        self._trading_rules.clear()
-        self._trading_rules.update(trading_rules)
 
     def _configure_event_forwarders(self):
         event_forwarder = EventForwarder(to_function=self._process_user_trade_update)
@@ -852,7 +633,7 @@ class InjectiveV2Exchange(ExchangePyBase):
                 await self._sleep(0.5)
 
     async def _check_orders_creation_transactions(self):
-        orders: List[GatewayInFlightOrder] = self._order_tracker.active_orders.values()
+        orders: List[GatewayPerpetualInFlightOrder] = self._order_tracker.active_orders.values()
         orders_by_creation_tx = defaultdict(list)
         orders_with_inconsistent_hash = []
 
@@ -896,7 +677,7 @@ class InjectiveV2Exchange(ExchangePyBase):
 
     async def _check_created_orders_status_for_transaction(self, transaction_hash: str):
         transaction_orders = []
-        order: GatewayInFlightOrder
+        order: GatewayPerpetualInFlightOrder
         for order in self.in_flight_orders.values():
             if order.creation_transaction_hash == transaction_hash and order.is_pending_create:
                 transaction_orders.append(order)

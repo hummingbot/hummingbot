@@ -16,7 +16,7 @@ from hummingbot.connector.exchange.injective_v2 import injective_constants as CO
 from hummingbot.connector.exchange.injective_v2.injective_events import InjectiveEvent
 from hummingbot.connector.exchange.injective_v2.injective_market import InjectiveDerivativeMarket, InjectiveToken
 from hummingbot.connector.gateway.common_types import CancelOrderResult, PlaceOrderResult
-from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
+from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder, GatewayPerpetualInFlightOrder
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -127,7 +127,11 @@ class InjectiveDataSource(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def market_id_for_trading_pair(self, trading_pair: str) -> str:
+    async def market_id_for_spot_trading_pair(self, trading_pair: str) -> str:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def market_id_for_derivative_trading_pair(self, trading_pair: str) -> str:
         raise NotImplementedError
 
     @abstractmethod
@@ -174,6 +178,10 @@ class InjectiveDataSource(ABC):
     async def order_updates_for_transaction(
             self, transaction_hash: str, transaction_orders: List[GatewayInFlightOrder]
     ) -> List[OrderUpdate]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def supported_order_types(self) -> List[OrderType]:
         raise NotImplementedError
 
     def is_started(self):
@@ -349,92 +357,131 @@ class InjectiveDataSource(ABC):
 
         return balances_dict
 
-    async def create_orders(self, orders_to_create: List[GatewayInFlightOrder]) -> List[PlaceOrderResult]:
+    async def create_orders(
+            self,
+            spot_orders: Optional[List[GatewayInFlightOrder]] = None,
+            perpetual_orders: Optional[List[GatewayPerpetualInFlightOrder]] = None,
+    ) -> List[PlaceOrderResult]:
+        spot_orders = spot_orders or []
+        perpetual_orders = perpetual_orders or []
+        results = []
         if self.order_creation_lock.locked():
             raise RuntimeError("It is not possible to create new orders because the hash manager is not synchronized")
-        async with self.order_creation_lock:
-            results = []
 
-            order_creation_message, order_hashes = await self._order_creation_message(
-                spot_orders_to_create=orders_to_create)
+        if len(spot_orders) > 0 or len(perpetual_orders) > 0:
+            async with self.order_creation_lock:
 
-            try:
-                result = await self._send_in_transaction(message=order_creation_message)
-                if result["rawLog"] != "[]" or result["txhash"] in [None, ""]:
-                    raise ValueError(f"Error sending the order creation transaction ({result['rawLog']})")
-                else:
-                    transaction_hash = result["txhash"]
-                    results = self._place_order_results(
-                        orders_to_create=orders_to_create,
-                        order_hashes=order_hashes,
-                        misc_updates={
-                            "creation_transaction_hash": transaction_hash,
-                        },
-                    )
-            except asyncio.CancelledError:
-                raise
-            except Exception as ex:
-                results = self._place_order_results(
-                    orders_to_create=orders_to_create,
-                    order_hashes=order_hashes,
-                    misc_updates={},
-                    exception=ex,
+                order_creation_message, spot_order_hashes, derivative_order_hashes = await self._order_creation_message(
+                    spot_orders_to_create=spot_orders,
+                    derivative_orders_to_create=perpetual_orders,
                 )
+
+                try:
+                    result = await self._send_in_transaction(message=order_creation_message)
+                    if result["rawLog"] != "[]" or result["txhash"] in [None, ""]:
+                        raise ValueError(f"Error sending the order creation transaction ({result['rawLog']})")
+                    else:
+                        transaction_hash = result["txhash"]
+                        results = self._place_order_results(
+                            orders_to_create=spot_orders + perpetual_orders,
+                            order_hashes=spot_order_hashes + derivative_order_hashes,
+                            misc_updates={
+                                "creation_transaction_hash": transaction_hash,
+                            },
+                        )
+                except asyncio.CancelledError:
+                    raise
+                except Exception as ex:
+                    results = self._place_order_results(
+                        orders_to_create=spot_orders + perpetual_orders,
+                        order_hashes=spot_order_hashes + derivative_order_hashes,
+                        misc_updates={},
+                        exception=ex,
+                    )
 
         return results
 
-    async def cancel_orders(self, orders_to_cancel: List[GatewayInFlightOrder]) -> List[CancelOrderResult]:
+    async def cancel_orders(
+            self,
+            spot_orders: Optional[List[GatewayInFlightOrder]] = None,
+            perpetual_orders: Optional[List[GatewayPerpetualInFlightOrder]] = None,
+    ) -> List[CancelOrderResult]:
+        spot_orders = spot_orders or []
+        perpetual_orders = perpetual_orders or []
+
         composer = self.composer
         orders_with_hash = []
-        orders_data = []
+        spot_orders_data = []
+        derivative_orders_data = []
         results = []
 
-        for order in orders_to_cancel:
-            if order.exchange_order_id is None:
-                results.append(CancelOrderResult(
-                    client_order_id=order.client_order_id,
-                    trading_pair=order.trading_pair,
-                    not_found=True,
-                ))
-            else:
-                market_id = await self.market_id_for_trading_pair(trading_pair=order.trading_pair)
-                order_data = composer.OrderData(
-                    market_id=market_id,
-                    subaccount_id=str(self.portfolio_account_subaccount_index),
-                    order_hash=order.exchange_order_id,
-                    order_direction="buy" if order.trade_type == TradeType.BUY else "sell",
-                    order_type="market" if order.order_type == OrderType.MARKET else "limit",
-                )
-                orders_data.append(order_data)
-                orders_with_hash.append(order)
+        if len(spot_orders) > 0 or len(perpetual_orders) > 0:
+            for order in spot_orders:
+                if order.exchange_order_id is None:
+                    results.append(CancelOrderResult(
+                        client_order_id=order.client_order_id,
+                        trading_pair=order.trading_pair,
+                        not_found=True,
+                    ))
+                else:
+                    market_id = await self.market_id_for_spot_trading_pair(trading_pair=order.trading_pair)
+                    order_data = composer.OrderData(
+                        market_id=market_id,
+                        subaccount_id=str(self.portfolio_account_subaccount_index),
+                        order_hash=order.exchange_order_id,
+                        order_direction="buy" if order.trade_type == TradeType.BUY else "sell",
+                        order_type="market" if order.order_type == OrderType.MARKET else "limit",
+                    )
+                    spot_orders_data.append(order_data)
+                    orders_with_hash.append(order)
 
-        delegated_message = self._order_cancel_message(
-            spot_orders_to_cancel=orders_data
-        )
+            for order in perpetual_orders:
+                if order.exchange_order_id is None:
+                    results.append(CancelOrderResult(
+                        client_order_id=order.client_order_id,
+                        trading_pair=order.trading_pair,
+                        not_found=True,
+                    ))
+                else:
+                    market_id = await self.market_id_for_derivative_trading_pair(trading_pair=order.trading_pair)
+                    order_data = composer.OrderData(
+                        market_id=market_id,
+                        subaccount_id=str(self.portfolio_account_subaccount_index),
+                        order_hash=order.exchange_order_id,
+                        order_direction="buy" if order.trade_type == TradeType.BUY else "sell",
+                        order_type="market" if order.order_type == OrderType.MARKET else "limit",
+                    )
+                    spot_orders_data.append(order_data)
+                    orders_with_hash.append(order)
 
-        try:
-            result = await self._send_in_transaction(message=delegated_message)
-            if result["rawLog"] != "[]":
-                raise ValueError(f"Error sending the order cancel transaction ({result['rawLog']})")
-            else:
-                cancel_transaction_hash = result.get("txhash", "")
+            delegated_message = self._order_cancel_message(
+                spot_orders_to_cancel=spot_orders_data,
+                derivative_orders_to_cancel=derivative_orders_data,
+            )
+
+            try:
+                result = await self._send_in_transaction(message=delegated_message)
+                if result["rawLog"] != "[]":
+                    raise ValueError(f"Error sending the order cancel transaction ({result['rawLog']})")
+                else:
+                    cancel_transaction_hash = result.get("txhash", "")
+                    results.extend([
+                        CancelOrderResult(
+                            client_order_id=order.client_order_id,
+                            trading_pair=order.trading_pair,
+                            misc_updates={"cancelation_transaction_hash": cancel_transaction_hash},
+                        ) for order in orders_with_hash
+                    ])
+            except asyncio.CancelledError:
+                raise
+            except Exception as ex:
                 results.extend([
                     CancelOrderResult(
                         client_order_id=order.client_order_id,
                         trading_pair=order.trading_pair,
-                        misc_updates={"cancelation_transaction_hash": cancel_transaction_hash},
+                        exception=ex,
                     ) for order in orders_with_hash
                 ])
-        except asyncio.CancelledError:
-            raise
-        except Exception as ex:
-            results.extend([
-                CancelOrderResult(
-                    client_order_id=order.client_order_id,
-                    trading_pair=order.trading_pair,
-                    exception=ex,
-                ) for order in orders_with_hash
-            ])
 
         return results
 
@@ -582,7 +629,11 @@ class InjectiveDataSource(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def _calculate_order_hashes(self, orders: List[GatewayInFlightOrder]) -> List[str]:
+    def _calculate_order_hashes(
+            self,
+            spot_orders: List[GatewayInFlightOrder],
+            derivative_orders: [GatewayPerpetualInFlightOrder]
+    ) -> Tuple[List[str], List[str]]:
         raise NotImplementedError
 
     @abstractmethod
@@ -595,12 +646,18 @@ class InjectiveDataSource(ABC):
 
     @abstractmethod
     async def _order_creation_message(
-            self, spot_orders_to_create: List[GatewayInFlightOrder]
-    ) -> Tuple[any_pb2.Any, List[str]]:
+            self,
+            spot_orders_to_create: List[GatewayInFlightOrder],
+            derivative_orders_to_create: List[GatewayPerpetualInFlightOrder],
+    ) -> Tuple[any_pb2.Any, List[str], List[str]]:
         raise NotImplementedError
 
     @abstractmethod
-    def _order_cancel_message(self, spot_orders_to_cancel: List[injective_exchange_tx_pb.OrderData]) -> any_pb2.Any:
+    def _order_cancel_message(
+            self,
+            spot_orders_to_cancel: List[injective_exchange_tx_pb.OrderData],
+            derivative_orders_to_cancel: List[injective_exchange_tx_pb.OrderData]
+    ) -> any_pb2.Any:
         raise NotImplementedError
 
     @abstractmethod
@@ -945,13 +1002,27 @@ class InjectiveDataSource(ABC):
         self.publisher.trigger_event(event_tag=InjectiveEvent.ChainTransactionEvent, message=transaction_event)
 
     async def _create_spot_order_definition(self, order: GatewayInFlightOrder):
-        market_id = await self.market_id_for_trading_pair(order.trading_pair)
+        market_id = await self.market_id_for_spot_trading_pair(order.trading_pair)
         definition = self.composer.SpotOrder(
             market_id=market_id,
             subaccount_id=self.portfolio_account_subaccount_id,
             fee_recipient=self.portfolio_account_injective_address,
             price=order.price,
             quantity=order.amount,
+            is_buy=order.trade_type == TradeType.BUY,
+            is_po=order.order_type == OrderType.LIMIT_MAKER
+        )
+        return definition
+
+    async def _create_derivative_order_definition(self, order: GatewayPerpetualInFlightOrder):
+        market_id = await self.market_id_for_derivative_trading_pair(order.trading_pair)
+        definition = self.composer.DerivativeOrder(
+            market_id=market_id,
+            subaccount_id=str(self.portfolio_account_subaccount_index),
+            fee_recipient=self.portfolio_account_injective_address,
+            price=order.price,
+            quantity=order.amount,
+            leverage=order.leverage,
             is_buy=order.trade_type == TradeType.BUY,
             is_po=order.order_type == OrderType.LIMIT_MAKER
         )
