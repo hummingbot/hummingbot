@@ -167,7 +167,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
 
         return self._market_and_trading_pair_map[market_id]
 
-    async def market_id_for_trading_pair(self, trading_pair: str) -> str:
+    async def market_id_for_spot_trading_pair(self, trading_pair: str) -> str:
         if self._market_and_trading_pair_map is None:
             async with self._markets_initialization_lock:
                 if self._market_and_trading_pair_map is None:
@@ -280,7 +280,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
             amount = market.quantity_from_chain_format(chain_quantity=Decimal(order_info["order_info"]["quantity"]))
             trade_type = TradeType.BUY if order_info["order_type"] in [1, 7, 9] else TradeType.SELL
             for transaction_order in transaction_orders:
-                market_id = await self.market_id_for_trading_pair(trading_pair=transaction_order.trading_pair)
+                market_id = await self.market_id_for_spot_trading_pair(trading_pair=transaction_order.trading_pair)
                 if (market_id == order_info["market_id"]
                         and transaction_order.amount == amount
                         and transaction_order.price == price
@@ -432,12 +432,17 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
 
         return execute_contract_message, []
 
-    def _order_cancel_message(self, spot_orders_to_cancel: List[injective_exchange_tx_pb.OrderData]) -> any_pb2.Any:
+    def _order_cancel_message(
+            self,
+            spot_orders_to_cancel: List[injective_exchange_tx_pb.OrderData],
+            derivative_orders_to_cancel: List[injective_exchange_tx_pb.OrderData]
+    ) -> any_pb2.Any:
         composer = self.composer
 
         message = composer.MsgBatchUpdateOrders(
             sender=self.portfolio_account_injective_address,
             spot_orders_to_cancel=spot_orders_to_cancel,
+            derivative_orders_to_cancel=derivative_orders_to_cancel,
         )
 
         message_as_dictionary = json_format.MessageToDict(
@@ -461,7 +466,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
     async def _create_spot_order_definition(self, order: GatewayInFlightOrder):
         # Both price and quantity have to be adjusted because the vaults expect to receive those values without
         # the extra 18 zeros that the chain backend expectes for direct trading messages
-        market_id = await self.market_id_for_trading_pair(order.trading_pair)
+        market_id = await self.market_id_for_spot_trading_pair(order.trading_pair)
         definition = self.composer.SpotOrder(
             market_id=market_id,
             subaccount_id=str(self.portfolio_account_subaccount_index),

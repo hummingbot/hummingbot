@@ -1,0 +1,1 @@
+E0731 16:28:00.249692000 6216691712 hpack_parser.cc:991]               Error parsing 'content-type' metadata: invalid value

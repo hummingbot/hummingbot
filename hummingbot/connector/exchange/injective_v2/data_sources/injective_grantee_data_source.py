@@ -23,11 +23,11 @@ from hummingbot.connector.exchange.injective_v2.injective_market import (
 )
 from hummingbot.connector.exchange.injective_v2.injective_query_executor import PythonSDKInjectiveQueryExecutor
 from hummingbot.connector.gateway.common_types import PlaceOrderResult
-from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
+from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder, GatewayPerpetualInFlightOrder
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
-from hummingbot.core.data_type.common import TradeType
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate
 from hummingbot.core.pubsub import PubSub
 from hummingbot.logger import HummingbotLogger
@@ -190,7 +190,7 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
             market_id, self._derivative_market_and_trading_pair_map[market_id]
         )
 
-    async def market_id_for_trading_pair(self, trading_pair: str) -> str:
+    async def market_id_for_spot_trading_pair(self, trading_pair: str) -> str:
         if self._spot_market_and_trading_pair_map is None:
             async with self._markets_initialization_lock:
                 if self._spot_market_and_trading_pair_map is None:
@@ -198,13 +198,21 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
 
         return self._spot_market_and_trading_pair_map.inverse[trading_pair]
 
-    async def all_markets(self):
-        if self._spot_market_info_map is None:
+    async def market_id_for_derivative_trading_pair(self, trading_pair: str) -> str:
+        if self._derivative_market_and_trading_pair_map is None:
             async with self._markets_initialization_lock:
-                if self._spot_market_info_map is None:
+                if self._derivative_market_and_trading_pair_map is None:
                     await self.update_markets()
 
-        return list(self._spot_market_info_map.values())
+        return self._derivative_market_and_trading_pair_map.inverse[trading_pair]
+
+    async def all_markets(self):
+        if self._spot_market_and_trading_pair_map is None or self._derivative_market_and_trading_pair_map is None:
+            async with self._markets_initialization_lock:
+                if self._spot_market_and_trading_pair_map is None or self._derivative_market_and_trading_pair_map is None:
+                    await self.update_markets()
+
+        return list(self._spot_market_info_map.values()) + list(self._derivative_market_info_map.values())
 
     async def token(self, denom: str) -> InjectiveToken:
         if self._tokens_map is None:
@@ -243,6 +251,9 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
                 subaccount_indexes=[self._granter_subaccount_index]
             )
         return self._order_hash_manager
+
+    def supported_order_types(self) -> List[OrderType]:
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
     async def update_markets(self):
         self._tokens_map = {}
@@ -320,7 +331,7 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
             amount = market.quantity_from_chain_format(chain_quantity=Decimal(order_info["order_info"]["quantity"]))
             trade_type = TradeType.BUY if "BUY" in order_info["order_type"] else TradeType.SELL
             for transaction_order in transaction_orders:
-                market_id = await self.market_id_for_trading_pair(trading_pair=transaction_order.trading_pair)
+                market_id = await self.market_id_for_spot_trading_pair(trading_pair=transaction_order.trading_pair)
                 if (market_id == order_info["market_id"]
                         and transaction_order.amount == amount
                         and transaction_order.price == price
@@ -460,12 +471,18 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         market = self._parse_derivative_market_info(market_info=market_info)
         return market
 
-    def _calculate_order_hashes(self, orders) -> List[str]:
+    def _calculate_order_hashes(
+            self,
+            spot_orders: List[GatewayInFlightOrder],
+            derivative_orders: [GatewayPerpetualInFlightOrder]
+    ) -> Tuple[List[str], List[str]]:
         hash_manager = self.order_hash_manager()
         hash_manager_result = hash_manager.compute_order_hashes(
-            spot_orders=orders, derivative_orders=[], subaccount_index=self._granter_subaccount_index
+            spot_orders=spot_orders,
+            derivative_orders=derivative_orders,
+            subaccount_index=self._granter_subaccount_index,
         )
-        return hash_manager_result.spot
+        return hash_manager_result.spot, hash_manager_result.derivative
 
     def _spot_order_book_updates_stream(self, market_ids: List[str]):
         stream = self._query_executor.spot_order_book_updates_stream(market_ids=market_ids)
@@ -504,34 +521,50 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         return stream
 
     async def _order_creation_message(
-            self, spot_orders_to_create: List[GatewayInFlightOrder]
-    ) -> Tuple[any_pb2.Any, List[str]]:
+            self,
+            spot_orders_to_create: List[GatewayInFlightOrder],
+            derivative_orders_to_create: List[GatewayPerpetualInFlightOrder],
+    ) -> Tuple[any_pb2.Any, List[str], List[str]]:
         composer = self.composer
-        order_definitions = []
+        spot_order_definitions = []
+        derivative_order_definitions = []
 
         for order in spot_orders_to_create:
             order_definition = await self._create_spot_order_definition(order=order)
-            order_definitions.append(order_definition)
+            spot_order_definitions.append(order_definition)
 
-        order_hashes = self._calculate_order_hashes(orders=order_definitions)
+        for order in derivative_orders_to_create:
+            order_definition = await self._create_derivative_order_definition(order=order)
+            derivative_order_definitions.append(order_definition)
+
+        spot_order_hashes, derivative_order_hashes = self._calculate_order_hashes(
+            spot_orders=spot_order_definitions,
+            derivative_orders=derivative_order_definitions,
+        )
 
         message = composer.MsgBatchUpdateOrders(
             sender=self.portfolio_account_injective_address,
-            spot_orders_to_create=order_definitions,
+            spot_orders_to_create=spot_order_definitions,
+            derivative_orders_to_create=derivative_order_definitions,
         )
         delegated_message = composer.MsgExec(
             grantee=self.trading_account_injective_address,
             msgs=[message]
         )
 
-        return delegated_message, order_hashes
+        return delegated_message, spot_order_hashes, derivative_order_hashes
 
-    def _order_cancel_message(self, spot_orders_to_cancel: List[injective_exchange_tx_pb.OrderData]) -> any_pb2.Any:
+    def _order_cancel_message(
+            self,
+            spot_orders_to_cancel: List[injective_exchange_tx_pb.OrderData],
+            derivative_orders_to_cancel: List[injective_exchange_tx_pb.OrderData]
+    ) -> any_pb2.Any:
         composer = self.composer
 
         message = composer.MsgBatchUpdateOrders(
             sender=self.portfolio_account_injective_address,
             spot_orders_to_cancel=spot_orders_to_cancel,
+            derivative_orders_to_cancel=derivative_orders_to_cancel,
         )
         delegated_message = composer.MsgExec(
             grantee=self.trading_account_injective_address,
