@@ -1,8 +1,7 @@
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
+from test.logger_mixin_for_test import LoggerMixinForTest
 from unittest.mock import MagicMock, Mock, PropertyMock, patch
-
-from logger_mixin_for_test import LoggerMixinForTest
 
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, TradeType
