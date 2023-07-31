@@ -5,7 +5,7 @@ import unittest
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase, async_to_sync
 
 
-class TestIsolatedAsyncioWrapperTestCase(unittest.TestCase):
+class TestIsolatedAsyncioWrapperTestCase(unittest.IsolatedAsyncioTestCase):
     def test_setUpClass_with_existing_loop(self):
         self.main_loop = asyncio.get_event_loop()
 
@@ -81,6 +81,36 @@ class TestIsolatedAsyncioWrapperTestCase(unittest.TestCase):
         thread.start()
         thread.join()
         future.result()
+
+    async def _dummy_coro(self, name, delay):
+        """A dummy coroutine that simply sleeps for a delay."""
+        await asyncio.sleep(delay)
+
+    async def _dummy_coro_to_await(self, name, delay):
+        """A dummy coroutine that simply sleeps for a delay."""
+        await asyncio.sleep(delay)
+
+    async def test_await_task_completion(self):
+        # Create some tasks with different coroutine names
+        task1 = asyncio.create_task(self._dummy_coro("task1", 0.5))
+        task2 = asyncio.create_task(self._dummy_coro("task2", 0.75))
+        task3 = asyncio.create_task(self._dummy_coro_to_await("task3", 2))
+
+        # Use the await_task_completion method to wait for task1 and task2 to complete
+        self.assertFalse(task1.done())
+        self.assertFalse(task2.done())
+        self.assertFalse(task3.done())
+
+        await IsolatedAsyncioWrapperTestCase.await_task_completion(["_dummy_coro"])
+
+        # At this point, task1 and task2 should be done, but task3 should still be running
+        self.assertTrue(task1.done())
+        self.assertTrue(task2.done())
+        self.assertFalse(task3.done())
+
+        # Now wait for task3 to complete as well
+        await IsolatedAsyncioWrapperTestCase.await_task_completion("_dummy_coro_to_await")
+        self.assertTrue(task3.done())
 
 
 class TestAsyncToSyncInLoop(unittest.TestCase):
