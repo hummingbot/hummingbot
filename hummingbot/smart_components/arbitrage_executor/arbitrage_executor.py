@@ -256,7 +256,7 @@ class ArbitrageExecutor(SmartComponentBase):
             base, quote = split_hb_trading_pair(trading_pair=self.buying_market.trading_pair)
             lines.extend([f"""
     Arbitrage Status: {self.arbitrage_status}
-    - ARB: {self.buying_market.exchange}:{self.buying_market.trading_pair}  --> {self.selling_market.exchange}:{self.selling_market.trading_pair} | Amount: {self.order_amount:.2f}
+    - BUY: {self.buying_market.exchange}:{self.buying_market.trading_pair}  --> SELL: {self.selling_market.exchange}:{self.selling_market.trading_pair} | Amount: {self.order_amount:.2f}
     - Trade PnL (%): {trade_pnl_pct * 100:.2f} % | TX Cost (%): -{tx_cost_pct * 100:.2f} % | Net PnL (%): {(trade_pnl_pct - tx_cost_pct) * 100:.2f} %
     -------------------------------------------------------------------------------
     """])
