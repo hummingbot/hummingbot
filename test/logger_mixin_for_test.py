@@ -21,12 +21,12 @@ class LogLevel:
 _IntOrStr: UnionType = int | str
 
 
-class TestLoggerMixinProtocol(Protocol):
+class LoggerMixinProtocol(Protocol):
     level: _IntOrStr
     log_records: List[LogRecord]
 
 
-class _LoggerProtocol(TestLoggerMixinProtocol, Protocol):
+class _LoggerProtocol(LoggerMixinProtocol, Protocol):
     def setLevel(self, level: _IntOrStr):
         ...
 
@@ -34,7 +34,7 @@ class _LoggerProtocol(TestLoggerMixinProtocol, Protocol):
         ...
 
 
-class LoggerMixinForTest(Handler):
+class LoggerMixinForTest(LoggerMixinProtocol):
     """
     Test logger mixin class that can be used to capture log records during testing.
 
