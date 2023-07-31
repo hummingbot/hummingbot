@@ -142,8 +142,6 @@ class IsolatedAsyncioWrapperTestCase(unittest.IsolatedAsyncioTestCase):
         if tasks:
             await asyncio.wait(tasks)
 
-        await asyncio.sleep(0)
-
 
 class LocalClassEventLoopWrapperTestCase(unittest.TestCase):
     """
