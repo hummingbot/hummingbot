@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.smart_components.arbitrage_executor.arbitrage_executor import ArbitrageExecutor
 from hummingbot.smart_components.arbitrage_executor.data_types import ArbitrageConfig, ExchangePair
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
@@ -9,7 +10,7 @@ class ArbitrageWithSmartComponent(ScriptStrategyBase):
     # Parameters
     exchange_pair_1 = ExchangePair(exchange="binance", trading_pair="MATIC-USDT")
     exchange_pair_2 = ExchangePair(exchange="uniswap_polygon_mainnet", trading_pair="WMATIC-USDT")
-    order_amount = Decimal("35")  # in base asset
+    order_amount = Decimal("50")  # in base asset
     min_profitability = Decimal("0.004")
 
     markets = {exchange_pair_1.exchange: {exchange_pair_1.trading_pair},
@@ -46,16 +47,20 @@ class ArbitrageWithSmartComponent(ScriptStrategyBase):
             base_asset_for_selling_exchange = self.connectors[selling_exchange_pair.exchange].get_available_balance(
                 selling_exchange_pair.trading_pair.split("-")[0])
             if self.order_amount > base_asset_for_selling_exchange:
-                self.logger().info(f"Insufficient balance in exchange {selling_exchange_pair.exchange}"
-                                   f"to sell {selling_exchange_pair.trading_pair.split('-')[0]} Actual: {base_asset_for_selling_exchange}")
+                self.logger().info(f"Insufficient balance in exchange {selling_exchange_pair.exchange} "
+                                   f"to sell {selling_exchange_pair.trading_pair.split('-')[0]} "
+                                   f"Actual: {base_asset_for_selling_exchange} --> Needed: {self.order_amount}")
                 return
 
-            # TODO: This check is not accurate since we don't know the actual price of the asset because we removed the Rate Oracle
+            # Harcoded for now since we don't have a price oracle for WMATIC (CoinMarketCap rate source is requested and coming)
+            pair_conversion = selling_exchange_pair.trading_pair.replace("W", "")
+            price = RateOracle.get_instance().get_pair_rate(pair_conversion)
             quote_asset_for_buying_exchange = self.connectors[buying_exchange_pair.exchange].get_available_balance(
                 buying_exchange_pair.trading_pair.split("-")[1])
-            if self.order_amount > quote_asset_for_buying_exchange:
+            if self.order_amount * price > quote_asset_for_buying_exchange:
                 self.logger().info(f"Insufficient balance in exchange {buying_exchange_pair.exchange} "
-                                   f"to buy {buying_exchange_pair.trading_pair.split('-')[1]} Actual: {quote_asset_for_buying_exchange}")
+                                   f"to buy {buying_exchange_pair.trading_pair.split('-')[1]} "
+                                   f"Actual: {quote_asset_for_buying_exchange} --> Needed: {self.order_amount * price}")
                 return
 
             arbitrage_config = ArbitrageConfig(
