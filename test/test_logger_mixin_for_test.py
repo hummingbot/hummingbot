@@ -63,8 +63,8 @@ class TestTestLoggerMixin(unittest.TestCase):
         self.logger.set_loggers(loggers)
 
         for logger in loggers:
-            self.assertEqual(1, logger.level)
             self.assertEqual(1, len(logger.handlers))
+            self.assertEqual(1, logger.level)
             self.assertEqual(self.logger, logger.handlers[0])
 
     def test_set_loggers_other_logger(self):
