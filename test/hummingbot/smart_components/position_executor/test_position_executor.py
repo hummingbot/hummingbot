@@ -1,5 +1,5 @@
-import unittest
 from decimal import Decimal
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import MagicMock, PropertyMock, patch
 
 from hummingbot.connector.connector_base import ConnectorBase
@@ -23,7 +23,7 @@ from hummingbot.smart_components.position_executor.position_executor import Posi
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
-class TestPositionExecutor(unittest.TestCase):
+class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
     def setUp(self) -> None:
         super().setUp()
         self.strategy = self.create_mock_strategy
@@ -107,31 +107,31 @@ class TestPositionExecutor(unittest.TestCase):
         self.assertIsInstance(position_executor.logger(), HummingbotLogger)
         position_executor.terminate_control_loop()
 
-    def test_control_position_not_started_create_open_order(self):
+    async def test_control_position_not_started_create_open_order(self):
         position_config = self.get_position_config_market_short()
         type(self.strategy).current_timestamp = PropertyMock(return_value=1234567890)
         position_executor = PositionExecutor(self.strategy, position_config)
-        position_executor.control_task()
+        await position_executor.control_task()
         self.assertEqual(position_executor.open_order.order_id, "OID-SELL-1")
         position_executor.terminate_control_loop()
 
-    def test_control_position_not_started_expired(self):
+    async def test_control_position_not_started_expired(self):
         position_config = self.get_position_config_market_short()
         type(self.strategy).current_timestamp = PropertyMock(return_value=1234569890)
         position_executor = PositionExecutor(self.strategy, position_config)
-        position_executor.control_task()
+        await position_executor.control_task()
         self.assertIsNone(position_executor.open_order.order_id)
         self.assertEqual(position_executor.executor_status, PositionExecutorStatus.COMPLETED)
         self.assertEqual(position_executor.close_type, CloseType.EXPIRED)
         self.assertEqual(position_executor.trade_pnl, Decimal("0"))
         position_executor.terminate_control_loop()
 
-    def test_control_open_order_expiration(self):
+    async def test_control_open_order_expiration(self):
         position_config = self.get_position_config_market_short()
         type(self.strategy).current_timestamp = PropertyMock(return_value=1234569890)
         position_executor = PositionExecutor(self.strategy, position_config)
         position_executor.open_order.order_id = "OID-SELL-1"
-        position_executor.control_task()
+        await position_executor.control_task()
         position_executor._strategy.cancel.assert_called_with(
             connector_name="binance",
             trading_pair="ETH-USDT",
@@ -140,17 +140,17 @@ class TestPositionExecutor(unittest.TestCase):
         self.assertEqual(position_executor.trade_pnl, Decimal("0"))
         position_executor.terminate_control_loop()
 
-    def test_control_position_order_placed_not_cancel_open_order(self):
+    async def test_control_position_order_placed_not_cancel_open_order(self):
         position_config = self.get_position_config_market_short()
         type(self.strategy).current_timestamp = PropertyMock(return_value=1234567890)
         position_executor = PositionExecutor(self.strategy, position_config)
         position_executor.open_order.order_id = "OID-SELL-1"
-        position_executor.control_task()
+        await position_executor.control_task()
         position_executor._strategy.cancel.assert_not_called()
         position_executor.terminate_control_loop()
 
     @patch("hummingbot.smart_components.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("101"))
-    def test_control_position_active_position_create_take_profit(self, _):
+    async def test_control_position_active_position_create_take_profit(self, _):
         position_config = self.get_position_config_market_short()
         type(self.strategy).current_timestamp = PropertyMock(return_value=1234567890)
         position_executor = PositionExecutor(self.strategy, position_config)
@@ -180,14 +180,14 @@ class TestPositionExecutor(unittest.TestCase):
             )
         )
         position_executor.executor_status = PositionExecutorStatus.ACTIVE_POSITION
-        position_executor.control_task()
+        await position_executor.control_task()
         self.assertEqual(position_executor.take_profit_order.order_id, "OID-BUY-1")
         self.assertEqual(position_executor.trade_pnl, Decimal("-0.01"))
         position_executor.terminate_control_loop()
 
     @patch("hummingbot.smart_components.position_executor.position_executor.PositionExecutor.get_price",
            return_value=Decimal("120"))
-    def test_control_position_active_position_close_by_take_profit_market(self, _):
+    async def test_control_position_active_position_close_by_take_profit_market(self, _):
         position_config = self.get_position_config_market_long_tp_market()
         type(self.strategy).current_timestamp = PropertyMock(return_value=1234567890)
         position_executor = PositionExecutor(self.strategy, position_config)
@@ -218,14 +218,14 @@ class TestPositionExecutor(unittest.TestCase):
             )
         )
         position_executor.executor_status = PositionExecutorStatus.ACTIVE_POSITION
-        position_executor.control_task()
+        await position_executor.control_task()
         self.assertEqual(position_executor.close_order.order_id, "OID-SELL-1")
         self.assertEqual(position_executor.close_type, CloseType.TAKE_PROFIT)
         self.assertEqual(position_executor.trade_pnl, Decimal("0.2"))
         position_executor.terminate_control_loop()
 
     @patch("hummingbot.smart_components.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("70"))
-    def test_control_position_active_position_close_by_stop_loss(self, _):
+    async def test_control_position_active_position_close_by_stop_loss(self, _):
         position_config = self.get_position_config_market_long()
         type(self.strategy).current_timestamp = PropertyMock(return_value=1234567890)
         position_executor = PositionExecutor(self.strategy, position_config)
@@ -256,14 +256,14 @@ class TestPositionExecutor(unittest.TestCase):
             )
         )
         position_executor.executor_status = PositionExecutorStatus.ACTIVE_POSITION
-        position_executor.control_task()
+        await position_executor.control_task()
         self.assertEqual(position_executor.close_order.order_id, "OID-SELL-1")
         self.assertEqual(position_executor.close_type, CloseType.STOP_LOSS)
         self.assertEqual(position_executor.trade_pnl, Decimal("-0.3"))
         position_executor.terminate_control_loop()
 
     @patch("hummingbot.smart_components.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("100"))
-    def test_control_position_active_position_close_by_time_limit(self, _):
+    async def test_control_position_active_position_close_by_time_limit(self, _):
         position_config = self.get_position_config_market_long()
         type(self.strategy).current_timestamp = PropertyMock(return_value=1234597890)
         position_executor = PositionExecutor(self.strategy, position_config)
@@ -294,14 +294,14 @@ class TestPositionExecutor(unittest.TestCase):
         )
 
         position_executor.executor_status = PositionExecutorStatus.ACTIVE_POSITION
-        position_executor.control_task()
+        await position_executor.control_task()
         self.assertEqual(position_executor.close_order.order_id, "OID-SELL-2")
         self.assertEqual(position_executor.close_type, CloseType.TIME_LIMIT)
         self.assertEqual(position_executor.trade_pnl, Decimal("0.0"))
         position_executor.terminate_control_loop()
 
     @patch("hummingbot.smart_components.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("70"))
-    def test_control_position_close_placed_stop_loss_failed(self, _):
+    async def test_control_position_close_placed_stop_loss_failed(self, _):
         position_config = self.get_position_config_market_long()
         type(self.strategy).current_timestamp = PropertyMock(return_value=1234567890)
         position_executor = PositionExecutor(self.strategy, position_config)
@@ -340,7 +340,7 @@ class TestPositionExecutor(unittest.TestCase):
                 timestamp=1640001112.223,
                 order_type=OrderType.MARKET)
         )
-        position_executor.control_task()
+        await position_executor.control_task()
         self.assertEqual(position_executor.close_order.order_id, "OID-SELL-1")
         self.assertEqual(position_executor.close_type, CloseType.STOP_LOSS)
         position_executor.terminate_control_loop()
