@@ -34,7 +34,6 @@ class PositionExecutor(SmartComponentBase):
         return cls._logger
 
     def __init__(self, strategy: ScriptStrategyBase, position_config: PositionConfig):
-        super().__init__(strategy, [position_config.exchange])
         if not (position_config.take_profit or position_config.stop_loss or position_config.time_limit):
             error = "At least one of take_profit, stop_loss or time_limit must be set"
             self.logger().error(error)
@@ -54,6 +53,7 @@ class PositionExecutor(SmartComponentBase):
         self._take_profit_order: TrackedOrder = TrackedOrder()
         self._trailing_stop_price = Decimal("0")
         self._trailing_stop_activated = False
+        super().__init__(strategy, [position_config.exchange])
 
     @property
     def executor_status(self):
@@ -214,7 +214,7 @@ class PositionExecutor(SmartComponentBase):
             self.logger().info(f"Take profit order status: {self.take_profit_order.order.current_state}")
             self.remove_take_profit()
 
-    def control_task(self):
+    async def control_task(self):
         if self.executor_status == PositionExecutorStatus.NOT_STARTED:
             self.control_open_order()
         elif self.executor_status == PositionExecutorStatus.ACTIVE_POSITION:
@@ -325,7 +325,7 @@ class PositionExecutor(SmartComponentBase):
     def early_stop(self):
         if self.executor_status == PositionExecutorStatus.ACTIVE_POSITION:
             self.place_close_order(close_type=CloseType.EARLY_STOP)
-        elif self.executor_status == PositionExecutorStatus.NOT_STARTED:
+        elif self.executor_status == PositionExecutorStatus.NOT_STARTED and self._open_order.order_id:
             self._strategy.cancel(
                 connector_name=self.exchange,
                 trading_pair=self.trading_pair,
