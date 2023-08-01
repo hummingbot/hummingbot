@@ -9,7 +9,7 @@ from hummingbot.core.data_type.in_flight_order import OrderState
 EXCHANGE_NAME = "Coinbase Advanced Trade"
 
 CHANGELOG_URL = "https://docs.cloud.coinbase.com/advanced-trade-api/docs/changelog"
-LATEST_UPDATE = "2023-JUN-01"
+LATEST_UPDATE = "2023-JUL-26"
 CHANGELOG_HASH = "3a99968df3223eb00502e2059012c9a5"
 
 COINBASE_ADVANCED_TRADE_CLASS_PREFIX = "CoinbaseAdvancedTrade"
@@ -99,7 +99,7 @@ SIDE_SELL = "SELL"
 
 # Rate Limit Type
 REST_REQUESTS = "REST_REQUESTS"
-MAX_REST_REQUESTS_S = 20
+MAX_REST_REQUESTS_S = 30
 
 SIGNIN_REQUESTS = "SIGNIN_REQUESTS"
 MAX_SIGNIN_REQUESTS_H = 10000

@@ -21,6 +21,7 @@ from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
 from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 from . import coinbase_advanced_trade_v2_constants as constants, coinbase_advanced_trade_v2_web_utils as web_utils
@@ -228,8 +229,18 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
                  order_side: TradeType,
                  amount: Decimal,
                  price: Decimal = s_decimal_NaN,
-                 is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
-        return AddedToCostTradeFee(DEFAULT_FEES)
+                 is_maker: Optional[bool] = None) -> TradeFeeBase:
+        trade_base_fee: TradeFeeBase = build_trade_fee(
+            exchange=self.name,
+            is_maker=is_maker,
+            order_side=order_side,
+            order_type=order_type,
+            amount=amount,
+            price=price,
+            base_currency=base_currency,
+            quote_currency=quote_currency
+        )
+        return trade_base_fee
 
     async def _place_order(self,
                            order_id: str,
