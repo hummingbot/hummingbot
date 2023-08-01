@@ -1,6 +1,5 @@
 import asyncio
-import unittest
-from typing import Awaitable
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import patch
 
 import numpy.ma
@@ -8,19 +7,15 @@ import numpy.ma
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 
 
-class TimeSynchronizerTest(unittest.TestCase):
+class TimeSynchronizerTest(IsolatedAsyncioWrapperTestCase):
     def setUp(self):
         self.time_synchronizer = TimeSynchronizer()
-
-    def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
-        ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
-        return ret
 
     @staticmethod
     async def configurable_timestamp_provider(timestamp: float) -> float:
         return timestamp
 
-    @patch("time.time")
+    @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._time")
     @patch("time.monotonic_ns")
     def test__init(self, mock_time_ns, mock_time):
         mock_time.return_value = 100.0
@@ -31,14 +26,14 @@ class TimeSynchronizerTest(unittest.TestCase):
         self.assertEqual(100.0, self.time_synchronizer._time_reference_s)
         self.assertEqual(5, self.time_synchronizer._counter_reference_ns)
 
-    @patch("time.time")
+    @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._time")
     def test__time_method(self, mock_time):
         mock_time.return_value = 100.0
 
         # _time() calls time.time()
         self.assertEqual(100.0, self.time_synchronizer._time())
 
-    @patch("time.time")
+    @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._time")
     @patch("time.monotonic_ns")
     def test__elapsed_precise_ns_method(self, mock_monotonic_ns, mock_time):
         # Mock initial time and monotonic time when the instance was created
@@ -51,7 +46,7 @@ class TimeSynchronizerTest(unittest.TestCase):
         # _elapsed_precise_ns() returns elapsed seconds since the instance was created (first call to monotonic_ns)
         self.assertEqual(1234, self.time_synchronizer._elapsed_precise_ns())
 
-    @patch("time.time")
+    @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._time")
     @patch("time.monotonic_ns")
     def test__current_precise_time_ns_method(self, mock_monotonic_ns, mock_time):
         # Mock initial time and monotonic time when the instance was created
@@ -104,66 +99,58 @@ class TimeSynchronizerTest(unittest.TestCase):
         self.assertEqual(len(self.time_synchronizer._time_offset_ms), 0)
 
     @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_precise_time_ns")
-    def test_update_server_time_offset_with_time_provider_method(self, mock_current_precise_time_ns):
-        async def async_test():
-            first_time: float = 100 * 1e9
-            second_time: float = 101 * 1e9 + 1234
-            mock_current_precise_time_ns.side_effect = [first_time, second_time]
-            average_local_time_ms = (first_time + second_time) * 1e-6 / 2
+    async def test_update_server_time_offset_with_time_provider_method(self, mock_current_precise_time_ns):
+        first_time: float = 100 * 1e9
+        second_time: float = 101 * 1e9 + 1234
+        mock_current_precise_time_ns.side_effect = [first_time, second_time]
+        average_local_time_ms = (first_time + second_time) * 1e-6 / 2
 
-            time_provider_ms = asyncio.Future()
-            server_time_ms = 101 * 1e3
-            time_provider_ms.set_result(server_time_ms)
+        time_provider_ms = asyncio.Future()
+        server_time_ms = 101 * 1e3
+        time_provider_ms.set_result(server_time_ms)
+        await self.time_synchronizer.update_server_time_offset_with_time_provider(time_provider_ms)
+        self.assertEqual(len(self.time_synchronizer._time_offset_ms), 1)
+        self.assertEqual(server_time_ms - average_local_time_ms, self.time_synchronizer._time_offset_ms[0])
+
+    @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_precise_time_ns")
+    async def test_update_server_time_offset_with_time_provider_method_raises_on_seconds(self, mock_current_precise_time_ns):
+        first_time: float = 100 * 1e9
+        second_time: float = 101 * 1e9 + 1234
+        mock_current_precise_time_ns.side_effect = [first_time, second_time]
+
+        time_provider_ms = asyncio.Future()
+        # Set server time in seconds instead of milliseconds, well 2 orders of mag from milliseconds
+        server_time_ms = 101 * 0.9e1
+        time_provider_ms.set_result(server_time_ms)
+        with self.assertRaises(ValueError):
             await self.time_synchronizer.update_server_time_offset_with_time_provider(time_provider_ms)
-            self.assertEqual(len(self.time_synchronizer._time_offset_ms), 1)
-            self.assertEqual(server_time_ms - average_local_time_ms, self.time_synchronizer._time_offset_ms[0])
-        self.async_run_with_timeout(async_test())
 
     @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_precise_time_ns")
-    def test_update_server_time_offset_with_time_provider_method_raises_on_seconds(self, mock_current_precise_time_ns):
-        async def async_test():
-            first_time: float = 100 * 1e9
-            second_time: float = 101 * 1e9 + 1234
-            mock_current_precise_time_ns.side_effect = [first_time, second_time]
+    async def test_update_server_time_offset_with_time_provider_method_raises_on_useconds(self, mock_current_precise_time_ns):
+        first_time: float = 100 * 1e9
+        second_time: float = 101 * 1e9 + 1234
+        mock_current_precise_time_ns.side_effect = [first_time, second_time]
 
-            time_provider_ms = asyncio.Future()
-            # Set server time in seconds instead of milliseconds, well 2 orders of mag from milliseconds
-            server_time_ms = 101 * 0.9e1
-            time_provider_ms.set_result(server_time_ms)
-            with self.assertRaises(ValueError):
-                await self.time_synchronizer.update_server_time_offset_with_time_provider(time_provider_ms)
-        self.async_run_with_timeout(async_test())
+        time_provider_ms = asyncio.Future()
+        # Set server time in seconds instead of milliseconds, well 2 orders of mag from milliseconds
+        server_time_ms = 101 * 1.1e5
+        time_provider_ms.set_result(server_time_ms)
+        with self.assertRaises(ValueError):
+            await self.time_synchronizer.update_server_time_offset_with_time_provider(time_provider_ms)
 
+    @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._time")
     @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_precise_time_ns")
-    def test_update_server_time_offset_with_time_provider_method_raises_on_useconds(self, mock_current_precise_time_ns):
-        async def async_test():
-            first_time: float = 100 * 1e9
-            second_time: float = 101 * 1e9 + 1234
-            mock_current_precise_time_ns.side_effect = [first_time, second_time]
-
-            time_provider_ms = asyncio.Future()
-            # Set server time in seconds instead of milliseconds, well 2 orders of mag from milliseconds
-            server_time_ms = 101 * 1.1e5
-            time_provider_ms.set_result(server_time_ms)
-            with self.assertRaises(ValueError):
-                await self.time_synchronizer.update_server_time_offset_with_time_provider(time_provider_ms)
-        self.async_run_with_timeout(async_test())
-
-    @patch("time.time")
-    @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_precise_time_ns")
-    def test_update_server_time_if_not_initialized_method(self, mock_monotonic_ns, mock_time):
-        async def async_test():
-            mock_monotonic_ns.return_value = 1000000000
-            mock_time.return_value = 100.0
-            time_provider_ms = asyncio.Future()
-            time_provider_ms.set_result(500)
-            await self.time_synchronizer.update_server_time_if_not_initialized(time_provider_ms)
-            self.assertEqual(len(self.time_synchronizer._time_offset_ms), 1)
-            time_provider_ms = asyncio.Future()
-            time_provider_ms.set_result(600)
-            await self.time_synchronizer.update_server_time_if_not_initialized(time_provider_ms)
-            self.assertEqual(len(self.time_synchronizer._time_offset_ms), 1)
-        self.async_run_with_timeout(async_test())
+    async def test_update_server_time_if_not_initialized_method(self, mock_monotonic_ns, mock_time):
+        mock_monotonic_ns.return_value = 1000000000
+        mock_time.return_value = 100.0
+        time_provider_ms = asyncio.Future()
+        time_provider_ms.set_result(500)
+        await self.time_synchronizer.update_server_time_if_not_initialized(time_provider_ms)
+        self.assertEqual(len(self.time_synchronizer._time_offset_ms), 1)
+        time_provider_ms = asyncio.Future()
+        time_provider_ms.set_result(600)
+        await self.time_synchronizer.update_server_time_if_not_initialized(time_provider_ms)
+        self.assertEqual(len(self.time_synchronizer._time_offset_ms), 1)
 
     @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_precise_time_s")
     @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_precise_time_ns")
@@ -182,7 +169,7 @@ class TimeSynchronizerTest(unittest.TestCase):
     @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_precise_time_s")
     @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_precise_time_ns")
     @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._time")
-    def test_time_with_one_registered_offset(self, time_mock, seconds_counter_mock, local_precise_time):
+    async def test_time_with_one_registered_offset(self, time_mock, seconds_counter_mock, local_precise_time):
         # At t0, local time is 1640000000.0, server time is 1640000020.0
         local_time = 1640000000.0
         server_time = local_time + 20.0
@@ -199,7 +186,7 @@ class TimeSynchronizerTest(unittest.TestCase):
         local_precise_time.side_effect = [local_time + local_time_for_sync_time_check_delay]
 
         time_provider = TimeSynchronizer()
-        self.async_run_with_timeout(
+        await (
             time_provider.update_server_time_offset_with_time_provider(
                 time_provider=self.configurable_timestamp_provider(server_time * 1e3)
             ))
@@ -217,7 +204,7 @@ class TimeSynchronizerTest(unittest.TestCase):
     @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_precise_time_s")
     @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_precise_time_ns")
     @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._time")
-    def test_time_with_several_registered_offset(self, time_mock, seconds_counter_mock, local_precise_time):
+    async def test_time_with_several_registered_offset(self, time_mock, seconds_counter_mock, local_precise_time):
         # At t0, local time is 1640000000.0, server time is 1640000020.0
         local_time = 1640000000.0
         server_time = [local_time + 0, local_time + 17, local_time + 27]
@@ -239,7 +226,7 @@ class TimeSynchronizerTest(unittest.TestCase):
 
         time_provider = TimeSynchronizer()
         for i in range(int(len(ptd) / 2)):
-            self.async_run_with_timeout(
+            await (
                 time_provider.update_server_time_offset_with_time_provider(
                     time_provider=self.configurable_timestamp_provider(server_time[i] * 1e3)
                 ))
