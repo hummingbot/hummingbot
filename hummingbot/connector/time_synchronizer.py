@@ -2,9 +2,10 @@ import asyncio
 import logging
 import time
 from collections import deque
-from typing import Awaitable, Deque
+from typing import Awaitable, Deque, Tuple
 
 import numpy
+from numpy import ndarray
 
 from hummingbot.logger import HummingbotLogger
 
@@ -17,10 +18,12 @@ class TimeSynchronizer:
     to synchronize local time with the server's time.
     """
 
-    _logger = None
+    _logger: HummingbotLogger | logging.Logger | None = None
 
     def __init__(self):
         self._time_offset_ms: Deque[float] = deque(maxlen=5)
+
+        # We synchronize the local time with the nanosecond counter used for precision timing.
         self._time_reference_s: float = self._time()
         self._counter_reference_ns: int = time.monotonic_ns()
 
@@ -32,7 +35,7 @@ class TimeSynchronizer:
         :return: The logger object.
         """
         if cls._logger is None:
-            cls._logger = logging.getLogger(__name__)
+            cls._logger: HummingbotLogger | logging.Logger = logging.getLogger(__name__)
         return cls._logger
 
     @property
@@ -46,14 +49,13 @@ class TimeSynchronizer:
         :return: The time offset in milliseconds.
         """
         if not self._time_offset_ms:
-            offset = (self._time() - self._current_precise_time_s()) * 1e3
-        else:
-            median = numpy.median(self._time_offset_ms)
-            weighted_average = numpy.average(self._time_offset_ms,
-                                             weights=range(1, len(self._time_offset_ms) * 2 + 1, 2))
-            offset = numpy.mean([median, weighted_average])
+            return (self._time() - self._current_precise_time_s()) * 1e3
 
-        return offset
+        median: ndarray = numpy.median(self._time_offset_ms)
+        weighted_average: Tuple[float, ...] = numpy.average(
+            self._time_offset_ms,
+            weights=range(1, len(self._time_offset_ms) * 2 + 1, 2))
+        return float(numpy.mean([median, weighted_average]))
 
     def add_time_offset_ms_sample(self, offset: float):
         """
@@ -84,9 +86,12 @@ class TimeSynchronizer:
         :param time_provider: Awaitable object that returns the current time in milliseconds
         """
         try:
+            # Sample the local time before and after the server time is obtained
             local_before_ns: int = self._current_precise_time_ns()
             server_time_ms: float = await time_provider
             local_after_ns: int = self._current_precise_time_ns()
+
+            # Approximate the local time at which the server provided its time, in milliseconds
             local_time_ms: float = (local_before_ns + local_after_ns) * 0.5 * 1e-6
 
             # Verify server time in milliseconds
@@ -98,8 +103,8 @@ class TimeSynchronizer:
             self.add_time_offset_ms_sample(time_offset_ms)
         except (asyncio.CancelledError, ValueError):
             raise
-        except Exception:
-            self.logger().network("Error getting server time.", exc_info=True,
+        except Exception as e:
+            self.logger().network(f"Error getting server time. {e}", exc_info=True,
                                   app_warning_msg="Could not refresh server time. Check network connection.")
 
     async def update_server_time_if_not_initialized(self, time_provider: Awaitable):
