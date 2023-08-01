@@ -5,6 +5,9 @@ from hummingbot.core.data_type.in_flight_order import OrderState
 
 CONNECTOR_NAME = "xrpl"
 
+MAX_ID_HEX_DIGITS = 64
+MAX_ID_BIT_COUNT = MAX_ID_HEX_DIGITS * 4
+
 BASE_PATH_URL = {
     "mainnet": "https://xrplcluster.com/",
     "testnet": "api.dexalot-test.com/privapi",
