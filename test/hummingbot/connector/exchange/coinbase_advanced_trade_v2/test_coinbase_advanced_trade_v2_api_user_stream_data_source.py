@@ -2,7 +2,7 @@ import asyncio
 import unittest
 from collections import defaultdict
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
-from test.logger_mxin import TestLoggerMixin
+from test.logger_mixin_for_test import LoggerMixinForTest
 from typing import Any, Awaitable, Coroutine
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
@@ -49,7 +49,7 @@ class MockDataSource(CoinbaseAdvancedTradeV2APIUserStreamDataSource):
 
 class CoinbaseAdvancedTradeV2APIUserStreamDataSourceTests(
     IsolatedAsyncioWrapperTestCase,
-    TestLoggerMixin,
+    LoggerMixinForTest,
 ):
     quote_asset = None
     base_asset = None

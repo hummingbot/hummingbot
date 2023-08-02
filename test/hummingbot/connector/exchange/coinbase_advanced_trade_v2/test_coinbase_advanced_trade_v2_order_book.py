@@ -1,5 +1,5 @@
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
-from test.logger_mxin import TestLoggerMixin
+from test.logger_mixin_for_test import LoggerMixinForTest
 
 from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_order_book import (
     CoinbaseAdvancedTradeV2OrderBook,
@@ -11,7 +11,7 @@ from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 
 
-class CoinbaseAdvancedTradeV2OrderBookTests(IsolatedAsyncioWrapperTestCase, TestLoggerMixin):
+class CoinbaseAdvancedTradeV2OrderBookTests(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     def setUp(self) -> None:
         super().setUp()
         self.snapshot_msg = {
