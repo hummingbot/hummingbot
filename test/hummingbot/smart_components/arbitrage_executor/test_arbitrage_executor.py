@@ -1,6 +1,6 @@
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
-from test.logger_mxin import TestLoggerMixin
+from test.logger_mixin_for_test import LoggerMixinForTest
 from unittest.mock import MagicMock, Mock, PropertyMock, patch
 
 from hummingbot.connector.connector_base import ConnectorBase
@@ -16,7 +16,7 @@ from hummingbot.smart_components.position_executor.data_types import TrackedOrde
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
-class TestArbitrageExecutor(IsolatedAsyncioWrapperTestCase, TestLoggerMixin):
+class TestArbitrageExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     def setUp(self):
         super().setUp()
         self.strategy = self.create_mock_strategy()
