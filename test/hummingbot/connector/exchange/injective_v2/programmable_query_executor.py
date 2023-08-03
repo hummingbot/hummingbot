@@ -20,9 +20,11 @@ class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
         self._spot_trades_responses = asyncio.Queue()
         self._derivative_trades_responses = asyncio.Queue()
         self._historical_spot_orders_responses = asyncio.Queue()
+        self._historical_derivative_orders_responses = asyncio.Queue()
         self._transaction_block_height_responses = asyncio.Queue()
         self._funding_rates_responses = asyncio.Queue()
         self._oracle_prices_responses = asyncio.Queue()
+        self._funding_payments_responses = asyncio.Queue()
 
         self._spot_order_book_updates = asyncio.Queue()
         self._public_spot_trade_updates = asyncio.Queue()
@@ -31,6 +33,7 @@ class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
         self._oracle_prices_updates = asyncio.Queue()
         self._subaccount_balance_events = asyncio.Queue()
         self._historical_spot_order_events = asyncio.Queue()
+        self._historical_derivative_order_events = asyncio.Queue()
         self._transaction_events = asyncio.Queue()
 
     async def ping(self):
@@ -109,8 +112,22 @@ class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
         response = await self._historical_spot_orders_responses.get()
         return response
 
+    async def get_historical_derivative_orders(
+            self,
+            market_ids: List[str],
+            subaccount_id: str,
+            start_time: int,
+            skip: int,
+    ) -> Dict[str, Any]:
+        response = await self._historical_derivative_orders_responses.get()
+        return response
+
     async def get_funding_rates(self, market_id: str, limit: int) -> Dict[str, Any]:
         response = await self._funding_rates_responses.get()
+        return response
+
+    async def get_funding_payments(self, market_id: str, limit: int) -> Dict[str, Any]:
+        response = await self._funding_payments_responses.get()
         return response
 
     async def get_oracle_prices(
@@ -158,6 +175,13 @@ class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
     ):
         while True:
             next_event = await self._historical_spot_order_events.get()
+            yield next_event
+
+    async def subaccount_historical_derivative_orders_stream(
+        self, market_id: str, subaccount_id: str
+    ):
+        while True:
+            next_event = await self._historical_derivative_order_events.get()
             yield next_event
 
     async def transactions_stream(self,):

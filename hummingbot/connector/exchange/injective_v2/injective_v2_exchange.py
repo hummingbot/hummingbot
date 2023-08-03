@@ -864,7 +864,7 @@ class InjectiveV2Exchange(ExchangePyBase):
             all_orders = orders.copy()
             try:
                 order_updates = await self._data_source.order_updates_for_transaction(
-                    transaction_hash=transaction_hash, transaction_orders=orders
+                    transaction_hash=transaction_hash, spot_orders=orders
                 )
 
                 for order_update in order_updates:
@@ -903,7 +903,7 @@ class InjectiveV2Exchange(ExchangePyBase):
 
         if len(transaction_orders) > 0:
             order_updates = await self._data_source.order_updates_for_transaction(
-                transaction_hash=transaction_hash, transaction_orders=transaction_orders
+                transaction_hash=transaction_hash, spot_orders=transaction_orders
             )
 
             for order_update in order_updates:

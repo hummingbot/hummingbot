@@ -196,14 +196,8 @@ class AbstractPerpetualDerivativeTests:
 
             status_dict = self.exchange.status_dict
 
-            expected_initial_dict = {
-                "symbols_mapping_initialized": False,
-                "order_books_initialized": False,
-                "account_balance": False,
-                "trading_rule_initialized": False,
-                "user_stream_initialized": False,
-                "funding_info": False,
-            }
+            expected_initial_dict = self._expected_initial_status_dict()
+            expected_initial_dict["funding_info"] = False
 
             self.assertEqual(expected_initial_dict, status_dict)
             self.assertFalse(self.exchange.ready)
@@ -432,15 +426,16 @@ class AbstractPerpetualDerivativeTests:
 
             self.async_run_with_timeout(order.wait_until_completely_filled())
             self.assertTrue(order.is_done)
+
             if self.is_order_fill_http_update_included_in_status_update:
                 self.assertTrue(order.is_filled)
 
-            if self.is_order_fill_http_update_included_in_status_update:
-                trades_request = self._all_executed_requests(mock_api, trade_url)[0]
-                self.validate_auth_credentials_present(trades_request)
-                self.validate_trades_request(
-                    order=order,
-                    request_call=trades_request)
+                if trade_url:
+                    trades_request = self._all_executed_requests(mock_api, trade_url)[0]
+                    self.validate_auth_credentials_present(trades_request)
+                    self.validate_trades_request(
+                        order=order,
+                        request_call=trades_request)
 
                 fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
                 self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)

@@ -186,9 +186,11 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
                 if self._spot_market_and_trading_pair_map is None or self._derivative_market_and_trading_pair_map is None:
                     await self.update_markets()
 
-        return self._spot_market_and_trading_pair_map.get(
-            market_id, self._derivative_market_and_trading_pair_map[market_id]
-        )
+        trading_pair = self._spot_market_and_trading_pair_map.get(market_id)
+
+        if trading_pair is None:
+            trading_pair = self._derivative_market_and_trading_pair_map[market_id]
+        return trading_pair
 
     async def market_id_for_spot_trading_pair(self, trading_pair: str) -> str:
         if self._spot_market_and_trading_pair_map is None:
@@ -310,10 +312,18 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         self._derivative_market_and_trading_pair_map = derivative_market_id_to_trading_pair
 
     async def order_updates_for_transaction(
-            self, transaction_hash: str, transaction_orders: List[GatewayInFlightOrder]
+            self,
+            transaction_hash: str,
+            spot_orders: Optional[List[GatewayInFlightOrder]] = None,
+            perpetual_orders: Optional[List[GatewayPerpetualInFlightOrder]] = None,
     ) -> List[OrderUpdate]:
+        spot_orders = spot_orders or []
+        perpetual_orders = perpetual_orders or []
+        transaction_orders = spot_orders + perpetual_orders
+
         order_updates = []
         transaction_spot_orders = []
+        transaction_derivative_orders = []
 
         async with self.throttler.execute_task(limit_id=CONSTANTS.GET_TRANSACTION_LIMIT_ID):
             transaction_info = await self.query_executor.get_tx_by_hash(tx_hash=transaction_hash)
@@ -322,16 +332,24 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         for message_info in transaction_messages[0]["value"]["msgs"]:
             if message_info.get("@type") == "/injective.exchange.v1beta1.MsgBatchUpdateOrders":
                 transaction_spot_orders.extend(message_info.get("spot_orders_to_create", []))
+                transaction_derivative_orders.extend(message_info.get("derivative_orders_to_create", []))
         transaction_data = str(base64.b64decode(transaction_info["data"]["data"]))
-        spot_order_hashes = re.findall(r"(0[xX][0-9a-fA-F]{64})", transaction_data)
+        order_hashes = re.findall(r"(0[xX][0-9a-fA-F]{64})", transaction_data)
 
-        for order_info, order_hash in zip(transaction_spot_orders, spot_order_hashes):
-            market = await self.spot_market_info_for_id(market_id=order_info["market_id"])
+        for order_info, order_hash in zip(transaction_spot_orders + transaction_derivative_orders, order_hashes):
+            market_id = order_info["market_id"]
+            if market_id in await self.spot_market_and_trading_pair_map():
+                market = await self.spot_market_info_for_id(market_id=market_id)
+            else:
+                market = await self.derivative_market_info_for_id(market_id=market_id)
             price = market.price_from_chain_format(chain_price=Decimal(order_info["order_info"]["price"]))
             amount = market.quantity_from_chain_format(chain_quantity=Decimal(order_info["order_info"]["quantity"]))
             trade_type = TradeType.BUY if "BUY" in order_info["order_type"] else TradeType.SELL
             for transaction_order in transaction_orders:
-                market_id = await self.market_id_for_spot_trading_pair(trading_pair=transaction_order.trading_pair)
+                if transaction_order in spot_orders:
+                    market_id = await self.market_id_for_spot_trading_pair(trading_pair=transaction_order.trading_pair)
+                else:
+                    market_id = await self.market_id_for_derivative_trading_pair(trading_pair=transaction_order.trading_pair)
                 if (market_id == order_info["market_id"]
                         and transaction_order.amount == amount
                         and transaction_order.price == price
@@ -433,7 +451,7 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
 
         else:
             market = await self.derivative_market_info_for_id(market_id=market_id)
-            async with self.throttler.execute_task(limit_id=CONSTANTS.SPOT_TRADES_LIMIT_ID):
+            async with self.throttler.execute_task(limit_id=CONSTANTS.DERIVATIVE_TRADES_LIMIT_ID):
                 trades_response = await self.query_executor.get_derivative_trades(
                     market_ids=[market_id],
                     limit=1,
@@ -444,12 +462,25 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
 
         return price
 
-    async def _last_funding_rate(self, market_id: str) -> Decimal:
+    async def last_funding_rate(self, market_id: str) -> Decimal:
         async with self.throttler.execute_task(limit_id=CONSTANTS.FUNDING_RATES_LIMIT_ID):
             response = await self.query_executor.get_funding_rates(market_id=market_id, limit=1)
         rate = Decimal(response["fundingRates"][0]["rate"])
 
         return rate
+
+    async def last_funding_payment(self, market_id: str) -> Tuple[Decimal, float]:
+        async with self.throttler.execute_task(limit_id=CONSTANTS.FUNDING_PAYMENTS_LIMIT_ID):
+            response = await self.query_executor.get_funding_payments(market_id=market_id, limit=1)
+
+        last_payment = Decimal(-1)
+        last_timestamp = 0
+
+        if len(response["payments"]) > 0:
+            last_payment = Decimal(response["payments"][0]["amount"])
+            last_timestamp = int(response["payments"][0]["timestamp"]) * 1e-3
+
+        return last_payment, last_timestamp
 
     async def _oracle_price(self, market_id: str) -> Decimal:
         market = await self.derivative_market_info_for_id(market_id=market_id)
@@ -510,8 +541,14 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         stream = self._query_executor.subaccount_balance_stream(subaccount_id=self.portfolio_account_subaccount_id)
         return stream
 
-    def _subaccount_orders_stream(self, market_id: str):
+    def _subaccount_spot_orders_stream(self, market_id: str):
         stream = self._query_executor.subaccount_historical_spot_orders_stream(
+            market_id=market_id, subaccount_id=self.portfolio_account_subaccount_id
+        )
+        return stream
+
+    def _subaccount_derivative_orders_stream(self, market_id: str):
+        stream = self._query_executor.subaccount_historical_derivative_orders_stream(
             market_id=market_id, subaccount_id=self.portfolio_account_subaccount_id
         )
         return stream

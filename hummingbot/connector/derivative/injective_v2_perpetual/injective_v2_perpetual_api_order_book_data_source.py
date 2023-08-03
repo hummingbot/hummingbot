@@ -60,7 +60,7 @@ class InjectiveV2PerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
         message_queue.put_nowait(raw_message)
 
     async def _parse_funding_info_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        # In Injective 'raw_message' is not a raw message, but the FundingInforUpdate created
+        # In Injective 'raw_message' is not a raw message, but the FundingInfoUpdate created
         # by the data source
         message_queue.put_nowait(raw_message)
 

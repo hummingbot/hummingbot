@@ -1134,7 +1134,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
 
         try:
             self.async_run_with_timeout(
-                self.exchange._data_source._listen_to_subaccount_order_updates(market_id=self.market_id)
+                self.exchange._data_source._listen_to_subaccount_spot_order_updates(market_id=self.market_id)
             )
         except asyncio.CancelledError:
             pass
@@ -1181,7 +1181,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
 
         try:
             self.async_run_with_timeout(
-                self.exchange._data_source._listen_to_subaccount_order_updates(market_id=self.market_id)
+                self.exchange._data_source._listen_to_subaccount_spot_order_updates(market_id=self.market_id)
             )
         except asyncio.CancelledError:
             pass
@@ -1243,7 +1243,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
                 self.exchange._data_source._listen_to_public_spot_trades(market_ids=[self.market_id])
             ),
             asyncio.get_event_loop().create_task(
-                self.exchange._data_source._listen_to_subaccount_order_updates(market_id=self.market_id)
+                self.exchange._data_source._listen_to_subaccount_spot_order_updates(market_id=self.market_id)
             )
         ]
         try:
@@ -1326,7 +1326,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
 
         try:
             self.async_run_with_timeout(
-                self.exchange._data_source._listen_to_subaccount_order_updates(market_id=self.market_id)
+                self.exchange._data_source._listen_to_subaccount_spot_order_updates(market_id=self.market_id)
             )
         except asyncio.CancelledError:
             pass
@@ -1388,7 +1388,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
                 self.exchange._data_source._listen_to_public_spot_trades(market_ids=[self.market_id])
             ),
             asyncio.get_event_loop().create_task(
-                self.exchange._data_source._listen_to_subaccount_order_updates(market_id=self.market_id)
+                self.exchange._data_source._listen_to_subaccount_spot_order_updates(market_id=self.market_id)
             )
         ]
         try:
