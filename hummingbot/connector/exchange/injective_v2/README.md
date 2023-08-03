@@ -13,5 +13,5 @@ When configuring a new instance of the connector in Hummingbot the following par
 
 - **injective_private_key**: the private key of the trading account (grantee account)
 - **injective_subaccount_index**: the index (decimal number) of the subaccount from the trading account that the connector will be operating with
-- **injective_granter_address**: the public key (injective format address) or the portfolio account
+- **injective_granter_address**: the public key (injective format address) of the portfolio account
 - **injective_granter_subaccount_index**: the index (decimal number) of the subaccount from the portfolio account (the subaccount holding the funds)
