@@ -18,7 +18,7 @@ When configuring a new instance of the connector in Hummingbot the following par
 
 - **private_key**: the private key of the trading account (grantee account)
 - **subaccount_index**: the index (decimal number) of the subaccount from the trading account that the connector will be operating with
-- **granter_address**: the public key (injective format address) or the portfolio account
+- **granter_address**: the public key (injective format address) of the portfolio account
 - **granter_subaccount_index**: the index (decimal number) of the subaccount from the portfolio account (the subaccount holding the funds)
 
 
@@ -30,5 +30,5 @@ The user will need to have a vault contract deployed on chain, and use the vault
 When configuring a new instance of the connector in Hummingbot the following parameters are required:
 
 - **private_key**: the vault's admin account private key
-- **subaccount_index**: the index (decimal number) of the subaccount from the vault's admint account
+- **subaccount_index**: the index (decimal number) of the subaccount from the vault's admin account
 - **vault_contract_address**: the address in the chain for the vault contract
