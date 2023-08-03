@@ -25,10 +25,12 @@ GET_TRANSACTION_LIMIT_ID = "GetTransaction"
 GET_CHAIN_TRANSACTION_LIMIT_ID = "GetChainTransaction"
 FUNDING_RATES_LIMIT_ID = "FundingRates"
 ORACLE_PRICES_LIMIT_ID = "OraclePrices"
+FUNDING_PAYMENTS_LIMIT_ID = "FundingPayments"
 
 # Private limit ids
 PORTFOLIO_BALANCES_LIMIT_ID = "AccountPortfolio"
 SPOT_ORDERS_HISTORY_LIMIT_ID = "SpotOrdersHistory"
+DERIVATIVE_ORDERS_HISTORY_LIMIT_ID = "DerivativeOrdersHistory"
 SPOT_TRADES_LIMIT_ID = "SpotTrades"
 DERIVATIVE_TRADES_LIMIT_ID = "DerivativeTrades"
 SIMULATE_TRANSACTION_LIMIT_ID = "SimulateTransaction"
@@ -47,12 +49,14 @@ RATE_LIMITS = [
     RateLimit(limit_id=GET_CHAIN_TRANSACTION_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
     RateLimit(limit_id=PORTFOLIO_BALANCES_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
     RateLimit(limit_id=SPOT_ORDERS_HISTORY_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
+    RateLimit(limit_id=DERIVATIVE_ORDERS_HISTORY_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
     RateLimit(limit_id=SPOT_TRADES_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
     RateLimit(limit_id=DERIVATIVE_TRADES_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
     RateLimit(limit_id=SIMULATE_TRANSACTION_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
     RateLimit(limit_id=SEND_TRANSACTION, limit=NO_LIMIT, time_interval=ONE_SECOND),
     RateLimit(limit_id=FUNDING_RATES_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
     RateLimit(limit_id=ORACLE_PRICES_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
+    RateLimit(limit_id=FUNDING_PAYMENTS_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
 ]
 
 ORDER_STATE_MAP = {

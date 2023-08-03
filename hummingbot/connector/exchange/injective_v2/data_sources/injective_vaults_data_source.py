@@ -389,7 +389,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         stream = self._query_executor.subaccount_balance_stream(subaccount_id=self.portfolio_account_subaccount_id)
         return stream
 
-    def _subaccount_orders_stream(self, market_id: str):
+    def _subaccount_spot_orders_stream(self, market_id: str):
         stream = self._query_executor.subaccount_historical_spot_orders_stream(
             market_id=market_id, subaccount_id=self.portfolio_account_subaccount_id
         )

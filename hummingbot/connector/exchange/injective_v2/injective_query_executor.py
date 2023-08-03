@@ -85,6 +85,16 @@ class BaseInjectiveQueryExecutor(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    async def get_historical_derivative_orders(
+            self,
+            market_ids: List[str],
+            subaccount_id: str,
+            start_time: int,
+            skip: int,
+    ) -> Dict[str, Any]:
+        raise NotImplementedError
+
+    @abstractmethod
     async def get_funding_rates(self, market_id: str, limit: int) -> Dict[str, Any]:
         raise NotImplementedError
 
@@ -96,6 +106,10 @@ class BaseInjectiveQueryExecutor(ABC):
             oracle_type: str,
             oracle_scale_factor: int,
     ) -> Dict[str, Any]:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def get_funding_payments(self, market_id: str, limit: int) -> Dict[str, Any]:
         raise NotImplementedError
 
     @abstractmethod
@@ -126,6 +140,16 @@ class BaseInjectiveQueryExecutor(ABC):
     async def subaccount_historical_spot_orders_stream(
         self, market_id: str, subaccount_id: str
     ):
+        raise NotImplementedError
+
+    @abstractmethod
+    async def subaccount_historical_derivative_orders_stream(
+            self, market_id: str, subaccount_id: str
+    ):
+        raise NotImplementedError
+
+    @abstractmethod
+    async def transactions_stream(self):  # pragma: no cover
         raise NotImplementedError
 
 
@@ -279,8 +303,29 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
         result = json_format.MessageToDict(response)
         return result
 
+    async def get_historical_derivative_orders(
+            self,
+            market_ids: List[str],
+            subaccount_id: str,
+            start_time: int,
+            skip: int,
+    ) -> Dict[str, Any]:  # pragma: no cover
+        response = await self._sdk_client.get_historical_derivative_orders(
+            market_ids=market_ids,
+            subaccount_id=subaccount_id,
+            start_time=start_time,
+            skip=skip,
+        )
+        result = json_format.MessageToDict(response)
+        return result
+
     async def get_funding_rates(self, market_id: str, limit: int) -> Dict[str, Any]:
         response = await self._sdk_client.get_funding_rates(market_id=market_id, limit=limit)
+        result = json_format.MessageToDict(response)
+        return result
+
+    async def get_funding_payments(self, market_id: str, limit: int) -> Dict[str, Any]:
+        response = await self._sdk_client.get_funding_payments(market_id=market_id, limit=limit)
         result = json_format.MessageToDict(response)
         return result
 
@@ -340,6 +385,14 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
         self, market_id: str, subaccount_id: str
     ):  # pragma: no cover
         stream = await self._sdk_client.stream_historical_spot_orders(market_id=market_id, subaccount_id=subaccount_id)
+        async for event in stream:
+            event_data = event.order
+            yield json_format.MessageToDict(event_data)
+
+    async def subaccount_historical_derivative_orders_stream(
+        self, market_id: str, subaccount_id: str
+    ):  # pragma: no cover
+        stream = await self._sdk_client.stream_historical_derivative_orders(market_id=market_id, subaccount_id=subaccount_id)
         async for event in stream:
             event_data = event.order
             yield json_format.MessageToDict(event_data)

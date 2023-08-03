@@ -19,7 +19,7 @@ from hummingbot.connector.gateway.common_types import CancelOrderResult, PlaceOr
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder, GatewayPerpetualInFlightOrder
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
@@ -176,12 +176,22 @@ class InjectiveDataSource(ABC):
 
     @abstractmethod
     async def order_updates_for_transaction(
-            self, transaction_hash: str, transaction_orders: List[GatewayInFlightOrder]
+            self,
+            transaction_hash: str,
+            spot_orders: Optional[List[GatewayInFlightOrder]] = None,
+            perpetual_orders: Optional[List[GatewayPerpetualInFlightOrder]] = None,
     ) -> List[OrderUpdate]:
         raise NotImplementedError
 
     @abstractmethod
     def supported_order_types(self) -> List[OrderType]:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def last_funding_rate(self, market_id: str) -> Decimal:
+        raise NotImplementedError
+
+    async def last_funding_payment(self, market_id: str) -> Tuple[Decimal, float]:
         raise NotImplementedError
 
     def is_started(self):
@@ -212,22 +222,28 @@ class InjectiveDataSource(ABC):
                 if len(spot_markets) > 0:
                     self.add_listening_task(asyncio.create_task(self._listen_to_public_spot_trades(market_ids=spot_markets)))
                     self.add_listening_task(asyncio.create_task(self._listen_to_spot_order_book_updates(market_ids=spot_markets)))
+                    for market_id in spot_markets:
+                        self.add_listening_task(asyncio.create_task(
+                            self._listen_to_subaccount_spot_order_updates(market_id=market_id))
+                        )
+                        self.add_listening_task(asyncio.create_task(
+                            self._listen_to_subaccount_spot_order_updates(market_id=market_id))
+                        )
                 if len(derivative_markets) > 0:
                     self.add_listening_task(
                         asyncio.create_task(self._listen_to_public_derivative_trades(market_ids=derivative_markets)))
                     self.add_listening_task(
                         asyncio.create_task(self._listen_to_derivative_order_book_updates(market_ids=derivative_markets)))
                     for market_id in derivative_markets:
+                        self.add_listening_task(asyncio.create_task(
+                            self._listen_to_subaccount_derivative_order_updates(market_id=market_id))
+                        )
                         self.add_listening_task(
                             asyncio.create_task(self._listen_to_funding_info_updates(market_id=market_id))
                         )
                 self.add_listening_task(asyncio.create_task(self._listen_to_account_balance_updates()))
                 self.add_listening_task(asyncio.create_task(self._listen_to_chain_transactions()))
 
-                for market_id in market_ids:
-                    self.add_listening_task(asyncio.create_task(
-                        self._listen_to_subaccount_order_updates(market_id=market_id))
-                    )
                 await self._initialize_timeout_height()
 
     async def stop(self):
@@ -508,7 +524,34 @@ class InjectiveDataSource(ABC):
             else:
                 done = True
 
-        trade_updates = [await self._parse_trade_entry(trade_info=trade_info) for trade_info in trade_entries]
+        trade_updates = [await self._parse_spot_trade_entry(trade_info=trade_info) for trade_info in trade_entries]
+
+        return trade_updates
+
+    async def perpetual_trade_updates(self, market_ids: List[str], start_time: float) -> List[TradeUpdate]:
+        done = False
+        skip = 0
+        trade_entries = []
+
+        while not done:
+            async with self.throttler.execute_task(limit_id=CONSTANTS.DERIVATIVE_TRADES_LIMIT_ID):
+                trades_response = await self.query_executor.get_derivative_trades(
+                    market_ids=market_ids,
+                    subaccount_id=self.portfolio_account_subaccount_id,
+                    start_time=int(start_time * 1e3),
+                    skip=skip,
+                )
+            if "trades" in trades_response:
+                total = int(trades_response["paging"]["total"])
+                entries = trades_response["trades"]
+
+                trade_entries.extend(entries)
+                done = len(trade_entries) >= total
+                skip += len(entries)
+            else:
+                done = True
+
+        trade_updates = [await self._parse_derivative_trade_entry(trade_info=trade_info) for trade_info in trade_entries]
 
         return trade_updates
 
@@ -520,6 +563,33 @@ class InjectiveDataSource(ABC):
         while not done:
             async with self.throttler.execute_task(limit_id=CONSTANTS.SPOT_ORDERS_HISTORY_LIMIT_ID):
                 orders_response = await self.query_executor.get_historical_spot_orders(
+                    market_ids=market_ids,
+                    subaccount_id=self.portfolio_account_subaccount_id,
+                    start_time=int(start_time * 1e3),
+                    skip=skip,
+                )
+            if "orders" in orders_response:
+                total = int(orders_response["paging"]["total"])
+                entries = orders_response["orders"]
+
+                order_entries.extend(entries)
+                done = len(order_entries) >= total
+                skip += len(entries)
+            else:
+                done = True
+
+        order_updates = [await self._parse_order_entry(order_info=order_info) for order_info in order_entries]
+
+        return order_updates
+
+    async def perpetual_order_updates(self, market_ids: List[str], start_time: float) -> List[OrderUpdate]:
+        done = False
+        skip = 0
+        order_entries = []
+
+        while not done:
+            async with self.throttler.execute_task(limit_id=CONSTANTS.DERIVATIVE_ORDERS_HISTORY_LIMIT_ID):
+                orders_response = await self.query_executor.get_historical_derivative_orders(
                     market_ids=market_ids,
                     subaccount_id=self.portfolio_account_subaccount_id,
                     start_time=int(start_time * 1e3),
@@ -570,7 +640,7 @@ class InjectiveDataSource(ABC):
         return fees
 
     async def funding_info(self, market_id: str) -> FundingInfo:
-        funding_rate = await self._last_funding_rate(market_id=market_id)
+        funding_rate = await self.last_funding_rate(market_id=market_id)
         oracle_price = await self._oracle_price(market_id=market_id)
         last_traded_price = await self.last_traded_price(market_id=market_id)
         updated_market_info = await self._updated_derivative_market_info_for_id(market_id=market_id)
@@ -621,7 +691,11 @@ class InjectiveDataSource(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def _subaccount_orders_stream(self, market_id: str):
+    def _subaccount_spot_orders_stream(self, market_id: str):
+        raise NotImplementedError
+
+    @abstractmethod
+    def _subaccount_derivative_orders_stream(self, market_id: str):
         raise NotImplementedError
 
     @abstractmethod
@@ -658,10 +732,6 @@ class InjectiveDataSource(ABC):
             spot_orders_to_cancel: List[injective_exchange_tx_pb.OrderData],
             derivative_orders_to_cancel: List[injective_exchange_tx_pb.OrderData]
     ) -> any_pb2.Any:
-        raise NotImplementedError
-
-    @abstractmethod
-    async def _last_funding_rate(self, market_id: str) -> Decimal:
         raise NotImplementedError
 
     @abstractmethod
@@ -707,7 +777,7 @@ class InjectiveDataSource(ABC):
 
         return block_height
 
-    async def _parse_trade_entry(self, trade_info: Dict[str, Any]) -> TradeUpdate:
+    async def _parse_spot_trade_entry(self, trade_info: Dict[str, Any]) -> TradeUpdate:
         exchange_order_id: str = trade_info["orderHash"]
         market = await self.spot_market_info_for_id(market_id=trade_info["marketId"])
         trading_pair = await self.trading_pair_for_market(market_id=trade_info["marketId"])
@@ -723,6 +793,40 @@ class InjectiveDataSource(ABC):
         fee = TradeFeeBase.new_spot_fee(
             fee_schema=TradeFeeSchema(),
             trade_type=trade_type,
+            percent_token=market.quote_token.symbol,
+            flat_fees=[TokenAmount(amount=fee_amount, token=market.quote_token.symbol)]
+        )
+
+        trade_update = TradeUpdate(
+            trade_id=trade_id,
+            client_order_id=None,
+            exchange_order_id=exchange_order_id,
+            trading_pair=trading_pair,
+            fill_timestamp=trade_time,
+            fill_price=price,
+            fill_base_amount=size,
+            fill_quote_amount=size * price,
+            fee=fee,
+            is_taker=is_taker,
+        )
+
+        return trade_update
+
+    async def _parse_derivative_trade_entry(self, trade_info: Dict[str, Any]) -> TradeUpdate:
+        exchange_order_id: str = trade_info["orderHash"]
+        market = await self.derivative_market_info_for_id(market_id=trade_info["marketId"])
+        trading_pair = await self.trading_pair_for_market(market_id=trade_info["marketId"])
+        trade_id: str = trade_info["tradeId"]
+
+        price = market.price_from_chain_format(chain_price=Decimal(trade_info["positionDelta"]["executionPrice"]))
+        size = market.quantity_from_chain_format(chain_quantity=Decimal(trade_info["positionDelta"]["executionQuantity"]))
+        is_taker: bool = trade_info["executionSide"] == "taker"
+        trade_time = int(trade_info["executedAt"]) * 1e-3
+
+        fee_amount = market.quote_token.value_from_chain_format(chain_value=Decimal(trade_info["fee"]))
+        fee = TradeFeeBase.new_perpetual_fee(
+            fee_schema=TradeFeeSchema(),
+            position_action=PositionAction.OPEN,  # will be changed by the exchange class
             percent_token=market.quote_token.symbol,
             flat_fees=[TokenAmount(amount=fee_amount, token=market.quote_token.symbol)]
         )
@@ -840,11 +944,18 @@ class InjectiveDataSource(ABC):
             event_name_for_errors="balance",
         )
 
-    async def _listen_to_subaccount_order_updates(self, market_id: str):
+    async def _listen_to_subaccount_spot_order_updates(self, market_id: str):
         await self._listen_stream_events(
-            stream=self._subaccount_orders_stream(market_id=market_id),
+            stream=self._subaccount_spot_orders_stream(market_id=market_id),
             event_processor=self._process_subaccount_order_update,
-            event_name_for_errors="subaccount order",
+            event_name_for_errors="subaccount spot order",
+        )
+
+    async def _listen_to_subaccount_derivative_order_updates(self, market_id: str):
+        await self._listen_stream_events(
+            stream=self._subaccount_derivative_orders_stream(market_id=market_id),
+            event_processor=self._process_subaccount_order_update,
+            event_name_for_errors="subaccount derivative order",
         )
 
     async def _listen_to_chain_transactions(self):
@@ -924,7 +1035,7 @@ class InjectiveDataSource(ABC):
             event_tag=OrderBookDataSourceEvent.TRADE_EVENT, message=trade_message
         )
 
-        update = await self._parse_trade_entry(trade_info=trade_update)
+        update = await self._parse_spot_trade_entry(trade_info=trade_update)
         self.publisher.trigger_event(event_tag=MarketEvent.TradeUpdate, message=update)
 
     async def _process_public_derivative_trade_update(self, trade_update: Dict[str, Any]):
@@ -954,7 +1065,7 @@ class InjectiveDataSource(ABC):
             event_tag=OrderBookDataSourceEvent.TRADE_EVENT, message=trade_message
         )
 
-        update = await self._parse_trade_entry(trade_info=trade_update)
+        update = await self._parse_derivative_trade_entry(trade_info=trade_update)
         self.publisher.trigger_event(event_tag=MarketEvent.TradeUpdate, message=update)
 
     async def _process_oracle_price_update(self, oracle_price_update: Dict[str, Any], market_id: str):

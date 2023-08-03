@@ -1,7 +1,7 @@
 import asyncio
 from collections import defaultdict
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.constants import FUNDING_FEE_POLL_INTERVAL, s_decimal_NaN
@@ -22,13 +22,14 @@ from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_clien
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.perpetual_api_order_book_data_source import PerpetualAPIOrderBookDataSource
 from hummingbot.core.data_type.trade_fee import TradeFeeBase, TradeFeeSchema
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.event.event_forwarder import EventForwarder
 from hummingbot.core.event.events import AccountEvent, BalanceUpdateEvent, MarketEvent
+from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee
 from hummingbot.core.web_assistant.auth import AuthBase
@@ -132,6 +133,52 @@ class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
         trading_rule: TradingRule = self._trading_rules[trading_pair]
         return trading_rule.sell_order_collateral_token
 
+    @property
+    def status_dict(self) -> Dict[str, bool]:
+        status = super().status_dict
+        status["data_source_initialized"] = self._data_source.is_started()
+        return status
+
+    async def start_network(self):
+        await super().start_network()
+
+        market_ids = [
+            await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+            for trading_pair in self._trading_pairs
+        ]
+        await self._data_source.start(market_ids=market_ids)
+
+        if self.is_trading_required:
+            self._orders_transactions_check_task = safe_ensure_future(self._check_orders_transactions())
+            self._queued_orders_task = safe_ensure_future(self._process_queued_orders())
+
+    async def stop_network(self):
+        """
+        This function is executed when the connector is stopped. It performs a general cleanup and stops all background
+        tasks that require the connection with the exchange to work.
+        """
+        await super().stop_network()
+        await self._data_source.stop()
+        self._forwarders = []
+        if self._orders_transactions_check_task is not None:
+            self._orders_transactions_check_task.cancel()
+            self._orders_transactions_check_task = None
+        if self._queued_orders_task is not None:
+            self._queued_orders_task.cancel()
+            self._queued_orders_task = None
+
+    async def check_network(self) -> NetworkStatus:
+        """
+        Checks connectivity with the exchange using the API
+        """
+        try:
+            status = await self._data_source.check_network()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            status = NetworkStatus.NOT_CONNECTED
+        return status
+
     def supported_order_types(self) -> List[OrderType]:
         return self._data_source.supported_order_types()
 
@@ -210,7 +257,8 @@ class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
         raise NotImplementedError
 
     async def _trading_pair_position_mode_set(self, mode: PositionMode, trading_pair: str) -> Tuple[bool, str]:
-        raise NotImplementedError
+        # Injective supports only one mode. It can't be changes in the chain
+        return True, ""
 
     async def _set_trading_pair_leverage(self, trading_pair: str, leverage: int) -> Tuple[bool, str]:
         """
@@ -219,16 +267,25 @@ class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
         return True, ""
 
     async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[float, Decimal, Decimal]:
-        raise NotImplementedError
+        last_funding_rate = Decimal("-1")
+        market_id = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+        payment_amount, payment_timestamp = await self._data_source.last_funding_payment(market_id=market_id)
+
+        if payment_amount != Decimal(-1) and payment_timestamp != 0:
+            last_funding_rate = await self._data_source.last_funding_rate(market_id=market_id)
+
+        return payment_timestamp, last_funding_rate, payment_amount
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception) -> bool:
-        raise NotImplementedError
+        return False
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
-        raise NotImplementedError
+        return CONSTANTS.ORDER_NOT_FOUND_ERROR_MESSAGE in str(status_update_exception)
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
-        raise NotImplementedError
+        # For Injective the cancelation is done by sending a transaction to the chain.
+        # The cancel request is not validated until the transaction is included in a block, and so this does not apply
+        return False
 
     async def _place_cancel(self, order_id: str, tracked_order: GatewayPerpetualInFlightOrder):
         # Not required because of _execute_order_cancel redefinition
@@ -472,17 +529,25 @@ class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
         )
         self._order_tracker.process_order_update(order_update)
 
-    def _get_fee(self, base_currency: str, quote_currency: str, order_type: OrderType, order_side: TradeType,
-                 amount: Decimal, price: Decimal = s_decimal_NaN,
-                 is_maker: Optional[bool] = None) -> TradeFeeBase:
+    def _get_fee(
+            self,
+            base_currency: str,
+            quote_currency: str,
+            order_type: OrderType,
+            order_side: TradeType,
+            position_action: PositionAction,
+            amount: Decimal,
+            price: Decimal = s_decimal_NaN,
+            is_maker: Optional[bool] = None,
+    ) -> TradeFeeBase:
         is_maker = is_maker or (order_type is OrderType.LIMIT_MAKER)
         trading_pair = combine_to_hb_trading_pair(base=base_currency, quote=quote_currency)
         if trading_pair in self._trading_fees:
             fee_schema: TradeFeeSchema = self._trading_fees[trading_pair]
             fee_rate = fee_schema.maker_percent_fee_decimal if is_maker else fee_schema.taker_percent_fee_decimal
-            fee = TradeFeeBase.new_spot_fee(
+            fee = TradeFeeBase.new_perpetual_fee(
                 fee_schema=fee_schema,
-                trade_type=order_side,
+                position_action=position_action,
                 percent=fee_rate,
                 percent_token=fee_schema.percent_fee_token,
             )
@@ -490,6 +555,7 @@ class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
             fee = build_perpetual_trade_fee(
                 self.name,
                 is_maker,
+                position_action=position_action,
                 base_currency=base_currency,
                 quote_currency=quote_currency,
                 order_type=order_type,
@@ -503,7 +569,58 @@ class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
         self._trading_fees = await self._data_source.get_trading_fees()
 
     async def _user_stream_event_listener(self):
-        raise NotImplementedError
+        while True:
+            try:
+                event_message = await self._all_trading_events_queue.get()
+                channel = event_message["channel"]
+                event_data = event_message["data"]
+
+                if channel == "transaction":
+                    transaction_hash = event_data["hash"]
+                    await self._check_created_orders_status_for_transaction(transaction_hash=transaction_hash)
+                elif channel == "trade":
+                    trade_update = event_data
+                    tracked_order = self._order_tracker.all_fillable_orders_by_exchange_order_id.get(
+                        trade_update.exchange_order_id
+                    )
+                    if tracked_order is not None:
+                        new_trade_update = TradeUpdate(
+                            trade_id=trade_update.trade_id,
+                            client_order_id=tracked_order.client_order_id,
+                            exchange_order_id=trade_update.exchange_order_id,
+                            trading_pair=trade_update.trading_pair,
+                            fill_timestamp=trade_update.fill_timestamp,
+                            fill_price=trade_update.fill_price,
+                            fill_base_amount=trade_update.fill_base_amount,
+                            fill_quote_amount=trade_update.fill_quote_amount,
+                            fee=trade_update.fee,
+                            is_taker=trade_update.is_taker,
+                        )
+                        self._order_tracker.process_trade_update(new_trade_update)
+                elif channel == "order":
+                    order_update = event_data
+                    tracked_order = self._order_tracker.all_updatable_orders_by_exchange_order_id.get(
+                        order_update.exchange_order_id)
+                    if tracked_order is not None:
+                        new_order_update = OrderUpdate(
+                            trading_pair=order_update.trading_pair,
+                            update_timestamp=order_update.update_timestamp,
+                            new_state=order_update.new_state,
+                            client_order_id=tracked_order.client_order_id,
+                            exchange_order_id=order_update.exchange_order_id,
+                            misc_updates=order_update.misc_updates,
+                        )
+                        self._order_tracker.process_order_update(order_update=new_order_update)
+                elif channel == "balance":
+                    if event_data.total_balance is not None:
+                        self._account_balances[event_data.asset_name] = event_data.total_balance
+                    if event_data.available_balance is not None:
+                        self._account_available_balances[event_data.asset_name] = event_data.available_balance
+
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().exception("Unexpected error in user stream listener loop")
 
     async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
         raise NotImplementedError
@@ -528,11 +645,121 @@ class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
             self._account_balances[token] = token_balance_info["total_balance"]
             self._account_available_balances[token] = token_balance_info["available_balance"]
 
-    async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
+    async def _all_trade_updates_for_order(self, order: GatewayPerpetualInFlightOrder) -> List[TradeUpdate]:
+        # Not required because of _update_orders_fills redefinition
         raise NotImplementedError
 
-    async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
+    async def _update_orders_fills(self, orders: List[GatewayPerpetualInFlightOrder]):
+        oldest_order_creation_time = self.current_timestamp
+        all_market_ids = set()
+        orders_by_hash = {}
+
+        for order in orders:
+            oldest_order_creation_time = min(oldest_order_creation_time, order.creation_timestamp)
+            all_market_ids.add(await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair))
+            if order.exchange_order_id is not None:
+                orders_by_hash[order.exchange_order_id] = order
+
+        try:
+            start_time = min(oldest_order_creation_time, self._latest_polled_order_fill_time)
+            trade_updates = await self._data_source.perpetual_trade_updates(market_ids=all_market_ids, start_time=start_time)
+            for trade_update in trade_updates:
+                tracked_order = orders_by_hash.get(trade_update.exchange_order_id)
+                if tracked_order is not None:
+                    fee = TradeFeeBase.new_perpetual_fee(
+                        fee_schema=self.trade_fee_schema(),
+                        position_action=tracked_order.position,
+                        percent_token=trade_update.fee.percent_token,
+                        flat_fees=trade_update.fee.flat_fees,
+                    )
+                    new_trade_update = TradeUpdate(
+                        trade_id=trade_update.trade_id,
+                        client_order_id=tracked_order.client_order_id,
+                        exchange_order_id=trade_update.exchange_order_id,
+                        trading_pair=trade_update.trading_pair,
+                        fill_timestamp=trade_update.fill_timestamp,
+                        fill_price=trade_update.fill_price,
+                        fill_base_amount=trade_update.fill_base_amount,
+                        fill_quote_amount=trade_update.fill_quote_amount,
+                        fee=fee,
+                        is_taker=trade_update.is_taker,
+                    )
+                    self._latest_polled_order_fill_time = max(self._latest_polled_order_fill_time,
+                                                              trade_update.fill_timestamp)
+                    self._order_tracker.process_trade_update(new_trade_update)
+        except asyncio.CancelledError:
+            raise
+        except Exception as ex:
+            self.logger().warning(
+                f"Failed to fetch trade updates. Error: {ex}",
+                exc_info=ex,
+            )
+
+    async def _request_order_status(self, tracked_order: GatewayPerpetualInFlightOrder) -> OrderUpdate:
+        # Not required due to the redefinition of _update_orders_with_error_handler
         raise NotImplementedError
+
+    async def _update_orders_with_error_handler(self, orders: List[GatewayPerpetualInFlightOrder], error_handler: Callable):
+        oldest_order_creation_time = self.current_timestamp
+        all_market_ids = set()
+        orders_by_hash = {}
+
+        for order in orders:
+            oldest_order_creation_time = min(oldest_order_creation_time, order.creation_timestamp)
+            all_market_ids.add(await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair))
+            if order.exchange_order_id is not None:
+                orders_by_hash[order.exchange_order_id] = order
+
+        try:
+            order_updates = await self._data_source.perpetual_order_updates(
+                market_ids=all_market_ids,
+                start_time=oldest_order_creation_time - self.LONG_POLL_INTERVAL
+            )
+
+            for order_update in order_updates:
+                tracked_order = orders_by_hash.get(order_update.exchange_order_id)
+                if tracked_order is not None:
+                    try:
+                        new_order_update = OrderUpdate(
+                            trading_pair=order_update.trading_pair,
+                            update_timestamp=order_update.update_timestamp,
+                            new_state=order_update.new_state,
+                            client_order_id=tracked_order.client_order_id,
+                            exchange_order_id=order_update.exchange_order_id,
+                            misc_updates=order_update.misc_updates,
+                        )
+
+                        if tracked_order.current_state == OrderState.PENDING_CREATE and new_order_update.new_state != OrderState.OPEN:
+                            open_update = OrderUpdate(
+                                trading_pair=order_update.trading_pair,
+                                update_timestamp=order_update.update_timestamp,
+                                new_state=OrderState.OPEN,
+                                client_order_id=tracked_order.client_order_id,
+                                exchange_order_id=order_update.exchange_order_id,
+                                misc_updates=order_update.misc_updates,
+                            )
+                            self._order_tracker.process_order_update(open_update)
+
+                        del orders_by_hash[order_update.exchange_order_id]
+                        self._order_tracker.process_order_update(new_order_update)
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception as ex:
+                        await error_handler(tracked_order, ex)
+
+            if len(orders_by_hash) > 0:
+                # await self._data_source.check_order_hashes_synchronization(orders=orders_by_hash.values())
+                for order in orders_by_hash.values():
+                    not_found_error = RuntimeError(
+                        f"There was a problem updating order {order.client_order_id} "
+                        f"({CONSTANTS.ORDER_NOT_FOUND_ERROR_MESSAGE})"
+                    )
+                    await error_handler(order, not_found_error)
+        except asyncio.CancelledError:
+            raise
+        except Exception as request_error:
+            for order in orders_by_hash.values():
+                await error_handler(order, request_error)
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return WebAssistantsFactory(throttler=self._throttler)
@@ -645,7 +872,7 @@ class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
             all_orders = orders.copy()
             try:
                 order_updates = await self._data_source.order_updates_for_transaction(
-                    transaction_hash=transaction_hash, transaction_orders=orders
+                    transaction_hash=transaction_hash, perpetual_orders=orders
                 )
 
                 for order_update in order_updates:
@@ -684,7 +911,7 @@ class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
 
         if len(transaction_orders) > 0:
             order_updates = await self._data_source.order_updates_for_transaction(
-                transaction_hash=transaction_hash, transaction_orders=transaction_orders
+                transaction_hash=transaction_hash, perpetual_orders=transaction_orders
             )
 
             for order_update in order_updates:
