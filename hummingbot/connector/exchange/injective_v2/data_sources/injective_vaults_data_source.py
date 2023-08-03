@@ -1,7 +1,6 @@
 import asyncio
 import base64
 import json
-import os
 import re
 from decimal import Decimal
 from typing import Any, Dict, List, Mapping, Optional, Tuple
@@ -45,7 +44,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         self._client = AsyncClient(
             network=self._network,
             insecure=not use_secure_connection,
-            chain_cookie_location=f"{os.path.join(os.path.dirname(__file__), '../.injective_cookie')}",
+            chain_cookie_location=self._chain_cookie_file_path(),
         )
         self._composer = Composer(network=self._network.string())
         self._query_executor = PythonSDKInjectiveQueryExecutor(sdk_client=self._client)

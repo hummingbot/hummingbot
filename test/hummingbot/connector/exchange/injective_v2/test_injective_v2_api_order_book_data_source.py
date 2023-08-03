@@ -75,6 +75,12 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
             data_source=self.connector._data_source,
         )
 
+        self.initialize_trading_account_patch = patch(
+            "hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source"
+            ".InjectiveGranteeDataSource.initialize_trading_account"
+        )
+        self.initialize_trading_account_patch.start()
+
         self.query_executor = ProgrammableQueryExecutor()
         self.connector._data_source._query_executor = self.query_executor
 
@@ -89,6 +95,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
 
     def tearDown(self) -> None:
         self.async_run_with_timeout(self.data_source._data_source.stop())
+        self.initialize_trading_account_patch.stop()
         for task in self.async_tasks:
             task.cancel()
         self.async_loop.stop()
