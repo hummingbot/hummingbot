@@ -299,6 +299,11 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         for market_info in markets:
             try:
                 market = self._parse_derivative_market_info(market_info=market_info)
+                if market.trading_pair() in derivative_market_id_to_trading_pair.inverse:
+                    self.logger().debug(
+                        f"The derivative market {market_info['marketId']} will be excluded because there is other"
+                        f" market with trading pair {market.trading_pair()} ({market_info})")
+                    continue
                 derivative_market_id_to_trading_pair[market.market_id] = market.trading_pair()
                 derivative_markets_map[market.market_id] = market
             except KeyError:
@@ -371,7 +376,7 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
 
         return order_updates
 
-    def real_tokens_trading_pair(self, unique_trading_pair: str) -> str:
+    def real_tokens_spot_trading_pair(self, unique_trading_pair: str) -> str:
         resulting_trading_pair = unique_trading_pair
         if (self._spot_market_and_trading_pair_map is not None
                 and self._spot_market_info_map is not None):
@@ -380,6 +385,20 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
             if market is not None:
                 resulting_trading_pair = combine_to_hb_trading_pair(
                     base=market.base_token.symbol,
+                    quote=market.quote_token.symbol,
+                )
+
+        return resulting_trading_pair
+
+    def real_tokens_perpetual_trading_pair(self, unique_trading_pair: str) -> str:
+        resulting_trading_pair = unique_trading_pair
+        if (self._derivative_market_and_trading_pair_map is not None
+                and self._derivative_market_info_map is not None):
+            market_id = self._derivative_market_and_trading_pair_map.inverse.get(unique_trading_pair)
+            market = self._derivative_market_info_map.get(market_id)
+            if market is not None:
+                resulting_trading_pair = combine_to_hb_trading_pair(
+                    base=market.base_token_symbol(),
                     quote=market.quote_token.symbol,
                 )
 
@@ -471,14 +490,19 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
 
     async def last_funding_payment(self, market_id: str) -> Tuple[Decimal, float]:
         async with self.throttler.execute_task(limit_id=CONSTANTS.FUNDING_PAYMENTS_LIMIT_ID):
-            response = await self.query_executor.get_funding_payments(market_id=market_id, limit=1)
+            response = await self.query_executor.get_funding_payments(
+                subaccount_id=self.portfolio_account_subaccount_id,
+                market_id=market_id,
+                limit=1
+            )
 
         last_payment = Decimal(-1)
         last_timestamp = 0
+        payments = response.get("payments", [])
 
-        if len(response["payments"]) > 0:
-            last_payment = Decimal(response["payments"][0]["amount"])
-            last_timestamp = int(response["payments"][0]["timestamp"]) * 1e-3
+        if len(payments) > 0:
+            last_payment = Decimal(payments[0]["amount"])
+            last_timestamp = int(payments[0]["timestamp"]) * 1e-3
 
         return last_payment, last_timestamp
 
@@ -535,6 +559,10 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         stream = self._query_executor.oracle_prices_stream(
             oracle_base=oracle_base, oracle_quote=oracle_quote, oracle_type=oracle_type
         )
+        return stream
+
+    def _subaccount_positions_stream(self):
+        stream = self._query_executor.subaccount_positions_stream(subaccount_id=self.portfolio_account_subaccount_id)
         return stream
 
     def _subaccount_balance_stream(self):

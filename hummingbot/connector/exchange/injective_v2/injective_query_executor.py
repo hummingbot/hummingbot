@@ -109,7 +109,11 @@ class BaseInjectiveQueryExecutor(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def get_funding_payments(self, market_id: str, limit: int) -> Dict[str, Any]:
+    async def get_funding_payments(self, subaccount_id: str, market_id: str, limit: int) -> Dict[str, Any]:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def get_derivative_positions(self, subaccount_id: str, skip: int) -> Dict[str, Any]:
         raise NotImplementedError
 
     @abstractmethod
@@ -130,6 +134,10 @@ class BaseInjectiveQueryExecutor(ABC):
 
     @abstractmethod
     async def oracle_prices_stream(self, oracle_base: str, oracle_quote: str, oracle_type: str):
+        raise NotImplementedError  # pragma: no cover
+
+    @abstractmethod
+    async def subaccount_positions_stream(self, subaccount_id: str):
         raise NotImplementedError  # pragma: no cover
 
     @abstractmethod
@@ -324,8 +332,19 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
         result = json_format.MessageToDict(response)
         return result
 
-    async def get_funding_payments(self, market_id: str, limit: int) -> Dict[str, Any]:
-        response = await self._sdk_client.get_funding_payments(market_id=market_id, limit=limit)
+    async def get_funding_payments(self, subaccount_id: str, market_id: str, limit: int) -> Dict[str, Any]:
+        response = await self._sdk_client.get_funding_payments(
+            subaccount_id=subaccount_id,
+            market_id=market_id,
+            limit=limit
+        )
+        result = json_format.MessageToDict(response)
+        return result
+
+    async def get_derivative_positions(self, subaccount_id: str, skip: int) -> Dict[str, Any]:
+        response = await self._sdk_client.get_derivative_positions(
+            subaccount_id=subaccount_id, skip=skip
+        )
         result = json_format.MessageToDict(response)
         return result
 
@@ -375,6 +394,12 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
         )
         async for update in stream:
             yield json_format.MessageToDict(update)
+
+    async def subaccount_positions_stream(self, subaccount_id: str):  # pragma: no cover
+        stream = await self._sdk_client.stream_derivative_positions(subaccount_id=subaccount_id)
+        async for event in stream:
+            event_data = event.position
+            yield json_format.MessageToDict(event_data)
 
     async def subaccount_balance_stream(self, subaccount_id: str):  # pragma: no cover
         stream = await self._sdk_client.stream_subaccount_balance(subaccount_id=subaccount_id)

@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from hummingbot.connector.derivative.injective_v2_perpetual import injective_constants as CONSTANTS
 from hummingbot.connector.exchange.injective_v2.data_sources.injective_data_source import InjectiveDataSource
@@ -9,14 +9,18 @@ from hummingbot.core.data_type.perpetual_api_order_book_data_source import Perpe
 from hummingbot.core.event.event_forwarder import EventForwarder
 from hummingbot.core.event.events import MarketEvent, OrderBookDataSourceEvent
 
+if TYPE_CHECKING:
+    from hummingbot.connector.derivative.injective_v2_perpetual.injective_v2_perpetual_derivative import (
+        InjectiveV2Dericative,
+    )
+
 
 class InjectiveV2PerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     def __init__(
         self,
         trading_pairs: List[str],
-        # connector: "InjectiveV2Dericative",
-        connector,
+        connector: "InjectiveV2Dericative",
         data_source: InjectiveDataSource,
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):

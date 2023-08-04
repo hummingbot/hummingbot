@@ -263,6 +263,7 @@ ACCOUNT_MODES = {
 
 
 class InjectiveConfigMap(BaseConnectorConfigMap):
+    # Setting a default dummy configuration to allow the bot to create a dummy instance to fetch all trading pairs
     connector: str = Field(default="injective_v2", const=True, client_data=None)
     receive_connector_configuration: bool = Field(
         default=True, const=True,
@@ -277,9 +278,9 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
     )
     account_type: Union[tuple(ACCOUNT_MODES.values())] = Field(
         default=InjectiveDelegatedAccountMode(
-            private_key="0000000000000000000000000000000000000000000000000000000000000000",  # noqa: mock
+            private_key="0000000000000000000000000000000000000000000000000000000000000001",  # noqa: mock
             subaccount_index=0,
-            granter_address="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",  # noqa: mock
+            granter_address="inj10e0525sfrf53yh2aljmm3sn9jq5njk7lwfmzjf",  # noqa: mock
             granter_subaccount_index=0,
         ),
         client_data=ClientFieldData(

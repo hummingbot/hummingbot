@@ -12,6 +12,7 @@ from google.protobuf import any_pb2
 from pyinjective import Transaction
 from pyinjective.composer import Composer, injective_exchange_tx_pb
 
+from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.exchange.injective_v2 import injective_constants as CONSTANTS
 from hummingbot.connector.exchange.injective_v2.injective_events import InjectiveEvent
 from hummingbot.connector.exchange.injective_v2.injective_market import InjectiveDerivativeMarket, InjectiveToken
@@ -19,13 +20,19 @@ from hummingbot.connector.gateway.common_types import CancelOrderResult, PlaceOr
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder, GatewayPerpetualInFlightOrder
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
-from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide, TradeType
 from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase, TradeFeeSchema
 from hummingbot.core.event.event_listener import EventListener
-from hummingbot.core.event.events import AccountEvent, BalanceUpdateEvent, MarketEvent, OrderBookDataSourceEvent
+from hummingbot.core.event.events import (
+    AccountEvent,
+    BalanceUpdateEvent,
+    MarketEvent,
+    OrderBookDataSourceEvent,
+    PositionUpdateEvent,
+)
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.logger import HummingbotLogger
@@ -171,7 +178,11 @@ class InjectiveDataSource(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def real_tokens_trading_pair(self, unique_trading_pair: str) -> str:
+    def real_tokens_spot_trading_pair(self, unique_trading_pair: str) -> str:
+        raise NotImplementedError
+
+    @abstractmethod
+    def real_tokens_perpetual_trading_pair(self, unique_trading_pair: str) -> str:
         raise NotImplementedError
 
     @abstractmethod
@@ -234,6 +245,9 @@ class InjectiveDataSource(ABC):
                         asyncio.create_task(self._listen_to_public_derivative_trades(market_ids=derivative_markets)))
                     self.add_listening_task(
                         asyncio.create_task(self._listen_to_derivative_order_book_updates(market_ids=derivative_markets)))
+                    self.add_listening_task(
+                        asyncio.create_task(self._listen_to_positions_updates())
+                    )
                     for market_id in derivative_markets:
                         self.add_listening_task(asyncio.create_task(
                             self._listen_to_subaccount_derivative_order_updates(market_id=market_id))
@@ -372,6 +386,44 @@ class InjectiveDataSource(ABC):
                     balances_dict[asset_name] = balance_element
 
         return balances_dict
+
+    async def account_positions(self) -> List[Position]:
+        done = False
+        skip = 0
+        position_entries = []
+
+        while not done:
+            async with self.throttler.execute_task(limit_id=CONSTANTS.POSITIONS_LIMIT_ID):
+                positions_response = await self.query_executor.get_derivative_positions(
+                    subaccount_id=self.portfolio_account_subaccount_id,
+                    skip=skip,
+                )
+            if "positions" in positions_response:
+                total = int(positions_response["paging"]["total"])
+                entries = positions_response["positions"]
+
+                position_entries.extend(entries)
+                done = len(position_entries) >= total
+                skip += len(entries)
+            else:
+                done = True
+
+        positions = []
+        for position_entry in position_entries:
+            position_update = await self._parse_position_update_event(event=position_entry)
+
+            position = Position(
+                trading_pair=position_update.trading_pair,
+                position_side=position_update.position_side,
+                unrealized_pnl=position_update.unrealized_pnl,
+                entry_price=position_update.entry_price,
+                amount=position_update.amount,
+                leverage=position_update.leverage,
+            )
+
+            positions.append(position)
+
+        return positions
 
     async def create_orders(
             self,
@@ -687,6 +739,10 @@ class InjectiveDataSource(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def _subaccount_positions_stream(self):
+        raise NotImplementedError
+
+    @abstractmethod
     def _subaccount_balance_stream(self):
         raise NotImplementedError
 
@@ -860,6 +916,39 @@ class InjectiveDataSource(ABC):
 
         return status_update
 
+    async def _parse_position_update_event(self, event: Dict[str, Any]) -> PositionUpdateEvent:
+        market = await self.derivative_market_info_for_id(market_id=event["marketId"])
+        trading_pair = await self.trading_pair_for_market(market_id=event["marketId"])
+
+        if "direction" in event:
+            position_side = PositionSide[event["direction"].upper()]
+            amount_sign = Decimal(-1) if position_side == PositionSide.SHORT else Decimal(1)
+            chain_entry_price = Decimal(event["entryPrice"])
+            chain_mark_price = Decimal(event["markPrice"])
+            chain_amount = Decimal(event["quantity"])
+            chain_margin = Decimal(event["margin"])
+            entry_price = market.price_from_chain_format(chain_price=chain_entry_price)
+            mark_price = market.price_from_chain_format(chain_price=chain_mark_price)
+            amount = market.quantity_from_chain_format(chain_quantity=chain_amount)
+            leverage = (chain_amount * chain_entry_price) / chain_margin
+            unrealized_pnl = (mark_price - entry_price) * amount * amount_sign
+        else:
+            position_side = None
+            entry_price = unrealized_pnl = amount = Decimal("0")
+            leverage = amount_sign = Decimal("1")
+
+        parsed_event = PositionUpdateEvent(
+            timestamp=int(event["updatedAt"]) * 1e-3,
+            trading_pair=trading_pair,
+            position_side=position_side,
+            unrealized_pnl=unrealized_pnl,
+            entry_price=entry_price,
+            amount=amount * amount_sign,
+            leverage=leverage,
+        )
+
+        return parsed_event
+
     async def _send_in_transaction(self, message: any_pb2.Any) -> Dict[str, Any]:
         transaction = Transaction()
         transaction.with_messages(message)
@@ -935,6 +1024,13 @@ class InjectiveDataSource(ABC):
             event_processor=self._process_oracle_price_update,
             event_name_for_errors="funding info",
             market_id=market_id,
+        )
+
+    async def _listen_to_positions_updates(self):
+        await self._listen_stream_events(
+            stream=self._subaccount_positions_stream(),
+            event_processor=self._process_position_update,
+            event_name_for_errors="position",
         )
 
     async def _listen_to_account_balance_updates(self):
@@ -1079,6 +1175,10 @@ class InjectiveDataSource(ABC):
             rate=funding_info.rate,
         )
         self.publisher.trigger_event(event_tag=MarketEvent.FundingInfo, message=funding_info_update)
+
+    async def _process_position_update(self, position_event: Dict[str, Any]):
+        parsed_event = await self._parse_position_update_event(event=position_event)
+        self.publisher.trigger_event(event_tag=AccountEvent.PositionUpdate, message=parsed_event)
 
     async def _process_subaccount_balance_update(self, balance_event: Dict[str, Any]):
         updated_token = await self.token(denom=balance_event["balance"]["denom"])

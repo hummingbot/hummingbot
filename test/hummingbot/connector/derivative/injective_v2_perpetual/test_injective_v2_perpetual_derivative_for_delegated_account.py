@@ -29,7 +29,7 @@ from hummingbot.connector.gateway.clob_spot.data_sources.injective.injective_uti
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayPerpetualInFlightOrder
 from hummingbot.connector.test_support.perpetual_derivative_test import AbstractPerpetualDerivativeTests
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.limit_order import LimitOrder
@@ -2402,21 +2402,95 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     def test_existing_account_position_detected_on_positions_update(self):
         self._simulate_trading_rules_initialized()
+        self.configure_all_symbols_response(mock_api=None)
 
-        # url = web_utils.rest_url(
-        #     CONSTANTS.POSITION_INFORMATION_URL, domain=self.domain, api_version=CONSTANTS.API_VERSION_V2
-        # )
-        # regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        #
-        # positions = self._get_position_risk_api_endpoint_single_position_list()
-        # req_mock.get(regex_url, body=json.dumps(positions))
+        position_data = {
+            "ticker": "BTC/USDT PERP",
+            "marketId": self.market_id,
+            "subaccountId": self.portfolio_account_subaccount_id,
+            "direction": "long",
+            "quantity": "0.01",
+            "entryPrice": "25000000000",
+            "margin": "248483436.058851",
+            "liquidationPrice": "47474612957.985809",
+            "markPrice": "28984256513.07",
+            "aggregateReduceOnlyQuantity": "0",
+            "updatedAt": "1691077382583",
+            "createdAt": "-62135596800000"
+        }
+        positions = {
+            "positions": [position_data],
+            "paging": {
+                "total": "1",
+                "from": 1,
+                "to": 1
+            }
+        }
+        self.exchange._data_source._query_executor._derivative_positions_responses.put_nowait(positions)
 
-        task = self.ev_loop.create_task(self.exchange._update_positions())
-        self.async_run_with_timeout(task)
+        self.async_run_with_timeout(self.exchange._update_positions())
 
         self.assertEqual(len(self.exchange.account_positions), 1)
         pos = list(self.exchange.account_positions.values())[0]
-        self.assertEqual(pos.trading_pair.replace("-", ""), self.symbol)
+        self.assertEqual(self.trading_pair, pos.trading_pair)
+        self.assertEqual(PositionSide.LONG, pos.position_side)
+        self.assertEqual(Decimal(position_data["quantity"]), pos.amount)
+        entry_price = Decimal(position_data["entryPrice"]) * Decimal(f"1e{-self.quote_decimals}")
+        self.assertEqual(entry_price, pos.entry_price)
+        expected_leverage = ((Decimal(position_data["entryPrice"]) * Decimal(position_data["quantity"]))
+                             / Decimal(position_data["margin"]))
+        self.assertEqual(expected_leverage, pos.leverage)
+        mark_price = Decimal(position_data["markPrice"]) * Decimal(f"1e{-self.quote_decimals}")
+        expected_unrealized_pnl = (mark_price - entry_price) * Decimal(position_data["quantity"])
+        self.assertEqual(expected_unrealized_pnl, pos.unrealized_pnl)
+
+    def test_user_stream_position_update(self):
+        self.configure_all_symbols_response(mock_api=None)
+        self.exchange._set_current_timestamp(1640780000)
+
+        position_data = {
+            "ticker": "BTC/USDT PERP",
+            "marketId": self.market_id,
+            "subaccountId": self.portfolio_account_subaccount_id,
+            "direction": "long",
+            "quantity": "0.01",
+            "entryPrice": "25000000000",
+            "margin": "248483436.058851",
+            "liquidationPrice": "47474612957.985809",
+            "markPrice": "28984256513.07",
+            "aggregateReduceOnlyQuantity": "0",
+            "updatedAt": "1691077382583",
+            "createdAt": "-62135596800000"
+        }
+
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [position_data, asyncio.CancelledError]
+        self.exchange._data_source._query_executor._subaccount_positions_events = mock_queue
+
+        self.async_tasks.append(
+            asyncio.get_event_loop().create_task(
+                self.exchange._user_stream_event_listener()
+            )
+        )
+
+        try:
+            self.async_run_with_timeout(self.exchange._data_source._listen_to_positions_updates())
+        except asyncio.CancelledError:
+            pass
+
+        self.assertEqual(len(self.exchange.account_positions), 1)
+        pos = list(self.exchange.account_positions.values())[0]
+        self.assertEqual(self.trading_pair, pos.trading_pair)
+        self.assertEqual(PositionSide.LONG, pos.position_side)
+        self.assertEqual(Decimal(position_data["quantity"]), pos.amount)
+        entry_price = Decimal(position_data["entryPrice"]) * Decimal(f"1e{-self.quote_decimals}")
+        self.assertEqual(entry_price, pos.entry_price)
+        expected_leverage = ((Decimal(position_data["entryPrice"]) * Decimal(position_data["quantity"]))
+                             / Decimal(position_data["margin"]))
+        self.assertEqual(expected_leverage, pos.leverage)
+        mark_price = Decimal(position_data["markPrice"]) * Decimal(f"1e{-self.quote_decimals}")
+        expected_unrealized_pnl = (mark_price - entry_price) * Decimal(position_data["quantity"])
+        self.assertEqual(expected_unrealized_pnl, pos.unrealized_pnl)
 
     def _expected_initial_status_dict(self) -> Dict[str, bool]:
         status_dict = super()._expected_initial_status_dict()

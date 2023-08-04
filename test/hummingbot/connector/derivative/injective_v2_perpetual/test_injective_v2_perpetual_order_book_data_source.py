@@ -6,12 +6,16 @@ from typing import Awaitable, Optional, Union
 from unittest import TestCase
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from bidict import bidict
 from pyinjective import Address, PrivateKey
 
-# from hummingbot.client.config.client_config_map import ClientConfigMap
-# from hummingbot.client.config.config_helpers import ClientConfigAdapter
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.injective_v2_perpetual.injective_v2_perpetual_api_order_book_data_source import (
     InjectiveV2PerpetualAPIOrderBookDataSource,
+)
+from hummingbot.connector.derivative.injective_v2_perpetual.injective_v2_perpetual_derivative import (
+    InjectiveV2PerpetualDerivative,
 )
 from hummingbot.connector.exchange.injective_v2.injective_v2_utils import (
     InjectiveConfigMap,
@@ -44,7 +48,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         self.async_tasks = []
         asyncio.set_event_loop(self.async_loop)
 
-        # client_config_map = ClientConfigAdapter(ClientConfigMap())
+        client_config_map = ClientConfigAdapter(ClientConfigMap())
 
         _, grantee_private_key = PrivateKey.generate()
         _, granter_private_key = PrivateKey.generate()
@@ -63,24 +67,25 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
             account_type=account_config,
         )
 
-        # self.connector = InjectiveV2Exchange(
-        #     client_config_map=client_config_map,
-        #     connector_configuration=injective_config,
-        #     trading_pairs=[self.trading_pair],
-        # )
-
-        self.connector = AsyncMock()
-        self.connector.exchange_symbol_associated_to_pair.return_value = self.market_id
-
+        self.connector = InjectiveV2PerpetualDerivative(
+            client_config_map=client_config_map,
+            connector_configuration=injective_config,
+            trading_pairs=[self.trading_pair],
+        )
         self.data_source = InjectiveV2PerpetualAPIOrderBookDataSource(
             trading_pairs=[self.trading_pair],
             connector=self.connector,
-            data_source=injective_config.create_data_source(),
+            data_source=self.connector._data_source,
         )
 
+        self.initialize_trading_account_patch = patch(
+            "hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source"
+            ".InjectiveGranteeDataSource.initialize_trading_account"
+        )
+        self.initialize_trading_account_patch.start()
+
         self.query_executor = ProgrammableQueryExecutor()
-        # self.connector._data_source._query_executor = self.query_executor
-        self.data_source._data_source._query_executor = self.query_executor
+        self.connector._data_source._query_executor = self.query_executor
 
         self.log_records = []
         self._logs_event: Optional[asyncio.Event] = None
@@ -89,10 +94,11 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         self.data_source._data_source.logger().setLevel(1)
         self.data_source._data_source.logger().addHandler(self)
 
-        # self.connector._set_trading_pair_symbol_map(bidict({self.market_id: self.trading_pair}))
+        self.connector._set_trading_pair_symbol_map(bidict({self.market_id: self.trading_pair}))
 
     def tearDown(self) -> None:
         self.async_run_with_timeout(self.data_source._data_source.stop())
+        self.initialize_trading_account_patch.stop()
         for task in self.async_tasks:
             task.cancel()
         self.async_loop.stop()
