@@ -819,7 +819,7 @@ class InjectiveDataSource(ABC):
         market_id = await self.market_id_for_trading_pair(order.trading_pair)
         definition = self.composer.SpotOrder(
             market_id=market_id,
-            subaccount_id=str(self.portfolio_account_subaccount_index),
+            subaccount_id=self.portfolio_account_subaccount_id,
             fee_recipient=self.portfolio_account_injective_address,
             price=order.price,
             quantity=order.amount,
