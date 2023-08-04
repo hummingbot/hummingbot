@@ -25,12 +25,14 @@ class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
         self._funding_rates_responses = asyncio.Queue()
         self._oracle_prices_responses = asyncio.Queue()
         self._funding_payments_responses = asyncio.Queue()
+        self._derivative_positions_responses = asyncio.Queue()
 
         self._spot_order_book_updates = asyncio.Queue()
         self._public_spot_trade_updates = asyncio.Queue()
         self._derivative_order_book_updates = asyncio.Queue()
         self._public_derivative_trade_updates = asyncio.Queue()
         self._oracle_prices_updates = asyncio.Queue()
+        self._subaccount_positions_events = asyncio.Queue()
         self._subaccount_balance_events = asyncio.Queue()
         self._historical_spot_order_events = asyncio.Queue()
         self._historical_derivative_order_events = asyncio.Queue()
@@ -126,8 +128,12 @@ class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
         response = await self._funding_rates_responses.get()
         return response
 
-    async def get_funding_payments(self, market_id: str, limit: int) -> Dict[str, Any]:
+    async def get_funding_payments(self, subaccount_id: str, market_id: str, limit: int) -> Dict[str, Any]:
         response = await self._funding_payments_responses.get()
+        return response
+
+    async def get_derivative_positions(self, subaccount_id: str, skip: int) -> Dict[str, Any]:
+        response = await self._derivative_positions_responses.get()
         return response
 
     async def get_oracle_prices(
@@ -164,6 +170,11 @@ class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
         while True:
             next_update = await self._oracle_prices_updates.get()
             yield next_update
+
+    async def subaccount_positions_stream(self, subaccount_id: str):
+        while True:
+            next_event = await self._subaccount_positions_events.get()
+            yield next_event
 
     async def subaccount_balance_stream(self, subaccount_id: str):
         while True:

@@ -1,7 +1,10 @@
 import asyncio
 from collections import defaultdict
 from decimal import Decimal
+from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
+
+from async_timeout import timeout
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
 from hummingbot.connector.constants import FUNDING_FEE_POLL_INTERVAL, s_decimal_NaN
@@ -13,6 +16,7 @@ from hummingbot.connector.derivative.injective_v2_perpetual.injective_v2_perpetu
     InjectiveV2PerpetualAPIOrderBookDataSource,
 )
 from hummingbot.connector.derivative.injective_v2_perpetual.injective_v2_perpetual_utils import InjectiveConfigMap
+from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.exchange.injective_v2.injective_events import InjectiveEvent
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayPerpetualInFlightOrder
 from hummingbot.connector.gateway.gateway_order_tracker import GatewayOrderTracker
@@ -28,7 +32,7 @@ from hummingbot.core.data_type.perpetual_api_order_book_data_source import Perpe
 from hummingbot.core.data_type.trade_fee import TradeFeeBase, TradeFeeSchema
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.event.event_forwarder import EventForwarder
-from hummingbot.core.event.events import AccountEvent, BalanceUpdateEvent, MarketEvent
+from hummingbot.core.event.events import AccountEvent, BalanceUpdateEvent, MarketEvent, PositionUpdateEvent
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee
@@ -167,18 +171,6 @@ class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
             self._queued_orders_task.cancel()
             self._queued_orders_task = None
 
-    async def check_network(self) -> NetworkStatus:
-        """
-        Checks connectivity with the exchange using the API
-        """
-        try:
-            status = await self._data_source.check_network()
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            status = NetworkStatus.NOT_CONNECTED
-        return status
-
     def supported_order_types(self) -> List[OrderType]:
         return self._data_source.supported_order_types()
 
@@ -253,8 +245,79 @@ class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
         """
         safe_ensure_future(coro=self._execute_batch_cancel(orders_to_cancel=orders_to_cancel))
 
+    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
+        """
+        Cancels all currently active orders. The cancellations are performed in parallel tasks.
+
+        :param timeout_seconds: the maximum time (in seconds) the cancel logic should run
+
+        :return: a list of CancellationResult instances, one for each of the orders to be cancelled
+        """
+        incomplete_orders = {}
+        limit_orders = []
+        successful_cancellations = []
+
+        for order in self.in_flight_orders.values():
+            if not order.is_done:
+                incomplete_orders[order.client_order_id] = order
+                limit_orders.append(order.to_limit_order())
+
+        if len(limit_orders) > 0:
+            try:
+                async with timeout(timeout_seconds):
+                    cancellation_results = await self._execute_batch_cancel(orders_to_cancel=limit_orders)
+                    for cr in cancellation_results:
+                        if cr.success:
+                            del incomplete_orders[cr.order_id]
+                            successful_cancellations.append(CancellationResult(cr.order_id, True))
+            except Exception:
+                self.logger().network(
+                    "Unexpected error cancelling orders.",
+                    exc_info=True,
+                    app_warning_msg="Failed to cancel order. Check API key and network connection."
+                )
+        failed_cancellations = [CancellationResult(oid, False) for oid in incomplete_orders.keys()]
+        return successful_cancellations + failed_cancellations
+
+    async def check_network(self) -> NetworkStatus:
+        """
+        Checks connectivity with the exchange using the API
+        """
+        try:
+            status = await self._data_source.check_network()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            status = NetworkStatus.NOT_CONNECTED
+        return status
+
+    def trigger_event(self, event_tag: Enum, message: any):
+        # Reimplemented because Injective connector has trading pairs with modified token names, because market tickers
+        # are not always unique.
+        # We need to change the original trading pair in all events to the real tokens trading pairs to not impact the
+        # bot events processing
+        trading_pair = getattr(message, "trading_pair", None)
+        if trading_pair is not None:
+            new_trading_pair = self._data_source.real_tokens_perpetual_trading_pair(unique_trading_pair=trading_pair)
+            if isinstance(message, tuple):
+                message = message._replace(trading_pair=new_trading_pair)
+            else:
+                setattr(message, "trading_pair", new_trading_pair)
+
+        super().trigger_event(event_tag=event_tag, message=message)
+
     async def _update_positions(self):
-        raise NotImplementedError
+        positions = await self._data_source.account_positions()
+        current_positions = self._perpetual_trading.account_positions
+        for position_key in current_positions.keys():
+            self._perpetual_trading.remove_position(post_key=position_key)
+
+        for position in positions:
+            position_key = self._perpetual_trading.position_key(
+                trading_pair=position.trading_pair,
+                side=position.position_side,
+            )
+            self._perpetual_trading.set_position(pos_key=position_key, position=position)
 
     async def _trading_pair_position_mode_set(self, mode: PositionMode, trading_pair: str) -> Tuple[bool, str]:
         # Injective supports only one mode. It can't be changes in the chain
@@ -616,6 +679,35 @@ class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
                         self._account_balances[event_data.asset_name] = event_data.total_balance
                     if event_data.available_balance is not None:
                         self._account_available_balances[event_data.asset_name] = event_data.available_balance
+                elif channel == "position":
+                    position_update: PositionUpdateEvent = event_data
+                    position_key = self._perpetual_trading.position_key(
+                        position_update.trading_pair, position_update.position_side
+                    )
+                    if position_update.amount == Decimal("0"):
+                        self._perpetual_trading.remove_position(post_key=position_key)
+                    else:
+                        position: Position = self._perpetual_trading.get_position(
+                            trading_pair=position_update.trading_pair, side=position_update.position_side
+                        )
+                        if position is not None:
+                            position.update_position(
+                                position_side=position_update.position_side,
+                                unrealized_pnl=position_update.unrealized_pnl,
+                                entry_price=position_update.entry_price,
+                                amount=position_update.amount,
+                                leverage=position_update.leverage,
+                            )
+                        else:
+                            position = Position(
+                                trading_pair=position_update.trading_pair,
+                                position_side=position_update.position_side,
+                                unrealized_pnl=position_update.unrealized_pnl,
+                                entry_price=position_update.entry_price,
+                                amount=position_update.amount,
+                                leverage=position_update.leverage,
+                            )
+                            self._perpetual_trading.set_position(pos_key=position_key, position=position)
 
             except asyncio.CancelledError:
                 raise
@@ -623,7 +715,8 @@ class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
                 self.logger().exception("Unexpected error in user stream listener loop")
 
     async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
-        raise NotImplementedError
+        # Not used in Injective
+        raise NotImplementedError  # pragma: no cover
 
     async def _update_trading_rules(self):
         await self._data_source.update_markets()
@@ -818,6 +911,10 @@ class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
         self._forwarders.append(event_forwarder)
         self._data_source.add_listener(event_tag=AccountEvent.BalanceEvent, listener=event_forwarder)
 
+        event_forwarder = EventForwarder(to_function=self._process_position_event)
+        self._forwarders.append(event_forwarder)
+        self._data_source.add_listener(event_tag=AccountEvent.PositionUpdate, listener=event_forwarder)
+
         event_forwarder = EventForwarder(to_function=self._process_transaction_event)
         self._forwarders.append(event_forwarder)
         self._data_source.add_listener(event_tag=InjectiveEvent.ChainTransactionEvent, listener=event_forwarder)
@@ -826,6 +923,12 @@ class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
         self._last_received_message_timestamp = self._time()
         self._all_trading_events_queue.put_nowait(
             {"channel": "balance", "data": event}
+        )
+
+    def _process_position_event(self, event: BalanceUpdateEvent):
+        self._last_received_message_timestamp = self._time()
+        self._all_trading_events_queue.put_nowait(
+            {"channel": "position", "data": event}
         )
 
     def _process_user_order_update(self, order_update: OrderUpdate):

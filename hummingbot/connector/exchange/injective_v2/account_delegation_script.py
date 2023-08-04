@@ -12,9 +12,10 @@ GRANT_EXPIRATION_IN_DAYS = 365
 GRANTER_ACCOUNT_PRIVATE_KEY = ""
 GRANTER_SUBACCOUNT_INDEX = 0
 GRANTEE_PUBLIC_INJECTIVE_ADDRESS = ""
-MARKET_IDS = []
+SPOT_MARKET_IDS = []
+DERIVATIVE_MARKET_IDS = []
 # List of the ids of all the markets the grant will include, for example:
-# MARKET_IDS = ["0x0511ddc4e6586f3bfe1acb2dd905f8b8a82c97e1edaef654b12ca7e6031ca0fa"]  # noqa: mock
+# SPOT_MARKET_IDS = ["0x0511ddc4e6586f3bfe1acb2dd905f8b8a82c97e1edaef654b12ca7e6031ca0fa"]  # noqa: mock
 # Mainnet spot markets: https://lcd.injective.network/injective/exchange/v1beta1/spot/markets
 # Testnet spot markets: https://k8s.testnet.lcd.injective.network/injective/exchange/v1beta1/spot/markets
 
@@ -42,7 +43,8 @@ async def main() -> None:
         msg_type = "BatchUpdateOrdersAuthz",
         expire_in=GRANT_EXPIRATION_IN_DAYS * SECONDS_PER_DAY,
         subaccount_id=granter_subaccount_id,
-        spot_markets=MARKET_IDS,
+        spot_markets=SPOT_MARKET_IDS,
+        derivative_markets=DERIVATIVE_MARKET_IDS,
     )
 
     tx = (

@@ -56,6 +56,10 @@ class InjectiveDerivativeMarket:
     quote_token: InjectiveToken
     market_info: Dict[str, Any]
 
+    def base_token_symbol(self):
+        ticker_base, _ = self.market_info["ticker"].split("/")
+        return ticker_base
+
     def trading_pair(self):
         ticker_base, _ = self.market_info["ticker"].split("/")
         return combine_to_hb_trading_pair(ticker_base, self.quote_token.unique_symbol)

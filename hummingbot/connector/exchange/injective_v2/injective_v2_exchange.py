@@ -156,7 +156,7 @@ class InjectiveV2Exchange(ExchangePyBase):
             self._queued_orders_task = None
 
     def supported_order_types(self) -> List[OrderType]:
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+        return self._data_source.supported_order_types()
 
     def start_tracking_order(
         self,
@@ -277,7 +277,7 @@ class InjectiveV2Exchange(ExchangePyBase):
         # bot events processing
         trading_pair = getattr(message, "trading_pair", None)
         if trading_pair is not None:
-            new_trading_pair = self._data_source.real_tokens_trading_pair(unique_trading_pair=trading_pair)
+            new_trading_pair = self._data_source.real_tokens_spot_trading_pair(unique_trading_pair=trading_pair)
             if isinstance(message, tuple):
                 message = message._replace(trading_pair=new_trading_pair)
             else:
@@ -624,6 +624,16 @@ class InjectiveV2Exchange(ExchangePyBase):
         # Not used in Injective
         raise NotImplementedError  # pragma: no cover
 
+    async def _update_trading_rules(self):
+        await self._data_source.update_markets()
+        await self._initialize_trading_pair_symbol_map()
+        trading_rules_list = await self._data_source.all_trading_rules()
+        trading_rules = {}
+        for trading_rule in trading_rules_list:
+            trading_rules[trading_rule.trading_pair] = trading_rule
+        self._trading_rules.clear()
+        self._trading_rules.update(trading_rules)
+
     async def _update_balances(self):
         all_balances = await self._data_source.all_account_balances()
 
@@ -786,16 +796,6 @@ class InjectiveV2Exchange(ExchangePyBase):
         except Exception:
             self.logger().exception("There was an error requesting exchange info.")
         return exchange_info
-
-    async def _update_trading_rules(self):
-        await self._data_source.update_markets()
-        await self._initialize_trading_pair_symbol_map()
-        trading_rules_list = await self._data_source.all_trading_rules()
-        trading_rules = {}
-        for trading_rule in trading_rules_list:
-            trading_rules[trading_rule.trading_pair] = trading_rule
-        self._trading_rules.clear()
-        self._trading_rules.update(trading_rules)
 
     def _configure_event_forwarders(self):
         event_forwarder = EventForwarder(to_function=self._process_user_trade_update)

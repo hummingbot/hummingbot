@@ -29,6 +29,7 @@ FUNDING_PAYMENTS_LIMIT_ID = "FundingPayments"
 
 # Private limit ids
 PORTFOLIO_BALANCES_LIMIT_ID = "AccountPortfolio"
+POSITIONS_LIMIT_ID = "Positions"
 SPOT_ORDERS_HISTORY_LIMIT_ID = "SpotOrdersHistory"
 DERIVATIVE_ORDERS_HISTORY_LIMIT_ID = "DerivativeOrdersHistory"
 SPOT_TRADES_LIMIT_ID = "SpotTrades"
@@ -48,6 +49,7 @@ RATE_LIMITS = [
     RateLimit(limit_id=GET_TRANSACTION_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
     RateLimit(limit_id=GET_CHAIN_TRANSACTION_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
     RateLimit(limit_id=PORTFOLIO_BALANCES_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
+    RateLimit(limit_id=POSITIONS_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
     RateLimit(limit_id=SPOT_ORDERS_HISTORY_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
     RateLimit(limit_id=DERIVATIVE_ORDERS_HISTORY_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
     RateLimit(limit_id=SPOT_TRADES_LIMIT_ID, limit=NO_LIMIT, time_interval=ONE_SECOND),
