@@ -369,7 +369,7 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
     def _calculate_order_hashes(self, orders) -> List[str]:
         hash_manager = self.order_hash_manager()
         hash_manager_result = hash_manager.compute_order_hashes(
-            spot_orders=orders, derivative_orders=[], subaccount_index=self._grantee_subaccount_index
+            spot_orders=orders, derivative_orders=[], subaccount_index=self._granter_subaccount_index
         )
         return hash_manager_result.spot
 
