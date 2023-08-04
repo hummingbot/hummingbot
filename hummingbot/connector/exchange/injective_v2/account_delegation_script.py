@@ -15,6 +15,8 @@ GRANTEE_PUBLIC_INJECTIVE_ADDRESS = ""
 MARKET_IDS = []
 # List of the ids of all the markets the grant will include, for example:
 # MARKET_IDS = ["0x0511ddc4e6586f3bfe1acb2dd905f8b8a82c97e1edaef654b12ca7e6031ca0fa"]  # noqa: mock
+# Mainnet spot markets: https://lcd.injective.network/injective/exchange/v1beta1/spot/markets
+# Testnet spot markets: https://k8s.testnet.lcd.injective.network/injective/exchange/v1beta1/spot/markets
 
 # Fixed values, do not change
 SECONDS_PER_DAY = 60 * 60 * 24
