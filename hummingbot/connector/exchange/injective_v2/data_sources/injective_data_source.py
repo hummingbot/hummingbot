@@ -334,7 +334,6 @@ class InjectiveDataSource(ABC):
         return results
 
     async def cancel_orders(self, orders_to_cancel: List[GatewayInFlightOrder]) -> List[CancelOrderResult]:
-        composer = self.composer
         orders_with_hash = []
         orders_data = []
         results = []
@@ -347,14 +346,7 @@ class InjectiveDataSource(ABC):
                     not_found=True,
                 ))
             else:
-                market_id = await self.market_id_for_trading_pair(trading_pair=order.trading_pair)
-                order_data = composer.OrderData(
-                    market_id=market_id,
-                    subaccount_id=str(self.portfolio_account_subaccount_index),
-                    order_hash=order.exchange_order_id,
-                    order_direction="buy" if order.trade_type == TradeType.BUY else "sell",
-                    order_type="market" if order.order_type == OrderType.MARKET else "limit",
-                )
+                order_data = await self._generate_injective_order_data(order=order)
                 orders_data.append(order_data)
                 orders_with_hash.append(order)
 
@@ -524,6 +516,10 @@ class InjectiveDataSource(ABC):
 
     @abstractmethod
     def _order_cancel_message(self, spot_orders_to_cancel: List[injective_exchange_tx_pb.OrderData]) -> any_pb2.Any:
+        raise NotImplementedError
+
+    @abstractmethod
+    def _generate_injective_order_data(self, order: GatewayInFlightOrder) -> injective_exchange_tx_pb.OrderData:
         raise NotImplementedError
 
     @abstractmethod

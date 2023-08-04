@@ -23,7 +23,7 @@ from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlight
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
-from hummingbot.core.data_type.common import TradeType
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate
 from hummingbot.core.pubsub import PubSub
 from hummingbot.logger import HummingbotLogger
@@ -430,6 +430,18 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
             msgs=[message]
         )
         return delegated_message
+
+    async def _generate_injective_order_data(self, order: GatewayInFlightOrder) -> injective_exchange_tx_pb.OrderData:
+        market_id = await self.market_id_for_trading_pair(trading_pair=order.trading_pair)
+        order_data = self.composer.OrderData(
+            market_id=market_id,
+            subaccount_id=self.portfolio_account_subaccount_id,
+            order_hash=order.exchange_order_id,
+            order_direction="buy" if order.trade_type == TradeType.BUY else "sell",
+            order_type="market" if order.order_type == OrderType.MARKET else "limit",
+        )
+
+        return order_data
 
     def _place_order_results(
             self,
