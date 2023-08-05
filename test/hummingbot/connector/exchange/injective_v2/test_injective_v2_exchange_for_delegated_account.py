@@ -173,7 +173,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         return ("INVALID_MARKET", response)
 
     @property
-    def ƒ(self):
+    def network_status_request_successful_mock_response(self):
         return {}
 
     @property
@@ -425,6 +425,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     ) -> str:
         all_markets_mock_response = self.all_markets_mock_response
         self.exchange._data_source._query_executor._spot_markets_responses.put_nowait(all_markets_mock_response)
+        self.exchange._data_source._query_executor._derivative_markets_responses.put_nowait([])
         return ""
 
     def configure_trading_rules_response(
@@ -443,8 +444,8 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     ) -> List[str]:
 
         response = self.trading_rules_request_erroneous_mock_response
-        self.exchange._data_source._query_executor._spot_markets_responses = asyncio.Queue()
         self.exchange._data_source._query_executor._spot_markets_responses.put_nowait(response)
+        self.exchange._data_source._query_executor._derivative_markets_responses.put_nowait([])
         return ""
 
     def configure_successful_cancelation_response(self, order: InFlightOrder, mock_api: aioresponses,
@@ -1624,6 +1625,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
         invalid_pair, response = self.all_symbols_including_invalid_pair_mock_response
         self.exchange._data_source._query_executor._spot_markets_responses.put_nowait(response)
+        self.exchange._data_source._query_executor._derivative_markets_responses.put_nowait([])
 
         all_trading_pairs = self.async_run_with_timeout(coroutine=self.exchange.all_trading_pairs())
 
@@ -1670,6 +1672,8 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.assertEqual(self.expected_latest_price, latest_prices[self.trading_pair])
 
     def test_get_fee(self):
+        self.exchange._data_source._spot_market_and_trading_pair_map = None
+        self.exchange._data_source._derivative_market_and_trading_pair_map = None
         self.configure_all_symbols_response(mock_api=None)
         self.async_run_with_timeout(self.exchange._update_trading_fees())
 
@@ -1778,6 +1782,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     ) -> str:
         all_markets_mock_response = self.all_markets_mock_response
         self.exchange._data_source._query_executor._spot_markets_responses.put_nowait(all_markets_mock_response)
+        self.exchange._data_source._query_executor._derivative_markets_responses.put_nowait([])
         self.exchange._data_source._query_executor._account_portfolio_responses.put_nowait(response)
         return ""
 
