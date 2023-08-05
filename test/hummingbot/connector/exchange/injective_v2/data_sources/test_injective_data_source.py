@@ -100,6 +100,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
     def test_market_and_tokens_construction(self):
         spot_markets_response = self._spot_markets_response()
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
+        self.query_executor._derivative_markets_responses.put_nowait([])
 
         market_info = self._inj_usdt_market_info()
         inj_usdt_market: InjectiveSpotMarket = self.async_run_with_timeout(
@@ -146,6 +147,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
     def test_markets_initialization_generates_unique_trading_pairs_for_tokens_with_same_symbol(self):
         spot_markets_response = self._spot_markets_response()
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
+        self.query_executor._derivative_markets_responses.put_nowait([])
 
         inj_usdt_trading_pair = self.async_run_with_timeout(
             self.data_source.trading_pair_for_market(market_id=self._inj_usdt_market_info()["marketId"])
@@ -167,6 +169,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
     def test_markets_initialization_adds_different_tokens_having_same_symbol(self):
         spot_markets_response = self._spot_markets_response()
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
+        self.query_executor._derivative_markets_responses.put_nowait([])
 
         self.async_run_with_timeout(self.data_source.update_markets())
 
@@ -207,6 +210,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
     def test_markets_initialization_creates_one_instance_per_token(self):
         spot_markets_response = self._spot_markets_response()
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
+        self.query_executor._derivative_markets_responses.put_nowait([])
 
         inj_usdt_market: InjectiveSpotMarket = self.async_run_with_timeout(
             self.data_source.spot_market_info_for_id(self._inj_usdt_market_info()["marketId"])
@@ -407,6 +411,7 @@ class InjectiveVaultsDataSourceTests(TestCase):
     def test_order_creation_message_generation(self):
         spot_markets_response = self._spot_markets_response()
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
+        self.query_executor._derivative_markets_responses.put_nowait([])
 
         orders = []
         order = GatewayInFlightOrder(
@@ -480,6 +485,7 @@ class InjectiveVaultsDataSourceTests(TestCase):
     def test_order_cancel_message_generation(self):
         spot_markets_response = self._spot_markets_response()
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
+        self.query_executor._derivative_markets_responses.put_nowait([])
         market = self._inj_usdt_market_info()
 
         orders_data = []
