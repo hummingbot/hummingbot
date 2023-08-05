@@ -477,7 +477,6 @@ class InjectiveDataSource(ABC):
         spot_orders = spot_orders or []
         perpetual_orders = perpetual_orders or []
 
-        composer = self.composer
         orders_with_hash = []
         spot_orders_data = []
         derivative_orders_data = []
@@ -493,13 +492,7 @@ class InjectiveDataSource(ABC):
                     ))
                 else:
                     market_id = await self.market_id_for_spot_trading_pair(trading_pair=order.trading_pair)
-                    order_data = composer.OrderData(
-                        market_id=market_id,
-                        subaccount_id=str(self.portfolio_account_subaccount_index),
-                        order_hash=order.exchange_order_id,
-                        order_direction="buy" if order.trade_type == TradeType.BUY else "sell",
-                        order_type="market" if order.order_type == OrderType.MARKET else "limit",
-                    )
+                    order_data = await self._generate_injective_order_data(order=order, market_id=market_id)
                     spot_orders_data.append(order_data)
                     orders_with_hash.append(order)
 
@@ -512,14 +505,8 @@ class InjectiveDataSource(ABC):
                     ))
                 else:
                     market_id = await self.market_id_for_derivative_trading_pair(trading_pair=order.trading_pair)
-                    order_data = composer.OrderData(
-                        market_id=market_id,
-                        subaccount_id=str(self.portfolio_account_subaccount_index),
-                        order_hash=order.exchange_order_id,
-                        order_direction="buy" if order.trade_type == TradeType.BUY else "sell",
-                        order_type="market" if order.order_type == OrderType.MARKET else "limit",
-                    )
-                    spot_orders_data.append(order_data)
+                    order_data = await self._generate_injective_order_data(order=order, market_id=market_id)
+                    derivative_orders_data.append(order_data)
                     orders_with_hash.append(order)
 
             delegated_message = self._order_cancel_message(
@@ -788,6 +775,10 @@ class InjectiveDataSource(ABC):
             spot_orders_to_cancel: List[injective_exchange_tx_pb.OrderData],
             derivative_orders_to_cancel: List[injective_exchange_tx_pb.OrderData]
     ) -> any_pb2.Any:
+        raise NotImplementedError
+
+    @abstractmethod
+    def _generate_injective_order_data(self, order: GatewayInFlightOrder, market_id: str) -> injective_exchange_tx_pb.OrderData:
         raise NotImplementedError
 
     @abstractmethod
