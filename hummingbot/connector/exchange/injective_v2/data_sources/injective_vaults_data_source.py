@@ -463,6 +463,17 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
 
         return execute_contract_message
 
+    def _generate_injective_order_data(self, order: GatewayInFlightOrder, market_id: str) -> injective_exchange_tx_pb.OrderData:
+        order_data = self.composer.OrderData(
+            market_id=market_id,
+            subaccount_id=str(self.portfolio_account_subaccount_index),
+            order_hash=order.exchange_order_id,
+            order_direction="buy" if order.trade_type == TradeType.BUY else "sell",
+            order_type="market" if order.order_type == OrderType.MARKET else "limit",
+        )
+
+        return order_data
+
     async def _create_spot_order_definition(self, order: GatewayInFlightOrder):
         # Both price and quantity have to be adjusted because the vaults expect to receive those values without
         # the extra 18 zeros that the chain backend expectes for direct trading messages
