@@ -13,13 +13,13 @@ from hummingbot.core.event.events import (
     OrderFilledEvent,
 )
 from hummingbot.logger import HummingbotLogger
-from hummingbot.smart_components.position_executor.data_types import (
+from hummingbot.smart_components.executors.position_executor.data_types import (
     CloseType,
     PositionConfig,
     PositionExecutorStatus,
     TrailingStop,
 )
-from hummingbot.smart_components.position_executor.position_executor import PositionExecutor
+from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
