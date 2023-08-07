@@ -14,7 +14,7 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
 )
 from hummingbot.logger import HummingbotLogger
-from hummingbot.smart_components.position_executor.data_types import (
+from hummingbot.smart_components.executors.position_executor.data_types import (
     CloseType,
     PositionConfig,
     PositionExecutorStatus,

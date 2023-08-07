@@ -10,8 +10,8 @@ from hummingbot import data_path
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
-from hummingbot.smart_components.position_executor.data_types import PositionConfig, TrailingStop
-from hummingbot.smart_components.position_executor.position_executor import PositionExecutor
+from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig, TrailingStop
+from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
