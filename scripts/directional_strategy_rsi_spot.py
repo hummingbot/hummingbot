@@ -43,7 +43,7 @@ class RSISpot(DirectionalStrategyBase):
     # Define the trading pair and exchange that we want to use and the csv where we are going to store the entries
     trading_pair: str = "ETH-USDT"
     exchange: str = "binance"
-    order_amount_usd = Decimal("15")
+    order_amount_usd = Decimal("20")
     leverage = 10
 
     # Configure the parameters for the position
