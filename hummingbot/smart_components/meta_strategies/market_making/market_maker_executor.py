@@ -28,8 +28,7 @@ class MarketMaker(MetaExecutorBase):
         for order_level in self.ms.config.order_levels:
             current_executor = self.level_executors[order_level.level_id]
             if current_executor and current_executor.status == SmartComponentStatus.ACTIVE:
-                if self.ms.refresh_order_condition(current_executor, order_level) or \
-                        self.ms.early_stop_condition(current_executor):
+                if self.ms.refresh_order_condition(current_executor) or self.ms.early_stop_condition(current_executor):
                     current_executor.early_stop()
             else:
                 if not self.ms.cooldown_condition(current_executor):
