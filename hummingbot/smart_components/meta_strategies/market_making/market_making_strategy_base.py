@@ -1,3 +1,4 @@
+import time
 from typing import List
 
 from pydantic import BaseModel
@@ -53,14 +54,31 @@ class MarketMakingStrategyBase(MetaStrategyBase[MarketMakingStrategyConfigBase])
         """
         return all([candle.is_ready for candle in self.candles])
 
-    def refresh_order_condition(self, executor: PositionExecutor, order_level: OrderLevel) -> bool:
-        raise NotImplementedError
+    def refresh_order_condition(self, executor: PositionExecutor) -> bool:
+        """
+        Checks if the order needs to be refreshed.
+        You can reimplement this method to add more conditions.
+        """
+        if executor.position_config.timestamp + self.config.order_refresh_time > time.time():
+            return False
+        return True
 
     def early_stop_condition(self, executor: PositionExecutor) -> bool:
         raise NotImplementedError
 
     def cooldown_condition(self, executor: PositionExecutor) -> bool:
-        raise NotImplementedError
+        """
+        After finishing an order, the executor will be in cooldown for a certain amount of time.
+        This prevents the executor from creating a new order immediately after finishing one and execute a lot
+        of orders in a short period of time from the same side.
+        """
+        if executor.close_timestamp + self.config.cooldown_time > time.time():
+            return True
+        return False
 
     def get_position_config(self, order_level: OrderLevel) -> PositionConfig:
+        """
+        Creates a PositionConfig object from an OrderLevel object.
+        Here you can use technical indicators to determine the parameters of the position config.
+        """
         raise NotImplementedError
