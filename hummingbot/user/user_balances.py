@@ -32,15 +32,16 @@ class UserBalances:
             trading_pairs: List[str] = gateway_connector_trading_pairs(conn_setting.name)
 
             # collect unique trading pairs that are for balance reporting only
-            config: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(conn_setting.name)
-            if config is not None:
-                existing_pairs = set(flatten([x.split("-") for x in trading_pairs]))
+            if conn_setting.uses_gateway_generic_connector():
+                config: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(conn_setting.name)
+                if config is not None:
+                    existing_pairs = set(flatten([x.split("-") for x in trading_pairs]))
 
-                other_tokens: Set[str] = set(config.get("tokens", "").split(","))
-                other_tokens.discard("")
-                tokens: List[str] = [t for t in other_tokens if t not in existing_pairs]
-                if tokens != [""]:
-                    trading_pairs.append("-".join(tokens))
+                    other_tokens: Set[str] = set(config.get("tokens", "").split(","))
+                    other_tokens.discard("")
+                    tokens: List[str] = [t for t in other_tokens if t not in existing_pairs]
+                    if tokens != [""]:
+                        trading_pairs.append("-".join(tokens))
 
             connector = connector_class(**init_params)
         return connector
