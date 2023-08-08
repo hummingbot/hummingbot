@@ -239,7 +239,7 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
                 f"Invalid position action {position_action}. Must be one of {self.VALID_POSITION_ACTIONS}"
             )
 
-        await super()._create_order(
+        order_id, exchange_order_id = await super()._create_order(
             trade_type,
             order_id,
             trading_pair,
@@ -249,6 +249,8 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
             position_action=position_action,
             **kwargs,
         )
+
+        return order_id, exchange_order_id
 
     def get_fee(
         self,

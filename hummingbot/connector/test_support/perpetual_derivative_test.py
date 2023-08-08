@@ -159,12 +159,13 @@ class AbstractPerpetualDerivativeTests:
             self,
             amount: Decimal = Decimal("100"),
             price: Decimal = Decimal("10_000"),
+            order_type: OrderType = OrderType.LIMIT,
             position_action: PositionAction = PositionAction.OPEN,
         ):
             order_id = self.exchange.buy(
                 trading_pair=self.trading_pair,
                 amount=amount,
-                order_type=OrderType.LIMIT,
+                order_type=order_type,
                 price=price,
                 position_action=position_action,
             )
@@ -174,12 +175,13 @@ class AbstractPerpetualDerivativeTests:
             self,
             amount: Decimal = Decimal("100"),
             price: Decimal = Decimal("10_000"),
+            order_type: OrderType = OrderType.LIMIT,
             position_action: PositionAction = PositionAction.OPEN,
         ):
             order_id = self.exchange.sell(
                 trading_pair=self.trading_pair,
                 amount=amount,
-                order_type=OrderType.LIMIT,
+                order_type=order_type,
                 price=price,
                 position_action=position_action,
             )

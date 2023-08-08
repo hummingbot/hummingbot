@@ -187,7 +187,7 @@ class InjectiveV2Exchange(ExchangePyBase):
         """
         Issues a batch order creation as a single API request for exchanges that implement this feature. The default
         implementation of this method is to send the requests discretely (one by one).
-        :param orders_to_create: A list of LimitOrder objects representing the orders to create. The order IDs
+        :param orders_to_create: A list of LimitOrder or MarketOrder objects representing the orders to create. The order IDs
             can be blanc.
         :returns: A tuple composed of LimitOrder or MarketOrder objects representing the created orders, complete with the generated
             order IDs.

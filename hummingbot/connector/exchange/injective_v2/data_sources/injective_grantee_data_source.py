@@ -623,7 +623,8 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         for order in derivative_orders_to_create:
             if order.order_type == OrderType.MARKET:
                 market_id = await self.market_id_for_derivative_trading_pair(order.trading_pair)
-                creation_message = composer.MsgCreateSpotMarketOrder(
+                creation_message = composer.MsgCreateDerivativeMarketOrder(
+                    sender=self.portfolio_account_injective_address,
                     market_id=market_id,
                     subaccount_id=self.portfolio_account_subaccount_id,
                     fee_recipient=self.portfolio_account_injective_address,
@@ -650,12 +651,13 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         spot_order_hashes = market_spot_hashes + limit_spot_hashes
         derivative_order_hashes = market_derivative_hashes + limit_derivative_hashes
 
-        message = composer.MsgBatchUpdateOrders(
-            sender=self.portfolio_account_injective_address,
-            spot_orders_to_create=spot_order_definitions,
-            derivative_orders_to_create=derivative_order_definitions,
-        )
-        all_messages.append(message)
+        if len(limit_spot_hashes) > 0 or len(limit_derivative_hashes) > 0:
+            message = composer.MsgBatchUpdateOrders(
+                sender=self.portfolio_account_injective_address,
+                spot_orders_to_create=spot_order_definitions,
+                derivative_orders_to_create=derivative_order_definitions,
+            )
+            all_messages.append(message)
 
         delegated_message = composer.MsgExec(
             grantee=self.trading_account_injective_address,
