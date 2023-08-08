@@ -259,7 +259,7 @@ class AbstractExchangeConnectorTests:
                 self,
                 order: InFlightOrder,
                 mock_api: aioresponses,
-                callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+                callback: Optional[Callable] = lambda *args, **kwargs: None) -> List[str]:
             """
             :return: the URL configured
             """
@@ -281,7 +281,7 @@ class AbstractExchangeConnectorTests:
                 self,
                 order: InFlightOrder,
                 mock_api: aioresponses,
-                callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+                callback: Optional[Callable] = lambda *args, **kwargs: None) -> List[str]:
             """
             :return: the URL configured
             """
@@ -841,11 +841,12 @@ class AbstractExchangeConnectorTests:
             self.exchange.cancel(trading_pair=order.trading_pair, client_order_id=order.client_order_id)
             self.async_run_with_timeout(request_sent_event.wait())
 
-            cancel_request = self._all_executed_requests(mock_api, url)[0]
-            self.validate_auth_credentials_present(cancel_request)
-            self.validate_order_cancelation_request(
-                order=order,
-                request_call=cancel_request)
+            if url != "":
+                cancel_request = self._all_executed_requests(mock_api, url)[0]
+                self.validate_auth_credentials_present(cancel_request)
+                self.validate_order_cancelation_request(
+                    order=order,
+                    request_call=cancel_request)
 
             if self.exchange.is_cancel_request_in_exchange_synchronous:
                 self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
@@ -890,11 +891,12 @@ class AbstractExchangeConnectorTests:
             self.exchange.cancel(trading_pair=self.trading_pair, client_order_id=self.client_order_id_prefix + "1")
             self.async_run_with_timeout(request_sent_event.wait())
 
-            cancel_request = self._all_executed_requests(mock_api, url)[0]
-            self.validate_auth_credentials_present(cancel_request)
-            self.validate_order_cancelation_request(
-                order=order,
-                request_call=cancel_request)
+            if url != "":
+                cancel_request = self._all_executed_requests(mock_api, url)[0]
+                self.validate_auth_credentials_present(cancel_request)
+                self.validate_order_cancelation_request(
+                    order=order,
+                    request_call=cancel_request)
 
             self.assertEquals(0, len(self.order_cancelled_logger.event_log))
             self.assertTrue(
@@ -1038,7 +1040,7 @@ class AbstractExchangeConnectorTests:
             )
             order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
-            url = self.configure_completely_filled_order_status_response(
+            urls = self.configure_completely_filled_order_status_response(
                 order=order,
                 mock_api=mock_api,
                 callback=lambda *args, **kwargs: request_sent_event.set())
@@ -1055,22 +1057,24 @@ class AbstractExchangeConnectorTests:
             # Execute one more synchronization to ensure the async task that processes the update is finished
             self.async_run_with_timeout(request_sent_event.wait())
 
-            order_status_request = self._all_executed_requests(mock_api, url)[0]
-            self.validate_auth_credentials_present(order_status_request)
-            self.validate_order_status_request(
-                order=order,
-                request_call=order_status_request)
+            for url in (urls if isinstance(urls, list) else [urls]):
+                order_status_request = self._all_executed_requests(mock_api, url)[0]
+                self.validate_auth_credentials_present(order_status_request)
+                self.validate_order_status_request(
+                    order=order,
+                    request_call=order_status_request)
 
             self.async_run_with_timeout(order.wait_until_completely_filled())
             self.assertTrue(order.is_done)
 
             if self.is_order_fill_http_update_included_in_status_update:
                 self.assertTrue(order.is_filled)
-                trades_request = self._all_executed_requests(mock_api, trade_url)[0]
-                self.validate_auth_credentials_present(trades_request)
-                self.validate_trades_request(
-                    order=order,
-                    request_call=trades_request)
+                if trade_url:
+                    trades_request = self._all_executed_requests(mock_api, trade_url)[0]
+                    self.validate_auth_credentials_present(trades_request)
+                    self.validate_trades_request(
+                        order=order,
+                        request_call=trades_request)
 
                 fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
                 self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
@@ -1193,11 +1197,12 @@ class AbstractExchangeConnectorTests:
 
             self.async_run_with_timeout(self.exchange._update_order_status())
 
-            order_status_request = self._all_executed_requests(mock_api, url)[0]
-            self.validate_auth_credentials_present(order_status_request)
-            self.validate_order_status_request(
-                order=order,
-                request_call=order_status_request)
+            if url:
+                order_status_request = self._all_executed_requests(mock_api, url)[0]
+                self.validate_auth_credentials_present(order_status_request)
+                self.validate_order_status_request(
+                    order=order,
+                    request_call=order_status_request)
 
             self.assertTrue(order.is_open)
             self.assertFalse(order.is_filled)
@@ -1233,21 +1238,23 @@ class AbstractExchangeConnectorTests:
 
             self.async_run_with_timeout(self.exchange._update_order_status())
 
-            order_status_request = self._all_executed_requests(mock_api, order_url)[0]
-            self.validate_auth_credentials_present(order_status_request)
-            self.validate_order_status_request(
-                order=order,
-                request_call=order_status_request)
+            if order_url:
+                order_status_request = self._all_executed_requests(mock_api, order_url)[0]
+                self.validate_auth_credentials_present(order_status_request)
+                self.validate_order_status_request(
+                    order=order,
+                    request_call=order_status_request)
 
             self.assertTrue(order.is_open)
             self.assertEqual(OrderState.PARTIALLY_FILLED, order.current_state)
 
             if self.is_order_fill_http_update_included_in_status_update:
-                trades_request = self._all_executed_requests(mock_api, trade_url)[0]
-                self.validate_auth_credentials_present(trades_request)
-                self.validate_trades_request(
-                    order=order,
-                    request_call=trades_request)
+                if trade_url:
+                    trades_request = self._all_executed_requests(mock_api, trade_url)[0]
+                    self.validate_auth_credentials_present(trades_request)
+                    self.validate_trades_request(
+                        order=order,
+                        request_call=trades_request)
 
                 fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
                 self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
@@ -1299,11 +1306,12 @@ class AbstractExchangeConnectorTests:
             self.assertTrue(order.is_done)
 
             if self.is_order_fill_http_update_included_in_status_update:
-                trades_request = self._all_executed_requests(mock_api, trade_url)[0]
-                self.validate_auth_credentials_present(trades_request)
-                self.validate_trades_request(
-                    order=order,
-                    request_call=trades_request)
+                if trade_url:
+                    trades_request = self._all_executed_requests(mock_api, trade_url)[0]
+                    self.validate_auth_credentials_present(trades_request)
+                    self.validate_trades_request(
+                        order=order,
+                        request_call=trades_request)
 
             self.assertEqual(0, len(self.order_filled_logger.event_log))
 
@@ -1569,11 +1577,12 @@ class AbstractExchangeConnectorTests:
             self.assertTrue(order.is_failure)
 
             if self.is_order_fill_http_update_included_in_status_update:
-                trades_request = self._all_executed_requests(mock_api, trade_url)[0]
-                self.validate_auth_credentials_present(trades_request)
-                self.validate_trades_request(
-                    order=order,
-                    request_call=trades_request)
+                if trade_url:
+                    trades_request = self._all_executed_requests(mock_api, trade_url)[0]
+                    self.validate_auth_credentials_present(trades_request)
+                    self.validate_trades_request(
+                        order=order,
+                        request_call=trades_request)
 
                 fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
                 self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
@@ -1651,11 +1660,12 @@ class AbstractExchangeConnectorTests:
             self.async_run_with_timeout(self.exchange._cancel_lost_orders())
             self.async_run_with_timeout(request_sent_event.wait())
 
-            cancel_request = self._all_executed_requests(mock_api, url)[0]
-            self.validate_auth_credentials_present(cancel_request)
-            self.validate_order_cancelation_request(
-                order=order,
-                request_call=cancel_request)
+            if url:
+                cancel_request = self._all_executed_requests(mock_api, url)[0]
+                self.validate_auth_credentials_present(cancel_request)
+                self.validate_order_cancelation_request(
+                    order=order,
+                    request_call=cancel_request)
 
             if self.exchange.is_cancel_request_in_exchange_synchronous:
                 self.assertNotIn(order.client_order_id, self.exchange._order_tracker.lost_orders)
@@ -1698,11 +1708,12 @@ class AbstractExchangeConnectorTests:
             self.async_run_with_timeout(self.exchange._cancel_lost_orders())
             self.async_run_with_timeout(request_sent_event.wait())
 
-            cancel_request = self._all_executed_requests(mock_api, url)[0]
-            self.validate_auth_credentials_present(cancel_request)
-            self.validate_order_cancelation_request(
-                order=order,
-                request_call=cancel_request)
+            if url:
+                cancel_request = self._all_executed_requests(mock_api, url)[0]
+                self.validate_auth_credentials_present(cancel_request)
+                self.validate_order_cancelation_request(
+                    order=order,
+                    request_call=cancel_request)
 
             self.assertIn(order.client_order_id, self.exchange._order_tracker.lost_orders)
             self.assertEquals(0, len(self.order_cancelled_logger.event_log))
