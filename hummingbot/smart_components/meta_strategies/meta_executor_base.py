@@ -24,13 +24,14 @@ class MetaExecutorBase:
         self.status = MetaExecutorStatus.NOT_STARTED
 
     def start(self):
+        self.ms.start()
         safe_ensure_future(self.control_loop())
 
     def terminate_control_loop(self):
         self.terminated.set()
 
     def on_stop(self):
-        pass
+        self.ms.stop()
 
     def on_start(self):
         pass
