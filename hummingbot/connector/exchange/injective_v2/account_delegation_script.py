@@ -37,7 +37,25 @@ async def main() -> None:
     account = await client.get_account(granter_address.to_acc_bech32())  # noqa: F841
     granter_subaccount_id = granter_address.get_subaccount_id(index=GRANTER_SUBACCOUNT_INDEX)
 
-    msg = composer.MsgGrantTyped(
+    msg_spot_market = composer.MsgGrantTyped(
+        granter=granter_address.to_acc_bech32(),
+        grantee=GRANTEE_PUBLIC_INJECTIVE_ADDRESS,
+        msg_type="CreateSpotMarketOrderAuthz",
+        expire_in=GRANT_EXPIRATION_IN_DAYS * SECONDS_PER_DAY,
+        subaccount_id=granter_subaccount_id,
+        market_ids=SPOT_MARKET_IDS,
+    )
+
+    msg_derivative_market = composer.MsgGrantTyped(
+        granter=granter_address.to_acc_bech32(),
+        grantee=GRANTEE_PUBLIC_INJECTIVE_ADDRESS,
+        msg_type="CreateDerivativeMarketOrderAuthz",
+        expire_in=GRANT_EXPIRATION_IN_DAYS * SECONDS_PER_DAY,
+        subaccount_id=granter_subaccount_id,
+        market_ids=DERIVATIVE_MARKET_IDS,
+    )
+
+    msg_batch_update = composer.MsgGrantTyped(
         granter = granter_address.to_acc_bech32(),
         grantee = GRANTEE_PUBLIC_INJECTIVE_ADDRESS,
         msg_type = "BatchUpdateOrdersAuthz",
@@ -49,7 +67,7 @@ async def main() -> None:
 
     tx = (
         Transaction()
-        .with_messages(msg)
+        .with_messages(msg_spot_market, msg_derivative_market, msg_batch_update)
         .with_sequence(client.get_sequence())
         .with_account_num(client.get_number())
         .with_chain_id(NETWORK.chain_id)

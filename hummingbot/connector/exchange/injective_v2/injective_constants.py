@@ -70,3 +70,9 @@ ORDER_STATE_MAP = {
 
 ORDER_NOT_FOUND_ERROR_MESSAGE = "order not found"
 ACCOUNT_SEQUENCE_MISMATCH_ERROR = "account sequence mismatch"
+
+BATCH_UPDATE_ORDERS_MESSAGE_TYPE = "/injective.exchange.v1beta1.MsgBatchUpdateOrders"
+MARKET_ORDER_MESSAGE_TYPES = [
+    "/injective.exchange.v1beta1.MsgCreateSpotMarketOrder",
+    "/injective.exchange.v1beta1.MsgCreateDerivativeMarketOrder",
+]
