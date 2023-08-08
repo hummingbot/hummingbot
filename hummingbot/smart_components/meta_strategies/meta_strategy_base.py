@@ -13,6 +13,12 @@ class MetaStrategyBase(Generic[ConfigType]):
         self.config = config
         self.mode = mode
 
+    def start(self):
+        raise NotImplementedError
+
+    def stop(self):
+        raise NotImplementedError
+
     def get_csv_prefix(self) -> str:
         raise f"{self.config.strategy_name}"
 
