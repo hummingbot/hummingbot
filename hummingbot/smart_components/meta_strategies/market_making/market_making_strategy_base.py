@@ -17,13 +17,13 @@ class MarketMakingStrategyConfigBase(BaseModel):
     order_refresh_time: int = 60
     cooldown_time: int = 0
     order_levels: List[OrderLevel]
+    candles_config: List[CandlesConfig]
 
 
 class MarketMakingStrategyBase(MetaStrategyBase[MarketMakingStrategyConfigBase]):
-    def __init__(self, config: MarketMakingStrategyConfigBase, candles_config: List[CandlesConfig],
-                 mode: MetaStrategyMode = MetaStrategyMode.LIVE):
+    def __init__(self, config: MarketMakingStrategyConfigBase, mode: MetaStrategyMode = MetaStrategyMode.LIVE):
         super().__init__(config, mode)
-        self.candles = self.initialize_candles(candles_config)
+        self.candles = self.initialize_candles(config.candles_config)
 
     def initialize_candles(self, candles_config: List[CandlesConfig]):
         if self.mode == MetaStrategyMode.LIVE:
@@ -52,9 +52,6 @@ class MarketMakingStrategyBase(MetaStrategyBase[MarketMakingStrategyConfigBase])
         Checks if the candlesticks are full.
         """
         return all([candle.is_ready for candle in self.candles])
-
-    def get_order_levels(self) -> List[OrderLevel]:
-        raise NotImplementedError
 
     def refresh_order_condition(self, executor: PositionExecutor, order_level: OrderLevel) -> bool:
         raise NotImplementedError
