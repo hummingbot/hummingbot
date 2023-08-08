@@ -1,6 +1,6 @@
 from bidict import bidict
 
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState
 
 CONNECTOR_NAME = "xrpl"
@@ -10,7 +10,7 @@ MAX_ID_BIT_COUNT = MAX_ID_HEX_DIGITS * 4
 
 BASE_PATH_URL = {
     "mainnet": "https://xrplcluster.com/",
-    "testnet": "api.dexalot-test.com/privapi",
+    "testnet": "https://s.altnet.rippletest.net:51234/",
     "devnet": "https://s.devnet.rippletest.net:51234/",
     "amm-devnet": "https://amm.devnet.rippletest.net:51234/"
 }
@@ -22,8 +22,6 @@ WS_PATH_URL = {
     "amm-devnet": "wss://amm.devnet.rippletest.net:51233/	"
 }
 
-HEARTBEAT_TIME_INTERVAL = 30.0
-
 ORDER_SIDE_MAP = bidict(
     {
         "BUY": TradeType.BUY,
@@ -31,43 +29,14 @@ ORDER_SIDE_MAP = bidict(
     }
 )
 
-ORDER_TYPE_MAP = bidict(
-    {
-        0: OrderType.MARKET,
-        1: OrderType.LIMIT,
-        2: OrderType.LIMIT_MAKER,
-    }
-)
-
-HB_TO_DEXALOT_NUMERIC_STATUS_MAP = {
-    OrderState.OPEN: 0,
-    OrderState.FAILED: 1,
-    OrderState.PARTIALLY_FILLED: 2,
-    OrderState.FILLED: 3,
-    OrderState.CANCELED: 4,
-}
-HB_TO_DEXALOT_STATUS_MAP = {
-    OrderState.OPEN: "NEW",
-    OrderState.FAILED: "REJECTED",
-    OrderState.PARTIALLY_FILLED: "PARTIAL",
-    OrderState.FILLED: "FILLED",
-    OrderState.CANCELED: "CANCELED",
-}
-DEXALOT_TO_HB_NUMERIC_STATUS_MAP = {
-    0: OrderState.OPEN,
-    1: OrderState.FAILED,
-    2: OrderState.PARTIALLY_FILLED,
-    3: OrderState.FILLED,
-    4: OrderState.CANCELED,
-    6: OrderState.CANCELED,
-    7: OrderState.FILLED,
-}
 XRPL_TO_HB_STATUS_MAP = {
-    "NEW": OrderState.OPEN,
-    "REJECTED": OrderState.FAILED,
-    "PARTIAL": OrderState.PARTIALLY_FILLED,
+    "OPEN": OrderState.OPEN,
+    "PENDING_OPEN": OrderState.PENDING_CREATE,
+    "PENDING_CANCEL": OrderState.PENDING_CANCEL,
+    "OFFER_EXPIRED_OR_UNFUNDED": OrderState.CANCELED,
+    "UNKNOWN": OrderState.FAILED,
+    "FAILED": OrderState.FAILED,
+    "PARTIALLY_FILLED": OrderState.PARTIALLY_FILLED,
     "FILLED": OrderState.FILLED,
     "CANCELED": OrderState.CANCELED,
-    "KILLED": OrderState.FAILED,
-    "CANCEL_REJECT": OrderState.FILLED,
 }
