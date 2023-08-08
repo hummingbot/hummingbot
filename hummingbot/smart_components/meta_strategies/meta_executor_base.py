@@ -20,11 +20,14 @@ class MetaExecutorBase:
         self.ms = meta_strategy
         self.update_interval = update_interval
         self.terminated = asyncio.Event()
-        self.level_executors = {level.level_id: None for level in self.ms.get_order_levels()}
+        self.level_executors = {level.level_id: None for level in self.ms.config.order_levels}
         self.status = MetaExecutorStatus.NOT_STARTED
 
     def start(self):
         safe_ensure_future(self.control_loop())
+
+    def terminate_control_loop(self):
+        self.terminated.set()
 
     def on_stop(self):
         pass
@@ -64,9 +67,6 @@ class MetaExecutorBase:
             await asyncio.sleep(self.update_interval)
         self.status = MetaExecutorStatus.TERMINATED
         self.on_stop()
-
-    def terminate_control_loop(self):
-        self.terminated.set()
 
     def close_open_positions(self, connector_name: str = None, trading_pair: str = None):
         # we are going to close all the open positions when the bot stops
