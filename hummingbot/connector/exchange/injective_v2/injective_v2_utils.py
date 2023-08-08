@@ -153,7 +153,7 @@ class InjectiveCustomNetworkMode(InjectiveNetworkMode):
 
 
 NETWORK_MODES = {
-    InjectiveMainnetNetworkMode.Config.title: InjectiveNetworkMode,
+    InjectiveMainnetNetworkMode.Config.title: InjectiveMainnetNetworkMode,
     InjectiveTestnetNetworkMode.Config.title: InjectiveTestnetNetworkMode,
     InjectiveCustomNetworkMode.Config.title: InjectiveCustomNetworkMode,
 }
