@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from hummingbot.core.data_type.common import OrderType
 
 
-class MetaStrategyStatus(Enum):
+class MetaExecutorStatus(Enum):
     NOT_STARTED = 1
     ACTIVE = 2
     TERMINATED = 3
