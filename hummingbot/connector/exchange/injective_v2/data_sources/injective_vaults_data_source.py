@@ -399,7 +399,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         stream = self._query_executor.transactions_stream()
         return stream
 
-    async def _order_creation_message(
+    async def _order_creation_messages(
             self, spot_orders_to_create: List[GatewayInFlightOrder]
     ) -> Tuple[any_pb2.Any, List[str]]:
         composer = self.composer

@@ -425,21 +425,21 @@ class InjectiveVaultsDataSourceTests(TestCase):
         )
         orders.append(order)
 
-        message, order_hashes = self.async_run_with_timeout(
-            self.data_source._order_creation_message(spot_orders_to_create=orders)
+        messages, order_hashes = self.async_run_with_timeout(
+            self.data_source._order_creation_messages(spot_orders_to_create=orders)
         )
 
         pub_key = self._grantee_private_key.to_public_key()
         address = pub_key.to_address()
 
         self.assertEqual(0, len(order_hashes))
-        self.assertEqual(address.to_acc_bech32(), message.sender)
-        self.assertEqual(self._vault_address, message.contract)
+        self.assertEqual(address.to_acc_bech32(), messages[0].sender)
+        self.assertEqual(self._vault_address, messages[0].contract)
 
         market = self._inj_usdt_market_info()
         base_token_decimals = market["baseTokenMeta"]["decimals"]
         quote_token_meta = market["quoteTokenMeta"]["decimals"]
-        message_data = json.loads(message.msg.decode())
+        message_data = json.loads(messages[0].msg.decode())
 
         message_price = (order.price * Decimal(f"1e{quote_token_meta-base_token_decimals}")).normalize()
         message_quantity = (order.amount * Decimal(f"1e{base_token_decimals}")).normalize()

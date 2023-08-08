@@ -2,7 +2,7 @@ import asyncio
 from collections import defaultdict
 from decimal import Decimal
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 
 from async_timeout import timeout
 
@@ -27,6 +27,7 @@ from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.market_order import MarketOrder
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TradeFeeBase, TradeFeeSchema
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -182,13 +183,13 @@ class InjectiveV2Exchange(ExchangePyBase):
             )
         )
 
-    def batch_order_create(self, orders_to_create: List[LimitOrder]) -> List[LimitOrder]:
+    def batch_order_create(self, orders_to_create: List[Union[MarketOrder, LimitOrder]]) -> List[LimitOrder]:
         """
         Issues a batch order creation as a single API request for exchanges that implement this feature. The default
         implementation of this method is to send the requests discretely (one by one).
         :param orders_to_create: A list of LimitOrder objects representing the orders to create. The order IDs
             can be blanc.
-        :returns: A tuple composed of LimitOrder objects representing the created orders, complete with the generated
+        :returns: A tuple composed of LimitOrder or MarketOrder objects representing the created orders, complete with the generated
             order IDs.
         """
         orders_with_ids_to_create = []
@@ -199,20 +200,7 @@ class InjectiveV2Exchange(ExchangePyBase):
                 hbot_order_id_prefix=self.client_order_id_prefix,
                 max_id_len=self.client_order_id_max_length,
             )
-            orders_with_ids_to_create.append(
-                LimitOrder(
-                    client_order_id=client_order_id,
-                    trading_pair=order.trading_pair,
-                    is_buy=order.is_buy,
-                    base_currency=order.base_currency,
-                    quote_currency=order.quote_currency,
-                    price=order.price,
-                    quantity=order.quantity,
-                    filled_quantity=order.filled_quantity,
-                    creation_timestamp=order.creation_timestamp,
-                    status=order.status,
-                )
-            )
+            orders_with_ids_to_create.append(order.copy_with_id(client_order_id=client_order_id))
         safe_ensure_future(self._execute_batch_order_create(orders_to_create=orders_with_ids_to_create))
         return orders_with_ids_to_create
 
@@ -310,12 +298,66 @@ class InjectiveV2Exchange(ExchangePyBase):
         # Not required because of _place_order_and_process_update redefinition
         raise NotImplementedError
 
+    async def _create_order(self,
+                            trade_type: TradeType,
+                            order_id: str,
+                            trading_pair: str,
+                            amount: Decimal,
+                            order_type: OrderType,
+                            price: Optional[Decimal] = None,
+                            **kwargs):
+        """
+        Creates an order in the exchange using the parameters to configure it
+
+        :param trade_type: the side of the order (BUY of SELL)
+        :param order_id: the id that should be assigned to the order (the client id)
+        :param trading_pair: the token pair to operate with
+        :param amount: the order amount
+        :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
+        :param price: the order price
+        """
+        try:
+            if price is None:
+                calculated_price = self.get_price_for_volume(
+                    trading_pair=trading_pair,
+                    is_buy=trade_type == TradeType.BUY,
+                    volume=amount,
+                ).result_price
+                calculated_price = self.quantize_order_price(trading_pair, calculated_price)
+            else:
+                calculated_price = price
+
+            order_id, exchange_order_id = await super()._create_order(
+                trade_type=trade_type,
+                order_id=order_id,
+                trading_pair=trading_pair,
+                amount=amount,
+                order_type=order_type,
+                price=calculated_price,
+                ** kwargs
+            )
+
+        except asyncio.CancelledError:
+            raise
+        except Exception as ex:
+            self._on_order_failure(
+                order_id=order_id,
+                trading_pair=trading_pair,
+                amount=amount,
+                trade_type=trade_type,
+                order_type=order_type,
+                price=price,
+                exception=ex,
+                **kwargs,
+            )
+        return order_id, exchange_order_id
+
     async def _place_order_and_process_update(self, order: GatewayInFlightOrder, **kwargs) -> str:
         # Order creation requests for single orders are queued to be executed in batch if possible
         self._orders_queued_to_create.append(order)
         return None
 
-    async def _execute_batch_order_create(self, orders_to_create: List[LimitOrder]):
+    async def _execute_batch_order_create(self, orders_to_create: List[Union[MarketOrder, LimitOrder]]):
         inflight_orders_to_create = []
         for order in orders_to_create:
             valid_order = await self._start_tracking_and_validate_order(
@@ -323,7 +365,7 @@ class InjectiveV2Exchange(ExchangePyBase):
                 order_id=order.client_order_id,
                 trading_pair=order.trading_pair,
                 amount=order.quantity,
-                order_type=OrderType.LIMIT,
+                order_type=order.order_type(),
                 price=order.price,
             )
             if valid_order is not None:
@@ -382,8 +424,17 @@ class InjectiveV2Exchange(ExchangePyBase):
     ) -> Optional[GatewayInFlightOrder]:
         trading_rule = self._trading_rules[trading_pair]
 
-        if order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]:
-            price = self.quantize_order_price(trading_pair, price)
+        if price is None:
+            calculated_price = self.get_price_for_volume(
+                trading_pair=trading_pair,
+                is_buy=trade_type == TradeType.BUY,
+                volume=amount,
+            ).result_price
+            calculated_price = self.quantize_order_price(trading_pair, calculated_price)
+        else:
+            calculated_price = price
+
+        price = self.quantize_order_price(trading_pair, calculated_price)
         amount = self.quantize_order_amount(trading_pair=trading_pair, amount=amount)
 
         self.start_tracking_order(

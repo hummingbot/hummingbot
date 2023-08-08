@@ -439,13 +439,13 @@ class InjectiveDataSource(ABC):
         if len(spot_orders) > 0 or len(perpetual_orders) > 0:
             async with self.order_creation_lock:
 
-                order_creation_message, spot_order_hashes, derivative_order_hashes = await self._order_creation_message(
+                order_creation_messages, spot_order_hashes, derivative_order_hashes = await self._order_creation_messages(
                     spot_orders_to_create=spot_orders,
                     derivative_orders_to_create=perpetual_orders,
                 )
 
                 try:
-                    result = await self._send_in_transaction(message=order_creation_message)
+                    result = await self._send_in_transaction(messages=order_creation_messages)
                     if result["rawLog"] != "[]" or result["txhash"] in [None, ""]:
                         raise ValueError(f"Error sending the order creation transaction ({result['rawLog']})")
                     else:
@@ -515,7 +515,7 @@ class InjectiveDataSource(ABC):
             )
 
             try:
-                result = await self._send_in_transaction(message=delegated_message)
+                result = await self._send_in_transaction(messages=[delegated_message])
                 if result["rawLog"] != "[]":
                     raise ValueError(f"Error sending the order cancel transaction ({result['rawLog']})")
                 else:
@@ -762,11 +762,11 @@ class InjectiveDataSource(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def _order_creation_message(
+    async def _order_creation_messages(
             self,
             spot_orders_to_create: List[GatewayInFlightOrder],
             derivative_orders_to_create: List[GatewayPerpetualInFlightOrder],
-    ) -> Tuple[any_pb2.Any, List[str], List[str]]:
+    ) -> Tuple[List[any_pb2.Any], List[str], List[str]]:
         raise NotImplementedError
 
     @abstractmethod
@@ -940,9 +940,9 @@ class InjectiveDataSource(ABC):
 
         return parsed_event
 
-    async def _send_in_transaction(self, message: any_pb2.Any) -> Dict[str, Any]:
+    async def _send_in_transaction(self, messages: List[any_pb2.Any]) -> Dict[str, Any]:
         transaction = Transaction()
-        transaction.with_messages(message)
+        transaction.with_messages(*messages)
         transaction.with_sequence(await self.trading_account_sequence())
         transaction.with_account_num(await self.trading_account_number())
         transaction.with_chain_id(self.injective_chain_id)
@@ -1226,7 +1226,8 @@ class InjectiveDataSource(ABC):
             quantity=order.amount,
             leverage=order.leverage,
             is_buy=order.trade_type == TradeType.BUY,
-            is_po=order.order_type == OrderType.LIMIT_MAKER
+            is_po=order.order_type == OrderType.LIMIT_MAKER,
+            is_reduce_only = order.position == PositionAction.CLOSE,
         )
         return definition
 

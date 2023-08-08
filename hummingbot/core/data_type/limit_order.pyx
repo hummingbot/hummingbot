@@ -8,7 +8,7 @@ import pandas as pd
 from cpython cimport PyObject
 from libcpp.string cimport string
 
-from hummingbot.core.data_type.common import PositionAction
+from hummingbot.core.data_type.common import PositionAction, OrderType
 from hummingbot.core.event.events import LimitOrderStatus
 
 cdef class LimitOrder:
@@ -172,6 +172,24 @@ cdef class LimitOrder:
 
     def age_til(self, start_timestamp: int) -> int:
         return self.c_age_til(start_timestamp)
+
+    def order_type(self) -> OrderType:
+        return OrderType.LIMIT
+
+    def copy_with_id(self, client_order_id: str):
+        return LimitOrder(
+            client_order_id=client_order_id,
+            trading_pair=self.trading_pair,
+            is_buy=self.is_buy,
+            base_currency=self.base_currency,
+            quote_currency=self.quote_currency,
+            price=self.price,
+            quantity=self.quantity,
+            filled_quantity=self.filled_quantity,
+            creation_timestamp=self.creation_timestamp,
+            status=self.status,
+            position=self.position,
+        )
 
     def __repr__(self) -> str:
         return (f"LimitOrder('{self.client_order_id}', '{self.trading_pair}', {self.is_buy}, '{self.base_currency}', "

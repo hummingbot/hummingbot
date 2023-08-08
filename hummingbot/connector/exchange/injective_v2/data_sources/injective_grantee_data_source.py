@@ -27,7 +27,7 @@ from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlight
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate
 from hummingbot.core.pubsub import PubSub
 from hummingbot.logger import HummingbotLogger
@@ -255,7 +255,7 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         return self._order_hash_manager
 
     def supported_order_types(self) -> List[OrderType]:
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
     async def update_markets(self):
         self._tokens_map = {}
@@ -327,6 +327,7 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         transaction_orders = spot_orders + perpetual_orders
 
         order_updates = []
+        transaction_market_orders = []
         transaction_spot_orders = []
         transaction_derivative_orders = []
 
@@ -335,13 +336,17 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
 
         transaction_messages = json.loads(base64.b64decode(transaction_info["data"]["messages"]).decode())
         for message_info in transaction_messages[0]["value"]["msgs"]:
-            if message_info.get("@type") == "/injective.exchange.v1beta1.MsgBatchUpdateOrders":
+            if message_info.get("@type") in CONSTANTS.MARKET_ORDER_MESSAGE_TYPES:
+                transaction_market_orders.append(message_info["order"])
+            elif message_info.get("@type") == CONSTANTS.BATCH_UPDATE_ORDERS_MESSAGE_TYPE:
                 transaction_spot_orders.extend(message_info.get("spot_orders_to_create", []))
                 transaction_derivative_orders.extend(message_info.get("derivative_orders_to_create", []))
         transaction_data = str(base64.b64decode(transaction_info["data"]["data"]))
         order_hashes = re.findall(r"(0[xX][0-9a-fA-F]{64})", transaction_data)
 
-        for order_info, order_hash in zip(transaction_spot_orders + transaction_derivative_orders, order_hashes):
+        for order_info, order_hash in zip(
+                transaction_market_orders + transaction_spot_orders + transaction_derivative_orders, order_hashes
+        ):
             market_id = order_info["market_id"]
             if market_id in await self.spot_market_and_trading_pair_map():
                 market = await self.spot_market_info_for_id(market_id=market_id)
@@ -585,39 +590,79 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         stream = self._query_executor.transactions_stream()
         return stream
 
-    async def _order_creation_message(
+    async def _order_creation_messages(
             self,
             spot_orders_to_create: List[GatewayInFlightOrder],
             derivative_orders_to_create: List[GatewayPerpetualInFlightOrder],
-    ) -> Tuple[any_pb2.Any, List[str], List[str]]:
+    ) -> Tuple[List[any_pb2.Any], List[str], List[str]]:
         composer = self.composer
+        spot_market_order_definitions = []
+        derivative_market_order_definitions = []
         spot_order_definitions = []
         derivative_order_definitions = []
+        all_messages = []
 
         for order in spot_orders_to_create:
-            order_definition = await self._create_spot_order_definition(order=order)
-            spot_order_definitions.append(order_definition)
+            if order.order_type == OrderType.MARKET:
+                market_id = await self.market_id_for_spot_trading_pair(order.trading_pair)
+                creation_message = composer.MsgCreateSpotMarketOrder(
+                    sender=self.portfolio_account_injective_address,
+                    market_id=market_id,
+                    subaccount_id=self.portfolio_account_subaccount_id,
+                    fee_recipient=self.portfolio_account_injective_address,
+                    price=order.price,
+                    quantity=order.amount,
+                    is_buy=order.trade_type == TradeType.BUY,
+                )
+                spot_market_order_definitions.append(creation_message.order)
+                all_messages.append(creation_message)
+            else:
+                order_definition = await self._create_spot_order_definition(order=order)
+                spot_order_definitions.append(order_definition)
 
         for order in derivative_orders_to_create:
-            order_definition = await self._create_derivative_order_definition(order=order)
-            derivative_order_definitions.append(order_definition)
+            if order.order_type == OrderType.MARKET:
+                market_id = await self.market_id_for_derivative_trading_pair(order.trading_pair)
+                creation_message = composer.MsgCreateSpotMarketOrder(
+                    market_id=market_id,
+                    subaccount_id=self.portfolio_account_subaccount_id,
+                    fee_recipient=self.portfolio_account_injective_address,
+                    price=order.price,
+                    quantity=order.amount,
+                    leverage=order.leverage,
+                    is_buy=order.trade_type == TradeType.BUY,
+                    is_reduce_only=order.position == PositionAction.CLOSE,
+                )
+                derivative_market_order_definitions.append(creation_message.order)
+                all_messages.append(creation_message)
+            else:
+                order_definition = await self._create_derivative_order_definition(order=order)
+                derivative_order_definitions.append(order_definition)
 
-        spot_order_hashes, derivative_order_hashes = self._calculate_order_hashes(
+        market_spot_hashes, market_derivative_hashes = self._calculate_order_hashes(
+            spot_orders=spot_market_order_definitions,
+            derivative_orders=derivative_market_order_definitions,
+        )
+        limit_spot_hashes, limit_derivative_hashes = self._calculate_order_hashes(
             spot_orders=spot_order_definitions,
             derivative_orders=derivative_order_definitions,
         )
+        spot_order_hashes = market_spot_hashes + limit_spot_hashes
+        derivative_order_hashes = market_derivative_hashes + limit_derivative_hashes
 
         message = composer.MsgBatchUpdateOrders(
             sender=self.portfolio_account_injective_address,
             spot_orders_to_create=spot_order_definitions,
             derivative_orders_to_create=derivative_order_definitions,
         )
+        all_messages.append(message)
+
         delegated_message = composer.MsgExec(
             grantee=self.trading_account_injective_address,
-            msgs=[message]
+            msgs=all_messages
         )
 
-        return delegated_message, spot_order_hashes, derivative_order_hashes
+        return [delegated_message], spot_order_hashes, derivative_order_hashes
 
     def _order_cancel_message(
             self,

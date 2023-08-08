@@ -447,20 +447,28 @@ class AbstractExchangeConnectorTests:
             mock_api.get(url, body=json.dumps(response), callback=callback)
             return [url]
 
-        def place_buy_order(self, amount: Decimal = Decimal("100"), price: Decimal = Decimal("10_000")):
+        def place_buy_order(
+                self,
+                amount: Decimal = Decimal("100"),
+                price: Decimal = Decimal("10_000"),
+                order_type: OrderType = OrderType.LIMIT):
             order_id = self.exchange.buy(
                 trading_pair=self.trading_pair,
                 amount=amount,
-                order_type=OrderType.LIMIT,
+                order_type=order_type,
                 price=price,
             )
             return order_id
 
-        def place_sell_order(self, amount: Decimal = Decimal("100"), price: Decimal = Decimal("10_000")):
+        def place_sell_order(
+                self,
+                amount: Decimal = Decimal("100"),
+                price: Decimal = Decimal("10_000"),
+                order_type: OrderType = OrderType.LIMIT):
             order_id = self.exchange.sell(
                 trading_pair=self.trading_pair,
                 amount=amount,
-                order_type=OrderType.LIMIT,
+                order_type=order_type,
                 price=price,
             )
             return order_id
