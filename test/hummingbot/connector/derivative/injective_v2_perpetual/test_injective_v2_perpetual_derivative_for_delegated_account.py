@@ -33,6 +33,9 @@ from hummingbot.core.data_type.common import OrderType, PositionAction, Position
 from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.market_order import MarketOrder
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -358,7 +361,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     @property
     def expected_supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
     @property
     def expected_trading_rule(self):
@@ -903,6 +906,119 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             sell_order_to_create_in_flight.creation_transaction_hash,
             self.exchange.in_flight_orders[sell_order_to_create_in_flight.client_order_id].creation_transaction_hash
         )
+
+    def test_batch_order_create_with_one_market_order(self):
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._data_source._order_hash_manager = MagicMock(spec=OrderHashManager)
+        self.exchange._data_source._order_hash_manager.compute_order_hashes.return_value = OrderHashResponse(
+            spot=[], derivative=["hash1", "hash2"]
+        )
+
+        # Configure all symbols response to initialize the trading rules
+        self.configure_all_symbols_response(mock_api=None)
+        self.async_run_with_timeout(self.exchange._update_trading_rules())
+
+        order_book = OrderBook()
+        self.exchange.order_book_tracker._order_books[self.trading_pair] = order_book
+        order_book.apply_snapshot(
+            bids=[OrderBookRow(price=5000, amount=20, update_id=1)],
+            asks=[],
+            update_id=1,
+        )
+
+        buy_order_to_create = LimitOrder(
+            client_order_id="",
+            trading_pair=self.trading_pair,
+            is_buy=True,
+            base_currency=self.base_asset,
+            quote_currency=self.quote_asset,
+            price=Decimal("10"),
+            quantity=Decimal("2"),
+            position=PositionAction.OPEN,
+        )
+        sell_order_to_create = MarketOrder(
+            order_id="",
+            trading_pair=self.trading_pair,
+            is_buy=False,
+            base_asset=self.base_asset,
+            quote_asset=self.quote_asset,
+            amount=3,
+            timestamp=self.exchange.current_timestamp,
+            position=PositionAction.CLOSE,
+        )
+        orders_to_create = [buy_order_to_create, sell_order_to_create]
+
+        transaction_simulation_response = self._msg_exec_simulation_mock_response()
+        self.exchange._data_source._query_executor._simulate_transaction_responses.put_nowait(
+            transaction_simulation_response)
+
+        response = self.order_creation_request_successful_mock_response
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = partial(
+            self._callback_wrapper_with_response,
+            callback=lambda args, kwargs: request_sent_event.set(),
+            response=response
+        )
+        self.exchange._data_source._query_executor._send_transaction_responses = mock_queue
+
+        expected_price_for_volume = self.exchange.get_price_for_volume(
+            trading_pair=self.trading_pair,
+            is_buy=True,
+            volume=Decimal(str(sell_order_to_create.amount)),
+        ).result_price
+
+        orders: List[LimitOrder] = self.exchange.batch_order_create(orders_to_create=orders_to_create)
+
+        buy_order_to_create_in_flight = GatewayPerpetualInFlightOrder(
+            client_order_id=orders[0].client_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            creation_timestamp=1640780000,
+            price=orders[0].price,
+            amount=orders[0].quantity,
+            exchange_order_id="hash1",
+            creation_transaction_hash=response["txhash"],
+            position=PositionAction.OPEN
+        )
+        sell_order_to_create_in_flight = GatewayPerpetualInFlightOrder(
+            client_order_id=orders[1].order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.SELL,
+            creation_timestamp=1640780000,
+            price=expected_price_for_volume,
+            amount=orders[1].quantity,
+            exchange_order_id="hash2",
+            creation_transaction_hash=response["txhash"],
+            position=PositionAction.CLOSE
+        )
+
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        self.assertEqual(2, len(orders))
+        self.assertEqual(2, len(self.exchange.in_flight_orders))
+
+        self.assertIn(buy_order_to_create_in_flight.client_order_id, self.exchange.in_flight_orders)
+        self.assertIn(sell_order_to_create_in_flight.client_order_id, self.exchange.in_flight_orders)
+
+        self.assertEqual(
+            buy_order_to_create_in_flight.exchange_order_id,
+            self.exchange.in_flight_orders[buy_order_to_create_in_flight.client_order_id].exchange_order_id
+        )
+        self.assertEqual(
+            buy_order_to_create_in_flight.creation_transaction_hash,
+            self.exchange.in_flight_orders[buy_order_to_create_in_flight.client_order_id].creation_transaction_hash
+        )
+        self.assertEqual(
+            sell_order_to_create_in_flight.exchange_order_id,
+            self.exchange.in_flight_orders[sell_order_to_create_in_flight.client_order_id].exchange_order_id
+        )
+        self.assertEqual(
+            sell_order_to_create_in_flight.creation_transaction_hash,
+            self.exchange.in_flight_orders[sell_order_to_create_in_flight.client_order_id].creation_transaction_hash
+        )
     #
     # def test_create_order_with_invalid_position_action_raises_value_error(self):
     #     self._simulate_trading_rules_initialized()
@@ -997,6 +1113,106 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
         self.assertEqual("hash1", order.exchange_order_id)
         self.assertEqual(response["txhash"], order.creation_transaction_hash)
+
+    @aioresponses()
+    def test_create_buy_market_order_successfully(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._data_source._order_hash_manager = MagicMock(spec=OrderHashManager)
+        self.exchange._data_source._order_hash_manager.compute_order_hashes.return_value = OrderHashResponse(
+            spot=[], derivative=["hash1"]
+        )
+
+        order_book = OrderBook()
+        self.exchange.order_book_tracker._order_books[self.trading_pair] = order_book
+        order_book.apply_snapshot(
+            bids=[],
+            asks=[OrderBookRow(price=5000, amount=20, update_id=1)],
+            update_id=1,
+        )
+
+        transaction_simulation_response = self._msg_exec_simulation_mock_response()
+        self.exchange._data_source._query_executor._simulate_transaction_responses.put_nowait(
+            transaction_simulation_response)
+
+        response = self.order_creation_request_successful_mock_response
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = partial(
+            self._callback_wrapper_with_response,
+            callback=lambda args, kwargs: request_sent_event.set(),
+            response=response
+        )
+        self.exchange._data_source._query_executor._send_transaction_responses = mock_queue
+
+        order_amount = Decimal(1)
+        expected_price_for_volume = self.exchange.get_price_for_volume(
+            trading_pair=self.trading_pair,
+            is_buy=True,
+            volume=order_amount
+        ).result_price
+
+        order_id = self.place_buy_order(amount=order_amount, price=None, order_type=OrderType.MARKET)
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        self.assertEqual(1, len(self.exchange.in_flight_orders))
+        self.assertIn(order_id, self.exchange.in_flight_orders)
+
+        order = self.exchange.in_flight_orders[order_id]
+
+        self.assertEqual("hash1", order.exchange_order_id)
+        self.assertEqual(response["txhash"], order.creation_transaction_hash)
+        self.assertEqual(expected_price_for_volume, order.price)
+
+    @aioresponses()
+    def test_create_sell_market_order_successfully(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._data_source._order_hash_manager = MagicMock(spec=OrderHashManager)
+        self.exchange._data_source._order_hash_manager.compute_order_hashes.return_value = OrderHashResponse(
+            spot=[], derivative=["hash1"]
+        )
+
+        order_book = OrderBook()
+        self.exchange.order_book_tracker._order_books[self.trading_pair] = order_book
+        order_book.apply_snapshot(
+            bids=[OrderBookRow(price=5000, amount=20, update_id=1)],
+            asks=[],
+            update_id=1,
+        )
+
+        transaction_simulation_response = self._msg_exec_simulation_mock_response()
+        self.exchange._data_source._query_executor._simulate_transaction_responses.put_nowait(
+            transaction_simulation_response)
+
+        response = self.order_creation_request_successful_mock_response
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = partial(
+            self._callback_wrapper_with_response,
+            callback=lambda args, kwargs: request_sent_event.set(),
+            response=response
+        )
+        self.exchange._data_source._query_executor._send_transaction_responses = mock_queue
+
+        order_amount = Decimal(1)
+        expected_price_for_volume = self.exchange.get_price_for_volume(
+            trading_pair=self.trading_pair,
+            is_buy=False,
+            volume=order_amount
+        ).result_price
+
+        order_id = self.place_sell_order(amount=order_amount, price=None, order_type=OrderType.MARKET)
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        self.assertEqual(1, len(self.exchange.in_flight_orders))
+        self.assertIn(order_id, self.exchange.in_flight_orders)
+
+        order = self.exchange.in_flight_orders[order_id]
+
+        self.assertEqual("hash1", order.exchange_order_id)
+        self.assertEqual(response["txhash"], order.creation_transaction_hash)
+        self.assertEqual(expected_price_for_volume, order.price)
 
     @aioresponses()
     def test_create_order_fails_and_raises_failure_event(self, mock_api):
@@ -1278,7 +1494,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                                 {
                                     "market_id": self.market_id,
                                     "order_info": {
-                                        "subaccount_id": self.portfolio_account_subaccount_index,
+                                        "subaccount_id": self.portfolio_account_subaccount_id,
                                         "fee_recipient": self.portfolio_account_injective_address,
                                         "price": str(order.price * Decimal(f"1e{self.quote_decimals - self.base_decimals}")),
                                         "quantity": str((order.amount + Decimal(1)) * Decimal(f"1e{self.base_decimals}"))
@@ -1413,7 +1629,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                                 {
                                     "market_id": self.market_id,
                                     "order_info": {
-                                        "subaccount_id": self.portfolio_account_subaccount_index,
+                                        "subaccount_id": self.portfolio_account_subaccount_id,
                                         "fee_recipient": self.portfolio_account_injective_address,
                                         "price": str(
                                             hash_not_matching_order.price * Decimal(f"1e{self.quote_decimals}")),
