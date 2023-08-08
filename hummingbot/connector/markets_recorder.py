@@ -265,6 +265,9 @@ class MarketsRecorder:
                                             amount=Decimal(evt.amount),
                                             leverage=evt.leverage if evt.leverage else 1,
                                             price=Decimal(evt.price) if evt.price == evt.price else Decimal(0),
+                                            mid_price = market.get_price_by_type(evt.trading_pair, PriceType.MidPrice),
+                                            best_bid = market.get_price_by_type(evt.trading_pair, PriceType.BestBid),
+                                            best_ask = market.get_price_by_type(evt.trading_pair, PriceType.BestAsk),
                                             position=evt.position if evt.position else PositionAction.NIL.value,
                                             last_status=event_type.name,
                                             last_update_timestamp=timestamp,
@@ -326,6 +329,9 @@ class MarketsRecorder:
                     trade_type=evt.trade_type.name,
                     order_type=evt.order_type.name,
                     price=evt.price,
+                    mid_price = market.get_price_by_type(evt.trading_pair, PriceType.MidPrice),
+                    best_bid = market.get_price_by_type(evt.trading_pair, PriceType.BestBid),
+                    best_ask = market.get_price_by_type(evt.trading_pair, PriceType.BestAsk),
                     amount=evt.amount,
                     leverage=evt.leverage if evt.leverage else 1,
                     trade_fee=evt.trade_fee.to_json(),
@@ -398,10 +404,10 @@ class MarketsRecorder:
                              event_tag: int,
                              market: ConnectorBase,
                              evt: Union[OrderCancelledEvent,
-                                        MarketOrderFailureEvent,
-                                        BuyOrderCompletedEvent,
-                                        SellOrderCompletedEvent,
-                                        OrderExpiredEvent]):
+                             MarketOrderFailureEvent,
+                             BuyOrderCompletedEvent,
+                             SellOrderCompletedEvent,
+                             OrderExpiredEvent]):
         if threading.current_thread() != threading.main_thread():
             self._ev_loop.call_soon_threadsafe(self._update_order_status, event_tag, market, evt)
             return

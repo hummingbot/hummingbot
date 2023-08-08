@@ -35,7 +35,7 @@ def start(self):
             logging_options=strategy_logging_options,
             hb_app_notification=True,
             debug_csv_path=debug_csv_path,
-            is_debug=False
+            is_debug=True
         )
     except Exception as e:
         self.notify(str(e))

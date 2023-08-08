@@ -12,9 +12,9 @@ services:
       - ./logs:/home/hummingbot/logs
       - ./data:/home/hummingbot/data
       - ./scripts:/home/hummingbot/scripts
-    environment:
-      - CONFIG_PASSWORD=a
-      - CONFIG_FILE_NAME=directional_strategy_rsi.py
+    #environment:
+      #- CONFIG_PASSWORD=a
+      #- CONFIG_FILE_NAME=directional_strategy_rsi.py
     logging:
       driver: "json-file"
       options:
