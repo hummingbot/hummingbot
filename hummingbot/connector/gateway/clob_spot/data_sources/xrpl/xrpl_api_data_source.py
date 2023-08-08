@@ -1,11 +1,10 @@
 import asyncio
 from collections import defaultdict
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 from xrpl.clients import JsonRpcClient
-from xrpl.models import Tx
 
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.gateway.clob_spot.data_sources.gateway_clob_api_data_source_base import (
@@ -21,16 +20,15 @@ from hummingbot.connector.gateway.clob_spot.data_sources.xrpl.xrpl_constants imp
 )
 from hummingbot.connector.gateway.common_types import CancelOrderResult, PlaceOrderResult
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
-
-# from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import get_new_numeric_client_order_id
+from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_numeric_client_order_id
 
 # from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 
 # from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
-from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase, TradeFeeSchema
+from hummingbot.core.data_type.trade_fee import MakerTakerExchangeFeeRates, TokenAmount, TradeFeeBase, TradeFeeSchema
 from hummingbot.core.event.events import MarketEvent
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.tracking_nonce import NonceCreator
@@ -41,7 +39,7 @@ from hummingbot.core.utils.tracking_nonce import NonceCreator
 from hummingbot.logger import HummingbotLogger
 
 
-class XRPLAPIDataSource(GatewayCLOBAPIDataSourceBase):
+class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
     """An interface class to the XRPL blockchain.
     """
 
@@ -73,6 +71,10 @@ class XRPLAPIDataSource(GatewayCLOBAPIDataSourceBase):
     def connector_name(self) -> str:
         return CONNECTOR_NAME
 
+    @property
+    def events_are_streamed(self) -> bool:
+        return False
+
     async def start(self):
         await super().start()
 
@@ -80,7 +82,7 @@ class XRPLAPIDataSource(GatewayCLOBAPIDataSourceBase):
         await super().stop()
 
     def get_supported_order_types(self) -> List[OrderType]:
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+        return [OrderType.LIMIT]
 
     async def batch_order_create(self, orders_to_create: List[GatewayInFlightOrder]) -> List[PlaceOrderResult]:
         place_order_results = []
@@ -131,7 +133,8 @@ class XRPLAPIDataSource(GatewayCLOBAPIDataSourceBase):
                 exception = None
                 if misc_updates is None:
                     self.logger().error("The batch order cancel transaction failed.")
-                    exception = ValueError(f"The cancellation transaction has failed for order: {order.client_order_id}")
+                    exception = ValueError(
+                        f"The cancellation transaction has failed for order: {order.client_order_id}")
 
                 cancel_order_results.append(
                     CancelOrderResult(
@@ -169,13 +172,12 @@ class XRPLAPIDataSource(GatewayCLOBAPIDataSourceBase):
         )
         balances = defaultdict(dict)
 
-        for exchange_token in result["balances"]:
-            for currency, value in exchange_token.items():
-                client_token = self._hb_to_exchange_tokens_map.inverse[currency]
-                balance_value = Decimal(value)
-                if balance_value != 0:
-                    balances[client_token]["total_balance"] = balance_value
-                    balances[client_token]["available_balance"] = balance_value
+        for token, value in result["balances"].items():
+            client_token = self._hb_to_exchange_tokens_map.inverse[token]
+            balance_value = Decimal(value)
+            if balance_value != 0:
+                balances[client_token]["total_balance"] = balance_value
+                balances[client_token]["available_balance"] = balance_value
 
         return balances
 
@@ -183,7 +185,7 @@ class XRPLAPIDataSource(GatewayCLOBAPIDataSourceBase):
         await in_flight_order.get_creation_transaction_hash()
 
         if in_flight_order.exchange_order_id is None:
-            in_flight_order.exchange_order_id = self._get_exchange_order_id_from_transaction(
+            in_flight_order.exchange_order_id = await self._get_exchange_order_id_from_transaction(
                 in_flight_order=in_flight_order)
 
             if in_flight_order.exchange_order_id is None:
@@ -216,7 +218,8 @@ class XRPLAPIDataSource(GatewayCLOBAPIDataSourceBase):
             address=self._account_id,
             exchange_order_id=in_flight_order.exchange_order_id)
 
-        fill_datas = resp.get("associatedFills")
+        orders = resp.get("orders")
+        fill_datas = orders[0].get("associatedFills")
 
         trade_updates = []
         for fill_data in fill_datas:
@@ -244,11 +247,64 @@ class XRPLAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
         return trade_updates
 
-    def _get_exchange_order_id_from_transaction(self, in_flight_order: GatewayInFlightOrder) -> Optional[str]:
-        tx_request = Tx(transaction=in_flight_order.creation_transaction_hash)
-        tx_response = self._client.request(tx_request)
+    def _get_exchange_base_quote_tokens_from_market_info(self, market_info: Dict[str, Any]) -> Tuple[str, str]:
+        base = market_info["baseCurrency"]
+        quote = market_info["quoteCurrency"]
+        return base, quote
 
-        return tx_response.result.get('Sequence')
+    def _get_exchange_trading_pair_from_market_info(self, market_info: Dict[str, Any]) -> str:
+        exchange_trading_pair = f"{market_info['baseCurrency']}/{market_info['quoteCurrency']}"
+        return exchange_trading_pair
+
+    def _get_maker_taker_exchange_fee_rates_from_market_info(
+            self, market_info: Dict[str, Any]
+    ) -> MakerTakerExchangeFeeRates:
+        # Currently, there is no fee for trading on the XRPL dex
+        maker_taker_exchange_fee_rates = MakerTakerExchangeFeeRates(
+            maker=Decimal(0),
+            taker=Decimal(0),
+            maker_flat_fees=[],
+            taker_flat_fees=[],
+        )
+        return maker_taker_exchange_fee_rates
+
+    def _get_trading_pair_from_market_info(self, market_info: Dict[str, Any]) -> str:
+        base = market_info["baseCurrency"].upper()
+        quote = market_info["quoteCurrency"].upper()
+        trading_pair = combine_to_hb_trading_pair(base=base, quote=quote)
+        return trading_pair
+
+    def _parse_trading_rule(self, trading_pair: str, market_info: Dict[str, Any]) -> TradingRule:
+        base = market_info["baseCurrency"].upper()
+        quote = market_info["quoteCurrency"].upper()
+        return TradingRule(
+            trading_pair=combine_to_hb_trading_pair(base=base, quote=quote),
+            min_order_size=Decimal(f"1e-{market_info['baseTickSize']}"),
+            min_price_increment=Decimal(f"1e-{market_info['quoteTickSize']}"),
+            min_quote_amount_increment=Decimal(f"1e-{market_info['quoteTickSize']}"),
+            min_base_amount_increment=Decimal(f"1e-{market_info['baseTickSize']}"),
+            min_notional_size=Decimal(market_info["minimumOrderSize"]),
+            min_order_value=Decimal(market_info["minimumOrderSize"],
+                                    ))
+
+    def is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
+        return str(status_update_exception).startswith("No update found for order")
+
+    def is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
+        return False
+
+    async def _get_exchange_order_id_from_transaction(self, in_flight_order: GatewayInFlightOrder) -> Optional[str]:
+        resp = await self._get_gateway_instance().get_transaction_status(
+            chain=self._chain,
+            network=self._network,
+            transaction_hash=in_flight_order.creation_transaction_hash,
+            connector=self.connector_name,
+            address=self._account_id,
+        )
+
+        exchange_order_id = str(resp.get("sequence"))
+
+        return exchange_order_id
 
     async def _get_order_status_update_with_order_id(self, in_flight_order: InFlightOrder) -> Optional[OrderUpdate]:
         try:
@@ -268,28 +324,30 @@ class XRPLAPIDataSource(GatewayCLOBAPIDataSourceBase):
         if resp.get("orders") == "":
             raise ValueError(f"No update found for order {in_flight_order.exchange_order_id}.")
         else:
+            orders = resp.get("orders")
+
             status_update = OrderUpdate(
                 trading_pair=in_flight_order.trading_pair,
                 update_timestamp=pd.Timestamp(resp["timestamp"]).timestamp(),
-                new_state=XRPL_TO_HB_STATUS_MAP[resp[in_flight_order.exchange_order_id]["state"]],
+                new_state=XRPL_TO_HB_STATUS_MAP[orders[0]["state"]],
                 client_order_id=in_flight_order.client_order_id,
-                exchange_order_id=resp[in_flight_order.exchange_order_id]["hash"],
+                exchange_order_id=orders[0]["hash"],
             )
 
         return status_update
 
-    async def _get_ticker_data(self, trading_pair: str) -> List[Dict[str, Any]]:
+    async def _get_ticker_data(self, trading_pair: str) -> Dict[str, Any]:
         ticker_data = await self._get_gateway_instance().get_clob_ticker(
             connector=self.connector_name,
             chain=self._chain,
             network=self._network,
             trading_pair=trading_pair,
         )
-        return ticker_data["markets"]
+        return ticker_data["markets"][trading_pair]
 
-    def _get_last_trade_price_from_ticker_data(self, ticker_data: List[Dict[str, Any]]) -> Decimal:
-        # Get mid price from order book for now since there is no easy way to get last trade price from ticker data
-        raise NotImplementedError
+    def _get_last_trade_price_from_ticker_data(self, ticker_data: Dict[str, Any]) -> Decimal:
+        # Get mid-price from order book for now since there is no easy way to get last trade price from ticker data
+        return ticker_data["midprice"]
 
     @staticmethod
     def _xrpl_timestamp_to_timestamp(period_str: str) -> float:
