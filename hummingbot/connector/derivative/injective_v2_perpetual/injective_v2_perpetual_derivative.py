@@ -382,7 +382,7 @@ class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
             else:
                 calculated_price = price
 
-            order_id, exchange_order_id = await super()._create_order(
+            await super()._create_order(
                 trade_type=trade_type,
                 order_id=order_id,
                 trading_pair=trading_pair,
@@ -406,7 +406,6 @@ class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
                 exception=ex,
                 **kwargs,
             )
-        return order_id, exchange_order_id
 
     async def _place_order_and_process_update(self, order: GatewayPerpetualInFlightOrder, **kwargs) -> str:
         # Order creation requests for single orders are queued to be executed in batch if possible

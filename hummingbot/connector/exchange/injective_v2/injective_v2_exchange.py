@@ -327,7 +327,7 @@ class InjectiveV2Exchange(ExchangePyBase):
             else:
                 calculated_price = price
 
-            order_id, exchange_order_id = await super()._create_order(
+            await super()._create_order(
                 trade_type=trade_type,
                 order_id=order_id,
                 trading_pair=trading_pair,
@@ -350,7 +350,6 @@ class InjectiveV2Exchange(ExchangePyBase):
                 exception=ex,
                 **kwargs,
             )
-        return order_id, exchange_order_id
 
     async def _place_order_and_process_update(self, order: GatewayInFlightOrder, **kwargs) -> str:
         # Order creation requests for single orders are queued to be executed in batch if possible
