@@ -10,6 +10,19 @@ class MarketMakingExecutor(MetaExecutorBase):
         super().__init__(strategy, meta_strategy, update_interval)
         self.ms = meta_strategy
 
+    def on_stop(self):
+        super().on_stop()
+        self.close_open_positions(connector_name=self.ms.config.exchange, trading_pair=self.ms.config.trading_pair)
+
+    def on_start(self):
+        if self.ms.is_perpetual:
+            self.set_leverage_and_position_mode()
+
+    def set_leverage_and_position_mode(self):
+        connector = self.strategy.connectors[self.ms.config.exchange]
+        connector.set_position_mode(self.ms.config.position_mode)
+        connector.set_leverage(trading_pair=self.ms.config.trading_pair, leverage=self.ms.config.leverage)
+
     async def control_task(self):
         if self.ms.all_candles_ready:
             for order_level in self.ms.config.order_levels:
@@ -29,7 +42,8 @@ class MarketMakingExecutor(MetaExecutorBase):
         base_status = super().to_format_status()
         lines = []
         lines.extend(["\n################################## MarketMakingStrategy ##################################"])
-        lines.extend([f"""
-        Config: {self.ms.config.dict()}
-"""])
+        lines.extend(["Config:\n"])
+        for parameter, value in self.ms.config.dict().items():
+            if parameter != "order_levels":
+                lines.extend([f"     {parameter}: {value}"])
         return base_status + "\n".join(lines)
