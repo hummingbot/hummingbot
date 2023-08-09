@@ -20,3 +20,12 @@ class MetaStrategyBase(Generic[ConfigType]):
 
     def get_csv_prefix(self) -> str:
         return f"{self.config.strategy_name}"
+
+    def to_format_status(self):
+        lines = []
+        lines.extend(["\n################################ Meta Strategy Config ################################"])
+        lines.extend(["Config:\n"])
+        for parameter, value in self.config.dict().items():
+            if parameter not in ["order_levels", "candles_config"]:
+                lines.extend([f"     {parameter}: {value}"])
+        return lines
