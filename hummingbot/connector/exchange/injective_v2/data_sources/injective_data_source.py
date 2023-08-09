@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from decimal import Decimal
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from google.protobuf import any_pb2
 from pyinjective import Transaction
@@ -15,7 +15,11 @@ from pyinjective.composer import Composer, injective_exchange_tx_pb
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.exchange.injective_v2 import injective_constants as CONSTANTS
 from hummingbot.connector.exchange.injective_v2.injective_events import InjectiveEvent
-from hummingbot.connector.exchange.injective_v2.injective_market import InjectiveDerivativeMarket, InjectiveToken
+from hummingbot.connector.exchange.injective_v2.injective_market import (
+    InjectiveDerivativeMarket,
+    InjectiveSpotMarket,
+    InjectiveToken,
+)
 from hummingbot.connector.gateway.common_types import CancelOrderResult, PlaceOrderResult
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder, GatewayPerpetualInFlightOrder
 from hummingbot.connector.trading_rule import TradingRule
@@ -142,7 +146,11 @@ class InjectiveDataSource(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def all_markets(self):
+    async def spot_markets(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    async def derivative_markets(self):
         raise NotImplementedError
 
     @abstractmethod
@@ -265,26 +273,16 @@ class InjectiveDataSource(ABC):
     def remove_listener(self, event_tag: Enum, listener: EventListener):
         self.publisher.remove_listener(event_tag=event_tag, listener=listener)
 
-    async def all_trading_rules(self) -> List[TradingRule]:
-        all_markets = await self.all_markets()
-        trading_rules = []
+    async def spot_trading_rules(self) -> List[TradingRule]:
+        markets = await self.spot_markets()
+        trading_rules = self._create_trading_rules(markets=markets)
 
-        for market in all_markets:
-            try:
-                min_price_tick_size = market.min_price_tick_size()
-                min_quantity_tick_size = market.min_quantity_tick_size()
-                trading_rule = TradingRule(
-                    trading_pair=market.trading_pair(),
-                    min_order_size=min_quantity_tick_size,
-                    min_price_increment=min_price_tick_size,
-                    min_base_amount_increment=min_quantity_tick_size,
-                    min_quote_amount_increment=min_price_tick_size,
-                )
-                trading_rules.append(trading_rule)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().exception(f"Error parsing the trading pair rule: {market.market_info}. Skipping...")
+        return trading_rules
+
+    async def derivative_trading_rules(self) -> List[TradingRule]:
+        markets = await self.derivative_markets()
+        trading_rules = self._create_trading_rules(markets=markets)
+
         return trading_rules
 
     async def spot_order_book_snapshot(self, market_id: str, trading_pair: str) -> OrderBookMessage:
@@ -658,16 +656,15 @@ class InjectiveDataSource(ABC):
         await safe_gather(*transaction_wait_tasks, return_exceptions=True)
         self._reset_order_hash_manager()
 
-    async def get_trading_fees(self) -> Dict[str, TradeFeeSchema]:
-        markets = await self.all_markets()
-        fees = {}
-        for market in markets:
-            trading_pair = await self.trading_pair_for_market(market_id=market.market_id)
-            fees[trading_pair] = TradeFeeSchema(
-                percent_fee_token=market.quote_token.unique_symbol,
-                maker_percent_fee_decimal=market.maker_fee_rate(),
-                taker_percent_fee_decimal=market.taker_fee_rate(),
-            )
+    async def get_spot_trading_fees(self) -> Dict[str, TradeFeeSchema]:
+        markets = await self.spot_markets()
+        fees = await self._create_trading_fees(markets=markets)
+
+        return fees
+
+    async def get_derivative_trading_fees(self) -> Dict[str, TradeFeeSchema]:
+        markets = await self.derivative_markets()
+        fees = await self._create_trading_fees(markets=markets)
 
         return fees
 
@@ -1285,6 +1282,43 @@ class InjectiveDataSource(ABC):
             is_reduce_only = order.position == PositionAction.CLOSE,
         )
         return definition
+
+    def _create_trading_rules(
+            self, markets: List[Union[InjectiveSpotMarket, InjectiveDerivativeMarket]]
+    ) -> List[TradingRule]:
+        trading_rules = []
+        for market in markets:
+            try:
+                min_price_tick_size = market.min_price_tick_size()
+                min_quantity_tick_size = market.min_quantity_tick_size()
+                trading_rule = TradingRule(
+                    trading_pair=market.trading_pair(),
+                    min_order_size=min_quantity_tick_size,
+                    min_price_increment=min_price_tick_size,
+                    min_base_amount_increment=min_quantity_tick_size,
+                    min_quote_amount_increment=min_price_tick_size,
+                )
+                trading_rules.append(trading_rule)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().exception(f"Error parsing the trading pair rule: {market.market_info}. Skipping...")
+
+        return trading_rules
+
+    async def _create_trading_fees(
+            self, markets: List[Union[InjectiveSpotMarket, InjectiveDerivativeMarket]]
+    ) -> Dict[str, TradeFeeSchema]:
+        fees = {}
+        for market in markets:
+            trading_pair = await self.trading_pair_for_market(market_id=market.market_id)
+            fees[trading_pair] = TradeFeeSchema(
+                percent_fee_token=market.quote_token.unique_symbol,
+                maker_percent_fee_decimal=market.maker_fee_rate(),
+                taker_percent_fee_decimal=market.taker_fee_rate(),
+            )
+
+        return fees
 
     def _time(self):
         return time.time()
