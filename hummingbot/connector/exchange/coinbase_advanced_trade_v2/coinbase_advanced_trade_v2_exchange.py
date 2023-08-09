@@ -1,10 +1,12 @@
+import asyncio
 import decimal
 import inspect
 import logging
 import os
 from decimal import Decimal
+from functools import partial
 from os.path import join
-from typing import TYPE_CHECKING, Any, AsyncGenerator, Dict, Generator, Iterable, List, Optional, Tuple, cast
+from typing import TYPE_CHECKING, Any, AsyncGenerator, AsyncIterable, Dict, Generator, Iterable, List, Optional, Tuple
 
 from bidict import bidict
 
@@ -26,13 +28,11 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 
 from . import coinbase_advanced_trade_v2_constants as constants, coinbase_advanced_trade_v2_web_utils as web_utils
 from .coinbase_advanced_trade_v2_api_order_book_data_source import CoinbaseAdvancedTradeV2APIOrderBookDataSource
-from .coinbase_advanced_trade_v2_api_user_stream_data_source import (  # _StreamDataSource,
+from .coinbase_advanced_trade_v2_api_user_stream_data_source import (
     CoinbaseAdvancedTradeV2APIUserStreamDataSource,
     CoinbaseAdvancedTradeV2CumulativeUpdate,
 )
 from .coinbase_advanced_trade_v2_auth import CoinbaseAdvancedTradeV2Auth
-
-# from .coinbase_advanced_trade_v2_stream_data_source import _StreamTracker
 from .coinbase_advanced_trade_v2_utils import DEFAULT_FEES
 from .coinbase_advanced_trade_v2_web_utils import get_timestamp_from_exchange_time, set_exchange_time_from_timestamp
 
@@ -195,13 +195,23 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
             domain=self.domain,
             api_factory=self._web_assistants_factory)
 
+    # def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
+    #     return CoinbaseAdvancedTradeV2APIUserStreamDataSource(
+    #         auth=cast(CoinbaseAdvancedTradeV2Auth, self._auth),
+    #         trading_pairs=self._trading_pairs,
+    #         connector=self,
+    #         api_factory=self._web_assistants_factory,
+    #         domain=self.domain,
+    #     )
+
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
         return CoinbaseAdvancedTradeV2APIUserStreamDataSource(
-            auth=cast(CoinbaseAdvancedTradeV2Auth, self._auth),
-            trading_pairs=self._trading_pairs,
-            connector=self,
-            api_factory=self._web_assistants_factory,
-            domain=self.domain,
+            channels=("user",),
+            pairs=tuple(self._trading_pairs),
+            ws_factory=self._web_assistants_factory.get_ws_assistant,  # type: ignore
+            pair_to_symbol=partial(self.exchange_symbol_associated_to_pair),
+            symbol_to_pair=partial(self.trading_pair_associated_to_exchange_symbol),
+            heartbeat_channel="heartbeats",
         )
 
 #    def _create_stream_data_source(self) -> Dict[str, _StreamDataSource]:
@@ -588,6 +598,19 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
             fees: Dict[str, Any] = await self._api_get(path_url=constants.TRANSACTIONS_SUMMARY_EP,
                                                        is_auth_required=True)
         self._trading_fees = fees
+
+    async def _iter_user_event_queue(self) -> AsyncIterable[CoinbaseAdvancedTradeV2CumulativeUpdate]:
+        """
+        Called by _user_stream_event_listener.
+        """
+        while True:
+            try:
+                yield await self._user_stream_tracker.user_stream.get()
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().exception("Error while reading user events queue. Retrying in 1s.")
+                await self._sleep(1.0)
 
     async def _user_stream_event_listener(self):
         """
