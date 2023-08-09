@@ -19,4 +19,4 @@ class MetaStrategyBase(Generic[ConfigType]):
         raise NotImplementedError
 
     def get_csv_prefix(self) -> str:
-        raise f"{self.config.strategy_name}"
+        return f"{self.config.strategy_name}"
