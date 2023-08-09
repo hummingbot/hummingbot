@@ -29,11 +29,12 @@ class MarketMakingExecutor(MetaExecutorBase):
                 current_executor = self.level_executors[order_level.level_id]
                 if current_executor:
                     if current_executor.is_closed:
-                        if not self.ms.cooldown_condition(current_executor):
-                            self.store_executor(current_executor, order_level.level_id)
+                        if not self.ms.cooldown_condition(current_executor, order_level):
+                            self.store_executor(current_executor, order_level)
                     else:
-                        if self.ms.refresh_order_condition(current_executor) or self.ms.early_stop_condition(current_executor):
+                        if self.ms.refresh_order_condition(current_executor, order_level) \
+                                or self.ms.early_stop_condition(current_executor, order_level):
                             current_executor.early_stop()
                 else:
                     position_config = self.ms.get_position_config(order_level)
-                    self.create_executor(position_config, order_level.level_id)
+                    self.create_executor(position_config, order_level)

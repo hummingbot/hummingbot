@@ -3,7 +3,7 @@ from typing import Dict
 
 from hummingbot.connector.connector_base import ConnectorBase, TradeType
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
-from hummingbot.smart_components.meta_strategies.data_types import OrderLevel, TripleBarrierConf
+from hummingbot.smart_components.meta_strategies.data_types import MetaExecutorStatus, OrderLevel, TripleBarrierConf
 from hummingbot.smart_components.meta_strategies.market_making.market_making_executor import MarketMakingExecutor
 from hummingbot.smart_components.meta_strategies.market_making.strategies.dman_v1 import DMan, DManConfig
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
@@ -25,6 +25,8 @@ class MarketMakingDman(ScriptStrategyBase):
         order_levels=[
             OrderLevel(level=0, side=TradeType.BUY, order_amount_usd=Decimal(50),
                        spread_factor=Decimal(1), triple_barrier_conf=triple_barrier_conf),
+            OrderLevel(level=1, side=TradeType.BUY, order_amount_usd=Decimal(50),
+                       spread_factor=Decimal(1.5), triple_barrier_conf=triple_barrier_conf),
             OrderLevel(level=0, side=TradeType.SELL, order_amount_usd=Decimal(50),
                        spread_factor=Decimal(1), triple_barrier_conf=triple_barrier_conf),
             OrderLevel(level=1, side=TradeType.SELL, order_amount_usd=Decimal(50),
@@ -42,13 +44,17 @@ class MarketMakingDman(ScriptStrategyBase):
     def __init__(self, connectors: Dict[str, ConnectorBase]):
         super().__init__(connectors)
         self.mm_executor = MarketMakingExecutor(strategy=self, meta_strategy=self.meta_strategy)
-        self.mm_executor.start()
 
     def on_stop(self):
         self.mm_executor.terminate_control_loop()
 
     def on_tick(self):
-        pass
+        """
+        This shows you how you can start meta strategies. You can run more than one at the same time and based on the
+        market conditions, you can orchestrate from this script when to stop or start them.
+        """
+        if self.mm_executor.status == MetaExecutorStatus.NOT_STARTED:
+            self.mm_executor.start()
 
     def format_status(self) -> str:
         if not self.ready_to_trade:

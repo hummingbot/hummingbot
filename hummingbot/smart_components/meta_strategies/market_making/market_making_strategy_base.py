@@ -97,13 +97,13 @@ class MarketMakingStrategyBase(MetaStrategyBase[MarketMakingStrategyConfigBase])
         """
         return all([candle.is_ready for candle in self.candles])
 
-    def refresh_order_condition(self, executor: PositionExecutor) -> bool:
+    def refresh_order_condition(self, executor: PositionExecutor, order_level: OrderLevel) -> bool:
         raise NotImplementedError
 
-    def early_stop_condition(self, executor: PositionExecutor) -> bool:
+    def early_stop_condition(self, executor: PositionExecutor, order_level: OrderLevel) -> bool:
         raise NotImplementedError
 
-    def cooldown_condition(self, executor: PositionExecutor) -> bool:
+    def cooldown_condition(self, executor: PositionExecutor, order_level: OrderLevel) -> bool:
         raise NotImplementedError
 
     def get_position_config(self, order_level: OrderLevel) -> PositionConfig:
