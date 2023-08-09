@@ -42,7 +42,7 @@ class MetaExecutorBase:
 
     def get_csv_path(self) -> str:
         today = datetime.datetime.today()
-        csv_path = data_path() + f"{self.ms.get_csv_prefix()}/{today.day:02d}-{today.month:02d}-{today.year}.csv"
+        csv_path = data_path() + f"/{self.ms.get_csv_prefix()}_{today.day:02d}-{today.month:02d}-{today.year}.csv"
         return csv_path
 
     def store_executor(self, executor: PositionExecutor, order_level: str):
@@ -92,11 +92,15 @@ class MetaExecutorBase:
 
     def get_closed_executors_df(self):
         dfs = [pd.read_csv(file) for file in glob.glob(data_path() + self.ms.get_csv_prefix())]
-        return pd.concat(dfs)
+        if len(dfs) > 0:
+            return pd.concat(dfs)
+        return pd.DataFrame()
 
     def get_active_executors_df(self):
         executors = [executor.to_json() for executor in self.level_executors.values() if executor]
-        return pd.DataFrame(executors)
+        if executors:
+            return pd.DataFrame(executors)
+        return pd.DataFrame()
 
     @staticmethod
     def summarize_executors_df(executors_df):
