@@ -37,13 +37,3 @@ class MarketMakingExecutor(MetaExecutorBase):
                 else:
                     position_config = self.ms.get_position_config(order_level)
                     self.create_executor(position_config, order_level.level_id)
-
-    def to_format_status(self) -> str:
-        base_status = super().to_format_status()
-        lines = []
-        lines.extend(["\n################################## MarketMakingStrategy ##################################"])
-        lines.extend(["Config:\n"])
-        for parameter, value in self.ms.config.dict().items():
-            if parameter != "order_levels":
-                lines.extend([f"     {parameter}: {value}"])
-        return base_status + "\n".join(lines)
