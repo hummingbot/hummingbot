@@ -425,14 +425,17 @@ class InjectiveVaultsDataSourceTests(TestCase):
         )
         orders.append(order)
 
-        messages, order_hashes = self.async_run_with_timeout(
-            self.data_source._order_creation_messages(spot_orders_to_create=orders)
+        messages, spot_order_hashes, derivative_order_hashes = self.async_run_with_timeout(
+            self.data_source._order_creation_messages(
+                spot_orders_to_create=orders,
+                derivative_orders_to_create=[],
+            )
         )
 
         pub_key = self._grantee_private_key.to_public_key()
         address = pub_key.to_address()
 
-        self.assertEqual(0, len(order_hashes))
+        self.assertEqual(0, len(spot_order_hashes))
         self.assertEqual(address.to_acc_bech32(), messages[0].sender)
         self.assertEqual(self._vault_address, messages[0].contract)
 
@@ -498,7 +501,10 @@ class InjectiveVaultsDataSourceTests(TestCase):
         )
         orders_data.append(order_data)
 
-        message = self.data_source._order_cancel_message(spot_orders_to_cancel=orders_data)
+        message = self.data_source._order_cancel_message(
+            spot_orders_to_cancel=orders_data,
+            derivative_orders_to_cancel=[],
+        )
 
         pub_key = self._grantee_private_key.to_public_key()
         address = pub_key.to_address()

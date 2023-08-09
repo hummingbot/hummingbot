@@ -460,70 +460,6 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         )
         return market
 
-    async def _last_traded_price(self, market_id: str) -> Decimal:
-        price = Decimal("nan")
-        if market_id in await self.spot_market_and_trading_pair_map():
-            market = await self.spot_market_info_for_id(market_id=market_id)
-            async with self.throttler.execute_task(limit_id=CONSTANTS.SPOT_TRADES_LIMIT_ID):
-                trades_response = await self.query_executor.get_spot_trades(
-                    market_ids=[market_id],
-                    limit=1,
-                )
-            if len(trades_response["trades"]) > 0:
-                price = market.price_from_chain_format(
-                    chain_price=Decimal(trades_response["trades"][0]["price"]["price"]))
-
-        else:
-            market = await self.derivative_market_info_for_id(market_id=market_id)
-            async with self.throttler.execute_task(limit_id=CONSTANTS.DERIVATIVE_TRADES_LIMIT_ID):
-                trades_response = await self.query_executor.get_derivative_trades(
-                    market_ids=[market_id],
-                    limit=1,
-                )
-            if len(trades_response["trades"]) > 0:
-                price = market.price_from_chain_format(
-                    chain_price=Decimal(trades_response["trades"][0]["positionDelta"]["executionPrice"]))
-
-        return price
-
-    async def last_funding_rate(self, market_id: str) -> Decimal:
-        async with self.throttler.execute_task(limit_id=CONSTANTS.FUNDING_RATES_LIMIT_ID):
-            response = await self.query_executor.get_funding_rates(market_id=market_id, limit=1)
-        rate = Decimal(response["fundingRates"][0]["rate"])
-
-        return rate
-
-    async def last_funding_payment(self, market_id: str) -> Tuple[Decimal, float]:
-        async with self.throttler.execute_task(limit_id=CONSTANTS.FUNDING_PAYMENTS_LIMIT_ID):
-            response = await self.query_executor.get_funding_payments(
-                subaccount_id=self.portfolio_account_subaccount_id,
-                market_id=market_id,
-                limit=1
-            )
-
-        last_payment = Decimal(-1)
-        last_timestamp = 0
-        payments = response.get("payments", [])
-
-        if len(payments) > 0:
-            last_payment = Decimal(payments[0]["amount"])
-            last_timestamp = int(payments[0]["timestamp"]) * 1e-3
-
-        return last_payment, last_timestamp
-
-    async def _oracle_price(self, market_id: str) -> Decimal:
-        market = await self.derivative_market_info_for_id(market_id=market_id)
-        async with self.throttler.execute_task(limit_id=CONSTANTS.ORACLE_PRICES_LIMIT_ID):
-            response = await self.query_executor.get_oracle_prices(
-                base_symbol=market.oracle_base(),
-                quote_symbol=market.oracle_quote(),
-                oracle_type=market.oracle_type(),
-                oracle_scale_factor=0,
-            )
-        price = Decimal(response["price"])
-
-        return price
-
     async def _updated_derivative_market_info_for_id(self, market_id: str) -> InjectiveDerivativeMarket:
         async with self.throttler.execute_task(limit_id=CONSTANTS.DERIVATIVE_MARKETS_LIMIT_ID):
             market_info = await self._query_executor.derivative_market(market_id=market_id)
@@ -543,52 +479,6 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
             subaccount_index=self._granter_subaccount_index,
         )
         return hash_manager_result.spot, hash_manager_result.derivative
-
-    def _spot_order_book_updates_stream(self, market_ids: List[str]):
-        stream = self._query_executor.spot_order_book_updates_stream(market_ids=market_ids)
-        return stream
-
-    def _public_spot_trades_stream(self, market_ids: List[str]):
-        stream = self._query_executor.public_spot_trades_stream(market_ids=market_ids)
-        return stream
-
-    def _derivative_order_book_updates_stream(self, market_ids: List[str]):
-        stream = self._query_executor.derivative_order_book_updates_stream(market_ids=market_ids)
-        return stream
-
-    def _public_derivative_trades_stream(self, market_ids: List[str]):
-        stream = self._query_executor.public_derivative_trades_stream(market_ids=market_ids)
-        return stream
-
-    def _oracle_prices_stream(self, oracle_base: str, oracle_quote: str, oracle_type: str):
-        stream = self._query_executor.oracle_prices_stream(
-            oracle_base=oracle_base, oracle_quote=oracle_quote, oracle_type=oracle_type
-        )
-        return stream
-
-    def _subaccount_positions_stream(self):
-        stream = self._query_executor.subaccount_positions_stream(subaccount_id=self.portfolio_account_subaccount_id)
-        return stream
-
-    def _subaccount_balance_stream(self):
-        stream = self._query_executor.subaccount_balance_stream(subaccount_id=self.portfolio_account_subaccount_id)
-        return stream
-
-    def _subaccount_spot_orders_stream(self, market_id: str):
-        stream = self._query_executor.subaccount_historical_spot_orders_stream(
-            market_id=market_id, subaccount_id=self.portfolio_account_subaccount_id
-        )
-        return stream
-
-    def _subaccount_derivative_orders_stream(self, market_id: str):
-        stream = self._query_executor.subaccount_historical_derivative_orders_stream(
-            market_id=market_id, subaccount_id=self.portfolio_account_subaccount_id
-        )
-        return stream
-
-    def _transactions_stream(self):
-        stream = self._query_executor.transactions_stream()
-        return stream
 
     async def _order_creation_messages(
             self,
@@ -684,7 +574,7 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         )
         return delegated_message
 
-    async def _generate_injective_order_data(self, order: GatewayInFlightOrder, market_id: str) -> injective_exchange_tx_pb.OrderData:
+    def _generate_injective_order_data(self, order: GatewayInFlightOrder, market_id: str) -> injective_exchange_tx_pb.OrderData:
         order_data = self.composer.OrderData(
             market_id=market_id,
             subaccount_id=self.portfolio_account_subaccount_id,

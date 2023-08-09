@@ -397,7 +397,7 @@ cdef class PaperTradeExchange(ExchangeBase):
             string cpp_trading_pair_str = trading_pair_str.encode("utf8")
             string cpp_base_asset = base_asset.encode("utf8")
             string cpp_quote_asset = self._trading_pairs[trading_pair_str].quote_asset.encode("utf8")
-            string cpp_position = "NIL".encode("uft8")
+            string cpp_position = "NIL".encode("utf8")
             LimitOrdersIterator map_it
             SingleTradingPairLimitOrders *limit_orders_collection_ptr = NULL
             pair[LimitOrders.iterator, cppbool] insert_result

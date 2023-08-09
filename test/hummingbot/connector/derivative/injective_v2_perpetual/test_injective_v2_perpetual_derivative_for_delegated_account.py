@@ -1019,27 +1019,6 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             sell_order_to_create_in_flight.creation_transaction_hash,
             self.exchange.in_flight_orders[sell_order_to_create_in_flight.client_order_id].creation_transaction_hash
         )
-    #
-    # def test_create_order_with_invalid_position_action_raises_value_error(self):
-    #     self._simulate_trading_rules_initialized()
-    #
-    #     with self.assertRaises(ValueError) as exception_context:
-    #         asyncio.get_event_loop().run_until_complete(
-    #             self.exchange._create_order(
-    #                 trade_type=TradeType.BUY,
-    #                 order_id="C1",
-    #                 trading_pair=self.trading_pair,
-    #                 amount=Decimal("1"),
-    #                 order_type=OrderType.LIMIT,
-    #                 price=Decimal("46000"),
-    #                 position_action=PositionAction.NIL,
-    #             ),
-    #         )
-    #
-    #     self.assertEqual(
-    #         f"Invalid position action {PositionAction.NIL}. Must be one of {[PositionAction.OPEN, PositionAction.CLOSE]}",
-    #         str(exception_context.exception)
-    #     )
 
     @aioresponses()
     def test_create_buy_limit_order_successfully(self, mock_api):
