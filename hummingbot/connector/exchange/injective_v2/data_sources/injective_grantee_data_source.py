@@ -472,13 +472,20 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
             spot_orders: List[GatewayInFlightOrder],
             derivative_orders: [GatewayPerpetualInFlightOrder]
     ) -> Tuple[List[str], List[str]]:
-        hash_manager = self.order_hash_manager()
-        hash_manager_result = hash_manager.compute_order_hashes(
-            spot_orders=spot_orders,
-            derivative_orders=derivative_orders,
-            subaccount_index=self._granter_subaccount_index,
-        )
-        return hash_manager_result.spot, hash_manager_result.derivative
+        spot_hashes = []
+        derivative_hashes = []
+
+        if len(spot_orders) > 0 or len(derivative_orders) > 0:
+            hash_manager = self.order_hash_manager()
+            hash_manager_result = hash_manager.compute_order_hashes(
+                spot_orders=spot_orders,
+                derivative_orders=derivative_orders,
+                subaccount_index=self._granter_subaccount_index,
+            )
+            spot_hashes = hash_manager_result.spot
+            derivative_hashes = hash_manager_result.derivative
+
+        return spot_hashes, derivative_hashes
 
     async def _order_creation_messages(
             self,
