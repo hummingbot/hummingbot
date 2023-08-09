@@ -394,7 +394,7 @@ class PositionExecutor(SmartComponentBase):
             "net_pnl": self.net_pnl,
             "close_timestamp": self.close_timestamp,
             "executor_status": self.executor_status,
-            "close_type": self.close_type.name,
+            "close_type": self.close_type.name if self.close_type else None,
             "entry_price": self.entry_price,
             "close_price": self.close_price,
             "sl": self.position_config.stop_loss,
