@@ -16,16 +16,17 @@ class MarketMakingDman(ScriptStrategyBase):
         order_refresh_time=60,
         cooldown_time=15,
         order_levels=[
-            OrderLevel(level=0, side=TradeType.BUY, order_amount_usd=Decimal(15),
-                       spread_factor=Decimal(1), stop_loss=Decimal(0.02), take_profit=Decimal(0.02), time_limit=60 * 60 * 24,
-                       trailing_stop_activation_price_delta=Decimal(0.08), trailing_stop_trailing_delta=Decimal(0.02)),
-            OrderLevel(level=0, side=TradeType.SELL, order_amount_usd=Decimal(15),
-                       spread_factor=Decimal(1), stop_loss=Decimal(0.02), take_profit=Decimal(0.02), time_limit=60 * 60 * 24,
-                       trailing_stop_activation_price_delta=Decimal(0.08), trailing_stop_trailing_delta=Decimal(0.02)),
+            OrderLevel(level=0, side=TradeType.BUY, order_amount_usd=Decimal(50),
+                       spread_factor=Decimal(1), stop_loss=Decimal("0.02"), take_profit=Decimal("0.02"), time_limit=60 * 60 * 24,
+                       trailing_stop_activation_price_delta=Decimal("0.08"), trailing_stop_trailing_delta=Decimal("0.02")),
+            OrderLevel(level=0, side=TradeType.SELL, order_amount_usd=Decimal(50),
+                       spread_factor=Decimal(1), stop_loss=Decimal("0.02"), take_profit=Decimal("0.02"), time_limit=60 * 60 * 24,
+                       trailing_stop_activation_price_delta=Decimal("0.08"), trailing_stop_trailing_delta=Decimal("0.02")),
         ],
         candles_config=[
             CandlesConfig(connector="binance_perpetual", trading_pair="BTC-USDT", interval="3m", max_records=1000),
         ],
+        leverage=20
     )
     meta_strategy = DMan(config=config)
     empty_markets = {}
@@ -40,4 +41,6 @@ class MarketMakingDman(ScriptStrategyBase):
         pass
 
     def format_status(self) -> str:
-        self.mm_executor.to_format_status()
+        if not self.ready_to_trade:
+            return "Market connectors are not ready."
+        return self.mm_executor.to_format_status()
