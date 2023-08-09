@@ -31,6 +31,11 @@ class TripleBarrierConf(BaseModel):
     stop_loss_order_type: OrderType = OrderType.MARKET
     time_limit_order_type: OrderType = OrderType.MARKET
 
+    @validator("stop_loss", "take_profit", "trailing_stop_activation_price_delta", "trailing_stop_trailing_delta",
+               pre=True)
+    def float_to_decimal(cls, v):
+        return Decimal(v)
+
 
 class OrderLevel(BaseModel):
     level: int
@@ -43,7 +48,6 @@ class OrderLevel(BaseModel):
     def level_id(self):
         return f"{self.side.name}_{self.level}"
 
-    @validator("order_amount_usd", "spread_factor", "stop_loss", "take_profit",
-               "trailing_stop_activation_price_delta", "trailing_stop_trailing_delta", pre=True)
+    @validator("order_amount_usd", "spread_factor", pre=True)
     def float_to_decimal(cls, v):
         return Decimal(v)
