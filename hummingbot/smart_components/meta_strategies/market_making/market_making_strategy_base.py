@@ -1,4 +1,4 @@
-import time
+from decimal import Decimal
 from typing import List, Set
 
 from pydantic import BaseModel
@@ -33,6 +33,21 @@ class MarketMakingStrategyBase(MetaStrategyBase[MarketMakingStrategyConfigBase])
             return [CandlesFactory.get_candle(candles_config) for candles_config in candles_config]
         else:
             raise NotImplementedError
+
+    def get_close_price(self, connector: str, trading_pair: str):
+        """
+        Gets the close price of the last candlestick.
+        """
+        candles = self.get_candles_by_connector_trading_pair(connector, trading_pair)
+        first_candle = list(candles.values())[0]
+        return Decimal(first_candle.candles_df["close"].iloc[-1])
+
+    def get_price_and_spread_multiplier(self):
+        """
+        Gets the price and spread multiplier from the last candlestick.
+        """
+        candles_df = self.get_candles_with_price_and_spread_multipiers()
+        return Decimal(candles_df["price_multiplier"].iloc[-1]), Decimal(candles_df["spread_multiplier"].iloc[-1])
 
     def get_candles_dict(self) -> dict:
         candles = {candle.name: {} for candle in self.candles}
@@ -83,30 +98,20 @@ class MarketMakingStrategyBase(MetaStrategyBase[MarketMakingStrategyConfigBase])
         return all([candle.is_ready for candle in self.candles])
 
     def refresh_order_condition(self, executor: PositionExecutor) -> bool:
-        """
-        Checks if the order needs to be refreshed.
-        You can reimplement this method to add more conditions.
-        """
-        if executor.position_config.timestamp + self.config.order_refresh_time > time.time():
-            return False
-        return True
+        raise NotImplementedError
 
     def early_stop_condition(self, executor: PositionExecutor) -> bool:
         raise NotImplementedError
 
     def cooldown_condition(self, executor: PositionExecutor) -> bool:
-        """
-        After finishing an order, the executor will be in cooldown for a certain amount of time.
-        This prevents the executor from creating a new order immediately after finishing one and execute a lot
-        of orders in a short period of time from the same side.
-        """
-        if executor.position_config.timestamp + self.config.cooldown_time > time.time():
-            return True
-        return False
+        raise NotImplementedError
 
     def get_position_config(self, order_level: OrderLevel) -> PositionConfig:
         """
         Creates a PositionConfig object from an OrderLevel object.
         Here you can use technical indicators to determine the parameters of the position config.
         """
+        raise NotImplementedError
+
+    def get_candles_with_price_and_spread_multipiers(self):
         raise NotImplementedError
