@@ -3,6 +3,7 @@ from typing import List, Set
 
 from pydantic import BaseModel
 
+from hummingbot.core.data_type.common import PositionMode
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig, CandlesFactory
 from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
@@ -18,6 +19,8 @@ class MarketMakingStrategyConfigBase(BaseModel):
     cooldown_time: int = 0
     order_levels: List[OrderLevel]
     candles_config: List[CandlesConfig]
+    leverage: int = 10
+    position_mode: PositionMode = PositionMode.HEDGE
 
 
 class MarketMakingStrategyBase(MetaStrategyBase[MarketMakingStrategyConfigBase]):
@@ -97,7 +100,7 @@ class MarketMakingStrategyBase(MetaStrategyBase[MarketMakingStrategyConfigBase])
         This prevents the executor from creating a new order immediately after finishing one and execute a lot
         of orders in a short period of time from the same side.
         """
-        if executor.close_timestamp + self.config.cooldown_time > time.time():
+        if executor.position_config.timestamp + self.config.cooldown_time > time.time():
             return True
         return False
 
