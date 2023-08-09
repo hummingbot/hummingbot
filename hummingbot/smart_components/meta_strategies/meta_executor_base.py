@@ -91,7 +91,7 @@ class MetaExecutorBase:
                              position_action=PositionAction.CLOSE)
 
     def get_closed_executors_df(self):
-        dfs = [pd.read_csv(file) for file in glob.glob(data_path() + self.ms.get_csv_prefix())]
+        dfs = [pd.read_csv(file) for file in glob.glob(data_path() + f"/{self.ms.get_csv_prefix()}*")]
         if len(dfs) > 0:
             return pd.concat(dfs)
         return pd.DataFrame()
@@ -108,42 +108,40 @@ class MetaExecutorBase:
             net_pnl = executors_df["net_pnl"].sum()
             net_pnl_quote = executors_df["net_pnl_quote"].sum()
             total_executors = executors_df.shape[0]
-            total_volume = executors_df["amount"].sum() * 2
-            total_long = (executors_df["side"] == "BUY").sum()
-            total_short = (executors_df["side"] == "SELL").sum()
-            close_types = executors_df.groupby("close_type").count()
-            take_profit = (executors_df["close_type"] == "TAKE_PROFIT").sum()
-            stop_loss = (executors_df["close_type"] == "STOP_LOSS").sum()
-            time_limit = (executors_df["close_type"] == "TIME_LIMIT").sum()
-            expired = (executors_df["close_type"] == "EXPIRED").sum()
-            early_stop = (executors_df["close_type"] == "EARLY_STOP").sum()
+            executors_with_position = executors_df[executors_df["net_pnl"] != 0]
+            total_executors_with_position = executors_with_position.shape[0]
+            total_volume = executors_with_position["amount"].sum() * 2
+            total_long = (executors_with_position["side"] == "BUY").sum()
+            total_short = (executors_with_position["side"] == "SELL").sum()
+            correct_long = (executors_with_position["side"] == "BUY") & (executors_with_position["net_pnl"] > 0).sum()
+            correct_short = (executors_with_position["side"] == "SELL") & (executors_with_position["net_pnl"] > 0).sum()
+            accuracy_long = correct_long / total_long if total_long > 0 else 0
+            accuracy_short = correct_short / total_short if total_short > 0 else 0
+
+            close_types = executors_df.groupby("close_type")["timestamp"].count()
             return {
                 "net_pnl": net_pnl,
                 "net_pnl_quote": net_pnl_quote,
                 "total_executors": total_executors,
+                "total_executors_with_position": total_executors_with_position,
                 "total_volume": total_volume,
                 "total_long": total_long,
                 "total_short": total_short,
                 "close_types": close_types,
-                "take_profit": take_profit,
-                "stop_loss": stop_loss,
-                "time_limit": time_limit,
-                "expired": expired,
-                "early_stop": early_stop,
+                "accuracy_long": accuracy_long,
+                "accuracy_short": accuracy_short,
             }
         return {
             "net_pnl": 0,
             "net_pnl_quote": 0,
             "total_executors": 0,
+            "total_executors_with_position": 0,
             "total_volume": 0,
             "total_long": 0,
             "total_short": 0,
             "close_types": 0,
-            "take_profit": 0,
-            "stop_loss": 0,
-            "time_limit": 0,
-            "expired": 0,
-            "early_stop": 0,
+            "accuracy_long": 0,
+            "accuracy_short": 0,
         }
 
     def closed_executors_info(self):
@@ -159,7 +157,7 @@ class MetaExecutorBase:
         Base status for meta executors.
         """
         lines = []
-        lines.extend(["\n################################## Active Executors ##################################"])
+        lines.extend(["\n################################ Active Executors ################################"])
 
         for level_id, executor in self.level_executors.items():
             lines.extend([f"|Level: {level_id}"])
@@ -170,8 +168,24 @@ class MetaExecutorBase:
         lines.extend(["\n################################## Performance ##################################"])
         closed_executors_info = self.closed_executors_info()
         active_executors_info = self.active_executors_info()
+        unrealized_pnl = active_executors_info["net_pnl"]
+        realized_pnl = closed_executors_info["net_pnl"]
+        total_pnl = unrealized_pnl + realized_pnl
+        total_volume = closed_executors_info["total_volume"] + active_executors_info["total_volume"]
+        total_long = closed_executors_info["total_long"] + active_executors_info["total_long"]
+        total_short = closed_executors_info["total_short"] + active_executors_info["total_short"]
+        accuracy_long = closed_executors_info["accuracy_long"]
+        accuracy_short = closed_executors_info["accuracy_short"]
+        total_accuracy = (accuracy_long * total_long + accuracy_short * total_short) / (total_long + total_short)
         lines.extend([f"""
-Active executors: {active_executors_info["total_executors"]} | Unrealized PNL (%): {active_executors_info["net_pnl"]}
-Closed executors: {closed_executors_info["total_executors"]} | Realized PNL (%): {closed_executors_info["net_pnl"]}
+| Unrealized PNL (%): {unrealized_pnl} | Realized PNL (%): {realized_pnl} | Total PNL (%): {total_pnl} | Total Volume: {total_volume}
+| Total positions: {total_short + total_long} | Accuracy: {total_accuracy:.2%}
+| Long positions: {total_long} --> Accuracy: {accuracy_long:.2%}
+| Short positions: {total_short} --> Accuracy: {accuracy_short:.2%}
+
+Closed executors: {closed_executors_info["total_executors"]}
+{closed_executors_info["close_types"]}
 """])
+        lines.extend(self.ms.to_format_status())
+
         return "\n".join(lines)
