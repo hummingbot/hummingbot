@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import glob
 import os
 
 import pandas as pd
@@ -88,3 +89,85 @@ class MetaExecutorBase:
                              order_type=OrderType.MARKET,
                              price=connector.get_mid_price(position.trading_pair),
                              position_action=PositionAction.CLOSE)
+
+    def get_closed_executors_df(self):
+        dfs = [pd.read_csv(file) for file in glob.glob(data_path() + self.ms.get_csv_prefix())]
+        return pd.concat(dfs)
+
+    def get_active_executors_df(self):
+        executors = [executor.to_json() for executor in self.level_executors.values() if executor]
+        return pd.DataFrame(executors)
+
+    @staticmethod
+    def summarize_executors_df(executors_df):
+        if len(executors_df) > 0:
+            net_pnl = executors_df["net_pnl"].sum()
+            net_pnl_quote = executors_df["net_pnl_quote"].sum()
+            total_executors = executors_df.shape[0]
+            total_volume = executors_df["amount"].sum() * 2
+            total_long = (executors_df["side"] == "BUY").sum()
+            total_short = (executors_df["side"] == "SELL").sum()
+            close_types = executors_df.groupby("close_type").count()
+            take_profit = (executors_df["close_type"] == "TAKE_PROFIT").sum()
+            stop_loss = (executors_df["close_type"] == "STOP_LOSS").sum()
+            time_limit = (executors_df["close_type"] == "TIME_LIMIT").sum()
+            expired = (executors_df["close_type"] == "EXPIRED").sum()
+            early_stop = (executors_df["close_type"] == "EARLY_STOP").sum()
+            return {
+                "net_pnl": net_pnl,
+                "net_pnl_quote": net_pnl_quote,
+                "total_executors": total_executors,
+                "total_volume": total_volume,
+                "total_long": total_long,
+                "total_short": total_short,
+                "close_types": close_types,
+                "take_profit": take_profit,
+                "stop_loss": stop_loss,
+                "time_limit": time_limit,
+                "expired": expired,
+                "early_stop": early_stop,
+            }
+        return {
+            "net_pnl": 0,
+            "net_pnl_quote": 0,
+            "total_executors": 0,
+            "total_volume": 0,
+            "total_long": 0,
+            "total_short": 0,
+            "close_types": 0,
+            "take_profit": 0,
+            "stop_loss": 0,
+            "time_limit": 0,
+            "expired": 0,
+            "early_stop": 0,
+        }
+
+    def closed_executors_info(self):
+        closed_executors = self.get_closed_executors_df()
+        return self.summarize_executors_df(closed_executors)
+
+    def active_executors_info(self):
+        active_executors = self.get_active_executors_df()
+        return self.summarize_executors_df(active_executors)
+
+    def to_format_status(self) -> str:
+        """
+        Base status for meta executors.
+        """
+        lines = []
+        lines.extend(["\n################################## Active Executors ##################################"])
+
+        for level_id, executor in self.level_executors.items():
+            lines.extend([f"|Level: {level_id}"])
+            if executor:
+                lines.extend(executor.to_format_status())
+            else:
+                lines.extend(["|  No active executor."])
+        lines.extend(["\n################################## Performance ##################################"])
+        closed_executors_info = self.closed_executors_info()
+        active_executors_info = self.active_executors_info()
+        lines.extend([f"""
+Active executors: {active_executors_info["total_executors"]} | Unrealized PNL (%): {active_executors_info["net_pnl"]}
+Closed executors: {closed_executors_info["total_executors"]} | Realized PNL (%): {closed_executors_info["net_pnl"]}
+"""])
+        return "\n".join(lines)
