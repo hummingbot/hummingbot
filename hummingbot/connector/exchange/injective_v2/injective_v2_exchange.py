@@ -614,7 +614,7 @@ class InjectiveV2Exchange(ExchangePyBase):
         return fee
 
     async def _update_trading_fees(self):
-        self._trading_fees = await self._data_source.get_trading_fees()
+        self._trading_fees = await self._data_source.get_spot_trading_fees()
 
     async def _user_stream_event_listener(self):
         while True:
@@ -677,7 +677,7 @@ class InjectiveV2Exchange(ExchangePyBase):
     async def _update_trading_rules(self):
         await self._data_source.update_markets()
         await self._initialize_trading_pair_symbol_map()
-        trading_rules_list = await self._data_source.all_trading_rules()
+        trading_rules_list = await self._data_source.spot_trading_rules()
         trading_rules = {}
         for trading_rule in trading_rules_list:
             trading_rules[trading_rule.trading_pair] = trading_rule

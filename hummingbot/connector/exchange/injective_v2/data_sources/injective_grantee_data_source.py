@@ -208,13 +208,21 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
 
         return self._derivative_market_and_trading_pair_map.inverse[trading_pair]
 
-    async def all_markets(self):
-        if self._spot_market_and_trading_pair_map is None or self._derivative_market_and_trading_pair_map is None:
+    async def spot_markets(self):
+        if self._spot_market_and_trading_pair_map is None:
             async with self._markets_initialization_lock:
-                if self._spot_market_and_trading_pair_map is None or self._derivative_market_and_trading_pair_map is None:
+                if self._spot_market_and_trading_pair_map is None:
                     await self.update_markets()
 
-        return list(self._spot_market_info_map.values()) + list(self._derivative_market_info_map.values())
+        return list(self._spot_market_info_map.values())
+
+    async def derivative_markets(self):
+        if self._derivative_market_and_trading_pair_map is None:
+            async with self._markets_initialization_lock:
+                if self._derivative_market_and_trading_pair_map is None:
+                    await self.update_markets()
+
+        return list(self._derivative_market_info_map.values())
 
     async def token(self, denom: str) -> InjectiveToken:
         if self._tokens_map is None:
