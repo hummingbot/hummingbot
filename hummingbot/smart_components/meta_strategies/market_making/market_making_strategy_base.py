@@ -1,13 +1,12 @@
 import time
-from typing import List
+from typing import List, Set
 
 from pydantic import BaseModel
 
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig, CandlesFactory
 from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
-from hummingbot.smart_components.meta_strategies.data_types import OrderLevel
-from hummingbot.smart_components.meta_strategies.market_making.market_maker_executor import MetaStrategyMode
+from hummingbot.smart_components.meta_strategies.data_types import MetaStrategyMode, OrderLevel
 from hummingbot.smart_components.meta_strategies.meta_strategy_base import MetaStrategyBase
 
 
@@ -31,6 +30,32 @@ class MarketMakingStrategyBase(MetaStrategyBase[MarketMakingStrategyConfigBase])
             return [CandlesFactory.get_candle(candles_config) for candles_config in candles_config]
         else:
             raise NotImplementedError
+
+    def get_candles_dict(self) -> dict:
+        candles = {candle.name: {} for candle in self.candles}
+        for candle in self.candles:
+            candles[candle.name][candle.interval] = candle
+        return candles
+
+    def update_strategy_markets_dict(self, markets_dict: dict[str, Set] = {}):
+        if self.config.exchange not in markets_dict:
+            markets_dict[self.config.exchange] = {self.config.trading_pair}
+        else:
+            markets_dict[self.config.exchange].add(self.config.trading_pair)
+        return markets_dict
+
+    def get_candle(self, connector: str, trading_pair: str, interval: str):
+        """
+        Gets the candlestick with the given connector, trading pair and interval.
+        """
+        return self.get_candles_by_connector_trading_pair(connector, trading_pair)[interval]
+
+    def get_candles_by_connector_trading_pair(self, connector: str, trading_pair: str):
+        """
+        Gets all the candlesticks with the given connector and trading pair.
+        """
+        candle_name = f"{connector}_{trading_pair}"
+        return self.get_candles_dict()[candle_name]
 
     def start(self):
         for candle in self.candles:
