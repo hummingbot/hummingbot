@@ -10,7 +10,7 @@ from hummingbot.core.data_type.common import OrderType, PositionAction, Position
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
-from hummingbot.smart_components.meta_strategies.data_types import MetaExecutorStatus
+from hummingbot.smart_components.meta_strategies.data_types import MetaExecutorStatus, OrderLevel
 from hummingbot.smart_components.meta_strategies.meta_strategy_base import MetaStrategyBase
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
@@ -45,7 +45,7 @@ class MetaExecutorBase:
         csv_path = data_path() + f"/{self.ms.get_csv_prefix()}_{today.day:02d}-{today.month:02d}-{today.year}.csv"
         return csv_path
 
-    def store_executor(self, executor: PositionExecutor, order_level: str):
+    def store_executor(self, executor: PositionExecutor, order_level: OrderLevel):
         if executor:
             csv_path = self.get_csv_path()
             executor_data = executor.to_json()
@@ -55,11 +55,11 @@ class MetaExecutorBase:
                 df_header.to_csv(csv_path, mode='a', header=True, index=False)
             df = pd.DataFrame([executor_data])
             df.to_csv(csv_path, mode='a', header=False, index=False)
-            self.level_executors[order_level] = None
+            self.level_executors[order_level.level_id] = None
 
-    def create_executor(self, position_config: PositionConfig, order_level: str):
+    def create_executor(self, position_config: PositionConfig, order_level: OrderLevel):
         executor = PositionExecutor(self.strategy, position_config)
-        self.level_executors[order_level] = executor
+        self.level_executors[order_level.level_id] = executor
 
     async def control_loop(self):
         self.on_start()
@@ -176,12 +176,12 @@ class MetaExecutorBase:
         total_short = closed_executors_info["total_short"] + active_executors_info["total_short"]
         accuracy_long = closed_executors_info["accuracy_long"]
         accuracy_short = closed_executors_info["accuracy_short"]
-        total_accuracy = (accuracy_long * total_long + accuracy_short * total_short) / (total_long + total_short)
+        total_accuracy = (accuracy_long * total_long + accuracy_short * total_short) \
+            / (total_long + total_short) if (total_long + total_short) > 0 else 0
         lines.extend([f"""
 | Unrealized PNL (%): {unrealized_pnl} | Realized PNL (%): {realized_pnl} | Total PNL (%): {total_pnl} | Total Volume: {total_volume}
-| Total positions: {total_short + total_long} | Accuracy: {total_accuracy:.2%}
-| Long positions: {total_long} --> Accuracy: {accuracy_long:.2%}
-| Short positions: {total_short} --> Accuracy: {accuracy_short:.2%}
+| Total positions: {total_short + total_long} --> Accuracy: {total_accuracy:.2%}
+    | Long: {total_long} --> Accuracy: {accuracy_long:.2%} | Short: {total_short} --> Accuracy: {accuracy_short:.2%}
 
 Closed executors: {closed_executors_info["total_executors"]}
 {closed_executors_info["close_types"]}
