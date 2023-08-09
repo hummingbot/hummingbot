@@ -18,11 +18,7 @@ class MetaStrategyMode(Enum):
     LIVE = 2
 
 
-class OrderLevel(BaseModel):
-    level: int
-    side: TradeType
-    order_amount_usd: Decimal
-    spread_factor: Decimal
+class TripleBarrierConf(BaseModel):
     # Configure the parameters for the position
     stop_loss: Optional[Decimal]
     take_profit: Optional[Decimal]
@@ -34,6 +30,14 @@ class OrderLevel(BaseModel):
     take_profit_order_type: OrderType = OrderType.MARKET
     stop_loss_order_type: OrderType = OrderType.MARKET
     time_limit_order_type: OrderType = OrderType.MARKET
+
+
+class OrderLevel(BaseModel):
+    level: int
+    side: TradeType
+    order_amount_usd: Decimal
+    spread_factor: Decimal
+    triple_barrier_conf: TripleBarrierConf
 
     @property
     def level_id(self):
