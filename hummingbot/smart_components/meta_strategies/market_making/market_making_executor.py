@@ -12,7 +12,8 @@ class MarketMakingExecutor(MetaExecutorBase):
 
     def on_stop(self):
         super().on_stop()
-        self.close_open_positions(connector_name=self.ms.config.exchange, trading_pair=self.ms.config.trading_pair)
+        if self.ms.is_perpetual:
+            self.close_open_positions(connector_name=self.ms.config.exchange, trading_pair=self.ms.config.trading_pair)
 
     def on_start(self):
         if self.ms.is_perpetual:
