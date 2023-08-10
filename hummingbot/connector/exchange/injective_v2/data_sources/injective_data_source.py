@@ -5,6 +5,7 @@ import time
 from abc import ABC, abstractmethod
 from decimal import Decimal
 from enum import Enum
+from functools import partial
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
@@ -1032,28 +1033,28 @@ class InjectiveDataSource(ABC):
 
     async def _listen_to_spot_order_book_updates(self, market_ids: List[str]):
         await self._listen_stream_events(
-            stream=self._spot_order_book_updates_stream(market_ids=market_ids),
+            stream_provider=partial(self._spot_order_book_updates_stream, market_ids=market_ids),
             event_processor=self._process_order_book_update,
             event_name_for_errors="spot order book",
         )
 
     async def _listen_to_public_spot_trades(self, market_ids: List[str]):
         await self._listen_stream_events(
-            stream=self._public_spot_trades_stream(market_ids=market_ids),
+            stream_provider=partial(self._public_spot_trades_stream, market_ids=market_ids),
             event_processor=self._process_public_spot_trade_update,
             event_name_for_errors="public spot trade",
         )
 
     async def _listen_to_derivative_order_book_updates(self, market_ids: List[str]):
         await self._listen_stream_events(
-            stream=self._derivative_order_book_updates_stream(market_ids=market_ids),
+            stream_provider=partial(self._derivative_order_book_updates_stream, market_ids=market_ids),
             event_processor=self._process_order_book_update,
             event_name_for_errors="derivative order book",
         )
 
     async def _listen_to_public_derivative_trades(self, market_ids: List[str]):
         await self._listen_stream_events(
-            stream=self._public_derivative_trades_stream(market_ids=market_ids),
+            stream_provider=partial(self._public_derivative_trades_stream, market_ids=market_ids),
             event_processor=self._process_public_derivative_trade_update,
             event_name_for_errors="public derivative trade",
         )
@@ -1061,8 +1062,11 @@ class InjectiveDataSource(ABC):
     async def _listen_to_funding_info_updates(self, market_id: str):
         market = await self.derivative_market_info_for_id(market_id=market_id)
         await self._listen_stream_events(
-            stream=self._oracle_prices_stream(
-                oracle_base=market.oracle_base(), oracle_quote=market.oracle_quote(), oracle_type=market.oracle_type()
+            stream_provider=partial(
+                self._oracle_prices_stream,
+                oracle_base=market.oracle_base(),
+                oracle_quote=market.oracle_quote(),
+                oracle_type=market.oracle_type()
             ),
             event_processor=self._process_oracle_price_update,
             event_name_for_errors="funding info",
@@ -1071,42 +1075,49 @@ class InjectiveDataSource(ABC):
 
     async def _listen_to_positions_updates(self):
         await self._listen_stream_events(
-            stream=self._subaccount_positions_stream(),
+            stream_provider=self._subaccount_positions_stream,
             event_processor=self._process_position_update,
             event_name_for_errors="position",
         )
 
     async def _listen_to_account_balance_updates(self):
         await self._listen_stream_events(
-            stream=self._subaccount_balance_stream(),
+            stream_provider=self._subaccount_balance_stream,
             event_processor=self._process_subaccount_balance_update,
             event_name_for_errors="balance",
         )
 
     async def _listen_to_subaccount_spot_order_updates(self, market_id: str):
         await self._listen_stream_events(
-            stream=self._subaccount_spot_orders_stream(market_id=market_id),
+            stream_provider=partial(self._subaccount_spot_orders_stream, market_id=market_id),
             event_processor=self._process_subaccount_order_update,
             event_name_for_errors="subaccount spot order",
         )
 
     async def _listen_to_subaccount_derivative_order_updates(self, market_id: str):
         await self._listen_stream_events(
-            stream=self._subaccount_derivative_orders_stream(market_id=market_id),
+            stream_provider=partial(self._subaccount_derivative_orders_stream, market_id=market_id),
             event_processor=self._process_subaccount_order_update,
             event_name_for_errors="subaccount derivative order",
         )
 
     async def _listen_to_chain_transactions(self):
         await self._listen_stream_events(
-            stream = self._transactions_stream(),
+            stream_provider=self._transactions_stream,
             event_processor=self._process_transaction_update,
             event_name_for_errors="transaction",
         )
 
-    async def _listen_stream_events(self, stream, event_processor: Callable, event_name_for_errors: str, **kwargs):
+    async def _listen_stream_events(
+            self,
+            stream_provider: Callable,
+            event_processor: Callable,
+            event_name_for_errors: str,
+            **kwargs):
         while True:
+            self.logger().debug(f"Starting stream for {event_name_for_errors}")
             try:
+                stream = stream_provider()
                 async for event in stream:
                     try:
                         await event_processor(event, **kwargs)
@@ -1118,6 +1129,7 @@ class InjectiveDataSource(ABC):
                 raise
             except Exception as ex:
                 self.logger().error(f"Error while listening to {event_name_for_errors} stream, reconnecting ... ({ex})")
+            self.logger().debug(f"Reconnecting stream for {event_name_for_errors}")
 
     async def _process_order_book_update(self, order_book_update: Dict[str, Any]):
         market_id = order_book_update["marketId"]
