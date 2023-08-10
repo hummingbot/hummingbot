@@ -76,19 +76,19 @@ class MetaExecutorBase:
         for pos_key, position in connector.account_positions.items():
             if position.trading_pair == trading_pair:
                 if position.position_side == PositionSide.LONG:
-                    self.sell(connector_name=connector_name,
-                              trading_pair=position.trading_pair,
-                              amount=abs(position.amount),
-                              order_type=OrderType.MARKET,
-                              price=connector.get_mid_price(position.trading_pair),
-                              position_action=PositionAction.CLOSE)
+                    self.strategy.sell(connector_name=connector_name,
+                                       trading_pair=position.trading_pair,
+                                       amount=abs(position.amount),
+                                       order_type=OrderType.MARKET,
+                                       price=connector.get_mid_price(position.trading_pair),
+                                       position_action=PositionAction.CLOSE)
                 elif position.position_side == PositionSide.SHORT:
-                    self.buy(connector_name=connector_name,
-                             trading_pair=position.trading_pair,
-                             amount=abs(position.amount),
-                             order_type=OrderType.MARKET,
-                             price=connector.get_mid_price(position.trading_pair),
-                             position_action=PositionAction.CLOSE)
+                    self.strategy.buy(connector_name=connector_name,
+                                      trading_pair=position.trading_pair,
+                                      amount=abs(position.amount),
+                                      order_type=OrderType.MARKET,
+                                      price=connector.get_mid_price(position.trading_pair),
+                                      position_action=PositionAction.CLOSE)
 
     def get_closed_executors_df(self):
         dfs = [pd.read_csv(file) for file in glob.glob(data_path() + f"/{self.ms.get_csv_prefix()}*")]
@@ -171,9 +171,9 @@ class MetaExecutorBase:
         unrealized_pnl = active_executors_info["net_pnl"]
         realized_pnl = closed_executors_info["net_pnl"]
         total_pnl = unrealized_pnl + realized_pnl
-        total_volume = closed_executors_info["total_volume"] + active_executors_info["total_volume"]
-        total_long = closed_executors_info["total_long"] + active_executors_info["total_long"]
-        total_short = closed_executors_info["total_short"] + active_executors_info["total_short"]
+        total_volume = closed_executors_info["total_volume"] + float(active_executors_info["total_volume"])
+        total_long = closed_executors_info["total_long"] + float(active_executors_info["total_long"])
+        total_short = closed_executors_info["total_short"] + float(active_executors_info["total_short"])
         accuracy_long = closed_executors_info["accuracy_long"]
         accuracy_short = closed_executors_info["accuracy_short"]
         total_accuracy = (accuracy_long * total_long + accuracy_short * total_short) \
