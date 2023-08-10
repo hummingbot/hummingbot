@@ -13,17 +13,20 @@ from hummingbot.smart_components.meta_strategies.market_making.market_making_str
 )
 
 
-class DManV1Config(MarketMakingStrategyConfigBase):
-    strategy_name: str = "dman_v1"
+class DManV2Config(MarketMakingStrategyConfigBase):
+    strategy_name: str = "dman_v2"
+    macd_fast: int = 12
+    macd_slow: int = 26
+    macd_signal: int = 9
     natr_length: int = 14
 
 
-class DManV1(MarketMakingStrategyBase):
+class DManV2(MarketMakingStrategyBase):
     """
-    Directional Market Making Strategy making use of NATR indicator to make spreads dynamic.
+    Directional Market Making Strategy making use of NATR indicator to make spreads dynamic and shift the mid price.
     """
 
-    def __init__(self, config: DManV1Config, mode: MetaStrategyMode = MetaStrategyMode.LIVE):
+    def __init__(self, config: DManV2Config, mode: MetaStrategyMode = MetaStrategyMode.LIVE):
         super().__init__(config, mode)
         self.config = config
 
@@ -59,8 +62,17 @@ class DManV1(MarketMakingStrategyBase):
         candles_df = self.candles[0].candles_df
         natr = ta.natr(candles_df["high"], candles_df["low"], candles_df["close"], length=self.config.natr_length) / 100
 
+        macd_output = ta.macd(candles_df["close"], fast=self.config.macd_fast, slow=self.config.macd_slow, signal=self.config.macd_signal)
+        macd = macd_output[f"MACD_{self.config.macd_fast}_{self.config.macd_slow}_{self.config.macd_signal}"]
+        macdh = macd_output[f"MACDh_{self.config.macd_fast}_{self.config.macd_slow}_{self.config.macd_signal}"]
+        macd_signal = - (macd - macd.mean()) / macd.std()
+        macdh_signal = macdh.apply(lambda x: 1 if x > 0 else -1)
+        max_price_shift = natr / 2
+
+        price_multiplier = (0.5 * macd_signal + 0.5 * macdh_signal) * max_price_shift
+
         candles_df["spread_multiplier"] = natr
-        candles_df["price_multiplier"] = 0.0
+        candles_df["price_multiplier"] = price_multiplier
         return candles_df
 
     def get_position_config(self, order_level: OrderLevel) -> PositionConfig:
