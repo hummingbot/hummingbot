@@ -219,6 +219,10 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
             exchange_order_id=in_flight_order.exchange_order_id)
 
         orders = resp.get("orders")
+
+        if len(orders) == 0:
+            return []
+
         fill_datas = orders[0].get("associatedFills")
 
         trade_updates = []
@@ -283,9 +287,8 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
             min_price_increment=Decimal(f"1e-{market_info['quoteTickSize']}"),
             min_quote_amount_increment=Decimal(f"1e-{market_info['quoteTickSize']}"),
             min_base_amount_increment=Decimal(f"1e-{market_info['baseTickSize']}"),
-            min_notional_size=Decimal(market_info["minimumOrderSize"]),
-            min_order_value=Decimal(market_info["minimumOrderSize"],
-                                    ))
+            min_notional_size=Decimal(f"1e-{market_info['quoteTickSize']}"),
+            min_order_value=Decimal(f"1e-{market_info['quoteTickSize']}"))
 
     def is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
         return str(status_update_exception).startswith("No update found for order")
