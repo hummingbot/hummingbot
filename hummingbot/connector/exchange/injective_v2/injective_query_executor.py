@@ -209,3 +209,8 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
         async for event in stream:
             event_data = event.order
             yield json_format.MessageToDict(event_data)
+
+    async def transactions_stream(self):  # pragma: no cover
+        stream = await self._sdk_client.stream_txs()
+        async for event in stream:
+            yield json_format.MessageToDict(event)
