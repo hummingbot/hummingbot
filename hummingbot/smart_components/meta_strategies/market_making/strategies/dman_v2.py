@@ -35,7 +35,7 @@ class DManV2(MarketMakingStrategyBase):
         Checks if the order needs to be refreshed.
         You can reimplement this method to add more conditions.
         """
-        if executor.position_config.timestamp + self.config.order_refresh_time > time.time():
+        if executor.position_config.timestamp + order_level.order_refresh_time > time.time():
             return False
         return True
 
@@ -51,7 +51,7 @@ class DManV2(MarketMakingStrategyBase):
         This prevents the executor from creating a new order immediately after finishing one and execute a lot
         of orders in a short period of time from the same side.
         """
-        if executor.position_config.timestamp + self.config.cooldown_time > time.time():
+        if executor.close_timestamp and executor.close_timestamp + order_level.cooldown_time > time.time():
             return True
         return False
 
