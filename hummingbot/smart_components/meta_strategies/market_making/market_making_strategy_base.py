@@ -15,8 +15,6 @@ class MarketMakingStrategyConfigBase(BaseModel):
     strategy_name: str
     exchange: str
     trading_pair: str
-    order_refresh_time: int = 60
-    cooldown_time: int = 0
     order_levels: List[OrderLevel]
     candles_config: List[CandlesConfig]
     leverage: int = 10
