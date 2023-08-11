@@ -42,6 +42,8 @@ class OrderLevel(BaseModel):
     side: TradeType
     order_amount_usd: Decimal
     spread_factor: Decimal
+    order_refresh_time: int = 60
+    cooldown_time: int = 0
     triple_barrier_conf: TripleBarrierConf
 
     @property
