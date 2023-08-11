@@ -133,6 +133,7 @@ class ConnectCommand:
 
     async def _perform_connect(self, connector_config: ClientConfigAdapter, previous_keys: Optional[Dict] = None):
         connector_name = connector_config.connector
+        original_config = connector_config.full_copy()
         await self.prompt_for_model_config(connector_config)
         self.app.change_prompt(prompt=">>> ")
         if self.app.to_stop_config:
@@ -145,5 +146,4 @@ class ConnectCommand:
         else:
             self.notify(f"\nError: {err_msg}")
             if previous_keys is not None:
-                previous_config = ClientConfigAdapter(connector_config.hb_config.__class__(**previous_keys))
-                Security.update_secure_config(previous_config)
+                Security.update_secure_config(original_config)
