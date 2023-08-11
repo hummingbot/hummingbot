@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import json
 from collections import OrderedDict
 from decimal import Decimal
 from functools import partial
@@ -16,8 +17,12 @@ from pyinjective.wallet import Address, PrivateKey
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.exchange.injective_v2 import injective_constants as CONSTANTS
 from hummingbot.connector.exchange.injective_v2.injective_v2_exchange import InjectiveV2Exchange
+from hummingbot.connector.exchange.injective_v2.injective_v2_utils import (
+    InjectiveConfigMap,
+    InjectiveDelegatedAccountMode,
+    InjectiveTestnetNetworkMode,
+)
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
 from hummingbot.connector.trading_rule import TradingRule
@@ -375,15 +380,24 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
     def create_exchange_instance(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
+        network_config = InjectiveTestnetNetworkMode()
+
+        account_config = InjectiveDelegatedAccountMode(
+            private_key=self.trading_account_private_key,
+            subaccount_index=self.trading_account_subaccount_index,
+            granter_address=self.portfolio_account_injective_address,
+            granter_subaccount_index=self.portfolio_account_subaccount_index,
+        )
+
+        injective_config = InjectiveConfigMap(
+            network=network_config,
+            account_type=account_config,
+        )
 
         exchange = InjectiveV2Exchange(
             client_config_map=client_config_map,
-            injective_private_key=self.trading_account_private_key,
-            injective_subaccount_index=self.trading_account_subaccount_index,
-            injective_granter_address=self.portfolio_account_injective_address,
-            injective_granter_subaccount_index=self.portfolio_account_subaccount_index,
+            connector_configuration=injective_config,
             trading_pairs=[self.trading_pair],
-            domain=CONSTANTS.TESTNET_DOMAIN,
         )
 
         exchange._data_source._query_executor = ProgrammableQueryExecutor()
@@ -991,6 +1005,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         pass
 
     def test_order_not_found_in_its_creating_transaction_marked_as_failed_during_order_creation_check(self):
+        self.configure_all_symbols_response(mock_api=None)
         self.exchange._set_current_timestamp(1640780000)
 
         self.exchange.start_tracking_order(
@@ -1013,6 +1028,42 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                             b'\x1aB'
                             b'0x115975551b4f86188eee6b93d789fcc78df6e89e40011b929299b6e142f53515'  # noqa: mock
                             b'"\x00"\x00')
+        transaction_messages = [
+            {
+                "type": "/cosmos.authz.v1beta1.MsgExec",
+                "value": {
+                    "grantee": PrivateKey.from_hex(self.trading_account_private_key).to_public_key().to_acc_bech32(),
+                    "msgs": [
+                        {
+                            "@type": "/injective.exchange.v1beta1.MsgBatchUpdateOrders",
+                            "sender": self.portfolio_account_injective_address,
+                            "subaccount_id": "",
+                            "spot_market_ids_to_cancel_all": [],
+                            "derivative_market_ids_to_cancel_all": [],
+                            "spot_orders_to_cancel": [],
+                            "derivative_orders_to_cancel": [],
+                            "spot_orders_to_create": [
+                                {
+                                    "market_id": self.market_id,
+                                    "order_info": {
+                                        "subaccount_id": self.portfolio_account_subaccount_index,
+                                        "fee_recipient": self.portfolio_account_injective_address,
+                                        "price": str(order.price * Decimal(f"1e{self.quote_decimals - self.base_decimals}")),
+                                        "quantity": str((order.amount + Decimal(1)) * Decimal(f"1e{self.base_decimals}"))
+                                    },
+                                    "order_type": order.trade_type.name,
+                                    "trigger_price": "0.000000000000000000"
+                                }
+                            ],
+                            "derivative_orders_to_create": [],
+                            "binary_options_orders_to_cancel": [],
+                            "binary_options_market_ids_to_cancel_all": [],
+                            "binary_options_orders_to_create": []
+                        }
+                    ]
+                }
+            }
+        ]
         transaction_response = {
             "s": "ok",
             "data": {
@@ -1033,7 +1084,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                     "payer": "inj1hkhdaj2a2clmq5jq6mspsggqs32vynpk228q3r"  # noqa: mock
                 },
                 "txType": "injective",
-                "messages": "W3sidHlwZSI6Ii9pbmplY3RpdmUuZXhjaGFuZ2UudjFiZXRhMS5Nc2dCYXRjaFVwZGF0ZU9yZGVycyIsInZhbHVlIjp7InNlbmRlciI6ImluajFoa2hkYWoyYTJjbG1xNWpxNm1zcHNnZ3FzMzJ2eW5wazIyOHEzciIsInN1YmFjY291bnRfaWQiOiIiLCJzcG90X21hcmtldF9pZHNfdG9fY2FuY2VsX2FsbCI6W10sImRlcml2YXRpdmVfbWFya2V0X2lkc190b19jYW5jZWxfYWxsIjpbXSwic3BvdF9vcmRlcnNfdG9fY2FuY2VsIjpbeyJtYXJrZXRfaWQiOiIweDA2MTE3ODBiYTY5NjU2OTQ5NTI1MDEzZDk0NzcxMzMwMGY1NmMzN2I2MTc1ZTAyZjI2YmZmYTQ5NWMzMjA4ZmUiLCJzdWJhY2NvdW50X2lkIjoiMHhiZGFlZGVjOTVkNTYzZmIwNTI0MGQ2ZTAxODIxMDA4NDU0YzI0YzM2MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwIiwib3JkZXJfaGFzaCI6IjB4Mzg3MGZiZGQ5MWYwN2Q1NDQyNTE0N2IxYmI5NjQwNGY0ZjA0M2JhNjMzNWI0MjJhNmQ0OTRkMjg1YjM4N2YyZCIsIm9yZGVyX21hc2siOjJ9LHsibWFya2V0X2lkIjoiMHg3YTU3ZTcwNWJiNGUwOWM4OGFlY2ZjMjk1NTY5NDgxZGJmMmZlMWQ1ZWZlMzY0NjUxZmJlNzIzODU5MzhlOWIwIiwic3ViYWNjb3VudF9pZCI6IjB4YmRhZWRlYzk1ZDU2M2ZiMDUyNDBkNmUwMTgyMTAwODQ1NGMyNGMzNjAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMCIsIm9yZGVyX2hhc2giOiIweDIyMmRhYTIyZjYwZmU5ZjA3NWVkMGNhNTgzNDU5ZTEyMWMyM2U2NDQzMWMzZmJmZmRlZGRhMDQ1OThlZGUwZDIiLCJvcmRlcl9tYXNrIjoyfV0sImRlcml2YXRpdmVfb3JkZXJzX3RvX2NhbmNlbCI6W3sibWFya2V0X2lkIjoiMHhkNWU0YjEyYjE5ZWNmMTc2ZTRlMTRiNDI5NDQ3MzFjMjc2Nzc4MTlkMmVkOTNiZTQxMDRhZDcwMjU1MjljN2ZmIiwic3ViYWNjb3VudF9pZCI6IjB4YmRhZWRlYzk1ZDU2M2ZiMDUyNDBkNmUwMTgyMTAwODQ1NGMyNGMzNjAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMCIsIm9yZGVyX2hhc2giOiIweDQ4NjkwMDEzYzM4MmQ1ZGJhZmY5OTg5ZGIwNDYyOWExNmE1ODE4ZDc1MjRlMDI3ZDUxN2NjYzg5ZmQwNjgxMDMiLCJvcmRlcl9tYXNrIjoyfSx7Im1hcmtldF9pZCI6IjB4OTBlNjYyMTkzZmEyOWEzYTdlNmMwN2JlNDQwN2M5NDgzM2U3NjJkOWVlODIxMzZhMmNjNzEyZDZiODdkN2RlMyIsInN1YmFjY291bnRfaWQiOiIweGJkYWVkZWM5NWQ1NjNmYjA1MjQwZDZlMDE4MjEwMDg0NTRjMjRjMzYwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAiLCJvcmRlcl9oYXNoIjoiMHg3ZWU3NjI1NWQ3Y2E3NjNjNTZiMGVhYjk4MjhmY2E4OWZkZDM3Mzk2NDU1MDFjOGE4MGY1OGI2MmI0Zjc2ZGE1Iiwib3JkZXJfbWFzayI6Mn1dLCJzcG90X29yZGVyc190b19jcmVhdGUiOlt7Im1hcmtldF9pZCI6IjB4MDYxMTc4MGJhNjk2NTY5NDk1MjUwMTNkOTQ3NzEzMzAwZjU2YzM3YjYxNzVlMDJmMjZiZmZhNDk1YzMyMDhmZSIsIm9yZGVyX2luZm8iOnsic3ViYWNjb3VudF9pZCI6IjB4YmRhZWRlYzk1ZDU2M2ZiMDUyNDBkNmUwMTgyMTAwODQ1NGMyNGMzNjAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMCIsImZlZV9yZWNpcGllbnQiOiJpbmoxaGtoZGFqMmEyY2xtcTVqcTZtc3BzZ2dxczMydnlucGsyMjhxM3IiLCJwcmljZSI6IjAuMDAwMDAwMDAwMDAzMDAwMDAwIiwicXVhbnRpdHkiOiI1NTAwMDAwMDAwMDAwMDAwMDAwMC4wMDAwMDAwMDAwMDAwMDAwMDAifSwib3JkZXJfdHlwZSI6IkJVWSIsInRyaWdnZXJfcHJpY2UiOiIwLjAwMDAwMDAwMDAwMDAwMDAwMCJ9LHsibWFya2V0X2lkIjoiMHgwNjExNzgwYmE2OTY1Njk0OTUyNTAxM2Q5NDc3MTMzMDBmNTZjMzdiNjE3NWUwMmYyNmJmZmE0OTVjMzIwOGZlIiwib3JkZXJfaW5mbyI6eyJzdWJhY2NvdW50X2lkIjoiMHhiZGFlZGVjOTVkNTYzZmIwNTI0MGQ2ZTAxODIxMDA4NDU0YzI0YzM2MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwIiwiZmVlX3JlY2lwaWVudCI6ImluajFoa2hkYWoyYTJjbG1xNWpxNm1zcHNnZ3FzMzJ2eW5wazIyOHEzciIsInByaWNlIjoiMC4wMDAwMDAwMDAzMDAwMDAwMDAiLCJxdWFudGl0eSI6IjU1MDAwMDAwMDAwMDAwMDAwMDAwLjAwMDAwMDAwMDAwMDAwMDAwMCJ9LCJvcmRlcl90eXBlIjoiU0VMTCIsInRyaWdnZXJfcHJpY2UiOiIwLjAwMDAwMDAwMDAwMDAwMDAwMCJ9XSwiZGVyaXZhdGl2ZV9vcmRlcnNfdG9fY3JlYXRlIjpbeyJtYXJrZXRfaWQiOiIweDkwZTY2MjE5M2ZhMjlhM2E3ZTZjMDdiZTQ0MDdjOTQ4MzNlNzYyZDllZTgyMTM2YTJjYzcxMmQ2Yjg3ZDdkZTMiLCJvcmRlcl9pbmZvIjp7InN1YmFjY291bnRfaWQiOiIweGJkYWVkZWM5NWQ1NjNmYjA1MjQwZDZlMDE4MjEwMDg0NTRjMjRjMzYwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAiLCJmZWVfcmVjaXBpZW50IjoiaW5qMWhraGRhajJhMmNsbXE1anE2bXNwc2dncXMzMnZ5bnBrMjI4cTNyIiwicHJpY2UiOiIyNTAwMDAwMDAwMC4wMDAwMDAwMDAwMDAwMDAwMDAiLCJxdWFudGl0eSI6IjAuMTAwMDAwMDAwMDAwMDAwMDAwIn0sIm9yZGVyX3R5cGUiOiJCVVkiLCJtYXJnaW4iOiIyNTAwMDAwMDAwLjAwMDAwMDAwMDAwMDAwMDAwMCIsInRyaWdnZXJfcHJpY2UiOiIwLjAwMDAwMDAwMDAwMDAwMDAwMCJ9LHsibWFya2V0X2lkIjoiMHg5MGU2NjIxOTNmYTI5YTNhN2U2YzA3YmU0NDA3Yzk0ODMzZTc2MmQ5ZWU4MjEzNmEyY2M3MTJkNmI4N2Q3ZGUzIiwib3JkZXJfaW5mbyI6eyJzdWJhY2NvdW50X2lkIjoiMHhiZGFlZGVjOTVkNTYzZmIwNTI0MGQ2ZTAxODIxMDA4NDU0YzI0YzM2MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwIiwiZmVlX3JlY2lwaWVudCI6ImluajFoa2hkYWoyYTJjbG1xNWpxNm1zcHNnZ3FzMzJ2eW5wazIyOHEzciIsInByaWNlIjoiNTAwMDAwMDAwMDAuMDAwMDAwMDAwMDAwMDAwMDAwIiwicXVhbnRpdHkiOiIwLjAxMDAwMDAwMDAwMDAwMDAwMCJ9LCJvcmRlcl90eXBlIjoiU0VMTCIsIm1hcmdpbiI6IjUwMDAwMDAwMC4wMDAwMDAwMDAwMDAwMDAwMDAiLCJ0cmlnZ2VyX3ByaWNlIjoiMC4wMDAwMDAwMDAwMDAwMDAwMDAifV0sImJpbmFyeV9vcHRpb25zX29yZGVyc190b19jYW5jZWwiOltdLCJiaW5hcnlfb3B0aW9uc19tYXJrZXRfaWRzX3RvX2NhbmNlbF9hbGwiOltdLCJiaW5hcnlfb3B0aW9uc19vcmRlcnNfdG9fY3JlYXRlIjpbXX19XQ==",
+                "messages": base64.b64encode(json.dumps(transaction_messages).encode()).decode(),
                 "signatures": [
                     {
                         "pubkey": "035ddc4d5642b9383e2f087b2ee88b7207f6286ebc9f310e9df1406eccc2c31813",  # noqa: mock
@@ -1072,6 +1123,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
     def test_order_creation_check_waits_for_originating_transaction_to_be_mined(self):
         request_sent_event = asyncio.Event()
+        self.configure_all_symbols_response(mock_api=None)
         self.exchange._set_current_timestamp(1640780000)
 
         self.exchange.start_tracking_order(
@@ -1110,6 +1162,45 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                             b'\x1aB'
                             b'0x115975551b4f86188eee6b93d789fcc78df6e89e40011b929299b6e142f53515'  # noqa: mock
                             b'"\x00"\x00')
+        transaction_messages = [
+            {
+                "type": "/cosmos.authz.v1beta1.MsgExec",
+                "value": {
+                    "grantee": PrivateKey.from_hex(self.trading_account_private_key).to_public_key().to_acc_bech32(),
+                    "msgs": [
+                        {
+                            "@type": "/injective.exchange.v1beta1.MsgBatchUpdateOrders",
+                            "sender": self.portfolio_account_injective_address,
+                            "subaccount_id": "",
+                            "spot_market_ids_to_cancel_all": [],
+                            "derivative_market_ids_to_cancel_all": [],
+                            "spot_orders_to_cancel": [],
+                            "derivative_orders_to_cancel": [],
+                            "spot_orders_to_create": [
+                                {
+                                    "market_id": self.market_id,
+                                    "order_info": {
+                                        "subaccount_id": self.portfolio_account_subaccount_index,
+                                        "fee_recipient": self.portfolio_account_injective_address,
+                                        "price": str(
+                                            hash_not_matching_order.price * Decimal(
+                                                f"1e{self.quote_decimals - self.base_decimals}")),
+                                        "quantity": str(
+                                            hash_not_matching_order.amount * Decimal(f"1e{self.base_decimals}"))
+                                    },
+                                    "order_type": hash_not_matching_order.trade_type.name,
+                                    "trigger_price": "0.000000000000000000"
+                                }
+                            ],
+                            "derivative_orders_to_create": [],
+                            "binary_options_orders_to_cancel": [],
+                            "binary_options_market_ids_to_cancel_all": [],
+                            "binary_options_orders_to_create": []
+                        }
+                    ]
+                }
+            }
+        ]
         transaction_response = {
             "s": "ok",
             "data": {
@@ -1130,7 +1221,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                     "payer": "inj1hkhdaj2a2clmq5jq6mspsggqs32vynpk228q3r"  # noqa: mock
                 },
                 "txType": "injective",
-                "messages": "W3sidHlwZSI6Ii9pbmplY3RpdmUuZXhjaGFuZ2UudjFiZXRhMS5Nc2dCYXRjaFVwZGF0ZU9yZGVycyIsInZhbHVlIjp7InNlbmRlciI6ImluajFoa2hkYWoyYTJjbG1xNWpxNm1zcHNnZ3FzMzJ2eW5wazIyOHEzciIsInN1YmFjY291bnRfaWQiOiIiLCJzcG90X21hcmtldF9pZHNfdG9fY2FuY2VsX2FsbCI6W10sImRlcml2YXRpdmVfbWFya2V0X2lkc190b19jYW5jZWxfYWxsIjpbXSwic3BvdF9vcmRlcnNfdG9fY2FuY2VsIjpbeyJtYXJrZXRfaWQiOiIweDA2MTE3ODBiYTY5NjU2OTQ5NTI1MDEzZDk0NzcxMzMwMGY1NmMzN2I2MTc1ZTAyZjI2YmZmYTQ5NWMzMjA4ZmUiLCJzdWJhY2NvdW50X2lkIjoiMHhiZGFlZGVjOTVkNTYzZmIwNTI0MGQ2ZTAxODIxMDA4NDU0YzI0YzM2MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwIiwib3JkZXJfaGFzaCI6IjB4Mzg3MGZiZGQ5MWYwN2Q1NDQyNTE0N2IxYmI5NjQwNGY0ZjA0M2JhNjMzNWI0MjJhNmQ0OTRkMjg1YjM4N2YyZCIsIm9yZGVyX21hc2siOjJ9LHsibWFya2V0X2lkIjoiMHg3YTU3ZTcwNWJiNGUwOWM4OGFlY2ZjMjk1NTY5NDgxZGJmMmZlMWQ1ZWZlMzY0NjUxZmJlNzIzODU5MzhlOWIwIiwic3ViYWNjb3VudF9pZCI6IjB4YmRhZWRlYzk1ZDU2M2ZiMDUyNDBkNmUwMTgyMTAwODQ1NGMyNGMzNjAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMCIsIm9yZGVyX2hhc2giOiIweDIyMmRhYTIyZjYwZmU5ZjA3NWVkMGNhNTgzNDU5ZTEyMWMyM2U2NDQzMWMzZmJmZmRlZGRhMDQ1OThlZGUwZDIiLCJvcmRlcl9tYXNrIjoyfV0sImRlcml2YXRpdmVfb3JkZXJzX3RvX2NhbmNlbCI6W3sibWFya2V0X2lkIjoiMHhkNWU0YjEyYjE5ZWNmMTc2ZTRlMTRiNDI5NDQ3MzFjMjc2Nzc4MTlkMmVkOTNiZTQxMDRhZDcwMjU1MjljN2ZmIiwic3ViYWNjb3VudF9pZCI6IjB4YmRhZWRlYzk1ZDU2M2ZiMDUyNDBkNmUwMTgyMTAwODQ1NGMyNGMzNjAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMCIsIm9yZGVyX2hhc2giOiIweDQ4NjkwMDEzYzM4MmQ1ZGJhZmY5OTg5ZGIwNDYyOWExNmE1ODE4ZDc1MjRlMDI3ZDUxN2NjYzg5ZmQwNjgxMDMiLCJvcmRlcl9tYXNrIjoyfSx7Im1hcmtldF9pZCI6IjB4OTBlNjYyMTkzZmEyOWEzYTdlNmMwN2JlNDQwN2M5NDgzM2U3NjJkOWVlODIxMzZhMmNjNzEyZDZiODdkN2RlMyIsInN1YmFjY291bnRfaWQiOiIweGJkYWVkZWM5NWQ1NjNmYjA1MjQwZDZlMDE4MjEwMDg0NTRjMjRjMzYwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAiLCJvcmRlcl9oYXNoIjoiMHg3ZWU3NjI1NWQ3Y2E3NjNjNTZiMGVhYjk4MjhmY2E4OWZkZDM3Mzk2NDU1MDFjOGE4MGY1OGI2MmI0Zjc2ZGE1Iiwib3JkZXJfbWFzayI6Mn1dLCJzcG90X29yZGVyc190b19jcmVhdGUiOlt7Im1hcmtldF9pZCI6IjB4MDYxMTc4MGJhNjk2NTY5NDk1MjUwMTNkOTQ3NzEzMzAwZjU2YzM3YjYxNzVlMDJmMjZiZmZhNDk1YzMyMDhmZSIsIm9yZGVyX2luZm8iOnsic3ViYWNjb3VudF9pZCI6IjB4YmRhZWRlYzk1ZDU2M2ZiMDUyNDBkNmUwMTgyMTAwODQ1NGMyNGMzNjAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMCIsImZlZV9yZWNpcGllbnQiOiJpbmoxaGtoZGFqMmEyY2xtcTVqcTZtc3BzZ2dxczMydnlucGsyMjhxM3IiLCJwcmljZSI6IjAuMDAwMDAwMDAwMDAzMDAwMDAwIiwicXVhbnRpdHkiOiI1NTAwMDAwMDAwMDAwMDAwMDAwMC4wMDAwMDAwMDAwMDAwMDAwMDAifSwib3JkZXJfdHlwZSI6IkJVWSIsInRyaWdnZXJfcHJpY2UiOiIwLjAwMDAwMDAwMDAwMDAwMDAwMCJ9LHsibWFya2V0X2lkIjoiMHgwNjExNzgwYmE2OTY1Njk0OTUyNTAxM2Q5NDc3MTMzMDBmNTZjMzdiNjE3NWUwMmYyNmJmZmE0OTVjMzIwOGZlIiwib3JkZXJfaW5mbyI6eyJzdWJhY2NvdW50X2lkIjoiMHhiZGFlZGVjOTVkNTYzZmIwNTI0MGQ2ZTAxODIxMDA4NDU0YzI0YzM2MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwIiwiZmVlX3JlY2lwaWVudCI6ImluajFoa2hkYWoyYTJjbG1xNWpxNm1zcHNnZ3FzMzJ2eW5wazIyOHEzciIsInByaWNlIjoiMC4wMDAwMDAwMDAzMDAwMDAwMDAiLCJxdWFudGl0eSI6IjU1MDAwMDAwMDAwMDAwMDAwMDAwLjAwMDAwMDAwMDAwMDAwMDAwMCJ9LCJvcmRlcl90eXBlIjoiU0VMTCIsInRyaWdnZXJfcHJpY2UiOiIwLjAwMDAwMDAwMDAwMDAwMDAwMCJ9XSwiZGVyaXZhdGl2ZV9vcmRlcnNfdG9fY3JlYXRlIjpbeyJtYXJrZXRfaWQiOiIweDkwZTY2MjE5M2ZhMjlhM2E3ZTZjMDdiZTQ0MDdjOTQ4MzNlNzYyZDllZTgyMTM2YTJjYzcxMmQ2Yjg3ZDdkZTMiLCJvcmRlcl9pbmZvIjp7InN1YmFjY291bnRfaWQiOiIweGJkYWVkZWM5NWQ1NjNmYjA1MjQwZDZlMDE4MjEwMDg0NTRjMjRjMzYwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAiLCJmZWVfcmVjaXBpZW50IjoiaW5qMWhraGRhajJhMmNsbXE1anE2bXNwc2dncXMzMnZ5bnBrMjI4cTNyIiwicHJpY2UiOiIyNTAwMDAwMDAwMC4wMDAwMDAwMDAwMDAwMDAwMDAiLCJxdWFudGl0eSI6IjAuMTAwMDAwMDAwMDAwMDAwMDAwIn0sIm9yZGVyX3R5cGUiOiJCVVkiLCJtYXJnaW4iOiIyNTAwMDAwMDAwLjAwMDAwMDAwMDAwMDAwMDAwMCIsInRyaWdnZXJfcHJpY2UiOiIwLjAwMDAwMDAwMDAwMDAwMDAwMCJ9LHsibWFya2V0X2lkIjoiMHg5MGU2NjIxOTNmYTI5YTNhN2U2YzA3YmU0NDA3Yzk0ODMzZTc2MmQ5ZWU4MjEzNmEyY2M3MTJkNmI4N2Q3ZGUzIiwib3JkZXJfaW5mbyI6eyJzdWJhY2NvdW50X2lkIjoiMHhiZGFlZGVjOTVkNTYzZmIwNTI0MGQ2ZTAxODIxMDA4NDU0YzI0YzM2MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwIiwiZmVlX3JlY2lwaWVudCI6ImluajFoa2hkYWoyYTJjbG1xNWpxNm1zcHNnZ3FzMzJ2eW5wazIyOHEzciIsInByaWNlIjoiNTAwMDAwMDAwMDAuMDAwMDAwMDAwMDAwMDAwMDAwIiwicXVhbnRpdHkiOiIwLjAxMDAwMDAwMDAwMDAwMDAwMCJ9LCJvcmRlcl90eXBlIjoiU0VMTCIsIm1hcmdpbiI6IjUwMDAwMDAwMC4wMDAwMDAwMDAwMDAwMDAwMDAiLCJ0cmlnZ2VyX3ByaWNlIjoiMC4wMDAwMDAwMDAwMDAwMDAwMDAifV0sImJpbmFyeV9vcHRpb25zX29yZGVyc190b19jYW5jZWwiOltdLCJiaW5hcnlfb3B0aW9uc19tYXJrZXRfaWRzX3RvX2NhbmNlbF9hbGwiOltdLCJiaW5hcnlfb3B0aW9uc19vcmRlcnNfdG9fY3JlYXRlIjpbXX19XQ==",
+                "messages": base64.b64encode(json.dumps(transaction_messages).encode()).decode(),
                 "signatures": [
                     {
                         "pubkey": "035ddc4d5642b9383e2f087b2ee88b7207f6286ebc9f310e9df1406eccc2c31813",  # noqa: mock
@@ -1166,35 +1257,30 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
         self.async_run_with_timeout(request_sent_event.wait())
 
-        self.assertEquals(0, len(self.buy_order_created_logger.event_log))
-        failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
-        self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
-        self.assertEqual(OrderType.LIMIT, failure_event.order_type)
-        self.assertEqual(hash_not_matching_order.client_order_id, failure_event.order_id)
-
-        self.assertTrue(
-            self.is_logged(
-                "INFO",
-                f"Order {hash_not_matching_order.client_order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
-                f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='{hash_not_matching_order.client_order_id}', exchange_order_id=None, misc_updates=None)"
-            )
-        )
-
         self.assertNotEqual(original_order_hash_manager, self.exchange._data_source._order_hash_manager)
 
         mock_queue.get.assert_called()
 
     def test_user_stream_balance_update(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
+        network_config = InjectiveTestnetNetworkMode()
+
+        account_config = InjectiveDelegatedAccountMode(
+            private_key=self.trading_account_private_key,
+            subaccount_index=self.trading_account_subaccount_index,
+            granter_address=self.portfolio_account_injective_address,
+            granter_subaccount_index=1,
+        )
+
+        injective_config = InjectiveConfigMap(
+            network=network_config,
+            account_type=account_config,
+        )
+
         exchange_with_non_default_subaccount = InjectiveV2Exchange(
             client_config_map=client_config_map,
-            injective_private_key=self.trading_account_private_key,
-            injective_subaccount_index=self.trading_account_subaccount_index,
-            injective_granter_address=self.portfolio_account_injective_address,
-            injective_granter_subaccount_index=1,
+            connector_configuration=injective_config,
             trading_pairs=[self.trading_pair],
-            domain=CONSTANTS.TESTNET_DOMAIN,
         )
 
         exchange_with_non_default_subaccount._data_source._query_executor = self.exchange._data_source._query_executor
@@ -1207,6 +1293,12 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [balance_event, asyncio.CancelledError]
         self.exchange._data_source._query_executor._subaccount_balance_events = mock_queue
+
+        self.async_tasks.append(
+            asyncio.get_event_loop().create_task(
+                self.exchange._user_stream_event_listener()
+            )
+        )
 
         try:
             self.async_run_with_timeout(self.exchange._data_source._listen_to_account_balance_updates())
@@ -1235,6 +1327,12 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         event_messages = [order_event, asyncio.CancelledError]
         mock_queue.get.side_effect = event_messages
         self.exchange._data_source._query_executor._historical_spot_order_events = mock_queue
+
+        self.async_tasks.append(
+            asyncio.get_event_loop().create_task(
+                self.exchange._user_stream_event_listener()
+            )
+        )
 
         try:
             self.async_run_with_timeout(
@@ -1276,6 +1374,12 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         event_messages = [order_event, asyncio.CancelledError]
         mock_queue.get.side_effect = event_messages
         self.exchange._data_source._query_executor._historical_spot_order_events = mock_queue
+
+        self.async_tasks.append(
+            asyncio.get_event_loop().create_task(
+                self.exchange._user_stream_event_listener()
+            )
+        )
 
         try:
             self.async_run_with_timeout(
@@ -1329,6 +1433,12 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         trades_queue_mock.get.side_effect = trades_messages
         self.exchange._data_source._query_executor._historical_spot_order_events = orders_queue_mock
         self.exchange._data_source._query_executor._public_spot_trade_updates = trades_queue_mock
+
+        self.async_tasks.append(
+            asyncio.get_event_loop().create_task(
+                self.exchange._user_stream_event_listener()
+            )
+        )
 
         tasks = [
             asyncio.get_event_loop().create_task(
@@ -1410,6 +1520,12 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         mock_queue.get.side_effect = event_messages
         self.exchange._data_source._query_executor._historical_spot_order_events = mock_queue
 
+        self.async_tasks.append(
+            asyncio.get_event_loop().create_task(
+                self.exchange._user_stream_event_listener()
+            )
+        )
+
         try:
             self.async_run_with_timeout(
                 self.exchange._data_source._listen_to_subaccount_order_updates(market_id=self.market_id)
@@ -1462,6 +1578,12 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         trades_queue_mock.get.side_effect = trades_messages
         self.exchange._data_source._query_executor._historical_spot_order_events = orders_queue_mock
         self.exchange._data_source._query_executor._public_spot_trade_updates = trades_queue_mock
+
+        self.async_tasks.append(
+            asyncio.get_event_loop().create_task(
+                self.exchange._user_stream_event_listener()
+            )
+        )
 
         tasks = [
             asyncio.get_event_loop().create_task(
