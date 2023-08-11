@@ -111,10 +111,10 @@ class MetaExecutorBase:
             executors_with_position = executors_df[executors_df["net_pnl"] != 0]
             total_executors_with_position = executors_with_position.shape[0]
             total_volume = executors_with_position["amount"].sum() * 2
-            total_long = (executors_with_position["side"] == "BUY").sum()
-            total_short = (executors_with_position["side"] == "SELL").sum()
-            correct_long = (executors_with_position["side"] == "BUY") & (executors_with_position["net_pnl"] > 0).sum()
-            correct_short = (executors_with_position["side"] == "SELL") & (executors_with_position["net_pnl"] > 0).sum()
+            total_long = (executors_with_position["side"] == "BUY").count()
+            total_short = (executors_with_position["side"] == "SELL").count()
+            correct_long = ((executors_with_position["side"] == "BUY") & (executors_with_position["net_pnl"] > 0)).count()
+            correct_short = ((executors_with_position["side"] == "SELL") & (executors_with_position["net_pnl"] > 0)).count()
             accuracy_long = correct_long / total_long if total_long > 0 else 0
             accuracy_short = correct_short / total_short if total_short > 0 else 0
 
@@ -168,7 +168,7 @@ class MetaExecutorBase:
         lines.extend(["\n################################## Performance ##################################"])
         closed_executors_info = self.closed_executors_info()
         active_executors_info = self.active_executors_info()
-        unrealized_pnl = active_executors_info["net_pnl"]
+        unrealized_pnl = float(active_executors_info["net_pnl"])
         realized_pnl = closed_executors_info["net_pnl"]
         total_pnl = unrealized_pnl + realized_pnl
         total_volume = closed_executors_info["total_volume"] + float(active_executors_info["total_volume"])
@@ -179,13 +179,12 @@ class MetaExecutorBase:
         total_accuracy = (accuracy_long * total_long + accuracy_short * total_short) \
             / (total_long + total_short) if (total_long + total_short) > 0 else 0
         lines.extend([f"""
-| Unrealized PNL (%): {unrealized_pnl} | Realized PNL (%): {realized_pnl} | Total PNL (%): {total_pnl} | Total Volume: {total_volume}
+| Unrealized PNL: {unrealized_pnl * 100:.2f} % | Realized PNL: {realized_pnl * 100:.2f} % | Total PNL: {total_pnl * 100:.2f} % | Total Volume: {total_volume}
 | Total positions: {total_short + total_long} --> Accuracy: {total_accuracy:.2%}
     | Long: {total_long} --> Accuracy: {accuracy_long:.2%} | Short: {total_short} --> Accuracy: {accuracy_short:.2%}
 
 Closed executors: {closed_executors_info["total_executors"]}
-{closed_executors_info["close_types"]}
-"""])
+    {closed_executors_info["close_types"]}
+    """])
         lines.extend(self.ms.to_format_status())
-
         return "\n".join(lines)
