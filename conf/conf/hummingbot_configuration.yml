@@ -1,0 +1,6 @@
+strategies:
+  - strategy: momentum
+    market: BEAT-USDT
+    order_amount: 5
+    buy_signal_threshold: 0.02
+    sell_signal_threshold: 0.02
