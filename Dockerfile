@@ -73,4 +73,4 @@ SHELL [ "/bin/bash", "-lc" ]
 
 # Set the default command to run when starting the container
 
-CMD conda activate hummingbot && ./bin/hummingbot_quickstart.py 2>/dev/null
+CMD conda activate hummingbot && touch errors.log && ./bin/hummingbot_quickstart.py 2>>errors.log

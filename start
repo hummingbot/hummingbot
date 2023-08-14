@@ -13,4 +13,4 @@ if [[ $CONDA_DEFAULT_ENV != "hummingbot" ]]; then
 fi
 
 # Run bin/hummingbot.py
-bin/hummingbot.py 2>/dev/null
+touch errors.log && bin/hummingbot.py 2>>errors.log
