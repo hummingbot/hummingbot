@@ -3,7 +3,7 @@ import base64
 import json
 import re
 from decimal import Decimal
-from typing import Any, Dict, List, Mapping, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Tuple, Union
 
 from bidict import bidict
 from google.protobuf import any_pb2, json_format
@@ -323,62 +323,36 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
     ) -> List[OrderUpdate]:
         spot_orders = spot_orders or []
         perpetual_orders = perpetual_orders or []
-        transaction_orders = spot_orders + perpetual_orders
-
-        order_updates = []
 
         async with self.throttler.execute_task(limit_id=CONSTANTS.GET_TRANSACTION_LIMIT_ID):
             transaction_info = await self.query_executor.get_tx_by_hash(tx_hash=transaction_hash)
 
         transaction_messages = json.loads(base64.b64decode(transaction_info["data"]["messages"]).decode())
         transaction_spot_orders = transaction_messages[0]["value"]["msg"]["admin_execute_message"]["injective_message"]["custom"]["msg_data"]["batch_update_orders"]["spot_orders_to_create"]
-        transaction_logs = json.loads(base64.b64decode(transaction_info["data"]["logs"]).decode())
-        batch_orders_message_event = next(
-            (event for event in transaction_logs[0].get("events", []) if event.get("type") == "wasm"),
-            {}
+        transaction_derivative_orders = transaction_messages[0]["value"]["msg"]["admin_execute_message"]["injective_message"]["custom"]["msg_data"]["batch_update_orders"]["derivative_orders_to_create"]
+
+        spot_order_hashes = self._order_hashes_from_transaction(
+            transaction_info=transaction_info,
+            hashes_group_key="spot_order_hashes",
         )
-        response = next(
-            (attribute.get("value", "")
-             for attribute in batch_orders_message_event.get("attributes", [])
-             if attribute.get("key") == "batch_update_orders_response"), "")
-        spot_order_hashes_match = re.search(r"spot_order_hashes: (\[.*?\])", response)
-        if spot_order_hashes_match is not None:
-            spot_order_hashes_text = spot_order_hashes_match.group(1)
-        else:
-            spot_order_hashes_text = ""
-        spot_order_hashes = re.findall(r"[\"'](0x\w+)[\"']", spot_order_hashes_text)
+        derivative_order_hashes = self._order_hashes_from_transaction(
+            transaction_info=transaction_info,
+            hashes_group_key="derivative_order_hashes",
+        )
 
-        for order_info, order_hash in zip(transaction_spot_orders, spot_order_hashes):
-            market = await self.spot_market_info_for_id(market_id=order_info["market_id"])
-            price = market.price_from_chain_format(chain_price=Decimal(order_info["order_info"]["price"]))
-            amount = market.quantity_from_chain_format(chain_quantity=Decimal(order_info["order_info"]["quantity"]))
-            trade_type = TradeType.BUY if order_info["order_type"] in [1, 7, 9] else TradeType.SELL
-            for transaction_order in transaction_orders:
-                if transaction_order in spot_orders:
-                    market_id = await self.market_id_for_spot_trading_pair(trading_pair=transaction_order.trading_pair)
-                else:
-                    market_id = await self.market_id_for_derivative_trading_pair(
-                        trading_pair=transaction_order.trading_pair)
-                if (market_id == order_info["market_id"]
-                        and transaction_order.amount == amount
-                        and transaction_order.price == price
-                        and transaction_order.trade_type == trade_type):
-                    new_state = OrderState.OPEN if transaction_order.is_pending_create else transaction_order.current_state
-                    order_update = OrderUpdate(
-                        trading_pair=transaction_order.trading_pair,
-                        update_timestamp=self._time(),
-                        new_state=new_state,
-                        client_order_id=transaction_order.client_order_id,
-                        exchange_order_id=order_hash,
-                    )
-                    transaction_orders.remove(transaction_order)
-                    order_updates.append(order_update)
-                    self.logger().debug(
-                        f"Exchange order id found for order {transaction_order.client_order_id} ({order_update})"
-                    )
-                    break
+        spot_order_updates = await self._transaction_order_updates(
+            orders=spot_orders,
+            transaction_orders_info=transaction_spot_orders,
+            order_hashes=spot_order_hashes
+        )
 
-        return order_updates
+        derivative_order_updates = await self._transaction_order_updates(
+            orders=perpetual_orders,
+            transaction_orders_info=transaction_derivative_orders,
+            order_hashes=derivative_order_hashes
+        )
+
+        return spot_order_updates + derivative_order_updates
 
     def real_tokens_spot_trading_pair(self, unique_trading_pair: str) -> str:
         resulting_trading_pair = unique_trading_pair
@@ -413,7 +387,8 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         self._is_timeout_height_initialized = True
 
     def _reset_order_hash_manager(self):
-        raise NotImplementedError
+        # The vaults data source does not calculate locally the order hashes
+        pass
 
     def _sign_and_encode(self, transaction: Transaction) -> bytes:
         sign_doc = transaction.get_sign_doc(self._public_key)
@@ -575,7 +550,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         return definition
 
     async def _create_derivative_order_definition(self, order: GatewayPerpetualInFlightOrder):
-        # Both price and quantity have to be adjusted because the vaults expect to receive those values without
+        # Price, quantity and margin have to be adjusted because the vaults expect to receive those values without
         # the extra 18 zeros that the chain backend expects for direct trading messages
         market_id = await self.market_id_for_derivative_trading_pair(order.trading_pair)
         definition = self.composer.DerivativeOrder(
@@ -592,6 +567,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
 
         definition.order_info.quantity = f"{(Decimal(definition.order_info.quantity) * Decimal('1e-18')).normalize():f}"
         definition.order_info.price = f"{(Decimal(definition.order_info.price) * Decimal('1e-18')).normalize():f}"
+        definition.margin = f"{(Decimal(definition.margin) * Decimal('1e-18')).normalize():f}"
         return definition
 
     def _place_order_results(
@@ -625,3 +601,62 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
                 }
             }
         }
+
+    def _order_hashes_from_transaction(self, transaction_info: Dict[str, Any], hashes_group_key: str) -> List[str]:
+        transaction_logs = json.loads(base64.b64decode(transaction_info["data"]["logs"]).decode())
+        batch_orders_message_event = next(
+            (event for event in transaction_logs[0].get("events", []) if event.get("type") == "wasm"),
+            {}
+        )
+        response = next(
+            (attribute.get("value", "")
+             for attribute in batch_orders_message_event.get("attributes", [])
+             if attribute.get("key") == "batch_update_orders_response"), "")
+        order_hashes_match = re.search(f"{hashes_group_key}: (\\[.*?\\])", response)
+        if order_hashes_match is not None:
+            order_hashes_text = order_hashes_match.group(1)
+        else:
+            order_hashes_text = ""
+        order_hashes = re.findall(r"[\"'](0x\w+)[\"']", order_hashes_text)
+
+        return order_hashes
+
+    async def _transaction_order_updates(
+            self,
+            orders: List[Union[GatewayInFlightOrder, GatewayPerpetualInFlightOrder]],
+            transaction_orders_info: List[Dict[str, Any]],
+            order_hashes: List[str],
+    ) -> List[OrderUpdate]:
+        order_updates = []
+
+        for order_info, order_hash in zip(transaction_orders_info, order_hashes):
+            market_id = order_info["market_id"]
+            if market_id in await self.spot_market_and_trading_pair_map():
+                market = await self.spot_market_info_for_id(market_id=market_id)
+            else:
+                market = await self.derivative_market_info_for_id(market_id=market_id)
+            market_trading_pair = await self.trading_pair_for_market(market_id=market_id)
+            price = market.price_from_chain_format(chain_price=Decimal(order_info["order_info"]["price"]))
+            amount = market.quantity_from_chain_format(chain_quantity=Decimal(order_info["order_info"]["quantity"]))
+            trade_type = TradeType.BUY if order_info["order_type"] in [1, 7, 9] else TradeType.SELL
+            for transaction_order in orders:
+                if (transaction_order.trading_pair == market_trading_pair
+                        and transaction_order.amount == amount
+                        and transaction_order.price == price
+                        and transaction_order.trade_type == trade_type):
+                    new_state = OrderState.OPEN if transaction_order.is_pending_create else transaction_order.current_state
+                    order_update = OrderUpdate(
+                        trading_pair=transaction_order.trading_pair,
+                        update_timestamp=self._time(),
+                        new_state=new_state,
+                        client_order_id=transaction_order.client_order_id,
+                        exchange_order_id=order_hash,
+                    )
+                    orders.remove(transaction_order)
+                    order_updates.append(order_update)
+                    self.logger().debug(
+                        f"Exchange order id found for order {transaction_order.client_order_id} ({order_update})"
+                    )
+                    break
+
+        return order_updates

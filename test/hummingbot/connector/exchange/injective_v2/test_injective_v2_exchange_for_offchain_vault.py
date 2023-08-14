@@ -6,13 +6,12 @@ from decimal import Decimal
 from functools import partial
 from test.hummingbot.connector.exchange.injective_v2.programmable_query_executor import ProgrammableQueryExecutor
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
 from bidict import bidict
 from grpc import RpcError
-from pyinjective.orderhash import OrderHashManager, OrderHashResponse
 from pyinjective.wallet import Address, PrivateKey
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
@@ -929,10 +928,6 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
-        self.exchange._data_source._order_hash_manager = MagicMock(spec=OrderHashManager)
-        self.exchange._data_source._order_hash_manager.compute_order_hashes.return_value = OrderHashResponse(
-            spot=["hash1"], derivative=[]
-        )
 
         transaction_simulation_response = self._msg_exec_simulation_mock_response()
         self.exchange._data_source._query_executor._simulate_transaction_responses.put_nowait(
@@ -975,11 +970,6 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
 
         order_id_for_invalid_order = self.place_buy_order(
             amount=Decimal("0.0001"), price=Decimal("0.0001")
-        )
-        # The second order is used only to have the event triggered and avoid using timeouts for tests
-        self.exchange._data_source._order_hash_manager = MagicMock(spec=OrderHashManager)
-        self.exchange._data_source._order_hash_manager.compute_order_hashes.return_value = OrderHashResponse(
-            spot=["hash1"], derivative=[]
         )
 
         transaction_simulation_response = self._msg_exec_simulation_mock_response()
