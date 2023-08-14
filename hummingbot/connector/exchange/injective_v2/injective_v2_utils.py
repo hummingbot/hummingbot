@@ -10,6 +10,9 @@ from hummingbot.client.config.config_data_types import BaseClientModel, BaseConn
 from hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source import (
     InjectiveGranteeDataSource,
 )
+from hummingbot.connector.exchange.injective_v2.data_sources.injective_read_only_data_source import (
+    InjectiveReadOnlyDataSource,
+)
 from hummingbot.connector.exchange.injective_v2.data_sources.injective_vaults_data_source import (
     InjectiveVaultsDataSource,
 )
@@ -44,7 +47,7 @@ class InjectiveMainnetNetworkMode(InjectiveNetworkMode):
     node: str = Field(
         default="lb",
         client_data=ClientFieldData(
-            prompt=lambda cm: ("Enter the mainnet node you want to connect to"),
+            prompt=lambda cm: (f"Enter the mainnet node you want to connect to ({'/'.join(MAINNET_NODES)})"),
             prompt_on_new=True
         ),
     )
@@ -256,9 +259,22 @@ class InjectiveVaultAccountMode(InjectiveAccountMode):
         )
 
 
+class InjectiveReadOnlyAccountMode(InjectiveAccountMode):
+
+    class Config:
+        title = "read_only_account"
+
+    def create_data_source(self, network: Network, use_secure_connection: bool) -> "InjectiveDataSource":
+        return InjectiveReadOnlyDataSource(
+            network=network,
+            use_secure_connection=use_secure_connection,
+        )
+
+
 ACCOUNT_MODES = {
     InjectiveDelegatedAccountMode.Config.title: InjectiveDelegatedAccountMode,
     InjectiveVaultAccountMode.Config.title: InjectiveVaultAccountMode,
+    InjectiveReadOnlyAccountMode.Config.title: InjectiveReadOnlyAccountMode,
 }
 
 
@@ -277,12 +293,7 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
         ),
     )
     account_type: Union[tuple(ACCOUNT_MODES.values())] = Field(
-        default=InjectiveDelegatedAccountMode(
-            private_key="0000000000000000000000000000000000000000000000000000000000000001",  # noqa: mock
-            subaccount_index=0,
-            granter_address="inj10e0525sfrf53yh2aljmm3sn9jq5njk7lwfmzjf",  # noqa: mock
-            granter_subaccount_index=0,
-        ),
+        default=InjectiveReadOnlyAccountMode(),
         client_data=ClientFieldData(
             prompt=lambda cm: f"Select the type of account configuration ({'/'.join(list(ACCOUNT_MODES.keys()))})",
             prompt_on_new=True,

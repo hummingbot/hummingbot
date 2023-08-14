@@ -83,7 +83,7 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         self._is_trading_account_initialized = False
         self._markets_initialization_lock = asyncio.Lock()
         self._spot_market_info_map: Optional[Dict[str, InjectiveSpotMarket]] = None
-        self._derivative_market_info_map: Optional[Dict[str, InjectiveSpotMarket]] = None
+        self._derivative_market_info_map: Optional[Dict[str, InjectiveDerivativeMarket]] = None
         self._spot_market_and_trading_pair_map: Optional[Mapping[str, str]] = None
         self._derivative_market_and_trading_pair_map: Optional[Mapping[str, str]] = None
         self._tokens_map: Optional[Dict[str, InjectiveToken]] = None

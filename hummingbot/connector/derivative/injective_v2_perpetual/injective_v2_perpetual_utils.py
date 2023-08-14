@@ -8,8 +8,8 @@ from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, C
 from hummingbot.connector.exchange.injective_v2.injective_v2_utils import (
     ACCOUNT_MODES,
     NETWORK_MODES,
-    InjectiveDelegatedAccountMode,
     InjectiveMainnetNetworkMode,
+    InjectiveReadOnlyAccountMode,
 )
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
@@ -37,12 +37,7 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
         ),
     )
     account_type: Union[tuple(ACCOUNT_MODES.values())] = Field(
-        default=InjectiveDelegatedAccountMode(
-            private_key="0000000000000000000000000000000000000000000000000000000000000001",  # noqa: mock
-            subaccount_index=0,
-            granter_address="inj10e0525sfrf53yh2aljmm3sn9jq5njk7lwfmzjf",  # noqa: mock
-            granter_subaccount_index=0,
-        ),
+        default=InjectiveReadOnlyAccountMode(),
         client_data=ClientFieldData(
             prompt=lambda cm: f"Select the type of account configuration ({'/'.join(list(ACCOUNT_MODES.keys()))})",
             prompt_on_new=True,
