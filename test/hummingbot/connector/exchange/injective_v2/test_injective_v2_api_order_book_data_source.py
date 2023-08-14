@@ -15,6 +15,11 @@ from hummingbot.connector.exchange.injective_v2.injective_v2_api_order_book_data
     InjectiveV2APIOrderBookDataSource,
 )
 from hummingbot.connector.exchange.injective_v2.injective_v2_exchange import InjectiveV2Exchange
+from hummingbot.connector.exchange.injective_v2.injective_v2_utils import (
+    InjectiveConfigMap,
+    InjectiveDelegatedAccountMode,
+    InjectiveTestnetNetworkMode,
+)
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
@@ -44,12 +49,24 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
 
         _, grantee_private_key = PrivateKey.generate()
         _, granter_private_key = PrivateKey.generate()
+
+        network_config = InjectiveTestnetNetworkMode()
+
+        account_config = InjectiveDelegatedAccountMode(
+            private_key=grantee_private_key.to_hex(),
+            subaccount_index=0,
+            granter_address=Address(bytes.fromhex(granter_private_key.to_public_key().to_hex())).to_acc_bech32(),
+            granter_subaccount_index=0,
+        )
+
+        injective_config = InjectiveConfigMap(
+            network=network_config,
+            account_type=account_config,
+        )
+
         self.connector = InjectiveV2Exchange(
             client_config_map=client_config_map,
-            injective_private_key=grantee_private_key.to_hex(),
-            injective_subaccount_index=0,
-            injective_granter_address=Address(bytes.fromhex(granter_private_key.to_public_key().to_hex())).to_acc_bech32(),
-            injective_granter_subaccount_index=0,
+            connector_configuration=injective_config,
             trading_pairs=[self.trading_pair],
         )
         self.data_source = InjectiveV2APIOrderBookDataSource(
@@ -57,6 +74,12 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
             connector=self.connector,
             data_source=self.connector._data_source,
         )
+
+        self.initialize_trading_account_patch = patch(
+            "hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source"
+            ".InjectiveGranteeDataSource.initialize_trading_account"
+        )
+        self.initialize_trading_account_patch.start()
 
         self.query_executor = ProgrammableQueryExecutor()
         self.connector._data_source._query_executor = self.query_executor
@@ -72,6 +95,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
 
     def tearDown(self) -> None:
         self.async_run_with_timeout(self.data_source._data_source.stop())
+        self.initialize_trading_account_patch.stop()
         for task in self.async_tasks:
             task.cancel()
         self.async_loop.stop()
@@ -184,7 +208,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         }
         self.query_executor._public_spot_trade_updates.put_nowait(trade_data)
 
-        self.async_run_with_timeout(self.data_source.listen_for_subscriptions())
+        self.async_run_with_timeout(self.data_source.listen_for_subscriptions(), timeout=2)
 
         msg_queue = asyncio.Queue()
         self.create_task(self.data_source.listen_for_trades(self.async_loop, msg_queue))
@@ -295,7 +319,8 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
             )
         )
 
-    def test_listen_for_order_book_diffs_successful(self):
+    @patch("hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source.InjectiveGranteeDataSource._initialize_timeout_height")
+    def test_listen_for_order_book_diffs_successful(self, _):
         spot_markets_response = self._spot_markets_response()
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
         base_decimals = spot_markets_response[0]["baseTokenMeta"]["decimals"]

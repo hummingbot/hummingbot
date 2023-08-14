@@ -2,7 +2,7 @@ import asyncio
 from typing import TYPE_CHECKING, Dict, List, Optional
 
 from hummingbot.connector.exchange.injective_v2 import injective_constants as CONSTANTS
-from hummingbot.connector.exchange.injective_v2.injective_data_source import InjectiveDataSource
+from hummingbot.connector.exchange.injective_v2.data_sources.injective_data_source import InjectiveDataSource
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.event.event_forwarder import EventForwarder

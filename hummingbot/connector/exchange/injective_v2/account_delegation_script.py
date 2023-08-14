@@ -34,7 +34,7 @@ async def main() -> None:
     granter_public_key = granter_private_key.to_public_key()
     granter_address = granter_public_key.to_address()
     account = await client.get_account(granter_address.to_acc_bech32())  # noqa: F841
-    granter_subaccount_id = granter_address.get_subaccount_id(index=0)
+    granter_subaccount_id = granter_address.get_subaccount_id(index=GRANTER_SUBACCOUNT_INDEX)
 
     msg = composer.MsgGrantTyped(
         granter = granter_address.to_acc_bech32(),
