@@ -263,7 +263,8 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
     def _get_maker_taker_exchange_fee_rates_from_market_info(
             self, market_info: Dict[str, Any]
     ) -> MakerTakerExchangeFeeRates:
-        # Currently, there is no fee for trading on the XRPL dex
+        # Currently, trading fees on XRPL dex are not following maker/taker model, instead they based on transfer fees
+        # https://xrpl.org/transfer-fees.html
         maker_taker_exchange_fee_rates = MakerTakerExchangeFeeRates(
             maker=Decimal(0),
             taker=Decimal(0),
@@ -328,6 +329,9 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
             raise ValueError(f"No update found for order {in_flight_order.exchange_order_id}.")
         else:
             orders = resp.get("orders")
+
+            if len(orders) == 0:
+                return None
 
             status_update = OrderUpdate(
                 trading_pair=in_flight_order.trading_pair,
