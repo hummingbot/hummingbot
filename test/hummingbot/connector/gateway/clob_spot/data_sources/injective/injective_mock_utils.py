@@ -187,7 +187,7 @@ class InjectiveClientMock:
         self.injective_async_client_mock.stream_historical_spot_orders.return_value.run_until_all_items_delivered(
             timeout=timeout
         )
-        self.injective_async_client_mock.stream_spot_orderbooks.return_value.run_until_all_items_delivered(
+        self.injective_async_client_mock.stream_spot_orderbook_snapshot.return_value.run_until_all_items_delivered(
             timeout=timeout
         )
         self.injective_async_client_mock.stream_subaccount_balance.return_value.run_until_all_items_delivered(
