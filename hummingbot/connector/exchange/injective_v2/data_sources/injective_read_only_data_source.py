@@ -338,6 +338,13 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
     ) -> any_pb2.Any:
         raise NotImplementedError
 
+    def _all_subaccount_orders_cancel_message(
+            self,
+            spot_orders_to_cancel: List[injective_exchange_tx_pb.OrderData],
+            derivative_orders_to_cancel: List[injective_exchange_tx_pb.OrderData]
+    ) -> any_pb2.Any:
+        raise NotImplementedError
+
     def _generate_injective_order_data(self, order: GatewayInFlightOrder,
                                        market_id: str) -> injective_exchange_tx_pb.OrderData:
         raise NotImplementedError

@@ -532,6 +532,23 @@ class InjectiveDataSource(ABC):
 
         return results
 
+    async def cancel_all_subaccount_orders(
+            self,
+            spot_markets_ids: Optional[List[str]] = None,
+            perpetual_markets_ids: Optional[List[str]] = None,
+    ):
+        spot_markets_ids = spot_markets_ids or []
+        perpetual_markets_ids = perpetual_markets_ids or []
+
+        delegated_message = self._all_subaccount_orders_cancel_message(
+            spot_markets_ids=spot_markets_ids,
+            derivative_markets_ids=perpetual_markets_ids,
+        )
+
+        result = await self._send_in_transaction(messages=[delegated_message])
+        if result["rawLog"] != "[]":
+            raise ValueError(f"Error sending the order cancel transaction ({result['rawLog']})")
+
     async def spot_trade_updates(self, market_ids: List[str], start_time: float) -> List[TradeUpdate]:
         done = False
         skip = 0
@@ -746,6 +763,14 @@ class InjectiveDataSource(ABC):
             self,
             spot_orders_to_cancel: List[injective_exchange_tx_pb.OrderData],
             derivative_orders_to_cancel: List[injective_exchange_tx_pb.OrderData]
+    ) -> any_pb2.Any:
+        raise NotImplementedError
+
+    @abstractmethod
+    def _all_subaccount_orders_cancel_message(
+            self,
+            spot_markets_ids: List[str],
+            derivative_markets_ids: List[str]
     ) -> any_pb2.Any:
         raise NotImplementedError
 

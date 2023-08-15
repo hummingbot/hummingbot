@@ -520,6 +520,38 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
 
         return execute_contract_message
 
+    def _all_subaccount_orders_cancel_message(
+            self,
+            spot_markets_ids: List[str],
+            derivative_markets_ids: List[str]
+    ) -> any_pb2.Any:
+        composer = self.composer
+
+        message = composer.MsgBatchUpdateOrders(
+            sender=self.portfolio_account_injective_address,
+            subaccount_id=self.portfolio_account_subaccount_id,
+            spot_market_ids_to_cancel_all=spot_markets_ids,
+            derivative_market_ids_to_cancel_all=derivative_markets_ids,
+        )
+
+        message_as_dictionary = json_format.MessageToDict(
+            message=message,
+            including_default_value_fields=True,
+            preserving_proto_field_name=True,
+            use_integers_for_enums=True,
+        )
+
+        execute_message_parameter = self._create_execute_contract_internal_message(
+            batch_update_orders_params=message_as_dictionary)
+
+        execute_contract_message = composer.MsgExecuteContract(
+            sender=self._vault_admin_address.to_acc_bech32(),
+            contract=self._vault_contract_address.to_acc_bech32(),
+            msg=json.dumps(execute_message_parameter),
+        )
+
+        return execute_contract_message
+
     def _generate_injective_order_data(self, order: GatewayInFlightOrder, market_id: str) -> injective_exchange_tx_pb.OrderData:
         order_data = self.composer.OrderData(
             market_id=market_id,

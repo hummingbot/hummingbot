@@ -589,6 +589,25 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         )
         return delegated_message
 
+    def _all_subaccount_orders_cancel_message(
+            self,
+            spot_markets_ids: List[str],
+            derivative_markets_ids: List[str]
+    ) -> any_pb2.Any:
+        composer = self.composer
+
+        message = composer.MsgBatchUpdateOrders(
+            sender=self.portfolio_account_injective_address,
+            subaccount_id=self.portfolio_account_subaccount_id,
+            spot_market_ids_to_cancel_all=spot_markets_ids,
+            derivative_market_ids_to_cancel_all=derivative_markets_ids,
+        )
+        delegated_message = composer.MsgExec(
+            grantee=self.trading_account_injective_address,
+            msgs=[message]
+        )
+        return delegated_message
+
     def _generate_injective_order_data(self, order: GatewayInFlightOrder, market_id: str) -> injective_exchange_tx_pb.OrderData:
         order_data = self.composer.OrderData(
             market_id=market_id,
