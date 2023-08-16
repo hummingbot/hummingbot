@@ -246,6 +246,11 @@ class InjectiveV2Exchange(ExchangePyBase):
         failed_cancellations = [CancellationResult(oid, False) for oid in incomplete_orders.keys()]
         return successful_cancellations + failed_cancellations
 
+    async def cancel_all_subaccount_orders(self):
+        markets_ids = [await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+                       for trading_pair in self.trading_pairs]
+        await self._data_source.cancel_all_subaccount_orders(spot_markets_ids=markets_ids)
+
     async def check_network(self) -> NetworkStatus:
         """
         Checks connectivity with the exchange using the API

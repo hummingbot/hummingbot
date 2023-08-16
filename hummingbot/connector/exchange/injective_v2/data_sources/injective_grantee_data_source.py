@@ -83,7 +83,7 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         self._is_trading_account_initialized = False
         self._markets_initialization_lock = asyncio.Lock()
         self._spot_market_info_map: Optional[Dict[str, InjectiveSpotMarket]] = None
-        self._derivative_market_info_map: Optional[Dict[str, InjectiveSpotMarket]] = None
+        self._derivative_market_info_map: Optional[Dict[str, InjectiveDerivativeMarket]] = None
         self._spot_market_and_trading_pair_map: Optional[Mapping[str, str]] = None
         self._derivative_market_and_trading_pair_map: Optional[Mapping[str, str]] = None
         self._tokens_map: Optional[Dict[str, InjectiveToken]] = None
@@ -582,6 +582,25 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
             sender=self.portfolio_account_injective_address,
             spot_orders_to_cancel=spot_orders_to_cancel,
             derivative_orders_to_cancel=derivative_orders_to_cancel,
+        )
+        delegated_message = composer.MsgExec(
+            grantee=self.trading_account_injective_address,
+            msgs=[message]
+        )
+        return delegated_message
+
+    def _all_subaccount_orders_cancel_message(
+            self,
+            spot_markets_ids: List[str],
+            derivative_markets_ids: List[str]
+    ) -> any_pb2.Any:
+        composer = self.composer
+
+        message = composer.MsgBatchUpdateOrders(
+            sender=self.portfolio_account_injective_address,
+            subaccount_id=self.portfolio_account_subaccount_id,
+            spot_market_ids_to_cancel_all=spot_markets_ids,
+            derivative_market_ids_to_cancel_all=derivative_markets_ids,
         )
         delegated_message = composer.MsgExec(
             grantee=self.trading_account_injective_address,
