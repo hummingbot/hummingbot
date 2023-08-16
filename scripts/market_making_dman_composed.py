@@ -10,7 +10,8 @@ from hummingbot.smart_components.meta_strategies.market_making.strategies.dman_v
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
-class MarketMakingDman(ScriptStrategyBase):
+class MarketMakingDmanComposed(ScriptStrategyBase):
+    trading_pair = "HBAR-USDT"
     triple_barrier_conf = TripleBarrierConf(
         stop_loss=Decimal("0.03"), take_profit=Decimal("0.02"),
         time_limit=60 * 60 * 24,
@@ -20,7 +21,7 @@ class MarketMakingDman(ScriptStrategyBase):
 
     config_v1 = DManV1Config(
         exchange="binance_perpetual",
-        trading_pair="ETH-USDT",
+        trading_pair=trading_pair,
         order_levels=[
             OrderLevel(level=0, side=TradeType.BUY, order_amount_usd=Decimal(20),
                        spread_factor=Decimal(1.5), order_refresh_time=60 * 5,
@@ -36,14 +37,14 @@ class MarketMakingDman(ScriptStrategyBase):
                        cooldown_time=15, triple_barrier_conf=triple_barrier_conf),
         ],
         candles_config=[
-            CandlesConfig(connector="binance_perpetual", trading_pair="ETH-USDT", interval="3m", max_records=1000),
+            CandlesConfig(connector="binance_perpetual", trading_pair=trading_pair, interval="3m", max_records=1000),
         ],
         leverage=10,
         natr_length=21
     )
     config_v2 = DManV2Config(
         exchange="binance_perpetual",
-        trading_pair="ETH-USDT",
+        trading_pair=trading_pair,
         order_levels=[
             OrderLevel(level=0, side=TradeType.BUY, order_amount_usd=Decimal(15),
                        spread_factor=Decimal(0.5), order_refresh_time=60 * 5,
@@ -65,7 +66,7 @@ class MarketMakingDman(ScriptStrategyBase):
                        cooldown_time=15, triple_barrier_conf=triple_barrier_conf),
         ],
         candles_config=[
-            CandlesConfig(connector="binance_perpetual", trading_pair="ETH-USDT", interval="3m", max_records=1000),
+            CandlesConfig(connector="binance_perpetual", trading_pair=trading_pair, interval="3m", max_records=1000),
         ],
         leverage=10,
         natr_length=21, macd_fast=12, macd_slow=26, macd_signal=9
