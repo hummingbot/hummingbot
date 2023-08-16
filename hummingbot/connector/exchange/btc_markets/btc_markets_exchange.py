@@ -159,31 +159,23 @@ class BtcMarketsExchange(ExchangePyBase):
     # https://docs.btcmarkets.net/v3/#tag/ErrorCodes
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         error_code = str(request_exception)
-        is_time_synchronizer_related = "InvalidTimeWindow" in error_code or "InvalidTimestamp" in error_code or "InvalidAuthTimestamp" in error_code or "InvalidAuthSignature" in error_code
+        is_time_synchronizer_related = CONSTANTS.INVALID_TIME_WINDOW in error_code or CONSTANTS.INVALID_TIMESTAMP in error_code or CONSTANTS.INVALID_AUTH_TIMESTAMP in error_code or CONSTANTS.INVALID_AUTH_SIGNATURE in error_code
         return is_time_synchronizer_related
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
-        # TODO: implement this method correctly for the connector
-        # The default implementation was added when the functionality to detect not found orders was introduced in the
-        # ExchangePyBase class. Also fix the unit test test_lost_order_removed_if_not_found_during_order_status_update
-        # when replacing the dummy implementation
-        return False
+        return str(CONSTANTS.ORDER_NOT_FOUND) in str(status_update_exception)
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
-        # TODO: implement this method correctly for the connector
-        # The default implementation was added when the functionality to detect not found orders was introduced in the
-        # ExchangePyBase class. Also fix the unit test test_cancel_order_not_found_in_the_exchange when replacing the
-        # dummy implementation
-        return False
+        return str(CONSTANTS.ORDER_NOT_FOUND) in str(cancelation_exception)
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
-        response = await self._api_request(
-            method=RESTMethod.DELETE,
+        response = await self._api_delete(
             path_url=f"{CONSTANTS.ORDERS_URL}/{tracked_order.exchange_order_id}",
             is_auth_required=True,
             limit_id=f"{CONSTANTS.ORDERS_URL}"
         )
         cancelled = True if response["clientOrderId"] == order_id else False
+
         return cancelled
 
     async def _place_order(
@@ -221,13 +213,11 @@ class BtcMarketsExchange(ExchangePyBase):
             post_data["price"] = price_str
             post_data["postOnly"] = "true"
 
-        order_result = await self._api_request(
-            method = RESTMethod.POST,
+        order_result = await self._api_post(
             path_url = CONSTANTS.ORDERS_URL,
             data = post_data,
             is_auth_required = True
         )
-
         exchange_order_id = str(order_result["orderId"])
 
         return exchange_order_id, self.current_timestamp
@@ -280,8 +270,7 @@ class BtcMarketsExchange(ExchangePyBase):
         """
         Update fees information from the exchange
         """
-        resp = await self._api_request(
-            method=RESTMethod.GET,
+        resp = await self._api_get(
             path_url=CONSTANTS.FEES_URL,
             is_auth_required=True,
             limit_id=CONSTANTS.FEES_URL
@@ -293,7 +282,6 @@ class BtcMarketsExchange(ExchangePyBase):
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         trade_updates = []
-
         try:
             if order.exchange_order_id is not None:
                 all_fills_response = await self._request_order_fills(order=order)
@@ -310,8 +298,7 @@ class BtcMarketsExchange(ExchangePyBase):
 
     async def _request_order_fills(self, order: InFlightOrder) -> Dict[str, Any]:
         orderId = await order.get_exchange_order_id()
-        return await self._api_request(
-            method=RESTMethod.GET,
+        return await self._api_get(
             path_url=CONSTANTS.TRADES_URL,
             params={
                 "orderId": orderId
@@ -324,8 +311,7 @@ class BtcMarketsExchange(ExchangePyBase):
         return await self._get_order_update(order.exchange_order_id)
 
     async def _get_order_update(self, orderId: int) -> Dict[str, Any]:
-        return await self._api_request(
-            method=RESTMethod.GET,
+        return await self._api_get(
             path_url=f"{CONSTANTS.ORDERS_URL}/{orderId}",
             is_auth_required=True,
             limit_id=CONSTANTS.ORDERS_URL
