@@ -132,6 +132,8 @@ class CoinCapDataFeed(DataFeedBase):
     def _check_is_api_key_authorized(self, response: RESTResponse):
         self.logger().debug(f"CoinCap REST response headers: {response.headers}")
         self._is_api_key_authorized = int(response.headers["X-Ratelimit-Limit"]) == CONSTANTS.API_KEY_LIMIT
+        if not self._is_api_key_authorized and self._api_key != "":
+            self.logger().warning("CoinCap API key is not authorized. Please check your API key.")
 
     async def _stream_prices(self):
         while True:

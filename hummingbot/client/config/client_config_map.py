@@ -843,15 +843,18 @@ class CoinCapRateSourceMode(RateSourceModeBase):
         default=SecretStr(""),
         description="API key to use to request information from CoinCap (if empty public requests will be used)",
         client_data=ClientFieldData(
-            prompt=lambda cm: "CoinCap API key",
+            prompt=lambda cm: "CoinCap API key (optional, but improves rate limits)",
             is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,
         ),
     )
 
+    class Config:
+        title = "coin_cap"
+
     def build_rate_source(self) -> RateSourceBase:
-        rate_source = RATE_ORACLE_SOURCES[self.Config.title](
+        rate_source = RATE_ORACLE_SOURCES["coin_cap"](
             assets_map=self.assets_map, api_key=self.api_key.get_secret_value()
         )
         return rate_source
@@ -862,8 +865,25 @@ class CoinCapRateSourceMode(RateSourceModeBase):
             value = {key: val for key, val in [v.split(":") for v in value.split(",")]}
         return value
 
-    class Config:
-        title = "coin_cap"
+    # === post-validations ===
+
+    @root_validator()
+    def post_validations(cls, values: Dict):
+        cls.rate_oracle_source_on_validated(values)
+        return values
+
+    @classmethod
+    def rate_oracle_source_on_validated(cls, values: Dict):
+        RateOracle.get_instance().source = cls._build_rate_source_cls(
+            assets_map=values["assets_map"], api_key=values["api_key"]
+        )
+
+    @classmethod
+    def _build_rate_source_cls(cls, assets_map: Dict[str, str], api_key: SecretStr) -> RateSourceBase:
+        rate_source = RATE_ORACLE_SOURCES["coin_cap"](
+            assets_map=assets_map, api_key=api_key.get_secret_value()
+        )
+        return rate_source
 
 
 class KuCoinRateSourceMode(ExchangeRateSourceModeBase):
