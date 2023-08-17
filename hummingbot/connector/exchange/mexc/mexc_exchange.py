@@ -1,963 +1,658 @@
 import asyncio
-import logging
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
-from urllib.parse import quote, urljoin
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
-import aiohttp
-import ujson
+from bidict import bidict
 
-from hummingbot.connector.exchange.mexc import mexc_constants as CONSTANTS
+from hummingbot.connector.constants import s_decimal_NaN
+from hummingbot.connector.exchange.mexc import (
+    mexc_constants as CONSTANTS,
+    mexc_utils,
+    mexc_web_utils as web_utils,
+)
 from hummingbot.connector.exchange.mexc.mexc_api_order_book_data_source import MexcAPIOrderBookDataSource
+from hummingbot.connector.exchange.mexc.mexc_api_user_stream_data_source import MexcAPIUserStreamDataSource
 from hummingbot.connector.exchange.mexc.mexc_auth import MexcAuth
-from hummingbot.connector.exchange.mexc.mexc_in_flight_order import MexcInFlightOrder
-from hummingbot.connector.exchange.mexc.mexc_order_book_tracker import MexcOrderBookTracker
-from hummingbot.connector.exchange.mexc.mexc_user_stream_tracker import MexcUserStreamTracker
-from hummingbot.connector.exchange.mexc.mexc_utils import (
-    convert_from_exchange_trading_pair,
-    convert_to_exchange_trading_pair,
-    num_to_increment,
-    ws_order_status_convert_to_str,
-)
-from hummingbot.connector.exchange_base import ExchangeBase, s_decimal_NaN
+from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.clock import Clock
-from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_tracker import OrderBookTrackerDataSourceType
-from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
-from hummingbot.core.event.events import (
-    BuyOrderCompletedEvent,
-    BuyOrderCreatedEvent,
-    MarketEvent,
-    MarketOrderFailureEvent,
-    OrderCancelledEvent,
-    OrderFilledEvent,
-    SellOrderCompletedEvent,
-    SellOrderCreatedEvent,
-)
-from hummingbot.core.network_iterator import NetworkStatus
-from hummingbot.core.utils.async_call_scheduler import AsyncCallScheduler
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
-from hummingbot.logger import HummingbotLogger
+from hummingbot.connector.utils import TradeFillOrderDetails, combine_to_hb_trading_pair
+from hummingbot.core.data_type.common import OrderType, TradeType, PriceType
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
+from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
-hm_logger = None
-s_decimal_0 = Decimal(0)
 
+class MexcExchange(ExchangePyBase):
+    UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
 
-class MexcAPIError(IOError):
-    def __init__(self, error_payload: Dict[str, Any]):
-        super().__init__(str(error_payload))
-        self.error_payload = error_payload
-
-
-class MexcExchange(ExchangeBase):
-    MARKET_RECEIVED_ASSET_EVENT_TAG = MarketEvent.ReceivedAsset
-    MARKET_BUY_ORDER_COMPLETED_EVENT_TAG = MarketEvent.BuyOrderCompleted
-    MARKET_SELL_ORDER_COMPLETED_EVENT_TAG = MarketEvent.SellOrderCompleted
-    MARKET_WITHDRAW_ASSET_EVENT_TAG = MarketEvent.WithdrawAsset
-    MARKET_ORDER_CANCELED_EVENT_TAG = MarketEvent.OrderCancelled
-    MARKET_TRANSACTION_FAILURE_EVENT_TAG = MarketEvent.TransactionFailure
-    MARKET_ORDER_FAILURE_EVENT_TAG = MarketEvent.OrderFailure
-    MARKET_ORDER_FILLED_EVENT_TAG = MarketEvent.OrderFilled
-    MARKET_BUY_ORDER_CREATED_EVENT_TAG = MarketEvent.BuyOrderCreated
-    MARKET_SELL_ORDER_CREATED_EVENT_TAG = MarketEvent.SellOrderCreated
-    API_CALL_TIMEOUT = 10.0
-    UPDATE_ORDERS_INTERVAL = 10.0
-    SHORT_POLL_INTERVAL = 5.0
-    MORE_SHORT_POLL_INTERVAL = 1.0
-    LONG_POLL_INTERVAL = 120.0
-    ORDER_LEN_LIMIT = 20
-
-    _logger = None
-
-    @classmethod
-    def logger(cls) -> HummingbotLogger:
-        if cls._logger is None:
-            cls._logger = logging.getLogger(__name__)
-        return cls._logger
+    web_utils = web_utils
 
     def __init__(self,
                  client_config_map: "ClientConfigAdapter",
                  mexc_api_key: str,
-                 mexc_secret_key: str,
-                 poll_interval: float = 5.0,
-                 order_book_tracker_data_source_type: OrderBookTrackerDataSourceType = OrderBookTrackerDataSourceType.EXCHANGE_API,
+                 mexc_api_secret: str,
                  trading_pairs: Optional[List[str]] = None,
-                 trading_required: bool = True):
-
-        super().__init__(client_config_map=client_config_map)
-        self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        self._shared_client = aiohttp.ClientSession()
-        self._async_scheduler = AsyncCallScheduler(call_interval=0.5)
-        self._data_source_type = order_book_tracker_data_source_type
-        self._ev_loop = asyncio.get_event_loop()
-        self._mexc_auth = MexcAuth(api_key=mexc_api_key, secret_key=mexc_secret_key)
-        self._in_flight_orders = {}
-        self._last_poll_timestamp = 0
-        self._last_timestamp = 0
-        self._set_order_book_tracker(MexcOrderBookTracker(
-            throttler=self._throttler, trading_pairs=trading_pairs, shared_client=self._shared_client))
-        self._poll_notifier = asyncio.Event()
-        self._poll_interval = poll_interval
-        self._status_polling_task = None
+                 trading_required: bool = True,
+                 domain: str = CONSTANTS.DEFAULT_DOMAIN,
+                 ):
+        self.api_key = mexc_api_key
+        self.secret_key = mexc_api_secret
+        self._domain = domain
         self._trading_required = trading_required
-        self._trading_rules = {}
-        self._trading_rules_polling_task = None
-        self._user_stream_tracker = MexcUserStreamTracker(throttler=self._throttler,
-                                                          mexc_auth=self._mexc_auth,
-                                                          trading_pairs=trading_pairs,
-                                                          shared_client=self._shared_client)
-        self._user_stream_tracker_task = None
-        self._user_stream_event_listener_task = None
+        self._trading_pairs = trading_pairs
+        self._last_trades_poll_mexc_timestamp = 1.0
+        super().__init__(client_config_map)
+
+    @staticmethod
+    def mexc_order_type(order_type: OrderType) -> str:
+        return order_type.name.upper()
+
+    @staticmethod
+    def to_hb_order_type(mexc_type: str) -> OrderType:
+        return OrderType[mexc_type]
+
+    @property
+    def authenticator(self):
+        return MexcAuth(
+            api_key=self.api_key,
+            secret_key=self.secret_key,
+            time_provider=self._time_synchronizer)
 
     @property
     def name(self) -> str:
-        return "mexc"
-
-    @property
-    def order_books(self) -> Dict[str, OrderBook]:
-        return self.order_book_tracker.order_books
-
-    @property
-    def trading_rules(self) -> Dict[str, TradingRule]:
-        return self._trading_rules
-
-    @property
-    def in_flight_orders(self) -> Dict[str, MexcInFlightOrder]:
-        return self._in_flight_orders
-
-    @property
-    def limit_orders(self) -> List[LimitOrder]:
-        return [
-            in_flight_order.to_limit_order()
-            for in_flight_order in self._in_flight_orders.values()
-        ]
-
-    @property
-    def tracking_states(self) -> Dict[str, Any]:
-        return {
-            client_oid: order.to_json()
-            for client_oid, order in self._in_flight_orders.items()
-            if not order.is_done
-        }
-
-    def restore_tracking_states(self, saved_states: Dict[str, Any]):
-        self._in_flight_orders.update({
-            key: MexcInFlightOrder.from_json(value)
-            for key, value in saved_states.items()
-        })
-
-    @property
-    def shared_client(self) -> aiohttp.ClientSession:
-        return self._shared_client
-
-    @property
-    def user_stream_tracker(self) -> MexcUserStreamTracker:
-        return self._user_stream_tracker
-
-    @shared_client.setter
-    def shared_client(self, client: aiohttp.ClientSession):
-        self._shared_client = client
-
-    def start(self, clock: Clock, timestamp: float):
-        """
-        This function is called automatically by the clock.
-        """
-        super().start(clock, timestamp)
-
-    def stop(self, clock: Clock):
-        """
-        This function is called automatically by the clock.
-        """
-        super().stop(clock)
-
-    async def start_network(self):
-        """
-        This function is required by NetworkIterator base class and is called automatically.
-        It starts tracking order book, polling trading rules,
-        updating statuses and tracking user data.
-        """
-        await self.stop_network()
-        self.order_book_tracker.start()
-        self._trading_rules_polling_task = safe_ensure_future(self._trading_rules_polling_loop())
-
-        if self._trading_required:
-            self._status_polling_task = safe_ensure_future(self._status_polling_loop())
-            self._user_stream_tracker_task = safe_ensure_future(self._user_stream_tracker.start())
-            self._user_stream_event_listener_task = safe_ensure_future(self._user_stream_event_listener())
-            await self._update_balances()
-
-    async def stop_network(self):
-        self.order_book_tracker.stop()
-        if self._status_polling_task is not None:
-            self._status_polling_task.cancel()
-            self._status_polling_task = None
-        if self._trading_rules_polling_task is not None:
-            self._trading_rules_polling_task.cancel()
-            self._trading_rules_polling_task = None
-        if self._user_stream_tracker_task is not None:
-            self._user_stream_tracker_task.cancel()
-            self._user_stream_tracker_task = None
-        if self._user_stream_event_listener_task is not None:
-            self._user_stream_event_listener_task.cancel()
-            self._user_stream_event_listener_task = None
-
-    async def check_network(self) -> NetworkStatus:
-        try:
-            resp = await self._api_request(method="GET", path_url=CONSTANTS.MEXC_PING_URL)
-            if 'code' not in resp or resp['code'] != 200:
-                raise Exception()
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            return NetworkStatus.NOT_CONNECTED
-        return NetworkStatus.CONNECTED
-
-    def tick(self, timestamp: float):
-        """
-        Is called automatically by the clock for each clock's tick (1 second by default).
-        It checks if status polling task is due for execution.
-        """
-        # now = time.time()
-        poll_interval = self.MORE_SHORT_POLL_INTERVAL
-        last_tick = int(self._last_timestamp / poll_interval)
-        current_tick = int(timestamp / poll_interval)
-        if current_tick > last_tick:
-            if not self._poll_notifier.is_set():
-                self._poll_notifier.set()
-        self._last_timestamp = timestamp
-
-    async def _http_client(self) -> aiohttp.ClientSession:
-        if self._shared_client is None:
-            self._shared_client = aiohttp.ClientSession()
-        return self._shared_client
-
-    async def _api_request(self,
-                           method: str,
-                           path_url: str,
-                           params: Optional[Dict[str, Any]] = {},
-                           data={},
-                           is_auth_required: bool = False,
-                           limit_id: Optional[str] = None) -> Dict[str, Any]:
-
-        headers = {"Content-Type": "application/json"}
-        if path_url in CONSTANTS.MEXC_PLACE_ORDER:
-            headers.update({'source': 'HUMBOT'})
-        client = await self._http_client()
-        text_data = ujson.dumps(data) if data else None
-        limit_id = limit_id or path_url
-        path_url = self._mexc_auth.add_auth_to_params(method, path_url, params, is_auth_required)
-        url = urljoin(CONSTANTS.MEXC_BASE_URL, path_url)
-        async with self._throttler.execute_task(limit_id):
-            response_core = await client.request(
-                method=method.upper(),
-                url=url,
-                headers=headers,
-                # params=params if params else None, #mexc`s params  is already in the url
-                data=text_data,
-            )
-
-        # async with response_core as response:
-        if response_core.status != 200:
-            raise IOError(f"Error request from {url}. Response: {await response_core.json()}.")
-        try:
-            parsed_response = await response_core.json()
-            return parsed_response
-        except Exception as ex:
-            raise IOError(f"Error parsing data from {url}." + repr(ex))
-
-    async def _update_balances(self):
-        path_url = CONSTANTS.MEXC_BALANCE_URL
-        msg = await self._api_request("GET", path_url=path_url, is_auth_required=True)
-        if msg['code'] == 200:
-            balances = msg['data']
+        if self._domain == "com":
+            return "mexc"
         else:
-            raise Exception(msg)
-            self.logger().info(f" _update_balances error: {msg} ")
-            return
-
-        self._account_available_balances.clear()
-        self._account_balances.clear()
-        for k, balance in balances.items():
-            # if Decimal(balance['frozen']) + Decimal(balance['available']) > Decimal(0.0001):
-            self._account_balances[k] = Decimal(balance['frozen']) + Decimal(balance['available'])
-            self._account_available_balances[k] = Decimal(balance['available'])
-
-    async def _update_trading_rules(self):
-        try:
-            last_tick = int(self._last_timestamp / 60.0)
-            current_tick = int(self.current_timestamp / 60.0)
-            if current_tick > last_tick or len(self._trading_rules) < 1:
-                exchange_info = await self._api_request("GET", path_url=CONSTANTS.MEXC_SYMBOL_URL)
-                trading_rules_list = self._format_trading_rules(exchange_info['data'])
-                self._trading_rules.clear()
-                for trading_rule in trading_rules_list:
-                    self._trading_rules[trading_rule.trading_pair] = trading_rule
-        except Exception as ex:
-            self.logger().error("Error _update_trading_rules:" + str(ex), exc_info=True)
-
-    def _format_trading_rules(self, raw_trading_pair_info: List[Dict[str, Any]]) -> List[TradingRule]:
-        trading_rules = []
-        for info in raw_trading_pair_info:
-            try:
-                trading_rules.append(
-                    TradingRule(trading_pair=convert_from_exchange_trading_pair(info['symbol']),
-                                # min_order_size=Decimal(info["min_amount"]),
-                                # max_order_size=Decimal(info["max_amount"]),
-                                min_price_increment=Decimal(num_to_increment(info["price_scale"])),
-                                min_base_amount_increment=Decimal(num_to_increment(info["quantity_scale"])),
-                                # min_quote_amount_increment=Decimal(info["1e-{info['value-precision']}"]),
-                                # min_notional_size=Decimal(info["min-order-value"])
-                                min_notional_size=Decimal(info["min_amount"]),
-                                # max_notional_size=Decimal(info["max_amount"]),
-
-                                )
-                )
-            except Exception:
-                self.logger().error(f"Error parsing the trading pair rule {info}. Skipping.", exc_info=True)
-        return trading_rules
-
-    async def get_order_status(self, exchangge_order_id: str, trading_pair: str) -> Dict[str, Any]:
-        params = {"order_ids": exchangge_order_id}
-        msg = await self._api_request("GET",
-                                      path_url=CONSTANTS.MEXC_ORDER_DETAILS_URL,
-                                      params=params,
-                                      is_auth_required=True)
-
-        if msg["code"] == 200:
-            return msg['data'][0]
-
-    async def _update_order_status(self):
-        last_tick = int(self._last_poll_timestamp / self.UPDATE_ORDERS_INTERVAL)
-        current_tick = int(self.current_timestamp / self.UPDATE_ORDERS_INTERVAL)
-        if current_tick > last_tick and len(self._in_flight_orders) > 0:
-            tracked_orders = list(self._in_flight_orders.values())
-            for tracked_order in tracked_orders:
-                try:
-                    exchange_order_id = await tracked_order.get_exchange_order_id()
-                    try:
-                        order_update = await self.get_order_status(exchange_order_id, tracked_order.trading_pair)
-                    except MexcAPIError as ex:
-                        err_code = ex.error_payload.get("error").get('err-code')
-                        self.stop_tracking_order(tracked_order.client_order_id)
-                        self.logger().info(f"The limit order {tracked_order.client_order_id} "
-                                           f"has failed according to order status API. - {err_code}")
-                        self.trigger_event(
-                            self.MARKET_ORDER_FAILURE_EVENT_TAG,
-                            MarketOrderFailureEvent(
-                                self.current_timestamp,
-                                tracked_order.client_order_id,
-                                tracked_order.order_type
-                            )
-                        )
-                        continue
-
-                    if order_update is None:
-                        self.logger().network(
-                            f"Error fetching status update for the order {tracked_order.client_order_id}: "
-                            f"{exchange_order_id}.",
-                            app_warning_msg=f"Could not fetch updates for the order {tracked_order.client_order_id}. "
-                                            f"The order has either been filled or canceled."
-                        )
-                        continue
-                    tracked_order.last_state = order_update['state']
-                    order_status = order_update['state']
-                    new_confirmed_amount = Decimal(order_update['deal_quantity'])
-                    execute_amount_diff = new_confirmed_amount - tracked_order.executed_amount_base
-
-                    if execute_amount_diff > s_decimal_0:
-                        execute_price = Decimal(
-                            Decimal(order_update['deal_amount']) / Decimal(order_update['deal_quantity']))
-                        tracked_order.executed_amount_base = Decimal(order_update['deal_quantity'])
-                        tracked_order.executed_amount_quote = Decimal(order_update['deal_amount'])
-
-                        order_filled_event = OrderFilledEvent(
-                            self.current_timestamp,
-                            tracked_order.client_order_id,
-                            tracked_order.trading_pair,
-                            tracked_order.trade_type,
-                            tracked_order.order_type,
-                            execute_price,
-                            execute_amount_diff,
-                            self.get_fee(
-                                tracked_order.base_asset,
-                                tracked_order.quote_asset,
-                                tracked_order.order_type,
-                                tracked_order.trade_type,
-                                execute_amount_diff,
-                                execute_price,
-                            ),
-                            exchange_trade_id=str(int(self._time() * 1e6))
-                        )
-                        self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of the "
-                                           f"order {tracked_order.client_order_id}.")
-                        self.trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG, order_filled_event)
-                    if order_status == "FILLED":
-                        fee_paid, fee_currency = await self.get_deal_detail_fee(tracked_order.exchange_order_id)
-                        tracked_order.fee_paid = fee_paid
-                        tracked_order.fee_asset = fee_currency
-                        tracked_order.last_state = order_status
-                        self.stop_tracking_order(tracked_order.client_order_id)
-                        if tracked_order.trade_type is TradeType.BUY:
-                            self.logger().info(
-                                f"The BUY {tracked_order.order_type} order {tracked_order.client_order_id} has completed "
-                                f"according to order delta restful API.")
-                            self.trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
-                                               BuyOrderCompletedEvent(self.current_timestamp,
-                                                                      tracked_order.client_order_id,
-                                                                      tracked_order.base_asset,
-                                                                      tracked_order.quote_asset,
-                                                                      tracked_order.executed_amount_base,
-                                                                      tracked_order.executed_amount_quote,
-                                                                      tracked_order.order_type))
-                        elif tracked_order.trade_type is TradeType.SELL:
-                            self.logger().info(
-                                f"The SELL {tracked_order.order_type} order {tracked_order.client_order_id} has completed "
-                                f"according to order delta restful API.")
-                            self.trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
-                                               SellOrderCompletedEvent(self.current_timestamp,
-                                                                       tracked_order.client_order_id,
-                                                                       tracked_order.base_asset,
-                                                                       tracked_order.quote_asset,
-                                                                       tracked_order.executed_amount_base,
-                                                                       tracked_order.executed_amount_quote,
-                                                                       tracked_order.order_type))
-                        continue
-                    if order_status == "CANCELED" or order_status == "PARTIALLY_CANCELED":
-                        tracked_order.last_state = order_status
-                        self.stop_tracking_order(tracked_order.client_order_id)
-                        self.logger().info(f"Order {tracked_order.client_order_id} has been canceled "
-                                           f"according to order delta restful API.")
-                        self.trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
-                                           OrderCancelledEvent(self.current_timestamp,
-                                                               tracked_order.client_order_id))
-                except Exception as ex:
-                    self.logger().error("_update_order_status error ..." + repr(ex), exc_info=True)
-
-    def _reset_poll_notifier(self):
-        self._poll_notifier = asyncio.Event()
-
-    async def _status_polling_loop(self):
-        while True:
-            try:
-                self._reset_poll_notifier()
-                await self._poll_notifier.wait()
-                await safe_gather(
-                    self._update_balances(),
-                    self._update_order_status(),
-                )
-                self._last_poll_timestamp = self.current_timestamp
-            except asyncio.CancelledError:
-                raise
-            except Exception as ex:
-                self.logger().network("Unexpected error while fetching account updates." + repr(ex),
-                                      exc_info=True,
-                                      app_warning_msg="Could not fetch account updates from MEXC. "
-                                                      "Check API key and network connection.")
-                await asyncio.sleep(0.5)
-
-    async def _trading_rules_polling_loop(self):
-        while True:
-            try:
-                await self._update_trading_rules()
-                await asyncio.sleep(60)
-            except asyncio.CancelledError:
-                raise
-            except Exception as ex:
-                self.logger().network("Unexpected error while fetching trading rules." + repr(ex),
-                                      exc_info=True,
-                                      app_warning_msg="Could not fetch new trading rules from MEXC. "
-                                                      "Check network connection.")
-                await asyncio.sleep(0.5)
-
-    async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, Any]]:
-        while True:
-            try:
-                yield await self._user_stream_tracker.user_stream.get()
-            except asyncio.CancelledError:
-                raise
-            except Exception as ex:
-                self.logger().error(f"Unknown error. Retrying after 1 second. {ex}", exc_info=True)
-                await asyncio.sleep(1.0)
-
-    async def _user_stream_event_listener(self):
-        async for stream_message in self._iter_user_event_queue():
-            # self.logger().info(f"stream_message:{stream_message}")
-            try:
-                if 'channel' in stream_message.keys() and stream_message['channel'] == 'push.personal.account':
-                    continue
-                elif 'channel' in stream_message.keys() and stream_message['channel'] == 'push.personal.order':
-                    await self._process_order_message(stream_message)
-                else:
-                    self.logger().debug(f"Unknown event received from the connector ({stream_message})")
-            except asyncio.CancelledError:
-                raise
-            except Exception as e:
-                self.logger().error(f"Unexpected error in user stream listener lopp. {e}", exc_info=True)
-                await asyncio.sleep(5.0)
-
-    async def _process_order_message(self, stream_message: Dict[str, Any]):
-        client_order_id = stream_message["data"]["clientOrderId"]
-        # trading_pair = convert_from_exchange_trading_pair(stream_message["symbol"])
-        # 1:NEW,2:FILLED,3:PARTIALLY_FILLED,4:CANCELED,5:PARTIALLY_CANCELED
-        order_status = ws_order_status_convert_to_str(stream_message["data"]["status"])
-        tracked_order = self._in_flight_orders.get(client_order_id, None)
-        if tracked_order is None:
-            return
-        # Update balance in time
-        await self._update_balances()
-
-        if order_status in {"FILLED", "PARTIALLY_FILLED"}:
-            executed_amount = Decimal(str(stream_message["data"]['quantity'])) - Decimal(
-                str(stream_message["data"]['remainQuantity']))
-            execute_price = Decimal(str(stream_message["data"]['price']))
-            execute_amount_diff = executed_amount - tracked_order.executed_amount_base
-            if execute_amount_diff > s_decimal_0:
-                tracked_order.executed_amount_base = executed_amount
-                tracked_order.executed_amount_quote = Decimal(
-                    str(stream_message["data"]['amount'])) - Decimal(
-                    str(stream_message["data"]['remainAmount']))
-
-                current_fee = self.get_fee(tracked_order.base_asset,
-                                           tracked_order.quote_asset,
-                                           tracked_order.order_type,
-                                           tracked_order.trade_type,
-                                           execute_amount_diff,
-                                           execute_price)
-                self.logger().info(f"Filled {execute_amount_diff} out of {tracked_order.amount} of ")
-                self.trigger_event(self.MARKET_ORDER_FILLED_EVENT_TAG,
-                                   OrderFilledEvent(self.current_timestamp,
-                                                    tracked_order.client_order_id,
-                                                    tracked_order.trading_pair,
-                                                    tracked_order.trade_type,
-                                                    tracked_order.order_type,
-                                                    execute_price,
-                                                    execute_amount_diff,
-                                                    current_fee,
-                                                    exchange_trade_id=str(int(self._time() * 1e6))))
-        if order_status == "FILLED":
-            fee_paid, fee_currency = await self.get_deal_detail_fee(tracked_order.exchange_order_id)
-            tracked_order.fee_paid = fee_paid
-            tracked_order.fee_asset = fee_currency
-            tracked_order.last_state = order_status
-            if tracked_order.trade_type is TradeType.BUY:
-                self.logger().info(
-                    f"The BUY {tracked_order.order_type} order {tracked_order.client_order_id} has completed "
-                    f"according to order delta websocket API.")
-                self.trigger_event(self.MARKET_BUY_ORDER_COMPLETED_EVENT_TAG,
-                                   BuyOrderCompletedEvent(self.current_timestamp,
-                                                          tracked_order.client_order_id,
-                                                          tracked_order.base_asset,
-                                                          tracked_order.quote_asset,
-                                                          tracked_order.executed_amount_base,
-                                                          tracked_order.executed_amount_quote,
-                                                          tracked_order.order_type))
-            elif tracked_order.trade_type is TradeType.SELL:
-                self.logger().info(
-                    f"The SELL {tracked_order.order_type} order {tracked_order.client_order_id} has completed "
-                    f"according to order delta websocket API.")
-                self.trigger_event(self.MARKET_SELL_ORDER_COMPLETED_EVENT_TAG,
-                                   SellOrderCompletedEvent(self.current_timestamp,
-                                                           tracked_order.client_order_id,
-                                                           tracked_order.base_asset,
-                                                           tracked_order.quote_asset,
-                                                           tracked_order.executed_amount_base,
-                                                           tracked_order.executed_amount_quote,
-                                                           tracked_order.order_type))
-            self.stop_tracking_order(tracked_order.client_order_id)
-            return
-
-        if order_status == "CANCELED" or order_status == "PARTIALLY_CANCELED":
-            tracked_order.last_state = order_status
-            self.logger().info(f"Order {tracked_order.client_order_id} has been canceled "
-                               f"according to order delta websocket API.")
-            self.trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
-                               OrderCancelledEvent(self.current_timestamp,
-                                                   tracked_order.client_order_id))
-            self.stop_tracking_order(tracked_order.client_order_id)
+            return f"mexc_{self._domain}"
 
     @property
-    def status_dict(self) -> Dict[str, bool]:
-        return {
-            "order_books_initialized": self.order_book_tracker.ready,
-            "acount_balance": len(self._account_balances) > 0 if self._trading_required else True,
-            "trading_rule_initialized": len(self._trading_rules) > 0
-        }
+    def rate_limits_rules(self):
+        return CONSTANTS.RATE_LIMITS
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def client_order_id_max_length(self):
+        return CONSTANTS.MAX_ORDER_ID_LEN
+
+    @property
+    def client_order_id_prefix(self):
+        return CONSTANTS.HBOT_ORDER_ID_PREFIX
+
+    @property
+    def trading_rules_request_path(self):
+        return CONSTANTS.EXCHANGE_INFO_PATH_URL
+
+    @property
+    def trading_pairs_request_path(self):
+        return CONSTANTS.EXCHANGE_INFO_PATH_URL
+
+    @property
+    def check_network_request_path(self):
+        return CONSTANTS.PING_PATH_URL
+
+    @property
+    def trading_pairs(self):
+        return self._trading_pairs
+
+    @property
+    def is_cancel_request_in_exchange_synchronous(self) -> bool:
+        return True
+
+    @property
+    def is_trading_required(self) -> bool:
+        return self._trading_required
 
     def supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.MARKET]
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
-    @property
-    def ready(self) -> bool:
-        return all(self.status_dict.values())
+    async def get_all_pairs_prices(self) -> List[Dict[str, str]]:
+        pairs_prices = await self._api_get(path_url=CONSTANTS.TICKER_BOOK_PATH_URL)
+        return pairs_prices
 
-    async def place_order(self,
-                          order_id: str,
-                          trading_pair: str,
-                          amount: Decimal,
-                          is_buy: bool,
-                          order_type: OrderType,
-                          price: Decimal) -> str:
+    def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
+        error_description = str(request_exception)
+        is_time_synchronizer_related = ("-1021" in error_description
+                                        and "Timestamp for this request" in error_description)
+        return is_time_synchronizer_related
 
-        if order_type is OrderType.LIMIT:
-            order_type_str = "LIMIT_ORDER"
-        elif order_type is OrderType.LIMIT_MAKER:
-            order_type_str = "POST_ONLY"
+    def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
+        return str(CONSTANTS.ORDER_NOT_EXIST_ERROR_CODE) in str(
+            status_update_exception
+        ) and CONSTANTS.ORDER_NOT_EXIST_MESSAGE in str(status_update_exception)
 
-        data = {
-            'client_order_id': order_id,
-            'order_type': order_type_str,
-            'trade_type': "BID" if is_buy else "ASK",
-            'symbol': convert_to_exchange_trading_pair(trading_pair),
-            'quantity': format(Decimal(str(amount)), "f"),
-            'price': format(Decimal(str(price)), "f")
-        }
+    def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
+        return str(CONSTANTS.UNKNOWN_ORDER_ERROR_CODE) in str(
+            cancelation_exception
+        ) and CONSTANTS.UNKNOWN_ORDER_MESSAGE in str(cancelation_exception)
 
-        exchange_order_id = await self._api_request(
-            "POST",
-            path_url=CONSTANTS.MEXC_PLACE_ORDER,
-            params={},
-            data=data,
-            is_auth_required=True
+    def _create_web_assistants_factory(self) -> WebAssistantsFactory:
+        return web_utils.build_api_factory(
+            throttler=self._throttler,
+            time_synchronizer=self._time_synchronizer,
+            domain=self._domain,
+            auth=self._auth)
+
+    def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
+        return MexcAPIOrderBookDataSource(
+            trading_pairs=self._trading_pairs,
+            connector=self,
+            domain=self.domain,
+            api_factory=self._web_assistants_factory)
+
+    def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
+        return MexcAPIUserStreamDataSource(
+            auth=self._auth,
+            trading_pairs=self._trading_pairs,
+            connector=self,
+            api_factory=self._web_assistants_factory,
+            domain=self.domain,
         )
 
-        return str(exchange_order_id.get('data'))
+    def _get_fee(self,
+                 base_currency: str,
+                 quote_currency: str,
+                 order_type: OrderType,
+                 order_side: TradeType,
+                 amount: Decimal,
+                 price: Decimal = s_decimal_NaN,
+                 is_maker: Optional[bool] = None) -> TradeFeeBase:
+        is_maker = order_type is OrderType.LIMIT_MAKER
+        return DeductedFromReturnsTradeFee(percent=self.estimate_fee_pct(is_maker))
 
-    async def execute_buy(self,
-                          order_id: str,
-                          trading_pair: str,
-                          amount: Decimal,
-                          order_type: OrderType,
-                          price: Optional[Decimal] = s_decimal_0):
-
-        trading_rule = self._trading_rules[trading_pair]
-
-        if not order_type.is_limit_type():
-            self.trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
-                               MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
-            raise Exception(f"Unsupported order type: {order_type}")
-
-        decimal_price = self.quantize_order_price(trading_pair, price)
-        decimal_amount = self.quantize_order_amount(trading_pair, amount, decimal_price)
-        if decimal_price * decimal_amount < trading_rule.min_notional_size:
-            self.trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
-                               MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
-            raise ValueError(f"Buy order amount {decimal_amount} is lower than the notional size ")
-        try:
-            exchange_order_id = await self.place_order(order_id, trading_pair, decimal_amount, True, order_type,
-                                                       decimal_price)
-            self.start_tracking_order(
-                order_id=order_id,
-                exchange_order_id=exchange_order_id,
-                trading_pair=trading_pair,
-                order_type=order_type,
-                trade_type=TradeType.BUY,
-                price=decimal_price,
-                amount=decimal_amount
-            )
-            tracked_order = self._in_flight_orders.get(order_id)
-            if tracked_order is not None:
-                self.logger().info(
-                    f"Created {order_type.name.upper()} buy order {order_id} for {decimal_amount} {trading_pair}.")
-            self.trigger_event(self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
-                               BuyOrderCreatedEvent(
-                                   self.current_timestamp,
-                                   order_type,
-                                   trading_pair,
-                                   decimal_amount,
-                                   decimal_price,
-                                   order_id,
-                                   tracked_order.creation_timestamp
-                               ))
-        except asyncio.CancelledError:
-            raise
-        except Exception as ex:
-            self.stop_tracking_order(order_id)
-            order_type_str = order_type.name.lower()
-
-            self.logger().network(
-                f"Error submitting buy {order_type_str} order to Mexc for "
-                f"{decimal_amount} {trading_pair} "
-                f"{decimal_price if order_type is OrderType.LIMIT else ''}."
-                f"{decimal_price}." + repr(ex),
-                exc_info=True,
-                app_warning_msg="Failed to submit buy order to Mexc. Check API key and network connection."
-            )
-            self.trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
-                               MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
-
-    def buy(self, trading_pair: str, amount: Decimal, order_type=OrderType.MARKET,
-            price: Decimal = s_decimal_NaN, **kwargs) -> str:
-        tracking_nonce = int(get_tracking_nonce())
-        order_id = self._shorten_trading_pair("buy", trading_pair, tracking_nonce)
-        safe_ensure_future(self.execute_buy(order_id, trading_pair, amount, order_type, price))
-        return order_id
-
-    def _shorten_trading_pair(self, prefix, trading_pair, tracking_nonce, max_length=32):
-        max_nonce_length = max_length - len(prefix) - len(trading_pair) - 2
-        tracking_nonce = str(tracking_nonce)[-max_nonce_length:]
-        return f"{prefix}-{trading_pair}-{tracking_nonce}"
-
-    async def execute_sell(self,
+    async def _place_order(self,
                            order_id: str,
                            trading_pair: str,
                            amount: Decimal,
+                           trade_type: TradeType,
                            order_type: OrderType,
-                           price: Optional[Decimal] = s_decimal_0):
-        trading_rule = self._trading_rules[trading_pair]
-
-        if not order_type.is_limit_type():
-            self.trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
-                               MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
-            raise Exception(f"Unsupported order type: {order_type}")
-
-        decimal_price = self.quantize_order_price(trading_pair, price)
-        decimal_amount = self.quantize_order_amount(trading_pair, amount, decimal_price)
-
-        if decimal_price * decimal_amount < trading_rule.min_notional_size:
-            self.trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
-                               MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
-            raise ValueError(f"Sell order amount {decimal_amount} is lower than the notional size ")
+                           price: Decimal,
+                           **kwargs) -> Tuple[str, float]:
+        order_result = None
+        amount_str = f"{amount:f}"
+        type_str = MexcExchange.mexc_order_type(order_type)
+        side_str = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
+        symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+        api_params = {"symbol": symbol,
+                      "side": side_str,
+                      "quantity": amount_str,
+                      # "quoteOrderQty": amount_str,
+                      "type": type_str,
+                      "newClientOrderId": order_id}
+        if order_type.is_limit_type():
+            price_str = f"{price:f}"
+            api_params["price"] = price_str
+        else:
+            if trade_type.name.lower() == 'buy':
+                if price.is_nan():
+                    price = self.get_price_for_volume(
+                        trading_pair,
+                        True,
+                        amount
+                    )
+                del api_params['quantity']
+                api_params.update({
+                    "quoteOrderQty": f"{price * amount:f}",
+                })
+        if order_type == OrderType.LIMIT:
+            api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_GTC
 
         try:
-            exchange_order_id = await self.place_order(order_id, trading_pair, decimal_amount, False, order_type,
-                                                       decimal_price)
-            self.start_tracking_order(
-                order_id=order_id,
-                exchange_order_id=exchange_order_id,
-                trading_pair=trading_pair,
-                order_type=order_type,
-                trade_type=TradeType.SELL,
-                price=decimal_price,
-                amount=decimal_amount
-            )
-            tracked_order = self._in_flight_orders.get(order_id)
-            if tracked_order is not None:
-                self.logger().info(
-                    f"Created {order_type.name.upper()} sell order {order_id} for {decimal_amount} {trading_pair}.")
-            self.trigger_event(self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
-                               SellOrderCreatedEvent(
-                                   self.current_timestamp,
-                                   order_type,
-                                   trading_pair,
-                                   decimal_amount,
-                                   decimal_price,
-                                   order_id,
-                                   tracked_order.creation_timestamp
-                               ))
-        except asyncio.CancelledError:
-            raise
-        except Exception as ex:
-            self.stop_tracking_order(order_id)
-            order_type_str = order_type.name.lower()
-            self.logger().network(
-                f"Error submitting sell {order_type_str} order to Mexc for "
-                f"{decimal_amount} {trading_pair} "
-                f"{decimal_price if order_type is OrderType.LIMIT else ''}."
-                f"{decimal_price}." + ",ex:" + repr(ex),
-                exc_info=True,
-                app_warning_msg="Failed to submit sell order to Mexc. Check API key and network connection."
-            )
-            self.trigger_event(self.MARKET_ORDER_FAILURE_EVENT_TAG,
-                               MarketOrderFailureEvent(self.current_timestamp, order_id, order_type))
+            order_result = await self._api_post(
+                path_url=CONSTANTS.ORDER_PATH_URL,
+                data=api_params,
+                is_auth_required=True)
+            o_id = str(order_result["orderId"])
+            transact_time = order_result["transactTime"] * 1e-3
+        except IOError as e:
+            error_description = str(e)
+            is_server_overloaded = ("status is 503" in error_description
+                                    and "Unknown error, please check your request or try again later." in error_description)
+            if is_server_overloaded:
+                o_id = "UNKNOWN"
+                transact_time = self._time_synchronizer.time()
+            else:
+                raise
+        return o_id, transact_time
 
-    def sell(self, trading_pair: str, amount: Decimal, order_type: OrderType = OrderType.MARKET,
-             price: Decimal = s_decimal_NaN, **kwargs) -> str:
+    async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
+        symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
+        api_params = {
+            "symbol": symbol,
+            "origClientOrderId": order_id,
+        }
+        cancel_result = await self._api_delete(
+            path_url=CONSTANTS.ORDER_PATH_URL,
+            params=api_params,
+            is_auth_required=True)
+        if cancel_result.get("status") == "CANCELED":
+            return True
+        return False
 
-        tracking_nonce = int(get_tracking_nonce())
-        order_id = self._shorten_trading_pair("sell", trading_pair, tracking_nonce)
-
-        safe_ensure_future(self.execute_sell(order_id, trading_pair, amount, order_type, price))
-        return order_id
-
-    async def execute_cancel(self, trading_pair: str, client_order_id: str):
-        try:
-            tracked_order = self._in_flight_orders.get(client_order_id)
-            if tracked_order is None:
-                # raise ValueError(f"Failed to cancel order - {client_order_id}. Order not found.")
-                self.logger().network(f"Failed to cancel order - {client_order_id}. Order not found.")
-                return
-            params = {
-                "client_order_ids": client_order_id,
-            }
-            response = await self._api_request("DELETE", path_url=CONSTANTS.MEXC_ORDER_CANCEL, params=params,
-                                               is_auth_required=True)
-
-            if not response['code'] == 200:
-                raise MexcAPIError("Order could not be canceled")
-
-        except MexcAPIError as ex:
-            self.logger().network(
-                f"Failed to cancel order {client_order_id} : {repr(ex)}",
-                exc_info=True,
-                app_warning_msg=f"Failed to cancel the order {client_order_id} on Mexc. "
-                                f"Check API key and network connection."
-            )
-
-    def cancel(self, trading_pair: str, order_id: str):
-        safe_ensure_future(self.execute_cancel(trading_pair, order_id))
-        return order_id
-
-    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
-        orders_by_trading_pair = {}
-
-        for order in self._in_flight_orders.values():
-            orders_by_trading_pair[order.trading_pair] = orders_by_trading_pair.get(order.trading_pair, [])
-            orders_by_trading_pair[order.trading_pair].append(order)
-
-        if len(orders_by_trading_pair) == 0:
-            return []
-
-        for trading_pair in orders_by_trading_pair:
-            cancel_order_ids = [o.exchange_order_id for o in orders_by_trading_pair[trading_pair]]
-            is_need_loop = True
-            while is_need_loop:
-                if len(cancel_order_ids) > self.ORDER_LEN_LIMIT:
-                    is_need_loop = True
-                    this_turn_cancel_order_ids = cancel_order_ids[:self.ORDER_LEN_LIMIT]
-                    cancel_order_ids = cancel_order_ids[self.ORDER_LEN_LIMIT:]
-                else:
-                    this_turn_cancel_order_ids = cancel_order_ids
-                    is_need_loop = False
-                self.logger().debug(
-                    f"cancel_order_ids {this_turn_cancel_order_ids} orders_by_trading_pair[trading_pair]")
-                params = {
-                    'order_ids': quote(','.join([o for o in this_turn_cancel_order_ids])),
+    async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
+        """
+        Example:
+        {
+            "symbol": "ETHBTC",
+            "baseAssetPrecision": 8,
+            "quotePrecision": 8,
+            "orderTypes": ["LIMIT", "MARKET"],
+            "filters": [
+                {
+                    "filterType": "PRICE_FILTER",
+                    "minPrice": "0.00000100",
+                    "maxPrice": "100000.00000000",
+                    "tickSize": "0.00000100"
+                }, {
+                    "filterType": "LOT_SIZE",
+                    "minQty": "0.00100000",
+                    "maxQty": "100000.00000000",
+                    "stepSize": "0.00100000"
+                }, {
+                    "filterType": "MIN_NOTIONAL",
+                    "minNotional": "0.00100000"
                 }
+            ]
+        }
+        """
+        trading_pair_rules = exchange_info_dict.get("symbols", [])
+        retval = []
+        for rule in filter(mexc_utils.is_exchange_information_valid, trading_pair_rules):
+            try:
+                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule.get("symbol"))
+                min_order_size = Decimal(rule.get("baseSizePrecision"))
+                min_price_inc = Decimal(f"1e-{rule['quotePrecision']}")
+                min_amount_inc = Decimal(f"1e-{rule['baseAssetPrecision']}")
+                min_notional = Decimal(rule['quoteAmountPrecision'])
+                retval.append(
+                    TradingRule(trading_pair,
+                                min_order_size=min_order_size,
+                                min_price_increment=min_price_inc,
+                                min_base_amount_increment=min_amount_inc,
+                                min_notional_size=min_notional))
 
-                cancellation_results = []
-                try:
-                    cancel_all_results = await self._api_request(
-                        "DELETE",
-                        path_url=CONSTANTS.MEXC_ORDER_CANCEL,
-                        params=params,
-                        is_auth_required=True
-                    )
+            except Exception:
+                self.logger().exception(f"Error parsing the trading pair rule {rule}. Skipping.")
+        return retval
 
-                    for order_result_client_order_id, order_result_value in cancel_all_results['data'].items():
-                        for o in orders_by_trading_pair[trading_pair]:
-                            if o.client_order_id == order_result_client_order_id:
-                                result_bool = True if order_result_value == "invalid order state" or order_result_value == "success" else False
-                                cancellation_results.append(CancellationResult(o.client_order_id, result_bool))
-                                if result_bool:
-                                    self.trigger_event(self.MARKET_ORDER_CANCELED_EVENT_TAG,
-                                                       OrderCancelledEvent(self.current_timestamp,
-                                                                           order_id=o.client_order_id,
-                                                                           exchange_order_id=o.exchange_order_id))
-                                    self.stop_tracking_order(o.client_order_id)
+    async def _status_polling_loop_fetch_updates(self):
+        await self._update_order_fills_from_trades()
+        await super()._status_polling_loop_fetch_updates()
 
-                except Exception as ex:
+    async def _update_trading_fees(self):
+        """
+        Update fees information from the exchange
+        """
+        pass
 
+    async def _user_stream_event_listener(self):
+        """
+        Listens to messages from _user_stream_tracker.user_stream queue.
+        Traders, Orders, and Balance updates from the WS.
+        """
+        user_channels = [
+            CONSTANTS.USER_TRADES_ENDPOINT_NAME,
+            CONSTANTS.USER_ORDERS_ENDPOINT_NAME,
+            CONSTANTS.USER_BALANCE_ENDPOINT_NAME,
+        ]
+        async for event_message in self._iter_user_event_queue():
+            channel: str = event_message.get("c", None)
+            results: Dict[str, Any] = event_message.get("d", {})
+            try:
+                if channel not in user_channels:
+                    self.logger().error(
+                        f"Unexpected message in user stream: {event_message}.", exc_info=True)
+                    continue
+                if channel == CONSTANTS.USER_TRADES_ENDPOINT_NAME:
+                    self._process_trade_message(results)
+                elif channel == CONSTANTS.USER_ORDERS_ENDPOINT_NAME:
+                    self._process_order_message(event_message)
+                elif channel == CONSTANTS.USER_BALANCE_ENDPOINT_NAME:
+                    self._process_balance_message_ws(results)
+
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().error(
+                    "Unexpected error in user stream listener loop.", exc_info=True)
+                await self._sleep(5.0)
+
+
+    def _process_balance_message_ws(self, account):
+        asset_name = account["a"]
+        self._account_available_balances[asset_name] = Decimal(str(account["f"]))
+        self._account_balances[asset_name] = Decimal(str(account["f"])) + Decimal(str(account["l"]))
+
+    def _create_trade_update_with_order_fill_data(
+            self,
+            order_fill: Dict[str, Any],
+            order: InFlightOrder):
+
+        fee = TradeFeeBase.new_spot_fee(
+            fee_schema=self.trade_fee_schema(),
+            trade_type=order.trade_type,
+            percent_token=order_fill["N"],
+            flat_fees=[TokenAmount(
+                amount=Decimal(order_fill["n"]),
+                token=order_fill["N"]
+            )]
+        )
+        trade_update = TradeUpdate(
+            trade_id=str(order_fill["t"]),
+            client_order_id=order.client_order_id,
+            exchange_order_id=order.exchange_order_id,
+            trading_pair=order.trading_pair,
+            fee=fee,
+            fill_base_amount=Decimal(order_fill["v"]),
+            fill_quote_amount=Decimal(order_fill["v"]) * Decimal(order_fill["a"]),
+            fill_price=Decimal(order_fill["a"]),
+            fill_timestamp=order_fill["T"] * 1e-3,
+        )
+        return trade_update
+
+    def _process_trade_message(self, trade: Dict[str, Any], client_order_id: Optional[str] = None):
+        client_order_id = client_order_id or str(trade["c"])
+        tracked_order = self._order_tracker.all_fillable_orders.get(client_order_id)
+        if tracked_order is None:
+            self.logger().debug(f"Ignoring trade message with id {client_order_id}: not in in_flight_orders.")
+        else:
+            trade_update = self._create_trade_update_with_order_fill_data(
+                order_fill=trade,
+                order=tracked_order)
+            self._order_tracker.process_trade_update(trade_update)
+
+
+    def _create_order_update_with_order_status_data(self, order_status: Dict[str, Any], order: InFlightOrder):
+        client_order_id = str(order_status["d"].get("c", ""))
+        order_update = OrderUpdate(
+            trading_pair=order.trading_pair,
+            update_timestamp=int(order_status["t"] * 1e-3),
+            new_state=CONSTANTS.WS_ORDER_STATE[order_status["d"]["o"]],
+            client_order_id=client_order_id,
+            exchange_order_id=str(order_status["d"]["i"]),
+        )
+        return order_update
+
+    def _process_order_message(self, raw_msg: Dict[str, Any]):
+        order_msg = raw_msg.get("d", {})
+        client_order_id = str(order_msg.get("c", ""))
+        tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
+        if not tracked_order:
+            self.logger().debug(f"Ignoring order message with id {client_order_id}: not in in_flight_orders.")
+            return
+
+        order_update = self._create_order_update_with_order_status_data(order_status=raw_msg, order=tracked_order)
+        self._order_tracker.process_order_update(order_update=order_update)
+    #
+    #
+    # async def _user_stream_event_listener(self):
+    #     """
+    #     This functions runs in background continuously processing the events received from the exchange by the user
+    #     stream data source. It keeps reading events from the queue until the task is interrupted.
+    #     The events received are balance updates, order updates and trade events.
+    #     """
+    #     async for event_message in self._iter_user_event_queue():
+    #         try:
+    #             event_type = event_message.get("e")
+    #             if event_type == "executionReport":
+    #                 execution_type = event_message.get("x")
+    #                 if execution_type != "CANCELED":
+    #                     client_order_id = event_message.get("c")
+    #                 else:
+    #                     client_order_id = event_message.get("C")
+    #
+    #                 if execution_type == "TRADE":
+    #                     tracked_order = self._order_tracker.all_fillable_orders.get(client_order_id)
+    #                     if tracked_order is not None:
+    #                         fee = TradeFeeBase.new_spot_fee(
+    #                             fee_schema=self.trade_fee_schema(),
+    #                             trade_type=tracked_order.trade_type,
+    #                             percent_token=event_message["N"],
+    #                             flat_fees=[TokenAmount(amount=Decimal(event_message["n"]), token=event_message["N"])]
+    #                         )
+    #                         trade_update = TradeUpdate(
+    #                             trade_id=str(event_message["t"]),
+    #                             client_order_id=client_order_id,
+    #                             exchange_order_id=str(event_message["i"]),
+    #                             trading_pair=tracked_order.trading_pair,
+    #                             fee=fee,
+    #                             fill_base_amount=Decimal(event_message["l"]),
+    #                             fill_quote_amount=Decimal(event_message["l"]) * Decimal(event_message["L"]),
+    #                             fill_price=Decimal(event_message["L"]),
+    #                             fill_timestamp=event_message["T"] * 1e-3,
+    #                         )
+    #                         self._order_tracker.process_trade_update(trade_update)
+    #
+    #                 tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
+    #                 if tracked_order is not None:
+    #                     order_update = OrderUpdate(
+    #                         trading_pair=tracked_order.trading_pair,
+    #                         update_timestamp=event_message["E"] * 1e-3,
+    #                         new_state=CONSTANTS.ORDER_STATE[event_message["X"]],
+    #                         client_order_id=client_order_id,
+    #                         exchange_order_id=str(event_message["i"]),
+    #                     )
+    #                     self._order_tracker.process_order_update(order_update=order_update)
+    #
+    #             elif event_type == "outboundAccountPosition":
+    #                 balances = event_message["B"]
+    #                 for balance_entry in balances:
+    #                     asset_name = balance_entry["a"]
+    #                     free_balance = Decimal(balance_entry["f"])
+    #                     total_balance = Decimal(balance_entry["f"]) + Decimal(balance_entry["l"])
+    #                     self._account_available_balances[asset_name] = free_balance
+    #                     self._account_balances[asset_name] = total_balance
+    #
+    #         except asyncio.CancelledError:
+    #             raise
+    #         except Exception:
+    #             self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
+    #             await self._sleep(5.0)
+
+    async def _update_order_fills_from_trades(self):
+        """
+        This is intended to be a backup measure to get filled events with trade ID for orders,
+        in case Mexc's user stream events are not working.
+        NOTE: It is not required to copy this functionality in other connectors.
+        This is separated from _update_order_status which only updates the order status without producing filled
+        events, since Mexc's get order endpoint does not return trade IDs.
+        The minimum poll interval for order status is 10 seconds.
+        """
+        small_interval_last_tick = self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
+        small_interval_current_tick = self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
+        long_interval_last_tick = self._last_poll_timestamp / self.LONG_POLL_INTERVAL
+        long_interval_current_tick = self.current_timestamp / self.LONG_POLL_INTERVAL
+
+        if (long_interval_current_tick > long_interval_last_tick
+                or (self.in_flight_orders and small_interval_current_tick > small_interval_last_tick)):
+            query_time = int(self._last_trades_poll_mexc_timestamp * 1e3)
+            self._last_trades_poll_mexc_timestamp = self._time_synchronizer.time()
+            order_by_exchange_id_map = {}
+            for order in self._order_tracker.all_fillable_orders.values():
+                order_by_exchange_id_map[order.exchange_order_id] = order
+
+            tasks = []
+            trading_pairs = self.trading_pairs
+            for trading_pair in trading_pairs:
+                params = {
+                    "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+                }
+                if self._last_poll_timestamp > 0:
+                    params["startTime"] = query_time
+                tasks.append(self._api_get(
+                    path_url=CONSTANTS.MY_TRADES_PATH_URL,
+                    params=params,
+                    is_auth_required=True))
+
+            self.logger().debug(f"Polling for order fills of {len(tasks)} trading pairs.")
+            results = await safe_gather(*tasks, return_exceptions=True)
+
+            for trades, trading_pair in zip(results, trading_pairs):
+
+                if isinstance(trades, Exception):
                     self.logger().network(
-                        f"Failed to cancel all orders: {this_turn_cancel_order_ids}" + repr(ex),
-                        exc_info=True,
-                        app_warning_msg="Failed to cancel all orders on Mexc. Check API key and network connection."
+                        f"Error fetching trades update for the order {trading_pair}: {trades}.",
+                        app_warning_msg=f"Failed to fetch trade update for {trading_pair}."
                     )
-        return cancellation_results
+                    continue
+                for trade in trades:
+                    exchange_order_id = str(trade["orderId"])
+                    if exchange_order_id in order_by_exchange_id_map:
+                        # This is a fill for a tracked order
+                        tracked_order = order_by_exchange_id_map[exchange_order_id]
+                        fee = TradeFeeBase.new_spot_fee(
+                            fee_schema=self.trade_fee_schema(),
+                            trade_type=tracked_order.trade_type,
+                            percent_token=trade["commissionAsset"],
+                            flat_fees=[TokenAmount(amount=Decimal(trade["commission"]), token=trade["commissionAsset"])]
+                        )
+                        trade_update = TradeUpdate(
+                            trade_id=str(trade["id"]),
+                            client_order_id=tracked_order.client_order_id,
+                            exchange_order_id=exchange_order_id,
+                            trading_pair=trading_pair,
+                            fee=fee,
+                            fill_base_amount=Decimal(trade["qty"]),
+                            fill_quote_amount=Decimal(trade["quoteQty"]),
+                            fill_price=Decimal(trade["price"]),
+                            fill_timestamp=trade["time"] * 1e-3,
+                        )
+                        self._order_tracker.process_trade_update(trade_update)
+                    elif self.is_confirmed_new_order_filled_event(str(trade["id"]), exchange_order_id, trading_pair):
+                        # This is a fill of an order registered in the DB but not tracked any more
+                        self._current_trade_fills.add(TradeFillOrderDetails(
+                            market=self.display_name,
+                            exchange_trade_id=str(trade["id"]),
+                            symbol=trading_pair))
+                        self.trigger_event(
+                            MarketEvent.OrderFilled,
+                            OrderFilledEvent(
+                                timestamp=float(trade["time"]) * 1e-3,
+                                order_id=self._exchange_order_ids.get(str(trade["orderId"]), None),
+                                trading_pair=trading_pair,
+                                trade_type=TradeType.BUY if trade["isBuyer"] else TradeType.SELL,
+                                order_type=OrderType.LIMIT_MAKER if trade["isMaker"] else OrderType.LIMIT,
+                                price=Decimal(trade["price"]),
+                                amount=Decimal(trade["qty"]),
+                                trade_fee=DeductedFromReturnsTradeFee(
+                                    flat_fees=[
+                                        TokenAmount(
+                                            trade["commissionAsset"],
+                                            Decimal(trade["commission"])
+                                        )
+                                    ]
+                                ),
+                                exchange_trade_id=str(trade["id"])
+                            ))
+                        self.logger().info(f"Recreating missing trade in TradeFill: {trade}")
 
-    def get_order_book(self, trading_pair: str) -> OrderBook:
-        if trading_pair not in self.order_book_tracker.order_books:
-            raise ValueError(f"No order book exists for '{trading_pair}'.")
-        return self.order_book_tracker.order_books[trading_pair]
+    async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
+        trade_updates = []
 
-    def start_tracking_order(self,
-                             order_id: str,
-                             exchange_order_id: Optional[str],
-                             trading_pair: str,
-                             trade_type: TradeType,
-                             price: Decimal,
-                             amount: Decimal,
-                             order_type: OrderType):
-        self._in_flight_orders[order_id] = MexcInFlightOrder(
-            client_order_id=order_id,
-            exchange_order_id=exchange_order_id,
-            trading_pair=trading_pair,
-            order_type=order_type,
-            trade_type=trade_type,
-            price=price,
-            amount=amount,
-            creation_timestamp=self.current_timestamp
+        if order.exchange_order_id is not None:
+            exchange_order_id = int(order.exchange_order_id)
+            trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
+            all_fills_response = await self._api_get(
+                path_url=CONSTANTS.MY_TRADES_PATH_URL,
+                params={
+                    "symbol": trading_pair,
+                    "orderId": exchange_order_id
+                },
+                is_auth_required=True,
+                limit_id=CONSTANTS.MY_TRADES_PATH_URL)
+
+            for trade in all_fills_response:
+                exchange_order_id = str(trade["orderId"])
+                fee = TradeFeeBase.new_spot_fee(
+                    fee_schema=self.trade_fee_schema(),
+                    trade_type=order.trade_type,
+                    percent_token=trade["commissionAsset"],
+                    flat_fees=[TokenAmount(amount=Decimal(trade["commission"]), token=trade["commissionAsset"])]
+                )
+                trade_update = TradeUpdate(
+                    trade_id=str(trade["id"]),
+                    client_order_id=order.client_order_id,
+                    exchange_order_id=exchange_order_id,
+                    trading_pair=trading_pair,
+                    fee=fee,
+                    fill_base_amount=Decimal(trade["qty"]),
+                    fill_quote_amount=Decimal(trade["quoteQty"]),
+                    fill_price=Decimal(trade["price"]),
+                    fill_timestamp=trade["time"] * 1e-3,
+                )
+                trade_updates.append(trade_update)
+
+        return trade_updates
+
+    async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
+        trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
+        updated_order_data = await self._api_get(
+            path_url=CONSTANTS.ORDER_PATH_URL,
+            params={
+                "symbol": trading_pair,
+                "origClientOrderId": tracked_order.client_order_id},
+            is_auth_required=True)
+
+        new_state = CONSTANTS.ORDER_STATE[updated_order_data["status"]]
+
+        order_update = OrderUpdate(
+            client_order_id=tracked_order.client_order_id,
+            exchange_order_id=str(updated_order_data["orderId"]),
+            trading_pair=tracked_order.trading_pair,
+            update_timestamp=updated_order_data["updateTime"] * 1e-3,
+            new_state=new_state,
         )
 
-    def stop_tracking_order(self, order_id: str):
-        if order_id in self._in_flight_orders:
-            del self._in_flight_orders[order_id]
+        return order_update
 
-    def get_order_price_quantum(self, trading_pair: str, price: Decimal) -> Decimal:
-        """
-        Used by quantize_order_price() in _create_order()
-        Returns a price step, a minimum price increment for a given trading pair.
-        """
-        trading_rule = self._trading_rules[trading_pair]
-        return trading_rule.min_price_increment
+    async def _update_balances(self):
+        local_asset_names = set(self._account_balances.keys())
+        remote_asset_names = set()
 
-    def get_order_size_quantum(self, trading_pair: str, order_size: Decimal) -> Decimal:
-        """
-        Used by quantize_order_price() in _create_order()
-        Returns an order amount step, a minimum amount increment for a given trading pair.
-        """
-        trading_rule = self._trading_rules[trading_pair]
-        return Decimal(trading_rule.min_base_amount_increment)
+        account_info = await self._api_get(
+            path_url=CONSTANTS.ACCOUNTS_PATH_URL,
+            is_auth_required=True)
 
-    def quantize_order_amount(self, trading_pair: str, amount: Decimal, price: Decimal = s_decimal_0) -> Decimal:
+        balances = account_info["balances"]
+        for balance_entry in balances:
+            asset_name = balance_entry["asset"]
+            free_balance = Decimal(balance_entry["free"])
+            total_balance = Decimal(balance_entry["free"]) + Decimal(balance_entry["locked"])
+            self._account_available_balances[asset_name] = free_balance
+            self._account_balances[asset_name] = total_balance
+            remote_asset_names.add(asset_name)
 
-        trading_rule = self._trading_rules[trading_pair]
+        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
+        for asset_name in asset_names_to_remove:
+            del self._account_available_balances[asset_name]
+            del self._account_balances[asset_name]
 
-        quantized_amount = ExchangeBase.quantize_order_amount(self, trading_pair, amount)
+    def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
+        mapping = bidict()
+        for symbol_data in filter(mexc_utils.is_exchange_information_valid, exchange_info["symbols"]):
+            mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(base=symbol_data["baseAsset"],
+                                                                        quote=symbol_data["quoteAsset"])
+        self._set_trading_pair_symbol_map(mapping)
 
-        current_price = self.get_price(trading_pair, False)
-
-        calc_price = current_price if price == s_decimal_0 else price
-
-        notional_size = calc_price * quantized_amount
-
-        if notional_size < trading_rule.min_notional_size * Decimal("1"):
-            return s_decimal_0
-
-        return quantized_amount
-
-    def get_fee(self,
-                base_currency: str,
-                quote_currency: str,
-                order_type: OrderType,
-                order_side: TradeType,
-                amount: Decimal,
-                price: Decimal = s_decimal_NaN,
-                is_maker: Optional[bool] = None) -> AddedToCostTradeFee:
-        is_maker = order_type is OrderType.LIMIT_MAKER
-        return AddedToCostTradeFee(percent=self.estimate_fee_pct(is_maker))
-
-    async def get_deal_detail_fee(self, order_id: str) -> Dict[str, Any]:
+    async def _get_last_traded_price(self, trading_pair: str) -> float:
         params = {
-            'order_id': order_id,
+            "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         }
-        msg = await self._api_request("GET", path_url=CONSTANTS.MEXC_DEAL_DETAIL, params=params, is_auth_required=True)
-        fee = s_decimal_0
-        fee_currency = None
-        if msg['code'] == 200:
-            balances = msg['data']
-        else:
-            raise Exception(msg)
-        for order in balances:
-            fee += Decimal(order['fee'])
-            fee_currency = order['fee_currency']
-        return fee, fee_currency
 
-    async def all_trading_pairs(self) -> List[str]:
-        # This method should be removed and instead we should implement _initialize_trading_pair_symbol_map
-        return await MexcAPIOrderBookDataSource.fetch_trading_pairs()
+        resp_json = await self._api_request(
+            method=RESTMethod.GET,
+            path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
+            params=params
+        )
 
-    async def get_last_traded_prices(self, trading_pairs: List[str]) -> Dict[str, float]:
-        # This method should be removed and instead we should implement _get_last_traded_price
-        return await MexcAPIOrderBookDataSource.get_last_traded_prices(
-            trading_pairs=trading_pairs,
-            throttler=self._throttler,
-            shared_client=self._shared_client)
+        return float(resp_json["lastPrice"])
