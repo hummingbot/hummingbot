@@ -266,7 +266,7 @@ class InjectiveDataSource(ABC):
         for task in self.events_listening_tasks():
             task.cancel()
         cookie_file_path = Path(self._chain_cookie_file_path())
-        cookie_file_path.unlink()
+        cookie_file_path.unlink(missing_ok=True)
 
     def add_listener(self, event_tag: Enum, listener: EventListener):
         self.publisher.add_listener(event_tag=event_tag, listener=listener)
