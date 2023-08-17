@@ -385,7 +385,7 @@ class MexcAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 
-        self.assertEqual(diff_event["d"]["r"], msg.update_id)
+        self.assertEqual(int(diff_event["d"]["r"]), msg.update_id)
 
     @aioresponses()
     def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):

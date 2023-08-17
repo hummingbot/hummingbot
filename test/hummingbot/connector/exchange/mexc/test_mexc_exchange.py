@@ -1254,9 +1254,10 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
     def test_format_trading_rules__min_notional_present(self):
         trading_rules = [{
             "symbol": "COINALPHAHBOT",
+            "baseSizePrecision": 8,
+            "quotePrecision": 8,
             "baseAssetPrecision": 8,
             "status": "ENABLED",
-            "quotePrecision": 8,
             "quoteAmountPrecision": "0.001",
             "orderTypes": ["LIMIT", "MARKET"],
             "filters": [
