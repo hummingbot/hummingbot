@@ -451,7 +451,6 @@ class ExchangePyBase(ExchangeBase, ABC):
             return
         try:
             exchange_order_id = await self._place_order_and_process_update(order=order, **kwargs,)
-
         except asyncio.CancelledError:
             raise
         except Exception as ex:
