@@ -811,7 +811,7 @@ def save_to_yml_legacy(yml_path: str, cm: Dict[str, ConfigVar]):
             data = yaml_parser.load(stream) or {}
             for key in cm:
                 cvar = cm.get(key)
-                if type(cvar.value) == Decimal:
+                if isinstance(cvar.value, Decimal):
                     data[key] = float(cvar.value)
                 else:
                     data[key] = cvar.value
