@@ -812,19 +812,31 @@ class CoinCapRateSourceMode(RateSourceModeBase):
         client_data=None,
     )
     assets_map: Dict[str, str] = Field(
-        default={
-            "BTC": "bitcoin",
-            "ETH": "ethereum",
-            "USDT": "tether",
-            "CONV": "convergence",
-            "FIRO": "zcoin",
-            "BUSD": "binance-usd",
-            "ONE": "harmony",
-            "PDEX": "polkadex",
-        },
+        default=",".join(
+            [
+                ":".join(pair) for pair in {
+                    "BTC": "bitcoin",
+                    "ETH": "ethereum",
+                    "USDT": "tether",
+                    "CONV": "convergence",
+                    "FIRO": "zcoin",
+                    "BUSD": "binance-usd",
+                    "ONE": "harmony",
+                    "PDEX": "polkadex",
+                }.items()
+            ]
+        ),
         description=(
             "The symbol-to-asset ID map for CoinCap. Assets IDs can be found by selecting a symbol"
             " on https://coincap.io/ and extracting the last segment of the URL path."
+        ),
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "CoinCap symbol-to-asset ID map (e.g. 'BTC:bitcoin,ETH:ethereum', find IDs on https://coincap.io/"
+                " by selecting a symbol and extracting the last segment of the URL path)"
+            ),
+            is_connect_key=True,
+            prompt_on_new=True,
         ),
     )
     api_key: SecretStr = Field(
@@ -843,6 +855,12 @@ class CoinCapRateSourceMode(RateSourceModeBase):
             assets_map=self.assets_map, api_key=self.api_key.get_secret_value()
         )
         return rate_source
+
+    @validator("assets_map", pre=True)
+    def validate_extra_tokens(cls, value: Union[str, Dict[str, str]]):
+        if isinstance(value, str):
+            value = {key: val for key, val in [v.split(":") for v in value.split(",")]}
+        return value
 
     class Config:
         title = "coin_cap"
