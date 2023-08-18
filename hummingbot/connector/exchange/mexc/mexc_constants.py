@@ -74,10 +74,10 @@ WS_ORDER_STATE = {
 DIFF_EVENT_TYPE = "increase.depth"
 TRADE_EVENT_TYPE = "public.deals"
 
-USER_TRADES_ENDPOINT_NAME= "spot@private.deals.v3.api"
-USER_ORDERS_ENDPOINT_NAME= "spot@private.orders.v3.api"
-USER_BALANCE_ENDPOINT_NAME= "spot@private.account.v3.api"
-
+USER_TRADES_ENDPOINT_NAME = "spot@private.deals.v3.api"
+USER_ORDERS_ENDPOINT_NAME = "spot@private.orders.v3.api"
+USER_BALANCE_ENDPOINT_NAME = "spot@private.account.v3.api"
+WS_CONNECTION_TIME_INTERVAL = 20
 RATE_LIMITS = [
     RateLimit(limit_id=IP_REQUEST_WEIGHT, limit=20000, time_interval=ONE_MINUTE),
     RateLimit(limit_id=UID_REQUEST_WEIGHT, limit=240000, time_interval=ONE_MINUTE),

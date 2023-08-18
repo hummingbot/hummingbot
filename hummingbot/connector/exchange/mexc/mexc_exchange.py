@@ -309,6 +309,7 @@ class MexcExchange(ExchangePyBase):
             channel: str = event_message.get("c", None)
             results: Dict[str, Any] = event_message.get("d", {})
             try:
+                # if "code" not in event_message and channel not in user_channels:
                 if channel not in user_channels:
                     self.logger().error(
                         f"Unexpected message in user stream: {event_message}.", exc_info=True)

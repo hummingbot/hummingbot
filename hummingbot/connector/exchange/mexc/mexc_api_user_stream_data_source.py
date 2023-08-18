@@ -16,7 +16,6 @@ if TYPE_CHECKING:
 
 
 class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
-
     LISTEN_KEY_KEEP_ALIVE_INTERVAL = 1800  # Recommended to Ping/Update listen key to keep connection alive
     HEARTBEAT_TIME_INTERVAL = 30.0
 
@@ -51,13 +50,43 @@ class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def _subscribe_channels(self, websocket_assistant: WSAssistant):
         """
-        Subscribes to the trade events and diff orders events through the provided websocket connection.
-
-        Mexc does not require any channel subscription.
+        Subscribes to order events and balance events.
 
         :param websocket_assistant: the websocket assistant used to connect to the exchange
         """
-        pass
+        try:
+
+            orders_change_payload = {
+                "method": "SUBSCRIPTION",
+                "params": [CONSTANTS.USER_ORDERS_ENDPOINT_NAME],
+                "id": 1
+            }
+            subscribe_order_change_request: WSJSONRequest = WSJSONRequest(payload=orders_change_payload)
+
+            trades_payload = {
+                "method": "SUBSCRIPTION",
+                "params": [CONSTANTS.USER_TRADES_ENDPOINT_NAME],
+                "id": 2
+            }
+            subscribe_trades_request: WSJSONRequest = WSJSONRequest(payload=trades_payload)
+
+            balance_payload = {
+                "method": "SUBSCRIPTION",
+                "params": [CONSTANTS.USER_BALANCE_ENDPOINT_NAME],
+                "id": 3
+            }
+            subscribe_balance_request: WSJSONRequest = WSJSONRequest(payload=balance_payload)
+
+            await websocket_assistant.send(subscribe_order_change_request)
+            await websocket_assistant.send(subscribe_trades_request)
+            await websocket_assistant.send(subscribe_balance_request)
+
+            self.logger().info("Subscribed to private order changes and balance updates channels...")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().exception("Unexpected error occurred subscribing to user streams...")
+            raise
 
     async def _get_listen_key(self):
         rest_assistant = await self._api_factory.get_rest_assistant()
@@ -142,3 +171,14 @@ class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
         self._current_listen_key = None
         self._listen_key_initialized_event.clear()
         await self._sleep(5)
+
+    async def _process_websocket_messages(self, websocket_assistant: WSAssistant, queue: asyncio.Queue):
+        while True:
+            try:
+                await asyncio.wait_for(
+                    super()._process_websocket_messages(websocket_assistant=websocket_assistant, queue=queue),
+                    timeout=CONSTANTS.WS_CONNECTION_TIME_INTERVAL
+                )
+            except asyncio.TimeoutError:
+                ping_request = WSJSONRequest(payload={"method": "PING"})
+                await websocket_assistant.send(ping_request)
