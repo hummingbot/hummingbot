@@ -364,11 +364,10 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             trading_pair=self.trading_pair,
             min_order_size=Decimal(self.trading_rules_request_mock_response["symbols"][0]["baseSizePrecision"]),
             min_price_increment=Decimal(
-                self.trading_rules_request_mock_response["symbols"][0]["quotePrecision"]),
+                f'1e-{self.trading_rules_request_mock_response["symbols"][0]["quotePrecision"]}'),
             min_base_amount_increment=Decimal(
-                self.trading_rules_request_mock_response["symbols"][0]["baseAssetPrecision"]),
-            min_notional_size=Decimal(
-                self.trading_rules_request_mock_response["symbols"][0]["quoteAmountPrecision"]),
+                f'1e-{self.trading_rules_request_mock_response["symbols"][0]["baseAssetPrecision"]}'),
+            min_notional_size=Decimal(self.trading_rules_request_mock_response["symbols"][0]["quoteAmountPrecision"]),
         )
 
     @property
@@ -738,43 +737,27 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             "t": 1499405658657
         }
 
-        #     {
-        #     "e": "executionReport",
-        #     "E": 1499405658658,
-        #     "s": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-        #     "c": order.client_order_id,
-        #     "S": order.trade_type.name.upper(),
-        #     "o": order.order_type.name.upper(),
-        #     "f": "GTC",
-        #     "q": str(order.amount),
-        #     "p": str(order.price),
-        #     "P": "0.00000000",
-        #     "F": "0.00000000",
-        #     "g": -1,
-        #     "C": "",
-        #     "x": "TRADE",
-        #     "X": "FILLED",
-        #     "r": "NONE",
-        #     "i": order.exchange_order_id,
-        #     "l": str(order.amount),
-        #     "z": str(order.amount),
-        #     "L": str(order.price),
-        #     "n": str(self.expected_fill_fee.flat_fees[0].amount),
-        #     "N": self.expected_fill_fee.flat_fees[0].token,
-        #     "T": 1499405658657,
-        #     "t": 1,
-        #     "I": 8641984,
-        #     "w": True,
-        #     "m": False,
-        #     "M": False,
-        #     "O": 1499405658657,
-        #     "Z": "10050.00000000",
-        #     "Y": "10050.00000000",
-        #     "Q": "10000.00000000"
-        # }
 
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
-        return None
+        return {
+            "c": "spot@private.deals.v3.api",
+            "d": {
+                "p": order.price,
+                "v": order.amount,
+                "a": order.price * order.amount,
+                "S": 1,
+                "T": 1678901086198,
+                "t": "5bbb6ad8b4474570b155610e3960cd",
+                "c": order.client_order_id,
+                "i": order.exchange_order_id,
+                "m": 0,
+                "st": 0,
+                "n": "0.000248206380027431",
+                "N": "MX"
+            },
+            "s": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+            "t": 1661938980285
+        }
 
     @aioresponses()
     @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_seconds_counter")
@@ -1074,6 +1057,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 f"client_order_id='{order.client_order_id}', exchange_order_id='{order.exchange_order_id}', "
                 "misc_updates=None)")
         )
+
     #
     # def test_user_stream_update_for_order_failure(self):
     #     self.exchange._set_current_timestamp(1640780000)
@@ -1285,7 +1269,6 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
         result = self.async_run_with_timeout(self.exchange._format_trading_rules(exchange_info))
 
         self.assertEqual(result[0].min_notional_size, Decimal("0.00100000"))
-
 
     def _validate_auth_credentials_taking_parameters_from_argument(self,
                                                                    request_call_tuple: RequestCall,

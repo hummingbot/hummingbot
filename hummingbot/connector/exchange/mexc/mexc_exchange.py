@@ -306,11 +306,10 @@ class MexcExchange(ExchangePyBase):
             CONSTANTS.USER_BALANCE_ENDPOINT_NAME,
         ]
         async for event_message in self._iter_user_event_queue():
-            channel: str = event_message.get("c", None)
-            results: Dict[str, Any] = event_message.get("d", {})
             try:
-                # if "code" not in event_message and channel not in user_channels:
-                if channel not in user_channels:
+                channel: str = event_message.get("c", None)
+                results: Dict[str, Any] = event_message.get("d", {})
+                if "code" not in event_message and channel not in user_channels:
                     self.logger().error(
                         f"Unexpected message in user stream: {event_message}.", exc_info=True)
                     continue
@@ -355,8 +354,8 @@ class MexcExchange(ExchangePyBase):
             trading_pair=order.trading_pair,
             fee=fee,
             fill_base_amount=Decimal(order_fill["v"]),
-            fill_quote_amount=Decimal(order_fill["v"]) * Decimal(order_fill["a"]),
-            fill_price=Decimal(order_fill["a"]),
+            fill_quote_amount=Decimal(order_fill["a"]),
+            fill_price=Decimal(order_fill["p"]),
             fill_timestamp=order_fill["T"] * 1e-3,
         )
         return trade_update
