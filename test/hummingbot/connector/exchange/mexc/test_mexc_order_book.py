@@ -37,25 +37,6 @@ class MexcOrderBookTests(TestCase):
 
     def test_diff_message_from_exchange(self):
         diff_msg = MexcOrderBook.diff_message_from_exchange(
-            # msg={
-            #     "e": "depthUpdate",
-            #     "E": 123456789,
-            #     "s": "COINALPHAHBOT",
-            #     "U": 1,
-            #     "u": 2,
-            #     "b": [
-            #         [
-            #             "0.0024",
-            #             "10"
-            #         ]
-            #     ],
-            #     "a": [
-            #         [
-            #             "0.0026",
-            #             "100"
-            #         ]
-            #     ]
-            # },
             msg={
                 "c": "spot@public.increase.depth.v3.api@BTCUSDT",
                 "d": {
@@ -89,19 +70,6 @@ class MexcOrderBookTests(TestCase):
         self.assertEqual(3407459756, diff_msg.asks[0].update_id)
 
     def test_trade_message_from_exchange(self):
-        # trade_update = {
-        #     "e": "trade",
-        #     "E": 1234567890123,
-        #     "s": "COINALPHAHBOT",
-        #     "t": 12345,
-        #     "p": "0.001",
-        #     "q": "100",
-        #     "b": 88,
-        #     "a": 50,
-        #     "T": 123456785,
-        #     "m": True,
-        #     "M": True
-        # }
         trade_update = {
             "S": 2,
             "p": "0.001",

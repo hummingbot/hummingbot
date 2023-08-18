@@ -343,13 +343,6 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             "t": 1564034571073
         }
 
-    # {
-    #     "e": "outboundAccountPosition",
-    #     "E": 1564034571105,
-    #     "u": 1564034571073,
-    #     "B": [{"a": self.base_asset, "f": "10", "l": "5"}],
-    # }
-
     @property
     def expected_latest_price(self):
         return 9999.9
@@ -619,41 +612,6 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             "t": 1499405658657
         }
 
-        #     {
-        #     "e": "executionReport",
-        #     "E": 1499405658658,
-        #     "s": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-        #     "c": order.client_order_id,
-        #     "S": order.trade_type.name.upper(),
-        #     "o": order.order_type.name.upper(),
-        #     "f": "GTC",
-        #     "q": str(order.amount),
-        #     "p": str(order.price),
-        #     "P": "0.00000000",
-        #     "F": "0.00000000",
-        #     "g": -1,
-        #     "C": "",
-        #     "x": "NEW",
-        #     "X": "NEW",
-        #     "r": "NONE",
-        #     "i": order.exchange_order_id,
-        #     "l": "0.00000000",
-        #     "z": "0.00000000",
-        #     "L": "0.00000000",
-        #     "n": "0",
-        #     "N": None,
-        #     "T": 1499405658657,
-        #     "t": -1,
-        #     "I": 8641984,
-        #     "w": True,
-        #     "m": False,
-        #     "M": False,
-        #     "O": 1499405658657,
-        #     "Z": "0.00000000",
-        #     "Y": "0.00000000",
-        #     "Q": "0.00000000"
-        # }
-
     def order_event_for_canceled_order_websocket_update(self, order: InFlightOrder):
         return {
             "c": "spot@private.orders.v3.api",
@@ -678,41 +636,6 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             "t": 1499405658657
         }
 
-        #     {
-        #     "e": "executionReport",
-        #     "E": 1499405658658,
-        #     "s": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-        #     "c": "dummyText",
-        #     "S": order.trade_type.name.upper(),
-        #     "o": order.order_type.name.upper(),
-        #     "f": "GTC",
-        #     "q": str(order.amount),
-        #     "p": str(order.price),
-        #     "P": "0.00000000",
-        #     "F": "0.00000000",
-        #     "g": -1,
-        #     "C": order.client_order_id,
-        #     "x": "CANCELED",
-        #     "X": "CANCELED",
-        #     "r": "NONE",
-        #     "i": order.exchange_order_id,
-        #     "l": "0.00000000",
-        #     "z": "0.00000000",
-        #     "L": "0.00000000",
-        #     "n": "0",
-        #     "N": None,
-        #     "T": 1499405658657,
-        #     "t": -1,
-        #     "I": 8641984,
-        #     "w": True,
-        #     "m": False,
-        #     "M": False,
-        #     "O": 1499405658657,
-        #     "Z": "0.00000000",
-        #     "Y": "0.00000000",
-        #     "Q": "0.00000000"
-        # }
-
     def order_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         return {
             "c": "spot@private.orders.v3.api",
@@ -736,7 +659,6 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
             "s": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
             "t": 1499405658657
         }
-
 
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         return {
@@ -1057,72 +979,6 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 f"client_order_id='{order.client_order_id}', exchange_order_id='{order.exchange_order_id}', "
                 "misc_updates=None)")
         )
-
-    #
-    # def test_user_stream_update_for_order_failure(self):
-    #     self.exchange._set_current_timestamp(1640780000)
-    #     self.exchange.start_tracking_order(
-    #         order_id="OID1",
-    #         exchange_order_id="100234",
-    #         trading_pair=self.trading_pair,
-    #         order_type=OrderType.LIMIT,
-    #         trade_type=TradeType.BUY,
-    #         price=Decimal("10000"),
-    #         amount=Decimal("1"),
-    #     )
-    #     order = self.exchange.in_flight_orders["OID1"]
-    #
-    #     event_message = {
-    #         "e": "executionReport",
-    #         "E": 1499405658658,
-    #         "s": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-    #         "c": order.client_order_id,
-    #         "S": "BUY",
-    #         "o": "LIMIT",
-    #         "f": "GTC",
-    #         "q": "1.00000000",
-    #         "p": "1000.00000000",
-    #         "P": "0.00000000",
-    #         "F": "0.00000000",
-    #         "g": -1,
-    #         "C": "",
-    #         "x": "REJECTED",
-    #         "X": "REJECTED",
-    #         "r": "NONE",
-    #         "i": int(order.exchange_order_id),
-    #         "l": "0.00000000",
-    #         "z": "0.00000000",
-    #         "L": "0.00000000",
-    #         "n": "0",
-    #         "N": None,
-    #         "T": 1499405658657,
-    #         "t": 1,
-    #         "I": 8641984,
-    #         "w": True,
-    #         "m": False,
-    #         "M": False,
-    #         "O": 1499405658657,
-    #         "Z": "0.00000000",
-    #         "Y": "0.00000000",
-    #         "Q": "0.00000000"
-    #     }
-    #
-    #     mock_queue = AsyncMock()
-    #     mock_queue.get.side_effect = [event_message, asyncio.CancelledError]
-    #     self.exchange._user_stream_tracker._user_stream = mock_queue
-    #
-    #     try:
-    #         self.async_run_with_timeout(self.exchange._user_stream_event_listener())
-    #     except asyncio.CancelledError:
-    #         pass
-    #
-    #     failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
-    #     self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
-    #     self.assertEqual(order.client_order_id, failure_event.order_id)
-    #     self.assertEqual(order.order_type, failure_event.order_type)
-    #     self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
-    #     self.assertTrue(order.is_failure)
-    #     self.assertTrue(order.is_done)
 
     @patch("hummingbot.connector.utils.get_tracking_nonce")
     def test_client_order_id_on_order(self, mocked_nonce):

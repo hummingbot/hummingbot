@@ -88,20 +88,6 @@ class MexcAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         return resp
 
     def _trade_update_event(self):
-        # resp = {
-        #     "e": "trade",
-        #     "E": 123456789,
-        #     "s": self.ex_trading_pair,
-        #     "t": 12345,
-        #     "p": "0.001",
-        #     "q": "100",
-        #     "b": 88,
-        #     "a": 50,
-        #     "T": 123456785,
-        #     "m": True,
-        #     "M": True
-        # }
-        #
         resp = {
             "c": "spot@public.deals.v3.api@BTCUSDT",
             "d": {
@@ -117,15 +103,6 @@ class MexcAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         return resp
 
     def _order_diff_event(self):
-        # resp = {
-        #     "e": "depthUpdate",
-        #     "E": 123456789,
-        #     "s": self.ex_trading_pair,
-        #     "U": 157,
-        #     "u": 160,
-        #     "b": [["0.0024", "10"]],
-        #     "a": [["0.0026", "100"]]
-        # }
         resp = {
             "c": "spot@public.increase.depth.v3.api@BTCUSDT",
             "d": {
