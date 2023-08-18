@@ -753,7 +753,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 "m": 0,
                 "st": 0,
                 "n": "0.000248206380027431",
-                "N": "MX"
+                "N": self.quote_asset
             },
             "s": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
             "t": 1661938980285
