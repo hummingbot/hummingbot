@@ -51,4 +51,3 @@ class MexcConfigMap(BaseConnectorConfigMap):
 
 
 KEYS = MexcConfigMap.construct()
-

@@ -5,18 +5,14 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 from bidict import bidict
 
 from hummingbot.connector.constants import s_decimal_NaN
-from hummingbot.connector.exchange.mexc import (
-    mexc_constants as CONSTANTS,
-    mexc_utils,
-    mexc_web_utils as web_utils,
-)
+from hummingbot.connector.exchange.mexc import mexc_constants as CONSTANTS, mexc_utils, mexc_web_utils as web_utils
 from hummingbot.connector.exchange.mexc.mexc_api_order_book_data_source import MexcAPIOrderBookDataSource
 from hummingbot.connector.exchange.mexc.mexc_api_user_stream_data_source import MexcAPIUserStreamDataSource
 from hummingbot.connector.exchange.mexc.mexc_auth import MexcAuth
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import TradeFillOrderDetails, combine_to_hb_trading_pair
-from hummingbot.core.data_type.common import OrderType, TradeType, PriceType
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
@@ -240,31 +236,6 @@ class MexcExchange(ExchangePyBase):
         return False
 
     async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
-        """
-        Example:
-        {
-            "symbol": "ETHBTC",
-            "baseAssetPrecision": 8,
-            "quotePrecision": 8,
-            "orderTypes": ["LIMIT", "MARKET"],
-            "filters": [
-                {
-                    "filterType": "PRICE_FILTER",
-                    "minPrice": "0.00000100",
-                    "maxPrice": "100000.00000000",
-                    "tickSize": "0.00000100"
-                }, {
-                    "filterType": "LOT_SIZE",
-                    "minQty": "0.00100000",
-                    "maxQty": "100000.00000000",
-                    "stepSize": "0.00100000"
-                }, {
-                    "filterType": "MIN_NOTIONAL",
-                    "minNotional": "0.00100000"
-                }
-            ]
-        }
-        """
         trading_pair_rules = exchange_info_dict.get("symbols", [])
         retval = []
         for rule in filter(mexc_utils.is_exchange_information_valid, trading_pair_rules):
@@ -327,7 +298,6 @@ class MexcExchange(ExchangePyBase):
                     "Unexpected error in user stream listener loop.", exc_info=True)
                 await self._sleep(5.0)
 
-
     def _process_balance_message_ws(self, account):
         asset_name = account["a"]
         self._account_available_balances[asset_name] = Decimal(str(account["f"]))
@@ -371,7 +341,6 @@ class MexcExchange(ExchangePyBase):
                 order=tracked_order)
             self._order_tracker.process_trade_update(trade_update)
 
-
     def _create_order_update_with_order_status_data(self, order_status: Dict[str, Any], order: InFlightOrder):
         client_order_id = str(order_status["d"].get("c", ""))
         order_update = OrderUpdate(
@@ -393,71 +362,6 @@ class MexcExchange(ExchangePyBase):
 
         order_update = self._create_order_update_with_order_status_data(order_status=raw_msg, order=tracked_order)
         self._order_tracker.process_order_update(order_update=order_update)
-    #
-    #
-    # async def _user_stream_event_listener(self):
-    #     """
-    #     This functions runs in background continuously processing the events received from the exchange by the user
-    #     stream data source. It keeps reading events from the queue until the task is interrupted.
-    #     The events received are balance updates, order updates and trade events.
-    #     """
-    #     async for event_message in self._iter_user_event_queue():
-    #         try:
-    #             event_type = event_message.get("e")
-    #             if event_type == "executionReport":
-    #                 execution_type = event_message.get("x")
-    #                 if execution_type != "CANCELED":
-    #                     client_order_id = event_message.get("c")
-    #                 else:
-    #                     client_order_id = event_message.get("C")
-    #
-    #                 if execution_type == "TRADE":
-    #                     tracked_order = self._order_tracker.all_fillable_orders.get(client_order_id)
-    #                     if tracked_order is not None:
-    #                         fee = TradeFeeBase.new_spot_fee(
-    #                             fee_schema=self.trade_fee_schema(),
-    #                             trade_type=tracked_order.trade_type,
-    #                             percent_token=event_message["N"],
-    #                             flat_fees=[TokenAmount(amount=Decimal(event_message["n"]), token=event_message["N"])]
-    #                         )
-    #                         trade_update = TradeUpdate(
-    #                             trade_id=str(event_message["t"]),
-    #                             client_order_id=client_order_id,
-    #                             exchange_order_id=str(event_message["i"]),
-    #                             trading_pair=tracked_order.trading_pair,
-    #                             fee=fee,
-    #                             fill_base_amount=Decimal(event_message["l"]),
-    #                             fill_quote_amount=Decimal(event_message["l"]) * Decimal(event_message["L"]),
-    #                             fill_price=Decimal(event_message["L"]),
-    #                             fill_timestamp=event_message["T"] * 1e-3,
-    #                         )
-    #                         self._order_tracker.process_trade_update(trade_update)
-    #
-    #                 tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
-    #                 if tracked_order is not None:
-    #                     order_update = OrderUpdate(
-    #                         trading_pair=tracked_order.trading_pair,
-    #                         update_timestamp=event_message["E"] * 1e-3,
-    #                         new_state=CONSTANTS.ORDER_STATE[event_message["X"]],
-    #                         client_order_id=client_order_id,
-    #                         exchange_order_id=str(event_message["i"]),
-    #                     )
-    #                     self._order_tracker.process_order_update(order_update=order_update)
-    #
-    #             elif event_type == "outboundAccountPosition":
-    #                 balances = event_message["B"]
-    #                 for balance_entry in balances:
-    #                     asset_name = balance_entry["a"]
-    #                     free_balance = Decimal(balance_entry["f"])
-    #                     total_balance = Decimal(balance_entry["f"]) + Decimal(balance_entry["l"])
-    #                     self._account_available_balances[asset_name] = free_balance
-    #                     self._account_balances[asset_name] = total_balance
-    #
-    #         except asyncio.CancelledError:
-    #             raise
-    #         except Exception:
-    #             self.logger().error("Unexpected error in user stream listener loop.", exc_info=True)
-    #             await self._sleep(5.0)
 
     async def _update_order_fills_from_trades(self):
         """
