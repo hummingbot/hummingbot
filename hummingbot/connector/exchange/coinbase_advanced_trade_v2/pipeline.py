@@ -13,7 +13,7 @@ from hummingbot.connector.exchange.coinbase_advanced_trade_v2.pipe import (
     reconnecting_stream_to_pipe_connector,
     stream_to_pipe_connector,
 )
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2.taskmanager import TaskManager
+from hummingbot.connector.exchange.coinbase_advanced_trade_v2.task_manager import TaskManager
 from hummingbot.logger import HummingbotLogger
 
 FromDataT = TypeVar("FromDataT")
@@ -79,7 +79,7 @@ class PipelineBlock(Generic[FromDataT, ToDataT]):
                  source: PipeGetPtl[FromDataT] | StreamSourcePtl,
                  handler: HandlerT | None = _default_handler,
                  destination: _DestinationPtl | None = Pipe[ToDataT](),
-                 connecting_task: ConnectToPipeTaskT | ReConnectToPipeTaskT,
+                 connecting_task: ConnectToPipeTaskT | ReConnectToPipeTaskT = pipe_to_pipe_connector,
                  connect: Callable[..., Awaitable[None]] | None = None,
                  disconnect: Callable[..., Awaitable[None]] | None = None, ):
         """
@@ -138,14 +138,17 @@ class StreamBlock(PipelineBlock[FromDataT, ToDataT]):
     A StreamBlock is a PipelineBlock that connects a StreamMessageIterator to a Pipe destination.
     """
 
+    __slots__ = ()
+
     def __init__(self,
                  source: StreamMessageIteratorPtl[FromDataT] | StreamSourcePtl[FromDataT],
                  handler: HandlerT | None = None,
-                 destination: _DestinationPtl | None = None):
+                 destination: _DestinationPtl | None = None,
+                 connecting_task: ConnectToPipeTaskT | ReConnectToPipeTaskT = stream_to_pipe_connector):
         super().__init__(source=source,
                          handler=handler,
                          destination=destination,
-                         connecting_task=stream_to_pipe_connector)
+                         connecting_task=connecting_task)
 
     def task_exception_callback(self, ex: Exception) -> None:
         """Handle an exception raised during the execution of the task."""
@@ -159,17 +162,20 @@ class AutoStreamBlock(PipelineBlock[FromDataT, ToDataT]):
     A StreamBlock is a PipelineBlock that connects a StreamMessageIterator to a Pipe destination.
     """
 
+    __slots__ = ()
+
     def __init__(self,
                  source: StreamMessageIteratorPtl[FromDataT] | StreamSourcePtl[FromDataT],
                  connect: Callable[..., Awaitable[None]],
                  disconnect: Callable[..., Awaitable[None]],
                  handler: HandlerT | None = None,
-                 destination: _DestinationPtl | None = None):
+                 destination: _DestinationPtl | None = None,
+                 connecting_task: ConnectToPipeTaskT | ReConnectToPipeTaskT = reconnecting_stream_to_pipe_connector):
         super().__init__(
             source=source,
             handler=handler,
             destination=destination,
-            connecting_task=reconnecting_stream_to_pipe_connector,
+            connecting_task=connecting_task,
             connect=connect,
             disconnect=disconnect)
 
@@ -188,15 +194,17 @@ class PipeBlock(PipelineBlock[FromDataT, ToDataT]):
     def __init__(self,
                  source: PipeGetPtl[FromDataT],
                  handler: HandlerT | None = None,
-                 destination: _DestinationPtl | None = None):
+                 destination: _DestinationPtl | None = None,
+                 connecting_task: ConnectToPipeTaskT | ReConnectToPipeTaskT = pipe_to_pipe_connector):
         setattr(self, "get", getattr(source, "get", None))
         setattr(self, "snapshot", getattr(source, "snapshot", None))
+        setattr(self, "task_done", getattr(source, "task_done", None))
 
         super().__init__(
             source=source,
             handler=handler,
             destination=destination,
-            connecting_task=pipe_to_pipe_connector)
+            connecting_task=connecting_task)
 
     def task_exception_callback(self, ex: Exception) -> None:
         """Handle an exception raised during the execution of the task."""
@@ -221,7 +229,8 @@ class PipesCollector(Generic[FromDataT, ToDataT]):
     def __init__(self,
                  sources: Tuple[PipeGetPtl[FromDataT]],
                  handler: HandlerT | None = None,
-                 destination: _DestinationPtl | None = None):
+                 destination: _DestinationPtl | None = None,
+                 connecting_task: ConnectToPipeTaskT | ReConnectToPipeTaskT = pipe_to_pipe_connector):
         if handler is None:
             handler = _default_handler
 
@@ -234,7 +243,8 @@ class PipesCollector(Generic[FromDataT, ToDataT]):
             PipeBlock[FromDataT, ToDataT](
                 source=s,
                 handler=handler,
-                destination=self.destination
+                destination=self.destination,
+                connecting_task=connecting_task
             )
             for s in sources
         )

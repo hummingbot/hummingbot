@@ -298,6 +298,7 @@ class Pipe(Generic[DataT], PipeGetPtl[DataT], PipePutPtl[DataT]):
         with contextlib.suppress(asyncio.QueueEmpty):
             while not self._pipe.empty():
                 item: DataT = await self._get_internally()
+                self._pipe.task_done()
                 snapshot.append(item)
                 if item is SENTINEL:
                     # This should not be needed, but in the rare case where an item is put
@@ -306,6 +307,7 @@ class Pipe(Generic[DataT], PipeGetPtl[DataT], PipePutPtl[DataT]):
                     # so the task_done() can be used to enable the join() call.
                     while not self._pipe.empty():
                         _ = self._pipe.get_nowait()
+                        self._pipe.task_done()
                     break
         self._pipe.snapshot_in_progress = False
 
@@ -416,7 +418,8 @@ class PutOperationPtl(Protocol[FromDataT]):
 def _get_pipe_put_operation_for_handler(
         *,
         handler: HandlerT,
-        destination: PipePutPtl[ToDataT]) -> PutOperationPtl[FromDataT]:
+        destination: PipePutPtl[ToDataT],
+) -> PutOperationPtl[FromDataT]:
     """
     Returns an awaitable function that applies the handler to a message and puts
     the result into the destination pipe.
@@ -509,6 +512,10 @@ async def pipe_to_pipe_connector(
         handler=handler,
         destination=destination)
 
+    wait_time: float = 0.1
+    max_retries: int = 3
+    max_wait_time_per_retry: int = 1
+
     while True:
         try:
             message: FromDataT | Sentinel = await source.get()
@@ -520,31 +527,35 @@ async def pipe_to_pipe_connector(
                 source.task_done()
                 break
 
-            try:
-                await put_operation(message)
-            except PipeFullError:
-                log_if_possible(logger, 'warning', "Downstream Pipe is full, retrying with .")
-                await put_operation(message, wait_time=0.1, max_retries=3, max_wait_time_per_retry=1)
+            # Raises PipeFullError if the destination pipe is full after wait/retries
+            await put_operation(message, wait_time=wait_time, max_retries=max_retries, max_wait_time_per_retry=max_wait_time_per_retry)
 
             source.task_done()
             await asyncio.sleep(0)
 
-        # Task is cancelled
-        except asyncio.CancelledError:
-            log_if_possible(logger, 'warning', "Task was cancelled. Attempting to process remaining items.")
-            messages: FromTupleDataT = await Pipe[FromDataT].pipe_snapshot(source)
-            messages: FromTupleDataT = Pipe[FromDataT].sentinel_ize(messages)
-            for message in messages[:-1]:
-                try:
-                    await put_operation(message)
-                    source.task_done()
-                    await asyncio.sleep(0)
-                except PipeFullError:
-                    log_if_possible(logger, 'error', "Attempted to flush upstream Pipe on cancellation, however, "
-                                                     "downstream Pipe is full. Loss of data incurred.")
-                    break
+        except PipeFullError:
+            log_if_possible(logger,
+                            'ERROR',
+                            f"Data loss: Downstream Pipe remained full while attempting to transfer the data\n"
+                            f"Pipe retry parameters:"
+                            f"\twait_time={wait_time}\n"
+                            f"\tmax_retries={max_retries}\n"
+                            f"\tmax_wait_time_per_retry={max_wait_time_per_retry}\n")
+
+        except asyncio.CancelledError as e:
+            log_if_possible(logger, 'WARNING', "Task was cancelled. Attempting to process remaining items.")
+            messages: FromTupleDataT = Pipe[FromDataT].sentinel_ize(await Pipe[FromDataT].pipe_snapshot(source))
+
+            try:
+                [await put_operation(m) for m in messages[:-1]]
+            except PipeFullError:
+                log_if_possible(logger,
+                                'ERROR',
+                                "Data loss: Attempted to flush upstream Pipe on cancellation, however, "
+                                "downstream Pipe is full.")
             await destination.stop()
-            break
+            raise asyncio.CancelledError from e
+
         except Exception as e:
             log_if_possible(logger, 'exception', f"An unexpected error occurred: {e}")
             raise e
@@ -656,12 +667,25 @@ async def stream_to_pipe_connector(
         destination=destination)
 
     try:
-        if callable(source) and inspect.isawaitable(source):
-            source: StreamMessageIteratorPtl[FromDataT] = await source()
+        from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_exchange import (
+            DebugToFile,
+        )
+        if callable(source) and inspect.isawaitable(awaitable := source()):
+            DebugToFile.log_debug(message="Generating the source")
+            source: StreamMessageIteratorPtl[FromDataT] = await awaitable
 
+        from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_exchange import (
+            DebugToFile,
+        )
+        DebugToFile.log_debug(message=f"Connecting with {source}")
+        DebugToFile.log_debug(message=f"      {type(source)}")
+        DebugToFile.log_debug(message=f"      {inspect.isawaitable(source)}")
+        DebugToFile.log_debug(message=f"      {callable(source)}")
         async for message in source.iter_messages():  # type: ignore # Pycharm not understanding AsyncGenerator
             try:
+                DebugToFile.log_debug(message="Awaiting put operation")
                 await put_operation(message)
+                DebugToFile.log_debug(message="Put operation complete")
             except PipeFullError:
                 log_if_possible(logger, 'warning', "Downstream Pipe is full, retrying 3 times.")
                 try:
@@ -669,7 +693,9 @@ async def stream_to_pipe_connector(
                 except PipeFullError as e:
                     log_if_possible(logger, 'warning', "Downstream Pipe full after 3 attempts. Aborting.")
                     raise PipeFullError("Max retries reached, aborting") from e
-            await asyncio.sleep(0)
+            # await asyncio.sleep(0)
+
+        DebugToFile.log_debug(message="Should not get here")
 
     except asyncio.CancelledError:
         log_if_possible(logger, 'warning', "Task was cancelled. Closing downstream Pipe")
@@ -716,25 +742,34 @@ async def reconnecting_stream_to_pipe_connector(
     :param reconnect_interval: The time to wait between reconnection attempts.
     :param logger: Optional logger for logging events and exceptions. If not provided, no logging will occur.
     """
+    await connect()
     while True:
         try:
-            await connect()
-            await stream_to_pipe_connector(source=source,
-                                           handler=handler,
-                                           destination=destination,
-                                           raise_on_exception=False,
-                                           logger=logger)
+            from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_exchange import (
+                DebugToFile,
+            )
+            DebugToFile.log_debug(message="Connecting")
+            with DebugToFile.log_with_bullet(message="Stream To Pipe...", bullet="I"):
+                await stream_to_pipe_connector(source=source,
+                                               handler=handler,
+                                               destination=destination,
+                                               raise_on_exception=False,
+                                               logger=logger)
         except asyncio.CancelledError:
             log_if_possible(logger, 'warning', "Task was cancelled. Closing downstream Pipe")
             await disconnect()
             raise
         except ConnectionError as e:
             log_if_possible(logger, 'warning', f"The websocket connection was closed ({e}). Auto-reconnecting")
+            await disconnect()
+            await connect()
+
         except Exception as e:
             log_if_possible(logger, 'error', f"Unexpected error while listening to user stream. ({e})."
                                              f" Auto-reconnect after {reconnect_interval}s")
-            await asyncio.sleep(reconnect_interval)
-        finally:
             await disconnect()
+            await asyncio.sleep(reconnect_interval)
+            await connect()
+
 
 # --- PipeConnectors associated to the Pipe class and its Pipe task manager ---

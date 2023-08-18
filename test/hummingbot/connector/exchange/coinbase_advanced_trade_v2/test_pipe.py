@@ -371,8 +371,8 @@ class TestPipeConnectingTask(IsolatedAsyncioWrapperTestCase):
         handler.assert_any_call('message2')
 
         # Assert that the destination's put method was called with the correct arguments
-        destination.put.assert_any_call('processed_message1')
-        destination.put.assert_any_call('processed_message2')
+        destination.put.assert_any_call('processed_message1', wait_time=0.1, max_retries=3, max_wait_time_per_retry=1)
+        destination.put.assert_any_call('processed_message2', wait_time=0.1, max_retries=3, max_wait_time_per_retry=1)
 
         # Assert that the destination's stop method was called
         destination.stop.assert_called_once()
@@ -398,7 +398,8 @@ class TestPipeConnectingTask(IsolatedAsyncioWrapperTestCase):
         handler.side_effect = ['processed_message1', 'processed_message2', 'processed_message3', 'processed_message4']
 
         # Call the function
-        await pipe_to_pipe_connector(source=source, handler=handler, destination=destination)
+        with self.assertRaises(asyncio.CancelledError):
+            await pipe_to_pipe_connector(source=source, handler=handler, destination=destination)
 
         # Assert that the source's get method was called thrice
         self.assertEqual(3, source.get.call_count, 3)
@@ -410,8 +411,8 @@ class TestPipeConnectingTask(IsolatedAsyncioWrapperTestCase):
         handler.assert_any_call('message4')
 
         # Assert that the destination's put method was called with the correct arguments
-        destination.put.assert_any_call('processed_message1')
-        destination.put.assert_any_call('processed_message2')
+        destination.put.assert_any_call('processed_message1', wait_time=0.1, max_retries=3, max_wait_time_per_retry=1)
+        destination.put.assert_any_call('processed_message2', wait_time=0.1, max_retries=3, max_wait_time_per_retry=1)
         destination.put.assert_any_call('processed_message3')
         destination.put.assert_any_call('processed_message4')
 
@@ -440,7 +441,8 @@ class TestPipeConnectingTask(IsolatedAsyncioWrapperTestCase):
         destination.put.side_effect = [None, None, PipeFullError()]
 
         # Call the function
-        await pipe_to_pipe_connector(source=source, handler=handler, destination=destination)
+        with self.assertRaises(asyncio.CancelledError):
+            await pipe_to_pipe_connector(source=source, handler=handler, destination=destination)
 
         # Assert that the source's get method was called thrice
         self.assertEqual(3, source.get.call_count, 3)
@@ -455,8 +457,8 @@ class TestPipeConnectingTask(IsolatedAsyncioWrapperTestCase):
             handler.assert_any_call('message4')
 
         # Assert that the destination's put method was called with the correct arguments
-        destination.put.assert_any_call('processed_message1')
-        destination.put.assert_any_call('processed_message2')
+        destination.put.assert_any_call('processed_message1', wait_time=0.1, max_retries=3, max_wait_time_per_retry=1)
+        destination.put.assert_any_call('processed_message2', wait_time=0.1, max_retries=3, max_wait_time_per_retry=1)
         # Message is sent to the pipe that raises a QueueFull
         destination.put.assert_any_call('processed_message3')
         # The QueueFull breaks the messages iteration, so message4 is not put in destination
@@ -485,8 +487,8 @@ class TestPipeConnectingTask(IsolatedAsyncioWrapperTestCase):
         # Assert that the destination's put method was called with the correct arguments
         # We do not put the SENTINEL in the destination pipe
         self.assertEqual(2, destination.put.call_count)
-        destination.put.assert_any_call('processed_message1')
-        destination.put.assert_any_call('processed_message2')
+        destination.put.assert_any_call('processed_message1', wait_time=0.1, max_retries=3, max_wait_time_per_retry=1)
+        destination.put.assert_any_call('processed_message2', wait_time=0.1, max_retries=3, max_wait_time_per_retry=1)
 
         # Assert that the destination's stop method was called
         destination.stop.assert_called_once()
@@ -650,6 +652,8 @@ class TestStreamToPipeConnector(IsolatedAsyncioWrapperTestCase):
         class ContinuousStream:
             async def iter_messages(self):
                 while True:
+                    # It seems crucial to release control to the event loop here (with await asyncio.sleep(0))
+                    await asyncio.sleep(0)
                     yield 'message'
 
         # Create a source stream that continuously yields messages

@@ -14,8 +14,8 @@ from hummingbot.connector.exchange.coinbase_advanced_trade_v2.stream_data_source
     StreamAction,
     StreamDataSource,
     StreamState,
-    TaskState,
 )
+from hummingbot.connector.exchange.coinbase_advanced_trade_v2.task_manager import TaskManager, TaskState
 from hummingbot.core.web_assistant.connections.data_types import WSRequest
 
 
@@ -83,6 +83,7 @@ class TestStreamsDataSource(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             channels=self.channels,
             pairs=self.trading_pairs,
             ws_factory=self.partial_assistant,
+            ws_url="ws://localhost:1234",
             pair_to_symbol=self.pair_to_symbol,
             symbol_to_pair=self.symbol_to_pair,
             subscription_builder=self.subscription_builder,
@@ -220,11 +221,27 @@ class TestStreamsDataSource(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         for stream in self.streams_data_source._streams.values():
             self.assertEqual(StreamState.UNSUBSCRIBED, stream._stream_state)
 
+    @patch.object(PipeBlock, "start_task", new=AsyncMock(return_value="mocked result"))
+    @patch.object(StreamDataSource, "start_task", new=AsyncMock(return_value="mocked result"))
+    @patch.object(TaskManager, "start_task", new=AsyncMock(return_value="mocked result"))
     async def test_start_stream(self):
+        streams_data_source = _MultiStreamDataSource(
+            channels=self.channels,
+            pairs=self.trading_pairs,
+            ws_factory=self.partial_assistant,
+            ws_url="ws://localhost:1234",
+            pair_to_symbol=self.pair_to_symbol,
+            symbol_to_pair=self.symbol_to_pair,
+            subscription_builder=self.subscription_builder,
+            heartbeat_channel=self.heartbeat_channel,
+        )
+
         # Assume that all tasks are successfully started
-        for stream in self.streams_data_source._streams.values():
+        for stream in streams_data_source._streams.values():
             stream._task_state = TaskState.STARTED
 
-        await self.streams_data_source.start_stream()
-        for stream in self.streams_data_source._streams.values():
+        await streams_data_source.start_stream()
+
+        for stream in streams_data_source._streams.values():
             self.assertEqual(TaskState.STARTED, stream._task_state)
+        # await streams_data_source.stop_stream()

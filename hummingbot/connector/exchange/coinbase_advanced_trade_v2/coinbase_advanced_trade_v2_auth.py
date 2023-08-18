@@ -65,8 +65,6 @@ class CoinbaseAdvancedTradeV2Auth(AuthBase):
         timestamp: str = str(_timestamp)
 
         endpoint: str = endpoint_from_url(request.url).split('?')[0]  # ex: /v3/orders
-        from .coinbase_advanced_trade_v2_exchange import DebugToFile
-        DebugToFile.log_debug(f"endpoint: {endpoint}")
         message = timestamp + str(request.method) + endpoint + str(request.data or '')
         signature: str = self._generate_signature(message=message)
 
@@ -112,8 +110,6 @@ class CoinbaseAdvancedTradeV2Auth(AuthBase):
 
         products: str = ",".join(request.payload["product_ids"])
         message: str = timestamp + str(request.payload["channel"]) + products
-        from .coinbase_advanced_trade_v2_exchange import DebugToFile
-        DebugToFile.log_debug(f"message: {message}")
         signature: str = self._generate_signature(message=message)
 
         payload: Dict[str, str] = dict(request.payload) | {

@@ -9,10 +9,9 @@ from hummingbot.connector.exchange.coinbase_advanced_trade_v2.stream_data_source
     StreamAction,
     StreamDataSource,
     StreamState,
-    TaskState,
     _WSAssistantPtl,
 )
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2.taskmanager import TaskManager
+from hummingbot.connector.exchange.coinbase_advanced_trade_v2.task_manager import TaskManager, TaskState
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest, WSRequest
 
 
@@ -83,6 +82,7 @@ class TestStreamDataSource(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             channel=self.channel,
             pair=self.trading_pair,
             ws_factory=self.partial_assistant,
+            ws_url="wss://test_url",
             pair_to_symbol=self.pair_to_symbol,
             subscription_builder=self.subscription_builder,
             heartbeat_channel=self.heartbeat_channel,
@@ -187,7 +187,7 @@ class TestStreamDataSource(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertTrue(self.pair_to_symbol_called)
         self.assertTrue(self.stream_data_source._ws_assistant.connect_called)
         self.assertEqual({
-            'ws_url': 'wss://advanced-trade-ws.coinbase.{domain}/',
+            'ws_url': 'wss://test_url',
             'ping_timeout': 30.0,
             'message_timeout': None,
             'ws_headers': None
@@ -318,7 +318,7 @@ class TestStreamDataSource(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(self.ws_assistant, self.stream_data_source._ws_assistant, )
 
         with patch.object(self.ws_assistant, "disconnect", new_callable=AsyncMock) as mock_disconnect:
-            with patch.object(self.stream_data_source, "unsubscribe", new_callable=AsyncMock) as mock_unsubscribe:
+            with patch.object(StreamDataSource, "unsubscribe", new_callable=AsyncMock) as mock_unsubscribe:
                 await self.stream_data_source.close()
                 mock_unsubscribe.assert_called_once()
                 mock_unsubscribe.assert_awaited_once()
@@ -333,7 +333,7 @@ class TestStreamDataSource(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(self.ws_assistant, self.stream_data_source._ws_assistant, )
 
         with patch.object(self.ws_assistant, "disconnect", new_callable=AsyncMock) as mock_disconnect:
-            with patch.object(self.stream_data_source, "unsubscribe", new_callable=AsyncMock) as mock_unsubscribe:
+            with patch.object(StreamDataSource, "unsubscribe", new_callable=AsyncMock) as mock_unsubscribe:
                 mock_unsubscribe.side_effect = Exception("Test")
                 await self.stream_data_source.close()
                 mock_unsubscribe.assert_called_once()
@@ -370,7 +370,7 @@ class TestStreamDataSource(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(StreamState.CLOSED, self.stream_data_source._stream_state, )
 
     async def test_start_mocked(self) -> None:
-        with patch.object(self.stream_data_source, "start_task", new_callable=AsyncMock) as mock_task:
+        with patch.object(StreamDataSource, "start_task", new_callable=AsyncMock) as mock_task:
             self.assertFalse(self.stream_data_source.is_running)
 
             await self.stream_data_source.start()
@@ -383,7 +383,7 @@ class TestStreamDataSource(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             self.assertEqual(TaskState.STOPPED, self.stream_data_source._task_state, )
 
         with patch.object(TaskManager, "is_running", new_callable=MagicMock(return_value=True)):
-            with patch.object(self.stream_data_source, "start_task", new_callable=AsyncMock) as mock_task:
+            with patch.object(StreamDataSource, "start_task", new_callable=AsyncMock) as mock_task:
                 await self.stream_data_source.start()
                 # With a mocked is_running the state changes to STARTED
                 mock_task.assert_called_once()
@@ -407,7 +407,7 @@ class TestStreamDataSource(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
     async def test_stop_mocked(self) -> None:
         with patch.object(TaskManager, "is_running", new_callable=MagicMock(return_value=True)):
-            with patch.object(self.stream_data_source, "stop_task", new_callable=AsyncMock) as mock_task:
+            with patch.object(StreamDataSource, "stop_task", new_callable=AsyncMock) as mock_task:
                 self.assertEqual(StreamState.CLOSED, self.stream_data_source._stream_state)
                 self.stream_data_source._task_state = TaskState.STARTED
 
@@ -419,7 +419,7 @@ class TestStreamDataSource(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
                 self.assertEqual(TaskState.STARTED, self.stream_data_source._task_state, )
 
         with patch.object(TaskManager, "is_running", new_callable=MagicMock(return_value=False)):
-            with patch.object(self.stream_data_source, "stop_task", new_callable=AsyncMock) as mock_task:
+            with patch.object(StreamDataSource, "stop_task", new_callable=AsyncMock) as mock_task:
                 self.stream_data_source._task_state = TaskState.STARTED
 
                 await self.stream_data_source.stop()
@@ -443,13 +443,13 @@ class TestStreamDataSource(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
     async def test_subscribe_raises_exception(self):
         self.stream_data_source._stream_state = StreamState.OPENED
-        with patch.object(self.stream_data_source, "_send_to_stream", side_effect=asyncio.exceptions.TimeoutError):
+        with patch.object(StreamDataSource, "_send_to_stream", side_effect=asyncio.exceptions.TimeoutError):
             with self.assertRaises(asyncio.exceptions.TimeoutError):
                 await self.stream_data_source.subscribe()
 
     async def test_unsubscribe_raises_exception(self):
         self.stream_data_source._stream_state = StreamState.SUBSCRIBED
-        with patch.object(self.stream_data_source, "_send_to_stream", side_effect=asyncio.exceptions.TimeoutError):
+        with patch.object(StreamDataSource, "_send_to_stream", side_effect=asyncio.exceptions.TimeoutError):
             with self.assertRaises(asyncio.exceptions.TimeoutError):
                 await self.stream_data_source.unsubscribe()
 

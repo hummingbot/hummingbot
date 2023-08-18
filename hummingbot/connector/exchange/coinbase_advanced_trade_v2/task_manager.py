@@ -2,6 +2,7 @@ import asyncio
 import contextlib
 import logging
 from asyncio import Task
+from enum import Enum
 from functools import partial
 from typing import Any, Awaitable, Callable, Optional, Protocol
 
@@ -18,6 +19,12 @@ class TaskManagerPtl(Protocol):
 
     def stop_task(self) -> None:
         ...
+
+
+class TaskState(Enum):
+    CREATED = "CREATED"
+    STARTED = "STARTED"
+    STOPPED = "STOPPED"
 
 
 class TaskManager:
@@ -39,6 +46,7 @@ class TaskManager:
         "_exception_callback",
         "_success_event",
         "_exception_event",
+        "_task_state",
     )
 
     def __init__(
@@ -59,6 +67,7 @@ class TaskManager:
 
         self._task: Optional[Task] = None
         self._task_exception: Optional[Exception] = None
+        self._task_state: TaskState = TaskState.STOPPED
 
     @property
     def task(self) -> Optional[Task]:
@@ -80,6 +89,7 @@ class TaskManager:
 
         async def task_wrapper() -> None:
             try:
+                self._task_state = TaskState.STARTED
                 await self._awaitable()
             except Exception as ex:
                 self._task_exception = ex
@@ -87,16 +97,19 @@ class TaskManager:
                     self._exception_callback(ex)
                 if self._exception_event is not None:
                     self._exception_event.set()
+                self._task_state = TaskState.STOPPED
             else:
                 if self._success_callback is not None:
                     self._success_callback()
                 if self._success_event is not None:
                     self._success_event.set()
+                self._task_state = TaskState.STOPPED
                 self._task = None
 
         if not self._task or self._task.done():
             try:
                 self._task: Task = asyncio.create_task(task_wrapper())
+                self._task_state = TaskState.CREATED
             except Exception as e:
                 self.logger().error(f"Exception while creating task: {e}")
                 raise e
@@ -119,6 +132,7 @@ class TaskManager:
         with contextlib.suppress(asyncio.CancelledError):
             await self._task
         self._task = None
+        self._task_state = TaskState.STOPPED
 
         self._log_and_raise_task_exception()
 
@@ -129,6 +143,7 @@ class TaskManager:
             return
 
         self._task.cancel()
+        self._task_state = TaskState.STOPPED
 
         self._log_and_raise_task_exception()
         self.logger().warning("The task cancellation was requested, however, the task may still be running.")

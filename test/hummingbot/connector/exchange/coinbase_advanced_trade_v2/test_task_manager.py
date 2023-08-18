@@ -2,7 +2,7 @@ import asyncio
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import MagicMock
 
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2.taskmanager import TaskManager
+from hummingbot.connector.exchange.coinbase_advanced_trade_v2.task_manager import TaskManager
 
 
 class TestTaskManager(IsolatedAsyncioWrapperTestCase):

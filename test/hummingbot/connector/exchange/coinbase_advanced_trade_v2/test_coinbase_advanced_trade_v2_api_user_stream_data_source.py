@@ -16,7 +16,8 @@ from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_
     WSAssistantPtl,
     _MultiStreamDataSource,
 )
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2.stream_data_source import StreamState, TaskState
+from hummingbot.connector.exchange.coinbase_advanced_trade_v2.stream_data_source import StreamState
+from hummingbot.connector.exchange.coinbase_advanced_trade_v2.task_manager import TaskState
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.connections.data_types import WSRequest, WSResponse
 
@@ -64,14 +65,6 @@ class MockWebAssistant(WSAssistantPtl):
         self.send_count += 1
 
 
-class MockDataSource(CoinbaseAdvancedTradeV2APIUserStreamDataSource):
-    async def _connected_websocket_assistant(self):
-        return MockWebAssistant()
-
-    async def _subscribe_channels(self, ws) -> None:
-        pass
-
-
 class CoinbaseAdvancedTradeV2APIUserStreamDataSourceTests(
     IsolatedAsyncioWrapperTestCase,
     LoggerMixinForTest,
@@ -113,6 +106,7 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSourceTests(
             channels=self.channels,
             pairs=self.trading_pairs,
             ws_factory=self.partial_assistant,
+            ws_url="ws://localhost:1234",
             pair_to_symbol=self.pair_to_symbol,
             symbol_to_pair=self.symbol_to_pair,
             heartbeat_channel="heartbeat",

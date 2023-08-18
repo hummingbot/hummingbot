@@ -16,7 +16,7 @@ from hummingbot.connector.exchange.coinbase_advanced_trade_v2.pipeline import (
     PipesCollector,
     StreamBlock,
 )
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2.taskmanager import TaskManager
+from hummingbot.connector.exchange.coinbase_advanced_trade_v2.task_manager import TaskManager
 
 
 # Define a class for the tests

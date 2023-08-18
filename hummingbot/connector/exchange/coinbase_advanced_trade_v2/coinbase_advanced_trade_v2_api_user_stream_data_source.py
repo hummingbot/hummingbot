@@ -16,7 +16,6 @@ from typing import (
     Protocol,
     Tuple,
     Type,
-    TypeVar,
 )
 
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -26,9 +25,8 @@ from hummingbot.logger import HummingbotLogger
 from .coinbase_advanced_trade_v2_web_utils import get_timestamp_from_exchange_time
 from .pipe import PipeGetPtl
 from .pipeline import PipeBlock, PipesCollector
-from .stream_data_source import StreamAction, StreamDataSource, StreamState, SubscriptionBuilderT, TaskState
-
-T = TypeVar("T")
+from .stream_data_source import StreamAction, StreamDataSource, StreamState, SubscriptionBuilderT
+from .task_manager import TaskState
 
 
 class CoinbaseAdvancedTradeV2CumulativeUpdate(NamedTuple):
@@ -152,7 +150,7 @@ class WSAssistantPtl(Protocol):
         return ...
 
     async def iter_messages(self) -> AsyncGenerator[WSResponse | None, None]:
-        ...
+        yield ...
 
 
 class CoinbaseAdvancedTradeV2APIUserStreamDataSource(UserStreamTrackerDataSource):
@@ -169,15 +167,28 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSource(UserStreamTrackerDataSource
             channels: Tuple[str, ...],
             pairs: Tuple[str, ...],
             ws_factory: Callable[[], Coroutine[Any, Any, WSAssistantPtl]],
+            ws_url: str,
             pair_to_symbol: Callable[[str], Coroutine[Any, Any, str]] | None,
             symbol_to_pair: Callable[[str], Coroutine[Any, Any, str]] | None,
             heartbeat_channel: str | None = None,
     ) -> None:
+        """
+        Initialize the Coinbase Advanced Trade API user stream data source.
+
+        :param channels: The channels to subscribe to.
+        :param pairs: The trading pairs to subscribe to.
+        :param ws_factory: The factory function to create a websocket connection.
+        :param ws_url: The websocket URL.
+        :param pair_to_symbol: The function to convert a trading pair to a symbol.
+        :param symbol_to_pair: The function to convert a symbol to a trading pair.
+        :param heartbeat_channel: The channel to send heartbeat messages to.
+        """
         super().__init__()
         self._stream_to_queue: _MultiStreamDataSource = _MultiStreamDataSource(
             channels=channels,
             pairs=pairs,
             ws_factory=ws_factory,
+            ws_url=ws_url,
             pair_to_symbol=pair_to_symbol,
             symbol_to_pair=symbol_to_pair,
             subscription_builder=coinbase_advanced_trade_v2_subscription_builder,
@@ -191,12 +202,18 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSource(UserStreamTrackerDataSource
         raise NotImplementedError("This method is not implemented.")
 
     async def listen_for_user_stream(self, output: asyncio.Queue[CoinbaseAdvancedTradeV2CumulativeUpdate]):
-        await self._stream_to_queue.open()
-        await self._stream_to_queue.start_stream()
-        await self._stream_to_queue.subscribe()
-        while True:
-            message: CoinbaseAdvancedTradeV2CumulativeUpdate = await self._stream_to_queue.queue.get()
-            await output.put(message)
+        from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_exchange import (
+            DebugToFile,
+        )
+        with DebugToFile.log_with_bullet(message="Listening to user stream...", bullet="*"):
+            await self._stream_to_queue.open()
+            await self._stream_to_queue.start_stream()
+            await self._stream_to_queue.subscribe()
+
+            while True:
+                message: CoinbaseAdvancedTradeV2CumulativeUpdate = await self._stream_to_queue.queue.get()
+                DebugToFile.log_debug(message=f"m: {message}", bullet="*")
+                await output.put(message)
 
 
 CollectorT: Type = PipesCollector[Dict[str, Any], CoinbaseAdvancedTradeV2CumulativeUpdate]
@@ -271,6 +288,7 @@ class _MultiStreamDataSource:
                  channels: Tuple[str, ...],
                  pairs: Tuple[str, ...],
                  ws_factory: Callable[[], Coroutine[Any, Any, WSAssistantPtl]],
+                 ws_url: str,
                  pair_to_symbol: Callable[[str], Coroutine[Any, Any, str]],
                  symbol_to_pair: Callable[[str], Coroutine[Any, Any, str]],
                  subscription_builder: SubscriptionBuilderT,
@@ -307,6 +325,7 @@ class _MultiStreamDataSource:
                     channel=channel,
                     pair=pair,
                     ws_factory=ws_factory,
+                    ws_url=ws_url,
                     pair_to_symbol=pair_to_symbol,
                     subscription_builder=subscription_builder,
                     heartbeat_channel=heartbeat_channel,
@@ -355,16 +374,16 @@ class _MultiStreamDataSource:
         """Initialize all the streams, subscribe to heartbeats channels"""
         stream: StreamDataSource
         for stream in list(self._streams.values()):
-            await stream.open()
+            await stream.open_connection()
             if stream.state[0] != StreamState.OPENED:
                 self.logger().warning(f"Stream {stream.channel}:{stream.pair} failed to open.")
-                await stream.close()
+                await stream.close_connection()
                 self._streams.pop(self._stream_key(channel=stream.channel, pair=stream.pair), None)
 
     async def close(self) -> None:
         """Close all the streams"""
         for stream in list(self._streams.values()):
-            await stream.close()
+            await stream.close_connection()
 
     async def subscribe(self) -> None:
         """Subscribe to all the streams"""
@@ -372,7 +391,7 @@ class _MultiStreamDataSource:
             await stream.subscribe()
             if stream.state[0] != StreamState.SUBSCRIBED:
                 self.logger().warning(f"Stream {stream.channel}:{stream.pair} failed to subscribe.")
-                await stream.close()
+                await stream.close_connection()
                 self._streams.pop(self._stream_key(channel=stream.channel, pair=stream.pair), None)
 
     async def unsubscribe(self) -> None:
@@ -381,7 +400,7 @@ class _MultiStreamDataSource:
             await stream.unsubscribe()
             if stream.state[0] != StreamState.UNSUBSCRIBED:
                 self.logger().warning(f"Stream {stream.channel}:{stream.pair} failed to unsubscribe.")
-                await stream.close()
+                await stream.close_connection()
 
     async def start_stream(self) -> None:
         """Listen to all the streams and put the messages to the output queue."""
@@ -389,4 +408,12 @@ class _MultiStreamDataSource:
         for key in self._streams:
             for transformer in reversed(self._transformers[key]):
                 await transformer.start_task()
+            await self._streams[key].open_connection()
             await self._streams[key].start_task()
+
+    async def stop_stream(self) -> None:
+        """Listen to all the streams and put the messages to the output queue."""
+        for key in self._streams:
+            await self._streams[key].close_connection()
+            await self._streams[key].stop_stream()
+        await self._collector.stop_task()
