@@ -82,7 +82,7 @@ class MexcAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     def _successfully_subscribed_event(self):
         resp = {
-            "result": None,
+            "code": None,
             "id": 1
         }
         return resp
@@ -203,11 +203,11 @@ class MexcAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         result_subscribe_trades = {
-            "result": None,
+            "code": None,
             "id": 1
         }
         result_subscribe_diffs = {
-            "result": None,
+            "code": None,
             "id": 2
         }
 
@@ -228,11 +228,13 @@ class MexcAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(2, len(sent_subscription_messages))
         expected_trade_subscription = {
             "method": "SUBSCRIPTION",
-            "params": [f"spot@public.deals.v3.api@{self.ex_trading_pair}"]}
+            "params": [f"spot@public.deals.v3.api@{self.ex_trading_pair}"],
+            "id": 1}
         self.assertEqual(expected_trade_subscription, sent_subscription_messages[0])
         expected_diff_subscription = {
             "method": "SUBSCRIPTION",
-            "params": [f"spot@public.increase.depth.v3.api@{self.ex_trading_pair}"]}
+            "params": [f"spot@public.increase.depth.v3.api@{self.ex_trading_pair}"],
+            "id": 2}
         self.assertEqual(expected_diff_subscription, sent_subscription_messages[1])
 
         self.assertTrue(self._is_logged(
