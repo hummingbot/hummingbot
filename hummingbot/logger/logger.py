@@ -51,7 +51,8 @@ class HummingbotLogger(PythonLogger):
             hummingbot_app.notify(f"({pd.Timestamp.fromtimestamp(int(time.time()))}) {msg}")
 
     def network(self, log_msg: str, app_warning_msg: Optional[str] = None, *args, **kwargs):
-        from hummingbot.client.hummingbot_application import HummingbotApplication
+        if app_warning_msg is not None and not HummingbotLogger.is_testing_mode():
+            from hummingbot.client.hummingbot_application import HummingbotApplication
 
         from . import NETWORK
 

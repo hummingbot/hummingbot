@@ -244,9 +244,9 @@ class ClientConfigAdapter:
     def validate_model(self) -> List[str]:
         results = validate_model(type(self._hb_config), json.loads(self._hb_config.json()))
         conf_dict = results[0]
-        self._decrypt_secrets(conf_dict)
         for key, value in conf_dict.items():
             self.setattr_no_validation(key, value)
+        self._decrypt_all_internal_secrets()
         errors = results[2]
         validation_errors = []
         if errors is not None:
@@ -260,6 +260,9 @@ class ClientConfigAdapter:
     def setattr_no_validation(self, attr: str, value: Any):
         with self._disable_validation():
             setattr(self, attr, value)
+
+    def full_copy(self):
+        return self.__class__(hb_config=self._hb_config.copy(deep=True))
 
     @contextlib.contextmanager
     def _disable_validation(self):
@@ -285,20 +288,22 @@ class ClientConfigAdapter:
         return is_union
 
     def _dict_in_conf_order(self) -> Dict[str, Any]:
-        d = {}
+        conf_dict = {}
         for attr in self._hb_config.__fields__.keys():
             value = getattr(self, attr)
             if isinstance(value, ClientConfigAdapter):
                 value = value._dict_in_conf_order()
-            d[attr] = value
-        return d
+            conf_dict[attr] = value
+        self._encrypt_secrets(conf_dict)
+        return conf_dict
 
     def _encrypt_secrets(self, conf_dict: Dict[str, Any]):
         from hummingbot.client.config.security import Security  # avoids circular import
         for attr, value in conf_dict.items():
             attr_type = self._hb_config.__fields__[attr].type_
             if attr_type == SecretStr:
-                conf_dict[attr] = Security.secrets_manager.encrypt_secret_value(attr, value.get_secret_value())
+                clear_text_value = value.get_secret_value() if isinstance(value, SecretStr) else value
+                conf_dict[attr] = Security.secrets_manager.encrypt_secret_value(attr, clear_text_value)
 
     def _decrypt_secrets(self, conf_dict: Dict[str, Any]):
         from hummingbot.client.config.security import Security  # avoids circular import
@@ -307,6 +312,21 @@ class ClientConfigAdapter:
             if attr_type == SecretStr:
                 decrypted_value = Security.secrets_manager.decrypt_secret_value(attr, value.get_secret_value())
                 conf_dict[attr] = SecretStr(decrypted_value)
+
+    def _decrypt_all_internal_secrets(self):
+        from hummingbot.client.config.security import Security  # avoids circular import
+
+        for traversal_item in self.traverse():
+            if traversal_item.type_ == SecretStr:
+                encrypted_value = traversal_item.value
+                if isinstance(encrypted_value, SecretStr):
+                    encrypted_value = encrypted_value.get_secret_value()
+                decrypted_value = Security.secrets_manager.decrypt_secret_value(traversal_item.attr, encrypted_value)
+                parent_attributes = traversal_item.config_path.split(".")[:-1]
+                config = self
+                for parent_attribute in parent_attributes:
+                    config = getattr(config, parent_attribute)
+                setattr(config, traversal_item.attr, decrypted_value)
 
     def _generate_title(self) -> str:
         title = f"{self._hb_config.Config.title}"
