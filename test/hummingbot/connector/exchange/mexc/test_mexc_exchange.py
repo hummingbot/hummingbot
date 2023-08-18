@@ -752,7 +752,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                 "i": order.exchange_order_id,
                 "m": 0,
                 "st": 0,
-                "n": "0.000248206380027431",
+                "n": Decimal(self.expected_fill_fee.flat_fees[0].amount),
                 "N": self.quote_asset
             },
             "s": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
