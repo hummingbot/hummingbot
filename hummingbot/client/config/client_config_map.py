@@ -850,6 +850,10 @@ class ClientConfigMap(BaseClientModel):
             prompt=lambda cm: "Instance UID of the bot",
         ),
     )
+    fetch_pairs_from_all_exchanges: bool = Field(
+        default=False,
+        description="Fetch trading pairs from all exchanges if True, otherwise only from configured exchanges."
+    )
     log_level: str = Field(default="INFO")
     debug_console: bool = Field(default=False)
     strategy_report_interval: float = Field(default=900)
