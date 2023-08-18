@@ -24,33 +24,46 @@ from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTests):
     @property
     def all_symbols_url(self):
-        return web_utils.public_rest_url(CONSTANTS.MARKETS_URL)
+        url = web_utils.public_rest_url(CONSTANTS.MARKETS_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        return regex_url
 
     @property
     def latest_prices_url(self):
         trading_pair = self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset)
         url = web_utils.public_rest_url(path_url=f"{CONSTANTS.MARKETS_URL}/{trading_pair}/ticker")
-        return url
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        return regex_url
 
     @property
     def network_status_url(self):
         url = web_utils.public_rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
-        return url
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        return regex_url
 
     @property
     def trading_rules_url(self):
         url = web_utils.public_rest_url(CONSTANTS.MARKETS_URL)
-        return url
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        return regex_url
 
     @property
     def order_creation_url(self):
         url = web_utils.private_rest_url(CONSTANTS.ORDERS_URL)
-        return url
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        return regex_url
+
+    @property
+    def trade_url(self):
+        url = web_utils.private_rest_url(CONSTANTS.TRADES_URL)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.") + r"\?.*")
+        return regex_url
 
     @property
     def balance_url(self):
         url = web_utils.private_rest_url(CONSTANTS.BALANCE_URL)
-        return url
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        return regex_url
 
     @property
     def all_symbols_request_mock_response(self):
@@ -242,6 +255,10 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
         return 1736871726781
 
     @property
+    def expected_exchange_trade_id(self):
+        return 31727
+
+    @property
     def is_order_fill_http_update_included_in_status_update(self) -> bool:
         return True
 
@@ -266,6 +283,22 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
     @property
     def expected_fill_trade_id(self) -> str:
         return 30000
+
+    def private_url_with_param(self, url, param = "", seperator = '?'):
+        if param != "":
+            url = f"{web_utils.private_rest_url(url)}{seperator}{param}"
+        else:
+            url = web_utils.private_rest_url(url)
+
+        return re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+    def public_url_with_param(self, url, param = "", seperator = '?'):
+        if param != "":
+            url = f"{web_utils.public_rest_url(url)}{seperator}{param}"
+        else:
+            url = web_utils.public_rest_url(url)
+
+        return re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
     def _is_logged(self, log_level: str, message: str) -> bool:
         return any(
@@ -319,10 +352,9 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
         mock_api: aioresponses,
         callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
-        url = web_utils.private_rest_url(f"{CONSTANTS.ORDERS_URL}/{order.exchange_order_id}")
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        url = self.private_url_with_param(CONSTANTS.ORDERS_URL, order.exchange_order_id, '/')
         response = self._order_cancelation_request_successful_mock_response(order=order)
-        mock_api.delete(regex_url, body=json.dumps(response), callback=callback)
+        mock_api.delete(url, body=json.dumps(response), callback=callback)
         return url
 
     def configure_erroneous_cancelation_response(
@@ -331,9 +363,12 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
         mock_api: aioresponses,
         callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
-        url = web_utils.private_rest_url(f"{CONSTANTS.ORDERS_URL}/{order.exchange_order_id}")
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        mock_api.delete(regex_url, status=400, callback=callback)
+        url = self.private_url_with_param(CONSTANTS.ORDERS_URL, order.exchange_order_id, '/')
+        response = {
+            "code": CONSTANTS.INVALID_ORDERID,
+            "message": "In valid Order",
+        }
+        mock_api.delete(url, status=400, body=json.dumps(response), callback=callback)
         return url
 
     def configure_one_successful_one_erroneous_cancel_all_response(
@@ -356,16 +391,23 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
             self, order: InFlightOrder, mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
-        # Implement the expected not found response when enabling test_cancel_order_not_found_in_the_exchange
-        raise NotImplementedError
+        response = {
+            "code": CONSTANTS.ORDER_NOT_FOUND,
+            "message": "Order not found",
+        }
+        mock_api.delete(self.order_creation_url, status=404, body=json.dumps(response), callback=callback)
+        return self.order_creation_url
 
     def configure_order_not_found_error_order_status_response(
             self, order: InFlightOrder, mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> List[str]:
-        # Implement the expected not found response when enabling
-        # test_lost_order_removed_if_not_found_during_order_status_update
-        raise NotImplementedError
+        response = {
+            "code": CONSTANTS.ORDER_NOT_FOUND,
+            "message": "Order not found",
+        }
+        mock_api.get(self.order_creation_url, body=json.dumps(response), status=404, callback=callback)
+        return [self.order_creation_url]
 
     def configure_completely_filled_order_status_response(
         self,
@@ -373,11 +415,9 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
         mock_api: aioresponses,
         callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
-        url = web_utils.private_rest_url(CONSTANTS.ORDERS_URL)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_status_request_completely_filled_mock_response(order=order)
-        mock_api.get(regex_url, body=json.dumps(response), callback=callback)
-        return url
+        mock_api.get(self.order_creation_url, body=json.dumps(response), callback=callback)
+        return self.order_creation_url
 
     def configure_canceled_order_status_response(
         self,
@@ -385,10 +425,9 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
         mock_api: aioresponses,
         callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
-        url = web_utils.private_rest_url(f"{CONSTANTS.ORDERS_URL}/{order.exchange_order_id}")
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        url = self.private_url_with_param(CONSTANTS.ORDERS_URL, order.exchange_order_id, '/')
         response = self._order_status_request_canceled_mock_response(order=order)
-        mock_api.get(regex_url, body=json.dumps(response), callback=callback)
+        mock_api.get(url, body=json.dumps(response), callback=callback)
         return url
 
     def configure_open_order_status_response(
@@ -400,10 +439,9 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
         """
         :return: the URL configured
         """
-        url = web_utils.private_rest_url(f"{CONSTANTS.ORDERS_URL}/{order.exchange_order_id}")
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        url = self.private_url_with_param(CONSTANTS.ORDERS_URL, order.exchange_order_id, '/')
         response = self._order_status_request_open_mock_response(order=order)
-        mock_api.get(regex_url, body=json.dumps(response), callback=callback)
+        mock_api.get(url, body=json.dumps(response), callback=callback)
         return url
 
     def configure_http_error_order_status_response(
@@ -411,72 +449,62 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.private_rest_url(CONSTANTS.TRADES_URL)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = []
-        mock_api.get(regex_url, body=json.dumps(response), callback=callback)
+        mock_api.get(self.trade_url, body=json.dumps(response), callback=callback)
 
-        url2 = web_utils.private_rest_url(f"{CONSTANTS.ORDERS_URL}/{order.exchange_order_id}")
-        regex_url = re.compile(f"^{url2}".replace(".", r"\.").replace("?", r"\?"))
-        mock_api.get(regex_url, status=401, callback=callback)
+        url = self.private_url_with_param(CONSTANTS.ORDERS_URL, order.exchange_order_id, '/')
+        mock_api.get(url, status=401, callback=callback)
 
-        return url2
+        return url
 
     def configure_partially_filled_order_status_response(
             self,
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.private_rest_url(CONSTANTS.ORDERS_URL)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_status_request_partially_filled_mock_response(order=order)
-        mock_api.get(regex_url, body=json.dumps(response), callback=callback)
+        mock_api.get(self.order_creation_url, body=json.dumps(response), callback=callback)
 
         self.configure_open_order_status_response(order, mock_api, callback)
 
-        return url
+        return self.order_creation_url
 
     def configure_partial_fill_trade_response(
             self,
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.private_rest_url(path_url=CONSTANTS.TRADES_URL)
-        regex_url = re.compile(url + r"\?.*")
+
         response = self._order_fills_request_partial_fill_mock_response(order=order)
-        mock_api.get(regex_url, body=json.dumps(response), callback=callback)
+        mock_api.get(self.trade_url, body=json.dumps(response), callback=callback)
 
         self.configure_open_order_status_response(order, mock_api, callback)
 
-        return url
+        return self.trade_url
 
     def configure_erroneous_http_fill_trade_response(
             self,
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.private_rest_url(path_url=CONSTANTS.TRADES_URL)
-        regex_url = re.compile(url + r"\?.*")
-        mock_api.get(regex_url, status=400, callback=callback)
+        mock_api.get(self.trade_url, status=400, callback=callback)
 
-        url2 = web_utils.private_rest_url(f"{CONSTANTS.ORDERS_URL}/{order.exchange_order_id}")
-        regex_url = re.compile(f"^{url2}".replace(".", r"\.").replace("?", r"\?"))
-        mock_api.get(regex_url, status=401, callback=callback)
-        return url
+        url = self.private_url_with_param(CONSTANTS.ORDERS_URL, order.client_order_id, '/')
+        mock_api.get(url, status=400, callback=callback)
+
+        return self.trade_url
 
     def configure_full_fill_trade_response(
             self,
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.private_rest_url(path_url=CONSTANTS.TRADES_URL)
-        regex_url = re.compile(url + r"\?.*")
         response = self._order_fills_request_full_fill_mock_response(order=order)
-        mock_api.get(regex_url, body=json.dumps(response), callback=callback)
+        mock_api.get(self.trade_url, body=json.dumps(response), callback=callback)
 
         self.configure_open_order_status_response(order, mock_api, callback)
 
-        return url
+        return self.trade_url
 
     # https://docs.btcmarkets.net/v3/#section/Order-Life-Cycle-Events
     def order_event_for_new_order_websocket_update(self, order: InFlightOrder):
@@ -523,7 +551,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
             "timestamp": "2019-04-08T20:50:39.658Z",
             "trades": [
                 {
-                    "tradeId": 31727,
+                    "tradeId": self.expected_exchange_trade_id,
                     "price": str(order.price),
                     "volume": str(order.amount),
                     "fee": str(self.expected_fill_fee.flat_fees[0].amount),
@@ -535,7 +563,16 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
         }
 
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
-        pass
+        return {
+            "tradeId": self.expected_exchange_trade_id,
+            # "clientOrderId": order.client_order_id,  # leave this property here as it is being asserted in the the tests
+            "marketId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+            "side": "Bid",
+            "price": str(order.price),
+            "volume": str(order.amount),
+            "timestamp": "2019-04-08T20:50:39.658Z",
+            "messageType": 'trade'
+        }
 
     def test_time_synchronizer_related_request_error_detection(self):
         exception = IOError("Error executing request POST https://api.btcm.ngin.io/v3/order. HTTP status is 400. "
@@ -679,10 +716,9 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
             "clientOrderId": "123456789"
         }
 
-        url = web_utils.public_rest_url(path_url=f"{CONSTANTS.ORDERS_URL}/11223344")
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        url = self.private_url_with_param(CONSTANTS.ORDERS_URL, 11223344, '/')
 
-        mock_api.delete(regex_url, body=json.dumps(response))
+        mock_api.delete(url, body=json.dumps(response))
 
         cancelled = self.async_run_with_timeout(self.exchange._place_cancel(orderId, order))
 
@@ -741,10 +777,9 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
             }
         ]
 
-        url = web_utils.public_rest_url(path_url=f"{CONSTANTS.TRADES_URL}?orderId=36014819")
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        url = self.public_url_with_param(CONSTANTS.TRADES_URL, f"orderId={order.exchange_order_id}")
 
-        mock_api.get(regex_url, body=json.dumps(response))
+        mock_api.get(url, body=json.dumps(response))
 
         order_response = self.async_run_with_timeout(self.exchange._request_order_fills(order))
 
@@ -764,13 +799,18 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
         )
 
         response = {
-            "orderId": "123456789"
+            "orderId": "123456789",
+            "marketId": "BTC-AUD",
+            "side": "Bid",
+            "type": "Limit",
+            "creationTime": "2019-08-30T11:08:21.956000Z",
+            "price": "100.12",
+            "amount": "1.034",
+            "openAmount": "1.034",
+            "status": "Accepted"
         }
 
-        url = web_utils.public_rest_url(path_url=CONSTANTS.ORDERS_URL)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        mock_api.post(regex_url, body=json.dumps(response))
+        mock_api.post(self.order_creation_url, body=json.dumps(response))
 
         order_response = self.async_run_with_timeout(self.exchange._place_order(
             order.client_order_id, order.trading_pair, 10.0, order.trade_type, order.order_type, 9999.9))
@@ -901,10 +941,7 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
             }
         ]
 
-        url = web_utils.public_rest_url(path_url=CONSTANTS.BALANCE_URL)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        mock_api.get(regex_url, body=json.dumps(response))
+        mock_api.get(self.balance_url, body=json.dumps(response))
 
         self.async_run_with_timeout(self.exchange._update_balances())
 
@@ -991,15 +1028,3 @@ class BtcMarketsExchangeTest(AbstractExchangeConnectorTests.ExchangeConnectorTes
         )
 
         self.assertEqual(Decimal("0.0085"), fee.percent)  # default maker fee
-
-    @aioresponses()
-    def test_cancel_order_not_found_in_the_exchange(self, mock_api):
-        # Disabling this test because the connector has not been updated yet to validate
-        # order not found during cancellation (check _is_order_not_found_during_cancelation_error)
-        pass
-
-    @aioresponses()
-    def test_lost_order_removed_if_not_found_during_order_status_update(self, mock_api):
-        # Disabling this test because the connector has not been updated yet to validate
-        # order not found during status update (check _is_order_not_found_during_status_update_error)
-        pass
