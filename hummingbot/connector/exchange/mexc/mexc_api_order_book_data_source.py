@@ -136,7 +136,7 @@ class MexcAPIOrderBookDataSource(OrderBookTrackerDataSource):
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
         channel = ""
         if "code" not in event_message:
-            event_type = event_message.get("c","")
+            event_type = event_message.get("c", "")
             channel = (self._diff_messages_queue_key if CONSTANTS.DIFF_EVENT_TYPE in event_type
                        else self._trade_messages_queue_key)
         return channel
