@@ -6,7 +6,7 @@ from hummingbot.connector.exchange.mexc import mexc_constants as CONSTANTS, mexc
 from hummingbot.connector.exchange.mexc.mexc_auth import MexcAuth
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
@@ -66,7 +66,8 @@ class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 url=web_utils.public_rest_url(path_url=CONSTANTS.MEXC_USER_STREAM_PATH_URL, domain=self._domain),
                 method=RESTMethod.POST,
                 throttler_limit_id=CONSTANTS.MEXC_USER_STREAM_PATH_URL,
-                headers=self._auth.header_for_authentication()
+                headers=self._auth.header_for_authentication(),
+                is_auth_required=True
             )
         except asyncio.CancelledError:
             raise
@@ -127,6 +128,13 @@ class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
         if self._ws_assistant is None:
             self._ws_assistant = await self._api_factory.get_ws_assistant()
         return self._ws_assistant
+
+    async def _send_ping(self, websocket_assistant: WSAssistant):
+        payload = {
+            "method": "PING",
+        }
+        ping_request: WSJSONRequest = WSJSONRequest(payload=payload)
+        await websocket_assistant.send(ping_request)
 
     async def _on_user_stream_interruption(self, websocket_assistant: Optional[WSAssistant]):
         await super()._on_user_stream_interruption(websocket_assistant=websocket_assistant)

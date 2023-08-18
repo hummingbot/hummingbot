@@ -78,12 +78,14 @@ class MexcAPIOrderBookDataSource(OrderBookTrackerDataSource):
             payload = {
                 "method": "SUBSCRIPTION",
                 "params": trade_params,
+                "id": 1
             }
             subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
             payload = {
                 "method": "SUBSCRIPTION",
                 "params": depth_params,
+                "id": 2
             }
             subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
@@ -117,7 +119,7 @@ class MexcAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return snapshot_msg
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        if "result" not in raw_message:
+        if "code" not in raw_message:
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["s"])
             for sinlge_msg in raw_message['d']['deals']:
                 trade_message = MexcOrderBook.trade_message_from_exchange(
@@ -125,7 +127,7 @@ class MexcAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 message_queue.put_nowait(trade_message)
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        if "result" not in raw_message:
+        if "code" not in raw_message:
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["s"])
             order_book_message: OrderBookMessage = MexcOrderBook.diff_message_from_exchange(
                 raw_message, raw_message['t'], {"trading_pair": trading_pair})
@@ -133,8 +135,8 @@ class MexcAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
         channel = ""
-        if "result" not in event_message:
-            event_type = event_message.get("c")
+        if "code" not in event_message:
+            event_type = event_message.get("c","")
             channel = (self._diff_messages_queue_key if CONSTANTS.DIFF_EVENT_TYPE in event_type
                        else self._trade_messages_queue_key)
         return channel

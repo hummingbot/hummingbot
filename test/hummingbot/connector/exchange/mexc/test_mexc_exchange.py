@@ -67,7 +67,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "baseAsset": self.base_asset,
                     "baseSizePrecision": 1e-8,
                     "quotePrecision": 8,
-                    "baseAssetPrecision": 1e-8,
+                    "baseAssetPrecision": 8,
                     "quoteAmountPrecision": 8,
                     "quoteAsset": self.quote_asset,
                     "quoteAssetPrecision": 8,
@@ -132,9 +132,9 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
                     "status": "ENABLED",
                     "baseAsset": self.base_asset,
-                    "baseSizePrecision": 8,
-                    "quotePrecision": 1e-8,
-                    "baseAssetPrecision": 1e-8,
+                    "baseSizePrecision": 1e-8,
+                    "quotePrecision": 8,
+                    "baseAssetPrecision": 8,
                     "quoteAsset": self.quote_asset,
                     "quoteAssetPrecision": 8,
                     "baseCommissionPrecision": 8,
@@ -163,7 +163,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "baseAsset": "INVALID",
                     "baseSizePrecision": 1e-8,
                     "quotePrecision": 8,
-                    "baseAssetPrecision": 1e-8,
+                    "baseAssetPrecision": 8,
                     "quoteAmountPrecision": 8,
                     "quoteAsset": "PAIR",
                     "quoteAssetPrecision": 8,
@@ -209,7 +209,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "baseAsset": self.base_asset,
                     "baseSizePrecision": 1e-8,
                     "quotePrecision": 8,
-                    "baseAssetPrecision": 1e-8,
+                    "baseAssetPrecision": 8,
                     "quoteAmountPrecision": 8,
                     "quoteAsset": self.quote_asset,
                     "quoteAssetPrecision": 8,
@@ -232,7 +232,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                             "stepSize": "0.00100000"
                         }, {
                             "filterType": "MIN_NOTIONAL",
-                            "minNotional": "0.00100000"
+                            "minNotional": "0.00200000"
                         }
                     ],
                     "permissions": [
@@ -1254,7 +1254,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
     def test_format_trading_rules__min_notional_present(self):
         trading_rules = [{
             "symbol": "COINALPHAHBOT",
-            "baseSizePrecision": 8,
+            "baseSizePrecision": 1e-8,
             "quotePrecision": 8,
             "baseAssetPrecision": 8,
             "status": "ENABLED",
@@ -1273,7 +1273,7 @@ class MexcExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
                     "stepSize": "0.00100000"
                 }, {
                     "filterType": "MIN_NOTIONAL",
-                    "minNotional": "0.00100000"
+                    "minNotional": "0.00300000"
                 }
             ],
             "permissions": [
