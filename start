@@ -12,5 +12,5 @@ if [[ $CONDA_DEFAULT_ENV != "hummingbot" ]]; then
     exit 1
 fi
 
-# Run bin/hummingbot.py
-bin/hummingbot.py 2>./logs/errors.log
+# Run bin/hummingbot.py and append errors to logs/errors.log
+touch ./logs/errors.log && bin/hummingbot.py 2>>./logs/errors.log
