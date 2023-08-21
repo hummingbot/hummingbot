@@ -217,9 +217,11 @@ class GateIoExchange(ExchangePyBase):
             })
             if trade_type.name.lower() == 'buy':
                 if price.is_nan():
-                    price = self.get_price_by_type(
+                    price = self.get_price_for_volume(
                         trading_pair,
-                        price_type=PriceType.BestAsk if trade_type is TradeType.BUY else PriceType.BestBid)
+                        True,
+                        amount
+                    )
                 data.update({
                     "amount": f"{price * amount:f}",
                 })
