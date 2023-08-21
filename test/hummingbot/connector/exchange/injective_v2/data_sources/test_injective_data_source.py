@@ -41,7 +41,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
             subaccount_index=0,
             granter_address=Address(bytes.fromhex(granter_private_key.to_public_key().to_hex())).to_acc_bech32(),
             granter_subaccount_index=0,
-            network=Network.testnet(),
+            network=Network.testnet(node="sentry"),
         )
 
         self.query_executor = ProgrammableQueryExecutor()
@@ -381,7 +381,7 @@ class InjectiveVaultsDataSourceTests(TestCase):
             subaccount_index=0,
             vault_contract_address=self._vault_address,
             vault_subaccount_index=1,
-            network=Network.testnet(),
+            network=Network.testnet(node="sentry"),
             use_secure_connection=True,
         )
 

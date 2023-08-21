@@ -30,6 +30,7 @@ DEFAULT_FEES = TradeFeeSchema(
 )
 
 MAINNET_NODES = ["lb", "sentry0", "sentry1", "sentry3"]
+TESTNET_NODES = ["lb", "sentry"]
 
 
 class InjectiveNetworkMode(BaseClientModel, ABC):
@@ -69,8 +70,22 @@ class InjectiveMainnetNetworkMode(InjectiveNetworkMode):
 
 
 class InjectiveTestnetNetworkMode(InjectiveNetworkMode):
+    testnet_node: str = Field(
+        default="lb",
+        client_data=ClientFieldData(
+            prompt=lambda cm: (f"Enter the testnet node you want to connect to ({'/'.join(TESTNET_NODES)})"),
+            prompt_on_new=True
+        ),
+    )
+
+    @validator("testnet_node", pre=True)
+    def validate_node(cls, v: str):
+        if v not in TESTNET_NODES:
+            raise ValueError(f"{v} is not a valid node ({TESTNET_NODES})")
+        return v
+
     def network(self) -> Network:
-        return Network.testnet()
+        return Network.testnet(node=self.testnet_node)
 
     def use_secure_connection(self) -> bool:
         return True
