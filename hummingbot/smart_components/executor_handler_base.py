@@ -111,10 +111,10 @@ class ExecutorHandlerBase:
             executors_with_position = executors_df[executors_df["net_pnl"] != 0]
             total_executors_with_position = executors_with_position.shape[0]
             total_volume = executors_with_position["amount"].sum() * 2
-            total_long = (executors_with_position["side"] == "BUY").count()
-            total_short = (executors_with_position["side"] == "SELL").count()
-            correct_long = ((executors_with_position["side"] == "BUY") & (executors_with_position["net_pnl"] > 0)).count()
-            correct_short = ((executors_with_position["side"] == "SELL") & (executors_with_position["net_pnl"] > 0)).count()
+            total_long = (executors_with_position["side"] == "BUY").sum()
+            total_short = (executors_with_position["side"] == "SELL").sum()
+            correct_long = ((executors_with_position["side"] == "BUY") & (executors_with_position["net_pnl"] > 0)).sum()
+            correct_short = ((executors_with_position["side"] == "SELL") & (executors_with_position["net_pnl"] > 0)).sum()
             accuracy_long = correct_long / total_long if total_long > 0 else 0
             accuracy_short = correct_short / total_short if total_short > 0 else 0
 
