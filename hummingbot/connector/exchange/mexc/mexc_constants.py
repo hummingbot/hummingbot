@@ -17,6 +17,7 @@ PRIVATE_API_VERSION = "v3"
 TICKER_PRICE_CHANGE_PATH_URL = "/ticker/24hr"
 TICKER_BOOK_PATH_URL = "/ticker/bookTicker"
 EXCHANGE_INFO_PATH_URL = "/exchangeInfo"
+SUPPORTED_SYMBOL_PATH_URL = "/defaultSymbols"
 PING_PATH_URL = "/ping"
 SNAPSHOT_PATH_URL = "/depth"
 SERVER_TIME_PATH_URL = "/time"
@@ -87,6 +88,8 @@ RATE_LIMITS = [
     RateLimit(limit_id=TICKER_BOOK_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(IP_REQUEST_WEIGHT, 2)]),
     RateLimit(limit_id=EXCHANGE_INFO_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
+              linked_limits=[LinkedLimitWeightPair(IP_REQUEST_WEIGHT, 10)]),
+    RateLimit(limit_id=SUPPORTED_SYMBOL_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(IP_REQUEST_WEIGHT, 10)]),
     RateLimit(limit_id=SNAPSHOT_PATH_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE,
               linked_limits=[LinkedLimitWeightPair(IP_REQUEST_WEIGHT, 50)]),

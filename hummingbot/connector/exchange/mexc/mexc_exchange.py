@@ -464,7 +464,7 @@ class MexcExchange(ExchangePyBase):
         trade_updates = []
 
         if order.exchange_order_id is not None:
-            exchange_order_id = int(order.exchange_order_id)
+            exchange_order_id = order.exchange_order_id
             trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
             all_fills_response = await self._api_get(
                 path_url=CONSTANTS.MY_TRADES_PATH_URL,
