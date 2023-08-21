@@ -59,7 +59,7 @@ class InjectiveConfigMapTests(TestCase):
         )
 
     def test_testnet_network_config_creation(self):
-        network_config = InjectiveTestnetNetworkMode()
+        network_config = InjectiveTestnetNetworkMode(testnet_node="sentry")
 
         network = network_config.network()
         expected_network = Network.testnet()

@@ -53,7 +53,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         _, grantee_private_key = PrivateKey.generate()
         _, granter_private_key = PrivateKey.generate()
 
-        network_config = InjectiveTestnetNetworkMode()
+        network_config = InjectiveTestnetNetworkMode(testnet_node="sentry")
 
         account_config = InjectiveDelegatedAccountMode(
             private_key=grantee_private_key.to_hex(),

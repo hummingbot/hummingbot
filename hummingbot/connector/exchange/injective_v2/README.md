@@ -6,6 +6,8 @@ The connector supports two different account modes:
 - Trading with delegate accounts
 - Trading through off-chain vault contracts
 
+There is a third account type called `read_only_account`. This mode only allows to request public information from the nodes, but since it does not require credentials it does not allow to perform trading operations.
+
 ### Delegate account mode
 When configuring the connector with this mode, the account used to send the transactions to the chain for trading is not the account holding the funds.
 The user will need to have one portfolio account and at least one trading account. And permissions should be granted with the portfolio account to the trading account for it to operate using the portfolio account's funds.
