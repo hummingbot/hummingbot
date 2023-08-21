@@ -14,13 +14,13 @@ class MarketMakingDmanComposed(ScriptStrategyBase):
     trading_pair = "HBAR-USDT"
     triple_barrier_conf_top = TripleBarrierConf(
         stop_loss=Decimal("0.03"), take_profit=Decimal("0.02"),
-        time_limit=60 * 60 * 24,
+        time_limit=60 * 60 * 1,
         trailing_stop_activation_price_delta=Decimal("0.002"),
         trailing_stop_trailing_delta=Decimal("0.0005")
     )
     triple_barrier_conf_bottom = TripleBarrierConf(
         stop_loss=Decimal("0.03"), take_profit=Decimal("0.02"),
-        time_limit=60 * 60 * 24,
+        time_limit=60 * 60 * 3,
         trailing_stop_activation_price_delta=Decimal("0.005"),
         trailing_stop_trailing_delta=Decimal("0.001")
     )
@@ -30,22 +30,28 @@ class MarketMakingDmanComposed(ScriptStrategyBase):
         trading_pair=trading_pair,
         order_levels=[
             OrderLevel(level=0, side=TradeType.BUY, order_amount_usd=Decimal(15),
-                       spread_factor=Decimal(1.5), order_refresh_time=60 * 15,
+                       spread_factor=Decimal(1.0), order_refresh_time=60 * 30,
                        cooldown_time=15, triple_barrier_conf=triple_barrier_conf_top),
             OrderLevel(level=1, side=TradeType.BUY, order_amount_usd=Decimal(50),
-                       spread_factor=Decimal(2.5), order_refresh_time=60 * 15,
+                       spread_factor=Decimal(5.0), order_refresh_time=60 * 30,
+                       cooldown_time=15, triple_barrier_conf=triple_barrier_conf_bottom),
+            OrderLevel(level=2, side=TradeType.BUY, order_amount_usd=Decimal(50),
+                       spread_factor=Decimal(8.0), order_refresh_time=60 * 15,
                        cooldown_time=15, triple_barrier_conf=triple_barrier_conf_bottom),
             OrderLevel(level=0, side=TradeType.SELL, order_amount_usd=Decimal(15),
-                       spread_factor=Decimal(1.5), order_refresh_time=60 * 15,
+                       spread_factor=Decimal(1.0), order_refresh_time=60 * 30,
                        cooldown_time=15, triple_barrier_conf=triple_barrier_conf_top),
             OrderLevel(level=1, side=TradeType.SELL, order_amount_usd=Decimal(50),
-                       spread_factor=Decimal(2.5), order_refresh_time=60 * 15,
+                       spread_factor=Decimal(5.0), order_refresh_time=60 * 30,
+                       cooldown_time=15, triple_barrier_conf=triple_barrier_conf_bottom),
+            OrderLevel(level=2, side=TradeType.SELL, order_amount_usd=Decimal(50),
+                       spread_factor=Decimal(8.0), order_refresh_time=60 * 15,
                        cooldown_time=15, triple_barrier_conf=triple_barrier_conf_bottom),
         ],
         candles_config=[
             CandlesConfig(connector="binance_perpetual", trading_pair=trading_pair, interval="3m", max_records=1000),
         ],
-        leverage=10,
+        leverage=25,
         natr_length=21
     )
     config_v2 = DManV2Config(
@@ -56,25 +62,25 @@ class MarketMakingDmanComposed(ScriptStrategyBase):
                        spread_factor=Decimal(1.0), order_refresh_time=60 * 5,
                        cooldown_time=15, triple_barrier_conf=triple_barrier_conf_top),
             OrderLevel(level=1, side=TradeType.BUY, order_amount_usd=Decimal(30),
-                       spread_factor=Decimal(1.5), order_refresh_time=60 * 5,
+                       spread_factor=Decimal(2.0), order_refresh_time=60 * 5,
                        cooldown_time=15, triple_barrier_conf=triple_barrier_conf_bottom),
             OrderLevel(level=2, side=TradeType.BUY, order_amount_usd=Decimal(50),
-                       spread_factor=Decimal(2.0), order_refresh_time=60 * 5,
+                       spread_factor=Decimal(3.0), order_refresh_time=60 * 15,
                        cooldown_time=15, triple_barrier_conf=triple_barrier_conf_bottom),
             OrderLevel(level=0, side=TradeType.SELL, order_amount_usd=Decimal(15),
                        spread_factor=Decimal(1.0), order_refresh_time=60 * 5,
                        cooldown_time=15, triple_barrier_conf=triple_barrier_conf_top),
             OrderLevel(level=1, side=TradeType.SELL, order_amount_usd=Decimal(30),
-                       spread_factor=Decimal(1.5), order_refresh_time=60 * 5,
+                       spread_factor=Decimal(2.0), order_refresh_time=60 * 5,
                        cooldown_time=15, triple_barrier_conf=triple_barrier_conf_bottom),
             OrderLevel(level=2, side=TradeType.SELL, order_amount_usd=Decimal(50),
-                       spread_factor=Decimal(2.0), order_refresh_time=60 * 5,
+                       spread_factor=Decimal(3.0), order_refresh_time=60 * 15,
                        cooldown_time=15, triple_barrier_conf=triple_barrier_conf_bottom),
         ],
         candles_config=[
             CandlesConfig(connector="binance_perpetual", trading_pair=trading_pair, interval="3m", max_records=1000),
         ],
-        leverage=10,
+        leverage=25,
         natr_length=21, macd_fast=12, macd_slow=26, macd_signal=9
     )
     dman_v1 = DManV1(config=config_v1)
@@ -86,8 +92,8 @@ class MarketMakingDmanComposed(ScriptStrategyBase):
 
     def __init__(self, connectors: Dict[str, ConnectorBase]):
         super().__init__(connectors)
-        self.dman_v1_executor = MarketMakingExecutorHandler(strategy=self, meta_strategy=self.dman_v1)
-        self.dman_v2_executor = MarketMakingExecutorHandler(strategy=self, meta_strategy=self.dman_v2)
+        self.dman_v1_executor = MarketMakingExecutorHandler(strategy=self, controller=self.dman_v1)
+        self.dman_v2_executor = MarketMakingExecutorHandler(strategy=self, controller=self.dman_v2)
 
     def on_stop(self):
         self.dman_v1_executor.terminate_control_loop()
