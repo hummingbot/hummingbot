@@ -496,7 +496,7 @@ class PositionExecutor(SmartComponentBase):
                 order_side=self.side,
                 amount=self.amount,
                 price=self.entry_price,
-                leverage=self.position_config.leverage,
+                leverage=Decimal(self.position_config.leverage),
             )
         else:
             order_candidate = OrderCandidate(
