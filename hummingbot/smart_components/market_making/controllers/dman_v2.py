@@ -4,10 +4,10 @@ from decimal import Decimal
 import pandas_ta as ta  # noqa: F401
 
 from hummingbot.core.data_type.common import TradeType
+from hummingbot.smart_components.data_types import ControllerMode, OrderLevel
 from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig, TrailingStop
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
-from hummingbot.smart_components.meta_strategies.data_types import MetaStrategyMode, OrderLevel
-from hummingbot.smart_components.meta_strategies.market_making.market_making_strategy_base import (
+from hummingbot.smart_components.market_making.market_making_controller_base import (
     MarketMakingStrategyBase,
     MarketMakingStrategyConfigBase,
 )
@@ -26,7 +26,7 @@ class DManV2(MarketMakingStrategyBase):
     Directional Market Making Strategy making use of NATR indicator to make spreads dynamic and shift the mid price.
     """
 
-    def __init__(self, config: DManV2Config, mode: MetaStrategyMode = MetaStrategyMode.LIVE):
+    def __init__(self, config: DManV2Config, mode: ControllerMode = ControllerMode.LIVE):
         super().__init__(config, mode)
         self.config = config
 
@@ -55,7 +55,7 @@ class DManV2(MarketMakingStrategyBase):
             return True
         return False
 
-    def get_candles_with_price_and_spread_multipiers(self):
+    def get_candles_with_price_and_spread_multipliers(self):
         """
         Gets the price and spread multiplier from the last candlestick.
         """
