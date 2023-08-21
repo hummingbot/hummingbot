@@ -7,13 +7,13 @@ from pydantic import BaseModel, validator
 from hummingbot.core.data_type.common import OrderType, TradeType
 
 
-class MetaExecutorStatus(Enum):
+class ExecutorHandlerStatus(Enum):
     NOT_STARTED = 1
     ACTIVE = 2
     TERMINATED = 3
 
 
-class MetaStrategyMode(Enum):
+class ControllerMode(Enum):
     BACKTEST = 1
     LIVE = 2
 

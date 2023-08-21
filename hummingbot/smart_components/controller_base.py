@@ -1,14 +1,14 @@
-from typing import Generic, TypeVar
+from typing import TypeVar
 
 from pydantic import BaseModel
 
-from hummingbot.smart_components.meta_strategies.data_types import MetaStrategyMode
+from hummingbot.smart_components.data_types import ControllerMode
 
 ConfigType = TypeVar("ConfigType", bound=BaseModel)
 
 
-class MetaStrategyBase(Generic[ConfigType]):
-    def __init__(self, config: ConfigType, mode: MetaStrategyMode = MetaStrategyMode.LIVE):
+class ControllerBase:
+    def __init__(self, config: ConfigType, mode: ControllerMode = ControllerMode.LIVE):
         self.config = config
         self.mode = mode
 
@@ -23,7 +23,7 @@ class MetaStrategyBase(Generic[ConfigType]):
 
     def to_format_status(self):
         lines = []
-        lines.extend(["\n################################ Meta Strategy Config ################################"])
+        lines.extend(["\n################################ Controller Config ################################"])
         lines.extend(["Config:\n"])
         for parameter, value in self.config.dict().items():
             if parameter not in ["order_levels", "candles_config"]:
