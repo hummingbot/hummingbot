@@ -25,7 +25,7 @@ jobs:
         if: env.GIT_DIFF
         run: |
           echo ${{ env.GIT_DIFF }}
-          echo "{is_set}={true}" >> $GITHUB_OUTPUT
+          echo "::set-output name=is_set::true"
 
   build_hummingbot:
     name: Hummingbot build + stable tests

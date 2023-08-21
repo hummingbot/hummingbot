@@ -16,14 +16,18 @@ from pyinjective.wallet import Address, PrivateKey
 
 from hummingbot.connector.exchange.injective_v2 import injective_constants as CONSTANTS
 from hummingbot.connector.exchange.injective_v2.data_sources.injective_data_source import InjectiveDataSource
-from hummingbot.connector.exchange.injective_v2.injective_market import InjectiveSpotMarket, InjectiveToken
+from hummingbot.connector.exchange.injective_v2.injective_market import (
+    InjectiveDerivativeMarket,
+    InjectiveSpotMarket,
+    InjectiveToken,
+)
 from hummingbot.connector.exchange.injective_v2.injective_query_executor import PythonSDKInjectiveQueryExecutor
 from hummingbot.connector.gateway.common_types import PlaceOrderResult
-from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
+from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder, GatewayPerpetualInFlightOrder
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate
 from hummingbot.core.pubsub import PubSub
 from hummingbot.logger import HummingbotLogger
@@ -78,8 +82,10 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         self._is_timeout_height_initialized = False
         self._is_trading_account_initialized = False
         self._markets_initialization_lock = asyncio.Lock()
-        self._market_info_map: Optional[Dict[str, InjectiveSpotMarket]] = None
-        self._market_and_trading_pair_map: Optional[Mapping[str, str]] = None
+        self._spot_market_info_map: Optional[Dict[str, InjectiveSpotMarket]] = None
+        self._derivative_market_info_map: Optional[Dict[str, InjectiveDerivativeMarket]] = None
+        self._spot_market_and_trading_pair_map: Optional[Mapping[str, str]] = None
+        self._derivative_market_and_trading_pair_map: Optional[Mapping[str, str]] = None
         self._tokens_map: Optional[Dict[str, InjectiveToken]] = None
         self._token_symbol_symbol_and_denom_map: Optional[Mapping[str, str]] = None
 
@@ -144,44 +150,79 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
             await self._initialize_timeout_height()
         return self._client.timeout_height
 
-    async def market_and_trading_pair_map(self):
-        if self._market_and_trading_pair_map is None:
+    async def spot_market_and_trading_pair_map(self):
+        if self._spot_market_and_trading_pair_map is None:
             async with self._markets_initialization_lock:
-                if self._market_and_trading_pair_map is None:
+                if self._spot_market_and_trading_pair_map is None:
                     await self.update_markets()
-        return self._market_and_trading_pair_map.copy()
+        return self._spot_market_and_trading_pair_map.copy()
 
-    async def market_info_for_id(self, market_id: str):
-        if self._market_info_map is None:
+    async def spot_market_info_for_id(self, market_id: str):
+        if self._spot_market_info_map is None:
             async with self._markets_initialization_lock:
-                if self._market_info_map is None:
+                if self._spot_market_info_map is None:
                     await self.update_markets()
 
-        return self._market_info_map[market_id]
+        return self._spot_market_info_map[market_id]
+
+    async def derivative_market_and_trading_pair_map(self):
+        if self._derivative_market_and_trading_pair_map is None:
+            async with self._markets_initialization_lock:
+                if self._derivative_market_and_trading_pair_map is None:
+                    await self.update_markets()
+        return self._derivative_market_and_trading_pair_map.copy()
+
+    async def derivative_market_info_for_id(self, market_id: str):
+        if self._derivative_market_info_map is None:
+            async with self._markets_initialization_lock:
+                if self._derivative_market_info_map is None:
+                    await self.update_markets()
+
+        return self._derivative_market_info_map[market_id]
 
     async def trading_pair_for_market(self, market_id: str):
-        if self._market_and_trading_pair_map is None:
+        if self._spot_market_and_trading_pair_map is None or self._derivative_market_and_trading_pair_map is None:
             async with self._markets_initialization_lock:
-                if self._market_and_trading_pair_map is None:
+                if self._spot_market_and_trading_pair_map is None or self._derivative_market_and_trading_pair_map is None:
                     await self.update_markets()
 
-        return self._market_and_trading_pair_map[market_id]
+        trading_pair = self._spot_market_and_trading_pair_map.get(market_id)
 
-    async def market_id_for_trading_pair(self, trading_pair: str) -> str:
-        if self._market_and_trading_pair_map is None:
+        if trading_pair is None:
+            trading_pair = self._derivative_market_and_trading_pair_map[market_id]
+        return trading_pair
+
+    async def market_id_for_spot_trading_pair(self, trading_pair: str) -> str:
+        if self._spot_market_and_trading_pair_map is None:
             async with self._markets_initialization_lock:
-                if self._market_and_trading_pair_map is None:
+                if self._spot_market_and_trading_pair_map is None:
                     await self.update_markets()
 
-        return self._market_and_trading_pair_map.inverse[trading_pair]
+        return self._spot_market_and_trading_pair_map.inverse[trading_pair]
 
-    async def all_markets(self):
-        if self._market_info_map is None:
+    async def market_id_for_derivative_trading_pair(self, trading_pair: str) -> str:
+        if self._derivative_market_and_trading_pair_map is None:
             async with self._markets_initialization_lock:
-                if self._market_info_map is None:
+                if self._derivative_market_and_trading_pair_map is None:
                     await self.update_markets()
 
-        return list(self._market_info_map.values())
+        return self._derivative_market_and_trading_pair_map.inverse[trading_pair]
+
+    async def spot_markets(self):
+        if self._spot_market_and_trading_pair_map is None:
+            async with self._markets_initialization_lock:
+                if self._spot_market_and_trading_pair_map is None:
+                    await self.update_markets()
+
+        return list(self._spot_market_info_map.values())
+
+    async def derivative_markets(self):
+        if self._derivative_market_and_trading_pair_map is None:
+            async with self._markets_initialization_lock:
+                if self._derivative_market_and_trading_pair_map is None:
+                    await self.update_markets()
+
+        return list(self._derivative_market_info_map.values())
 
     async def token(self, denom: str) -> InjectiveToken:
         if self._tokens_map is None:
@@ -221,12 +262,19 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
             )
         return self._order_hash_manager
 
+    def supported_order_types(self) -> List[OrderType]:
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
+
     async def update_markets(self):
         self._tokens_map = {}
         self._token_symbol_symbol_and_denom_map = bidict()
-        markets = await self._query_executor.spot_markets(status="active")
-        markets_map = {}
-        market_id_to_trading_pair = bidict()
+        spot_markets_map = {}
+        derivative_markets_map = {}
+        spot_market_id_to_trading_pair = bidict()
+        derivative_market_id_to_trading_pair = bidict()
+
+        async with self.throttler.execute_task(limit_id=CONSTANTS.SPOT_MARKETS_LIMIT_ID):
+            markets = await self._query_executor.spot_markets(status="active")
 
         for market_info in markets:
             try:
@@ -247,39 +295,79 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
                     quote_token=quote_token,
                     market_info=market_info
                 )
-                market_id_to_trading_pair[market.market_id] = market.trading_pair()
-                markets_map[market.market_id] = market
+                spot_market_id_to_trading_pair[market.market_id] = market.trading_pair()
+                spot_markets_map[market.market_id] = market
             except KeyError:
-                self.logger().debug(f"The market {market_info['marketId']} will be excluded because it could not be "
-                                    f"parsed ({market_info})")
+                self.logger().debug(f"The spot market {market_info['marketId']} will be excluded because it could not "
+                                    f"be parsed ({market_info})")
                 continue
 
-        self._market_info_map = markets_map
-        self._market_and_trading_pair_map = market_id_to_trading_pair
+        async with self.throttler.execute_task(limit_id=CONSTANTS.DERIVATIVE_MARKETS_LIMIT_ID):
+            markets = await self._query_executor.derivative_markets(status="active")
+        for market_info in markets:
+            try:
+                market = self._parse_derivative_market_info(market_info=market_info)
+                if market.trading_pair() in derivative_market_id_to_trading_pair.inverse:
+                    self.logger().debug(
+                        f"The derivative market {market_info['marketId']} will be excluded because there is other"
+                        f" market with trading pair {market.trading_pair()} ({market_info})")
+                    continue
+                derivative_market_id_to_trading_pair[market.market_id] = market.trading_pair()
+                derivative_markets_map[market.market_id] = market
+            except KeyError:
+                self.logger().debug(f"The derivative market {market_info['marketId']} will be excluded because it could"
+                                    f" not be parsed ({market_info})")
+                continue
+
+        self._spot_market_info_map = spot_markets_map
+        self._spot_market_and_trading_pair_map = spot_market_id_to_trading_pair
+        self._derivative_market_info_map = derivative_markets_map
+        self._derivative_market_and_trading_pair_map = derivative_market_id_to_trading_pair
 
     async def order_updates_for_transaction(
-            self, transaction_hash: str, transaction_orders: List[GatewayInFlightOrder]
+            self,
+            transaction_hash: str,
+            spot_orders: Optional[List[GatewayInFlightOrder]] = None,
+            perpetual_orders: Optional[List[GatewayPerpetualInFlightOrder]] = None,
     ) -> List[OrderUpdate]:
+        spot_orders = spot_orders or []
+        perpetual_orders = perpetual_orders or []
+        transaction_orders = spot_orders + perpetual_orders
+
         order_updates = []
+        transaction_market_orders = []
         transaction_spot_orders = []
+        transaction_derivative_orders = []
 
         async with self.throttler.execute_task(limit_id=CONSTANTS.GET_TRANSACTION_LIMIT_ID):
             transaction_info = await self.query_executor.get_tx_by_hash(tx_hash=transaction_hash)
 
         transaction_messages = json.loads(base64.b64decode(transaction_info["data"]["messages"]).decode())
         for message_info in transaction_messages[0]["value"]["msgs"]:
-            if message_info.get("@type") == "/injective.exchange.v1beta1.MsgBatchUpdateOrders":
+            if message_info.get("@type") in CONSTANTS.MARKET_ORDER_MESSAGE_TYPES:
+                transaction_market_orders.append(message_info["order"])
+            elif message_info.get("@type") == CONSTANTS.BATCH_UPDATE_ORDERS_MESSAGE_TYPE:
                 transaction_spot_orders.extend(message_info.get("spot_orders_to_create", []))
+                transaction_derivative_orders.extend(message_info.get("derivative_orders_to_create", []))
         transaction_data = str(base64.b64decode(transaction_info["data"]["data"]))
-        spot_order_hashes = re.findall(r"(0[xX][0-9a-fA-F]{64})", transaction_data)
+        order_hashes = re.findall(r"(0[xX][0-9a-fA-F]{64})", transaction_data)
 
-        for order_info, order_hash in zip(transaction_spot_orders, spot_order_hashes):
-            market = await self.market_info_for_id(market_id=order_info["market_id"])
+        for order_info, order_hash in zip(
+                transaction_market_orders + transaction_spot_orders + transaction_derivative_orders, order_hashes
+        ):
+            market_id = order_info["market_id"]
+            if market_id in await self.spot_market_and_trading_pair_map():
+                market = await self.spot_market_info_for_id(market_id=market_id)
+            else:
+                market = await self.derivative_market_info_for_id(market_id=market_id)
             price = market.price_from_chain_format(chain_price=Decimal(order_info["order_info"]["price"]))
             amount = market.quantity_from_chain_format(chain_quantity=Decimal(order_info["order_info"]["quantity"]))
             trade_type = TradeType.BUY if "BUY" in order_info["order_type"] else TradeType.SELL
             for transaction_order in transaction_orders:
-                market_id = await self.market_id_for_trading_pair(trading_pair=transaction_order.trading_pair)
+                if transaction_order in spot_orders:
+                    market_id = await self.market_id_for_spot_trading_pair(trading_pair=transaction_order.trading_pair)
+                else:
+                    market_id = await self.market_id_for_derivative_trading_pair(trading_pair=transaction_order.trading_pair)
                 if (market_id == order_info["market_id"]
                         and transaction_order.amount == amount
                         and transaction_order.price == price
@@ -301,15 +389,29 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
 
         return order_updates
 
-    def real_tokens_trading_pair(self, unique_trading_pair: str) -> str:
+    def real_tokens_spot_trading_pair(self, unique_trading_pair: str) -> str:
         resulting_trading_pair = unique_trading_pair
-        if (self._market_and_trading_pair_map is not None
-                and self._market_info_map is not None):
-            market_id = self._market_and_trading_pair_map.inverse.get(unique_trading_pair)
-            market = self._market_info_map.get(market_id)
+        if (self._spot_market_and_trading_pair_map is not None
+                and self._spot_market_info_map is not None):
+            market_id = self._spot_market_and_trading_pair_map.inverse.get(unique_trading_pair)
+            market = self._spot_market_info_map.get(market_id)
             if market is not None:
                 resulting_trading_pair = combine_to_hb_trading_pair(
                     base=market.base_token.symbol,
+                    quote=market.quote_token.symbol,
+                )
+
+        return resulting_trading_pair
+
+    def real_tokens_perpetual_trading_pair(self, unique_trading_pair: str) -> str:
+        resulting_trading_pair = unique_trading_pair
+        if (self._derivative_market_and_trading_pair_map is not None
+                and self._derivative_market_info_map is not None):
+            market_id = self._derivative_market_and_trading_pair_map.inverse.get(unique_trading_pair)
+            market = self._derivative_market_info_map.get(market_id)
+            if market is not None:
+                resulting_trading_pair = combine_to_hb_trading_pair(
+                    base=market.base_token_symbol(),
                     quote=market.quote_token.symbol,
                 )
 
@@ -352,78 +454,134 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
 
         return token
 
-    async def _last_traded_price(self, market_id: str) -> Decimal:
-        async with self.throttler.execute_task(limit_id=CONSTANTS.SPOT_TRADES_LIMIT_ID):
-            trades_response = await self.query_executor.get_spot_trades(
-                market_ids=[market_id],
-                limit=1,
+    def _parse_derivative_market_info(self, market_info: Dict[str, Any]) -> InjectiveDerivativeMarket:
+        _, ticker_quote = market_info["ticker"].split("/")
+        quote_token = self._token_from_market_info(
+            denom=market_info["quoteDenom"],
+            token_meta=market_info["quoteTokenMeta"],
+            candidate_symbol=ticker_quote,
+        )
+        market = InjectiveDerivativeMarket(
+            market_id=market_info["marketId"],
+            quote_token=quote_token,
+            market_info=market_info
+        )
+        return market
+
+    async def _updated_derivative_market_info_for_id(self, market_id: str) -> InjectiveDerivativeMarket:
+        async with self.throttler.execute_task(limit_id=CONSTANTS.DERIVATIVE_MARKETS_LIMIT_ID):
+            market_info = await self._query_executor.derivative_market(market_id=market_id)
+
+        market = self._parse_derivative_market_info(market_info=market_info)
+        return market
+
+    def _calculate_order_hashes(
+            self,
+            spot_orders: List[GatewayInFlightOrder],
+            derivative_orders: [GatewayPerpetualInFlightOrder]
+    ) -> Tuple[List[str], List[str]]:
+        spot_hashes = []
+        derivative_hashes = []
+
+        if len(spot_orders) > 0 or len(derivative_orders) > 0:
+            hash_manager = self.order_hash_manager()
+            hash_manager_result = hash_manager.compute_order_hashes(
+                spot_orders=spot_orders,
+                derivative_orders=derivative_orders,
+                subaccount_index=self._granter_subaccount_index,
             )
+            spot_hashes = hash_manager_result.spot
+            derivative_hashes = hash_manager_result.derivative
 
-        price = Decimal("nan")
-        if len(trades_response["trades"]) > 0:
-            market = await self.market_info_for_id(market_id=market_id)
-            price = market.price_from_chain_format(chain_price=Decimal(trades_response["trades"][0]["price"]["price"]))
+        return spot_hashes, derivative_hashes
 
-        return price
-
-    def _calculate_order_hashes(self, orders) -> List[str]:
-        hash_manager = self.order_hash_manager()
-        hash_manager_result = hash_manager.compute_order_hashes(
-            spot_orders=orders, derivative_orders=[], subaccount_index=self._granter_subaccount_index
-        )
-        return hash_manager_result.spot
-
-    def _order_book_updates_stream(self, market_ids: List[str]):
-        stream = self._query_executor.spot_order_book_updates_stream(market_ids=market_ids)
-        return stream
-
-    def _public_trades_stream(self, market_ids: List[str]):
-        stream = self._query_executor.public_spot_trades_stream(market_ids=market_ids)
-        return stream
-
-    def _subaccount_balance_stream(self):
-        stream = self._query_executor.subaccount_balance_stream(subaccount_id=self.portfolio_account_subaccount_id)
-        return stream
-
-    def _subaccount_orders_stream(self, market_id: str):
-        stream = self._query_executor.subaccount_historical_spot_orders_stream(
-            market_id=market_id, subaccount_id=self.portfolio_account_subaccount_id
-        )
-        return stream
-
-    def _transactions_stream(self):
-        stream = self._query_executor.transactions_stream()
-        return stream
-
-    async def _order_creation_message(
-            self, spot_orders_to_create: List[GatewayInFlightOrder]
-    ) -> Tuple[any_pb2.Any, List[str]]:
+    async def _order_creation_messages(
+            self,
+            spot_orders_to_create: List[GatewayInFlightOrder],
+            derivative_orders_to_create: List[GatewayPerpetualInFlightOrder],
+    ) -> Tuple[List[any_pb2.Any], List[str], List[str]]:
         composer = self.composer
-        order_definitions = []
+        spot_market_order_definitions = []
+        derivative_market_order_definitions = []
+        spot_order_definitions = []
+        derivative_order_definitions = []
+        all_messages = []
 
         for order in spot_orders_to_create:
-            order_definition = await self._create_spot_order_definition(order=order)
-            order_definitions.append(order_definition)
+            if order.order_type == OrderType.MARKET:
+                market_id = await self.market_id_for_spot_trading_pair(order.trading_pair)
+                creation_message = composer.MsgCreateSpotMarketOrder(
+                    sender=self.portfolio_account_injective_address,
+                    market_id=market_id,
+                    subaccount_id=self.portfolio_account_subaccount_id,
+                    fee_recipient=self.portfolio_account_injective_address,
+                    price=order.price,
+                    quantity=order.amount,
+                    is_buy=order.trade_type == TradeType.BUY,
+                )
+                spot_market_order_definitions.append(creation_message.order)
+                all_messages.append(creation_message)
+            else:
+                order_definition = await self._create_spot_order_definition(order=order)
+                spot_order_definitions.append(order_definition)
 
-        order_hashes = self._calculate_order_hashes(orders=order_definitions)
+        for order in derivative_orders_to_create:
+            if order.order_type == OrderType.MARKET:
+                market_id = await self.market_id_for_derivative_trading_pair(order.trading_pair)
+                creation_message = composer.MsgCreateDerivativeMarketOrder(
+                    sender=self.portfolio_account_injective_address,
+                    market_id=market_id,
+                    subaccount_id=self.portfolio_account_subaccount_id,
+                    fee_recipient=self.portfolio_account_injective_address,
+                    price=order.price,
+                    quantity=order.amount,
+                    leverage=order.leverage,
+                    is_buy=order.trade_type == TradeType.BUY,
+                    is_reduce_only=order.position == PositionAction.CLOSE,
+                )
+                derivative_market_order_definitions.append(creation_message.order)
+                all_messages.append(creation_message)
+            else:
+                order_definition = await self._create_derivative_order_definition(order=order)
+                derivative_order_definitions.append(order_definition)
 
-        message = composer.MsgBatchUpdateOrders(
-            sender=self.portfolio_account_injective_address,
-            spot_orders_to_create=order_definitions,
+        market_spot_hashes, market_derivative_hashes = self._calculate_order_hashes(
+            spot_orders=spot_market_order_definitions,
+            derivative_orders=derivative_market_order_definitions,
         )
+        limit_spot_hashes, limit_derivative_hashes = self._calculate_order_hashes(
+            spot_orders=spot_order_definitions,
+            derivative_orders=derivative_order_definitions,
+        )
+        spot_order_hashes = market_spot_hashes + limit_spot_hashes
+        derivative_order_hashes = market_derivative_hashes + limit_derivative_hashes
+
+        if len(limit_spot_hashes) > 0 or len(limit_derivative_hashes) > 0:
+            message = composer.MsgBatchUpdateOrders(
+                sender=self.portfolio_account_injective_address,
+                spot_orders_to_create=spot_order_definitions,
+                derivative_orders_to_create=derivative_order_definitions,
+            )
+            all_messages.append(message)
+
         delegated_message = composer.MsgExec(
             grantee=self.trading_account_injective_address,
-            msgs=[message]
+            msgs=all_messages
         )
 
-        return delegated_message, order_hashes
+        return [delegated_message], spot_order_hashes, derivative_order_hashes
 
-    def _order_cancel_message(self, spot_orders_to_cancel: List[injective_exchange_tx_pb.OrderData]) -> any_pb2.Any:
+    def _order_cancel_message(
+            self,
+            spot_orders_to_cancel: List[injective_exchange_tx_pb.OrderData],
+            derivative_orders_to_cancel: List[injective_exchange_tx_pb.OrderData]
+    ) -> any_pb2.Any:
         composer = self.composer
 
         message = composer.MsgBatchUpdateOrders(
             sender=self.portfolio_account_injective_address,
             spot_orders_to_cancel=spot_orders_to_cancel,
+            derivative_orders_to_cancel=derivative_orders_to_cancel,
         )
         delegated_message = composer.MsgExec(
             grantee=self.trading_account_injective_address,
@@ -431,8 +589,26 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         )
         return delegated_message
 
-    async def _generate_injective_order_data(self, order: GatewayInFlightOrder) -> injective_exchange_tx_pb.OrderData:
-        market_id = await self.market_id_for_trading_pair(trading_pair=order.trading_pair)
+    def _all_subaccount_orders_cancel_message(
+            self,
+            spot_markets_ids: List[str],
+            derivative_markets_ids: List[str]
+    ) -> any_pb2.Any:
+        composer = self.composer
+
+        message = composer.MsgBatchUpdateOrders(
+            sender=self.portfolio_account_injective_address,
+            subaccount_id=self.portfolio_account_subaccount_id,
+            spot_market_ids_to_cancel_all=spot_markets_ids,
+            derivative_market_ids_to_cancel_all=derivative_markets_ids,
+        )
+        delegated_message = composer.MsgExec(
+            grantee=self.trading_account_injective_address,
+            msgs=[message]
+        )
+        return delegated_message
+
+    def _generate_injective_order_data(self, order: GatewayInFlightOrder, market_id: str) -> injective_exchange_tx_pb.OrderData:
         order_data = self.composer.OrderData(
             market_id=market_id,
             subaccount_id=self.portfolio_account_subaccount_id,
