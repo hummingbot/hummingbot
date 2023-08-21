@@ -5,10 +5,10 @@ from pydantic import BaseModel
 
 from hummingbot.core.data_type.common import PositionMode
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig, CandlesFactory
+from hummingbot.smart_components.controller_base import ControllerBase
+from hummingbot.smart_components.data_types import ControllerMode, OrderLevel
 from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
-from hummingbot.smart_components.meta_strategies.data_types import MetaStrategyMode, OrderLevel
-from hummingbot.smart_components.meta_strategies.meta_strategy_base import MetaStrategyBase
 
 
 class MarketMakingStrategyConfigBase(BaseModel):
@@ -21,13 +21,13 @@ class MarketMakingStrategyConfigBase(BaseModel):
     position_mode: PositionMode = PositionMode.HEDGE
 
 
-class MarketMakingStrategyBase(MetaStrategyBase[MarketMakingStrategyConfigBase]):
-    def __init__(self, config: MarketMakingStrategyConfigBase, mode: MetaStrategyMode = MetaStrategyMode.LIVE):
+class MarketMakingStrategyBase(ControllerBase):
+    def __init__(self, config: MarketMakingStrategyConfigBase, mode: ControllerMode = ControllerMode.LIVE):
         super().__init__(config, mode)
         self.candles = self.initialize_candles(config.candles_config)
 
     def initialize_candles(self, candles_config: List[CandlesConfig]):
-        if self.mode == MetaStrategyMode.LIVE:
+        if self.mode == ControllerMode.LIVE:
             return [CandlesFactory.get_candle(candles_config) for candles_config in candles_config]
         else:
             raise NotImplementedError
@@ -44,7 +44,7 @@ class MarketMakingStrategyBase(MetaStrategyBase[MarketMakingStrategyConfigBase])
         """
         Gets the price and spread multiplier from the last candlestick.
         """
-        candles_df = self.get_candles_with_price_and_spread_multipiers()
+        candles_df = self.get_candles_with_price_and_spread_multipliers()
         return Decimal(candles_df["price_multiplier"].iloc[-1]), Decimal(candles_df["spread_multiplier"].iloc[-1])
 
     def get_candles_dict(self) -> dict:
@@ -111,5 +111,5 @@ class MarketMakingStrategyBase(MetaStrategyBase[MarketMakingStrategyConfigBase])
         """
         raise NotImplementedError
 
-    def get_candles_with_price_and_spread_multipiers(self):
+    def get_candles_with_price_and_spread_multipliers(self):
         raise NotImplementedError
