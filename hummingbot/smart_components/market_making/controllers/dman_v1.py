@@ -8,17 +8,17 @@ from hummingbot.smart_components.data_types import ControllerMode, OrderLevel
 from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig, TrailingStop
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.smart_components.market_making.market_making_controller_base import (
-    MarketMakingStrategyBase,
-    MarketMakingStrategyConfigBase,
+    MarketMakingControllerBase,
+    MarketMakingControllerConfigBase,
 )
 
 
-class DManV1Config(MarketMakingStrategyConfigBase):
+class DManV1Config(MarketMakingControllerConfigBase):
     strategy_name: str = "dman_v1"
     natr_length: int = 14
 
 
-class DManV1(MarketMakingStrategyBase):
+class DManV1(MarketMakingControllerBase):
     """
     Directional Market Making Strategy making use of NATR indicator to make spreads dynamic.
     """
