@@ -3,9 +3,9 @@ from typing import Dict
 
 from hummingbot.connector.connector_base import ConnectorBase, TradeType
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
-from hummingbot.smart_components.meta_strategies.data_types import MetaExecutorStatus, OrderLevel, TripleBarrierConf
-from hummingbot.smart_components.meta_strategies.market_making.market_making_executor import MarketMakingExecutor
-from hummingbot.smart_components.meta_strategies.market_making.strategies.dman_v1 import DManV1, DManV1Config
+from hummingbot.smart_components.data_types import ExecutorHandlerStatus, OrderLevel, TripleBarrierConf
+from hummingbot.smart_components.market_making.controllers.dman_v1 import DManV1, DManV1Config
+from hummingbot.smart_components.market_making.market_making_executor_handler import MarketMakingExecutorHandler
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
@@ -23,13 +23,13 @@ class MarketMakingDmanV1(ScriptStrategyBase):
         trading_pair=trading_pair,
         order_levels=[
             OrderLevel(level=0, side=TradeType.BUY, order_amount_usd=Decimal(20),
-                       spread_factor=Decimal(1.5), order_refresh_time=60 * 5,
+                       spread_factor=Decimal(1.0), order_refresh_time=60 * 5,
                        cooldown_time=15, triple_barrier_conf=triple_barrier_conf),
             OrderLevel(level=1, side=TradeType.BUY, order_amount_usd=Decimal(50),
                        spread_factor=Decimal(2.5), order_refresh_time=60 * 5,
                        cooldown_time=15, triple_barrier_conf=triple_barrier_conf),
             OrderLevel(level=0, side=TradeType.SELL, order_amount_usd=Decimal(20),
-                       spread_factor=Decimal(1.5), order_refresh_time=60 * 5,
+                       spread_factor=Decimal(1.0), order_refresh_time=60 * 5,
                        cooldown_time=15, triple_barrier_conf=triple_barrier_conf),
             OrderLevel(level=1, side=TradeType.SELL, order_amount_usd=Decimal(50),
                        spread_factor=Decimal(2.5), order_refresh_time=60 * 5,
@@ -49,17 +49,17 @@ class MarketMakingDmanV1(ScriptStrategyBase):
 
     def __init__(self, connectors: Dict[str, ConnectorBase]):
         super().__init__(connectors)
-        self.dman_v1_executor = MarketMakingExecutor(strategy=self, meta_strategy=self.dman_v1)
+        self.dman_v1_executor = MarketMakingExecutorHandler(strategy=self, meta_strategy=self.dman_v1)
 
     def on_stop(self):
         self.dman_v1_executor.terminate_control_loop()
 
     def on_tick(self):
         """
-        This shows you how you can start meta strategies. You can run more than one at the same time and based on the
+        This shows you how you can start meta controllers. You can run more than one at the same time and based on the
         market conditions, you can orchestrate from this script when to stop or start them.
         """
-        if self.dman_v1_executor.status == MetaExecutorStatus.NOT_STARTED:
+        if self.dman_v1_executor.status == ExecutorHandlerStatus.NOT_STARTED:
             self.dman_v1_executor.start()
 
     def format_status(self) -> str:
