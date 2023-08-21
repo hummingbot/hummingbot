@@ -8,21 +8,21 @@ import pandas as pd
 from hummingbot import data_path
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.smart_components.controller_base import ControllerBase
+from hummingbot.smart_components.data_types import ExecutorHandlerStatus, OrderLevel
 from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
-from hummingbot.smart_components.meta_strategies.data_types import MetaExecutorStatus, OrderLevel
-from hummingbot.smart_components.meta_strategies.meta_strategy_base import MetaStrategyBase
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
-class MetaExecutorBase:
-    def __init__(self, strategy: ScriptStrategyBase, meta_strategy: MetaStrategyBase, update_interval: float = 1.0):
+class ExecutorHandlerBase:
+    def __init__(self, strategy: ScriptStrategyBase, meta_strategy: ControllerBase, update_interval: float = 1.0):
         self.strategy = strategy
         self.ms = meta_strategy
         self.update_interval = update_interval
         self.terminated = asyncio.Event()
         self.level_executors = {level.level_id: None for level in self.ms.config.order_levels}
-        self.status = MetaExecutorStatus.NOT_STARTED
+        self.status = ExecutorHandlerStatus.NOT_STARTED
 
     def start(self):
         self.ms.start()
@@ -63,11 +63,11 @@ class MetaExecutorBase:
 
     async def control_loop(self):
         self.on_start()
-        self.status = MetaExecutorStatus.ACTIVE
+        self.status = ExecutorHandlerStatus.ACTIVE
         while not self.terminated.is_set():
             await self.control_task()
             await asyncio.sleep(self.update_interval)
-        self.status = MetaExecutorStatus.TERMINATED
+        self.status = ExecutorHandlerStatus.TERMINATED
         self.on_stop()
 
     def close_open_positions(self, connector_name: str = None, trading_pair: str = None):
