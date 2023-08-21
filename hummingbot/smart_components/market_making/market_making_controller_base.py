@@ -11,7 +11,7 @@ from hummingbot.smart_components.executors.position_executor.data_types import P
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
 
 
-class MarketMakingStrategyConfigBase(BaseModel):
+class MarketMakingControllerConfigBase(BaseModel):
     strategy_name: str
     exchange: str
     trading_pair: str
@@ -21,8 +21,8 @@ class MarketMakingStrategyConfigBase(BaseModel):
     position_mode: PositionMode = PositionMode.HEDGE
 
 
-class MarketMakingStrategyBase(ControllerBase):
-    def __init__(self, config: MarketMakingStrategyConfigBase, mode: ControllerMode = ControllerMode.LIVE):
+class MarketMakingControllerBase(ControllerBase):
+    def __init__(self, config: MarketMakingControllerConfigBase, mode: ControllerMode = ControllerMode.LIVE):
         super().__init__(config, mode)
         self.candles = self.initialize_candles(config.candles_config)
 

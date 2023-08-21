@@ -49,7 +49,7 @@ class MarketMakingDmanV1(ScriptStrategyBase):
 
     def __init__(self, connectors: Dict[str, ConnectorBase]):
         super().__init__(connectors)
-        self.dman_v1_executor = MarketMakingExecutorHandler(strategy=self, meta_strategy=self.dman_v1)
+        self.dman_v1_executor = MarketMakingExecutorHandler(strategy=self, controller=self.dman_v1)
 
     def on_stop(self):
         self.dman_v1_executor.terminate_control_loop()
