@@ -48,3 +48,51 @@ class InjectiveSpotMarket:
 
     def taker_fee_rate(self) -> Decimal:
         return Decimal(self.market_info["takerFeeRate"])
+
+
+@dataclass(frozen=True)
+class InjectiveDerivativeMarket:
+    market_id: str
+    quote_token: InjectiveToken
+    market_info: Dict[str, Any]
+
+    def base_token_symbol(self):
+        ticker_base, _ = self.market_info["ticker"].split("/")
+        return ticker_base
+
+    def trading_pair(self):
+        ticker_base, _ = self.market_info["ticker"].split("/")
+        return combine_to_hb_trading_pair(ticker_base, self.quote_token.unique_symbol)
+
+    def quantity_from_chain_format(self, chain_quantity: Decimal) -> Decimal:
+        return chain_quantity
+
+    def price_from_chain_format(self, chain_price: Decimal) -> Decimal:
+        scaler = Decimal(f"1e{-self.quote_token.decimals}")
+        return chain_price * scaler
+
+    def min_price_tick_size(self) -> Decimal:
+        min_price_tick_size = Decimal(self.market_info["minPriceTickSize"])
+        return self.price_from_chain_format(chain_price=min_price_tick_size)
+
+    def min_quantity_tick_size(self) -> Decimal:
+        min_quantity_tick_size = Decimal(self.market_info["minQuantityTickSize"])
+        return self.quantity_from_chain_format(chain_quantity=min_quantity_tick_size)
+
+    def maker_fee_rate(self) -> Decimal:
+        return Decimal(self.market_info["makerFeeRate"])
+
+    def taker_fee_rate(self) -> Decimal:
+        return Decimal(self.market_info["takerFeeRate"])
+
+    def oracle_base(self) -> str:
+        return self.market_info["oracleBase"]
+
+    def oracle_quote(self) -> str:
+        return self.market_info["oracleQuote"]
+
+    def oracle_type(self) -> str:
+        return self.market_info["oracleType"]
+
+    def next_funding_timestamp(self) -> int:
+        return int(self.market_info["perpetualMarketInfo"]["nextFundingTimestamp"])

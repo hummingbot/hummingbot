@@ -490,25 +490,27 @@ class DydxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDer
         self,
         amount: Decimal = Decimal("100"),
         price: Decimal = Decimal("10_000"),
+        order_type: OrderType = OrderType.LIMIT,
         position_action: PositionAction = PositionAction.OPEN,
     ):
         notional_amount = amount * price
         self.exchange._order_notional_amounts[notional_amount] = len(self.exchange._order_notional_amounts.keys())
         self.exchange._current_place_order_requests = 1
         self.exchange._throttler.set_rate_limits(self.exchange.rate_limits_rules)
-        return super().place_buy_order(amount, price, position_action)
+        return super().place_buy_order(amount, price, order_type, position_action)
 
     def place_sell_order(
         self,
         amount: Decimal = Decimal("100"),
         price: Decimal = Decimal("10_000"),
+        order_type: OrderType = OrderType.LIMIT,
         position_action: PositionAction = PositionAction.OPEN,
     ):
         notional_amount = amount * price
         self.exchange._order_notional_amounts[notional_amount] = len(self.exchange._order_notional_amounts.keys())
         self.exchange._current_place_order_requests = 1
         self.exchange._throttler.set_rate_limits(self.exchange.rate_limits_rules)
-        return super().place_sell_order(amount, price, position_action)
+        return super().place_sell_order(amount, price, order_type, position_action)
 
     def validate_auth_credentials_present(self, request_call: RequestCall):
         request_headers = request_call.kwargs["headers"]
