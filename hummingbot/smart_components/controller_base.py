@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from typing import TypeVar
 
 from pydantic import BaseModel
@@ -7,16 +8,18 @@ from hummingbot.smart_components.data_types import ControllerMode
 ConfigType = TypeVar("ConfigType", bound=BaseModel)
 
 
-class ControllerBase:
+class ControllerBase(ABC):
     def __init__(self, config: ConfigType, mode: ControllerMode = ControllerMode.LIVE):
         self.config = config
         self.mode = mode
 
+    @abstractmethod
     def start(self):
-        raise NotImplementedError
+        ...
 
+    @abstractmethod
     def stop(self):
-        raise NotImplementedError
+        ...
 
     def get_csv_prefix(self) -> str:
         return f"{self.config.strategy_name}"
