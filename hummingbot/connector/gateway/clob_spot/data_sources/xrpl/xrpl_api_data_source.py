@@ -30,6 +30,7 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate
 # from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.trade_fee import MakerTakerExchangeFeeRates, TokenAmount, TradeFeeBase, TradeFeeSchema
 from hummingbot.core.event.events import MarketEvent
+from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.tracking_nonce import NonceCreator
 
@@ -88,7 +89,7 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
         place_order_results = []
 
         for order in orders_to_create:
-            misc_updates = await self.place_order(order)
+            _, misc_updates = await self.place_order(order)
 
             exception = None
             if misc_updates is None:
@@ -128,7 +129,7 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
             ]
 
             for order in found_orders_to_cancel:
-                misc_updates = await self.cancel_order(order)
+                _, misc_updates = await self.cancel_order(order)
 
                 exception = None
                 if misc_updates is None:
@@ -360,3 +361,7 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
     def _xrpl_timestamp_to_timestamp(period_str: str) -> float:
         ts = pd.Timestamp(period_str).timestamp()
         return ts
+
+    def _get_gateway_instance(self) -> GatewayHttpClient:
+        gateway_instance = GatewayHttpClient.get_instance(self._client_config)
+        return gateway_instance
