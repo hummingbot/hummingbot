@@ -66,7 +66,7 @@ class ExecutorHandlerBase:
         self.status = ExecutorHandlerStatus.ACTIVE
         while not self.terminated.is_set():
             await self.control_task()
-            await asyncio.sleep(self.update_interval)
+            await self._sleep(self.update_interval)
         self.status = ExecutorHandlerStatus.TERMINATED
         self.on_stop()
 
@@ -188,3 +188,9 @@ Closed executors: {closed_executors_info["total_executors"]}
     """])
         lines.extend(self.controller.to_format_status())
         return "\n".join(lines)
+
+    async def _sleep(self, delay: float):
+        """
+        Method created to enable tests to prevent processes from sleeping
+        """
+        await asyncio.sleep(delay)
