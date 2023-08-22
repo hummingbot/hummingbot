@@ -30,7 +30,7 @@ class ControllerBase(ABC):
         :param mode: Mode of the controller (LIVE or other modes).
         :param excluded_parameters: List of parameters to exclude from status formatting.
         """
-        self._config = config
+        self.config = config
         self._mode = mode
         self._excluded_parameters = excluded_parameters or ["order_levels", "candles_config"]
         self.candles = self.initialize_candles(config.candles_config)
@@ -95,7 +95,7 @@ class ControllerBase(ABC):
 
         :return: CSV prefix string.
         """
-        return f"{self._config.strategy_name}"
+        return f"{self.config.strategy_name}"
 
     def to_format_status(self) -> list:
         """
@@ -105,7 +105,7 @@ class ControllerBase(ABC):
         """
         lines = []
         lines.extend(["\n################################ Controller Config ################################"])
-        for parameter, value in self._config.dict().items():
+        for parameter, value in self.config.dict().items():
             if parameter not in self._excluded_parameters:
                 lines.extend([f"     {parameter}: {value}"])
         return lines
