@@ -24,7 +24,8 @@ cdef extern from "../cpp/LimitOrder.h":
                    PyObject *quantity,
                    PyObject *filledQuantity,
                    long long creationTimestamp,
-                   short int status)
+                   short int status,
+                   string position)
         LimitOrder(const LimitOrder &other)
         LimitOrder &operator=(const LimitOrder &other)
         string getClientOrderID()
@@ -37,3 +38,4 @@ cdef extern from "../cpp/LimitOrder.h":
         PyObject *getFilledQuantity()
         long long getCreationTimestamp()
         short int getStatus()
+        string getPosition()

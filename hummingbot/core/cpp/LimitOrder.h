@@ -15,6 +15,7 @@ class LimitOrder {
     PyObject *filledQuantity;
     long creationTimestamp;
     short int status;
+    std::string position;
 
     public:
         LimitOrder();
@@ -34,7 +35,8 @@ class LimitOrder {
                    PyObject *quantity,
                    PyObject *filledQuantity,
                    long creationTimestamp,
-                   short int status);
+                   short int status,
+                   std::string position);
         ~LimitOrder();
         LimitOrder(const LimitOrder &other);
         LimitOrder &operator=(const LimitOrder &other);
@@ -50,6 +52,7 @@ class LimitOrder {
         PyObject *getFilledQuantity() const;
         long getCreationTimestamp() const;
         short int getStatus() const;
+        std::string getPosition() const;
 };
 
 #endif

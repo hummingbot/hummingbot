@@ -407,7 +407,6 @@ class ExchangePyBase(ExchangeBase, ABC):
         :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
         :param price: the order price
         """
-        exchange_order_id = ""
         trading_rule = self._trading_rules[trading_pair]
 
         if order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]:
@@ -450,7 +449,8 @@ class ExchangePyBase(ExchangeBase, ABC):
             self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
             return
         try:
-            exchange_order_id = await self._place_order_and_process_update(order=order, **kwargs,)
+            await self._place_order_and_process_update(order=order, **kwargs,)
+
         except asyncio.CancelledError:
             raise
         except Exception as ex:
@@ -464,7 +464,6 @@ class ExchangePyBase(ExchangeBase, ABC):
                 exception=ex,
                 **kwargs,
             )
-        return order_id, exchange_order_id
 
     async def _place_order_and_process_update(self, order: InFlightOrder, **kwargs) -> str:
         exchange_order_id, update_timestamp = await self._place_order(
