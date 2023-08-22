@@ -92,10 +92,6 @@ class NetworkMockingAssistant:
 
         return websocket_mock
 
-    @staticmethod
-    def extract_client_session_mock(web_assistants_factory: WebAssistantsFactory) -> MockWebsocketClientSession:
-        return web_assistants_factory._connections_factory._ws_independent_session
-
     def configure_http_request_mock(self, http_request_mock):
         http_request_mock.side_effect = functools.partial(self._handle_http_request, http_request_mock)
 
