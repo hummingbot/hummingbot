@@ -228,6 +228,8 @@ class ClientConfigAdapter:
             default_str = ""
         elif isinstance(default, (List, Tuple)):
             default_str = ",".join(default)
+        elif isinstance(default, BaseClientModel):
+            default_str = default.Config.title
         else:
             default_str = str(default)
         return default_str
@@ -809,7 +811,7 @@ def save_to_yml_legacy(yml_path: str, cm: Dict[str, ConfigVar]):
             data = yaml_parser.load(stream) or {}
             for key in cm:
                 cvar = cm.get(key)
-                if type(cvar.value) == Decimal:
+                if isinstance(cvar.value, Decimal):
                     data[key] = float(cvar.value)
                 else:
                     data[key] = cvar.value
