@@ -41,7 +41,7 @@ debug_price_shim: false
 gateway_transaction_cancel_interval: 600
 
 # What rate source should be used for quote assets pair - between fixed_rate_source and rate_oracle_source?
-rate_oracle_enabled: false
+rate_oracle_enabled: true
 
 # What is the fixed_rate used to convert quote assets?
 quote_conversion_rate: 1

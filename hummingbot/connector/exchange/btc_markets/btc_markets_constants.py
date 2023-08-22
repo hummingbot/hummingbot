@@ -82,3 +82,11 @@ RATE_LIMITS = [
 Rate Limits - https://api.btcmarkets.net/doc/v3#section/General-Notes
 Rate Limits ws - https://docs.btcmarkets.net/v3/#tag/WS_Overview
 """
+
+# Error codes
+INVALID_TIME_WINDOW = "InvalidTimeWindow"
+INVALID_TIMESTAMP = "InvalidTimestamp"
+INVALID_AUTH_TIMESTAMP = "InvalidAuthTimestamp"
+INVALID_AUTH_SIGNATURE = "InvalidAuthSignature"
+ORDER_NOT_FOUND = "OrderNotFound"
+INVALID_ORDERID = "InvalidOrderId"
