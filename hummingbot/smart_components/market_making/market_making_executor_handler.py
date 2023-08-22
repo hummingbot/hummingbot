@@ -11,9 +11,9 @@ class MarketMakingExecutorHandler(ExecutorHandlerBase):
         self.controller = controller
 
     def on_stop(self):
-        super().on_stop()
         if self.controller.is_perpetual:
             self.close_open_positions(connector_name=self.controller.config.exchange, trading_pair=self.controller.config.trading_pair)
+        super().on_stop()
 
     def on_start(self):
         if self.controller.is_perpetual:
