@@ -63,6 +63,7 @@ connector_status = {
     'vertex_testnet': 'bronze',
     'injective_v2': 'bronze',
     'injective_v2_perpetual': 'bronze',
+    'plenty': 'bronze',
 }
 
 warning_messages = {
