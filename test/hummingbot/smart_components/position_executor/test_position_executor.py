@@ -149,7 +149,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         position_executor._strategy.cancel.assert_not_called()
         position_executor.terminate_control_loop()
 
-    @patch("hummingbot.smart_components.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("101"))
+    @patch("hummingbot.smart_components.executors.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("101"))
     async def test_control_position_active_position_create_take_profit(self, _):
         position_config = self.get_position_config_market_short()
         type(self.strategy).current_timestamp = PropertyMock(return_value=1234567890)
@@ -185,7 +185,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(position_executor.trade_pnl, Decimal("-0.01"))
         position_executor.terminate_control_loop()
 
-    @patch("hummingbot.smart_components.position_executor.position_executor.PositionExecutor.get_price",
+    @patch("hummingbot.smart_components.executors.position_executor.position_executor.PositionExecutor.get_price",
            return_value=Decimal("120"))
     async def test_control_position_active_position_close_by_take_profit_market(self, _):
         position_config = self.get_position_config_market_long_tp_market()
@@ -224,7 +224,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(position_executor.trade_pnl, Decimal("0.2"))
         position_executor.terminate_control_loop()
 
-    @patch("hummingbot.smart_components.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("70"))
+    @patch("hummingbot.smart_components.executors.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("70"))
     async def test_control_position_active_position_close_by_stop_loss(self, _):
         position_config = self.get_position_config_market_long()
         type(self.strategy).current_timestamp = PropertyMock(return_value=1234567890)
@@ -262,7 +262,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(position_executor.trade_pnl, Decimal("-0.3"))
         position_executor.terminate_control_loop()
 
-    @patch("hummingbot.smart_components.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("100"))
+    @patch("hummingbot.smart_components.executors.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("100"))
     async def test_control_position_active_position_close_by_time_limit(self, _):
         position_config = self.get_position_config_market_long()
         type(self.strategy).current_timestamp = PropertyMock(return_value=1234597890)
@@ -300,7 +300,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(position_executor.trade_pnl, Decimal("0.0"))
         position_executor.terminate_control_loop()
 
-    @patch("hummingbot.smart_components.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("70"))
+    @patch("hummingbot.smart_components.executors.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("70"))
     async def test_control_position_close_placed_stop_loss_failed(self, _):
         position_config = self.get_position_config_market_long()
         type(self.strategy).current_timestamp = PropertyMock(return_value=1234567890)
@@ -446,7 +446,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(position_executor.executor_status, PositionExecutorStatus.ACTIVE_POSITION)
         position_executor.terminate_control_loop()
 
-    @patch("hummingbot.smart_components.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("101"))
+    @patch("hummingbot.smart_components.executors.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("101"))
     def test_to_format_status(self, _):
         position_config = self.get_position_config_market_long()
         type(self.strategy).current_timestamp = PropertyMock(return_value=1234567890)
@@ -482,7 +482,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         self.assertIn("PNL (%): 0.80%", status[0])
         position_executor.terminate_control_loop()
 
-    @patch("hummingbot.smart_components.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("101"))
+    @patch("hummingbot.smart_components.executors.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("101"))
     def test_to_format_status_is_closed(self, _):
         position_config = self.get_position_config_market_long()
         type(self.strategy).current_timestamp = PropertyMock(return_value=1234567890)
