@@ -1,7 +1,7 @@
 import asyncio
 import datetime
 import glob
-import os
+from pathlib import Path
 
 import pandas as pd
 
@@ -17,6 +17,13 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 class ExecutorHandlerBase:
     def __init__(self, strategy: ScriptStrategyBase, controller: ControllerBase, update_interval: float = 1.0):
+        """
+        Initialize the ExecutorHandlerBase.
+
+        :param strategy: The strategy instance.
+        :param controller: The controller instance.
+        :param update_interval: Update interval in seconds.
+        """
         self.strategy = strategy
         self.controller = controller
         self.update_interval = update_interval
@@ -25,31 +32,46 @@ class ExecutorHandlerBase:
         self.status = ExecutorHandlerStatus.NOT_STARTED
 
     def start(self):
+        """Start the executor handler."""
         self.controller.start()
         safe_ensure_future(self.control_loop())
 
-    def terminate_control_loop(self):
+    def stop(self):
+        """Stop the executor handler."""
         self.terminated.set()
 
     def on_stop(self):
+        """Actions to perform on stop."""
         self.controller.stop()
 
     def on_start(self):
+        """Actions to perform on start."""
         pass
 
     async def control_task(self):
+        """Control task to be implemented by subclasses."""
         raise NotImplementedError
 
-    def get_csv_path(self) -> str:
+    def get_csv_path(self) -> Path:
+        """
+        Get the CSV path for storing executor data.
+
+        :return: Path object for the CSV.
+        """
         today = datetime.datetime.today()
-        csv_path = data_path() + f"/{self.controller.get_csv_prefix()}_{today.day:02d}-{today.month:02d}-{today.year}.csv"
-        return csv_path
+        return Path(data_path()) / f"{self.controller.get_csv_prefix()}_{today.day:02d}-{today.month:02d}-{today.year}.csv"
 
     def store_executor(self, executor: PositionExecutor, order_level: OrderLevel):
+        """
+        Store executor data to CSV.
+
+        :param executor: The executor instance.
+        :param order_level: The order level instance.
+        """
         if executor:
             csv_path = self.get_csv_path()
             executor_data = executor.to_json()
-            if not os.path.exists(csv_path):
+            if not csv_path.exists():
                 headers = executor_data.keys()
                 df_header = pd.DataFrame(columns=headers)
                 df_header.to_csv(csv_path, mode='a', header=True, index=False)
@@ -58,10 +80,17 @@ class ExecutorHandlerBase:
             self.level_executors[order_level.level_id] = None
 
     def create_executor(self, position_config: PositionConfig, order_level: OrderLevel):
+        """
+        Create an executor.
+
+        :param position_config: The position configuration.
+        :param order_level: The order level instance.
+        """
         executor = PositionExecutor(self.strategy, position_config)
         self.level_executors[order_level.level_id] = executor
 
     async def control_loop(self):
+        """Main control loop."""
         self.on_start()
         self.status = ExecutorHandlerStatus.ACTIVE
         while not self.terminated.is_set():
@@ -71,24 +100,22 @@ class ExecutorHandlerBase:
         self.on_stop()
 
     def close_open_positions(self, connector_name: str = None, trading_pair: str = None):
-        # we are going to close all the open positions when the bot stops
+        """
+        Close all open positions.
+
+        :param connector_name: The connector name.
+        :param trading_pair: The trading pair.
+        """
         connector = self.strategy.connectors[connector_name]
         for pos_key, position in connector.account_positions.items():
             if position.trading_pair == trading_pair:
-                if position.position_side == PositionSide.LONG:
-                    self.strategy.sell(connector_name=connector_name,
-                                       trading_pair=position.trading_pair,
-                                       amount=abs(position.amount),
-                                       order_type=OrderType.MARKET,
-                                       price=connector.get_mid_price(position.trading_pair),
-                                       position_action=PositionAction.CLOSE)
-                elif position.position_side == PositionSide.SHORT:
-                    self.strategy.buy(connector_name=connector_name,
-                                      trading_pair=position.trading_pair,
-                                      amount=abs(position.amount),
-                                      order_type=OrderType.MARKET,
-                                      price=connector.get_mid_price(position.trading_pair),
-                                      position_action=PositionAction.CLOSE)
+                action = self.strategy.sell if position.position_side == PositionSide.LONG else self.strategy.buy
+                action(connector_name=connector_name,
+                       trading_pair=position.trading_pair,
+                       amount=abs(position.amount),
+                       order_type=OrderType.MARKET,
+                       price=connector.get_mid_price(position.trading_pair),
+                       position_action=PositionAction.CLOSE)
 
     def get_closed_executors_df(self):
         dfs = [pd.read_csv(file) for file in glob.glob(data_path() + f"/{self.controller.get_csv_prefix()}*")]
@@ -96,11 +123,25 @@ class ExecutorHandlerBase:
             return pd.concat(dfs)
         return pd.DataFrame()
 
-    def get_active_executors_df(self):
+    def get_active_executors_df(self) -> pd.DataFrame:
+        """
+        Get active executors as a DataFrame.
+
+        :return: DataFrame containing active executors.
+        """
         executors = [executor.to_json() for executor in self.level_executors.values() if executor]
-        if executors:
-            return pd.DataFrame(executors)
-        return pd.DataFrame()
+        return pd.DataFrame(executors) if executors else pd.DataFrame()
+
+    @staticmethod
+    def get_executors_df(csv_prefix: str) -> pd.DataFrame:
+        """
+        Get executors from CSV.
+
+        :param csv_prefix: The CSV prefix.
+        :return: DataFrame containing executors.
+        """
+        dfs = [pd.read_csv(file) for file in Path(data_path()).glob(f"{csv_prefix}*")]
+        return pd.concat(dfs) if dfs else pd.DataFrame()
 
     @staticmethod
     def summarize_executors_df(executors_df):
