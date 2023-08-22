@@ -41,7 +41,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
             subaccount_index=0,
             granter_address=Address(bytes.fromhex(granter_private_key.to_public_key().to_hex())).to_acc_bech32(),
             granter_subaccount_index=0,
-            network=Network.testnet(),
+            network=Network.testnet(node="sentry"),
         )
 
         self.query_executor = ProgrammableQueryExecutor()
@@ -100,10 +100,11 @@ class InjectiveGranteeDataSourceTests(TestCase):
     def test_market_and_tokens_construction(self):
         spot_markets_response = self._spot_markets_response()
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
+        self.query_executor._derivative_markets_responses.put_nowait([])
 
         market_info = self._inj_usdt_market_info()
         inj_usdt_market: InjectiveSpotMarket = self.async_run_with_timeout(
-            self.data_source.market_info_for_id(market_info["marketId"])
+            self.data_source.spot_market_info_for_id(market_info["marketId"])
         )
         inj_token = inj_usdt_market.base_token
         usdt_token = inj_usdt_market.quote_token
@@ -124,7 +125,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
 
         market_info = self._usdc_solana_usdc_eth_market_info()
         usdc_solana_usdc_eth_market: InjectiveSpotMarket = self.async_run_with_timeout(
-            self.data_source.market_info_for_id(market_info["marketId"])
+            self.data_source.spot_market_info_for_id(market_info["marketId"])
         )
         usdc_solana_token = usdc_solana_usdc_eth_market.base_token
         usdc_eth_token = usdc_solana_usdc_eth_market.quote_token
@@ -146,6 +147,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
     def test_markets_initialization_generates_unique_trading_pairs_for_tokens_with_same_symbol(self):
         spot_markets_response = self._spot_markets_response()
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
+        self.query_executor._derivative_markets_responses.put_nowait([])
 
         inj_usdt_trading_pair = self.async_run_with_timeout(
             self.data_source.trading_pair_for_market(market_id=self._inj_usdt_market_info()["marketId"])
@@ -167,6 +169,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
     def test_markets_initialization_adds_different_tokens_having_same_symbol(self):
         spot_markets_response = self._spot_markets_response()
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
+        self.query_executor._derivative_markets_responses.put_nowait([])
 
         self.async_run_with_timeout(self.data_source.update_markets())
 
@@ -207,18 +210,19 @@ class InjectiveGranteeDataSourceTests(TestCase):
     def test_markets_initialization_creates_one_instance_per_token(self):
         spot_markets_response = self._spot_markets_response()
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
+        self.query_executor._derivative_markets_responses.put_nowait([])
 
         inj_usdt_market: InjectiveSpotMarket = self.async_run_with_timeout(
-            self.data_source.market_info_for_id(self._inj_usdt_market_info()["marketId"])
+            self.data_source.spot_market_info_for_id(self._inj_usdt_market_info()["marketId"])
         )
         usdt_usdc_market: InjectiveSpotMarket = self.async_run_with_timeout(
-            self.data_source.market_info_for_id(self._usdt_usdc_market_info()["marketId"])
+            self.data_source.spot_market_info_for_id(self._usdt_usdc_market_info()["marketId"])
         )
         usdt_usdc_eth_market: InjectiveSpotMarket = self.async_run_with_timeout(
-            self.data_source.market_info_for_id(self._usdt_usdc_eth_market_info()["marketId"])
+            self.data_source.spot_market_info_for_id(self._usdt_usdc_eth_market_info()["marketId"])
         )
         usdc_solana_usdc_eth_market: InjectiveSpotMarket = self.async_run_with_timeout(
-            self.data_source.market_info_for_id(self._usdc_solana_usdc_eth_market_info()["marketId"])
+            self.data_source.spot_market_info_for_id(self._usdc_solana_usdc_eth_market_info()["marketId"])
         )
 
         self.assertEqual(inj_usdt_market.quote_token, usdt_usdc_market.base_token)
@@ -377,7 +381,7 @@ class InjectiveVaultsDataSourceTests(TestCase):
             subaccount_index=0,
             vault_contract_address=self._vault_address,
             vault_subaccount_index=1,
-            network=Network.testnet(),
+            network=Network.testnet(node="sentry"),
             use_secure_connection=True,
         )
 
@@ -407,6 +411,7 @@ class InjectiveVaultsDataSourceTests(TestCase):
     def test_order_creation_message_generation(self):
         spot_markets_response = self._spot_markets_response()
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
+        self.query_executor._derivative_markets_responses.put_nowait([])
 
         orders = []
         order = GatewayInFlightOrder(
@@ -420,21 +425,24 @@ class InjectiveVaultsDataSourceTests(TestCase):
         )
         orders.append(order)
 
-        message, order_hashes = self.async_run_with_timeout(
-            self.data_source._order_creation_message(spot_orders_to_create=orders)
+        messages, spot_order_hashes, derivative_order_hashes = self.async_run_with_timeout(
+            self.data_source._order_creation_messages(
+                spot_orders_to_create=orders,
+                derivative_orders_to_create=[],
+            )
         )
 
         pub_key = self._grantee_private_key.to_public_key()
         address = pub_key.to_address()
 
-        self.assertEqual(0, len(order_hashes))
-        self.assertEqual(address.to_acc_bech32(), message.sender)
-        self.assertEqual(self._vault_address, message.contract)
+        self.assertEqual(0, len(spot_order_hashes))
+        self.assertEqual(address.to_acc_bech32(), messages[0].sender)
+        self.assertEqual(self._vault_address, messages[0].contract)
 
         market = self._inj_usdt_market_info()
         base_token_decimals = market["baseTokenMeta"]["decimals"]
         quote_token_meta = market["quoteTokenMeta"]["decimals"]
-        message_data = json.loads(message.msg.decode())
+        message_data = json.loads(messages[0].msg.decode())
 
         message_price = (order.price * Decimal(f"1e{quote_token_meta-base_token_decimals}")).normalize()
         message_quantity = (order.amount * Decimal(f"1e{base_token_decimals}")).normalize()
@@ -480,6 +488,7 @@ class InjectiveVaultsDataSourceTests(TestCase):
     def test_order_cancel_message_generation(self):
         spot_markets_response = self._spot_markets_response()
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
+        self.query_executor._derivative_markets_responses.put_nowait([])
         market = self._inj_usdt_market_info()
 
         orders_data = []
@@ -492,7 +501,10 @@ class InjectiveVaultsDataSourceTests(TestCase):
         )
         orders_data.append(order_data)
 
-        message = self.data_source._order_cancel_message(spot_orders_to_cancel=orders_data)
+        message = self.data_source._order_cancel_message(
+            spot_orders_to_cancel=orders_data,
+            derivative_orders_to_cancel=[],
+        )
 
         pub_key = self._grantee_private_key.to_public_key()
         address = pub_key.to_address()
