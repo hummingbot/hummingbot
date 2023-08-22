@@ -1,34 +1,111 @@
-from abc import ABC, abstractmethod
-from typing import TypeVar
+from abc import ABC
+from decimal import Decimal
+from typing import List, Optional
 
 from pydantic import BaseModel
 
-from hummingbot.smart_components.data_types import ControllerMode
+from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig, CandlesFactory
+from hummingbot.smart_components.data_types import ControllerMode, OrderLevel
 
-ConfigType = TypeVar("ConfigType", bound=BaseModel)
+
+class ControllerConfigBase(BaseModel):
+    strategy_name: str
+    candles_config: List[CandlesConfig]
+    order_levels: List[OrderLevel]
 
 
 class ControllerBase(ABC):
-    def __init__(self, config: ConfigType, mode: ControllerMode = ControllerMode.LIVE):
-        self.config = config
-        self.mode = mode
+    """
+    Abstract base class for controllers.
+    """
 
-    @abstractmethod
-    def start(self):
-        ...
+    def __init__(self,
+                 config: ControllerConfigBase,
+                 mode: ControllerMode = ControllerMode.LIVE,
+                 excluded_parameters: Optional[List[str]] = None):
+        """
+        Initialize the ControllerBase.
 
-    @abstractmethod
-    def stop(self):
-        ...
+        :param config: Configuration for the controller.
+        :param mode: Mode of the controller (LIVE or other modes).
+        :param excluded_parameters: List of parameters to exclude from status formatting.
+        """
+        self._config = config
+        self._mode = mode
+        self._excluded_parameters = excluded_parameters or ["order_levels", "candles_config"]
+        self.candles = self.initialize_candles(config.candles_config)
+
+    def initialize_candles(self, candles_config: List[CandlesConfig]):
+        if self._mode == ControllerMode.LIVE:
+            return [CandlesFactory.get_candle(candles_config) for candles_config in candles_config]
+        else:
+            raise NotImplementedError
+
+    def get_close_price(self, connector: str, trading_pair: str):
+        """
+        Gets the close price of the last candlestick.
+        """
+        candles = self.get_candles_by_connector_trading_pair(connector, trading_pair)
+        first_candle = list(candles.values())[0]
+        return Decimal(first_candle.candles_df["close"].iloc[-1])
+
+    def get_candles_by_connector_trading_pair(self, connector: str, trading_pair: str):
+        """
+        Gets all the candlesticks with the given connector and trading pair.
+        """
+        candle_name = f"{connector}_{trading_pair}"
+        return self.get_candles_dict()[candle_name]
+
+    def get_candle(self, connector: str, trading_pair: str, interval: str):
+        """
+        Gets the candlestick with the given connector, trading pair and interval.
+        """
+        return self.get_candles_by_connector_trading_pair(connector, trading_pair)[interval]
+
+    def get_candles_dict(self) -> dict:
+        candles = {candle.name: {} for candle in self.candles}
+        for candle in self.candles:
+            candles[candle.name][candle.interval] = candle
+        return candles
+
+    @property
+    def all_candles_ready(self):
+        """
+        Checks if the candlesticks are full.
+        """
+        return all([candle.is_ready for candle in self.candles])
+
+    def start(self) -> None:
+        """
+        Start the controller.
+        """
+        for candle in self.candles:
+            candle.start()
+
+    def stop(self) -> None:
+        """
+        Stop the controller.
+        """
+        for candle in self.candles:
+            candle.stop()
 
     def get_csv_prefix(self) -> str:
-        return f"{self.config.strategy_name}"
+        """
+        Get the CSV prefix based on the strategy name.
 
-    def to_format_status(self):
+        :return: CSV prefix string.
+        """
+        return f"{self._config.strategy_name}"
+
+    def to_format_status(self) -> list:
+        """
+        Format and return the status of the controller.
+
+        :return: Formatted status string.
+        """
         lines = []
         lines.extend(["\n################################ Controller Config ################################"])
-        lines.extend(["Config:\n"])
-        for parameter, value in self.config.dict().items():
-            if parameter not in ["order_levels", "candles_config"]:
+        for parameter, value in self._config.dict().items():
+            if parameter not in self._excluded_parameters:
                 lines.extend([f"     {parameter}: {value}"])
         return lines
