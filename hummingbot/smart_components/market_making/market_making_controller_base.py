@@ -22,7 +22,7 @@ class MarketMakingControllerBase(ControllerBase):
                  mode: ControllerMode = ControllerMode.LIVE,
                  excluded_parameters: Optional[List[str]] = None):
         super().__init__(config, mode, excluded_parameters)
-        self._config = config  # this is only for type hints
+        self.config = config  # this is only for type hints
 
     def get_price_and_spread_multiplier(self):
         """
@@ -32,10 +32,10 @@ class MarketMakingControllerBase(ControllerBase):
         return Decimal(candles_df["price_multiplier"].iloc[-1]), Decimal(candles_df["spread_multiplier"].iloc[-1])
 
     def update_strategy_markets_dict(self, markets_dict: dict[str, Set] = {}):
-        if self._config.exchange not in markets_dict:
-            markets_dict[self._config.exchange] = {self._config.trading_pair}
+        if self.config.exchange not in markets_dict:
+            markets_dict[self.config.exchange] = {self.config.trading_pair}
         else:
-            markets_dict[self._config.exchange].add(self._config.trading_pair)
+            markets_dict[self.config.exchange].add(self.config.trading_pair)
         return markets_dict
 
     @property
@@ -43,7 +43,7 @@ class MarketMakingControllerBase(ControllerBase):
         """
         Checks if the exchange is a perpetual market.
         """
-        return "perpetual" in self._config.exchange
+        return "perpetual" in self.config.exchange
 
     def refresh_order_condition(self, executor: PositionExecutor, order_level: OrderLevel) -> bool:
         raise NotImplementedError
