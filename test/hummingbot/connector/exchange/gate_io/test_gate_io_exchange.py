@@ -573,10 +573,10 @@ class TestGateIoExchange(unittest.TestCase):
 
     @aioresponses()
     @patch("hummingbot.connector.exchange.gate_io.gate_io_exchange.GateIoExchange.get_price")
-    @patch("hummingbot.connector.exchange.gate_io.gate_io_exchange.GateIoExchange.get_price_by_type")
-    def test_create_market_order_price_is_nan(self, mock_api, get_price_mock, get_price_by_type_mock):
+    @patch("hummingbot.connector.exchange.gate_io.gate_io_exchange.GateIoExchange.get_price_for_volume")
+    def test_create_market_order_price_is_nan(self, mock_api, get_price_mock, get_price_for_volume_mock):
         get_price_mock.return_value = None
-        get_price_by_type_mock.return_value = Decimal("5.1")
+        get_price_for_volume_mock.return_value = Decimal("5.1")
         self._simulate_trading_rules_initialized()
         self.exchange._set_current_timestamp(1640780000)
         url = f"{CONSTANTS.REST_URL}/{CONSTANTS.ORDER_CREATE_PATH_URL}"
