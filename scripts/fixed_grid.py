@@ -189,7 +189,7 @@ class FixedGrid(ScriptStrategyBase):
 
         if self.rebalance_order_buy is False:
             ref_price = self.connectors[self.exchange].get_price_by_type(self.trading_pair, self.price_source)
-            price = ref_price * (Decimal("1") + self.rebalance_order_spread) / Decimal("100")
+            price = ref_price * (Decimal("100") + self.rebalance_order_spread) / Decimal("100")
             size = self.rebalance_order_amount
             msg = (f"Placing sell order to rebalance; amount: {size}, price: {price}")
             self.log_with_clock(logging.INFO, msg)
