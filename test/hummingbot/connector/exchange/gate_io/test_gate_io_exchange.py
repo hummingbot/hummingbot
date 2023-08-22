@@ -19,6 +19,8 @@ from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.event_logger import EventLogger
 from hummingbot.core.event.events import (
@@ -615,6 +617,41 @@ class TestGateIoExchange(unittest.TestCase):
         self.assertEqual(Decimal("1"), create_event.amount)
         self.assertEqual(order_id, create_event.order_id)
         self.assertEqual(resp["id"], create_event.exchange_order_id)
+
+    @aioresponses()
+    @patch("hummingbot.connector.exchange.gate_io.gate_io_exchange.GateIoExchange.get_price")
+    # @patch("hummingbot.connector.exchange.gate_io.gate_io_exchange.GateIoExchange.get_price_for_volume")
+    def test_place_order_price_is_nan(self, mock_api, get_price_mock):
+        get_price_mock.return_value = None
+        # get_price_for_volume_mock.return_value = Decimal("5.1")
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+        url = f"{CONSTANTS.REST_URL}/{CONSTANTS.ORDER_CREATE_PATH_URL}"
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        resp = self.get_order_create_response_mock()
+        mock_api.post(regex_url, body=json.dumps(resp), status=201)
+        order_book = OrderBook()
+        self.exchange.order_book_tracker._order_books[self.trading_pair] = order_book
+        order_book.apply_snapshot(
+            bids=[],
+            asks=[OrderBookRow(price=5.1, amount=20, update_id=1)],
+            update_id=1,
+        )
+        order_id = "someId"
+        self.async_run_with_timeout(
+            coroutine=self.exchange._place_order(
+                trade_type=TradeType.BUY,
+                order_id=order_id,
+                trading_pair=self.trading_pair,
+                amount=Decimal("1"),
+                order_type=OrderType.MARKET,
+                price=Decimal("nan"),
+            )
+        )
+        order_request = next(((key, value) for key, value in mock_api.requests.items()
+                              if key[1].human_repr().startswith(url)))
+        request_data = json.loads(order_request[1][0].kwargs["data"])
+        self.assertEqual(Decimal("1") * Decimal("5.1"), Decimal(request_data["amount"]))
 
     @aioresponses()
     def test_create_order_when_order_is_instantly_closed(self, mock_api):
