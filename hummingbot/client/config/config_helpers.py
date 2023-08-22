@@ -171,6 +171,8 @@ class ClientConfigAdapter:
             default_str = ""
         elif isinstance(default, (List, Tuple)):
             default_str = ",".join(default)
+        elif isinstance(default, BaseClientModel):
+            default_str = default.Config.title
         else:
             default_str = str(default)
         return default_str

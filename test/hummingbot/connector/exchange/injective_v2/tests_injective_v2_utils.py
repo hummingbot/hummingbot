@@ -59,10 +59,10 @@ class InjectiveConfigMapTests(TestCase):
         )
 
     def test_testnet_network_config_creation(self):
-        network_config = InjectiveTestnetNetworkMode()
+        network_config = InjectiveTestnetNetworkMode(testnet_node="sentry")
 
         network = network_config.network()
-        expected_network = Network.testnet()
+        expected_network = Network.testnet(node="sentry")
 
         self.assertEqual(expected_network.string(), network.string())
         self.assertEqual(expected_network.lcd_endpoint, network.lcd_endpoint)
@@ -113,7 +113,7 @@ class InjectiveConfigMapTests(TestCase):
             granter_subaccount_index=0,
         )
 
-        data_source = config.create_data_source(network=Network.testnet(), use_secure_connection=True)
+        data_source = config.create_data_source(network=Network.testnet(node="sentry"), use_secure_connection=True)
 
         self.assertEqual(InjectiveGranteeDataSource, type(data_source))
 
@@ -127,7 +127,7 @@ class InjectiveConfigMapTests(TestCase):
                 bytes.fromhex(private_key.to_public_key().to_hex())).to_acc_bech32(),
         )
 
-        data_source = config.create_data_source(network=Network.testnet(), use_secure_connection=True)
+        data_source = config.create_data_source(network=Network.testnet(node="sentry"), use_secure_connection=True)
 
         self.assertEqual(InjectiveVaultsDataSource, type(data_source))
 
