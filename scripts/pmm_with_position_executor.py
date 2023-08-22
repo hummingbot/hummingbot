@@ -9,7 +9,7 @@ import pandas as pd
 from hummingbot import data_path
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, PriceType, TradeType
-from hummingbot.data_feed.candles_feed.candles_factory import CandlesFactory
+from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig, CandlesFactory
 from hummingbot.smart_components.executors.position_executor.data_types import (
     CloseType,
     PositionConfig,
@@ -56,9 +56,7 @@ class PMMWithPositionExecutor(ScriptStrategyBase):
     trailing_stop_trailing_delta = 0.001
     # Here you can use for example the LastTrade price to use in your strategy
     price_source = PriceType.MidPrice
-    candles = [CandlesFactory.get_candle(connector=exchange,
-                                         trading_pair=trading_pair,
-                                         interval="15m")
+    candles = [CandlesFactory.get_candle(CandlesConfig(connector=exchange, trading_pair=trading_pair, interval="3m", max_records=1000))
                ]
 
     # Configure the leverage and order amount the bot is going to use

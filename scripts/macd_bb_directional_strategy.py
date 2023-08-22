@@ -10,7 +10,7 @@ import pandas_ta as ta  # noqa: F401
 from hummingbot import data_path
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide
-from hummingbot.data_feed.candles_feed.candles_factory import CandlesFactory
+from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig, CandlesFactory
 from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
@@ -38,9 +38,7 @@ class MACDBBDirectionalStrategy(ScriptStrategyBase):
     # Create the candles that we want to use and the thresholds for the indicators
     # IMPORTANT: The connector name of the candles can be binance or binance_perpetual, and can be different from the
     # connector that you define to trade
-    candles = CandlesFactory.get_candle(connector="binance_perpetual",
-                                        trading_pair=trading_pair,
-                                        interval="3m", max_records=150)
+    candles = CandlesFactory.get_candle(CandlesConfig(connector=exchange, trading_pair=trading_pair, interval="3m", max_records=1000))
 
     # Configure the leverage and order amount the bot is going to use
     set_leverage_flag = None
