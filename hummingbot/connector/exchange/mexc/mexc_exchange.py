@@ -231,7 +231,7 @@ class MexcExchange(ExchangePyBase):
             path_url=CONSTANTS.ORDER_PATH_URL,
             params=api_params,
             is_auth_required=True)
-        if cancel_result.get("status") == "CANCELED":
+        if cancel_result.get("status") == "NEW":
             return True
         return False
 
