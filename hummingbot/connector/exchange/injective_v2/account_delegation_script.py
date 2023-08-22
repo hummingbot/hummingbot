@@ -12,11 +12,14 @@ GRANT_EXPIRATION_IN_DAYS = 365
 GRANTER_ACCOUNT_PRIVATE_KEY = ""
 GRANTER_SUBACCOUNT_INDEX = 0
 GRANTEE_PUBLIC_INJECTIVE_ADDRESS = ""
-MARKET_IDS = []
+SPOT_MARKET_IDS = []
+DERIVATIVE_MARKET_IDS = []
 # List of the ids of all the markets the grant will include, for example:
-# MARKET_IDS = ["0x0511ddc4e6586f3bfe1acb2dd905f8b8a82c97e1edaef654b12ca7e6031ca0fa"]  # noqa: mock
+# SPOT_MARKET_IDS = ["0x0511ddc4e6586f3bfe1acb2dd905f8b8a82c97e1edaef654b12ca7e6031ca0fa"]  # noqa: mock
 # Mainnet spot markets: https://lcd.injective.network/injective/exchange/v1beta1/spot/markets
 # Testnet spot markets: https://k8s.testnet.lcd.injective.network/injective/exchange/v1beta1/spot/markets
+# Mainnet derivative markets: https://lcd.injective.network/injective/exchange/v1beta1/derivative/markets
+# Testnet derivative markets: https://k8s.testnet.lcd.injective.network/injective/exchange/v1beta1/derivative/markets
 
 # Fixed values, do not change
 SECONDS_PER_DAY = 60 * 60 * 24
@@ -36,18 +39,37 @@ async def main() -> None:
     account = await client.get_account(granter_address.to_acc_bech32())  # noqa: F841
     granter_subaccount_id = granter_address.get_subaccount_id(index=GRANTER_SUBACCOUNT_INDEX)
 
-    msg = composer.MsgGrantTyped(
+    msg_spot_market = composer.MsgGrantTyped(
+        granter=granter_address.to_acc_bech32(),
+        grantee=GRANTEE_PUBLIC_INJECTIVE_ADDRESS,
+        msg_type="CreateSpotMarketOrderAuthz",
+        expire_in=GRANT_EXPIRATION_IN_DAYS * SECONDS_PER_DAY,
+        subaccount_id=granter_subaccount_id,
+        market_ids=SPOT_MARKET_IDS,
+    )
+
+    msg_derivative_market = composer.MsgGrantTyped(
+        granter=granter_address.to_acc_bech32(),
+        grantee=GRANTEE_PUBLIC_INJECTIVE_ADDRESS,
+        msg_type="CreateDerivativeMarketOrderAuthz",
+        expire_in=GRANT_EXPIRATION_IN_DAYS * SECONDS_PER_DAY,
+        subaccount_id=granter_subaccount_id,
+        market_ids=DERIVATIVE_MARKET_IDS,
+    )
+
+    msg_batch_update = composer.MsgGrantTyped(
         granter = granter_address.to_acc_bech32(),
         grantee = GRANTEE_PUBLIC_INJECTIVE_ADDRESS,
         msg_type = "BatchUpdateOrdersAuthz",
         expire_in=GRANT_EXPIRATION_IN_DAYS * SECONDS_PER_DAY,
         subaccount_id=granter_subaccount_id,
-        spot_markets=MARKET_IDS,
+        spot_markets=SPOT_MARKET_IDS,
+        derivative_markets=DERIVATIVE_MARKET_IDS,
     )
 
     tx = (
         Transaction()
-        .with_messages(msg)
+        .with_messages(msg_spot_market, msg_derivative_market, msg_batch_update)
         .with_sequence(client.get_sequence())
         .with_account_num(client.get_number())
         .with_chain_id(NETWORK.chain_id)
