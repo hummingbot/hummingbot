@@ -7,35 +7,36 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Un
 from async_timeout import timeout
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
-from hummingbot.connector.constants import s_decimal_NaN
-from hummingbot.connector.exchange.injective_v2 import (
+from hummingbot.connector.constants import FUNDING_FEE_POLL_INTERVAL, s_decimal_NaN
+from hummingbot.connector.derivative.injective_v2_perpetual import (
     injective_constants as CONSTANTS,
-    injective_v2_web_utils as web_utils,
+    injective_v2_perpetual_web_utils as web_utils,
 )
+from hummingbot.connector.derivative.injective_v2_perpetual.injective_v2_perpetual_api_order_book_data_source import (
+    InjectiveV2PerpetualAPIOrderBookDataSource,
+)
+from hummingbot.connector.derivative.injective_v2_perpetual.injective_v2_perpetual_utils import InjectiveConfigMap
+from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.exchange.injective_v2.injective_events import InjectiveEvent
-from hummingbot.connector.exchange.injective_v2.injective_v2_api_order_book_data_source import (
-    InjectiveV2APIOrderBookDataSource,
-)
-from hummingbot.connector.exchange.injective_v2.injective_v2_utils import InjectiveConfigMap
-from hummingbot.connector.exchange_py_base import ExchangePyBase
-from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
+from hummingbot.connector.gateway.gateway_in_flight_order import GatewayPerpetualInFlightOrder
 from hummingbot.connector.gateway.gateway_order_tracker import GatewayOrderTracker
+from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.cancellation_result import CancellationResult
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.market_order import MarketOrder
-from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.core.data_type.perpetual_api_order_book_data_source import PerpetualAPIOrderBookDataSource
 from hummingbot.core.data_type.trade_fee import TradeFeeBase, TradeFeeSchema
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.event.event_forwarder import EventForwarder
-from hummingbot.core.event.events import AccountEvent, BalanceUpdateEvent, MarketEvent
+from hummingbot.core.event.events import AccountEvent, BalanceUpdateEvent, MarketEvent, PositionUpdateEvent
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.core.utils.estimate_fee import build_trade_fee
+from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
@@ -43,7 +44,7 @@ if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 
-class InjectiveV2Exchange(ExchangePyBase):
+class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
     web_utils = web_utils
 
     def __init__(
@@ -67,8 +68,8 @@ class InjectiveV2Exchange(ExchangePyBase):
         self._latest_polled_order_fill_time: float = self._time()
         self._orders_transactions_check_task: Optional[asyncio.Task] = None
         self._last_received_message_timestamp = 0
-        self._orders_queued_to_create: List[GatewayInFlightOrder] = []
-        self._orders_queued_to_cancel: List[GatewayInFlightOrder] = []
+        self._orders_queued_to_create: List[GatewayPerpetualInFlightOrder] = []
+        self._orders_queued_to_cancel: List[GatewayPerpetualInFlightOrder] = []
 
         self._orders_transactions_check_task = None
         self._queued_orders_task = None
@@ -123,6 +124,21 @@ class InjectiveV2Exchange(ExchangePyBase):
         return self._trading_required
 
     @property
+    def funding_fee_poll_interval(self) -> int:
+        return FUNDING_FEE_POLL_INTERVAL
+
+    def supported_position_modes(self) -> List[PositionMode]:
+        return [PositionMode.ONEWAY]
+
+    def get_buy_collateral_token(self, trading_pair: str) -> str:
+        trading_rule: TradingRule = self._trading_rules[trading_pair]
+        return trading_rule.buy_order_collateral_token
+
+    def get_sell_collateral_token(self, trading_pair: str) -> str:
+        trading_rule: TradingRule = self._trading_rules[trading_pair]
+        return trading_rule.sell_order_collateral_token
+
+    @property
     def status_dict(self) -> Dict[str, bool]:
         status = super().status_dict
         status["data_source_initialized"] = self._data_source.is_started()
@@ -160,18 +176,20 @@ class InjectiveV2Exchange(ExchangePyBase):
         return self._data_source.supported_order_types()
 
     def start_tracking_order(
-        self,
-        order_id: str,
-        exchange_order_id: Optional[str],
-        trading_pair: str,
-        trade_type: TradeType,
-        price: Decimal,
-        amount: Decimal,
-        order_type: OrderType,
-        **kwargs,
+            self,
+            order_id: str,
+            exchange_order_id: Optional[str],
+            trading_pair: str,
+            trade_type: TradeType,
+            price: Decimal,
+            amount: Decimal,
+            order_type: OrderType,
+            position_action: PositionAction = PositionAction.NIL,
+            **kwargs,
     ):
+        leverage = self.get_leverage(trading_pair=trading_pair)
         self._order_tracker.start_tracking_order(
-            GatewayInFlightOrder(
+            GatewayPerpetualInFlightOrder(
                 client_order_id=order_id,
                 exchange_order_id=exchange_order_id,
                 trading_pair=trading_pair,
@@ -180,6 +198,8 @@ class InjectiveV2Exchange(ExchangePyBase):
                 amount=amount,
                 price=price,
                 creation_timestamp=self.current_timestamp,
+                leverage=leverage,
+                position=position_action,
             )
         )
 
@@ -249,7 +269,7 @@ class InjectiveV2Exchange(ExchangePyBase):
     async def cancel_all_subaccount_orders(self):
         markets_ids = [await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
                        for trading_pair in self.trading_pairs]
-        await self._data_source.cancel_all_subaccount_orders(spot_markets_ids=markets_ids)
+        await self._data_source.cancel_all_subaccount_orders(perpetual_markets_ids=markets_ids)
 
     async def check_network(self) -> NetworkStatus:
         """
@@ -270,13 +290,44 @@ class InjectiveV2Exchange(ExchangePyBase):
         # bot events processing
         trading_pair = getattr(message, "trading_pair", None)
         if trading_pair is not None:
-            new_trading_pair = self._data_source.real_tokens_spot_trading_pair(unique_trading_pair=trading_pair)
+            new_trading_pair = self._data_source.real_tokens_perpetual_trading_pair(unique_trading_pair=trading_pair)
             if isinstance(message, tuple):
                 message = message._replace(trading_pair=new_trading_pair)
             else:
                 setattr(message, "trading_pair", new_trading_pair)
 
         super().trigger_event(event_tag=event_tag, message=message)
+
+    async def _update_positions(self):
+        positions = await self._data_source.account_positions()
+        self._perpetual_trading.account_positions.clear()
+
+        for position in positions:
+            position_key = self._perpetual_trading.position_key(
+                trading_pair=position.trading_pair,
+                side=position.position_side,
+            )
+            self._perpetual_trading.set_position(pos_key=position_key, position=position)
+
+    async def _trading_pair_position_mode_set(self, mode: PositionMode, trading_pair: str) -> Tuple[bool, str]:
+        # Injective supports only one mode. It can't be changes in the chain
+        return True, ""
+
+    async def _set_trading_pair_leverage(self, trading_pair: str, leverage: int) -> Tuple[bool, str]:
+        """
+        Leverage is set on a per order basis. See place_order()
+        """
+        return True, ""
+
+    async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[float, Decimal, Decimal]:
+        last_funding_rate = Decimal("-1")
+        market_id = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+        payment_amount, payment_timestamp = await self._data_source.last_funding_payment(market_id=market_id)
+
+        if payment_amount != Decimal(-1) and payment_timestamp != 0:
+            last_funding_rate = await self._data_source.last_funding_rate(market_id=market_id)
+
+        return payment_timestamp, last_funding_rate, payment_amount
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception) -> bool:
         return False
@@ -289,11 +340,11 @@ class InjectiveV2Exchange(ExchangePyBase):
         # The cancel request is not validated until the transaction is included in a block, and so this does not apply
         return False
 
-    async def _place_cancel(self, order_id: str, tracked_order: GatewayInFlightOrder):
+    async def _place_cancel(self, order_id: str, tracked_order: GatewayPerpetualInFlightOrder):
         # Not required because of _execute_order_cancel redefinition
         raise NotImplementedError
 
-    async def _execute_order_cancel(self, order: GatewayInFlightOrder) -> str:
+    async def _execute_order_cancel(self, order: GatewayPerpetualInFlightOrder) -> str:
         # Order cancelation requests for single orders are queued to be executed in batch if possible
         self._orders_queued_to_cancel.append(order)
         return None
@@ -303,14 +354,17 @@ class InjectiveV2Exchange(ExchangePyBase):
         # Not required because of _place_order_and_process_update redefinition
         raise NotImplementedError
 
-    async def _create_order(self,
-                            trade_type: TradeType,
-                            order_id: str,
-                            trading_pair: str,
-                            amount: Decimal,
-                            order_type: OrderType,
-                            price: Optional[Decimal] = None,
-                            **kwargs):
+    async def _create_order(
+            self,
+            trade_type: TradeType,
+            order_id: str,
+            trading_pair: str,
+            amount: Decimal,
+            order_type: OrderType,
+            price: Optional[Decimal] = None,
+            position_action: PositionAction = PositionAction.NIL,
+            **kwargs,
+    ):
         """
         Creates an order in the exchange using the parameters to configure it
 
@@ -320,6 +374,7 @@ class InjectiveV2Exchange(ExchangePyBase):
         :param amount: the order amount
         :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
         :param price: the order price
+        :param position_action: is the order opening or closing a position
         """
         try:
             if price is None:
@@ -339,7 +394,8 @@ class InjectiveV2Exchange(ExchangePyBase):
                 amount=amount,
                 order_type=order_type,
                 price=calculated_price,
-                ** kwargs
+                position_action=position_action,
+                **kwargs
             )
 
         except asyncio.CancelledError:
@@ -356,7 +412,7 @@ class InjectiveV2Exchange(ExchangePyBase):
                 **kwargs,
             )
 
-    async def _place_order_and_process_update(self, order: GatewayInFlightOrder, **kwargs) -> str:
+    async def _place_order_and_process_update(self, order: GatewayPerpetualInFlightOrder, **kwargs) -> str:
         # Order creation requests for single orders are queued to be executed in batch if possible
         self._orders_queued_to_create.append(order)
         return None
@@ -371,15 +427,16 @@ class InjectiveV2Exchange(ExchangePyBase):
                 amount=order.quantity,
                 order_type=order.order_type(),
                 price=order.price,
+                position_action=order.position,
             )
             if valid_order is not None:
                 inflight_orders_to_create.append(valid_order)
         await self._execute_batch_inflight_order_create(inflight_orders_to_create=inflight_orders_to_create)
 
-    async def _execute_batch_inflight_order_create(self, inflight_orders_to_create: List[GatewayInFlightOrder]):
+    async def _execute_batch_inflight_order_create(self, inflight_orders_to_create: List[GatewayPerpetualInFlightOrder]):
         try:
             place_order_results = await self._data_source.create_orders(
-                spot_orders=inflight_orders_to_create
+                perpetual_orders=inflight_orders_to_create
             )
             for place_order_result, in_flight_order in (
                 zip(place_order_results, inflight_orders_to_create)
@@ -425,7 +482,7 @@ class InjectiveV2Exchange(ExchangePyBase):
         order_type: OrderType,
         price: Optional[Decimal] = None,
         **kwargs
-    ) -> Optional[GatewayInFlightOrder]:
+    ) -> Optional[GatewayPerpetualInFlightOrder]:
         trading_rule = self._trading_rules[trading_pair]
 
         if price is None:
@@ -474,7 +531,7 @@ class InjectiveV2Exchange(ExchangePyBase):
     def _update_order_after_creation_success(
         self,
         exchange_order_id: Optional[str],
-        order: GatewayInFlightOrder,
+        order: GatewayPerpetualInFlightOrder,
         update_timestamp: float,
         misc_updates: Optional[Dict[str, Any]] = None
     ):
@@ -531,9 +588,11 @@ class InjectiveV2Exchange(ExchangePyBase):
 
         return results
 
-    async def _execute_batch_order_cancel(self, orders_to_cancel: List[GatewayInFlightOrder]) -> List[CancellationResult]:
+    async def _execute_batch_order_cancel(
+            self, orders_to_cancel: List[GatewayPerpetualInFlightOrder],
+    ) -> List[CancellationResult]:
         try:
-            cancel_order_results = await self._data_source.cancel_orders(spot_orders=orders_to_cancel)
+            cancel_order_results = await self._data_source.cancel_orders(perpetual_orders=orders_to_cancel)
             cancelation_results = []
             for cancel_order_result in cancel_order_results:
                 success = True
@@ -580,7 +639,7 @@ class InjectiveV2Exchange(ExchangePyBase):
 
         return cancelation_results
 
-    def _update_order_after_cancelation_success(self, order: GatewayInFlightOrder):
+    def _update_order_after_cancelation_success(self, order: GatewayPerpetualInFlightOrder):
         order_update: OrderUpdate = OrderUpdate(
             client_order_id=order.client_order_id,
             trading_pair=order.trading_pair,
@@ -591,24 +650,33 @@ class InjectiveV2Exchange(ExchangePyBase):
         )
         self._order_tracker.process_order_update(order_update)
 
-    def _get_fee(self, base_currency: str, quote_currency: str, order_type: OrderType, order_side: TradeType,
-                 amount: Decimal, price: Decimal = s_decimal_NaN,
-                 is_maker: Optional[bool] = None) -> TradeFeeBase:
+    def _get_fee(
+            self,
+            base_currency: str,
+            quote_currency: str,
+            order_type: OrderType,
+            order_side: TradeType,
+            position_action: PositionAction,
+            amount: Decimal,
+            price: Decimal = s_decimal_NaN,
+            is_maker: Optional[bool] = None,
+    ) -> TradeFeeBase:
         is_maker = is_maker or (order_type is OrderType.LIMIT_MAKER)
         trading_pair = combine_to_hb_trading_pair(base=base_currency, quote=quote_currency)
         if trading_pair in self._trading_fees:
             fee_schema: TradeFeeSchema = self._trading_fees[trading_pair]
             fee_rate = fee_schema.maker_percent_fee_decimal if is_maker else fee_schema.taker_percent_fee_decimal
-            fee = TradeFeeBase.new_spot_fee(
+            fee = TradeFeeBase.new_perpetual_fee(
                 fee_schema=fee_schema,
-                trade_type=order_side,
+                position_action=position_action,
                 percent=fee_rate,
                 percent_token=fee_schema.percent_fee_token,
             )
         else:
-            fee = build_trade_fee(
+            fee = build_perpetual_trade_fee(
                 self.name,
                 is_maker,
+                position_action=position_action,
                 base_currency=base_currency,
                 quote_currency=quote_currency,
                 order_type=order_type,
@@ -619,7 +687,7 @@ class InjectiveV2Exchange(ExchangePyBase):
         return fee
 
     async def _update_trading_fees(self):
-        self._trading_fees = await self._data_source.get_spot_trading_fees()
+        self._trading_fees = await self._data_source.get_derivative_trading_fees()
 
     async def _user_stream_event_listener(self):
         while True:
@@ -669,6 +737,35 @@ class InjectiveV2Exchange(ExchangePyBase):
                         self._account_balances[event_data.asset_name] = event_data.total_balance
                     if event_data.available_balance is not None:
                         self._account_available_balances[event_data.asset_name] = event_data.available_balance
+                elif channel == "position":
+                    position_update: PositionUpdateEvent = event_data
+                    position_key = self._perpetual_trading.position_key(
+                        position_update.trading_pair, position_update.position_side
+                    )
+                    if position_update.amount == Decimal("0"):
+                        self._perpetual_trading.remove_position(post_key=position_key)
+                    else:
+                        position: Position = self._perpetual_trading.get_position(
+                            trading_pair=position_update.trading_pair, side=position_update.position_side
+                        )
+                        if position is not None:
+                            position.update_position(
+                                position_side=position_update.position_side,
+                                unrealized_pnl=position_update.unrealized_pnl,
+                                entry_price=position_update.entry_price,
+                                amount=position_update.amount,
+                                leverage=position_update.leverage,
+                            )
+                        else:
+                            position = Position(
+                                trading_pair=position_update.trading_pair,
+                                position_side=position_update.position_side,
+                                unrealized_pnl=position_update.unrealized_pnl,
+                                entry_price=position_update.entry_price,
+                                amount=position_update.amount,
+                                leverage=position_update.leverage,
+                            )
+                            self._perpetual_trading.set_position(pos_key=position_key, position=position)
 
             except asyncio.CancelledError:
                 raise
@@ -682,7 +779,7 @@ class InjectiveV2Exchange(ExchangePyBase):
     async def _update_trading_rules(self):
         await self._data_source.update_markets()
         await self._initialize_trading_pair_symbol_map()
-        trading_rules_list = await self._data_source.spot_trading_rules()
+        trading_rules_list = await self._data_source.derivative_trading_rules()
         trading_rules = {}
         for trading_rule in trading_rules_list:
             trading_rules[trading_rule.trading_pair] = trading_rule
@@ -699,11 +796,11 @@ class InjectiveV2Exchange(ExchangePyBase):
             self._account_balances[token] = token_balance_info["total_balance"]
             self._account_available_balances[token] = token_balance_info["available_balance"]
 
-    async def _all_trade_updates_for_order(self, order: GatewayInFlightOrder) -> List[TradeUpdate]:
+    async def _all_trade_updates_for_order(self, order: GatewayPerpetualInFlightOrder) -> List[TradeUpdate]:
         # Not required because of _update_orders_fills redefinition
         raise NotImplementedError
 
-    async def _update_orders_fills(self, orders: List[GatewayInFlightOrder]):
+    async def _update_orders_fills(self, orders: List[GatewayPerpetualInFlightOrder]):
         oldest_order_creation_time = self.current_timestamp
         all_market_ids = set()
         orders_by_hash = {}
@@ -716,10 +813,16 @@ class InjectiveV2Exchange(ExchangePyBase):
 
         try:
             start_time = min(oldest_order_creation_time, self._latest_polled_order_fill_time)
-            trade_updates = await self._data_source.spot_trade_updates(market_ids=all_market_ids, start_time=start_time)
+            trade_updates = await self._data_source.perpetual_trade_updates(market_ids=all_market_ids, start_time=start_time)
             for trade_update in trade_updates:
                 tracked_order = orders_by_hash.get(trade_update.exchange_order_id)
                 if tracked_order is not None:
+                    fee = TradeFeeBase.new_perpetual_fee(
+                        fee_schema=self.trade_fee_schema(),
+                        position_action=tracked_order.position,
+                        percent_token=trade_update.fee.percent_token,
+                        flat_fees=trade_update.fee.flat_fees,
+                    )
                     new_trade_update = TradeUpdate(
                         trade_id=trade_update.trade_id,
                         client_order_id=tracked_order.client_order_id,
@@ -729,10 +832,11 @@ class InjectiveV2Exchange(ExchangePyBase):
                         fill_price=trade_update.fill_price,
                         fill_base_amount=trade_update.fill_base_amount,
                         fill_quote_amount=trade_update.fill_quote_amount,
-                        fee=trade_update.fee,
+                        fee=fee,
                         is_taker=trade_update.is_taker,
                     )
-                    self._latest_polled_order_fill_time = max(self._latest_polled_order_fill_time, trade_update.fill_timestamp)
+                    self._latest_polled_order_fill_time = max(self._latest_polled_order_fill_time,
+                                                              trade_update.fill_timestamp)
                     self._order_tracker.process_trade_update(new_trade_update)
         except asyncio.CancelledError:
             raise
@@ -742,11 +846,11 @@ class InjectiveV2Exchange(ExchangePyBase):
                 exc_info=ex,
             )
 
-    async def _request_order_status(self, tracked_order: GatewayInFlightOrder) -> OrderUpdate:
+    async def _request_order_status(self, tracked_order: GatewayPerpetualInFlightOrder) -> OrderUpdate:
         # Not required due to the redefinition of _update_orders_with_error_handler
         raise NotImplementedError
 
-    async def _update_orders_with_error_handler(self, orders: List[GatewayInFlightOrder], error_handler: Callable):
+    async def _update_orders_with_error_handler(self, orders: List[GatewayPerpetualInFlightOrder], error_handler: Callable):
         oldest_order_creation_time = self.current_timestamp
         all_market_ids = set()
         orders_by_hash = {}
@@ -758,7 +862,7 @@ class InjectiveV2Exchange(ExchangePyBase):
                 orders_by_hash[order.exchange_order_id] = order
 
         try:
-            order_updates = await self._data_source.spot_order_updates(
+            order_updates = await self._data_source.perpetual_order_updates(
                 market_ids=all_market_ids,
                 start_time=oldest_order_creation_time - self.LONG_POLL_INTERVAL
             )
@@ -815,8 +919,8 @@ class InjectiveV2Exchange(ExchangePyBase):
         tracker = GatewayOrderTracker(connector=self)
         return tracker
 
-    def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
-        return InjectiveV2APIOrderBookDataSource(
+    def _create_order_book_data_source(self) -> PerpetualAPIOrderBookDataSource:
+        return InjectiveV2PerpetualAPIOrderBookDataSource(
             trading_pairs=self.trading_pairs,
             connector=self,
             data_source=self._data_source,
@@ -846,7 +950,7 @@ class InjectiveV2Exchange(ExchangePyBase):
     async def _initialize_trading_pair_symbol_map(self):
         exchange_info = None
         try:
-            mapping = await self._data_source.spot_market_and_trading_pair_map()
+            mapping = await self._data_source.derivative_market_and_trading_pair_map()
             self._set_trading_pair_symbol_map(mapping)
         except Exception:
             self.logger().exception("There was an error requesting exchange info.")
@@ -865,6 +969,10 @@ class InjectiveV2Exchange(ExchangePyBase):
         self._forwarders.append(event_forwarder)
         self._data_source.add_listener(event_tag=AccountEvent.BalanceEvent, listener=event_forwarder)
 
+        event_forwarder = EventForwarder(to_function=self._process_position_event)
+        self._forwarders.append(event_forwarder)
+        self._data_source.add_listener(event_tag=AccountEvent.PositionUpdate, listener=event_forwarder)
+
         event_forwarder = EventForwarder(to_function=self._process_transaction_event)
         self._forwarders.append(event_forwarder)
         self._data_source.add_listener(event_tag=InjectiveEvent.ChainTransactionEvent, listener=event_forwarder)
@@ -873,6 +981,12 @@ class InjectiveV2Exchange(ExchangePyBase):
         self._last_received_message_timestamp = self._time()
         self._all_trading_events_queue.put_nowait(
             {"channel": "balance", "data": event}
+        )
+
+    def _process_position_event(self, event: BalanceUpdateEvent):
+        self._last_received_message_timestamp = self._time()
+        self._all_trading_events_queue.put_nowait(
+            {"channel": "position", "data": event}
         )
 
     def _process_user_order_update(self, order_update: OrderUpdate):
@@ -907,7 +1021,7 @@ class InjectiveV2Exchange(ExchangePyBase):
                 await self._sleep(0.5)
 
     async def _check_orders_creation_transactions(self):
-        orders: List[GatewayInFlightOrder] = self._order_tracker.active_orders.values()
+        orders: List[GatewayPerpetualInFlightOrder] = self._order_tracker.active_orders.values()
         orders_by_creation_tx = defaultdict(list)
         orders_with_inconsistent_hash = []
 
@@ -919,7 +1033,7 @@ class InjectiveV2Exchange(ExchangePyBase):
             all_orders = orders.copy()
             try:
                 order_updates = await self._data_source.order_updates_for_transaction(
-                    transaction_hash=transaction_hash, spot_orders=orders
+                    transaction_hash=transaction_hash, perpetual_orders=orders
                 )
 
                 for order_update in order_updates:
@@ -951,14 +1065,14 @@ class InjectiveV2Exchange(ExchangePyBase):
 
     async def _check_created_orders_status_for_transaction(self, transaction_hash: str):
         transaction_orders = []
-        order: GatewayInFlightOrder
+        order: GatewayPerpetualInFlightOrder
         for order in self.in_flight_orders.values():
             if order.creation_transaction_hash == transaction_hash and order.is_pending_create:
                 transaction_orders.append(order)
 
         if len(transaction_orders) > 0:
             order_updates = await self._data_source.order_updates_for_transaction(
-                transaction_hash=transaction_hash, spot_orders=transaction_orders
+                transaction_hash=transaction_hash, perpetual_orders=transaction_orders
             )
 
             for order_update in order_updates:
