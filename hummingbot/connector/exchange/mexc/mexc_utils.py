@@ -23,7 +23,7 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     :return: True if the trading pair is enabled, False otherwise
     """
     return exchange_info.get("status", None) == "ENABLED" and "SPOT" in exchange_info.get("permissions", list()) \
-           and exchange_info.get("isSpotTradingAllowed", True) is True
+        and exchange_info.get("isSpotTradingAllowed", True) is True
 
 
 class MexcConfigMap(BaseConnectorConfigMap):
