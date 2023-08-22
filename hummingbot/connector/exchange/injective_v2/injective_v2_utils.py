@@ -10,6 +10,9 @@ from hummingbot.client.config.config_data_types import BaseClientModel, BaseConn
 from hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source import (
     InjectiveGranteeDataSource,
 )
+from hummingbot.connector.exchange.injective_v2.data_sources.injective_read_only_data_source import (
+    InjectiveReadOnlyDataSource,
+)
 from hummingbot.connector.exchange.injective_v2.data_sources.injective_vaults_data_source import (
     InjectiveVaultsDataSource,
 )
@@ -27,6 +30,7 @@ DEFAULT_FEES = TradeFeeSchema(
 )
 
 MAINNET_NODES = ["lb", "sentry0", "sentry1", "sentry3"]
+TESTNET_NODES = ["lb", "sentry"]
 
 
 class InjectiveNetworkMode(BaseClientModel, ABC):
@@ -44,7 +48,7 @@ class InjectiveMainnetNetworkMode(InjectiveNetworkMode):
     node: str = Field(
         default="lb",
         client_data=ClientFieldData(
-            prompt=lambda cm: ("Enter the mainnet node you want to connect to"),
+            prompt=lambda cm: (f"Enter the mainnet node you want to connect to ({'/'.join(MAINNET_NODES)})"),
             prompt_on_new=True
         ),
     )
@@ -66,8 +70,22 @@ class InjectiveMainnetNetworkMode(InjectiveNetworkMode):
 
 
 class InjectiveTestnetNetworkMode(InjectiveNetworkMode):
+    testnet_node: str = Field(
+        default="lb",
+        client_data=ClientFieldData(
+            prompt=lambda cm: (f"Enter the testnet node you want to connect to ({'/'.join(TESTNET_NODES)})"),
+            prompt_on_new=True
+        ),
+    )
+
+    @validator("testnet_node", pre=True)
+    def validate_node(cls, v: str):
+        if v not in TESTNET_NODES:
+            raise ValueError(f"{v} is not a valid node ({TESTNET_NODES})")
+        return v
+
     def network(self) -> Network:
-        return Network.testnet()
+        return Network.testnet(node=self.testnet_node)
 
     def use_secure_connection(self) -> bool:
         return True
@@ -256,13 +274,27 @@ class InjectiveVaultAccountMode(InjectiveAccountMode):
         )
 
 
+class InjectiveReadOnlyAccountMode(InjectiveAccountMode):
+
+    class Config:
+        title = "read_only_account"
+
+    def create_data_source(self, network: Network, use_secure_connection: bool) -> "InjectiveDataSource":
+        return InjectiveReadOnlyDataSource(
+            network=network,
+            use_secure_connection=use_secure_connection,
+        )
+
+
 ACCOUNT_MODES = {
     InjectiveDelegatedAccountMode.Config.title: InjectiveDelegatedAccountMode,
     InjectiveVaultAccountMode.Config.title: InjectiveVaultAccountMode,
+    InjectiveReadOnlyAccountMode.Config.title: InjectiveReadOnlyAccountMode,
 }
 
 
 class InjectiveConfigMap(BaseConnectorConfigMap):
+    # Setting a default dummy configuration to allow the bot to create a dummy instance to fetch all trading pairs
     connector: str = Field(default="injective_v2", const=True, client_data=None)
     receive_connector_configuration: bool = Field(
         default=True, const=True,
@@ -276,12 +308,7 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
         ),
     )
     account_type: Union[tuple(ACCOUNT_MODES.values())] = Field(
-        default=InjectiveDelegatedAccountMode(
-            private_key="0000000000000000000000000000000000000000000000000000000000000000",  # noqa: mock
-            subaccount_index=0,
-            granter_address="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",  # noqa: mock
-            granter_subaccount_index=0,
-        ),
+        default=InjectiveReadOnlyAccountMode(),
         client_data=ClientFieldData(
             prompt=lambda cm: f"Select the type of account configuration ({'/'.join(list(ACCOUNT_MODES.keys()))})",
             prompt_on_new=True,
