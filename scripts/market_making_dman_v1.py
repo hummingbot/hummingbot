@@ -52,7 +52,7 @@ class MarketMakingDmanV1(ScriptStrategyBase):
         self.dman_v1_executor = MarketMakingExecutorHandler(strategy=self, controller=self.dman_v1)
 
     def on_stop(self):
-        self.dman_v1_executor.terminate_control_loop()
+        self.dman_v1_executor.stop()
 
     def on_tick(self):
         """
