@@ -336,6 +336,7 @@ cdef class PaperTradeExchange(ExchangeBase):
             string cpp_trading_pair_str = trading_pair_str.encode("utf8")
             string cpp_base_asset = self._trading_pairs[trading_pair_str].base_asset.encode("utf8")
             string cpp_quote_asset = quote_asset.encode("utf8")
+            string cpp_position = "NIL".encode("utf8")
             LimitOrdersIterator map_it
             SingleTradingPairLimitOrders *limit_orders_collection_ptr = NULL
             pair[LimitOrders.iterator, cppbool] insert_result
@@ -366,7 +367,8 @@ cdef class PaperTradeExchange(ExchangeBase):
                 <PyObject *> quantized_amount,
                 <PyObject *> None,
                 int(self._current_timestamp * 1e6),
-                0
+                0,
+                cpp_position,
             ))
         safe_ensure_future(self.trigger_event_async(
             self.MARKET_BUY_ORDER_CREATED_EVENT_TAG,
@@ -395,6 +397,7 @@ cdef class PaperTradeExchange(ExchangeBase):
             string cpp_trading_pair_str = trading_pair_str.encode("utf8")
             string cpp_base_asset = base_asset.encode("utf8")
             string cpp_quote_asset = self._trading_pairs[trading_pair_str].quote_asset.encode("utf8")
+            string cpp_position = "NIL".encode("utf8")
             LimitOrdersIterator map_it
             SingleTradingPairLimitOrders *limit_orders_collection_ptr = NULL
             pair[LimitOrders.iterator, cppbool] insert_result
@@ -424,7 +427,8 @@ cdef class PaperTradeExchange(ExchangeBase):
                 <PyObject *> quantized_amount,
                 <PyObject *> None,
                 int(self._current_timestamp * 1e6),
-                0
+                0,
+                cpp_position,
             ))
         safe_ensure_future(self.trigger_event_async(
             self.MARKET_SELL_ORDER_CREATED_EVENT_TAG,
