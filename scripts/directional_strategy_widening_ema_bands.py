@@ -39,7 +39,7 @@ class WideningEMABands(DirectionalStrategyBase):
     # Define the trading pair and exchange that we want to use and the csv where we are going to store the entries
     trading_pair: str = "LINA-USDT"
     exchange: str = "binance_perpetual"
-    order_amount_usd = Decimal("20")
+    order_amount_usd = Decimal("40")
     leverage = 10
     distance_pct_threshold = 0.02
 
