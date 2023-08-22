@@ -3,7 +3,7 @@ import json
 import re
 from decimal import Decimal
 from typing import Any, Callable, Dict, List, Optional, Tuple
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
