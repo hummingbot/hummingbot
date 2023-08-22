@@ -221,7 +221,7 @@ class GateIoExchange(ExchangePyBase):
                         trading_pair,
                         True,
                         amount
-                    )
+                    ).result_price
                 data.update({
                     "amount": f"{price * amount:f}",
                 })
