@@ -69,7 +69,7 @@ class SmartComponentBase:
         self.on_start()
         self._status = SmartComponentStatus.ACTIVE
         while not self.terminated.is_set():
-            self.control_task()
+            await self.control_task()
             await asyncio.sleep(self.update_interval)
         self._status = SmartComponentStatus.TERMINATED
         self.on_stop()
@@ -84,7 +84,7 @@ class SmartComponentBase:
         self.terminated.set()
         self.unregister_events()
 
-    def control_task(self):
+    async def control_task(self):
         pass
 
     def register_events(self):

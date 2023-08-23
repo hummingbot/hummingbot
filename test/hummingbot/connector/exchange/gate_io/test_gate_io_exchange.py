@@ -681,7 +681,9 @@ class TestGateIoExchange(unittest.TestCase):
         self.assertTrue(
             self._is_logged(
                 "WARNING",
-                "Buy order amount 0 is lower than the minimum order size 0.01. The order will not be created."
+                "Buy order amount 0.0001 is lower than the minimum order "
+                "size 0.01. The order will not be created, increase the "
+                "amount to be higher than the minimum order size."
             )
         )
 
@@ -1157,7 +1159,7 @@ class TestGateIoExchange(unittest.TestCase):
         self.assertTrue(
             self._is_logged(
                 "WARNING",
-                f"Error fetching status update for the order {order.client_order_id}: Error executing request GET "
+                f"Error fetching status update for the active order {order.client_order_id}: Error executing request GET "
                 f"{order_status_url}. HTTP status is 404. Error: ."
             )
         )
