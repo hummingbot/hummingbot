@@ -24,6 +24,9 @@ class MarketMakingControllerBase(ControllerBase):
         super().__init__(config, mode, excluded_parameters)
         self.config = config  # this is only for type hints
 
+    def filter_executors_df(self, df):
+        return df[df["trading_pair"] == self.config.trading_pair]
+
     def get_price_and_spread_multiplier(self):
         """
         Gets the price and spread multiplier from the last candlestick.
