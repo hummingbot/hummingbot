@@ -274,6 +274,25 @@ verify_pip_packages() {
   grep -v -f <(cut -d '=' -f1 $install_dir/conda_package_list.txt) setup/pip_packages.txt 2> $install_dir/updated_pip_packages.txt
 }
 
+_update_package_version() {
+  local temp_file="$1"
+  local package="$2"
+  local version="$3"
+  local upper_version="$4"
+
+  awk -v pkg="$package" -v ver="$version" -v upper_ver="$upper_version" '
+  {
+    sub(pkg ">=?[^ ,]*", "") # Remove existing version constraints
+    if (pkg && ver && upper_ver) {
+      print pkg ">=" ver ",<" upper_ver
+    } else if (pkg && ver) {
+      print pkg ">=" ver
+    } else {
+      print $0 # Print line unchanged
+    }
+  }' "$temp_file" > "${temp_file}.tmp" && mv "${temp_file}.tmp" "$temp_file"
+}
+
 update_environment_yml() {
   local env_file="$1"
   local export_file="$2"
@@ -290,8 +309,7 @@ update_environment_yml() {
   # Loop over the dependencies in the exported environment
   grep -P "^\s+-" "$env_file" | while read -r line; do
     # Extract the package name and version
-    local package=$(echo "$line" | sed -e 's/^ *- *//' | awk -F "[>=]" '{print $1}' | xargs)
-    local old_version=$(echo "$line" | awk -F "=" '{print $2}' | xargs)
+    local package=$(echo "$line" | sed -e 's/^ *- *//' | awk -F "[<>=]" '{print $1}' | xargs)
     local upper_version=$(echo "$line" | awk -F "<" '{print $2}' | xargs)
 
     # Grab the latest version of the package from conda
@@ -299,13 +317,7 @@ update_environment_yml() {
     # echo "  '-> Found >${package}< ${version}" >&2
 
     # Update the version in the environment.yml file
-    if [ -n "${package}" ] && [ -n "${version}" ] && [ -n "${upper_version}" ]; then
-      sed -i -r "s/${package}>?=[^ ]*/${package}>=${version},<${upper_version}/g" "$temp_file"
-    elif [ -n "${package}" ] && [ -n "${version}" ] && [ -n "${old_version}" ]; then
-      sed -i -r "s/${package}>?=[^ ]*/${package}>=${version}/g" "$temp_file"
-    elif [ -n "${package}" ] && [ -n "${version}" ]; then
-      sed -i -r "s/${package}$/${package}>=${version}/g" "$temp_file"
-    fi
+    _update_package_version "$temp_file" "${package}" "${version}" "${upper_version}"
   done
 
   mv "$temp_file" "$updated_file"

@@ -514,6 +514,33 @@ test_get_env_name() {
   rm -rf "${test_dir}"
 }
 
+test__update_package_version() {
+  local package="$1"
+  local version="$2"
+  local upper_version="$3"
+  local old_version="$4"
+  local expected="$5"
+
+  # Create a temporary file
+  temp_file=$(mktemp)
+
+  # Add the package to the file without any version constraint
+  echo "$package" > "$temp_file"
+
+  # Update the version using the function
+  _update_package_version "$temp_file" "$package" "$version" "$upper_version" "$old_version"
+
+  # Check that the output is as expected
+  output=$(cat "$temp_file")
+  if [[ "$output" == "$expected" ]]; then
+    echo "Test passed!"
+  else
+    echo "Test failed. Expected '$expected' but got '$output'"
+  fi
+
+  # Clean up
+  rm "$temp_file"
+}
 
 # Run tests
 # test__find_conda
@@ -526,6 +553,9 @@ test_get_env_name() {
 # test__select_index_from_list
 # test_get_env_file
 # test_get_env_name
+test__update_package_version "urllib3" "1.26.6" "2.0" "" "urllib3>=1.26.6,<2.0"
+test__update_package_version "urllib3" "1.26.6" "" "old_version" "urllib3>=1.26.6"
+test__update_package_version "urllib3" "1.26.6" "" "" "urllib3>=1.26.6"
 
 run_test_cases_common_install() {
   echo "Running test cases for common_install.sh..."
