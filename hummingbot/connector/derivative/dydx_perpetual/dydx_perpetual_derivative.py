@@ -304,10 +304,10 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
                 data=data,
                 is_auth_required=True,
                 limit_id=CONSTANTS.LIMIT_ID_ORDER_PLACE
-                         + "_"
-                         + trading_pair
-                         + "_"
-                         + str(self._order_notional_amounts[notional_amount]),
+                + "_"
+                + trading_pair
+                + "_"
+                + str(self._order_notional_amounts[notional_amount]),
             )
         except Exception:
             self._current_place_order_requests -= 1
@@ -400,7 +400,7 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
                     self._account_balances[quote] = Decimal(data["account"]["equity"])
                     # freeCollateral is sent only on start
                     self._account_available_balances[quote] = (
-                            Decimal(data["account"]["quoteBalance"]) - self._allocated_collateral_sum
+                        Decimal(data["account"]["quoteBalance"]) - self._allocated_collateral_sum
                     )
                     if "openPositions" in data["account"]:
                         await self._process_open_positions(data["account"]["openPositions"])
@@ -410,7 +410,7 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
                         quote = "USD"
                         # freeCollateral is sent only on start
                         self._account_available_balances[quote] = (
-                                Decimal(account["quoteBalance"]) - self._allocated_collateral_sum
+                            Decimal(account["quoteBalance"]) - self._allocated_collateral_sum
                         )
 
                 if "orders" in data.keys() and len(data["orders"]) > 0:
@@ -431,9 +431,9 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
                         # Processing all orders of the account, not just the client's
                         if order["status"] in ["OPEN"]:
                             initial_margin_requirement = (
-                                    Decimal(order["price"])
-                                    * Decimal(order["size"])
-                                    * self._margin_fractions[trading_pair]["initial"]
+                                Decimal(order["price"])
+                                * Decimal(order["size"])
+                                * self._margin_fractions[trading_pair]["initial"]
                             )
                             initial_margin_requirement = abs(initial_margin_requirement)
                             self._allocated_collateral[order["id"]] = initial_margin_requirement
@@ -634,10 +634,10 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
             position_action = (
                 PositionAction.OPEN
                 if (
-                        order.trade_type is TradeType.BUY
-                        and position_side == "BUY"
-                        or order.trade_type is TradeType.SELL
-                        and position_side == "SELL"
+                    order.trade_type is TradeType.BUY
+                    and position_side == "BUY"
+                    or order.trade_type is TradeType.SELL
+                    and position_side == "SELL"
                 )
                 else PositionAction.CLOSE
             )
