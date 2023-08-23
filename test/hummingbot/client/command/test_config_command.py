@@ -1,9 +1,8 @@
 import asyncio
 import unittest
-from collections import Awaitable
 from decimal import Decimal
 from test.mock.mock_cli import CLIMockingAssistant
-from typing import Union
+from typing import Awaitable, Union
 from unittest.mock import MagicMock, patch
 
 from pydantic import Field
@@ -88,7 +87,7 @@ class ConfigCommandTest(unittest.TestCase):
                            "    | ∟ gateway_api_port                | 15888                |\n"
                            "    | rate_oracle_source                | binance              |\n"
                            "    | global_token                      |                      |\n"
-                           "    | ∟ global_token_name               | USD                  |\n"
+                           "    | ∟ global_token_name               | USDT                 |\n"
                            "    | ∟ global_token_symbol             | $                    |\n"
                            "    | rate_limits_share_pct             | 100                  |\n"
                            "    | commands_timeout                  |                      |\n"

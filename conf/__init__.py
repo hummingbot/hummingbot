@@ -32,8 +32,6 @@ order_books_db_2 = {
     "db": "**REMOVED***",
 }
 
-kafka_bootstrap_server = "***REMOVED***"
-
 # whether to enable api mocking in unit test cases
 mock_api_enabled = os.getenv("MOCK_API_ENABLED")
 
@@ -95,10 +93,6 @@ bitmart_memo = os.getenv("BITMART_MEMO")
 btc_markets_api_key = os.getenv("BTC_MARKETS_API_KEY")
 btc_markets_secret_key = os.getenv("BTC_MARKETS_SECRET_KEY")
 
-# CryptoCom Test
-crypto_com_api_key = os.getenv("CRYPTO_COM_API_KEY")
-crypto_com_secret_key = os.getenv("CRYPTO_COM_SECRET_KEY")
-
 # HitBTC Tests
 hitbtc_api_key = os.getenv("HITBTC_API_KEY")
 hitbtc_secret_key = os.getenv("HITBTC_SECRET_KEY")
@@ -120,8 +114,3 @@ web3_test_private_key_c = os.getenv("TEST_WALLET_PRIVATE_KEY_C")
 coinalpha_order_book_api_username = "***REMOVED***"
 coinalpha_order_book_api_password = "***REMOVED***"
 """
-
-kafka_2 = {
-    "bootstrap_servers": "***REMOVED***",
-    "zookeeper_servers": "***REMOVED***"
-}

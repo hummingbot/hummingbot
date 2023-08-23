@@ -234,36 +234,6 @@ class ExchangePyBase(ExchangeBase, ABC):
         trading_rule = self._trading_rules[trading_pair]
         return Decimal(trading_rule.min_base_amount_increment)
 
-    def quantize_order_amount(self, trading_pair: str, amount: Decimal, price: Decimal = s_decimal_0) -> Decimal:
-        """
-        Applies the trading rules to calculate the correct order amount for the market
-
-        :param trading_pair: the token pair for which the order will be created
-        :param amount: the intended amount for the order
-        :param price: the intended price for the order
-
-        :return: the quantized order amount after applying the trading rules
-        """
-        trading_rule = self._trading_rules[trading_pair]
-        quantized_amount: Decimal = super().quantize_order_amount(trading_pair, amount)
-
-        # Check against min_order_size and min_notional_size. If not passing either check, return 0.
-        if quantized_amount < trading_rule.min_order_size:
-            self.logger().warning(f"Quantizing order amount to 0 because order amount of {quantized_amount} is below {trading_rule.min_order_size} market minimum order size.")
-            return s_decimal_0
-
-        if price == s_decimal_0:
-            current_price: Decimal = self.get_price(trading_pair, False)
-            notional_size = current_price * quantized_amount
-        else:
-            notional_size = price * quantized_amount
-
-        # Add 1% as a safety factor in case the prices changed while making the order.
-        if notional_size < trading_rule.min_notional_size * Decimal("1.01"):
-            self.logger().warning(f"Quantizing order amount to 0 because order notional value is below {trading_rule.min_notional_size} market minimum notional value.")
-            return s_decimal_0
-        return quantized_amount
-
     def get_order_book(self, trading_pair: str) -> OrderBook:
         """
         Returns the current order book for a particular market
@@ -437,15 +407,11 @@ class ExchangePyBase(ExchangeBase, ABC):
         :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
         :param price: the order price
         """
-        exchange_order_id = ""
         trading_rule = self._trading_rules[trading_pair]
 
         if order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]:
             price = self.quantize_order_price(trading_pair, price)
-            quantize_amount_price = Decimal("0") if price.is_nan() else price
-            amount = self.quantize_order_amount(trading_pair=trading_pair, amount=amount, price=quantize_amount_price)
-        else:
-            amount = self.quantize_order_amount(trading_pair=trading_pair, amount=amount)
+        quantized_amount = self.quantize_order_amount(trading_pair=trading_pair, amount=amount)
 
         self.start_tracking_order(
             order_id=order_id,
@@ -454,30 +420,36 @@ class ExchangePyBase(ExchangeBase, ABC):
             order_type=order_type,
             trade_type=trade_type,
             price=price,
-            amount=amount,
+            amount=quantized_amount,
             **kwargs,
         )
         order = self._order_tracker.active_orders[order_id]
+        if not price or price.is_nan() or price == s_decimal_0:
+            current_price: Decimal = self.get_price(trading_pair, False)
+            notional_size = current_price * quantized_amount
+        else:
+            notional_size = price * quantized_amount
 
         if order_type not in self.supported_order_types():
             self.logger().error(f"{order_type} is not in the list of supported order types")
             self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
             return
 
-        if amount < trading_rule.min_order_size:
-            self.logger().warning(f"{trade_type.name.title()} order amount {amount} is lower than the minimum order"
-                                  f" size {trading_rule.min_order_size}. The order will not be created.")
-            self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
-            return
-        if price is not None and not math.isnan(price) and amount * price < trading_rule.min_notional_size:
-            self.logger().warning(f"{trade_type.name.title()} order notional {amount * price} is lower than the "
-                                  f"minimum notional size {trading_rule.min_notional_size}. "
-                                  "The order will not be created.")
+        elif quantized_amount < trading_rule.min_order_size:
+            self.logger().warning(f"{trade_type.name.title()} order amount {amount} is lower than the minimum order "
+                                  f"size {trading_rule.min_order_size}. The order will not be created, increase the "
+                                  f"amount to be higher than the minimum order size.")
             self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
             return
 
+        elif notional_size < trading_rule.min_notional_size:
+            self.logger().warning(f"{trade_type.name.title()} order notional {notional_size} is lower than the "
+                                  f"minimum notional size {trading_rule.min_notional_size}. The order will not be "
+                                  f"created. Increase the amount or the price to be higher than the minimum notional.")
+            self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
+            return
         try:
-            exchange_order_id = await self._place_order_and_process_update(order=order, **kwargs,)
+            await self._place_order_and_process_update(order=order, **kwargs,)
 
         except asyncio.CancelledError:
             raise
@@ -485,14 +457,13 @@ class ExchangePyBase(ExchangeBase, ABC):
             self._on_order_failure(
                 order_id=order_id,
                 trading_pair=trading_pair,
-                amount=amount,
+                amount=quantized_amount,
                 trade_type=trade_type,
                 order_type=order_type,
                 price=price,
                 exception=ex,
                 **kwargs,
             )
-        return order_id, exchange_order_id
 
     async def _place_order_and_process_update(self, order: InFlightOrder, **kwargs) -> str:
         exchange_order_id, update_timestamp = await self._place_order(
@@ -992,17 +963,22 @@ class ExchangePyBase(ExchangeBase, ABC):
                 f"Attempting fetch in next polling interval."
             )
             await self._order_tracker.process_order_not_found(order.client_order_id)
+        except asyncio.CancelledError:
+            raise
         except Exception as request_error:
             self.logger().warning(
-                f"Error fetching status update for the order {order.client_order_id}: {request_error}.",
+                f"Error fetching status update for the active order {order.client_order_id}: {request_error}.",
             )
+            self.logger().debug(f"Order {order.client_order_id} not found counter: {self._order_tracker._order_not_found_records.get(order.client_order_id, 0)}")
             await self._order_tracker.process_order_not_found(order.client_order_id)
 
     async def _handle_update_error_for_lost_order(self, order: InFlightOrder, error: Exception):
-        if self._is_order_not_found_during_status_update_error(status_update_exception=error):
+        is_not_found = self._is_order_not_found_during_status_update_error(status_update_exception=error)
+        self.logger().debug(f"Order update error for lost order {order.client_order_id}\n{order}\nIs order not found: {is_not_found} ({error})")
+        if is_not_found:
             self._update_order_after_failure(order.client_order_id, order.trading_pair)
         else:
-            self.logger().warning(f"Error fetching status update for the order {order.client_order_id}: {error}.")
+            self.logger().warning(f"Error fetching status update for the lost order {order.client_order_id}: {error}.")
 
     async def _update_orders_with_error_handler(self, orders: List[InFlightOrder], error_handler: Callable):
         for order in orders:

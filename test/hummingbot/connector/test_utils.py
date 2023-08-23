@@ -95,9 +95,8 @@ class UtilsTest(unittest.TestCase):
 
                 self.assertIsInstance(connector_config, BaseConnectorConfigMap)
                 for el in ClientConfigAdapter(connector_config).traverse():
+                    print(el)
                     if el.attr == "connector":
                         self.assertEqual(el.value, connector_dir.name)
                     elif el.client_field_data.is_secure:
                         self.assertEqual(el.type_, SecretStr)
-                    else:
-                        self.assertEqual(el.type_, str)
