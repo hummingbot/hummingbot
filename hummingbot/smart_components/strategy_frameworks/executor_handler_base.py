@@ -8,10 +8,10 @@ import pandas as pd
 from hummingbot import data_path
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.smart_components.controller_base import ControllerBase
-from hummingbot.smart_components.data_types import ExecutorHandlerStatus, OrderLevel
 from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
+from hummingbot.smart_components.strategy_frameworks.controller_base import ControllerBase
+from hummingbot.smart_components.strategy_frameworks.data_types import ExecutorHandlerStatus, OrderLevel
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 

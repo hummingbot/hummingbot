@@ -4,8 +4,8 @@ from unittest.mock import MagicMock
 import pandas as pd
 
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
-from hummingbot.smart_components.controller_base import ControllerBase, ControllerConfigBase
-from hummingbot.smart_components.data_types import ControllerMode
+from hummingbot.smart_components.strategy_frameworks.controller_base import ControllerBase, ControllerConfigBase
+from hummingbot.smart_components.strategy_frameworks.data_types import ControllerMode
 
 
 class TestControllerBase(unittest.TestCase):

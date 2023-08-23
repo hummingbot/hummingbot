@@ -1,11 +1,17 @@
 from decimal import Decimal
 from typing import Dict
 
+from controllers.dman_v2 import DManV2, DManV2Config
 from hummingbot.connector.connector_base import ConnectorBase, TradeType
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
-from hummingbot.smart_components.data_types import ExecutorHandlerStatus, OrderLevel, TripleBarrierConf
-from hummingbot.smart_components.market_making.controllers.dman_v2 import DManV2, DManV2Config
-from hummingbot.smart_components.market_making.market_making_executor_handler import MarketMakingExecutorHandler
+from hummingbot.smart_components.strategy_frameworks.data_types import (
+    ExecutorHandlerStatus,
+    OrderLevel,
+    TripleBarrierConf,
+)
+from hummingbot.smart_components.strategy_frameworks.market_making.market_making_executor_handler import (
+    MarketMakingExecutorHandler,
+)
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
