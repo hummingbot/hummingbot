@@ -1215,6 +1215,7 @@ class DydxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDer
         # Disabling this test because the connector has not been updated yet to validate
         # order not found during status update (check _is_order_not_found_during_status_update_error)
         pass
+
     def place_buy_market_order(
         self,
         amount: Decimal = Decimal("100"),
@@ -1259,8 +1260,8 @@ class DydxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDer
 
         leverage = 2
         self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
-        order_id = self.place_buy_market_order()
+        self.place_buy_market_order()
         self.async_run_with_timeout(request_sent_event.wait())
         order_request = self._all_executed_requests(mock_api, url)[0]
         request_data = json.loads(order_request.kwargs["data"])
-        self.assertEqual(Decimal("1.5") * Decimal("5.1"),  Decimal(request_data["price"]))
+        self.assertEqual(Decimal("1.5") * Decimal("5.1"), Decimal(request_data["price"]))

@@ -25,7 +25,7 @@ from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativ
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
-from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType, PriceType
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -38,20 +38,19 @@ if TYPE_CHECKING:
 
 
 class DydxPerpetualDerivative(PerpetualDerivativePyBase):
-
     web_utils = web_utils
 
     def __init__(
-        self,
-        client_config_map: "ClientConfigAdapter",
-        dydx_perpetual_api_key: str,
-        dydx_perpetual_api_secret: str,
-        dydx_perpetual_passphrase: str,
-        dydx_perpetual_ethereum_address: str,
-        dydx_perpetual_stark_private_key: str,
-        trading_pairs: Optional[List[str]] = None,
-        trading_required: bool = True,
-        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+            self,
+            client_config_map: "ClientConfigAdapter",
+            dydx_perpetual_api_key: str,
+            dydx_perpetual_api_secret: str,
+            dydx_perpetual_passphrase: str,
+            dydx_perpetual_ethereum_address: str,
+            dydx_perpetual_stark_private_key: str,
+            trading_pairs: Optional[List[str]] = None,
+            trading_required: bool = True,
+            domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
         self._dydx_perpetual_api_key = dydx_perpetual_api_key
         self._dydx_perpetual_api_secret = dydx_perpetual_api_secret
@@ -223,15 +222,15 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
         return True
 
     async def _place_order(
-        self,
-        order_id: str,
-        trading_pair: str,
-        amount: Decimal,
-        trade_type: TradeType,
-        order_type: OrderType,
-        price: Decimal,
-        position_action: PositionAction = PositionAction.NIL,
-        **kwargs,
+            self,
+            order_id: str,
+            trading_pair: str,
+            amount: Decimal,
+            trade_type: TradeType,
+            order_type: OrderType,
+            price: Decimal,
+            position_action: PositionAction = PositionAction.NIL,
+            **kwargs,
     ) -> Tuple[str, float]:
         if self._current_place_order_requests == 0:
             # No requests are under way, the dictionary can be cleaned
@@ -246,11 +245,11 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
             time_in_force = CONSTANTS.TIF_IMMEDIATE_OR_CANCEL
             if trade_type.name.lower() == 'buy':
                 # The price needs to be relatively high before the transaction, whether the test will be cancelled
-                price =Decimal("1.5") * self.get_price_for_volume(
-                        trading_pair,
-                        True,
-                        amount
-                    ).result_price
+                price = Decimal("1.5") * self.get_price_for_volume(
+                    trading_pair,
+                    True,
+                    amount
+                ).result_price
             else:
                 price = Decimal("0.75") * self.get_price_for_volume(
                     trading_pair,
@@ -305,10 +304,10 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
                 data=data,
                 is_auth_required=True,
                 limit_id=CONSTANTS.LIMIT_ID_ORDER_PLACE
-                + "_"
-                + trading_pair
-                + "_"
-                + str(self._order_notional_amounts[notional_amount]),
+                         + "_"
+                         + trading_pair
+                         + "_"
+                         + str(self._order_notional_amounts[notional_amount]),
             )
         except Exception:
             self._current_place_order_requests -= 1
@@ -323,15 +322,15 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
         return str(resp["order"]["id"]), iso_to_epoch_seconds(resp["order"]["createdAt"])
 
     def _get_fee(
-        self,
-        base_currency: str,
-        quote_currency: str,
-        order_type: OrderType,
-        order_side: TradeType,
-        position_action: PositionAction,
-        amount: Decimal,
-        price: Decimal = s_decimal_NaN,
-        is_maker: Optional[bool] = None,
+            self,
+            base_currency: str,
+            quote_currency: str,
+            order_type: OrderType,
+            order_side: TradeType,
+            position_action: PositionAction,
+            amount: Decimal,
+            price: Decimal = s_decimal_NaN,
+            is_maker: Optional[bool] = None,
     ) -> TradeFeeBase:
         is_maker = is_maker or False
         if CONSTANTS.FEES_KEY not in self._trading_fees.keys():
@@ -401,7 +400,7 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
                     self._account_balances[quote] = Decimal(data["account"]["equity"])
                     # freeCollateral is sent only on start
                     self._account_available_balances[quote] = (
-                        Decimal(data["account"]["quoteBalance"]) - self._allocated_collateral_sum
+                            Decimal(data["account"]["quoteBalance"]) - self._allocated_collateral_sum
                     )
                     if "openPositions" in data["account"]:
                         await self._process_open_positions(data["account"]["openPositions"])
@@ -411,7 +410,7 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
                         quote = "USD"
                         # freeCollateral is sent only on start
                         self._account_available_balances[quote] = (
-                            Decimal(account["quoteBalance"]) - self._allocated_collateral_sum
+                                Decimal(account["quoteBalance"]) - self._allocated_collateral_sum
                         )
 
                 if "orders" in data.keys() and len(data["orders"]) > 0:
@@ -432,9 +431,9 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
                         # Processing all orders of the account, not just the client's
                         if order["status"] in ["OPEN"]:
                             initial_margin_requirement = (
-                                Decimal(order["price"])
-                                * Decimal(order["size"])
-                                * self._margin_fractions[trading_pair]["initial"]
+                                    Decimal(order["price"])
+                                    * Decimal(order["size"])
+                                    * self._margin_fractions[trading_pair]["initial"]
                             )
                             initial_margin_requirement = abs(initial_margin_requirement)
                             self._allocated_collateral[order["id"]] = initial_margin_requirement
@@ -557,8 +556,8 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
             if trading_pair not in prev_timestamps.keys():
                 prev_timestamps[trading_pair] = None
             if (
-                prev_timestamps[trading_pair] is not None
-                and dateparse(funding_payment["effectiveAt"]).timestamp() <= prev_timestamps[trading_pair]
+                    prev_timestamps[trading_pair] is not None
+                    and dateparse(funding_payment["effectiveAt"]).timestamp() <= prev_timestamps[trading_pair]
             ):
                 continue
             timestamp = dateparse(funding_payment["effectiveAt"]).timestamp()
@@ -635,10 +634,10 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
             position_action = (
                 PositionAction.OPEN
                 if (
-                    order.trade_type is TradeType.BUY
-                    and position_side == "BUY"
-                    or order.trade_type is TradeType.SELL
-                    and position_side == "SELL"
+                        order.trade_type is TradeType.BUY
+                        and position_side == "BUY"
+                        or order.trade_type is TradeType.SELL
+                        and position_side == "SELL"
                 )
                 else PositionAction.CLOSE
             )
