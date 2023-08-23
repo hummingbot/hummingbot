@@ -2,7 +2,7 @@ import asyncio
 from typing import TYPE_CHECKING, Dict, List, Optional
 
 from hummingbot.connector.exchange.injective_v2 import injective_constants as CONSTANTS
-from hummingbot.connector.exchange.injective_v2.injective_data_source import InjectiveDataSource
+from hummingbot.connector.exchange.injective_v2.data_sources.injective_data_source import InjectiveDataSource
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.event.event_forwarder import EventForwarder
@@ -41,7 +41,7 @@ class InjectiveV2APIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        snapshot = await self._data_source.order_book_snapshot(market_id=symbol, trading_pair=trading_pair)
+        snapshot = await self._data_source.spot_order_book_snapshot(market_id=symbol, trading_pair=trading_pair)
         return snapshot
 
     async def _parse_order_book_diff_message(self, raw_message: OrderBookMessage, message_queue: asyncio.Queue):
