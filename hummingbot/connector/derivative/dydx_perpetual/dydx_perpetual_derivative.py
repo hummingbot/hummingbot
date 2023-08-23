@@ -25,7 +25,7 @@ from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativ
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
-from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType, PriceType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -240,12 +240,29 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
         # Increment number of currently undergoing requests
         self._current_place_order_requests += 1
 
+        if order_type.is_limit_type():
+            time_in_force = CONSTANTS.TIF_GOOD_TIL_TIME
+        else:
+            time_in_force = CONSTANTS.TIF_IMMEDIATE_OR_CANCEL
+            if trade_type.name.lower() == 'buy':
+                # The price needs to be relatively high before the transaction, whether the test will be cancelled
+                price =Decimal("1.5") * self.get_price_for_volume(
+                        trading_pair,
+                        True,
+                        amount
+                    ).result_price
+            else:
+                price = Decimal("0.75") * self.get_price_for_volume(
+                    trading_pair,
+                    False,
+                    amount
+                ).result_price
+
         notional_amount = amount * price
         if notional_amount not in self._order_notional_amounts.keys():
             self._order_notional_amounts[notional_amount] = len(self._order_notional_amounts.keys())
             # Set updated rate limits
             self._throttler.set_rate_limits(self.rate_limits_rules)
-
         size = str(amount)
         price = str(price)
         side = "BUY" if trade_type == TradeType.BUY else "SELL"
@@ -254,7 +271,6 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
         reduce_only = False
 
         post_only = order_type is OrderType.LIMIT_MAKER
-        time_in_force = CONSTANTS.TIF_GOOD_TIL_TIME
         market = await self.exchange_symbol_associated_to_pair(trading_pair)
 
         signature = self._auth.get_order_signature(
