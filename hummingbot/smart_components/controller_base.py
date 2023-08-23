@@ -35,6 +35,13 @@ class ControllerBase(ABC):
         self._excluded_parameters = excluded_parameters or ["order_levels", "candles_config"]
         self.candles = self.initialize_candles(config.candles_config)
 
+    def filter_executors_df(self, df):
+        """
+        In case that you are running the multiple controllers in the same script, you should implement this method
+        to recognize the executors that belongs to this controller.
+        """
+        return df
+
     def initialize_candles(self, candles_config: List[CandlesConfig]):
         if self._mode == ControllerMode.LIVE:
             return [CandlesFactory.get_candle(candles_config) for candles_config in candles_config]
