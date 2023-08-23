@@ -32,16 +32,31 @@ dependencies:
   - prompt_toolkit>=3.0.39
   - protobuf>=4.23.3
   - psutil>=5.9.5
+  - aiohttp>=3.8.4
+  - asyncssh>=2.7.2
+  - aiounittest>=1.4.1
+  - async-timeout
+  - bidict
+  - cachetools>=4.1.0
+  - cryptography>=2.8
+  - cytoolz>=0.12.1
+  - numpy>=1.20.1
+  - numpy-base>=1.20.1
+  - pandas>=1.2.1
+  - pandas-ta>=0.3.14b0
+  - prompt_toolkit>=3.0.20
+  - protobuf>=4.21.0
+  - psutil>=5.7.2
   - ptpython>=3.0.20
-  - pydantic>=1.10.12,<2.0.0
-  - pyperclip>=1.8.2
-  - requests>=2.31.0
-  - ruamel.yaml>=0.17.32
-  - scipy>=1.11.1
-  - six>=1.16.0
-  - sqlalchemy>=1.4.49,<1.4.99
-  - tabulate>=0.9.0
-  - ujson>=5.7.0
+  - pydantic>=1.10.4,<2.0.0
+  - pyperclip>=1.7.0
+  - requests>=2.28.2
+  - ruamel.yaml>=0.16.10
+  - scipy>=1.6.2
+  - six>=1.14.0
+  - sqlalchemy>=1.4,<1.4.99
+  - tabulate>=0.8.9
+  - ujson>=1.35
   # This needs to be restricted to <2.0 - tests fail otherwise
   - urllib3>=1.26.15,<2.0
   - websockets>=11.0.3
