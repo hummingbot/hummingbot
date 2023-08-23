@@ -120,7 +120,8 @@ class ExecutorHandlerBase:
     def get_closed_executors_df(self):
         dfs = [pd.read_csv(file) for file in glob.glob(data_path() + f"/{self.controller.get_csv_prefix()}*")]
         if len(dfs) > 0:
-            return pd.concat(dfs)
+            df = pd.concat(dfs)
+            return self.controller.filter_executors_df(df)
         return pd.DataFrame()
 
     def get_active_executors_df(self) -> pd.DataFrame:
