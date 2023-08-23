@@ -137,6 +137,31 @@ strategy: pure_market_making
 
         self.assertEqual(cm, cm_loaded)
 
+    def test_decrypt_config_map_secret_values(self):
+        class DummySubModel(BaseClientModel):
+            secret_attr: SecretStr
+
+            class Config:
+                title = "dummy_sub_model"
+
+        class DummyModel(BaseClientModel):
+            sub_model: DummySubModel
+
+            class Config:
+                title = "dummy_model"
+
+        Security.secrets_manager = ETHKeyFileSecretManger(password="some-password")
+        secret_value = "some_secret"
+        encrypted_secret_value = Security.secrets_manager.encrypt_secret_value("secret_attr", secret_value)
+        sub_model = DummySubModel(secret_attr=encrypted_secret_value)
+        instance = ClientConfigAdapter(DummyModel(sub_model=sub_model))
+
+        self.assertEqual(encrypted_secret_value, instance.sub_model.secret_attr.get_secret_value())
+
+        instance._decrypt_all_internal_secrets()
+
+        self.assertEqual(secret_value, instance.sub_model.secret_attr.get_secret_value())
+
 
 class ReadOnlyClientAdapterTest(unittest.TestCase):
 
