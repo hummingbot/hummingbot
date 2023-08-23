@@ -24,6 +24,7 @@ dependencies:
   - bidict>=0.22.1
   - cachetools>=5.3.1
   - cryptography>=41.0.2
+  - cytoolz>=0.12.1
   - numpy>=1.25.0
   - numpy-base>=1.25.0
   - pandas>=2.0.3
