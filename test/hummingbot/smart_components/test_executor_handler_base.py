@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pandas as pd
 
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide
-from hummingbot.smart_components.controller_base import ControllerBase
-from hummingbot.smart_components.executor_handler_base import ExecutorHandlerBase
+from hummingbot.smart_components.strategy_frameworks.controller_base import ControllerBase
+from hummingbot.smart_components.strategy_frameworks.executor_handler_base import ExecutorHandlerBase
 
 
 class TestExecutorHandlerBase(IsolatedAsyncioWrapperTestCase):
@@ -24,7 +24,7 @@ class TestExecutorHandlerBase(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(self.executor_handler.controller, self.mock_controller)
         # ... other assertions ...
 
-    @patch("hummingbot.smart_components.executor_handler_base.safe_ensure_future")
+    @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.safe_ensure_future")
     def test_start(self, mock_safe_ensure_future):
         self.executor_handler.start()
         self.mock_controller.start.assert_called_once()
@@ -63,7 +63,7 @@ class TestExecutorHandlerBase(IsolatedAsyncioWrapperTestCase):
             await self.executor_handler.control_loop()
         mock_control_task.assert_called()
 
-    @patch("hummingbot.smart_components.executor_handler_base.PositionExecutor")
+    @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.PositionExecutor")
     def test_create_executor(self, mock_position_executor):
         mock_position_config = MagicMock()
         mock_order_level = MagicMock()

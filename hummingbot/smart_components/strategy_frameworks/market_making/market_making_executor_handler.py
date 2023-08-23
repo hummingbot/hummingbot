@@ -1,6 +1,8 @@
-from hummingbot.smart_components.executor_handler_base import ExecutorHandlerBase
 from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorStatus
-from hummingbot.smart_components.market_making.market_making_controller_base import MarketMakingControllerBase
+from hummingbot.smart_components.strategy_frameworks.executor_handler_base import ExecutorHandlerBase
+from hummingbot.smart_components.strategy_frameworks.market_making.market_making_controller_base import (
+    MarketMakingControllerBase,
+)
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 

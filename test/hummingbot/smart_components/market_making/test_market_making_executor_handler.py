@@ -3,13 +3,15 @@ from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCa
 from unittest.mock import MagicMock, patch
 
 from hummingbot.core.data_type.common import TradeType
-from hummingbot.smart_components.data_types import OrderLevel, TripleBarrierConf
 from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorStatus
-from hummingbot.smart_components.market_making.market_making_controller_base import (
+from hummingbot.smart_components.strategy_frameworks.data_types import OrderLevel, TripleBarrierConf
+from hummingbot.smart_components.strategy_frameworks.market_making.market_making_controller_base import (
     MarketMakingControllerBase,
     MarketMakingControllerConfigBase,
 )
-from hummingbot.smart_components.market_making.market_making_executor_handler import MarketMakingExecutorHandler
+from hummingbot.smart_components.strategy_frameworks.market_making.market_making_executor_handler import (
+    MarketMakingExecutorHandler,
+)
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
@@ -41,43 +43,43 @@ class TestMarketMakingExecutorHandler(IsolatedAsyncioWrapperTestCase):
             controller=self.mock_controller
         )
 
-    @patch("hummingbot.smart_components.executor_handler_base.ExecutorHandlerBase.close_open_positions")
+    @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.ExecutorHandlerBase.close_open_positions")
     def test_on_stop_perpetual(self, mock_close_open_positions):
         self.mock_controller.is_perpetual = True
         self.handler.on_stop()
         mock_close_open_positions.assert_called_once()
 
-    @patch("hummingbot.smart_components.executor_handler_base.ExecutorHandlerBase.close_open_positions")
+    @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.ExecutorHandlerBase.close_open_positions")
     def test_on_stop_non_perpetual(self, mock_close_open_positions):
         self.mock_controller.is_perpetual = False
         self.handler.on_stop()
         mock_close_open_positions.assert_not_called()
 
-    @patch("hummingbot.smart_components.market_making.market_making_executor_handler.MarketMakingExecutorHandler.set_leverage_and_position_mode")
+    @patch("hummingbot.smart_components.strategy_frameworks.market_making.market_making_executor_handler.MarketMakingExecutorHandler.set_leverage_and_position_mode")
     def test_on_start_perpetual(self, mock_set_leverage):
         self.mock_controller.is_perpetual = True
         self.handler.on_start()
         mock_set_leverage.assert_called_once()
 
-    @patch("hummingbot.smart_components.market_making.market_making_executor_handler.MarketMakingExecutorHandler.set_leverage_and_position_mode")
+    @patch("hummingbot.smart_components.strategy_frameworks.market_making.market_making_executor_handler.MarketMakingExecutorHandler.set_leverage_and_position_mode")
     def test_on_start_non_perpetual(self, mock_set_leverage):
         self.mock_controller.is_perpetual = False
         self.handler.on_start()
         mock_set_leverage.assert_not_called()
 
-    @patch("hummingbot.smart_components.executor_handler_base.ExecutorHandlerBase.create_executor")
+    @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.ExecutorHandlerBase.create_executor")
     async def test_control_task_all_candles_ready(self, mock_create_executor):
         self.mock_controller.all_candles_ready = True
         await self.handler.control_task()
         mock_create_executor.assert_called()
 
-    @patch("hummingbot.smart_components.executor_handler_base.ExecutorHandlerBase.create_executor")
+    @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.ExecutorHandlerBase.create_executor")
     async def test_control_task_candles_not_ready(self, mock_create_executor):
         self.mock_controller.all_candles_ready = False
         await self.handler.control_task()
         mock_create_executor.assert_not_called()
 
-    @patch("hummingbot.smart_components.executor_handler_base.ExecutorHandlerBase.store_executor")
+    @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.ExecutorHandlerBase.store_executor")
     async def test_control_task_executor_closed_not_in_cooldown(self, mock_store_executor):
         self.mock_controller.all_candles_ready = True
         mock_executor = MagicMock()
@@ -90,7 +92,7 @@ class TestMarketMakingExecutorHandler(IsolatedAsyncioWrapperTestCase):
         await self.handler.control_task()
         mock_store_executor.assert_called()
 
-    @patch("hummingbot.smart_components.executor_handler_base.ExecutorHandlerBase.store_executor")
+    @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.ExecutorHandlerBase.store_executor")
     async def test_control_task_executor_not_started_refresh_order(self, _):
         self.mock_controller.all_candles_ready = True
         mock_executor = MagicMock()
@@ -103,7 +105,7 @@ class TestMarketMakingExecutorHandler(IsolatedAsyncioWrapperTestCase):
         await self.handler.control_task()
         mock_executor.early_stop.assert_called()
 
-    @patch("hummingbot.smart_components.executor_handler_base.ExecutorHandlerBase.create_executor")
+    @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.ExecutorHandlerBase.create_executor")
     async def test_control_task_no_executor(self, mock_create_executor):
         self.mock_controller.all_candles_ready = True
         await self.handler.control_task()

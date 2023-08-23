@@ -4,10 +4,10 @@ from decimal import Decimal
 import pandas_ta as ta  # noqa: F401
 
 from hummingbot.core.data_type.common import TradeType
-from hummingbot.smart_components.data_types import ControllerMode, OrderLevel
 from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig, TrailingStop
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
-from hummingbot.smart_components.market_making.market_making_controller_base import (
+from hummingbot.smart_components.strategy_frameworks.data_types import ControllerMode, OrderLevel
+from hummingbot.smart_components.strategy_frameworks.market_making.market_making_controller_base import (
     MarketMakingControllerBase,
     MarketMakingControllerConfigBase,
 )
