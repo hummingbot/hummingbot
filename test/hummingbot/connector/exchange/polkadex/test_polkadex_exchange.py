@@ -1591,9 +1591,6 @@ class PolkadexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
     def test_create_user_stream_tracker_task(self):
         self.assertIsNone(self.exchange._create_user_stream_tracker_task())
 
-    def test_polkadex_listens_to_private_events(self):
-        raise NotImplementedError
-
     def _configure_balance_response(
         self,
         response: Dict[str, Any],
