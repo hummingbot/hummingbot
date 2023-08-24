@@ -38,7 +38,7 @@ class TestMarketMakingControllerBase(unittest.TestCase):
 
     def test_get_price_and_spread_multiplier(self):
         mock_candles_df = pd.DataFrame({"price_multiplier": [1.0, 2.0, 3.0], "spread_multiplier": [0.1, 0.2, 0.3]})
-        self.controller.get_candles_with_price_and_spread_multipliers = MagicMock(return_value=mock_candles_df)
+        self.controller.get_processed_data = MagicMock(return_value=mock_candles_df)
         price_multiplier, spread_multiplier = self.controller.get_price_and_spread_multiplier()
         self.assertEqual(price_multiplier, 3.0)
         self.assertEqual(spread_multiplier, 0.3)
@@ -74,4 +74,4 @@ class TestMarketMakingControllerBase(unittest.TestCase):
 
     def test_get_candles_with_price_and_spread_multipliers(self):
         with self.assertRaises(NotImplementedError):
-            self.controller.get_candles_with_price_and_spread_multipliers()
+            self.controller.get_processed_data()

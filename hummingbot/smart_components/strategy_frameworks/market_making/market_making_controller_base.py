@@ -31,7 +31,7 @@ class MarketMakingControllerBase(ControllerBase):
         """
         Gets the price and spread multiplier from the last candlestick.
         """
-        candles_df = self.get_candles_with_price_and_spread_multipliers()
+        candles_df = self.get_processed_data()
         return Decimal(candles_df["price_multiplier"].iloc[-1]), Decimal(candles_df["spread_multiplier"].iloc[-1])
 
     def update_strategy_markets_dict(self, markets_dict: dict[str, Set] = {}):
@@ -64,5 +64,5 @@ class MarketMakingControllerBase(ControllerBase):
         """
         raise NotImplementedError
 
-    def get_candles_with_price_and_spread_multipliers(self):
+    def get_processed_data(self):
         raise NotImplementedError
