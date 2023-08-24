@@ -383,44 +383,6 @@ class PolkadexDataSource:
         )
         return order_update
 
-    async def get_all_market_symbol_orders(self, market_symbol: str) -> List[InFlightOrder]:
-        async with self._throttler.execute_task(limit_id=CONSTANTS.LIST_OPEN_ORDERS_LIMIT_ID):
-            try:
-                response = await self._query_executor.list_open_orders_by_main_account(
-                    main_account=self._user_proxy_address,
-                )
-            except Exception as e:
-                raise e
-
-        orders_info = response["listOpenOrdersByMainAccount"]
-        if orders_info is None:
-            raise IOError(f"Failed to retrieve orders for {market_symbol}")
-
-        open_orders = []
-        for order_data in orders_info["items"]:
-            if order_data["m"] == market_symbol:
-                state = CONSTANTS.ORDER_STATE[order_data["st"]]
-                filled_amount = Decimal(order_data["fq"])
-                if state == OrderState.OPEN and filled_amount > 0:
-                    state = OrderState.PARTIALLY_FILLED
-                exchange_trading_pair = order_data["m"]
-                trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-                    symbol=exchange_trading_pair
-                )
-                order = InFlightOrder(
-                    client_order_id=order_data["cid"],
-                    trading_pair=trading_pair,
-                    order_type=self._hummingbot_order_type[order_data["ot"]],
-                    trade_type=self._hummingbot_trade_type[order_data["s"]],
-                    amount=Decimal(order_data["q"]),
-                    creation_timestamp=int(int(order_data["t"]) * 1e-3),
-                    price=Decimal(order_data["p"]),
-                    exchange_order_id=order_data["id"],
-                    initial_state=state,
-                )
-                open_orders.append(order)
-        return open_orders
-
     async def get_all_fills(
         self, from_timestamp: float, to_timestamp: float, orders: List[InFlightOrder]
     ) -> List[TradeUpdate]:

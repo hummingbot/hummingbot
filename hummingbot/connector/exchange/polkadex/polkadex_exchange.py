@@ -232,12 +232,6 @@ class PolkadexExchange(ExchangePyBase):
 
         return new_order_state
 
-    async def _get_all_market_symbol_orders(self, trading_pair: str):
-        market_symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        all_orders = await self._data_source.get_all_market_symbol_orders(market_symbol=market_symbol)
-        for order in all_orders:
-            order.trading_pair = trading_pair
-
     async def _place_order(
         self,
         order_id: str,
