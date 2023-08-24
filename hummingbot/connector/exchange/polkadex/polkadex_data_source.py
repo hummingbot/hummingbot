@@ -344,47 +344,18 @@ class PolkadexDataSource:
 
         return exchange_order_id, timestamp
 
-    async def cancel_order(self, order: InFlightOrder, market_symbol: str, timestamp: float) -> bool:
+    async def cancel_order(self, order: InFlightOrder, market_symbol: str, timestamp: float) -> OrderState:
         try:
             cancel_result = await self._place_order_cancel(order=order, market_symbol=market_symbol)
         except Exception as e:
             if "Order is not active" in str(e):
-                success = True
+                new_order_state = OrderState.CANCELED
             else:
                 raise
         else:
-            success = cancel_result["cancel_order"]
+            new_order_state = OrderState.PENDING_CANCEL if cancel_result["cancel_order"] else order.current_state
 
-        return success
-
-    async def order_updates_from_account(self, from_time: float) -> List[OrderUpdate]:
-        order_updates = []
-        async with self._throttler.execute_task(limit_id=CONSTANTS.BATCH_ORDER_UPDATES_LIMIT_ID):
-            response = await self._query_executor.list_order_history_by_account(
-                main_account=self._user_proxy_address,
-                from_time=from_time,
-                to_time=self._time(),
-            )
-
-            for order_info in response["listOrderHistorybyMainAccount"]["items"]:
-                exchange_trading_pair = order_info["m"]
-                trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-                    symbol=exchange_trading_pair
-                )
-                new_state = CONSTANTS.ORDER_STATE[order_info["st"]]
-                filled_amount = Decimal(order_info["fq"])
-                if new_state == OrderState.OPEN and filled_amount > 0:
-                    new_state = OrderState.PARTIALLY_FILLED
-                order_update = OrderUpdate(
-                    client_order_id=order_info["cid"],
-                    exchange_order_id=order_info["id"],
-                    trading_pair=trading_pair,
-                    update_timestamp=self._time(),
-                    new_state=new_state,
-                )
-                order_updates.append(order_update)
-
-        return order_updates
+        return new_order_state
 
     async def order_update(self, order: InFlightOrder, market_symbol: str) -> OrderUpdate:
         async with self._throttler.execute_task(limit_id=CONSTANTS.ORDER_UPDATE_LIMIT_ID):

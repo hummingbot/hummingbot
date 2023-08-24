@@ -420,6 +420,27 @@ class PolkadexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         self.exchange._data_source._query_executor._cancel_order_responses = mock_queue
         return ""
 
+    def configure_order_not_active_error_cancelation_response(
+        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
+        not_found_error = {
+            "path": ["cancel_order"],
+            "data": None,
+            "errorType": "Lambda:Unhandled",
+            "errorInfo": None,
+            "locations": [{"line": 2, "column": 3, "sourceName": None}],
+            "message": '{"errorMessage":"{\\"code\\":-32000,\\"message\\":\\"Order is not active: '
+            "0x1b99cba5555ad0ba890756fe16e499cb884b46a165b89bdce77ee8913b55ffff"  # noqa: mock
+            '\\"}","errorType":"Lambda:Handled"}',
+        }
+        not_found_exception = TransportQueryError(str(not_found_error))
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = partial(
+            self._callback_wrapper_with_response, callback=callback, response=not_found_exception
+        )
+        self.exchange._data_source._query_executor._cancel_order_responses = mock_queue
+        return ""
+
     def configure_one_successful_one_erroneous_cancel_all_response(
         self, successful_order: InFlightOrder, erroneous_order: InFlightOrder, mock_api: aioresponses
     ) -> List[str]:
@@ -1042,6 +1063,37 @@ class PolkadexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
         self.assertEqual(1, self.exchange._order_tracker._order_not_found_records[order.client_order_id])
 
     @aioresponses()
+    def test_cancel_order_no_longer_active(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        request_sent_event = asyncio.Event()
+
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=str(self.expected_exchange_order_id),
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+
+        self.assertIn(self.client_order_id_prefix + "1", self.exchange.in_flight_orders)
+        order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+        self.configure_order_not_active_error_cancelation_response(
+            order=order, mock_api=mock_api, callback=lambda *args, **kwargs: request_sent_event.set()
+        )
+
+        self.exchange.cancel(trading_pair=self.trading_pair, client_order_id=self.client_order_id_prefix + "1")
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        self.assertTrue(order.is_done)
+        self.assertFalse(order.is_failure)
+        self.assertTrue(order.is_cancelled)
+
+        self.assertNotIn(order.client_order_id, self.exchange._order_tracker.all_updatable_orders)
+
+    @aioresponses()
     def test_update_balances(self, mock_api):
         response = self.balance_request_mock_response_for_base_and_quote
         self._configure_balance_response(response=response, mock_api=mock_api)
@@ -1538,6 +1590,9 @@ class PolkadexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
 
     def test_create_user_stream_tracker_task(self):
         self.assertIsNone(self.exchange._create_user_stream_tracker_task())
+
+    def test_polkadex_listens_to_private_events(self):
+        raise NotImplementedError
 
     def _configure_balance_response(
         self,

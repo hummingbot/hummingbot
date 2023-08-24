@@ -1,4 +1,5 @@
 import asyncio
+import math
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from _decimal import Decimal
@@ -12,7 +13,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -205,15 +206,31 @@ class PolkadexExchange(ExchangePyBase):
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
         return CONSTANTS.ORDER_NOT_FOUND_MESSAGE in str(cancelation_exception)
 
-    async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder) -> bool:
+    async def _execute_order_cancel_and_process_update(self, order: InFlightOrder) -> bool:
+        new_order_state = await self._place_cancel(order.client_order_id, order)
+        cancelled = new_order_state in [OrderState.CANCELED, OrderState.PENDING_CANCEL]
+        if cancelled:
+            update_timestamp = self.current_timestamp
+            if update_timestamp is None or math.isnan(update_timestamp):
+                update_timestamp = self._time()
+            order_update: OrderUpdate = OrderUpdate(
+                client_order_id=order.client_order_id,
+                trading_pair=order.trading_pair,
+                update_timestamp=update_timestamp,
+                new_state=new_order_state,
+            )
+            self._order_tracker.process_order_update(order_update)
+        return cancelled
+
+    async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder) -> OrderState:
         await tracked_order.get_exchange_order_id()
         market_symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
 
-        success = await self._data_source.cancel_order(
+        new_order_state = await self._data_source.cancel_order(
             order=tracked_order, market_symbol=market_symbol, timestamp=self.current_timestamp
         )
 
-        return success
+        return new_order_state
 
     async def _get_all_market_symbol_orders(self, trading_pair: str):
         market_symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
