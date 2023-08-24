@@ -1,4 +1,4 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import List, Optional
 
@@ -35,6 +35,13 @@ class ControllerBase(ABC):
         self._excluded_parameters = excluded_parameters or ["order_levels", "candles_config"]
         self.candles = self.initialize_candles(config.candles_config)
 
+    @abstractmethod
+    def get_processed_data(self):
+        """
+        Get the processed data.
+        """
+        ...
+
     def filter_executors_df(self, df):
         """
         In case that you are running the multiple controllers in the same script, you should implement this method
@@ -43,10 +50,7 @@ class ControllerBase(ABC):
         return df
 
     def initialize_candles(self, candles_config: List[CandlesConfig]):
-        if self._mode == ControllerMode.LIVE:
-            return [CandlesFactory.get_candle(candles_config) for candles_config in candles_config]
-        else:
-            raise NotImplementedError
+        return [CandlesFactory.get_candle(candles_config) for candles_config in candles_config]
 
     def get_close_price(self, connector: str, trading_pair: str):
         """
@@ -87,14 +91,18 @@ class ControllerBase(ABC):
         Start the controller.
         """
         for candle in self.candles:
-            candle.start()
+            if self._mode == ControllerMode.LIVE:
+                candle.start()
+            else:
+                candle.load_candles_from_csv()
 
     def stop(self) -> None:
         """
         Stop the controller.
         """
         for candle in self.candles:
-            candle.stop()
+            if self._mode == ControllerMode.LIVE:
+                candle.stop()
 
     def get_csv_prefix(self) -> str:
         """

@@ -52,7 +52,7 @@ class DManV1(MarketMakingControllerBase):
             return True
         return False
 
-    def get_candles_with_price_and_spread_multipliers(self):
+    def get_processed_data(self):
         """
         Gets the price and spread multiplier from the last candlestick.
         """
