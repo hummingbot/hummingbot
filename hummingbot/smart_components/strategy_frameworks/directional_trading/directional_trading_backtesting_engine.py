@@ -1,3 +1,5 @@
+import pandas as pd
+
 from hummingbot.smart_components.strategy_frameworks.backtesting_engine_base import BacktestingEngineBase
 
 
@@ -13,6 +15,7 @@ class DirectionalTradingBacktestingEngine(BacktestingEngineBase):
                                                   trade_cost=trade_cost)
             for index, row in df[(df["signal"] != 0)].iterrows():
                 last_close_time = self.level_executors[order_level.level_id]
-                if row["timestamp"] + order_level.cooldown_time > last_close_time:
+                if index + pd.Timedelta(seconds=order_level.cooldown_time) > last_close_time:
                     executors.append(row)
                     self.level_executors[order_level.level_id] = row["close_time"]
+        return pd.DataFrame(executors)
