@@ -131,6 +131,7 @@ class CandlesBase(NetworkBase):
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"File '{file_path}' does not exist.")
         df = pd.read_csv(file_path)
+        df.sort_values(by="timestamp", ascending=False, inplace=True)
         self._candles.extendleft(df.values.tolist())
 
     async def fetch_candles(self,
