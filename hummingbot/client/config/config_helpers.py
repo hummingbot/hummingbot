@@ -190,13 +190,13 @@ class ClientConfigAdapter:
         input_data = self._hb_config.dict()
         results = validate_model(model=type(self._hb_config), input_data=input_data)  # coerce types
         conf_dict = results[0]
-        errors = results[2]
         for key, value in conf_dict.items():
             self.setattr_no_validation(key, value)
         self.decrypt_all_secure_data()
         input_data = self._hb_config.dict()
         results = validate_model(model=type(self._hb_config), input_data=input_data)  # validate decrypted values
         conf_dict = results[0]
+        errors = results[2]
         for key, value in conf_dict.items():
             self.setattr_no_validation(key, value)
         validation_errors = []
