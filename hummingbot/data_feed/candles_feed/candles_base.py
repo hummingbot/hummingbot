@@ -1,10 +1,12 @@
 import asyncio
+import os
 from collections import deque
 from typing import Optional
 
 import pandas as pd
 from bidict import bidict
 
+from hummingbot import data_path
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.network_base import NetworkBase
 from hummingbot.core.network_iterator import NetworkStatus
@@ -118,6 +120,18 @@ class CandlesBase(NetworkBase):
 
     def get_exchange_trading_pair(self, trading_pair):
         raise NotImplementedError
+
+    def load_candles_from_csv(self):
+        """
+        This method loads the candles from a CSV file.
+        :param csv_path: path to the CSV file
+        """
+        filename = f"candles_{self.name}_{self.interval}.csv"
+        file_path = os.path.join(data_path(), filename)
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"File '{file_path}' does not exist.")
+        df = pd.read_csv(file_path)
+        self._candles.extendleft(df.values.tolist())
 
     async def fetch_candles(self,
                             start_time: Optional[int] = None,
