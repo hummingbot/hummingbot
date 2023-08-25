@@ -125,21 +125,21 @@ class BacktestingEngineBase:
 
             # Additional metrics
             total_positions = executors_df.shape[0] - 1
-            win_signals = executors_df.loc[(executors_df['real_class'] > 0) & (executors_df["signal"] != 0)]
-            loss_signals = executors_df.loc[(executors_df['real_class'] < 0) & (executors_df["signal"] != 0)]
+            win_signals = executors_df.loc[(executors_df["real_class"] > 0) & (executors_df["signal"] != 0)]
+            loss_signals = executors_df.loc[(executors_df["real_class"] < 0) & (executors_df["signal"] != 0)]
             accuracy = win_signals.shape[0] / total_positions
             cumulative_returns = executors_df["ret_usd"].cumsum()
             peak = np.maximum.accumulate(cumulative_returns)
             drawdown = (cumulative_returns - peak)
             max_draw_down = np.min(drawdown)
             max_drawdown_pct = max_draw_down / net_pnl
-            returns = executors_df['ret_usd'] / net_pnl
+            returns = executors_df["ret_usd"] / net_pnl
             sharpe_ratio = returns.mean() / returns.std()
-            total_won = win_signals.loc[:, 'ret_usd'].sum()
-            total_loss = - loss_signals.loc[:, 'ret_usd'].sum()
+            total_won = win_signals.loc[:, "ret_usd"].sum()
+            total_loss = - loss_signals.loc[:, "ret_usd"].sum()
             profit_factor = total_won / total_loss
-            duration_minutes = (executors_df['timestamp'].iloc[-1] - executors_df['timestamp'].iloc[0]).total_seconds() / 60
-            avg_trading_time_minutes = (pd.to_datetime(executors_df['close_time']) - executors_df['timestamp']).dt.total_seconds() / 60
+            duration_minutes = (executors_df["timestamp"].iloc[-1] - executors_df["timestamp"].iloc[0]).total_seconds() / 60
+            avg_trading_time_minutes = (pd.to_datetime(executors_df["close_time"]) - executors_df["timestamp"]).dt.total_seconds() / 60
             avg_trading_time = avg_trading_time_minutes.mean()
 
             return {
