@@ -28,7 +28,7 @@ if os.environ.get('WITHOUT_CYTHON_OPTIMIZATIONS'):
 IS_PY_DEBUG = os.getenv('EXT_BUILD_PY_DEBUG', False)
 
 coverage_macros = []
-coverage_compiler_directives = dict()
+coverage_compiler_directives = {}
 coverage_include_path = []
 
 if IS_PY_DEBUG:
