@@ -475,7 +475,7 @@ cdef class BitfinexExchange(ExchangeBase):
                               http_method: str,
                               url,
                               headers,
-                              data_str: Optional[str, list] = None) -> list:
+                              data_str: Any | None = None) -> List | None:
         """
         A wrapper for submitting API requests to Bitfinex
         :returns: json data from the endpoints

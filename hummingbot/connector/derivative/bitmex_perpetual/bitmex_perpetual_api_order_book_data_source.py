@@ -280,7 +280,7 @@ class BitmexPerpetualAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         snapshot_timestamp: float = time.time()
         snapshot_msg: OrderBookMessage = BitmexPerpetualOrderBook.snapshot_message_from_exchange(
-            snapshot_dict, snapshot_timestamp, metadata={"trading_pair": trading_pair}
+            snapshot_dict, int(snapshot_timestamp), metadata={"trading_pair": trading_pair}
         )
         order_book = self.order_book_create_function()
         order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)

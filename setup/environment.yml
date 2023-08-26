@@ -4,27 +4,30 @@ channels:
   - defaults
 dependencies:
   ### Packages needed for the build/install process
-  - coverage>=7.2.7
-  # - cython=0.29.35
+  - coverage>=7.3.0
+  - cython>=3.0.1
   - flake8>=6.1.0
   - diff-cover>=7.7.0
   - nose>=1.3.7
   - nose-exclude>=0.5.0
   - pip>=23.2.1
   - pre-commit>=3.3.3
-  - python>=3.10,<3.11
+  - python>=3.10.12,<3.11
   - pytest>=7.4.0
-  - setuptools>=68.0.0
+  - setuptools>=68.1.2
   ### Packages used within HB and helping reduce the footprint of pip-installed packages
   - aiohttp>=3.8.5
   - asyncssh>=2.13.2
   - aiounittest>=1.4.2
-  - async-timeout>=4.0.2
+  - async-timeout>=4.0.3
+  - backoff  # PolkaDex
   - bidict>=0.22.1
   - cachetools>=5.3.1
-  - cryptography>=41.0.2
-  - numpy>=1.25.0
-  - numpy-base>=1.25.0
+  - cryptography>=41.0.3
+  - cytoolz>=0.12.2
+  # - gql-with-aiohttp>=3.8.5  # PolkaDex
+  - numpy>=1.25.2
+  - numpy-base>=1.25.2
   - pandas>=2.0.3
   - pandas-ta>=0.3.14b
   - prompt_toolkit>=3.0.39
@@ -35,7 +38,7 @@ dependencies:
   - pyperclip>=1.8.2
   - requests>=2.31.0
   - ruamel.yaml>=0.17.32
-  - scipy>=1.11.1
+  - scipy>=1.11.2
   - six>=1.16.0
   - sqlalchemy>=1.4.49,<1.4.99
   - tabulate>=0.9.0
@@ -53,7 +56,7 @@ dependencies:
   - pika>=1.3.1
   #
   ## Packages for docker
-  - websocket-client>=1.6.1
+  - websocket-client>=1.6.2
   #
   ### Packages for dydx-v3-python - Need to make sure we don't require a package that creates a fictitious conflict
   - backports.zoneinfo>=0.2.1
@@ -61,31 +64,32 @@ dependencies:
   - dateparser>=1.1.8
   - ecdsa>=0.18.0
   - eth-account>=0.8.0
-  - importlib-resources>=6.0.0
+  - importlib-resources>=6.0.1
   - ipfshttpclient>=0.8.0a2
-  - jsonschema>=4.18.6
+  - jsonschema>=4.19.0
   - lru-dict>=1.2.0
   - mpmath>=1.3.0
   - pkgutil-resolve-name>=1.3.10
   - pyrsistent>=0.19.3
   - sympy>=1.12
   # This creates major conflicts and long resolution time
-  - web3>=6.7.0
+  - web3>=6.8.0
   #
   ## Packages for ethsnarks-loopring
-  - bitstring>=4.0.2
+  - bitstring>=4.1.1
   - pyblake2>=1.1.2
   #
   ## Packages for injective-py
   - aiocron>=1.8
   - asn1crypto>=1.5.1
-  - grpcio>=1.56.2
+  - dataclassy>=1.0.1
+  - grpcio>=1.57.0
   - grpcio-tools>=1.54.2
   - mnemonic>=0.20
   #
   ## Packages for python-telegram-bot
   - future>=0.18.3
-  - tornado>=6.3.2
+  - tornado>=6.3.3
   #
   ### Packages required by pip packages that are not available on conda-forge/defaults
   ### These are installed via pip --no-deps to prevent them overriding the conda

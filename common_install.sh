@@ -282,13 +282,20 @@ _update_package_version() {
 
   awk -v pkg="$package" -v ver="$version" -v upper_ver="$upper_version" '
   {
-    sub(pkg ">=?[^ ,]*", "") # Remove existing version constraints
-    if (pkg && ver && upper_ver) {
-      print pkg ">=" ver ",<" upper_ver
-    } else if (pkg && ver) {
-      print pkg ">=" ver
+    if ($0 ~ "(^[[:space:]-])" pkg "([[:space:]=<>]|$)" && $0 !~ ":") { # If the line contains the package name
+      pre = substr($0, 1, index($0, pkg) - 1)  # Capture the beginning of the line
+      #sub("([[:space:]-])" pkg "([>=<[:space:]][0-9\.a-z]*)?", "\1")  # Remove existing version constraints
+      #post = substr($0, index($0, pkg) + length(pkg))  # Capture the rest of the line
+
+      if (pkg && ver && upper_ver) {
+        print pre pkg ">=" ver ",<" upper_ver
+      } else if (pkg && ver) {
+        print pre pkg ">=" ver
+      } else {
+        print $0 # Print line unchanged
+      }
     } else {
-      print $0 # Print line unchanged
+      print $0  # Print line unchanged
     }
   }' "$temp_file" > "${temp_file}.tmp" && mv "${temp_file}.tmp" "$temp_file"
 }
@@ -304,23 +311,29 @@ update_environment_yml() {
 
   local temp_file="$install_dir/env.yml"
 
-  cp "$env_file" "$temp_file"
+  cat "$env_file" > "$temp_file"
+  cp "$env_file" /tmp/tmp.yml
 
   # Loop over the dependencies in the exported environment
-  grep -P "^\s+-" "$env_file" | while read -r line; do
+  grep -P "^\s+-" "$env_file" | grep -v ":" | while read -r line; do
     # Extract the package name and version
     local package=$(echo "$line" | sed -e 's/^ *- *//' | awk -F "[<>=]" '{print $1}' | xargs)
     local upper_version=$(echo "$line" | awk -F "<" '{print $2}' | xargs)
 
     # Grab the latest version of the package from conda
-    local version=$(grep -P "${package}=" "$export_file" | grep -v : | tail -n1 | awk -F "[=]" '{print $2}' | xargs)
-    # echo "  '-> Found >${package}< ${version}" >&2
+    local version=$(grep -P "^\s+-\s+${package}=" "$export_file" | grep -v : | tail -n1 | awk -F "[=]" '{print $2}' | xargs)
+
+    if [ -z "${version}" ]; then
+      # echo "No version found for ${package}" >&2
+      continue
+    fi
 
     # Update the version in the environment.yml file
     _update_package_version "$temp_file" "${package}" "${version}" "${upper_version}"
   done
 
   mv "$temp_file" "$updated_file"
+  echo >&2
   echo "Updated $updated_file with installed versions" >&2
 }
 
@@ -334,11 +347,3 @@ if [ "$1" == "--test" ]; then
   $test_function "${@:3}"
   exit 0
 fi
-
-# Usage examples:
-
-# conda_exe=$(find_conda_exe <ENVIRONMENT_VARIABLE>)
-# get_env_file "<setup dir>/$env_file"
-# get_env_name "<setup dir>/$env_file"
-# check_env_name "$conda_exe" "$env_file" "$conda_agent"
-# verify_pip_packages
