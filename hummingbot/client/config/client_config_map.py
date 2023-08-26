@@ -388,6 +388,11 @@ class AutofillImportEnum(str, ClientConfigEnum):
     disabled = "disabled"
 
 
+class AutofillImportBool(str, ClientConfigEnum):
+    true = "true"
+    false = "false"
+
+
 class TelegramMode(BaseClientModel, ABC):
     @abstractmethod
     def get_notifiers(self, hb: "HummingbotApplication") -> List[TelegramNotifier]:
@@ -852,7 +857,10 @@ class ClientConfigMap(BaseClientModel):
     )
     fetch_pairs_from_all_exchanges: bool = Field(
         default=False,
-        description="Fetch trading pairs from all exchanges if True, otherwise only from configured exchanges."
+        description="Fetch trading pairs from all exchanges if True, otherwise only from configured exchanges.",
+        client_data=ClientFieldData(
+            prompt=lambda cm: f"Where would you like to trading pairs from all exchanges? ({'/'.join(list(AutofillImportBool))})",
+        ),
     )
     log_level: str = Field(default="INFO")
     debug_console: bool = Field(default=False)
@@ -1052,6 +1060,12 @@ class ClientConfigMap(BaseClientModel):
     def validate_autofill_import(cls, v: Union[str, AutofillImportEnum]):
         if isinstance(v, str) and v not in AutofillImportEnum.__members__:
             raise ValueError(f"The value must be one of {', '.join(list(AutofillImportEnum))}.")
+        return v
+
+    @validator("fetch_pairs_from_all_exchanges", pre=True)
+    def validate_fetch_pairs_from_all_exchanges(cls, v: Union[str, AutofillImportBool]):
+        if isinstance(v, str) and v not in AutofillImportBool.__members__:
+            raise ValueError(f"The value must be one of {', '.join(list(AutofillImportBool))}.")
         return v
 
     @validator("telegram_mode", pre=True)
