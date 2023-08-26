@@ -389,8 +389,8 @@ class AutofillImportEnum(str, ClientConfigEnum):
 
 
 class AutofillImportBool(str, ClientConfigEnum):
-    true = "true"
-    false = "false"
+    true = "true" or "True"
+    false = "false" or "False"
 
 
 class TelegramMode(BaseClientModel, ABC):
@@ -1062,7 +1062,7 @@ class ClientConfigMap(BaseClientModel):
             raise ValueError(f"The value must be one of {', '.join(list(AutofillImportEnum))}.")
         return v
 
-    @validator("fetch_pairs_from_all_exchanges", pre=True)
+    @validator("fetch_pairs_from_all_exchanges", pre=False)
     def validate_fetch_pairs_from_all_exchanges(cls, v: Union[str, AutofillImportBool]):
         if isinstance(v, str) and v not in AutofillImportBool.__members__:
             raise ValueError(f"The value must be one of {', '.join(list(AutofillImportBool))}.")
