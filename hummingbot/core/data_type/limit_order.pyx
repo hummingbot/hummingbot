@@ -8,6 +8,7 @@ import pandas as pd
 from cpython cimport PyObject
 from libcpp.string cimport string
 
+from hummingbot.core.data_type.common import PositionAction, OrderType
 from hummingbot.core.event.events import LimitOrderStatus
 
 cdef class LimitOrder:
@@ -65,12 +66,14 @@ cdef class LimitOrder:
                  quantity: Decimal,
                  filled_quantity: Decimal = Decimal("NaN"),
                  creation_timestamp: int = 0,
-                 status: LimitOrderStatus = LimitOrderStatus.UNKNOWN):
+                 status: LimitOrderStatus = LimitOrderStatus.UNKNOWN,
+                 position: PositionAction = PositionAction.NIL):
         cdef:
             string cpp_client_order_id = client_order_id.encode("utf8")
             string cpp_trading_pair = trading_pair.encode("utf8")
             string cpp_base_currency = base_currency.encode("utf8")
             string cpp_quote_currency = quote_currency.encode("utf8")
+            string cpp_position = position.value.encode("utf8")
         self._cpp_limit_order = CPPLimitOrder(cpp_client_order_id,
                                               cpp_trading_pair,
                                               is_buy,
@@ -80,7 +83,8 @@ cdef class LimitOrder:
                                               <PyObject *> quantity,
                                               <PyObject *> filled_quantity,
                                               creation_timestamp,
-                                              status.value)
+                                              status.value,
+                                              cpp_position)
 
     @property
     def client_order_id(self) -> str:
@@ -134,6 +138,13 @@ cdef class LimitOrder:
     def status(self) -> LimitOrderStatus:
         return LimitOrderStatus(self._cpp_limit_order.getStatus())
 
+    @property
+    def position(self) -> PositionAction:
+        cdef:
+            string cpp_position = self._cpp_limit_order.getPosition()
+            str retval = cpp_position.decode("utf8")
+        return PositionAction(retval)
+
     cdef long long c_age_til(self, long long end_timestamp):
         """
         Calculates and returns age of the order since it was created til end_timestamp in seconds
@@ -161,6 +172,24 @@ cdef class LimitOrder:
 
     def age_til(self, start_timestamp: int) -> int:
         return self.c_age_til(start_timestamp)
+
+    def order_type(self) -> OrderType:
+        return OrderType.LIMIT
+
+    def copy_with_id(self, client_order_id: str):
+        return LimitOrder(
+            client_order_id=client_order_id,
+            trading_pair=self.trading_pair,
+            is_buy=self.is_buy,
+            base_currency=self.base_currency,
+            quote_currency=self.quote_currency,
+            price=self.price,
+            quantity=self.quantity,
+            filled_quantity=self.filled_quantity,
+            creation_timestamp=self.creation_timestamp,
+            status=self.status,
+            position=self.position,
+        )
 
     def __repr__(self) -> str:
         return (f"LimitOrder('{self.client_order_id}', '{self.trading_pair}', {self.is_buy}, '{self.base_currency}', "
