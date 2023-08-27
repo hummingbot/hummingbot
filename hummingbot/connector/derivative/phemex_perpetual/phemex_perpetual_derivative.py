@@ -87,7 +87,7 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def client_order_id_prefix(self) -> str:
-        return CONSTANTS.HB_PARTNER_ID
+        return ""
 
     @property
     def trading_rules_request_path(self) -> str:
