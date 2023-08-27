@@ -859,7 +859,7 @@ class ClientConfigMap(BaseClientModel):
         default=False,
         description="Fetch trading pairs from all exchanges if True, otherwise only from configured exchanges.",
         client_data=ClientFieldData(
-            prompt=lambda cm: f"Where would you like to fetch trading pairs from all exchanges? ({'/'.join(list(AutofillImportBool))})",
+            prompt=lambda cm: f"Would you like to fetch trading pairs from all exchanges? ({'/'.join(list(AutofillImportBool))})",
         ),
     )
     log_level: str = Field(default="INFO")
