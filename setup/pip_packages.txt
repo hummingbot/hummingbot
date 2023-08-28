@@ -4,6 +4,7 @@ bech32==1.2.0
 bip32==3.4
 coincurve==18.0.0
 commlib-py==0.10.7
+cython==3.0.0a10
 docker==6.0.1
 dydx-v3-python==2.0.1
 eip712
