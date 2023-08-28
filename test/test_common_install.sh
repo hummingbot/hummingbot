@@ -514,7 +514,7 @@ test_get_env_name() {
   rm -rf "${test_dir}"
 }
 
-test__update_package_version() {
+_test__update_package_version() {
   local package="$1"
   local version="$2"
   local upper_version="$3"
@@ -525,10 +525,10 @@ test__update_package_version() {
   temp_file=$(mktemp)
 
   # Add the package to the file without any version constraint
-  echo "$package" > "$temp_file"
+  echo "  - $package" > "$temp_file"
 
   # Update the version using the function
-  _update_package_version "$temp_file" "$package" "$version" "$upper_version" "$old_version"
+  _update_package_version "$temp_file" "$package" "$version" "$upper_version"
 
   # Check that the output is as expected
   output=$(cat "$temp_file")
@@ -540,6 +540,25 @@ test__update_package_version() {
 
   # Clean up
   rm "$temp_file"
+}
+# Test _update_package_version
+test__update_package_version()
+{
+  _test__update_package_version "urllib3" "1.26.6" "2.0" "" "  - urllib3>=1.26.6,<2.0"
+  _test__update_package_version "urllib3" "1.26.6" "" "  - urllib3>=1.26.6"
+}
+
+test_get_env_var(){
+  local env_var="USE_MAMBA"
+  local expected="yes"
+  local result=$(get_env_var "${env_var}" "${expected}")
+  if [[ "${result}" != "${expected}" ]]; then
+    echo "test_get_env_var failed"
+    echo "  Expected: ${expected}"
+    echo "  Got: ${result}"
+  else
+    echo "test_get_env_var passed"
+  fi
 }
 
 # Run tests
@@ -553,9 +572,8 @@ test__update_package_version() {
 # test__select_index_from_list
 # test_get_env_file
 # test_get_env_name
-test__update_package_version "urllib3" "1.26.6" "2.0" "" "urllib3>=1.26.6,<2.0"
-test__update_package_version "urllib3" "1.26.6" "" "old_version" "urllib3>=1.26.6"
-test__update_package_version "urllib3" "1.26.6" "" "" "urllib3>=1.26.6"
+# _test__update_package_version "urllib3" "1.26.6" "2.0" "" "  - urllib3>=1.26.6,<2.0"
+# _test__update_package_version "urllib3" "1.26.6" "" "  - urllib3>=1.26.6"
 
 run_test_cases_common_install() {
   echo "Running test cases for common_install.sh..."
@@ -584,43 +602,55 @@ run_test_cases_common_install() {
     exit 1
   fi
 
-  test_find_conda_exe 2> /dev/null >1 /dev/null
+  test_find_conda_exe 2> /dev/null
   if [ $? -ne 0 ]; then
     echo "FAIL: test_find_conda_exe"
     exit 1
   fi
 
-  test__verify_path 2> /dev/null >1 /dev/null
+  test__verify_path 2> /dev/null
   if [ $? -ne 0 ]; then
     echo "FAIL: test__verify_path"
     exit 1
   fi
 
-  test__list_files_on_pattern 2> /dev/null >1 /dev/null
+  test__list_files_on_pattern 2> /dev/null
   if [ $? -ne 0 ]; then
     echo "FAIL: test__list_files_on_pattern"
     exit 1
   fi
 
-  test__select_index_from_list 2> /dev/null >1 /dev/null
+  test__select_index_from_list 2> /dev/null
   if [ $? -ne 0 ]; then
     echo "FAIL: test__select_index_from_list"
     exit 1
   fi
 
-  test_get_env_file 2> /dev/null >1 /dev/null
+  test_get_env_file 2> /dev/null
   if [ $? -ne 0 ]; then
     echo "FAIL: test_get_env_file"
     exit 1
   fi
 
-  test_get_env_name 2> /dev/null >1 /dev/null
+  test_get_env_name 2> /dev/null
   if [ $? -ne 0 ]; then
     echo "FAIL: test_get_env_name"
     exit 1
   fi
 
-  echo "PASS: all test cases for hummingbot-start.sh"
+  test__update_package_version 2> /dev/null
+  if [ $? -ne 0 ]; then
+    echo "FAIL: test__update_package_version"
+    exit 1
+  fi
+
+  test_get_env_var 2> /dev/null
+  if [ $? -ne 0 ]; then
+    echo "FAIL: test_get_env_var"
+    exit 1
+  fi
+
+  echo "PASS: all test cases for common_install.sh"
 }
 
 run_test_cases_common_install

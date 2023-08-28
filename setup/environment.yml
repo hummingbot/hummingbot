@@ -5,7 +5,7 @@ channels:
 dependencies:
   ### Packages needed for the build/install process
   - coverage>=7.2.7
-  # - cython=0.29.35
+  - cython=3.0.0a10
   - flake8>=6.1.0
   - diff-cover>=7.7.0
   - nose>=1.3.7
@@ -20,9 +20,12 @@ dependencies:
   - asyncssh>=2.13.2
   - aiounittest>=1.4.2
   - async-timeout>=4.0.2
+  - backoff
   - bidict>=0.22.1
   - cachetools>=5.3.1
   - cryptography>=41.0.2
+  - cytoolz>=0.12.1
+  - gql-with-aiohttp
   - numpy>=1.25.0
   - numpy-base>=1.25.0
   - pandas>=2.0.3
@@ -42,7 +45,8 @@ dependencies:
   - ujson>=5.7.0
   # This needs to be restricted to <2.0 - tests fail otherwise
   - urllib3>=1.26.15,<2.0
-  - websockets>=11.0.3
+  # Latest version causes major conflict resolution issues
+  - websockets>=10,<11
   - yaml>=0.2.5
   - zlib>=1.2.13
   ### Packages required by pip packages that are available on conda-forge/defaults
@@ -79,9 +83,14 @@ dependencies:
   ## Packages for injective-py
   - aiocron>=1.8
   - asn1crypto>=1.5.1
+  - dataclassy
   - grpcio>=1.56.2
   - grpcio-tools>=1.54.2
   - mnemonic>=0.20
+  #
+  ## Packages for substrateinterface
+  - python-xxhash
+  - pynacl
   #
   ## Packages for python-telegram-bot
   - future>=0.18.3
