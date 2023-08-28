@@ -854,7 +854,7 @@ class ClientConfigMap(BaseClientModel):
         default=False,
         description="Fetch trading pairs from all exchanges if True, otherwise fetch only from connected exchanges.",
         client_data=ClientFieldData(
-            prompt=lambda cm: "Would you like to fetch trading pairs from all exchanges? (True/False)",
+            prompt=lambda cm: "Would you like to fetch from all exchanges? (True/False)",
         ),
     )
     log_level: str = Field(default="INFO")
