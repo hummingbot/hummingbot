@@ -389,8 +389,8 @@ class AutofillImportEnum(str, ClientConfigEnum):
 
 
 class AutofillImportBool(str, ClientConfigEnum):
-    true = "true" or "True"
-    false = "false" or "False"
+    true = "true"
+    false = "false"
 
 
 class TelegramMode(BaseClientModel, ABC):
@@ -1056,12 +1056,6 @@ class ClientConfigMap(BaseClientModel):
             sub_model = KILL_SWITCH_MODES[v].construct()
         return sub_model
 
-    @validator("fetch_pairs_from_all_exchanges", pre=True)
-    def validate_fetch_pairs_from_all_exchanges(cls, v: Union[str, AutofillImportBool]):
-        if isinstance(v, str) and v not in AutofillImportBool.__members__:
-            raise ValueError(f"The value must be one of {', '.join(list(AutofillImportBool))}.")
-        return v
-
     @validator("autofill_import", pre=True)
     def validate_autofill_import(cls, v: Union[str, AutofillImportEnum]):
         if isinstance(v, str) and v not in AutofillImportEnum.__members__:
@@ -1080,7 +1074,9 @@ class ClientConfigMap(BaseClientModel):
             sub_model = TELEGRAM_MODES[v].construct()
         return sub_model
 
-    @validator("send_error_logs", pre=True)
+    @validator("send_error_logs",
+               "fetch_pairs_from_all_exchanges",
+               pre=True)
     def validate_bool(cls, v: str):
         """Used for client-friendly error output."""
         if isinstance(v, str):
