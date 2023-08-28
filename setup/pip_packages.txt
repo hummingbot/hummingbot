@@ -6,6 +6,7 @@ coincurve==18.0.0
 commlib-py==0.10.7
 docker==6.0.1
 dydx-v3-python==2.0.1
+eip712
 eip712-structs==1.1.0
 ethsnarks-loopring==0.1.5
 hdwallets==0.1.2
