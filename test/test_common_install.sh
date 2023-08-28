@@ -16,11 +16,12 @@ test__find_conda() {
   # Run the function and check the result
   local result=$(_find_conda_in_dir "${test_dir}")
   if [[ "$result" == "" ]]; then
-      echo "test_find_github_conda 'activate' not found: passed"
+    echo "test_find_github_conda 'activate' not found: passed"
   else
-      echo "test_find_github_conda passed"
-      echo "   Expected: "
-      echo "        Got: ${result}"
+    echo "test_find_github_conda passed"
+    echo "   Expected: "
+    echo "        Got: ${result}"
+    return 1
   fi
 
   # With activate exists, not necessarily executable
@@ -28,11 +29,12 @@ test__find_conda() {
 
   local result=$(_find_conda_in_dir "${test_dir}")
   if [[ "$result" == "${conda_dir}/conda" ]]; then
-      echo "test_find_github_conda with 'activate': passed"
+    echo "test_find_github_conda with 'activate': passed"
   else
-      echo "test_find_github_conda passed"
-      echo "   Expected: ${conda_dir}/conda"
-      echo "        Got: ${result}"
+    echo "test_find_github_conda passed"
+    echo "   Expected: ${conda_dir}/conda"
+    echo "        Got: ${result}"
+    return 1
   fi
 
   # Not exec
@@ -40,11 +42,12 @@ test__find_conda() {
 
   local result=$(_find_conda_in_dir "${test_dir}")
   if [[ "$result" == "" ]]; then
-      echo "test_find_github_conda not exec: passed"
+    echo "test_find_github_conda not exec: passed"
   else
-      echo "test_find_github_conda passed"
-      echo "   Expected: "
-      echo "        Got: ${result}"
+    echo "test_find_github_conda passed"
+    echo "   Expected: "
+    echo "        Got: ${result}"
+    return 1
   fi
 
   # Max depth 5
@@ -59,15 +62,59 @@ test__find_conda() {
   # Run the function and check the result
   local result=$(_find_conda_in_dir "${test_dir}")
   if [[ "$result" == "" ]]; then
-      echo "test_find_github_conda maxdepth 5: passed"
+    echo "test_find_github_conda maxdepth 5: passed"
   else
-      echo "test_find_github_conda failed"
-      echo "   Expected: "
-      echo "        Got: ${result}"
+    echo "test_find_github_conda failed"
+    echo "   Expected: "
+    echo "        Got: ${result}"
+    return 1
   fi
 
   # Clean up the test environment
   rm -rf "${test_dir}"
+}
+
+# Tests for _find_conda_in_paths
+test__find_conda_in_dir() {
+  # Set up the test environment
+  local test_dir1=$(mktemp -d)
+
+  mkdir -p "${test_dir1}"/conda_dir
+  touch "${test_dir1}"/conda_dir/{conda,activate}
+  # Third dir does not have an executable 'conda'
+  chmod +x "${test_dir1}"/conda_dir/conda
+
+  # Run the function and capture the output
+  result=$(_find_conda_in_dir "${test_dir1}" 2) 2> /dev/null
+
+  # Check the result
+  if [[ "${result}" != "${test_dir1}/conda_dir/conda" ]]; then
+    echo "test_find_conda_in_paths failed"
+    echo "  Expected: ${test_dir1}/conda_dir/conda"
+    echo "  Got: ${result}"
+    return 1
+  else
+    echo "test_find_conda_in_dir passed"
+  fi
+
+  # Clean up the test environment
+  rm -rf "${test_dir1}"
+}
+
+# Tests for _find_conda_in_paths
+test__find_conda_in_dir_miniconda() {
+  # Run the function and capture the output
+  result=$(_find_conda_in_dir "/usr/share/miniconda/bin" 2) 2> /dev/null
+
+  # Check the result
+  if [[ ! -z "${result}" ]]; then
+    echo "test_find_conda_in_paths failed"
+    echo "  Expected: ><"
+    echo "  Got: >${result}<"
+    return 1
+  else
+    echo "test_find_conda_in_dir_miniconda passed"
+  fi
 }
 
 # Tests for _find_conda_in_paths
@@ -90,6 +137,7 @@ test__find_conda_in_paths() {
     echo "test_find_conda_in_paths failed"
     echo "  Expected: ${test_dir1}/conda_dir/conda ${test_dir2}/conda_dir/conda"
     echo "  Got: ${result}"
+    return 1
   else
     echo "test_find_conda_in_paths passed"
   fi
@@ -98,9 +146,8 @@ test__find_conda_in_paths() {
   rm -rf "${test_dir1}" "${test_dir2}" "${test_dir3}"
 }
 
-
-# Test _find_latest_conda_version
-test_find_latest_conda_version() {
+# Test _find_latest_conda_version - Wrapped in subshell due to mocked functions
+test_find_latest_conda_version() ({
   mock_conda() {
     local version=$1
     shift
@@ -108,7 +155,7 @@ test_find_latest_conda_version() {
       echo "{\"conda_version\": \"${version}\"}"
     else
       echo "Unexpected command: $@" >&2
-      exit 1
+      return 1
     fi
   }
 
@@ -132,6 +179,7 @@ test_find_latest_conda_version() {
     echo "test_find_latest_conda_version failed"
     echo "  Expected: ${test_dir3}/conda"
     echo "  Got: ${result}"
+    return 1
   else
     echo "test_find_latest_conda_version passed"
   fi
@@ -146,6 +194,7 @@ test_find_latest_conda_version() {
     echo "test_find_latest_conda_version non-executable conda: failed"
     echo "  Expected: ${test_dir2}/conda"
     echo "  Got: ${result}"
+    return 1
   else
     echo "test_find_latest_conda_version non-executable conda: passed"
   fi
@@ -160,6 +209,7 @@ test_find_latest_conda_version() {
     echo "test_find_latest_conda_version empty version: failed"
     echo "  Expected: ${test_dir21}/conda"
     echo "  Got: ${result}"
+    return 1
   else
     echo "test_find_latest_conda_version empty version: passed"
   fi
@@ -167,91 +217,76 @@ test_find_latest_conda_version() {
 
   # Clean up the test environment
   rm -rf "${test_dir1}" "${test_dir2}" "${test_dir3}"
-}
+})
 
-test_find_conda_exe_in_github() {
-  MOCKED_GITHUB_DIR=$(mktemp -d)
-  echo -e '#!/bin/bash\nmock_conda "1.2.3" "$@"' > "${MOCKED_GITHUB_DIR}"/conda
-  touch "${MOCKED_GITHUB_DIR}"/activate
-
+test_find_conda_exe_in_github_miniconda() ({
   _find_conda_in_dir() {
     local path=$1
-    if [[ "${path}" == "/home/runner" ]]; then
-      echo "${MOCKED_GITHUB_DIR}/conda"
-    else
+    if [[ "${path}" == "/usr/share/miniconda/bin" ]]; then
+      # find_conda_exe has a shortcut for the github workflow
       echo "${path}/conda"
-    fi
-  }
-
-  export MOCKED_GITHUB_DIR
-  export -f _find_conda_in_dir
-
-  mock_conda() {
-    local version=$1
-    shift
-    if [[ "$1" == "info" && "$2" == "--json" ]]; then
-      echo "{\"conda_version\": \"${version}\"}"
     else
-      echo "Unexpected command: $@" >&2
-      exit 1
+      return 1
     fi
   }
 
-  export -f mock_conda
+  _find_conda_in_paths() {
+    return 1
+  }
 
-  # Setup some mock conda directories and versions
-  local test_dir1=$(mktemp -d)
-  local test_dir2=$(mktemp -d)
-  local test_dir3=$(mktemp -d)
+  _find_latest_conda_version() {
+    return 1
+  }
 
-  # Create conda and activate files
-  echo -e '#!/bin/bash\nmock_conda "1.2.3" "$@"' > "${test_dir1}"/conda
-  echo -e '#!/bin/bash\nmock_conda "1.2.4" "$@"' > "${test_dir2}"/conda
-  echo -e '#!/bin/bash\nmock_conda "1.2.5" "$@"' > "${test_dir3}"/conda
-  touch "${test_dir1}"/activate
-  touch "${test_dir2}"/activate
-  touch "${test_dir3}"/activate
-
-  chmod +x "${test_dir1}"/conda "${test_dir2}"/conda "${test_dir3}"/conda
+  export -f _find_conda_in_dir
+  export -f _find_conda_in_paths
+  export -f _find_latest_conda_version
 
   # Run the function and capture the output
-  local _CONDA_PATH="$CONDA_PATH"
-  local _CONDA_EXE="$CONDA_EXE"
-  unset CONDA_PATH
-  unset CONDA_EXE
   conda_exe=$(find_conda_exe)
-  export CONDA_PATH="$_CONDA_PATH"
-  export CONDA_EXE="$_CONDA_EXE"
 
   # Check the result - This should output the "/home/runner/conda" file
-  if [[ "${conda_exe}" != "${MOCKED_GITHUB_DIR}/conda" ]]; then
+  if [[ "${conda_exe}" != "/usr/share/miniconda/bin/conda" ]]; then
     echo "test_find_conda_exe failed"
-    echo "  Expected: ${MOCKED_GITHUB_DIR}/conda"
+    echo "  Expected: /usr/share/miniconda/bin/conda"
     echo "  Got: ${conda_exe}"
+    return 1
   else
-    echo "test_find_conda_exe passed"
+    echo "test_find_conda_exe_in_github_miniconda passed"
   fi
 
   # Clean up the test environment
-  rm -rf "${test_dir1}" "${test_dir2}" "${test_dir3}"
   unset -f _find_conda_in_dir
-}
+  unset -f _find_conda_in_paths
+  unset -f _find_latest_conda_version
+})
 
-test_find_conda_exe() {
+test_find_conda_exe() ({
+  _find_conda_in_dir() {
+    local path=$1
+    if [[ "${path}" == "/usr/share/miniconda/bin" ]]; then
+      # find_conda_exe has a shortcut for the github workflow
+      return
+    else
+      return 1
+    fi
+  }
+
   _find_conda_in_paths() {
-    if [ $# -ge 5 ]  # ~/.conda /opt/conda/bin /usr/share /usr/local /root/*conda*/bin + paths
+    if [ $# -ge 4 ]  # /usr/share/*conda* /usr/local /opt /root/*conda* + paths
     then
       paths=()
-      for ((i=5; i<${#}; i++)); do
+      for ((i=4; i<${#}; i++)); do
         paths+="${@:i+1:1}/conda"
       done
       echo "${test_dir1}/conda ${test_dir2}/conda ${test_dir3}/conda ${paths[@]}"
     else
       echo "Unexpected input: $@" >&2
-      exit 1
+      return 1
     fi
   }
 
+  export -f _find_conda_in_dir
   export -f _find_conda_in_paths
 
   mock_conda() {
@@ -261,7 +296,7 @@ test_find_conda_exe() {
       echo "{\"conda_version\": \"${version}\"}"
     else
       echo "Unexpected command: $@" >&2
-      exit 1
+      return 1
     fi
   }
 
@@ -295,9 +330,10 @@ test_find_conda_exe() {
 
   # Check the result
   if [[ "${conda_exe}" != "${test_dir3}/conda" ]]; then
-    echo "test_find_conda_exe failed"
+    echo "test_find_conda_exe with several conda paths: failed"
     echo "  Expected: ${test_dir3}/conda"
     echo "  Got: ${conda_exe}"
+    return 1
   else
     echo "test_find_conda_exe with several conda paths: passed"
   fi
@@ -315,16 +351,17 @@ test_find_conda_exe() {
   local _CONDA_PATH="$CONDA_PATH"
   local _CONDA_EXE="$CONDA_EXE"
   unset CONDA_EXE
-  CONDA_PATH="${conda_path_dir}"
+  export CONDA_PATH="${conda_path_dir}"
   conda_path=$(find_conda_exe)
   export CONDA_PATH="$_CONDA_PATH"
   export CONDA_EXE="$_CONDA_EXE"
 
   # Check the result
   if [[ "${conda_path}" != "${conda_path_dir}/conda" ]]; then
-    echo "test_find_conda_exe failed"
+    echo "test_find_conda_exe with higher conda CONDA_PATH: failed"
     echo "  Expected: ${conda_path_dir}/conda"
     echo "  Got: ${conda_path}"
+    return 1
   else
     echo "test_find_conda_exe with higher conda CONDA_PATH: passed"
   fi
@@ -344,17 +381,19 @@ test_find_conda_exe() {
 
   # Check the result
   if [[ "${conda_exe}" != "${conda_exe_dir}/conda" ]]; then
-    echo "test_find_conda_exe failed"
+    echo "est_find_conda_exe with higher conda CONDA_EXE: failed"
     echo "  Expected: ${conda_exe_dir}/conda"
     echo "  Got: ${conda_exe}"
+    return 1
   else
     echo "test_find_conda_exe with higher conda CONDA_EXE: passed"
   fi
 
   # Clean up the test environment
   rm -rf "${test_dir1}" "${test_dir2}" "${test_dir3}" "${conda_exe_dir}" "${conda_path_dir}"
+  unset -f _find_conda_in_dir
   unset -f _find_conda_in_paths
-}
+})
 
 test__verify_path() {
   # Testing absolute path
@@ -364,7 +403,7 @@ test__verify_path() {
     echo "test__verify_path failed: absolute path test"
     echo "  Expected: ${abs_path}"
     echo "  Got: ${result}"
-    exit 1
+    return 1
   fi
 
   # Testing relative path
@@ -375,7 +414,7 @@ test__verify_path() {
     echo "test__verify_path failed: relative path test"
     echo "  Expected: ${expected_result}"
     echo "  Got: ${result}"
-    exit 1
+    return 1
   fi
 
   echo "test__verify_path passed"
@@ -405,25 +444,25 @@ test__list_files_on_pattern() {
 
   cd "${test_dir}" || exit
 
-  local files=($(_list_files_on_pattern "." ".txt" | sort))
+  local files=($(_list_files_on_pattern "." "*.txt" | sort))
   if ! element_in_array "file1.txt" "${files[@]}" ||
      ! element_in_array "file2.txt" "${files[@]}" ||
      ! element_in_array "file3.txt" "${files[@]}"; then
     echo "test__list_files_on_pattern failed"
     echo "  Expected: ${expected_files[@]}"
     echo "  Got: ${files[@]}"
-    exit 1
+    return 1
   fi
   cd "${initial_dir}" || exit
 
   # Providing path to directory
-  local files=($(_list_files_on_pattern "${test_dir}" ".txt"))
+  local files=($(_list_files_on_pattern "${test_dir}" "*.txt"))
   if ! element_in_array "file1.txt" "${files[@]}" ||
      ! element_in_array "file2.txt" "${files[@]}" ||
      ! element_in_array "file3.txt" "${files[@]}"; then
     echo "test__list_files_on_pattern failed"
     echo "  Expected files are missing in the output"
-    exit 1
+    return 1
   fi
 
   rm -rf "${test_dir}"
@@ -450,7 +489,7 @@ test__select_index_from_list() {
       __result=2
     else
       echo "Unexpected arguments to read: $*" >&2
-      exit 1
+      return 1
     fi
   }
 
@@ -461,7 +500,7 @@ test__select_index_from_list() {
     echo "test__select_index_from_list failed"
     echo "  Expected: 1"
     echo "  Got: ${selection}"
-    exit 1
+    return 1
   fi
 
   echo "test__select_index_from_list passed"
@@ -485,6 +524,7 @@ test_get_env_file() {
     echo "test_get_env_file failed"
     echo "  Expected: env1.yml"
     echo "  Got: ${result}"
+    return 1
   else
     echo "test_get_env_file passed"
   fi
@@ -506,6 +546,7 @@ test_get_env_name() {
     echo "test_get_env_name failed"
     echo "  Expected: test_env"
     echo "  Got: ${result}"
+    return 1
   else
     echo "test_get_env_name passed"
   fi
@@ -518,8 +559,7 @@ _test__update_package_version() {
   local package="$1"
   local version="$2"
   local upper_version="$3"
-  local old_version="$4"
-  local expected="$5"
+  local expected="$4"
 
   # Create a temporary file
   temp_file=$(mktemp)
@@ -536,36 +576,89 @@ _test__update_package_version() {
     echo "Test passed!"
   else
     echo "Test failed. Expected '$expected' but got '$output'"
+    return 1
   fi
 
   # Clean up
   rm "$temp_file"
 }
 # Test _update_package_version
-test__update_package_version()
-{
+test__update_package_version() {
   _test__update_package_version "urllib3" "1.26.6" "2.0" "" "  - urllib3>=1.26.6,<2.0"
   _test__update_package_version "urllib3" "1.26.6" "" "  - urllib3>=1.26.6"
 }
 
-test_get_env_var(){
+test_get_env_var()({
   local env_var="USE_MAMBA"
-  local expected="yes"
+  local expected="no"
+
+  unset USE_MAMBA
   local result=$(get_env_var "${env_var}" "${expected}")
   if [[ "${result}" != "${expected}" ]]; then
-    echo "test_get_env_var failed"
+    echo "test_get_env_var unset: failed"
     echo "  Expected: ${expected}"
     echo "  Got: ${result}"
+    return 1
   else
-    echo "test_get_env_var passed"
+    echo "test_get_env_var unset: passed"
   fi
-}
+
+  export USE_MAMBA="yes"
+  expected="yes"
+  local result=$(get_env_var "${env_var}" "${expected}")
+  if [[ "${result}" != "${expected}" ]]; then
+    echo "test_get_env_var set 'yes': failed"
+    echo "  Expected: ${expected}"
+    echo "  Got: ${result}"
+    return 1
+  else
+    echo "test_get_env_var set 'yes': passed"
+  fi
+
+  export USE_MAMBA=1
+  expected="yes"
+  local result=$(get_env_var "${env_var}" "${expected}")
+  if [[ "${result}" != "${expected}" ]]; then
+    echo "test_get_env_var set 1: failed"
+    echo "  Expected: ${expected}"
+    echo "  Got: ${result}"
+    return 1
+  else
+    echo "test_get_env_var set 1: passed"
+  fi
+
+  export USE_MAMBA=y
+  expected="yes"
+  local result=$(get_env_var "${env_var}" "${expected}")
+  if [[ "${result}" != "${expected}" ]]; then
+    echo "test_get_env_var set 'y': failed"
+    echo "  Expected: ${expected}"
+    echo "  Got: ${result}"
+    return 1
+  else
+    echo "test_get_env_var set 'y': passed"
+  fi
+
+  export USE_MAMBA=n
+  expected="no"
+  local result=$(get_env_var "${env_var}" "${expected}")
+  if [[ "${result}" != "${expected}" ]]; then
+    echo "test_get_env_var set 'n': failed"
+    echo "  Expected: ${expected}"
+    echo "  Got: ${result}"
+    return 1
+  else
+    echo "test_get_env_var set 'n': passed"
+  fi
+})
 
 # Run tests
 # test__find_conda
+# test__find_conda_in_dir
+# test__find_conda_in_dir_miniconda
 # test__find_conda_in_paths
 # test_find_latest_conda_version
-# test_find_conda_exe_in_github
+# test_find_conda_exe_in_github_miniconda
 # test_find_conda_exe
 # test__verify_path
 # test__list_files_on_pattern
@@ -574,6 +667,7 @@ test_get_env_var(){
 # test_get_env_name
 # _test__update_package_version "urllib3" "1.26.6" "2.0" "" "  - urllib3>=1.26.6,<2.0"
 # _test__update_package_version "urllib3" "1.26.6" "" "  - urllib3>=1.26.6"
+test_get_env_var
 
 run_test_cases_common_install() {
   echo "Running test cases for common_install.sh..."
@@ -596,55 +690,55 @@ run_test_cases_common_install() {
     exit 1
   fi
 
-  test_find_conda_exe_in_github 2> /dev/null >1 /dev/null
+  test_find_conda_exe_in_github_miniconda 2> /dev/null >1 /dev/null
   if [ $? -ne 0 ]; then
     echo "FAIL: test_find_conda_exe_in_github"
     exit 1
   fi
 
-  test_find_conda_exe 2> /dev/null
+  test_find_conda_exe 2> /dev/null 1> /dev/null
   if [ $? -ne 0 ]; then
     echo "FAIL: test_find_conda_exe"
     exit 1
   fi
 
-  test__verify_path 2> /dev/null
+  test__verify_path 2> /dev/null 1> /dev/null
   if [ $? -ne 0 ]; then
     echo "FAIL: test__verify_path"
     exit 1
   fi
 
-  test__list_files_on_pattern 2> /dev/null
+  test__list_files_on_pattern 2> /dev/null 1> /dev/null
   if [ $? -ne 0 ]; then
     echo "FAIL: test__list_files_on_pattern"
     exit 1
   fi
 
-  test__select_index_from_list 2> /dev/null
+  test__select_index_from_list 2> /dev/null 1> /dev/null
   if [ $? -ne 0 ]; then
     echo "FAIL: test__select_index_from_list"
     exit 1
   fi
 
-  test_get_env_file 2> /dev/null
+  test_get_env_file 2> /dev/null 1> /dev/null
   if [ $? -ne 0 ]; then
     echo "FAIL: test_get_env_file"
     exit 1
   fi
 
-  test_get_env_name 2> /dev/null
+  test_get_env_name 2> /dev/null 1> /dev/null
   if [ $? -ne 0 ]; then
     echo "FAIL: test_get_env_name"
     exit 1
   fi
 
-  test__update_package_version 2> /dev/null
+  test__update_package_version 2> /dev/null 1> /dev/null
   if [ $? -ne 0 ]; then
     echo "FAIL: test__update_package_version"
     exit 1
   fi
 
-  test_get_env_var 2> /dev/null
+  test_get_env_var 2> /dev/null 1> /dev/null
   if [ $? -ne 0 ]; then
     echo "FAIL: test_get_env_var"
     exit 1
