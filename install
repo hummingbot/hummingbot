@@ -16,10 +16,22 @@ ENV_FILE=$(get_env_file "${_ENV_DIR}/${ENV_FILE}") || exit 1
 
 ENV_NAME=$(get_env_name "${_ENV_DIR}/${ENV_FILE}")
 
+use_mamba=$(get_env_var "USE_MAMBA")
+
 if ${CONDA_EXE} env list | awk '{ print $1 }' | egrep -e "^${ENV_NAME}$" 1>/dev/null; then
+  if [ "$use_mamba" == "yes" ]; then
+    ${CONDA_EXE} install -n ${ENV_NAME} mamba -y
+    ${CONDA_EXE} run -n ${ENV_NAME} mamba env update --file "${_ENV_DIR}/${ENV_FILE}"
+  else
     ${CONDA_EXE} env update -f "${_ENV_DIR}/${ENV_FILE}" --prune
+  fi
 else
+  if [[ -n "${USE_MAMBA}" ]]; then
+    ${CONDA_EXE} create -n ${ENV_NAME} python=3.10 mamba -y
+    ${CONDA_EXE} run -n ${ENV_NAME} mamba env update --file "${_ENV_DIR}/${ENV_FILE}"
+  else
     ${CONDA_EXE} env create -f "${_ENV_DIR}/${ENV_FILE}"
+  fi
 fi
 
 if [ $? -ne 0 ]; then

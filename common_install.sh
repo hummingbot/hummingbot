@@ -209,6 +209,27 @@ get_env_name() {
   echo "${valid_env_name}"
 }
 
+get_env_var() {
+  local var_name="$1"
+  local var_value="${!var_name}"
+
+  if [ -n "${var_value}" ]; then
+    case "${var_value}" in
+      1|y|Y|yes|YES|true|TRUE)
+        echo "yes"
+        return 0
+        ;;
+      *)
+        echo "no"
+        return 1
+        ;;
+    esac
+  else
+    echo "no"
+    return 1
+  fi
+}
+
 _decipher_pip_package_entry(){
   local package=$1
 
@@ -282,7 +303,7 @@ _update_package_version() {
 
   awk -v pkg="$package" -v ver="$version" -v upper_ver="$upper_version" '
   {
-    if ($0 ~ "(^[[:space:]-])" pkg "([[:space:]=<>]|$)" && $0 !~ ":") { # If the line contains the package name
+    if ($0 ~ "(^[[:space:]-]+)" pkg "([[:space:]=<>]+|$)" && $0 !~ ":") { # If the line contains the package name
       pre = substr($0, 1, index($0, pkg) - 1)  # Capture the beginning of the line
       #sub("([[:space:]-])" pkg "([>=<[:space:]][0-9\.a-z]*)?", "\1")  # Remove existing version constraints
       #post = substr($0, index($0, pkg) + length(pkg))  # Capture the rest of the line

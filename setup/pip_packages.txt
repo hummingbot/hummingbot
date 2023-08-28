@@ -9,6 +9,11 @@ dydx-v3-python==2.0.1
 eip712-structs==1.1.0
 ethsnarks-loopring==0.1.5
 hdwallets==0.1.2
-injective-py>=0.6.1.4,<0.6.3.0
+injective-py
 pysha3==1.0.2
 python-telegram-bot==12.4.2
+substrate-interface
+scalecodec
+py-sr25519-bindings
+py-bip39-bindings
+py-ed25519-zebra-bindings
