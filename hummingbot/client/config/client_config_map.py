@@ -855,9 +855,9 @@ class ClientConfigMap(BaseClientModel):
             prompt=lambda cm: "Instance UID of the bot",
         ),
     )
-    fetch_pairs_from_all_exchanges: bool = Field(
-        default=False,
-        description="Fetch trading pairs from all exchanges if True, otherwise only from configured exchanges.",
+    fetch_pairs_from_all_exchanges: AutofillImportBool = Field(
+        default=AutofillImportBool.false,
+        description="Fetch trading pairs from all exchanges if True, otherwise fetch only from connected exchanges.",
         client_data=ClientFieldData(
             prompt=lambda cm: f"Would you like to fetch trading pairs from all exchanges? ({'/'.join(list(AutofillImportBool))})",
         ),
