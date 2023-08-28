@@ -1,6 +1,5 @@
 name: hummingbot
 channels:
-  - conda-forge
   - defaults
 dependencies:
   ### Packages needed for the build/install process
