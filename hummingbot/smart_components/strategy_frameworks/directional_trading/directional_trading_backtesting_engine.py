@@ -4,7 +4,7 @@ from hummingbot.smart_components.strategy_frameworks.backtesting_engine_base imp
 
 
 class DirectionalTradingBacktestingEngine(BacktestingEngineBase):
-    def simulate_execution(self, df, trade_cost):
+    def simulate_execution(self, df, initial_portfolio_usd, trade_cost):
         executors = []
         df["side"] = df["signal"].apply(lambda x: "BUY" if x > 0 else "SELL" if x < 0 else 0)
         for order_level in self.controller.config.order_levels:
@@ -16,6 +16,11 @@ class DirectionalTradingBacktestingEngine(BacktestingEngineBase):
             for index, row in df[(df["signal"] != 0)].iterrows():
                 last_close_time = self.level_executors[order_level.level_id]
                 if index + pd.Timedelta(seconds=order_level.cooldown_time) > last_close_time:
+                    row["order_level"] = order_level.level_id
+                    row["amount"] = float(order_level.order_amount_usd)
+                    row["net_pnl_quote"] = row["net_pnl"] * row["amount"]
                     executors.append(row)
                     self.level_executors[order_level.level_id] = row["close_time"]
-        return pd.DataFrame(executors)
+        executors_df = pd.DataFrame(executors)
+        executors_df["inventory"] = initial_portfolio_usd + executors_df["net_pnl_quote"].cumsum().shift().fillna(0)
+        return executors_df
