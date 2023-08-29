@@ -60,6 +60,7 @@ class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._data_source = connector_configuration.create_data_source()
+        self._rate_limits = connector_configuration.network.rate_limits()
 
         super().__init__(client_config_map=client_config_map)
         self._data_source.configure_throttler(throttler=self._throttler)
@@ -85,7 +86,7 @@ class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def rate_limits_rules(self) -> List[RateLimit]:
-        return CONSTANTS.RATE_LIMITS
+        return self._rate_limits
 
     @property
     def domain(self) -> str:
