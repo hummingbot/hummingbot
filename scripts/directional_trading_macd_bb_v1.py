@@ -1,10 +1,10 @@
 from decimal import Decimal
 from typing import Dict
 
-from controllers.macd_bb_v1 import MACDBBV1, MACDBBV1Config
 from hummingbot.connector.connector_base import ConnectorBase, TradeType
 from hummingbot.core.data_type.common import OrderType
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
+from hummingbot.smart_components.controllers.macd_bb_v1 import MACDBBV1, MACDBBV1Config
 from hummingbot.smart_components.strategy_frameworks.data_types import (
     ExecutorHandlerStatus,
     OrderLevel,
