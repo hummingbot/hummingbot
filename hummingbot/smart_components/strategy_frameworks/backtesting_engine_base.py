@@ -90,20 +90,20 @@ class BacktestingEngineBase:
         df = self.controller.get_processed_data()
         return self.filter_df_by_time(df, start, end)
 
-    def run_backtesting(self, initial_portfolio=1000, trade_cost=0.0006,
+    def run_backtesting(self, initial_portfolio_usd=1000, trade_cost=0.0006,
                         start: Optional[str] = None, end: Optional[str] = None):
         # Load historical candles
         df = self.get_data(start=start, end=end)
 
         # Apply the specific execution logic of the executor handler vectorized
-        executors_df = self.simulate_execution(df, trade_cost=trade_cost)
+        executors_df = self.simulate_execution(df, initial_portfolio_usd=initial_portfolio_usd, trade_cost=trade_cost)
 
         # Store data for further analysis
         self.executors_df = executors_df
         self.results = self.summarize_results(executors_df)
         return df
 
-    def simulate_execution(self, df, trade_cost):
+    def simulate_execution(self, df: pd.DataFrame, initial_portfolio_usd: float, trade_cost: float):
         raise NotImplementedError
 
     @staticmethod
@@ -125,21 +125,21 @@ class BacktestingEngineBase:
 
             # Additional metrics
             total_positions = executors_df.shape[0] - 1
-            win_signals = executors_df.loc[(executors_df["real_class"] > 0) & (executors_df["signal"] != 0)]
-            loss_signals = executors_df.loc[(executors_df["real_class"] < 0) & (executors_df["signal"] != 0)]
+            win_signals = executors_df.loc[(executors_df["profitable"] > 0) & (executors_df["signal"] != 0)]
+            loss_signals = executors_df.loc[(executors_df["profitable"] < 0) & (executors_df["signal"] != 0)]
             accuracy = win_signals.shape[0] / total_positions
-            cumulative_returns = executors_df["ret_usd"].cumsum()
+            cumulative_returns = executors_df["net_pnl_quote"].cumsum()
             peak = np.maximum.accumulate(cumulative_returns)
             drawdown = (cumulative_returns - peak)
             max_draw_down = np.min(drawdown)
             max_drawdown_pct = max_draw_down / net_pnl
-            returns = executors_df["ret_usd"] / net_pnl
+            returns = executors_df["net_pnl_quote"] / net_pnl
             sharpe_ratio = returns.mean() / returns.std()
-            total_won = win_signals.loc[:, "ret_usd"].sum()
-            total_loss = - loss_signals.loc[:, "ret_usd"].sum()
+            total_won = win_signals.loc[:, "net_pnl_quote"].sum()
+            total_loss = - loss_signals.loc[:, "net_pnl_quote"].sum()
             profit_factor = total_won / total_loss
-            duration_minutes = (executors_df["timestamp"].iloc[-1] - executors_df["timestamp"].iloc[0]).total_seconds() / 60
-            avg_trading_time_minutes = (pd.to_datetime(executors_df["close_time"]) - executors_df["timestamp"]).dt.total_seconds() / 60
+            duration_minutes = (executors_df.index.max() - executors_df.index.min()).total_seconds() / 60
+            avg_trading_time_minutes = (pd.to_datetime(executors_df["close_time"]) - executors_df.index).dt.total_seconds() / 60
             avg_trading_time = avg_trading_time_minutes.mean()
 
             return {
