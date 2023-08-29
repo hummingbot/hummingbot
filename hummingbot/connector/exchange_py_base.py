@@ -407,7 +407,6 @@ class ExchangePyBase(ExchangeBase, ABC):
         :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
         :param price: the order price
         """
-        exchange_order_id = ""
         trading_rule = self._trading_rules[trading_pair]
 
         if order_type in [OrderType.LIMIT, OrderType.LIMIT_MAKER]:
@@ -450,7 +449,7 @@ class ExchangePyBase(ExchangeBase, ABC):
             self._update_order_after_failure(order_id=order_id, trading_pair=trading_pair)
             return
         try:
-            exchange_order_id = await self._place_order_and_process_update(order=order, **kwargs,)
+            await self._place_order_and_process_update(order=order, **kwargs,)
 
         except asyncio.CancelledError:
             raise
@@ -465,7 +464,6 @@ class ExchangePyBase(ExchangeBase, ABC):
                 exception=ex,
                 **kwargs,
             )
-        return order_id, exchange_order_id
 
     async def _place_order_and_process_update(self, order: InFlightOrder, **kwargs) -> str:
         exchange_order_id, update_timestamp = await self._place_order(
@@ -965,17 +963,22 @@ class ExchangePyBase(ExchangeBase, ABC):
                 f"Attempting fetch in next polling interval."
             )
             await self._order_tracker.process_order_not_found(order.client_order_id)
+        except asyncio.CancelledError:
+            raise
         except Exception as request_error:
             self.logger().warning(
-                f"Error fetching status update for the order {order.client_order_id}: {request_error}.",
+                f"Error fetching status update for the active order {order.client_order_id}: {request_error}.",
             )
+            self.logger().debug(f"Order {order.client_order_id} not found counter: {self._order_tracker._order_not_found_records.get(order.client_order_id, 0)}")
             await self._order_tracker.process_order_not_found(order.client_order_id)
 
     async def _handle_update_error_for_lost_order(self, order: InFlightOrder, error: Exception):
-        if self._is_order_not_found_during_status_update_error(status_update_exception=error):
+        is_not_found = self._is_order_not_found_during_status_update_error(status_update_exception=error)
+        self.logger().debug(f"Order update error for lost order {order.client_order_id}\n{order}\nIs order not found: {is_not_found} ({error})")
+        if is_not_found:
             self._update_order_after_failure(order.client_order_id, order.trading_pair)
         else:
-            self.logger().warning(f"Error fetching status update for the order {order.client_order_id}: {error}.")
+            self.logger().warning(f"Error fetching status update for the lost order {order.client_order_id}: {error}.")
 
     async def _update_orders_with_error_handler(self, orders: List[InFlightOrder], error_handler: Callable):
         for order in orders:

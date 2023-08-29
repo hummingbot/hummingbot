@@ -235,7 +235,7 @@ class ClientOrderTracker:
             self._order_not_found_records[client_order_id] += 1
             if self._order_not_found_records[client_order_id] > self._lost_order_count_limit:
                 # Only mark the order as failed if it has not been marked as done already asynchronously
-                if not tracked_order.is_done:
+                if tracked_order.current_state not in [OrderState.CANCELED, OrderState.FILLED, OrderState.FAILED]:
                     self.logger().warning(
                         f"The order {client_order_id}({tracked_order.exchange_order_id}) will be "
                         f"considered lost. Please check its status in the exchange."

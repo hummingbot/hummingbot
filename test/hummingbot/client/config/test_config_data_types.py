@@ -198,6 +198,35 @@ secret_attr: """
         self.assertTrue(res_str.startswith(expected_str))
         self.assertNotIn(secret_value, res_str)
 
+    def test_generate_yml_output_dict_with_sub_model_with_secret(self):
+        class DummySubModel(BaseClientModel):
+            secret_attr: SecretStr
+
+            class Config:
+                title = "dummy_sub_model"
+
+        class DummyModel(BaseClientModel):
+            sub_model: DummySubModel
+
+            class Config:
+                title = "dummy_model"
+
+        Security.secrets_manager = ETHKeyFileSecretManger(password="some-password")
+        secret_value = "some_secret"
+        sub_model = DummySubModel(secret_attr=secret_value)
+        instance = ClientConfigAdapter(DummyModel(sub_model=sub_model))
+        res_str = instance.generate_yml_output_str_with_comments()
+        expected_str = (
+            "##############################\n"
+            "###   dummy_model config   ###\n"
+            "##############################\n\n"
+            "sub_model:\n"
+            "  secret_attr: "
+        )
+
+        self.assertTrue(res_str.startswith(expected_str))
+        self.assertNotIn(secret_value, res_str)
+
     def test_config_paths_includes_all_intermediate_keys(self):
         adapter = self._nested_config_adapter()
 

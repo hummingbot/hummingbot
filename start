@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# Check if bin/hummingbot.py exists
+if [[ ! -f bin/hummingbot.py ]]; then
+    echo "Error: bin/hummingbot.py command not found. Make sure you are in the Hummingbot root directory"
+    exit 1
+fi
+
+# Check if the hummingbot conda environment is activated
+if [[ $CONDA_DEFAULT_ENV != "hummingbot" ]]; then
+    echo "Error: 'hummingbot' conda environment is not activated. Please activate it and try again."
+    exit 1
+fi
+
+# Run bin/hummingbot.py and append errors to logs/errors.log
+./bin/hummingbot.py 2>> ./logs/errors.log
