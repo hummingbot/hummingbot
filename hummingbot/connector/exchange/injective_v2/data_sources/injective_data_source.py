@@ -739,7 +739,7 @@ class InjectiveDataSource(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def _calculate_order_hashes(
+    async def _calculate_order_hashes(
             self,
             spot_orders: List[GatewayInFlightOrder],
             derivative_orders: [GatewayPerpetualInFlightOrder]
@@ -804,9 +804,10 @@ class InjectiveDataSource(ABC):
                     market_ids=[market_id],
                     limit=1,
                 )
-            if len(trades_response["trades"]) > 0:
+            trades = trades_response.get("trades", [])
+            if len(trades) > 0:
                 price = market.price_from_chain_format(
-                    chain_price=Decimal(trades_response["trades"][0]["price"]["price"]))
+                    chain_price=Decimal(trades[0]["price"]["price"]))
 
         else:
             market = await self.derivative_market_info_for_id(market_id=market_id)
@@ -815,7 +816,8 @@ class InjectiveDataSource(ABC):
                     market_ids=[market_id],
                     limit=1,
                 )
-            if len(trades_response["trades"]) > 0:
+            trades = trades_response.get("trades", [])
+            if len(trades) > 0:
                 price = market.price_from_chain_format(
                     chain_price=Decimal(trades_response["trades"][0]["positionDelta"]["executionPrice"]))
 
@@ -829,7 +831,7 @@ class InjectiveDataSource(ABC):
         while executed_tries < retries and not found:
             executed_tries += 1
             try:
-                async with self.throttler.execute_task(limit_id=CONSTANTS.SPOT_ORDERS_HISTORY_LIMIT_ID):
+                async with self.throttler.execute_task(limit_id=CONSTANTS.GET_TRANSACTION_CHAIN_LIMIT_ID):
                     block_height = await self.query_executor.get_tx_block_height(tx_hash=tx_hash)
                 found = True
             except ValueError:

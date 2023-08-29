@@ -4,6 +4,7 @@ from pyinjective import Address, PrivateKey
 from pyinjective.constant import Network
 
 import hummingbot.connector.exchange.injective_v2.injective_v2_utils as utils
+from hummingbot.connector.exchange.injective_v2 import injective_constants as CONSTANTS
 from hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source import (
     InjectiveGranteeDataSource,
 )
@@ -113,7 +114,11 @@ class InjectiveConfigMapTests(TestCase):
             granter_subaccount_index=0,
         )
 
-        data_source = config.create_data_source(network=Network.testnet(node="sentry"), use_secure_connection=True)
+        data_source = config.create_data_source(
+            network=Network.testnet(node="sentry"),
+            use_secure_connection=True,
+            rate_limits=CONSTANTS.PUBLIC_NODE_RATE_LIMITS,
+        )
 
         self.assertEqual(InjectiveGranteeDataSource, type(data_source))
 
@@ -127,7 +132,11 @@ class InjectiveConfigMapTests(TestCase):
                 bytes.fromhex(private_key.to_public_key().to_hex())).to_acc_bech32(),
         )
 
-        data_source = config.create_data_source(network=Network.testnet(node="sentry"), use_secure_connection=True)
+        data_source = config.create_data_source(
+            network=Network.testnet(node="sentry"),
+            use_secure_connection=True,
+            rate_limits=CONSTANTS.PUBLIC_NODE_RATE_LIMITS,
+        )
 
         self.assertEqual(InjectiveVaultsDataSource, type(data_source))
 

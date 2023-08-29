@@ -27,6 +27,7 @@ from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlight
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
+from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate
 from hummingbot.core.pubsub import PubSub
@@ -43,6 +44,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
             vault_contract_address: str,
             vault_subaccount_index: int,
             network: Network,
+            rate_limits: List[RateLimit],
             use_secure_connection: bool = True):
         self._network = network
         self._client = AsyncClient(
@@ -75,9 +77,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         self._publisher = PubSub()
         self._last_received_message_time = 0
         self._order_creation_lock = asyncio.Lock()
-        # We create a throttler instance here just to have a fully valid instance from the first moment.
-        # The connector using this data source should replace the throttler with the one used by the connector.
-        self._throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
+        self._throttler = AsyncThrottler(rate_limits=rate_limits)
 
         self._is_timeout_height_initialized = False
         self._is_trading_account_initialized = False
@@ -324,7 +324,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         spot_orders = spot_orders or []
         perpetual_orders = perpetual_orders or []
 
-        async with self.throttler.execute_task(limit_id=CONSTANTS.GET_TRANSACTION_LIMIT_ID):
+        async with self.throttler.execute_task(limit_id=CONSTANTS.GET_TRANSACTION_INDEXER_LIMIT_ID):
             transaction_info = await self.query_executor.get_tx_by_hash(tx_hash=transaction_hash)
 
         transaction_messages = json.loads(base64.b64decode(transaction_info["data"]["messages"]).decode())
@@ -441,7 +441,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         market = self._parse_derivative_market_info(market_info=market_info)
         return market
 
-    def _calculate_order_hashes(
+    async def _calculate_order_hashes(
             self,
             spot_orders: List[GatewayInFlightOrder],
             derivative_orders: [GatewayPerpetualInFlightOrder]
