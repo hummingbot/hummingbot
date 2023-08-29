@@ -8,7 +8,17 @@ from hummingbot.logger import HummingbotLogger
 
 class TestTestLoggerMixin(unittest.TestCase):
     def setUp(self):
+        super().setUp()
         self.logger = LoggerMixinForTest()
+        self._original_async_loop = asyncio.get_event_loop()
+        self.async_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.async_loop)
+
+    def tearDown(self) -> None:
+        super().tearDown()
+        self.async_loop.stop()
+        self.async_loop.close()
+        asyncio.set_event_loop(self._original_async_loop)
 
     def test_handle(self):
         self.logger.log_records = []
