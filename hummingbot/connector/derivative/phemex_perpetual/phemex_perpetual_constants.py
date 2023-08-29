@@ -6,6 +6,8 @@ from hummingbot.core.data_type.in_flight_order import OrderState
 EXCHANGE_NAME = "phemex_perpetual"
 MAX_ORDER_ID_LEN = 40
 
+HB_PARTNER_ID = "HBOT"
+
 DEFAULT_DOMAIN = ""
 TESTNET_DOMAIN = "phemex_perpetual_testnet"
 
