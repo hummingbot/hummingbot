@@ -1,5 +1,6 @@
 name: hummingbot
 channels:
+  - conda-forge
   - defaults
 dependencies:
   - bidict
@@ -12,7 +13,7 @@ dependencies:
   - pandas=1.5.3
   - pip=23.1.2
   - prompt_toolkit=3.0.20
-  - pydantic=1.9.*
+  - pydantic=1.9.2
   - pytest
   - python=3.10.12
   - pytables=3.8.0
