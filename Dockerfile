@@ -60,7 +60,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Create mount points
-RUN mkdir -p /home/hummingbot/conf /home/hummingbot/conf/connectors /home/hummingbot/conf/strategies /home/hummingbot/logs /home/hummingbot/data /home/hummingbot/certs /home/hummingbot/scripts /home/hummingbot/controllers
+RUN mkdir -p /home/hummingbot/conf /home/hummingbot/conf/connectors /home/hummingbot/conf/strategies /home/hummingbot/logs /home/hummingbot/data /home/hummingbot/certs /home/hummingbot/scripts
 
 WORKDIR /home/hummingbot
 
