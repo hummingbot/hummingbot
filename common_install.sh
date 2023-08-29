@@ -2,8 +2,8 @@
 
 # Function to find conda in the hard-coded Github miniconda path
 _find_conda_in_dir() {
-    local root_path=$1
-    local maxdepth=$2
+    local root_path="$1"
+    local maxdepth="$2"
 
     if [[ ! -d "${root_path}" ]]; then
       return
@@ -18,6 +18,7 @@ _find_conda_in_dir() {
       maxdepth=5
     fi
 
+    local conda_runner_path=""
     while IFS= read -r -d $'\0'; do
       conda_runner_path="$REPLY"
     done < <(find "${root_path}" \
@@ -29,6 +30,9 @@ _find_conda_in_dir() {
 
     if [[ -n "$conda_runner_path" ]]; then
       echo "${conda_runner_path}/conda"
+      return
+    else
+      return
     fi
 }
 
