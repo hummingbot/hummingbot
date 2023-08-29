@@ -43,6 +43,7 @@ class HitbtcAPIOrderBookDataSource(OrderBookTrackerDataSource):
             "GET",
             Constants.ENDPOINT["SYMBOL"],
             shared_client=shared_session)
+        print(symbols)
         cls._trading_pair_symbol_map = {
             symbol_data["id"]: (f"{translate_asset(symbol_data['baseCurrency'])}-"
                                 f"{translate_asset(symbol_data['quoteCurrency'])}")
