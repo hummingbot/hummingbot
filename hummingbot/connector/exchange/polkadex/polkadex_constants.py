@@ -10,15 +10,12 @@ MAX_ID_LEN = 32
 CLIENT_ID_PREFIX = "HBOT"
 
 DEFAULT_DOMAIN = ""
-TESTNET_DOMAIN = "testnet"
 
 GRAPHQL_ENDPOINTS = {
     DEFAULT_DOMAIN: "https://yx375ldozvcvthjk2nczch3fhq.appsync-api.eu-central-1.amazonaws.com/graphql",
-    TESTNET_DOMAIN: "https://ycnpo54prfe4tidfrddbaanig4.appsync-api.eu-west-1.amazonaws.com/graphql",
 }
 BLOCKCHAIN_URLS = {
-    DEFAULT_DOMAIN: "wss://mainnet.polkadex.trade",
-    TESTNET_DOMAIN: "wss://testnet.polkadex.trade",
+    DEFAULT_DOMAIN: "wss://polkadex.public.curie.radiumblock.co/ws",
 }
 POLKADEX_SS58_PREFIX = 88
 
