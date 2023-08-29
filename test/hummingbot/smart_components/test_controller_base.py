@@ -37,8 +37,8 @@ class TestControllerBase(unittest.TestCase):
 
     def test_initialize_candles_non_live_mode(self):
         self.controller._mode = ControllerMode.BACKTEST
-        with self.assertRaises(NotImplementedError):
-            self.controller.initialize_candles([self.mock_candles_config])
+        self.controller.initialize_candles([self.mock_candles_config])
+        self.assertTrue(len(self.controller.candles) == 1)
 
     def test_get_close_price(self):
         mock_candle = MagicMock()

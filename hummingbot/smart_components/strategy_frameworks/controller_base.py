@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 from decimal import Decimal
 from typing import List, Optional
 
@@ -35,12 +35,11 @@ class ControllerBase(ABC):
         self._excluded_parameters = excluded_parameters or ["order_levels", "candles_config"]
         self.candles = self.initialize_candles(config.candles_config)
 
-    @abstractmethod
     def get_processed_data(self):
         """
         Get the processed data.
         """
-        ...
+        pass
 
     def filter_executors_df(self, df):
         """
