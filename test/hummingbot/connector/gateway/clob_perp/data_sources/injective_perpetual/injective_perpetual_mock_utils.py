@@ -223,7 +223,7 @@ class InjectivePerpetualClientMock:
         self.injective_async_client_mock.stream_historical_derivative_orders.return_value.run_until_all_items_delivered(
             timeout=timeout
         )
-        self.injective_async_client_mock.stream_derivative_orderbooks.return_value.run_until_all_items_delivered(
+        self.injective_async_client_mock.stream_derivative_orderbook_snapshot.return_value.run_until_all_items_delivered(
             timeout=timeout
         )
         self.injective_async_client_mock.stream_account_portfolio.return_value.run_until_all_items_delivered(

@@ -26,7 +26,7 @@ from pyinjective.proto.exchange.injective_spot_exchange_rpc_pb2 import (
     SpotMarketInfo,
     SpotOrderHistory,
     SpotTrade,
-    StreamOrderbookResponse,
+    StreamOrderbookV2Response,
     StreamOrdersResponse,
     StreamTradesResponse,
     TokenMeta,
@@ -794,7 +794,7 @@ class InjectiveAPIDataSource(CLOBAPIDataSourceBase):
             self.logger().info("Restarting order books stream.")
             stream.cancel()
 
-    def _parse_order_book_event(self, order_book_update: StreamOrderbookResponse):
+    def _parse_order_book_event(self, order_book_update: StreamOrderbookV2Response):
         udpate_timestamp_ms = order_book_update.timestamp
         market_id = order_book_update.market_id
         trading_pair = self._get_trading_pair_from_market_id(market_id=market_id)
