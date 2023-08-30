@@ -1,68 +1,64 @@
-#!/usr/bin/env python
-
-import base64
 import hashlib
 import hmac
-from typing import (
-    Any,
-    Dict, Optional
-)
+import json
+from collections import OrderedDict
+from typing import Any, Dict
+from urllib.parse import urlencode
 
-from hummingbot.connector.exchange.mexc import mexc_utils
-from urllib.parse import urlencode, unquote
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
+from hummingbot.core.web_assistant.auth import AuthBase
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
 
 
-class MexcAuth:
-    def __init__(self, api_key: str, secret_key: str):
-        self.api_key: str = api_key
-        self.secret_key: str = secret_key
+class MexcAuth(AuthBase):
+    def __init__(self, api_key: str, secret_key: str, time_provider: TimeSynchronizer):
+        self.api_key = api_key
+        self.secret_key = secret_key
+        self.time_provider = time_provider
 
-    def _sig(self, method, path, original_params=None):
-        params = {
-            'api_key': self.api_key,
-            'req_time': mexc_utils.seconds()
-        }
-        if original_params is not None:
-            params.update(original_params)
-        params_str = '&'.join('{}={}'.format(k, params[k]) for k in sorted(params))
-        to_sign = '\n'.join([method, path, params_str])
-        params.update({'sign': hmac.new(self.secret_key.encode(), to_sign.encode(), hashlib.sha256).hexdigest()})
-        if path in ('/open/api/v2/order/cancel', '/open/api/v2/order/query'):
-            if 'order_ids' in params:
-                params.update({'order_ids': unquote(params['order_ids'])})
-            if 'client_order_ids' in params:
-                params.update({'client_order_ids': unquote(params['client_order_ids'])})
-        return params
+    async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
+        """
+        Adds the server time and the signature to the request, required for authenticated interactions. It also adds
+        the required parameter in the request header.
+        :param request: the request to be configured for authenticated interaction
+        """
+        if request.method == RESTMethod.POST:
+            request.data = self.add_auth_to_params(params=json.loads(request.data) if request.data is not None else {})
+        else:
+            request.params = self.add_auth_to_params(params=request.params)
+
+        headers = {}
+        if request.headers is not None:
+            headers.update(request.headers)
+        headers.update(self.header_for_authentication())
+        request.headers = headers
+
+        return request
+
+    async def ws_authenticate(self, request: WSRequest) -> WSRequest:
+        """
+        This method is intended to configure a websocket request to be authenticated. Mexc does not use this
+        functionality
+        """
+        return request  # pass-through
 
     def add_auth_to_params(self,
-                           method: str,
-                           path_url: str,
-                           params: Optional[Dict[str, Any]] = {},
-                           is_auth_required: bool = False
-                           ) -> Dict[str, Any]:
-        uppercase_method = method.upper()
-        params = params if params else dict()
-        if not is_auth_required:
-            params.update({'api_key': self.api_key})
-        else:
-            params = self._sig(uppercase_method, path_url, params)
-        if params:
-            path_url = path_url + '?' + urlencode(params)
-        return path_url
+                           params: Dict[str, Any]):
+        timestamp = int(self.time_provider.time() * 1e3)
 
-    def get_signature(self, operation, timestamp) -> str:
-        auth = operation + timestamp + self.api_key
+        request_params = OrderedDict(params or {})
+        request_params["timestamp"] = timestamp
 
-        _hash = hmac.new(self.secret_key.encode(), auth.encode(), hashlib.sha256).digest()
-        signature = base64.b64encode(_hash).decode()
-        return signature
+        signature = self._generate_signature(params=request_params)
+        request_params["signature"] = signature
 
-    def generate_ws_auth(self, operation: str):
-        # timestamp = str(int(time.time()))
-        # return {
-        #     "op": operation,  # sub key
-        #     "api_key": self.api_key,  #
-        #     "sign": self.get_signature(operation, timestamp),  #
-        #     "req_time": timestamp  #
-        # }
-        pass
+        return request_params
+
+    def header_for_authentication(self) -> Dict[str, str]:
+        return {"X-MEXC-APIKEY": self.api_key}
+
+    def _generate_signature(self, params: Dict[str, Any]) -> str:
+
+        encoded_params_str = urlencode(params)
+        digest = hmac.new(self.secret_key.encode("utf8"), encoded_params_str.encode("utf8"), hashlib.sha256).hexdigest()
+        return digest
