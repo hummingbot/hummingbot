@@ -452,6 +452,8 @@ class InjectiveDataSource(ABC):
                 except asyncio.CancelledError:
                     raise
                 except Exception as ex:
+                    self.logger().debug(
+                        f"Error broadcasting transaction to create orders (message: {order_creation_messages})")
                     results = self._place_order_results(
                         orders_to_create=spot_orders + perpetual_orders,
                         order_hashes=spot_order_hashes + derivative_order_hashes,
@@ -522,6 +524,7 @@ class InjectiveDataSource(ABC):
             except asyncio.CancelledError:
                 raise
             except Exception as ex:
+                self.logger().debug(f"Error broadcasting transaction to cancel orders (message: {delegated_message})")
                 results.extend([
                     CancelOrderResult(
                         client_order_id=order.client_order_id,
