@@ -29,6 +29,9 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
 from hummingbot.core.data_type.limit_order import LimitOrder
+from hummingbot.core.data_type.market_order import MarketOrder
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -290,7 +293,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
     @property
     def expected_supported_order_types(self) -> List[OrderType]:
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
     @property
     def expected_trading_rule(self):
@@ -324,7 +327,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
     @property
     def is_order_fill_http_update_executed_during_websocket_order_event_processing(self) -> bool:
-        raise NotImplementedError
+        return False
 
     @property
     def expected_partial_fill_price(self) -> Decimal:
@@ -380,7 +383,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
     def create_exchange_instance(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
-        network_config = InjectiveTestnetNetworkMode()
+        network_config = InjectiveTestnetNetworkMode(testnet_node="sentry")
 
         account_config = InjectiveDelegatedAccountMode(
             private_key=self.trading_account_private_key,
@@ -401,7 +404,8 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         )
 
         exchange._data_source._query_executor = ProgrammableQueryExecutor()
-        exchange._data_source._market_and_trading_pair_map = bidict({self.market_id: self.trading_pair})
+        exchange._data_source._spot_market_and_trading_pair_map = bidict({self.market_id: self.trading_pair})
+        exchange._data_source._derivative_market_and_trading_pair_map = bidict()
         return exchange
 
     def validate_auth_credentials_present(self, request_call: RequestCall):
@@ -424,6 +428,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     ) -> str:
         all_markets_mock_response = self.all_markets_mock_response
         self.exchange._data_source._query_executor._spot_markets_responses.put_nowait(all_markets_mock_response)
+        self.exchange._data_source._query_executor._derivative_markets_responses.put_nowait([])
         return ""
 
     def configure_trading_rules_response(
@@ -442,8 +447,8 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     ) -> List[str]:
 
         response = self.trading_rules_request_erroneous_mock_response
-        self.exchange._data_source._query_executor._spot_markets_responses = asyncio.Queue()
         self.exchange._data_source._query_executor._spot_markets_responses.put_nowait(response)
+        self.exchange._data_source._query_executor._derivative_markets_responses.put_nowait([])
         return ""
 
     def configure_successful_cancelation_response(self, order: InFlightOrder, mock_api: aioresponses,
@@ -671,7 +676,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     @aioresponses()
     def test_all_trading_pairs_does_not_raise_exception(self, mock_api):
         self.exchange._set_trading_pair_symbol_map(None)
-        self.exchange._data_source._market_and_trading_pair_map = None
+        self.exchange._data_source._spot_market_and_trading_pair_map = None
         queue_mock = AsyncMock()
         queue_mock.get.side_effect = Exception("Test error")
         self.exchange._data_source._query_executor._spot_markets_responses = queue_mock
@@ -775,6 +780,115 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             self.exchange.in_flight_orders[sell_order_to_create_in_flight.client_order_id].creation_transaction_hash
         )
 
+    def test_batch_order_create_with_one_market_order(self):
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._data_source._order_hash_manager = MagicMock(spec=OrderHashManager)
+        self.exchange._data_source._order_hash_manager.compute_order_hashes.return_value = OrderHashResponse(
+            spot=["hash1", "hash2"], derivative=[]
+        )
+
+        # Configure all symbols response to initialize the trading rules
+        self.configure_all_symbols_response(mock_api=None)
+        self.async_run_with_timeout(self.exchange._update_trading_rules())
+
+        order_book = OrderBook()
+        self.exchange.order_book_tracker._order_books[self.trading_pair] = order_book
+        order_book.apply_snapshot(
+            bids=[OrderBookRow(price=5000, amount=20, update_id=1)],
+            asks=[],
+            update_id=1,
+        )
+
+        buy_order_to_create = LimitOrder(
+            client_order_id="",
+            trading_pair=self.trading_pair,
+            is_buy=True,
+            base_currency=self.base_asset,
+            quote_currency=self.quote_asset,
+            price=Decimal("10"),
+            quantity=Decimal("2"),
+        )
+        sell_order_to_create = MarketOrder(
+            order_id="",
+            trading_pair=self.trading_pair,
+            is_buy=False,
+            base_asset=self.base_asset,
+            quote_asset=self.quote_asset,
+            amount=3,
+            timestamp=self.exchange.current_timestamp,
+        )
+        orders_to_create = [buy_order_to_create, sell_order_to_create]
+
+        transaction_simulation_response = self._msg_exec_simulation_mock_response()
+        self.exchange._data_source._query_executor._simulate_transaction_responses.put_nowait(
+            transaction_simulation_response)
+
+        response = self.order_creation_request_successful_mock_response
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = partial(
+            self._callback_wrapper_with_response,
+            callback=lambda args, kwargs: request_sent_event.set(),
+            response=response
+        )
+        self.exchange._data_source._query_executor._send_transaction_responses = mock_queue
+
+        expected_price_for_volume = self.exchange.get_price_for_volume(
+            trading_pair=self.trading_pair,
+            is_buy=True,
+            volume=Decimal(str(sell_order_to_create.amount)),
+        ).result_price
+
+        orders: List[LimitOrder] = self.exchange.batch_order_create(orders_to_create=orders_to_create)
+
+        buy_order_to_create_in_flight = GatewayInFlightOrder(
+            client_order_id=orders[0].client_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            creation_timestamp=1640780000,
+            price=orders[0].price,
+            amount=orders[0].quantity,
+            exchange_order_id="hash1",
+            creation_transaction_hash=response["txhash"]
+        )
+        sell_order_to_create_in_flight = GatewayInFlightOrder(
+            client_order_id=orders[1].order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.MARKET,
+            trade_type=TradeType.SELL,
+            creation_timestamp=1640780000,
+            price=expected_price_for_volume,
+            amount=orders[1].quantity,
+            exchange_order_id="hash2",
+            creation_transaction_hash=response["txhash"]
+        )
+
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        self.assertEqual(2, len(orders))
+        self.assertEqual(2, len(self.exchange.in_flight_orders))
+
+        self.assertIn(buy_order_to_create_in_flight.client_order_id, self.exchange.in_flight_orders)
+        self.assertIn(sell_order_to_create_in_flight.client_order_id, self.exchange.in_flight_orders)
+
+        self.assertEqual(
+            buy_order_to_create_in_flight.exchange_order_id,
+            self.exchange.in_flight_orders[buy_order_to_create_in_flight.client_order_id].exchange_order_id
+        )
+        self.assertEqual(
+            buy_order_to_create_in_flight.creation_transaction_hash,
+            self.exchange.in_flight_orders[buy_order_to_create_in_flight.client_order_id].creation_transaction_hash
+        )
+        self.assertEqual(
+            sell_order_to_create_in_flight.exchange_order_id,
+            self.exchange.in_flight_orders[sell_order_to_create_in_flight.client_order_id].exchange_order_id
+        )
+        self.assertEqual(
+            sell_order_to_create_in_flight.creation_transaction_hash,
+            self.exchange.in_flight_orders[sell_order_to_create_in_flight.client_order_id].creation_transaction_hash
+        )
+
     @aioresponses()
     def test_create_buy_limit_order_successfully(self, mock_api):
         self._simulate_trading_rules_initialized()
@@ -842,6 +956,106 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
         self.assertEqual("hash1", order.exchange_order_id)
         self.assertEqual(response["txhash"], order.creation_transaction_hash)
+
+    @aioresponses()
+    def test_create_buy_market_order_successfully(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._data_source._order_hash_manager = MagicMock(spec=OrderHashManager)
+        self.exchange._data_source._order_hash_manager.compute_order_hashes.return_value = OrderHashResponse(
+            spot=["hash1"], derivative=[]
+        )
+
+        order_book = OrderBook()
+        self.exchange.order_book_tracker._order_books[self.trading_pair] = order_book
+        order_book.apply_snapshot(
+            bids=[],
+            asks=[OrderBookRow(price=5000, amount=20, update_id=1)],
+            update_id=1,
+        )
+
+        transaction_simulation_response = self._msg_exec_simulation_mock_response()
+        self.exchange._data_source._query_executor._simulate_transaction_responses.put_nowait(
+            transaction_simulation_response)
+
+        response = self.order_creation_request_successful_mock_response
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = partial(
+            self._callback_wrapper_with_response,
+            callback=lambda args, kwargs: request_sent_event.set(),
+            response=response
+        )
+        self.exchange._data_source._query_executor._send_transaction_responses = mock_queue
+
+        order_amount = Decimal(1)
+        expected_price_for_volume = self.exchange.get_price_for_volume(
+            trading_pair=self.trading_pair,
+            is_buy=True,
+            volume=order_amount
+        ).result_price
+
+        order_id = self.place_buy_order(amount=order_amount, price=None, order_type=OrderType.MARKET)
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        self.assertEqual(1, len(self.exchange.in_flight_orders))
+        self.assertIn(order_id, self.exchange.in_flight_orders)
+
+        order = self.exchange.in_flight_orders[order_id]
+
+        self.assertEqual("hash1", order.exchange_order_id)
+        self.assertEqual(response["txhash"], order.creation_transaction_hash)
+        self.assertEqual(expected_price_for_volume, order.price)
+
+    @aioresponses()
+    def test_create_sell_market_order_successfully(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+        self.exchange._data_source._order_hash_manager = MagicMock(spec=OrderHashManager)
+        self.exchange._data_source._order_hash_manager.compute_order_hashes.return_value = OrderHashResponse(
+            spot=["hash1"], derivative=[]
+        )
+
+        order_book = OrderBook()
+        self.exchange.order_book_tracker._order_books[self.trading_pair] = order_book
+        order_book.apply_snapshot(
+            bids=[OrderBookRow(price=5000, amount=20, update_id=1)],
+            asks=[],
+            update_id=1,
+        )
+
+        transaction_simulation_response = self._msg_exec_simulation_mock_response()
+        self.exchange._data_source._query_executor._simulate_transaction_responses.put_nowait(
+            transaction_simulation_response)
+
+        response = self.order_creation_request_successful_mock_response
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = partial(
+            self._callback_wrapper_with_response,
+            callback=lambda args, kwargs: request_sent_event.set(),
+            response=response
+        )
+        self.exchange._data_source._query_executor._send_transaction_responses = mock_queue
+
+        order_amount = Decimal(1)
+        expected_price_for_volume = self.exchange.get_price_for_volume(
+            trading_pair=self.trading_pair,
+            is_buy=False,
+            volume=order_amount
+        ).result_price
+
+        order_id = self.place_sell_order(amount=order_amount, price=None, order_type=OrderType.MARKET)
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        self.assertEqual(1, len(self.exchange.in_flight_orders))
+        self.assertIn(order_id, self.exchange.in_flight_orders)
+
+        order = self.exchange.in_flight_orders[order_id]
+
+        self.assertEqual("hash1", order.exchange_order_id)
+        self.assertEqual(response["txhash"], order.creation_transaction_hash)
+        self.assertEqual(expected_price_for_volume, order.price)
 
     @aioresponses()
     def test_create_order_fails_and_raises_failure_event(self, mock_api):
@@ -1046,7 +1260,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                                 {
                                     "market_id": self.market_id,
                                     "order_info": {
-                                        "subaccount_id": self.portfolio_account_subaccount_index,
+                                        "subaccount_id": self.portfolio_account_subaccount_id,
                                         "fee_recipient": self.portfolio_account_injective_address,
                                         "price": str(order.price * Decimal(f"1e{self.quote_decimals - self.base_decimals}")),
                                         "quantity": str((order.amount + Decimal(1)) * Decimal(f"1e{self.base_decimals}"))
@@ -1180,7 +1394,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                                 {
                                     "market_id": self.market_id,
                                     "order_info": {
-                                        "subaccount_id": self.portfolio_account_subaccount_index,
+                                        "subaccount_id": self.portfolio_account_subaccount_id,
                                         "fee_recipient": self.portfolio_account_injective_address,
                                         "price": str(
                                             hash_not_matching_order.price * Decimal(
@@ -1261,9 +1475,145 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
         mock_queue.get.assert_called()
 
+    def test_order_creating_transactions_identify_correctly_market_orders(self):
+        self.configure_all_symbols_response(mock_api=None)
+        self.exchange._set_current_timestamp(1640780000)
+
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=None,
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("100"),
+            order_type=OrderType.LIMIT,
+        )
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "2",
+            exchange_order_id=None,
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal("4500"),
+            amount=Decimal("20"),
+            order_type=OrderType.MARKET,
+        )
+
+        self.assertIn(self.client_order_id_prefix + "1", self.exchange.in_flight_orders)
+        self.assertIn(self.client_order_id_prefix + "2", self.exchange.in_flight_orders)
+        limit_order: GatewayInFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+        market_order: GatewayInFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "2"]
+        limit_order.update_creation_transaction_hash(creation_transaction_hash="66A360DA2FD6884B53B5C019F1A2B5BED7C7C8FC07E83A9C36AD3362EDE096AE")  # noqa: mock
+        market_order.update_creation_transaction_hash(
+            creation_transaction_hash="66A360DA2FD6884B53B5C019F1A2B5BED7C7C8FC07E83A9C36AD3362EDE096AE")  # noqa: mock
+
+        expected_hash_1 = "0xc5d66f56942e1ae407c01eedccd0471deb8e202a514cde3bae56a8307e376cd1"  # noqa: mock
+        expected_hash_2 = "0x115975551b4f86188eee6b93d789fcc78df6e89e40011b929299b6e142f53515"  # noqa: mock
+
+        transaction_data = ('\x12\xd1\x01\n8/injective.exchange.v1beta1.MsgBatchUpdateOrdersResponse'
+                            '\x12\x94\x01\n\x02\x00\x00\x12\x02\x00\x00\x1aB'
+                            f'{expected_hash_1}'
+                            '\x1aB'
+                            f'{expected_hash_2}'
+                            f'"\x00"\x00').encode()
+        transaction_messages = [
+            {
+                "type": "/cosmos.authz.v1beta1.MsgExec",
+                "value": {
+                    "grantee": PrivateKey.from_hex(self.trading_account_private_key).to_public_key().to_acc_bech32(),
+                    "msgs": [
+                        {
+                            "@type": "/injective.exchange.v1beta1.MsgCreateSpotMarketOrder",
+                            "sender": self.portfolio_account_injective_address,
+                            "order": {
+                                "market_id": self.market_id,
+                                "order_info": {
+                                    "subaccount_id": self.portfolio_account_subaccount_id,
+                                    "fee_recipient": self.portfolio_account_injective_address,
+                                    "price": str(
+                                        market_order.price * Decimal(f"1e{self.quote_decimals - self.base_decimals}")),
+                                    "quantity": str(market_order.amount * Decimal(f"1e{self.base_decimals}"))
+                                },
+                                "order_type": "BUY",
+                                "trigger_price": "0.000000000000000000"
+                            }
+                        },
+                        {
+                            "@type": "/injective.exchange.v1beta1.MsgBatchUpdateOrders",
+                            "sender": self.portfolio_account_injective_address,
+                            "subaccount_id": "",
+                            "spot_market_ids_to_cancel_all": [],
+                            "derivative_market_ids_to_cancel_all": [],
+                            "spot_orders_to_cancel": [],
+                            "derivative_orders_to_cancel": [],
+                            "spot_orders_to_create": [
+                                {
+                                    "market_id": self.market_id,
+                                    "order_info": {
+                                        "subaccount_id": self.portfolio_account_subaccount_id,
+                                        "fee_recipient": self.portfolio_account_injective_address,
+                                        "price": str(limit_order.price * Decimal(f"1e{self.quote_decimals - self.base_decimals}")),
+                                        "quantity": str(limit_order.amount * Decimal(f"1e{self.base_decimals}"))
+                                    },
+                                    "order_type": limit_order.trade_type.name,
+                                    "trigger_price": "0.000000000000000000"
+                                }
+                            ],
+                            "derivative_orders_to_create": [],
+                            "binary_options_orders_to_cancel": [],
+                            "binary_options_market_ids_to_cancel_all": [],
+                            "binary_options_orders_to_create": []
+                        }
+                    ]
+                }
+            }
+        ]
+        transaction_response = {
+            "s": "ok",
+            "data": {
+                "blockNumber": "13302254",
+                "blockTimestamp": "2023-07-05 13:55:09.94 +0000 UTC",
+                "hash": "0x66a360da2fd6884b53b5c019f1a2b5bed7c7c8fc07e83a9c36ad3362ede096ae",  # noqa: mock
+                "data": base64.b64encode(transaction_data).decode(),
+                "gasWanted": "168306",
+                "gasUsed": "167769",
+                "gasFee": {
+                    "amount": [
+                        {
+                            "denom": "inj",
+                            "amount": "84153000000000"
+                        }
+                    ],
+                    "gasLimit": "168306",
+                    "payer": "inj1hkhdaj2a2clmq5jq6mspsggqs32vynpk228q3r"  # noqa: mock
+                },
+                "txType": "injective",
+                "messages": base64.b64encode(json.dumps(transaction_messages).encode()).decode(),
+                "signatures": [
+                    {
+                        "pubkey": "035ddc4d5642b9383e2f087b2ee88b7207f6286ebc9f310e9df1406eccc2c31813",  # noqa: mock
+                        "address": "inj1hkhdaj2a2clmq5jq6mspsggqs32vynpk228q3r",  # noqa: mock
+                        "sequence": "16450",
+                        "signature": "S9atCwiVg9+8vTpbciuwErh54pJOAry3wHvbHT2fG8IumoE+7vfuoP7mAGDy2w9am+HHa1yv60VSWo3cRhWC9g=="
+                    }
+                ],
+                "txNumber": "13182",
+                "blockUnixTimestamp": "1688565309940",
+                "logs": "W3sibXNnX2luZGV4IjowLCJldmVudHMiOlt7InR5cGUiOiJtZXNzYWdlIiwiYXR0cmlidXRlcyI6W3sia2V5IjoiYWN0aW9uIiwidmFsdWUiOiIvaW5qZWN0aXZlLmV4Y2hhbmdlLnYxYmV0YTEuTXNnQmF0Y2hVcGRhdGVPcmRlcnMifSx7ImtleSI6InNlbmRlciIsInZhbHVlIjoiaW5qMWhraGRhajJhMmNsbXE1anE2bXNwc2dncXMzMnZ5bnBrMjI4cTNyIn0seyJrZXkiOiJtb2R1bGUiLCJ2YWx1ZSI6ImV4Y2hhbmdlIn1dfSx7InR5cGUiOiJjb2luX3NwZW50IiwiYXR0cmlidXRlcyI6W3sia2V5Ijoic3BlbmRlciIsInZhbHVlIjoiaW5qMWhraGRhajJhMmNsbXE1anE2bXNwc2dncXMzMnZ5bnBrMjI4cTNyIn0seyJrZXkiOiJhbW91bnQiLCJ2YWx1ZSI6IjE2NTE2NTAwMHBlZ2d5MHg4N2FCM0I0Qzg2NjFlMDdENjM3MjM2MTIxMUI5NmVkNERjMzZCMUI1In1dfSx7InR5cGUiOiJjb2luX3JlY2VpdmVkIiwiYXR0cmlidXRlcyI6W3sia2V5IjoicmVjZWl2ZXIiLCJ2YWx1ZSI6ImluajE0dm5tdzJ3ZWUzeHRyc3FmdnBjcWczNWpnOXY3ajJ2ZHB6eDBrayJ9LHsia2V5IjoiYW1vdW50IiwidmFsdWUiOiIxNjUxNjUwMDBwZWdneTB4ODdhQjNCNEM4NjYxZTA3RDYzNzIzNjEyMTFCOTZlZDREYzM2QjFCNSJ9XX0seyJ0eXBlIjoidHJhbnNmZXIiLCJhdHRyaWJ1dGVzIjpbeyJrZXkiOiJyZWNpcGllbnQiLCJ2YWx1ZSI6ImluajE0dm5tdzJ3ZWUzeHRyc3FmdnBjcWczNWpnOXY3ajJ2ZHB6eDBrayJ9LHsia2V5Ijoic2VuZGVyIiwidmFsdWUiOiJpbmoxaGtoZGFqMmEyY2xtcTVqcTZtc3BzZ2dxczMydnlucGsyMjhxM3IifSx7ImtleSI6ImFtb3VudCIsInZhbHVlIjoiMTY1MTY1MDAwcGVnZ3kweDg3YUIzQjRDODY2MWUwN0Q2MzcyMzYxMjExQjk2ZWQ0RGMzNkIxQjUifV19LHsidHlwZSI6Im1lc3NhZ2UiLCJhdHRyaWJ1dGVzIjpbeyJrZXkiOiJzZW5kZXIiLCJ2YWx1ZSI6ImluajFoa2hkYWoyYTJjbG1xNWpxNm1zcHNnZ3FzMzJ2eW5wazIyOHEzciJ9XX0seyJ0eXBlIjoiY29pbl9zcGVudCIsImF0dHJpYnV0ZXMiOlt7ImtleSI6InNwZW5kZXIiLCJ2YWx1ZSI6ImluajFoa2hkYWoyYTJjbG1xNWpxNm1zcHNnZ3FzMzJ2eW5wazIyOHEzciJ9LHsia2V5IjoiYW1vdW50IiwidmFsdWUiOiI1NTAwMDAwMDAwMDAwMDAwMDAwMGluaiJ9XX0seyJ0eXBlIjoiY29pbl9yZWNlaXZlZCIsImF0dHJpYnV0ZXMiOlt7ImtleSI6InJlY2VpdmVyIiwidmFsdWUiOiJpbmoxNHZubXcyd2VlM3h0cnNxZnZwY3FnMzVqZzl2N2oydmRwengwa2sifSx7ImtleSI6ImFtb3VudCIsInZhbHVlIjoiNTUwMDAwMDAwMDAwMDAwMDAwMDBpbmoifV19LHsidHlwZSI6InRyYW5zZmVyIiwiYXR0cmlidXRlcyI6W3sia2V5IjoicmVjaXBpZW50IiwidmFsdWUiOiJpbmoxNHZubXcyd2VlM3h0cnNxZnZwY3FnMzVqZzl2N2oydmRwengwa2sifSx7ImtleSI6InNlbmRlciIsInZhbHVlIjoiaW5qMWhraGRhajJhMmNsbXE1anE2bXNwc2dncXMzMnZ5bnBrMjI4cTNyIn0seyJrZXkiOiJhbW91bnQiLCJ2YWx1ZSI6IjU1MDAwMDAwMDAwMDAwMDAwMDAwaW5qIn1dfSx7InR5cGUiOiJtZXNzYWdlIiwiYXR0cmlidXRlcyI6W3sia2V5Ijoic2VuZGVyIiwidmFsdWUiOiJpbmoxaGtoZGFqMmEyY2xtcTVqcTZtc3BzZ2dxczMydnlucGsyMjhxM3IifV19XX1d"  # noqa: mock
+            }
+        }
+        self.exchange._data_source._query_executor._transaction_by_hash_responses.put_nowait(transaction_response)
+
+        self.async_run_with_timeout(self.exchange._check_orders_creation_transactions())
+
+        self.assertEquals(2, len(self.buy_order_created_logger.event_log))
+        self.assertEquals(0, len(self.order_failure_logger.event_log))
+
+        self.assertEquals(expected_hash_1, market_order.exchange_order_id)
+        self.assertEquals(expected_hash_2, limit_order.exchange_order_id)
+
     def test_user_stream_balance_update(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
-        network_config = InjectiveTestnetNetworkMode()
+        network_config = InjectiveTestnetNetworkMode(testnet_node="sentry")
 
         account_config = InjectiveDelegatedAccountMode(
             private_key=self.trading_account_private_key,
@@ -1336,7 +1686,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
         try:
             self.async_run_with_timeout(
-                self.exchange._data_source._listen_to_subaccount_order_updates(market_id=self.market_id)
+                self.exchange._data_source._listen_to_subaccount_spot_order_updates(market_id=self.market_id)
             )
         except asyncio.CancelledError:
             pass
@@ -1383,7 +1733,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
         try:
             self.async_run_with_timeout(
-                self.exchange._data_source._listen_to_subaccount_order_updates(market_id=self.market_id)
+                self.exchange._data_source._listen_to_subaccount_spot_order_updates(market_id=self.market_id)
             )
         except asyncio.CancelledError:
             pass
@@ -1442,10 +1792,10 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
         tasks = [
             asyncio.get_event_loop().create_task(
-                self.exchange._data_source._listen_to_public_trades(market_ids=[self.market_id])
+                self.exchange._data_source._listen_to_public_spot_trades(market_ids=[self.market_id])
             ),
             asyncio.get_event_loop().create_task(
-                self.exchange._data_source._listen_to_subaccount_order_updates(market_id=self.market_id)
+                self.exchange._data_source._listen_to_subaccount_spot_order_updates(market_id=self.market_id)
             )
         ]
         try:
@@ -1528,7 +1878,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
         try:
             self.async_run_with_timeout(
-                self.exchange._data_source._listen_to_subaccount_order_updates(market_id=self.market_id)
+                self.exchange._data_source._listen_to_subaccount_spot_order_updates(market_id=self.market_id)
             )
         except asyncio.CancelledError:
             pass
@@ -1587,10 +1937,10 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
         tasks = [
             asyncio.get_event_loop().create_task(
-                self.exchange._data_source._listen_to_public_trades(market_ids=[self.market_id])
+                self.exchange._data_source._listen_to_public_spot_trades(market_ids=[self.market_id])
             ),
             asyncio.get_event_loop().create_task(
-                self.exchange._data_source._listen_to_subaccount_order_updates(market_id=self.market_id)
+                self.exchange._data_source._listen_to_subaccount_spot_order_updates(market_id=self.market_id)
             )
         ]
         try:
@@ -1623,6 +1973,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
         invalid_pair, response = self.all_symbols_including_invalid_pair_mock_response
         self.exchange._data_source._query_executor._spot_markets_responses.put_nowait(response)
+        self.exchange._data_source._query_executor._derivative_markets_responses.put_nowait([])
 
         all_trading_pairs = self.async_run_with_timeout(coroutine=self.exchange.all_trading_pairs())
 
@@ -1669,6 +2020,8 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.assertEqual(self.expected_latest_price, latest_prices[self.trading_pair])
 
     def test_get_fee(self):
+        self.exchange._data_source._spot_market_and_trading_pair_map = None
+        self.exchange._data_source._derivative_market_and_trading_pair_map = None
         self.configure_all_symbols_response(mock_api=None)
         self.async_run_with_timeout(self.exchange._update_trading_fees())
 
@@ -1777,6 +2130,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     ) -> str:
         all_markets_mock_response = self.all_markets_mock_response
         self.exchange._data_source._query_executor._spot_markets_responses.put_nowait(all_markets_mock_response)
+        self.exchange._data_source._query_executor._derivative_markets_responses.put_nowait([])
         self.exchange._data_source._query_executor._account_portfolio_responses.put_nowait(response)
         return ""
 

@@ -50,7 +50,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         _, grantee_private_key = PrivateKey.generate()
         _, granter_private_key = PrivateKey.generate()
 
-        network_config = InjectiveTestnetNetworkMode()
+        network_config = InjectiveTestnetNetworkMode(testnet_node="sentry")
 
         account_config = InjectiveDelegatedAccountMode(
             private_key=grantee_private_key.to_hex(),
@@ -142,6 +142,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
     def test_get_new_order_book_successful(self):
         spot_markets_response = self._spot_markets_response()
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
+        self.query_executor._derivative_markets_responses.put_nowait([])
         base_decimals = spot_markets_response[0]["baseTokenMeta"]["decimals"]
         quote_decimals = spot_markets_response[0]["quoteTokenMeta"]["decimals"]
 
@@ -187,6 +188,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
     def test_listen_for_trades_logs_exception(self):
         spot_markets_response = self._spot_markets_response()
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
+        self.query_executor._derivative_markets_responses.put_nowait([])
 
         self.query_executor._public_spot_trade_updates.put_nowait({})
         trade_data = {
@@ -216,13 +218,14 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
 
         self.assertTrue(
             self.is_logged(
-                "WARNING", re.compile(r"^Invalid public trade event format \(.*")
+                "WARNING", re.compile(r"^Invalid public spot trade event format \(.*")
             )
         )
 
     def test_listen_for_trades_successful(self):
         spot_markets_response = self._spot_markets_response()
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
+        self.query_executor._derivative_markets_responses.put_nowait([])
         base_decimals = spot_markets_response[0]["baseTokenMeta"]["decimals"]
         quote_decimals = spot_markets_response[0]["quoteTokenMeta"]["decimals"]
 
@@ -275,6 +278,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
     def test_listen_for_order_book_diffs_logs_exception(self):
         spot_markets_response = self._spot_markets_response()
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
+        self.query_executor._derivative_markets_responses.put_nowait([])
 
         self.query_executor._spot_order_book_updates.put_nowait({})
         order_book_data = {
@@ -315,7 +319,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
 
         self.assertTrue(
             self.is_logged(
-                "WARNING", re.compile(r"^Invalid orderbook diff event format \(.*")
+                "WARNING", re.compile(r"^Invalid spot order book event format \(.*")
             )
         )
 
@@ -323,6 +327,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
     def test_listen_for_order_book_diffs_successful(self, _):
         spot_markets_response = self._spot_markets_response()
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
+        self.query_executor._derivative_markets_responses.put_nowait([])
         base_decimals = spot_markets_response[0]["baseTokenMeta"]["decimals"]
         quote_decimals = spot_markets_response[0]["quoteTokenMeta"]["decimals"]
 
