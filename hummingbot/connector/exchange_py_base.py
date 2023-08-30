@@ -934,11 +934,19 @@ class ExchangePyBase(ExchangeBase, ABC):
         )
 
     async def _update_all_balances(self):
-        await self._update_balances()
-        if not self.real_time_balance_update:
-            # This is only required for exchanges that do not provide balance update notifications through websocket
-            self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self.in_flight_orders.items()}
-            self._in_flight_orders_snapshot_timestamp = self.current_timestamp
+        try:
+            await self._update_balances()
+            if not self.real_time_balance_update:
+                # This is only required for exchanges that do not provide balance update notifications through websocket
+                self._in_flight_orders_snapshot = {k: copy.copy(v) for k, v in self.in_flight_orders.items()}
+                self._in_flight_orders_snapshot_timestamp = self.current_timestamp
+        except asyncio.CancelledError:
+            raise
+        except Exception as request_error:
+            self.logger().warning(
+                f"Failed to update balances. Error: {request_error}",
+                exc_info=request_error,
+            )
 
     async def _update_orders_fills(self, orders: List[InFlightOrder]):
         for order in orders:
