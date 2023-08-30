@@ -5,7 +5,7 @@ import pandas as pd
 
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
 from hummingbot.smart_components.strategy_frameworks.data_types import ControllerMode
-from hummingbot.smart_components.strategy_frameworks.market_making.market_making_controller_base import (
+from hummingbot.smart_components.strategy_frameworks.market_making import (
     MarketMakingControllerBase,
     MarketMakingControllerConfigBase,
 )
