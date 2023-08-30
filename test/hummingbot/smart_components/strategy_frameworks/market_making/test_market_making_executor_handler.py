@@ -5,11 +5,9 @@ from unittest.mock import MagicMock, patch
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorStatus
 from hummingbot.smart_components.strategy_frameworks.data_types import OrderLevel, TripleBarrierConf
-from hummingbot.smart_components.strategy_frameworks.market_making.market_making_controller_base import (
+from hummingbot.smart_components.strategy_frameworks.market_making import (
     MarketMakingControllerBase,
     MarketMakingControllerConfigBase,
-)
-from hummingbot.smart_components.strategy_frameworks.market_making.market_making_executor_handler import (
     MarketMakingExecutorHandler,
 )
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
