@@ -13,7 +13,7 @@ class DirectionalTradingBacktestingEngine(BacktestingEngineBase):
                                                   sl=float(order_level.triple_barrier_conf.stop_loss),
                                                   tl=int(order_level.triple_barrier_conf.time_limit),
                                                   trade_cost=trade_cost)
-            for index, row in df[(df["signal"] != 0)].iterrows():
+            for index, row in df[(df["side"] == order_level.side.name)].iterrows():
                 last_close_time = self.level_executors[order_level.level_id]
                 if index + pd.Timedelta(seconds=order_level.cooldown_time) > last_close_time:
                     row["order_level"] = order_level.level_id
