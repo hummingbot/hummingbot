@@ -1,10 +1,12 @@
 import unittest
+from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
 
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
-from hummingbot.smart_components.strategy_frameworks.data_types import ControllerMode
+from hummingbot.smart_components.strategy_frameworks.data_types import ControllerMode, OrderLevel, TripleBarrierConf
 from hummingbot.smart_components.strategy_frameworks.directional_trading import (
     DirectionalTradingControllerBase,
     DirectionalTradingControllerConfigBase,
@@ -67,7 +69,8 @@ class TestDirectionalTradingControllerBase(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             self.controller.get_processed_data()
 
-    @patch("hummingbot.smart_components.strategy_frameworks.directional_trading.directional_trading_controller_base.format_df_for_printout")
+    @patch(
+        "hummingbot.smart_components.strategy_frameworks.directional_trading.directional_trading_controller_base.format_df_for_printout")
     def test_to_format_status(self, mock_format_df_for_printout):
         # Create a mock DataFrame
         mock_df = pd.DataFrame({
@@ -92,5 +95,31 @@ class TestDirectionalTradingControllerBase(unittest.TestCase):
         # Check if the result contains the expected formatted string
         self.assertIn("formatted_string", result)
 
-    def test_get_position_config(self):
-        pass
+    @patch("hummingbot.smart_components.strategy_frameworks.controller_base.ControllerBase.get_close_price")
+    def test_get_position_config(self, mock_get_closest_price):
+        order_level = OrderLevel(
+            level=1, side=TradeType.BUY, order_amount_usd=Decimal("10"),
+            triple_barrier_conf=TripleBarrierConf(
+                stop_loss=Decimal("0.03"), take_profit=Decimal("0.02"),
+                time_limit=60 * 2,
+            ))
+        mock_get_closest_price.return_value = Decimal("100")
+        # Create a mock DataFrame
+        mock_df = pd.DataFrame({
+            "timestamp": ["2021-01-01", "2021-01-02", "2021-01-03", "2021-01-04"],
+            "open": [1, 2, 3, 4],
+            "low": [1, 2, 3, 4],
+            "high": [1, 2, 3, 4],
+            "close": [1, 2, 3, 4],
+            "volume": [1, 2, 3, 4],
+            "signal": [1, -1, 1, -1]
+        })
+
+        # Mock the get_processed_data method to return the mock DataFrame
+        self.controller.get_processed_data = MagicMock(return_value=mock_df)
+        position_config = self.controller.get_position_config(order_level, 1)
+        self.assertEqual(position_config.trading_pair, "BTC-USDT")
+        self.assertEqual(position_config.exchange, "binance")
+        self.assertEqual(position_config.side, TradeType.BUY)
+        self.assertEqual(position_config.amount, Decimal("0.1"))
+        self.assertEqual(position_config.entry_price, Decimal("100"))
