@@ -544,6 +544,7 @@ class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
             new_state=order.current_state,
             misc_updates=misc_updates,
         )
+        self.logger().debug(f"\nCreated order {order.client_order_id} ({exchange_order_id}) with TX {misc_updates}")
         self._order_tracker.process_order_update(order_update)
 
     def _on_order_creation_failure(
