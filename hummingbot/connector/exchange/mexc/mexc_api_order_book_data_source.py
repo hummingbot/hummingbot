@@ -1,288 +1,142 @@
-#!/usr/bin/env python
-import aiohttp
-import aiohttp.client_ws
 import asyncio
-import logging
-import pandas as pd
 import time
-from typing import (
-    Any,
-    Dict,
-    List,
-    Optional,
-)
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from hummingbot.connector.exchange.mexc.mexc_utils import (
-    convert_from_exchange_trading_pair,
-    convert_to_exchange_trading_pair,
-    microseconds,
-)
-from hummingbot.core.data_type.order_book_message import OrderBookMessage
-from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.logger import HummingbotLogger
+from hummingbot.connector.exchange.mexc import mexc_constants as CONSTANTS, mexc_web_utils as web_utils
 from hummingbot.connector.exchange.mexc.mexc_order_book import MexcOrderBook
-from hummingbot.connector.exchange.mexc import mexc_constants as CONSTANTS
-from dateutil.parser import parse as dateparse
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.connector.exchange.mexc.mexc_websocket_adaptor import MexcWebSocketAdaptor
-from collections import defaultdict
+from hummingbot.core.data_type.order_book_message import OrderBookMessage
+from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.core.web_assistant.ws_assistant import WSAssistant
+from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.connector.exchange.mexc.mexc_exchange import MexcExchange
 
 
 class MexcAPIOrderBookDataSource(OrderBookTrackerDataSource):
-    MESSAGE_TIMEOUT = 120.0
-    PING_TIMEOUT = 10.0
+    HEARTBEAT_TIME_INTERVAL = 30.0
+    TRADE_STREAM_ID = 1
+    DIFF_STREAM_ID = 2
+    ONE_HOUR = 60 * 60
 
     _logger: Optional[HummingbotLogger] = None
 
-    def __init__(self, trading_pairs: List[str],
-                 shared_client: Optional[aiohttp.ClientSession] = None,
-                 throttler: Optional[AsyncThrottler] = None, ):
+    def __init__(self,
+                 trading_pairs: List[str],
+                 connector: 'MexcExchange',
+                 api_factory: WebAssistantsFactory,
+                 domain: str = CONSTANTS.DEFAULT_DOMAIN):
         super().__init__(trading_pairs)
-        self._trading_pairs: List[str] = trading_pairs
-        self._throttler = throttler or self._get_throttler_instance()
-        self._shared_client = shared_client or self._get_session_instance()
-        self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
+        self._connector = connector
+        self._trade_messages_queue_key = CONSTANTS.TRADE_EVENT_TYPE
+        self._diff_messages_queue_key = CONSTANTS.DIFF_EVENT_TYPE
+        self._domain = domain
+        self._api_factory = api_factory
 
-    @classmethod
-    def logger(cls) -> HummingbotLogger:
-        if cls._logger is None:
-            cls._logger = logging.getLogger(__name__)
-        return cls._logger
+    async def get_last_traded_prices(self,
+                                     trading_pairs: List[str],
+                                     domain: Optional[str] = None) -> Dict[str, float]:
+        return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
 
-    @classmethod
-    def _get_session_instance(cls) -> aiohttp.ClientSession:
-        session = aiohttp.ClientSession()
-        return session
-
-    @classmethod
-    def _get_throttler_instance(cls) -> AsyncThrottler:
-        throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
-        return throttler
-
-    @staticmethod
-    async def fetch_trading_pairs() -> List[str]:
-        async with aiohttp.ClientSession() as client:
-            throttler = MexcAPIOrderBookDataSource._get_throttler_instance()
-            async with throttler.execute_task(CONSTANTS.MEXC_SYMBOL_URL):
-                url = CONSTANTS.MEXC_BASE_URL + CONSTANTS.MEXC_SYMBOL_URL
-                async with client.get(url) as products_response:
-
-                    products_response: aiohttp.ClientResponse = products_response
-                    if products_response.status != 200:
-                        return []
-                        # raise IOError(f"Error fetching active MEXC. HTTP status is {products_response.status}.")
-
-                    data = await products_response.json()
-                    data = data['data']
-
-                    trading_pairs = []
-                    for item in data:
-                        if item['state'] == "ENABLED":
-                            trading_pairs.append(convert_from_exchange_trading_pair(item["symbol"]))
-        return trading_pairs
-
-    async def get_new_order_book(self, trading_pair: str) -> OrderBook:
-        snapshot: Dict[str, Any] = await self.get_snapshot(self._shared_client, trading_pair)
-
-        snapshot_msg: OrderBookMessage = MexcOrderBook.snapshot_message_from_exchange(
-            snapshot,
-            trading_pair,
-            timestamp=microseconds(),
-            metadata={"trading_pair": trading_pair})
-        order_book: OrderBook = self.order_book_create_function()
-        order_book.apply_snapshot(snapshot_msg.bids, snapshot_msg.asks, snapshot_msg.update_id)
-        return order_book
-
-    @classmethod
-    async def get_last_traded_prices(cls, trading_pairs: List[str], throttler: Optional[AsyncThrottler] = None,
-                                     shared_client: Optional[aiohttp.ClientSession] = None) -> Dict[str, float]:
-        client = shared_client or cls._get_session_instance()
-        throttler = throttler or cls._get_throttler_instance()
-        async with throttler.execute_task(CONSTANTS.MEXC_TICKERS_URL):
-            url = CONSTANTS.MEXC_BASE_URL + CONSTANTS.MEXC_TICKERS_URL
-            async with client.get(url) as products_response:
-                products_response: aiohttp.ClientResponse = products_response
-                if products_response.status != 200:
-                    # raise IOError(f"Error get tickers from MEXC markets. HTTP status is {products_response.status}.")
-                    return {}
-                data = await products_response.json()
-                data = data['data']
-                all_markets: pd.DataFrame = pd.DataFrame.from_records(data=data)
-                all_markets.set_index("symbol", inplace=True)
-
-                out: Dict[str, float] = {}
-
-                for trading_pair in trading_pairs:
-                    exchange_trading_pair = convert_to_exchange_trading_pair(trading_pair)
-                    out[trading_pair] = float(all_markets['last'][exchange_trading_pair])
-                return out
-
-    async def get_trading_pairs(self) -> List[str]:
-        if not self._trading_pairs:
-            try:
-                self._trading_pairs = await self.fetch_trading_pairs()
-            except Exception:
-                self._trading_pairs = []
-                self.logger().network(
-                    "Error getting active exchange information.",
-                    exc_info=True,
-                    app_warning_msg="Error getting active exchange information. Check network connection."
-                )
-        return self._trading_pairs
-
-    @staticmethod
-    async def get_snapshot(client: aiohttp.ClientSession, trading_pair: str,
-                           throttler: Optional[AsyncThrottler] = None) -> Dict[str, Any]:
-        throttler = throttler or MexcAPIOrderBookDataSource._get_throttler_instance()
-        async with throttler.execute_task(CONSTANTS.MEXC_DEPTH_URL):
-            trading_pair = convert_to_exchange_trading_pair(trading_pair)
-            tick_url = CONSTANTS.MEXC_DEPTH_URL.format(trading_pair=trading_pair)
-            url = CONSTANTS.MEXC_BASE_URL + tick_url
-            async with client.get(url) as response:
-                response: aiohttp.ClientResponse = response
-                status = response.status
-                if status != 200:
-                    raise IOError(f"Error fetching MEXC market snapshot for {trading_pair}. "
-                                  f"HTTP status is {status}.")
-                api_data = await response.json()
-                data = api_data['data']
-                data['ts'] = microseconds()
-
-                return data
-
-    @classmethod
-    def iso_to_timestamp(cls, date: str):
-        return dateparse(date).timestamp()
-
-    async def _sleep(self, delay):
+    async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
         """
-        Function added only to facilitate patching the sleep in unit tests without affecting the asyncio module
-        """
-        await asyncio.sleep(delay)
+        Retrieves a copy of the full order book from the exchange, for a particular trading pair.
 
-    async def _create_websocket_connection(self) -> MexcWebSocketAdaptor:
+        :param trading_pair: the trading pair for which the order book will be retrieved
+
+        :return: the response from the exchange (JSON dictionary)
         """
-        Initialize WebSocket client for UserStreamDataSource
+        params = {
+            "symbol": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
+            "limit": "1000"
+        }
+
+        rest_assistant = await self._api_factory.get_rest_assistant()
+        data = await rest_assistant.execute_request(
+            url=web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self._domain),
+            params=params,
+            method=RESTMethod.GET,
+            throttler_limit_id=CONSTANTS.SNAPSHOT_PATH_URL,
+        )
+
+        return data
+
+    async def _subscribe_channels(self, ws: WSAssistant):
+        """
+        Subscribes to the trade events and diff orders events through the provided websocket connection.
+        :param ws: the websocket assistant used to connect to the exchange
         """
         try:
-            ws = MexcWebSocketAdaptor(throttler=self._throttler, shared_client=self._shared_client)
-            await ws.connect()
-            return ws
+            trade_params = []
+            depth_params = []
+            for trading_pair in self._trading_pairs:
+                symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+                trade_params.append(f"spot@public.deals.v3.api@{symbol}")
+                depth_params.append(f"spot@public.increase.depth.v3.api@{symbol}")
+            payload = {
+                "method": "SUBSCRIPTION",
+                "params": trade_params,
+                "id": 1
+            }
+            subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=payload)
+
+            payload = {
+                "method": "SUBSCRIPTION",
+                "params": depth_params,
+                "id": 2
+            }
+            subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=payload)
+
+            await ws.send(subscribe_trade_request)
+            await ws.send(subscribe_orderbook_request)
+
+            self.logger().info("Subscribed to public order book and trade channels...")
         except asyncio.CancelledError:
             raise
-        except Exception as e:
-            self.logger().network(f"Unexpected error occured connecting to {CONSTANTS.EXCHANGE_NAME} WebSocket API. "
-                                  f"({e})")
+        except Exception:
+            self.logger().error(
+                "Unexpected error occurred subscribing to order book trading and delta streams...",
+                exc_info=True
+            )
             raise
 
-    async def listen_for_subscriptions(self):
-        ws = None
-        while True:
-            try:
-                ws = await self._create_websocket_connection()
-                await ws.subscribe_to_order_book_streams(self._trading_pairs)
+    async def _connected_websocket_assistant(self) -> WSAssistant:
+        ws: WSAssistant = await self._api_factory.get_ws_assistant()
+        await ws.connect(ws_url=CONSTANTS.WSS_URL.format(self._domain),
+                         ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
+        return ws
 
-                async for msg in ws.iter_messages():
-                    decoded_msg: dict = msg
+    async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
+        snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
+        snapshot_timestamp: float = time.time()
+        snapshot_msg: OrderBookMessage = MexcOrderBook.snapshot_message_from_exchange(
+            snapshot,
+            snapshot_timestamp,
+            metadata={"trading_pair": trading_pair}
+        )
+        return snapshot_msg
 
-                    if 'channel' in decoded_msg.keys() and decoded_msg['channel'] in MexcWebSocketAdaptor.SUBSCRIPTION_LIST:
-                        self._message_queue[decoded_msg['channel']].put_nowait(decoded_msg)
-                    else:
-                        self.logger().debug(f"Unrecognized message received from MEXC websocket: {decoded_msg}")
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().error(
-                    "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds...",
-                    exc_info=True,
-                )
-                await self._sleep(5.0)
-            finally:
-                ws and await ws.disconnect()
+    async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
+        if "code" not in raw_message:
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["s"])
+            for sinlge_msg in raw_message['d']['deals']:
+                trade_message = MexcOrderBook.trade_message_from_exchange(
+                    sinlge_msg, timestamp=raw_message['t'], metadata={"trading_pair": trading_pair})
+                message_queue.put_nowait(trade_message)
 
-    async def listen_for_trades(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        msg_queue = self._message_queue[MexcWebSocketAdaptor.DEAL_CHANNEL_ID]
-        while True:
-            try:
-                decoded_msg = await msg_queue.get()
-                self.logger().debug(f"Recived new trade: {decoded_msg}")
+    async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
+        if "code" not in raw_message:
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["s"])
+            order_book_message: OrderBookMessage = MexcOrderBook.diff_message_from_exchange(
+                raw_message, raw_message['t'], {"trading_pair": trading_pair})
+            message_queue.put_nowait(order_book_message)
 
-                for data in decoded_msg['data']['deals']:
-                    trading_pair = convert_from_exchange_trading_pair(decoded_msg['symbol'])
-                    trade_message: OrderBookMessage = MexcOrderBook.trade_message_from_exchange(
-                        data, data['t'], metadata={"trading_pair": trading_pair}
-                    )
-                    self.logger().debug(f'Putting msg in queue: {str(trade_message)}')
-                    output.put_nowait(trade_message)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().error("Unexpected error with WebSocket connection ,Retrying after 30 seconds...",
-                                    exc_info=True)
-                await self._sleep(30.0)
-
-    async def listen_for_order_book_diffs(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        msg_queue = self._message_queue[MexcWebSocketAdaptor.DEPTH_CHANNEL_ID]
-        while True:
-            try:
-                decoded_msg = await msg_queue.get()
-                if decoded_msg['data'].get('asks'):
-                    asks = [
-                        {
-                            'price': ask['p'],
-                            'quantity': ask['q']
-                        }
-                        for ask in decoded_msg["data"]["asks"]]
-                    decoded_msg['data']['asks'] = asks
-                if decoded_msg['data'].get('bids'):
-                    bids = [
-                        {
-                            'price': bid['p'],
-                            'quantity': bid['q']
-                        }
-                        for bid in decoded_msg["data"]["bids"]]
-                    decoded_msg['data']['bids'] = bids
-                order_book_message: OrderBookMessage = MexcOrderBook.diff_message_from_exchange(
-                    decoded_msg['data'], microseconds(),
-                    metadata={"trading_pair": convert_from_exchange_trading_pair(decoded_msg['symbol'])}
-                )
-                output.put_nowait(order_book_message)
-
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().error("Unexpected error with WebSocket connection. Retrying after 30 seconds...",
-                                    exc_info=True)
-                await self._sleep(30.0)
-
-    async def listen_for_order_book_snapshots(self, ev_loop: asyncio.BaseEventLoop, output: asyncio.Queue):
-        while True:
-            try:
-                trading_pairs: List[str] = await self.get_trading_pairs()
-                session = self._shared_client
-                for trading_pair in trading_pairs:
-                    try:
-                        snapshot: Dict[str, Any] = await self.get_snapshot(session, trading_pair)
-                        snapshot_msg: OrderBookMessage = MexcOrderBook.snapshot_message_from_exchange(
-                            snapshot,
-                            trading_pair,
-                            timestamp=microseconds(),
-                            metadata={"trading_pair": trading_pair})
-                        output.put_nowait(snapshot_msg)
-                        self.logger().debug(f"Saved order book snapshot for {trading_pair}")
-                        await self._sleep(5.0)
-                    except asyncio.CancelledError:
-                        raise
-                    except Exception as ex:
-                        self.logger().error("Unexpected error." + repr(ex), exc_info=True)
-                        await self._sleep(5.0)
-                this_hour: pd.Timestamp = pd.Timestamp.utcnow().replace(minute=0, second=0, microsecond=0)
-                next_hour: pd.Timestamp = this_hour + pd.Timedelta(hours=1)
-                delta: float = next_hour.timestamp() - time.time()
-                await self._sleep(delta)
-            except asyncio.CancelledError:
-                raise
-            except Exception as ex1:
-                self.logger().error("Unexpected error." + repr(ex1), exc_info=True)
-                await self._sleep(5.0)
+    def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
+        channel = ""
+        if "code" not in event_message:
+            event_type = event_message.get("c", "")
+            channel = (self._diff_messages_queue_key if CONSTANTS.DIFF_EVENT_TYPE in event_type
+                       else self._trade_messages_queue_key)
+        return channel
