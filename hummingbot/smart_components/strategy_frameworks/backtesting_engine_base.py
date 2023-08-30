@@ -34,7 +34,7 @@ class BacktestingEngineBase:
         return df[start_condition & end_condition]
 
     def apply_triple_barrier_method(self, df, tp=1.0, sl=1.0, tl=5, trade_cost=0.0006):
-        df.index = pd.to_datetime(df.timestamp, unit="ms")
+        df.index = pd.to_datetime(df.timestamp, unit="s")
         if "target" not in df.columns:
             df["target"] = 1 / 100
         df["tl"] = df.index + pd.Timedelta(seconds=tl)
@@ -43,9 +43,11 @@ class BacktestingEngineBase:
         df = self.apply_tp_sl_on_tl(df, tp=tp, sl=sl)
 
         df = self.get_bins(df, trade_cost)
+        df["tp"] = df["target"] * tp
+        df["sl"] = df["target"] * sl
 
-        df["tp"] = df["close"] * (1 + df["target"] * tp * df["signal"])
-        df["sl"] = df["close"] * (1 - df["target"] * sl * df["signal"])
+        df["take_profit_price"] = df["close"] * (1 + df["tp"] * df["signal"])
+        df["stop_loss_price"] = df["close"] * (1 - df["sl"] * df["signal"])
 
         return df
 
@@ -59,6 +61,7 @@ class BacktestingEngineBase:
         df["trade_pnl"] = (px.loc[df["close_time"].values].values / px.loc[df.index] - 1) * df["signal"]
         df["net_pnl"] = df["trade_pnl"] - trade_cost
         df["profitable"] = np.sign(df["trade_pnl"] - trade_cost)
+        df["close_price"] = px.loc[df["close_time"].values].values
         return df
 
     @staticmethod
@@ -93,15 +96,20 @@ class BacktestingEngineBase:
     def run_backtesting(self, initial_portfolio_usd=1000, trade_cost=0.0006,
                         start: Optional[str] = None, end: Optional[str] = None):
         # Load historical candles
-        df = self.get_data(start=start, end=end)
+        processed_data = self.get_data(start=start, end=end)
 
         # Apply the specific execution logic of the executor handler vectorized
-        executors_df = self.simulate_execution(df, initial_portfolio_usd=initial_portfolio_usd, trade_cost=trade_cost)
+        executors_df = self.simulate_execution(processed_data, initial_portfolio_usd=initial_portfolio_usd, trade_cost=trade_cost)
 
         # Store data for further analysis
+        self.processed_data = processed_data
         self.executors_df = executors_df
         self.results = self.summarize_results(executors_df)
-        return df
+        return {
+            "processed_data": processed_data,
+            "executors_df": executors_df,
+            "results": self.results
+        }
 
     def simulate_execution(self, df: pd.DataFrame, initial_portfolio_usd: float, trade_cost: float):
         raise NotImplementedError
@@ -124,7 +132,7 @@ class BacktestingEngineBase:
             close_types = executors_df.groupby("close_type")["timestamp"].count()
 
             # Additional metrics
-            total_positions = executors_df.shape[0] - 1
+            total_positions = executors_df.shape[0]
             win_signals = executors_df.loc[(executors_df["profitable"] > 0) & (executors_df["signal"] != 0)]
             loss_signals = executors_df.loc[(executors_df["profitable"] < 0) & (executors_df["signal"] != 0)]
             accuracy = win_signals.shape[0] / total_positions
@@ -138,7 +146,7 @@ class BacktestingEngineBase:
             total_won = win_signals.loc[:, "net_pnl_quote"].sum()
             total_loss = - loss_signals.loc[:, "net_pnl_quote"].sum()
             profit_factor = total_won / total_loss
-            duration_minutes = (executors_df.index.max() - executors_df.index.min()).total_seconds() / 60
+            duration_minutes = (executors_df.close_time.max() - executors_df.index.min()).total_seconds() / 60
             avg_trading_time_minutes = (pd.to_datetime(executors_df["close_time"]) - executors_df.index).dt.total_seconds() / 60
             avg_trading_time = avg_trading_time_minutes.mean()
 
