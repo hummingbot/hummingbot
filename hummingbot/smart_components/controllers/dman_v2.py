@@ -87,7 +87,13 @@ class DManV2(MarketMakingControllerBase):
         price_adjusted = close_price * (1 + price_multiplier)
         side_multiplier = -1 if order_level.side == TradeType.BUY else 1
         order_price = price_adjusted * (1 + order_level.spread_factor * spread_multiplier * side_multiplier)
-
+        if order_level.triple_barrier_conf.trailing_stop_trailing_delta and order_level.triple_barrier_conf.trailing_stop_trailing_delta:
+            trailing_stop = TrailingStop(
+                activation_price_delta=order_level.triple_barrier_conf.trailing_stop_activation_price_delta,
+                trailing_delta=order_level.triple_barrier_conf.trailing_stop_trailing_delta,
+            )
+        else:
+            trailing_stop = None
         position_config = PositionConfig(
             timestamp=time.time(),
             trading_pair=self.config.trading_pair,
@@ -100,10 +106,7 @@ class DManV2(MarketMakingControllerBase):
             entry_price=Decimal(order_price),
             open_order_type=order_level.triple_barrier_conf.open_order_type,
             take_profit_order_type=order_level.triple_barrier_conf.take_profit_order_type,
-            trailing_stop=TrailingStop(
-                activation_price_delta=order_level.triple_barrier_conf.trailing_stop_activation_price_delta,
-                trailing_delta=order_level.triple_barrier_conf.trailing_stop_trailing_delta,
-            ),
+            trailing_stop=trailing_stop,
             leverage=self.config.leverage
         )
         return position_config
