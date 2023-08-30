@@ -544,6 +544,7 @@ class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
             new_state=order.current_state,
             misc_updates=misc_updates,
         )
+        self.logger().debug(f"\nCreated order {order.client_order_id} ({exchange_order_id}) with TX {misc_updates}")
         self._order_tracker.process_order_update(order_update)
 
     def _on_order_creation_failure(
@@ -1011,7 +1012,10 @@ class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
     async def _check_orders_transactions(self):
         while True:
             try:
-                await self._check_orders_creation_transactions()
+                # Executing the process shielded from this async task to isolate it from network disconnections
+                # (network disconnections cancel this task)
+                task = asyncio.create_task(self._check_orders_creation_transactions())
+                await asyncio.shield(task)
                 await self._sleep(CONSTANTS.TRANSACTIONS_CHECK_INTERVAL)
             except NotImplementedError:
                 raise
@@ -1087,7 +1091,10 @@ class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
     async def _process_queued_orders(self):
         while True:
             try:
-                await self._cancel_and_create_queued_orders()
+                # Executing the batch cancelation and creation process shielded from this async task to isolate the
+                # creation/cancelation process from network disconnections (network disconnections cancel this task)
+                task = asyncio.create_task(self._cancel_and_create_queued_orders())
+                await asyncio.shield(task)
                 sleep_time = (self.clock.tick_size * 0.5
                               if self.clock is not None
                               else self._orders_processing_delta_time)
