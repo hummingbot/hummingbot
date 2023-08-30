@@ -43,6 +43,7 @@ class DirectionalTradingControllerBase(ControllerBase):
         """
         Checks if the exchange is a perpetual market.
         """
+        # TODO: Refactor this as a method of the base class that receives the exchange name as a parameter
         return "perpetual" in self.config.exchange
 
     def get_signal(self):
