@@ -898,7 +898,10 @@ class InjectiveV2Exchange(ExchangePyBase):
     async def _check_orders_transactions(self):
         while True:
             try:
-                await self._check_orders_creation_transactions()
+                # Executing the process shielded from this async task to isolate it from network disconnections
+                # (network disconnections cancel this task)
+                task = asyncio.create_task(self._check_orders_creation_transactions())
+                await asyncio.shield(task)
                 await self._sleep(CONSTANTS.TRANSACTIONS_CHECK_INTERVAL)
             except NotImplementedError:
                 raise
@@ -974,7 +977,10 @@ class InjectiveV2Exchange(ExchangePyBase):
     async def _process_queued_orders(self):
         while True:
             try:
-                await self._cancel_and_create_queued_orders()
+                # Executing the batch cancelation and creation process shielded from this async task to isolate the
+                # creation/cancelation process from network disconnections (network disconnections cancel this task)
+                task = asyncio.create_task(self._cancel_and_create_queued_orders())
+                await asyncio.shield(task)
                 sleep_time = (self.clock.tick_size * 0.5
                               if self.clock is not None
                               else self._orders_processing_delta_time)
