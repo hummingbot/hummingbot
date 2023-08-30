@@ -503,35 +503,36 @@ class InjectiveDataSource(ABC):
                     derivative_orders_data.append(order_data)
                     orders_with_hash.append(order)
 
-            delegated_message = self._order_cancel_message(
-                spot_orders_to_cancel=spot_orders_data,
-                derivative_orders_to_cancel=derivative_orders_data,
-            )
+            if len(orders_with_hash) > 0:
+                delegated_message = self._order_cancel_message(
+                    spot_orders_to_cancel=spot_orders_data,
+                    derivative_orders_to_cancel=derivative_orders_data,
+                )
 
-            try:
-                result = await self._send_in_transaction(messages=[delegated_message])
-                if result["rawLog"] != "[]":
-                    raise ValueError(f"Error sending the order cancel transaction ({result['rawLog']})")
-                else:
-                    cancel_transaction_hash = result.get("txhash", "")
+                try:
+                    result = await self._send_in_transaction(messages=[delegated_message])
+                    if result["rawLog"] != "[]":
+                        raise ValueError(f"Error sending the order cancel transaction ({result['rawLog']})")
+                    else:
+                        cancel_transaction_hash = result.get("txhash", "")
+                        results.extend([
+                            CancelOrderResult(
+                                client_order_id=order.client_order_id,
+                                trading_pair=order.trading_pair,
+                                misc_updates={"cancelation_transaction_hash": cancel_transaction_hash},
+                            ) for order in orders_with_hash
+                        ])
+                except asyncio.CancelledError:
+                    raise
+                except Exception as ex:
+                    self.logger().debug(f"Error broadcasting transaction to cancel orders (message: {delegated_message})")
                     results.extend([
                         CancelOrderResult(
                             client_order_id=order.client_order_id,
                             trading_pair=order.trading_pair,
-                            misc_updates={"cancelation_transaction_hash": cancel_transaction_hash},
+                            exception=ex,
                         ) for order in orders_with_hash
                     ])
-            except asyncio.CancelledError:
-                raise
-            except Exception as ex:
-                self.logger().debug(f"Error broadcasting transaction to cancel orders (message: {delegated_message})")
-                results.extend([
-                    CancelOrderResult(
-                        client_order_id=order.client_order_id,
-                        trading_pair=order.trading_pair,
-                        exception=ex,
-                    ) for order in orders_with_hash
-                ])
 
         return results
 
