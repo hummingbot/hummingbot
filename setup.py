@@ -100,7 +100,7 @@ def find_py_with_pxd() -> List[Extension]:
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20230724"
+    version = "20230828"
     packages = find_packages(include=["hummingbot", "hummingbot.*"])
     package_data = {
         "hummingbot": [
