@@ -55,7 +55,7 @@ class DirectionalTradingControllerBase(ControllerBase):
         if "target" in df.columns:
             return Decimal(df["target"].iloc[-1])
         else:
-            return Decimal("0.01")
+            return Decimal("1.0")
 
     def early_stop_condition(self, executor: PositionExecutor, order_level: OrderLevel) -> bool:
         raise NotImplementedError
@@ -74,6 +74,13 @@ class DirectionalTradingControllerBase(ControllerBase):
             amount = order_level.order_amount_usd / close_price
             spread_multiplier = self.get_spread_multiplier()
             order_price = close_price * (1 + order_level.spread_factor * spread_multiplier * signal)
+            if order_level.triple_barrier_conf.trailing_stop_trailing_delta and order_level.triple_barrier_conf.trailing_stop_trailing_delta:
+                trailing_stop = TrailingStop(
+                    activation_price_delta=order_level.triple_barrier_conf.trailing_stop_activation_price_delta,
+                    trailing_delta=order_level.triple_barrier_conf.trailing_stop_trailing_delta,
+                )
+            else:
+                trailing_stop = None
             position_config = PositionConfig(
                 timestamp=time.time(),
                 trading_pair=self.config.trading_pair,
@@ -86,10 +93,7 @@ class DirectionalTradingControllerBase(ControllerBase):
                 entry_price=Decimal(order_price),
                 open_order_type=order_level.triple_barrier_conf.open_order_type,
                 take_profit_order_type=order_level.triple_barrier_conf.take_profit_order_type,
-                trailing_stop=TrailingStop(
-                    activation_price_delta=order_level.triple_barrier_conf.trailing_stop_activation_price_delta,
-                    trailing_delta=order_level.triple_barrier_conf.trailing_stop_trailing_delta,
-                ),
+                trailing_stop=trailing_stop,
                 leverage=self.config.leverage
             )
             return position_config
