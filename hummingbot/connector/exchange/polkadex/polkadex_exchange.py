@@ -1,4 +1,5 @@
 import asyncio
+import math
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from _decimal import Decimal
@@ -9,15 +10,16 @@ from hummingbot.connector.exchange.polkadex.polkadex_api_order_book_data_source 
 from hummingbot.connector.exchange.polkadex.polkadex_data_source import PolkadexDataSource
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
+from hummingbot.connector.utils import get_new_client_order_id
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.event.event_forwarder import EventForwarder
 from hummingbot.core.event.events import AccountEvent, BalanceUpdateEvent, MarketEvent
-from hummingbot.core.network_iterator import NetworkStatus
+from hummingbot.core.network_iterator import NetworkStatus, safe_ensure_future
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
@@ -36,12 +38,13 @@ class PolkadexExchange(ExchangePyBase):
         trading_pairs: Optional[List[str]] = None,
         trading_required: bool = True,
         domain: str = CONSTANTS.DEFAULT_DOMAIN,
-        shallow_order_book: bool = False,  # Polkadex can't support shallow order book because (no ticker endpoint)
     ):
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._domain = domain
-        self._data_source = PolkadexDataSource(seed_phrase=polkadex_seed_phrase, domain=self._domain)
+        self._data_source = PolkadexDataSource(
+            connector=self, seed_phrase=polkadex_seed_phrase, domain=self._domain, trading_required=trading_required
+        )
         super().__init__(client_config_map=client_config_map)
         self._data_source.configure_throttler(throttler=self._throttler)
         self._forwarders = []
@@ -111,7 +114,6 @@ class PolkadexExchange(ExchangePyBase):
         """
         await super().stop_network()
         await self._data_source.stop()
-        self._forwarders = []
 
     def supported_order_types(self) -> List[OrderType]:
         return [OrderType.LIMIT, OrderType.MARKET]
@@ -128,26 +130,107 @@ class PolkadexExchange(ExchangePyBase):
             status = NetworkStatus.NOT_CONNECTED
         return status
 
+    # === Orders placing ===
+
+    def buy(self,
+            trading_pair: str,
+            amount: Decimal,
+            order_type=OrderType.LIMIT,
+            price: Decimal = s_decimal_NaN,
+            **kwargs) -> str:
+        """
+        Creates a promise to create a buy order using the parameters
+
+        :param trading_pair: the token pair to operate with
+        :param amount: the order amount
+        :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
+        :param price: the order price
+
+        :return: the id assigned by the connector to the order (the client id)
+        """
+        order_id = get_new_client_order_id(
+            is_buy=True,
+            trading_pair=trading_pair,
+            hbot_order_id_prefix=self.client_order_id_prefix,
+            max_id_len=self.client_order_id_max_length
+        )
+        hex_order_id = f"0x{order_id.encode('utf-8').hex()}"
+        safe_ensure_future(self._create_order(
+            trade_type=TradeType.BUY,
+            order_id=hex_order_id,
+            trading_pair=trading_pair,
+            amount=amount,
+            order_type=order_type,
+            price=price,
+            **kwargs))
+        return hex_order_id
+
+    def sell(self,
+             trading_pair: str,
+             amount: Decimal,
+             order_type: OrderType = OrderType.LIMIT,
+             price: Decimal = s_decimal_NaN,
+             **kwargs) -> str:
+        """
+        Creates a promise to create a sell order using the parameters.
+        :param trading_pair: the token pair to operate with
+        :param amount: the order amount
+        :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
+        :param price: the order price
+        :return: the id assigned by the connector to the order (the client id)
+        """
+        order_id = get_new_client_order_id(
+            is_buy=False,
+            trading_pair=trading_pair,
+            hbot_order_id_prefix=self.client_order_id_prefix,
+            max_id_len=self.client_order_id_max_length
+        )
+        hex_order_id = f"0x{order_id.encode('utf-8').hex()}"
+        safe_ensure_future(self._create_order(
+            trade_type=TradeType.SELL,
+            order_id=hex_order_id,
+            trading_pair=trading_pair,
+            amount=amount,
+            order_type=order_type,
+            price=price,
+            **kwargs))
+        return hex_order_id
+
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception) -> bool:
         # Polkadex does not use a time synchronizer
         return False
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
-        return "Order not found" in str(status_update_exception)
+        return CONSTANTS.ORDER_NOT_FOUND_MESSAGE in str(status_update_exception)
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
-        return str(CONSTANTS.ORDER_NOT_FOUND_ERROR_CODE) in str(
-            cancelation_exception
-        ) and CONSTANTS.ORDER_NOT_FOUND_MESSAGE in str(cancelation_exception)
+        return CONSTANTS.ORDER_NOT_FOUND_MESSAGE in str(cancelation_exception)
 
-    async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder) -> bool:
+    async def _execute_order_cancel_and_process_update(self, order: InFlightOrder) -> bool:
+        new_order_state = await self._place_cancel(order.client_order_id, order)
+        cancelled = new_order_state in [OrderState.CANCELED, OrderState.PENDING_CANCEL]
+        if cancelled:
+            update_timestamp = self.current_timestamp
+            if update_timestamp is None or math.isnan(update_timestamp):
+                update_timestamp = self._time()
+            order_update: OrderUpdate = OrderUpdate(
+                client_order_id=order.client_order_id,
+                trading_pair=order.trading_pair,
+                update_timestamp=update_timestamp,
+                new_state=new_order_state,
+            )
+            self._order_tracker.process_order_update(order_update)
+        return cancelled
+
+    async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder) -> OrderState:
         await tracked_order.get_exchange_order_id()
         market_symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
 
-        await self._data_source.cancel_order(
+        new_order_state = await self._data_source.cancel_order(
             order=tracked_order, market_symbol=market_symbol, timestamp=self.current_timestamp
         )
-        return True
+
+        return new_order_state
 
     async def _place_order(
         self,
@@ -219,12 +302,32 @@ class PolkadexExchange(ExchangePyBase):
             self._account_balances[token_balance_info["token_name"]] = token_balance_info["total_balance"]
             self._account_available_balances[token_balance_info["token_name"]] = token_balance_info["available_balance"]
 
+    async def _update_orders_fills(self, orders: List[InFlightOrder]):
+        try:
+            if len(orders) != 0:
+                minimum_creation_timestamp = min([order.creation_timestamp for order in orders])
+                current_timestamp = self.current_timestamp
+                trade_updates = await self._data_source.get_all_fills(
+                    from_timestamp=minimum_creation_timestamp,
+                    to_timestamp=current_timestamp,
+                    orders=orders,
+                )
+
+                for trade_update in trade_updates:
+                    self._order_tracker.process_trade_update(trade_update=trade_update)
+
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().warning("Error fetching trades updates.")
+
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
-        # Polkadex does not provide an endpoint to get trades. They have to be processed from the stream updates
-        return []
+        # not used
+        raise NotImplementedError
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         symbol = await self.exchange_symbol_associated_to_pair(tracked_order.trading_pair)
+        await tracked_order.get_exchange_order_id()
         order_update = await self._data_source.order_update(order=tracked_order, market_symbol=symbol)
         return order_update
 
@@ -270,20 +373,12 @@ class PolkadexExchange(ExchangePyBase):
 
     async def _update_trading_rules(self):
         trading_rules_list = await self._data_source.all_trading_rules()
-        self._trading_rules.clear()
-        for trading_rule in trading_rules_list:
-            trading_pair = await self.trading_pair_associated_to_exchange_symbol(trading_rule.trading_pair)
-            new_trading_rule = TradingRule(
-                trading_pair=trading_pair,
-                min_order_size=trading_rule.min_order_size,
-                max_order_size=trading_rule.max_order_size,
-                min_price_increment=trading_rule.min_price_increment,
-                min_base_amount_increment=trading_rule.min_base_amount_increment,
-                min_quote_amount_increment=trading_rule.min_quote_amount_increment,
-                min_notional_size=trading_rule.min_notional_size,
-                min_order_value=trading_rule.min_order_value,
-            )
-            self._trading_rules[trading_pair] = new_trading_rule
+        self._trading_rules = {trading_rule.trading_pair: trading_rule for trading_rule in trading_rules_list}
+
+    async def _get_all_pairs_prices(self) -> Dict[str, Any]:
+        # Polkadex is configured to not be a price provider (check is_price_provider)
+        # This method should never be called
+        raise NotImplementedError  # pragma: no cover
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
@@ -308,9 +403,8 @@ class PolkadexExchange(ExchangePyBase):
         self._account_available_balances[event.asset_name] = event.available_balance
 
     def _process_user_order_update(self, order_update: OrderUpdate):
-        tracked_order = self._order_tracker.all_updatable_orders_by_exchange_order_id.get(
-            order_update.exchange_order_id
-        )
+        tracked_order = self._order_tracker.all_updatable_orders.get(order_update.client_order_id)
+
         if tracked_order is not None:
             self.logger().debug(f"Processing order update {order_update}\nUpdatable order {tracked_order.to_json()}")
             order_update_to_process = OrderUpdate(
