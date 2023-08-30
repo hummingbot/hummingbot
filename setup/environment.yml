@@ -37,7 +37,7 @@ dependencies:
     - commlib-py==0.10.6
     - cryptography==3.4.7
     - cython==3.0.0a10
-    - diff-cover==5.1.2
+    - diff-cover
     - docker==5.0.3
     - eip712-structs==1.1.0
     - ethsnarks-loopring==0.1.5
