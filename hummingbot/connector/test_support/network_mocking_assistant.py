@@ -1,14 +1,38 @@
 import asyncio
 import functools
 from collections import defaultdict, deque
+from typing import Any, Dict, Optional, Tuple, Union
 from unittest.mock import AsyncMock, PropertyMock
 
 import aiohttp
 
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+
+
+class MockWebsocketClientSession:
+    # Created this class instead of using a generic mock to be sure that no other methods from the client session
+    # are required when working with websockets
+    def __init__(self, mock_websocket: AsyncMock):
+        self._mock_websocket = mock_websocket
+        self._connection_args: Optional[Tuple[Any]] = None
+        self._connection_kwargs: Optional[Dict[str, Any]] = None
+
+    @property
+    def connection_args(self) -> Tuple[Any]:
+        return self._connection_args or ()
+
+    @property
+    def connection_kwargs(self) -> Dict[str, Any]:
+        return self._connection_kwargs or {}
+
+    async def ws_connect(self, *args, **kwargs):
+        self._connection_args = args
+        self._connection_kwargs = kwargs
+        return self._mock_websocket
+
 
 class NetworkMockingAssistant:
-
-    def __init__(self):
+    def __init__(self, event_loop=None):
         super().__init__()
 
         self._response_text_queues = defaultdict(asyncio.Queue)
@@ -60,6 +84,14 @@ class NetworkMockingAssistant:
 
         return response
 
+    def configure_web_assistants_factory(self, web_assistants_factory: WebAssistantsFactory) -> AsyncMock:
+        websocket_mock = self.create_websocket_mock()
+        client_session_mock = MockWebsocketClientSession(mock_websocket=websocket_mock)
+
+        web_assistants_factory._connections_factory._ws_independent_session = client_session_mock
+
+        return websocket_mock
+
     def configure_http_request_mock(self, http_request_mock):
         http_request_mock.side_effect = functools.partial(self._handle_http_request, http_request_mock)
 
@@ -85,6 +117,8 @@ class NetworkMockingAssistant:
         message = await queue.get()
         if queue.empty():
             self._all_incoming_websocket_aiohttp_delivered_event[websocket_mock].set()
+        if isinstance(message, (BaseException, Exception)):
+            raise message
         return message
 
     async def _get_next_websocket_text_message(self, websocket_mock, *args, **kwargs):
@@ -119,6 +153,10 @@ class NetworkMockingAssistant:
     ):
         msg = aiohttp.WSMessage(message_type, message, extra=None)
         self._incoming_websocket_aiohttp_queues[websocket_mock].put_nowait(msg)
+        self._all_incoming_websocket_aiohttp_delivered_event[websocket_mock].clear()
+
+    def add_websocket_aiohttp_exception(self, websocket_mock, exception: Union[Exception, BaseException]):
+        self._incoming_websocket_aiohttp_queues[websocket_mock].put_nowait(exception)
         self._all_incoming_websocket_aiohttp_delivered_event[websocket_mock].clear()
 
     def json_messages_sent_through_websocket(self, websocket_mock):
