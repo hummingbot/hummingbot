@@ -7,6 +7,7 @@ from weakref import ReferenceType, ref
 import path_util  # noqa: F401
 
 from hummingbot import chdir_to_data_directory, init_logging
+from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_crypt import ETHKeyFileSecretManger
 from hummingbot.client.config.config_helpers import (
     ClientConfigAdapter,
@@ -85,8 +86,12 @@ def main():
         ev_loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
         asyncio.set_event_loop(ev_loop)
 
-    client_config_map = load_client_config_map_from_file()
-    if login_prompt(secrets_manager_cls, style=load_style(client_config_map)):
+    # We need to load a default style for the login screen because the password is required to load the
+    # real configuration now that it can include secret parameters
+    style = load_style(ClientConfigAdapter(ClientConfigMap()))
+
+    if login_prompt(secrets_manager_cls, style=style):
+        client_config_map = load_client_config_map_from_file()
         ev_loop.run_until_complete(main_async(client_config_map))
 
 
