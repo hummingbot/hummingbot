@@ -185,41 +185,23 @@ class StreamDataSource(AutoStreamBlock[WSResponse, T], Generic[T]):
         return self._pair
 
     async def get_ws_assistant(self) -> _WSAssistantPtl:
-        from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_exchange import (
-            DebugToFile,
-        )
-        DebugToFile.log_debug(message="Waiting for the assistant")
         await self._ws_assistant_ready.wait()
-        DebugToFile.log_debug(message="Assistant created")
         return self._ws_assistant
 
     async def start_stream(self) -> None:
         """Starts the Streaming operation."""
-        from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_exchange import (
-            DebugToFile,
-        )
-        DebugToFile.log_debug(message="Starting the stream")
         await self.start_task()
         await self.open_connection()
 
     async def stop_stream(self) -> None:
         """Starts the Streaming operation."""
-        from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_exchange import (
-            DebugToFile,
-        )
-        DebugToFile.log_debug(message="Stopping the stream")
         await self.close_connection()
         await self.stop_task()
 
     async def start_task(self) -> None:
         """Starts the TaskManager transferring messages to Pipeline."""
-        from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_exchange import (
-            DebugToFile,
-        )
-        DebugToFile.log_debug(message="Starting the task")
         await super(AutoStreamBlock, self).start_task()
         if super(AutoStreamBlock, self).is_running:
-            DebugToFile.log_debug(message="Started")
             self._task_state = TaskState.STARTED
 
     async def stop_task(self) -> None:
@@ -238,22 +220,15 @@ class StreamDataSource(AutoStreamBlock[WSResponse, T], Generic[T]):
         """Initializes the websocket connection and subscribe to the heartbeats channel."""
         if self._stream_state == StreamState.CLOSED:
 
-            from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_exchange import (
-                DebugToFile,
-            )
-            DebugToFile.log_debug(message="Creating a WSAssistant")
             self._ws_assistant = await self._ws_factory()
             self._ws_assistant_ready.set()
-            DebugToFile.log_debug(message="Set WSAssistant Event")
 
             await self._ws_assistant.connect(ws_url=self._ws_url, ping_timeout=30.0)
             self._stream_state = StreamState.OPENED
-            DebugToFile.log_debug(message="Connected", bullet="*")
 
             # Immediately subscribing to heartbeats channel if configured
             if self._heartbeat_channel is not None:
                 await self.subscribe(channel=self._heartbeat_channel, set_state=False)
-                DebugToFile.log_debug(message="Heartbeat started")
         else:
             self.logger().warning(
                 f"Attempting to open unclosed {self._channel}/{self._pair} stream. State left unchanged")
@@ -299,10 +274,6 @@ class StreamDataSource(AutoStreamBlock[WSResponse, T], Generic[T]):
                                   f"Attempting to open the stream...")
             await self.open_connection()
 
-        from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_exchange import (
-            DebugToFile,
-        )
-        DebugToFile.log_debug(message="Sending subscribe", bullet="*")
         subscription_builder = functools.partial(
             self._subscription_builder,
             action=StreamAction.SUBSCRIBE,
@@ -327,10 +298,6 @@ class StreamDataSource(AutoStreamBlock[WSResponse, T], Generic[T]):
             self.logger().warning(f"Attempted to unsubscribe from {channel}/{self._pair} stream while not subscribed.")
             return
 
-        from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_exchange import (
-            DebugToFile,
-        )
-        DebugToFile.log_debug(message="Sending unsubcribe")
         subscription_builder = functools.partial(
             self._subscription_builder,
             action=StreamAction.UNSUBSCRIBE,
@@ -383,12 +350,8 @@ class StreamDataSource(AutoStreamBlock[WSResponse, T], Generic[T]):
         Connects to the websocket and subscribes to the user events.
         This method is called by the AutoStreamBlock.
         """
-        from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_exchange import (
-            DebugToFile,
-        )
-        with DebugToFile.log_with_bullet(message="Auto-reconnect _connect method", bullet=":"):
-            await self.open_connection()
-            await self.subscribe()
+        await self.open_connection()
+        await self.subscribe()
 
         if self._stream_state != StreamState.SUBSCRIBED:
             raise StreamDataSourceError(f"Cannot listen in the current state {self._stream_state}")

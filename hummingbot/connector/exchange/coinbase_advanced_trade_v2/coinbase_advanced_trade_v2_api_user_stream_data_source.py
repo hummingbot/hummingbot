@@ -202,18 +202,13 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSource(UserStreamTrackerDataSource
         raise NotImplementedError("This method is not implemented.")
 
     async def listen_for_user_stream(self, output: asyncio.Queue[CoinbaseAdvancedTradeV2CumulativeUpdate]):
-        from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_exchange import (
-            DebugToFile,
-        )
-        with DebugToFile.log_with_bullet(message="Listening to user stream...", bullet="*"):
-            await self._stream_to_queue.open()
-            await self._stream_to_queue.start_stream()
-            await self._stream_to_queue.subscribe()
+        await self._stream_to_queue.open()
+        await self._stream_to_queue.start_stream()
+        await self._stream_to_queue.subscribe()
 
-            while True:
-                message: CoinbaseAdvancedTradeV2CumulativeUpdate = await self._stream_to_queue.queue.get()
-                DebugToFile.log_debug(message=f"m: {message}", bullet="*")
-                await output.put(message)
+        while True:
+            message: CoinbaseAdvancedTradeV2CumulativeUpdate = await self._stream_to_queue.queue.get()
+            await output.put(message)
 
 
 CollectorT: Type = PipesCollector[Dict[str, Any], CoinbaseAdvancedTradeV2CumulativeUpdate]

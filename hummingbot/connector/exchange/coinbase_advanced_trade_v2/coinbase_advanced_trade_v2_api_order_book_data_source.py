@@ -147,18 +147,16 @@ class CoinbaseAdvancedTradeV2APIOrderBookDataSource(OrderBookTrackerDataSource):
         }
         """
         try:
-            from .coinbase_advanced_trade_v2_exchange import DebugToFile
-            with DebugToFile.log_with_bullet(message="Subscribing ...", bullet="]"):
-                for trading_pair in self._trading_pairs:
-                    symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+            for trading_pair in self._trading_pairs:
+                symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
 
-                    for channel in ["heartbeats", *constants.WS_ORDER_SUBSCRIPTION_CHANNELS]:
-                        payload = {
-                            "type": "subscribe",
-                            "product_ids": [symbol],
-                            "channel": channel,
-                        }
-                        await ws.send(WSJSONRequest(payload=payload, is_auth_required=True))
+                for channel in ["heartbeats", *constants.WS_ORDER_SUBSCRIPTION_CHANNELS]:
+                    payload = {
+                        "type": "subscribe",
+                        "product_ids": [symbol],
+                        "channel": channel,
+                    }
+                    await ws.send(WSJSONRequest(payload=payload, is_auth_required=True))
 
             self.logger().info("Subscribed to public order book and trade channels...")
         except asyncio.CancelledError:
@@ -174,8 +172,6 @@ class CoinbaseAdvancedTradeV2APIOrderBookDataSource(OrderBookTrackerDataSource):
         async for ws_response in websocket_assistant.iter_messages():
             data: Dict[str, Any] = ws_response.data
 
-            from .coinbase_advanced_trade_v2_exchange import DebugToFile
-            DebugToFile.log_debug(f"{ws_response}")
             if ws_response.data and "type" in ws_response.data and ws_response.data["type"] == 'error':
                 self.logger().error(f"Error received from websocket: {ws_response}")
                 raise Exception(f"Error received from websocket: {ws_response}")

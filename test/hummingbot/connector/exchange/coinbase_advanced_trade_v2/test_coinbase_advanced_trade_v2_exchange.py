@@ -2,6 +2,7 @@ import asyncio
 import json
 import re
 from decimal import Decimal
+from test.logger_mixin_for_test import LoggerMixinForTest
 from typing import Any, Callable, Dict, List, Optional
 from unittest.mock import AsyncMock, patch
 
@@ -33,7 +34,7 @@ from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.event.events import MarketOrderFailureEvent, OrderCancelledEvent, OrderFilledEvent
 
 
-class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
+class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests, LoggerMixinForTest):
 
     @property
     def all_symbols_url(self):
@@ -303,7 +304,7 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
 
     @property
     def is_order_fill_http_update_included_in_status_update(self) -> bool:
-        return False
+        return True
 
     @property
     def is_order_fill_http_update_executed_during_websocket_order_event_processing(self) -> bool:
@@ -320,8 +321,8 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
     @property
     def expected_fill_fee(self) -> TradeFeeBase:
         return AddedToCostTradeFee(
-            percent_token='USD',
-            flat_fees=[TokenAmount(token='USD', amount=Decimal("30"))])
+            percent_token=self.quote_asset,
+            flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("30"))])
 
     @property
     def expected_fill_trade_id(self) -> str:
@@ -408,9 +409,8 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
         """
         :return: a list of all configured URLs for the cancelations
         """
-        all_urls = []
         url = self.configure_successful_cancelation_response(order=successful_order, mock_api=mock_api)
-        all_urls.append(url)
+        all_urls = [url]
         url = self.configure_erroneous_cancelation_response(order=erroneous_order, mock_api=mock_api)
         all_urls.append(url)
         return all_urls
@@ -512,13 +512,40 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
         return url
 
-    def configure_full_fill_trade_response(
+    def configure_fills_request_response(
             self,
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
         url = web_utils.private_rest_url(path_url=CONSTANTS.FILLS_EP)
-        regex_url = re.compile(url + r"\?.*")
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        response = self._order_fills_request_full_fill_mock_response(order=order)
+        mock_api.get(regex_url, body=json.dumps(response), callback=callback)
+        return url
+
+    def configure_order_status_request_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        url = web_utils.private_rest_url(CONSTANTS.GET_ORDER_STATUS_EP.format(order_id=order.exchange_order_id))
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        response = self._order_fills_request_full_fill_mock_response(order=order)
+        mock_api.get(regex_url, body=json.dumps(response), callback=callback)
+        return url
+
+    def configure_full_fill_trade_response(
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        url = web_utils.private_rest_url(CONSTANTS.GET_ORDER_STATUS_EP.format(order_id=order.exchange_order_id))
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        response = self._order_status_request_open_mock_response(order=order)
+        mock_api.get(regex_url, body=json.dumps(response), callback=callback)
+
+        url = web_utils.private_rest_url(path_url=CONSTANTS.FILLS_EP)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_fills_request_full_fill_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
         return url
@@ -592,6 +619,21 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
         order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
 
         url = web_utils.public_rest_url(
+            CONSTANTS.FILLS_EP.format(order_id=str(self.expected_exchange_order_id)))
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
+        test_substitute = {
+            "fills":
+                [
+                ],
+            "cursor": "0"
+        }
+
+        mock_api.get(regex_url,
+                     body=json.dumps(test_substitute),
+                     callback=lambda *args, **kwargs: request_sent_event.set())
+
+        url = web_utils.public_rest_url(
             CONSTANTS.GET_ORDER_STATUS_EP.format(order_id=str(self.expected_exchange_order_id)))
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
@@ -604,7 +646,6 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
         }
 
         response = test_substitute
-        # response = CoinbaseAdvancedTradeGetOrderResponse.dict_sample_from_json_docstring(test_substitute)
 
         mock_api.get(regex_url,
                      body=json.dumps(response),
@@ -633,8 +674,7 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
         self.assertTrue(order.is_failure)
 
         self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
-        # TODO: Figure out why this fails:
-        #  self.assertNotIn(order.client_order_id, self.exchange._order_tracker.all_fillable_orders)
+        self.assertNotIn(order.client_order_id, self.exchange._order_tracker.all_fillable_orders)
 
         self.assertFalse(
             self.is_logged("INFO", f"BUY order {order.client_order_id} completely filled.")
@@ -1056,7 +1096,7 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
         self.exchange._set_current_timestamp(1640780000)
 
         self.exchange.start_tracking_order(
-            order_id=self.client_order_id_prefix + "1",
+            order_id=f"{self.client_order_id_prefix}1",
             exchange_order_id="100234",
             trading_pair=self.trading_pair,
             order_type=OrderType.LIMIT,
@@ -1064,7 +1104,7 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
             price=Decimal("10000"),
             amount=Decimal("1"),
         )
-        order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+        order = self.exchange.in_flight_orders[f"{self.client_order_id_prefix}1"]
 
         urls = self.configure_canceled_order_status_response(
             order=order,
@@ -1094,7 +1134,7 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
         request_sent_event = asyncio.Event()
 
         self.exchange.start_tracking_order(
-            order_id=self.client_order_id_prefix + "1",
+            order_id=f"{self.client_order_id_prefix}1",
             exchange_order_id=str(self.expected_exchange_order_id),
             trading_pair=self.trading_pair,
             order_type=OrderType.LIMIT,
@@ -1102,7 +1142,9 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
             price=Decimal("10000"),
             amount=Decimal("1"),
         )
-        order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+        order: InFlightOrder = self.exchange.in_flight_orders[
+            f"{self.client_order_id_prefix}1"
+        ]
 
         for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
             self.async_run_with_timeout(
@@ -1175,14 +1217,34 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
         self.assertTrue(order.is_done)
         self.assertTrue(order.is_failure)
 
-        # TODO: Figure out why this fails:
-        #  self.assertEqual(1, len(self.order_filled_logger.event_log))
-        self.assertEqual(0, len(self.buy_order_completed_logger.event_log))
+        self.assertEqual(1, len(self.order_filled_logger.event_log))
         self.assertNotIn(order.client_order_id, self.exchange._order_tracker.all_fillable_orders)
         self.assertFalse(
             self.is_logged(
                 "INFO",
                 f"BUY order {order.client_order_id} completely filled."
+            )
+        )
+
+    def test_user_stream_logs_errors(self):
+        self.exchange._set_current_timestamp(1640780000)
+
+        incomplete_event = "Invalid message"
+
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [incomplete_event, asyncio.CancelledError]
+        self.exchange._user_stream_tracker._user_stream = mock_queue
+
+        with patch(f"{type(self.exchange).__module__}.{type(self.exchange).__qualname__}._sleep"):
+            try:
+                self.async_run_with_timeout(self.exchange._user_stream_event_listener())
+            except asyncio.CancelledError:
+                pass
+        print(self.log_records)
+        self.assertTrue(
+            self.is_partially_logged(
+                "ERROR",
+                "Unexpected event in user stream listener loop."
             )
         )
 
@@ -1373,6 +1435,24 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
                 }
         }
         return test_substitute
+        test_substitute = {
+            "fills":
+                [
+                    {
+                        "product_id": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
+                        "trade_id": self.expected_fill_trade_id,
+                        "order_id": order.exchange_order_id,
+                        "price": str(order.price),
+                        "size": str(order.amount),
+                        "size_in_quote": str(order.amount * order.price),
+                        "commission": str(self.expected_fill_fee.flat_fees[0].amount),
+                        "side": "BUY",
+                        "trade_time": "2021-05-31T09:59:59Z",
+                    }
+                ],
+            "cursor": "0"
+        }
+        return test_substitute
         # return CoinbaseAdvancedTradeGetOrderResponse.dict_sample_from_json_docstring(test_substitute)
 
     def _order_status_request_canceled_mock_response(self, order: InFlightOrder) -> Any:
@@ -1444,6 +1524,7 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
                         "size_in_quote": str(self.expected_partial_fill_amount * self.expected_partial_fill_price),
                         "commission": str(self.expected_fill_fee.flat_fees[0].amount),
                         "side": "BUY",
+                        "trade_time": "2021-05-31T09:59:59Z",
                     }
                 ],
             "cursor": "0"
@@ -1464,6 +1545,7 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
                         "size_in_quote": str(order.amount * order.price),
                         "commission": str(self.expected_fill_fee.flat_fees[0].amount),
                         "side": "BUY",
+                        "trade_time": "2021-05-31T09:59:59Z",
                     }
                 ],
             "cursor": "0"

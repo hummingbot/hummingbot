@@ -667,25 +667,12 @@ async def stream_to_pipe_connector(
         destination=destination)
 
     try:
-        from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_exchange import (
-            DebugToFile,
-        )
         if callable(source) and inspect.isawaitable(awaitable := source()):
-            DebugToFile.log_debug(message="Generating the source")
             source: StreamMessageIteratorPtl[FromDataT] = await awaitable
 
-        from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_exchange import (
-            DebugToFile,
-        )
-        DebugToFile.log_debug(message=f"Connecting with {source}")
-        DebugToFile.log_debug(message=f"      {type(source)}")
-        DebugToFile.log_debug(message=f"      {inspect.isawaitable(source)}")
-        DebugToFile.log_debug(message=f"      {callable(source)}")
         async for message in source.iter_messages():  # type: ignore # Pycharm not understanding AsyncGenerator
             try:
-                DebugToFile.log_debug(message="Awaiting put operation")
                 await put_operation(message)
-                DebugToFile.log_debug(message="Put operation complete")
             except PipeFullError:
                 log_if_possible(logger, 'warning', "Downstream Pipe is full, retrying 3 times.")
                 try:
@@ -694,8 +681,6 @@ async def stream_to_pipe_connector(
                     log_if_possible(logger, 'warning', "Downstream Pipe full after 3 attempts. Aborting.")
                     raise PipeFullError("Max retries reached, aborting") from e
             # await asyncio.sleep(0)
-
-        DebugToFile.log_debug(message="Should not get here")
 
     except asyncio.CancelledError:
         log_if_possible(logger, 'warning', "Task was cancelled. Closing downstream Pipe")
@@ -745,16 +730,11 @@ async def reconnecting_stream_to_pipe_connector(
     await connect()
     while True:
         try:
-            from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_exchange import (
-                DebugToFile,
-            )
-            DebugToFile.log_debug(message="Connecting")
-            with DebugToFile.log_with_bullet(message="Stream To Pipe...", bullet="I"):
-                await stream_to_pipe_connector(source=source,
-                                               handler=handler,
-                                               destination=destination,
-                                               raise_on_exception=False,
-                                               logger=logger)
+            await stream_to_pipe_connector(source=source,
+                                           handler=handler,
+                                           destination=destination,
+                                           raise_on_exception=False,
+                                           logger=logger)
         except asyncio.CancelledError as e:
             log_if_possible(logger, 'warning', "Task was cancelled. Closing downstream Pipe")
             await disconnect()
