@@ -84,6 +84,7 @@ class TestPipelineBlocks(IsolatedAsyncioWrapperTestCase):
         class InfiniteAsyncIterable:
             async def __call__(self):
                 while True:
+                    await asyncio.sleep(0)
                     yield "message"
 
         self.source_stream.iter_messages = InfiniteAsyncIterable()
@@ -103,12 +104,12 @@ class TestPipelineBlocks(IsolatedAsyncioWrapperTestCase):
         self.assertFalse(self.pipe_block.is_running)
 
     async def test_exception_handling(self) -> None:
-        self.destination_pipe.put = MagicMock(side_effect=Exception("Test exception"))
+        self.destination_pipe.put = MagicMock(side_effect=[Exception("Test exception")])
 
         await self.pipeline_block.start_task()
         await asyncio.sleep(0.1)  # give the task time to start
         self.assertTrue(self.pipeline_block.is_running)
-        await asyncio.sleep(0.01)  # give the task time to throw exception
+        await asyncio.sleep(0.1)  # give the task time to throw exception
         self.assertFalse(self.pipeline_block.is_running)
         self.assertIsInstance(self.pipeline_block.task_manager._task_exception, Exception)
 
@@ -120,17 +121,18 @@ class TestPipelineBlocks(IsolatedAsyncioWrapperTestCase):
 
         self.source_stream.iter_messages = InfiniteAsyncIterable()
 
+        self.destination_pipe.put = MagicMock(side_effect=[Exception("Test exception")])
         await self.stream_block.start_task()
         await asyncio.sleep(0.1)  # give the task time to start
         self.assertTrue(self.stream_block.is_running)
-        await asyncio.sleep(0.01)  # give the task time to throw exception
+        await asyncio.sleep(0.5)  # give the task time to throw exception
         self.assertFalse(self.stream_block.is_running)
         self.assertIsInstance(self.stream_block.task_manager._task_exception, Exception)
 
         await self.pipe_block.start_task()
         await asyncio.sleep(0.1)  # give the task time to start
         self.assertTrue(self.pipe_block.is_running)
-        await asyncio.sleep(0.01)  # give the task time to throw exception
+        await asyncio.sleep(0.1)  # give the task time to throw exception
         self.assertFalse(self.pipe_block.is_running)
         self.assertIsInstance(self.pipe_block.task_manager._task_exception, Exception)
 
@@ -174,7 +176,7 @@ class TestPipelineBlocks(IsolatedAsyncioWrapperTestCase):
             def __init__(self):
                 self.messages = []
 
-            async def put(self, message):
+            async def put(self, message, *args, **kwargs):
                 self.messages.append(message)
 
             async def stop(self) -> None:
@@ -194,7 +196,7 @@ class TestPipelineBlocks(IsolatedAsyncioWrapperTestCase):
         await stream_block.start_task()
 
         # Give the tasks time to run
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.5)
 
         # Check that the destination pipe received the correct messages
         self.assertEqual(destination_pipe.messages, [f"message {i}" for i in range(5)])

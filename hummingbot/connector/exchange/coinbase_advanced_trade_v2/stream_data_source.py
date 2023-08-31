@@ -207,7 +207,7 @@ class StreamDataSource(AutoStreamBlock[WSResponse, T], Generic[T]):
         from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_exchange import (
             DebugToFile,
         )
-        DebugToFile.log_debug(message="Starting the stream")
+        DebugToFile.log_debug(message="Stopping the stream")
         await self.close_connection()
         await self.stop_task()
 

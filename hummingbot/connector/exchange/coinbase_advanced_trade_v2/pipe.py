@@ -755,10 +755,10 @@ async def reconnecting_stream_to_pipe_connector(
                                                destination=destination,
                                                raise_on_exception=False,
                                                logger=logger)
-        except asyncio.CancelledError:
+        except asyncio.CancelledError as e:
             log_if_possible(logger, 'warning', "Task was cancelled. Closing downstream Pipe")
             await disconnect()
-            raise
+            raise asyncio.CancelledError from e
         except ConnectionError as e:
             log_if_possible(logger, 'warning', f"The websocket connection was closed ({e}). Auto-reconnecting")
             await disconnect()

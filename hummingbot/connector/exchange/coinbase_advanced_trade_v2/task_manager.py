@@ -125,7 +125,7 @@ class TaskManager:
     async def stop_task(self) -> None:
         """Stops the queue processor."""
         if not self._task or self._task.done():
-            self.logger().error("Attempting to stop() a task that has not been created (or already stopped)")
+            # self.logger().error("Attempting to stop() a task that has not been created (or already stopped)")
             return
 
         self._task.cancel()
