@@ -843,6 +843,7 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             "user": 1666,
             "currency": "USDT",
             "total": "9707.803567115145",
+            "size": "9707.803567115145",
             "unrealised_pnl": "3371.248828",
             "position_margin": "38.712189181",
             "order_margin": "0",
@@ -850,6 +851,7 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             "point": "0",
             "bonus": "0",
             "in_dual_mode": True if position_mode is PositionMode.HEDGE else False,
+            "mode": "single" if position_mode is PositionMode.ONEWAY else "dual_long",
             "history": {
                 "dnw": "10000",
                 "pnl": "68.3685",
