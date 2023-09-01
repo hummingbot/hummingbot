@@ -1800,8 +1800,6 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         ]
         mock_api.get(regex_get_position_url, body=json.dumps(response))
         self.async_run_with_timeout(self.exchange._update_positions())
-
-
         position: Position = self.exchange.account_positions[f"{self.trading_pair}LONG"]
         self.assertEqual(self.trading_pair, position.trading_pair)
         self.assertEqual(PositionSide.LONG, position.position_side)
