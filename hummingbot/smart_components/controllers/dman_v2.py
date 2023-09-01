@@ -6,7 +6,7 @@ import pandas_ta as ta  # noqa: F401
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig, TrailingStop
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
-from hummingbot.smart_components.strategy_frameworks.data_types import ControllerMode, OrderLevel
+from hummingbot.smart_components.strategy_frameworks.data_types import OrderLevel
 from hummingbot.smart_components.strategy_frameworks.market_making.market_making_controller_base import (
     MarketMakingControllerBase,
     MarketMakingControllerConfigBase,
@@ -26,8 +26,8 @@ class DManV2(MarketMakingControllerBase):
     Directional Market Making Strategy making use of NATR indicator to make spreads dynamic and shift the mid price.
     """
 
-    def __init__(self, config: DManV2Config, mode: ControllerMode = ControllerMode.LIVE):
-        super().__init__(config, mode)
+    def __init__(self, config: DManV2Config):
+        super().__init__(config)
         self.config = config
 
     def refresh_order_condition(self, executor: PositionExecutor, order_level: OrderLevel) -> bool:
