@@ -121,13 +121,13 @@ class CandlesBase(NetworkBase):
     def get_exchange_trading_pair(self, trading_pair):
         raise NotImplementedError
 
-    def load_candles_from_csv(self):
+    def load_candles_from_csv(self, data_path: str = data_path()):
         """
         This method loads the candles from a CSV file.
-        :param csv_path: path to the CSV file
+        :param data_path: data path that holds the CSV file
         """
         filename = f"candles_{self.name}_{self.interval}.csv"
-        file_path = os.path.join(data_path(), filename)
+        file_path = os.path.join(data_path, filename)
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"File '{file_path}' does not exist.")
         df = pd.read_csv(file_path)
