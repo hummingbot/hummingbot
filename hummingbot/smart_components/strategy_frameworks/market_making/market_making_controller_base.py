@@ -5,7 +5,7 @@ from hummingbot.core.data_type.common import PositionMode
 from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.smart_components.strategy_frameworks.controller_base import ControllerBase, ControllerConfigBase
-from hummingbot.smart_components.strategy_frameworks.data_types import ControllerMode, OrderLevel
+from hummingbot.smart_components.strategy_frameworks.data_types import OrderLevel
 
 
 class MarketMakingControllerConfigBase(ControllerConfigBase):
@@ -19,9 +19,8 @@ class MarketMakingControllerBase(ControllerBase):
 
     def __init__(self,
                  config: MarketMakingControllerConfigBase,
-                 mode: ControllerMode = ControllerMode.LIVE,
                  excluded_parameters: Optional[List[str]] = None):
-        super().__init__(config, mode, excluded_parameters)
+        super().__init__(config, excluded_parameters)
         self.config = config  # this is only for type hints
 
     def filter_executors_df(self, df):
