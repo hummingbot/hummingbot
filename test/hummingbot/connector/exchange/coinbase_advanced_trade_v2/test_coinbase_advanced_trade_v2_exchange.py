@@ -1243,8 +1243,8 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
         print(self.log_records)
         self.assertTrue(
             self.is_partially_logged(
-                "ERROR",
-                "Unexpected event in user stream listener loop."
+                "WARNING",
+                "Skipping non-cummulative update (first message of the stream)."
             )
         )
 

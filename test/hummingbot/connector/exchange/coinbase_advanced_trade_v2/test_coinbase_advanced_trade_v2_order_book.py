@@ -180,11 +180,12 @@ class CoinbaseAdvancedTradeV2OrderBookTests(IsolatedAsyncioWrapperTestCase, Logg
             symbol_to_pair=self.symbol_to_pair
         ))
 
-        self.assertTrue(
-            self.is_partially_logged(log_level="WARNING",
-                                     message="Received out of order message from l2_data, this indicates a "
-                                             "missed message")
-        )
+        # To reduce the amount of logs, the expected non-ideal behavior are muted
+        # self.assertTrue(
+        #     self.is_partially_logged(log_level="WARNING",
+        #                              message="Received out of order message from l2_data, this indicates a "
+        #                                      "missed message")
+        # )
 
     async def test_level2_or_trade_message_from_exchange_trade_out_of_order(self):
         trade_msg = self.trade_msg
@@ -196,11 +197,12 @@ class CoinbaseAdvancedTradeV2OrderBookTests(IsolatedAsyncioWrapperTestCase, Logg
             symbol_to_pair=self.symbol_to_pair
         ))
 
-        self.assertTrue(
-            self.is_partially_logged(log_level="WARNING",
-                                     message="Received out of order message from market_trades, this indicates a "
-                                             "missed message")
-        )
+        # To reduce the amount of logs, the expected non-ideal behavior are muted
+        # self.assertTrue(
+        #     self.is_partially_logged(log_level="WARNING",
+        #                              message="Received out of order message from market_trades, this indicates a "
+        #                                      "missed message")
+        # )
 
     async def test_level2_or_trade_message_from_exchange_unexpected_channel(self):
         msg = self.snapshot_msg.copy()
