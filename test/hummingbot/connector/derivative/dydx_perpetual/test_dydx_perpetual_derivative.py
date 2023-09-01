@@ -21,21 +21,23 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
+from hummingbot.core.data_type.order_book import OrderBook
+from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest
 
 
 class DydxPerpetualAuthMock(DydxPerpetualAuth):
     def get_order_signature(
-        self,
-        position_id: str,
-        client_id: str,
-        market: str,
-        side: str,
-        size: str,
-        price: str,
-        limit_fee: str,
-        expiration_epoch_seconds: int,
+            self,
+            position_id: str,
+            client_id: str,
+            market: str,
+            side: str,
+            size: str,
+            price: str,
+            limit_fee: str,
+            expiration_epoch_seconds: int,
     ) -> str:
         return "0123456789"
 
@@ -487,11 +489,11 @@ class DydxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDer
         return exchange
 
     def place_buy_order(
-        self,
-        amount: Decimal = Decimal("100"),
-        price: Decimal = Decimal("10_000"),
-        order_type: OrderType = OrderType.LIMIT,
-        position_action: PositionAction = PositionAction.OPEN,
+            self,
+            amount: Decimal = Decimal("100"),
+            price: Decimal = Decimal("10_000"),
+            order_type: OrderType = OrderType.LIMIT,
+            position_action: PositionAction = PositionAction.OPEN,
     ):
         notional_amount = amount * price
         self.exchange._order_notional_amounts[notional_amount] = len(self.exchange._order_notional_amounts.keys())
@@ -500,11 +502,11 @@ class DydxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDer
         return super().place_buy_order(amount, price, order_type, position_action)
 
     def place_sell_order(
-        self,
-        amount: Decimal = Decimal("100"),
-        price: Decimal = Decimal("10_000"),
-        order_type: OrderType = OrderType.LIMIT,
-        position_action: PositionAction = PositionAction.OPEN,
+            self,
+            amount: Decimal = Decimal("100"),
+            price: Decimal = Decimal("10_000"),
+            order_type: OrderType = OrderType.LIMIT,
+            position_action: PositionAction = PositionAction.OPEN,
     ):
         notional_amount = amount * price
         self.exchange._order_notional_amounts[notional_amount] = len(self.exchange._order_notional_amounts.keys())
@@ -550,7 +552,8 @@ class DydxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDer
             self.assertEqual(CONSTANTS.LAST_FILLS_MAX, request_params["limit"])
 
     def configure_successful_cancelation_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         """
         :return: the URL configured for the cancelation
@@ -563,7 +566,8 @@ class DydxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDer
         return url
 
     def configure_erroneous_cancelation_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         """
         :return: the URL configured for the cancelation
@@ -576,7 +580,7 @@ class DydxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDer
         return url
 
     def configure_one_successful_one_erroneous_cancel_all_response(
-        self, successful_order: InFlightOrder, erroneous_order: InFlightOrder, mock_api: aioresponses
+            self, successful_order: InFlightOrder, erroneous_order: InFlightOrder, mock_api: aioresponses
     ) -> List[str]:
         """
         :return: a list of all configured URLs for the cancelations
@@ -604,7 +608,8 @@ class DydxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDer
         raise NotImplementedError
 
     def configure_completely_filled_order_status_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> List[str]:
         """
         :return: the URL configured
@@ -617,7 +622,8 @@ class DydxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDer
         return [url_order_status]
 
     def configure_canceled_order_status_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> List[str]:
         """
         :return: the URL configured
@@ -635,7 +641,8 @@ class DydxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDer
         return [url_fills, url_order_status]
 
     def configure_open_order_status_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> List[str]:
         """
         :return: the URL configured
@@ -648,7 +655,8 @@ class DydxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDer
         return [url]
 
     def configure_http_error_order_status_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         """
         :return: the URL configured
@@ -660,19 +668,22 @@ class DydxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDer
         return url
 
     def configure_partially_filled_order_status_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> List[str]:
         # Dydx has no partial fill status
         raise NotImplementedError
 
     def configure_partial_fill_trade_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         # Dydx has no partial fill status
         raise NotImplementedError
 
     def configure_erroneous_http_fill_trade_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         """
         :return: the URL configured
@@ -683,7 +694,8 @@ class DydxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDer
         return url
 
     def configure_full_fill_trade_response(
-        self, order: InFlightOrder, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, order: InFlightOrder, mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         """
         :return: the URL configured
@@ -1067,28 +1079,28 @@ class DydxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDer
         }
 
     def configure_successful_set_position_mode(
-        self,
-        position_mode: PositionMode,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            position_mode: PositionMode,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ):
         # There's only one way position mode
         pass
 
     def configure_failed_set_position_mode(
-        self,
-        position_mode: PositionMode,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            position_mode: PositionMode,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> Tuple[str, str]:
         # There's only one way position mode, this should never be called
         pass
 
     def configure_failed_set_leverage(
-        self,
-        leverage: int,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            leverage: int,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> Tuple[str, str]:
         url = web_utils.public_rest_url(CONSTANTS.PATH_MARKETS)
         regex_url = re.compile(f"^{url}")
@@ -1100,10 +1112,10 @@ class DydxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDer
         return url, "Failed to obtain markets information."
 
     def configure_successful_set_leverage(
-        self,
-        leverage: int,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            leverage: int,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ):
         url = web_utils.public_rest_url(CONSTANTS.PATH_MARKETS)
         regex_url = re.compile(f"^{url}")
@@ -1215,3 +1227,53 @@ class DydxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDer
         # Disabling this test because the connector has not been updated yet to validate
         # order not found during status update (check _is_order_not_found_during_status_update_error)
         pass
+
+    def place_buy_market_order(
+            self,
+            amount: Decimal = Decimal("100"),
+            price: Decimal = Decimal("10_000"),
+            order_type: OrderType = OrderType.MARKET,
+            position_action: PositionAction = PositionAction.OPEN,
+    ):
+        order_book = OrderBook()
+        self.exchange.order_book_tracker._order_books[self.trading_pair] = order_book
+        order_book.apply_snapshot(
+            bids=[],
+            asks=[OrderBookRow(price=5.1, amount=2000, update_id=1)],
+            update_id=1,
+        )
+
+        notional_amount = amount * price
+        self.exchange._order_notional_amounts[notional_amount] = len(self.exchange._order_notional_amounts.keys())
+        self.exchange._current_place_order_requests = 1
+        self.exchange._throttler.set_rate_limits(self.exchange.rate_limits_rules)
+        order_id = self.exchange.buy(
+            trading_pair=self.trading_pair,
+            amount=amount,
+            order_type=order_type,
+            price=price,
+            position_action=position_action,
+        )
+        return order_id
+
+    @aioresponses()
+    def test_create_buy_market_order_successfully(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+
+        url = self.order_creation_url
+
+        creation_response = self.order_creation_request_successful_mock_response
+
+        mock_api.post(url,
+                      body=json.dumps(creation_response),
+                      callback=lambda *args, **kwargs: request_sent_event.set())
+
+        leverage = 2
+        self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
+        self.place_buy_market_order()
+        self.async_run_with_timeout(request_sent_event.wait())
+        order_request = self._all_executed_requests(mock_api, url)[0]
+        request_data = json.loads(order_request.kwargs["data"])
+        self.assertEqual(Decimal("1.5") * Decimal("5.1"), Decimal(request_data["price"]))
