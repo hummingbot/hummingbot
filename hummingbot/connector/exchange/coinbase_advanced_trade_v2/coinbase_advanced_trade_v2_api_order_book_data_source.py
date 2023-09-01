@@ -179,9 +179,9 @@ class CoinbaseAdvancedTradeV2APIOrderBookDataSource(OrderBookTrackerDataSource):
             if data is not None and "channel" in data:  # data will be None when the websocket is disconnected
                 if data["channel"] in constants.WS_ORDER_SUBSCRIPTION_CHANNELS.inverse:
                     await self._message_queue[data["channel"]].put(data)
-                else:
-                    self.logger().warning(
-                        f"Unrecognized websocket message received from Coinbase Advanced Trade: {data['channel']}")
+                # else:
+                #     self.logger().warning(
+                #         f"Unrecognized websocket message received from Coinbase Advanced Trade: {data['channel']}")
             else:
                 self.logger().warning(f"Unrecognized websocket message received from Coinbase Advanced Trade: {data}")
 

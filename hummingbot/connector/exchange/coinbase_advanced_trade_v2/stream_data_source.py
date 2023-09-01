@@ -229,9 +229,9 @@ class StreamDataSource(AutoStreamBlock[WSResponse, T], Generic[T]):
             # Immediately subscribing to heartbeats channel if configured
             if self._heartbeat_channel is not None:
                 await self.subscribe(channel=self._heartbeat_channel, set_state=False)
-        else:
-            self.logger().warning(
-                f"Attempting to open unclosed {self._channel}/{self._pair} stream. State left unchanged")
+        # else:
+        #     self.logger().warning(
+        #         f"Attempting to open unclosed {self._channel}/{self._pair} stream. State left unchanged")
 
     async def close_connection(self) -> None:
         """Closes websocket operations"""
@@ -262,7 +262,7 @@ class StreamDataSource(AutoStreamBlock[WSResponse, T], Generic[T]):
         channel: str = channel or self._channel
 
         if self._stream_state == StreamState.SUBSCRIBED:
-            self.logger().warning(f"Attempted to subscribe to {channel}/{self._pair} stream while already subscribed.")
+            # self.logger().warning(f"Attempted to subscribe to {channel}/{self._pair} stream while already subscribed.")
             return
 
         if self._task_state != TaskState.STARTED:
@@ -295,7 +295,7 @@ class StreamDataSource(AutoStreamBlock[WSResponse, T], Generic[T]):
         channel: str = channel or self._channel
 
         if self._stream_state != StreamState.SUBSCRIBED:
-            self.logger().warning(f"Attempted to unsubscribe from {channel}/{self._pair} stream while not subscribed.")
+            # self.logger().warning(f"Attempted to unsubscribe from {channel}/{self._pair} stream while not subscribed.")
             return
 
         subscription_builder = functools.partial(

@@ -578,14 +578,19 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
         The events received are order updates.
         """
         async for event_message in self._iter_user_event_queue():
-            try:
-                assert isinstance(event_message, CoinbaseAdvancedTradeV2CumulativeUpdate)
-            except AssertionError:
-                self.logger().error("Unexpected event in user stream listener loop.\n"
-                                    f"{event_message, type(event_message)} is not an instance of CoinbaseAdvancedTradeV2CumulativeUpdate",
-                                    exc_info=True)
-                await self._sleep(5.0)
+            if not isinstance(event_message, CoinbaseAdvancedTradeV2CumulativeUpdate):
+                self.logger().warning(
+                    "Skipping non-cummulative update (first message of the stream)."
+                )
                 continue
+            # try:
+            #     assert isinstance(event_message, CoinbaseAdvancedTradeV2CumulativeUpdate)
+            # except AssertionError:
+            #     self.logger().error("Unexpected event in user stream listener loop.\n"
+            #                         f"{event_message, type(event_message)} is not an instance of CoinbaseAdvancedTradeV2CumulativeUpdate",
+            #                         exc_info=True)
+            #     await self._sleep(5.0)
+            #     continue
 
             fillable_order: InFlightOrder = self._order_tracker.all_fillable_orders.get(event_message.client_order_id)
             updatable_order: InFlightOrder = self._order_tracker.all_updatable_orders.get(
