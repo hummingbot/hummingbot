@@ -5,7 +5,6 @@ import pandas as pd
 
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
 from hummingbot.smart_components.strategy_frameworks.controller_base import ControllerBase, ControllerConfigBase
-from hummingbot.smart_components.strategy_frameworks.data_types import ControllerMode
 
 
 class TestControllerBase(unittest.TestCase):
@@ -28,7 +27,6 @@ class TestControllerBase(unittest.TestCase):
         # Instantiating the ControllerBase
         self.controller = ControllerBase(
             config=self.mock_controller_config,
-            mode=ControllerMode.LIVE
         )
 
     def test_initialize_candles_live_mode(self):
@@ -36,7 +34,6 @@ class TestControllerBase(unittest.TestCase):
         self.assertTrue(len(candles) == 1)
 
     def test_initialize_candles_non_live_mode(self):
-        self.controller._mode = ControllerMode.BACKTEST
         self.controller.initialize_candles([self.mock_candles_config])
         self.assertTrue(len(self.controller.candles) == 1)
 

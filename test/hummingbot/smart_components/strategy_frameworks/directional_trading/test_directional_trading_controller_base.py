@@ -6,7 +6,7 @@ import pandas as pd
 
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
-from hummingbot.smart_components.strategy_frameworks.data_types import ControllerMode, OrderLevel, TripleBarrierConf
+from hummingbot.smart_components.strategy_frameworks.data_types import OrderLevel, TripleBarrierConf
 from hummingbot.smart_components.strategy_frameworks.directional_trading import (
     DirectionalTradingControllerBase,
     DirectionalTradingControllerConfigBase,
@@ -33,7 +33,6 @@ class TestDirectionalTradingControllerBase(unittest.TestCase):
         # Instantiating the DirectionalTradingControllerBase
         self.controller = DirectionalTradingControllerBase(
             config=self.mock_controller_config,
-            mode=ControllerMode.LIVE
         )
 
     def test_filter_executors_df(self):
