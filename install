@@ -35,3 +35,11 @@ conda develop .
 pip install objgraph
 
 pre-commit install
+
+OS=`uname`
+ARCH=`uname -m`
+
+if [[ "$OS" = "Darwin" && "$ARCH" = "x86_64" ]]; then
+  pip install grpcio --ignore-installed
+fi
+
