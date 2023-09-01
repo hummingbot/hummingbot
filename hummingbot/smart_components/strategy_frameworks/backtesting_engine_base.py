@@ -88,7 +88,7 @@ class BacktestingEngineBase:
         return df
 
     def load_controller_data(self, data_path: Optional[str] = None):
-        self.controller.load_candles_from_csv(data_path=data_path)
+        self.controller.load_historical_data(data_path=data_path)
 
     def get_data(self, start: Optional[str] = None, end: Optional[str] = None):
         df = self.controller.get_processed_data()
