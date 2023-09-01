@@ -114,13 +114,14 @@ def main():
 
     cython_sources = ["hummingbot/**/*.pyx"]
 
+    compiler_directives = {
+        "annotation_typing": False,
+    }
     if os.environ.get('WITHOUT_CYTHON_OPTIMIZATIONS'):
-        compiler_directives = {
+        compiler_directives.update({
             "optimize.use_switch": False,
             "optimize.unpack_method_calls": False,
-        }
-    else:
-        compiler_directives = {}
+        })
 
     if is_posix:
         cython_kwargs["nthreads"] = cpu_count
