@@ -269,7 +269,11 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
 
         for market_info in markets:
             try:
-                ticker_base, ticker_quote = market_info["ticker"].split("/")
+                if "/" in market_info["ticker"]:
+                    ticker_base, ticker_quote = market_info["ticker"].split("/")
+                else:
+                    ticker_base = market_info["ticker"]
+                    ticker_quote = None
                 base_token = self._token_from_market_info(
                     denom=market_info["baseDenom"],
                     token_meta=market_info["baseTokenMeta"],
@@ -399,12 +403,14 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
     def _uses_default_portfolio_subaccount(self) -> bool:
         return self._vault_subaccount_index == CONSTANTS.DEFAULT_SUBACCOUNT_INDEX
 
-    def _token_from_market_info(self, denom: str, token_meta: Dict[str, Any], candidate_symbol: str) -> InjectiveToken:
+    def _token_from_market_info(
+            self, denom: str, token_meta: Dict[str, Any], candidate_symbol: Optional[str] = None
+    ) -> InjectiveToken:
         token = self._tokens_map.get(denom)
         if token is None:
             unique_symbol = token_meta["symbol"]
             if unique_symbol in self._token_symbol_symbol_and_denom_map:
-                if candidate_symbol not in self._token_symbol_symbol_and_denom_map:
+                if candidate_symbol is not None and candidate_symbol not in self._token_symbol_symbol_and_denom_map:
                     unique_symbol = candidate_symbol
                 else:
                     unique_symbol = token_meta["name"]
@@ -421,7 +427,9 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         return token
 
     def _parse_derivative_market_info(self, market_info: Dict[str, Any]) -> InjectiveDerivativeMarket:
-        _, ticker_quote = market_info["ticker"].split("/")
+        ticker_quote = None
+        if "/" in market_info["ticker"]:
+            _, ticker_quote = market_info["ticker"].split("/")
         quote_token = self._token_from_market_info(
             denom=market_info["quoteDenom"],
             token_meta=market_info["quoteTokenMeta"],
