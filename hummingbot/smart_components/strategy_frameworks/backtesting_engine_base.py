@@ -18,6 +18,7 @@ class BacktestingEngineBase:
         """
         self.controller = controller
         self.level_executors = {level.level_id: pd.Timestamp.min for level in self.controller.config.order_levels}
+        self.processed_data = None
         self.executors_df = None
         self.results = None
 
@@ -86,8 +87,8 @@ class BacktestingEngineBase:
         df["close_type"].replace({"take_profit_time": "tp", "stop_loss_time": "sl"}, inplace=True)
         return df
 
-    def load_controller_data(self):
-        self.controller.start()
+    def load_controller_data(self, data_path: Optional[str] = None):
+        self.controller.load_candles_from_csv(data_path=data_path)
 
     def get_data(self, start: Optional[str] = None, end: Optional[str] = None):
         df = self.controller.get_processed_data()
