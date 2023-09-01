@@ -5,7 +5,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig, CandlesFactory
-from hummingbot.smart_components.strategy_frameworks.data_types import ControllerMode, OrderLevel
+from hummingbot.smart_components.strategy_frameworks.data_types import OrderLevel
 
 
 class ControllerConfigBase(BaseModel):
@@ -21,7 +21,6 @@ class ControllerBase(ABC):
 
     def __init__(self,
                  config: ControllerConfigBase,
-                 mode: ControllerMode = ControllerMode.LIVE,
                  excluded_parameters: Optional[List[str]] = None):
         """
         Initialize the ControllerBase.
@@ -31,7 +30,6 @@ class ControllerBase(ABC):
         :param excluded_parameters: List of parameters to exclude from status formatting.
         """
         self.config = config
-        self._mode = mode
         self._excluded_parameters = excluded_parameters or ["order_levels", "candles_config"]
         self.candles = self.initialize_candles(config.candles_config)
 
@@ -90,18 +88,18 @@ class ControllerBase(ABC):
         Start the controller.
         """
         for candle in self.candles:
-            if self._mode == ControllerMode.LIVE:
-                candle.start()
-            else:
-                candle.load_candles_from_csv()
+            candle.start()
+
+    def load_historical_data(self, data_path: Optional[str] = None):
+        for candle in self.candles:
+            candle.load_candles_from_csv(data_path)
 
     def stop(self) -> None:
         """
         Stop the controller.
         """
         for candle in self.candles:
-            if self._mode == ControllerMode.LIVE:
-                candle.stop()
+            candle.stop()
 
     def get_csv_prefix(self) -> str:
         """
