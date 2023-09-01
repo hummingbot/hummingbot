@@ -1724,40 +1724,39 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         )
         regex_get_position_url = re.compile(f"^{get_position_url}")
         response = [
-                  {
-                    "user": 10000,
-                    "contract": "BTC_USDT",
-                    "size": 9440,
-                    "leverage": "0",
-                    "risk_limit": "100",
-                    "leverage_max": "100",
-                    "maintenance_rate": "0.005",
-                    "value": "2.497143098997",
-                    "margin": "4.431548146258",
-                    "entry_price": "3779.55",
-                    "liq_price": "99999999",
-                    "mark_price": "3780.32",
-                    "unrealised_pnl": "-0.000507486844",
-                    "realised_pnl": "0.045543982432",
-                    "history_pnl": "0",
-                    "last_close_pnl": "0",
-                    "realised_point": "0",
-                    "history_point": "0",
-                    "adl_ranking": 5,
-                    "pending_orders": 16,
-                    "close_order": {
-                      "id": 232323,
-                      "price": "3779",
-                      "is_liq": False
-                    },
-                    "mode": "single",
-                    "update_time": 1684994406,
-                    "cross_leverage_limit": "0"
-                  }
-                ]
+            {
+                "user": 10000,
+                "contract": "BTC_USDT",
+                "size": 9440,
+                "leverage": "0",
+                "risk_limit": "100",
+                "leverage_max": "100",
+                "maintenance_rate": "0.005",
+                "value": "2.497143098997",
+                "margin": "4.431548146258",
+                "entry_price": "3779.55",
+                "liq_price": "99999999",
+                "mark_price": "3780.32",
+                "unrealised_pnl": "-0.000507486844",
+                "realised_pnl": "0.045543982432",
+                "history_pnl": "0",
+                "last_close_pnl": "0",
+                "realised_point": "0",
+                "history_point": "0",
+                "adl_ranking": 5,
+                "pending_orders": 16,
+                "close_order": {
+                    "id": 232323,
+                    "price": "3779",
+                    "is_liq": False
+                },
+                "mode": "single",
+                "update_time": 1684994406,
+                "cross_leverage_limit": "0"
+            }
+        ]
         mock_api.get(regex_get_position_url, body=json.dumps(response))
         self.async_run_with_timeout(self.exchange._update_positions())
-
 
         position: Position = self.exchange.account_positions[self.trading_pair]
         self.assertEqual(self.trading_pair, position.trading_pair)
