@@ -13,11 +13,6 @@ class ExecutorHandlerStatus(Enum):
     TERMINATED = 3
 
 
-class ControllerMode(Enum):
-    BACKTEST = 1
-    LIVE = 2
-
-
 class TripleBarrierConf(BaseModel):
     # Configure the parameters for the position
     stop_loss: Optional[Decimal]
