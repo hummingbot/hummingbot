@@ -5,7 +5,7 @@ import pandas as pd
 from pydantic import Field
 
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
-from hummingbot.smart_components.strategy_frameworks.data_types import ControllerMode, OrderLevel
+from hummingbot.smart_components.strategy_frameworks.data_types import OrderLevel
 from hummingbot.smart_components.strategy_frameworks.directional_trading.directional_trading_controller_base import (
     DirectionalTradingControllerBase,
     DirectionalTradingControllerConfigBase,
@@ -29,8 +29,8 @@ class MACDBBV1(DirectionalTradingControllerBase):
     Directional Market Making Strategy making use of NATR indicator to make spreads dynamic.
     """
 
-    def __init__(self, config: MACDBBV1Config, mode: ControllerMode = ControllerMode.LIVE):
-        super().__init__(config, mode)
+    def __init__(self, config: MACDBBV1Config):
+        super().__init__(config)
         self.config = config
 
     def early_stop_condition(self, executor: PositionExecutor, order_level: OrderLevel) -> bool:
