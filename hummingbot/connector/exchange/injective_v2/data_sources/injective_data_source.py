@@ -452,6 +452,8 @@ class InjectiveDataSource(ABC):
                 except asyncio.CancelledError:
                     raise
                 except Exception as ex:
+                    self.logger().debug(
+                        f"Error broadcasting transaction to create orders (message: {order_creation_messages})")
                     results = self._place_order_results(
                         orders_to_create=spot_orders + perpetual_orders,
                         order_hashes=spot_order_hashes + derivative_order_hashes,
@@ -501,34 +503,36 @@ class InjectiveDataSource(ABC):
                     derivative_orders_data.append(order_data)
                     orders_with_hash.append(order)
 
-            delegated_message = self._order_cancel_message(
-                spot_orders_to_cancel=spot_orders_data,
-                derivative_orders_to_cancel=derivative_orders_data,
-            )
+            if len(orders_with_hash) > 0:
+                delegated_message = self._order_cancel_message(
+                    spot_orders_to_cancel=spot_orders_data,
+                    derivative_orders_to_cancel=derivative_orders_data,
+                )
 
-            try:
-                result = await self._send_in_transaction(messages=[delegated_message])
-                if result["rawLog"] != "[]":
-                    raise ValueError(f"Error sending the order cancel transaction ({result['rawLog']})")
-                else:
-                    cancel_transaction_hash = result.get("txhash", "")
+                try:
+                    result = await self._send_in_transaction(messages=[delegated_message])
+                    if result["rawLog"] != "[]":
+                        raise ValueError(f"Error sending the order cancel transaction ({result['rawLog']})")
+                    else:
+                        cancel_transaction_hash = result.get("txhash", "")
+                        results.extend([
+                            CancelOrderResult(
+                                client_order_id=order.client_order_id,
+                                trading_pair=order.trading_pair,
+                                misc_updates={"cancelation_transaction_hash": cancel_transaction_hash},
+                            ) for order in orders_with_hash
+                        ])
+                except asyncio.CancelledError:
+                    raise
+                except Exception as ex:
+                    self.logger().debug(f"Error broadcasting transaction to cancel orders (message: {delegated_message})")
                     results.extend([
                         CancelOrderResult(
                             client_order_id=order.client_order_id,
                             trading_pair=order.trading_pair,
-                            misc_updates={"cancelation_transaction_hash": cancel_transaction_hash},
+                            exception=ex,
                         ) for order in orders_with_hash
                     ])
-            except asyncio.CancelledError:
-                raise
-            except Exception as ex:
-                results.extend([
-                    CancelOrderResult(
-                        client_order_id=order.client_order_id,
-                        trading_pair=order.trading_pair,
-                        exception=ex,
-                    ) for order in orders_with_hash
-                ])
 
         return results
 
@@ -739,7 +743,7 @@ class InjectiveDataSource(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def _calculate_order_hashes(
+    async def _calculate_order_hashes(
             self,
             spot_orders: List[GatewayInFlightOrder],
             derivative_orders: [GatewayPerpetualInFlightOrder]
@@ -804,9 +808,10 @@ class InjectiveDataSource(ABC):
                     market_ids=[market_id],
                     limit=1,
                 )
-            if len(trades_response["trades"]) > 0:
+            trades = trades_response.get("trades", [])
+            if len(trades) > 0:
                 price = market.price_from_chain_format(
-                    chain_price=Decimal(trades_response["trades"][0]["price"]["price"]))
+                    chain_price=Decimal(trades[0]["price"]["price"]))
 
         else:
             market = await self.derivative_market_info_for_id(market_id=market_id)
@@ -815,7 +820,8 @@ class InjectiveDataSource(ABC):
                     market_ids=[market_id],
                     limit=1,
                 )
-            if len(trades_response["trades"]) > 0:
+            trades = trades_response.get("trades", [])
+            if len(trades) > 0:
                 price = market.price_from_chain_format(
                     chain_price=Decimal(trades_response["trades"][0]["positionDelta"]["executionPrice"]))
 
@@ -829,7 +835,7 @@ class InjectiveDataSource(ABC):
         while executed_tries < retries and not found:
             executed_tries += 1
             try:
-                async with self.throttler.execute_task(limit_id=CONSTANTS.SPOT_ORDERS_HISTORY_LIMIT_ID):
+                async with self.throttler.execute_task(limit_id=CONSTANTS.GET_TRANSACTION_CHAIN_LIMIT_ID):
                     block_height = await self.query_executor.get_tx_block_height(tx_hash=tx_hash)
                 found = True
             except ValueError:
