@@ -38,63 +38,6 @@ from hummingbot.client.settings import (
     AllConnectorSettings,
 )
 
-# Use ruamel.yaml to preserve order and comments in .yml file
-yaml_parser = ruamel.yaml.YAML()  # legacy
-
-
-def decimal_representer(dumper: SafeDumper, data: Decimal):
-    return dumper.represent_float(float(data))
-
-
-def enum_representer(dumper: SafeDumper, data: ClientConfigEnum):
-    return dumper.represent_str(str(data))
-
-
-def date_representer(dumper: SafeDumper, data: date):
-    return dumper.represent_date(data)
-
-
-def time_representer(dumper: SafeDumper, data: time):
-    return dumper.represent_str(data.strftime("%H:%M:%S"))
-
-
-def datetime_representer(dumper: SafeDumper, data: datetime):
-    return dumper.represent_datetime(data)
-
-
-def path_representer(dumper: SafeDumper, data: Path):
-    return dumper.represent_str(str(data))
-
-
-def command_shortcut_representer(dumper: SafeDumper, data: CommandShortcutModel):
-    return dumper.represent_dict(data.__dict__)
-
-
-yaml.add_representer(
-    data_type=Decimal, representer=decimal_representer, Dumper=SafeDumper
-)
-yaml.add_multi_representer(
-    data_type=ClientConfigEnum, multi_representer=enum_representer, Dumper=SafeDumper
-)
-yaml.add_representer(
-    data_type=date, representer=date_representer, Dumper=SafeDumper
-)
-yaml.add_representer(
-    data_type=time, representer=time_representer, Dumper=SafeDumper
-)
-yaml.add_representer(
-    data_type=datetime, representer=datetime_representer, Dumper=SafeDumper
-)
-yaml.add_representer(
-    data_type=Path, representer=path_representer, Dumper=SafeDumper
-)
-yaml.add_representer(
-    data_type=PosixPath, representer=path_representer, Dumper=SafeDumper
-)
-yaml.add_representer(
-    data_type=CommandShortcutModel, representer=command_shortcut_representer, Dumper=SafeDumper
-)
-
 
 class ConfigValidationError(Exception):
     pass
@@ -228,6 +171,8 @@ class ClientConfigAdapter:
             default_str = ""
         elif isinstance(default, (List, Tuple)):
             default_str = ",".join(default)
+        elif isinstance(default, BaseClientModel):
+            default_str = default.Config.title
         else:
             default_str = str(default)
         return default_str
@@ -242,12 +187,18 @@ class ClientConfigAdapter:
         return yml_str
 
     def validate_model(self) -> List[str]:
-        results = validate_model(type(self._hb_config), json.loads(self._hb_config.json()))
+        input_data = self._hb_config.dict()
+        results = validate_model(model=type(self._hb_config), input_data=input_data)  # coerce types
         conf_dict = results[0]
-        self._decrypt_secrets(conf_dict)
         for key, value in conf_dict.items():
             self.setattr_no_validation(key, value)
+        self.decrypt_all_secure_data()
+        input_data = self._hb_config.dict()
+        results = validate_model(model=type(self._hb_config), input_data=input_data)  # validate decrypted values
+        conf_dict = results[0]
         errors = results[2]
+        for key, value in conf_dict.items():
+            self.setattr_no_validation(key, value)
         validation_errors = []
         if errors is not None:
             errors = errors.errors()
@@ -260,6 +211,32 @@ class ClientConfigAdapter:
     def setattr_no_validation(self, attr: str, value: Any):
         with self._disable_validation():
             setattr(self, attr, value)
+
+    def full_copy(self):
+        return self.__class__(hb_config=self._hb_config.copy(deep=True))
+
+    def decrypt_all_secure_data(self):
+        from hummingbot.client.config.security import Security  # avoids circular import
+
+        secure_config_items = (
+            traversal_item
+            for traversal_item in self.traverse()
+            if traversal_item.client_field_data is not None and traversal_item.client_field_data.is_secure
+        )
+        for traversal_item in secure_config_items:
+            value = traversal_item.value
+            if isinstance(value, SecretStr):
+                value = value.get_secret_value()
+            if value == "" or Security.secrets_manager is None:
+                decrypted_value = value
+            else:
+                decrypted_value = Security.secrets_manager.decrypt_secret_value(attr=traversal_item.attr, value=value)
+            *intermediate_items, final_config_element = traversal_item.config_path.split(".")
+            config_model = self
+            if len(intermediate_items) > 0:
+                for attr in intermediate_items:
+                    config_model = config_model.__getattr__(attr)
+            setattr(config_model, final_config_element, decrypted_value)
 
     @contextlib.contextmanager
     def _disable_validation(self):
@@ -285,20 +262,22 @@ class ClientConfigAdapter:
         return is_union
 
     def _dict_in_conf_order(self) -> Dict[str, Any]:
-        d = {}
+        conf_dict = {}
         for attr in self._hb_config.__fields__.keys():
             value = getattr(self, attr)
             if isinstance(value, ClientConfigAdapter):
                 value = value._dict_in_conf_order()
-            d[attr] = value
-        return d
+            conf_dict[attr] = value
+        self._encrypt_secrets(conf_dict)
+        return conf_dict
 
     def _encrypt_secrets(self, conf_dict: Dict[str, Any]):
         from hummingbot.client.config.security import Security  # avoids circular import
         for attr, value in conf_dict.items():
             attr_type = self._hb_config.__fields__[attr].type_
             if attr_type == SecretStr:
-                conf_dict[attr] = Security.secrets_manager.encrypt_secret_value(attr, value.get_secret_value())
+                clear_text_value = value.get_secret_value() if isinstance(value, SecretStr) else value
+                conf_dict[attr] = Security.secrets_manager.encrypt_secret_value(attr, clear_text_value)
 
     def _decrypt_secrets(self, conf_dict: Dict[str, Any]):
         from hummingbot.client.config.security import Security  # avoids circular import
@@ -307,6 +286,21 @@ class ClientConfigAdapter:
             if attr_type == SecretStr:
                 decrypted_value = Security.secrets_manager.decrypt_secret_value(attr, value.get_secret_value())
                 conf_dict[attr] = SecretStr(decrypted_value)
+
+    def _decrypt_all_internal_secrets(self):
+        from hummingbot.client.config.security import Security  # avoids circular import
+
+        for traversal_item in self.traverse():
+            if traversal_item.type_ == SecretStr:
+                encrypted_value = traversal_item.value
+                if isinstance(encrypted_value, SecretStr):
+                    encrypted_value = encrypted_value.get_secret_value()
+                decrypted_value = Security.secrets_manager.decrypt_secret_value(traversal_item.attr, encrypted_value)
+                parent_attributes = traversal_item.config_path.split(".")[:-1]
+                config = self
+                for parent_attribute in parent_attributes:
+                    config = getattr(config, parent_attribute)
+                setattr(config, traversal_item.attr, decrypted_value)
 
     def _generate_title(self) -> str:
         title = f"{self._hb_config.Config.title}"
@@ -363,6 +357,79 @@ class ReadOnlyClientConfigAdapter(ClientConfigAdapter):
     @classmethod
     def lock_config(cls, config_map: ClientConfigMap):
         return cls(config_map._hb_config)
+
+
+# Use ruamel.yaml to preserve order and comments in .yml file
+yaml_parser = ruamel.yaml.YAML()  # legacy
+
+
+def decimal_representer(dumper: SafeDumper, data: Decimal):
+    return dumper.represent_float(float(data))
+
+
+def enum_representer(dumper: SafeDumper, data: ClientConfigEnum):
+    return dumper.represent_str(str(data))
+
+
+def date_representer(dumper: SafeDumper, data: date):
+    return dumper.represent_date(data)
+
+
+def time_representer(dumper: SafeDumper, data: time):
+    return dumper.represent_str(data.strftime("%H:%M:%S"))
+
+
+def datetime_representer(dumper: SafeDumper, data: datetime):
+    return dumper.represent_datetime(data)
+
+
+def path_representer(dumper: SafeDumper, data: Path):
+    return dumper.represent_str(str(data))
+
+
+def command_shortcut_representer(dumper: SafeDumper, data: CommandShortcutModel):
+    return dumper.represent_dict(data.__dict__)
+
+
+def client_config_adapter_representer(dumper: SafeDumper, data: ClientConfigAdapter):
+    return dumper.represent_dict(data._dict_in_conf_order())
+
+
+def base_client_model_representer(dumper: SafeDumper, data: BaseClientModel):
+    dictionary_representation = ClientConfigAdapter(data)._dict_in_conf_order()
+    return dumper.represent_dict(dictionary_representation)
+
+
+yaml.add_representer(
+    data_type=Decimal, representer=decimal_representer, Dumper=SafeDumper
+)
+yaml.add_multi_representer(
+    data_type=ClientConfigEnum, multi_representer=enum_representer, Dumper=SafeDumper
+)
+yaml.add_representer(
+    data_type=date, representer=date_representer, Dumper=SafeDumper
+)
+yaml.add_representer(
+    data_type=time, representer=time_representer, Dumper=SafeDumper
+)
+yaml.add_representer(
+    data_type=datetime, representer=datetime_representer, Dumper=SafeDumper
+)
+yaml.add_representer(
+    data_type=Path, representer=path_representer, Dumper=SafeDumper
+)
+yaml.add_representer(
+    data_type=PosixPath, representer=path_representer, Dumper=SafeDumper
+)
+yaml.add_representer(
+    data_type=CommandShortcutModel, representer=command_shortcut_representer, Dumper=SafeDumper
+)
+yaml.add_representer(
+    data_type=ClientConfigAdapter, representer=client_config_adapter_representer, Dumper=SafeDumper
+)
+yaml.add_multi_representer(
+    data_type=BaseClientModel, multi_representer=base_client_model_representer, Dumper=SafeDumper
+)
 
 
 def parse_cvar_value(cvar: ConfigVar, value: Any) -> Any:
@@ -789,7 +856,7 @@ def save_to_yml_legacy(yml_path: str, cm: Dict[str, ConfigVar]):
             data = yaml_parser.load(stream) or {}
             for key in cm:
                 cvar = cm.get(key)
-                if type(cvar.value) == Decimal:
+                if isinstance(cvar.value, Decimal):
                     data[key] = float(cvar.value)
                 else:
                     data[key] = cvar.value
