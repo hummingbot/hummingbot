@@ -73,6 +73,9 @@ def main():
         "eth-utils",
         "ethsnarks-loopring",
         "flake8",
+        "gql",
+        "grpcio",
+        "grpcio-tools"
         "hexbytes",
         "importlib-metadata",
         "injective-py"
