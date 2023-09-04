@@ -843,6 +843,7 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             "user": 1666,
             "currency": "USDT",
             "total": "9707.803567115145",
+            "size": "9707.803567115145",
             "unrealised_pnl": "3371.248828",
             "position_margin": "38.712189181",
             "order_margin": "0",
@@ -850,6 +851,7 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             "point": "0",
             "bonus": "0",
             "in_dual_mode": True if position_mode is PositionMode.HEDGE else False,
+            "mode": "single" if position_mode is PositionMode.ONEWAY else "dual_long",
             "history": {
                 "dnw": "10000",
                 "pnl": "68.3685",
@@ -1710,3 +1712,94 @@ class GateIoPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 f"{Decimal('100.000000')} to {PositionAction.OPEN.name} a {self.trading_pair} position."
             )
         )
+
+    @aioresponses()
+    def test_update_position_mode(
+            self,
+            mock_api: aioresponses,
+    ):
+        self._simulate_trading_rules_initialized()
+        get_position_url = web_utils.public_rest_url(
+            endpoint=CONSTANTS.POSITION_INFORMATION_URL
+        )
+        regex_get_position_url = re.compile(f"^{get_position_url}")
+        response = [
+            {
+                "user": 10000,
+                "contract": "BTC_USDT",
+                "size": 9440,
+                "leverage": "0",
+                "risk_limit": "100",
+                "leverage_max": "100",
+                "maintenance_rate": "0.005",
+                "value": "2.497143098997",
+                "margin": "4.431548146258",
+                "entry_price": "3779.55",
+                "liq_price": "99999999",
+                "mark_price": "3780.32",
+                "unrealised_pnl": "-0.000507486844",
+                "realised_pnl": "0.045543982432",
+                "history_pnl": "0",
+                "last_close_pnl": "0",
+                "realised_point": "0",
+                "history_point": "0",
+                "adl_ranking": 5,
+                "pending_orders": 16,
+                "close_order": {
+                    "id": 232323,
+                    "price": "3779",
+                    "is_liq": False
+                },
+                "mode": "single",
+                "update_time": 1684994406,
+                "cross_leverage_limit": "0"
+            }
+        ]
+        mock_api.get(regex_get_position_url, body=json.dumps(response))
+        self.async_run_with_timeout(self.exchange._update_positions())
+
+        position: Position = self.exchange.account_positions[self.trading_pair]
+        self.assertEqual(self.trading_pair, position.trading_pair)
+        self.assertEqual(PositionSide.LONG, position.position_side)
+
+        get_position_url = web_utils.public_rest_url(
+            endpoint=CONSTANTS.POSITION_INFORMATION_URL
+        )
+        regex_get_position_url = re.compile(f"^{get_position_url}")
+        response = [
+            {
+                "user": 10000,
+                "contract": "BTC_USDT",
+                "size": 9440,
+                "leverage": "0",
+                "risk_limit": "100",
+                "leverage_max": "100",
+                "maintenance_rate": "0.005",
+                "value": "2.497143098997",
+                "margin": "4.431548146258",
+                "entry_price": "3779.55",
+                "liq_price": "99999999",
+                "mark_price": "3780.32",
+                "unrealised_pnl": "-0.000507486844",
+                "realised_pnl": "0.045543982432",
+                "history_pnl": "0",
+                "last_close_pnl": "0",
+                "realised_point": "0",
+                "history_point": "0",
+                "adl_ranking": 5,
+                "pending_orders": 16,
+                "close_order": {
+                    "id": 232323,
+                    "price": "3779",
+                    "is_liq": False
+                },
+                "mode": "dual_long",
+                "update_time": 1684994406,
+                "cross_leverage_limit": "0"
+            }
+        ]
+        mock_api.get(regex_get_position_url, body=json.dumps(response))
+        self.async_run_with_timeout(self.exchange._update_positions())
+        position: Position = self.exchange.account_positions[f"{self.trading_pair}LONG"]
+        self.assertEqual(self.trading_pair, position.trading_pair)
+        self.assertEqual(PositionSide.LONG, position.position_side)
