@@ -115,6 +115,8 @@ def check_transaction_exceptions(
     # check for gas limit set to low
     if chain == Chain.ETHEREUM:
         gas_limit_threshold: int = 21000
+    elif chain == Chain.TEZOS.chain:
+        gas_limit_threshold: int = 0
     else:
         raise ValueError(f"Unsupported chain: {chain}")
     if gas_limit < gas_limit_threshold:

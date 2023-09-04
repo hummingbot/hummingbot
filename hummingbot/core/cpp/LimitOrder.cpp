@@ -11,6 +11,7 @@ LimitOrder::LimitOrder() {
     this->filledQuantity = NULL;
     this->creationTimestamp = 0.0;
     this->status = 0;
+    this->position = "NIL";
 }
 
 LimitOrder::LimitOrder(std::string clientOrderID,
@@ -31,6 +32,7 @@ LimitOrder::LimitOrder(std::string clientOrderID,
     this->filledQuantity = NULL;
     this->creationTimestamp = 0.0;
     this->status = 0;
+    this->position = "NIL";
     Py_XINCREF(price);
     Py_XINCREF(quantity);
 }
@@ -44,7 +46,8 @@ LimitOrder::LimitOrder(std::string clientOrderID,
                        PyObject *quantity,
                        PyObject *filledQuantity,
                        long creationTimestamp,
-                       short int status
+                       short int status,
+                       std::string position
                        ) {
     this->clientOrderID = clientOrderID;
     this->tradingPair = tradingPair;
@@ -56,6 +59,7 @@ LimitOrder::LimitOrder(std::string clientOrderID,
     this->filledQuantity = filledQuantity;
     this->creationTimestamp = creationTimestamp;
     this->status = status;
+    this->position = position;
     Py_XINCREF(price);
     Py_XINCREF(quantity);
     Py_XINCREF(filledQuantity);
@@ -72,6 +76,7 @@ LimitOrder::LimitOrder(const LimitOrder &other) {
     this->filledQuantity = other.filledQuantity;
     this->creationTimestamp = other.creationTimestamp;
     this->status = other.status;
+    this->position = other.position;
     Py_XINCREF(this->price);
     Py_XINCREF(this->quantity);
     Py_XINCREF(this->filledQuantity);
@@ -97,6 +102,7 @@ LimitOrder &LimitOrder::operator=(const LimitOrder &other) {
     this->filledQuantity = other.filledQuantity;
     this->creationTimestamp = other.creationTimestamp;
     this->status = other.status;
+    this->position = other.position;
     Py_XINCREF(this->price);
     Py_XINCREF(this->quantity);
     Py_XINCREF(this->filledQuantity);
@@ -151,4 +157,8 @@ long LimitOrder::getCreationTimestamp() const{
 
 short int LimitOrder::getStatus() const{
     return this->status;
+}
+
+std::string LimitOrder::getPosition() const{
+    return this->position;
 }

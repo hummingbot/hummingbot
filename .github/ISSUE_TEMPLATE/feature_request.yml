@@ -1,6 +1,6 @@
 name: Feature request
 description: Suggest an idea that will improve the Hummingbot codebase
-title: "SUMMARY OF FEATURE REQUEST"
+title: "Feature Request"
 labels: enhancement
 body:
  - type: markdown
@@ -8,6 +8,7 @@ body:
      value: |
        ## **Before Submitting:**
 
+       * Please edit the "Feature Request" to the title of the feature
        * Please make sure to look on our GitHub issues to avoid duplicate tickets
        * You can add additional `Labels` to support this ticket (connectors, strategies, etc)
        * If this is something to do with installation and how to's we would recommend to visit our [Discord server](https://discord.gg/hummingbot) and [Hummingbot docs](https://docs.hummingbot.org/)

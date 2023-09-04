@@ -303,7 +303,7 @@ class BitgetPerpetualDerivative(PerpetualDerivativePyBase):
         trading_pair = combine_to_hb_trading_pair(base=base_currency, quote=quote_currency)
         if trading_pair in self._trading_fees:
             fee_schema: TradeFeeSchema = self._trading_fees[trading_pair]
-            fee_rate = fee_schema.maker_percent_fee_decimal if is_maker else fee_schema.maker_percent_fee_decimal
+            fee_rate = fee_schema.maker_percent_fee_decimal if is_maker else fee_schema.taker_percent_fee_decimal
             fee = TradeFeeBase.new_spot_fee(
                 fee_schema=fee_schema,
                 trade_type=order_side,
