@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from pyinjective import Address, PrivateKey
-from pyinjective.constant import Network
+from pyinjective.core.network import Network
 
 import hummingbot.connector.exchange.injective_v2.injective_v2_utils as utils
 from hummingbot.connector.exchange.injective_v2 import injective_constants as CONSTANTS
