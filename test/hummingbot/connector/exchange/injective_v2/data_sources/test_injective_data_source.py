@@ -7,7 +7,7 @@ from typing import Awaitable, Optional, Union
 from unittest import TestCase
 from unittest.mock import patch
 
-from pyinjective.constant import Network
+from pyinjective.core.network import Network
 from pyinjective.wallet import Address, PrivateKey
 
 from hummingbot.connector.exchange.injective_v2 import injective_constants as CONSTANTS
@@ -495,7 +495,8 @@ class InjectiveVaultsDataSourceTests(TestCase):
         market = self._inj_usdt_market_info()
 
         orders_data = []
-        order_data = self.data_source.composer.OrderData(
+        composer = asyncio.get_event_loop().run_until_complete(self.data_source.composer())
+        order_data = composer.OrderData(
             market_id=market["marketId"],
             subaccount_id="1",
             order_hash="0xba954bc613a81cd712b9ec0a3afbfc94206cf2ff8c60d1868e031d59ea82bf27",  # noqa: mock"

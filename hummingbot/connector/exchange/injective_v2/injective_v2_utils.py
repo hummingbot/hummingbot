@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Dict, List, Union
 
 from pydantic import Field, SecretStr
 from pydantic.class_validators import validator
-from pyinjective.constant import Network
+from pyinjective.core.network import Network
 
 from hummingbot.client.config.config_data_types import BaseClientModel, BaseConnectorConfigMap, ClientFieldData
 from hummingbot.connector.exchange.injective_v2 import injective_constants as CONSTANTS

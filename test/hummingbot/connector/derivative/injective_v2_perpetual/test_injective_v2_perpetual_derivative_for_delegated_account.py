@@ -515,6 +515,12 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         exchange._data_source._query_executor = ProgrammableQueryExecutor()
         exchange._data_source._spot_market_and_trading_pair_map = bidict()
         exchange._data_source._derivative_market_and_trading_pair_map = bidict({self.market_id: self.trading_pair})
+
+        exchange._data_source._client._tokens = {}
+        exchange._data_source._client._spot_markets = {}
+        exchange._data_source._client._derivative_markets = {}
+        exchange._data_source._client._binary_option_markets = {}
+
         return exchange
 
     def validate_auth_credentials_present(self, request_call: RequestCall):
