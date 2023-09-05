@@ -27,6 +27,7 @@ from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlight
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
+from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate
 from hummingbot.core.pubsub import PubSub
@@ -43,6 +44,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
             vault_contract_address: str,
             vault_subaccount_index: int,
             network: Network,
+            rate_limits: List[RateLimit],
             use_secure_connection: bool = True):
         self._network = network
         self._client = AsyncClient(
@@ -75,9 +77,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         self._publisher = PubSub()
         self._last_received_message_time = 0
         self._order_creation_lock = asyncio.Lock()
-        # We create a throttler instance here just to have a fully valid instance from the first moment.
-        # The connector using this data source should replace the throttler with the one used by the connector.
-        self._throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
+        self._throttler = AsyncThrottler(rate_limits=rate_limits)
 
         self._is_timeout_height_initialized = False
         self._is_trading_account_initialized = False
@@ -269,7 +269,11 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
 
         for market_info in markets:
             try:
-                ticker_base, ticker_quote = market_info["ticker"].split("/")
+                if "/" in market_info["ticker"]:
+                    ticker_base, ticker_quote = market_info["ticker"].split("/")
+                else:
+                    ticker_base = market_info["ticker"]
+                    ticker_quote = None
                 base_token = self._token_from_market_info(
                     denom=market_info["baseDenom"],
                     token_meta=market_info["baseTokenMeta"],
@@ -324,7 +328,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         spot_orders = spot_orders or []
         perpetual_orders = perpetual_orders or []
 
-        async with self.throttler.execute_task(limit_id=CONSTANTS.GET_TRANSACTION_LIMIT_ID):
+        async with self.throttler.execute_task(limit_id=CONSTANTS.GET_TRANSACTION_INDEXER_LIMIT_ID):
             transaction_info = await self.query_executor.get_tx_by_hash(tx_hash=transaction_hash)
 
         transaction_messages = json.loads(base64.b64decode(transaction_info["data"]["messages"]).decode())
@@ -399,12 +403,14 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
     def _uses_default_portfolio_subaccount(self) -> bool:
         return self._vault_subaccount_index == CONSTANTS.DEFAULT_SUBACCOUNT_INDEX
 
-    def _token_from_market_info(self, denom: str, token_meta: Dict[str, Any], candidate_symbol: str) -> InjectiveToken:
+    def _token_from_market_info(
+            self, denom: str, token_meta: Dict[str, Any], candidate_symbol: Optional[str] = None
+    ) -> InjectiveToken:
         token = self._tokens_map.get(denom)
         if token is None:
             unique_symbol = token_meta["symbol"]
             if unique_symbol in self._token_symbol_symbol_and_denom_map:
-                if candidate_symbol not in self._token_symbol_symbol_and_denom_map:
+                if candidate_symbol is not None and candidate_symbol not in self._token_symbol_symbol_and_denom_map:
                     unique_symbol = candidate_symbol
                 else:
                     unique_symbol = token_meta["name"]
@@ -421,7 +427,9 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         return token
 
     def _parse_derivative_market_info(self, market_info: Dict[str, Any]) -> InjectiveDerivativeMarket:
-        _, ticker_quote = market_info["ticker"].split("/")
+        ticker_quote = None
+        if "/" in market_info["ticker"]:
+            _, ticker_quote = market_info["ticker"].split("/")
         quote_token = self._token_from_market_info(
             denom=market_info["quoteDenom"],
             token_meta=market_info["quoteTokenMeta"],
@@ -441,7 +449,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         market = self._parse_derivative_market_info(market_info=market_info)
         return market
 
-    def _calculate_order_hashes(
+    async def _calculate_order_hashes(
             self,
             spot_orders: List[GatewayInFlightOrder],
             derivative_orders: [GatewayPerpetualInFlightOrder]

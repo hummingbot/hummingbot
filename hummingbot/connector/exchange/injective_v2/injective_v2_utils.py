@@ -1,12 +1,13 @@
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import TYPE_CHECKING, Dict, Union
+from typing import TYPE_CHECKING, Dict, List, Union
 
 from pydantic import Field, SecretStr
 from pydantic.class_validators import validator
 from pyinjective.constant import Network
 
 from hummingbot.client.config.config_data_types import BaseClientModel, BaseConnectorConfigMap, ClientFieldData
+from hummingbot.connector.exchange.injective_v2 import injective_constants as CONSTANTS
 from hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source import (
     InjectiveGranteeDataSource,
 )
@@ -16,6 +17,7 @@ from hummingbot.connector.exchange.injective_v2.data_sources.injective_read_only
 from hummingbot.connector.exchange.injective_v2.data_sources.injective_vaults_data_source import (
     InjectiveVaultsDataSource,
 )
+from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 if TYPE_CHECKING:
@@ -68,6 +70,9 @@ class InjectiveMainnetNetworkMode(InjectiveNetworkMode):
     def use_secure_connection(self) -> bool:
         return self.node == "lb"
 
+    def rate_limits(self) -> List[RateLimit]:
+        return CONSTANTS.PUBLIC_NODE_RATE_LIMITS
+
 
 class InjectiveTestnetNetworkMode(InjectiveNetworkMode):
     testnet_node: str = Field(
@@ -77,6 +82,9 @@ class InjectiveTestnetNetworkMode(InjectiveNetworkMode):
             prompt_on_new=True
         ),
     )
+
+    class Config:
+        title = "testnet_network"
 
     @validator("testnet_node", pre=True)
     def validate_node(cls, v: str):
@@ -90,8 +98,8 @@ class InjectiveTestnetNetworkMode(InjectiveNetworkMode):
     def use_secure_connection(self) -> bool:
         return True
 
-    class Config:
-        title = "testnet_network"
+    def rate_limits(self) -> List[RateLimit]:
+        return CONSTANTS.PUBLIC_NODE_RATE_LIMITS
 
 
 class InjectiveCustomNetworkMode(InjectiveNetworkMode):
@@ -169,6 +177,9 @@ class InjectiveCustomNetworkMode(InjectiveNetworkMode):
     def use_secure_connection(self) -> bool:
         return self.secure_connection
 
+    def rate_limits(self) -> List[RateLimit]:
+        return CONSTANTS.CUSTOM_NODE_RATE_LIMITS
+
 
 NETWORK_MODES = {
     InjectiveMainnetNetworkMode.Config.title: InjectiveMainnetNetworkMode,
@@ -180,7 +191,9 @@ NETWORK_MODES = {
 class InjectiveAccountMode(BaseClientModel, ABC):
 
     @abstractmethod
-    def create_data_source(self, network: Network, use_secure_connection: bool) -> "InjectiveDataSource":
+    def create_data_source(
+            self, network: Network, use_secure_connection: bool, rate_limits: List[RateLimit],
+    ) -> "InjectiveDataSource":
         pass
 
 
@@ -219,7 +232,9 @@ class InjectiveDelegatedAccountMode(InjectiveAccountMode):
     class Config:
         title = "delegate_account"
 
-    def create_data_source(self, network: Network, use_secure_connection: bool) -> "InjectiveDataSource":
+    def create_data_source(
+            self, network: Network, use_secure_connection: bool, rate_limits: List[RateLimit],
+    ) -> "InjectiveDataSource":
         return InjectiveGranteeDataSource(
             private_key=self.private_key.get_secret_value(),
             subaccount_index=self.subaccount_index,
@@ -227,6 +242,7 @@ class InjectiveDelegatedAccountMode(InjectiveAccountMode):
             granter_subaccount_index=self.granter_subaccount_index,
             network=network,
             use_secure_connection=use_secure_connection,
+            rate_limits=rate_limits,
         )
 
 
@@ -263,7 +279,9 @@ class InjectiveVaultAccountMode(InjectiveAccountMode):
     class Config:
         title = "vault_account"
 
-    def create_data_source(self, network: Network, use_secure_connection: bool) -> "InjectiveDataSource":
+    def create_data_source(
+            self, network: Network, use_secure_connection: bool, rate_limits: List[RateLimit],
+    ) -> "InjectiveDataSource":
         return InjectiveVaultsDataSource(
             private_key=self.private_key.get_secret_value(),
             subaccount_index=self.subaccount_index,
@@ -271,6 +289,7 @@ class InjectiveVaultAccountMode(InjectiveAccountMode):
             vault_subaccount_index=self.vault_subaccount_index,
             network=network,
             use_secure_connection=use_secure_connection,
+            rate_limits=rate_limits,
         )
 
 
@@ -279,10 +298,13 @@ class InjectiveReadOnlyAccountMode(InjectiveAccountMode):
     class Config:
         title = "read_only_account"
 
-    def create_data_source(self, network: Network, use_secure_connection: bool) -> "InjectiveDataSource":
+    def create_data_source(
+            self, network: Network, use_secure_connection: bool, rate_limits: List[RateLimit],
+    ) -> "InjectiveDataSource":
         return InjectiveReadOnlyDataSource(
             network=network,
             use_secure_connection=use_secure_connection,
+            rate_limits=rate_limits,
         )
 
 
@@ -344,7 +366,9 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
 
     def create_data_source(self):
         return self.account_type.create_data_source(
-            network=self.network.network(), use_secure_connection=self.network.use_secure_connection()
+            network=self.network.network(),
+            use_secure_connection=self.network.use_secure_connection(),
+            rate_limits=self.network.rate_limits(),
         )
 
 
