@@ -21,6 +21,7 @@ from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlight
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
+from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.data_type.in_flight_order import OrderUpdate
 from hummingbot.core.pubsub import PubSub
@@ -33,6 +34,7 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
     def __init__(
             self,
             network: Network,
+            rate_limits: List[RateLimit],
             use_secure_connection: bool = True):
         self._network = network
         self._client = AsyncClient(
@@ -45,9 +47,7 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
 
         self._publisher = PubSub()
         self._last_received_message_time = 0
-        # We create a throttler instance here just to have a fully valid instance from the first moment.
-        # The connector using this data source should replace the throttler with the one used by the connector.
-        self._throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
+        self._throttler = AsyncThrottler(rate_limits=rate_limits)
 
         self._markets_initialization_lock = asyncio.Lock()
         self._spot_market_info_map: Optional[Dict[str, InjectiveSpotMarket]] = None
@@ -223,7 +223,11 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
 
         for market_info in markets:
             try:
-                ticker_base, ticker_quote = market_info["ticker"].split("/")
+                if "/" in market_info["ticker"]:
+                    ticker_base, ticker_quote = market_info["ticker"].split("/")
+                else:
+                    ticker_base = market_info["ticker"]
+                    ticker_quote = None
                 base_token = self._token_from_market_info(
                     denom=market_info["baseDenom"],
                     token_meta=market_info["baseTokenMeta"],
@@ -317,8 +321,10 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
     def _uses_default_portfolio_subaccount(self) -> bool:
         raise NotImplementedError
 
-    def _calculate_order_hashes(self, spot_orders: List[GatewayInFlightOrder],
-                                derivative_orders: [GatewayPerpetualInFlightOrder]) -> Tuple[List[str], List[str]]:
+    async def _calculate_order_hashes(
+            self,
+            spot_orders: List[GatewayInFlightOrder],
+            derivative_orders: [GatewayPerpetualInFlightOrder]) -> Tuple[List[str], List[str]]:
         raise NotImplementedError
 
     def _reset_order_hash_manager(self):
@@ -365,12 +371,14 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
     ) -> List[PlaceOrderResult]:
         raise NotImplementedError
 
-    def _token_from_market_info(self, denom: str, token_meta: Dict[str, Any], candidate_symbol: str) -> InjectiveToken:
+    def _token_from_market_info(
+            self, denom: str, token_meta: Dict[str, Any], candidate_symbol: Optional[str] = None
+    ) -> InjectiveToken:
         token = self._tokens_map.get(denom)
         if token is None:
             unique_symbol = token_meta["symbol"]
             if unique_symbol in self._token_symbol_symbol_and_denom_map:
-                if candidate_symbol not in self._token_symbol_symbol_and_denom_map:
+                if candidate_symbol is not None and candidate_symbol not in self._token_symbol_symbol_and_denom_map:
                     unique_symbol = candidate_symbol
                 else:
                     unique_symbol = token_meta["name"]
@@ -387,7 +395,9 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
         return token
 
     def _parse_derivative_market_info(self, market_info: Dict[str, Any]) -> InjectiveDerivativeMarket:
-        _, ticker_quote = market_info["ticker"].split("/")
+        ticker_quote = None
+        if "/" in market_info["ticker"]:
+            _, ticker_quote = market_info["ticker"].split("/")
         quote_token = self._token_from_market_info(
             denom=market_info["quoteDenom"],
             token_meta=market_info["quoteTokenMeta"],
