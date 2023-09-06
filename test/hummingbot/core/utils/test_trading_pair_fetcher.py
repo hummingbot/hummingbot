@@ -88,7 +88,7 @@ class TestTradingPairFetcher(unittest.TestCase):
         trading_pairs = trading_pair_fetcher.trading_pairs
         self.assertEqual(2, len(trading_pairs))
         self.assertEqual({"mockConnector": ["MOCK-HBOT"], "mock_paper_trade": ["MOCK-HBOT"]}, trading_pairs)
-        
+
     @aioresponses()
     @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher._all_connector_settings")
     @patch("hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_perp_markets")
@@ -143,7 +143,6 @@ class TestTradingPairFetcher(unittest.TestCase):
         }
 
         url = binance_web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL)
-
         mock_response: Dict[str, Any] = {
             "timezone": "UTC",
             "serverTime": 1639598493658,
