@@ -6,13 +6,12 @@ from decimal import Decimal
 from functools import partial
 from test.hummingbot.connector.exchange.injective_v2.programmable_query_executor import ProgrammableQueryExecutor
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
 from bidict import bidict
 from grpc import RpcError
-from pyinjective.orderhash import OrderHashManager, OrderHashResponse
 from pyinjective.wallet import Address, PrivateKey
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
@@ -376,7 +375,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
 
     def create_exchange_instance(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
-        network_config = InjectiveTestnetNetworkMode()
+        network_config = InjectiveTestnetNetworkMode(testnet_node="sentry")
 
         account_config = InjectiveVaultAccountMode(
             private_key=self.trading_account_private_key,
@@ -396,7 +395,8 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
         )
 
         exchange._data_source._query_executor = ProgrammableQueryExecutor()
-        exchange._data_source._market_and_trading_pair_map = bidict({self.market_id: self.trading_pair})
+        exchange._data_source._spot_market_and_trading_pair_map = bidict({self.market_id: self.trading_pair})
+        exchange._data_source._derivative_market_and_trading_pair_map = bidict()
         return exchange
 
     def validate_auth_credentials_present(self, request_call: RequestCall):
@@ -419,6 +419,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
     ) -> str:
         all_markets_mock_response = self.all_markets_mock_response
         self.exchange._data_source._query_executor._spot_markets_responses.put_nowait(all_markets_mock_response)
+        self.exchange._data_source._query_executor._derivative_markets_responses.put_nowait([])
         return ""
 
     def configure_trading_rules_response(
@@ -439,6 +440,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
         response = self.trading_rules_request_erroneous_mock_response
         self.exchange._data_source._query_executor._spot_markets_responses = asyncio.Queue()
         self.exchange._data_source._query_executor._spot_markets_responses.put_nowait(response)
+        self.exchange._data_source._query_executor._derivative_markets_responses.put_nowait([])
         return ""
 
     def configure_successful_cancelation_response(self, order: InFlightOrder, mock_api: aioresponses,
@@ -666,7 +668,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
     @aioresponses()
     def test_all_trading_pairs_does_not_raise_exception(self, mock_api):
         self.exchange._set_trading_pair_symbol_map(None)
-        self.exchange._data_source._market_and_trading_pair_map = None
+        self.exchange._data_source._spot_market_and_trading_pair_map = None
         queue_mock = AsyncMock()
         queue_mock.get.side_effect = Exception("Test error")
         self.exchange._data_source._query_executor._spot_markets_responses = queue_mock
@@ -926,10 +928,6 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
-        self.exchange._data_source._order_hash_manager = MagicMock(spec=OrderHashManager)
-        self.exchange._data_source._order_hash_manager.compute_order_hashes.return_value = OrderHashResponse(
-            spot=["hash1"], derivative=[]
-        )
 
         transaction_simulation_response = self._msg_exec_simulation_mock_response()
         self.exchange._data_source._query_executor._simulate_transaction_responses.put_nowait(
@@ -972,11 +970,6 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
 
         order_id_for_invalid_order = self.place_buy_order(
             amount=Decimal("0.0001"), price=Decimal("0.0001")
-        )
-        # The second order is used only to have the event triggered and avoid using timeouts for tests
-        self.exchange._data_source._order_hash_manager = MagicMock(spec=OrderHashManager)
-        self.exchange._data_source._order_hash_manager.compute_order_hashes.return_value = OrderHashResponse(
-            spot=["hash1"], derivative=[]
         )
 
         transaction_simulation_response = self._msg_exec_simulation_mock_response()
@@ -1134,7 +1127,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
 
         try:
             self.async_run_with_timeout(
-                self.exchange._data_source._listen_to_subaccount_order_updates(market_id=self.market_id)
+                self.exchange._data_source._listen_to_subaccount_spot_order_updates(market_id=self.market_id)
             )
         except asyncio.CancelledError:
             pass
@@ -1181,7 +1174,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
 
         try:
             self.async_run_with_timeout(
-                self.exchange._data_source._listen_to_subaccount_order_updates(market_id=self.market_id)
+                self.exchange._data_source._listen_to_subaccount_spot_order_updates(market_id=self.market_id)
             )
         except asyncio.CancelledError:
             pass
@@ -1240,10 +1233,10 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
 
         tasks = [
             asyncio.get_event_loop().create_task(
-                self.exchange._data_source._listen_to_public_trades(market_ids=[self.market_id])
+                self.exchange._data_source._listen_to_public_spot_trades(market_ids=[self.market_id])
             ),
             asyncio.get_event_loop().create_task(
-                self.exchange._data_source._listen_to_subaccount_order_updates(market_id=self.market_id)
+                self.exchange._data_source._listen_to_subaccount_spot_order_updates(market_id=self.market_id)
             )
         ]
         try:
@@ -1326,7 +1319,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
 
         try:
             self.async_run_with_timeout(
-                self.exchange._data_source._listen_to_subaccount_order_updates(market_id=self.market_id)
+                self.exchange._data_source._listen_to_subaccount_spot_order_updates(market_id=self.market_id)
             )
         except asyncio.CancelledError:
             pass
@@ -1385,10 +1378,10 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
 
         tasks = [
             asyncio.get_event_loop().create_task(
-                self.exchange._data_source._listen_to_public_trades(market_ids=[self.market_id])
+                self.exchange._data_source._listen_to_public_spot_trades(market_ids=[self.market_id])
             ),
             asyncio.get_event_loop().create_task(
-                self.exchange._data_source._listen_to_subaccount_order_updates(market_id=self.market_id)
+                self.exchange._data_source._listen_to_subaccount_spot_order_updates(market_id=self.market_id)
             )
         ]
         try:
@@ -1467,6 +1460,8 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
         self.assertEqual(self.expected_latest_price, latest_prices[self.trading_pair])
 
     def test_get_fee(self):
+        self.exchange._data_source._spot_market_and_trading_pair_map = None
+        self.exchange._data_source._derivative_market_and_trading_pair_map = None
         self.configure_all_symbols_response(mock_api=None)
         self.async_run_with_timeout(self.exchange._update_trading_fees())
 
@@ -1575,6 +1570,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
     ) -> str:
         all_markets_mock_response = self.all_markets_mock_response
         self.exchange._data_source._query_executor._spot_markets_responses.put_nowait(all_markets_mock_response)
+        self.exchange._data_source._query_executor._derivative_markets_responses.put_nowait([])
         self.exchange._data_source._query_executor._account_portfolio_responses.put_nowait(response)
         return ""
 
