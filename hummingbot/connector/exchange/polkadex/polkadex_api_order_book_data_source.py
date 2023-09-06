@@ -82,7 +82,7 @@ class PolkadexAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         event_forwarder = EventForwarder(to_function=self._process_public_trade_event)
         self._forwarders.append(event_forwarder)
-        self._data_source.add_listener(event_tag=OrderBookEvent.PublicTradeEvent, listener=event_forwarder)
+        self._data_source.add_listener(event_tag=OrderBookEvent.TradeEvent, listener=event_forwarder)
 
     def _process_order_book_event(self, order_book_diff: OrderBookMessage):
         self._message_queue[self._diff_messages_queue_key].put_nowait(order_book_diff)

@@ -38,7 +38,6 @@ class MarketEvent(Enum):
 class OrderBookEvent(int, Enum):
     TradeEvent = 901
     OrderBookDataSourceUpdateEvent = 904
-    PublicTradeEvent = 905
 
 
 class OrderBookDataSourceEvent(int, Enum):
