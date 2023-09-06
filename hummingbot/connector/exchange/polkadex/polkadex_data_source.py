@@ -512,7 +512,7 @@ class PolkadexDataSource:
             content=message_content,
             timestamp=timestamp,
         )
-        self._publisher.trigger_event(event_tag=OrderBookEvent.PublicTradeEvent, message=trade_message)
+        self._publisher.trigger_event(event_tag=OrderBookEvent.TradeEvent, message=trade_message)
 
     def _process_private_event(self, event: Dict[str, Any]):
         event_data = json.loads(event["websocket_streams"]["data"])
