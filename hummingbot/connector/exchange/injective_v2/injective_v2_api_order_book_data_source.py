@@ -41,7 +41,7 @@ class InjectiveV2APIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        snapshot = await self._data_source.order_book_snapshot(market_id=symbol, trading_pair=trading_pair)
+        snapshot = await self._data_source.spot_order_book_snapshot(market_id=symbol, trading_pair=trading_pair)
         return snapshot
 
     async def _parse_order_book_diff_message(self, raw_message: OrderBookMessage, message_queue: asyncio.Queue):

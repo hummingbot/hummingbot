@@ -703,9 +703,14 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
             hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(ex_trading_pair)
 
             amount = Decimal(position.get("size"))
-            position_side = PositionSide.LONG if Decimal(position.get("size")) > 0 else PositionSide.SHORT
-
-            pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
+            ex_mode = position.get("mode")
+            if ex_mode == 'single':
+                mode = PositionMode.ONEWAY
+                position_side = PositionSide.LONG if Decimal(position.get("size")) > 0 else PositionSide.SHORT
+            else:
+                mode = PositionMode.HEDGE
+                position_side = PositionSide.LONG if ex_mode == "dual_long" else PositionSide.SHORT
+            pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side, mode)
 
             if amount != 0:
                 trading_rule = self._trading_rules[hb_trading_pair]
