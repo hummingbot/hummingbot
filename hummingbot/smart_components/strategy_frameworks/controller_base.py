@@ -90,7 +90,7 @@ class ControllerBase(ABC):
         for candle in self.candles:
             candle.start()
 
-    def load_historical_data(self, data_path: Optional[str] = None):
+    def load_historical_data(self, data_path: str):
         for candle in self.candles:
             candle.load_candles_from_csv(data_path)
 
