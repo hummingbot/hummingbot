@@ -41,6 +41,12 @@ class BaseQueryExecutor(ABC):
         raise NotImplementedError  # pragma: no cover
 
     @abstractmethod
+    async def get_order_fills_by_main_account(
+        self, from_timestamp: float, to_timestamp: float, main_account: str
+    ) -> Dict[str, Any]:
+        raise NotImplementedError  # pragma: no cover
+
+    @abstractmethod
     async def place_order(self, polkadex_order: Dict[str, Any], signature: Dict[str, Any]) -> Dict[str, Any]:
         raise NotImplementedError  # pragma: no cover
 
@@ -50,6 +56,7 @@ class BaseQueryExecutor(ABC):
         order_id: str,
         market_symbol: str,
         proxy_address: str,
+        main_address: str,
         signature: Dict[str, Any],
     ) -> Dict[str, Any]:
         raise NotImplementedError  # pragma: no cover
@@ -62,6 +69,10 @@ class BaseQueryExecutor(ABC):
 
     @abstractmethod
     async def find_order_by_main_account(self, main_account: str, market_symbol: str, order_id: str) -> Dict[str, Any]:
+        raise NotImplementedError  # pragma: no cover
+
+    @abstractmethod
+    async def list_open_orders_by_main_account(self, main_account: str) -> Dict[str, Any]:
         raise NotImplementedError  # pragma: no cover
 
     @abstractmethod
@@ -94,7 +105,7 @@ class GrapQLQueryExecutor(BaseQueryExecutor):
     async def all_assets(self):
         query = gql(
             """
-            query MyQuery {
+            query GetAllAssets {
                 getAllAssets {
                     items {
                         asset_id
@@ -115,14 +126,14 @@ class GrapQLQueryExecutor(BaseQueryExecutor):
             query MyQuery {
                 getAllMarkets {
                     items {
-                        base_asset_precision
                         market
                         max_order_price
-                        max_order_qty
                         min_order_price
                         min_order_qty
+                        max_order_qty
                         price_tick_size
                         qty_step_size
+                        base_asset_precision
                         quote_asset_precision
                     }
                 }
@@ -144,7 +155,9 @@ class GrapQLQueryExecutor(BaseQueryExecutor):
                   p
                   q
                   s
+                  stid
                 }
+                nextToken
               }
             }
             """
@@ -160,16 +173,19 @@ class GrapQLQueryExecutor(BaseQueryExecutor):
             """
             query findUserByProxyAccount($proxy_account: String!) {
                 findUserByProxyAccount(proxy_account: $proxy_account) {
-                    items
+                    items {
+                        hash_key
+                        range_key
+                        stid
+                    }
                 }
             }
             """
         )
-
         parameters = {"proxy_account": proxy_account}
 
         result = await self._execute_query(query=query, parameters=parameters)
-        main_account = result["findUserByProxyAccount"]["items"][0].split(",")[2][11:-1]
+        main_account = result["findUserByProxyAccount"]["items"][0]["range_key"]
         return main_account
 
     async def recent_trades(self, market_symbol: str, limit: int) -> Dict[str, Any]:
@@ -183,7 +199,6 @@ class GrapQLQueryExecutor(BaseQueryExecutor):
                     p
                     q
                     t
-                    sid
                 }
               }
             }
@@ -198,7 +213,7 @@ class GrapQLQueryExecutor(BaseQueryExecutor):
     async def get_all_balances_by_main_account(self, main_account: str) -> Dict[str, Any]:
         query = gql(
             """
-            query getAllBalancesByMainAccount($main: String!) {
+            query GetAllBalancesByMainAccount($main: String!) {
                 getAllBalancesByMainAccount(main_account: $main) {
                     items {
                         a
@@ -215,11 +230,56 @@ class GrapQLQueryExecutor(BaseQueryExecutor):
         result = await self._execute_query(query=query, parameters=parameters)
         return result
 
+    async def get_order_fills_by_main_account(
+        self, from_timestamp: float, to_timestamp: float, main_account: str
+    ) -> Dict[str, Any]:
+        query = gql(
+            """
+            query listTradesByMainAccount(
+                $main_account:String!
+                $limit: Int
+                $from: AWSDateTime!
+                $to: AWSDateTime!
+                $nextToken: String
+            ) {
+                listTradesByMainAccount(
+                    main_account: $main_account
+                    from: $from
+                    to: $to
+                    limit: $limit
+                    nextToken: $nextToken
+                ) {
+                    items {
+                        isReverted
+                        m
+                        m_id
+                        p
+                        q
+                        stid
+                        t
+                        t_id
+                        trade_id
+                    }
+                }
+            }
+            """
+        )
+
+        parameters = {
+            "main_account": main_account,
+            "from": self._timestamp_to_aws_datetime_string(timestamp=from_timestamp),
+            "to": self._timestamp_to_aws_datetime_string(timestamp=to_timestamp),
+        }
+
+        result = await self._execute_query(query=query, parameters=parameters)
+
+        return result
+
     async def place_order(self, polkadex_order: Dict[str, Any], signature: Dict[str, Any]) -> Dict[str, Any]:
         query = gql(
             """
-            mutation PlaceOrder($input: UserActionInput!) {
-                place_order(input: $input)
+            mutation PlaceOrder($payload: String!) {
+                place_order(input: {payload: $payload})
             }
             """
         )
@@ -228,7 +288,7 @@ class GrapQLQueryExecutor(BaseQueryExecutor):
             polkadex_order,
             signature,
         ]
-        parameters = {"input": {"payload": json.dumps({"PlaceOrder": input_parameters})}}
+        parameters = {"payload": json.dumps({"PlaceOrder": input_parameters})}
 
         result = await self._execute_query(query=query, parameters=parameters)
         return result
@@ -237,24 +297,26 @@ class GrapQLQueryExecutor(BaseQueryExecutor):
         self,
         order_id: str,
         market_symbol: str,
+        main_address: str,
         proxy_address: str,
         signature: Dict[str, Any],
     ) -> Dict[str, Any]:
         query = gql(
             """
-            mutation CancelOrder($input: UserActionInput!) {
-                cancel_order(input: $input)
+            mutation CancelOrder($payload: String!) {
+                cancel_order(input: {payload: $payload})
             }
             """
         )
 
         input_parameters = [
             order_id,
+            main_address,
             proxy_address,
             market_symbol,
             signature,
         ]
-        parameters = {"input": {"payload": json.dumps({"CancelOrder": input_parameters})}}
+        parameters = {"payload": json.dumps({"CancelOrder": input_parameters})}
 
         result = await self._execute_query(query=query, parameters=parameters)
         return result
@@ -264,24 +326,35 @@ class GrapQLQueryExecutor(BaseQueryExecutor):
     ) -> Dict[str, Any]:
         query = gql(
             """
-            query ListOrderHistory($main_account: String!, $to: AWSDateTime!, $from: AWSDateTime!) {
-                listOrderHistorybyMainAccount(main_account: $main_account, to: $to, from: $from) {
+            query ListOrderHistory(
+                $main_account:String!
+                $limit: Int
+                $from: AWSDateTime!
+                $to: AWSDateTime!
+                $nextToken: String
+            ) {
+                listOrderHistorybyMainAccount(
+                    main_account: $main_account
+                    from: $from
+                    to: $to
+                    limit: $limit
+                    nextToken: $nextToken
+                ) {
                     items {
-                        afp
+                        u
                         cid
-                        fee
-                        fq
                         id
-                        isReverted
+                        t
                         m
+                        s
                         ot
+                        st
                         p
                         q
-                        s
-                        sid
-                        st
-                        t
-                        u
+                        afp
+                        fq
+                        fee
+                        isReverted
                     }
                 }
             }
@@ -290,8 +363,8 @@ class GrapQLQueryExecutor(BaseQueryExecutor):
 
         parameters = {
             "main_account": main_account,
-            "to": datetime.utcfromtimestamp(to_time).isoformat(timespec="milliseconds") + "Z",
-            "from": datetime.utcfromtimestamp(from_time).isoformat(timespec="milliseconds") + "Z",
+            "to": self._timestamp_to_aws_datetime_string(timestamp=to_time),
+            "from": self._timestamp_to_aws_datetime_string(timestamp=from_time),
         }
 
         result = await self._execute_query(query=query, parameters=parameters)
@@ -313,8 +386,8 @@ class GrapQLQueryExecutor(BaseQueryExecutor):
                     p
                     q
                     s
-                    sid
                     st
+                    stid
                     t
                     u
                 }
@@ -327,6 +400,38 @@ class GrapQLQueryExecutor(BaseQueryExecutor):
             "market": market_symbol,
             "order_id": order_id,
         }
+
+        result = await self._execute_query(query=query, parameters=parameters)
+        return result
+
+    async def list_open_orders_by_main_account(self, main_account: str) -> Dict[str, Any]:
+        query = gql(
+            """
+            query ListOpenOrdersByMainAccount($main_account: String!, $limit: Int, $nextToken: String) {
+                listOpenOrdersByMainAccount(main_account: $main_account, limit: $limit, nextToken: $nextToken) {
+                    items {
+                        u
+                        cid
+                        id
+                        t
+                        m
+                        s
+                        ot
+                        st
+                        p
+                        q
+                        afp
+                        fq
+                        fee
+                        stid
+                        isReverted
+                    }
+                }
+            }
+        """
+        )
+
+        parameters = {"main_account": main_account}
 
         result = await self._execute_query(query=query, parameters=parameters)
         return result
@@ -395,3 +500,8 @@ class GrapQLQueryExecutor(BaseQueryExecutor):
         async with Client(transport=transport, fetch_schema_from_transport=False) as session:
             async for result in session.subscribe(query, variable_values=variables, parse_result=True):
                 yield result
+
+    @staticmethod
+    def _timestamp_to_aws_datetime_string(timestamp: float) -> str:
+        timestamp_string = datetime.utcfromtimestamp(timestamp).isoformat(timespec="milliseconds") + "Z"
+        return timestamp_string

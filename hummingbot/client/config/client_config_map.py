@@ -8,7 +8,7 @@ from os.path import dirname
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Union
 
-from pydantic import BaseModel, Field, root_validator, validator
+from pydantic import BaseModel, Field, SecretStr, root_validator, validator
 from tabulate import tabulate_formats
 
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientConfigEnum, ClientFieldData
@@ -805,6 +805,87 @@ class CoinGeckoRateSourceMode(RateSourceModeBase):
         return values
 
 
+class CoinCapRateSourceMode(RateSourceModeBase):
+    name: str = Field(
+        default="coin_cap",
+        const=True,
+        client_data=None,
+    )
+    assets_map: Dict[str, str] = Field(
+        default=",".join(
+            [
+                ":".join(pair) for pair in {
+                    "BTC": "bitcoin",
+                    "ETH": "ethereum",
+                    "USDT": "tether",
+                    "CONV": "convergence",
+                    "FIRO": "zcoin",
+                    "BUSD": "binance-usd",
+                    "ONE": "harmony",
+                    "PDEX": "polkadex",
+                }.items()
+            ]
+        ),
+        description=(
+            "The symbol-to-asset ID map for CoinCap. Assets IDs can be found by selecting a symbol"
+            " on https://coincap.io/ and extracting the last segment of the URL path."
+        ),
+        client_data=ClientFieldData(
+            prompt=lambda cm: (
+                "CoinCap symbol-to-asset ID map (e.g. 'BTC:bitcoin,ETH:ethereum', find IDs on https://coincap.io/"
+                " by selecting a symbol and extracting the last segment of the URL path)"
+            ),
+            is_connect_key=True,
+            prompt_on_new=True,
+        ),
+    )
+    api_key: SecretStr = Field(
+        default=SecretStr(""),
+        description="API key to use to request information from CoinCap (if empty public requests will be used)",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "CoinCap API key (optional, but improves rate limits)",
+            is_secure=True,
+            is_connect_key=True,
+            prompt_on_new=True,
+        ),
+    )
+
+    class Config:
+        title = "coin_cap"
+
+    def build_rate_source(self) -> RateSourceBase:
+        rate_source = RATE_ORACLE_SOURCES["coin_cap"](
+            assets_map=self.assets_map, api_key=self.api_key.get_secret_value()
+        )
+        return rate_source
+
+    @validator("assets_map", pre=True)
+    def validate_extra_tokens(cls, value: Union[str, Dict[str, str]]):
+        if isinstance(value, str):
+            value = {key: val for key, val in [v.split(":") for v in value.split(",")]}
+        return value
+
+    # === post-validations ===
+
+    @root_validator()
+    def post_validations(cls, values: Dict):
+        cls.rate_oracle_source_on_validated(values)
+        return values
+
+    @classmethod
+    def rate_oracle_source_on_validated(cls, values: Dict):
+        RateOracle.get_instance().source = cls._build_rate_source_cls(
+            assets_map=values["assets_map"], api_key=values["api_key"]
+        )
+
+    @classmethod
+    def _build_rate_source_cls(cls, assets_map: Dict[str, str], api_key: SecretStr) -> RateSourceBase:
+        rate_source = RATE_ORACLE_SOURCES["coin_cap"](
+            assets_map=assets_map, api_key=api_key.get_secret_value()
+        )
+        return rate_source
+
+
 class KuCoinRateSourceMode(ExchangeRateSourceModeBase):
     name: str = Field(
         default="kucoin",
@@ -831,6 +912,7 @@ RATE_SOURCE_MODES = {
     AscendExRateSourceMode.Config.title: AscendExRateSourceMode,
     BinanceRateSourceMode.Config.title: BinanceRateSourceMode,
     CoinGeckoRateSourceMode.Config.title: CoinGeckoRateSourceMode,
+    CoinCapRateSourceMode.Config.title: CoinCapRateSourceMode,
     KuCoinRateSourceMode.Config.title: KuCoinRateSourceMode,
     GateIoRateSourceMode.Config.title: GateIoRateSourceMode,
 }
@@ -1153,7 +1235,5 @@ class ClientConfigMap(BaseClientModel):
     @classmethod
     def rate_oracle_source_on_validated(cls, values: Dict):
         rate_source_mode: RateSourceModeBase = values["rate_oracle_source"]
-        rate_source_name = rate_source_mode.Config.title
-        if rate_source_name != RateOracle.get_instance().source.name:
-            RateOracle.get_instance().source = rate_source_mode.build_rate_source()
+        RateOracle.get_instance().source = rate_source_mode.build_rate_source()
         RateOracle.get_instance().quote_token = values["global_token"].global_token_name
