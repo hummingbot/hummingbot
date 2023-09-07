@@ -345,7 +345,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                 limit_orders = list(tracked_maker_orders[market_pair].values())
                 bid, ask = self.get_top_bid_ask(market_pair)
                 mid_price = (bid + ask) / 2
-                df = LimitOrder.to_pandas(limit_orders, mid_price)
+                df = LimitOrder.to_pandas(limit_orders, float(mid_price))
                 df_lines = str(df).split("\n")
                 lines.extend(["", "  Active maker market orders:"] +
                              ["    " + line for line in df_lines])
