@@ -22,5 +22,7 @@ class DirectionalTradingBacktestingEngine(BacktestingEngineBase):
                     executors.append(row)
                     self.level_executors[order_level.level_id] = row["close_time"]
         executors_df = pd.DataFrame(executors).sort_index()
-        executors_df["inventory"] = initial_portfolio_usd + executors_df["net_pnl_quote"].cumsum().shift().fillna(0)
+        executors_df["inventory"] = initial_portfolio_usd
+        if len(executors_df) > 0:
+            executors_df["inventory"] = initial_portfolio_usd + executors_df["net_pnl_quote"].cumsum().shift().fillna(0)
         return executors_df
