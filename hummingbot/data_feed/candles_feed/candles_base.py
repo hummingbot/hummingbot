@@ -6,7 +6,6 @@ from typing import Optional
 import pandas as pd
 from bidict import bidict
 
-from hummingbot import data_path
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.network_base import NetworkBase
 from hummingbot.core.network_iterator import NetworkStatus
@@ -121,7 +120,7 @@ class CandlesBase(NetworkBase):
     def get_exchange_trading_pair(self, trading_pair):
         raise NotImplementedError
 
-    def load_candles_from_csv(self, data_path: str = data_path()):
+    def load_candles_from_csv(self, data_path: str):
         """
         This method loads the candles from a CSV file.
         :param data_path: data path that holds the CSV file
