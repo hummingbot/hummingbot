@@ -10,6 +10,7 @@ from unittest.mock import patch
 from pyinjective.constant import Network
 from pyinjective.wallet import Address, PrivateKey
 
+from hummingbot.connector.exchange.injective_v2 import injective_constants as CONSTANTS
 from hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source import (
     InjectiveGranteeDataSource,
 )
@@ -42,6 +43,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
             granter_address=Address(bytes.fromhex(granter_private_key.to_public_key().to_hex())).to_acc_bech32(),
             granter_subaccount_index=0,
             network=Network.testnet(node="sentry"),
+            rate_limits=CONSTANTS.PUBLIC_NODE_RATE_LIMITS,
         )
 
         self.query_executor = ProgrammableQueryExecutor()
@@ -383,6 +385,7 @@ class InjectiveVaultsDataSourceTests(TestCase):
             vault_subaccount_index=1,
             network=Network.testnet(node="sentry"),
             use_secure_connection=True,
+            rate_limits=CONSTANTS.PUBLIC_NODE_RATE_LIMITS,
         )
 
         self.query_executor = ProgrammableQueryExecutor()
