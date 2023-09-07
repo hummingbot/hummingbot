@@ -4,6 +4,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
+from hummingbot import data_path
 from hummingbot.smart_components.strategy_frameworks.controller_base import ControllerBase
 
 
@@ -25,19 +26,19 @@ class BacktestingEngineBase:
     @staticmethod
     def filter_df_by_time(df, start: Optional[str] = None, end: Optional[str] = None):
         if start is not None:
-            start_condition = df["timestamp"] >= datetime.strptime(start, "%Y-%m-%d")
+            start_condition = pd.to_datetime(df["timestamp"], unit="ms") >= datetime.strptime(start, "%Y-%m-%d")
         else:
             start_condition = pd.Series([True] * len(df))
         if end is not None:
-            end_condition = df["timestamp"] <= datetime.strptime(end, "%Y-%m-%d")
+            end_condition = pd.to_datetime(df["timestamp"], unit="ms") <= datetime.strptime(end, "%Y-%m-%d")
         else:
             end_condition = pd.Series([True] * len(df))
         return df[start_condition & end_condition]
 
     def apply_triple_barrier_method(self, df, tp=1.0, sl=1.0, tl=5, trade_cost=0.0006):
-        df.index = pd.to_datetime(df.timestamp, unit="s")
+        df.index = pd.to_datetime(df.timestamp, unit="ms")
         if "target" not in df.columns:
-            df["target"] = 1 / 100
+            df["target"] = 1
         df["tl"] = df.index + pd.Timedelta(seconds=tl)
         df.dropna(subset="target", inplace=True)
 
@@ -87,12 +88,12 @@ class BacktestingEngineBase:
         df["close_type"].replace({"take_profit_time": "tp", "stop_loss_time": "sl"}, inplace=True)
         return df
 
-    def load_controller_data(self, data_path: Optional[str] = None):
+    def load_controller_data(self, data_path: str = data_path()):
         self.controller.load_historical_data(data_path=data_path)
 
     def get_data(self, start: Optional[str] = None, end: Optional[str] = None):
         df = self.controller.get_processed_data()
-        return self.filter_df_by_time(df, start, end)
+        return self.filter_df_by_time(df, start, end).copy()
 
     def run_backtesting(self, initial_portfolio_usd=1000, trade_cost=0.0006,
                         start: Optional[str] = None, end: Optional[str] = None):
@@ -141,12 +142,12 @@ class BacktestingEngineBase:
             peak = np.maximum.accumulate(cumulative_returns)
             drawdown = (cumulative_returns - peak)
             max_draw_down = np.min(drawdown)
-            max_drawdown_pct = max_draw_down / net_pnl
+            max_drawdown_pct = max_draw_down / executors_df["inventory"].iloc[0]
             returns = executors_df["net_pnl_quote"] / net_pnl
             sharpe_ratio = returns.mean() / returns.std()
             total_won = win_signals.loc[:, "net_pnl_quote"].sum()
             total_loss = - loss_signals.loc[:, "net_pnl_quote"].sum()
-            profit_factor = total_won / total_loss
+            profit_factor = total_won / total_loss if total_loss > 0 else 1
             duration_minutes = (executors_df.close_time.max() - executors_df.index.min()).total_seconds() / 60
             avg_trading_time_minutes = (pd.to_datetime(executors_df["close_time"]) - executors_df.index).dt.total_seconds() / 60
             avg_trading_time = avg_trading_time_minutes.mean()
@@ -169,7 +170,9 @@ class BacktestingEngineBase:
                 "sharpe_ratio": sharpe_ratio,
                 "profit_factor": profit_factor,
                 "duration_minutes": duration_minutes,
-                "avg_trading_time_minutes": avg_trading_time
+                "avg_trading_time_minutes": avg_trading_time,
+                "win_signals": win_signals.shape[0],
+                "loss_signals": loss_signals.shape[0],
             }
         return {
             "net_pnl": 0,
@@ -189,5 +192,7 @@ class BacktestingEngineBase:
             "sharpe_ratio": 0,
             "profit_factor": 0,
             "duration_minutes": 0,
-            "avg_trading_time_minutes": 0
+            "avg_trading_time_minutes": 0,
+            "win_signals": 0,
+            "loss_signals": 0,
         }
