@@ -1,117 +1,184 @@
-#!/usr/bin/env python
 import asyncio
-import hashlib
-import json
-from urllib.parse import urlencode
-
-import aiohttp
-import aiohttp.client_ws
-
-import logging
-
-from typing import (
-    Optional,
-    AsyncIterable,
-    List,
-    Dict,
-    Any
-)
-
-from hummingbot.connector.exchange.mexc import mexc_constants as CONSTANTS
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.mexc.mexc_auth import MexcAuth
-
 import time
+from typing import TYPE_CHECKING, List, Optional
 
-from websockets.exceptions import ConnectionClosed
+from hummingbot.connector.exchange.mexc import mexc_constants as CONSTANTS, mexc_web_utils as web_utils
+from hummingbot.connector.exchange.mexc.mexc_auth import MexcAuth
+from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.core.web_assistant.ws_assistant import WSAssistant
+from hummingbot.logger import HummingbotLogger
+
+if TYPE_CHECKING:
+    from hummingbot.connector.exchange.mexc.mexc_exchange import MexcExchange
 
 
 class MexcAPIUserStreamDataSource(UserStreamTrackerDataSource):
+    LISTEN_KEY_KEEP_ALIVE_INTERVAL = 1800  # Recommended to Ping/Update listen key to keep connection alive
+    HEARTBEAT_TIME_INTERVAL = 30.0
+
     _logger: Optional[HummingbotLogger] = None
-    MESSAGE_TIMEOUT = 300.0
 
-    @classmethod
-    def logger(cls) -> HummingbotLogger:
-        if cls._logger is None:
-            cls._logger = logging.getLogger(__name__)
-
-        return cls._logger
-
-    def __init__(self, throttler: AsyncThrottler, mexc_auth: MexcAuth, trading_pairs: Optional[List[str]] = [],
-                 shared_client: Optional[aiohttp.ClientSession] = None):
-        self._shared_client = shared_client or self._get_session_instance()
-        self._last_recv_time: float = 0
-        self._auth: MexcAuth = mexc_auth
-        self._trading_pairs = trading_pairs
-        self._throttler = throttler
+    def __init__(self,
+                 auth: MexcAuth,
+                 trading_pairs: List[str],
+                 connector: 'MexcExchange',
+                 api_factory: WebAssistantsFactory,
+                 domain: str = CONSTANTS.DEFAULT_DOMAIN):
         super().__init__()
+        self._auth: MexcAuth = auth
+        self._current_listen_key = None
+        self._domain = domain
+        self._api_factory = api_factory
 
-    @classmethod
-    def _get_session_instance(cls) -> aiohttp.ClientSession:
-        session = aiohttp.ClientSession()
-        return session
+        self._listen_key_initialized_event: asyncio.Event = asyncio.Event()
+        self._last_listen_key_ping_ts = 0
 
-    @property
-    def last_recv_time(self) -> float:
-        return self._last_recv_time
+    async def _connected_websocket_assistant(self) -> WSAssistant:
+        """
+        Creates an instance of WSAssistant connected to the exchange
+        """
+        self._manage_listen_key_task = safe_ensure_future(self._manage_listen_key_task_loop())
+        await self._listen_key_initialized_event.wait()
 
-    async def _authenticate_client(self):
-        pass
+        ws: WSAssistant = await self._get_ws_assistant()
+        url = f"{CONSTANTS.WSS_URL.format(self._domain)}?listenKey={self._current_listen_key}"
+        await ws.connect(ws_url=url, ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
+        return ws
 
-    async def listen_for_user_stream(self, output: asyncio.Queue):
-        while True:
-            session = self._shared_client
-            try:
-                ws = await session.ws_connect(CONSTANTS.MEXC_WS_URL_PUBLIC)
-                ws: aiohttp.client_ws.ClientWebSocketResponse = ws
-                try:
-                    params: Dict[str, Any] = {
-                        'api_key': self._auth.api_key,
-                        "op": "sub.personal",
-                        'req_time': int(time.time() * 1000),
-                        "api_secret": self._auth.secret_key,
-                    }
-                    params_sign = urlencode(params)
-                    sign_data = hashlib.md5(params_sign.encode()).hexdigest()
-                    del params['api_secret']
-                    params["sign"] = sign_data
-                    async with self._throttler.execute_task(CONSTANTS.MEXC_WS_URL_PUBLIC):
-                        await ws.send_str(json.dumps(params))
+    async def _subscribe_channels(self, websocket_assistant: WSAssistant):
+        """
+        Subscribes to order events and balance events.
 
-                        async for raw_msg in self._inner_messages(ws):
-                            self._last_recv_time = time.time()
-                            decoded_msg: dict = raw_msg
-                            if 'channel' in decoded_msg.keys() and decoded_msg['channel'] == 'push.personal.order':
-                                output.put_nowait(decoded_msg)
-                            elif 'channel' in decoded_msg.keys() and decoded_msg['channel'] == 'sub.personal':
-                                pass
-                            else:
-                                self.logger().debug(f"other message received from MEXC websocket: {decoded_msg}")
-                except Exception as ex2:
-                    raise ex2
-                finally:
-                    await ws.close()
+        :param websocket_assistant: the websocket assistant used to connect to the exchange
+        """
+        try:
 
-            except asyncio.CancelledError:
-                raise
-            except Exception as ex:
-                self.logger().error("Unexpected error with WebSocket connection ,Retrying after 30 seconds..." + str(ex),
-                                    exc_info=True)
-                await asyncio.sleep(30.0)
+            orders_change_payload = {
+                "method": "SUBSCRIPTION",
+                "params": [CONSTANTS.USER_ORDERS_ENDPOINT_NAME],
+                "id": 1
+            }
+            subscribe_order_change_request: WSJSONRequest = WSJSONRequest(payload=orders_change_payload)
 
-    async def _inner_messages(self,
-                              ws: aiohttp.ClientWebSocketResponse) -> AsyncIterable[str]:
+            trades_payload = {
+                "method": "SUBSCRIPTION",
+                "params": [CONSTANTS.USER_TRADES_ENDPOINT_NAME],
+                "id": 2
+            }
+            subscribe_trades_request: WSJSONRequest = WSJSONRequest(payload=trades_payload)
+
+            balance_payload = {
+                "method": "SUBSCRIPTION",
+                "params": [CONSTANTS.USER_BALANCE_ENDPOINT_NAME],
+                "id": 3
+            }
+            subscribe_balance_request: WSJSONRequest = WSJSONRequest(payload=balance_payload)
+
+            await websocket_assistant.send(subscribe_order_change_request)
+            await websocket_assistant.send(subscribe_trades_request)
+            await websocket_assistant.send(subscribe_balance_request)
+
+            self.logger().info("Subscribed to private order changes and balance updates channels...")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().exception("Unexpected error occurred subscribing to user streams...")
+            raise
+
+    async def _get_listen_key(self):
+        rest_assistant = await self._api_factory.get_rest_assistant()
+        try:
+            data = await rest_assistant.execute_request(
+                url=web_utils.public_rest_url(path_url=CONSTANTS.MEXC_USER_STREAM_PATH_URL, domain=self._domain),
+                method=RESTMethod.POST,
+                throttler_limit_id=CONSTANTS.MEXC_USER_STREAM_PATH_URL,
+                headers=self._auth.header_for_authentication(),
+                is_auth_required=True
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exception:
+            raise IOError(f"Error fetching user stream listen key. Error: {exception}")
+
+        return data["listenKey"]
+
+    async def _ping_listen_key(self) -> bool:
+        rest_assistant = await self._api_factory.get_rest_assistant()
+        try:
+            data = await rest_assistant.execute_request(
+                url=web_utils.public_rest_url(path_url=CONSTANTS.MEXC_USER_STREAM_PATH_URL, domain=self._domain),
+                params={"listenKey": self._current_listen_key},
+                method=RESTMethod.PUT,
+                return_err=True,
+                throttler_limit_id=CONSTANTS.MEXC_USER_STREAM_PATH_URL,
+                headers=self._auth.header_for_authentication()
+            )
+
+            if "code" in data:
+                self.logger().warning(f"Failed to refresh the listen key {self._current_listen_key}: {data}")
+                return False
+
+        except asyncio.CancelledError:
+            raise
+        except Exception as exception:
+            self.logger().warning(f"Failed to refresh the listen key {self._current_listen_key}: {exception}")
+            return False
+
+        return True
+
+    async def _manage_listen_key_task_loop(self):
         try:
             while True:
-                msg = await asyncio.wait_for(ws.receive(), timeout=self.MESSAGE_TIMEOUT)
-                if msg.type == aiohttp.WSMsgType.CLOSED:
-                    raise ConnectionError
-                yield json.loads(msg.data)
-        except asyncio.TimeoutError:
-            return
-        except ConnectionClosed:
-            return
-        except ConnectionError:
-            return
+                now = int(time.time())
+                if self._current_listen_key is None:
+                    self._current_listen_key = await self._get_listen_key()
+                    self.logger().info(f"Successfully obtained listen key {self._current_listen_key}")
+                    self._listen_key_initialized_event.set()
+                    self._last_listen_key_ping_ts = int(time.time())
+
+                if now - self._last_listen_key_ping_ts >= self.LISTEN_KEY_KEEP_ALIVE_INTERVAL:
+                    success: bool = await self._ping_listen_key()
+                    if not success:
+                        self.logger().error("Error occurred renewing listen key ...")
+                        break
+                    else:
+                        self.logger().info(f"Refreshed listen key {self._current_listen_key}.")
+                        self._last_listen_key_ping_ts = int(time.time())
+                else:
+                    await self._sleep(self.LISTEN_KEY_KEEP_ALIVE_INTERVAL)
+        finally:
+            self._current_listen_key = None
+            self._listen_key_initialized_event.clear()
+
+    async def _get_ws_assistant(self) -> WSAssistant:
+        if self._ws_assistant is None:
+            self._ws_assistant = await self._api_factory.get_ws_assistant()
+        return self._ws_assistant
+
+    async def _send_ping(self, websocket_assistant: WSAssistant):
+        payload = {
+            "method": "PING",
+        }
+        ping_request: WSJSONRequest = WSJSONRequest(payload=payload)
+        await websocket_assistant.send(ping_request)
+
+    async def _on_user_stream_interruption(self, websocket_assistant: Optional[WSAssistant]):
+        await super()._on_user_stream_interruption(websocket_assistant=websocket_assistant)
+        self._manage_listen_key_task and self._manage_listen_key_task.cancel()
+        self._current_listen_key = None
+        self._listen_key_initialized_event.clear()
+        await self._sleep(5)
+
+    async def _process_websocket_messages(self, websocket_assistant: WSAssistant, queue: asyncio.Queue):
+        while True:
+            try:
+                await asyncio.wait_for(
+                    super()._process_websocket_messages(websocket_assistant=websocket_assistant, queue=queue),
+                    timeout=CONSTANTS.WS_CONNECTION_TIME_INTERVAL
+                )
+            except asyncio.TimeoutError:
+                ping_request = WSJSONRequest(payload={"method": "PING"})
+                await websocket_assistant.send(ping_request)
