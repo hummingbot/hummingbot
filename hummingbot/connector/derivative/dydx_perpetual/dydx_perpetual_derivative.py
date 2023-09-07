@@ -38,20 +38,19 @@ if TYPE_CHECKING:
 
 
 class DydxPerpetualDerivative(PerpetualDerivativePyBase):
-
     web_utils = web_utils
 
     def __init__(
-        self,
-        client_config_map: "ClientConfigAdapter",
-        dydx_perpetual_api_key: str,
-        dydx_perpetual_api_secret: str,
-        dydx_perpetual_passphrase: str,
-        dydx_perpetual_ethereum_address: str,
-        dydx_perpetual_stark_private_key: str,
-        trading_pairs: Optional[List[str]] = None,
-        trading_required: bool = True,
-        domain: str = CONSTANTS.DEFAULT_DOMAIN,
+            self,
+            client_config_map: "ClientConfigAdapter",
+            dydx_perpetual_api_key: str,
+            dydx_perpetual_api_secret: str,
+            dydx_perpetual_passphrase: str,
+            dydx_perpetual_ethereum_address: str,
+            dydx_perpetual_stark_private_key: str,
+            trading_pairs: Optional[List[str]] = None,
+            trading_required: bool = True,
+            domain: str = CONSTANTS.DEFAULT_DOMAIN,
     ):
         self._dydx_perpetual_api_key = dydx_perpetual_api_key
         self._dydx_perpetual_api_secret = dydx_perpetual_api_secret
@@ -223,15 +222,15 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
         return True
 
     async def _place_order(
-        self,
-        order_id: str,
-        trading_pair: str,
-        amount: Decimal,
-        trade_type: TradeType,
-        order_type: OrderType,
-        price: Decimal,
-        position_action: PositionAction = PositionAction.NIL,
-        **kwargs,
+            self,
+            order_id: str,
+            trading_pair: str,
+            amount: Decimal,
+            trade_type: TradeType,
+            order_type: OrderType,
+            price: Decimal,
+            position_action: PositionAction = PositionAction.NIL,
+            **kwargs,
     ) -> Tuple[str, float]:
         if self._current_place_order_requests == 0:
             # No requests are under way, the dictionary can be cleaned
@@ -240,12 +239,29 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
         # Increment number of currently undergoing requests
         self._current_place_order_requests += 1
 
+        if order_type.is_limit_type():
+            time_in_force = CONSTANTS.TIF_GOOD_TIL_TIME
+        else:
+            time_in_force = CONSTANTS.TIF_IMMEDIATE_OR_CANCEL
+            if trade_type.name.lower() == 'buy':
+                # The price needs to be relatively high before the transaction, whether the test will be cancelled
+                price = Decimal("1.5") * self.get_price_for_volume(
+                    trading_pair,
+                    True,
+                    amount
+                ).result_price
+            else:
+                price = Decimal("0.75") * self.get_price_for_volume(
+                    trading_pair,
+                    False,
+                    amount
+                ).result_price
+
         notional_amount = amount * price
         if notional_amount not in self._order_notional_amounts.keys():
             self._order_notional_amounts[notional_amount] = len(self._order_notional_amounts.keys())
             # Set updated rate limits
             self._throttler.set_rate_limits(self.rate_limits_rules)
-
         size = str(amount)
         price = str(price)
         side = "BUY" if trade_type == TradeType.BUY else "SELL"
@@ -254,7 +270,6 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
         reduce_only = False
 
         post_only = order_type is OrderType.LIMIT_MAKER
-        time_in_force = CONSTANTS.TIF_GOOD_TIL_TIME
         market = await self.exchange_symbol_associated_to_pair(trading_pair)
 
         signature = self._auth.get_order_signature(
@@ -307,15 +322,15 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
         return str(resp["order"]["id"]), iso_to_epoch_seconds(resp["order"]["createdAt"])
 
     def _get_fee(
-        self,
-        base_currency: str,
-        quote_currency: str,
-        order_type: OrderType,
-        order_side: TradeType,
-        position_action: PositionAction,
-        amount: Decimal,
-        price: Decimal = s_decimal_NaN,
-        is_maker: Optional[bool] = None,
+            self,
+            base_currency: str,
+            quote_currency: str,
+            order_type: OrderType,
+            order_side: TradeType,
+            position_action: PositionAction,
+            amount: Decimal,
+            price: Decimal = s_decimal_NaN,
+            is_maker: Optional[bool] = None,
     ) -> TradeFeeBase:
         is_maker = is_maker or False
         if CONSTANTS.FEES_KEY not in self._trading_fees.keys():
@@ -541,8 +556,8 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
             if trading_pair not in prev_timestamps.keys():
                 prev_timestamps[trading_pair] = None
             if (
-                prev_timestamps[trading_pair] is not None
-                and dateparse(funding_payment["effectiveAt"]).timestamp() <= prev_timestamps[trading_pair]
+                    prev_timestamps[trading_pair] is not None
+                    and dateparse(funding_payment["effectiveAt"]).timestamp() <= prev_timestamps[trading_pair]
             ):
                 continue
             timestamp = dateparse(funding_payment["effectiveAt"]).timestamp()
