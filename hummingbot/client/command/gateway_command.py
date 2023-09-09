@@ -2,6 +2,7 @@
 import asyncio
 import itertools
 import time
+from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import pandas as pd
@@ -17,8 +18,7 @@ from hummingbot.core.gateway import get_gateway_paths
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.gateway.gateway_status_monitor import GatewayStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.core.utils.gateway_config_utils import (
-    build_balances_allowances_display,
+from hummingbot.core.utils.gateway_config_utils import (  # build_balances_allowances_display,
     build_config_dict_display,
     build_connector_display,
     build_connector_tokens_display,
@@ -397,14 +397,16 @@ class GatewayCommand(GatewayChainApiManager):
             self.notify("No existing gateway connection.\n")
             return
 
+        self.notify("Updating gateway balances and allowances, please wait...")
+
         chain_network_address_to_connector_tokens: Dict(Tuple[str, str, str], Dict[str, List[str]]) = {}
         for conf in gateway_connections_conf:
+            tokens_str = conf.get('tokens', '')
+            if tokens_str == "":
+                tokens = []
+            else:
+                tokens = [token.strip() for token in tokens_str.split(',')]
             if (conf["chain"], conf["network"], conf["wallet_address"]) not in chain_network_address_to_connector_tokens:
-                tokens_str = conf.get('tokens', '')
-                if tokens_str == "":
-                    tokens = []
-                else:
-                    tokens = [token.strip() for token in tokens_str.split(',')]
                 chain_network_address_to_connector_tokens[(conf["chain"], conf["network"], conf["wallet_address"])] = {conf["connector"]: tokens}
             else:
                 chain_network_address_to_connector_tokens[(conf["chain"], conf["network"], conf["wallet_address"])][conf["connector"]] = tokens
@@ -412,40 +414,48 @@ class GatewayCommand(GatewayChainApiManager):
         # get balances and allowances for each chain-network-address tuple and display them in a table format
         for chain_network_address, connector_to_tokens in chain_network_address_to_connector_tokens.items():
 
-            self.notify(f"wallet: {chain_network_address[2]}")
+            self.notify(f"\nwallet: {chain_network_address[2]}")
             self.notify(f"chain-network: {chain_network_address[0]}-{chain_network_address[1]}")
 
-            all_tokens = list(set(list(itertools.chain.from_iterable(connector_to_tokens.values()))))
+            connectors: List[str] = list(connector_to_tokens.keys())
 
-            if len(all_tokens) < 1:
-                self.notify("No tokens to report balances and allowances for.\n")
-                return
+            all_tokens = list(set(list(itertools.chain.from_iterable(connector_to_tokens.values()))))
+            native_token: str = native_tokens[chain_network_address[0]]
+            all_tokens = list(set(all_tokens + [native_token]))
 
             token_balances: Dict[str, Any] = await self._get_gateway_instance().get_balances(
                 *chain_network_address, all_tokens
             )
-            balances: List[str] = [str(token_balances.get(token)) for token in all_tokens]
+            token_balances = token_balances.get("balances", {})
+            balances: List[str] = [str(round(Decimal(token_balances.get(token, "0")), 4)) for token in all_tokens]
 
             connector_to_token_allowances: Dict[str, Dict[str, Any]] = {}
             for connector, tokens in connector_to_tokens.items():
                 token_allowances: Dict[str, Any] = await self._get_gateway_instance().get_allowances(
                     *chain_network_address, tokens, connector
                 )
-                connector_to_token_allowances[connector] = token_allowances
+                connector_to_token_allowances[connector] = token_allowances.get("approvals", {})
 
-            allowances: List[str] = []
-            for token in all_tokens:
-                allowance_str = ""
-                for connector, token_allowances in connector_to_token_allowances.items():
-                    if token in token_allowances:
-                        allowance_str += f"{connector}: {token_allowances[token]} | "
-                allowance_str = "None" if allowance_str == "" else allowance_str[:-3]
-                allowances.append(allowance_str)
+            raw_data: List[List[str]] = [all_tokens, balances]
+            for connector in connectors:
+                # add allowances for each connector for all tokens - if token is not approved, add "NaN" to the list
+                allowances: List[Decimal] = [Decimal(connector_to_token_allowances[connector].get(token, "NaN")) for token in all_tokens]
+                # rounding to 4 decimal places (following from the rounding in the balance command)
+                allowances_rounded: List[str] = [round(allowance, 4) for allowance in allowances]
+                allowances_str: List[str] = [str(allowance) for allowance in allowances_rounded]
+                raw_data.append(allowances_str)
 
-            balances_allowances_df: pd.DataFrame = build_balances_allowances_display(all_tokens, balances, allowances)
+            data = []
+            columns: List[str] = ["Symbol", "Balance", *connectors]
+            for i in range(len(raw_data[0])):
+                data.extend([
+                    [
+                        raw_data[j][i] for j in range(len(raw_data))
+                    ]
+                ])
 
             # display balances and allowances for each chain-network-address tuple in a table format
-            balances_allowances_df: pd.DataFrame = build_balances_allowances_display(all_tokens, balances, allowances)
+            balances_allowances_df: pd.DataFrame = pd.DataFrame(data=data, columns=columns)
             self.notify(balances_allowances_df.to_string(index=False))
 
     async def _show_gateway_connector_tokens(
@@ -488,7 +498,7 @@ class GatewayCommand(GatewayChainApiManager):
             self.notify(f"'{connector_chain_network}' is not available. You can add and review available gateway connectors with the command 'gateway connect'.")
         else:
             GatewayConnectionSetting.upsert_connector_spec_tokens(connector_chain_network, new_tokens)
-            self.notify(f"The 'balance' command will now report token balances {new_tokens} for '{connector_chain_network}'.")
+            self.notify(f"The 'gateway balance' command will now report token balances {new_tokens} for '{connector_chain_network}'.")
 
     async def _gateway_list(
         self           # type: HummingbotApplication
