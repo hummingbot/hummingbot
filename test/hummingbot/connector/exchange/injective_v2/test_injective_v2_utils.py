@@ -3,7 +3,6 @@ from unittest import TestCase
 from pyinjective import Address, PrivateKey
 from pyinjective.core.network import Network
 
-import hummingbot.connector.exchange.injective_v2.injective_v2_utils as utils
 from hummingbot.connector.exchange.injective_v2 import injective_constants as CONSTANTS
 from hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source import (
     InjectiveGranteeDataSource,
@@ -25,7 +24,6 @@ class InjectiveConfigMapTests(TestCase):
 
     def test_mainnet_network_config_creation(self):
         network_config = InjectiveMainnetNetworkMode()
-        network_config.node = "lb"
 
         network = network_config.network()
         expected_network = Network.mainnet(node="lb")
@@ -33,31 +31,6 @@ class InjectiveConfigMapTests(TestCase):
         self.assertEqual(expected_network.string(), network.string())
         self.assertEqual(expected_network.lcd_endpoint, network.lcd_endpoint)
         self.assertTrue(network_config.use_secure_connection())
-
-        network_config = InjectiveMainnetNetworkMode()
-        network_config.node = "sentry0"
-
-        network = network_config.network()
-        expected_network = Network.mainnet(node="sentry0")
-
-        self.assertEqual(expected_network.string(), network.string())
-        self.assertEqual(expected_network.lcd_endpoint, network.lcd_endpoint)
-        self.assertFalse(network_config.use_secure_connection())
-
-    def test_mainnet_network_config_creation_fails_with_wrong_node(self):
-        network_config = InjectiveMainnetNetworkMode()
-        network_config.node = "lb"
-        network_config.node = "sentry0"
-        network_config.node = "sentry1"
-        network_config.node = "sentry3"
-
-        with self.assertRaises(ValueError) as exception_context:
-            network_config.node = "invalid"
-
-        self.assertIn(
-            f"invalid is not a valid node ({utils.MAINNET_NODES})",
-            str(exception_context.exception)
-        )
 
     def test_testnet_network_config_creation(self):
         network_config = InjectiveTestnetNetworkMode(testnet_node="sentry")
@@ -142,7 +115,6 @@ class InjectiveConfigMapTests(TestCase):
 
     def test_injective_config_creation(self):
         network_config = InjectiveMainnetNetworkMode()
-        network_config.node = "lb"
 
         _, grantee_private_key = PrivateKey.generate()
         _, granter_private_key = PrivateKey.generate()

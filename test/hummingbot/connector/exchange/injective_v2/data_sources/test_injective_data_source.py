@@ -7,6 +7,7 @@ from typing import Awaitable, Optional, Union
 from unittest import TestCase
 from unittest.mock import patch
 
+from pyinjective.composer import Composer
 from pyinjective.core.network import Network
 from pyinjective.wallet import Address, PrivateKey
 
@@ -391,6 +392,8 @@ class InjectiveVaultsDataSourceTests(TestCase):
         self.query_executor = ProgrammableQueryExecutor()
         self.data_source._query_executor = self.query_executor
 
+        self.data_source._composer = Composer(network=self.data_source.network_name)
+
     def tearDown(self) -> None:
         self.async_run_with_timeout(self.data_source.stop())
         for task in self.async_tasks:
@@ -505,9 +508,11 @@ class InjectiveVaultsDataSourceTests(TestCase):
         )
         orders_data.append(order_data)
 
-        message = self.data_source._order_cancel_message(
-            spot_orders_to_cancel=orders_data,
-            derivative_orders_to_cancel=[],
+        message = self.async_run_with_timeout(
+            self.data_source._order_cancel_message(
+                spot_orders_to_cancel=orders_data,
+                derivative_orders_to_cancel=[],
+            )
         )
 
         pub_key = self._grantee_private_key.to_public_key()
