@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Check if bin/hummingbot.py exists
-if [[ ! -f bin/hummingbot.py ]]; then
-    echo "Error: bin/hummingbot.py command not found. Make sure you are in the Hummingbot root directory"
+# Check if bin/hummingbot_quickstart.py exists
+if [[ ! -f bin/hummingbot_quickstart.py ]]; then
+    echo "Error: bin/hummingbot_quickstart.py command not found. Make sure you are in the Hummingbot root directory"
     exit 1
 fi
 
@@ -13,4 +13,4 @@ if [[ $CONDA_DEFAULT_ENV != "hummingbot" ]]; then
 fi
 
 # Run bin/hummingbot.py and append errors to logs/errors.log
-./bin/hummingbot.py 2>> ./logs/errors.log
+./bin/hummingbot_quickstart.py 2>> ./logs/errors.log
