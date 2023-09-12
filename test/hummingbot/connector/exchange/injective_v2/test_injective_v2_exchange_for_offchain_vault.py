@@ -12,6 +12,7 @@ from aioresponses import aioresponses
 from aioresponses.core import RequestCall
 from bidict import bidict
 from grpc import RpcError
+from pyinjective.composer import Composer
 from pyinjective.wallet import Address, PrivateKey
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
@@ -398,10 +399,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
         exchange._data_source._spot_market_and_trading_pair_map = bidict({self.market_id: self.trading_pair})
         exchange._data_source._derivative_market_and_trading_pair_map = bidict()
 
-        exchange._data_source._client._tokens = {}
-        exchange._data_source._client._spot_markets = {}
-        exchange._data_source._client._derivative_markets = {}
-        exchange._data_source._client._binary_option_markets = {}
+        exchange._data_source._composer = Composer(network=exchange._data_source.network_name)
 
         return exchange
 
