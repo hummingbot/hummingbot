@@ -11,7 +11,7 @@ runs:
   using: "composite"
   steps:
     # Install python/conda to check if core code has changed
-    - uses: actions/setup-python@v2
+    - uses: actions/setup-python@v4
       if: ${{inputs.program-cache-hit}} != 'true' || ${{inputs.dependencies-cache-hit}} != 'true'
       with:
         python-version: 3.x
@@ -23,7 +23,7 @@ runs:
       run: |
         conda install -c conda-forge pre_commit
 
-    # Install hummingbot env if environment-linux.yml has changed
+    # Install hummingbot env if environment.yml has changed
     - name: Install Hummingbot
       if: ${{inputs.dependencies-cache-hit}} != 'true'
       shell: bash -l {0}

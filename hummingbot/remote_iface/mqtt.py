@@ -215,7 +215,11 @@ class MQTTCommands:
                 invalid_params = []
                 for param in msg.params:
                     if param[0] in self._hb_app.configurable_keys():
-                        self._hb_app.config(param[0], param[1])
+                        self._ev_loop.call_soon_threadsafe(
+                            self._hb_app.config,
+                            param[0],
+                            param[1]
+                        )
                         response.changes.append((param[0], param[1]))
                     else:
                         invalid_params.append(param[0])
@@ -285,7 +289,9 @@ class MQTTCommands:
                 response.msg = 'No strategy is currently running!'
                 return response
             if msg.async_backend:
-                self._hb_app.status()
+                self._ev_loop.call_soon_threadsafe(
+                    self._hb_app.status
+                )
             else:
                 res = call_sync(
                     self._hb_app.strategy_status(),
@@ -623,17 +629,31 @@ class MQTTGateway(Node):
     def health(self):
         return self._health
 
+    def _safe_get_log_handlers(self, max_tries=3):  # pragma: no cover
+        current_try = 0
+        while current_try < max_tries:
+            try:
+                return list([logging.getLogger(name) for name in logging.root.manager.loggerDict])
+            except RuntimeError:
+                current_try += 1
+
+        log_keys = logging.root.manager.loggerDict.keys()
+        return list([logging.getLogger(name) for name in log_keys])
+
     def _remove_log_handlers(self):  # pragma: no cover
-        loggers = list([logging.getLogger(name) for name in logging.root.manager.loggerDict])
+        loggers = self._safe_get_log_handlers()
         log_conf = get_logging_conf()
+
         if 'loggers' not in log_conf:
             return
+
         logs = [key for key, val in log_conf.get('loggers').items()]
         for logger in loggers:
             if 'hummingbot' in logger.name:
                 for log in logs:
                     if log in logger.name:
                         self.remove_log_handler(logger)
+
         self._logh = None
 
     def _init_logger(self):
@@ -641,7 +661,7 @@ class MQTTGateway(Node):
         self.patch_loggers()
 
     def patch_loggers(self):  # pragma: no cover
-        loggers = list([logging.getLogger(name) for name in logging.root.manager.loggerDict])
+        loggers = self._safe_get_log_handlers()
 
         log_conf = get_logging_conf()
         if 'root' in log_conf:
@@ -651,6 +671,7 @@ class MQTTGateway(Node):
 
         if 'loggers' not in log_conf:
             return
+
         log_conf_names = [key for key, val in log_conf.get('loggers').items()]
         loggers_filtered = [logger for logger in loggers if
                             logger.name in log_conf_names]
@@ -834,6 +855,8 @@ class MQTTGateway(Node):
     def stop(self, with_health: bool = True):
         self.broadcast_status_update("offline", msg_type="availability")
         super().stop()
+        if self._hb_thread:
+            self._hb_thread.stop()
         self._remove_status_updates()
         self._remove_notifier()
         self._remove_log_handlers()
