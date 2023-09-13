@@ -275,14 +275,14 @@ class MarketTradingPairTupleUnitTest(unittest.TestCase):
 
     def test_vwap_for_volume(self):
         # Check VWAP on BUY sell
-        order_volume: Decimal = Decimal("15")
+        order_volume = 15
         filled_orders: List[OrderBookRow] = self.market.get_order_book(self.trading_pair).simulate_buy(order_volume)
         expected_vwap: Decimal = sum([Decimal(o.price) * Decimal(o.amount) for o in filled_orders]) / order_volume
 
         self.assertAlmostEqual(expected_vwap, self.market_info.get_vwap_for_volume(True, order_volume).result_price, 3)
 
         # Check VWAP on SELL side
-        order_volume: Decimal = Decimal("15")
+        order_volume = 15
         filled_orders: List[OrderBookRow] = self.market.get_order_book(self.trading_pair).simulate_sell(order_volume)
         expected_vwap: Decimal = sum([Decimal(o.price) * Decimal(o.amount) for o in filled_orders]) / order_volume
 
@@ -290,14 +290,14 @@ class MarketTradingPairTupleUnitTest(unittest.TestCase):
 
     def test_get_price_for_volume(self):
         # Check price on BUY sell
-        order_volume: Decimal = Decimal("15")
+        order_volume = 15
         filled_orders: List[OrderBookRow] = self.market.get_order_book(self.trading_pair).simulate_buy(order_volume)
         expected_buy_price: Decimal = max([Decimal(o.price) for o in filled_orders])
 
         self.assertAlmostEqual(expected_buy_price, self.market_info.get_price_for_volume(True, order_volume).result_price, 3)
 
         # Check price on SELL side
-        order_volume: Decimal = Decimal("15")
+        order_volume = 15
         filled_orders: List[OrderBookRow] = self.market.get_order_book(self.trading_pair).simulate_sell(order_volume)
         expected_sell_price: Decimal = min([Decimal(o.price) for o in filled_orders])
 
