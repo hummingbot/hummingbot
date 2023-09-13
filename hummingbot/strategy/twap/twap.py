@@ -1,24 +1,16 @@
-from datetime import datetime
-from decimal import Decimal
 import logging
 import statistics
-from typing import (
-    List,
-    Tuple,
-    Optional,
-    Dict
-)
+from datetime import datetime
+from decimal import Decimal
+from typing import Dict, List, Optional, Tuple
 
 from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.clock import Clock
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_book import OrderBook
-from hummingbot.core.event.events import (MarketOrderFailureEvent,
-                                          OrderCancelledEvent,
-                                          OrderExpiredEvent,
-                                          )
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.event.events import MarketOrderFailureEvent, OrderCancelledEvent, OrderExpiredEvent
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.logger import HummingbotLogger
 from hummingbot.strategy.conditional_execution_state import ConditionalExecutionState, RunAlwaysExecutionState
@@ -167,7 +159,7 @@ class TwapTradeStrategy(StrategyPyBase):
                 for market_info in self._market_infos.values():
                     price_provider = market_info
                 if price_provider is not None:
-                    df = LimitOrder.to_pandas(active_orders, mid_price=price_provider.get_mid_price())
+                    df = LimitOrder.to_pandas(active_orders, mid_price=float(price_provider.get_mid_price()))
                     if self._is_buy:
                         # Descend from the price closest to the mid price
                         df = df.sort_values(by=['Price'], ascending=False)
