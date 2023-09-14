@@ -137,8 +137,8 @@ ENDPOINTS_RATE_LIMITS = [
 ]
 
 PUBLIC_NODE_RATE_LIMITS = [
-    RateLimit(limit_id=CHAIN_ENDPOINTS_GROUP_LIMIT_ID, limit=20, time_interval=ONE_SECOND),
-    RateLimit(limit_id=INDEXER_ENDPOINTS_GROUP_LIMIT_ID, limit=50, time_interval=ONE_SECOND),
+    RateLimit(limit_id=CHAIN_ENDPOINTS_GROUP_LIMIT_ID, limit=30, time_interval=ONE_SECOND),
+    RateLimit(limit_id=INDEXER_ENDPOINTS_GROUP_LIMIT_ID, limit=40, time_interval=ONE_SECOND),
 ]
 PUBLIC_NODE_RATE_LIMITS.extend(ENDPOINTS_RATE_LIMITS)
 
