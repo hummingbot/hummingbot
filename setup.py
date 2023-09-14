@@ -73,6 +73,9 @@ def main():
         "eth-utils",
         "ethsnarks-loopring",
         "flake8",
+        "gql",
+        "grpcio",
+        "grpcio-tools"
         "hexbytes",
         "importlib-metadata",
         "injective-py"
@@ -114,13 +117,14 @@ def main():
 
     cython_sources = ["hummingbot/**/*.pyx"]
 
+    compiler_directives = {
+        "annotation_typing": False,
+    }
     if os.environ.get('WITHOUT_CYTHON_OPTIMIZATIONS'):
-        compiler_directives = {
+        compiler_directives.update({
             "optimize.use_switch": False,
             "optimize.unpack_method_calls": False,
-        }
-    else:
-        compiler_directives = {}
+        })
 
     if is_posix:
         cython_kwargs["nthreads"] = cpu_count

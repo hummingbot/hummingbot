@@ -1,13 +1,12 @@
 import asyncio
-from copy import copy, deepcopy
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from hummingbot.connector.exchange.polkadex import polkadex_constants as CONSTANTS
 from hummingbot.connector.exchange.polkadex.polkadex_data_source import PolkadexDataSource
-from hummingbot.connector.exchange.polkadex.polkadex_events import PolkadexOrderBookEvent
-from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.event.event_forwarder import EventForwarder
+from hummingbot.core.event.events import OrderBookEvent
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 
 if TYPE_CHECKING:
@@ -67,43 +66,23 @@ class PolkadexAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _parse_trade_message(self, raw_message: OrderBookMessage, message_queue: asyncio.Queue):
         # In Polkadex 'raw_message' is not a raw message, but the OrderBookMessage with type Trade created
         # by the data source
-
-        message_content = deepcopy(raw_message.content)
-        message_content["trading_pair"] = await self._connector.trading_pair_associated_to_exchange_symbol(
-            symbol=message_content["trading_pair"]
-        )
-
-        trade_message = OrderBookMessage(
-            message_type=OrderBookMessageType.TRADE,
-            content=message_content,
-            timestamp=raw_message.timestamp,
-        )
-        message_queue.put_nowait(trade_message)
+        message_queue.put_nowait(raw_message)
 
     async def _parse_order_book_diff_message(self, raw_message: OrderBookMessage, message_queue: asyncio.Queue):
         # In Polkadex 'raw_message' is not a raw message, but the OrderBookMessage with type Trade created
         # by the data source
-        message_content = copy(raw_message.content)
-        message_content["trading_pair"] = await self._connector.trading_pair_associated_to_exchange_symbol(
-            symbol=message_content["trading_pair"]
-        )
-        diff_message = OrderBookMessage(
-            message_type=OrderBookMessageType.DIFF,
-            content=message_content,
-            timestamp=raw_message.timestamp,
-        )
-        message_queue.put_nowait(diff_message)
+        message_queue.put_nowait(raw_message)
 
     def _configure_event_forwarders(self):
         event_forwarder = EventForwarder(to_function=self._process_order_book_event)
         self._forwarders.append(event_forwarder)
         self._data_source.add_listener(
-            event_tag=PolkadexOrderBookEvent.OrderBookDataSourceUpdateEvent, listener=event_forwarder
+            event_tag=OrderBookEvent.OrderBookDataSourceUpdateEvent, listener=event_forwarder
         )
 
         event_forwarder = EventForwarder(to_function=self._process_public_trade_event)
         self._forwarders.append(event_forwarder)
-        self._data_source.add_listener(event_tag=PolkadexOrderBookEvent.PublicTradeEvent, listener=event_forwarder)
+        self._data_source.add_listener(event_tag=OrderBookEvent.TradeEvent, listener=event_forwarder)
 
     def _process_order_book_event(self, order_book_diff: OrderBookMessage):
         self._message_queue[self._diff_messages_queue_key].put_nowait(order_book_diff)

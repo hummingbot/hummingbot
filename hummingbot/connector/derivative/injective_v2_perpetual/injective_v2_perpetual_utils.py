@@ -73,7 +73,9 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
 
     def create_data_source(self):
         return self.account_type.create_data_source(
-            network=self.network.network(), use_secure_connection=self.network.use_secure_connection()
+            network=self.network.network(),
+            use_secure_connection=self.network.use_secure_connection(),
+            rate_limits=self.network.rate_limits(),
         )
 
 
