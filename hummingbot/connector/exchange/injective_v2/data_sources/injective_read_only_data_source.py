@@ -6,7 +6,7 @@ from google.protobuf import any_pb2
 from pyinjective import Transaction
 from pyinjective.async_client import AsyncClient
 from pyinjective.composer import Composer, injective_exchange_tx_pb
-from pyinjective.constant import Network
+from pyinjective.core.network import Network
 
 from hummingbot.connector.exchange.injective_v2 import injective_constants as CONSTANTS
 from hummingbot.connector.exchange.injective_v2.data_sources.injective_data_source import InjectiveDataSource
@@ -40,9 +40,8 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
         self._client = AsyncClient(
             network=self._network,
             insecure=not use_secure_connection,
-            chain_cookie_location=self._chain_cookie_file_path(),
         )
-        self._composer = Composer(network=self._network.string())
+        self._composer = None
         self._query_executor = PythonSDKInjectiveQueryExecutor(sdk_client=self._client)
 
         self._publisher = PubSub()
@@ -66,10 +65,6 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
     @property
     def query_executor(self):
         return self._query_executor
-
-    @property
-    def composer(self) -> Composer:
-        return self._composer
 
     @property
     def order_creation_lock(self) -> asyncio.Lock:
@@ -106,6 +101,11 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
     @property
     def network_name(self) -> str:
         return self._network.string()
+
+    async def composer(self) -> Composer:
+        if self._composer is None:
+            self._composer = await self._client.composer()
+        return self._composer
 
     async def timeout_height(self) -> int:
         raise NotImplementedError
@@ -337,22 +337,25 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
     ) -> Tuple[List[any_pb2.Any], List[str], List[str]]:
         raise NotImplementedError
 
-    def _order_cancel_message(
+    async def _order_cancel_message(
             self,
             spot_orders_to_cancel: List[injective_exchange_tx_pb.OrderData],
             derivative_orders_to_cancel: List[injective_exchange_tx_pb.OrderData]
     ) -> any_pb2.Any:
         raise NotImplementedError
 
-    def _all_subaccount_orders_cancel_message(
+    async def _all_subaccount_orders_cancel_message(
             self,
             spot_orders_to_cancel: List[injective_exchange_tx_pb.OrderData],
             derivative_orders_to_cancel: List[injective_exchange_tx_pb.OrderData]
     ) -> any_pb2.Any:
         raise NotImplementedError
 
-    def _generate_injective_order_data(self, order: GatewayInFlightOrder,
-                                       market_id: str) -> injective_exchange_tx_pb.OrderData:
+    async def _generate_injective_order_data(
+            self,
+            order: GatewayInFlightOrder,
+            market_id: str,
+    ) -> injective_exchange_tx_pb.OrderData:
         raise NotImplementedError
 
     async def _updated_derivative_market_info_for_id(self, market_id: str) -> InjectiveDerivativeMarket:

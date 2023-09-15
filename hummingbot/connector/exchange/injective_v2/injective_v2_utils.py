@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Dict, List, Union
 
 from pydantic import Field, SecretStr
 from pydantic.class_validators import validator
-from pyinjective.constant import Network
+from pyinjective.core.network import Network
 
 from hummingbot.client.config.config_data_types import BaseClientModel, BaseConnectorConfigMap, ClientFieldData
 from hummingbot.connector.exchange.injective_v2 import injective_constants as CONSTANTS
@@ -31,7 +31,6 @@ DEFAULT_FEES = TradeFeeSchema(
     taker_percent_fee_decimal=Decimal("0"),
 )
 
-MAINNET_NODES = ["lb", "sentry0", "sentry1", "sentry3"]
 TESTNET_NODES = ["lb", "sentry"]
 
 
@@ -47,28 +46,14 @@ class InjectiveNetworkMode(BaseClientModel, ABC):
 
 class InjectiveMainnetNetworkMode(InjectiveNetworkMode):
 
-    node: str = Field(
-        default="lb",
-        client_data=ClientFieldData(
-            prompt=lambda cm: (f"Enter the mainnet node you want to connect to ({'/'.join(MAINNET_NODES)})"),
-            prompt_on_new=True
-        ),
-    )
-
     class Config:
         title = "mainnet_network"
 
-    @validator("node", pre=True)
-    def validate_node(cls, v: str):
-        if v not in MAINNET_NODES:
-            raise ValueError(f"{v} is not a valid node ({MAINNET_NODES})")
-        return v
-
     def network(self) -> Network:
-        return Network.mainnet(node=self.node)
+        return Network.mainnet()
 
     def use_secure_connection(self) -> bool:
-        return self.node == "lb"
+        return True
 
     def rate_limits(self) -> List[RateLimit]:
         return CONSTANTS.PUBLIC_NODE_RATE_LIMITS
