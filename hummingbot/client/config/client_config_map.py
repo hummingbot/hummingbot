@@ -1151,16 +1151,7 @@ class ClientConfigMap(BaseClientModel):
             sub_model = TELEGRAM_MODES[v].construct()
         return sub_model
 
-    @validator("fetch_pairs_from_all_exchanges", pre=True)
-    def validate_fetch_pairs_from_all_exchanges(cls, v: str):
-        """Used for client-friendly error output."""
-        if isinstance(v, str):
-            r = validate_bool(v)
-            if r is not None:
-                raise ValueError(r)
-        return v
-
-    @validator("send_error_logs", pre=True)
+    @validator("send_error_logs", "fetch_pairs_from_all_exchanges", pre=True)
     def validate_bool(cls, v: str):
         """Used for client-friendly error output."""
         if isinstance(v, str):

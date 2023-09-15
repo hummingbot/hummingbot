@@ -87,20 +87,20 @@ class TestTradingPairFetcher(unittest.TestCase):
         self.async_run_with_timeout(self.wait_until_trading_pair_fetcher_ready(trading_pair_fetcher), 1.0)
         trading_pairs = trading_pair_fetcher.trading_pairs
         self.assertEqual(2, len(trading_pairs))
+        self.assertRaises(ModuleNotFoundError)
         self.assertEqual({"mockConnector": ["MOCK-HBOT"], "mock_paper_trade": ["MOCK-HBOT"]}, trading_pairs)
 
     @aioresponses()
     @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher._all_connector_settings")
     @patch("hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_perp_markets")
     @patch("hummingbot.client.settings.GatewayConnectionSetting.get_connector_spec_from_market_name")
-    def test_fetch_all(self, mock_api, con_spec_mock, perp_market_mock, all_connector_settings_mock):
+    def test_fetch_all(self, mock_api, con_spec_mock, perp_market_mock, all_connector_settings_mock, ):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         fetch_pairs_from_all_exchanges = client_config_map.fetch_pairs_from_all_exchanges
-        if not fetch_pairs_from_all_exchanges:
-            client_config_map.fetch_pairs_from_all_exchanges = True  # Set to True for this test
+        if fetch_pairs_from_all_exchanges:
+            client_config_map.fetch_pairs_from_all_exchanges = False  # Set to True for this test
         else:
-            client_config_map.fetch_pairs_from_all_exchanges = False
-
+            client_config_map.fetch_pairs_from_all_exchanges = True
         all_connector_settings_mock.return_value = {
             "binance": ConnectorSetting(
                 name='binance',
@@ -254,6 +254,7 @@ class TestTradingPairFetcher(unittest.TestCase):
         self.assertIn("binance", trading_pairs)
         binance_pairs = trading_pairs["binance"]
         self.assertEqual(2, len(binance_pairs))
+        self.assertRaises(ModuleNotFoundError)
         self.assertIn("ETH-BTC", binance_pairs)
         self.assertIn("LTC-BTC", binance_pairs)
         self.assertNotIn("BNB-BTC", binance_pairs)
