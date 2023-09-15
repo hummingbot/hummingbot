@@ -1,8 +1,7 @@
 import asyncio
 
 from pyinjective.async_client import AsyncClient
-from pyinjective.composer import Composer
-from pyinjective.constant import Network
+from pyinjective.core.network import Network
 from pyinjective.transaction import Transaction
 from pyinjective.wallet import PrivateKey
 
@@ -26,10 +25,9 @@ SECONDS_PER_DAY = 60 * 60 * 24
 
 
 async def main() -> None:
-    composer = Composer(network=NETWORK.string())
-
     # initialize grpc client
     client = AsyncClient(NETWORK, insecure=False)
+    composer = await client.composer()
     await client.sync_timeout_height()
 
     # load account
