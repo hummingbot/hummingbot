@@ -7,7 +7,8 @@ from typing import Awaitable, Optional, Union
 from unittest import TestCase
 from unittest.mock import patch
 
-from pyinjective.constant import Network
+from pyinjective.composer import Composer
+from pyinjective.core.network import Network
 from pyinjective.wallet import Address, PrivateKey
 
 from hummingbot.connector.exchange.injective_v2 import injective_constants as CONSTANTS
@@ -391,6 +392,8 @@ class InjectiveVaultsDataSourceTests(TestCase):
         self.query_executor = ProgrammableQueryExecutor()
         self.data_source._query_executor = self.query_executor
 
+        self.data_source._composer = Composer(network=self.data_source.network_name)
+
     def tearDown(self) -> None:
         self.async_run_with_timeout(self.data_source.stop())
         for task in self.async_tasks:
@@ -495,7 +498,8 @@ class InjectiveVaultsDataSourceTests(TestCase):
         market = self._inj_usdt_market_info()
 
         orders_data = []
-        order_data = self.data_source.composer.OrderData(
+        composer = asyncio.get_event_loop().run_until_complete(self.data_source.composer())
+        order_data = composer.OrderData(
             market_id=market["marketId"],
             subaccount_id="1",
             order_hash="0xba954bc613a81cd712b9ec0a3afbfc94206cf2ff8c60d1868e031d59ea82bf27",  # noqa: mock"
@@ -504,9 +508,11 @@ class InjectiveVaultsDataSourceTests(TestCase):
         )
         orders_data.append(order_data)
 
-        message = self.data_source._order_cancel_message(
-            spot_orders_to_cancel=orders_data,
-            derivative_orders_to_cancel=[],
+        message = self.async_run_with_timeout(
+            self.data_source._order_cancel_message(
+                spot_orders_to_cancel=orders_data,
+                derivative_orders_to_cancel=[],
+            )
         )
 
         pub_key = self._grantee_private_key.to_public_key()
