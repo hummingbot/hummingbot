@@ -66,6 +66,7 @@ connector_status = {
     'plenty': 'bronze',
     'woo_x': 'bronze',
     'woo_x_testnet': 'bronze',
+    'kujira': 'bronze',
 }
 
 warning_messages = {

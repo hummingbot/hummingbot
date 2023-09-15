@@ -70,6 +70,8 @@ class GatewayCLOBSPOT(ExchangePyBase):
 
         self._add_forwarders()
 
+        self.has_started = False
+
         super().__init__(client_config_map)
 
     @property
@@ -121,7 +123,7 @@ class GatewayCLOBSPOT(ExchangePyBase):
 
     @property
     def is_cancel_request_in_exchange_synchronous(self) -> bool:
-        return False
+        return self._api_data_source.is_cancel_request_in_exchange_synchronous
 
     @property
     def is_trading_required(self) -> bool:
@@ -152,13 +154,29 @@ class GatewayCLOBSPOT(ExchangePyBase):
         sd["api_data_source_initialized"] = self._api_data_source.ready
         return sd
 
+    def start(self, *args, **kwargs):
+        super().start(**kwargs)
+        safe_ensure_future(self.start_network())
+        safe_ensure_future(self._api_data_source.start())
+
+    def stop(self, *args, **kwargs):
+        super().stop(**kwargs)
+        safe_ensure_future(self._api_data_source.stop())
+
     async def start_network(self):
-        await self._api_data_source.start()
-        await super().start_network()
+        if not self.has_started:
+            await self._api_data_source.start()
+            await super().start_network()
+            self.has_started = True
 
     async def stop_network(self):
         await super().stop_network()
         await self._api_data_source.stop()
+        self.has_started = False
+
+    @property
+    def ready(self) -> bool:
+        return super().ready
 
     def supported_order_types(self) -> List[OrderType]:
         return self._api_data_source.get_supported_order_types()
@@ -719,3 +737,10 @@ class GatewayCLOBSPOT(ExchangePyBase):
             else self.LONG_POLL_INTERVAL
         )
         return poll_interval
+
+    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
+        timeout = self._api_data_source.cancel_all_orders_timeout \
+            if self._api_data_source.cancel_all_orders_timeout is not None \
+            else timeout_seconds
+
+        return await super().cancel_all(timeout)
