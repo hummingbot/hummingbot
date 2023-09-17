@@ -10,15 +10,12 @@ MAX_ID_LEN = 32
 CLIENT_ID_PREFIX = "HBOT"
 
 DEFAULT_DOMAIN = ""
-TESTNET_DOMAIN = "testnet"
 
 GRAPHQL_ENDPOINTS = {
-    DEFAULT_DOMAIN: "https://gu5xqmhhcnfeveotzwhe6ohfba.appsync-api.eu-central-1.amazonaws.com/graphql",
-    TESTNET_DOMAIN: "https://kckpespz5bb2rmdnuxycz6e7he.appsync-api.eu-central-1.amazonaws.com/graphql",
+    DEFAULT_DOMAIN: "https://yx375ldozvcvthjk2nczch3fhq.appsync-api.eu-central-1.amazonaws.com/graphql",
 }
 BLOCKCHAIN_URLS = {
-    DEFAULT_DOMAIN: "wss://mainnet.polkadex.trade",
-    TESTNET_DOMAIN: "wss://blockchain.polkadex.trade",
+    DEFAULT_DOMAIN: "wss://polkadex.public.curie.radiumblock.co/ws",
 }
 POLKADEX_SS58_PREFIX = 88
 
@@ -32,10 +29,12 @@ ALL_MARKETS_LIMIT_ID = "AllMarkets"
 FIND_USER_LIMIT_ID = "FindUser"
 PUBLIC_TRADES_LIMIT_ID = "RecentTrades"
 ALL_BALANCES_LIMIT_ID = "AllBalances"
+ALL_FILLS_LIMIT_ID = "AllFills"
 PLACE_ORDER_LIMIT_ID = "PlaceOrder"
 CANCEL_ORDER_LIMIT_ID = "CancelOrder"
 BATCH_ORDER_UPDATES_LIMIT_ID = "BatchOrderUpdates"
 ORDER_UPDATE_LIMIT_ID = "OrderUpdate"
+LIST_OPEN_ORDERS_LIMIT_ID = "ListOpenOrders"
 
 NO_LIMIT = sys.maxsize
 
@@ -71,6 +70,11 @@ RATE_LIMITS = [
         time_interval=SECOND,
     ),
     RateLimit(
+        limit_id=ALL_FILLS_LIMIT_ID,
+        limit=NO_LIMIT,
+        time_interval=SECOND,
+    ),
+    RateLimit(
         limit_id=PLACE_ORDER_LIMIT_ID,
         limit=NO_LIMIT,
         time_interval=SECOND,
@@ -87,6 +91,11 @@ RATE_LIMITS = [
     ),
     RateLimit(
         limit_id=ORDER_UPDATE_LIMIT_ID,
+        limit=NO_LIMIT,
+        time_interval=SECOND,
+    ),
+    RateLimit(
+        limit_id=LIST_OPEN_ORDERS_LIMIT_ID,
         limit=NO_LIMIT,
         time_interval=SECOND,
     ),
@@ -119,26 +128,12 @@ CUSTOM_TYPES = {
                 ["timestamp", "i64"],
             ],
         },
-        "CancelOrderPayload": {"type": "struct", "type_mapping": [["id", "String"]]},
-        "TradingPair": {
-            "type": "struct",
-            "type_mapping": [
-                ["base_asset", "AssetId"],
-                ["quote_asset", "AssetId"],
-            ],
-        },
+        "order_id": "H256",
         "OrderSide": {
             "type": "enum",
             "type_mapping": [
                 ["Ask", "Null"],
                 ["Bid", "Null"],
-            ],
-        },
-        "AssetId": {
-            "type": "enum",
-            "type_mapping": [
-                ["asset", "u128"],
-                ["polkadex", "Null"],
             ],
         },
         "OrderType": {

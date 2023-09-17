@@ -247,7 +247,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         return market_info.market.name in AllConnectorSettings.get_gateway_amm_connector_names()
 
     def get_conversion_rates(self, market_pair: MarketTradingPairTuple):
-        quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate, gas_pair, gas_rate_source,\
+        quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate, gas_pair, gas_rate_source, \
             gas_rate = self._config_map.conversion_rate_mode.get_conversion_rates(market_pair)
         if quote_rate is None:
             self.logger().warning(f"Can't find a conversion rate for {quote_pair}")
@@ -255,12 +255,12 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
             self.logger().warning(f"Can't find a conversion rate for {base_pair}")
         if gas_rate is None:
             self.logger().warning(f"Can't find a conversion rate for {gas_pair}")
-        return quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate, gas_pair,\
+        return quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate, gas_pair, \
             gas_rate_source, gas_rate
 
     def log_conversion_rates(self):
         for market_pair in self._market_pairs.values():
-            quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate, gas_pair,\
+            quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate, gas_pair, \
                 gas_rate_source, gas_rate = self.get_conversion_rates(market_pair)
             if quote_pair.split("-")[0] != quote_pair.split("-")[1]:
                 self.logger().info(f"{quote_pair} ({quote_rate_source}) conversion rate: {PerformanceMetrics.smart_round(quote_rate)}")
@@ -274,7 +274,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
         columns = ["Source", "Pair", "Rate"]
         data = []
         for market_pair in self._market_pairs.values():
-            quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate, gas_pair,\
+            quote_pair, quote_rate_source, quote_rate, base_pair, base_rate_source, base_rate, gas_pair, \
                 gas_rate_source, gas_rate = self.get_conversion_rates(market_pair)
             if quote_pair.split("-")[0] != quote_pair.split("-")[1]:
                 data.extend([
@@ -345,7 +345,7 @@ class CrossExchangeMarketMakingStrategy(StrategyPyBase):
                 limit_orders = list(tracked_maker_orders[market_pair].values())
                 bid, ask = self.get_top_bid_ask(market_pair)
                 mid_price = (bid + ask) / 2
-                df = LimitOrder.to_pandas(limit_orders, mid_price)
+                df = LimitOrder.to_pandas(limit_orders, float(mid_price))
                 df_lines = str(df).split("\n")
                 lines.extend(["", "  Active maker market orders:"] +
                              ["    " + line for line in df_lines])

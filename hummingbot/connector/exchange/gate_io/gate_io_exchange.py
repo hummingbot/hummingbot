@@ -12,7 +12,7 @@ from hummingbot.connector.exchange.gate_io.gate_io_auth import GateIoAuth
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
-from hummingbot.core.data_type.common import OrderType, PriceType, TradeType
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
@@ -217,9 +217,11 @@ class GateIoExchange(ExchangePyBase):
             })
             if trade_type.name.lower() == 'buy':
                 if price.is_nan():
-                    price = self.get_price_by_type(
+                    price = self.get_price_for_volume(
                         trading_pair,
-                        price_type=PriceType.BestAsk if trade_type is TradeType.BUY else PriceType.BestBid)
+                        True,
+                        amount
+                    ).result_price
                 data.update({
                     "amount": f"{price * amount:f}",
                 })
