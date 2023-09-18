@@ -110,7 +110,7 @@ def main():
         "signalr-client-aio",
         "simplejson",
         "six",
-        "sqlalchemy==1.4",
+        "sqlalchemy",
         "tabulate",
         "tzlocal",
         "ujson",
