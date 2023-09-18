@@ -26,10 +26,6 @@ class AsyncThrottlerBase(ABC):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    @classmethod
-    def set_default_config(cls, config_map: Dict[str, any]):
-        cls._default_config_map = config_map
-
     def __init__(self,
                  rate_limits: List[RateLimit],
                  retry_interval: float = 0.1,
@@ -45,7 +41,7 @@ class AsyncThrottlerBase(ABC):
             bots operate with the same account)
         """
         # If configured, users can define the percentage of rate limits to allocate to the throttler.
-        share_percentage = limits_share_percentage or AsyncThrottlerBase._default_config_map.get("limits_share_percentage", Decimal("100"))
+        share_percentage = limits_share_percentage or Decimal("100")
         self.limits_pct: Decimal = share_percentage / 100
 
         self.set_rate_limits(rate_limits)
