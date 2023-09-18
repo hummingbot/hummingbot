@@ -357,6 +357,8 @@ class PositionExecutor(SmartComponentBase):
             self.close_type = CloseType.TAKE_PROFIT
             self.executor_status = PositionExecutorStatus.COMPLETED
             self.close_timestamp = event.timestamp
+            self.close_order.order_id = event.order_id
+            self.close_order.order = self.take_profit_order.order
             self.logger().info(f"Closed by {self.close_type}")
             self.terminate_control_loop()
 
