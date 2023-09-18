@@ -17,7 +17,7 @@ if is_posix:
     else:
         os.environ["CFLAGS"] = "-std=c++11"
 
-if os.environ.get('WITHOUT_CYTHON_OPTIMIZATIONS'):
+if os.environ.get("WITHOUT_CYTHON_OPTIMIZATIONS"):
     os.environ["CFLAGS"] += " -O0"
 
 
@@ -26,19 +26,19 @@ if os.environ.get('WITHOUT_CYTHON_OPTIMIZATIONS'):
 # for C/ObjC but not for C++
 class BuildExt(build_ext):
     def build_extensions(self):
-        if os.name != "nt" and '-Wstrict-prototypes' in self.compiler.compiler_so:
-            self.compiler.compiler_so.remove('-Wstrict-prototypes')
+        if os.name != "nt" and "-Wstrict-prototypes" in self.compiler.compiler_so:
+            self.compiler.compiler_so.remove("-Wstrict-prototypes")
         super().build_extensions()
 
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20230724"
+    version = "20230830"
     all_packages = find_packages(include=["hummingbot", "hummingbot.*"], )
     excluded_paths = ["hummingbot.connector.exchange.injective_v2",
                       "hummingbot.connector.derivative.injective_v2_perpetual",
-                      'hummingbot.connector.gateway.clob_spot.data_sources.injective',
-                      'hummingbot.connector.gateway.clob_perp.data_sources.injective_perpetual'
+                      "hummingbot.connector.gateway.clob_spot.data_sources.injective",
+                      "hummingbot.connector.gateway.clob_perp.data_sources.injective_perpetual"
 
                       ]
     packages = [pkg for pkg in all_packages if not any(fnmatch.fnmatch(pkg, pattern) for pattern in excluded_paths)]
@@ -50,6 +50,8 @@ def main():
         ],
     }
     install_requires = [
+        "bidict",
+        "nomkl",
         "aioconsole",
         "aiohttp",
         "aioprocessing",
@@ -57,14 +59,13 @@ def main():
         "appdirs",
         "appnope",
         "async-timeout",
-        "bidict",
         "base58",
         "gql",
         "cachetools",
         "certifi",
         "coincurve",
         "cryptography",
-        "cython",
+        "cython==3.0.0a10",
         "cytoolz",
         "commlib-py",
         "docker",
@@ -111,7 +112,7 @@ def main():
         "signalr-client-aio",
         "simplejson",
         "six",
-        "sqlalchemy",
+        "sqlalchemy==1.4",
         "tabulate",
         "tzlocal",
         "ujson",
@@ -120,6 +121,7 @@ def main():
         "yarl",
         "python-telegram-bot==12.8",
         "pandas_ta==0.3.14b",
+        "zlib==1.2.13",
     ]
 
     cython_kwargs = {
@@ -132,7 +134,7 @@ def main():
     compiler_directives = {
         "annotation_typing": False,
     }
-    if os.environ.get('WITHOUT_CYTHON_OPTIMIZATIONS'):
+    if os.environ.get("WITHOUT_CYTHON_OPTIMIZATIONS"):
         compiler_directives.update({
             "optimize.use_switch": False,
             "optimize.unpack_method_calls": False,
@@ -166,10 +168,9 @@ def main():
               np.get_include()
           ],
           scripts=[
-              "bin/hummingbot.py",
               "bin/hummingbot_quickstart.py"
           ],
-          cmdclass={'build_ext': BuildExt},
+          cmdclass={"build_ext": BuildExt},
           )
 
 
