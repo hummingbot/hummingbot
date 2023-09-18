@@ -1240,13 +1240,13 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
                 self.async_run_with_timeout(self.exchange._user_stream_event_listener())
             except asyncio.CancelledError:
                 pass
-        print(self.log_records)
-        self.assertTrue(
-            self.is_partially_logged(
-                "WARNING",
-                "Skipping non-cummulative update (first message of the stream)."
-            )
-        )
+        # No longer logging this
+        # self.assertTrue(
+        #     self.is_partially_logged(
+        #         "WARNING",
+        #         "Skipping non-cummulative update (first message of the stream)."
+        #     )
+        # )
 
     @aioresponses()
     def test_invalid_trading_pair_not_in_all_trading_pairs(self, mock_api):
