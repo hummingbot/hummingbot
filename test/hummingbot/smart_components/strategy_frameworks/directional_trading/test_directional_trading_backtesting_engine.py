@@ -85,11 +85,11 @@ class TestDirectionalTradingBacktestingEngine(unittest.TestCase):
 
         executors_df = backtesting_results["executors_df"]
         self.assertIn("side", executors_df.columns)
-        self.assertEqual(5, len(executors_df))
-        self.assertEqual(3, len(executors_df[executors_df["profitable"] == 1]))
+        self.assertEqual(4, len(executors_df))
+        self.assertEqual(2, len(executors_df[executors_df["profitable"] == 1]))
 
     def test_run_backtesting_with_cooldown(self):
         engine = DirectionalTradingBacktestingEngine(self.get_controller_mock_with_cooldown())
         backtesting_results = engine.run_backtesting()
         executors_df = backtesting_results["executors_df"]
-        self.assertEqual(3, len(executors_df))
+        self.assertEqual(2, len(executors_df))

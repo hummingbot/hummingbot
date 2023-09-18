@@ -71,7 +71,8 @@ class TestBacktestingEngineBase(unittest.TestCase):
             "sl": [0.03] * 5,
             "tp": [0.02] * 5,
             "tl": [86400] * 5,
-            "leverage": [10] * 5
+            "leverage": [10] * 5,
+            "inventory": [10, 10, 10, 10, 10],
         })
         executors_df.index = pd.to_datetime(executors_df["timestamp"], unit="s")
         executors_df["close_time"] = pd.to_datetime(executors_df["close_timestamp"], unit="s")
