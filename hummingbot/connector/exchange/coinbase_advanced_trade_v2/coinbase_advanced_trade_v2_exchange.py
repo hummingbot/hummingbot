@@ -430,12 +430,13 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
             self.trading_rules[trading_pair] = trading_rule
 
             trading_pair_symbol_map[product.get("product_id", None)] = trading_pair
+        self.logger().debug(f"Setting trading pair symbol map to {trading_pair_symbol_map}")
         self._set_trading_pair_symbol_map(trading_pair_symbol_map)
 
     async def _initialize_trading_pair_symbol_map(self):
-        if not self._pair_symbol_map_initialized:
-            await self._update_trading_rules()
-            self._pair_symbol_map_initialized: bool = True
+        # if not self._pair_symbol_map_initialized:
+        await self._update_trading_rules()
+        self._pair_symbol_map_initialized: bool = True
 
     async def _initialize_market_assets(self):
         """
@@ -580,7 +581,7 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
         async for event_message in self._iter_user_event_queue():
             if not isinstance(event_message, CoinbaseAdvancedTradeV2CumulativeUpdate):
                 self.logger().warning(
-                    "Skipping non-cummulative update (first message of the stream)."
+                    "Skipping non-cumulative update (Expected for first message of the stream)."
                 )
                 continue
             # try:

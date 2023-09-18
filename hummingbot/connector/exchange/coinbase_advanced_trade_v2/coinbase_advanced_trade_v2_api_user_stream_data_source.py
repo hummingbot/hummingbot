@@ -201,6 +201,15 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSource(UserStreamTrackerDataSource
     async def _subscribe_channels(self, websocket_assistant):
         raise NotImplementedError("This method is not implemented.")
 
+    @property
+    def last_recv_time(self) -> float:
+        """
+        Returns the time of the last received message
+
+        :return: the timestamp of the last received message in seconds
+        """
+        return self._stream_to_queue.last_recv_time
+
     async def listen_for_user_stream(self, output: asyncio.Queue[CoinbaseAdvancedTradeV2CumulativeUpdate]):
         await self._stream_to_queue.open()
         await self._stream_to_queue.start_stream()
@@ -364,6 +373,15 @@ class _MultiStreamDataSource:
     @property
     def states(self) -> List[Tuple[StreamState, TaskState]]:
         return [self._streams[t].state for t in self._streams]
+
+    @property
+    def last_recv_time(self) -> float:
+        """
+        Returns the time of the last received message
+
+        :return: the timestamp of the last received message in seconds
+        """
+        return min((self._streams[t].last_recv_time for t in self._streams))
 
     async def open(self) -> None:
         """Initialize all the streams, subscribe to heartbeats channels"""

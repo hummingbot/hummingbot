@@ -125,7 +125,7 @@ def get_timestamp_from_exchange_time(exchange_time: str, unit: str) -> float:
 
     # Oddly some time (at least in the doc) are not ISO8601 compliant with too many decimals
     # So we truncate the string to make it ISO8601 compliant
-    if len(exchange_time_with_tz) > 33:
+    if len(exchange_time_with_tz) > 32:
         exchange_time_truncated = exchange_time_with_tz[:26] + exchange_time_with_tz[-6:]
     else:
         exchange_time_truncated = exchange_time_with_tz

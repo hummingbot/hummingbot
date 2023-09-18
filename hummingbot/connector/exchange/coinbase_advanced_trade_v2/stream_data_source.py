@@ -266,8 +266,9 @@ class StreamDataSource(AutoStreamBlock[WSResponse, T], Generic[T]):
             return
 
         if self._task_state != TaskState.STARTED:
-            self.logger().warning(f"Subscribing to {channel}/{self._pair} stream the TaskManager is NOT "
-                                  f"started: Message loss is likely to occur.")
+            if channel != "heartbeats":
+                self.logger().warning(f"Subscribing to {channel}/{self._pair} stream the TaskManager is NOT "
+                                      f"started: Message loss is likely to occur.")
 
         if self._stream_state != StreamState.OPENED:
             self.logger().warning(f"Subscribing to {channel}/{self._pair} stream while not opened. "
