@@ -3,9 +3,10 @@ import time
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
+import bxsolana_trader_proto
 from bidict import bidict
 from bxsolana.transaction import load_private_key, signing
-from bxsolana_trader_proto import GetMarketsResponse, api
+from bxsolana_trader_proto import api
 
 from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.exchange.bloxroute_openbook import (
@@ -96,8 +97,11 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         await self._mainnet_provider.wait_connect()
 
         token_accounts_response = await self._mainnet_provider.get_token_accounts(
-            owner_address=self._sol_wallet_public_key
+            api.GetTokenAccountsRequest(
+                owner_address=self._sol_wallet_public_key
+            )
         )
+
         token_account_dict = {token.symbol: token.token_account for token in token_accounts_response.accounts}
         for trading_pair in self._trading_pairs:
             tokens = trading_pair.split("-")
@@ -209,7 +213,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         await self._order_manager.ready()
 
         try:
-            server_response: api.GetServerTimeResponse = await self._mainnet_provider.get_server_time()
+            server_response: bxsolana_trader_proto.api.GetServerTimeResponse = await self._mainnet_provider.get_server_time(api.GetServerTimeRequest())
             if server_response.timestamp:
                 return NetworkStatus.CONNECTED
             else:
@@ -300,7 +304,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         self._order_id_mapper[order_id] = blxr_client_order_id
 
         await self._mainnet_provider.wait_connect()
-        post_order_response = await self._mainnet_provider.post_order(
+        post_order_response = await self._mainnet_provider.post_order(api.PostOrderRequest(
             owner_address=self._sol_wallet_public_key,
             payer_address=payer_address,
             market=trading_pair,
@@ -309,15 +313,16 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
             amount=float(amount),
             price=float(price),
             open_orders_address=open_orders_address,
-            client_order_i_d=blxr_client_order_id,
+            client_order_id=blxr_client_order_id,
             project=constants.SPOT_ORDERBOOK_PROJECT,
+        )
         )
 
         signed_tx = signing.sign_tx_with_private_key(post_order_response.transaction.content, self._key_pair)
-        post_submit_response = await self._mainnet_provider.post_submit(
+        post_submit_response = await self._mainnet_provider.post_submit(api.PostSubmitRequest(
             transaction=api.TransactionMessage(content=signed_tx),
             skip_pre_flight=True,
-        )
+        ))
 
         if open_orders_address == "":
             self._open_orders_address_mapper[trading_pair] = post_order_response.open_orders_address
@@ -337,14 +342,13 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
 
         await self._mainnet_provider.wait_connect()
         try:
-            await self._mainnet_provider.submit_cancel_by_client_order_i_d(
+            await self._mainnet_provider.post_cancel_by_client_order_id(api.PostCancelByClientOrderIdRequest(
                 owner_address=self._sol_wallet_public_key,
                 market_address=tracked_order.trading_pair,
                 open_orders_address=open_orders_address,
-                client_order_i_d=blxr_client_order_id,
+                client_order_id=blxr_client_order_id,
                 project=constants.SPOT_ORDERBOOK_PROJECT,
-                skip_pre_flight=True,
-            )
+            ))
         except Exception:
             return False
 
@@ -392,7 +396,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
 
     async def _update_balances(self):
         await self._mainnet_provider.wait_connect()
-        account_balance = await self._mainnet_provider.get_account_balance(owner_address=self._sol_wallet_public_key)
+        account_balance = await self._mainnet_provider.get_account_balance(api.GetAccountBalanceRequest(owner_address=self._sol_wallet_public_key))
         for token_info in account_balance.tokens:
             symbol = token_info.symbol
             if symbol == "wSOL":
@@ -489,7 +493,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
 
     async def _update_trading_rules(self):
         await self._mainnet_provider.wait_connect()
-        markets_response: GetMarketsResponse = await self._mainnet_provider.get_markets()
+        markets_response: api.GetMarketsResponse = await self._mainnet_provider.get_markets(api.GetMarketsRequest())
         markets_by_name = markets_response.markets
 
         trading_rules_list = await self._format_trading_rules(markets_by_name)
