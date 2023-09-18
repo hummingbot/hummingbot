@@ -43,4 +43,5 @@ class MarketMakingExecutorHandler(ExecutorHandlerBase):
                         current_executor.early_stop()
                 else:
                     position_config = self.controller.get_position_config(order_level)
-                    self.create_executor(position_config, order_level)
+                    if position_config:
+                        self.create_executor(position_config, order_level)
