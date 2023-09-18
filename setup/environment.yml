@@ -1,7 +1,7 @@
 name: hummingbot
 channels:
-  - conda-forge
   - defaults
+  - conda-forge
 dependencies:
   - bidict
   - coverage
