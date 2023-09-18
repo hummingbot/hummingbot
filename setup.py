@@ -39,7 +39,6 @@ def main():
                       "hummingbot.connector.derivative.injective_v2_perpetual",
                       "hummingbot.connector.gateway.clob_spot.data_sources.injective",
                       "hummingbot.connector.gateway.clob_perp.data_sources.injective_perpetual"
-
                       ]
     packages = [pkg for pkg in all_packages if not any(fnmatch.fnmatch(pkg, pattern) for pattern in excluded_paths)]
     package_data = {
@@ -51,7 +50,6 @@ def main():
     }
     install_requires = [
         "bidict",
-        "nomkl",
         "aioconsole",
         "aiohttp",
         "aioprocessing",
@@ -121,7 +119,6 @@ def main():
         "yarl",
         "python-telegram-bot==12.8",
         "pandas_ta==0.3.14b",
-        "zlib==1.2.13",
     ]
 
     cython_kwargs = {
