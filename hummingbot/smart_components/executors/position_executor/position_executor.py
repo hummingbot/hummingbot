@@ -1,4 +1,5 @@
 import logging
+import math
 from decimal import Decimal
 from typing import Union
 
@@ -287,7 +288,7 @@ class PositionExecutor(SmartComponentBase):
         if self.take_profit_order_type.is_limit_type():
             if not self.take_profit_order.order_id:
                 self.place_take_profit_limit_order()
-            elif self.take_profit_order.executed_amount_base != self.open_order.executed_amount_base:
+            elif not math.isclose(self.take_profit_order.order.amount, self.open_order.executed_amount_base):
                 self.renew_take_profit_order()
         elif self.take_profit_condition():
             self.place_close_order(close_type=CloseType.TAKE_PROFIT)
