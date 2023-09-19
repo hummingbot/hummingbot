@@ -1,12 +1,16 @@
 #!/bin/bash
 
 PASSWORD=""
+FILENAME=""
 
 # Argument parsing
-while getopts ":p:" opt; do
+while getopts ":p:f:" opt; do
   case $opt in
     p)
       PASSWORD="$OPTARG"
+      ;;
+    f)
+      FILENAME="$OPTARG"
       ;;
     \?)
       echo "Invalid option: -$OPTARG" >&2
@@ -31,9 +35,15 @@ if [[ $CONDA_DEFAULT_ENV != "hummingbot" ]]; then
     exit 1
 fi
 
-# If a password was provided, pass it to the Python script
+# Build the command to run
+CMD="./bin/hummingbot_quickstart.py"
 if [[ ! -z "$PASSWORD" ]]; then
-    ./bin/hummingbot_quickstart.py -p "$PASSWORD" 2>> ./logs/errors.log
-else
-    ./bin/hummingbot_quickstart.py 2>> ./logs/errors.log
+    CMD="$CMD -p \"$PASSWORD\""
 fi
+if [[ ! -z "$FILENAME" ]]; then
+    CMD="$CMD -f \"$FILENAME\""
+fi
+
+# Execute the command
+eval $CMD 2>> ./logs/errors.log
+
