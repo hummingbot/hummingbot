@@ -1,5 +1,24 @@
 #!/bin/bash
 
+PASSWORD=""
+
+# Argument parsing
+while getopts ":p:" opt; do
+  case $opt in
+    p)
+      PASSWORD="$OPTARG"
+      ;;
+    \?)
+      echo "Invalid option: -$OPTARG" >&2
+      exit 1
+      ;;
+    :)
+      echo "Option -$OPTARG requires an argument." >&2
+      exit 1
+      ;;
+  esac
+done
+
 # Check if bin/hummingbot_quickstart.py exists
 if [[ ! -f bin/hummingbot_quickstart.py ]]; then
     echo "Error: bin/hummingbot_quickstart.py command not found. Make sure you are in the Hummingbot root directory"
@@ -12,5 +31,9 @@ if [[ $CONDA_DEFAULT_ENV != "hummingbot" ]]; then
     exit 1
 fi
 
-# Run bin/hummingbot.py and append errors to logs/errors.log
-./bin/hummingbot_quickstart.py 2>> ./logs/errors.log
+# If a password was provided, pass it to the Python script
+if [[ ! -z "$PASSWORD" ]]; then
+    ./bin/hummingbot_quickstart.py -p "$PASSWORD" 2>> ./logs/errors.log
+else
+    ./bin/hummingbot_quickstart.py 2>> ./logs/errors.log
+fi
