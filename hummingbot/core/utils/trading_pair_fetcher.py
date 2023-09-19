@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
@@ -40,7 +41,7 @@ class TradingPairFetcher:
         connector = connector_setting.non_trading_connector_instance_with_default_configuration()
         safe_ensure_future(self.call_fetch_pairs(connector.all_trading_pairs(), connector_name))
 
-    def _fetch_pairs_from_connected(
+    async def _fetch_pairs_from_connected(
             self,
             connector_setting: ConnectorSetting,
             connector_name: Optional[str] = None):
@@ -58,11 +59,12 @@ class TradingPairFetcher:
             if not self.fetch_pairs_from_all_exchanges:
                 c = f"{conn_set.config_keys}"
                 try:
-                    if ("SecretStr" in c):
-                        self._fetch_pairs_from_connected(
+                    if "SecretStr" in c:
+                        await asyncio.sleep(3)
+                        await self._fetch_pairs_from_connected(
                             connector_setting=connector_settings[conn_set.config_keys.connector],
                             connector_name=conn_set.name)
-                    elif "SecretStr" not in c and conn_set.base_name().endswith("paper_trade"):
+                    elif conn_set.base_name().endswith("paper_trade"):
                         self._fetch_pairs_from_connector_setting(
                             connector_setting=connector_settings[conn_set.parent_name],
                             connector_name=conn_set.name)
@@ -84,7 +86,7 @@ class TradingPairFetcher:
                 except Exception:
                     self.logger().exception(f"An error occurred when fetching trading pairs for {conn_set.name}. "
                                             "Please check the logs")
-            self.ready = True
+        self.ready = True
 
     async def call_fetch_pairs(self, fetch_fn: Callable[[], Awaitable[List[str]]], exchange_name: str):
         try:
