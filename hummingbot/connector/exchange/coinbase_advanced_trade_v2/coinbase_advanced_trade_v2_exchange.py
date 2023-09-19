@@ -290,17 +290,26 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
                 path_url=constants.ORDER_EP,
                 data=api_params,
                 is_auth_required=True)
+
+            self.logger().debug(f"Placed order {order_id} on {self.name}.")
+            self.logger().debug(f"   Request: {constants.ORDER_EP}")
+            self.logger().debug("    Params:")
+            for k, v in api_params.items():
+                self.logger().debug(f"\t{k}: {v}")
+            self.logger().debug("  Response:")
+            for k, v in order_result.items():
+                self.logger().debug(f"\t{k}: {v}")
+
             o_id = str(order_result["order_id"])
             transact_time = self.time_synchronizer.time()
         except IOError as e:
             error_description = str(e)
             is_server_overloaded = ("status is 503" in error_description
                                     and "Unknown error, please check your request or try again later." in error_description)
-            if is_server_overloaded:
-                o_id = "UNKNOWN"
-                transact_time = self._time_synchronizer.time()
-            else:
+            if not is_server_overloaded:
                 raise
+            o_id = "UNKNOWN"
+            transact_time = self._time_synchronizer.time()
         return o_id, transact_time
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
