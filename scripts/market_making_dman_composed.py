@@ -2,6 +2,7 @@ from decimal import Decimal
 from typing import Dict
 
 from hummingbot.connector.connector_base import ConnectorBase, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
 from hummingbot.smart_components.controllers.dman_v1 import DManV1, DManV1Config
 from hummingbot.smart_components.controllers.dman_v2 import DManV2, DManV2Config
@@ -102,6 +103,7 @@ class MarketMakingDmanComposed(ScriptStrategyBase):
         self.dman_v2_executor = MarketMakingExecutorHandler(strategy=self, controller=self.dman_v2)
 
     def on_stop(self):
+        self.close_open_positions()
         self.dman_v1_executor.stop()
         self.dman_v2_executor.stop()
 
@@ -123,3 +125,22 @@ class MarketMakingDmanComposed(ScriptStrategyBase):
         lines.extend(["\n-----------------------------------------\n"])
         lines.extend(["DMAN V2", self.dman_v2_executor.to_format_status()])
         return "\n".join(lines)
+
+    def close_open_positions(self):
+        # we are going to close all the open positions when the bot stops
+        for connector_name, connector in self.connectors.items():
+            for trading_pair, position in connector.account_positions.items():
+                if position.position_side == PositionSide.LONG:
+                    self.sell(connector_name=connector_name,
+                              trading_pair=position.trading_pair,
+                              amount=abs(position.amount),
+                              order_type=OrderType.MARKET,
+                              price=connector.get_mid_price(position.trading_pair),
+                              position_action=PositionAction.CLOSE)
+                elif position.position_side == PositionSide.SHORT:
+                    self.buy(connector_name=connector_name,
+                             trading_pair=position.trading_pair,
+                             amount=abs(position.amount),
+                             order_type=OrderType.MARKET,
+                             price=connector.get_mid_price(position.trading_pair),
+                             position_action=PositionAction.CLOSE)
