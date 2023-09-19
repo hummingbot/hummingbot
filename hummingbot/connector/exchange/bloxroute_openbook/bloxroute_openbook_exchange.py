@@ -314,7 +314,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
             price=float(price),
             open_orders_address=open_orders_address,
             client_order_id=blxr_client_order_id,
-            project=constants.SPOT_ORDERBOOK_PROJECT,
+            project=api.Project.P_OPENBOOK,
         )
         )
 
@@ -347,7 +347,7 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
                 market_address=tracked_order.trading_pair,
                 open_orders_address=open_orders_address,
                 client_order_id=blxr_client_order_id,
-                project=constants.SPOT_ORDERBOOK_PROJECT,
+                project=api.Project.P_OPENBOOK,
             ))
         except Exception:
             return False

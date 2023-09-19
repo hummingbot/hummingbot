@@ -420,7 +420,6 @@ class ClientOrderTracker:
     def _trigger_order_completion(self, tracked_order: InFlightOrder, order_update: Optional[OrderUpdate] = None):
         if tracked_order.is_open:
             return
-
         if tracked_order.is_cancelled:
             self._trigger_cancelled_event(tracked_order)
             self.logger().info(f"Successfully canceled order {tracked_order.client_order_id}.")

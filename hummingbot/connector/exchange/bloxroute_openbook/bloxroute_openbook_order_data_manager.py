@@ -9,7 +9,6 @@ from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_constants import (
     HUMMINGBOT_LOG_DECIMALS,
     ORDERBOOK_LIMIT,
-    SPOT_ORDERBOOK_PROJECT,
 )
 from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_order_book import (
     Orderbook,
@@ -69,8 +68,9 @@ class BloxrouteOpenbookOrderDataManager:
     async def _initialize_order_books(self):
         await self._provider.wait_connect()
         for trading_pair in self._trading_pairs:
-            blxr_orderbook = await self._provider.get_orderbook(
-                market=trading_pair, limit=ORDERBOOK_LIMIT, project=SPOT_ORDERBOOK_PROJECT
+            blxr_orderbook = await self._provider.get_orderbook(api.GetOrderbookRequest(
+                market=trading_pair, limit=ORDERBOOK_LIMIT, project=api.Project.P_OPENBOOK
+            )
             )
 
             self._apply_order_book_update(blxr_orderbook)
@@ -87,18 +87,18 @@ class BloxrouteOpenbookOrderDataManager:
 
     async def _poll_order_book_updates(self):
         await self._provider.wait_connect()
-        order_book_stream = self._provider.get_orderbooks_stream(
-            markets=self._trading_pairs, limit=ORDERBOOK_LIMIT, project=SPOT_ORDERBOOK_PROJECT
-        )
+        order_book_stream = self._provider.get_orderbooks_stream(api.GetOrderbooksRequest(
+            markets=self._trading_pairs, limit=ORDERBOOK_LIMIT, project=api.Project.P_OPENBOOK
+        ))
 
         async for order_book_update in order_book_stream:
             self._apply_order_book_update(order_book_update.orderbook)
 
     async def _poll_order_status_updates(self, trading_pair: str):
         await self._provider.wait_connect()
-        order_status_stream = self._provider.get_order_status_stream(
-            market=trading_pair, owner_address=self._owner_address, project=SPOT_ORDERBOOK_PROJECT
-        )
+        order_status_stream = self._provider.get_order_status_stream(api.GetOrderStatusStreamRequest(
+            market=trading_pair, owner_address=self._owner_address, project=api.Project.P_OPENBOOK
+        ))
 
         async for order_status_update in order_status_stream:
             self._apply_order_status_update(order_status_update.order_info)

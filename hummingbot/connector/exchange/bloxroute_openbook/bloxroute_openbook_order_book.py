@@ -1,7 +1,7 @@
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import List
 
-from bxsolana_trader_proto import GetOrderbookResponse, api
+from bxsolana_trader_proto import api
 from bxsolana_trader_proto.api import OrderbookItem
 
 from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_utils import truncate
@@ -61,7 +61,7 @@ def orders_to_orderbook_rows(orders: List[OrderbookItem]) -> List[OrderBookRow]:
 
 
 def order_to_orderbook_row(order: OrderbookItem) -> OrderBookRow:
-    return OrderBookRow(price=order.price, amount=order.size, update_id=truncate(order.client_order_i_d, 7))
+    return OrderBookRow(price=order.price, amount=order.size, update_id=truncate(order.client_order_id, 7))
 
 
 def normalized_timestamp(num: float) -> int:
@@ -70,4 +70,3 @@ def normalized_timestamp(num: float) -> int:
         return integer
     else:
         return truncate(integer, 7)
-

@@ -1,12 +1,11 @@
 import asyncio
 import time
-from typing import TYPE_CHECKING, Any, AsyncGenerator, Dict, List, Optional
+from abc import ABC
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from bxsolana import Provider
-from bxsolana_trader_proto import GetOrderbookResponse, GetOrderbooksStreamResponse
+from bxsolana_trader_proto import api
 
-from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_constants import SPOT_ORDERBOOK_PROJECT
-from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_order_book import BloxrouteOpenbookOrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
@@ -16,7 +15,7 @@ if TYPE_CHECKING:
     from hummingbot.connector.exchange.bloxroute_openbook.bloxroute_openbook_exchange import BloxrouteOpenbookExchange
 
 
-class BloxrouteOpenbookAPIOrderBookDataSource(OrderBookTrackerDataSource):
+class BloxrouteOpenbookAPIOrderBookDataSource(OrderBookTrackerDataSource, ABC):
     _logger: Optional[HummingbotLogger] = None
 
     def __init__(self, provider: Provider, trading_pairs: List[str], connector: "BloxrouteOpenbookExchange"):
@@ -36,8 +35,9 @@ class BloxrouteOpenbookAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         :return: the response from the exchange (JSON dictionary)
         """
-        orderbook: GetOrderbookResponse = await self._provider.get_orderbook(
-            market=trading_pair, limit=1, project=SPOT_ORDERBOOK_PROJECT
+        orderbook: api.GetOrderbookResponse = await self._provider.get_orderbook(api.GetOrderbookRequest(
+            market=trading_pair, limit=1, project=api.Project.P_OPENBOOK
+        )
         )
 
         snapshot_timestamp: float = time.time()
