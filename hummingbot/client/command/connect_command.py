@@ -132,10 +132,6 @@ class ConnectCommand:
             raise
         return err_msg
 
-    async def _fetch_all(self, client_config_map: ClientConfigAdapter):
-        trading_pair_fetcher = TradingPairFetcher.get_instance(client_config_map)
-        await trading_pair_fetcher.fetch_all(client_config_map)
-
     async def _perform_connect(self, connector_config: ClientConfigAdapter, previous_keys: Optional[Dict] = None):
         connector_name = connector_config.connector
         original_config = connector_config.full_copy()
@@ -148,7 +144,7 @@ class ConnectCommand:
         err_msg = await self.validate_n_connect_connector(connector_name)
         if err_msg is None:
             self.notify(f"\nYou are now connected to {connector_name}.")
-            await self._fetch_all(client_config_map=ClientConfigAdapter)
+            await TradingPairFetcher.get_instance(client_config_map=ClientConfigAdapter).fetch_all(client_config_map=ClientConfigAdapter)
         else:
             self.notify(f"\nError: {err_msg}")
             if previous_keys is not None:

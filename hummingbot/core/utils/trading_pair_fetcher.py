@@ -30,7 +30,6 @@ class TradingPairFetcher:
         self.ready = False
         self.trading_pairs: Dict[str, Any] = {}
         self.fetch_pairs_from_all_exchanges = client_config_map.fetch_pairs_from_all_exchanges
-        self.paper_trades_in_conf = client_config_map.paper_trade.paper_trade_exchanges
         self._fetch_task = safe_ensure_future(self.fetch_all(client_config_map))
 
     def _fetch_pairs_from_connector_setting(
@@ -59,15 +58,12 @@ class TradingPairFetcher:
             if not self.fetch_pairs_from_all_exchanges:
                 c = f"{conn_set.config_keys}"
                 try:
-                    if "SecretStr" in c:
+                    if ("SecretStr" in c) or conn_set.base_name().endswith("paper_trade"):
                         await asyncio.sleep(4)
-                        self._fetch_pairs_from_connected(
+                        self._fetch_pairs_from_connector_setting(
                             connector_setting=connector_settings[conn_set.config_keys.connector],
                             connector_name=conn_set.name)
-                    elif conn_set.base_name().endswith("paper_trade"):
-                        self._fetch_pairs_from_connector_setting(
-                            connector_setting=connector_settings[conn_set.parent_name],
-                            connector_name=conn_set.name)
+                        print(conn_set)
                 except ModuleNotFoundError:
                     continue
                 except Exception:
