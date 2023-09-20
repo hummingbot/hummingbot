@@ -46,4 +46,13 @@ fi
 
 # Execute the command
 eval $CMD 2>> ./logs/errors.log
+EXIT_CODE=$?
 
+# Check exit code for specific errors
+if [[ $EXIT_CODE -eq 1 ]]; then
+    echo "Error: Incorrect password provided."
+    exit 1
+elif [[ $EXIT_CODE -eq 2 ]]; then
+    echo "Error: Invalid file or filename provided."
+    exit 2
+fi
