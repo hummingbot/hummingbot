@@ -64,6 +64,9 @@ connector_status = {
     'injective_v2': 'bronze',
     'injective_v2_perpetual': 'bronze',
     'plenty': 'bronze',
+    'woo_x': 'bronze',
+    'woo_x_testnet': 'bronze',
+    'kujira': 'bronze',
 }
 
 warning_messages = {
