@@ -41,7 +41,7 @@ class TradingPairFetcher:
         connector = connector_setting.non_trading_connector_instance_with_default_configuration()
         safe_ensure_future(self.call_fetch_pairs(connector.all_trading_pairs(), connector_name))
 
-    async def _fetch_pairs_from_connected(
+    def _fetch_pairs_from_connected(
             self,
             connector_setting: ConnectorSetting,
             connector_name: Optional[str] = None):
@@ -60,8 +60,8 @@ class TradingPairFetcher:
                 c = f"{conn_set.config_keys}"
                 try:
                     if "SecretStr" in c:
-                        await asyncio.sleep(3)
-                        await self._fetch_pairs_from_connected(
+                        await asyncio.sleep(4)
+                        self._fetch_pairs_from_connected(
                             connector_setting=connector_settings[conn_set.config_keys.connector],
                             connector_name=conn_set.name)
                     elif conn_set.base_name().endswith("paper_trade"):
