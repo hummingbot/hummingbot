@@ -63,7 +63,6 @@ class TradingPairFetcher:
                         self._fetch_pairs_from_connector_setting(
                             connector_setting=connector_settings[conn_set.config_keys.connector],
                             connector_name=conn_set.name)
-                        print(conn_set)
                 except ModuleNotFoundError:
                     continue
                 except Exception:
