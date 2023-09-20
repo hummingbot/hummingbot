@@ -9,6 +9,7 @@ from hummingbot.core.network_base import NetworkBase
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.rate_oracle.sources.ascend_ex_rate_source import AscendExRateSource
 from hummingbot.core.rate_oracle.sources.binance_rate_source import BinanceRateSource
+from hummingbot.core.rate_oracle.sources.coin_cap_rate_source import CoinCapRateSource
 from hummingbot.core.rate_oracle.sources.coin_gecko_rate_source import CoinGeckoRateSource
 from hummingbot.core.rate_oracle.sources.gate_io_rate_source import GateIoRateSource
 from hummingbot.core.rate_oracle.sources.kucoin_rate_source import KucoinRateSource
@@ -20,6 +21,7 @@ from hummingbot.logger import HummingbotLogger
 RATE_ORACLE_SOURCES = {
     "binance": BinanceRateSource,
     "coin_gecko": CoinGeckoRateSource,
+    "coin_cap": CoinCapRateSource,
     "kucoin": KucoinRateSource,
     "ascend_ex": AscendExRateSource,
     "gate_io": GateIoRateSource,

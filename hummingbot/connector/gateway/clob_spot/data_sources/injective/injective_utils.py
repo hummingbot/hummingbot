@@ -1,15 +1,16 @@
 import logging
 from decimal import Decimal
-from typing import List
+from math import floor
+from typing import List, Union
 
 from pyinjective.composer import Composer as InjectiveComposer
-from pyinjective.constant import Denom, Network
+from pyinjective.constant import Denom
+from pyinjective.core.network import Network
 from pyinjective.orderhash import OrderHashResponse, build_eip712_msg, hash_order
 from pyinjective.proto.injective.exchange.v1beta1 import (
     exchange_pb2 as injective_dot_exchange_dot_v1beta1_dot_exchange__pb2,
 )
 from pyinjective.proto.injective.exchange.v1beta1.exchange_pb2 import DerivativeOrder, SpotOrder
-from pyinjective.utils.utils import derivative_price_to_backend, derivative_quantity_to_backend
 
 from hummingbot.connector.gateway.clob_spot.data_sources.injective.injective_constants import (
     ACC_NONCE_PATH_RATE_LIMIT_ID,
@@ -140,3 +141,23 @@ def derivative_margin_to_backend_using_gateway_approach(
     res = int(numerator / denominator)
 
     return res
+
+
+def floor_to(value: Union[float, Decimal], target: Union[float, Decimal]) -> Decimal:
+    value_tmp = Decimal(str(value))
+    target_tmp = Decimal(str(target))
+    result = int(floor(value_tmp / target_tmp)) * target_tmp
+    return result
+
+
+def derivative_quantity_to_backend(quantity, denom) -> int:
+    quantity_tick_size = float(denom.min_quantity_tick_size) / pow(10, denom.base)
+    scale_quantity = Decimal(18 + denom.base)
+    exchange_quantity = floor_to(quantity, quantity_tick_size) * pow(Decimal(10), scale_quantity)
+    return int(exchange_quantity)
+
+
+def derivative_price_to_backend(price, denom) -> int:
+    price_tick_size = Decimal(denom.min_price_tick_size) / pow(10, denom.quote)
+    exchange_price = floor_to(price, float(price_tick_size)) * pow(10, 18 + denom.quote)
+    return int(exchange_price)

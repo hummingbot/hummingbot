@@ -111,15 +111,15 @@ class PolkadexAPIOrderBookDataSourceTests(TestCase):
 
     def test_get_new_order_book_successful(self):
         data = [
-            {"side": "Ask", "p": 9487.5, "q": 522147, "s": "Ask"},
-            {"side": "Bid", "p": 9487, "q": 336241, "s": "Bid"},
+            {"side": "Ask", "p": 9487.5, "q": 522147, "s": "Ask", "stid": 1},
+            {"side": "Bid", "p": 9487, "q": 336241, "s": "Bid", "stid": 1},
         ]
         order_book_snapshot = {"getOrderbook": {"items": data}}
         self.data_source._data_source._query_executor._order_book_snapshots.put_nowait(order_book_snapshot)
 
         order_book = self.async_run_with_timeout(self.data_source.get_new_order_book(self.trading_pair))
 
-        expected_update_id = -1
+        expected_update_id = 1
 
         self.assertEqual(expected_update_id, order_book.snapshot_uid)
         bids = list(order_book.bid_entries())
@@ -144,10 +144,8 @@ class PolkadexAPIOrderBookDataSourceTests(TestCase):
             self.async_run_with_timeout(self.data_source.listen_for_trades(self.async_loop, msg_queue))
 
     def test_listen_for_trades_logs_exception(self):
-        incorrect_message = {}
-
         mock_queue = AsyncMock()
-        mock_queue.get.side_effect = [incorrect_message, asyncio.CancelledError()]
+        mock_queue.get.side_effect = [Exception("some error"), asyncio.CancelledError()]
         self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
@@ -164,15 +162,16 @@ class PolkadexAPIOrderBookDataSourceTests(TestCase):
         )
 
     def test_listen_for_trades_successful(self):
+        expected_trade_id = "1664193952989"
         trade_data = {
             "type": "TradeFormat",
             "m": self.ex_trading_pair,
+            "m_side": "Ask",
+            "trade_id": expected_trade_id,
             "p": "1718.5",
-            "vq": "17185",
             "q": "10",
-            "tid": "111",
             "t": 1664193952989,
-            "sid": "16",
+            "stid": "16",
         }
         trade_event = {"websocket_streams": {"data": json.dumps(trade_data)}}
 
@@ -186,7 +185,7 @@ class PolkadexAPIOrderBookDataSourceTests(TestCase):
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 
         self.assertEqual(OrderBookMessageType.TRADE, msg.type)
-        self.assertEqual(trade_data["tid"], msg.trade_id)
+        self.assertEqual(expected_trade_id, msg.trade_id)
         self.assertEqual(trade_data["t"] * 1e-3, msg.timestamp)
         expected_price = Decimal(trade_data["p"])
         expected_amount = Decimal(trade_data["q"])
@@ -206,10 +205,8 @@ class PolkadexAPIOrderBookDataSourceTests(TestCase):
             self.async_run_with_timeout(self.data_source.listen_for_order_book_diffs(self.async_loop, msg_queue))
 
     def test_listen_for_order_book_diffs_logs_exception(self):
-        incorrect_message = {}
-
         mock_queue = AsyncMock()
-        mock_queue.get.side_effect = [incorrect_message, asyncio.CancelledError()]
+        mock_queue.get.side_effect = [Exception("some error"), asyncio.CancelledError()]
         self.data_source._message_queue[self.data_source._diff_messages_queue_key] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
@@ -230,12 +227,14 @@ class PolkadexAPIOrderBookDataSourceTests(TestCase):
         time_mock.return_value = 1640001112.223
 
         order_book_data = {
-            "type": "IncOb",
-            "changes": [
-                ["Bid", "2999", "8", 4299950],
-                ["Bid", "1.671", "52.952", 4299951],
-                ["Ask", "3001", "0", 4299952],
-            ],
+            "i": 1,
+            "a": {
+                "3001": "0",
+            },
+            "b": {
+                "2999": "8",
+                "1.671": "52.952",
+            },
         }
         order_book_event = {"websocket_streams": {"data": json.dumps(order_book_data)}}
 
@@ -252,7 +251,7 @@ class PolkadexAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(OrderBookMessageType.DIFF, msg.type)
         self.assertEqual(-1, msg.trade_id)
         self.assertEqual(time_mock.return_value, msg.timestamp)
-        expected_update_id = order_book_data["changes"][-1][-1]
+        expected_update_id = 1
         self.assertEqual(expected_update_id, msg.update_id)
 
         bids = msg.bids
