@@ -64,7 +64,6 @@ class MarketMakingDmanV2(ScriptStrategyBase):
 
     def on_stop(self):
         self.close_open_positions()
-        self.dman_v2_executor.stop()
 
     def on_tick(self):
         """
