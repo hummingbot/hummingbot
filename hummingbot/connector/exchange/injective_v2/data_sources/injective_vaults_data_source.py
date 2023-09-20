@@ -10,7 +10,7 @@ from google.protobuf import any_pb2, json_format
 from pyinjective import Transaction
 from pyinjective.async_client import AsyncClient
 from pyinjective.composer import Composer, injective_exchange_tx_pb
-from pyinjective.constant import Network
+from pyinjective.core.network import Network
 from pyinjective.orderhash import OrderHashManager
 from pyinjective.wallet import Address, PrivateKey
 
@@ -50,9 +50,8 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         self._client = AsyncClient(
             network=self._network,
             insecure=not use_secure_connection,
-            chain_cookie_location=self._chain_cookie_file_path(),
         )
-        self._composer = Composer(network=self._network.string())
+        self._composer = None
         self._query_executor = PythonSDKInjectiveQueryExecutor(sdk_client=self._client)
 
         self._private_key = None
@@ -100,10 +99,6 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         return self._query_executor
 
     @property
-    def composer(self) -> Composer:
-        return self._composer
-
-    @property
     def order_creation_lock(self) -> asyncio.Lock:
         return self._order_creation_lock
 
@@ -138,6 +133,11 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
     @property
     def network_name(self) -> str:
         return self._network.string()
+
+    async def composer(self) -> Composer:
+        if self._composer is None:
+            self._composer = await self._client.composer()
+        return self._composer
 
     def events_listening_tasks(self) -> List[asyncio.Task]:
         return self._events_listening_tasks.copy()
@@ -461,7 +461,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
             spot_orders_to_create: List[GatewayInFlightOrder],
             derivative_orders_to_create: List[GatewayPerpetualInFlightOrder],
     ) -> Tuple[List[any_pb2.Any], List[str], List[str]]:
-        composer = self.composer
+        composer = await self.composer()
         spot_order_definitions = []
         derivative_order_definitions = []
 
@@ -497,12 +497,12 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
 
         return [execute_contract_message], [], []
 
-    def _order_cancel_message(
+    async def _order_cancel_message(
             self,
             spot_orders_to_cancel: List[injective_exchange_tx_pb.OrderData],
             derivative_orders_to_cancel: List[injective_exchange_tx_pb.OrderData]
     ) -> any_pb2.Any:
-        composer = self.composer
+        composer = await self.composer()
 
         message = composer.MsgBatchUpdateOrders(
             sender=self.portfolio_account_injective_address,
@@ -528,12 +528,12 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
 
         return execute_contract_message
 
-    def _all_subaccount_orders_cancel_message(
+    async def _all_subaccount_orders_cancel_message(
             self,
             spot_markets_ids: List[str],
             derivative_markets_ids: List[str]
     ) -> any_pb2.Any:
-        composer = self.composer
+        composer = await self.composer()
 
         message = composer.MsgBatchUpdateOrders(
             sender=self.portfolio_account_injective_address,
@@ -560,8 +560,9 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
 
         return execute_contract_message
 
-    def _generate_injective_order_data(self, order: GatewayInFlightOrder, market_id: str) -> injective_exchange_tx_pb.OrderData:
-        order_data = self.composer.OrderData(
+    async def _generate_injective_order_data(self, order: GatewayInFlightOrder, market_id: str) -> injective_exchange_tx_pb.OrderData:
+        composer = await self.composer()
+        order_data = composer.OrderData(
             market_id=market_id,
             subaccount_id=str(self.portfolio_account_subaccount_index),
             order_hash=order.exchange_order_id,
@@ -575,7 +576,8 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         # Both price and quantity have to be adjusted because the vaults expect to receive those values without
         # the extra 18 zeros that the chain backend expects for direct trading messages
         market_id = await self.market_id_for_spot_trading_pair(order.trading_pair)
-        definition = self.composer.SpotOrder(
+        composer = await self.composer()
+        definition = composer.SpotOrder(
             market_id=market_id,
             subaccount_id=str(self.portfolio_account_subaccount_index),
             fee_recipient=self.portfolio_account_injective_address,
@@ -593,7 +595,8 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         # Price, quantity and margin have to be adjusted because the vaults expect to receive those values without
         # the extra 18 zeros that the chain backend expects for direct trading messages
         market_id = await self.market_id_for_derivative_trading_pair(order.trading_pair)
-        definition = self.composer.DerivativeOrder(
+        composer = await self.composer()
+        definition = composer.DerivativeOrder(
             market_id=market_id,
             subaccount_id=str(self.portfolio_account_subaccount_index),
             fee_recipient=self.portfolio_account_injective_address,
