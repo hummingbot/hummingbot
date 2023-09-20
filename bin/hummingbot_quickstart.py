@@ -51,7 +51,6 @@ class CmdlineParser(argparse.ArgumentParser):
                           help="Try to automatically set config / logs / data dir permissions, "
                                "useful for Docker containers.")
 
-
 def autofix_permissions(user_group_spec: str):
     uid, gid = [sub_str for sub_str in user_group_spec.split(':')]
 
@@ -71,6 +70,11 @@ def autofix_permissions(user_group_spec: str):
     os.setgid(gid)
     os.setuid(uid)
 
+def is_running_in_docker() -> bool:
+    """
+    Check if the script is running inside a Docker container.
+    """
+    return os.path.exists('/.dockerenv')
 
 async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsManager):
     config_file_name = args.config_file_name
@@ -79,17 +83,19 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
     if args.auto_set_permissions is not None:
         autofix_permissions(args.auto_set_permissions)
 
-    # Check the file only if the -f parameter is passed
-    if config_file_name:
-        if not os.path.exists(STRATEGIES_CONF_DIR_PATH / config_file_name):
-            logging.getLogger().error("Config file not found.")
-            sys.exit(2)  # <-- Exit with code 2 for file not found
+    # Only perform checks if not running inside Docker
+    if not is_running_in_docker():
+        # Check the file only if the -f parameter is passed
+        if config_file_name:
+            if not os.path.exists(STRATEGIES_CONF_DIR_PATH / config_file_name):
+                logging.getLogger().error("Config file not found.")
+                sys.exit(2)  # <-- Exit with code 2 for file not found
 
-    # Check the password only if the -p parameter is passed
-    if args.config_password:
-        if not Security.login(secrets_manager):
-            logging.getLogger().error("Invalid password.")
-            sys.exit(1)  # <-- Exit with code 1 for invalid password
+        # Check the password only if the -p parameter is passed
+        if args.config_password:
+            if not Security.login(secrets_manager):
+                logging.getLogger().error("Invalid password.")
+                sys.exit(1)  # <-- Exit with code 1 for invalid password
 
     await Security.wait_til_decryption_done()
     await create_yml_files_legacy()
