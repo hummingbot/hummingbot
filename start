@@ -44,15 +44,17 @@ if [[ ! -z "$FILENAME" ]]; then
     CMD="$CMD -f \"$FILENAME\""
 fi
 
+# Clear the errors.log file first before executing
+> ./logs/errors.log
+
 # Execute the command
 eval $CMD 2>> ./logs/errors.log
-EXIT_CODE=$?
 
-# Check exit code for specific errors
-if [[ $EXIT_CODE -eq 1 ]]; then
+# Check errors.log for specific errors
+if grep -q "Invalid password" ./logs/errors.log; then
     echo "Error: Incorrect password provided."
     exit 1
-elif [[ $EXIT_CODE -eq 2 ]]; then
+elif grep -q "FileNotFoundError" ./logs/errors.log; then
     echo "Error: Invalid file or filename provided."
     exit 2
 fi
