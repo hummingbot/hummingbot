@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import sys
 import argparse
 import asyncio
 import grp
@@ -80,7 +81,11 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
 
     if not Security.login(secrets_manager):
         logging.getLogger().error("Invalid password.")
-        return
+        sys.exit(1)  # <-- Exit with code 1 for invalid password
+
+    if config_file_name is not None and not os.path.exists(STRATEGIES_CONF_DIR_PATH / config_file_name):
+        logging.getLogger().error("Config file not found.")
+        sys.exit(2)  # <-- Exit with code 2 for file not found
 
     await Security.wait_til_decryption_done()
     await create_yml_files_legacy()
