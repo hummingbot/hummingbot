@@ -40,7 +40,7 @@ class MarketMakingMultipleControllers(ScriptStrategyBase):
     }
 
     triple_barrier_conf_top = TripleBarrierConf(
-        stop_loss=Decimal("0.07"), take_profit=Decimal("0.003"),
+        stop_loss=Decimal("0.07"), take_profit=Decimal("0.005"),
         time_limit=60 * 60 * 12,
         take_profit_order_type=OrderType.LIMIT,
     )
@@ -131,8 +131,6 @@ class MarketMakingMultipleControllers(ScriptStrategyBase):
 
     def on_stop(self):
         self.close_open_positions()
-        for executor_handler in self.executor_handlers.values():
-            executor_handler.stop()
 
     def on_tick(self):
         """
