@@ -1,18 +1,23 @@
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import TYPE_CHECKING, Dict, Union
+from typing import TYPE_CHECKING, Dict, List, Union
 
 from pydantic import Field, SecretStr
 from pydantic.class_validators import validator
-from pyinjective.constant import Network
+from pyinjective.core.network import Network
 
 from hummingbot.client.config.config_data_types import BaseClientModel, BaseConnectorConfigMap, ClientFieldData
+from hummingbot.connector.exchange.injective_v2 import injective_constants as CONSTANTS
 from hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source import (
     InjectiveGranteeDataSource,
+)
+from hummingbot.connector.exchange.injective_v2.data_sources.injective_read_only_data_source import (
+    InjectiveReadOnlyDataSource,
 )
 from hummingbot.connector.exchange.injective_v2.data_sources.injective_vaults_data_source import (
     InjectiveVaultsDataSource,
 )
+from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
 if TYPE_CHECKING:
@@ -26,7 +31,7 @@ DEFAULT_FEES = TradeFeeSchema(
     taker_percent_fee_decimal=Decimal("0"),
 )
 
-MAINNET_NODES = ["lb", "sentry0", "sentry1", "sentry3"]
+TESTNET_NODES = ["lb", "sentry"]
 
 
 class InjectiveNetworkMode(BaseClientModel, ABC):
@@ -41,39 +46,45 @@ class InjectiveNetworkMode(BaseClientModel, ABC):
 
 class InjectiveMainnetNetworkMode(InjectiveNetworkMode):
 
-    node: str = Field(
+    class Config:
+        title = "mainnet_network"
+
+    def network(self) -> Network:
+        return Network.mainnet()
+
+    def use_secure_connection(self) -> bool:
+        return True
+
+    def rate_limits(self) -> List[RateLimit]:
+        return CONSTANTS.PUBLIC_NODE_RATE_LIMITS
+
+
+class InjectiveTestnetNetworkMode(InjectiveNetworkMode):
+    testnet_node: str = Field(
         default="lb",
         client_data=ClientFieldData(
-            prompt=lambda cm: ("Enter the mainnet node you want to connect to"),
+            prompt=lambda cm: (f"Enter the testnet node you want to connect to ({'/'.join(TESTNET_NODES)})"),
             prompt_on_new=True
         ),
     )
 
     class Config:
-        title = "mainnet_network"
+        title = "testnet_network"
 
-    @validator("node", pre=True)
+    @validator("testnet_node", pre=True)
     def validate_node(cls, v: str):
-        if v not in MAINNET_NODES:
-            raise ValueError(f"{v} is not a valid node ({MAINNET_NODES})")
+        if v not in TESTNET_NODES:
+            raise ValueError(f"{v} is not a valid node ({TESTNET_NODES})")
         return v
 
     def network(self) -> Network:
-        return Network.mainnet(node=self.node)
-
-    def use_secure_connection(self) -> bool:
-        return self.node == "lb"
-
-
-class InjectiveTestnetNetworkMode(InjectiveNetworkMode):
-    def network(self) -> Network:
-        return Network.testnet()
+        return Network.testnet(node=self.testnet_node)
 
     def use_secure_connection(self) -> bool:
         return True
 
-    class Config:
-        title = "testnet_network"
+    def rate_limits(self) -> List[RateLimit]:
+        return CONSTANTS.PUBLIC_NODE_RATE_LIMITS
 
 
 class InjectiveCustomNetworkMode(InjectiveNetworkMode):
@@ -151,6 +162,9 @@ class InjectiveCustomNetworkMode(InjectiveNetworkMode):
     def use_secure_connection(self) -> bool:
         return self.secure_connection
 
+    def rate_limits(self) -> List[RateLimit]:
+        return CONSTANTS.CUSTOM_NODE_RATE_LIMITS
+
 
 NETWORK_MODES = {
     InjectiveMainnetNetworkMode.Config.title: InjectiveMainnetNetworkMode,
@@ -162,7 +176,9 @@ NETWORK_MODES = {
 class InjectiveAccountMode(BaseClientModel, ABC):
 
     @abstractmethod
-    def create_data_source(self, network: Network, use_secure_connection: bool) -> "InjectiveDataSource":
+    def create_data_source(
+            self, network: Network, use_secure_connection: bool, rate_limits: List[RateLimit],
+    ) -> "InjectiveDataSource":
         pass
 
 
@@ -201,7 +217,9 @@ class InjectiveDelegatedAccountMode(InjectiveAccountMode):
     class Config:
         title = "delegate_account"
 
-    def create_data_source(self, network: Network, use_secure_connection: bool) -> "InjectiveDataSource":
+    def create_data_source(
+            self, network: Network, use_secure_connection: bool, rate_limits: List[RateLimit],
+    ) -> "InjectiveDataSource":
         return InjectiveGranteeDataSource(
             private_key=self.private_key.get_secret_value(),
             subaccount_index=self.subaccount_index,
@@ -209,6 +227,7 @@ class InjectiveDelegatedAccountMode(InjectiveAccountMode):
             granter_subaccount_index=self.granter_subaccount_index,
             network=network,
             use_secure_connection=use_secure_connection,
+            rate_limits=rate_limits,
         )
 
 
@@ -245,7 +264,9 @@ class InjectiveVaultAccountMode(InjectiveAccountMode):
     class Config:
         title = "vault_account"
 
-    def create_data_source(self, network: Network, use_secure_connection: bool) -> "InjectiveDataSource":
+    def create_data_source(
+            self, network: Network, use_secure_connection: bool, rate_limits: List[RateLimit],
+    ) -> "InjectiveDataSource":
         return InjectiveVaultsDataSource(
             private_key=self.private_key.get_secret_value(),
             subaccount_index=self.subaccount_index,
@@ -253,16 +274,34 @@ class InjectiveVaultAccountMode(InjectiveAccountMode):
             vault_subaccount_index=self.vault_subaccount_index,
             network=network,
             use_secure_connection=use_secure_connection,
+            rate_limits=rate_limits,
+        )
+
+
+class InjectiveReadOnlyAccountMode(InjectiveAccountMode):
+
+    class Config:
+        title = "read_only_account"
+
+    def create_data_source(
+            self, network: Network, use_secure_connection: bool, rate_limits: List[RateLimit],
+    ) -> "InjectiveDataSource":
+        return InjectiveReadOnlyDataSource(
+            network=network,
+            use_secure_connection=use_secure_connection,
+            rate_limits=rate_limits,
         )
 
 
 ACCOUNT_MODES = {
     InjectiveDelegatedAccountMode.Config.title: InjectiveDelegatedAccountMode,
     InjectiveVaultAccountMode.Config.title: InjectiveVaultAccountMode,
+    InjectiveReadOnlyAccountMode.Config.title: InjectiveReadOnlyAccountMode,
 }
 
 
 class InjectiveConfigMap(BaseConnectorConfigMap):
+    # Setting a default dummy configuration to allow the bot to create a dummy instance to fetch all trading pairs
     connector: str = Field(default="injective_v2", const=True, client_data=None)
     receive_connector_configuration: bool = Field(
         default=True, const=True,
@@ -276,12 +315,7 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
         ),
     )
     account_type: Union[tuple(ACCOUNT_MODES.values())] = Field(
-        default=InjectiveDelegatedAccountMode(
-            private_key="0000000000000000000000000000000000000000000000000000000000000000",  # noqa: mock
-            subaccount_index=0,
-            granter_address="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",  # noqa: mock
-            granter_subaccount_index=0,
-        ),
+        default=InjectiveReadOnlyAccountMode(),
         client_data=ClientFieldData(
             prompt=lambda cm: f"Select the type of account configuration ({'/'.join(list(ACCOUNT_MODES.keys()))})",
             prompt_on_new=True,
@@ -317,7 +351,9 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
 
     def create_data_source(self):
         return self.account_type.create_data_source(
-            network=self.network.network(), use_secure_connection=self.network.use_secure_connection()
+            network=self.network.network(),
+            use_secure_connection=self.network.use_secure_connection(),
+            rate_limits=self.network.rate_limits(),
         )
 
 
