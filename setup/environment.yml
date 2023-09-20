@@ -1,12 +1,13 @@
 name: hummingbot
 channels:
-  - defaults
   - conda-forge
+  - defaults
 dependencies:
   - bidict
   - coverage
   - cython=3.0
   - grpcio-tools
+  - nomkl
   - nose=1.3.7
   - nose-exclude
   - numpy=1.23.5
