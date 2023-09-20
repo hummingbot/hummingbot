@@ -40,14 +40,6 @@ class TradingPairFetcher:
         connector = connector_setting.non_trading_connector_instance_with_default_configuration()
         safe_ensure_future(self.call_fetch_pairs(connector.all_trading_pairs(), connector_name))
 
-    def _fetch_pairs_from_connected(
-            self,
-            connector_setting: ConnectorSetting,
-            connector_name: Optional[str] = None):
-        connector_name = connector_setting.config_keys.connector
-        connector = connector_setting.non_trading_connector_instance_with_default_configuration()
-        safe_ensure_future(self.call_fetch_pairs(connector.all_trading_pairs(), connector_name))
-
     async def fetch_all(self, client_config_map: ClientConfigAdapter):
         connector_settings = self._all_connector_settings()
         """
