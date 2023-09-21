@@ -1005,7 +1005,7 @@ class FoxbitExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             "data": [
                 {
                     "sn": "OKMAKSDHRVVREK",
-                    "id": 21
+                    "id": "21"
                 }
             ]
         }
