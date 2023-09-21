@@ -1,8 +1,8 @@
-import asyncio
 import logging
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
+from hummingbot.client.config.security import Security
 from hummingbot.client.settings import AllConnectorSettings, ConnectorSetting
 from hummingbot.logger import HummingbotLogger
 
@@ -42,37 +42,32 @@ class TradingPairFetcher:
 
     async def fetch_all(self, client_config_map: ClientConfigAdapter):
         connector_settings = self._all_connector_settings()
-        """
-        XXX(martin_kou): Some connectors, e.g. uniswap v3, aren't completed yet. Ignore if you can't find the
-        data source module for them.
-        """
-        for conn_set in connector_settings.values():
-            if not self.fetch_pairs_from_all_exchanges:
-                c = f"{conn_set.config_keys}"
-                try:
-                    if ("SecretStr" in c) or conn_set.base_name().endswith("paper_trade"):
-                        await asyncio.sleep(4)
-                        self._fetch_pairs_from_connector_setting(
-                            connector_setting=connector_settings[conn_set.config_keys.connector],
-                            connector_name=conn_set.name)
-                except ModuleNotFoundError:
-                    continue
-                except Exception:
-                    self.logger().exception(f"An error occurred when fetching trading pairs for {conn_set.name}. "
-                                            "Please check the logs")
-            else:
-                try:
-                    if conn_set.base_name().endswith("paper_trade"):
-                        self._fetch_pairs_from_connector_setting(
-                            connector_setting=connector_settings[conn_set.parent_name],
-                            connector_name=conn_set.name)
-                    else:
-                        self._fetch_pairs_from_connector_setting(connector_setting=conn_set)
-                except ModuleNotFoundError:
-                    continue
-                except Exception:
-                    self.logger().exception(f"An error occurred when fetching trading pairs for {conn_set.name}. "
-                                            "Please check the logs")
+        for conn_setting in connector_settings.values():
+            # XXX(martin_kou): Some connectors, e.g. uniswap v3, aren't completed yet. Ignore if you can't find the
+            # data source module for them.
+            try:
+                if conn_setting.base_name().endswith("paper_trade"):
+                    self._fetch_pairs_from_connector_setting(
+                        connector_setting=connector_settings[conn_setting.parent_name],
+                        connector_name=conn_setting.name
+                    )
+                elif not self.fetch_pairs_from_all_exchanges:
+                    connector_config = ClientConfigAdapter(AllConnectorSettings.get_connector_config_keys(connector=conn_setting.name))
+                    if Security.connector_config_file_exists(connector_name=conn_setting.name):
+                        await Security.wait_til_decryption_done()
+                        api_key_config = [
+                            c.printable_value for c in connector_config.traverse(secure=False) if "api_key" in c.attr
+                        ]
+                        if api_key_config:
+                            self._fetch_pairs_from_connector_setting(connector_setting=conn_setting)
+                else:
+                    self._fetch_pairs_from_connector_setting(connector_setting=conn_setting)
+                    print(conn_setting)
+            except ModuleNotFoundError:
+                continue
+            except Exception:
+                self.logger().exception(f"An error occurred when fetching trading pairs for {conn_setting.name}."
+                                        "Please check the logs")
         self.ready = True
 
     async def call_fetch_pairs(self, fetch_fn: Callable[[], Awaitable[List[str]]], exchange_name: str):
