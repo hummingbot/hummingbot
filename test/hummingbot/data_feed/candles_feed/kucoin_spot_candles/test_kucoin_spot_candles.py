@@ -214,7 +214,7 @@ class TestKucoinSpotCandles(unittest.TestCase):
 
         self.listening_task = self.ev_loop.create_task(self.data_feed.listen_for_subscriptions())
 
-        self.async_run_with_timeout(self.resume_test_event.wait())
+        self.async_run_with_timeout(self.resume_test_event.wait(), timeout=1)
 
         self.assertTrue(
             self.is_logged(
@@ -272,6 +272,8 @@ class TestKucoinSpotCandles(unittest.TestCase):
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=ws_connect_mock.return_value,
             message=json.dumps(self.get_candles_ws_data_mock_1()))
+
+        self.data_feed._time = MagicMock(return_value=5)
 
         self.listening_task = self.ev_loop.create_task(self.data_feed.listen_for_subscriptions())
 
