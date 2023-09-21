@@ -60,6 +60,7 @@ class TradingPairFetcher:
                         ]
                         if api_key_config:
                             self._fetch_pairs_from_connector_setting(connector_setting=conn_setting)
+                            print(conn_setting)
                 else:
                     self._fetch_pairs_from_connector_setting(connector_setting=conn_setting)
             except ModuleNotFoundError:
