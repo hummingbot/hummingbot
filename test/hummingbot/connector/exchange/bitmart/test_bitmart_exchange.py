@@ -370,7 +370,7 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
 
     def validate_order_status_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
-        self.assertEqual(order.client_order_id, request_params["clientOrderId"])
+        self.assertEqual(order.exchange_order_id, request_params["order_id"])
 
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
