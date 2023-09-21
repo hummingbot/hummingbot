@@ -31,7 +31,7 @@ class KucoinSpotCandles(CandlesBase):
 
     @property
     def name(self):
-        return f"kucoin_spot_{self._trading_pair}"
+        return f"kucoin_{self._trading_pair}"
 
     @property
     def rest_url(self):
