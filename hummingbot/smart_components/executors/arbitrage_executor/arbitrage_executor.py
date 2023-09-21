@@ -10,8 +10,8 @@ from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketOrderFailureEvent, SellOrderCreatedEvent
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.logger import HummingbotLogger
-from hummingbot.smart_components.arbitrage_executor.data_types import ArbitrageConfig, ArbitrageExecutorStatus
-from hummingbot.smart_components.position_executor.data_types import TrackedOrder
+from hummingbot.smart_components.executors.arbitrage_executor.data_types import ArbitrageConfig, ArbitrageExecutorStatus
+from hummingbot.smart_components.executors.position_executor.data_types import TrackedOrder
 from hummingbot.smart_components.smart_component_base import SmartComponentBase
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
