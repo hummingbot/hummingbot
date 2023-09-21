@@ -27,7 +27,7 @@ class GateioSpotCandles(CandlesBase):
 
     @property
     def name(self):
-        return f"gate_io_spot_{self._trading_pair}"
+        return f"gate_io_{self._trading_pair}"
 
     @property
     def rest_url(self):

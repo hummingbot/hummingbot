@@ -8,7 +8,7 @@ from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PriceType, TradeType
 from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.event.events import BuyOrderCompletedEvent, OrderFilledEvent, SellOrderCompletedEvent
-from hummingbot.data_feed.candles_feed.candles_factory import CandlesFactory
+from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig, CandlesFactory
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
@@ -43,9 +43,7 @@ class PMMhShiftedMidPriceDynamicSpread(ScriptStrategyBase):
     exchange = "binance"
 
     # Creating instance of the candles
-    candles = CandlesFactory.get_candle(connector=exchange,
-                                        trading_pair=trading_pair,
-                                        interval="3m")
+    candles = CandlesFactory.get_candle(CandlesConfig(connector=exchange, trading_pair=trading_pair, interval="3m", max_records=1000))
 
     # Variables to store the volume and quantity of orders
 
