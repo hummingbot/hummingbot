@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from hummingbot.data_feed.candles_feed.candles_factory import CandlesFactory
+from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig, CandlesFactory
 from hummingbot.strategy.directional_strategy_base import DirectionalStrategyBase
 
 
@@ -49,9 +49,7 @@ class MacdBB(DirectionalStrategyBase):
     trailing_stop_activation_delta = 0.003
     trailing_stop_trailing_delta = 0.0007
 
-    candles = [CandlesFactory.get_candle(connector=exchange,
-                                         trading_pair=trading_pair,
-                                         interval="3m", max_records=150)]
+    candles = [CandlesFactory.get_candle(CandlesConfig(connector=exchange, trading_pair=trading_pair, interval="3m", max_records=1000))]
     markets = {exchange: {trading_pair}}
 
     def get_signal(self):
