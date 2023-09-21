@@ -33,7 +33,7 @@ class BuildExt(build_ext):
 
 def main():
     cpu_count = os.cpu_count() or 8
-    version = "20230830"
+    version = "20230930"
     all_packages = find_packages(include=["hummingbot", "hummingbot.*"], )
     excluded_paths = ["hummingbot.connector.exchange.injective_v2",
                       "hummingbot.connector.derivative.injective_v2_perpetual",
@@ -63,7 +63,7 @@ def main():
         "certifi",
         "coincurve",
         "cryptography",
-        "cython==3.0.0a10",
+        "cython==3.0.0",
         "cytoolz",
         "commlib-py",
         "docker",
@@ -79,8 +79,6 @@ def main():
         "ethsnarks-loopring",
         "flake8",
         "gql",
-        "grpcio",
-        "grpcio-tools"
         "hexbytes",
         "importlib-metadata",
         "injective-py",
