@@ -335,22 +335,20 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         return self._token_accounts[quote]
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
-        blxr_client_order_id = convert_hbot_client_order_id(order_id)
+        # blxr_client_order_id = convert_hbot_client_order_id(order_id)
         if tracked_order.trading_pair not in self._open_orders_address_mapper:
             raise Exception("have to place an order before cancelling it")
         open_orders_address = self._open_orders_address_mapper[tracked_order.trading_pair]
 
         await self._mainnet_provider.wait_connect()
         try:
-            await self._mainnet_provider.post_cancel_by_client_order_id(api.PostCancelByClientOrderIdRequest(
+            await self._mainnet_provider.post_cancel_order_v2(api.PostCancelOrderRequestV2(
                 owner_address=self._sol_wallet_public_key,
                 market_address=tracked_order.trading_pair,
                 open_orders_address=open_orders_address,
-                client_order_id=blxr_client_order_id,
-                project=api.Project.P_OPENBOOK,
             ))
-        except Exception:
-            return False
+        except Exception as e:
+            raise Exception('cancel order failed with', {e})
 
         return True
 
