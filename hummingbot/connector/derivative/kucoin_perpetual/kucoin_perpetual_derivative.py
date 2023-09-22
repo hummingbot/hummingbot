@@ -419,7 +419,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
         self._account_balances.clear()
 
         if wallet_balance["data"] is not None:
-            if isinstance(wallet_balance["data"],list):
+            if isinstance(wallet_balance["data"], list):
                 for balance_data in wallet_balance["data"]:
                     currency = str(balance_data["currency"])
                     self._account_balances[currency] = Decimal(str(balance_data["marginBalance"]))
