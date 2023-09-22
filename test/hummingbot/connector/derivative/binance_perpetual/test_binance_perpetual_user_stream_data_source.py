@@ -158,7 +158,7 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_get_listen_key_exception_raised(self, mock_api):
-        url = web_utils.rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.post(regex_url, status=400, body=ujson.dumps(self._error_response()))
@@ -168,7 +168,7 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_get_listen_key_successful(self, mock_api):
-        url = web_utils.rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.post(regex_url, body=self._successful_get_listen_key_response())
@@ -179,7 +179,7 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_ping_listen_key_failed_log_warning(self, mock_api):
-        url = web_utils.rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.put(regex_url, status=400, body=ujson.dumps(self._error_response()))
@@ -194,7 +194,7 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_ping_listen_key_successful(self, mock_api):
-        url = web_utils.rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.put(regex_url, body=ujson.dumps({}))
@@ -207,7 +207,7 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
     @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_create_websocket_connection_log_exception(self, mock_api, mock_ws, _):
-        url = web_utils.rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.post(regex_url, body=self._successful_get_listen_key_response())
@@ -229,7 +229,7 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_manage_listen_key_task_loop_keep_alive_failed(self, mock_api):
-        url = web_utils.rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.put(
@@ -251,7 +251,7 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_manage_listen_key_task_loop_keep_alive_successful(self, mock_api):
-        url = web_utils.rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.put(regex_url, body=ujson.dumps({}), callback=self._mock_responses_done_callback)
@@ -271,7 +271,7 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_user_stream_create_websocket_connection_failed(self, mock_api, mock_ws):
-        url = web_utils.rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.post(regex_url, body=self._successful_get_listen_key_response())
@@ -299,7 +299,7 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")
     def test_listen_for_user_stream_iter_message_throws_exception(self, mock_api, _, mock_ws):
-        url = web_utils.rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_response = {"listenKey": self.listen_key}
@@ -329,7 +329,7 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_user_stream_successful(self, mock_api, mock_ws):
-        url = web_utils.rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.post(regex_url, body=self._successful_get_listen_key_response())
@@ -348,7 +348,7 @@ class BinancePerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_listen_for_user_stream_does_not_queue_empty_payload(self, mock_api, mock_ws):
-        url = web_utils.rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.post(regex_url, body=self._successful_get_listen_key_response())
