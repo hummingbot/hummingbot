@@ -4,11 +4,11 @@ from decimal import Decimal
 from typing import Dict, Tuple
 
 from pyinjective.constant import (
-    Network,
     devnet_config as DEVNET_TOKEN_META_CONFIG,
     mainnet_config as MAINNET_TOKEN_META_CONFIG,
     testnet_config as TESTNET_TOKEN_META_CONFIG,
 )
+from pyinjective.core.network import Network
 
 from hummingbot.connector.constants import MINUTE, SECOND
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit

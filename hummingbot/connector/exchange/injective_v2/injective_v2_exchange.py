@@ -323,15 +323,16 @@ class InjectiveV2Exchange(ExchangePyBase):
         :param price: the order price
         """
         try:
-            if price is None:
+            if price is None or price.is_nan():
                 calculated_price = self.get_price_for_volume(
                     trading_pair=trading_pair,
                     is_buy=trade_type == TradeType.BUY,
                     volume=amount,
                 ).result_price
-                calculated_price = self.quantize_order_price(trading_pair, calculated_price)
             else:
                 calculated_price = price
+
+            calculated_price = self.quantize_order_price(trading_pair, calculated_price)
 
             await super()._create_order(
                 trade_type=trade_type,
