@@ -615,7 +615,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
         if "changeReason" in position_msg and position_msg["changeReason"] != "markPriceChange":
             ex_trading_pair = position_msg["symbol"]
             trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=ex_trading_pair)
-            amount = Decimal(str(position_msg["currentQty"]))
+            amount = self.get_value_of_contracts(trading_pair, int(str(position_msg["currentQty"])))
             position_side = PositionSide.SHORT if amount < 0 else PositionSide.LONG
             entry_price = Decimal(str(position_msg["avgEntryPrice"]))
             leverage = Decimal(str(position_msg["realLeverage"]))
