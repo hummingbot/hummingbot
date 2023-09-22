@@ -10,6 +10,7 @@ from aioresponses import aioresponses
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.client.config.security import Security
 from hummingbot.client.settings import ConnectorSetting, ConnectorType
 from hummingbot.connector.exchange.binance import binance_constants as CONSTANTS, binance_web_utils
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
@@ -88,6 +89,29 @@ class TestTradingPairFetcher(unittest.TestCase):
         trading_pairs = trading_pair_fetcher.trading_pairs
         self.assertEqual(2, len(trading_pairs))
         self.assertEqual({"mockConnector": ["MOCK-HBOT"], "mock_paper_trade": ["MOCK-HBOT"]}, trading_pairs)
+
+    @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher._all_connector_settings")
+    @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher._sf_shared_instance")
+    @patch("hummingbot.client.config.security.Security.connector_config_file_exists")
+    @patch("hummingbot.client.config.security.Security.wait_til_decryption_done")
+    @patch("hummingbot.client.config.security.Security.api_keys")
+    def test_fetched_connected_trading_pairs(self, _, api_keys_mock: AsyncMock, __: MagicMock, ___: MagicMock, mock_connector_settings):
+        connector = AsyncMock()
+        connector.all_trading_pairs.return_value = ["MOCK-HBOT"]
+        mock_connector_settings.return_value = {
+            "mock_exchange_1": self.MockConnectorSetting(name="binance", connector=connector)
+        }
+
+        client_config_map = ClientConfigAdapter(ClientConfigMap())
+        client_config_map.fetch_pairs_from_all_exchanges = False
+        self.assertTrue(Security.connector_config_file_exists("binance"))
+        self.async_run_with_timeout(Security.wait_til_decryption_done())
+        api_keys_mock.return_value = True
+        trading_pair_fetcher = TradingPairFetcher(client_config_map)
+        self.async_run_with_timeout(self.wait_until_trading_pair_fetcher_ready(trading_pair_fetcher), 1.0)
+        trading_pairs = trading_pair_fetcher.trading_pairs
+        self.assertEqual(1, len(trading_pairs))
+        self.assertEqual({"binance": ["MOCK-HBOT"]}, trading_pairs)
 
     @aioresponses()
     @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher._all_connector_settings")
