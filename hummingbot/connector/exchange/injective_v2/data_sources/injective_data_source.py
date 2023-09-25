@@ -1,12 +1,10 @@
 import asyncio
 import logging
-import os
 import time
 from abc import ABC, abstractmethod
 from decimal import Decimal
 from enum import Enum
 from functools import partial
-from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from google.protobuf import any_pb2
@@ -66,11 +64,6 @@ class InjectiveDataSource(ABC):
 
     @property
     @abstractmethod
-    def composer(self) -> Composer:
-        raise NotImplementedError
-
-    @property
-    @abstractmethod
     def order_creation_lock(self) -> asyncio.Lock:
         raise NotImplementedError
 
@@ -112,6 +105,10 @@ class InjectiveDataSource(ABC):
     @property
     @abstractmethod
     def network_name(self) -> str:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def composer(self) -> Composer:
         raise NotImplementedError
 
     @abstractmethod
@@ -265,8 +262,6 @@ class InjectiveDataSource(ABC):
     async def stop(self):
         for task in self.events_listening_tasks():
             task.cancel()
-        cookie_file_path = Path(self._chain_cookie_file_path())
-        cookie_file_path.unlink(missing_ok=True)
 
     def add_listener(self, event_tag: Enum, listener: EventListener):
         self.publisher.add_listener(event_tag=event_tag, listener=listener)
@@ -452,6 +447,8 @@ class InjectiveDataSource(ABC):
                 except asyncio.CancelledError:
                     raise
                 except Exception as ex:
+                    self.logger().debug(
+                        f"Error broadcasting transaction to create orders (message: {order_creation_messages})")
                     results = self._place_order_results(
                         orders_to_create=spot_orders + perpetual_orders,
                         order_hashes=spot_order_hashes + derivative_order_hashes,
@@ -484,7 +481,7 @@ class InjectiveDataSource(ABC):
                     ))
                 else:
                     market_id = await self.market_id_for_spot_trading_pair(trading_pair=order.trading_pair)
-                    order_data = self._generate_injective_order_data(order=order, market_id=market_id)
+                    order_data = await self._generate_injective_order_data(order=order, market_id=market_id)
                     spot_orders_data.append(order_data)
                     orders_with_hash.append(order)
 
@@ -497,38 +494,40 @@ class InjectiveDataSource(ABC):
                     ))
                 else:
                     market_id = await self.market_id_for_derivative_trading_pair(trading_pair=order.trading_pair)
-                    order_data = self._generate_injective_order_data(order=order, market_id=market_id)
+                    order_data = await self._generate_injective_order_data(order=order, market_id=market_id)
                     derivative_orders_data.append(order_data)
                     orders_with_hash.append(order)
 
-            delegated_message = self._order_cancel_message(
-                spot_orders_to_cancel=spot_orders_data,
-                derivative_orders_to_cancel=derivative_orders_data,
-            )
+            if len(orders_with_hash) > 0:
+                delegated_message = await self._order_cancel_message(
+                    spot_orders_to_cancel=spot_orders_data,
+                    derivative_orders_to_cancel=derivative_orders_data,
+                )
 
-            try:
-                result = await self._send_in_transaction(messages=[delegated_message])
-                if result["rawLog"] != "[]":
-                    raise ValueError(f"Error sending the order cancel transaction ({result['rawLog']})")
-                else:
-                    cancel_transaction_hash = result.get("txhash", "")
+                try:
+                    result = await self._send_in_transaction(messages=[delegated_message])
+                    if result["rawLog"] != "[]":
+                        raise ValueError(f"Error sending the order cancel transaction ({result['rawLog']})")
+                    else:
+                        cancel_transaction_hash = result.get("txhash", "")
+                        results.extend([
+                            CancelOrderResult(
+                                client_order_id=order.client_order_id,
+                                trading_pair=order.trading_pair,
+                                misc_updates={"cancelation_transaction_hash": cancel_transaction_hash},
+                            ) for order in orders_with_hash
+                        ])
+                except asyncio.CancelledError:
+                    raise
+                except Exception as ex:
+                    self.logger().debug(f"Error broadcasting transaction to cancel orders (message: {delegated_message})")
                     results.extend([
                         CancelOrderResult(
                             client_order_id=order.client_order_id,
                             trading_pair=order.trading_pair,
-                            misc_updates={"cancelation_transaction_hash": cancel_transaction_hash},
+                            exception=ex,
                         ) for order in orders_with_hash
                     ])
-            except asyncio.CancelledError:
-                raise
-            except Exception as ex:
-                results.extend([
-                    CancelOrderResult(
-                        client_order_id=order.client_order_id,
-                        trading_pair=order.trading_pair,
-                        exception=ex,
-                    ) for order in orders_with_hash
-                ])
 
         return results
 
@@ -540,7 +539,7 @@ class InjectiveDataSource(ABC):
         spot_markets_ids = spot_markets_ids or []
         perpetual_markets_ids = perpetual_markets_ids or []
 
-        delegated_message = self._all_subaccount_orders_cancel_message(
+        delegated_message = await self._all_subaccount_orders_cancel_message(
             spot_markets_ids=spot_markets_ids,
             derivative_markets_ids=perpetual_markets_ids,
         )
@@ -739,7 +738,7 @@ class InjectiveDataSource(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def _calculate_order_hashes(
+    async def _calculate_order_hashes(
             self,
             spot_orders: List[GatewayInFlightOrder],
             derivative_orders: [GatewayPerpetualInFlightOrder]
@@ -759,7 +758,7 @@ class InjectiveDataSource(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def _order_cancel_message(
+    async def _order_cancel_message(
             self,
             spot_orders_to_cancel: List[injective_exchange_tx_pb.OrderData],
             derivative_orders_to_cancel: List[injective_exchange_tx_pb.OrderData]
@@ -767,7 +766,7 @@ class InjectiveDataSource(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def _all_subaccount_orders_cancel_message(
+    async def _all_subaccount_orders_cancel_message(
             self,
             spot_markets_ids: List[str],
             derivative_markets_ids: List[str]
@@ -775,7 +774,7 @@ class InjectiveDataSource(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def _generate_injective_order_data(self, order: GatewayInFlightOrder, market_id: str) -> injective_exchange_tx_pb.OrderData:
+    async def _generate_injective_order_data(self, order: GatewayInFlightOrder, market_id: str) -> injective_exchange_tx_pb.OrderData:
         raise NotImplementedError
 
     @abstractmethod
@@ -792,9 +791,6 @@ class InjectiveDataSource(ABC):
     ) -> List[PlaceOrderResult]:
         raise NotImplementedError
 
-    def _chain_cookie_file_path(self) -> str:
-        return f"{os.path.join(os.path.dirname(__file__), '../.injective_cookie')}"
-
     async def _last_traded_price(self, market_id: str) -> Decimal:
         price = Decimal("nan")
         if market_id in await self.spot_market_and_trading_pair_map():
@@ -804,9 +800,10 @@ class InjectiveDataSource(ABC):
                     market_ids=[market_id],
                     limit=1,
                 )
-            if len(trades_response["trades"]) > 0:
+            trades = trades_response.get("trades", [])
+            if len(trades) > 0:
                 price = market.price_from_chain_format(
-                    chain_price=Decimal(trades_response["trades"][0]["price"]["price"]))
+                    chain_price=Decimal(trades[0]["price"]["price"]))
 
         else:
             market = await self.derivative_market_info_for_id(market_id=market_id)
@@ -815,7 +812,8 @@ class InjectiveDataSource(ABC):
                     market_ids=[market_id],
                     limit=1,
                 )
-            if len(trades_response["trades"]) > 0:
+            trades = trades_response.get("trades", [])
+            if len(trades) > 0:
                 price = market.price_from_chain_format(
                     chain_price=Decimal(trades_response["trades"][0]["positionDelta"]["executionPrice"]))
 
@@ -829,7 +827,7 @@ class InjectiveDataSource(ABC):
         while executed_tries < retries and not found:
             executed_tries += 1
             try:
-                async with self.throttler.execute_task(limit_id=CONSTANTS.SPOT_ORDERS_HISTORY_LIMIT_ID):
+                async with self.throttler.execute_task(limit_id=CONSTANTS.GET_TRANSACTION_CHAIN_LIMIT_ID):
                     block_height = await self.query_executor.get_tx_block_height(tx_hash=tx_hash)
                 found = True
             except ValueError:
@@ -1035,8 +1033,9 @@ class InjectiveDataSource(ABC):
                     await self.initialize_trading_account()
                 raise
 
+        composer = await self.composer()
         gas_limit = int(simulation_result["gasInfo"]["gasUsed"]) + CONSTANTS.EXTRA_TRANSACTION_GAS
-        fee = [self.composer.Coin(
+        fee = [composer.Coin(
             amount=gas_limit * CONSTANTS.DEFAULT_GAS_PRICE,
             denom=self.fee_denom,
         )]
@@ -1293,8 +1292,9 @@ class InjectiveDataSource(ABC):
         self.publisher.trigger_event(event_tag=InjectiveEvent.ChainTransactionEvent, message=transaction_event)
 
     async def _create_spot_order_definition(self, order: GatewayInFlightOrder):
+        composer = await self.composer()
         market_id = await self.market_id_for_spot_trading_pair(order.trading_pair)
-        definition = self.composer.SpotOrder(
+        definition = composer.SpotOrder(
             market_id=market_id,
             subaccount_id=self.portfolio_account_subaccount_id,
             fee_recipient=self.portfolio_account_injective_address,
@@ -1306,8 +1306,9 @@ class InjectiveDataSource(ABC):
         return definition
 
     async def _create_derivative_order_definition(self, order: GatewayPerpetualInFlightOrder):
+        composer = await self.composer()
         market_id = await self.market_id_for_derivative_trading_pair(order.trading_pair)
-        definition = self.composer.DerivativeOrder(
+        definition = composer.DerivativeOrder(
             market_id=market_id,
             subaccount_id=self.portfolio_account_subaccount_id,
             fee_recipient=self.portfolio_account_injective_address,

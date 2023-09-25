@@ -61,19 +61,16 @@ class AsyncThrottlerUnitTests(unittest.TestCase):
         self.assertEqual(1, self.throttler._id_to_limit_map[TEST_POOL_ID].limit)
         self.assertEqual(1, self.throttler._id_to_limit_map[TEST_PATH_URL].limit)
 
-    @patch("hummingbot.core.api_throttler.async_throttler_base.AsyncThrottlerBase._client_config_map")
-    def test_init_with_rate_limits_share_pct(self, config_map_mock):
+    def test_init_with_rate_limits_share_pct(self):
 
         rate_share_pct: Decimal = Decimal("55")
-        self.client_config_map.rate_limits_share_pct = rate_share_pct
-        config_map_mock.return_value = self.client_config_map
-        self.throttler = AsyncThrottler(rate_limits=self.rate_limits)
+        self.throttler = AsyncThrottler(rate_limits=self.rate_limits, limits_share_percentage=rate_share_pct)
 
         rate_limits = self.rate_limits.copy()
         rate_limits.append(RateLimit(limit_id="ANOTHER_TEST", limit=10, time_interval=5))
         expected_limit = math.floor(Decimal("10") * rate_share_pct / Decimal("100"))
 
-        throttler = AsyncThrottler(rate_limits=rate_limits)
+        throttler = AsyncThrottler(rate_limits=rate_limits, limits_share_percentage=rate_share_pct)
         self.assertEqual(0.1, throttler._retry_interval)
         self.assertEqual(6, len(throttler._rate_limits))
         self.assertEqual(Decimal("1"), throttler._id_to_limit_map[TEST_POOL_ID].limit)

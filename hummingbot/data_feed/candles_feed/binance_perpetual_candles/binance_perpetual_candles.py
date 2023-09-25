@@ -26,7 +26,7 @@ class BinancePerpetualCandles(CandlesBase):
 
     @property
     def name(self):
-        return f"binance_perpetuals_{self._trading_pair}"
+        return f"binance_perpetual_{self._trading_pair}"
 
     @property
     def rest_url(self):

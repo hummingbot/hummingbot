@@ -14,6 +14,7 @@ from aioresponses.core import RequestCall
 from bidict import bidict
 from grpc import RpcError
 from pyinjective import Address, PrivateKey
+from pyinjective.composer import Composer
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -504,6 +505,9 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         exchange._data_source._query_executor = ProgrammableQueryExecutor()
         exchange._data_source._spot_market_and_trading_pair_map = bidict()
         exchange._data_source._derivative_market_and_trading_pair_map = bidict({self.market_id: self.trading_pair})
+
+        exchange._data_source._composer = Composer(network=exchange._data_source.network_name)
+
         return exchange
 
     def validate_auth_credentials_present(self, request_call: RequestCall):

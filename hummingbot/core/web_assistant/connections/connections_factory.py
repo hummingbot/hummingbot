@@ -1,6 +1,7 @@
 from typing import Optional
 
 import aiohttp
+
 from hummingbot.core.web_assistant.connections.rest_connection import RESTConnection
 from hummingbot.core.web_assistant.connections.ws_connection import WSConnection
 
@@ -18,6 +19,9 @@ class ConnectionsFactory:
     """
 
     def __init__(self):
+        # _ws_independent_session is intended to be used only in unit tests
+        self._ws_independent_session: Optional[aiohttp.ClientSession] = None
+
         self._shared_client: Optional[aiohttp.ClientSession] = None
 
     async def get_rest_connection(self) -> RESTConnection:
@@ -26,7 +30,7 @@ class ConnectionsFactory:
         return connection
 
     async def get_ws_connection(self) -> WSConnection:
-        shared_client = await self._get_shared_client()
+        shared_client = self._ws_independent_session or await self._get_shared_client()
         connection = WSConnection(aiohttp_client_session=shared_client)
         return connection
 
