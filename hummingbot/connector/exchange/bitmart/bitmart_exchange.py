@@ -232,7 +232,6 @@ class BitmartExchange(ExchangePyBase):
                          "quote_currency":"BTC",
                          "quote_increment":"1.00000000",
                          "base_min_size":"1.00000000",
-                         "base_max_size":"10000000.00000000",
                          "price_min_precision":6,
                          "price_max_precision":8,
                          "expiration":"NA",
@@ -254,7 +253,6 @@ class BitmartExchange(ExchangePyBase):
                     price_step = Decimal("1") / Decimal(str(math.pow(10, price_decimals)))
                     result.append(TradingRule(trading_pair=trading_pair,
                                               min_order_size=Decimal(str(rule["base_min_size"])),
-                                              max_order_size=Decimal(str(rule["base_max_size"])),
                                               min_order_value=Decimal(str(rule["min_buy_amount"])),
                                               min_base_amount_increment=Decimal(str(rule["base_min_size"])),
                                               min_price_increment=price_step))
@@ -291,7 +289,7 @@ class BitmartExchange(ExchangePyBase):
     async def _request_order_update(self, order: InFlightOrder) -> Dict[str, Any]:
         return await self._api_get(
             path_url=CONSTANTS.GET_ORDER_DETAIL_PATH_URL,
-            params={"clientOrderId": order.client_order_id},
+            params={"order_id": order.exchange_order_id},
             is_auth_required=True)
 
     async def _request_order_fills(self, order: InFlightOrder) -> Dict[str, Any]:
