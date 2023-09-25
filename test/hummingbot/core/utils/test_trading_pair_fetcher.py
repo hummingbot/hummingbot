@@ -99,7 +99,8 @@ class TestTradingPairFetcher(unittest.TestCase):
         connector = AsyncMock()
         connector.all_trading_pairs.return_value = ["MOCK-HBOT"]
         mock_connector_settings.return_value = {
-            "mock_exchange_1": self.MockConnectorSetting(name="binance", connector=connector)
+            "mock_exchange_1": self.MockConnectorSetting(name="binance", connector=connector),
+            "mock_paper_trade": self.MockConnectorSetting(name="mock_paper_trade", parent_name="mock_exchange_1")
         }
 
         client_config_map = ClientConfigAdapter(ClientConfigMap())
@@ -110,8 +111,8 @@ class TestTradingPairFetcher(unittest.TestCase):
         trading_pair_fetcher = TradingPairFetcher(client_config_map)
         self.async_run_with_timeout(self.wait_until_trading_pair_fetcher_ready(trading_pair_fetcher), 1.0)
         trading_pairs = trading_pair_fetcher.trading_pairs
-        self.assertEqual(1, len(trading_pairs))
-        self.assertEqual({"binance": ["MOCK-HBOT"]}, trading_pairs)
+        self.assertEqual(2, len(trading_pairs))
+        self.assertEqual({"binance": ["MOCK-HBOT"], "mock_paper_trade": ["MOCK-HBOT"]}, trading_pairs)
 
     @aioresponses()
     @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher._all_connector_settings")
