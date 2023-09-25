@@ -50,12 +50,12 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
     web_utils = web_utils
 
     def __init__(
-        self,
-        client_config_map: "ClientConfigAdapter",
-        bloxroute_auth_header: str,
-        solana_wallet_private_key: str,
-        trading_pairs: Optional[List[str]] = None,
-        trading_required: bool = True,
+            self,
+            client_config_map: "ClientConfigAdapter",
+            bloxroute_auth_header: str,
+            solana_wallet_private_key: str,
+            trading_pairs: Optional[List[str]] = None,
+            trading_required: bool = True,
     ):
         """
         :param bloxroute_auth_header: The bloXroute Labs authorization header to connect with the Solana Trader API
@@ -192,16 +192,16 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         return ""
 
     def _api_request(
-        self,
-        path_url,
-        overwrite_url: Optional[str] = None,
-        method: RESTMethod = RESTMethod.GET,
-        params: Optional[Dict[str, Any]] = None,
-        data: Optional[Dict[str, Any]] = None,
-        is_auth_required: bool = False,
-        return_err: bool = False,
-        limit_id: Optional[str] = None,
-        **kwargs,
+            self,
+            path_url,
+            overwrite_url: Optional[str] = None,
+            method: RESTMethod = RESTMethod.GET,
+            params: Optional[Dict[str, Any]] = None,
+            data: Optional[Dict[str, Any]] = None,
+            is_auth_required: bool = False,
+            return_err: bool = False,
+            limit_id: Optional[str] = None,
+            **kwargs,
     ) -> Dict[str, Any]:
         raise NotImplementedError
 
@@ -213,7 +213,8 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         await self._order_manager.ready()
 
         try:
-            server_response: bxsolana_trader_proto.api.GetServerTimeResponse = await self._mainnet_provider.get_server_time(api.GetServerTimeRequest())
+            server_response: bxsolana_trader_proto.api.GetServerTimeResponse = await self._mainnet_provider.get_server_time(
+                api.GetServerTimeRequest())
             if server_response.timestamp:
                 return NetworkStatus.CONNECTED
             else:
@@ -269,26 +270,26 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         pass
 
     def _get_fee(
-        self,
-        base_currency: str,
-        quote_currency: str,
-        order_type: OrderType,
-        order_side: TradeType,
-        amount: Decimal,
-        price: Decimal = s_decimal_NaN,
-        is_maker: Optional[bool] = None,
+            self,
+            base_currency: str,
+            quote_currency: str,
+            order_type: OrderType,
+            order_side: TradeType,
+            amount: Decimal,
+            price: Decimal = s_decimal_NaN,
+            is_maker: Optional[bool] = None,
     ) -> TradeFeeBase:
         return DeductedFromReturnsTradeFee(percent=Decimal(0))
 
     async def _place_order(
-        self,
-        order_id: str,
-        trading_pair: str,
-        amount: Decimal,
-        trade_type: TradeType,
-        order_type: OrderType,
-        price: Decimal,
-        **kwargs,
+            self,
+            order_id: str,
+            trading_pair: str,
+            amount: Decimal,
+            trade_type: TradeType,
+            order_type: OrderType,
+            price: Decimal,
+            **kwargs,
     ) -> Tuple[str, float]:
         blxr_order_type = convert_hbot_order_type(order_type)
         blxr_side = convert_hbot_trade_type(trade_type)
@@ -335,20 +336,24 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         return self._token_accounts[quote]
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
-        # blxr_client_order_id = convert_hbot_client_order_id(order_id)
+        blxr_client_order_id = convert_hbot_client_order_id(order_id)
         if tracked_order.trading_pair not in self._open_orders_address_mapper:
             raise Exception("have to place an order before cancelling it")
         open_orders_address = self._open_orders_address_mapper[tracked_order.trading_pair]
 
         await self._mainnet_provider.wait_connect()
         try:
-            await self._mainnet_provider.post_cancel_order_v2(api.PostCancelOrderRequestV2(
+            await self._mainnet_provider.submit_cancel_by_client_order_id(
                 owner_address=self._sol_wallet_public_key,
                 market_address=tracked_order.trading_pair,
                 open_orders_address=open_orders_address,
-            ))
-        except Exception as e:
-            raise Exception('cancel order failed with', {e})
+                client_order_id=blxr_client_order_id,
+                project=api.Project.P_OPENBOOK,
+                skip_pre_flight=True,
+            )
+
+        except Exception:
+            return False
 
         return True
 
@@ -362,8 +367,8 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
 
             quantity_precision = market.base_decimals
             price_precision = market.quote_decimals
-            min_order_size = Decimal(str(10**-quantity_precision))
-            min_quote_amount = Decimal(str(10**-price_precision))
+            min_order_size = Decimal(str(10 ** -quantity_precision))
+            min_quote_amount = Decimal(str(10 ** -price_precision))
             trading_rules.append(
                 TradingRule(
                     trading_pair=trading_pair,
@@ -394,7 +399,8 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
 
     async def _update_balances(self):
         await self._mainnet_provider.wait_connect()
-        account_balance = await self._mainnet_provider.get_account_balance(api.GetAccountBalanceRequest(owner_address=self._sol_wallet_public_key))
+        account_balance = await self._mainnet_provider.get_account_balance(
+            api.GetAccountBalanceRequest(owner_address=self._sol_wallet_public_key))
         for token_info in account_balance.tokens:
             symbol = token_info.symbol
             if symbol == "wSOL":
@@ -410,8 +416,8 @@ class BloxrouteOpenbookExchange(ExchangePyBase):
         trade_updates = []
         for order_update in order_updates:
             if (
-                order_update.order_status == api.OrderStatus.OS_FILLED
-                or order_update.order_status == api.OrderStatus.OS_PARTIAL_FILL
+                    order_update.order_status == api.OrderStatus.OS_FILLED
+                    or order_update.order_status == api.OrderStatus.OS_PARTIAL_FILL
             ):
                 side = order_update.side
                 fill_price = Decimal(order_update.fill_price)
