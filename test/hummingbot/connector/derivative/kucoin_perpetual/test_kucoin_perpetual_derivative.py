@@ -1018,7 +1018,7 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                 "changeReason": "positionChange",
                 "currentCost": str(position_value),
                 "openingTimestamp": 1558433191000,
-                "currentQty": -float(order.amount),
+                "currentQty": -int(order.amount),
                 "delevPercentage": 0.52,
                 "currentComm": 0.00000271,
                 "realisedGrossCost": 0E-8,
