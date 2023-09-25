@@ -1560,6 +1560,7 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
     @aioresponses()
     def test_user_stream_update_for_order_full_fill(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
+        self._simulate_trading_rules_initialized()
         leverage = 2
         self.exchange._perpetual_trading.set_leverage(self.trading_pair, leverage)
         self.exchange.start_tracking_order(
