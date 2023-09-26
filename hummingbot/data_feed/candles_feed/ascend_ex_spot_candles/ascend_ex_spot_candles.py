@@ -26,7 +26,7 @@ class AscendExSpotCandles(CandlesBase):
 
     @property
     def name(self):
-        return f"ascend_ex_spot_{self._trading_pair}"
+        return f"ascend_ex_{self._trading_pair}"
 
     @property
     def rest_url(self):
