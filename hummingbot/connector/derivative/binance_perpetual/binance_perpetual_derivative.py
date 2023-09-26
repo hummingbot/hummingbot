@@ -113,7 +113,7 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def funding_fee_poll_interval(self) -> int:
-        return 120
+        return 600
 
     def supported_order_types(self) -> List[OrderType]:
         """
