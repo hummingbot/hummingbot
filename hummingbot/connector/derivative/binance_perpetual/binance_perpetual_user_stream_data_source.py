@@ -59,7 +59,7 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         rest_assistant = await self._api_factory.get_rest_assistant()
         try:
             data = await rest_assistant.execute_request(
-                url=web_utils.public_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self._domain),
+                url=web_utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self._domain),
                 method=RESTMethod.POST,
                 throttler_limit_id=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT,
                 headers=self._auth.header_for_authentication()
@@ -71,7 +71,7 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
 
         return data["listenKey"]
 
-    async def ping_listen_key(self) -> bool:
+    async def _ping_listen_key(self) -> bool:
         try:
             data = await self._connector._api_put(
                 path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT,
