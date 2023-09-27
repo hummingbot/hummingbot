@@ -10,8 +10,8 @@ from hummingbot import data_path
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
-from hummingbot.smart_components.position_executor.data_types import PositionConfig, TrailingStop
-from hummingbot.smart_components.position_executor.position_executor import PositionExecutor
+from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig, TrailingStop
+from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
@@ -165,6 +165,13 @@ class DirectionalStrategyBase(ScriptStrategyBase):
             side = TradeType.BUY if signal == 1 else TradeType.SELL
             if self.open_order_type.is_limit_type():
                 price = price * (1 - signal * self.open_order_slippage_buffer)
+            if self.trailing_stop_activation_delta and self.trailing_stop_trailing_delta:
+                trailing_stop = TrailingStop(
+                    activation_price_delta=Decimal(self.trailing_stop_activation_delta),
+                    trailing_delta=Decimal(self.trailing_stop_trailing_delta),
+                )
+            else:
+                trailing_stop = None
             position_config = PositionConfig(
                 timestamp=self.current_timestamp,
                 trading_pair=self.trading_pair,
@@ -179,10 +186,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
                 take_profit_order_type=self.take_profit_order_type,
                 stop_loss_order_type=self.stop_loss_order_type,
                 time_limit_order_type=self.time_limit_order_type,
-                trailing_stop=TrailingStop(
-                    activation_price_delta=Decimal(self.trailing_stop_activation_delta),
-                    trailing_delta=Decimal(self.trailing_stop_trailing_delta)
-                ),
+                trailing_stop=trailing_stop,
                 leverage=self.leverage,
             )
             return position_config
