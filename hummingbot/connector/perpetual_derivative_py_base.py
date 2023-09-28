@@ -35,7 +35,6 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
         self._perpetual_trading = PerpetualTrading(self.trading_pairs)
         self._funding_info_listener_task: Optional[asyncio.Task] = None
         self._funding_fee_polling_task: Optional[asyncio.Task] = None
-        self._funding_fee_poll_notifier = asyncio.Event()
         self._orderbook_ds: PerpetualAPIOrderBookDataSource = self._orderbook_ds  # for type-hinting
 
         self._budget_checker = PerpetualBudgetChecker(self)
@@ -80,17 +79,6 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
     @abstractmethod
     def get_sell_collateral_token(self, trading_pair: str) -> str:
         raise NotImplementedError
-
-    def tick(self, timestamp: float):
-        """
-        Includes the logic that has to be processed every time a new tick happens in the bot. Particularly it enables
-        the execution of the status update polling loop using an event.
-        """
-        last_tick = int(self._last_timestamp / self.funding_fee_poll_interval)
-        current_tick = int(timestamp / self.funding_fee_poll_interval)
-        super().tick(timestamp)
-        if current_tick > last_tick:
-            self._funding_fee_poll_notifier.set()
 
     async def start_network(self):
         await super().start_network()
@@ -203,7 +191,6 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
         raise NotImplementedError
 
     def _stop_network(self):
-        self._funding_fee_poll_notifier = asyncio.Event()
         self._perpetual_trading.stop()
         if self._funding_info_listener_task is not None:
             self._funding_info_listener_task.cancel()
@@ -377,35 +364,23 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
         """
         await self._update_all_funding_payments(fire_event_on_new=False)  # initialization of the timestamps
         while True:
-            await self._funding_fee_poll_notifier.wait()
-            success = await self._update_all_funding_payments(fire_event_on_new=True)
-            if success:
-                # Only when all tasks are successful would the event notifier be reset
-                self._funding_fee_poll_notifier = asyncio.Event()
+            await asyncio.sleep(self.funding_fee_poll_interval)
+            await self._update_all_funding_payments(fire_event_on_new=True)
 
-    async def _update_all_funding_payments(self, fire_event_on_new: bool) -> bool:
-        success = False
-        try:
-            tasks = []
-            for trading_pair in self.trading_pairs:
-                tasks.append(
-                    asyncio.create_task(
-                        self._update_funding_payment(trading_pair=trading_pair, fire_event_on_new=fire_event_on_new)
+    async def _update_all_funding_payments(self, fire_event_on_new: bool):
+        for trading_pair in self.trading_pairs:
+            try:
+                await self._update_funding_payment(trading_pair=trading_pair, fire_event_on_new=fire_event_on_new)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                self.logger().network(
+                    "Unexpected error while retrieving funding payments.",
+                    exc_info=True,
+                    app_warning_msg=(
+                        f"Could not fetch funding fee updates for {self.name}-{trading_pair}. Check API key and network connection."
                     )
                 )
-            responses: List[bool] = await safe_gather(*tasks)
-            success = all(responses)
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            self.logger().network(
-                "Unexpected error while retrieving funding payments.",
-                exc_info=True,
-                app_warning_msg=(
-                    f"Could not fetch funding fee updates for {self.name}. Check API key and network connection."
-                )
-            )
-        return success
 
     async def _update_funding_payment(self, trading_pair: str, fire_event_on_new: bool) -> bool:
         fetch_success = True
