@@ -10,13 +10,9 @@ DEFAULT_DOMAIN = "kucoin_perpetual_main"
 
 DEFAULT_TIME_IN_FORCE = "GTC"
 
-REST_URLS = {"kucoin_perpetual_main": "https://api-futures.kucoin.com/",
-             "kucoin_perpetual_testnet": "https://api-sandbox-futures.kucoin.com/"}
-WSS_PUBLIC_URLS = {"kucoin_perpetual_main": "wss://stream.kucoin.com/realtime_public",
-                   "kucoin_perpetual_testnet": "wss://stream-testnet.kucoin.com/realtime_public"}
-WSS_PRIVATE_URLS = {"kucoin_perpetual_main": "wss://stream.kucoin.com/realtime_private",
-                    "kucoin_perpetual_testnet": "wss://stream-testnet.kucoin.com/realtime_private"}
-
+REST_URLS = {"kucoin_perpetual_main": "https://api-futures.kucoin.com/"}
+WSS_PUBLIC_URLS = {"kucoin_perpetual_main": "wss://stream.kucoin.com/realtime_public"}
+WSS_PRIVATE_URLS = {"kucoin_perpetual_main": "wss://stream.kucoin.com/realtime_private"}
 REST_API_VERSION = "api/v1"
 
 HB_PARTNER_ID = "Hummingbot"
