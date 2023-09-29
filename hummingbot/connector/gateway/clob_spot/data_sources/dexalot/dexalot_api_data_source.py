@@ -92,6 +92,10 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
         result = place_order_results[0]
         if result.exception is not None:
             raise result.exception
+        self.logger().debug(
+            f"Order creation transaction hash for {order.client_order_id}:"
+            f" {result.misc_updates['creation_transaction_hash']}"
+        )
         return result.exchange_order_id, result.misc_updates
 
     async def batch_order_create(self, orders_to_create: List[GatewayInFlightOrder]) -> List[PlaceOrderResult]:
@@ -103,10 +107,20 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
             for i in range(0, len(orders_to_create), CONSTANTS.MAX_ORDER_CREATIONS_PER_BATCH)
         ]
         results = await safe_gather(*tasks)
-        return list(chain(*results))
+        flattened_results = list(chain(*results))
+        self.logger().debug(
+            f"Order creation transaction hashes for {', '.join([o.client_order_id for o in orders_to_create])}"
+        )
+        for result in flattened_results:
+            self.logger().debug(f"Transaction hash: {result.misc_updates['creation_transaction_hash']}")
+        return flattened_results
 
     async def cancel_order(self, order: GatewayInFlightOrder) -> Tuple[bool, Optional[Dict[str, Any]]]:
         cancel_order_results = await super().batch_order_cancel(orders_to_cancel=[order])
+        self.logger().debug(
+            f"cancel order transaction hash for {order.client_order_id}:"
+            f" {cancel_order_results[0].misc_updates['cancelation_transaction_hash']}"
+        )
         misc_updates = {}
         canceled = False
         if len(cancel_order_results) != 0:
@@ -126,7 +140,13 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
             for i in range(0, len(orders_to_cancel), CONSTANTS.MAX_ORDER_CANCELATIONS_PER_BATCH)
         ]
         results = await safe_gather(*tasks)
-        return list(chain(*results))
+        flattened_results = list(chain(*results))
+        self.logger().debug(
+            f"Order cancelation transaction hashes for {', '.join([o.client_order_id for o in orders_to_cancel])}"
+        )
+        for result in flattened_results:
+            self.logger().debug(f"Transaction hash: {result.misc_updates['cancelation_transaction_hash']}")
+        return flattened_results
 
     def get_client_order_id(
         self, is_buy: bool, trading_pair: str, hbot_order_id_prefix: str, max_id_len: Optional[int]
