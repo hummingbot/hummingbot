@@ -18,7 +18,6 @@ INTERVALS = bidict({
     "1h": "1h",
     "2h": "2h",
     "4h": "4h",
-    "6h": "6h",
     "8h": "8h",
     "12h": "12h",
     "1d": "1d",
@@ -30,6 +29,6 @@ INTERVALS = bidict({
 REQUEST_WEIGHT = "REQUEST_WEIGHT"
 
 RATE_LIMITS = [
-    RateLimit(REQUEST_WEIGHT, limit=1200, time_interval=60),
+    RateLimit(REQUEST_WEIGHT, limit=6000, time_interval=60),
     RateLimit(CANDLES_ENDPOINT, limit=1200, time_interval=60, linked_limits=[LinkedLimitWeightPair("raw", 1)]),
     RateLimit(HEALTH_CHECK_ENDPOINT, limit=1200, time_interval=60, linked_limits=[LinkedLimitWeightPair("raw", 1)])]
