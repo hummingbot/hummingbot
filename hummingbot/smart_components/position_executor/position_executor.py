@@ -112,6 +112,8 @@ class PositionExecutor(SmartComponentBase):
         elif self.executor_status == PositionExecutorStatus.ACTIVE_POSITION:
             price_type = PriceType.BestBid if self.side == TradeType.BUY else PriceType.BestAsk
             return self.get_price(self.exchange, self.trading_pair, price_type=price_type)
+        elif self.take_profit_order_type.is_limit_type():
+            return self.take_profit_order.average_executed_price
         else:
             return self.close_order.average_executed_price
 
