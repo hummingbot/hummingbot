@@ -2,7 +2,7 @@ import asyncio
 import decimal
 from decimal import Decimal
 from functools import partial
-from typing import TYPE_CHECKING, Any, AsyncGenerator, AsyncIterable, Dict, Generator, Iterable, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, AsyncGenerator, AsyncIterable, Dict, Iterable, List, Optional, Tuple
 
 from bidict import bidict
 
@@ -248,11 +248,11 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
         reference: https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_postorder
         Maximum open orders: 500
         """
-        amount_str = f"{amount:f}"
-        price_str = f"{price:f}"
-        type_str = CoinbaseAdvancedTradeV2Exchange.coinbase_advanced_trade_v2_order_type(order_type)
-        side_str = constants.SIDE_BUY if trade_type is TradeType.BUY else constants.SIDE_SELL
-        symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+        amount_str: str = f"{amount:f}"
+        price_str: str = f"{price:f}"
+        type_str: str = CoinbaseAdvancedTradeV2Exchange.coinbase_advanced_trade_v2_order_type(order_type)
+        side_str: str = constants.SIDE_BUY if trade_type is TradeType.BUY else constants.SIDE_SELL
+        symbol: str = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         if type_str == "MARKET":
             order_configuration = {
                 "market_market_ioc": {
@@ -263,8 +263,8 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
             order_configuration = {
                 "limit_limit_gtc": {
                     "base_size": amount_str,
-                    "limit_price": price_str,
-                    "post_only": False
+                    "limit_price": price_str
+                    # "post_only": False
                 }
             }
         elif type_str == "LIMIT_MAKER":
@@ -279,7 +279,7 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
             raise ValueError(f"Invalid order type {order_type}.")
 
         api_params = {
-            "client_order_id": order_id,
+            "client_order_id": f"{order_id}",
             "product_id": symbol,
             "side": side_str,
             "order_configuration": order_configuration
@@ -291,14 +291,9 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
                 data=api_params,
                 is_auth_required=True)
 
-            self.logger().debug(f"Placed order {order_id} on {self.name}.")
-            self.logger().debug(f"   Request: {constants.ORDER_EP}")
-            self.logger().debug("    Params:")
-            for k, v in api_params.items():
-                self.logger().debug(f"\t{k}: {v}")
-            self.logger().debug("  Response:")
+            self.logger().warning("  Response:")
             for k, v in order_result.items():
-                self.logger().debug(f"\t{k}: {v}")
+                self.logger().warning(f"\t{k}: {v}")
 
             o_id = str(order_result["order_id"])
             transact_time = self.time_synchronizer.time()
@@ -546,19 +541,35 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
         )
         return float(trade.get("trades")[0]["price"])
 
-    async def get_all_pairs_prices(self) -> Generator[dict[Any, Any], Any, None]:
+    async def get_all_pairs_prices(self) -> AsyncGenerator[Dict[str, str], None]:
         """
         Fetches the prices of all symbols in the exchange with a default quote of USD
         """
-        products: List[Dict[str, Any]] = await self._api_get(
+        products: List[Dict[str, str]] = await self._api_get(
             path_url=constants.ALL_PAIRS_EP,
             is_auth_required=True)
-        return ({p.get("product_id"): p.get("price")} for p in products if all((p.get("product_type", None) == "SPOT",
-                                                                                p.get("trading_disabled",
-                                                                                      None) is False,
-                                                                                p.get("is_disabled", None) is False,
-                                                                                p.get("cancel_only", None) is False,
-                                                                                p.get("auction_mode", None) is False)))
+        for p in products:
+            if all((
+                p.get("product_type", None) == "SPOT",
+                p.get("trading_disabled", None) is False,
+                p.get("is_disabled", None) is False,
+                p.get("cancel_only", None) is False,
+                p.get("auction_mode", None) is False
+            )):
+                yield {p.get("product_id"): p.get("price")}
+
+    async def get_exchange_rates(self, quote_token: str) -> Dict[str, str] | None:
+        """
+        Fetches the prices of all symbols in the exchange with a default quote of USD
+        """
+        response: Dict[str, Any] = await self._api_get(
+            path_url=constants.EXCHANGE_RATES_QUOTE_EP.format(quote_token=quote_token),
+            limit_id=constants.EXCHANGE_RATES_QUOTE_LIMIT_ID,
+            is_auth_required=False)
+
+        data = response.get("data")
+        if data is not None and data.get("rates") is not None:
+            return data.get("rates")
 
     async def _update_trading_fees(self):
         """

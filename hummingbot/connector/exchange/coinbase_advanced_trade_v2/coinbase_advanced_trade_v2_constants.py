@@ -135,7 +135,7 @@ REST_RATE_LIMITS = [RateLimit(limit_id=endpoint,
 SIGNIN_RATE_LIMITS = [RateLimit(limit_id=endpoint,
                                 limit=MAX_SIGNIN_REQUESTS_H,
                                 time_interval=ONE_HOUR,
-                                linked_limits=[LinkedLimitWeightPair(REST_REQUESTS, 1)]) for endpoint in
+                                linked_limits=[LinkedLimitWeightPair(SIGNIN_REQUESTS, 1)]) for endpoint in
                       SIGNIN_ENDPOINTS]
 
 RATE_LIMITS = [
