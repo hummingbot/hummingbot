@@ -51,7 +51,6 @@ connector_status = {
     'xswap': 'bronze',
     'dexalot': 'silver',
     'kucoin_perpetual': 'silver',
-    'kucoin_perpetual_testnet': 'silver',
     'injective_perpetual': 'bronze',
     'bit_com_perpetual': 'bronze',
     'bit_com_perpetual_testnet': 'bronze',
@@ -66,6 +65,7 @@ connector_status = {
     'plenty': 'bronze',
     'woo_x': 'bronze',
     'woo_x_testnet': 'bronze',
+    'kujira': 'bronze',
 }
 
 warning_messages = {

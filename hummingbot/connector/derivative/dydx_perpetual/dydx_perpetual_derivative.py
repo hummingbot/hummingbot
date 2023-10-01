@@ -256,7 +256,7 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
                     False,
                     amount
                 ).result_price
-
+            price = self.quantize_order_price(trading_pair, price)
         notional_amount = amount * price
         if notional_amount not in self._order_notional_amounts.keys():
             self._order_notional_amounts[notional_amount] = len(self._order_notional_amounts.keys())
