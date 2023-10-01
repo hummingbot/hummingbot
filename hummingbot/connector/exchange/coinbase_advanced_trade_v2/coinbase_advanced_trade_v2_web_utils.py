@@ -18,7 +18,7 @@ def public_rest_url(path_url: str, domain: str = constants.DEFAULT_DOMAIN) -> st
     :param domain: the Coinbase Advanced Trade domain to connect to ("com" or "us"). The default value is "com"
     :return: the full URL to the endpoint
     """
-    if path_url in constants.SIGNIN_ENDPOINTS:
+    if any((path_url.startswith(p[:4]) for p in constants.SIGNIN_ENDPOINTS)):
         return constants.SIGNIN_URL.format(domain=domain) + path_url
 
     return constants.REST_URL.format(domain=domain) + path_url

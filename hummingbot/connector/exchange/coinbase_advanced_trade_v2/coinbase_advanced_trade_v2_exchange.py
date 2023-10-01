@@ -253,18 +253,12 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
         type_str: str = CoinbaseAdvancedTradeV2Exchange.coinbase_advanced_trade_v2_order_type(order_type)
         side_str: str = constants.SIDE_BUY if trade_type is TradeType.BUY else constants.SIDE_SELL
         symbol: str = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        if type_str == "MARKET":
-            order_configuration = {
-                "market_market_ioc": {
-                    "base_size": amount_str,
-                }
-            }
-        elif type_str == "LIMIT":
+
+        if type_str == "LIMIT":
             order_configuration = {
                 "limit_limit_gtc": {
                     "base_size": amount_str,
                     "limit_price": price_str
-                    # "post_only": False
                 }
             }
         elif type_str == "LIMIT_MAKER":
@@ -273,6 +267,12 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
                     "base_size": amount_str,
                     "limit_price": price_str,
                     "post_only": True
+                }
+            }
+        elif type_str == "MARKET":
+            order_configuration = {
+                "market_market_ioc": {
+                    "base_size": amount_str,
                 }
             }
         else:
@@ -286,14 +286,21 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
         }
 
         try:
+            dbg_msg = "  DEBUG:Request"
+            for k, v in api_params.items():
+                dbg_msg += f"\t   {k}: {v}"
+            self.logger().debug(dbg_msg)
+
             order_result = await self._api_post(
                 path_url=constants.ORDER_EP,
                 data=api_params,
-                is_auth_required=True)
+                is_auth_required=True,
+            )
 
-            self.logger().warning("  Response:")
+            dbg_msg = "  DEBUG:Response:"
             for k, v in order_result.items():
-                self.logger().warning(f"\t{k}: {v}")
+                dbg_msg += f"\t   {k}: {v}"
+            self.logger().debug(dbg_msg)
 
             o_id = str(order_result["order_id"])
             transact_time = self.time_synchronizer.time()
@@ -434,7 +441,7 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
             self.trading_rules[trading_pair] = trading_rule
 
             trading_pair_symbol_map[product.get("product_id", None)] = trading_pair
-        self.logger().debug(f"Setting trading pair symbol map to {trading_pair_symbol_map}")
+        self.logger().debug(f"   DEBUG({__file__}):Setting trading pair symbol map to {trading_pair_symbol_map}")
         self._set_trading_pair_symbol_map(trading_pair_symbol_map)
 
     async def _initialize_trading_pair_symbol_map(self):
@@ -602,6 +609,9 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
             if not isinstance(event_message, CoinbaseAdvancedTradeV2CumulativeUpdate):
                 self.logger().warning(
                     "Skipping non-cumulative update (Expected for first message of the stream)."
+                )
+                self.logger().debug(
+                    f"   DEBUG({__file__}): event_message: {event_message}"
                 )
                 continue
             # try:
