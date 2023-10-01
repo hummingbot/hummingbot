@@ -417,8 +417,6 @@ class GatewayCommand(GatewayChainApiManager):
             self.notify(f"\nwallet: {chain_network_address[2]}")
             self.notify(f"chain-network: {chain_network_address[0]}-{chain_network_address[1]}")
 
-            connectors: List[str] = list(connector_to_tokens.keys())
-
             all_tokens = list(set(list(itertools.chain.from_iterable(connector_to_tokens.values()))))
             native_token: str = native_tokens[chain_network_address[0]]
             all_tokens = list(set(all_tokens + [native_token]))
@@ -432,7 +430,7 @@ class GatewayCommand(GatewayChainApiManager):
             raw_data: List[List[str]] = [all_tokens, balances]
 
             data = []
-            columns: List[str] = ["Symbol", "Balance", *connectors]
+            columns: List[str] = ["Symbol", "Balance"]
             for i in range(len(raw_data[0])):
                 data.extend([
                     [
