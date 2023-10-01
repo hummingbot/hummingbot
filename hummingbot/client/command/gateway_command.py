@@ -18,7 +18,7 @@ from hummingbot.core.gateway import get_gateway_paths
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.gateway.gateway_status_monitor import GatewayStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
-from hummingbot.core.utils.gateway_config_utils import (  # build_balances_allowances_display,
+from hummingbot.core.utils.gateway_config_utils import (
     build_config_dict_display,
     build_connector_display,
     build_connector_tokens_display,
@@ -397,7 +397,7 @@ class GatewayCommand(GatewayChainApiManager):
             self.notify("No existing gateway connection.\n")
             return
 
-        self.notify("Updating gateway balances and allowances, please wait...")
+        self.notify("Updating gateway balances, please wait...")
 
         chain_network_address_to_connector_tokens: Dict(Tuple[str, str, str], Dict[str, List[str]]) = {}
         for conf in gateway_connections_conf:
@@ -411,7 +411,7 @@ class GatewayCommand(GatewayChainApiManager):
             else:
                 chain_network_address_to_connector_tokens[(conf["chain"], conf["network"], conf["wallet_address"])][conf["connector"]] = tokens
 
-        # get balances and allowances for each chain-network-address tuple and display them in a table format
+        # get balances for each chain-network-address tuple and display them in a table format
         for chain_network_address, connector_to_tokens in chain_network_address_to_connector_tokens.items():
 
             self.notify(f"\nwallet: {chain_network_address[2]}")
@@ -429,21 +429,7 @@ class GatewayCommand(GatewayChainApiManager):
             token_balances = token_balances.get("balances", {})
             balances: List[str] = [str(round(Decimal(token_balances.get(token, "0")), 4)) for token in all_tokens]
 
-            connector_to_token_allowances: Dict[str, Dict[str, Any]] = {}
-            for connector, tokens in connector_to_tokens.items():
-                token_allowances: Dict[str, Any] = await self._get_gateway_instance().get_allowances(
-                    *chain_network_address, tokens, connector
-                )
-                connector_to_token_allowances[connector] = token_allowances.get("approvals", {})
-
             raw_data: List[List[str]] = [all_tokens, balances]
-            for connector in connectors:
-                # add allowances for each connector for all tokens - if token is not approved, add "NaN" to the list
-                allowances: List[Decimal] = [Decimal(connector_to_token_allowances[connector].get(token, "NaN")) for token in all_tokens]
-                # rounding to 4 decimal places (following from the rounding in the balance command)
-                allowances_rounded: List[str] = [round(allowance, 4) for allowance in allowances]
-                allowances_str: List[str] = [str(allowance) for allowance in allowances_rounded]
-                raw_data.append(allowances_str)
 
             data = []
             columns: List[str] = ["Symbol", "Balance", *connectors]
