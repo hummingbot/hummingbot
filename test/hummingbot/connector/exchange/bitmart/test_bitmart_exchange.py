@@ -65,7 +65,6 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                         "quote_currency": self.quote_asset,
                         "quote_increment": "1.00000000",
                         "base_min_size": "1.00000000",
-                        "base_max_size": "10000000.00000000",
                         "price_min_precision": 6,
                         "price_max_precision": 8,
                         "expiration": "NA",
@@ -120,7 +119,6 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                         "quote_currency": self.quote_asset,
                         "quote_increment": "1.00000000",
                         "base_min_size": "1.00000000",
-                        "base_max_size": "10000000.00000000",
                         "price_min_precision": 6,
                         "price_max_precision": 8,
                         "expiration": "NA",
@@ -135,7 +133,6 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                         "quote_currency": "PAIR",
                         "quote_increment": "1.00000000",
                         "base_min_size": "1.00000000",
-                        "base_max_size": "10000000.00000000",
                         "price_min_precision": 6,
                         "price_max_precision": 8,
                         "expiration": "NA",
@@ -190,7 +187,6 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
                         "quote_currency": self.quote_asset,
                         "quote_increment": "1.00000000",
                         "base_min_size": "5.00000000",
-                        "base_max_size": "10000000.00000000",
                         "price_min_precision": 6,
                         "price_max_precision": 8,
                         "expiration": "NA",
@@ -296,7 +292,6 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
         return TradingRule(
             trading_pair=self.trading_pair,
             min_order_size=Decimal(self.trading_rules_request_mock_response["data"]["symbols"][0]["base_min_size"]),
-            max_order_size=Decimal(self.trading_rules_request_mock_response["data"]["symbols"][0]["base_max_size"]),
             min_order_value=Decimal(self.trading_rules_request_mock_response["data"]["symbols"][0]["min_buy_amount"]),
             min_base_amount_increment=Decimal(str(
                 self.trading_rules_request_mock_response["data"]["symbols"][0]["base_min_size"])),
@@ -375,7 +370,7 @@ class BitmartExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests
 
     def validate_order_status_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
-        self.assertEqual(order.client_order_id, request_params["clientOrderId"])
+        self.assertEqual(order.exchange_order_id, request_params["order_id"])
 
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]

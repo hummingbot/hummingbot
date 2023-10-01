@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from hummingbot import data_path
-from hummingbot.data_feed.candles_feed.candles_factory import CandlesFactory
+from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig, CandlesFactory
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
@@ -37,7 +37,7 @@ class BacktestMM(ScriptStrategyBase):
     execution_exchange = f"{exchange}_paper_trade" if paper_trade_enabled else exchange
     interval = "1m"
     results_df = None
-    candle = CandlesFactory.get_candle(connector=exchange, trading_pair=trading_pair, interval=interval, max_records=days * 60 * 24)
+    candle = CandlesFactory.get_candle(CandlesConfig(connector=exchange, trading_pair=trading_pair, interval=interval, max_records=days * 60 * 24))
     candle.start()
 
     csv_path = data_path() + f"/backtest_{trading_pair}_{bid_spread_bps}_bid_{ask_spread_bps}_ask.csv"
