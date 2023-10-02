@@ -1,8 +1,31 @@
 #!/bin/bash
 
-# Check if bin/hummingbot.py exists
-if [[ ! -f bin/hummingbot.py ]]; then
-    echo "Error: bin/hummingbot.py command not found. Make sure you are in the Hummingbot root directory"
+PASSWORD=""
+FILENAME=""
+
+# Argument parsing
+while getopts ":p:f:" opt; do
+  case $opt in
+    p)
+      PASSWORD="$OPTARG"
+      ;;
+    f)
+      FILENAME="$OPTARG"
+      ;;
+    \?)
+      echo "Invalid option: -$OPTARG" >&2
+      exit 1
+      ;;
+    :)
+      echo "Option -$OPTARG requires an argument." >&2
+      exit 1
+      ;;
+  esac
+done
+
+# Check if bin/hummingbot_quickstart.py exists
+if [[ ! -f bin/hummingbot_quickstart.py ]]; then
+    echo "Error: bin/hummingbot_quickstart.py command not found. Make sure you are in the Hummingbot root directory"
     exit 1
 fi
 
@@ -12,5 +35,26 @@ if [[ $CONDA_DEFAULT_ENV != "hummingbot" ]]; then
     exit 1
 fi
 
-# Run bin/hummingbot.py and append errors to logs/errors.log
-./bin/hummingbot.py 2>> ./logs/errors.log
+# Build the command to run
+CMD="./bin/hummingbot_quickstart.py"
+if [[ ! -z "$PASSWORD" ]]; then
+    CMD="$CMD -p \"$PASSWORD\""
+fi
+if [[ ! -z "$FILENAME" ]]; then
+    CMD="$CMD -f \"$FILENAME\""
+fi
+
+# Clear the errors.log file first before executing
+> ./logs/errors.log
+
+# Execute the command
+eval $CMD 2>> ./logs/errors.log
+
+# Check errors.log for specific errors
+if grep -q "Invalid password" ./logs/errors.log; then
+    echo "Error: Incorrect password provided."
+    exit 1
+elif grep -q "FileNotFoundError" ./logs/errors.log; then
+    echo "Error: Invalid file or filename provided."
+    exit 2
+fi
