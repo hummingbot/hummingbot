@@ -4,7 +4,7 @@ import pandas as pd
 import pandas_ta as ta  # noqa: F401
 
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.data_feed.candles_feed.candles_factory import CandlesFactory
+from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig, CandlesFactory
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
@@ -24,15 +24,9 @@ class CandlesExample(ScriptStrategyBase):
     # Is possible to use the Candles Factory to create the candlestick that you want, and then you have to start it.
     # Also, you can use the class directly like BinancePerpetualsCandles(trading_pair, interval, max_records), but
     # this approach is better if you want to initialize multiple candles with a list or dict of configurations.
-    eth_1m_candles = CandlesFactory.get_candle(connector="binance",
-                                               trading_pair="ETH-USDT",
-                                               interval="1m", max_records=500)
-    eth_1h_candles = CandlesFactory.get_candle(connector="binance_perpetual",
-                                               trading_pair="ETH-USDT",
-                                               interval="1h", max_records=500)
-    eth_1w_candles = CandlesFactory.get_candle(connector="binance_perpetual",
-                                               trading_pair="ETH-USDT",
-                                               interval="1w", max_records=50)
+    eth_1m_candles = CandlesFactory.get_candle(CandlesConfig(connector="binance", trading_pair="ETH-USDT", interval="1m", max_records=1000))
+    eth_1h_candles = CandlesFactory.get_candle(CandlesConfig(connector="binance", trading_pair="ETH-USDT", interval="1h", max_records=1000))
+    eth_1w_candles = CandlesFactory.get_candle(CandlesConfig(connector="binance", trading_pair="ETH-USDT", interval="1w", max_records=200))
 
     # The markets are the connectors that you can use to execute all the methods of the scripts strategy base
     # The candlesticks are just a component that provides the information of the candlesticks

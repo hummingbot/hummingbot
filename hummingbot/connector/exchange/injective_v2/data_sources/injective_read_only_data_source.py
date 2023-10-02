@@ -6,7 +6,7 @@ from google.protobuf import any_pb2
 from pyinjective import Transaction
 from pyinjective.async_client import AsyncClient
 from pyinjective.composer import Composer, injective_exchange_tx_pb
-from pyinjective.constant import Network
+from pyinjective.core.network import Network
 
 from hummingbot.connector.exchange.injective_v2 import injective_constants as CONSTANTS
 from hummingbot.connector.exchange.injective_v2.data_sources.injective_data_source import InjectiveDataSource
@@ -21,6 +21,7 @@ from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlight
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
+from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.data_type.in_flight_order import OrderUpdate
 from hummingbot.core.pubsub import PubSub
@@ -33,21 +34,19 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
     def __init__(
             self,
             network: Network,
+            rate_limits: List[RateLimit],
             use_secure_connection: bool = True):
         self._network = network
         self._client = AsyncClient(
             network=self._network,
             insecure=not use_secure_connection,
-            chain_cookie_location=self._chain_cookie_file_path(),
         )
-        self._composer = Composer(network=self._network.string())
+        self._composer = None
         self._query_executor = PythonSDKInjectiveQueryExecutor(sdk_client=self._client)
 
         self._publisher = PubSub()
         self._last_received_message_time = 0
-        # We create a throttler instance here just to have a fully valid instance from the first moment.
-        # The connector using this data source should replace the throttler with the one used by the connector.
-        self._throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
+        self._throttler = AsyncThrottler(rate_limits=rate_limits)
 
         self._markets_initialization_lock = asyncio.Lock()
         self._spot_market_info_map: Optional[Dict[str, InjectiveSpotMarket]] = None
@@ -66,10 +65,6 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
     @property
     def query_executor(self):
         return self._query_executor
-
-    @property
-    def composer(self) -> Composer:
-        return self._composer
 
     @property
     def order_creation_lock(self) -> asyncio.Lock:
@@ -106,6 +101,11 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
     @property
     def network_name(self) -> str:
         return self._network.string()
+
+    async def composer(self) -> Composer:
+        if self._composer is None:
+            self._composer = await self._client.composer()
+        return self._composer
 
     async def timeout_height(self) -> int:
         raise NotImplementedError
@@ -223,7 +223,11 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
 
         for market_info in markets:
             try:
-                ticker_base, ticker_quote = market_info["ticker"].split("/")
+                if "/" in market_info["ticker"]:
+                    ticker_base, ticker_quote = market_info["ticker"].split("/")
+                else:
+                    ticker_base = market_info["ticker"]
+                    ticker_quote = None
                 base_token = self._token_from_market_info(
                     denom=market_info["baseDenom"],
                     token_meta=market_info["baseTokenMeta"],
@@ -317,8 +321,10 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
     def _uses_default_portfolio_subaccount(self) -> bool:
         raise NotImplementedError
 
-    def _calculate_order_hashes(self, spot_orders: List[GatewayInFlightOrder],
-                                derivative_orders: [GatewayPerpetualInFlightOrder]) -> Tuple[List[str], List[str]]:
+    async def _calculate_order_hashes(
+            self,
+            spot_orders: List[GatewayInFlightOrder],
+            derivative_orders: [GatewayPerpetualInFlightOrder]) -> Tuple[List[str], List[str]]:
         raise NotImplementedError
 
     def _reset_order_hash_manager(self):
@@ -331,22 +337,25 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
     ) -> Tuple[List[any_pb2.Any], List[str], List[str]]:
         raise NotImplementedError
 
-    def _order_cancel_message(
+    async def _order_cancel_message(
             self,
             spot_orders_to_cancel: List[injective_exchange_tx_pb.OrderData],
             derivative_orders_to_cancel: List[injective_exchange_tx_pb.OrderData]
     ) -> any_pb2.Any:
         raise NotImplementedError
 
-    def _all_subaccount_orders_cancel_message(
+    async def _all_subaccount_orders_cancel_message(
             self,
             spot_orders_to_cancel: List[injective_exchange_tx_pb.OrderData],
             derivative_orders_to_cancel: List[injective_exchange_tx_pb.OrderData]
     ) -> any_pb2.Any:
         raise NotImplementedError
 
-    def _generate_injective_order_data(self, order: GatewayInFlightOrder,
-                                       market_id: str) -> injective_exchange_tx_pb.OrderData:
+    async def _generate_injective_order_data(
+            self,
+            order: GatewayInFlightOrder,
+            market_id: str,
+    ) -> injective_exchange_tx_pb.OrderData:
         raise NotImplementedError
 
     async def _updated_derivative_market_info_for_id(self, market_id: str) -> InjectiveDerivativeMarket:
@@ -365,12 +374,14 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
     ) -> List[PlaceOrderResult]:
         raise NotImplementedError
 
-    def _token_from_market_info(self, denom: str, token_meta: Dict[str, Any], candidate_symbol: str) -> InjectiveToken:
+    def _token_from_market_info(
+            self, denom: str, token_meta: Dict[str, Any], candidate_symbol: Optional[str] = None
+    ) -> InjectiveToken:
         token = self._tokens_map.get(denom)
         if token is None:
             unique_symbol = token_meta["symbol"]
             if unique_symbol in self._token_symbol_symbol_and_denom_map:
-                if candidate_symbol not in self._token_symbol_symbol_and_denom_map:
+                if candidate_symbol is not None and candidate_symbol not in self._token_symbol_symbol_and_denom_map:
                     unique_symbol = candidate_symbol
                 else:
                     unique_symbol = token_meta["name"]
@@ -387,7 +398,9 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
         return token
 
     def _parse_derivative_market_info(self, market_info: Dict[str, Any]) -> InjectiveDerivativeMarket:
-        _, ticker_quote = market_info["ticker"].split("/")
+        ticker_quote = None
+        if "/" in market_info["ticker"]:
+            _, ticker_quote = market_info["ticker"].split("/")
         quote_token = self._token_from_market_info(
             denom=market_info["quoteDenom"],
             token_meta=market_info["quoteTokenMeta"],

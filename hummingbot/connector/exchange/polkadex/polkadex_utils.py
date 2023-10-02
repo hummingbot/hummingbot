@@ -9,14 +9,16 @@ CENTRALIZED = True
 EXAMPLE_PAIR = "PDEX-1"
 
 DEFAULT_FEES = TradeFeeSchema(
-    maker_percent_fee_decimal=Decimal("0.002"),
-    taker_percent_fee_decimal=Decimal("0.002"),
+    maker_percent_fee_decimal=Decimal("0"),
+    taker_percent_fee_decimal=Decimal("0"),
 )
 
 
 def normalized_asset_name(asset_id: str, asset_name: str) -> str:
     name = asset_name if asset_id.isdigit() else asset_id
     name = name.replace("CHAINBRIDGE-", "C")
+    name = name.replace("TEST DEX", "TDEX")
+    name = name.replace("TEST BRIDGE", "TBRI")
     return name
 
 

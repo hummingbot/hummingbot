@@ -10,7 +10,7 @@ from google.protobuf import any_pb2
 from pyinjective import Transaction
 from pyinjective.async_client import AsyncClient
 from pyinjective.composer import Composer, injective_exchange_tx_pb
-from pyinjective.constant import Network
+from pyinjective.core.network import Network
 from pyinjective.orderhash import OrderHashManager
 from pyinjective.wallet import Address, PrivateKey
 
@@ -27,6 +27,7 @@ from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlight
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
+from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate
 from hummingbot.core.pubsub import PubSub
@@ -43,14 +44,14 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
             granter_address: str,
             granter_subaccount_index: int,
             network: Network,
+            rate_limits: List[RateLimit],
             use_secure_connection: bool = True):
         self._network = network
         self._client = AsyncClient(
             network=self._network,
             insecure=not use_secure_connection,
-            chain_cookie_location=self._chain_cookie_file_path(),
         )
-        self._composer = Composer(network=self._network.string())
+        self._composer = None
         self._query_executor = PythonSDKInjectiveQueryExecutor(sdk_client=self._client)
 
         self._private_key = None
@@ -75,9 +76,7 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         self._publisher = PubSub()
         self._last_received_message_time = 0
         self._order_creation_lock = asyncio.Lock()
-        # We create a throttler instance here just to have a fully valid instance from the first moment.
-        # The connector using this data source should replace the throttler with the one used by the connector.
-        self._throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
+        self._throttler = AsyncThrottler(rate_limits=rate_limits)
 
         self._is_timeout_height_initialized = False
         self._is_trading_account_initialized = False
@@ -98,10 +97,6 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
     @property
     def query_executor(self):
         return self._query_executor
-
-    @property
-    def composer(self) -> Composer:
-        return self._composer
 
     @property
     def order_creation_lock(self) -> asyncio.Lock:
@@ -138,6 +133,11 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
     @property
     def network_name(self) -> str:
         return self._network.string()
+
+    async def composer(self) -> Composer:
+        if self._composer is None:
+            self._composer = await self._client.composer()
+        return self._composer
 
     def events_listening_tasks(self) -> List[asyncio.Task]:
         return self._events_listening_tasks.copy()
@@ -253,13 +253,14 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         await self._client.get_account(address=self.trading_account_injective_address)
         self._is_trading_account_initialized = True
 
-    def order_hash_manager(self) -> OrderHashManager:
+    async def order_hash_manager(self) -> OrderHashManager:
         if self._order_hash_manager is None:
-            self._order_hash_manager = OrderHashManager(
-                address=self._granter_address,
-                network=self._network,
-                subaccount_indexes=[self._granter_subaccount_index]
-            )
+            async with self.throttler.execute_task(limit_id=CONSTANTS.GET_SUBACCOUNT_LIMIT_ID):
+                self._order_hash_manager = OrderHashManager(
+                    address=self._granter_address,
+                    network=self._network,
+                    subaccount_indexes=[self._granter_subaccount_index]
+                )
         return self._order_hash_manager
 
     def supported_order_types(self) -> List[OrderType]:
@@ -278,7 +279,11 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
 
         for market_info in markets:
             try:
-                ticker_base, ticker_quote = market_info["ticker"].split("/")
+                if "/" in market_info["ticker"]:
+                    ticker_base, ticker_quote = market_info["ticker"].split("/")
+                else:
+                    ticker_base = market_info["ticker"]
+                    ticker_quote = None
                 base_token = self._token_from_market_info(
                     denom=market_info["baseDenom"],
                     token_meta=market_info["baseTokenMeta"],
@@ -339,7 +344,7 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         transaction_spot_orders = []
         transaction_derivative_orders = []
 
-        async with self.throttler.execute_task(limit_id=CONSTANTS.GET_TRANSACTION_LIMIT_ID):
+        async with self.throttler.execute_task(limit_id=CONSTANTS.GET_TRANSACTION_INDEXER_LIMIT_ID):
             transaction_info = await self.query_executor.get_tx_by_hash(tx_hash=transaction_hash)
 
         transaction_messages = json.loads(base64.b64decode(transaction_info["data"]["messages"]).decode())
@@ -433,12 +438,14 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
     def _uses_default_portfolio_subaccount(self) -> bool:
         return self._granter_subaccount_index == CONSTANTS.DEFAULT_SUBACCOUNT_INDEX
 
-    def _token_from_market_info(self, denom: str, token_meta: Dict[str, Any], candidate_symbol: str) -> InjectiveToken:
+    def _token_from_market_info(
+            self, denom: str, token_meta: Dict[str, Any], candidate_symbol: Optional[str] = None
+    ) -> InjectiveToken:
         token = self._tokens_map.get(denom)
         if token is None:
             unique_symbol = token_meta["symbol"]
             if unique_symbol in self._token_symbol_symbol_and_denom_map:
-                if candidate_symbol not in self._token_symbol_symbol_and_denom_map:
+                if candidate_symbol is not None and candidate_symbol not in self._token_symbol_symbol_and_denom_map:
                     unique_symbol = candidate_symbol
                 else:
                     unique_symbol = token_meta["name"]
@@ -455,7 +462,9 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         return token
 
     def _parse_derivative_market_info(self, market_info: Dict[str, Any]) -> InjectiveDerivativeMarket:
-        _, ticker_quote = market_info["ticker"].split("/")
+        ticker_quote = None
+        if "/" in market_info["ticker"]:
+            _, ticker_quote = market_info["ticker"].split("/")
         quote_token = self._token_from_market_info(
             denom=market_info["quoteDenom"],
             token_meta=market_info["quoteTokenMeta"],
@@ -475,7 +484,7 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         market = self._parse_derivative_market_info(market_info=market_info)
         return market
 
-    def _calculate_order_hashes(
+    async def _calculate_order_hashes(
             self,
             spot_orders: List[GatewayInFlightOrder],
             derivative_orders: [GatewayPerpetualInFlightOrder]
@@ -484,7 +493,7 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         derivative_hashes = []
 
         if len(spot_orders) > 0 or len(derivative_orders) > 0:
-            hash_manager = self.order_hash_manager()
+            hash_manager = await self.order_hash_manager()
             hash_manager_result = hash_manager.compute_order_hashes(
                 spot_orders=spot_orders,
                 derivative_orders=derivative_orders,
@@ -500,7 +509,7 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
             spot_orders_to_create: List[GatewayInFlightOrder],
             derivative_orders_to_create: List[GatewayPerpetualInFlightOrder],
     ) -> Tuple[List[any_pb2.Any], List[str], List[str]]:
-        composer = self.composer
+        composer = await self.composer()
         spot_market_order_definitions = []
         derivative_market_order_definitions = []
         spot_order_definitions = []
@@ -545,11 +554,11 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
                 order_definition = await self._create_derivative_order_definition(order=order)
                 derivative_order_definitions.append(order_definition)
 
-        market_spot_hashes, market_derivative_hashes = self._calculate_order_hashes(
+        market_spot_hashes, market_derivative_hashes = await self._calculate_order_hashes(
             spot_orders=spot_market_order_definitions,
             derivative_orders=derivative_market_order_definitions,
         )
-        limit_spot_hashes, limit_derivative_hashes = self._calculate_order_hashes(
+        limit_spot_hashes, limit_derivative_hashes = await self._calculate_order_hashes(
             spot_orders=spot_order_definitions,
             derivative_orders=derivative_order_definitions,
         )
@@ -571,12 +580,12 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
 
         return [delegated_message], spot_order_hashes, derivative_order_hashes
 
-    def _order_cancel_message(
+    async def _order_cancel_message(
             self,
             spot_orders_to_cancel: List[injective_exchange_tx_pb.OrderData],
             derivative_orders_to_cancel: List[injective_exchange_tx_pb.OrderData]
     ) -> any_pb2.Any:
-        composer = self.composer
+        composer = await self.composer()
 
         message = composer.MsgBatchUpdateOrders(
             sender=self.portfolio_account_injective_address,
@@ -589,12 +598,12 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         )
         return delegated_message
 
-    def _all_subaccount_orders_cancel_message(
+    async def _all_subaccount_orders_cancel_message(
             self,
             spot_markets_ids: List[str],
             derivative_markets_ids: List[str]
     ) -> any_pb2.Any:
-        composer = self.composer
+        composer = await self.composer()
 
         message = composer.MsgBatchUpdateOrders(
             sender=self.portfolio_account_injective_address,
@@ -608,8 +617,9 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         )
         return delegated_message
 
-    def _generate_injective_order_data(self, order: GatewayInFlightOrder, market_id: str) -> injective_exchange_tx_pb.OrderData:
-        order_data = self.composer.OrderData(
+    async def _generate_injective_order_data(self, order: GatewayInFlightOrder, market_id: str) -> injective_exchange_tx_pb.OrderData:
+        composer = await self.composer()
+        order_data = composer.OrderData(
             market_id=market_id,
             subaccount_id=self.portfolio_account_subaccount_id,
             order_hash=order.exchange_order_id,
