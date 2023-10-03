@@ -20,27 +20,6 @@ class MinerScriptV1(ScriptStrategyBase):
     trading_pairs = ["RLC-USDT"]
     exchange = "binance"
 
-    leverage_by_trading_pair = {
-        "HBAR-USDT": 25,
-        "CYBER-USDT": 20,
-        "ETH-USDT": 100,
-        "LPT-USDT": 10,
-        "UNFI-USDT": 20,
-        "BAKE-USDT": 20,
-        "YGG-USDT": 20,
-        "SUI-USDT": 50,
-        "TOMO-USDT": 25,
-        "RUNE-USDT": 25,
-        "STX-USDT": 25,
-        "API3-USDT": 20,
-        "LIT-USDT": 20,
-        "PERP-USDT": 16,
-        "HOOK-USDT": 20,
-        "AMB-USDT": 20,
-        "ARKM-USDT": 20,
-        "TRB-USDT": 10,
-    }
-
     triple_barrier_conf = TripleBarrierConf(
         stop_loss=Decimal("0.15"), take_profit=Decimal("0.005"),
         time_limit=60 * 60 * 12,
@@ -49,23 +28,23 @@ class MinerScriptV1(ScriptStrategyBase):
 
     order_levels = [
         OrderLevel(level=0, side=TradeType.BUY, order_amount_usd=Decimal("20"),
-                   spread_factor=Decimal(0.5), order_refresh_time=60 * 30,
+                   spread_factor=Decimal(0.3), order_refresh_time=60 * 30,
                    cooldown_time=15, triple_barrier_conf=triple_barrier_conf),
         OrderLevel(level=1, side=TradeType.BUY, order_amount_usd=Decimal("20"),
-                   spread_factor=Decimal(2.0), order_refresh_time=60 * 30,
+                   spread_factor=Decimal(0.5), order_refresh_time=60 * 30,
                    cooldown_time=15, triple_barrier_conf=triple_barrier_conf),
         OrderLevel(level=2, side=TradeType.BUY, order_amount_usd=Decimal("20"),
-                   spread_factor=Decimal(3.5), order_refresh_time=60 * 30,
+                   spread_factor=Decimal(1.0), order_refresh_time=60 * 30,
                    cooldown_time=15, triple_barrier_conf=triple_barrier_conf),
 
         OrderLevel(level=0, side=TradeType.SELL, order_amount_usd=Decimal("20"),
-                   spread_factor=Decimal(0.5), order_refresh_time=60 * 30,
+                   spread_factor=Decimal(0.3), order_refresh_time=60 * 30,
                    cooldown_time=15, triple_barrier_conf=triple_barrier_conf),
         OrderLevel(level=1, side=TradeType.SELL, order_amount_usd=Decimal("20"),
-                   spread_factor=Decimal(1.0), order_refresh_time=60 * 30,
+                   spread_factor=Decimal(0.5), order_refresh_time=60 * 30,
                    cooldown_time=15, triple_barrier_conf=triple_barrier_conf),
         OrderLevel(level=2, side=TradeType.SELL, order_amount_usd=Decimal("20"),
-                   spread_factor=Decimal(2.5), order_refresh_time=60 * 30,
+                   spread_factor=Decimal(1.0), order_refresh_time=60 * 30,
                    cooldown_time=15, triple_barrier_conf=triple_barrier_conf),
     ]
     controllers = {}
@@ -81,6 +60,7 @@ class MinerScriptV1(ScriptStrategyBase):
                 CandlesConfig(connector=exchange, trading_pair=trading_pair, interval="1h", max_records=300),
             ],
             bb_length=200,
+            leverage=1,
         )
         controller = DManV3(config=config)
         markets = controller.update_strategy_markets_dict(markets)
