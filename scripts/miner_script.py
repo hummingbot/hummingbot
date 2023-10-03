@@ -57,7 +57,7 @@ class MinerScriptV1(ScriptStrategyBase):
             trading_pair=trading_pair,
             order_levels=order_levels,
             candles_config=[
-                CandlesConfig(connector=exchange, trading_pair=trading_pair, interval="1h", max_records=300),
+                CandlesConfig(connector=exchange, trading_pair=trading_pair, interval="15m", max_records=300),
             ],
             bb_length=200,
             leverage=1,
