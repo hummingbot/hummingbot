@@ -17,6 +17,7 @@ native_tokens = {
     "xdc": "XDC",
     "tezos": "XTZ",
     "xrpl": "XRP",
+    "kujira": "KUJI"
 }
 
 SUPPORTED_CHAINS = set(native_tokens.keys())
