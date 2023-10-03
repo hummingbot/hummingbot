@@ -117,7 +117,7 @@ class AdjustedMidPrice(ScriptStrategyBase):
         ask_result = self.connector.get_quote_volume_for_base_amount(self.strategy["pair"], True, self.strategy["test_volume"])
         bid_result = self.connector.get_quote_volume_for_base_amount(self.strategy["pair"], False, self.strategy["test_volume"])
         average_ask = ask_result.result_volume / ask_result.query_volume
-        average_bid = bid_result = bid_result.result_volume / bid_result.query_volume
+        average_bid = bid_result.result_volume / bid_result.query_volume
         return average_bid + ((average_ask - average_bid) / 2)
 
     def format_status(self) -> str:
