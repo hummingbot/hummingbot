@@ -6,6 +6,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import aiohttp
+from aiohttp import ContentTypeError
 
 from hummingbot.client.config.security import Security
 from hummingbot.core.data_type.common import OrderType, PositionSide
@@ -194,7 +195,10 @@ class GatewayHttpClient:
             if not fail_silently and response.status == 504:
                 self.logger().network(f"The network call to {url} has timed out.")
             else:
-                parsed_response = await response.json()
+                try:
+                    parsed_response = await response.json()
+                except ContentTypeError:
+                    parsed_response = await response.text()
                 if response.status != 200 and \
                    not fail_silently and \
                    not self.is_timeout_error(parsed_response):
