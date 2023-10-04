@@ -209,7 +209,8 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                     "tradeExecutionType": "limitMatchRestingOrder",
                     "positionDelta": {
                         "tradeDirection": "sell",
-                        "executionPrice": str(Decimal(str(self.expected_latest_price)) * Decimal(f"1e{self.quote_decimals}")),
+                        "executionPrice": str(
+                            Decimal(str(self.expected_latest_price)) * Decimal(f"1e{self.quote_decimals}")),
                         "executionQuantity": "142000000000000000000",
                         "executionMargin": "1245280000"
                     },
@@ -283,7 +284,8 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     @property
     def order_creation_request_successful_mock_response(self):
-        return {"txhash": "017C130E3602A48E5C9D661CAC657BF1B79262D4B71D5C25B1DA62DE2338DA0E", "rawLog": "[]"}  # noqa: mock
+        return {"txhash": "017C130E3602A48E5C9D661CAC657BF1B79262D4B71D5C25B1DA62DE2338DA0E",  # noqa: mock
+                "rawLog": "[]"}  # noqa: mock
 
     @property
     def balance_request_mock_response_for_base_and_quote(self):
@@ -344,16 +346,31 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
     @property
     def balance_event_websocket_update(self):
         return {
-            "balance": {
-                "subaccountId": self.portfolio_account_subaccount_id,
-                "accountAddress": self.portfolio_account_injective_address,
-                "denom": self.base_asset_denom,
-                "deposit": {
-                    "totalBalance": str(Decimal(15) * Decimal(1e18)),
-                    "availableBalance": str(Decimal(10) * Decimal(1e18)),
-                }
-            },
-            "timestamp": "1688659208000"
+            "blockHeight": "20583",
+            "blockTime": "1640001112223",
+            "subaccountDeposits": [
+                {
+                    "subaccountId": self.portfolio_account_subaccount_id,
+                    "deposits": [
+                        {
+                            "denom": self.base_asset_denom,
+                            "deposit": {
+                                "availableBalance": str(int(Decimal("10") * Decimal("1e36"))),
+                                "totalBalance": str(int(Decimal("15") * Decimal("1e36")))
+                            }
+                        }
+                    ]
+                },
+            ],
+            "spotOrderbookUpdates": [],
+            "derivativeOrderbookUpdates": [],
+            "bankBalances": [],
+            "spotTrades": [],
+            "derivativeTrades": [],
+            "spotOrders": [],
+            "derivativeOrders": [],
+            "positions": [],
+            "oraclePrices": [],
         }
 
     @property
@@ -462,7 +479,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                 "quoteDenom": self.quote_asset_denom,
                 "quoteTokenMeta": {
                     "name": "Testnet Tether USDT",
-                    "address": "0x0000000000000000000000000000000000000000",
+                    "address": "0x0000000000000000000000000000000000000000",  # noqa: mock
                     "symbol": self.quote_asset,
                     "logo": "https://static.alchemyapi.io/images/assets/825.png",
                     "decimals": self.quote_decimals,
@@ -537,7 +554,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         raise NotImplementedError
 
     def configure_all_symbols_response(
-        self, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
+            self, mock_api: aioresponses, callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         all_markets_mock_response = self.all_spot_markets_mock_response
         self.exchange._data_source._query_executor._spot_markets_responses.put_nowait(all_markets_mock_response)
@@ -728,79 +745,152 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     def order_event_for_new_order_websocket_update(self, order: InFlightOrder):
         return {
-            "orderHash": order.exchange_order_id,
-            "marketId": self.market_id,
-            "subaccountId": self.portfolio_account_subaccount_id,
-            "executionType": "market" if order.order_type == OrderType.MARKET else "limit",
-            "orderType": order.trade_type.name.lower(),
-            "price": str(order.price * Decimal(f"1e{self.quote_decimals}")),
-            "triggerPrice": "0",
-            "quantity": str(order.amount),
-            "filledQuantity": "0",
-            "state": "booked",
-            "createdAt": "1688667498756",
-            "updatedAt": "1688667498756",
-            "direction": order.trade_type.name.lower(),
-            "margin": "31342413000",
-            "txHash": "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: mock
+            "blockHeight": "20583",
+            "blockTime": "1640001112223",
+            "subaccountDeposits": [],
+            "spotOrderbookUpdates": [],
+            "derivativeOrderbookUpdates": [],
+            "bankBalances": [],
+            "spotTrades": [],
+            "derivativeTrades": [],
+            "spotOrders": [],
+            "derivativeOrders": [
+                {
+                    "status": "Booked",
+                    "orderHash": base64.b64encode(bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
+                    "order": {
+                        "marketId": self.market_id,
+                        "order": {
+                            "orderInfo": {
+                                "subaccountId": self.portfolio_account_subaccount_id,
+                                "feeRecipient": self.portfolio_account_injective_address,
+                                "price": str(
+                                    int(order.price * Decimal(f"1e{self.quote_decimals + 18}"))),
+                                "quantity": str(int(order.amount * Decimal("1e18"))),
+                            },
+                            "orderType": order.trade_type.name.lower(),
+                            "fillable": str(int(order.amount * Decimal("1e18"))),
+                            "orderHash": base64.b64encode(
+                                bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
+                            "triggerPrice": "",
+                        }
+                    },
+                    "cid": ""
+                },
+            ],
+            "positions": [],
+            "oraclePrices": [],
         }
 
     def order_event_for_canceled_order_websocket_update(self, order: InFlightOrder):
         return {
-            "orderHash": order.exchange_order_id,
-            "marketId": self.market_id,
-            "subaccountId": self.portfolio_account_subaccount_id,
-            "executionType": "market" if order.order_type == OrderType.MARKET else "limit",
-            "orderType": order.trade_type.name.lower(),
-            "price": str(order.price * Decimal(f"1e{self.quote_decimals}")),
-            "triggerPrice": "0",
-            "quantity": str(order.amount),
-            "filledQuantity": "0",
-            "state": "canceled",
-            "createdAt": "1688667498756",
-            "updatedAt": "1688667498756",
-            "direction": order.trade_type.name.lower(),
-            "margin": "31342413000",
-            "txHash": "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: mock
+            "blockHeight": "20583",
+            "blockTime": "1640001112223",
+            "subaccountDeposits": [],
+            "spotOrderbookUpdates": [],
+            "derivativeOrderbookUpdates": [],
+            "bankBalances": [],
+            "spotTrades": [],
+            "derivativeTrades": [],
+            "spotOrders": [],
+            "derivativeOrders": [
+                {
+                    "status": "Cancelled",
+                    "orderHash": base64.b64encode(bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
+                    "order": {
+                        "marketId": self.market_id,
+                        "order": {
+                            "orderInfo": {
+                                "subaccountId": self.portfolio_account_subaccount_id,
+                                "feeRecipient": self.portfolio_account_injective_address,
+                                "price": str(
+                                    int(order.price * Decimal(f"1e{self.quote_decimals + 18}"))),
+                                "quantity": str(int(order.amount * Decimal("1e18"))),
+                            },
+                            "orderType": order.trade_type.name.lower(),
+                            "fillable": str(int(order.amount * Decimal("1e18"))),
+                            "orderHash": base64.b64encode(
+                                bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
+                            "triggerPrice": "",
+                        }
+                    },
+                    "cid": ""
+                },
+            ],
+            "positions": [],
+            "oraclePrices": [],
         }
 
     def order_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         return {
-            "orderHash": order.exchange_order_id,
-            "marketId": self.market_id,
-            "subaccountId": self.portfolio_account_subaccount_id,
-            "executionType": "market" if order.order_type == OrderType.MARKET else "limit",
-            "orderType": order.trade_type.name.lower(),
-            "price": str(order.price * Decimal(f"1e{self.quote_decimals}")),
-            "triggerPrice": "0",
-            "quantity": str(order.amount),
-            "filledQuantity": str(order.amount),
-            "state": "filled",
-            "createdAt": "1688476825015",
-            "updatedAt": "1688476825015",
-            "direction": order.trade_type.name.lower(),
-            "margin": "31342413000",
-            "txHash": order.creation_transaction_hash
+            "blockHeight": "20583",
+            "blockTime": "1640001112223",
+            "subaccountDeposits": [],
+            "spotOrderbookUpdates": [],
+            "derivativeOrderbookUpdates": [],
+            "bankBalances": [],
+            "spotTrades": [],
+            "derivativeTrades": [],
+            "spotOrders": [],
+            "derivativeOrders": [
+                {
+                    "status": "Matched",
+                    "orderHash": base64.b64encode(bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
+                    "order": {
+                        "marketId": self.market_id,
+                        "order": {
+                            "orderInfo": {
+                                "subaccountId": self.portfolio_account_subaccount_id,
+                                "feeRecipient": self.portfolio_account_injective_address,
+                                "price": str(
+                                    int(order.price * Decimal(f"1e{self.quote_decimals + 18}"))),
+                                "quantity": str(int(order.amount * Decimal("1e18"))),
+                            },
+                            "orderType": order.trade_type.name.lower(),
+                            "fillable": str(int(order.amount * Decimal("1e18"))),
+                            "orderHash": base64.b64encode(
+                                bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
+                            "triggerPrice": "",
+                        }
+                    },
+                    "cid": ""
+                },
+            ],
+            "positions": [],
+            "oraclePrices": [],
         }
 
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         return {
-            "orderHash": order.exchange_order_id,
-            "subaccountId": self.portfolio_account_subaccount_id,
-            "marketId": self.market_id,
-            "tradeExecutionType": "limitMatchRestingOrder",
-            "positionDelta": {
-                "tradeDirection": order.trade_type.name.lower(),
-                "executionPrice": str(order.price * Decimal(f"1e{self.quote_decimals}")),
-                "executionQuantity": str(order.amount),
-                "executionMargin": "3693162304"
-            },
-            "payout": "3693278402.762361271848955224",
-            "fee": str(self.expected_fill_fee.flat_fees[0].amount * Decimal(f"1e{self.quote_decimals}")),
-            "executedAt": "1687878089569",
-            "feeRecipient": self.portfolio_account_injective_address,  # noqa: mock
-            "tradeId": self.expected_fill_trade_id,
-            "executionSide": "maker"
+            "blockHeight": "20583",
+            "blockTime": "1640001112223",
+            "subaccountDeposits": [],
+            "spotOrderbookUpdates": [],
+            "derivativeOrderbookUpdates": [],
+            "bankBalances": [],
+            "spotTrades": [],
+            "derivativeTrades": [
+                {
+                    "marketId": self.market_id,
+                    "isBuy": order.trade_type == TradeType.BUY,
+                    "executionType": "LimitMatchRestingOrder",
+                    "subaccountId": self.portfolio_account_subaccount_id,
+                    "positionDelta": {
+                        "isLong": True,
+                        "executionQuantity": str(int(order.amount * Decimal("1e18"))),
+                        "executionMargin": "186681600000000000000000000",
+                        "executionPrice": str(int(order.price * Decimal(f"1e{self.quote_decimals + 18}"))),
+                    },
+                    "payout": "207636617326923969135747808",
+                    "fee": str(self.expected_fill_fee.flat_fees[0].amount * Decimal(f"1e{self.quote_decimals + 18}")),
+                    "orderHash": base64.b64encode(bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
+                    "feeRecipientAddress": self.portfolio_account_injective_address,
+                },
+            ],
+            "spotOrders": [],
+            "derivativeOrders": [],
+            "positions": [],
+            "oraclePrices": [],
         }
 
     @aioresponses()
@@ -1401,7 +1491,8 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         orders_to_cancel = [buy_order_to_cancel, sell_order_to_cancel]
 
         transaction_simulation_response = self._msg_exec_simulation_mock_response()
-        self.exchange._data_source._query_executor._simulate_transaction_responses.put_nowait(transaction_simulation_response)
+        self.exchange._data_source._query_executor._simulate_transaction_responses.put_nowait(
+            transaction_simulation_response)
 
         response = self._order_cancelation_request_successful_mock_response(order=buy_order_to_cancel)
         mock_queue = AsyncMock()
@@ -1451,7 +1542,8 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
         self.assertIn(self.client_order_id_prefix + "1", self.exchange.in_flight_orders)
         order: GatewayPerpetualInFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
-        order.update_creation_transaction_hash(creation_transaction_hash="66A360DA2FD6884B53B5C019F1A2B5BED7C7C8FC07E83A9C36AD3362EDE096AE")  # noqa: mock
+        order.update_creation_transaction_hash(
+            creation_transaction_hash="66A360DA2FD6884B53B5C019F1A2B5BED7C7C8FC07E83A9C36AD3362EDE096AE")  # noqa: mock
 
         transaction_data = (b'\x12\xd1\x01\n8/injective.exchange.v1beta1.MsgBatchUpdateOrdersResponse'
                             b'\x12\x94\x01\n\x02\x00\x00\x12\x02\x00\x00\x1aB'
@@ -1479,8 +1571,10 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                                     "order_info": {
                                         "subaccount_id": self.portfolio_account_subaccount_id,
                                         "fee_recipient": self.portfolio_account_injective_address,
-                                        "price": str(order.price * Decimal(f"1e{self.quote_decimals - self.base_decimals}")),
-                                        "quantity": str((order.amount + Decimal(1)) * Decimal(f"1e{self.base_decimals}"))
+                                        "price": str(
+                                            order.price * Decimal(f"1e{self.quote_decimals - self.base_decimals}")),
+                                        "quantity": str(
+                                            (order.amount + Decimal(1)) * Decimal(f"1e{self.base_decimals}"))
                                     },
                                     "order_type": order.trade_type.name,
                                     "trigger_price": "0.000000000000000000"
@@ -1580,10 +1674,13 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.assertIn(self.client_order_id_prefix + "1", self.exchange.in_flight_orders)
         self.assertIn(self.client_order_id_prefix + "2", self.exchange.in_flight_orders)
 
-        hash_not_matching_order: GatewayPerpetualInFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
-        hash_not_matching_order.update_creation_transaction_hash(creation_transaction_hash="66A360DA2FD6884B53B5C019F1A2B5BED7C7C8FC07E83A9C36AD3362EDE096AE")  # noqa: mock
+        hash_not_matching_order: GatewayPerpetualInFlightOrder = self.exchange.in_flight_orders[
+            self.client_order_id_prefix + "1"]
+        hash_not_matching_order.update_creation_transaction_hash(
+            creation_transaction_hash="66A360DA2FD6884B53B5C019F1A2B5BED7C7C8FC07E83A9C36AD3362EDE096AE")  # noqa: mock
 
-        no_mined_tx_order: GatewayPerpetualInFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "2"]
+        no_mined_tx_order: GatewayPerpetualInFlightOrder = self.exchange.in_flight_orders[
+            self.client_order_id_prefix + "2"]
         no_mined_tx_order.update_creation_transaction_hash(
             creation_transaction_hash="HHHHHHHHHHHHHHH")
 
@@ -1764,7 +1861,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [balance_event, asyncio.CancelledError]
-        self.exchange._data_source._query_executor._subaccount_balance_events = mock_queue
+        self.exchange._data_source._query_executor._chain_stream_events = mock_queue
 
         self.async_tasks.append(
             asyncio.get_event_loop().create_task(
@@ -1772,8 +1869,18 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             )
         )
 
+        market = self.async_run_with_timeout(
+            self.exchange._data_source.derivative_market_info_for_id(market_id=self.market_id)
+        )
         try:
-            self.async_run_with_timeout(self.exchange._data_source._listen_to_account_balance_updates())
+            self.async_run_with_timeout(
+                self.exchange._data_source._listen_to_chain_updates(
+                    spot_markets=[],
+                    derivative_markets=[market],
+                    subaccount_ids=[self.portfolio_account_subaccount_id]
+                ),
+                timeout=2,
+            )
         except asyncio.CancelledError:
             pass
 
@@ -1781,6 +1888,8 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.assertEqual(Decimal("15"), self.exchange.get_balance(self.base_asset))
 
     def test_user_stream_update_for_new_order(self):
+        self.configure_all_symbols_response(mock_api=None)
+
         self.exchange._set_current_timestamp(1640780000)
         self.exchange.start_tracking_order(
             order_id=self.client_order_id_prefix + "1",
@@ -1798,7 +1907,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         mock_queue = AsyncMock()
         event_messages = [order_event, asyncio.CancelledError]
         mock_queue.get.side_effect = event_messages
-        self.exchange._data_source._query_executor._historical_derivative_order_events = mock_queue
+        self.exchange._data_source._query_executor._chain_stream_events = mock_queue
 
         self.async_tasks.append(
             asyncio.get_event_loop().create_task(
@@ -1806,9 +1915,16 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             )
         )
 
+        market = self.async_run_with_timeout(
+            self.exchange._data_source.derivative_market_info_for_id(market_id=self.market_id)
+        )
         try:
             self.async_run_with_timeout(
-                self.exchange._data_source._listen_to_subaccount_derivative_order_updates(market_id=self.market_id)
+                self.exchange._data_source._listen_to_chain_updates(
+                    spot_markets=[],
+                    derivative_markets=[market],
+                    subaccount_ids=[self.portfolio_account_subaccount_id]
+                )
             )
         except asyncio.CancelledError:
             pass
@@ -1828,6 +1944,8 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.assertTrue(self.is_logged("INFO", tracked_order.build_order_created_message()))
 
     def test_user_stream_update_for_canceled_order(self):
+        self.configure_all_symbols_response(mock_api=None)
+
         self.exchange._set_current_timestamp(1640780000)
         self.exchange.start_tracking_order(
             order_id=self.client_order_id_prefix + "1",
@@ -1845,7 +1963,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         mock_queue = AsyncMock()
         event_messages = [order_event, asyncio.CancelledError]
         mock_queue.get.side_effect = event_messages
-        self.exchange._data_source._query_executor._historical_derivative_order_events = mock_queue
+        self.exchange._data_source._query_executor._chain_stream_events = mock_queue
 
         self.async_tasks.append(
             asyncio.get_event_loop().create_task(
@@ -1853,9 +1971,16 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             )
         )
 
+        market = self.async_run_with_timeout(
+            self.exchange._data_source.derivative_market_info_for_id(market_id=self.market_id)
+        )
         try:
             self.async_run_with_timeout(
-                self.exchange._data_source._listen_to_subaccount_derivative_order_updates(market_id=self.market_id)
+                self.exchange._data_source._listen_to_chain_updates(
+                    spot_markets=[],
+                    derivative_markets=[market],
+                    subaccount_ids=[self.portfolio_account_subaccount_id]
+                )
             )
         except asyncio.CancelledError:
             pass
@@ -1890,21 +2015,16 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         order_event = self.order_event_for_full_fill_websocket_update(order=order)
         trade_event = self.trade_event_for_full_fill_websocket_update(order=order)
 
-        orders_queue_mock = AsyncMock()
-        trades_queue_mock = AsyncMock()
-        orders_messages = []
-        trades_messages = []
+        chain_stream_queue_mock = AsyncMock()
+        messages = []
         if trade_event:
-            trades_messages.append(trade_event)
+            messages.append(trade_event)
         if order_event:
-            orders_messages.append(order_event)
-        orders_messages.append(asyncio.CancelledError)
-        trades_messages.append(asyncio.CancelledError)
+            messages.append(order_event)
+        messages.append(asyncio.CancelledError)
 
-        orders_queue_mock.get.side_effect = orders_messages
-        trades_queue_mock.get.side_effect = trades_messages
-        self.exchange._data_source._query_executor._historical_derivative_order_events = orders_queue_mock
-        self.exchange._data_source._query_executor._public_derivative_trade_updates = trades_queue_mock
+        chain_stream_queue_mock.get.side_effect = messages
+        self.exchange._data_source._query_executor._chain_stream_events = chain_stream_queue_mock
 
         self.async_tasks.append(
             asyncio.get_event_loop().create_task(
@@ -1912,13 +2032,17 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             )
         )
 
+        market = self.async_run_with_timeout(
+            self.exchange._data_source.derivative_market_info_for_id(market_id=self.market_id)
+        )
         tasks = [
             asyncio.get_event_loop().create_task(
-                self.exchange._data_source._listen_to_public_derivative_trades(market_ids=[self.market_id])
+                self.exchange._data_source._listen_to_chain_updates(
+                    spot_markets=[],
+                    derivative_markets=[market],
+                    subaccount_ids=[self.portfolio_account_subaccount_id]
+                )
             ),
-            asyncio.get_event_loop().create_task(
-                self.exchange._data_source._listen_to_subaccount_derivative_order_updates(market_id=self.market_id)
-            )
         ]
         try:
             self.async_run_with_timeout(safe_gather(*tasks))
@@ -1967,6 +2091,8 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         pass
 
     def test_lost_order_removed_after_cancel_status_user_event_received(self):
+        self.configure_all_symbols_response(mock_api=None)
+
         self.exchange._set_current_timestamp(1640780000)
         self.exchange.start_tracking_order(
             order_id=self.client_order_id_prefix + "1",
@@ -1990,7 +2116,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         mock_queue = AsyncMock()
         event_messages = [order_event, asyncio.CancelledError]
         mock_queue.get.side_effect = event_messages
-        self.exchange._data_source._query_executor._historical_derivative_order_events = mock_queue
+        self.exchange._data_source._query_executor._chain_stream_events = mock_queue
 
         self.async_tasks.append(
             asyncio.get_event_loop().create_task(
@@ -1998,9 +2124,16 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             )
         )
 
+        market = self.async_run_with_timeout(
+            self.exchange._data_source.derivative_market_info_for_id(market_id=self.market_id)
+        )
         try:
             self.async_run_with_timeout(
-                self.exchange._data_source._listen_to_subaccount_derivative_order_updates(market_id=self.market_id)
+                self.exchange._data_source._listen_to_chain_updates(
+                    spot_markets=[],
+                    derivative_markets=[market],
+                    subaccount_ids=[self.portfolio_account_subaccount_id]
+                )
             )
         except asyncio.CancelledError:
             pass
@@ -2035,21 +2168,16 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         order_event = self.order_event_for_full_fill_websocket_update(order=order)
         trade_event = self.trade_event_for_full_fill_websocket_update(order=order)
 
-        orders_queue_mock = AsyncMock()
-        trades_queue_mock = AsyncMock()
-        orders_messages = []
-        trades_messages = []
+        chain_stream_queue_mock = AsyncMock()
+        messages = []
         if trade_event:
-            trades_messages.append(trade_event)
+            messages.append(trade_event)
         if order_event:
-            orders_messages.append(order_event)
-        orders_messages.append(asyncio.CancelledError)
-        trades_messages.append(asyncio.CancelledError)
+            messages.append(order_event)
+        messages.append(asyncio.CancelledError)
 
-        orders_queue_mock.get.side_effect = orders_messages
-        trades_queue_mock.get.side_effect = trades_messages
-        self.exchange._data_source._query_executor._historical_derivative_order_events = orders_queue_mock
-        self.exchange._data_source._query_executor._public_derivative_trade_updates = trades_queue_mock
+        chain_stream_queue_mock.get.side_effect = messages
+        self.exchange._data_source._query_executor._chain_stream_events = chain_stream_queue_mock
 
         self.async_tasks.append(
             asyncio.get_event_loop().create_task(
@@ -2057,13 +2185,17 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             )
         )
 
+        market = self.async_run_with_timeout(
+            self.exchange._data_source.derivative_market_info_for_id(market_id=self.market_id)
+        )
         tasks = [
             asyncio.get_event_loop().create_task(
-                self.exchange._data_source._listen_to_public_derivative_trades(market_ids=[self.market_id])
+                self.exchange._data_source._listen_to_chain_updates(
+                    spot_markets=[],
+                    derivative_markets=[market],
+                    subaccount_ids=[self.portfolio_account_subaccount_id]
+                )
             ),
-            asyncio.get_event_loop().create_task(
-                self.exchange._data_source._listen_to_subaccount_derivative_order_updates(market_id=self.market_id)
-            )
         ]
         try:
             self.async_run_with_timeout(safe_gather(*tasks))
@@ -2137,7 +2269,6 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.assertTrue(order.is_failure)
 
         if self.is_order_fill_http_update_included_in_status_update:
-
             fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
             self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
             self.assertEqual(order.client_order_id, fill_event.order_id)
@@ -2473,14 +2604,15 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                     "tradeExecutionType": "market",
                     "positionDelta": {
                         "tradeDirection": "buy",
-                        "executionPrice": str(self.target_funding_info_index_price * Decimal(f"1e{self.quote_decimals}")),
+                        "executionPrice": str(
+                            self.target_funding_info_index_price * Decimal(f"1e{self.quote_decimals}")),
                         "executionQuantity": "3",
                         "executionMargin": "5472660"
                     },
                     "payout": "0",
                     "fee": "81764.1",
                     "executedAt": "1689423842613",
-                    "feeRecipient": "inj1zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3t5qxqh",
+                    "feeRecipient": "inj1zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3t5qxqh",  # noqa: mock
                     "tradeId": "13659264_800_0",
                     "executionSide": "taker"
                 }
@@ -2565,7 +2697,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                     "payout": "0",
                     "fee": "81764.1",
                     "executedAt": "1689423842613",
-                    "feeRecipient": "inj1zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3t5qxqh",
+                    "feeRecipient": "inj1zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3t5qxqh",  # noqa: mock
                     "tradeId": "13659264_800_0",
                     "executionSide": "taker"
                 }
@@ -2647,24 +2779,39 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.configure_all_symbols_response(mock_api=None)
         self.exchange._set_current_timestamp(1640780000)
 
+        oracle_price = {
+            "price": "294.16356086"
+        }
+        self.exchange._data_source._query_executor._oracle_prices_responses.put_nowait(oracle_price)
+
         position_data = {
-            "ticker": "BTC/USDT PERP",
-            "marketId": self.market_id,
-            "subaccountId": self.portfolio_account_subaccount_id,
-            "direction": "long",
-            "quantity": "0.01",
-            "entryPrice": "25000000000",
-            "margin": "248483436.058851",
-            "liquidationPrice": "47474612957.985809",
-            "markPrice": "28984256513.07",
-            "aggregateReduceOnlyQuantity": "0",
-            "updatedAt": "1691077382583",
-            "createdAt": "-62135596800000"
+            "blockHeight": "20583",
+            "blockTime": "1640001112223",
+            "subaccountDeposits": [],
+            "spotOrderbookUpdates": [],
+            "derivativeOrderbookUpdates": [],
+            "bankBalances": [],
+            "spotTrades": [],
+            "derivativeTrades": [],
+            "spotOrders": [],
+            "derivativeOrders": [],
+            "positions": [
+                {
+                    "marketId": self.market_id,
+                    "subaccountId": self.portfolio_account_subaccount_id,
+                    "quantity": "25000000000000000000",
+                    "entryPrice": "214151864000000000000000000",
+                    "margin": "1191084296676205949365390184",
+                    "cumulativeFundingEntry": "-10673348771610276382679388",
+                    "isLong": True
+                },
+            ],
+            "oraclePrices": [],
         }
 
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [position_data, asyncio.CancelledError]
-        self.exchange._data_source._query_executor._subaccount_positions_events = mock_queue
+        self.exchange._data_source._query_executor._chain_stream_events = mock_queue
 
         self.async_tasks.append(
             asyncio.get_event_loop().create_task(
@@ -2672,8 +2819,17 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             )
         )
 
+        market = self.async_run_with_timeout(
+            self.exchange._data_source.derivative_market_info_for_id(market_id=self.market_id)
+        )
         try:
-            self.async_run_with_timeout(self.exchange._data_source._listen_to_positions_updates())
+            self.async_run_with_timeout(
+                self.exchange._data_source._listen_to_chain_updates(
+                    spot_markets=[],
+                    derivative_markets=[market],
+                    subaccount_ids=[self.portfolio_account_subaccount_id]
+                ),
+            )
         except asyncio.CancelledError:
             pass
 
@@ -2681,14 +2837,15 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         pos = list(self.exchange.account_positions.values())[0]
         self.assertEqual(self.trading_pair, pos.trading_pair)
         self.assertEqual(PositionSide.LONG, pos.position_side)
-        self.assertEqual(Decimal(position_data["quantity"]), pos.amount)
-        entry_price = Decimal(position_data["entryPrice"]) * Decimal(f"1e{-self.quote_decimals}")
+        quantity = Decimal(position_data["positions"][0]["quantity"]) * Decimal("1e-18")
+        self.assertEqual(quantity, pos.amount)
+        entry_price = Decimal(position_data["positions"][0]["entryPrice"]) * Decimal(f"1e{-self.quote_decimals-18}")
         self.assertEqual(entry_price, pos.entry_price)
-        expected_leverage = ((Decimal(position_data["entryPrice"]) * Decimal(position_data["quantity"]))
-                             / Decimal(position_data["margin"]))
+        margin = Decimal(position_data["positions"][0]["margin"]) * Decimal(f"1e{-self.quote_decimals - 18}")
+        expected_leverage = ((entry_price * quantity) / margin)
         self.assertEqual(expected_leverage, pos.leverage)
-        mark_price = Decimal(position_data["markPrice"]) * Decimal(f"1e{-self.quote_decimals}")
-        expected_unrealized_pnl = (mark_price - entry_price) * Decimal(position_data["quantity"])
+        mark_price = Decimal(oracle_price["price"])
+        expected_unrealized_pnl = (mark_price - entry_price) * quantity
         self.assertEqual(expected_unrealized_pnl, pos.unrealized_pnl)
 
     def _expected_initial_status_dict(self) -> Dict[str, bool]:
@@ -2705,10 +2862,10 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             return response
 
     def _configure_balance_response(
-        self,
-        response: Dict[str, Any],
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None,
+            self,
+            response: Dict[str, Any],
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         self.configure_all_symbols_response(mock_api=mock_api)
         self.exchange._data_source._query_executor._account_portfolio_responses.put_nowait(response)
@@ -2721,24 +2878,28 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                 "gasUsed": "90749"
             },
             "result": {
-                "data": "Em8KJS9jb3Ntb3MuYXV0aHoudjFiZXRhMS5Nc2dFeGVjUmVzcG9uc2USRgpECkIweGYxNGU5NGMxZmQ0MjE0M2I3ZGRhZjA4ZDE3ZWMxNzAzZGMzNzZlOWU2YWI0YjY0MjBhMzNkZTBhZmFlYzJjMTA=",  # noqa: mock
+                "data": "Em8KJS9jb3Ntb3MuYXV0aHoudjFiZXRhMS5Nc2dFeGVjUmVzcG9uc2USRgpECkIweGYxNGU5NGMxZmQ0MjE0M2I3ZGRhZjA4ZDE3ZWMxNzAzZGMzNzZlOWU2YWI0YjY0MjBhMzNkZTBhZmFlYzJjMTA=",
+                # noqa: mock
                 "log": "",
                 "events": [],
                 "msgResponses": [
                     OrderedDict([
                         ("@type", "/cosmos.authz.v1beta1.MsgExecResponse"),
                         ("results", [
-                            "CkIweGYxNGU5NGMxZmQ0MjE0M2I3ZGRhZjA4ZDE3ZWMxNzAzZGMzNzZlOWU2YWI0YjY0MjBhMzNkZTBhZmFlYzJjMTA="])  # noqa: mock
+                            "CkIweGYxNGU5NGMxZmQ0MjE0M2I3ZGRhZjA4ZDE3ZWMxNzAzZGMzNzZlOWU2YWI0YjY0MjBhMzNkZTBhZmFlYzJjMTA="])
+                        # noqa: mock
                     ])
                 ]
             }
         }
 
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Dict[str, Any]:
-        return {"txhash": "79DBF373DE9C534EE2DC9D009F32B850DA8D0C73833FAA0FD52C6AE8989EC659", "rawLog": "[]"}  # noqa: mock
+        return {"txhash": "79DBF373DE9C534EE2DC9D009F32B850DA8D0C73833FAA0FD52C6AE8989EC659",  # noqa: mock
+                "rawLog": "[]"}
 
     def _order_cancelation_request_erroneous_mock_response(self, order: InFlightOrder) -> Dict[str, Any]:
-        return {"txhash": "79DBF373DE9C534EE2DC9D009F32B850DA8D0C73833FAA0FD52C6AE8989EC659", "rawLog": "Error"}  # noqa: mock
+        return {"txhash": "79DBF373DE9C534EE2DC9D009F32B850DA8D0C73833FAA0FD52C6AE8989EC659",  # noqa: mock
+                "rawLog": "Error"}
 
     def _order_status_request_open_mock_response(self, order: GatewayPerpetualInFlightOrder) -> Dict[str, Any]:
         return {
@@ -2767,7 +2928,9 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             },
         }
 
-    def _order_status_request_partially_filled_mock_response(self, order: GatewayPerpetualInFlightOrder) -> Dict[str, Any]:
+    def _order_status_request_partially_filled_mock_response(
+        self, order: GatewayPerpetualInFlightOrder
+    ) -> Dict[str, Any]:
         return {
             "orders": [
                 {
@@ -2794,7 +2957,9 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             },
         }
 
-    def _order_status_request_completely_filled_mock_response(self, order: GatewayPerpetualInFlightOrder) -> Dict[str, Any]:
+    def _order_status_request_completely_filled_mock_response(
+        self, order: GatewayPerpetualInFlightOrder
+    ) -> Dict[str, Any]:
         return {
             "orders": [
                 {

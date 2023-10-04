@@ -726,15 +726,17 @@ class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
                     tracked_order = self._order_tracker.all_updatable_orders_by_exchange_order_id.get(
                         order_update.exchange_order_id)
                     if tracked_order is not None:
-                        new_order_update = OrderUpdate(
-                            trading_pair=order_update.trading_pair,
-                            update_timestamp=order_update.update_timestamp,
-                            new_state=order_update.new_state,
-                            client_order_id=tracked_order.client_order_id,
-                            exchange_order_id=order_update.exchange_order_id,
-                            misc_updates=order_update.misc_updates,
-                        )
-                        self._order_tracker.process_order_update(order_update=new_order_update)
+                        is_partial_fill = order_update.new_state == OrderState.FILLED and not tracked_order.is_filled
+                        if not is_partial_fill:
+                            new_order_update = OrderUpdate(
+                                trading_pair=order_update.trading_pair,
+                                update_timestamp=order_update.update_timestamp,
+                                new_state=order_update.new_state,
+                                client_order_id=tracked_order.client_order_id,
+                                exchange_order_id=order_update.exchange_order_id,
+                                misc_updates=order_update.misc_updates,
+                            )
+                            self._order_tracker.process_order_update(order_update=new_order_update)
                 elif channel == "balance":
                     if event_data.total_balance is not None:
                         self._account_balances[event_data.asset_name] = event_data.total_balance
