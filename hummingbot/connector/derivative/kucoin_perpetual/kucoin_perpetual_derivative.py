@@ -419,7 +419,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
         self._account_balances.clear()
 
         if wallet_balance["data"] is not None:
-            if type(wallet_balance["data"]) == list:
+            if isinstance(wallet_balance["data"], list):
                 for balance_data in wallet_balance["data"]:
                     currency = str(balance_data["currency"])
                     self._account_balances[currency] = Decimal(str(balance_data["marginBalance"]))
@@ -591,7 +591,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
                         self._order_tracker.process_order_update(order_update=order_update)
 
                 elif endpoint == CONSTANTS.WS_SUBSCRIPTION_WALLET_ENDPOINT_NAME:
-                    if type(payload) == list:
+                    if isinstance(payload, list):
                         for wallet_msg in payload:
                             self._process_wallet_event_message(wallet_msg)
                     else:
@@ -831,7 +831,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
             limit_id=CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT,
         )
 
-        if type(resp_json["data"]) == list:
+        if isinstance(resp_json["data"], list):
             if "lastTradePrice" in resp_json["data"][0]:
                 price = float(resp_json["data"][0]["lastTradePrice"])
             else:
