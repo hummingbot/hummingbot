@@ -79,6 +79,21 @@ class InjectiveSpotMarketTests(TestCase):
 
         self.assertEqual(expected_price, converted_price)
 
+    def test_convert_quantity_from_special_chain_format(self):
+        expected_quantity = Decimal("1234")
+        chain_quantity = expected_quantity * Decimal(f"1e{self._inj_token.decimals}") * Decimal("1e18")
+        converted_quantity = self._inj_usdt_market.quantity_from_special_chain_format(chain_quantity=chain_quantity)
+
+        self.assertEqual(expected_quantity, converted_quantity)
+
+    def test_convert_price_from_special_chain_format(self):
+        expected_price = Decimal("15.43")
+        chain_price = expected_price * Decimal(f"1e{self._usdt_token.decimals}") / Decimal(f"1e{self._inj_token.decimals}")
+        chain_price = chain_price * Decimal("1e18")
+        converted_price = self._inj_usdt_market.price_from_special_chain_format(chain_price=chain_price)
+
+        self.assertEqual(expected_price, converted_price)
+
     def test_min_price_tick_size(self):
         market = self._inj_usdt_market
         expected_value = market.price_from_chain_format(chain_price=Decimal(market.market_info["minPriceTickSize"]))
@@ -163,6 +178,21 @@ class InjectiveDerivativeMarketTests(TestCase):
         expected_price = Decimal("15.43")
         chain_price = expected_price * Decimal(f"1e{self._usdt_token.decimals}")
         converted_price = self._inj_usdt_derivative_market.price_from_chain_format(chain_price=chain_price)
+
+        self.assertEqual(expected_price, converted_price)
+
+    def test_convert_quantity_from_special_chain_format(self):
+        expected_quantity = Decimal("1234")
+        chain_quantity = expected_quantity * Decimal("1e18")
+        converted_quantity = self._inj_usdt_derivative_market.quantity_from_special_chain_format(
+            chain_quantity=chain_quantity)
+
+        self.assertEqual(expected_quantity, converted_quantity)
+
+    def test_convert_price_from_special_chain_format(self):
+        expected_price = Decimal("15.43")
+        chain_price = expected_price * Decimal(f"1e{self._usdt_token.decimals}") * Decimal("1e18")
+        converted_price = self._inj_usdt_derivative_market.price_from_special_chain_format(chain_price=chain_price)
 
         self.assertEqual(expected_price, converted_price)
 
