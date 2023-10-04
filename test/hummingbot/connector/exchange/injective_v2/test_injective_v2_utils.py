@@ -49,6 +49,7 @@ class InjectiveConfigMapTests(TestCase):
             grpc_endpoint='devnet.injective.dev:9900',
             grpc_exchange_endpoint='devnet.injective.dev:9910',
             grpc_explorer_endpoint='devnet.injective.dev:9911',
+            chain_stream_endpoint='devnet.injective.dev:9999',
             chain_id='injective-777',
             env='devnet',
             secure_connection=False,
@@ -61,6 +62,7 @@ class InjectiveConfigMapTests(TestCase):
             grpc_endpoint='devnet.injective.dev:9900',
             grpc_exchange_endpoint='devnet.injective.dev:9910',
             grpc_explorer_endpoint='devnet.injective.dev:9911',
+            chain_stream_endpoint='devnet.injective.dev:9999',
             chain_id='injective-777',
             env='devnet'
         )
