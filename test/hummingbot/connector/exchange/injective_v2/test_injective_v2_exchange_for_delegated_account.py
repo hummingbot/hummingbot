@@ -276,16 +276,31 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     @property
     def balance_event_websocket_update(self):
         return {
-            "balance": {
-                "subaccountId": self.portfolio_account_subaccount_id,
-                "accountAddress": self.portfolio_account_injective_address,
-                "denom": self.base_asset_denom,
-                "deposit": {
-                    "totalBalance": str(Decimal(15) * Decimal(1e18)),
-                    "availableBalance": str(Decimal(10) * Decimal(1e18)),
-                }
-            },
-            "timestamp": "1688659208000"
+            "blockHeight": "20583",
+            "blockTime": "1640001112223",
+            "subaccountDeposits": [
+                {
+                    "subaccountId": self.portfolio_account_subaccount_id,
+                    "deposits": [
+                        {
+                            "denom": self.base_asset_denom,
+                            "deposit": {
+                                "availableBalance": str(int(Decimal("10") * Decimal("1e36"))),
+                                "totalBalance": str(int(Decimal("15") * Decimal("1e36")))
+                            }
+                        }
+                    ]
+                },
+            ],
+            "spotOrderbookUpdates": [],
+            "derivativeOrderbookUpdates": [],
+            "bankBalances": [],
+            "spotTrades": [],
+            "derivativeTrades": [],
+            "spotOrders": [],
+            "derivativeOrders": [],
+            "positions": [],
+            "oraclePrices": [],
         }
 
     @property
@@ -603,78 +618,147 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
     def order_event_for_new_order_websocket_update(self, order: InFlightOrder):
         return {
-            "orderHash": order.exchange_order_id,
-            "marketId": self.market_id,
-            "isActive": True,
-            "subaccountId": self.portfolio_account_subaccount_id,
-            "executionType": "market" if order.order_type == OrderType.MARKET else "limit",
-            "orderType": order.trade_type.name.lower(),
-            "price": str(order.price * Decimal(f"1e{self.quote_decimals - self.base_decimals}")),
-            "triggerPrice": "0",
-            "quantity": str(order.amount * Decimal(f"1e{self.base_decimals}")),
-            "filledQuantity": "0",
-            "state": "booked",
-            "createdAt": "1688667498756",
-            "updatedAt": "1688667498756",
-            "direction": order.trade_type.name.lower(),
-            "txHash": "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: mock
+            "blockHeight": "20583",
+            "blockTime": "1640001112223",
+            "subaccountDeposits": [],
+            "spotOrderbookUpdates": [],
+            "derivativeOrderbookUpdates": [],
+            "bankBalances": [],
+            "spotTrades": [],
+            "derivativeTrades": [],
+            "spotOrders": [
+                {
+                    "status": "Booked",
+                    "orderHash": base64.b64encode(bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
+                    "order": {
+                        "marketId": self.market_id,
+                        "order": {
+                            "orderInfo": {
+                                "subaccountId": self.portfolio_account_subaccount_id,
+                                "feeRecipient": self.portfolio_account_injective_address,
+                                "price": str(
+                                    int(order.price * Decimal(f"1e{self.quote_decimals - self.base_decimals + 18}"))),
+                                "quantity": str(int(order.amount * Decimal(f"1e{self.base_decimals + 18}"))),
+                            },
+                            "orderType": order.trade_type.name.lower(),
+                            "fillable": str(int(order.amount * Decimal(f"1e{self.base_decimals + 18}"))),
+                            "orderHash": base64.b64encode(
+                                bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
+                            "triggerPrice": "",
+                        }
+                    },
+                    "cid": ""
+                },
+            ],
+            "derivativeOrders": [],
+            "positions": [],
+            "oraclePrices": [],
         }
 
     def order_event_for_canceled_order_websocket_update(self, order: InFlightOrder):
         return {
-            "orderHash": order.exchange_order_id,
-            "marketId": self.market_id,
-            "isActive": True,
-            "subaccountId": self.portfolio_account_subaccount_id,
-            "executionType": "market" if order.order_type == OrderType.MARKET else "limit",
-            "orderType": order.trade_type.name.lower(),
-            "price": str(order.price * Decimal(f"1e{self.quote_decimals - self.base_decimals}")),
-            "triggerPrice": "0",
-            "quantity": str(order.amount * Decimal(f"1e{self.base_decimals}")),
-            "filledQuantity": "0",
-            "state": "canceled",
-            "createdAt": "1688667498756",
-            "updatedAt": "1688667498756",
-            "direction": order.trade_type.name.lower(),
-            "txHash": "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: mock
+            "blockHeight": "20583",
+            "blockTime": "1640001112223",
+            "subaccountDeposits": [],
+            "spotOrderbookUpdates": [],
+            "derivativeOrderbookUpdates": [],
+            "bankBalances": [],
+            "spotTrades": [],
+            "derivativeTrades": [],
+            "spotOrders": [
+                {
+                    "status": "Cancelled",
+                    "orderHash": base64.b64encode(bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
+                    "order": {
+                        "marketId": self.market_id,
+                        "order": {
+                            "orderInfo": {
+                                "subaccountId": self.portfolio_account_subaccount_id,
+                                "feeRecipient": self.portfolio_account_injective_address,
+                                "price": str(int(order.price * Decimal(f"1e{self.quote_decimals-self.base_decimals+18}"))),
+                                "quantity": str(int(order.amount * Decimal(f"1e{self.base_decimals+18}"))),
+                            },
+                            "orderType": order.trade_type.name.lower(),
+                            "fillable": str(int(order.amount * Decimal(f"1e{self.base_decimals+18}"))),
+                            "orderHash": base64.b64encode(bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
+                            "triggerPrice": "",
+                        }
+                    },
+                    "cid": ""
+                },
+            ],
+            "derivativeOrders": [],
+            "positions": [],
+            "oraclePrices": [],
         }
 
     def order_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         return {
-            "orderHash": order.exchange_order_id,
-            "marketId": self.market_id,
-            "isActive": True,
-            "subaccountId": self.portfolio_account_subaccount_id,
-            "executionType": "market" if order.order_type == OrderType.MARKET else "limit",
-            "orderType": order.trade_type.name.lower(),
-            "price": str(order.price * Decimal(f"1e{self.quote_decimals - self.base_decimals}")),
-            "triggerPrice": "0",
-            "quantity": str(order.amount * Decimal(f"1e{self.base_decimals}")),
-            "filledQuantity": str(order.amount * Decimal(f"1e{self.base_decimals}")),
-            "state": "filled",
-            "createdAt": "1688476825015",
-            "updatedAt": "1688476825015",
-            "direction": order.trade_type.name.lower(),
-            "txHash": order.creation_transaction_hash
+            "blockHeight": "20583",
+            "blockTime": "1640001112223",
+            "subaccountDeposits": [],
+            "spotOrderbookUpdates": [],
+            "derivativeOrderbookUpdates": [],
+            "bankBalances": [],
+            "spotTrades": [],
+            "derivativeTrades": [],
+            "spotOrders": [
+                {
+                    "status": "Matched",
+                    "orderHash": base64.b64encode(bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
+                    "order": {
+                        "marketId": self.market_id,
+                        "order": {
+                            "orderInfo": {
+                                "subaccountId": self.portfolio_account_subaccount_id,
+                                "feeRecipient": self.portfolio_account_injective_address,
+                                "price": str(
+                                    int(order.price * Decimal(f"1e{self.quote_decimals - self.base_decimals + 18}"))),
+                                "quantity": str(int(order.amount * Decimal(f"1e{self.base_decimals + 18}"))),
+                            },
+                            "orderType": order.trade_type.name.lower(),
+                            "fillable": str(int(order.amount * Decimal(f"1e{self.base_decimals + 18}"))),
+                            "orderHash": base64.b64encode(
+                                bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
+                            "triggerPrice": "",
+                        }
+                    },
+                    "cid": ""
+                },
+            ],
+            "derivativeOrders": [],
+            "positions": [],
+            "oraclePrices": [],
         }
 
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         return {
-            "orderHash": order.exchange_order_id,
-            "subaccountId": self.portfolio_account_subaccount_id,
-            "marketId": self.market_id,
-            "tradeExecutionType": "limitMatchRestingOrder",
-            "tradeDirection": order.trade_type.name.lower(),
-            "price": {
-                "price": str(order.price * Decimal(f"1e{self.quote_decimals - self.base_decimals}")),
-                "quantity": str(order.amount * Decimal(f"1e{self.base_decimals}")),
-                "timestamp": "1687878089569"
-            },
-            "fee": str(self.expected_fill_fee.flat_fees[0].amount * Decimal(f"1e{self.quote_decimals}")),
-            "executedAt": "1687878089569",
-            "feeRecipient": self.portfolio_account_injective_address,  # noqa: mock
-            "tradeId": self.expected_fill_trade_id,
-            "executionSide": "maker"
+            "blockHeight": "20583",
+            "blockTime": "1640001112223",
+            "subaccountDeposits": [],
+            "spotOrderbookUpdates": [],
+            "derivativeOrderbookUpdates": [],
+            "bankBalances": [],
+            "spotTrades": [
+                {
+                    "marketId": self.market_id,
+                    "isBuy": order.trade_type == TradeType.BUY,
+                    "executionType": "LimitMatchRestingOrder",
+                    "quantity": str(int(order.amount * Decimal(f"1e{self.base_decimals + 18}"))),
+                    "price": str(int(order.price * Decimal(f"1e{self.quote_decimals - self.base_decimals + 18}"))),
+                    "subaccountId": self.portfolio_account_subaccount_id,
+                    "fee": str(int(
+                        self.expected_fill_fee.flat_fees[0].amount * Decimal(f"1e{self.quote_decimals + 18}")
+                    )),
+                    "orderHash": base64.b64encode(bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
+                    "feeRecipientAddress": self.portfolio_account_injective_address,  # noqa: mock
+                },
+            ],
+            "derivativeTrades": [],
+            "spotOrders": [],
+            "derivativeOrders": [],
+            "positions": [],
+            "oraclePrices": [],
         }
 
     @aioresponses()
@@ -1646,7 +1730,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [balance_event, asyncio.CancelledError]
-        self.exchange._data_source._query_executor._subaccount_balance_events = mock_queue
+        self.exchange._data_source._query_executor._chain_stream_events = mock_queue
 
         self.async_tasks.append(
             asyncio.get_event_loop().create_task(
@@ -1654,8 +1738,18 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             )
         )
 
+        market = self.async_run_with_timeout(
+            self.exchange._data_source.spot_market_info_for_id(market_id=self.market_id)
+        )
         try:
-            self.async_run_with_timeout(self.exchange._data_source._listen_to_account_balance_updates())
+            self.async_run_with_timeout(
+                self.exchange._data_source._listen_to_chain_updates(
+                    spot_markets=[market],
+                    derivative_markets=[],
+                    subaccount_ids=[self.portfolio_account_subaccount_id]
+                ),
+                timeout=2,
+            )
         except asyncio.CancelledError:
             pass
 
@@ -1663,6 +1757,8 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.assertEqual(Decimal("15"), self.exchange.get_balance(self.base_asset))
 
     def test_user_stream_update_for_new_order(self):
+        self.configure_all_symbols_response(mock_api=None)
+
         self.exchange._set_current_timestamp(1640780000)
         self.exchange.start_tracking_order(
             order_id=self.client_order_id_prefix + "1",
@@ -1680,7 +1776,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         mock_queue = AsyncMock()
         event_messages = [order_event, asyncio.CancelledError]
         mock_queue.get.side_effect = event_messages
-        self.exchange._data_source._query_executor._historical_spot_order_events = mock_queue
+        self.exchange._data_source._query_executor._chain_stream_events = mock_queue
 
         self.async_tasks.append(
             asyncio.get_event_loop().create_task(
@@ -1688,9 +1784,17 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             )
         )
 
+        market = self.async_run_with_timeout(
+            self.exchange._data_source.spot_market_info_for_id(market_id=self.market_id)
+        )
         try:
             self.async_run_with_timeout(
-                self.exchange._data_source._listen_to_subaccount_spot_order_updates(market_id=self.market_id)
+                self.exchange._data_source._listen_to_chain_updates(
+                    spot_markets=[market],
+                    derivative_markets=[],
+                    subaccount_ids=[self.portfolio_account_subaccount_id]
+                ),
+                timeout=2,
             )
         except asyncio.CancelledError:
             pass
@@ -1710,6 +1814,8 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.assertTrue(self.is_logged("INFO", tracked_order.build_order_created_message()))
 
     def test_user_stream_update_for_canceled_order(self):
+        self.configure_all_symbols_response(mock_api=None)
+
         self.exchange._set_current_timestamp(1640780000)
         self.exchange.start_tracking_order(
             order_id=self.client_order_id_prefix + "1",
@@ -1727,7 +1833,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         mock_queue = AsyncMock()
         event_messages = [order_event, asyncio.CancelledError]
         mock_queue.get.side_effect = event_messages
-        self.exchange._data_source._query_executor._historical_spot_order_events = mock_queue
+        self.exchange._data_source._query_executor._chain_stream_events = mock_queue
 
         self.async_tasks.append(
             asyncio.get_event_loop().create_task(
@@ -1735,9 +1841,17 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             )
         )
 
+        market = self.async_run_with_timeout(
+            self.exchange._data_source.spot_market_info_for_id(market_id=self.market_id)
+        )
         try:
             self.async_run_with_timeout(
-                self.exchange._data_source._listen_to_subaccount_spot_order_updates(market_id=self.market_id)
+                self.exchange._data_source._listen_to_chain_updates(
+                    spot_markets=[market],
+                    derivative_markets=[],
+                    subaccount_ids=[self.portfolio_account_subaccount_id]
+                ),
+                timeout=5,
             )
         except asyncio.CancelledError:
             pass
@@ -1772,21 +1886,16 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         order_event = self.order_event_for_full_fill_websocket_update(order=order)
         trade_event = self.trade_event_for_full_fill_websocket_update(order=order)
 
-        orders_queue_mock = AsyncMock()
-        trades_queue_mock = AsyncMock()
-        orders_messages = []
-        trades_messages = []
+        chain_stream_queue_mock = AsyncMock()
+        messages = []
         if trade_event:
-            trades_messages.append(trade_event)
+            messages.append(trade_event)
         if order_event:
-            orders_messages.append(order_event)
-        orders_messages.append(asyncio.CancelledError)
-        trades_messages.append(asyncio.CancelledError)
+            messages.append(order_event)
+        messages.append(asyncio.CancelledError)
 
-        orders_queue_mock.get.side_effect = orders_messages
-        trades_queue_mock.get.side_effect = trades_messages
-        self.exchange._data_source._query_executor._historical_spot_order_events = orders_queue_mock
-        self.exchange._data_source._query_executor._public_spot_trade_updates = trades_queue_mock
+        chain_stream_queue_mock.get.side_effect = messages
+        self.exchange._data_source._query_executor._chain_stream_events = chain_stream_queue_mock
 
         self.async_tasks.append(
             asyncio.get_event_loop().create_task(
@@ -1794,13 +1903,17 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             )
         )
 
+        market = self.async_run_with_timeout(
+            self.exchange._data_source.spot_market_info_for_id(market_id=self.market_id)
+        )
         tasks = [
             asyncio.get_event_loop().create_task(
-                self.exchange._data_source._listen_to_public_spot_trades(market_ids=[self.market_id])
+                self.exchange._data_source._listen_to_chain_updates(
+                    spot_markets=[market],
+                    derivative_markets=[],
+                    subaccount_ids=[self.portfolio_account_subaccount_id]
+                )
             ),
-            asyncio.get_event_loop().create_task(
-                self.exchange._data_source._listen_to_subaccount_spot_order_updates(market_id=self.market_id)
-            )
         ]
         try:
             self.async_run_with_timeout(safe_gather(*tasks))
@@ -1849,6 +1962,8 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         pass
 
     def test_lost_order_removed_after_cancel_status_user_event_received(self):
+        self.configure_all_symbols_response(mock_api=None)
+
         self.exchange._set_current_timestamp(1640780000)
         self.exchange.start_tracking_order(
             order_id=self.client_order_id_prefix + "1",
@@ -1872,7 +1987,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         mock_queue = AsyncMock()
         event_messages = [order_event, asyncio.CancelledError]
         mock_queue.get.side_effect = event_messages
-        self.exchange._data_source._query_executor._historical_spot_order_events = mock_queue
+        self.exchange._data_source._query_executor._chain_stream_events = mock_queue
 
         self.async_tasks.append(
             asyncio.get_event_loop().create_task(
@@ -1880,9 +1995,17 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             )
         )
 
+        market = self.async_run_with_timeout(
+            self.exchange._data_source.spot_market_info_for_id(market_id=self.market_id)
+        )
         try:
             self.async_run_with_timeout(
-                self.exchange._data_source._listen_to_subaccount_spot_order_updates(market_id=self.market_id)
+                self.exchange._data_source._listen_to_chain_updates(
+                    spot_markets=[market],
+                    derivative_markets=[],
+                    subaccount_ids=[self.portfolio_account_subaccount_id]
+                ),
+                timeout=5,
             )
         except asyncio.CancelledError:
             pass
@@ -1917,21 +2040,16 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         order_event = self.order_event_for_full_fill_websocket_update(order=order)
         trade_event = self.trade_event_for_full_fill_websocket_update(order=order)
 
-        orders_queue_mock = AsyncMock()
-        trades_queue_mock = AsyncMock()
-        orders_messages = []
-        trades_messages = []
+        chain_stream_queue_mock = AsyncMock()
+        messages = []
         if trade_event:
-            trades_messages.append(trade_event)
+            messages.append(trade_event)
         if order_event:
-            orders_messages.append(order_event)
-        orders_messages.append(asyncio.CancelledError)
-        trades_messages.append(asyncio.CancelledError)
+            messages.append(order_event)
+        messages.append(asyncio.CancelledError)
 
-        orders_queue_mock.get.side_effect = orders_messages
-        trades_queue_mock.get.side_effect = trades_messages
-        self.exchange._data_source._query_executor._historical_spot_order_events = orders_queue_mock
-        self.exchange._data_source._query_executor._public_spot_trade_updates = trades_queue_mock
+        chain_stream_queue_mock.get.side_effect = messages
+        self.exchange._data_source._query_executor._chain_stream_events = chain_stream_queue_mock
 
         self.async_tasks.append(
             asyncio.get_event_loop().create_task(
@@ -1939,13 +2057,17 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
             )
         )
 
+        market = self.async_run_with_timeout(
+            self.exchange._data_source.spot_market_info_for_id(market_id=self.market_id)
+        )
         tasks = [
             asyncio.get_event_loop().create_task(
-                self.exchange._data_source._listen_to_public_spot_trades(market_ids=[self.market_id])
+                self.exchange._data_source._listen_to_chain_updates(
+                    spot_markets=[market],
+                    derivative_markets=[],
+                    subaccount_ids=[self.portfolio_account_subaccount_id]
+                )
             ),
-            asyncio.get_event_loop().create_task(
-                self.exchange._data_source._listen_to_subaccount_spot_order_updates(market_id=self.market_id)
-            )
         ]
         try:
             self.async_run_with_timeout(safe_gather(*tasks))

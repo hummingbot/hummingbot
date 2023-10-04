@@ -17,6 +17,10 @@ class InjectiveToken:
         scaler = Decimal(f"1e{-self.decimals}")
         return chain_value * scaler
 
+    def value_from_special_chain_format(self, chain_value: Decimal) -> Decimal:
+        scaler = Decimal(f"1e{-self.decimals-18}")
+        return chain_value * scaler
+
 
 @dataclass(frozen=True)
 class InjectiveSpotMarket:
@@ -34,6 +38,14 @@ class InjectiveSpotMarket:
     def price_from_chain_format(self, chain_price: Decimal) -> Decimal:
         scaler = Decimal(f"1e{self.base_token.decimals-self.quote_token.decimals}")
         return chain_price * scaler
+
+    def quantity_from_special_chain_format(self, chain_quantity: Decimal) -> Decimal:
+        quantity = chain_quantity / Decimal("1e18")
+        return self.quantity_from_chain_format(chain_quantity=quantity)
+
+    def price_from_special_chain_format(self, chain_price: Decimal) -> Decimal:
+        price = chain_price / Decimal("1e18")
+        return self.price_from_chain_format(chain_price=price)
 
     def min_price_tick_size(self) -> Decimal:
         min_price_tick_size = Decimal(self.market_info["minPriceTickSize"])
@@ -70,6 +82,14 @@ class InjectiveDerivativeMarket:
     def price_from_chain_format(self, chain_price: Decimal) -> Decimal:
         scaler = Decimal(f"1e{-self.quote_token.decimals}")
         return chain_price * scaler
+
+    def quantity_from_special_chain_format(self, chain_quantity: Decimal) -> Decimal:
+        quantity = chain_quantity / Decimal("1e18")
+        return self.quantity_from_chain_format(chain_quantity=quantity)
+
+    def price_from_special_chain_format(self, chain_price: Decimal) -> Decimal:
+        price = chain_price / Decimal("1e18")
+        return self.price_from_chain_format(chain_price=price)
 
     def min_price_tick_size(self) -> Decimal:
         min_price_tick_size = Decimal(self.market_info["minPriceTickSize"])
