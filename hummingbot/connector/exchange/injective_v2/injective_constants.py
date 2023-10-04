@@ -155,6 +155,12 @@ ORDER_STATE_MAP = {
     "canceled": OrderState.CANCELED,
 }
 
+STREAM_ORDER_STATE_MAP = {
+    "Booked": OrderState.OPEN,
+    "Matched": OrderState.FILLED,
+    "Cancelled": OrderState.CANCELED,
+}
+
 ORDER_NOT_FOUND_ERROR_MESSAGE = "order not found"
 ACCOUNT_SEQUENCE_MISMATCH_ERROR = "account sequence mismatch"
 

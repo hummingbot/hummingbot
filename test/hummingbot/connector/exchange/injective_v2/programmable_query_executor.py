@@ -1,6 +1,8 @@
 import asyncio
 from typing import Any, Dict, List, Optional
 
+from pyinjective.proto.injective.stream.v1beta1 import query_pb2 as chain_stream_query
+
 from hummingbot.connector.exchange.injective_v2.injective_query_executor import BaseInjectiveQueryExecutor
 
 
@@ -27,16 +29,8 @@ class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
         self._funding_payments_responses = asyncio.Queue()
         self._derivative_positions_responses = asyncio.Queue()
 
-        self._spot_order_book_updates = asyncio.Queue()
-        self._public_spot_trade_updates = asyncio.Queue()
-        self._derivative_order_book_updates = asyncio.Queue()
-        self._public_derivative_trade_updates = asyncio.Queue()
-        self._oracle_prices_updates = asyncio.Queue()
-        self._subaccount_positions_events = asyncio.Queue()
-        self._subaccount_balance_events = asyncio.Queue()
-        self._historical_spot_order_events = asyncio.Queue()
-        self._historical_derivative_order_events = asyncio.Queue()
         self._transaction_events = asyncio.Queue()
+        self._chain_stream_events = asyncio.Queue()
 
     async def ping(self):
         response = await self._ping_responses.get()
@@ -146,56 +140,24 @@ class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
         response = await self._oracle_prices_responses.get()
         return response
 
-    async def spot_order_book_updates_stream(self, market_ids: List[str]):
-        while True:
-            next_ob_update = await self._spot_order_book_updates.get()
-            yield next_ob_update
-
-    async def public_spot_trades_stream(self, market_ids: List[str]):
-        while True:
-            next_trade = await self._public_spot_trade_updates.get()
-            yield next_trade
-
-    async def derivative_order_book_updates_stream(self, market_ids: List[str]):
-        while True:
-            next_ob_update = await self._derivative_order_book_updates.get()
-            yield next_ob_update
-
-    async def public_derivative_trades_stream(self, market_ids: List[str]):
-        while True:
-            next_trade = await self._public_derivative_trade_updates.get()
-            yield next_trade
-
-    async def oracle_prices_stream(self, oracle_base: str, oracle_quote: str, oracle_type: str):
-        while True:
-            next_update = await self._oracle_prices_updates.get()
-            yield next_update
-
-    async def subaccount_positions_stream(self, subaccount_id: str):
-        while True:
-            next_event = await self._subaccount_positions_events.get()
-            yield next_event
-
-    async def subaccount_balance_stream(self, subaccount_id: str):
-        while True:
-            next_event = await self._subaccount_balance_events.get()
-            yield next_event
-
-    async def subaccount_historical_spot_orders_stream(
-        self, market_id: str, subaccount_id: str
-    ):
-        while True:
-            next_event = await self._historical_spot_order_events.get()
-            yield next_event
-
-    async def subaccount_historical_derivative_orders_stream(
-        self, market_id: str, subaccount_id: str
-    ):
-        while True:
-            next_event = await self._historical_derivative_order_events.get()
-            yield next_event
-
     async def transactions_stream(self,):
         while True:
             next_event = await self._transaction_events.get()
+            yield next_event
+
+    async def chain_stream(
+        self,
+        bank_balances_filter: Optional[chain_stream_query.BankBalancesFilter] = None,
+        subaccount_deposits_filter: Optional[chain_stream_query.SubaccountDepositsFilter] = None,
+        spot_trades_filter: Optional[chain_stream_query.TradesFilter] = None,
+        derivative_trades_filter: Optional[chain_stream_query.TradesFilter] = None,
+        spot_orders_filter: Optional[chain_stream_query.OrdersFilter] = None,
+        derivative_orders_filter: Optional[chain_stream_query.OrdersFilter] = None,
+        spot_orderbooks_filter: Optional[chain_stream_query.OrderbookFilter] = None,
+        derivative_orderbooks_filter: Optional[chain_stream_query.OrderbookFilter] = None,
+        positions_filter: Optional[chain_stream_query.PositionsFilter] = None,
+        oracle_price_filter: Optional[chain_stream_query.OraclePriceFilter] = None,
+    ):
+        while True:
+            next_event = await self._chain_stream_events.get()
             yield next_event
