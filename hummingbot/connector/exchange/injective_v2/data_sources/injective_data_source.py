@@ -689,7 +689,11 @@ class InjectiveDataSource(ABC):
     async def last_funding_rate(self, market_id: str) -> Decimal:
         async with self.throttler.execute_task(limit_id=CONSTANTS.FUNDING_RATES_LIMIT_ID):
             response = await self.query_executor.get_funding_rates(market_id=market_id, limit=1)
-        rate = Decimal(response["fundingRates"][0]["rate"])
+        funding_rates = response.get("fundingRates", [])
+        if len(funding_rates) == 0:
+            rate = Decimal("0")
+        else:
+            rate = Decimal(response["fundingRates"][0]["rate"])
 
         return rate
 
@@ -1290,7 +1294,7 @@ class InjectiveDataSource(ABC):
 
                 trading_pair = await self.trading_pair_for_market(market_id=market_id)
                 timestamp = self._time()
-                trade_type = TradeType.BUY if trade_update["isBuy"] else TradeType.SELL
+                trade_type = TradeType.BUY if trade_update.get("isBuy", False) else TradeType.SELL
                 amount = market_info.quantity_from_special_chain_format(
                     chain_quantity=Decimal(str(trade_update["quantity"]))
                 )
@@ -1353,7 +1357,7 @@ class InjectiveDataSource(ABC):
                 market_info = await self.derivative_market_info_for_id(market_id=market_id)
 
                 trading_pair = await self.trading_pair_for_market(market_id=market_id)
-                trade_type = TradeType.BUY if trade_update["isBuy"] else TradeType.SELL
+                trade_type = TradeType.BUY if trade_update.get("isBuy", False) else TradeType.SELL
                 amount = market_info.quantity_from_special_chain_format(
                     chain_quantity=Decimal(str(trade_update["positionDelta"]["executionQuantity"]))
                 )

@@ -327,36 +327,50 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
     ) -> List[OrderUpdate]:
         spot_orders = spot_orders or []
         perpetual_orders = perpetual_orders or []
+        order_updates = []
 
         async with self.throttler.execute_task(limit_id=CONSTANTS.GET_TRANSACTION_INDEXER_LIMIT_ID):
             transaction_info = await self.query_executor.get_tx_by_hash(tx_hash=transaction_hash)
 
-        transaction_messages = json.loads(base64.b64decode(transaction_info["data"]["messages"]).decode())
-        transaction_spot_orders = transaction_messages[0]["value"]["msg"]["admin_execute_message"]["injective_message"]["custom"]["msg_data"]["batch_update_orders"]["spot_orders_to_create"]
-        transaction_derivative_orders = transaction_messages[0]["value"]["msg"]["admin_execute_message"]["injective_message"]["custom"]["msg_data"]["batch_update_orders"]["derivative_orders_to_create"]
+        if transaction_info["data"].get("errorLog", "") != "":
+            # The transaction failed. All orders should be marked as failed
+            for order in (spot_orders + perpetual_orders):
+                order_update = OrderUpdate(
+                    trading_pair=order.trading_pair,
+                    update_timestamp=self._time(),
+                    new_state=OrderState.FAILED,
+                    client_order_id=order.client_order_id,
+                )
+                order_updates.append(order_update)
+        else:
+            transaction_messages = json.loads(base64.b64decode(transaction_info["data"]["messages"]).decode())
+            transaction_spot_orders = transaction_messages[0]["value"]["msg"]["admin_execute_message"]["injective_message"]["custom"]["msg_data"]["batch_update_orders"]["spot_orders_to_create"]
+            transaction_derivative_orders = transaction_messages[0]["value"]["msg"]["admin_execute_message"]["injective_message"]["custom"]["msg_data"]["batch_update_orders"]["derivative_orders_to_create"]
 
-        spot_order_hashes = self._order_hashes_from_transaction(
-            transaction_info=transaction_info,
-            hashes_group_key="spot_order_hashes",
-        )
-        derivative_order_hashes = self._order_hashes_from_transaction(
-            transaction_info=transaction_info,
-            hashes_group_key="derivative_order_hashes",
-        )
+            spot_order_hashes = self._order_hashes_from_transaction(
+                transaction_info=transaction_info,
+                hashes_group_key="spot_order_hashes",
+            )
+            derivative_order_hashes = self._order_hashes_from_transaction(
+                transaction_info=transaction_info,
+                hashes_group_key="derivative_order_hashes",
+            )
 
-        spot_order_updates = await self._transaction_order_updates(
-            orders=spot_orders,
-            transaction_orders_info=transaction_spot_orders,
-            order_hashes=spot_order_hashes
-        )
+            spot_order_updates = await self._transaction_order_updates(
+                orders=spot_orders,
+                transaction_orders_info=transaction_spot_orders,
+                order_hashes=spot_order_hashes
+            )
 
-        derivative_order_updates = await self._transaction_order_updates(
-            orders=perpetual_orders,
-            transaction_orders_info=transaction_derivative_orders,
-            order_hashes=derivative_order_hashes
-        )
+            derivative_order_updates = await self._transaction_order_updates(
+                orders=perpetual_orders,
+                transaction_orders_info=transaction_derivative_orders,
+                order_hashes=derivative_order_hashes
+            )
 
-        return spot_order_updates + derivative_order_updates
+            order_updates = spot_order_updates + derivative_order_updates
+
+        return order_updates
 
     def real_tokens_spot_trading_pair(self, unique_trading_pair: str) -> str:
         resulting_trading_pair = unique_trading_pair
