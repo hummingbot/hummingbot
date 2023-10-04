@@ -484,7 +484,11 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         self.query_executor._derivative_markets_responses.put_nowait(derivative_markets_response)
 
         funding_rate = {
-            "fundingRates": [],
+            "fundingRates": [
+                {
+                    "marketId": self.market_id,
+                },
+            ],
             "paging": {
                 "total": "2370"
             }
