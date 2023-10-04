@@ -372,4 +372,4 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
             oracle_price_filter=oracle_price_filter,
         )
         async for event in stream:
-            yield json_format.MessageToDict(event)
+            yield json_format.MessageToDict(event, including_default_value_fields=True)

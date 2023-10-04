@@ -347,50 +347,61 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         async with self.throttler.execute_task(limit_id=CONSTANTS.GET_TRANSACTION_INDEXER_LIMIT_ID):
             transaction_info = await self.query_executor.get_tx_by_hash(tx_hash=transaction_hash)
 
-        transaction_messages = json.loads(base64.b64decode(transaction_info["data"]["messages"]).decode())
-        for message_info in transaction_messages[0]["value"]["msgs"]:
-            if message_info.get("@type") in CONSTANTS.MARKET_ORDER_MESSAGE_TYPES:
-                transaction_market_orders.append(message_info["order"])
-            elif message_info.get("@type") == CONSTANTS.BATCH_UPDATE_ORDERS_MESSAGE_TYPE:
-                transaction_spot_orders.extend(message_info.get("spot_orders_to_create", []))
-                transaction_derivative_orders.extend(message_info.get("derivative_orders_to_create", []))
-        transaction_data = str(base64.b64decode(transaction_info["data"]["data"]))
-        order_hashes = re.findall(r"(0[xX][0-9a-fA-F]{64})", transaction_data)
+        if transaction_info["data"].get("errorLog", "") != "":
+            # The transaction failed. All orders should be marked as failed
+            for order in transaction_orders:
+                order_update = OrderUpdate(
+                    trading_pair=order.trading_pair,
+                    update_timestamp=self._time(),
+                    new_state=OrderState.FAILED,
+                    client_order_id=order.client_order_id,
+                )
+                order_updates.append(order_update)
+        else:
+            transaction_messages = json.loads(base64.b64decode(transaction_info["data"]["messages"]).decode())
+            for message_info in transaction_messages[0]["value"]["msgs"]:
+                if message_info.get("@type") in CONSTANTS.MARKET_ORDER_MESSAGE_TYPES:
+                    transaction_market_orders.append(message_info["order"])
+                elif message_info.get("@type") == CONSTANTS.BATCH_UPDATE_ORDERS_MESSAGE_TYPE:
+                    transaction_spot_orders.extend(message_info.get("spot_orders_to_create", []))
+                    transaction_derivative_orders.extend(message_info.get("derivative_orders_to_create", []))
+            transaction_data = str(base64.b64decode(transaction_info["data"]["data"]))
+            order_hashes = re.findall(r"(0[xX][0-9a-fA-F]{64})", transaction_data)
 
-        for order_info, order_hash in zip(
-                transaction_market_orders + transaction_spot_orders + transaction_derivative_orders, order_hashes
-        ):
-            market_id = order_info["market_id"]
-            if market_id in await self.spot_market_and_trading_pair_map():
-                market = await self.spot_market_info_for_id(market_id=market_id)
-            else:
-                market = await self.derivative_market_info_for_id(market_id=market_id)
-            price = market.price_from_chain_format(chain_price=Decimal(order_info["order_info"]["price"]))
-            amount = market.quantity_from_chain_format(chain_quantity=Decimal(order_info["order_info"]["quantity"]))
-            trade_type = TradeType.BUY if "BUY" in order_info["order_type"] else TradeType.SELL
-            for transaction_order in transaction_orders:
-                if transaction_order in spot_orders:
-                    market_id = await self.market_id_for_spot_trading_pair(trading_pair=transaction_order.trading_pair)
+            for order_info, order_hash in zip(
+                    transaction_market_orders + transaction_spot_orders + transaction_derivative_orders, order_hashes
+            ):
+                market_id = order_info["market_id"]
+                if market_id in await self.spot_market_and_trading_pair_map():
+                    market = await self.spot_market_info_for_id(market_id=market_id)
                 else:
-                    market_id = await self.market_id_for_derivative_trading_pair(trading_pair=transaction_order.trading_pair)
-                if (market_id == order_info["market_id"]
-                        and transaction_order.amount == amount
-                        and transaction_order.price == price
-                        and transaction_order.trade_type == trade_type):
-                    new_state = OrderState.OPEN if transaction_order.is_pending_create else transaction_order.current_state
-                    order_update = OrderUpdate(
-                        trading_pair=transaction_order.trading_pair,
-                        update_timestamp=self._time(),
-                        new_state=new_state,
-                        client_order_id=transaction_order.client_order_id,
-                        exchange_order_id=order_hash,
-                    )
-                    transaction_orders.remove(transaction_order)
-                    order_updates.append(order_update)
-                    self.logger().debug(
-                        f"Exchange order id found for order {transaction_order.client_order_id} ({order_update})"
-                    )
-                    break
+                    market = await self.derivative_market_info_for_id(market_id=market_id)
+                price = market.price_from_chain_format(chain_price=Decimal(order_info["order_info"]["price"]))
+                amount = market.quantity_from_chain_format(chain_quantity=Decimal(order_info["order_info"]["quantity"]))
+                trade_type = TradeType.BUY if "BUY" in order_info["order_type"] else TradeType.SELL
+                for transaction_order in transaction_orders:
+                    if transaction_order in spot_orders:
+                        market_id = await self.market_id_for_spot_trading_pair(trading_pair=transaction_order.trading_pair)
+                    else:
+                        market_id = await self.market_id_for_derivative_trading_pair(trading_pair=transaction_order.trading_pair)
+                    if (market_id == order_info["market_id"]
+                            and transaction_order.amount == amount
+                            and transaction_order.price == price
+                            and transaction_order.trade_type == trade_type):
+                        new_state = OrderState.OPEN if transaction_order.is_pending_create else transaction_order.current_state
+                        order_update = OrderUpdate(
+                            trading_pair=transaction_order.trading_pair,
+                            update_timestamp=self._time(),
+                            new_state=new_state,
+                            client_order_id=transaction_order.client_order_id,
+                            exchange_order_id=order_hash,
+                        )
+                        transaction_orders.remove(transaction_order)
+                        order_updates.append(order_update)
+                        self.logger().debug(
+                            f"Exchange order id found for order {transaction_order.client_order_id} ({order_update})"
+                        )
+                        break
 
         return order_updates
 
