@@ -456,7 +456,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
             data = position
             ex_trading_pair = data.get("symbol")
             hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(ex_trading_pair)
-            amount = self.get_value_of_contracts(hb_trading_pair, int(str(data["currentQty"])))
+            amount = self.get_value_of_contracts(hb_trading_pair, int(data["currentQty"]))
             position_side = PositionSide.SHORT if amount < 0 else PositionSide.LONG
             unrealized_pnl = Decimal(str(data["unrealisedPnl"]))
             entry_price = Decimal(str(data["avgEntryPrice"]))
@@ -615,7 +615,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
         if "changeReason" in position_msg and position_msg["changeReason"] != "markPriceChange":
             ex_trading_pair = position_msg["symbol"]
             trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=ex_trading_pair)
-            amount = Decimal(str(position_msg["currentQty"]))
+            amount = self.get_value_of_contracts(trading_pair, int(position_msg["currentQty"]))
             position_side = PositionSide.SHORT if amount < 0 else PositionSide.LONG
             entry_price = Decimal(str(position_msg["avgEntryPrice"]))
             leverage = Decimal(str(position_msg["realLeverage"]))
@@ -830,7 +830,6 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
             path_url=CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT.format(symbol=exchange_symbol),
             limit_id=CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT,
         )
-
         if isinstance(resp_json["data"], list):
             if "lastTradePrice" in resp_json["data"][0]:
                 price = float(resp_json["data"][0]["lastTradePrice"])
