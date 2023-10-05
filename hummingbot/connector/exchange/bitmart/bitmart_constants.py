@@ -26,7 +26,7 @@ GET_ORDER_BOOK_PATH_URL = "spot/v1/symbols/book"
 CREATE_ORDER_PATH_URL = "spot/v1/submit_order"
 CANCEL_ORDER_PATH_URL = "spot/v2/cancel_order"
 GET_ACCOUNT_SUMMARY_PATH_URL = "spot/v1/wallet"
-GET_ORDER_DETAIL_PATH_URL = "spot/v1/order_detail"
+GET_ORDER_DETAIL_PATH_URL = "spot/v2/order_detail"
 GET_TRADE_DETAIL_PATH_URL = "spot/v1/trades"
 SERVER_TIME_PATH = "system/time"
 
