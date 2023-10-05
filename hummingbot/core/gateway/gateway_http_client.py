@@ -109,7 +109,7 @@ class GatewayHttpClient:
         If the API returns an error code, interpret the code, log a useful
         message to the user, then raise an exception.
         """
-        error_code: Optional[int] = resp.get("errorCode")
+        error_code: Optional[int] = resp.get("errorCode") if isinstance(resp, dict) else None
         if error_code is not None:
             if error_code == GatewayError.Network.value:
                 self.logger().network("Gateway had a network error. Make sure it is still able to communicate with the node.")
