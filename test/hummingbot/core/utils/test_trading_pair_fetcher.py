@@ -106,7 +106,6 @@ class TestTradingPairFetcher(unittest.TestCase):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         client_config_map.fetch_pairs_from_all_exchanges = False
         self.assertTrue(Security.connector_config_file_exists("binance"))
-        self.async_run_with_timeout(Security.wait_til_decryption_done())
         api_keys_mock.return_value = True
         trading_pair_fetcher = TradingPairFetcher(client_config_map)
         self.async_run_with_timeout(self.wait_until_trading_pair_fetcher_ready(trading_pair_fetcher), 1.0)
