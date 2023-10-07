@@ -1,8 +1,7 @@
 import logging
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
-from hummingbot.client.config.config_helpers import ClientConfigAdapter, get_connector_config_yml_path
-from hummingbot.client.config.security import Security
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.settings import AllConnectorSettings, ConnectorSetting
 from hummingbot.logger import HummingbotLogger
 
@@ -52,10 +51,8 @@ class TradingPairFetcher:
                         connector_name=conn_setting.name
                     )
                 elif not self.fetch_pairs_from_all_exchanges:
-                    if Security.connector_config_file_exists(connector_name=conn_setting.name):
-                        api_key_config = get_connector_config_yml_path(connector_name=conn_setting.name)
-                        if api_key_config:
-                            self._fetch_pairs_from_connector_setting(connector_setting=conn_setting)
+                    if conn_setting.connector_connected():
+                        self._fetch_pairs_from_connector_setting(connector_setting=conn_setting)
                 else:
                     self._fetch_pairs_from_connector_setting(connector_setting=conn_setting)
             except ModuleNotFoundError:
