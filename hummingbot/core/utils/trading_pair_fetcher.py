@@ -53,7 +53,6 @@ class TradingPairFetcher:
                 elif not self.fetch_pairs_from_all_exchanges:
                     if conn_setting.connector_connected():
                         self._fetch_pairs_from_connector_setting(connector_setting=conn_setting)
-                        print(conn_setting)
                 else:
                     self._fetch_pairs_from_connector_setting(connector_setting=conn_setting)
             except ModuleNotFoundError:
