@@ -97,7 +97,7 @@ class TestTradingPairFetcher(unittest.TestCase):
     @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher._sf_shared_instance")
     @patch("hummingbot.client.config.security.Security.connector_config_file_exists")
     @patch("hummingbot.client.config.security.Security.wait_til_decryption_done")
-    def test_fetched_connected_trading_pairs(self, _, __: MagicMock, ___: MagicMock, mock_connector_settings):
+    def test_fetched_connected_trading_pairs(self, _, __: MagicMock, ___: AsyncMock, mock_connector_settings):
         connector = AsyncMock()
         connector.all_trading_pairs.return_value = ["MOCK-HBOT"]
         mock_connector_settings.return_value = {
