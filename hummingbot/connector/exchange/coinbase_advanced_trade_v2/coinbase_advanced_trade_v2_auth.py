@@ -1,11 +1,12 @@
 import hashlib
 import hmac
-import time
+import logging
 from typing import Dict
 
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSJSONRequest, WSRequest
+from hummingbot.logger import HummingbotLogger
 
 from .coinbase_advanced_trade_v2_web_utils import endpoint_from_url
 
@@ -20,6 +21,27 @@ class CoinbaseAdvancedTradeV2Auth(AuthBase):
     """
     TIME_SYNC_UPDATE_S: float = 30
     _time_sync_last_updated_s: float = -1
+
+    _logger: HummingbotLogger | logging.Logger | None = None
+    _indenting_logger: HummingbotLogger | logging.Logger | None = None
+
+    @classmethod
+    def logger(cls) -> HummingbotLogger | logging.Logger:
+        try:
+            from hummingbot.logger.indenting_logger import IndentingLogger
+            if cls._indenting_logger is None:
+                if cls._logger is not None:
+                    cls._indenting_logger = IndentingLogger(cls._logger, cls.__name__)
+                else:
+                    name: str = HummingbotLogger.logger_name_for_class(cls)
+                    cls._indenting_logger = IndentingLogger(logging.getLogger(name), cls.__name__)
+            cls._indenting_logger.refresh_handlers()
+            return cls._indenting_logger
+        except ImportError:
+            if cls._logger is None:
+                name: str = HummingbotLogger.logger_name_for_class(cls)
+                cls._logger = logging.getLogger(name)
+            return cls._logger
 
     __slots__ = (
         'api_key',
@@ -61,14 +83,17 @@ class CoinbaseAdvancedTradeV2Auth(AuthBase):
         """
         # TODO: Understand what the issue is with the time sync
         # _timestamp: int = await self._get_synced_timestamp_s()
-        _timestamp: int = int(time.time())
+        _timestamp: int = int(self.time_provider.time())
+        # _timestamp: int = int(time.time())
         timestamp: str = str(_timestamp)
+
+        self.logger().debug(f"Authenticating REST request.url: {request.url}:{timestamp}")
 
         endpoint: str = endpoint_from_url(request.url).split('?')[0]  # ex: /v3/orders
         message = timestamp + str(request.method) + endpoint + str(request.data or '')
         signature: str = self._generate_signature(message=message)
 
-        headers: Dict[str, str] = (
+        headers: Dict = (
             dict(request.headers) if request.headers is not None else {}
         ) | {
             "accept": 'application/json',
@@ -105,14 +130,17 @@ class CoinbaseAdvancedTradeV2Auth(AuthBase):
         Signing the above message with the passphrase and base64-encoding the signature.
         """
         # _timestamp: int = await self._get_synced_timestamp_s()
-        _timestamp: int = int(time.time())
+        _timestamp: int = int(self.time_provider.time())
+        # _timestamp: int = int(time.time())
         timestamp: str = str(_timestamp)
+
+        self.logger().debug(f"Authenticating WS request.url: {request}:{timestamp}")
 
         products: str = ",".join(request.payload["product_ids"])
         message: str = timestamp + str(request.payload["channel"]) + products
         signature: str = self._generate_signature(message=message)
 
-        payload: Dict[str, str] = dict(request.payload) | {
+        payload: Dict = dict(request.payload) | {
             "api_key": self.api_key,
             "signature": signature,
             "timestamp": timestamp,

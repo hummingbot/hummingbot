@@ -80,20 +80,31 @@ async def _message_to_cumulative_update(
       ]
     }
     """
-    timestamp_s: float = get_timestamp_from_exchange_time(event_message["timestamp"], "second")
+    # logging.debug(f"Cumulative handler received event {event_message}")
+    # The timestamp may have been updated by the sequencer or another pipe
+    if not isinstance(event_message["timestamp"], float):
+        event_message["timestamp"] = get_timestamp_from_exchange_time(event_message["timestamp"], "second")
+
+    timestamp_s: float = event_message["timestamp"]
     for event in event_message.get("events"):
         for order in event["orders"]:
-            yield CoinbaseAdvancedTradeV2CumulativeUpdate(
-                exchange_order_id=order["order_id"],
-                client_order_id=order["client_order_id"],
-                status=order["status"],
-                trading_pair=await symbol_to_pair(order["product_id"]),
-                fill_timestamp=timestamp_s,
-                average_price=Decimal(order["avg_price"]),
-                cumulative_base_amount=Decimal(order["cumulative_quantity"]),
-                remainder_base_amount=Decimal(order["leaves_quantity"]),
-                cumulative_fee=Decimal(order["total_fees"]),
-            )
+            try:
+                cumulative_order = CoinbaseAdvancedTradeV2CumulativeUpdate(
+                    exchange_order_id=order["order_id"],
+                    client_order_id=order["client_order_id"],
+                    status=order["status"],
+                    trading_pair=await symbol_to_pair(order["product_id"]),
+                    fill_timestamp=timestamp_s,
+                    average_price=Decimal(order["avg_price"]),
+                    cumulative_base_amount=Decimal(order["cumulative_quantity"]),
+                    remainder_base_amount=Decimal(order["leaves_quantity"]),
+                    cumulative_fee=Decimal(order["total_fees"]),
+                )
+                yield cumulative_order
+            except Exception as e:
+                logging.error(f"Failed to create a CumulativeUpdate error {e}")
+                logging.error(f"\n\t{order}")
+                raise e
 
 
 def _timestamp_filter_sequence(event_message: Dict[str, Any],
@@ -116,10 +127,26 @@ def _timestamp_filter_sequence(event_message: Dict[str, Any],
       "events": [...]
     }
     """
+    # logging.debug(f"   DEBUG: Sequence handler {event_message}")
     if event_message["channel"] == "user":
         sequencer(event_message["sequence_num"], event_message["channel"])
-        event_message["timestamp"] = get_timestamp_from_exchange_time(event_message["timestamp"], "second")
+
+        # logging.debug(f"      DEBUG: Filter {event_message}")
+        if isinstance(event_message["timestamp"], str):
+            event_message["timestamp"] = get_timestamp_from_exchange_time(event_message["timestamp"], "second")
         yield event_message
+    # else:
+    #     logging.debug(f"*** DEBUG: Filtering message {event_message} {event_message['channel']} not user")
+
+
+async def _collect_cumulative_update(
+        event_message: CoinbaseAdvancedTradeV2CumulativeUpdate,
+) -> AsyncGenerator[CoinbaseAdvancedTradeV2CumulativeUpdate, None]:
+    # Filter-out non-CumulativeUpdate messages
+    if isinstance(event_message, CoinbaseAdvancedTradeV2CumulativeUpdate):
+        yield event_message
+    else:
+        logging.debug(f"*** DEBUG: Collect skipping {event_message} {type(event_message)}")
 
 
 class WSAssistantPtl(Protocol):
@@ -157,6 +184,27 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSource(UserStreamTrackerDataSource
     """
     UserStreamTrackerDataSource implementation for Coinbase Advanced Trade API.
     """
+
+    _logger: HummingbotLogger | logging.Logger | None = None
+    _indenting_logger: HummingbotLogger | logging.Logger | None = None
+
+    @classmethod
+    def logger(cls) -> HummingbotLogger | logging.Logger:
+        try:
+            from hummingbot.logger.indenting_logger import IndentingLogger
+            if cls._indenting_logger is None:
+                if cls._logger is not None:
+                    cls._indenting_logger = IndentingLogger(cls._logger, cls.__name__)
+                else:
+                    name: str = HummingbotLogger.logger_name_for_class(cls)
+                    cls._indenting_logger = IndentingLogger(logging.getLogger(name), cls.__name__)
+            cls._indenting_logger.refresh_handlers()
+            return cls._indenting_logger
+        except ImportError:
+            if cls._logger is None:
+                name: str = HummingbotLogger.logger_name_for_class(cls)
+                cls._logger = logging.getLogger(name)
+            return cls._logger
 
     __slots__ = (
         "_stream_to_queue",
@@ -211,13 +259,18 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSource(UserStreamTrackerDataSource
         return self._stream_to_queue.last_recv_time
 
     async def listen_for_user_stream(self, output: asyncio.Queue[CoinbaseAdvancedTradeV2CumulativeUpdate]):
-        await self._stream_to_queue.open()
-        await self._stream_to_queue.start_stream()
-        await self._stream_to_queue.subscribe()
+        with self.logger().ctx_indentation("Listening to Coinbase Advanced Trade user stream...", bullet="["):
+            await self._stream_to_queue.open()
+            await self._stream_to_queue.start_stream()
+            await self._stream_to_queue.subscribe()
 
-        while True:
-            message: CoinbaseAdvancedTradeV2CumulativeUpdate = await self._stream_to_queue.queue.get()
-            await output.put(message)
+            while True:
+                message: CoinbaseAdvancedTradeV2CumulativeUpdate = await self._stream_to_queue.queue.get()
+                # Filter-out non-CumulativeUpdate messages
+                if isinstance(message, CoinbaseAdvancedTradeV2CumulativeUpdate):
+                    await output.put(message)
+                else:
+                    raise ValueError(f"Invalid message type: {type(message)} {message}")
 
 
 CollectorT: Type = PipesCollector[Dict[str, Any], CoinbaseAdvancedTradeV2CumulativeUpdate]
@@ -269,12 +322,25 @@ class _MultiStreamDataSource:
     _MultiStreamDataSource implementation for Coinbase Advanced Trade API.
     """
     _logger: HummingbotLogger | logging.Logger | None = None
+    _indenting_logger: HummingbotLogger | logging.Logger | None = None
 
     @classmethod
-    def logger(cls) -> HummingbotLogger:
-        if cls._logger is None:
-            cls._logger = logging.getLogger(HummingbotLogger.logger_name_for_class(cls))
-        return cls._logger
+    def logger(cls) -> HummingbotLogger | logging.Logger:
+        try:
+            from hummingbot.logger.indenting_logger import IndentingLogger
+            if cls._indenting_logger is None:
+                if cls._logger is not None:
+                    cls._indenting_logger = IndentingLogger(cls._logger, cls.__name__)
+                else:
+                    name: str = HummingbotLogger.logger_name_for_class(cls)
+                    cls._indenting_logger = IndentingLogger(logging.getLogger(name), cls.__name__)
+            cls._indenting_logger.refresh_handlers()
+            return cls._indenting_logger
+        except ImportError:
+            if cls._logger is None:
+                name: str = HummingbotLogger.logger_name_for_class(cls)
+                cls._logger = logging.getLogger(name)
+            return cls._logger
 
     __slots__ = (
         "_streams",
@@ -306,19 +372,28 @@ class _MultiStreamDataSource:
         :param pair_to_symbol: Async function to convert the pair to symbol.
         """
 
-        def sequencer(s: int, c: str, sequences: Dict[str, int], key) -> None:
+        def sequencer(s: int, c: str, sequences: Dict[str, int], key: str) -> None:
             """
             Check the sequence number and increment it.
             """
+            assert isinstance(s, int), f"Sequence number should be int, not {type(s)}"
+            assert isinstance(c, str), f"Channel should be str, not {type(c)}"
+            assert isinstance(sequences, dict), f"Sequences should be dict, not {type(sequences)}"
+            assert isinstance(key, str), f"Key should be str, not {type(key)}"
+
             if s != sequences[key] + 1:
-                logging.warning(
-                    f"Sequence number mismatch. Expected {sequences[key] + 1}, received {s}"
+                self.logger().warning(
+                    f"Sequence number mismatch. Expected {sequences[key] + 1}, received {s} for {key}"
                     f"\n      channel: {c}")
-            sequences[key] += 1
+                # This should never occur, it indicates a flaw in the code
+                if s < sequences[key]:
+                    raise ValueError(
+                        f"Sequence number lower than expected {sequences[key] + 1}, received {s} for {key}")
+            sequences[key] = s
 
         self._streams: Dict[str, StreamDataSource] = {}
         self._transformers: Dict[str, List[PipeBlock]] = {}
-        self._sequences: Dict[str, int] = defaultdict(int)
+        self._sequences: defaultdict[str, int] = defaultdict(int)
 
         for channel in channels:
             for pair in pairs:
@@ -345,13 +420,16 @@ class _MultiStreamDataSource:
                 timestamp_filter_sequence = functools.partial(_timestamp_filter_sequence, sequencer=sequencer)
 
                 # Create the callable to pass as a handler to the PipeBlock
-                message_to_cumulative_update = functools.partial(_message_to_cumulative_update,
-                                                                 symbol_pair=symbol_to_pair)
+                message_to_cumulative_update = functools.partial(
+                    _message_to_cumulative_update,
+                    symbol_to_pair=symbol_to_pair)
 
                 # Create the PipeBlocks that transforms the messages
                 self._transformers[channel_pair].append(
                     PipeBlock[Dict[str, Any], Dict[str, Any]](
-                        self._streams[channel_pair].destination, timestamp_filter_sequence))
+                        self._streams[channel_pair].destination,
+                        timestamp_filter_sequence))
+
                 self._transformers[channel_pair].append(
                     PipeBlock[Dict[str, Any], CoinbaseAdvancedTradeV2CumulativeUpdate](
                         self._transformers[channel_pair][-1].destination,
@@ -359,7 +437,8 @@ class _MultiStreamDataSource:
                     ))
 
         self._collector: CollectorT = CollectorT(
-            sources=tuple(self._transformers[t][-1] for t in self._transformers)
+            sources=tuple(self._transformers[t][-1].destination for t in self._transformers),
+            handler=_collect_cumulative_update,
         )
 
     @staticmethod
@@ -381,17 +460,22 @@ class _MultiStreamDataSource:
 
         :return: the timestamp of the last received message in seconds
         """
+        self.logger().debug(
+            f"Last recv time: {min((self._streams[t].last_recv_time for t in self._streams))} {max((self._streams[t].last_recv_time for t in self._streams))}")
         return min((self._streams[t].last_recv_time for t in self._streams))
 
     async def open(self) -> None:
         """Initialize all the streams, subscribe to heartbeats channels"""
         stream: StreamDataSource
+        self.logger().debug("Opening User stream (gather)")
+        # await asyncio.gather(*[stream.open_connection() for stream in self._streams.values()])
         for stream in list(self._streams.values()):
             await stream.open_connection()
             if stream.state[0] != StreamState.OPENED:
                 self.logger().warning(f"Stream {stream.channel}:{stream.pair} failed to open.")
                 await stream.close_connection()
                 self._streams.pop(self._stream_key(channel=stream.channel, pair=stream.pair), None)
+        self.logger().debug("Done opening")
 
     async def close(self) -> None:
         """Close all the streams"""
@@ -400,12 +484,16 @@ class _MultiStreamDataSource:
 
     async def subscribe(self) -> None:
         """Subscribe to all the streams"""
+        self.logger().debug("Subscribing User stream (gather)")
+        # await asyncio.gather(*[stream.subscribe() for stream in self._streams.values()])
         for stream in list(self._streams.values()):
             await stream.subscribe()
             if stream.state[0] != StreamState.SUBSCRIBED:
                 self.logger().warning(f"Stream {stream.channel}:{stream.pair} failed to subscribe.")
                 await stream.close_connection()
                 self._streams.pop(self._stream_key(channel=stream.channel, pair=stream.pair), None)
+            self.logger().info(f"'->Subscribed User stream {stream.channel}:{stream.pair} opening.")
+        self.logger().debug("Done subscribing")
 
     async def unsubscribe(self) -> None:
         """Unsubscribe to all the streams"""

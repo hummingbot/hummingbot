@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import time
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
@@ -24,7 +25,26 @@ class CoinbaseAdvancedTradeV2APIOrderBookDataSource(OrderBookTrackerDataSource):
     DIFF_STREAM_ID = 2
     ONE_HOUR = 60 * 60
 
-    _logger: Optional[HummingbotLogger] = None
+    _logger: HummingbotLogger | logging.Logger | None = None
+    _indenting_logger: HummingbotLogger | logging.Logger | None = None
+
+    @classmethod
+    def logger(cls) -> HummingbotLogger | logging.Logger:
+        try:
+            from hummingbot.logger.indenting_logger import IndentingLogger
+            if cls._indenting_logger is None:
+                if cls._logger is not None:
+                    cls._indenting_logger = IndentingLogger(cls._logger, cls.__name__)
+                else:
+                    name: str = HummingbotLogger.logger_name_for_class(cls)
+                    cls._indenting_logger = IndentingLogger(logging.getLogger(name), cls.__name__)
+            cls._indenting_logger.refresh_handlers()
+            return cls._indenting_logger
+        except ImportError:
+            if cls._logger is None:
+                name: str = HummingbotLogger.logger_name_for_class(cls)
+                cls._logger = logging.getLogger(name)
+            return cls._logger
 
     def __init__(self,
                  trading_pairs: List[str],
@@ -147,18 +167,20 @@ class CoinbaseAdvancedTradeV2APIOrderBookDataSource(OrderBookTrackerDataSource):
         }
         """
         try:
+            symbols = []
             for trading_pair in self._trading_pairs:
                 symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+                symbols.append(symbol)
 
-                for channel in ["heartbeats", *constants.WS_ORDER_SUBSCRIPTION_CHANNELS]:
-                    payload = {
-                        "type": "subscribe",
-                        "product_ids": [symbol],
-                        "channel": channel,
-                    }
-                    await ws.send(WSJSONRequest(payload=payload, is_auth_required=True))
+            for channel in [*constants.WS_ORDER_SUBSCRIPTION_CHANNELS]:
+                payload = {
+                    "type": "subscribe",
+                    "product_ids": symbols,
+                    "channel": channel,
+                }
+                await ws.send(WSJSONRequest(payload=payload, is_auth_required=True))
 
-            self.logger().info("Subscribed to public order book and trade channels...")
+            self.logger().info(f"Subscribed to order book channels for: {', '.join(self._trading_pairs)}")
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -169,6 +191,7 @@ class CoinbaseAdvancedTradeV2APIOrderBookDataSource(OrderBookTrackerDataSource):
             raise
 
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
+        self.logger().debug("Processing websocket messages...")
         async for ws_response in websocket_assistant.iter_messages():
             data: Dict[str, Any] = ws_response.data
 
@@ -190,6 +213,7 @@ class CoinbaseAdvancedTradeV2APIOrderBookDataSource(OrderBookTrackerDataSource):
             "product_id": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         }
 
+        self.logger().debug(f"Requesting order book snapshot for {trading_pair}...")
         rest_assistant = await self._api_factory.get_rest_assistant()
         snapshot: Dict[str, Any] = await rest_assistant.execute_request(
             url=web_utils.public_rest_url(path_url=constants.SNAPSHOT_EP, domain=self._domain),
@@ -198,6 +222,7 @@ class CoinbaseAdvancedTradeV2APIOrderBookDataSource(OrderBookTrackerDataSource):
             is_auth_required=True,
             throttler_limit_id=constants.SNAPSHOT_EP,
         )
+        self.logger().debug(f"   '-> {snapshot}..."[:50])
 
         snapshot_timestamp: float = time.time()
 

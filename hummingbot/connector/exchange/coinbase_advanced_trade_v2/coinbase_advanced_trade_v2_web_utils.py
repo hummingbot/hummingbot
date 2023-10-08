@@ -1,5 +1,5 @@
 import re
-from typing import Callable, Dict, NamedTuple, Optional, Tuple, Union
+from typing import Callable, Dict, NamedTuple, Optional, Tuple
 
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.utils import TimeSynchronizerRESTPreProcessor
@@ -120,16 +120,23 @@ async def get_current_server_time_ms(
 
 
 def get_timestamp_from_exchange_time(exchange_time: str, unit: str) -> float:
+    assert isinstance(exchange_time, str), f"exchange_time should be str, not {type(exchange_time)}: {exchange_time}"
+    assert isinstance(unit, str), f"unit should be str, not {type(unit)}"
+
     from datetime import datetime
-    exchange_time_with_tz: str = exchange_time.replace("Z", "+00:00")
+    timezone: str = "+00:00" if "Z" in exchange_time or "+" not in exchange_time else ""
+    exchange_time = exchange_time.replace("Z", "")
 
     # Oddly some time (at least in the doc) are not ISO8601 compliant with too many decimals
     # So we truncate the string to make it ISO8601 compliant
-    if len(exchange_time_with_tz) > 32:
-        exchange_time_truncated = exchange_time_with_tz[:26] + exchange_time_with_tz[-6:]
-    else:
-        exchange_time_truncated = exchange_time_with_tz
-    t_s: float = datetime.fromisoformat(exchange_time_truncated).timestamp()
+    if len(exchange_time) > 26:
+        exchange_time = exchange_time[:26]
+    elif 26 > len(exchange_time) > 19:
+        # Some time are missing the milliseconds digits?
+        nb_decimal = len(exchange_time) - 20
+        exchange_time += "0" * (6 - nb_decimal)
+
+    t_s: float = datetime.fromisoformat(exchange_time + timezone).timestamp()
     if unit in {"s", "second", "seconds"}:
         return t_s
     elif unit in {"ms", "millisecond", "milliseconds"}:
@@ -138,7 +145,10 @@ def get_timestamp_from_exchange_time(exchange_time: str, unit: str) -> float:
         raise ValueError(f"Unsupported time unit {unit}")
 
 
-def set_exchange_time_from_timestamp(timestamp: Union[int, float], timestamp_unit: str = "s") -> str:
+def set_exchange_time_from_timestamp(timestamp: int | float, timestamp_unit: str = "s") -> str:
+    assert isinstance(timestamp, (int, float)), f"timestamp should be int or float, not {type(timestamp)}"
+    assert isinstance(timestamp_unit, str), f"timestamp_unit should be str, not {type(timestamp_unit)}"
+
     if timestamp_unit in {"ms", "millisecond", "milliseconds"}:
         timestamp /= 1000
     elif timestamp_unit not in ("s", "second", "seconds"):

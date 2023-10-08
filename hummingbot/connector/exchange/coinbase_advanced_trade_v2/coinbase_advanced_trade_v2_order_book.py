@@ -1,8 +1,10 @@
+import logging
 from typing import Any, Callable, Coroutine, Dict, Optional
 
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.logger import HummingbotLogger
 
 from .coinbase_advanced_trade_v2_constants import WS_ORDER_SUBSCRIPTION_CHANNELS
 from .coinbase_advanced_trade_v2_web_utils import get_timestamp_from_exchange_time
@@ -14,6 +16,27 @@ class CoinbaseAdvancedTradeV2OrderBook(OrderBook):
     """
     # Mapping of WS channels to their respective sequence numbers
     _sequence_nums: Dict[str, int] = {channel: 0 for channel in WS_ORDER_SUBSCRIPTION_CHANNELS.inv.keys()}
+
+    _logger: HummingbotLogger | logging.Logger | None = None
+    _indenting_logger: HummingbotLogger | logging.Logger | None = None
+
+    @classmethod
+    def logger(cls) -> HummingbotLogger | logging.Logger:
+        try:
+            from hummingbot.logger.indenting_logger import IndentingLogger
+            if cls._indenting_logger is None:
+                if cls._logger is not None:
+                    cls._indenting_logger = IndentingLogger(cls._logger, cls.__name__)
+                else:
+                    name: str = HummingbotLogger.logger_name_for_class(cls)
+                    cls._indenting_logger = IndentingLogger(logging.getLogger(name), cls.__name__)
+            cls._indenting_logger.refresh_handlers()
+            return cls._indenting_logger
+        except ImportError:
+            if cls._logger is None:
+                name: str = HummingbotLogger.logger_name_for_class(cls)
+                cls._logger = logging.getLogger(name)
+            return cls._logger
 
     @classmethod
     def snapshot_message_from_exchange(cls,
@@ -28,13 +51,18 @@ class CoinbaseAdvancedTradeV2OrderBook(OrderBook):
         :return: a snapshot message with the snapshot information received from the exchange
         """
         if metadata:
-            msg.update(metadata)
-        return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
+            msg |= metadata
+
+        ob_msg: OrderBookMessage = OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": msg["trading_pair"],
             "update_id": int(get_timestamp_from_exchange_time(msg["pricebook"]["time"], "s")),
             "bids": ((d["price"], d["size"]) for d in msg["pricebook"]["bids"]),
             "asks": ((d["price"], d["size"]) for d in msg["pricebook"]["asks"])
         }, timestamp=timestamp)
+
+        cls.logger().debug(f"Created snapshot message from exchange: {ob_msg}")
+
+        return ob_msg
 
     @classmethod
     async def level2_or_trade_message_from_exchange(
@@ -74,11 +102,11 @@ class CoinbaseAdvancedTradeV2OrderBook(OrderBook):
 
         cls._sequence_nums[channel] = msg["sequence_num"] + 1
 
-        if channel == "market_trades":
-            return await cls._market_trades_order_book_message(msg, symbol_to_pair)
-
-        elif channel == "l2_data":
+        if channel == "l2_data":
             return await cls._level2_order_book_message(msg, timestamp, symbol_to_pair)
+
+        elif channel == "market_trades":
+            return await cls._market_trades_order_book_message(msg, symbol_to_pair)
 
         raise ValueError(f"Unexpected channel: {channel}")
 
