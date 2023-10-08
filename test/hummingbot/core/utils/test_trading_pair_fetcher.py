@@ -38,7 +38,7 @@ class TestTradingPairFetcher(unittest.TestCase):
 
     class MockConnectorSetting(MagicMock):
         def __init__(self, name, parent_name=None, connector=None, *args, **kwargs) -> None:
-            super().__init__(*args, **kwargs)
+            super().__init__(name, *args, **kwargs)
             self._name = name
             self._parent_name = parent_name
             self._connector = connector
@@ -53,6 +53,9 @@ class TestTradingPairFetcher(unittest.TestCase):
 
         def base_name(self) -> str:
             return self.name
+
+        def connector_connected(self) -> bool:
+            return True
 
         def add_domain_parameter(*_, **__) -> Dict[str, Any]:
             return {}
@@ -94,8 +97,7 @@ class TestTradingPairFetcher(unittest.TestCase):
     @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher._sf_shared_instance")
     @patch("hummingbot.client.config.security.Security.connector_config_file_exists")
     @patch("hummingbot.client.config.security.Security.wait_til_decryption_done")
-    @patch("hummingbot.client.config.security.Security.api_keys")
-    def test_fetched_connected_trading_pairs(self, _, api_keys_mock: AsyncMock, __: MagicMock, ___: MagicMock, mock_connector_settings):
+    def test_fetched_connected_trading_pairs(self, _, __: MagicMock, ___: MagicMock, mock_connector_settings):
         connector = AsyncMock()
         connector.all_trading_pairs.return_value = ["MOCK-HBOT"]
         mock_connector_settings.return_value = {
@@ -106,7 +108,6 @@ class TestTradingPairFetcher(unittest.TestCase):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         client_config_map.fetch_pairs_from_all_exchanges = False
         self.assertTrue(Security.connector_config_file_exists("binance"))
-        api_keys_mock.return_value = True
         trading_pair_fetcher = TradingPairFetcher(client_config_map)
         self.async_run_with_timeout(self.wait_until_trading_pair_fetcher_ready(trading_pair_fetcher), 1.0)
         trading_pairs = trading_pair_fetcher.trading_pairs
