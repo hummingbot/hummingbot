@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import json
 from collections import OrderedDict
 from typing import Any, Dict
 from urllib.parse import urlencode
@@ -26,11 +27,11 @@ class BinancePerpetualAuth(AuthBase):
 
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
         if request.method == RESTMethod.POST:
-            request.data = self.add_auth_to_params(request.data)
+            request.data = self.add_auth_to_params(params=json.loads(request.data))
         else:
             request.params = self.add_auth_to_params(request.params)
 
-        request.headers = {"X-MBX-APIKEY": self._api_key}
+        request.headers = self.header_for_authentication()
 
         return request
 
@@ -48,3 +49,6 @@ class BinancePerpetualAuth(AuthBase):
         request_params["signature"] = self.generate_signature_from_payload(payload=payload)
 
         return request_params
+
+    def header_for_authentication(self) -> Dict[str, str]:
+        return {"X-MBX-APIKEY": self._api_key}
