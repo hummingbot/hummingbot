@@ -17,6 +17,7 @@ class AsyncThrottlerBase(ABC):
     throttling of API requests through the usage of asynchronous context managers.
     """
 
+    _default_config_map = {}
     _logger = None
 
     @classmethod
@@ -40,7 +41,7 @@ class AsyncThrottlerBase(ABC):
             bots operate with the same account)
         """
         # If configured, users can define the percentage of rate limits to allocate to the throttler.
-        share_percentage = limits_share_percentage or self._client_config_map().rate_limits_share_pct
+        share_percentage = limits_share_percentage or Decimal("100")
         self.limits_pct: Decimal = share_percentage / 100
 
         self.set_rate_limits(rate_limits)

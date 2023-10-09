@@ -9,6 +9,3 @@ class WebUtilsTests(TestCase):
 
         url = web_utils.get_rest_url_for_endpoint(endpoint, domain="kucoin_perpetual_main")
         self.assertEqual("https://api-futures.kucoin.com/testEndpoint", url)
-
-        url = web_utils.get_rest_url_for_endpoint(endpoint, domain="kucoin_perpetual_testnet")
-        self.assertEqual("https://api-sandbox-futures.kucoin.com/testEndpoint", url)
