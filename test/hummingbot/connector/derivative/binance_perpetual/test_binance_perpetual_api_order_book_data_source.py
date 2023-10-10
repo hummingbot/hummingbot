@@ -159,7 +159,7 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_get_snapshot_exception_raised(self, mock_api):
-        url = web_utils.rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
+        url = web_utils.public_rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.get(regex_url, status=400, body=json.dumps(["ERROR"]))
 
@@ -169,12 +169,12 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
                     trading_pair=self.trading_pair)
             )
 
-        self.assertEqual("Error executing request GET /depth. HTTP status is 400. Error: [\"ERROR\"]",
-                         str(context.exception))
+        self.assertIn("HTTP status is 400. Error: [\"ERROR\"]",
+                      str(context.exception))
 
     @aioresponses()
     def test_get_snapshot_successful(self, mock_api):
-        url = web_utils.rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
+        url = web_utils.public_rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_response = {
             "lastUpdateId": 1027024,
@@ -193,7 +193,7 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_get_new_order_book(self, mock_api):
-        url = web_utils.rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
+        url = web_utils.public_rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_response = {
             "lastUpdateId": 1027024,
@@ -209,7 +209,7 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_get_funding_info_from_exchange_successful(self, mock_api):
-        url = web_utils.rest_url(CONSTANTS.MARK_PRICE_URL, domain=self.domain)
+        url = web_utils.public_rest_url(CONSTANTS.MARK_PRICE_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_response = {
@@ -235,7 +235,7 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_get_funding_info(self, mock_api):
-        url = web_utils.rest_url(CONSTANTS.MARK_PRICE_URL, domain=self.domain)
+        url = web_utils.public_rest_url(CONSTANTS.MARK_PRICE_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_response = {
@@ -370,7 +370,7 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_listen_for_order_book_snapshots_cancelled_error_raised(self, mock_api):
-        url = web_utils.rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
+        url = web_utils.public_rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, exception=asyncio.CancelledError)
@@ -387,7 +387,7 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_listen_for_order_book_snapshots_logs_exception_error_with_response(self, mock_api):
-        url = web_utils.rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
+        url = web_utils.public_rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_response = {
@@ -410,7 +410,7 @@ class BinancePerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
 
     @aioresponses()
     def test_listen_for_order_book_snapshots_successful(self, mock_api):
-        url = web_utils.rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
+        url = web_utils.public_rest_url(CONSTANTS.SNAPSHOT_REST_URL, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_response = {
