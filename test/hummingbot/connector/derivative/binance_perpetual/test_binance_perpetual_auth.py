@@ -2,6 +2,7 @@ import asyncio
 import copy
 import hashlib
 import hmac
+import json
 import unittest
 from typing import Awaitable
 from urllib.parse import urlencode
@@ -66,7 +67,7 @@ class BinancePerpetualAuthUnitTests(unittest.TestCase):
 
     def test_rest_authenticate_data_provided(self):
         request: RESTRequest = RESTRequest(
-            method=RESTMethod.POST, url="/TEST_PATH_URL", data=copy.deepcopy(self.test_params), is_auth_required=True
+            method=RESTMethod.POST, url="/TEST_PATH_URL", data=json.dumps(self.test_params), is_auth_required=True
         )
 
         signed_request: RESTRequest = self.async_run_with_timeout(self.auth.rest_authenticate(request))
