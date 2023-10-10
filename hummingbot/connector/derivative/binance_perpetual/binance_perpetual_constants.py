@@ -17,41 +17,38 @@ TESTNET_WS_URL = "wss://stream.binancefuture.com/"
 PUBLIC_WS_ENDPOINT = "stream"
 PRIVATE_WS_ENDPOINT = "ws"
 
-API_VERSION = "v1"
-API_VERSION_V2 = "v2"
-
 TIME_IN_FORCE_GTC = "GTC"  # Good till cancelled
 TIME_IN_FORCE_GTX = "GTX"  # Good Till Crossing
 TIME_IN_FORCE_IOC = "IOC"  # Immediate or cancel
 TIME_IN_FORCE_FOK = "FOK"  # Fill or kill
 
 # Public API v1 Endpoints
-SNAPSHOT_REST_URL = "/depth"
-TICKER_PRICE_URL = "/ticker/bookTicker"
-TICKER_PRICE_CHANGE_URL = "/ticker/24hr"
-EXCHANGE_INFO_URL = "/exchangeInfo"
-RECENT_TRADES_URL = "/trades"
-PING_URL = "/ping"
-MARK_PRICE_URL = "/premiumIndex"
-SERVER_TIME_PATH_URL = "/time"
+SNAPSHOT_REST_URL = "v1/depth"
+TICKER_PRICE_URL = "v1/ticker/bookTicker"
+TICKER_PRICE_CHANGE_URL = "v1/ticker/24hr"
+EXCHANGE_INFO_URL = "v1/exchangeInfo"
+RECENT_TRADES_URL = "v1/trades"
+PING_URL = "v1/ping"
+MARK_PRICE_URL = "v1/premiumIndex"
+SERVER_TIME_PATH_URL = "v1/time"
 
 # Private API v1 Endpoints
-ORDER_URL = "/order"
-CANCEL_ALL_OPEN_ORDERS_URL = "/allOpenOrders"
-ACCOUNT_TRADE_LIST_URL = "/userTrades"
-SET_LEVERAGE_URL = "/leverage"
-GET_INCOME_HISTORY_URL = "/income"
-CHANGE_POSITION_MODE_URL = "/positionSide/dual"
+ORDER_URL = "v1/order"
+CANCEL_ALL_OPEN_ORDERS_URL = "v1/allOpenOrders"
+ACCOUNT_TRADE_LIST_URL = "v1/userTrades"
+SET_LEVERAGE_URL = "v1/leverage"
+GET_INCOME_HISTORY_URL = "v1/income"
+CHANGE_POSITION_MODE_URL = "v1/positionSide/dual"
 
 POST_POSITION_MODE_LIMIT_ID = f"POST{CHANGE_POSITION_MODE_URL}"
 GET_POSITION_MODE_LIMIT_ID = f"GET{CHANGE_POSITION_MODE_URL}"
 
 # Private API v2 Endpoints
-ACCOUNT_INFO_URL = "/account"
-POSITION_INFORMATION_URL = "/positionRisk"
+ACCOUNT_INFO_URL = "v2/account"
+POSITION_INFORMATION_URL = "v2/positionRisk"
 
 # Private API Endpoints
-BINANCE_USER_STREAM_ENDPOINT = "/listenKey"
+BINANCE_USER_STREAM_ENDPOINT = "v1/listenKey"
 
 # Funding Settlement Time Span
 FUNDING_SETTLEMENT_DURATION = (0, 30)  # seconds before snapshot, seconds after snapshot
@@ -129,3 +126,8 @@ RATE_LIMITS = [
     RateLimit(limit_id=MARK_PRICE_URL, limit=MAX_REQUEST, time_interval=ONE_MINUTE, weight=1,
               linked_limits=[LinkedLimitWeightPair(REQUEST_WEIGHT, weight=1)]),
 ]
+
+ORDER_NOT_EXIST_ERROR_CODE = -2013
+ORDER_NOT_EXIST_MESSAGE = "Order does not exist"
+UNKNOWN_ORDER_ERROR_CODE = -2011
+UNKNOWN_ORDER_MESSAGE = "Unknown order sent"
