@@ -187,8 +187,9 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
         if in_flight_order.exchange_order_id is None:
             status_update = await self._get_order_status_update_from_transaction_status(in_flight_order=in_flight_order)
-            in_flight_order.exchange_order_id = status_update.exchange_order_id
-            self._publisher.trigger_event(event_tag=MarketEvent.OrderUpdate, message=status_update)
+            if status_update is not None:
+                in_flight_order.exchange_order_id = status_update.exchange_order_id
+                self._publisher.trigger_event(event_tag=MarketEvent.OrderUpdate, message=status_update)
 
         if (
             in_flight_order.exchange_order_id is not None
@@ -426,12 +427,7 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
                 or transaction_data.get("txReceipt", {}).get("status") == 0
             )
         ):
-            order_update = OrderUpdate(
-                trading_pair=in_flight_order.trading_pair,
-                update_timestamp=self._time(),
-                new_state=OrderState.FAILED,
-                client_order_id=in_flight_order.client_order_id,
-            )
+            order_update = None  # transaction data not found
         else:  # transaction is still being processed
             order_update = OrderUpdate(
                 trading_pair=in_flight_order.trading_pair,
