@@ -202,7 +202,7 @@ class DexalotAPIDataSource(GatewayCLOBAPIDataSourceBase):
             self._publisher.trigger_event(event_tag=MarketEvent.OrderUpdate, message=status_update)
 
         if status_update is None:
-            raise ValueError(f"No update found for order {in_flight_order.exchange_order_id}.")
+            raise ValueError(f"No update found for order {in_flight_order.client_order_id}.")
 
         return status_update
 
