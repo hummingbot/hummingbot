@@ -7,6 +7,7 @@ import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_web_u
 from hummingbot.connector.derivative.binance_perpetual.binance_perpetual_auth import BinancePerpetualAuth
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
@@ -54,24 +55,23 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             self._ws_assistant = await self._api_factory.get_ws_assistant()
         return self._ws_assistant
 
-    async def get_listen_key(self):
-        data = None
-
+    async def _get_listen_key(self):
+        rest_assistant = await self._api_factory.get_rest_assistant()
         try:
-            data = await self._connector._api_post(
-                path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT,
-                is_auth_required=True)
+            data = await rest_assistant.execute_request(
+                url=web_utils.private_rest_url(path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT, domain=self._domain),
+                method=RESTMethod.POST,
+                throttler_limit_id=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT,
+                headers=self._auth.header_for_authentication()
+            )
         except asyncio.CancelledError:
             raise
         except Exception as exception:
-            raise IOError(
-                f"Error fetching Binance Perpetual user stream listen key. "
-                f"The response was {data}. Error: {exception}"
-            )
+            raise IOError(f"Error fetching user stream listen key. Error: {exception}")
 
         return data["listenKey"]
 
-    async def ping_listen_key(self) -> bool:
+    async def _ping_listen_key(self) -> bool:
         try:
             data = await self._connector._api_put(
                 path_url=CONSTANTS.BINANCE_USER_STREAM_ENDPOINT,
@@ -93,24 +93,23 @@ class BinancePerpetualUserStreamDataSource(UserStreamTrackerDataSource):
     async def _manage_listen_key_task_loop(self):
         try:
             while True:
+                now = int(time.time())
                 if self._current_listen_key is None:
-                    self._current_listen_key = await self.get_listen_key()
+                    self._current_listen_key = await self._get_listen_key()
                     self.logger().info(f"Successfully obtained listen key {self._current_listen_key}")
                     self._listen_key_initialized_event.set()
-                else:
-                    success: bool = await self.ping_listen_key()
+                    self._last_listen_key_ping_ts = int(time.time())
+
+                if now - self._last_listen_key_ping_ts >= self.LISTEN_KEY_KEEP_ALIVE_INTERVAL:
+                    success: bool = await self._ping_listen_key()
                     if not success:
-                        self.logger().error("Error occurred renewing listen key... ")
+                        self.logger().error("Error occurred renewing listen key ...")
                         break
                     else:
                         self.logger().info(f"Refreshed listen key {self._current_listen_key}.")
                         self._last_listen_key_ping_ts = int(time.time())
-                await self._sleep(self.LISTEN_KEY_KEEP_ALIVE_INTERVAL)
-
-        except Exception as e:
-            self.logger().error(f"Unexpected error occurred with maintaining listen key. "
-                                f"Error {e}")
-            raise
+                else:
+                    await self._sleep(self.LISTEN_KEY_KEEP_ALIVE_INTERVAL)
         finally:
             self._current_listen_key = None
             self._listen_key_initialized_event.clear()

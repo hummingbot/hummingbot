@@ -381,7 +381,7 @@ class PositionExecutor(SmartComponentBase):
         elif self.close_order.order_id == event.order_id:
             self.place_close_order(self.close_type)
         elif self.take_profit_order.order_id == event.order_id:
-            self.place_take_profit_limit_order()
+            self.take_profit_order.order_id = None
 
     def to_json(self):
         return {
