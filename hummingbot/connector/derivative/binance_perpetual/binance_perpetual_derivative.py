@@ -30,7 +30,6 @@ from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 if TYPE_CHECKING:
@@ -114,7 +113,7 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def funding_fee_poll_interval(self) -> int:
-        return 120
+        return 600
 
     def supported_order_types(self) -> List[OrderType]:
         """
@@ -143,18 +142,14 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         return is_time_synchronizer_related
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
-        # TODO: implement this method correctly for the connector
-        # The default implementation was added when the functionality to detect not found orders was introduced in the
-        # ExchangePyBase class. Also fix the unit test test_lost_order_removed_if_not_found_during_order_status_update
-        # when replacing the dummy implementation
-        return False
+        return str(CONSTANTS.ORDER_NOT_EXIST_ERROR_CODE) in str(
+            status_update_exception
+        ) and CONSTANTS.ORDER_NOT_EXIST_MESSAGE in str(status_update_exception)
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
-        # TODO: implement this method correctly for the connector
-        # The default implementation was added when the functionality to detect not found orders was introduced in the
-        # ExchangePyBase class. Also fix the unit test test_cancel_order_not_found_in_the_exchange when replacing the
-        # dummy implementation
-        return False
+        return str(CONSTANTS.UNKNOWN_ORDER_ERROR_CODE) in str(
+            cancelation_exception
+        ) and CONSTANTS.UNKNOWN_ORDER_MESSAGE in str(cancelation_exception)
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
@@ -581,10 +576,8 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
 
-        account_info = await self._api_request(path_url=CONSTANTS.ACCOUNT_INFO_URL,
-                                               is_auth_required=True,
-                                               api_version=CONSTANTS.API_VERSION_V2,
-                                               )
+        account_info = await self._api_get(path_url=CONSTANTS.ACCOUNT_INFO_URL,
+                                           is_auth_required=True)
         assets = account_info.get("assets")
         for asset in assets:
             asset_name = asset.get("asset")
@@ -600,10 +593,8 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
             del self._account_balances[asset_name]
 
     async def _update_positions(self):
-        positions = await self._api_request(path_url=CONSTANTS.POSITION_INFORMATION_URL,
-                                            is_auth_required=True,
-                                            api_version=CONSTANTS.API_VERSION_V2,
-                                            )
+        positions = await self._api_get(path_url=CONSTANTS.POSITION_INFORMATION_URL,
+                                        is_auth_required=True)
         for position in positions:
             trading_pair = position.get("symbol")
             try:
@@ -639,7 +630,7 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
                 trading_pairs_to_order_map[order.trading_pair][order.exchange_order_id] = order
             trading_pairs = list(trading_pairs_to_order_map.keys())
             tasks = [
-                self._api_request(
+                self._api_get(
                     path_url=CONSTANTS.ACCOUNT_TRADE_LIST_URL,
                     params={"symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)},
                     is_auth_required=True,
@@ -693,13 +684,12 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         if current_tick > last_tick and len(self._order_tracker.active_orders) > 0:
             tracked_orders = list(self._order_tracker.active_orders.values())
             tasks = [
-                self._api_request(
+                self._api_get(
                     path_url=CONSTANTS.ORDER_URL,
                     params={
                         "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair),
                         "origClientOrderId": order.client_order_id
                     },
-                    method=RESTMethod.GET,
                     is_auth_required=True,
                     return_err=True,
                 )
@@ -735,14 +725,13 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
     async def _get_position_mode(self) -> Optional[PositionMode]:
         # To-do: ensure there's no active order or contract before changing position mode
         if self._position_mode is None:
-            response = await self._api_request(
-                method=RESTMethod.GET,
+            response = await self._api_get(
                 path_url=CONSTANTS.CHANGE_POSITION_MODE_URL,
                 is_auth_required=True,
                 limit_id=CONSTANTS.GET_POSITION_MODE_LIMIT_ID,
                 return_err=True
             )
-            self._position_mode = PositionMode.HEDGE if response["dualSidePosition"] else PositionMode.ONEWAY
+            self._position_mode = PositionMode.HEDGE if response.get("dualSidePosition") else PositionMode.ONEWAY
 
         return self._position_mode
 
@@ -754,8 +743,7 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
             params = {
                 "dualSidePosition": mode.value
             }
-            response = await self._api_request(
-                method=RESTMethod.POST,
+            response = await self._api_post(
                 path_url=CONSTANTS.CHANGE_POSITION_MODE_URL,
                 data=params,
                 is_auth_required=True,
@@ -771,10 +759,9 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
     async def _set_trading_pair_leverage(self, trading_pair: str, leverage: int) -> Tuple[bool, str]:
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
         params = {'symbol': symbol, 'leverage': leverage}
-        set_leverage = await self._api_request(
+        set_leverage = await self._api_post(
             path_url=CONSTANTS.SET_LEVERAGE_URL,
             data=params,
-            method=RESTMethod.POST,
             is_auth_required=True,
         )
         success = False
@@ -787,22 +774,19 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
-        payment_response = await self._api_request(
+        payment_response = await self._api_get(
             path_url=CONSTANTS.GET_INCOME_HISTORY_URL,
             params={
                 "symbol": exchange_symbol,
                 "incomeType": "FUNDING_FEE",
-                "limit": 10,
             },
-            method=RESTMethod.GET,
             is_auth_required=True,
         )
-        funding_info_response = await self._api_request(
+        funding_info_response = await self._api_get(
             path_url=CONSTANTS.MARK_PRICE_URL,
             params={
                 "symbol": exchange_symbol,
             },
-            method=RESTMethod.GET,
         )
         sorted_payment_response = sorted(payment_response, key=lambda a: a.get('time', 0), reverse=True)
         if len(sorted_payment_response) < 1:
@@ -817,54 +801,3 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         else:
             timestamp, funding_rate, payment = 0, Decimal("-1"), Decimal("-1")
         return timestamp, funding_rate, payment
-
-    async def _api_request(
-            self,
-            path_url,
-            overwrite_url: Optional[str] = None,
-            method: RESTMethod = RESTMethod.GET,
-            params: Optional[Dict[str, Any]] = None,
-            data: Optional[Dict[str, Any]] = None,
-            is_auth_required: bool = False,
-            return_err: bool = False,
-            api_version: str = CONSTANTS.API_VERSION,
-            limit_id: Optional[str] = None,
-            **kwargs,
-    ) -> Dict[str, Any]:
-        last_exception = None
-        rest_assistant = await self._web_assistants_factory.get_rest_assistant()
-        url = web_utils.rest_url(path_url, self.domain, api_version)
-        for _ in range(2):
-            try:
-
-                async with self._throttler.execute_task(limit_id=limit_id if limit_id else path_url):
-                    request = RESTRequest(
-                        method=method,
-                        url=url,
-                        params=params,
-                        data=data,
-                        is_auth_required=is_auth_required,
-                        throttler_limit_id=limit_id if limit_id else path_url
-                    )
-                    response = await rest_assistant.call(request=request)
-
-                    if response.status != 200:
-                        if return_err:
-                            error_response = await response.json()
-                            return error_response
-                        else:
-                            error_response = await response.text()
-                            raise IOError(f"Error executing request {method.name} {path_url}. "
-                                          f"HTTP status is {response.status}. "
-                                          f"Error: {error_response}")
-                    return await response.json()
-            except IOError as request_exception:
-                last_exception = request_exception
-                if self._is_request_exception_related_to_time_synchronizer(request_exception=request_exception):
-                    self._time_synchronizer.clear_time_offset_ms_samples()
-                    await self._update_time_synchronizer()
-                else:
-                    raise
-
-        # Failed even after the last retry
-        raise last_exception
