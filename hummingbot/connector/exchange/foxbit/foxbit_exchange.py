@@ -402,7 +402,7 @@ class FoxbitExchange(ExchangePyBase):
             "type": "CLIENT_ORDER_ID",
             "client_order_id": order_id,
         }
-        
+
         try:
             cancel_result = await self._api_put(
                 path_url=CONSTANTS.CANCEL_ORDER_PATH_URL,
@@ -416,7 +416,7 @@ class FoxbitExchange(ExchangePyBase):
         if len(cancel_result.get("data")) > 0:
             if cancel_result.get("data")[0].get('id') == tracked_order.exchange_order_id:
                 return True
-        
+
         return False
 
     async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
