@@ -1200,6 +1200,12 @@ class InjectiveDataSource(ABC):
             )
         )
 
+        if "spotOrders" in chain_stream_update:
+            self.logger().debug(
+                f"--- Spot Orders Updates (block {block_height} - ts {block_timestamp}) ---"
+                f"\n{chain_stream_update['spotOrders']}"
+            )
+
         await safe_gather(*tasks)
 
     async def _process_chain_spot_order_book_update(
