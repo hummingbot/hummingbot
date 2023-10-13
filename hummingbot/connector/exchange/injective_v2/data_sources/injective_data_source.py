@@ -1200,11 +1200,14 @@ class InjectiveDataSource(ABC):
             )
         )
 
-        if "spotOrders" in chain_stream_update:
-            self.logger().debug(
-                f"--- Spot Orders Updates (block {block_height} - ts {block_timestamp}) ---"
-                f"\n{chain_stream_update['spotOrders']}"
-            )
+        self.logger().debug(
+            f"--- Spot Orders Updates (block {block_height} - ts {block_timestamp}) ---"
+            f"\n{chain_stream_update.get('spotOrders', [])}"
+        )
+        self.logger().debug(
+            f"--- Derivative Orders Updates (block {block_height} - ts {block_timestamp}) ---"
+            f"\n{chain_stream_update.get('derivativeOrders', [])}"
+        )
 
         await safe_gather(*tasks)
 
