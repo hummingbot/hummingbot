@@ -1,17 +1,17 @@
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from test.logger_mixin_for_test import LoggerMixinForTest
 
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_order_book import (
-    CoinbaseAdvancedTradeV2OrderBook,
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_order_book import (
+    CoinbaseAdvancedTradeOrderBook,
 )
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_web_utils import (
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils import (
     get_timestamp_from_exchange_time,
 )
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book_message import OrderBookMessageType
 
 
-class CoinbaseAdvancedTradeV2OrderBookTests(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
+class CoinbaseAdvancedTradeOrderBookTests(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     def setUp(self) -> None:
         super().setUp()
         self.snapshot_msg = {
@@ -67,14 +67,14 @@ class CoinbaseAdvancedTradeV2OrderBookTests(IsolatedAsyncioWrapperTestCase, Logg
                 }
             ]
         }
-        self.order_book = CoinbaseAdvancedTradeV2OrderBook()
+        self.order_book = CoinbaseAdvancedTradeOrderBook()
         self.set_loggers([self.order_book.logger()])
 
     async def symbol_to_pair(self, symbol: str) -> str:
         return "COINALPHA-HBOT"
 
     async def test_level2_order_book_snapshot_message(self):
-        snapshot_message = await (CoinbaseAdvancedTradeV2OrderBook._level2_order_book_message(
+        snapshot_message = await (CoinbaseAdvancedTradeOrderBook._level2_order_book_message(
             msg=self.snapshot_msg,
             timestamp=1640000000.0,
             symbol_to_pair=self.symbol_to_pair
@@ -101,7 +101,7 @@ class CoinbaseAdvancedTradeV2OrderBookTests(IsolatedAsyncioWrapperTestCase, Logg
         update_msg["sequence_num"] = 5
         update_msg["events"][0]["type"] = "update"
 
-        update_message = await (CoinbaseAdvancedTradeV2OrderBook._level2_order_book_message(
+        update_message = await (CoinbaseAdvancedTradeOrderBook._level2_order_book_message(
             msg=update_msg,
             timestamp=1640000000.0,
             symbol_to_pair=self.symbol_to_pair
@@ -122,7 +122,7 @@ class CoinbaseAdvancedTradeV2OrderBookTests(IsolatedAsyncioWrapperTestCase, Logg
         self.assertEqual(update_message.update_id, update_message.asks[0].update_id)
 
     async def test_market_trades_order_book_snapshot_message(self):
-        trade_message = await (CoinbaseAdvancedTradeV2OrderBook._market_trades_order_book_message(
+        trade_message = await (CoinbaseAdvancedTradeOrderBook._market_trades_order_book_message(
             msg=self.trade_msg,
             symbol_to_pair=self.symbol_to_pair
         ))
@@ -142,7 +142,7 @@ class CoinbaseAdvancedTradeV2OrderBookTests(IsolatedAsyncioWrapperTestCase, Logg
         snapshot_msg = self.snapshot_msg
         snapshot_msg["sequence_num"] = 1
 
-        snapshot_message = await (CoinbaseAdvancedTradeV2OrderBook.level2_or_trade_message_from_exchange(
+        snapshot_message = await (CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
             msg=snapshot_msg,
             timestamp=1640000000.0,
             symbol_to_pair=self.symbol_to_pair
@@ -155,7 +155,7 @@ class CoinbaseAdvancedTradeV2OrderBookTests(IsolatedAsyncioWrapperTestCase, Logg
     async def test_level2_or_trade_message_from_exchange_market_trades(self):
         trade_msg = self.trade_msg
         trade_msg["sequence_num"] = 1
-        trade_message = await (CoinbaseAdvancedTradeV2OrderBook.level2_or_trade_message_from_exchange(
+        trade_message = await (CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
             msg=trade_msg,
             timestamp=1640000000.0,
             symbol_to_pair=self.symbol_to_pair
@@ -174,7 +174,7 @@ class CoinbaseAdvancedTradeV2OrderBookTests(IsolatedAsyncioWrapperTestCase, Logg
         snapshot_msg = self.snapshot_msg
         snapshot_msg["sequence_num"] = 50
 
-        await (CoinbaseAdvancedTradeV2OrderBook.level2_or_trade_message_from_exchange(
+        await (CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
             msg=snapshot_msg,
             timestamp=1640000000.0,
             symbol_to_pair=self.symbol_to_pair
@@ -191,7 +191,7 @@ class CoinbaseAdvancedTradeV2OrderBookTests(IsolatedAsyncioWrapperTestCase, Logg
         trade_msg = self.trade_msg
         trade_msg["sequence_num"] = 50
 
-        await (CoinbaseAdvancedTradeV2OrderBook.level2_or_trade_message_from_exchange(
+        await (CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
             msg=trade_msg,
             timestamp=1640000000.0,
             symbol_to_pair=self.symbol_to_pair
@@ -207,7 +207,7 @@ class CoinbaseAdvancedTradeV2OrderBookTests(IsolatedAsyncioWrapperTestCase, Logg
     async def test_level2_or_trade_message_from_exchange_unexpected_channel(self):
         msg = self.snapshot_msg.copy()
         msg["channel"] = "unexpected_channel"
-        out = await CoinbaseAdvancedTradeV2OrderBook.level2_or_trade_message_from_exchange(
+        out = await CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
             msg=msg,
             timestamp=1640000000.0,
             symbol_to_pair=self.symbol_to_pair
@@ -217,7 +217,7 @@ class CoinbaseAdvancedTradeV2OrderBookTests(IsolatedAsyncioWrapperTestCase, Logg
     async def test_level2_or_trade_message_from_exchange_missing_events(self):
         msg = self.snapshot_msg.copy()
         del msg["events"]
-        out = await CoinbaseAdvancedTradeV2OrderBook.level2_or_trade_message_from_exchange(
+        out = await CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
             msg=msg,
             timestamp=1640000000.0,
             symbol_to_pair=self.symbol_to_pair
@@ -226,7 +226,7 @@ class CoinbaseAdvancedTradeV2OrderBookTests(IsolatedAsyncioWrapperTestCase, Logg
 
     async def test__level2_order_book_message_unexpected_type(self):
         msg = {"events": {}, "type": "unexpected_type", "data": {}}
-        out = await CoinbaseAdvancedTradeV2OrderBook._level2_order_book_message(
+        out = await CoinbaseAdvancedTradeOrderBook._level2_order_book_message(
             msg=msg,
             timestamp=1640000000.0,
             symbol_to_pair=self.symbol_to_pair
@@ -236,7 +236,7 @@ class CoinbaseAdvancedTradeV2OrderBookTests(IsolatedAsyncioWrapperTestCase, Logg
     async def test_level2_order_book_message_missing_events(self):
         msg = {"type": "l2_data", "data": {}}
         with self.assertRaises(KeyError):
-            await CoinbaseAdvancedTradeV2OrderBook._level2_order_book_message(
+            await CoinbaseAdvancedTradeOrderBook._level2_order_book_message(
                 msg=msg,
                 timestamp=1640000000.0,
                 symbol_to_pair=self.symbol_to_pair
@@ -244,7 +244,7 @@ class CoinbaseAdvancedTradeV2OrderBookTests(IsolatedAsyncioWrapperTestCase, Logg
 
     async def test_market_trades_order_book_message_unexpected_type(self):
         msg = {"events": {}, "type": "unexpected_type", "data": {}}
-        out = await CoinbaseAdvancedTradeV2OrderBook._market_trades_order_book_message(
+        out = await CoinbaseAdvancedTradeOrderBook._market_trades_order_book_message(
             msg=msg,
             symbol_to_pair=self.symbol_to_pair
         )
@@ -255,7 +255,7 @@ class CoinbaseAdvancedTradeV2OrderBookTests(IsolatedAsyncioWrapperTestCase, Logg
         # This raises because this message is missing the 'events' field
         # (which normally should be handled by the calling method)
         with self.assertRaises(KeyError):
-            await CoinbaseAdvancedTradeV2OrderBook._market_trades_order_book_message(
+            await CoinbaseAdvancedTradeOrderBook._market_trades_order_book_message(
                 msg=msg,
                 symbol_to_pair=self.symbol_to_pair
             )

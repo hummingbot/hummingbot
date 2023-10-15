@@ -8,7 +8,7 @@ from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
-from . import coinbase_advanced_trade_v2_constants as constants
+from . import coinbase_advanced_trade_constants as constants
 
 
 def public_rest_url(path_url: str, domain: str = constants.DEFAULT_DOMAIN) -> str:
@@ -28,7 +28,7 @@ def private_rest_url(path_url: str, domain: str = constants.DEFAULT_DOMAIN) -> s
     """
     Creates a full URL for provided private REST endpoint
     :param path_url: a private REST endpoint
-    :param domain: the coinbase_advanced_trade_v2 domain to connect to ("com" or "us"). The default value is "com"
+    :param domain: the coinbase_advanced_trade domain to connect to ("com" or "us"). The default value is "com"
     :return: the full URL to the endpoint
     """
     if any((path_url.startswith(p) for p in constants.SIGNIN_ENDPOINTS)):
@@ -41,7 +41,7 @@ def endpoint_from_url(path_url: str, domain: str = constants.DEFAULT_DOMAIN) -> 
     """
     Recreates the endpoint from the url
     :param path_url: URL to the endpoint
-    :param domain: the coinbase_advanced_trade_v2 domain to connect to ("com" or "us"). The default value is "com"
+    :param domain: the coinbase_advanced_trade domain to connect to ("com" or "us"). The default value is "com"
     :return: the full URL to the endpoint
     """
     if domain not in path_url:
@@ -64,7 +64,7 @@ def build_api_factory(
         auth: Optional[AuthBase] = None, ) -> WebAssistantsFactory:
     throttler = throttler or create_throttler()
     time_synchronizer = time_synchronizer or TimeSynchronizer()
-    time_provider = time_provider or (lambda: get_current_server_time_s(
+    time_provider = time_provider or (lambda: get_current_server_time_ms(
         throttler=throttler,
         domain=domain,
     ))
@@ -123,20 +123,10 @@ def get_timestamp_from_exchange_time(exchange_time: str, unit: str) -> float:
     assert isinstance(exchange_time, str), f"exchange_time should be str, not {type(exchange_time)}: {exchange_time}"
     assert isinstance(unit, str), f"unit should be str, not {type(unit)}"
 
-    from datetime import datetime
-    timezone: str = "+00:00" if "Z" in exchange_time or "+" not in exchange_time else ""
-    exchange_time = exchange_time.replace("Z", "")
+    from dateutil import parser
 
-    # Oddly some time (at least in the doc) are not ISO8601 compliant with too many decimals
-    # So we truncate the string to make it ISO8601 compliant
-    if len(exchange_time) > 26:
-        exchange_time = exchange_time[:26]
-    elif 26 > len(exchange_time) > 19:
-        # Some time are missing the milliseconds digits?
-        nb_decimal = len(exchange_time) - 20
-        exchange_time += "0" * (6 - nb_decimal)
-
-    t_s: float = datetime.fromisoformat(exchange_time + timezone).timestamp()
+    dt = parser.parse(timestr=exchange_time)
+    t_s: float = dt.timestamp()
     if unit in {"s", "second", "seconds"}:
         return t_s
     elif unit in {"ms", "millisecond", "milliseconds"}:

@@ -1,17 +1,15 @@
 import hashlib
 import hmac
-import logging
 from typing import Dict
 
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSJSONRequest, WSRequest
-from hummingbot.logger import HummingbotLogger
 
-from .coinbase_advanced_trade_v2_web_utils import endpoint_from_url
+from .coinbase_advanced_trade_web_utils import endpoint_from_url
 
 
-class CoinbaseAdvancedTradeV2Auth(AuthBase):
+class CoinbaseAdvancedTradeAuth(AuthBase):
     """
     Authentication class for Coinbase Advanced Trade API.
 
@@ -21,27 +19,6 @@ class CoinbaseAdvancedTradeV2Auth(AuthBase):
     """
     TIME_SYNC_UPDATE_S: float = 30
     _time_sync_last_updated_s: float = -1
-
-    _logger: HummingbotLogger | logging.Logger | None = None
-    _indenting_logger: HummingbotLogger | logging.Logger | None = None
-
-    @classmethod
-    def logger(cls) -> HummingbotLogger | logging.Logger:
-        try:
-            from hummingbot.logger.indenting_logger import IndentingLogger
-            if cls._indenting_logger is None:
-                if cls._logger is not None:
-                    cls._indenting_logger = IndentingLogger(cls._logger, cls.__name__)
-                else:
-                    name: str = HummingbotLogger.logger_name_for_class(cls)
-                    cls._indenting_logger = IndentingLogger(logging.getLogger(name), cls.__name__)
-            cls._indenting_logger.refresh_handlers()
-            return cls._indenting_logger
-        except ImportError:
-            if cls._logger is None:
-                name: str = HummingbotLogger.logger_name_for_class(cls)
-                cls._logger = logging.getLogger(name)
-            return cls._logger
 
     __slots__ = (
         'api_key',
@@ -81,13 +58,7 @@ class CoinbaseAdvancedTradeV2Auth(AuthBase):
         :param request: the request to be configured for authenticated interaction
         :returns: the authenticated request
         """
-        # TODO: Understand what the issue is with the time sync
-        # _timestamp: int = await self._get_synced_timestamp_s()
-        _timestamp: int = int(self.time_provider.time())
-        # _timestamp: int = int(time.time())
-        timestamp: str = str(_timestamp)
-
-        self.logger().debug(f"Authenticating REST request.url: {request.url}:{timestamp}")
+        timestamp: str = str(int(self.time_provider.time()))
 
         endpoint: str = endpoint_from_url(request.url).split('?')[0]  # ex: /v3/orders
         message = timestamp + str(request.method) + endpoint + str(request.data or '')
@@ -129,12 +100,7 @@ class CoinbaseAdvancedTradeV2Auth(AuthBase):
         Concatenating and comma-separating the timestamp, channel name, and product Ids, for example: 1660838876level2ETH-USD,ETH-EUR.
         Signing the above message with the passphrase and base64-encoding the signature.
         """
-        # _timestamp: int = await self._get_synced_timestamp_s()
-        _timestamp: int = int(self.time_provider.time())
-        # _timestamp: int = int(time.time())
-        timestamp: str = str(_timestamp)
-
-        self.logger().debug(f"Authenticating WS request.url: {request}:{timestamp}")
+        timestamp: str = str(int(self.time_provider.time()))
 
         products: str = ",".join(request.payload["product_ids"])
         message: str = timestamp + str(request.payload["channel"]) + products
@@ -158,24 +124,3 @@ class CoinbaseAdvancedTradeV2Auth(AuthBase):
         """
         digest: str = hmac.new(self.secret_key.encode("utf8"), message.encode("utf8"), hashlib.sha256).digest().hex()
         return digest
-
-# TODO: Understand what the issue is with the time sync
-
-#    async def _get_synced_timestamp_s(self) -> int:
-#        """
-#        Helper function to get a synced timestamp in seconds.
-#
-#        If the `_time_sync_last_updated_s` value is less than 0 or TIME_SYNC_UPDATE seconds have elapsed since it was
-#        last updated, it triggers an update of the server time offset by calling the
-#        `update_server_time_offset_with_time_provider` function on `self.time_provider` with the current server time
-#        in milliseconds.
-#
-#        :return: A synced timestamp in seconds.
-#        """
-#        if self._time_sync_last_updated_s < 0 or self._time_sync_last_updated_s + self.TIME_SYNC_UPDATE_S < self.time_provider.time():
-#            # Time synchronizer expects time in milliseconds
-#            awaitable: Awaitable[float] = get_current_server_time_ms()
-#            await self.time_provider.update_server_time_offset_with_time_provider(awaitable)
-#            self._time_sync_last_updated_s: float = self.time_provider.time()
-#
-#        return int(self.time_provider.time())

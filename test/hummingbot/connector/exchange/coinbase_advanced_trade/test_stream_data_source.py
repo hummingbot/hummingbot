@@ -5,13 +5,13 @@ from test.logger_mixin_for_test import LoggerMixinForTest
 from typing import Any, AsyncGenerator, Awaitable, Callable, Coroutine, Dict
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2.stream_data_source import (
+from hummingbot.connector.exchange.coinbase_advanced_trade.stream_data_source import (
     StreamAction,
     StreamDataSource,
     StreamState,
     _WSAssistantPtl,
 )
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2.task_manager import TaskManager, TaskState
+from hummingbot.connector.exchange.coinbase_advanced_trade.task_manager import TaskManager, TaskState
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest, WSRequest, WSResponse
 
 
@@ -398,7 +398,7 @@ class TestStreamDataSource(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
                 # With a mocked is_running the state changes to STARTED
                 mock_task.assert_called_once()
                 mock_task.assert_awaited_once()
-                # start_task is mocked
+                # start_all_tasks is mocked
                 self.assertEqual(TaskState.STOPPED, self.stream_data_source._task_state, )
 
     async def test_start_task(self) -> None:

@@ -6,15 +6,15 @@ from typing import Awaitable
 
 from aioresponses import aioresponses
 
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2 import (
-    coinbase_advanced_trade_v2_constants as CONSTANTS,
-    coinbase_advanced_trade_v2_web_utils as web_utils,
+from hummingbot.connector.exchange.coinbase_advanced_trade import (
+    coinbase_advanced_trade_constants as CONSTANTS,
+    coinbase_advanced_trade_web_utils as web_utils,
 )
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.rate_oracle.sources.coinbase_advanced_trade_rate_source import CoinbaseAdvancedTradeRateSource
 
 
-class CoinbaseAdvancedTradeV2RateSourceTest(IsolatedAsyncioWrapperTestCase):
+class CoinbaseAdvancedTradeRateSourceTest(IsolatedAsyncioWrapperTestCase):
     global_token = None
     target_token = None
 

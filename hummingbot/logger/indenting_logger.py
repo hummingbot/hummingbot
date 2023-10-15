@@ -17,6 +17,7 @@ class IndentingLogger:
         self._logger: HummingbotLogger = logger
         self._class_name: str = class_name
         self._filehandler: FlushingFileHandler | None = None
+        self._class_log_path: str | None = None
 
         if handler := self._update_first_file_handler():
             handler.setFormatter(logging.Formatter(f'{self._class_name:>50}: %(message)s'))
@@ -36,16 +37,26 @@ class IndentingLogger:
         print("Logging error:", traceback.format_exc())
 
     def refresh_handlers(self):
-        if self._filehandler is None:
+        if self._filehandler is None and self._class_log_path is not None:
             self._filehandler = FlushingFileHandler(self._class_log_path, encoding="utf-8", delay=False)
             self._filehandler.handleError = self.handle_error
-            self._filehandler.setFormatter(logging.Formatter('%(asctime)s: %(message)s'))
+            self._filehandler.setFormatter(logging.Formatter('%(asctime)s:[%(lineno)d] %(message)s'))
             self._filehandler.setLevel(logging.DEBUG)
 
-        if self._filehandler not in self._logger.handlers:
+        if self._filehandler and self._filehandler not in self._logger.handlers:
             self._logger.setLevel(logging.DEBUG)
             self._logger.addHandler(self._filehandler)
             self._logger.debug(f"Added new DEBUG file handler for {self._class_name}")
+
+    def setLevel(self, level):
+        self._logger.setLevel(level)
+        if self._filehandler:
+            self._filehandler.setLevel(level)
+
+    def addHandler(self, handler):
+        self._logger.addHandler(handler)
+        if self._filehandler:
+            self._filehandler.addHandler(handler)
 
     def debug(
             self,

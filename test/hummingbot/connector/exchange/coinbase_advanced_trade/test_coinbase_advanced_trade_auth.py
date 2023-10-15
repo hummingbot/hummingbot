@@ -6,23 +6,21 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses import aioresponses
 
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_auth import (
-    CoinbaseAdvancedTradeV2Auth,
-)
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_web_utils import (
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_auth import CoinbaseAdvancedTradeAuth
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils import (
     get_current_server_time_s,
 )
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSJSONRequest
 
 
-class CoinbaseAdvancedTradeV2AuthTests(IsolatedAsyncioWrapperTestCase):
+class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
 
     def setUp(self) -> None:
         self.api_key = "testApiKey"
         self.secret_key = "testSecret"
         self.time_synchronizer_mock = AsyncMock(spec=TimeSynchronizer)
-        self.auth = CoinbaseAdvancedTradeV2Auth(self.api_key, self.secret_key, self.time_synchronizer_mock)
+        self.auth = CoinbaseAdvancedTradeAuth(self.api_key, self.secret_key, self.time_synchronizer_mock)
 
     def test_init(self):
         self.assertEqual(self.auth.api_key, self.api_key)
@@ -89,14 +87,14 @@ class CoinbaseAdvancedTradeV2AuthTests(IsolatedAsyncioWrapperTestCase):
         }
         full_params = copy(params)
 
-        auth = CoinbaseAdvancedTradeV2Auth(api_key=self.api_key, secret_key=self.secret_key,
-                                           time_provider=self.time_synchronizer_mock)
+        auth = CoinbaseAdvancedTradeAuth(api_key=self.api_key, secret_key=self.secret_key,
+                                         time_provider=self.time_synchronizer_mock)
         url = "https://api.coinbase.com/v2/time"
         request = RESTRequest(method=RESTMethod.GET, url=url, params=params, is_auth_required=True)
         # Mocking get_current_server_time_ms as an MagicMock on purpose since it is called
         # to get an Awaitable, but not awaited, which would generate a sys error and not look nice
-        with patch('hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_auth'
-                   '.time.time',
+        with patch('hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils'
+                   '.get_current_server_time_ms',
                    new_callable=MagicMock) as mocked_time:
             mocked_time.return_value = 1234567890.0
             configured_request = await auth.rest_authenticate(request)
@@ -122,77 +120,14 @@ class CoinbaseAdvancedTradeV2AuthTests(IsolatedAsyncioWrapperTestCase):
 
         # Mocking get_current_server_time_ms as an MagicMock on purpose since it is called
         # to get an Awaitable, but not awaited, which would generate a sys error and not look nice
-        with patch('hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_auth'
-                   '.time.time',
+        with patch('hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils'
+                   '.get_current_server_time_ms',
                    new_callable=MagicMock) as mock_get_current_server_time_ms:
             mock_get_current_server_time_ms.return_value = 12345678900
 
             authenticated_request = await self.auth.ws_authenticate(ws_request)
 
-            self.assertIsInstance(authenticated_request, WSJSONRequest)
-            self.assertTrue("signature" in authenticated_request.payload)
-            self.assertTrue("timestamp" in authenticated_request.payload)
-            self.assertTrue("api_key" in authenticated_request.payload)
-
-#    @aioresponses()
-#    async def test__get_synced_timestamp_s_time_sync_methods_called(self, mock_aioresponse):
-#        # Mock time to return a large enough value so that time sync update is triggered
-#        self.time_synchronizer_mock.time.return_value = CoinbaseAdvancedTradeV2Auth.TIME_SYNC_UPDATE_S + 1
-#
-#        # This needs to be mocked to avoid the error of awaitable never awaited
-#        # It is called to create an awaitable that is sent to the time sync update method
-#        # but it is not awaited, because we mocked the TimeSynchronizer!
-#        with patch('hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_auth'
-#                   '.get_current_server_time_ms',
-#                   new_callable=MagicMock):
-#            await self.auth._get_synced_timestamp_s()
-#
-#        self.time_synchronizer_mock.time.assert_called()
-#        self.time_synchronizer_mock.update_server_time_offset_with_time_provider.assert_called_once()
-
-#    @aioresponses()
-#    async def test__get_synced_timestamp_s_get_current_server_time_called(self, mock_aioresponse):
-#        # Mock update_server_time_offset_with_time_provider to return None
-#        self.time_synchronizer_mock.update_server_time_offset_with_time_provider.return_value = None
-#
-#        await self.auth._get_synced_timestamp_s()
-#
-#        self.time_synchronizer_mock.update_server_time_offset_with_time_provider.assert_called_once()
-
-#    @aioresponses()
-#    async def test__get_synced_timestamp_s_time_sync_return_value(self, mock_aioresponse):
-#        # Mock update_server_time_offset_with_time_provider to return None
-#        mock_aioresponse.get(public_rest_url(path_url=CONSTANTS.SERVER_TIME_EP, domain="com"),
-#                             payload={"data": {"epoch": 1234567890, "iso": "2020-01-01T00:00:00.000Z"}},
-#                             )
-#        server_time_ms = await get_current_server_time_ms()
-#        server_time_s = server_time_ms / 1000
-#
-#        # Mock time to return server time
-#        self.time_synchronizer_mock.time.return_value = server_time_s
-#
-#        returned_time = await self.auth._get_synced_timestamp_s()
-#
-#        self.time_synchronizer_mock.time.assert_called()
-#        self.assertAlmostEqual(returned_time, int(server_time_s), delta=1)
-
-#    @aioresponses()
-#    async def test__get_synced_timestamp_s(self, mock_aioresponse):
-#        self.auth._time_sync_last_updated_s = -1
-#        self.time_synchronizer_mock.time.return_value = 1234567890
-#
-#        # Mocking get_current_server_time_ms as an MagicMock on purpose since it is called
-#        # to get an Awaitable, but not awaited, which would generate a sys error and not look nice
-#        with patch('hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_auth'
-#                   '.get_current_server_time_ms',
-#                   new_callable=MagicMock) as mock_get_current_server_time_ms:
-#            mock_get_current_server_time_ms.return_value = asyncio.Future()
-#            mock_get_current_server_time_ms.return_value.set_result(1234567890 * 1000)
-#
-#            synced_timestamp = await self.auth._get_synced_timestamp_s()
-#
-#            self.time_synchronizer_mock.update_server_time_offset_with_time_provider.assert_called_once()
-#            called_with_coroutine = \
-#                self.time_synchronizer_mock.update_server_time_offset_with_time_provider.call_args[0][0]
-#            self.assertTrue(isinstance(called_with_coroutine, asyncio.Future))
-#            self.assertEqual(synced_timestamp, 1234567890)
+        self.assertIsInstance(authenticated_request, WSJSONRequest)
+        self.assertTrue("signature" in authenticated_request.payload)
+        self.assertTrue("timestamp" in authenticated_request.payload)
+        self.assertTrue("api_key" in authenticated_request.payload)

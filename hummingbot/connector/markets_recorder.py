@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os.path
+import random
 import threading
 import time
 from decimal import Decimal
@@ -130,8 +131,10 @@ class MarketsRecorder:
                                     best_ask = market.get_price_by_type(trading_pair, PriceType.BestAsk)
                                     order_book = market.get_order_book(trading_pair)
                                     depth = self._market_data_collection_config.market_data_collection_depth + 1
+                                    rand = random.randint(0, 99) / 1000
+                                    timestamp: float = float(self.db_timestamp) + rand
                                     market_data = MarketData(
-                                        timestamp=self.db_timestamp,
+                                        timestamp=timestamp,
                                         exchange=exchange,
                                         trading_pair=trading_pair,
                                         mid_price=mid_price,

@@ -1,22 +1,22 @@
 import asyncio
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from typing import Any, List
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2.pipe import (
+from hummingbot.connector.exchange.coinbase_advanced_trade.pipe import (
     HandlerT,
     Pipe,
     PipePutPtl,
     StreamMessageIteratorPtl,
     pipe_to_pipe_connector,
 )
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2.pipeline import (
+from hummingbot.connector.exchange.coinbase_advanced_trade.pipeline import (
     PipeBlock,
     PipelineBlock,
     PipesCollector,
     StreamBlock,
 )
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2.task_manager import TaskManager
+from hummingbot.connector.exchange.coinbase_advanced_trade.task_manager import TaskManager
 
 
 # Define a class for the tests
@@ -106,12 +106,17 @@ class TestPipelineBlocks(IsolatedAsyncioWrapperTestCase):
     async def test_exception_handling(self) -> None:
         self.destination_pipe.put = MagicMock(side_effect=[Exception("Test exception")])
 
-        await self.pipeline_block.start_task()
-        await asyncio.sleep(0.1)  # give the task time to start
-        self.assertTrue(self.pipeline_block.is_running)
-        await asyncio.sleep(0.1)  # give the task time to throw exception
-        self.assertFalse(self.pipeline_block.is_running)
-        self.assertIsInstance(self.pipeline_block.task_manager._task_exception, Exception)
+        with patch.object(PipelineBlock, "logger") as mock_logger:
+            await self.pipeline_block.start_task()
+            await asyncio.sleep(0.1)  # give the task time to start
+            self.assertTrue(self.pipeline_block.is_running)
+            await asyncio.sleep(0.1)  # give the task time to throw exception
+            self.assertFalse(self.pipeline_block.is_running)
+            self.assertIsInstance(self.pipeline_block.task_manager._task_exception, Exception)
+            mock_logger().error.assert_called_once_with(
+                f"An error occurred while executing the task in the PipelineBlock:\n"
+                f" {self.pipeline_block.task_manager._task_exception}"
+            )
 
         class InfiniteAsyncIterable:
             async def __call__(self):
@@ -121,20 +126,30 @@ class TestPipelineBlocks(IsolatedAsyncioWrapperTestCase):
 
         self.source_stream.iter_messages = InfiniteAsyncIterable()
 
-        self.destination_pipe.put = MagicMock(side_effect=[Exception("Test exception")])
-        await self.stream_block.start_task()
-        await asyncio.sleep(0.1)  # give the task time to start
-        self.assertTrue(self.stream_block.is_running)
-        await asyncio.sleep(0.5)  # give the task time to throw exception
-        self.assertFalse(self.stream_block.is_running)
-        self.assertIsInstance(self.stream_block.task_manager._task_exception, Exception)
+        with patch.object(StreamBlock, "logger") as mock_logger:
+            self.destination_pipe.put = MagicMock(side_effect=[Exception("Test exception")])
+            await self.stream_block.start_task()
+            await asyncio.sleep(0.1)  # give the task time to start
+            self.assertTrue(self.stream_block.is_running)
+            await asyncio.sleep(0.5)  # give the task time to throw exception
+            self.assertFalse(self.stream_block.is_running)
+            self.assertIsInstance(self.stream_block.task_manager._task_exception, Exception)
+            mock_logger().error.assert_called_once_with(
+                f"An error occurred while executing the task in the StreamBlock:\n"
+                f" {self.pipeline_block.task_manager._task_exception}"
+            )
 
-        await self.pipe_block.start_task()
-        await asyncio.sleep(0.1)  # give the task time to start
-        self.assertTrue(self.pipe_block.is_running)
-        await asyncio.sleep(0.1)  # give the task time to throw exception
-        self.assertFalse(self.pipe_block.is_running)
-        self.assertIsInstance(self.pipe_block.task_manager._task_exception, Exception)
+        with patch.object(PipeBlock, "logger") as mock_logger:
+            await self.pipe_block.start_task()
+            await asyncio.sleep(0.1)  # give the task time to start
+            self.assertTrue(self.pipe_block.is_running)
+            await asyncio.sleep(0.1)  # give the task time to throw exception
+            self.assertFalse(self.pipe_block.is_running)
+            self.assertIsInstance(self.pipe_block.task_manager._task_exception, Exception)
+            mock_logger().error.assert_called_once_with(
+                "An error occurred while executing the task in the PipeBlock:\n"
+                " coroutine raised StopIteration"
+            )
 
     async def test_success_callback(self):
         """Test that the success_callback is called when a task completes successfully."""
@@ -217,24 +232,24 @@ class TestPipesCollector(IsolatedAsyncioWrapperTestCase):
         )
 
     async def test_start_task(self) -> None:
-        # Mock the start_task method of the PipeBlock instances
+        # Mock the start_all_tasks method of the PipeBlock instances
         for pipe_block in self.pipes_collector._pipe_blocks:
             pipe_block.start_task = AsyncMock()
 
-        await self.pipes_collector.start_task()
+        await self.pipes_collector.start_all_tasks()
 
-        # Assert that start_task was called on each PipeBlock instance
+        # Assert that start_all_tasks was called on each PipeBlock instance
         for pipe_block in self.pipes_collector._pipe_blocks:
             pipe_block.start_task.assert_called_once()
 
     async def test_stop_task(self) -> None:
-        # Mock the stop_task method of the PipeBlock instances
+        # Mock the stop_all_tasks method of the PipeBlock instances
         for pipe_block in self.pipes_collector._pipe_blocks:
             pipe_block.stop_task = AsyncMock()
 
-        await self.pipes_collector.stop_task()
+        await self.pipes_collector.stop_all_tasks()
 
-        # Assert that stop_task was called on each PipeBlock instance
+        # Assert that stop_all_tasks was called on each PipeBlock instance
         for pipe_block in self.pipes_collector._pipe_blocks:
             pipe_block.stop_task.assert_called_once()
 
@@ -264,14 +279,14 @@ class TestPipesCollector(IsolatedAsyncioWrapperTestCase):
                 await pipe.put(msg)
 
         # Start the tasks
-        await self.pipes_collector.start_task()
+        await self.pipes_collector.start_all_tasks()
         await asyncio.sleep(0.1)  # give the tasks time to start
 
         # Check the running status
         self.assertTrue(all(self.pipes_collector.are_running))
 
         # Stop the tasks
-        await self.pipes_collector.stop_task()
+        await self.pipes_collector.stop_all_tasks()
         await asyncio.sleep(0.1)  # give the tasks time to stop
 
         # Check the running status

@@ -10,17 +10,17 @@ from bidict import bidict
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2 import (
-    coinbase_advanced_trade_v2_constants as CONSTANTS,
-    coinbase_advanced_trade_v2_web_utils as web_utils,
+from hummingbot.connector.exchange.coinbase_advanced_trade import (
+    coinbase_advanced_trade_constants as CONSTANTS,
+    coinbase_advanced_trade_web_utils as web_utils,
 )
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_api_order_book_data_source import (
-    CoinbaseAdvancedTradeV2APIOrderBookDataSource,
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_api_order_book_data_source import (
+    CoinbaseAdvancedTradeAPIOrderBookDataSource,
 )
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_exchange import (
-    CoinbaseAdvancedTradeV2Exchange,
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_exchange import (
+    CoinbaseAdvancedTradeExchange,
 )
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_web_utils import (
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils import (
     get_timestamp_from_exchange_time,
 )
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
@@ -28,7 +28,7 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 
 
-class CoinbaseAdvancedTradeV2APIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
+class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
     # logging.Level required to receive logs from the data source logger
     quote_asset = None
     base_asset = None
@@ -49,17 +49,17 @@ class CoinbaseAdvancedTradeV2APIOrderBookDataSourceUnitTests(IsolatedAsyncioWrap
         self.listening_task = None
 
         client_config_map = ClientConfigAdapter(ClientConfigMap())
-        self.connector = CoinbaseAdvancedTradeV2Exchange(
+        self.connector = CoinbaseAdvancedTradeExchange(
             client_config_map=client_config_map,
-            coinbase_advanced_trade_v2_api_key="",
-            coinbase_advanced_trade_v2_api_secret="",
+            coinbase_advanced_trade_api_key="",
+            coinbase_advanced_trade_api_secret="",
             trading_pairs=[],
             trading_required=False,
             domain=self.domain)
-        self.data_source = CoinbaseAdvancedTradeV2APIOrderBookDataSource(trading_pairs=[self.trading_pair],
-                                                                         connector=self.connector,
-                                                                         api_factory=self.connector._web_assistants_factory,
-                                                                         domain=self.domain)
+        self.data_source = CoinbaseAdvancedTradeAPIOrderBookDataSource(trading_pairs=[self.trading_pair],
+                                                                       connector=self.connector,
+                                                                       api_factory=self.connector._web_assistants_factory,
+                                                                       domain=self.domain)
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 
@@ -264,7 +264,7 @@ class CoinbaseAdvancedTradeV2APIOrderBookDataSourceUnitTests(IsolatedAsyncioWrap
 
         self.assertTrue(self._is_logged(
             "INFO",
-            "Subscribed to public order book and trade channels..."
+            f"Subscribed to order book channels for: {self.ex_trading_pair.upper()}"
         ))
 
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
@@ -375,30 +375,6 @@ class CoinbaseAdvancedTradeV2APIOrderBookDataSourceUnitTests(IsolatedAsyncioWrap
             )
             self.async_run_with_timeout(self.listening_task)
 
-#     def test_listen_for_order_book_diffs_logs_exception(self):
-#         incomplete_resp = {
-#             "m": 1,
-#             "i": 2,
-#         }
-#
-#         mock_queue = AsyncMock()
-#         mock_queue.get.side_effect = [incomplete_resp, asyncio.CancelledError()]
-#         self.data_source._message_queue[CONSTANTS.WS_ORDER_SUBSCRIPTION_KEYS[0]] = mock_queue
-#
-#         msg_queue: asyncio.Queue = asyncio.Queue()
-#
-#         self.listening_task = self.local_event_loop.create_task(
-#             self.data_source.listen_for_order_book_diffs(self.local_event_loop, msg_queue)
-#         )
-#
-#         try:
-#             self.async_run_with_timeout(self.listening_task)
-#         except asyncio.CancelledError:
-#             pass
-#
-#         self.assertTrue(
-#             self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange"))
-
     def test_listen_for_order_book_diffs_successful(self):
         mock_queue = AsyncMock()
         diff_event = self._order_diff_event()
@@ -425,39 +401,3 @@ class CoinbaseAdvancedTradeV2APIOrderBookDataSourceUnitTests(IsolatedAsyncioWrap
         self.async_run_with_timeout(
             self.data_source.listen_for_order_book_snapshots(self.local_event_loop, asyncio.Queue())
         )
-
-#    @aioresponses()
-#    @patch("hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_api_order_book_data_source"
-#           ".CoinbaseAdvancedTradeAPIOrderBookDataSource._sleep")
-#    def test_listen_for_order_book_snapshots_log_exception(self, mock_api, sleep_mock):
-#        msg_queue: asyncio.Queue = asyncio.Queue()
-#        sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(asyncio.CancelledError())
-#
-#        url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
-#        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-#
-#        mock_api.get(regex_url, exception=Exception, repeat=True)
-#
-#        self.listening_task = self.local_event_loop.create_task(
-#            self.data_source.listen_for_order_book_snapshots(self.local_event_loop, msg_queue)
-#        )
-#        self.async_run_with_timeout(self.resume_test_event.wait())
-#
-#        self.assertTrue(
-#            self._is_logged("ERROR", f"Unexpected error fetching order book snapshot for {self.trading_pair}."))
-
-#    @aioresponses()
-#    def test_listen_for_order_book_snapshots_successful(self, mock_api, ):
-#        msg_queue: asyncio.Queue = asyncio.Queue()
-#        url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_PATH_URL, domain=self.domain)
-#        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-#
-#        mock_api.get(regex_url, body=json.dumps(self._snapshot_response()))
-#
-#        self.listening_task = self.local_event_loop.create_task(
-#            self.data_source.listen_for_order_book_snapshots(self.local_event_loop, msg_queue)
-#        )
-#
-#        msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
-#
-#        self.assertEqual(1027024, msg.update_id)

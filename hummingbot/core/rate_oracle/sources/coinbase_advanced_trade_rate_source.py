@@ -1,18 +1,20 @@
 from decimal import Decimal
-from typing import Dict, Optional
+from typing import TYPE_CHECKING, Dict, Optional
 
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_exchange import (
-    CoinbaseAdvancedTradeV2Exchange as CoinbaseExchange,
-)
 from hummingbot.core.rate_oracle.sources.rate_source_base import RateSourceBase
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_gather
+
+if TYPE_CHECKING:
+    from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_exchange import (
+        CoinbaseAdvancedTradeExchange,
+    )
 
 
 class CoinbaseAdvancedTradeRateSource(RateSourceBase):
     def __init__(self):
         super().__init__()
-        self._coinbase_exchange: Optional[CoinbaseExchange] = None  # delayed because of circular reference
+        self._coinbase_exchange: CoinbaseAdvancedTradeExchange | None = None  # delayed because of circular reference
 
     @property
     def name(self) -> str:
@@ -42,7 +44,7 @@ class CoinbaseAdvancedTradeRateSource(RateSourceBase):
             self._coinbase_exchange = self._build_coinbase_connector_without_private_keys(domain="com")
 
     @staticmethod
-    async def _get_coinbase_prices(exchange: CoinbaseExchange, quote_token: str = None) -> Dict[str, Decimal]:
+    async def _get_coinbase_prices(exchange: 'CoinbaseAdvancedTradeExchange', quote_token: str = None) -> Dict[str, Decimal]:
         """
         Fetches coinbase prices
 
@@ -58,16 +60,19 @@ class CoinbaseAdvancedTradeRateSource(RateSourceBase):
         return results
 
     @staticmethod
-    def _build_coinbase_connector_without_private_keys(domain: str) -> CoinbaseExchange:
+    def _build_coinbase_connector_without_private_keys(domain: str) -> 'CoinbaseAdvancedTradeExchange':
         from hummingbot.client.hummingbot_application import HummingbotApplication
+        from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_exchange import (
+            CoinbaseAdvancedTradeExchange,
+        )
 
         app = HummingbotApplication.main_application()
         client_config_map = app.client_config_map
 
-        return CoinbaseExchange(
+        return CoinbaseAdvancedTradeExchange(
             client_config_map=client_config_map,
-            coinbase_advanced_trade_v2_api_key="",
-            coinbase_advanced_trade_v2_api_secret="",
+            coinbase_advanced_trade_api_key="",
+            coinbase_advanced_trade_api_secret="",
             trading_pairs=[],
             trading_required=False,
             domain=domain,

@@ -3,9 +3,9 @@ from asyncio import QueueFull
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from test.logger_mixin_for_test import LoggerMixinForTest
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2.pipe import (
+from hummingbot.connector.exchange.coinbase_advanced_trade.pipe import (
     SENTINEL,
     HandlerT,
     Pipe,
@@ -38,9 +38,9 @@ class TestPipe(IsolatedAsyncioWrapperTestCase):
         i = 0
         while True:
             try:
-                await self.pipe.put(i)
-            except Exception as e:
-                print(e)
+                with patch.object(Pipe, "logger"):
+                    await self.pipe.put(i)
+            except Exception:
                 break
             i += 1
             await asyncio.sleep(0.05)  # simulate delay
@@ -97,8 +97,11 @@ class TestPipe(IsolatedAsyncioWrapperTestCase):
     async def test_put_handles_queue_full(self):
         await self.pipe.put(1)
         await self.pipe.put(2)
-        with self.assertRaises(PipeFullError):
-            await self.pipe.put(3, max_wait_time_per_retry=0.5)  # This should raise an error after max retries
+
+        with patch.object(Pipe, "logger") as mock_logger:
+            with self.assertRaises(PipeFullError):
+                await self.pipe.put(3, max_wait_time_per_retry=0.5)  # This should raise an error after max retries
+        mock_logger.assert_called()
 
     async def test_task_done_and_join(self):
         await self.pipe.put(1)

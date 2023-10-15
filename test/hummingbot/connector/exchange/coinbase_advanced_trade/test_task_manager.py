@@ -1,8 +1,8 @@
 import asyncio
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2.task_manager import TaskManager
+from hummingbot.connector.exchange.coinbase_advanced_trade.task_manager import TaskManager
 
 
 class TestTaskManager(IsolatedAsyncioWrapperTestCase):
@@ -23,7 +23,9 @@ class TestTaskManager(IsolatedAsyncioWrapperTestCase):
 
     async def test_start_while_running(self) -> None:
         await self.wrapper.start_task()
-        await self.wrapper.start_task()
+        with patch.object(TaskManager, "logger") as mock_logger:
+            await self.wrapper.start_task()
+            mock_logger.assert_called()
 
     async def test_stop_while_running(self) -> None:
         await self.wrapper.start_task()

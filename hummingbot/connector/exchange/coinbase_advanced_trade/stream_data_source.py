@@ -31,13 +31,19 @@ class _WSAssistantPtl(Protocol):
             self,
             ws_url: str,
             *,
-            ping_timeout: float,
+            ping_timeout: float = 10,
             message_timeout: float | None = None,
             ws_headers: Dict | None = None,
     ) -> None:
         ...
 
     async def disconnect(self) -> None:
+        ...
+
+    async def ping(self) -> None:
+        ...
+
+    async def receive(self) -> WSResponse | None:
         ...
 
     async def send(self, request: WSRequest) -> None:
@@ -96,12 +102,25 @@ class StreamDataSource(AutoStreamBlock[WSResponse, T], Generic[T]):
     UserStreamTrackerDataSource implementation for Coinbase Advanced Trade API.
     """
     _logger: HummingbotLogger | logging.Logger | None = None
+    _indenting_logger: HummingbotLogger | logging.Logger | None = None
 
     @classmethod
-    def logger(cls) -> HummingbotLogger:
-        if cls._logger is None:
-            cls._logger = logging.getLogger(HummingbotLogger.logger_name_for_class(cls))
-        return cls._logger
+    def logger(cls) -> HummingbotLogger | logging.Logger:
+        try:
+            from hummingbot.logger.indenting_logger import IndentingLogger
+            if cls._indenting_logger is None:
+                if cls._logger is not None:
+                    cls._indenting_logger = IndentingLogger(cls._logger, cls.__name__)
+                else:
+                    name: str = HummingbotLogger.logger_name_for_class(cls)
+                    cls._indenting_logger = IndentingLogger(logging.getLogger(name), cls.__name__)
+            cls._indenting_logger.refresh_handlers()
+            return cls._indenting_logger
+        except ImportError:
+            if cls._logger is None:
+                name: str = HummingbotLogger.logger_name_for_class(cls)
+                cls._logger = logging.getLogger(name)
+            return cls._logger
 
     __slots__ = (
         "_channel",
@@ -165,27 +184,56 @@ class StreamDataSource(AutoStreamBlock[WSResponse, T], Generic[T]):
                          handler=stream_handler or self._filter_empty_data,
                          connect=self._connect,
                          disconnect=self.close_connection)
+
         self._task_state: TaskState = TaskState.STOPPED
 
     def _filter_empty_data(self, response: WSResponse) -> Generator[T, None, None]:
+        """
+        Filters out empty data from the response.
+
+        :param response: The response to filter.
+        :return: The filtered response.
+        """
         if response.data:
             self._last_recv_time_s: float = self._time()
+            # self.logger().debug(f"Received data from {self._channel}/{self._pair}:{self._last_recv_time_s}")
             yield response.data
 
     @property
     def state(self) -> Tuple[StreamState, TaskState]:
+        """Returns the state of the stream"""
         return self._stream_state, self._task_state
 
     @property
+    def stream_state(self) -> StreamState:
+        """Returns the state of the stream"""
+        return self._stream_state
+
+    @property
+    def task_state(self) -> TaskState:
+        """Returns the state of the stream"""
+        return self._task_state
+
+    @property
     def channel(self) -> str:
+        """Returns the channel of the stream"""
         return self._channel
 
     @property
     def pair(self) -> str:
+        """Returns the pair of the stream"""
         return self._pair
 
+    @property
+    def last_recv_time(self) -> float:
+        """Returns the time of the last received message"""
+        return self._last_recv_time_s
+
     async def get_ws_assistant(self) -> _WSAssistantPtl:
+        """Returns the WS Assistant, when it is available (created by a call to open_connection)"""
+        # self.logger().debug("Waiting for WS Assistant to be ready...")
         await self._ws_assistant_ready.wait()
+        # self.logger().debug("'-> Send WS Assistant Ready to Stream task")
         return self._ws_assistant
 
     async def start_stream(self) -> None:
@@ -200,14 +248,15 @@ class StreamDataSource(AutoStreamBlock[WSResponse, T], Generic[T]):
 
     async def start_task(self) -> None:
         """Starts the TaskManager transferring messages to Pipeline."""
-        await super(AutoStreamBlock, self).start_task()
-        if super(AutoStreamBlock, self).is_running:
-            self._task_state = TaskState.STARTED
+        if not super(AutoStreamBlock, self).is_running:
+            await super(AutoStreamBlock, self).start_task()
+            if super(AutoStreamBlock, self).is_running:
+                self._task_state = TaskState.STARTED
 
     async def stop_task(self) -> None:
         """Stops the TaskManager transferring messages to Pipeline."""
         if self._stream_state != StreamState.CLOSED:
-            self.logger().error(f"Attempting to stop unclosed {self._channel}/{self._pair} stream.")
+            self.logger().error(f"Attempting to stop Task of an unclosed {self._channel}/{self._pair} stream.")
             return
         await super(AutoStreamBlock, self).stop_task()
 
@@ -219,19 +268,25 @@ class StreamDataSource(AutoStreamBlock[WSResponse, T], Generic[T]):
     async def open_connection(self) -> None:
         """Initializes the websocket connection and subscribe to the heartbeats channel."""
         if self._stream_state == StreamState.CLOSED:
-
+            # Create the websocket assistant
             self._ws_assistant = await self._ws_factory()
-            self._ws_assistant_ready.set()
+            self.logger().debug(f"_ws_assistant {self._ws_assistant}")
 
-            await self._ws_assistant.connect(ws_url=self._ws_url, ping_timeout=30.0)
+            self.logger().debug(f"_ws_assistant CONNECT {self._ws_url}")
+            await self._ws_assistant.connect(ws_url=self._ws_url, ping_timeout=30)
+            self.logger().debug(" '-> CONNECTED")
+
+            # Signal that the WS Assistant is ready when connected
+            self._ws_assistant_ready.set()
             self._stream_state = StreamState.OPENED
 
             # Immediately subscribing to heartbeats channel if configured
             if self._heartbeat_channel is not None:
                 await self.subscribe(channel=self._heartbeat_channel, set_state=False)
-        # else:
-        #     self.logger().warning(
-        #         f"Attempting to open unclosed {self._channel}/{self._pair} stream. State left unchanged")
+
+        else:
+            self.logger().warning(
+                f"Attempting to open unclosed {self._channel}/{self._pair} stream. State left unchanged")
 
     async def close_connection(self) -> None:
         """Closes websocket operations"""
@@ -265,10 +320,9 @@ class StreamDataSource(AutoStreamBlock[WSResponse, T], Generic[T]):
             # self.logger().warning(f"Attempted to subscribe to {channel}/{self._pair} stream while already subscribed.")
             return
 
-        if self._task_state != TaskState.STARTED:
-            if channel != "heartbeats":
-                self.logger().warning(f"Subscribing to {channel}/{self._pair} stream the TaskManager is NOT "
-                                      f"started: Message loss is likely to occur.")
+        if self._task_state != TaskState.STARTED and channel != "heartbeats":
+            self.logger().warning(f"Subscribing to {channel}/{self._pair} stream the TaskManager is NOT "
+                                  f"started: Message loss is likely to occur.")
 
         if self._stream_state != StreamState.OPENED:
             self.logger().warning(f"Subscribing to {channel}/{self._pair} stream while not opened. "
@@ -280,10 +334,21 @@ class StreamDataSource(AutoStreamBlock[WSResponse, T], Generic[T]):
             action=StreamAction.SUBSCRIBE,
             channel=channel,
         )
-        await self._send_to_stream(subscription_builder=subscription_builder)
+        while True:
+            try:
+                await self._send_to_stream(subscription_builder=subscription_builder)
+                break
+            except StreamDataSourceError:
+                await self.close_connection()
+                await self.open_connection()
+            except Exception as e:
+                raise e
+
         if set_state:
             self._stream_state = StreamState.SUBSCRIBED
-        self.logger().info(f"Subscribing to {channel} for {self._pair}...")
+        # self.logger().debug(f"Request sent to {channel} for {self._pair}.")
+
+        self.logger().info(f"Subscribed to {channel} for {self._pair}...")
 
     async def unsubscribe(self, *, channel: str | None = None, set_state: bool = True) -> None:
         """
@@ -304,7 +369,12 @@ class StreamDataSource(AutoStreamBlock[WSResponse, T], Generic[T]):
             action=StreamAction.UNSUBSCRIBE,
             channel=channel,
         )
-        await self._send_to_stream(subscription_builder=subscription_builder)
+
+        try:
+            await self._send_to_stream(subscription_builder=subscription_builder)
+        except Exception as e:
+            raise e
+
         if set_state:
             self._stream_state = StreamState.UNSUBSCRIBED
         self.logger().info(f"Unsubscribed from {channel} for {self._pair}.")
@@ -324,28 +394,31 @@ class StreamDataSource(AutoStreamBlock[WSResponse, T], Generic[T]):
                         payload=await subscription_builder(),
                         is_auth_required=True))
 
-            except asyncio.CancelledError:
+            except asyncio.CancelledError as e:
                 await self.close_connection()
                 self.logger().error("Cancellation occurred sending sending the payload")
-                raise
+                raise e
+
+            except ConnectionResetError as e:
+                self.logger().error(
+                    "Connection reset error occurred sending payload\n"
+                    f"Exception: {e}",
+                    exc_info=True
+                )
+                raise StreamDataSourceError(
+                    "Connection reset error occurred sending payload"
+                )
 
             except Exception as e:
-                # await self.close_connection()
+                await self.close_connection()
                 self.logger().error(
                     "Unexpected error occurred sending payload\n"
                     f"Exception: {e}",
                     exc_info=True
                 )
+                raise e
 
     @property
-    def last_recv_time(self) -> float:
-        """
-        Returns the time of the last received message
-
-        :return: the timestamp of the last received message in seconds
-        """
-        return self._last_recv_time_s
-
     async def _connect(self) -> None:
         """
         Connects to the websocket and subscribes to the user events.

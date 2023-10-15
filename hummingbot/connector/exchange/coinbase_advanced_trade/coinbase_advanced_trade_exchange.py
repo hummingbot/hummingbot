@@ -1,10 +1,12 @@
 import asyncio
 import decimal
 import logging
+import math
 from decimal import Decimal
 from functools import partial
-from typing import TYPE_CHECKING, Any, AsyncGenerator, AsyncIterable, Dict, Iterable, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, AsyncGenerator, AsyncIterable, Dict, Iterable, List, Tuple
 
+from async_timeout import timeout
 from bidict import bidict
 
 from hummingbot.connector.constants import s_decimal_NaN
@@ -12,6 +14,7 @@ from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import TradeFillOrderDetails
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
@@ -24,22 +27,22 @@ from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.logger import HummingbotLogger
 
-from . import coinbase_advanced_trade_v2_constants as constants, coinbase_advanced_trade_v2_web_utils as web_utils
-from .coinbase_advanced_trade_v2_api_order_book_data_source import CoinbaseAdvancedTradeV2APIOrderBookDataSource
-from .coinbase_advanced_trade_v2_api_user_stream_data_source import (
-    CoinbaseAdvancedTradeV2APIUserStreamDataSource,
-    CoinbaseAdvancedTradeV2CumulativeUpdate,
+from . import coinbase_advanced_trade_constants as constants, coinbase_advanced_trade_web_utils as web_utils
+from .coinbase_advanced_trade_api_order_book_data_source import CoinbaseAdvancedTradeAPIOrderBookDataSource
+from .coinbase_advanced_trade_api_user_stream_data_source import (
+    CoinbaseAdvancedTradeAPIUserStreamDataSource,
+    CoinbaseAdvancedTradeCumulativeUpdate,
 )
-from .coinbase_advanced_trade_v2_auth import CoinbaseAdvancedTradeV2Auth
-from .coinbase_advanced_trade_v2_order_book import CoinbaseAdvancedTradeV2OrderBook
-from .coinbase_advanced_trade_v2_utils import DEFAULT_FEES
-from .coinbase_advanced_trade_v2_web_utils import get_timestamp_from_exchange_time, set_exchange_time_from_timestamp
+from .coinbase_advanced_trade_auth import CoinbaseAdvancedTradeAuth
+from .coinbase_advanced_trade_order_book import CoinbaseAdvancedTradeOrderBook
+from .coinbase_advanced_trade_utils import DEFAULT_FEES
+from .coinbase_advanced_trade_web_utils import get_timestamp_from_exchange_time, set_exchange_time_from_timestamp
 
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 
-class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
+class CoinbaseAdvancedTradeExchange(ExchangePyBase):
     UPDATE_ORDER_STATUS_MIN_INTERVAL = 10.0
 
     web_utils = web_utils
@@ -67,18 +70,18 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
 
     def __init__(self,
                  client_config_map: "ClientConfigAdapter",
-                 coinbase_advanced_trade_v2_api_key: str,
-                 coinbase_advanced_trade_v2_api_secret: str,
-                 trading_pairs: Optional[List[str]] = None,
+                 coinbase_advanced_trade_api_key: str,
+                 coinbase_advanced_trade_api_secret: str,
+                 trading_pairs: List[str] | None = None,
                  trading_required: bool = True,
                  domain: str = constants.DEFAULT_DOMAIN,
                  ):
-        self._api_key = coinbase_advanced_trade_v2_api_key
-        self.secret_key = coinbase_advanced_trade_v2_api_secret
+        self._api_key = coinbase_advanced_trade_api_key
+        self.secret_key = coinbase_advanced_trade_api_secret
         self._domain = domain
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
-        self._last_trades_poll_coinbase_advanced_trade_v2_timestamp = -1
+        self._last_trades_poll_coinbase_advanced_trade_timestamp = -1
         super().__init__(client_config_map)
 
         self._asset_uuid_map: Dict[str, str] = {}
@@ -86,23 +89,25 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
         self._market_assets_initialized = False
         self._market_assets: List[Dict[str, Any]] = []
 
-        self.logger().debug("Created exchange CoinbaseAdvancedTradeV2Exchange.")
+        self._multi_stream_tracker: CoinbaseAdvancedTradeAPIUserStreamDataSource | None = None
+
+        # self.logger().debug("Created exchange CoinbaseAdvancedTradeExchange.")
 
     @property
     def asset_uuid_map(self) -> Dict[str, str]:
         return self._asset_uuid_map
 
     @staticmethod
-    def coinbase_advanced_trade_v2_order_type(order_type: OrderType) -> str:
+    def coinbase_advanced_trade_order_type(order_type: OrderType) -> str:
         return order_type.name.upper()
 
     @staticmethod
-    def to_hb_order_type(coinbase_advanced_trade_v2_type: str) -> OrderType:
-        return OrderType[coinbase_advanced_trade_v2_type]
+    def to_hb_order_type(coinbase_advanced_trade_type: str) -> OrderType:
+        return OrderType[coinbase_advanced_trade_type]
 
     @property
     def authenticator(self):
-        return CoinbaseAdvancedTradeV2Auth(
+        return CoinbaseAdvancedTradeAuth(
             api_key=self._api_key,
             secret_key=self.secret_key,
             time_provider=self._time_synchronizer)
@@ -110,9 +115,9 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
     @property
     def name(self) -> str:
         if self._domain == "com":
-            return "coinbase_advanced_trade_v2"
+            return "coinbase_advanced_trade"
         else:
-            return f"coinbase_advanced_trade_v2_{self._domain}"
+            return f"coinbase_advanced_trade_{self._domain}"
 
     @property
     def rate_limits_rules(self):
@@ -125,23 +130,6 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
     @property
     def domain(self):
         return self._domain
-
-    @property
-    def status_dict(self) -> Dict[str, bool]:
-        with self.logger().ctx_indentation("Getting Status:", bullet="*"):
-            status_dict: Dict[str, bool] = {
-                "symbols_mapping_initialized": self.trading_pair_symbol_map_ready(),
-                "order_books_initialized": self.order_book_tracker.ready,
-                "account_balance": not self.is_trading_required or len(self._account_balances) > 0,
-                "trading_rule_initialized": len(self._trading_rules) > 0 if self.is_trading_required else True,
-                "user_stream_initialized": self._is_user_stream_initialized(),
-            }
-            self.logger().debug(f"status_dict: {status_dict}")
-        return status_dict
-
-    def _is_user_stream_initialized(self):
-        self.logger().debug(f"User Stream last recv: {self._user_stream_tracker.data_source.last_recv_time}")
-        return self._user_stream_tracker.data_source.last_recv_time > 0 or not self.is_trading_required
 
     @property
     def last_poll_timestamp(self) -> float:
@@ -179,6 +167,7 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
 
     @property
     def is_cancel_request_in_exchange_synchronous(self) -> bool:
+        # Websocket feed has 'PENDING' state, but REST API does not, it also seems to be for CREATE only
         return True
 
     @property
@@ -188,16 +177,6 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
     @property
     def in_flight_orders(self) -> Dict[str, InFlightOrder]:
         return self._order_tracker.active_orders
-
-    #    @property
-    #    def order_tracker(self) -> ClientOrderTracker:
-    #        # Defined in ExchangePyBase
-    #        return self._order_tracker
-    #
-    #    @property
-    #    def exchange_order_ids(self) -> ClientOrderTracker:
-    #        # Defined in ExchangePyBase
-    #        return self._exchange_order_ids
 
     def supported_order_types(self) -> List[OrderType]:
         return [OrderType.MARKET, OrderType.LIMIT, OrderType.LIMIT_MAKER]
@@ -217,6 +196,22 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
         await self._update_trading_rules()
         await super().start_network()
 
+    async def _update_time_synchronizer(self, pass_on_non_cancelled_error: bool = False):
+        # Overriding ExchangePyBase: Synchronizer expects time in ms
+        try:
+            await self._time_synchronizer.update_server_time_offset_with_time_provider(
+                time_provider=self.web_utils.get_current_server_time_ms(
+                    throttler=self._throttler,
+                    domain=self.domain,
+                )
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            if not pass_on_non_cancelled_error:
+                self.logger().exception(f"Error requesting time from {self.name_cap} server")
+                raise
+
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         # time endpoint does not communicate an error code
         return False
@@ -229,15 +224,15 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
             auth=self._auth)
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
-        return CoinbaseAdvancedTradeV2APIOrderBookDataSource(
+        return CoinbaseAdvancedTradeAPIOrderBookDataSource(
             trading_pairs=self._trading_pairs,
             connector=self,
             domain=self.domain,
             api_factory=self._web_assistants_factory)
 
     # def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
-    #     return CoinbaseAdvancedTradeV2APIUserStreamDataSource(
-    #         auth=cast(CoinbaseAdvancedTradeV2Auth, self._auth),
+    #     return CoinbaseAdvancedTradeAPIUserStreamDataSource(
+    #         auth=self._auth,
     #         trading_pairs=self._trading_pairs,
     #         connector=self,
     #         api_factory=self._web_assistants_factory,
@@ -245,8 +240,8 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
     #     )
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
-        self.logger().debug("Creating user stream data source.")
-        return CoinbaseAdvancedTradeV2APIUserStreamDataSource(
+        # self.logger().debug("Creating user stream data source.")
+        self._multi_stream_tracker = CoinbaseAdvancedTradeAPIUserStreamDataSource(
             channels=("user",),
             pairs=tuple(self._trading_pairs),
             ws_factory=self._web_assistants_factory.get_ws_assistant,  # type: ignore
@@ -255,10 +250,14 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
             symbol_to_pair=partial(self.trading_pair_associated_to_exchange_symbol),
             heartbeat_channel="heartbeats",
         )
+        return self._multi_stream_tracker
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
-        return (constants.ORDER_STATUS_NOT_FOUND_ERROR_CODE in str(status_update_exception) or
-                "Not Found" in str(status_update_exception))
+        return (
+            constants.ORDER_STATUS_NOT_FOUND_ERROR_CODE in str(status_update_exception) or
+            "Not Found" in str(status_update_exception) or
+            "INVALID_ARGUMENT" in str(status_update_exception)
+        )
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
         return "UNKNOWN_CANCEL_ORDER" in str(cancelation_exception)
@@ -270,7 +269,7 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
                  order_side: TradeType,
                  amount: Decimal,
                  price: Decimal = s_decimal_NaN,
-                 is_maker: Optional[bool] = None) -> TradeFeeBase:
+                 is_maker: bool | None = None) -> TradeFeeBase:
         trade_base_fee: TradeFeeBase = build_trade_fee(
             exchange=self.name,
             is_maker=is_maker,
@@ -298,7 +297,7 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
         """
         amount_str: str = f"{amount:f}"
         price_str: str = f"{price:f}"
-        type_str: str = CoinbaseAdvancedTradeV2Exchange.coinbase_advanced_trade_v2_order_type(order_type)
+        type_str: str = CoinbaseAdvancedTradeExchange.coinbase_advanced_trade_order_type(order_type)
         side_str: str = constants.SIDE_BUY if trade_type is TradeType.BUY else constants.SIDE_SELL
         symbol: str = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
 
@@ -318,11 +317,20 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
                 }
             }
         elif type_str == "MARKET":
-            order_configuration = {
-                "market_market_ioc": {
-                    "base_size": amount_str,
+            if side_str == constants.SIDE_BUY:
+                quote_size: Decimal = (amount * price).quantize(
+                    self._trading_rules[trading_pair].min_quote_amount_increment)
+                order_configuration = {
+                    "market_market_ioc": {
+                        "quote_size": str(quote_size),
+                    }
                 }
-            }
+            else:
+                order_configuration = {
+                    "market_market_ioc": {
+                        "base_size": amount_str,
+                    }
+                }
         else:
             raise ValueError(f"Invalid order type {order_type}.")
 
@@ -333,56 +341,156 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
             "order_configuration": order_configuration
         }
 
-        try:
-            dbg_msg = "  DEBUG:Request"
-            for k, v in api_params.items():
-                dbg_msg += f"\t   {k}: {v}"
-            self.logger().debug(dbg_msg)
+        order_result = await self._api_post(
+            path_url=constants.ORDER_EP,
+            data=api_params,
+            is_auth_required=True,
+            # return_err=True,
+        )
 
-            order_result = await self._api_post(
-                path_url=constants.ORDER_EP,
-                data=api_params,
-                is_auth_required=True,
-            )
-
-            dbg_msg = "  DEBUG:Response:"
-            for k, v in order_result.items():
-                dbg_msg += f"\t   {k}: {v}"
-            self.logger().debug(dbg_msg)
-
+        if order_result["success"]:
             o_id = str(order_result["order_id"])
             transact_time = self.time_synchronizer.time()
-        except IOError as e:
-            error_description = str(e)
-            is_server_overloaded = ("status is 503" in error_description
-                                    and "Unknown error, please check your request or try again later." in error_description)
-            if not is_server_overloaded:
-                raise
-            o_id = "UNKNOWN"
-            transact_time = self._time_synchronizer.time()
-        return o_id, transact_time
+            return o_id, transact_time
 
-    async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
+        elif "INSUFFICIENT_FUND" in order_result['error_response']["error"]:
+            self.logger().warning(
+                f"{self.name} reports insufficient funds for {side_str} {amount_str} {symbol} @ {price_str}")
+            raise ValueError(f"Failed to place order on {self.name}. Error: {order_result['error_response']}")
+
+        else:
+            raise ValueError(f"Failed to place order on {self.name}. Error: {order_result['error_response']}")
+
+    async def _place_order_and_process_update(self, order: InFlightOrder, **kwargs) -> str:
+        # Overriding ExchangePyBase since it sets the status to OPEN
+        exchange_order_id, update_timestamp = await self._place_order(
+            order_id=order.client_order_id,
+            trading_pair=order.trading_pair,
+            amount=order.amount,
+            trade_type=order.trade_type,
+            order_type=order.order_type,
+            price=order.price,
+            **kwargs,
+        )
+
+        order_update: OrderUpdate = OrderUpdate(
+            client_order_id=order.client_order_id,
+            exchange_order_id=str(exchange_order_id),
+            trading_pair=order.trading_pair,
+            update_timestamp=update_timestamp,
+            new_state=OrderState.PENDING_CREATE,
+        )
+        self._order_tracker.process_order_update(order_update)
+
+        return exchange_order_id
+
+    async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
+        """
+        Cancels all currently active orders. The cancellations are performed in parallel tasks.
+
+        :param timeout_seconds: the maximum time (in seconds) the cancel logic should run
+
+        :return: a list of CancellationResult instances, one for each of the orders to be cancelled
+        """
+
+        async def execute_cancels(order_ids: List[str]) -> List[str]:
+            """
+            Requests the exchange to cancel an active order
+
+            :param order_ids: the client id of the orders to cancel
+            """
+            tracked_order = []
+            for o in order_ids:
+                if t := self._order_tracker.fetch_tracked_order(o):
+                    tracked_order.append((o, t))
+
+            result = await self._execute_orders_cancel(orders=[t[1] for t in tracked_order if t[1] is not None])
+            return result
+
+        incomplete_orders = [o for o in self.in_flight_orders.values() if not o.is_done]
+        tasks = [execute_cancels([o.client_order_id for o in incomplete_orders])]
+        order_id_set = set([o.client_order_id for o in incomplete_orders])
+        successful_cancellations = []
+
+        try:
+            async with timeout(timeout_seconds):
+                cancellation_results = await safe_gather(*tasks, return_exceptions=True)
+                for task in cancellation_results:
+                    if isinstance(task, Exception):
+                        continue
+                    for client_order_id in task:
+                        if client_order_id is not None:
+                            order_id_set.remove(client_order_id)
+                            successful_cancellations.append(CancellationResult(client_order_id, True))
+        except Exception:
+            self.logger().network(
+                "Unexpected error cancelling orders.",
+                exc_info=True,
+                app_warning_msg="Failed to cancel order. Check API key and network connection."
+            )
+        failed_cancellations = [CancellationResult(oid, False) for oid in order_id_set]
+        return successful_cancellations + failed_cancellations
+
+    async def _cancel_lost_orders(self):
+        await self._execute_orders_cancel(orders=[l for _, l in self._order_tracker.lost_orders.items()])
+
+    async def _execute_orders_cancel(self, orders: List[InFlightOrder]) -> List[str]:
+        try:
+            cancelled: List[bool] = await self._execute_orders_cancel_and_process_update(orders=orders)
+            return [order.client_order_id for order, cancelled in zip(orders, cancelled) if cancelled]
+
+        except asyncio.CancelledError:
+            raise
+
+    async def _execute_orders_cancel_and_process_update(self, orders: List[InFlightOrder]) -> List[bool]:
+        cancelled = await self._place_cancels(order_ids=[o.exchange_order_id for o in orders])
+        for o, c in zip(orders, cancelled):
+            if c["success"]:
+                update_timestamp = self.current_timestamp
+                if update_timestamp is None or math.isnan(update_timestamp):
+                    update_timestamp = self.time_synchronizer.time()
+
+                order_update: OrderUpdate = OrderUpdate(
+                    client_order_id=o.client_order_id,
+                    trading_pair=o.trading_pair,
+                    update_timestamp=update_timestamp,
+                    new_state=OrderState.CANCELED,
+                )
+                self._order_tracker.process_order_update(order_update)
+
+            elif c["failure_reason"] in ["UNKNOWN_CANCEL_ORDER", "DUPLICATE_CANCEL_REQUEST"]:
+                self.logger().warning(
+                    f"Failed to cancel order {o.client_order_id} (order not found OR duplicate request)")
+                await self._order_tracker.process_order_not_found(o.client_order_id)
+            else:
+                self.logger().error(f"Failed to cancel order {o.client_order_id}", exc_info=True)
+
+        return [c["success"] for c in cancelled]
+
+    async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder) -> bool:
         """
         Cancels an order with the exchange and returns the order ID and the timestamp of the order.
         https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_cancelorders
         """
         # Requesting to cancel an empty order seems to hang the request
-        if tracked_order.exchange_order_id is None or tracked_order.exchange_order_id == "":
-            # Apparently, no order was placed
-            self.logger().debug(f"Order {order_id} is not tracked by the exchange. Skipping cancel request.")
-            return
+        if tracked_order.exchange_order_id is None or tracked_order.exchange_order_id == "" or tracked_order.exchange_order_id == "UNKNOWN":
+            raise ValueError(f"This request is Invalid: _place_cancel with {order_id} {tracked_order}")
 
-        # Coinbase Advanced Trade seems to require the exchange order ID to cancel an order
         result = await self._place_cancels(order_ids=[tracked_order.exchange_order_id])
 
         if result[0]["success"]:
             return True
 
-        if result[0]["failure_reason"] == "UNKNOWN_CANCEL_ORDER":
-            # return False
-            raise ValueError(
-                f"Order {order_id}:{tracked_order.exchange_order_id} not found on the exchange. UNKNOWN_CANCEL_ORDER")
+        if result[0]["failure_reason"] in ["UNKNOWN_CANCEL_ORDER", "DUPLICATE_CANCEL_REQUEST"]:
+            self.logger().warning(f"Failed to cancel order {order_id} (order not found OR duplicate request)")
+            await self._order_tracker.process_order_not_found(order_id)
+
+        if result[0]["failure_reason"] in ["UNKNOWN_CANCEL_FAILURE_REASON",
+                                           "INVALID_CANCEL_REQUEST",
+                                           "COMMANDER_REJECTED_CANCEL_ORDER"]:
+            self.logger().error(f"Failed to cancel order {order_id} (Rejected by Coinbase Advanced Trade or Invalid "
+                                f"request)")
+        return False
 
     async def _place_cancels(self, order_ids: List[str]) -> List[Dict[str, Any]]:
         """
@@ -393,14 +501,16 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
         api_data = {
             "order_ids": order_ids
         }
-        self.logger().debug(f"Sending cancel request {api_data}")
-        cancel_result: Dict[str, Any] = await self._api_post(
-            path_url=constants.BATCH_CANCEL_EP,
-            data=api_data,
-            is_auth_required=True)
-        results: List[Dict[str, Any]] | None = cancel_result.get("results")
-        self.logger().debug(f" '-> cancel request {api_data} Done")
-        return results
+        try:
+            cancel_result: Dict[str, Any] = await self._api_post(
+                path_url=constants.BATCH_CANCEL_EP,
+                data=api_data,
+                is_auth_required=True)
+            results: List[Dict[str, Any]] = cancel_result.get("results", [])
+            return results
+        except IOError as e:
+            self.logger().error(f"Error cancelling orders: {e}", exc_info=True)
+            return [{"success": False, "failure_reason": "UNKNOWN_CANCEL_FAILURE_REASON"} for _ in order_ids]
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         params = {
@@ -416,7 +526,7 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
 
         snapshot_timestamp: float = self.time_synchronizer.time()
 
-        snapshot_msg: OrderBookMessage = CoinbaseAdvancedTradeV2OrderBook.snapshot_message_from_exchange(
+        snapshot_msg: OrderBookMessage = CoinbaseAdvancedTradeOrderBook.snapshot_message_from_exchange(
             snapshot,
             snapshot_timestamp,
             metadata={"trading_pair": trading_pair}
@@ -429,6 +539,19 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
         https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_gethistoricalorder
 
         """
+        if (
+                tracked_order.exchange_order_id is None or
+                tracked_order.exchange_order_id == "" or
+                tracked_order.exchange_order_id == "UNKNOWN"
+        ):
+            return OrderUpdate(
+                client_order_id=tracked_order.client_order_id,
+                exchange_order_id="",
+                trading_pair=tracked_order.trading_pair,
+                update_timestamp=self.time_synchronizer.time(),
+                new_state=OrderState.FAILED,
+            )
+
         updated_order_data = await self._api_get(
             path_url=constants.GET_ORDER_STATUS_EP.format(order_id=tracked_order.exchange_order_id),
             params={},
@@ -497,7 +620,7 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
             self.trading_rules[trading_pair] = trading_rule
 
             trading_pair_symbol_map[product.get("product_id", None)] = trading_pair
-        self.logger().debug(f"Setting trading pair symbol map to {list(trading_pair_symbol_map.items())[:5]}...")
+        # self.logger().debug(f"Setting trading pair symbol map to {list(trading_pair_symbol_map.items())[:5]}...")
         self._set_trading_pair_symbol_map(trading_pair_symbol_map)
 
     async def _initialize_trading_pair_symbol_map(self):
@@ -529,16 +652,13 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
             self.logger().exception(f"Error getting all trading pairs from Coinbase Advanced Trade: {e}")
 
     async def _status_polling_loop_fetch_updates(self):
-        self.logger().debug("_status_polling_loop_fetch_updates")
         await self._update_order_fills_from_trades()
         await super()._status_polling_loop_fetch_updates()
 
     def update_balance(self, asset: str, balance: Decimal):
-        self.logger().debug(f"Setting balance for {asset} to {balance}")
         self._account_balances[asset] = balance
 
     def update_available_balance(self, asset: str, balance: Decimal):
-        self.logger().debug(f"Setting available balance for {asset} to {balance}")
         self._account_available_balances[asset] = balance
 
     def remove_balances(self, assets: Iterable[str]):
@@ -547,27 +667,22 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
             self._account_available_balances.pop(asset, None)
 
     async def _update_balances(self):
-        self.logger().debug("Updating balance information.")
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
-        self.logger().debug(f"{local_asset_names} {remote_asset_names}")
+        # self.logger().debug(f"{local_asset_names} {remote_asset_names}")
 
-        with self.logger().ctx_indentation("Gathering balances", bullet=":"):
-            async for account in self._list_trading_accounts():  # type: ignore # Known Pycharm issue
-                self.logger().debug(f"Account: {account}")
-                asset_name: str = account.get("currency")
-                hold_value: Decimal = Decimal(account.get("hold").get("value"))
-                available_balance: Decimal = Decimal(account.get("available_balance").get("value"))
+        async for account in self._list_trading_accounts():  # type: ignore # Known Pycharm issue
+            asset_name: str = account.get("currency")
+            hold_value: Decimal = Decimal(account.get("hold").get("value"))
+            available_balance: Decimal = Decimal(account.get("available_balance").get("value"))
 
-                self.logger().debug(f"Asset: {asset_name} Hold: {hold_value} Available: {available_balance}")
+            # Skip assets with zero balance
+            if hold_value == Decimal("0") and available_balance == Decimal("0"):
+                continue
 
-                # Skip assets with zero balance
-                if hold_value == Decimal("0") and available_balance == Decimal("0"):
-                    continue
-
-                self.update_balance(asset_name, hold_value + available_balance)
-                self.update_available_balance(asset_name, available_balance)
-                remote_asset_names.add(asset_name)
+            self.update_balance(asset_name, hold_value + available_balance)
+            self.update_available_balance(asset_name, available_balance)
+            remote_asset_names.add(asset_name)
 
         # Request removal of non-valid assets
         self.remove_balances(local_asset_names.difference(remote_asset_names))
@@ -651,7 +766,10 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
                                                    is_auth_required=True)
         self._trading_fees = fees
 
-    async def _iter_user_event_queue(self) -> AsyncIterable[CoinbaseAdvancedTradeV2CumulativeUpdate]:
+    def _stop_network(self):
+        super()._stop_network()
+
+    async def _iter_user_event_queue(self) -> AsyncIterable[CoinbaseAdvancedTradeCumulativeUpdate]:
         """
         Called by _user_stream_event_listener.
         """
@@ -682,15 +800,7 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
                     )
                 continue
 
-            self.logger().debug(f"   Received: {event_message}")
-            # try:
-            #     assert isinstance(event_message, CoinbaseAdvancedTradeV2CumulativeUpdate)
-            # except AssertionError:
-            #     self.logger().error("Unexpected event in user stream listener loop.\n"
-            #                         f"{event_message, type(event_message)} is not an instance of CoinbaseAdvancedTradeV2CumulativeUpdate",
-            #                         exc_info=True)
-            #     await self._sleep(5.0)
-            #     continue
+            # self.logger().debug(f"Received: {event_message.client_order_id} {event_message.status}")
 
             fillable_order: InFlightOrder = self._order_tracker.all_fillable_orders.get(event_message.client_order_id)
             updatable_order: InFlightOrder = self._order_tracker.all_updatable_orders.get(
@@ -717,7 +827,7 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
                                            token=fillable_order.quote_asset)]
                 )
 
-                avg_exc_price: Optional[Decimal] = fillable_order.average_executed_price
+                avg_exc_price: Decimal | None = fillable_order.average_executed_price
                 avg_exc_price: Decimal = avg_exc_price if avg_exc_price is not None else Decimal("0")
                 fill_base_amount: Decimal = event_message.cumulative_base_amount - fillable_order.executed_amount_base
                 if fill_base_amount == Decimal("0"):
@@ -740,14 +850,14 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
                     fill_base_amount=fill_base_amount,
                     fill_quote_amount=fill_base_amount * fill_price,
                     fill_price=fill_price,
-                    fill_timestamp=event_message.fill_timestamp,
+                    fill_timestamp=event_message.fill_timestamp_s,
                 )
                 self._order_tracker.process_trade_update(trade_update)
 
             if updatable_order is not None:
                 order_update = OrderUpdate(
                     trading_pair=updatable_order.trading_pair,
-                    update_timestamp=event_message.fill_timestamp,
+                    update_timestamp=event_message.fill_timestamp_s,
                     new_state=new_state,
                     client_order_id=event_message.client_order_id,
                     exchange_order_id=event_message.exchange_order_id,
@@ -772,9 +882,9 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
 
         if (long_interval_current_tick > long_interval_last_tick
                 or (in_flight_orders and small_interval_current_tick > small_interval_last_tick)):
-            query_time = set_exchange_time_from_timestamp(self._last_trades_poll_coinbase_advanced_trade_v2_timestamp,
+            query_time = set_exchange_time_from_timestamp(self._last_trades_poll_coinbase_advanced_trade_timestamp,
                                                           "s")
-            self._last_trades_poll_coinbase_advanced_trade_v2_timestamp = self.time_synchronizer.time()
+            self._last_trades_poll_coinbase_advanced_trade_timestamp = self.time_synchronizer.time()
             order_by_exchange_id_map = {
                 order.exchange_order_id: order
                 for order in self._order_tracker.all_fillable_orders.values()
@@ -793,7 +903,7 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
                     params=params,
                     is_auth_required=True))
 
-            self.logger().debug(f"Polling for order fills of {len(tasks)} trading pairs.")
+            # self.logger().debug(f"Polling for order fills of {len(tasks)} trading pairs.")
 
             results = await safe_gather(*tasks, return_exceptions=True)
 
@@ -807,6 +917,10 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
                 for trade in trades["fills"]:
                     exchange_order_id = trade["order_id"]
                     quote_token: str = trading_pair.split("-")[1]
+                    if not isinstance(trade["trade_time"], float):
+                        trade_time = float(get_timestamp_from_exchange_time(trade["trade_time"], "s"))
+                    else:
+                        trade_time = trade["trade_time"]
                     fee = AddedToCostTradeFee(
                         percent_token=quote_token,
                         flat_fees=[TokenAmount(
@@ -830,7 +944,7 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
                             fill_base_amount=fill_base_amount,
                             fill_quote_amount=fill_quote_amount,
                             fill_price=Decimal(trade["price"]),
-                            fill_timestamp=trade["trade_time"],
+                            fill_timestamp=trade_time,
                             is_taker=False
                         )
                         self._order_tracker.process_trade_update(trade_update)
@@ -846,7 +960,7 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
                         self.trigger_event(
                             MarketEvent.OrderFilled,
                             OrderFilledEvent(
-                                timestamp=float(get_timestamp_from_exchange_time(trade["trade_time"], "s")),
+                                timestamp=trade_time,
                                 order_id=self._exchange_order_ids.get(str(trade["order_id"]), None),
                                 trading_pair=trading_pair,
                                 trade_type=TradeType.BUY if trade["side"] == "BUY" else TradeType.SELL,
@@ -865,7 +979,7 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
         """
         trade_updates = []
         if order.exchange_order_id is not None:
-            self.logger().debug(f"Fetching all trades for order {order.client_order_id}/{order.exchange_order_id}")
+            # self.logger().debug(f"Fetching all trades for order {order.client_order_id}/{order.exchange_order_id}")
             order_id: str = order.exchange_order_id
             product_id: str = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
             params = {
@@ -880,6 +994,10 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
             for trade in all_fills_response["fills"]:
                 exchange_order_id = trade["order_id"]
                 quote_token: str = order.trading_pair.split("-")[1]
+                if not isinstance(trade["trade_time"], float):
+                    trade_time = float(get_timestamp_from_exchange_time(trade["trade_time"], "s"))
+                else:
+                    trade_time = trade["time"]
                 fee = AddedToCostTradeFee(
                     percent_token=quote_token,
                     flat_fees=[TokenAmount(
@@ -900,7 +1018,7 @@ class CoinbaseAdvancedTradeV2Exchange(ExchangePyBase):
                     fill_base_amount=fill_base_amount,
                     fill_quote_amount=fill_quote_amount,
                     fill_price=Decimal(trade["price"]),
-                    fill_timestamp=trade["trade_time"],
+                    fill_timestamp=trade_time,
                 )
                 trade_updates.append(trade_update)
 

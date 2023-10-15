@@ -2,7 +2,7 @@ import asyncio
 import logging
 from typing import Any, Awaitable, Callable, Coroutine, Dict, Generic, Protocol, Tuple, TypeVar
 
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2.pipe import (
+from hummingbot.connector.exchange.coinbase_advanced_trade.pipe import (
     HandlerT,
     Pipe,
     PipeGetPtl,
@@ -13,7 +13,7 @@ from hummingbot.connector.exchange.coinbase_advanced_trade_v2.pipe import (
     reconnecting_stream_to_pipe_connector,
     stream_to_pipe_connector,
 )
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2.task_manager import TaskManager
+from hummingbot.connector.exchange.coinbase_advanced_trade.task_manager import TaskManager
 from hummingbot.logger import HummingbotLogger
 
 FromDataT = TypeVar("FromDataT")
@@ -127,7 +127,7 @@ class PipelineBlock(Generic[FromDataT, ToDataT]):
         # Log the exception
         self.logger().error("An error occurred while executing the task in the PipelineBlock:\n"
                             f" {ex}")
-        # self.stop_task()
+        # self.stop_all_tasks()
         # If necessary, you can re-raise the exception, handle it in some other way, or just log it and continue
         # For example, to re-raise the exception, uncomment the following line:
         # raise ex
@@ -248,14 +248,33 @@ class PipesCollector(Generic[FromDataT, ToDataT]):
             )
             for s in sources
         )
+        self._update_lock: asyncio.Lock = asyncio.Lock()
 
-    async def start_task(self) -> None:
-        """Start the task."""
+    async def start_all_tasks(self) -> None:
+        """Start all the collecting tasks."""
         await asyncio.gather(*(p.start_task() for p in self._pipe_blocks))
 
-    async def stop_task(self) -> None:
-        """Stop the task."""
+    async def stop_all_tasks(self) -> None:
+        """Stop all the collecting tasks."""
         await asyncio.gather(*[p.stop_task() for p in self._pipe_blocks])
+
+    async def start_task(self, pipe: PipeBlock[FromDataT, ToDataT]) -> None:
+        """Start the task associated with a pipe."""
+        if pipe in self._pipe_blocks and not pipe.is_running:
+            await pipe.start_task()
+
+    async def stop_task(self, pipe: PipeBlock[FromDataT, ToDataT]) -> None:
+        """Stop the task associated with a pipe."""
+        if pipe in self._pipe_blocks and pipe.is_running:
+            await pipe.stop_task()
+
+    async def remove_source(self, source: PipeBlock[FromDataT, ToDataT]) -> None:
+        """Stop the task."""
+        if source in self._pipe_blocks:
+            if source.is_running:
+                await source.stop_task()
+            async with self._update_lock:
+                self._pipe_blocks = tuple(p for p in self._pipe_blocks if p != source)
 
     @property
     def are_running(self) -> Tuple[bool, ...]:

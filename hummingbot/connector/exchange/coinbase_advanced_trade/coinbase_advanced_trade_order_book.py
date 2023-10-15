@@ -6,11 +6,11 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.logger import HummingbotLogger
 
-from .coinbase_advanced_trade_v2_constants import WS_ORDER_SUBSCRIPTION_CHANNELS
-from .coinbase_advanced_trade_v2_web_utils import get_timestamp_from_exchange_time
+from .coinbase_advanced_trade_constants import WS_ORDER_SUBSCRIPTION_CHANNELS
+from .coinbase_advanced_trade_web_utils import get_timestamp_from_exchange_time
 
 
-class CoinbaseAdvancedTradeV2OrderBook(OrderBook):
+class CoinbaseAdvancedTradeOrderBook(OrderBook):
     """
     Coinbase Advanced Trade Order Book class
     """
@@ -18,25 +18,13 @@ class CoinbaseAdvancedTradeV2OrderBook(OrderBook):
     _sequence_nums: Dict[str, int] = {channel: 0 for channel in WS_ORDER_SUBSCRIPTION_CHANNELS.inv.keys()}
 
     _logger: HummingbotLogger | logging.Logger | None = None
-    _indenting_logger: HummingbotLogger | logging.Logger | None = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger | logging.Logger:
-        try:
-            from hummingbot.logger.indenting_logger import IndentingLogger
-            if cls._indenting_logger is None:
-                if cls._logger is not None:
-                    cls._indenting_logger = IndentingLogger(cls._logger, cls.__name__)
-                else:
-                    name: str = HummingbotLogger.logger_name_for_class(cls)
-                    cls._indenting_logger = IndentingLogger(logging.getLogger(name), cls.__name__)
-            cls._indenting_logger.refresh_handlers()
-            return cls._indenting_logger
-        except ImportError:
-            if cls._logger is None:
-                name: str = HummingbotLogger.logger_name_for_class(cls)
-                cls._logger = logging.getLogger(name)
-            return cls._logger
+        if cls._logger is None:
+            name: str = HummingbotLogger.logger_name_for_class(cls)
+            cls._logger = logging.getLogger(name)
+        return cls._logger
 
     @classmethod
     def snapshot_message_from_exchange(cls,
@@ -60,8 +48,6 @@ class CoinbaseAdvancedTradeV2OrderBook(OrderBook):
             "asks": ((d["price"], d["size"]) for d in msg["pricebook"]["asks"])
         }, timestamp=timestamp)
 
-        cls.logger().debug(f"Created snapshot message from exchange: {ob_msg}")
-
         return ob_msg
 
     @classmethod
@@ -80,8 +66,8 @@ class CoinbaseAdvancedTradeV2OrderBook(OrderBook):
         :return: a snapshot message with the snapshot information received from the exchange
         """
         if "events" not in msg or "channel" not in msg:
-            cls.logger().warning(f"Unexpected message from Coinbase Advanced Trade: {msg}"
-                                 f" - missing 'events' or 'channel'  key")
+            cls.logger().error(f"Unexpected message from Coinbase Advanced Trade: {msg}"
+                               " - missing 'events' or 'channel' key")
             return None
 
         channel = msg["channel"]

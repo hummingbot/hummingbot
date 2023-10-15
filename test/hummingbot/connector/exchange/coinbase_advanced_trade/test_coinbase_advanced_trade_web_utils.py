@@ -2,8 +2,8 @@ import unittest
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import ANY, AsyncMock, Mock, patch
 
-import hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_constants as CONSTANTS
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_web_utils import (
+import hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_constants as CONSTANTS
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils import (
     build_api_factory,
     build_api_factory_without_time_synchronizer_pre_processor,
     create_throttler,
@@ -81,9 +81,9 @@ class CoinbaseAdvancedTradeUtilTestCases(IsolatedAsyncioWrapperTestCase):
         self.assertIsInstance(throttler, AsyncThrottler)
 
     @patch.object(WebAssistantsFactory, "__init__", return_value=None)
-    @patch("hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_web_utils"
+    @patch("hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils"
            ".create_throttler", return_value=Mock())
-    @patch("hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_web_utils"
+    @patch("hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils"
            ".get_current_server_time_s")
     def test_build_api_factory(self, mock_get_current_server_time_s, mock_create_throttler, mock_init):
         mock_get_current_server_time_s.return_value = 123456
@@ -103,7 +103,7 @@ class CoinbaseAdvancedTradeUtilTestCases(IsolatedAsyncioWrapperTestCase):
         build_api_factory_without_time_synchronizer_pre_processor(throttler)
         mock_factory.assert_called_once_with(throttler=throttler)
 
-    @patch('hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_web_utils'
+    @patch('hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils'
            '.get_current_server_time_s')
     async def test_get_current_server_time_ms(self, mock_get_time_s):
         mock_get_time_s.return_value = 1
@@ -113,7 +113,12 @@ class CoinbaseAdvancedTradeUtilTestCases(IsolatedAsyncioWrapperTestCase):
     def test_get_timestamp_from_exchange_time(self):
         # Test with seconds
         expected_seconds = 1683808496.789012
+        self.assertEqual(get_timestamp_from_exchange_time('2023-05-11T12:34:56.789012Z', 's'), expected_seconds)
+
         self.assertEqual(get_timestamp_from_exchange_time('2023-05-11T12:34:56.789012+00:00', 's'), expected_seconds)
+
+        self.assertEqual(get_timestamp_from_exchange_time('2023-05-11T12:34:56.789012+00:01', 's'), expected_seconds - 60)
+        self.assertEqual(get_timestamp_from_exchange_time('2023-05-11T12:34:56.789012-01:00', 's'), expected_seconds + 3600)
 
         # Test with milliseconds
         expected_milliseconds = expected_seconds * 1000
@@ -135,10 +140,10 @@ class CoinbaseAdvancedTradeUtilTestCases(IsolatedAsyncioWrapperTestCase):
                          expected_milliseconds)
 
     @patch(
-        'hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_web_utils'
+        'hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils'
         '.build_api_factory_without_time_synchronizer_pre_processor',
         new_callable=Mock)
-    @patch('hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_web_utils'
+    @patch('hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils'
            '.public_rest_url')
     async def test_get_current_server_time_s(self, mock_public_rest_url, mock_api_factory):
         # Prepare Mocks

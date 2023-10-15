@@ -9,15 +9,15 @@ from test.logger_mixin_for_test import LoggerMixinForTest
 from typing import Dict
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2 import coinbase_advanced_trade_v2_constants as CONSTANTS
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_api_user_stream_data_source import (
-    CoinbaseAdvancedTradeV2APIUserStreamDataSource,
-    CoinbaseAdvancedTradeV2CumulativeUpdate,
-    WSAssistantPtl,
-    _MultiStreamDataSource,
+from hummingbot.connector.exchange.coinbase_advanced_trade import coinbase_advanced_trade_constants as CONSTANTS
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_api_user_stream_data_source import (
+    CoinbaseAdvancedTradeAPIUserStreamDataSource,
+    CoinbaseAdvancedTradeCumulativeUpdate,
+    MultiStreamDataSource,
 )
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2.stream_data_source import StreamState
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2.task_manager import TaskState
+from hummingbot.connector.exchange.coinbase_advanced_trade.multi_stream_data_source import WSAssistantPtl
+from hummingbot.connector.exchange.coinbase_advanced_trade.stream_data_source import StreamState
+from hummingbot.connector.exchange.coinbase_advanced_trade.task_manager import TaskState
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.connections.data_types import WSRequest, WSResponse
 
@@ -65,7 +65,7 @@ class MockWebAssistant(WSAssistantPtl):
         self.send_count += 1
 
 
-class CoinbaseAdvancedTradeV2APIUserStreamDataSourceTests(
+class CoinbaseAdvancedTradeAPIUserStreamDataSourceTests(
     IsolatedAsyncioWrapperTestCase,
     LoggerMixinForTest,
 ):
@@ -91,18 +91,18 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSourceTests(
         self.partial_assistant = functools.partial(self.get_ws_assistant, self.ws_assistant)
         self.output_queue = asyncio.Queue()
 
-        self.cumulative_update = CoinbaseAdvancedTradeV2CumulativeUpdate(
+        self.cumulative_update = CoinbaseAdvancedTradeCumulativeUpdate(
             exchange_order_id="123",
             client_order_id="456",
             status="done",
             trading_pair="ETH-USD",
-            fill_timestamp=123456789,
+            fill_timestamp_s=123456789,
             average_price=Decimal("123.456"),
             cumulative_base_amount=Decimal("123.456"),
             remainder_base_amount=Decimal("123.456"),
             cumulative_fee=Decimal("123.456"),
         )
-        self.data_source = CoinbaseAdvancedTradeV2APIUserStreamDataSource(
+        self.data_source = CoinbaseAdvancedTradeAPIUserStreamDataSource(
             channels=self.channels,
             pairs=self.trading_pairs,
             ws_factory=self.partial_assistant,
@@ -159,7 +159,7 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSourceTests(
         return f"{s0}-{s1}"
 
     def test_init(self):
-        self.assertIsInstance(self.data_source._stream_to_queue, _MultiStreamDataSource, )
+        self.assertIsInstance(self.data_source._stream_to_queue, MultiStreamDataSource, )
         self.assertEqual(4, len(self.data_source._stream_to_queue.states))
         self.assertTrue(
             all(s == (StreamState.CLOSED, TaskState.STOPPED) for s in self.data_source._stream_to_queue.states))
@@ -167,27 +167,27 @@ class CoinbaseAdvancedTradeV2APIUserStreamDataSourceTests(
 
     async def test_listen_for_user_stream_mocked(self):
         with patch.object(self.data_source, "_stream_to_queue",
-                          AsyncMock(spec=_MultiStreamDataSource)) as stream_to_queue_mock:
+                          AsyncMock(spec=MultiStreamDataSource)) as stream_to_queue_mock:
             side_effects = [self.cumulative_update for _ in range(random.randint(5, 10))]
             stream_to_queue_mock.queue.get = AsyncMock(side_effect=side_effects)
 
             with contextlib.suppress(StopAsyncIteration):
                 await self.data_source.listen_for_user_stream(self.output_queue)
 
-            stream_to_queue_mock.open.assert_called_once()
-            stream_to_queue_mock.start_stream.assert_called_once()
-            stream_to_queue_mock.subscribe.assert_called_once()
-            # The number of calls to get should be the number of side effects + 1 for the StopAsyncIteration
-            self.assertEqual(len(side_effects) + 1, stream_to_queue_mock.queue.get.call_count)
-            # The number of calls to put should be the number of side effects
-            self.assertEqual(len(side_effects), self.output_queue.qsize())
+        stream_to_queue_mock.open.assert_called_once()
+        stream_to_queue_mock.start_stream.assert_called_once()
+        stream_to_queue_mock.subscribe.assert_called_once()
+        # The number of calls to get should be the number of side effects + 1 for the StopAsyncIteration
+        self.assertEqual(len(side_effects) + 1, stream_to_queue_mock.queue.get.call_count)
+        # The number of calls to put should be the number of side effects
+        self.assertEqual(len(side_effects), self.output_queue.qsize())
 
     async def test_listen_for_user_stream_mocked_open(self):
         self.assertTrue(
             all(s == (StreamState.CLOSED, TaskState.STOPPED) for s in self.data_source._stream_to_queue.states))
         open = self.data_source._stream_to_queue.open
         with patch.object(self.data_source, "_stream_to_queue",
-                          AsyncMock(spec=_MultiStreamDataSource)) as stream_to_queue_mock:
+                          AsyncMock(spec=MultiStreamDataSource)) as stream_to_queue_mock:
             self.data_source._stream_to_queue.open = open
             side_effects = []
             stream_to_queue_mock.queue.get = AsyncMock(side_effect=side_effects)

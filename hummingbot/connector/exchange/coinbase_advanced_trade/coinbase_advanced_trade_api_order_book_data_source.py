@@ -11,15 +11,15 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
-from . import coinbase_advanced_trade_v2_constants as constants, coinbase_advanced_trade_v2_web_utils as web_utils
+from . import coinbase_advanced_trade_constants as constants, coinbase_advanced_trade_web_utils as web_utils
 
 if TYPE_CHECKING:
-    from .coinbase_advanced_trade_v2_exchange import CoinbaseAdvancedTradeV2Exchange
+    from .coinbase_advanced_trade_exchange import CoinbaseAdvancedTradeExchange
 
-from .coinbase_advanced_trade_v2_order_book import CoinbaseAdvancedTradeV2OrderBook
+from .coinbase_advanced_trade_order_book import CoinbaseAdvancedTradeOrderBook
 
 
-class CoinbaseAdvancedTradeV2APIOrderBookDataSource(OrderBookTrackerDataSource):
+class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
     HEARTBEAT_TIME_INTERVAL = 30.0
     TRADE_STREAM_ID = 1
     DIFF_STREAM_ID = 2
@@ -48,7 +48,7 @@ class CoinbaseAdvancedTradeV2APIOrderBookDataSource(OrderBookTrackerDataSource):
 
     def __init__(self,
                  trading_pairs: List[str],
-                 connector: 'CoinbaseAdvancedTradeV2Exchange',
+                 connector: 'CoinbaseAdvancedTradeExchange',
                  api_factory: WebAssistantsFactory,
                  domain: str = constants.DEFAULT_DOMAIN):
         """
@@ -62,7 +62,7 @@ class CoinbaseAdvancedTradeV2APIOrderBookDataSource(OrderBookTrackerDataSource):
         super().__init__(trading_pairs)
         self._domain: str = domain
         self._api_factory: WebAssistantsFactory = api_factory
-        self._connector: 'CoinbaseAdvancedTradeV2Exchange' = connector
+        self._connector: 'CoinbaseAdvancedTradeExchange' = connector
 
         self._subscription_lock: Optional[asyncio.Lock] = None
         self._ws_assistant: Optional[WSAssistant] = None
@@ -74,7 +74,7 @@ class CoinbaseAdvancedTradeV2APIOrderBookDataSource(OrderBookTrackerDataSource):
         self._snapshot_messages_queue_key = "unused_snapshot_queue"
 
     async def _parse_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        order_book_message: OrderBookMessage = await CoinbaseAdvancedTradeV2OrderBook.level2_or_trade_message_from_exchange(
+        order_book_message: OrderBookMessage = await CoinbaseAdvancedTradeOrderBook.level2_or_trade_message_from_exchange(
             raw_message, time.time(),
             self._connector.exchange_symbol_associated_to_pair)
         message_queue.put_nowait(order_book_message)
@@ -172,7 +172,7 @@ class CoinbaseAdvancedTradeV2APIOrderBookDataSource(OrderBookTrackerDataSource):
                 symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
                 symbols.append(symbol)
 
-            for channel in [*constants.WS_ORDER_SUBSCRIPTION_CHANNELS]:
+            for channel in ["heartbeats", *constants.WS_ORDER_SUBSCRIPTION_CHANNELS]:
                 payload = {
                     "type": "subscribe",
                     "product_ids": symbols,
@@ -191,7 +191,7 @@ class CoinbaseAdvancedTradeV2APIOrderBookDataSource(OrderBookTrackerDataSource):
             raise
 
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
-        self.logger().debug("Processing websocket messages...")
+        # self.logger().debug("Processing websocket messages...")
         async for ws_response in websocket_assistant.iter_messages():
             data: Dict[str, Any] = ws_response.data
 
@@ -213,7 +213,7 @@ class CoinbaseAdvancedTradeV2APIOrderBookDataSource(OrderBookTrackerDataSource):
             "product_id": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         }
 
-        self.logger().debug(f"Requesting order book snapshot for {trading_pair}...")
+        # self.logger().debug(f"Requesting order book snapshot for {trading_pair}...")
         rest_assistant = await self._api_factory.get_rest_assistant()
         snapshot: Dict[str, Any] = await rest_assistant.execute_request(
             url=web_utils.public_rest_url(path_url=constants.SNAPSHOT_EP, domain=self._domain),
@@ -222,11 +222,11 @@ class CoinbaseAdvancedTradeV2APIOrderBookDataSource(OrderBookTrackerDataSource):
             is_auth_required=True,
             throttler_limit_id=constants.SNAPSHOT_EP,
         )
-        self.logger().debug(f"   '-> {snapshot}..."[:50])
+        # self.logger().debug(f"   '-> {snapshot}..."[:50])
 
-        snapshot_timestamp: float = time.time()
+        snapshot_timestamp: float = self._connector._time_synchronizer.time() * 1e3
 
-        snapshot_msg: OrderBookMessage = CoinbaseAdvancedTradeV2OrderBook.snapshot_message_from_exchange(
+        snapshot_msg: OrderBookMessage = CoinbaseAdvancedTradeOrderBook.snapshot_message_from_exchange(
             snapshot,
             snapshot_timestamp,
             metadata={"trading_pair": trading_pair}

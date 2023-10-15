@@ -11,30 +11,38 @@ from aioresponses.core import RequestCall
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2 import (
-    coinbase_advanced_trade_v2_constants as CONSTANTS,
-    coinbase_advanced_trade_v2_web_utils as web_utils,
+from hummingbot.connector.exchange.coinbase_advanced_trade import (
+    coinbase_advanced_trade_constants as CONSTANTS,
+    coinbase_advanced_trade_web_utils as web_utils,
 )
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_api_user_stream_data_source import (
-    CoinbaseAdvancedTradeV2CumulativeUpdate,
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_api_user_stream_data_source import (
+    CoinbaseAdvancedTradeCumulativeUpdate,
 )
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_exchange import (
-    CoinbaseAdvancedTradeV2Exchange,
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_exchange import (
+    CoinbaseAdvancedTradeExchange,
 )
-from hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_web_utils import (
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils import (
     get_timestamp_from_exchange_time,
     set_exchange_time_from_timestamp,
 )
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
-from hummingbot.core.event.events import MarketOrderFailureEvent, OrderCancelledEvent, OrderFilledEvent
+from hummingbot.core.event.events import (
+    BuyOrderCompletedEvent,
+    BuyOrderCreatedEvent,
+    MarketOrderFailureEvent,
+    OrderCancelledEvent,
+    OrderFilledEvent,
+    SellOrderCreatedEvent,
+)
 
 
-class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests, LoggerMixinForTest):
+class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests, LoggerMixinForTest):
 
     @property
     def all_symbols_url(self):
@@ -197,10 +205,29 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
     @property
     def order_creation_request_successful_mock_response(self):
         return {
+            "success": True,
             "order_id": self.expected_exchange_order_id,
-            "product_id": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-            "side": "BUY",
-            "client_order_id": "OID1"
+            "success_response": {
+                "order_id": self.expected_exchange_order_id,
+                "product_id": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                "side": "BUY",
+                "client_order_id": get_new_client_order_id(
+                    True,
+                    f"{self.base_asset}-{self.quote_asset}",
+                    CONSTANTS.HBOT_ORDER_ID_PREFIX,
+                    CONSTANTS.MAX_ORDER_ID_LEN
+                )
+            },
+            "error_response": {
+                "error": "UNKNOWN_FAILURE_REASON",
+            },
+            "order_configuration": {
+                "limit_limit_gtc": {
+                    "base_size": "0.001",
+                    "limit_price": "10000.00",
+                    "post_only": False
+                },
+            }
         }
 
     @property
@@ -333,10 +360,10 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
 
     def create_exchange_instance(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
-        return CoinbaseAdvancedTradeV2Exchange(
+        return CoinbaseAdvancedTradeExchange(
             client_config_map=client_config_map,
-            coinbase_advanced_trade_v2_api_key="testAPIKey",
-            coinbase_advanced_trade_v2_api_secret="testSecret",
+            coinbase_advanced_trade_api_key="testAPIKey",
+            coinbase_advanced_trade_api_secret="testSecret",
             trading_pairs=[self.trading_pair],
         )
 
@@ -398,22 +425,24 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
         url = web_utils.private_rest_url(CONSTANTS.BATCH_CANCEL_EP)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_cancel_request_not_found_error_mock_response(order=order)
-        mock_api.post(regex_url, status=400, body=json.dumps(response), callback=callback)
+        mock_api.post(regex_url, status=200, body=json.dumps(response), callback=callback)
         return url
 
     def configure_one_successful_one_erroneous_cancel_all_response(
             self,
             successful_order: InFlightOrder,
             erroneous_order: InFlightOrder,
-            mock_api: aioresponses) -> List[str]:
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None
+    ) -> str:
         """
         :return: a list of all configured URLs for the cancelations
         """
-        url = self.configure_successful_cancelation_response(order=successful_order, mock_api=mock_api)
-        all_urls = [url]
-        url = self.configure_erroneous_cancelation_response(order=erroneous_order, mock_api=mock_api)
-        all_urls.append(url)
-        return all_urls
+        url = web_utils.private_rest_url(CONSTANTS.BATCH_CANCEL_EP)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        response = self._order_one_successful_one_erroneous_mock_response(orders=[successful_order, erroneous_order])
+        mock_api.post(regex_url, body=json.dumps(response), callback=callback)
+        return url
 
     def configure_completely_filled_order_status_response(
             self,
@@ -422,7 +451,9 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
         url = web_utils.private_rest_url(CONSTANTS.GET_ORDER_STATUS_EP.format(order_id=order.exchange_order_id))
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+
         response = self._order_status_request_completely_filled_mock_response(order=order)
+
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
         return url
 
@@ -530,7 +561,7 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
         url = web_utils.private_rest_url(CONSTANTS.GET_ORDER_STATUS_EP.format(order_id=order.exchange_order_id))
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        response = self._order_fills_request_full_fill_mock_response(order=order)
+        response = self._order_status_request_completely_filled_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
         return url
 
@@ -551,12 +582,12 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
         return url
 
     def order_event_for_new_order_websocket_update(self, order: InFlightOrder):
-        return CoinbaseAdvancedTradeV2CumulativeUpdate(**{
+        return CoinbaseAdvancedTradeCumulativeUpdate(**{
             "client_order_id": order.client_order_id,
             "exchange_order_id": order.exchange_order_id,
             "status": "OPEN",
             "trading_pair": self.trading_pair,
-            "fill_timestamp": 1499405658.658,
+            "fill_timestamp_s": 1499405658.658,
             "average_price": Decimal("0"),
             "cumulative_base_amount": Decimal("0"),
             "remainder_base_amount": Decimal(str(order.amount)),
@@ -565,12 +596,12 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
         })
 
     def order_event_for_canceled_order_websocket_update(self, order: InFlightOrder):
-        return CoinbaseAdvancedTradeV2CumulativeUpdate(**{
+        return CoinbaseAdvancedTradeCumulativeUpdate(**{
             "client_order_id": order.client_order_id,
             "exchange_order_id": order.exchange_order_id,
             "status": "CANCELLED",
             "trading_pair": self.trading_pair,
-            "fill_timestamp": 1499405658.658,
+            "fill_timestamp_s": 1499405658.658,
             "average_price": Decimal("10"),
             "cumulative_base_amount": Decimal("10"),
             "remainder_base_amount": Decimal(str(order.amount)),
@@ -579,12 +610,12 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
         })
 
     def order_event_for_full_fill_websocket_update(self, order: InFlightOrder):
-        return CoinbaseAdvancedTradeV2CumulativeUpdate(**{
+        return CoinbaseAdvancedTradeCumulativeUpdate(**{
             "client_order_id": order.client_order_id,
             "exchange_order_id": order.exchange_order_id,
             "status": "FILLED",
             "trading_pair": self.trading_pair,
-            "fill_timestamp": 1499405659.658,
+            "fill_timestamp_s": 1499405659.658,
             "average_price": Decimal(str(order.price)),
             "cumulative_base_amount": order.amount,
             "remainder_base_amount": Decimal("0"),
@@ -601,6 +632,198 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
     def test_user_stream_balance_update(self):
         # Coinbase Advanced Trade does not emit balance update events
         pass
+
+    @aioresponses()
+    def test_create_buy_limit_order_successfully(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+
+        url = self.order_creation_url
+
+        creation_response = self.order_creation_request_successful_mock_response
+
+        mock_api.post(url,
+                      body=json.dumps(creation_response),
+                      callback=lambda *args, **kwargs: request_sent_event.set())
+
+        order_id = self.place_buy_order()
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        order_request = self._all_executed_requests(mock_api, url)[0]
+        self.validate_auth_credentials_present(order_request)
+        self.assertIn(order_id, self.exchange.in_flight_orders)
+        self.validate_order_creation_request(
+            order=self.exchange.in_flight_orders[order_id],
+            request_call=order_request)
+
+        # Coinbase Advanced Trade does not immediately create the order and set the status to PENDING_CREATE
+        self.assertTrue(self.exchange.in_flight_orders[order_id].is_pending_create)
+
+        # Simulate order update via websocket
+        order_update: OrderUpdate = OrderUpdate(
+            client_order_id=order_id,
+            trading_pair=self.trading_pair,
+            update_timestamp=self.exchange.current_timestamp,
+            new_state=OrderState.OPEN,
+        )
+        self.async_run_with_timeout(self.exchange._order_tracker._process_order_update(order_update))
+        self.assertTrue(self.exchange.in_flight_orders[order_id].is_open)
+
+        create_event: BuyOrderCreatedEvent = self.buy_order_created_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
+        self.assertEqual(self.trading_pair, create_event.trading_pair)
+        self.assertEqual(OrderType.LIMIT, create_event.type)
+        self.assertEqual(Decimal("100"), create_event.amount)
+        self.assertEqual(Decimal("10000"), create_event.price)
+        self.assertEqual(order_id, create_event.order_id)
+        self.assertEqual(str(self.expected_exchange_order_id), create_event.exchange_order_id)
+
+        self.assertTrue(
+            self.is_logged(
+                "INFO",
+                f"Created {OrderType.LIMIT.name} {TradeType.BUY.name} order {order_id} for "
+                f"{Decimal('100.000000')} {self.trading_pair}."
+            )
+        )
+
+    @aioresponses()
+    def test_create_sell_limit_order_successfully(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+
+        url = self.order_creation_url
+        creation_response = self.order_creation_request_successful_mock_response
+
+        mock_api.post(url,
+                      body=json.dumps(creation_response),
+                      callback=lambda *args, **kwargs: request_sent_event.set())
+
+        order_id = self.place_sell_order()
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        order_request = self._all_executed_requests(mock_api, url)[0]
+        self.validate_auth_credentials_present(order_request)
+        self.assertIn(order_id, self.exchange.in_flight_orders)
+        self.validate_order_creation_request(
+            order=self.exchange.in_flight_orders[order_id],
+            request_call=order_request)
+
+        # Coinbase Advanced Trade does not immediately create the order and set the status to PENDING_CREATE
+        self.assertTrue(self.exchange.in_flight_orders[order_id].is_pending_create)
+
+        # Simulate order update via websocket
+        order_update: OrderUpdate = OrderUpdate(
+            client_order_id=order_id,
+            trading_pair=self.trading_pair,
+            update_timestamp=self.exchange.current_timestamp,
+            new_state=OrderState.OPEN,
+        )
+        self.async_run_with_timeout(self.exchange._order_tracker._process_order_update(order_update))
+        self.assertTrue(self.exchange.in_flight_orders[order_id].is_open)
+
+        create_event: SellOrderCreatedEvent = self.sell_order_created_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, create_event.timestamp)
+        self.assertEqual(self.trading_pair, create_event.trading_pair)
+        self.assertEqual(OrderType.LIMIT, create_event.type)
+        self.assertEqual(Decimal("100"), create_event.amount)
+        self.assertEqual(Decimal("10000"), create_event.price)
+        self.assertEqual(order_id, create_event.order_id)
+        self.assertEqual(str(self.expected_exchange_order_id), create_event.exchange_order_id)
+
+        self.assertTrue(
+            self.is_logged(
+                "INFO",
+                f"Created {OrderType.LIMIT.name} {TradeType.SELL.name} order {order_id} for "
+                f"{Decimal('100.000000')} {self.trading_pair}."
+            )
+        )
+
+    @aioresponses()
+    def test_update_order_status_when_filled(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
+        request_sent_event = asyncio.Event()
+
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=str(self.expected_exchange_order_id),
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+        urls = self.configure_completely_filled_order_status_response(
+            order=order,
+            mock_api=mock_api,
+            callback=lambda *args, **kwargs: request_sent_event.set())
+
+        if self.is_order_fill_http_update_included_in_status_update:
+            trade_url = self.configure_full_fill_trade_response(
+                order=order,
+                mock_api=mock_api)
+        else:
+            # If the fill events will not be requested with the order status, we need to manually set the event
+            # to allow the ClientOrderTracker to process the last status update
+            order.completely_filled_event.set()
+        self.async_run_with_timeout(self.exchange._update_order_status())
+        # Execute one more synchronization to ensure the async task that processes the update is finished
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        for url in (urls if isinstance(urls, list) else [urls]):
+            order_status_request = self._all_executed_requests(mock_api, url)[0]
+            self.validate_auth_credentials_present(order_status_request)
+            self.validate_order_status_request(
+                order=order,
+                request_call=order_status_request)
+
+        self.async_run_with_timeout(order.wait_until_completely_filled())
+        self.assertTrue(order.is_done)
+
+        if self.is_order_fill_http_update_included_in_status_update:
+            self.assertTrue(order.is_filled)
+            if trade_url:
+                trades_request = self._all_executed_requests(mock_api, trade_url)[0]
+                self.validate_auth_credentials_present(trades_request)
+                self.validate_trades_request(
+                    order=order,
+                    request_call=trades_request)
+
+            fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
+            self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
+            self.assertEqual(order.client_order_id, fill_event.order_id)
+            self.assertEqual(order.trading_pair, fill_event.trading_pair)
+            self.assertEqual(order.trade_type, fill_event.trade_type)
+            self.assertEqual(order.order_type, fill_event.order_type)
+            self.assertEqual(order.price, fill_event.price)
+            self.assertEqual(order.amount, fill_event.amount)
+            self.assertEqual(self.expected_fill_fee, fill_event.trade_fee)
+
+        buy_event: BuyOrderCompletedEvent = self.buy_order_completed_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, buy_event.timestamp)
+        self.assertEqual(order.client_order_id, buy_event.order_id)
+        self.assertEqual(order.base_asset, buy_event.base_asset)
+        self.assertEqual(order.quote_asset, buy_event.quote_asset)
+        self.assertEqual(
+            order.amount if self.is_order_fill_http_update_included_in_status_update else Decimal(0),
+            buy_event.base_asset_amount)
+        self.assertEqual(
+            order.amount * order.price
+            if self.is_order_fill_http_update_included_in_status_update
+            else Decimal(0),
+            buy_event.quote_asset_amount)
+        self.assertEqual(order.order_type, buy_event.order_type)
+        self.assertEqual(order.exchange_order_id, buy_event.exchange_order_id)
+        self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
+        self.assertTrue(
+            self.is_logged(
+                "INFO",
+                f"BUY order {order.client_order_id} completely filled."
+            )
+        )
 
     @aioresponses()
     def test_lost_order_removed_if_not_found_during_order_status_update(self, mock_api):
@@ -698,7 +921,7 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
 
         self.async_run_with_timeout(self.exchange._update_time_synchronizer())
 
-        self.assertAlmostEqual(response["data"]["epoch"], self.exchange._time_synchronizer.time() * 1000, 4)
+        self.assertAlmostEqual(response["data"]["epoch"], self.exchange._time_synchronizer.time(), 4)
 
     @aioresponses()
     def test_update_time_synchronizer_failure_is_logged(self, mock_api):
@@ -852,7 +1075,7 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
         self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
                                               self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
         self.exchange._last_trades_poll_timestamp = 10
-        with patch("hummingbot.connector.exchange.coinbase_advanced_trade_v2.coinbase_advanced_trade_v2_exchange"
+        with patch("hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_exchange"
                    ".set_exchange_time_from_timestamp",
                    return_value=set_exchange_time_from_timestamp(10)):
             self.async_run_with_timeout(self.exchange._update_order_fills_from_trades())
@@ -1061,12 +1284,12 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
         #     ]
         # }
 
-        cat_event_message = CoinbaseAdvancedTradeV2CumulativeUpdate(
+        cat_event_message = CoinbaseAdvancedTradeCumulativeUpdate(
             exchange_order_id=order.exchange_order_id,
             client_order_id=order.client_order_id,
             status="FAILED",
             trading_pair=f"{self.base_asset}-{self.quote_asset}",
-            fill_timestamp=1640780000,
+            fill_timestamp_s=1640780000,
             average_price=Decimal(order.price),
             cumulative_base_amount=Decimal("0"),
             remainder_base_amount=Decimal("0.000994"),
@@ -1229,24 +1452,42 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
     def test_user_stream_logs_errors(self):
         self.exchange._set_current_timestamp(1640780000)
 
-        incomplete_event = "Invalid message"
+        incomplete_event = {"resp": "Invalid message"}
 
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [incomplete_event, asyncio.CancelledError]
         self.exchange._user_stream_tracker._user_stream = mock_queue
 
         with patch(f"{type(self.exchange).__module__}.{type(self.exchange).__qualname__}._sleep"):
-            try:
+            with self.assertRaises(asyncio.CancelledError):
                 self.async_run_with_timeout(self.exchange._user_stream_event_listener())
-            except asyncio.CancelledError:
-                pass
-        # No longer logging this
-        # self.assertTrue(
-        #     self.is_partially_logged(
-        #         "WARNING",
-        #         "Skipping non-cummulative update (first message of the stream)."
-        #     )
-        # )
+
+        self.assertTrue(
+            self.is_partially_logged(
+                "ERROR",
+                "Skipping non-cumulative update"
+            )
+        )
+
+    def test_user_stream_does_not_log_empty_first(self):
+        self.exchange._set_current_timestamp(1640780000)
+
+        incomplete_event = {"channel": "user", "sequence_num": 1, "events": []}
+
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [incomplete_event, asyncio.CancelledError]
+        self.exchange._user_stream_tracker._user_stream = mock_queue
+
+        with patch(f"{type(self.exchange).__module__}.{type(self.exchange).__qualname__}._sleep"):
+            with self.assertRaises(asyncio.CancelledError):
+                self.async_run_with_timeout(self.exchange._user_stream_event_listener())
+
+        self.assertFalse(
+            self.is_partially_logged(
+                "ERROR",
+                "Skipping non-cumulative update"
+            )
+        )
 
     @aioresponses()
     def test_invalid_trading_pair_not_in_all_trading_pairs(self, mock_api):
@@ -1296,91 +1537,62 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
 
         self.assertEqual(result, expected_client_order_id)
 
-    #    def test_time_synchronizer_related_request_error_detection(self):
-    #        exception = IOError(
-    #            "Error executing request POST https://api.coinbase_advanced_trade.com/api/v3/order. HTTP status is 400. "
-    #            "Error: {'code':-1021,'msg':'Timestamp for this request is outside of the recvWindow.'}")
-    #        self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
-    #
-    #        exception = IOError(
-    #            "Error executing request POST https://api.coinbase_advanced_trade.com/api/v3/order. HTTP status is 400. "
-    #            "Error: {'code':-1021,'msg':'Timestamp for this request was 1000ms ahead of the server's "
-    #            "time.'}")
-    #        self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
-    #
-    #        exception = IOError(
-    #            "Error executing request POST https://api.coinbase_advanced_trade.com/api/v3/order. HTTP status is 400. "
-    #            "Error: {'code':-1022,'msg':'Timestamp for this request was 1000ms ahead of the server's "
-    #            "time.'}")
-    #        self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
-    #
-    #        exception = IOError(
-    #            "Error executing request POST https://api.coinbase_advanced_trade.com/api/v3/order. HTTP status is 400. "
-    #            "Error: {'code':-1021,'msg':'Other error.'}")
-    #        self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
+    @aioresponses()
+    def test_cancel_two_orders_with_cancel_all_and_one_fails(self, mock_api):
+        self.exchange._set_current_timestamp(1640780000)
 
-    #    @aioresponses()
-    #    def test_place_order_manage_server_overloaded_error_unknown_order(self, mock_api):
-    #        self.exchange._set_current_timestamp(1640780000)
-    #        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
-    #                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
-    #        url = web_utils.private_rest_url(CONSTANTS.ORDER_EP)
-    #        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-    #        mock_response = {
-    #            "error": "internal_server_error",
-    #            "code": "500",
-    #            "message": "Internal server error",
-    #            "details": []
-    #        }
-    #        mock_api.post(regex_url, body=json.dumps(mock_response), status=503)
-    #
-    #        o_id, transact_time = self.async_run_with_timeout(self.exchange._place_order(
-    #            order_id="test_order_id",
-    #            trading_pair=self.trading_pair,
-    #            amount=Decimal("1"),
-    #            trade_type=TradeType.BUY,
-    #            order_type=OrderType.LIMIT,
-    #            price=Decimal("2"),
-    #        ))
-    #        self.assertEqual(o_id, "UNKNOWN")
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=self.exchange_order_id_prefix + "1",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("100"),
+            order_type=OrderType.LIMIT,
+        )
 
-    # @aioresponses()
-    #    def test_place_order_manage_server_overloaded_error_failure(self, mock_api):
-    #        self.exchange._set_current_timestamp(1640780000)
-    #        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
-    #                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
-    #
-    #        url = web_utils.private_rest_url(CONSTANTS.ORDER_EP)
-    #        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-    #        mock_response = {"code": -1003, "msg": "Service Unavailable."}
-    #        mock_api.post(regex_url, body=json.dumps(mock_response), status=503)
-    #
-    #        self.assertRaises(
-    #            IOError,
-    #            self.async_run_with_timeout,
-    #            self.exchange._place_order(
-    #                order_id="test_order_id",
-    #                trading_pair=self.trading_pair,
-    #                amount=Decimal("1"),
-    #                trade_type=TradeType.BUY,
-    #                order_type=OrderType.LIMIT,
-    #                price=Decimal("2"),
-    #            ))
-    #
-    #        mock_response = {"code": -1003, "msg": "Internal error; unable to process your request. Please try again."}
-    #        mock_api.post(regex_url, body=json.dumps(mock_response), status=503)
-    #
-    #        self.assertRaises(
-    #            IOError,
-    #            self.async_run_with_timeout,
-    #            self.exchange._place_order(
-    #                order_id="test_order_id",
-    #                trading_pair=self.trading_pair,
-    #                amount=Decimal("1"),
-    #                trade_type=TradeType.BUY,
-    #                order_type=OrderType.LIMIT,
-    #                price=Decimal("2"),
-    #            ))
+        self.assertIn(self.client_order_id_prefix + "1", self.exchange.in_flight_orders)
+        order1 = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+        self.exchange.start_tracking_order(
+            order_id="12",
+            exchange_order_id="5",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.SELL,
+            price=Decimal("11000"),
+            amount=Decimal("90"),
+            order_type=OrderType.LIMIT,
+        )
+
+        self.assertIn("12", self.exchange.in_flight_orders)
+        order2 = self.exchange.in_flight_orders["12"]
+
+        url = self.configure_one_successful_one_erroneous_cancel_all_response(
+            successful_order=order1,
+            erroneous_order=order2,
+            mock_api=mock_api)
+
+        cancellation_results = self.async_run_with_timeout(self.exchange.cancel_all(10))
+
+        cancel_request = self._all_executed_requests(mock_api, url)[0]
+        self.validate_auth_credentials_present(cancel_request)
+
+        self.assertEqual(2, len(cancellation_results))
+        self.assertEqual(CancellationResult(order1.client_order_id, True), cancellation_results[0])
+        self.assertEqual(CancellationResult(order2.client_order_id, False), cancellation_results[1])
+
+        if self.exchange.is_cancel_request_in_exchange_synchronous:
+            self.assertEqual(1, len(self.order_cancelled_logger.event_log))
+            cancel_event: OrderCancelledEvent = self.order_cancelled_logger.event_log[0]
+            self.assertEqual(self.exchange.current_timestamp, cancel_event.timestamp)
+            self.assertEqual(order1.client_order_id, cancel_event.order_id)
+
+            self.assertTrue(
+                self.is_logged(
+                    "INFO",
+                    f"Successfully canceled order {order1.client_order_id}."
+                )
+            )
 
     def _validate_auth_credentials_taking_parameters_from_argument(self,
                                                                    request_call_tuple: RequestCall,
@@ -1404,6 +1616,19 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
         return test_substitute
         # return CoinbaseAdvancedTradeCancelOrdersResponse.dict_sample_from_json_docstring(test_substitute)
 
+    def _orders_cancelation_request_successful_mock_response(self, orders: List[InFlightOrder]) -> Any:
+        test_substitute = {
+            "results":
+                [
+                    {
+                        "success": True,
+                        "order_id": order.exchange_order_id,
+                    } for order in orders
+                ]
+        }
+        return test_substitute
+        # return CoinbaseAdvancedTradeCancelOrdersResponse.dict_sample_from_json_docstring(test_substitute)
+
     def _order_cancel_request_not_found_error_mock_response(self, order: InFlightOrder) -> Any:
         test_substitute = {
             "results":
@@ -1418,39 +1643,65 @@ class CoinbaseAdvancedTradeV2ExchangeTests(AbstractExchangeConnectorTests.Exchan
         return test_substitute
         # return CoinbaseAdvancedTradeCancelOrdersResponse.dict_sample_from_json_docstring(test_substitute)
 
-    def _order_status_request_completely_filled_mock_response(self, order: InFlightOrder) -> Any:
+    def _order_one_successful_one_erroneous_mock_response(self, orders: List[InFlightOrder]) -> Any:
         test_substitute = {
-            "order":
-                {
-                    "order_id": order.exchange_order_id,
-                    "client_order_id": order.client_order_id,
-                    "status": "FILLED",
-                    "product_id": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                    "side": order.trade_type.name,
-                    "completion_percentage": "100",
-                    "filled_size": str(order.amount),
-                    "average_filled_price": str(order.price),
-                    "order_type": order.order_type.name,
-                    "pending_cancel": False,
-                }
-        }
-        return test_substitute
-        test_substitute = {
-            "fills":
+            "results":
                 [
                     {
-                        "product_id": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
-                        "trade_id": self.expected_fill_trade_id,
-                        "order_id": order.exchange_order_id,
-                        "price": str(order.price),
-                        "size": str(order.amount),
-                        "size_in_quote": str(order.amount * order.price),
-                        "commission": str(self.expected_fill_fee.flat_fees[0].amount),
-                        "side": "BUY",
-                        "trade_time": "2021-05-31T09:59:59Z",
+                        "success": True,
+                        "order_id": orders[0].exchange_order_id,
+                        "failure_reason": "UNKNOWN"
+                    },
+                    {
+                        "success": False,
+                        "order_id": orders[1].exchange_order_id,
+                        "failure_reason": "UNKNOWN_CANCEL_ORDER"
                     }
-                ],
-            "cursor": "0"
+                ]
+        }
+        return test_substitute
+        # return CoinbaseAdvancedTradeCancelOrdersResponse.dict_sample_from_json_docstring(test_substitute)
+
+    def _order_status_request_completely_filled_mock_response(self, order: InFlightOrder) -> Any:
+        test_substitute = {
+            "order": {
+                "order_id": order.exchange_order_id,
+                "product_id": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
+                "user_id": "2222-000000-000000",
+                "order_configuration": {
+                    "limit_limit_gtc": {
+                        "base_size": str(order.amount),
+                        "limit_price": str(order.price),
+                        "post_only": False
+                    },
+                },
+                "side": "BUY",
+                "client_order_id": order.client_order_id,
+                "status": "FILLED",
+                "time_in_force": "UNKNOWN_TIME_IN_FORCE",
+                "created_time": "2021-05-31T09:59:59Z",
+                "completion_percentage": "100",
+                "filled_size": str(order.amount),
+                "average_filled_price": str(order.price),
+                "fee": "string",
+                "number_of_fills": "2",
+                "filled_value": "10000",
+                "pending_cancel": True,
+                "size_in_quote": False,
+                "total_fees": "5.00",
+                "size_inclusive_of_fees": False,
+                "total_value_after_fees": "string",
+                "trigger_status": "UNKNOWN_TRIGGER_STATUS",
+                "order_type": "UNKNOWN_ORDER_TYPE",
+                "reject_reason": "REJECT_REASON_UNSPECIFIED",
+                "settled": "boolean",
+                "product_type": "SPOT",
+                "reject_message": "string",
+                "cancel_message": "string",
+                "order_placement_source": "RETAIL_ADVANCED",
+                "outstanding_hold_amount": "string",
+                "is_liquidation": "boolean"
+            }
         }
         return test_substitute
         # return CoinbaseAdvancedTradeGetOrderResponse.dict_sample_from_json_docstring(test_substitute)
