@@ -411,14 +411,15 @@ class GatewayCommand(GatewayChainApiManager):
                 chain_network_address_to_connector_tokens[(conf["chain"], conf["network"], conf["wallet_address"])] = {conf["connector"]: tokens}
             else:
                 chain_network_address_to_connector_tokens[(conf["chain"], conf["network"], conf["wallet_address"])][conf["connector"]] = tokens
+        data = chain_network_address_to_connector_tokens
 
         # get balances for each chain-network-address tuple and display them in a table format
-        for chain_network_address, connector_to_tokens in chain_network_address_to_connector_tokens.items():
+        for chain_network_address, connector_tokens in data.items():
 
             self.notify(f"\nwallet: {chain_network_address[2]}")
             self.notify(f"chain-network: {chain_network_address[0]}-{chain_network_address[1]}")
 
-            all_tokens = list(set(list(itertools.chain.from_iterable(connector_to_tokens.values()))))
+            all_tokens = list(set(list(itertools.chain.from_iterable(connector_tokens.values()))))
             native_token: str = native_tokens[chain_network_address[0]]
             all_tokens = list(set(all_tokens + [native_token]))
 
