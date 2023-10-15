@@ -441,7 +441,7 @@ class GatewayCommand(GatewayChainApiManager):
             raw_data: List[List[str]] = [all_tokens, balances, allowance]
 
             data = []
-            columns: List[str] = ["Symbol", "Balance", "allowance"]
+            columns: List[str] = ["Symbol", "Balance", "Allowance"]
             for i in range(len(raw_data[0])):
                 data.extend([
                     [
