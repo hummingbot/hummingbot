@@ -402,6 +402,7 @@ class GatewayCommand(GatewayChainApiManager):
         chain_network_address_to_connector_tokens: Dict(Tuple[str, str, str], Dict[str, List[str]]) = {}
         for conf in gateway_connections_conf:
             tokens_str = conf.get('tokens', '')
+            connector = conf.get('connector', '')
             if tokens_str == "":
                 tokens = []
             else:
@@ -427,10 +428,19 @@ class GatewayCommand(GatewayChainApiManager):
             token_balances = token_balances.get("balances", {})
             balances: List[str] = [str(round(Decimal(token_balances.get(token, "0")), 4)) for token in all_tokens]
 
-            raw_data: List[List[str]] = [all_tokens, balances]
+            # Get allowances
+            allowance_data = {}
+            resp: Dict[str, Any] = await self._get_gateway_instance().get_allowances(
+                *chain_network_address, all_tokens, connector
+            )
+            for token, amount in resp["approvals"].items():
+                allowance_data[token] = Decimal(str(amount))
+            allowance: List[str] = [str(round(Decimal(allowance_data.get(token, "0")), 4)) for token in all_tokens]
+
+            raw_data: List[List[str]] = [all_tokens, balances, allowance]
 
             data = []
-            columns: List[str] = ["Symbol", "Balance"]
+            columns: List[str] = ["Symbol", "Balance", "allowance"]
             for i in range(len(raw_data[0])):
                 data.extend([
                     [
