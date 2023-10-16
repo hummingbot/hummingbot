@@ -196,9 +196,6 @@ class ConnectorSetting(NamedTuple):
         from hummingbot.client.config.security import Security
         return True if Security.connector_config_file_exists(self.name) else False
 
-    def paper_trades(self) -> bool:
-        return True if self.base_name().endswith("paper_trade") else False
-
     def uses_clob_connector(self) -> bool:
         return self.type in [ConnectorType.CLOB_SPOT, ConnectorType.CLOB_PERP]
 
