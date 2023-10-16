@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from math import exp, log
 from typing import List
 
 
@@ -29,8 +30,23 @@ class LinearDistribution(Distribution):
 class ExponentialDistribution(Distribution):
     def distribute(self, n_levels: int, params: dict) -> List[float]:
         """Generate an exponential distribution."""
-        base = params.get('base', 2)
-        return [base ** i for i in range(n_levels)]
+        a = params.get('initial_value', 1)
+        b = params.get('base', 2)
+        return [a * b ** i for i in range(n_levels)]
+
+
+class LogarithmicDistribution(Distribution):
+    def distribute(self, n_levels: int, params: dict) -> List[float]:
+        """Generate a logarithmic distribution."""
+        base = params.get('base', exp(1))  # exp(1) gives the natural number 'e'
+        scaling_factor = params.get('scaling_factor', 1)
+        initial_value = params.get('initial_value', 0.4)  # Set the default initial value to 0.4
+
+        # Adjust the function to start from the initial_value.
+        translation = initial_value - scaling_factor * log(2, base)
+
+        # Since log(1) = 0 for any base, starting from 2 to avoid negative or zero values.
+        return [scaling_factor * log(i + 2, base) + translation for i in range(n_levels)]
 
 
 class FibonacciDistribution(Distribution):
@@ -63,5 +79,7 @@ class DistributionFactory:
             return ExponentialDistribution()
         elif method == 'fibonacci':
             return FibonacciDistribution()
+        elif method == 'logarithmic':
+            return LogarithmicDistribution()
         else:
             raise ValueError(f"Unsupported distribution method: {method}")
