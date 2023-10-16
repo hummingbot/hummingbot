@@ -418,7 +418,6 @@ class StreamDataSource(AutoStreamBlock[WSResponse, T], Generic[T]):
                 )
                 raise e
 
-    @property
     async def _connect(self) -> None:
         """
         Connects to the websocket and subscribes to the user events.

@@ -26,25 +26,13 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
     ONE_HOUR = 60 * 60
 
     _logger: HummingbotLogger | logging.Logger | None = None
-    _indenting_logger: HummingbotLogger | logging.Logger | None = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger | logging.Logger:
-        try:
-            from hummingbot.logger.indenting_logger import IndentingLogger
-            if cls._indenting_logger is None:
-                if cls._logger is not None:
-                    cls._indenting_logger = IndentingLogger(cls._logger, cls.__name__)
-                else:
-                    name: str = HummingbotLogger.logger_name_for_class(cls)
-                    cls._indenting_logger = IndentingLogger(logging.getLogger(name), cls.__name__)
-            cls._indenting_logger.refresh_handlers()
-            return cls._indenting_logger
-        except ImportError:
-            if cls._logger is None:
-                name: str = HummingbotLogger.logger_name_for_class(cls)
-                cls._logger = logging.getLogger(name)
-            return cls._logger
+        if cls._logger is None:
+            name: str = HummingbotLogger.logger_name_for_class(cls)
+            cls._logger = logging.getLogger(name)
+        return cls._logger
 
     def __init__(self,
                  trading_pairs: List[str],
