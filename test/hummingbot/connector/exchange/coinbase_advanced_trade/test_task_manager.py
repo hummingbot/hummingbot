@@ -7,7 +7,9 @@ from hummingbot.connector.exchange.coinbase_advanced_trade.task_manager import T
 
 class TestTaskManager(IsolatedAsyncioWrapperTestCase):
     async def asyncSetUp(self) -> None:
-        self.wrapper = TaskManager(asyncio.sleep, 1)
+        self.wrapper = TaskManager(
+            asyncio.sleep,
+            1)
 
     async def test_initial_state(self):
         wrapper = TaskManager(asyncio.sleep, 1)
@@ -25,9 +27,15 @@ class TestTaskManager(IsolatedAsyncioWrapperTestCase):
     async def test_logging(self):
         wrapper = TaskManager(asyncio.sleep, 1)
         with patch.object(TaskManager, "_logger") as mock_logger:
+            await wrapper.stop_task()
+            mock_logger.debug.assert_called_with("Attempting to stop_task() a task that has not been created (or "
+                                                 "already stopped)")
+            wrapper.stop_task_nowait()
+            mock_logger.debug.assert_called_with("Attempting to stop_task_nowait() a task that has not been created ("
+                                                 "or already stopped)")
             await wrapper.start_task()
             await wrapper.start_task()
-            mock_logger.error.assert_called_with("Cannot start a Task Manager that is already started")
+            mock_logger.debug.assert_called_with("Cannot start_task() a Task Manager that is already started")
 
     async def test_start_with_task(self) -> None:
         self.assertIsNone(self.wrapper._task)
@@ -80,7 +88,7 @@ class TestTaskManager(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(str(wrapper._task_exception), "Task failed")
 
         # The task should not be running
-        self.assertTrue(wrapper._task.done())
+        self.assertFalse(wrapper.is_running)
 
     async def test_success_callback(self):
         callback = MagicMock()
@@ -93,6 +101,7 @@ class TestTaskManager(IsolatedAsyncioWrapperTestCase):
         await asyncio.sleep(0.2)  # give the task time to finish
 
         callback.assert_called_once()
+        self.assertIsNone(wrapper.task_exception)
 
     async def test_exception_callback(self):
         callback = MagicMock()
@@ -106,6 +115,7 @@ class TestTaskManager(IsolatedAsyncioWrapperTestCase):
         await asyncio.sleep(0.2)  # give the task time to fail
 
         callback.assert_called_once_with(wrapper._task_exception)
+        self.assertIsInstance(wrapper.task_exception, RuntimeError)
 
     async def test_success_event(self):
         event = asyncio.Event()
@@ -119,6 +129,7 @@ class TestTaskManager(IsolatedAsyncioWrapperTestCase):
         # Wait for the task to finish and the event to be set
         await event.wait()
         self.assertTrue(event.is_set())
+        self.assertIsNone(wrapper.task_exception)
 
     async def test_exception_event(self):
         event = asyncio.Event()
@@ -133,3 +144,4 @@ class TestTaskManager(IsolatedAsyncioWrapperTestCase):
         # Wait for the task to fail and the event to be set
         await event.wait()
         self.assertTrue(event.is_set())
+        self.assertIsInstance(wrapper.task_exception, RuntimeError)
