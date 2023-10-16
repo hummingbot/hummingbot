@@ -2,12 +2,32 @@ import asyncio
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import MagicMock, patch
 
-from hummingbot.connector.exchange.coinbase_advanced_trade.task_manager import TaskManager
+from hummingbot.connector.exchange.coinbase_advanced_trade.task_manager import TaskManager, TaskState
 
 
 class TestTaskManager(IsolatedAsyncioWrapperTestCase):
     async def asyncSetUp(self) -> None:
         self.wrapper = TaskManager(asyncio.sleep, 1)
+
+    async def test_initial_state(self):
+        wrapper = TaskManager(asyncio.sleep, 1)
+        self.assertEqual(wrapper._task_state, TaskState.STOPPED)
+        self.assertIsNone(wrapper._task)
+        self.assertIsNone(wrapper._task_exception)
+
+    async def test_state_transitions(self):
+        wrapper = TaskManager(asyncio.sleep, 1)
+        await wrapper.start_task()
+        self.assertEqual(wrapper._task_state, TaskState.CREATED)
+        await asyncio.sleep(1.1)  # give the task time to finish
+        self.assertEqual(wrapper._task_state, TaskState.STOPPED)
+
+    async def test_logging(self):
+        wrapper = TaskManager(asyncio.sleep, 1)
+        with patch.object(TaskManager, "_logger") as mock_logger:
+            await wrapper.start_task()
+            await wrapper.start_task()
+            mock_logger.error.assert_called_with("Cannot start a Task Manager that is already started")
 
     async def test_start_with_task(self) -> None:
         self.assertIsNone(self.wrapper._task)

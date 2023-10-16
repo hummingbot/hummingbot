@@ -291,18 +291,14 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         return self._stream_to_queue.last_recv_time
 
     async def listen_for_user_stream(self, output: asyncio.Queue[CoinbaseAdvancedTradeCumulativeUpdate]):
-        with self.logger().ctx_indentation("Listening to user stream...", bullet="|"):
-            await self._stream_to_queue.open()
-            self.logger().debug("Connections established.")
-            await self._stream_to_queue.start_stream()
-            self.logger().debug("Stream started")
-            await self._stream_to_queue.subscribe()
-            self.logger().debug("Subscribed to User stream")
+        await self._stream_to_queue.open()
+        await self._stream_to_queue.start_stream()
+        await self._stream_to_queue.subscribe()
 
-            while True:
-                message: CoinbaseAdvancedTradeCumulativeUpdate = await self._stream_to_queue.queue.get()
-                # Filter-out non-CumulativeUpdate messages
-                if isinstance(message, CoinbaseAdvancedTradeCumulativeUpdate):
-                    await output.put(message)
-                else:
-                    raise ValueError(f"Invalid message type: {type(message)} {message}")
+        while True:
+            message: CoinbaseAdvancedTradeCumulativeUpdate = await self._stream_to_queue.queue.get()
+            # Filter-out non-CumulativeUpdate messages
+            if isinstance(message, CoinbaseAdvancedTradeCumulativeUpdate):
+                await output.put(message)
+            else:
+                raise ValueError(f"Invalid message type: {type(message)} {message}")

@@ -9,10 +9,6 @@ from typing import Any, Awaitable, Callable, Optional, Protocol
 from hummingbot.logger import HummingbotLogger
 
 
-class TaskManagerError(Exception):
-    pass
-
-
 class TaskManagerPtl(Protocol):
     def start_task(self) -> None:
         ...
