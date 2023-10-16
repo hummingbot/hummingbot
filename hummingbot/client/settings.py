@@ -477,6 +477,13 @@ class AllConnectorSettings:
                 cls.all_connector_settings.update({f"{e}_paper_trade": paper_trade_settings})
 
     @classmethod
+    def get_connected_connector_settings(cls) -> Dict[str, ConnectorSetting]:
+        return {
+            name: cs for name, cs in cls.get_connector_settings().items()
+            if cs.connector_connected()
+        }
+
+    @classmethod
     def get_connector_settings(cls) -> Dict[str, ConnectorSetting]:
         if len(cls.all_connector_settings) == 0:
             cls.all_connector_settings = cls.create_connector_settings()
