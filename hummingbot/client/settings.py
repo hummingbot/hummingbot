@@ -196,6 +196,9 @@ class ConnectorSetting(NamedTuple):
         from hummingbot.client.config.security import Security
         return True if Security.connector_config_file_exists(self.name) else False
 
+    def paper_trades(self) -> bool:
+        return True if self.base_name().endswith("paper_trade") else False
+
     def uses_clob_connector(self) -> bool:
         return self.type in [ConnectorType.CLOB_SPOT, ConnectorType.CLOB_PERP]
 
@@ -475,13 +478,6 @@ class AllConnectorSettings:
                     use_eth_gas_lookup=base_connector_settings.use_eth_gas_lookup,
                 )
                 cls.all_connector_settings.update({f"{e}_paper_trade": paper_trade_settings})
-
-    @classmethod
-    def get_connected_connector_settings(cls) -> Dict[str, ConnectorSetting]:
-        return {
-            name: cs for name, cs in cls.get_connector_settings().items()
-            if cs.connector_connected()
-        }
 
     @classmethod
     def get_connector_settings(cls) -> Dict[str, ConnectorSetting]:
