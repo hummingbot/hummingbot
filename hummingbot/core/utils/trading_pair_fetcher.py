@@ -50,6 +50,9 @@ class TradingPairFetcher:
                         connector_setting=connector_settings[conn_setting.parent_name],
                         connector_name=conn_setting.name
                     )
+                elif not self.fetch_pairs_from_all_exchanges:
+                    if conn_setting.connector_connected():
+                        self._fetch_pairs_from_connector_setting(connector_setting=conn_setting)
                 else:
                     self._fetch_pairs_from_connector_setting(connector_setting=conn_setting)
             except ModuleNotFoundError:
@@ -71,10 +74,7 @@ class TradingPairFetcher:
 
     def _all_connector_settings(self) -> Dict[str, ConnectorSetting]:
         # Method created to enabling patching in unit tests
-        if self.fetch_pairs_from_all_exchanges:
-            return AllConnectorSettings.get_connector_settings()
-        else:
-            return AllConnectorSettings.get_connected_connector_settings()
+        return AllConnectorSettings.get_connector_settings()
 
     @staticmethod
     def _get_client_config_map() -> "ClientConfigAdapter":
