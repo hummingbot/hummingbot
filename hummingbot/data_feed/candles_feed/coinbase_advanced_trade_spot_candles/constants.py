@@ -10,14 +10,14 @@ CANDLES_ENDPOINT_ID = "candles"
 WSS_URL = "wss://advanced-trade-ws.coinbase.com/"
 
 INTERVALS = bidict({
-    "1m": "ONE_MINUTE",
-    "5m": "FIVE_MINUTE",
-    "15m": "FIFTEEN_MINUTE",
-    "30m": "THIRTY_MINUTE",
-    "1h": "ONE_HOUR",
-    "2h": "TWO_HOUR",
-    "6h": "SIX_HOUR",
-    "1d": "ONE_DAY",
+    "ONE_MINUTE": 60,
+    "FIVE_MINUTE": 300,
+    "FIFTEEN_MINUTE": 900,
+    "THIRTY_MINUTE": 1800,
+    "ONE_HOUR": 3600,
+    "TWO_HOUR": 7200,
+    "SIX_HOUR": 21600,
+    "ONE_DAY": 86400,
 })
 
 REQUEST_WEIGHT = "REQUEST_WEIGHT"
