@@ -10,6 +10,7 @@ from aioresponses import aioresponses
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.client.config.config_var import ConfigVar
+from hummingbot.client.config.security import Security
 from hummingbot.client.settings import ConnectorSetting, ConnectorType
 from hummingbot.connector.exchange.binance import binance_constants as CONSTANTS, binance_web_utils
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
@@ -37,7 +38,7 @@ class TestTradingPairFetcher(unittest.TestCase):
 
     class MockConnectorSetting(MagicMock):
         def __init__(self, name, parent_name=None, connector=None, *args, **kwargs) -> None:
-            super().__init__(*args, **kwargs)
+            super().__init__(name, *args, **kwargs)
             self._name = name
             self._parent_name = parent_name
             self._connector = connector
@@ -52,6 +53,9 @@ class TestTradingPairFetcher(unittest.TestCase):
 
         def base_name(self) -> str:
             return self.name
+
+        def connector_connected(self) -> bool:
+            return True
 
         def add_domain_parameter(*_, **__) -> Dict[str, Any]:
             return {}
@@ -82,17 +86,41 @@ class TestTradingPairFetcher(unittest.TestCase):
         }
 
         client_config_map = ClientConfigAdapter(ClientConfigMap())
+        client_config_map.fetch_pairs_from_all_exchanges = True
         trading_pair_fetcher = TradingPairFetcher(client_config_map)
         self.async_run_with_timeout(self.wait_until_trading_pair_fetcher_ready(trading_pair_fetcher), 1.0)
         trading_pairs = trading_pair_fetcher.trading_pairs
         self.assertEqual(2, len(trading_pairs))
         self.assertEqual({"mockConnector": ["MOCK-HBOT"], "mock_paper_trade": ["MOCK-HBOT"]}, trading_pairs)
 
+    @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher._all_connector_settings")
+    @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher._sf_shared_instance")
+    @patch("hummingbot.client.config.security.Security.connector_config_file_exists")
+    @patch("hummingbot.client.config.security.Security.wait_til_decryption_done")
+    def test_fetched_connected_trading_pairs(self, _, __: MagicMock, ___: AsyncMock, mock_connector_settings):
+        connector = AsyncMock()
+        connector.all_trading_pairs.return_value = ["MOCK-HBOT"]
+        mock_connector_settings.return_value = {
+            "mock_exchange_1": self.MockConnectorSetting(name="binance", connector=connector),
+            "mock_paper_trade": self.MockConnectorSetting(name="mock_paper_trade", parent_name="mock_exchange_1")
+        }
+
+        client_config_map = ClientConfigAdapter(ClientConfigMap())
+        client_config_map.fetch_pairs_from_all_exchanges = False
+        self.assertTrue(Security.connector_config_file_exists("binance"))
+        trading_pair_fetcher = TradingPairFetcher(client_config_map)
+        self.async_run_with_timeout(self.wait_until_trading_pair_fetcher_ready(trading_pair_fetcher), 1.0)
+        trading_pairs = trading_pair_fetcher.trading_pairs
+        self.assertEqual(2, len(trading_pairs))
+        self.assertEqual({"binance": ["MOCK-HBOT"], "mock_paper_trade": ["MOCK-HBOT"]}, trading_pairs)
+
     @aioresponses()
     @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher._all_connector_settings")
     @patch("hummingbot.core.gateway.gateway_http_client.GatewayHttpClient.get_perp_markets")
     @patch("hummingbot.client.settings.GatewayConnectionSetting.get_connector_spec_from_market_name")
     def test_fetch_all(self, mock_api, con_spec_mock, perp_market_mock, all_connector_settings_mock, ):
+        client_config_map = ClientConfigAdapter(ClientConfigMap())
+        client_config_map.fetch_pairs_from_all_exchanges = True
         all_connector_settings_mock.return_value = {
             "binance": ConnectorSetting(
                 name='binance',
@@ -135,7 +163,6 @@ class TestTradingPairFetcher(unittest.TestCase):
         }
 
         url = binance_web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL)
-
         mock_response: Dict[str, Any] = {
             "timezone": "UTC",
             "serverTime": 1639598493658,
@@ -239,7 +266,6 @@ class TestTradingPairFetcher(unittest.TestCase):
             "wallet_address": "0x..."
         }
 
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
         fetcher = TradingPairFetcher(client_config_map)
         asyncio.get_event_loop().run_until_complete(fetcher._fetch_task)
         trading_pairs = fetcher.trading_pairs
