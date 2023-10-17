@@ -7,64 +7,103 @@ from hummingbot.connector.exchange.coinbase_advanced_trade.task_manager import T
 
 class TestTaskManager(IsolatedAsyncioWrapperTestCase):
     async def asyncSetUp(self) -> None:
-        self.wrapper = TaskManager(
+        await super().asyncSetUp()
+        self.task_manager = TaskManager(
             asyncio.sleep,
             1)
 
     async def test_initial_state(self):
-        wrapper = TaskManager(asyncio.sleep, 1)
-        self.assertEqual(wrapper._task_state, TaskState.STOPPED)
-        self.assertIsNone(wrapper._task)
-        self.assertIsNone(wrapper._task_exception)
+        self.assertIsNone(self.task_manager._success_callback)
+        self.assertIsNone(self.task_manager._exception_callback)
+        self.assertIsNone(self.task_manager._success_event)
+        self.assertIsNone(self.task_manager._exception_event)
 
-    async def test_state_transitions(self):
-        wrapper = TaskManager(asyncio.sleep, 1)
-        await wrapper.start_task()
-        self.assertEqual(wrapper._task_state, TaskState.CREATED)
-        await asyncio.sleep(1.1)  # give the task time to finish
-        self.assertEqual(wrapper._task_state, TaskState.STOPPED)
+        self.assertFalse(asyncio.iscoroutine(self.task_manager._awaitable))
+
+        self.assertEqual(self.task_manager._task_state, TaskState.STOPPED)
+        self.assertIsNone(self.task_manager._task)
+        self.assertIsNone(self.task_manager._task_exception)
+
+    async def test_initial_state_with_params(self):
+        # Creating a mock callback function
+        def mock_success_callback():
+            pass
+
+        def mock_exception_callback():
+            pass
+
+        mock_success_event = asyncio.Event()
+        mock_exception_event = asyncio.Event()
+
+        task_manager = TaskManager(
+            asyncio.sleep,
+            1,
+            success_callback=mock_success_callback,
+            exception_callback=mock_exception_callback,
+            success_event=mock_success_event,
+            exception_event=mock_exception_event
+        )
+
+        # Check that the TaskManager is correctly initialized
+        self.assertEqual(task_manager._success_callback, mock_success_callback)
+        self.assertEqual(task_manager._exception_callback, mock_exception_callback)
+        self.assertEqual(task_manager._success_event, mock_success_event)
+        self.assertEqual(task_manager._exception_event, mock_exception_event)
+
+        self.assertTrue(asyncio.iscoroutine(task_manager._awaitable))
+
+        self.assertEqual(task_manager._task_state, TaskState.STOPPED)
+        self.assertIsNone(task_manager._task)
+        self.assertIsNone(task_manager._task_exception)
+
+    async def test_task_state_transitions(self):
+        self.assertEqual(self.task_manager._task_state, TaskState.STOPPED)
+        task = asyncio.create_task(self.task_manager._task_wrapper())
+        await asyncio.sleep(0.1)  # Give the task a moment to start
+        self.assertEqual(self.task_manager._task_state, TaskState.STARTED)
+        await task
+        self.assertEqual(self.task_manager._task_state, TaskState.STOPPED)
 
     async def test_logging(self):
-        wrapper = TaskManager(asyncio.sleep, 1)
         with patch.object(TaskManager, "_logger") as mock_logger:
-            await wrapper.stop_task()
+            await self.task_manager.stop_task()
             mock_logger.debug.assert_called_with("Attempting to stop_task() a task that has not been created (or "
                                                  "already stopped)")
-            wrapper.stop_task_nowait()
+            self.task_manager.stop_task_nowait()
             mock_logger.debug.assert_called_with("Attempting to stop_task_nowait() a task that has not been created ("
                                                  "or already stopped)")
-            await wrapper.start_task()
-            await wrapper.start_task()
+            await self.task_manager.start_task()
+            await self.task_manager.start_task()
             mock_logger.debug.assert_called_with("Cannot start_task() a Task Manager that is already started")
 
     async def test_start_with_task(self) -> None:
-        self.assertIsNone(self.wrapper._task)
-        await self.wrapper.start_task()
-        self.assertIsNotNone(self.wrapper._task)
-        self.assertFalse(self.wrapper._task.done())
+        self.assertIsNone(self.task_manager._task)
+        await self.task_manager.start_task()
+        self.assertIsNotNone(self.task_manager._task)
+        self.assertFalse(self.task_manager._task.done())
 
     async def test_stop_with_start(self) -> None:
-        await self.wrapper.start_task()
-        await self.wrapper.stop_task()
+        await self.task_manager.start_task()
+        await self.task_manager.stop_task()
         await asyncio.sleep(0.1)
-        self.assertIsNone(self.wrapper._task)
+        self.assertIsNone(self.task_manager._task)
 
     async def test_start_while_running(self) -> None:
-        await self.wrapper.start_task()
+        await self.task_manager.start_task()
         with patch.object(TaskManager, "logger") as mock_logger:
-            await self.wrapper.start_task()
+            await self.task_manager.start_task()
             mock_logger.assert_called()
 
     async def test_stop_while_running(self) -> None:
-        await self.wrapper.start_task()
-        await self.wrapper.stop_task()
-        await self.wrapper.stop_task()
+        await self.task_manager.start_task()
+        await self.task_manager.stop_task()
+        await self.task_manager.stop_task()
 
     async def test_task_completion(self) -> None:
-        await self.wrapper.start_task()
-        self.assertFalse(self.wrapper._task.done())
+        await self.task_manager.start_task()
+        self.assertFalse(self.task_manager._task.done())
         await asyncio.sleep(1.01)  # give the task time to finish
-        self.assertIsNone(self.wrapper._task)
+        self.assertIsNone(self.task_manager._task)
 
     async def test_task_exception(self):
         # Create a task that raises an exception
