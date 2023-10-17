@@ -49,6 +49,17 @@ class LogarithmicDistribution(Distribution):
         return [scaling_factor * log(i + 2, base) + translation for i in range(n_levels)]
 
 
+class GeometricDistribution(Distribution):
+    def distribute(self, n_levels: int, params: dict) -> List[float]:
+        """Generate a geometric distribution."""
+        initial_value = params.get('initial_value', 1)
+        ratio = params.get('ratio', 0.5)
+        if not (0 < ratio < 1):  # Ensuring the ratio is between 0 and 1
+            raise ValueError("Ratio for geometric distribution should be between 0 and 1.")
+
+        return [initial_value * (ratio ** i) for i in range(n_levels)]
+
+
 class FibonacciDistribution(Distribution):
     def distribute(self, n_levels: int, params: dict) -> List[float]:
         """Generate a fibonacci distribution."""
@@ -81,5 +92,7 @@ class DistributionFactory:
             return FibonacciDistribution()
         elif method == 'logarithmic':
             return LogarithmicDistribution()
+        elif method == 'geometric':
+            return GeometricDistribution()
         else:
             raise ValueError(f"Unsupported distribution method: {method}")
