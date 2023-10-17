@@ -9,6 +9,7 @@ from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.connector.connector_status import get_connector_status
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
 from hummingbot.user.user_balances import UserBalances
 
 if TYPE_CHECKING:
@@ -143,6 +144,7 @@ class ConnectCommand:
         err_msg = await self.validate_n_connect_connector(connector_name)
         if err_msg is None:
             self.notify(f"\nYou are now connected to {connector_name}.")
+            safe_ensure_future(TradingPairFetcher.get_instance(client_config_map=ClientConfigAdapter).fetch_all(client_config_map=ClientConfigAdapter))
         else:
             self.notify(f"\nError: {err_msg}")
             if previous_keys is not None:
