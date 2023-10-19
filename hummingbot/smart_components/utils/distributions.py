@@ -1,86 +1,61 @@
+from decimal import Decimal
 from math import exp, log
 from typing import List
 
 
-class Distribution:
+class Distributions:
 
     @classmethod
-    def linear(cls, n_levels: int, start: float = 0, end: float = 1) -> List[float]:
-        """
-        Generate a linear distribution between start and end.
-
-        Args:
-            n_levels: Number of levels or values to generate.
-            start: Starting value.
-            end: Ending value.
-
-        Returns:
-            List[float]: List of linearly distributed values.
-        """
-        return [start + (end - start) * i / (n_levels - 1) for i in range(n_levels)]
+    def linear(cls, n_levels: int, start: float = 0.0, end: float = 1.0) -> List[Decimal]:
+        return [Decimal(start) + (Decimal(end) - Decimal(start)) * Decimal(i) / (Decimal(n_levels) - 1) for i in range(n_levels)]
 
     @classmethod
-    def exponential(cls, n_levels: int, initial_value: float = 1, base: float = 2) -> List[float]:
-        """
-        Generate an exponential distribution.
-
-        Args:
-            n_levels: Number of levels or values to generate.
-            initial_value: The value for the first level.
-            base: The exponential base.
-
-        Returns:
-            List[float]: List of exponentially distributed values.
-        """
-        return [initial_value * base ** i for i in range(n_levels)]
+    def exponential(cls, n_levels: int, initial_value: float = 1.0, base: float = 2.0) -> List[Decimal]:
+        return [Decimal(initial_value) * Decimal(base) ** Decimal(i) for i in range(n_levels)]
 
     @classmethod
-    def fibonacci(cls, n_levels: int) -> List[float]:
-        """
-        Generate a fibonacci distribution.
-
-        Args:
-            n_levels: Number of levels or values to generate.
-
-        Returns:
-            List[float]: List of Fibonacci sequence values.
-        """
-        fib_sequence = [1, 1]
+    def fibonacci(cls, n_levels: int) -> List[Decimal]:
+        fib_sequence = [Decimal("1"), Decimal("1")]
         for i in range(2, n_levels):
             fib_sequence.append(fib_sequence[-1] + fib_sequence[-2])
         return fib_sequence[:n_levels]
 
     @classmethod
-    def logarithmic(cls, n_levels: int, base: float = exp(1), scaling_factor: float = 1,
-                    initial_value: float = 0.4) -> List[float]:
-        """
-        Generate a logarithmic distribution.
-
-        Args:
-            n_levels: Number of levels or values to generate.
-            base: The logarithm base. Default is the natural number 'e'.
-            scaling_factor: Multiplier for the logarithm value.
-            initial_value: Starting value.
-
-        Returns:
-            List[float]: List of logarithmically distributed values.
-        """
-        translation = initial_value - scaling_factor * log(2, base)
-        return [scaling_factor * log(i + 2, base) + translation for i in range(n_levels)]
+    def logarithmic(cls, n_levels: int, base: float = exp(1), scaling_factor: float = 1.0,
+                    initial_value: float = 0.4) -> List[Decimal]:
+        translation = Decimal(initial_value) - Decimal(scaling_factor) * Decimal(log(2, base))
+        return [Decimal(scaling_factor) * Decimal(log(i + 2, base)) + translation for i in range(n_levels)]
 
     @classmethod
-    def geometric(cls, n_levels: int, initial_value: float = 1, ratio: float = 0.5) -> List[float]:
+    def arithmetic(cls, n_levels: int, start: float, increment: float) -> List[Decimal]:
         """
-        Generate a geometric distribution.
+        Generate an arithmetic sequence of spreads.
 
-        Args:
-            n_levels: Number of levels or values to generate.
-            initial_value: Starting value.
-            ratio: The common ratio for the sequence.
+        Parameters:
+        - n_levels: The number of spread levels to be generated.
+        - start: The starting value of the sequence.
+        - increment: The constant value to be added in each iteration.
 
         Returns:
-            List[float]: List of geometrically distributed values.
+        List[Decimal]: A list containing the generated arithmetic sequence.
         """
-        if not (0 < ratio < 1):
-            raise ValueError("Ratio for geometric distribution should be between 0 and 1.")
-        return [initial_value * (ratio ** i) for i in range(n_levels)]
+        return [Decimal(start) + i * Decimal(increment) for i in range(n_levels)]
+
+    @classmethod
+    def geometric(cls, n_levels: int, start: float, ratio: float) -> List[Decimal]:
+        """
+        Generate a geometric sequence of spreads.
+
+        Parameters:
+        - n_levels: The number of spread levels to be generated.
+        - start: The starting value of the sequence.
+        - ratio: The ratio to multiply the current value in each iteration. Should be greater than 1 for increasing sequence.
+
+        Returns:
+        List[Decimal]: A list containing the generated geometric sequence.
+        """
+        if ratio <= 1:
+            raise ValueError(
+                "Ratio for modified geometric distribution should be greater than 1 for increasing spreads.")
+
+        return [Decimal(start) * Decimal(ratio) ** Decimal(i) for i in range(n_levels)]
