@@ -1,16 +1,22 @@
 from decimal import Decimal
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.smart_components.strategy_frameworks.data_types import OrderLevel, TripleBarrierConf
-from hummingbot.smart_components.utils.distributions import DistributionFactory
+from hummingbot.smart_components.utils.distributions import Distribution
 
 
 class OrderLevelBuilder:
     def __init__(self, n_levels: int):
+        """
+        Initialize the OrderLevelBuilder with the number of levels.
+
+        Args:
+            n_levels (int): The number of order levels.
+        """
         self.n_levels = n_levels
 
-    def _resolve_input(self, input_data: Union[Decimal, List[Decimal], Dict[str, Any]]) -> Decimal | list | list[float] | Any:
+    def resolve_input(self, input_data: Union[Decimal, List[Decimal], Dict[str, Any]]) -> Union[Decimal, List[Decimal], List[float], Any]:
         """
         Resolve the provided input data into a list of values.
 
@@ -19,27 +25,27 @@ class OrderLevelBuilder:
 
         Returns:
             List[Decimal]: List of resolved values.
-
-        Raises:
-            ValueError: If the input data type is unsupported.
         """
         if isinstance(input_data, Decimal):
             return [input_data] * self.n_levels
         elif isinstance(input_data, list):
-            assert len(input_data) == self.n_levels, f"List length must match the number of levels: {self.n_levels}"
+            if len(input_data) != self.n_levels:
+                raise ValueError(f"List length must match the number of levels: {self.n_levels}")
             return input_data
         elif isinstance(input_data, dict):
             distribution_method = input_data["method"]
-            distribution = DistributionFactory.create_distribution(distribution_method)
-            return distribution.distribute(n_levels=self.n_levels, params=input_data["params"])
+            distribution_func = getattr(Distribution, distribution_method, None)
+            if not distribution_func:
+                raise ValueError(f"Unsupported distribution method: {distribution_method}")
+            return distribution_func(self.n_levels, **input_data["params"])
         else:
             raise ValueError(f"Unsupported input data type: {type(input_data)}")
 
     def build_order_levels(self,
-                           sides: List[TradeType],
                            amounts: Union[Decimal, List[Decimal], Dict[str, Any]],
                            spreads: Union[Decimal, List[Decimal], Dict[str, Any]],
-                           triple_barrier_confs: Union[TripleBarrierConf, List[TripleBarrierConf]]) -> List[OrderLevel]:
+                           triple_barrier_confs: Union[TripleBarrierConf, List[TripleBarrierConf]],
+                           sides: Optional[List[TradeType]] = None) -> List[OrderLevel]:
         """
         Build a list of OrderLevels based on given parameters.
 
@@ -52,21 +58,31 @@ class OrderLevelBuilder:
         Returns:
             List[OrderLevel]: List of constructed OrderLevel objects.
         """
-        resolved_amounts = self._resolve_input(amounts)
-        resolved_spreads = self._resolve_input(spreads)
 
-        if not isinstance(triple_barrier_confs, list):
+        # Default to both BUY and SELL if sides not provided
+        if sides is None:
+            sides = [TradeType.BUY, TradeType.SELL]
+
+        # Resolve input data into a consistent format
+        resolved_amounts = self.resolve_input(amounts)
+        resolved_spreads = self.resolve_input(spreads)
+
+        # If only one TripleBarrierConf is provided, replicate it for all levels
+        if isinstance(triple_barrier_confs, TripleBarrierConf):
             triple_barrier_confs = [triple_barrier_confs] * self.n_levels
 
         order_levels = []
-        for i in range(self.n_levels):
+        for i, spread in enumerate(resolved_spreads):
+            barrier_conf = triple_barrier_confs[i]
+
             for side in sides:
                 order_level = OrderLevel(
                     level=i + 1,
                     side=side,
                     order_amount_usd=Decimal(resolved_amounts[i]),
-                    spread_factor=Decimal(resolved_spreads[i]),
-                    triple_barrier_conf=triple_barrier_confs[i]
+                    spread_factor=Decimal(spread),
+                    triple_barrier_conf=barrier_conf
                 )
                 order_levels.append(order_level)
+
         return order_levels
