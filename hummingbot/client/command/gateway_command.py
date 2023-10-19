@@ -53,7 +53,7 @@ class GatewayCommand(GatewayChainApiManager):
 
     @ensure_gateway_online
     def gateway_balance(self):
-        safe_ensure_future(self._gateway_balance(), loop=self.ev_loop)
+        safe_ensure_future(self._get_gateway_balance(), loop=self.ev_loop)
 
     @ensure_gateway_online
     def gateway_connector_tokens(self, connector_chain_network: Optional[str], new_tokens: Optional[str]):
@@ -390,68 +390,91 @@ class GatewayCommand(GatewayChainApiManager):
         wallet_address: str = response["address"]
         return wallet_address, additional_prompt_values
 
-    async def _gateway_balance(self):
-        # get gateway connections
-        gateway_connections_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
-        if len(gateway_connections_conf) < 1:
-            self.notify("No existing gateway connection.\n")
-            return
+    async def get_balances(self):
+        try:
+            gateway_connections = GatewayConnectionSetting.load()
+            if not gateway_connections:
+                self.notify("No existing gateway connection.\n")
+                return
 
-        self.notify("Updating gateway balances, please wait...")
+            self.notify("Updating gateway balances, please wait...")
 
-        chain_network_address_to_connector_tokens: Dict(Tuple[str, str, str], Dict[str, List[str]]) = {}
-        for conf in gateway_connections_conf:
-            tokens_str = conf.get('tokens', '')
-            connector = conf.get('connector', '')
-            if tokens_str == "":
-                tokens = []
-            else:
-                tokens = [token.strip() for token in tokens_str.split(',')]
-            if (conf["chain"], conf["network"], conf["wallet_address"]) not in chain_network_address_to_connector_tokens:
-                chain_network_address_to_connector_tokens[(conf["chain"], conf["network"], conf["wallet_address"])] = {conf["connector"]: tokens}
-            else:
-                chain_network_address_to_connector_tokens[(conf["chain"], conf["network"], conf["wallet_address"])][conf["connector"]] = tokens
-        data = chain_network_address_to_connector_tokens
+            chain_network_address_to_connector_tokens = {}
+            tasks = []
 
-        # get balances for each chain-network-address tuple and display them in a table format
-        for chain_network_address, connector_tokens in data.items():
+            for conf in gateway_connections:
+                chain, network, wallet_address = conf["chain"], conf["network"], conf["wallet_address"]
+                tokens_str = conf.get('tokens', '')
+                connector = conf.get('connector', '')
+                tokens = [token.strip() for token in tokens_str.split(',')] if tokens_str else []
 
-            self.notify(f"\nwallet: {chain_network_address[2]}")
-            self.notify(f"chain-network: {chain_network_address[0]}-{chain_network_address[1]}")
+                if (chain, network, wallet_address) not in chain_network_address_to_connector_tokens:
+                    chain_network_address_to_connector_tokens[(chain, network, wallet_address)] = {connector: tokens}
+                else:
+                    chain_network_address_to_connector_tokens[(chain, network, wallet_address)][connector] = tokens
 
-            all_tokens = list(set(list(itertools.chain.from_iterable(connector_tokens.values()))))
-            native_token: str = native_tokens[chain_network_address[0]]
-            all_tokens = list(set(all_tokens + [native_token]))
+                # Add asynchronous tasks to the tasks list
+                tasks.append(self.process_chain_network(chain, network, wallet_address, connector, tokens))
 
-            token_balances: Dict[str, Any] = await self._get_gateway_instance().get_balances(
-                *chain_network_address, all_tokens
-            )
-            token_balances = token_balances.get("balances", {})
-            balances: List[str] = [str(round(Decimal(token_balances.get(token, "0")), 4)) for token in all_tokens]
+            # Execute tasks concurrently and wait for completion
+            await asyncio.gather(*tasks)
 
-            # Get allowances
-            allowance_data = {}
-            resp: Dict[str, Any] = await self._get_gateway_instance().get_allowances(
-                *chain_network_address, all_tokens, connector
-            )
-            for token, amount in resp["approvals"].items():
-                allowance_data[token] = Decimal(str(amount))
-            allowance: List[str] = [str(round(Decimal(allowance_data.get(token, "0")), 4)) for token in all_tokens]
+        except asyncio.TimeoutError:
+            self.notify("\nAn error occoured. See logs for more details.")
+            raise
 
-            raw_data: List[List[str]] = [all_tokens, balances, allowance]
+    async def process_chain_network(self, chain: str, network: str, wallet_address: str, connector: str, tokens: list[str]):
+        try:
+            chain_network_address = (chain, network, wallet_address)
+            connector_tokens = {connector: tokens}
+            all_tokens, balances, allowances = await self.get_token_balances_and_allowances(chain_network_address, connector_tokens, connector)
+            self.all_balance(chain_network_address, all_tokens, balances, allowances)
 
-            data = []
-            columns: List[str] = ["Symbol", "Balance", "Allowance"]
-            for i in range(len(raw_data[0])):
-                data.extend([
-                    [
-                        raw_data[j][i] for j in range(len(raw_data))
-                    ]
-                ])
+        except asyncio.TimeoutError:
+            self.notify("\nA error occoured while processing all result. See logs for more details.")
+            raise
 
-            # display balances and allowances for each chain-network-address tuple in a table format
-            balances_allowances_df: pd.DataFrame = pd.DataFrame(data=data, columns=columns)
-            self.notify(balances_allowances_df.to_string(index=False))
+    async def get_token_balances_and_allowances(self, chain_network_address, connector_tokens, connector):
+        try:
+            all_tokens = list(set(itertools.chain.from_iterable(connector_tokens.values())))
+            native_token = native_tokens.get(chain_network_address[0], '')
+            if native_token:
+                all_tokens.append(native_token)
+
+            gateway_instance = self._get_gateway_instance()
+
+            # Get token balances
+            token_balances_resp = await gateway_instance.get_balances(*chain_network_address, all_tokens)
+            token_balances = token_balances_resp.get("balances", {})
+            balances = [str(round(Decimal(token_balances.get(token, "0")), 4)) for token in all_tokens]
+
+            # Get token allowances
+            allowances_resp = await gateway_instance.get_allowances(*chain_network_address, all_tokens, connector)
+            allowance_data = allowances_resp.get("approvals", {})
+            allowances = [str(round(Decimal(allowance_data.get(token, "0")), 4)) for token in all_tokens]
+
+            return all_tokens, balances, allowances
+
+        except asyncio.TimeoutError:
+            self.notify("\nA network error prevented the balance and allowance results. See logs for more details.")
+            raise
+
+    def all_balance(self, chain_network_address, all_tokens, balances, allowances):
+        wallet_info = self.notify(f"\nwallet: {chain_network_address[2]}\n"
+                                  f"chain-network: {chain_network_address[0]}-{chain_network_address[1]}")
+
+        # Construct a list of lists containing wallet_info along with balance and allowance data
+        data: List[List[str]] = [[wallet_info, all_tokens[i], balances[i], allowances[i]] for i in range(len(all_tokens))]
+
+        columns: List[str] = ["Info", "Symbol", "Balance", "Allowance"]
+
+        # Create the DataFrame and display it
+        balances_allowances_df: pd.DataFrame = pd.DataFrame(data=data, columns=columns)
+        self.notify(balances_allowances_df.to_string(index=False))
+
+    async def _get_gateway_balance(self):
+        all_balances = await self.get_balances()
+        return all_balances
 
     async def _show_gateway_connector_tokens(
             self,           # type: HummingbotApplication
