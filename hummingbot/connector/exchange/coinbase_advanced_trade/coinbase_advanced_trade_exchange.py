@@ -218,15 +218,6 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
             domain=self.domain,
             api_factory=self._web_assistants_factory)
 
-    # def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
-    #     return CoinbaseAdvancedTradeAPIUserStreamDataSource(
-    #         auth=self._auth,
-    #         trading_pairs=self._trading_pairs,
-    #         connector=self,
-    #         api_factory=self._web_assistants_factory,
-    #         domain=self.domain,
-    #     )
-
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
         # self.logger().debug("Creating user stream data source.")
         self._multi_stream_tracker = CoinbaseAdvancedTradeAPIUserStreamDataSource(
