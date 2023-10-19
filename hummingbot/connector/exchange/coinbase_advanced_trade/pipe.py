@@ -685,6 +685,7 @@ async def stream_to_pipe_connector(
     except asyncio.CancelledError:
         log_if_possible(logger, 'warning', "Task was cancelled. Closing downstream Pipe")
         await destination.stop()
+        raise
     except ConnectionError as e:
         # This is to allow attempts to reconnect on websocket closures
         log_if_possible(logger, 'warning', f"The websocket connection was closed {e}")

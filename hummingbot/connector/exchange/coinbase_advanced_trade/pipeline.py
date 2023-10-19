@@ -106,8 +106,10 @@ class PipelineBlock(Generic[FromDataT, ToDataT]):
             task_args["disconnect"] = disconnect
 
         # Create the connecting task
-        self.task_manager: TaskManager = TaskManager(connecting_task, **task_args,
-                                                     exception_callback=self.task_exception_callback)
+        self.task_manager: TaskManager = TaskManager(
+            connecting_task,
+            **task_args,
+            exception_callback=self.task_exception_callback)
 
     async def start_task(self) -> None:
         """Start the task."""

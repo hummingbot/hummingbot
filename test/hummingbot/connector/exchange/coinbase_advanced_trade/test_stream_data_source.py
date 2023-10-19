@@ -410,11 +410,13 @@ class TestStreamDataSource(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         self.assertTrue(self.stream_data_source.is_running)
         self.assertEqual(TaskState.STARTED, self.stream_data_source._task_state, )
-        self.assertEqual((StreamState.CLOSED, TaskState.STARTED), self.stream_data_source.state, )
+        # Auto-reconnecting Stream will call open_connection
+        self.assertEqual((StreamState.OPENED, TaskState.STARTED), self.stream_data_source.state, )
 
-        # Cleanup: stop the TaskManager
+        # Cleanup: stop the TaskManager, clear the wait for the assistant
         if self.stream_data_source.is_running:
             await self.stream_data_source.stop_task()
+            self.stream_data_source._ws_assistant_ready.clear()
 
     async def test_stop_mocked(self) -> None:
         with patch.object(TaskManager, "is_running", new_callable=MagicMock(return_value=True)):

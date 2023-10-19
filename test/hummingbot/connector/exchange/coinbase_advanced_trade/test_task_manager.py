@@ -8,9 +8,7 @@ from hummingbot.connector.exchange.coinbase_advanced_trade.task_manager import T
 class TestTaskManager(IsolatedAsyncioWrapperTestCase):
     async def asyncSetUp(self) -> None:
         await super().asyncSetUp()
-        self.task_manager = TaskManager(
-            asyncio.sleep,
-            1)
+        self.task_manager = TaskManager(asyncio.sleep, 1)
 
     async def test_initial_state(self):
         self.assertIsNone(self.task_manager._success_callback)
@@ -18,7 +16,7 @@ class TestTaskManager(IsolatedAsyncioWrapperTestCase):
         self.assertIsNone(self.task_manager._success_event)
         self.assertIsNone(self.task_manager._exception_event)
 
-        self.assertFalse(asyncio.iscoroutine(self.task_manager._awaitable))
+        self.assertTrue(callable(self.task_manager.task_function))
 
         self.assertEqual(self.task_manager._task_state, TaskState.STOPPED)
         self.assertIsNone(self.task_manager._task)
@@ -35,7 +33,7 @@ class TestTaskManager(IsolatedAsyncioWrapperTestCase):
         mock_success_event = asyncio.Event()
         mock_exception_event = asyncio.Event()
 
-        task_manager = TaskManager(
+        self.task_manager = TaskManager(
             asyncio.sleep,
             1,
             success_callback=mock_success_callback,
@@ -45,16 +43,16 @@ class TestTaskManager(IsolatedAsyncioWrapperTestCase):
         )
 
         # Check that the TaskManager is correctly initialized
-        self.assertEqual(task_manager._success_callback, mock_success_callback)
-        self.assertEqual(task_manager._exception_callback, mock_exception_callback)
-        self.assertEqual(task_manager._success_event, mock_success_event)
-        self.assertEqual(task_manager._exception_event, mock_exception_event)
+        self.assertEqual(self.task_manager._success_callback, mock_success_callback)
+        self.assertEqual(self.task_manager._exception_callback, mock_exception_callback)
+        self.assertEqual(self.task_manager._success_event, mock_success_event)
+        self.assertEqual(self.task_manager._exception_event, mock_exception_event)
 
-        self.assertTrue(asyncio.iscoroutine(task_manager._awaitable))
+        self.assertTrue(callable(self.task_manager.task_function))
 
-        self.assertEqual(task_manager._task_state, TaskState.STOPPED)
-        self.assertIsNone(task_manager._task)
-        self.assertIsNone(task_manager._task_exception)
+        self.assertEqual(self.task_manager._task_state, TaskState.STOPPED)
+        self.assertIsNone(self.task_manager._task)
+        self.assertIsNone(self.task_manager._task_exception)
 
     async def test_task_state_transitions(self):
         self.assertEqual(self.task_manager._task_state, TaskState.STOPPED)
@@ -109,25 +107,26 @@ class TestTaskManager(IsolatedAsyncioWrapperTestCase):
         # Create a task that raises an exception
 
         async def failing_task():
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(1)
             raise RuntimeError("Task failed")
 
-        wrapper = TaskManager(failing_task)
+        self.task_manager = TaskManager(failing_task)
         # Start the task
-        await wrapper.start_task()
+        await self.task_manager.start_task()
+        await asyncio.sleep(0.1)  # give the task time to start
 
         # The task should be running
-        self.assertTrue(wrapper._task)
+        self.assertTrue(self.task_manager.is_running)
 
         # Wait for the task to fail
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(1)
 
         # Check that the task has indeed failed
-        self.assertIsInstance(wrapper._task_exception, RuntimeError)
-        self.assertEqual(str(wrapper._task_exception), "Task failed")
+        self.assertIsInstance(self.task_manager._task_exception, RuntimeError)
+        self.assertEqual(str(self.task_manager._task_exception), "Task failed")
 
         # The task should not be running
-        self.assertFalse(wrapper.is_running)
+        self.assertFalse(self.task_manager.is_running)
 
     async def test_success_callback(self):
         callback = MagicMock()
@@ -135,12 +134,12 @@ class TestTaskManager(IsolatedAsyncioWrapperTestCase):
         async def successful_task():
             await asyncio.sleep(0.1)
 
-        wrapper = TaskManager(successful_task, success_callback=callback)
-        await wrapper.start_task()
+        self.task_manager = TaskManager(successful_task, success_callback=callback)
+        await self.task_manager.start_task()
         await asyncio.sleep(0.2)  # give the task time to finish
 
         callback.assert_called_once()
-        self.assertIsNone(wrapper.task_exception)
+        self.assertIsNone(self.task_manager.task_exception)
 
     async def test_exception_callback(self):
         callback = MagicMock()
@@ -149,12 +148,12 @@ class TestTaskManager(IsolatedAsyncioWrapperTestCase):
             await asyncio.sleep(0.1)
             raise RuntimeError("Task failed")
 
-        wrapper = TaskManager(failing_task, exception_callback=callback)
-        await wrapper.start_task()
+        self.task_manager = TaskManager(failing_task, exception_callback=callback)
+        await self.task_manager.start_task()
         await asyncio.sleep(0.2)  # give the task time to fail
 
-        callback.assert_called_once_with(wrapper._task_exception)
-        self.assertIsInstance(wrapper.task_exception, RuntimeError)
+        callback.assert_called_once_with(self.task_manager._task_exception)
+        self.assertIsInstance(self.task_manager.task_exception, RuntimeError)
 
     async def test_success_event(self):
         event = asyncio.Event()
@@ -162,25 +161,28 @@ class TestTaskManager(IsolatedAsyncioWrapperTestCase):
         async def successful_task():
             await asyncio.sleep(0.1)
 
-        wrapper = TaskManager(successful_task, success_event=event)
-        await wrapper.start_task()
+        self.task_manager = TaskManager(successful_task, success_event=event)
+        await self.task_manager.start_task()
 
         # Wait for the task to finish and the event to be set
         await event.wait()
         self.assertTrue(event.is_set())
-        self.assertIsNone(wrapper.task_exception)
+        self.assertIsNone(self.task_manager.task_exception)
 
     async def test_exception_event(self):
         event = asyncio.Event()
 
-        async def failing_task():
-            await asyncio.sleep(0.1)
-            raise RuntimeError("Task failed")
+        class CustomException(Exception):
+            pass
 
-        wrapper = TaskManager(failing_task, exception_event=event)
-        await wrapper.start_task()
+        async def failing_task():
+            await asyncio.sleep(1)
+            raise CustomException("Task failed")
+
+        self.task_manager = TaskManager(failing_task, exception_event=event)
+        await self.task_manager.start_task()
 
         # Wait for the task to fail and the event to be set
         await event.wait()
         self.assertTrue(event.is_set())
-        self.assertIsInstance(wrapper.task_exception, RuntimeError)
+        self.assertIsInstance(self.task_manager.task_exception, CustomException)

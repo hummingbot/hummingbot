@@ -104,13 +104,17 @@ class TestPipelineBlocks(IsolatedAsyncioWrapperTestCase):
         self.assertFalse(self.pipe_block.is_running)
 
     async def test_exception_handling(self) -> None:
-        self.destination_pipe.put = MagicMock(side_effect=[Exception("Test exception")])
+        async def put_exception(*args, **kwargs):
+            await asyncio.sleep(0.5)
+            raise Exception("Test exception")
+
+        self.destination_pipe.put = put_exception
 
         with patch.object(PipelineBlock, "logger") as mock_logger:
             await self.pipeline_block.start_task()
             await asyncio.sleep(0.1)  # give the task time to start
             self.assertTrue(self.pipeline_block.is_running)
-            await asyncio.sleep(0.1)  # give the task time to throw exception
+            await asyncio.sleep(1)  # give the task time to throw exception
             self.assertFalse(self.pipeline_block.is_running)
             self.assertIsInstance(self.pipeline_block.task_manager._task_exception, Exception)
             mock_logger().error.assert_called_once_with(
@@ -127,11 +131,11 @@ class TestPipelineBlocks(IsolatedAsyncioWrapperTestCase):
         self.source_stream.iter_messages = InfiniteAsyncIterable()
 
         with patch.object(StreamBlock, "logger") as mock_logger:
-            self.destination_pipe.put = MagicMock(side_effect=[Exception("Test exception")])
+            self.destination_pipe.put = put_exception
             await self.stream_block.start_task()
             await asyncio.sleep(0.1)  # give the task time to start
             self.assertTrue(self.stream_block.is_running)
-            await asyncio.sleep(0.5)  # give the task time to throw exception
+            await asyncio.sleep(1)  # give the task time to throw exception
             self.assertFalse(self.stream_block.is_running)
             self.assertIsInstance(self.stream_block.task_manager._task_exception, Exception)
             mock_logger().error.assert_called_once_with(
@@ -143,12 +147,12 @@ class TestPipelineBlocks(IsolatedAsyncioWrapperTestCase):
             await self.pipe_block.start_task()
             await asyncio.sleep(0.1)  # give the task time to start
             self.assertTrue(self.pipe_block.is_running)
-            await asyncio.sleep(0.1)  # give the task time to throw exception
+            await asyncio.sleep(1)  # give the task time to throw exception
             self.assertFalse(self.pipe_block.is_running)
             self.assertIsInstance(self.pipe_block.task_manager._task_exception, Exception)
             mock_logger().error.assert_called_once_with(
                 "An error occurred while executing the task in the PipeBlock:\n"
-                " coroutine raised StopIteration"
+                f" {self.pipeline_block.task_manager._task_exception}"
             )
 
     async def test_success_callback(self):
