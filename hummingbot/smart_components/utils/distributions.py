@@ -24,17 +24,32 @@ class Distributions:
         return [Decimal(start) + (Decimal(end) - Decimal(start)) * Decimal(i) / (Decimal(n_levels) - 1) for i in range(n_levels)]
 
     @classmethod
-    def fibonacci(cls, n_levels: int) -> List[Decimal]:
+    def fibonacci(cls, n_levels: int, start: float = 0.01) -> List[Decimal]:
         """
-        Generate a Fibonacci sequence of spreads.
+        Generate a Fibonacci sequence of spreads represented as percentages.
+
+        The Fibonacci sequence is a series of numbers in which each number (Fibonacci number)
+        is the sum of the two preceding ones. In this implementation, the sequence starts with
+        the provided initial_value (represented as a percentage) and the value derived by adding
+        the initial_value to itself as the first two terms. Each subsequent term is derived by
+        adding the last two terms of the sequence.
 
         Parameters:
-        - n_levels: The number of spread levels to be generated.
+        - n_levels (int): The number of spread levels to be generated.
+        - initial_value (float, default=0.01): The value from which the Fibonacci sequence will start,
+          represented as a percentage. Default is 1%.
 
         Returns:
-        List[Decimal]: A list containing the generated Fibonacci sequence.
+        List[Decimal]: A list containing the generated Fibonacci sequence of spreads, represented as percentages.
+
+        Example:
+        If initial_value=0.01 and n_levels=5, the sequence would represent: [1%, 2%, 3%, 5%, 8%]
         """
-        fib_sequence = [Decimal("1"), Decimal("1")]
+
+        if n_levels == 1:
+            return [Decimal(start)]
+
+        fib_sequence = [Decimal(start), Decimal(start) * 2]
         for i in range(2, n_levels):
             fib_sequence.append(fib_sequence[-1] + fib_sequence[-2])
         return fib_sequence[:n_levels]
