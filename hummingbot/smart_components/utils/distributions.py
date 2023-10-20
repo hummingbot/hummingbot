@@ -24,21 +24,6 @@ class Distributions:
         return [Decimal(start) + (Decimal(end) - Decimal(start)) * Decimal(i) / (Decimal(n_levels) - 1) for i in range(n_levels)]
 
     @classmethod
-    def exponential(cls, n_levels: int, initial_value: float = 1.0, base: float = 2.0) -> List[Decimal]:
-        """
-        Generate an exponential sequence of spreads.
-
-        Parameters:
-        - n_levels: The number of spread levels to be generated.
-        - initial_value: The starting value of the sequence.
-        - base: The base value for exponentiation.
-
-        Returns:
-        List[Decimal]: A list containing the generated exponential sequence.
-        """
-        return [Decimal(initial_value) * Decimal(base) ** Decimal(i) for i in range(n_levels)]
-
-    @classmethod
     def fibonacci(cls, n_levels: int) -> List[Decimal]:
         """
         Generate a Fibonacci sequence of spreads.
