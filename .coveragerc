@@ -26,6 +26,7 @@ omit =
         hummingbot/connector/exchange/paper_trade*
         hummingbot/connector/gateway*
         hummingbot/connector/gateway/clob_spot/data_sources/dexalot/*
+        hummingbot/connector/gateway/amm_lp/*
         hummingbot/connector/test_support/*
         hummingbot/core/utils/gateway_config_utils.py
         hummingbot/core/utils/kill_switch.py
