@@ -13,18 +13,19 @@ from hummingbot.smart_components.strategy_frameworks.market_making.market_making
 )
 
 
-class BollingerGridConfig(MarketMakingControllerConfigBase):
+class BollingGridConfig(MarketMakingControllerConfigBase):
     strategy_name: str = "bollinger_grid"
     bb_length: int = 12
+    bb_std: float = 2.0
     natr_length: int = 14
 
 
-class BollingerGrid(MarketMakingControllerBase):
+class BollingGrid(MarketMakingControllerBase):
     """
     Directional Market Making Strategy making use of NATR indicator to make spreads dynamic and shift the mid price.
     """
 
-    def __init__(self, config: BollingerGridConfig):
+    def __init__(self, config: BollingGridConfig):
         super().__init__(config)
         self.config = config
 
@@ -59,8 +60,8 @@ class BollingerGrid(MarketMakingControllerBase):
         """
         candles_df = self.candles[0].candles_df
         natr = ta.natr(candles_df["high"], candles_df["low"], candles_df["close"], length=self.config.natr_length) / 100
-        candles_df.ta.bbands(length=self.config.bb_length, std=2, append=True)
-        bbp = candles_df[f"BBP_{self.config.bb_length}_2.0"]
+        candles_df.ta.bbands(length=self.config.bb_length, std=self.config.bb_std, append=True)
+        bbp = candles_df[f"BBP_{self.config.bb_length}_{self.config.bb_std}"]
 
         candles_df["spread_multiplier"] = natr
         candles_df["price_multiplier"] = bbp
