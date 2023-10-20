@@ -75,11 +75,11 @@ class DManV3(MarketMakingControllerBase):
         """
         close_price = self.get_close_price(self.config.exchange, self.config.trading_pair)
 
-        amount = order_level.order_amount_usd / close_price
         bollinger_mid_price, spread_multiplier = self.get_price_and_spread_multiplier()
         side_multiplier = -1 if order_level.side == TradeType.BUY else 1
         order_spread_multiplier = order_level.spread_factor * spread_multiplier * side_multiplier
         order_price = bollinger_mid_price * (1 + order_spread_multiplier)
+        amount = order_level.order_amount_usd / order_price
 
         # Avoid placing the order from the opposite side
         side_filter_condition = self.config.side_filter and (
