@@ -16,7 +16,7 @@ class OrderLevelBuilder:
         """
         self.n_levels = n_levels
 
-    def resolve_input(self, input_data: Union[Decimal, List[Decimal], Dict[str, Any]]) -> List[Decimal | float | int]:
+    def resolve_input(self, input_data: Union[Decimal | float, List[Decimal | float], Dict[str, Any]]) -> List[Decimal | float | int]:
         """
         Resolve the provided input data into a list of Decimal values.
 
