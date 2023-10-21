@@ -5,22 +5,24 @@ from test.logger_mixin_for_test import LoggerMixinForTest
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from hummingbot.connector.exchange.coinbase_advanced_trade.pipe import (
-    SENTINEL,
-    HandlerT,
-    Pipe,
-    PipeAsyncIterator,
-    PipeFullError,
-    PipeGetPtl,
-    PipePutPtl,
-    PipeSentinelError,
-    PipeStoppedError,
+from hummingbot.connector.exchange.coinbase_advanced_trade.pipe.connecting_functions import (
     _get_pipe_put_operation_for_handler,
     pipe_to_async_generator,
     pipe_to_multipipe_distributor,
     pipe_to_pipe_connector,
     stream_to_pipe_connector,
 )
+from hummingbot.connector.exchange.coinbase_advanced_trade.pipe.data_types import HandlerT
+from hummingbot.connector.exchange.coinbase_advanced_trade.pipe.errors import (
+    PipeFullError,
+    PipeSentinelError,
+    PipeStoppedError,
+)
+from hummingbot.connector.exchange.coinbase_advanced_trade.pipe.pipe import Pipe
+from hummingbot.connector.exchange.coinbase_advanced_trade.pipe.pipe_async_iterator import PipeAsyncIterator
+from hummingbot.connector.exchange.coinbase_advanced_trade.pipe.protocols import PipeGetPtl, PipePutPtl
+from hummingbot.connector.exchange.coinbase_advanced_trade.pipe.sentinel import SENTINEL, sentinel_ize
+from hummingbot.connector.exchange.coinbase_advanced_trade.pipe.utilities import pipe_snapshot
 
 
 class TestPipe(IsolatedAsyncioWrapperTestCase):
@@ -70,14 +72,14 @@ class TestPipe(IsolatedAsyncioWrapperTestCase):
     async def test_stop(self):
         await self.pipe.stop()
         self.assertTrue(self.pipe.is_stopped)
-        self.assertEqual((SENTINEL,), await self.pipe.pipe_snapshot(self.pipe))
+        self.assertEqual((SENTINEL,), await pipe_snapshot(self.pipe))
         print(self.pipe.pipe.qsize())
 
     async def test_snapshot(self):
         items = (1, 2)
         for item in items:
             await self.pipe.put(item)
-        snapshot = await Pipe.pipe_snapshot(self.pipe)
+        snapshot = await pipe_snapshot(self.pipe)
         self.assertTupleEqual(items, snapshot)
         self.assertTrue(self.pipe.empty)
 
@@ -87,7 +89,7 @@ class TestPipe(IsolatedAsyncioWrapperTestCase):
         await self.pipe.stop()
         self.assertTrue(self.pipe.is_stopped)
         self.assertEqual(2, self.pipe.size)
-        self.assertEqual((0, 1), await self.pipe.pipe_snapshot(self.pipe))
+        self.assertEqual((0, 1), await pipe_snapshot(self.pipe))
 
     async def test_put_into_stopped_pipe_raises_error(self):
         await self.pipe.stop()
@@ -113,12 +115,12 @@ class TestPipe(IsolatedAsyncioWrapperTestCase):
 
     async def test_sentinel_ize(self):
         items = (1, 2, 3)
-        sentinelized_items = self.pipe.sentinel_ize(items)
+        sentinelized_items = sentinel_ize(items)
         self.assertEqual(sentinelized_items, (1, 2, 3, SENTINEL))
 
     async def test_sentinel_ize_with_existing_sentinel(self):
         items = (1, 2, SENTINEL, 3)
-        sentinelized_items = self.pipe.sentinel_ize(items)
+        sentinelized_items = sentinel_ize(items)
         self.assertEqual((1, 2, SENTINEL), sentinelized_items, )
 
     async def test_stop_when_full(self):

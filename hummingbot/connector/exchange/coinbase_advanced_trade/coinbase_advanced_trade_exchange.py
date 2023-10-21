@@ -79,8 +79,6 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
 
         self._multi_stream_tracker: CoinbaseAdvancedTradeAPIUserStreamDataSource | None = None
 
-        # self.logger().debug("Created exchange CoinbaseAdvancedTradeExchange.")
-
     @property
     def asset_uuid_map(self) -> Dict[str, str]:
         return self._asset_uuid_map
@@ -388,7 +386,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
 
         incomplete_orders = [o for o in self.in_flight_orders.values() if not o.is_done]
         tasks = [execute_cancels([o.client_order_id for o in incomplete_orders])]
-        order_id_set = set([o.client_order_id for o in incomplete_orders])
+        order_id_set = {o.client_order_id for o in incomplete_orders}
         successful_cancellations = []
 
         try:
@@ -492,6 +490,11 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
             return [{"success": False, "failure_reason": "UNKNOWN_CANCEL_FAILURE_REASON"} for _ in order_ids]
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
+        """
+        Get a list of bids/asks for a single product.
+        https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_getproductbook
+
+        """
         params = {
             "product_id": await self.trading_pair_associated_to_exchange_symbol(trading_pair)
         }

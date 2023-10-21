@@ -222,6 +222,35 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
             maxlen=9
         ), self.data_feed._candles)
 
+    @patch.object(CoinbaseAdvancedTradeSpotCandles, "fetch_candles", new_callable=AsyncMock)
+    async def test_fill_historical_candles_empty_candles(self):
+        with self.assertRaises(CoinbaseAdvancedTradeSpotCandles.HistoricalCallOnEmptyCandles):
+            await self.data_feed.fill_historical_candles()
+
+    @patch.object(CoinbaseAdvancedTradeSpotCandles, "fetch_candles", new_callable=AsyncMock)
+    async def test_fill_historical_candles_empty_data(self, mock_fetch_candles):
+        # Mock to return an empty array
+        self.data_feed._candles = deque(np.array([[1, 2, 3, 4, 5, 6]]), maxlen=2)
+        mock_fetch_candles.return_value = np.array([])
+
+        await self.data_feed.fill_historical_candles()
+        self.assertTrue(self.is_partially_logged("ERROR", "There is not enough data available to fill historical candles for "))
+
+    @patch.object(CoinbaseAdvancedTradeSpotCandles, "_sleep", new_callable=AsyncMock)
+    @patch.object(CoinbaseAdvancedTradeSpotCandles, "fetch_candles", new_callable=AsyncMock)
+    async def test_fill_historical_candles_unexpected_exception(self, mock_fetch_candles, mock_sleep):
+        # Mock to raise an unexpected exception
+        self.data_feed._candles = deque(np.array([[1, 2, 3, 4, 5, 6]]), maxlen=2)
+        mock_fetch_candles.side_effect = [Exception("Something went wrong")]
+
+        await self.data_feed.fill_historical_candles()
+
+        # Verify that sleep was called, implying a retry attempt
+        mock_sleep.assert_called_once_with(1.0)
+        self.assertTrue(self.is_partially_logged(
+            "ERROR",
+            "Unexpected error occurred when getting historical candles Something went wrong"))
+
     @aioresponses()
     async def test_fetch_candles(self, mock_api: aioresponses):
         start_time = 1

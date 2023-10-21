@@ -2,19 +2,17 @@ import asyncio
 import logging
 from typing import Any, Awaitable, Callable, Coroutine, Dict, Generic, Protocol, Tuple, TypeVar
 
-from hummingbot.connector.exchange.coinbase_advanced_trade.pipe import (
-    HandlerT,
-    Pipe,
-    PipeGetPtl,
-    PipePutPtl,
-    StreamMessageIteratorPtl,
-    StreamSourcePtl,
+from hummingbot.logger import HummingbotLogger
+
+from .pipe.connecting_functions import (
     pipe_to_pipe_connector,
     reconnecting_stream_to_pipe_connector,
     stream_to_pipe_connector,
 )
-from hummingbot.connector.exchange.coinbase_advanced_trade.task_manager import TaskManager
-from hummingbot.logger import HummingbotLogger
+from .pipe.data_types import HandlerT
+from .pipe.pipe import Pipe
+from .pipe.protocols import PipeGetPtl, PipePutPtl, StreamMessageIteratorPtl, StreamSourcePtl
+from .task_manager import TaskManager
 
 FromDataT = TypeVar("FromDataT")
 ToDataT = TypeVar("ToDataT")
@@ -128,7 +126,7 @@ class PipelineBlock(Generic[FromDataT, ToDataT]):
         """Handle an exception raised during the execution of the task."""
         # Log the exception
         self.logger().error("An error occurred while executing the task in the PipelineBlock:\n"
-                            f" {ex}")
+                            f"    {ex}")
         # self.stop_all_tasks()
         # If necessary, you can re-raise the exception, handle it in some other way, or just log it and continue
         # For example, to re-raise the exception, uncomment the following line:

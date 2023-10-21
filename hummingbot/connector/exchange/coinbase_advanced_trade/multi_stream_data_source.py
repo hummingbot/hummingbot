@@ -8,7 +8,7 @@ from hummingbot.core.web_assistant.connections.data_types import WSRequest, WSRe
 from hummingbot.logger import HummingbotLogger
 
 from .coinbase_advanced_trade_web_utils import get_timestamp_from_exchange_time
-from .pipe import PipeGetPtl
+from .pipe.protocols import PipeGetPtl
 from .pipeline import PipeBlock, PipesCollector
 from .stream_data_source import StreamDataSource, StreamState, SubscriptionBuilderT
 from .task_manager import TaskState

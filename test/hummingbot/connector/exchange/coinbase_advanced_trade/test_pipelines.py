@@ -3,13 +3,10 @@ from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCa
 from typing import Any, List
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from hummingbot.connector.exchange.coinbase_advanced_trade.pipe import (
-    HandlerT,
-    Pipe,
-    PipePutPtl,
-    StreamMessageIteratorPtl,
-    pipe_to_pipe_connector,
-)
+from hummingbot.connector.exchange.coinbase_advanced_trade.pipe.connecting_functions import pipe_to_pipe_connector
+from hummingbot.connector.exchange.coinbase_advanced_trade.pipe.data_types import HandlerT
+from hummingbot.connector.exchange.coinbase_advanced_trade.pipe.pipe import Pipe
+from hummingbot.connector.exchange.coinbase_advanced_trade.pipe.protocols import PipePutPtl, StreamMessageIteratorPtl
 from hummingbot.connector.exchange.coinbase_advanced_trade.pipeline import (
     PipeBlock,
     PipelineBlock,
@@ -29,7 +26,7 @@ class TestPipelineBlocks(IsolatedAsyncioWrapperTestCase):
 
             async def snapshot(self):
                 await asyncio.sleep(0.5)
-                return ("snapshot")
+                return ("snapshot",)
 
             def task_done(self):
                 pass
@@ -119,7 +116,7 @@ class TestPipelineBlocks(IsolatedAsyncioWrapperTestCase):
             self.assertIsInstance(self.pipeline_block.task_manager._task_exception, Exception)
             mock_logger().error.assert_called_once_with(
                 f"An error occurred while executing the task in the PipelineBlock:\n"
-                f" {self.pipeline_block.task_manager._task_exception}"
+                f"    {self.pipeline_block.task_manager._task_exception}"
             )
 
         class InfiniteAsyncIterable:

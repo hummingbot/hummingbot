@@ -1803,3 +1803,147 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
         }
         return test_substitute
         # return CoinbaseAdvancedTradeListFillsResponse.dict_sample_from_json_docstring(test_substitute)
+
+    async def test_update_time_synchronizer_successful(self):
+        """Test that update_server_time_offset_with_time_provider is called."""
+        await self.exchange._update_time_synchronizer()
+        self.exchange._time_synchronizer.update_server_time_offset_with_time_provider.assert_called()
+
+    async def test_update_time_synchronizer_with_exception(self):
+        """Test that an exception other than CancelledError is logged."""
+        self.exchange._time_synchronizer.update_server_time_offset_with_time_provider.side_effect = Exception(
+            "Some error")
+
+        with self.assertRaises(Exception), self.assertLogs(self.exchange.logger, level="ERROR"):
+            await self.exchange._update_time_synchronizer()
+
+    async def test_update_time_synchronizer_with_cancelled_error(self):
+        """Test that asyncio.CancelledError is raised."""
+        self.exchange._time_synchronizer.update_server_time_offset_with_time_provider.side_effect = asyncio.CancelledError
+
+        with self.assertRaises(asyncio.CancelledError):
+            await self.exchange._update_time_synchronizer()
+
+    async def test_update_time_synchronizer_with_exception_pass_through(self):
+        """Test that an exception other than CancelledError is not logged if pass_on_non_cancelled_error is True."""
+        self.exchange._time_synchronizer.update_server_time_offset_with_time_provider.side_effect = Exception(
+            "Some error")
+
+        with self.assertRaises(Exception):
+            await self.exchange._update_time_synchronizer(pass_on_non_cancelled_error=True)
+
+        self.exchange.logger.exception.assert_not_called()
+
+    async def test_place_order_limit_successful(self):
+        """Test successful limit order placement."""
+        self.exchange._api_post.return_value = {'success': True, 'order_id': '12345'}
+        self.exchange.exchange_symbol_associated_to_pair.return_value = 'BTC-USD'
+        self.exchange.time_synchronizer.time.return_value = 1234567890.0
+
+        order_id, transact_time = await self.exchange._place_order(
+            "my_order_id",
+            "BTC-USD",
+            Decimal("0.1"),
+            TradeType.BUY,
+            OrderType.LIMIT,
+            Decimal("1000")
+        )
+
+        self.assertEqual(order_id, '12345')
+        self.assertEqual(transact_time, 1234567890.0)
+
+    async def test_place_order_limit_maker_successful(self):
+        """Test successful limit maker order placement."""
+        self.exchange._api_post.return_value = {'success': True, 'order_id': '67890'}
+        self.exchange.exchange_symbol_associated_to_pair.return_value = 'BTC-USD'
+        self.exchange.time_synchronizer.time.return_value = 1234567890.0
+
+        order_id, transact_time = await self.exchange._place_order(
+            "my_order_id_2",
+            "BTC-USD",
+            Decimal("0.2"),
+            TradeType.BUY,
+            OrderType.LIMIT_MAKER,
+            Decimal("2000")
+        )
+
+        self.assertEqual(order_id, '67890')
+        self.assertEqual(transact_time, 1234567890.0)
+
+    async def test_place_order_market_buy_successful(self):
+        """Test successful market buy order placement."""
+        self.exchange._api_post.return_value = {'success': True, 'order_id': '54321'}
+        self.exchange.exchange_symbol_associated_to_pair.return_value = 'BTC-USD'
+        self.exchange.time_synchronizer.time.return_value = 1234567890.0
+
+        order_id, transact_time = await self.exchange._place_order(
+            "my_order_id_3",
+            "BTC-USD",
+            Decimal("0.3"),
+            TradeType.BUY,
+            OrderType.MARKET,
+            Decimal("3000")
+        )
+
+        self.assertEqual(order_id, '54321')
+        self.assertEqual(transact_time, 1234567890.0)
+
+    async def test_place_order_market_sell_successful(self):
+        """Test successful market sell order placement."""
+        self.exchange._api_post.return_value = {'success': True, 'order_id': '98765'}
+        self.exchange.exchange_symbol_associated_to_pair.return_value = 'BTC-USD'
+        self.exchange.time_synchronizer.time.return_value = 1234567890.0
+
+        order_id, transact_time = await self.exchange._place_order(
+            "my_order_id_4",
+            "BTC-USD",
+            Decimal("0.4"),
+            TradeType.SELL,
+            OrderType.MARKET,
+            Decimal("4000")
+        )
+
+        self.assertEqual(order_id, '98765')
+        self.assertEqual(transact_time, 1234567890.0)
+
+    async def test_place_order_invalid_type(self):
+        """Test invalid order type."""
+        with self.assertRaises(ValueError):
+            await self.exchange._place_order(
+                "my_order_id_5",
+                "BTC-USD",
+                Decimal("0.5"),
+                TradeType.BUY,
+                "INVALID_TYPE",
+                Decimal("5000")
+            )
+
+    async def test_place_order_insufficient_fund(self):
+        """Test insufficient funds."""
+        self.exchange._api_post.return_value = {'success': False, 'error_response': {'error': 'INSUFFICIENT_FUND'}}
+        self.exchange.exchange_symbol_associated_to_pair.return_value = 'BTC-USD'
+
+        with self.assertRaises(ValueError):
+            await self.exchange._place_order(
+                "my_order_id_6",
+                "BTC-USD",
+                Decimal("0.6"),
+                TradeType.BUY,
+                OrderType.LIMIT,
+                Decimal("6000")
+            )
+
+    async def test_place_order_other_error(self):
+        """Test other unspecified error."""
+        self.exchange._api_post.return_value = {'success': False, 'error_response': {'error': 'SOME_OTHER_ERROR'}}
+        self.exchange.exchange_symbol_associated_to_pair.return_value = 'BTC-USD'
+
+        with self.assertRaises(ValueError):
+            await self.exchange._place_order(
+                "my_order_id_7",
+                "BTC-USD",
+                Decimal("0.7"),
+                TradeType.BUY,
+                OrderType.LIMIT,
+                Decimal("7000")
+            )

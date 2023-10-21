@@ -22,6 +22,9 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
     class NotEnoughDataAvailableError(Exception):
         pass
 
+    class HistoricalCallOnEmptyCandles(Exception):
+        pass
+
     interval_to_seconds: bidict[str, int] = CONSTANTS.INTERVALS
 
     @classmethod
@@ -127,6 +130,12 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
         Ideally, one request should provide the number of candles needed to fill the deque.
         """
         while not self.is_ready:
+            if len(self._candles) == 0:
+                self.logger().error(
+                    "fill_historical_candles() was called on an empty candles deque."
+                )
+                raise CoinbaseAdvancedTradeSpotCandles.HistoricalCallOnEmptyCandles
+
             end_timestamp: int = int(self._candles[0][0])
             interval_s: float = self.get_seconds_from_interval(self.interval)
             # Estimated start_time to gather maxlen candles given the current interval
