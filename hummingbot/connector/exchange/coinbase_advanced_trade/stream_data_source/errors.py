@@ -1,0 +1,2 @@
+class StreamDataSourceError(Exception):
+    pass

@@ -2,145 +2,21 @@ import asyncio
 import functools
 import logging
 from collections import defaultdict
-from typing import Any, AsyncGenerator, Callable, Coroutine, Dict, Generator, List, Protocol, Tuple, Type, TypeVar
+from typing import Any, AsyncGenerator, Callable, Coroutine, Dict, List, Tuple, Type, TypeVar
 
-from hummingbot.core.web_assistant.connections.data_types import WSRequest, WSResponse
 from hummingbot.logger import HummingbotLogger
 
-from .coinbase_advanced_trade_web_utils import get_timestamp_from_exchange_time
-from .pipe.protocols import PipeGetPtl
-from .pipeline import PipeBlock, PipesCollector
-from .stream_data_source import StreamDataSource, StreamState, SubscriptionBuilderT
-from .task_manager import TaskState
+from ..pipe.protocols import PipeGetPtl
+from ..pipeline.pipe_block import PipeBlock
+from ..pipeline.pipes_collector import PipesCollector
+from ..stream_data_source.protocols import WSAssistantPtl
+from ..stream_data_source.stream_data_source import StreamDataSource, StreamState, SubscriptionBuilderT
+from ..task_manager import TaskState
+from .helper_functions import sequence_verifier
 
 T = TypeVar("T")
 
 CollectorT: Type = PipesCollector[Dict[str, Any], T]
-
-
-class WSAssistantPtl(Protocol):
-    async def connect(
-            self,
-            ws_url: str,
-            *,
-            ping_timeout: float,
-            message_timeout: float | None = None,
-            ws_headers: Dict[str, Any] | None = None,
-    ) -> None:
-        ...
-
-    async def disconnect(self) -> None:
-        ...
-
-    async def send(self, request: WSRequest) -> None:
-        ...
-
-    async def ping(self) -> None:
-        ...
-
-    async def receive(self) -> WSResponse | None:
-        ...
-
-    @property
-    def last_recv_time(self) -> float:
-        return ...
-
-    async def iter_messages(self) -> AsyncGenerator[WSResponse | None, None]:
-        yield ...
-
-
-def _sequencer(
-        sequence: int,
-        channel: str,
-        sequences: Dict[str, int],
-        key: str,
-        logger: HummingbotLogger | logging.Logger | None = None
-) -> None:
-    """
-    Check the sequence number and increment it.
-    """
-    if sequence != sequences[key] + 1:
-        if logger:
-            logger.warning(
-                f"Sequence number mismatch. Expected {sequences[key] + 1}, received {sequence} for {key}"
-                f"\n      channel: {channel}")
-        # This should never occur, it indicates a flaw in the code
-        if sequence < sequences[key]:
-            raise ValueError(
-                f"Sequence number lower than expected {sequences[key] + 1}, received {sequence} for {key}")
-    sequences[key] = sequence
-
-
-def sequence_verifier(
-        event_message: Dict[str, Any],
-        *,
-        sequence_reader: Callable[[Dict[str, Any]], int],
-        sequences: Dict[str, int],
-        key: str,
-        logger: HummingbotLogger | logging.Logger | None = None
-) -> Generator[T, None, None]:
-    """
-    Sequence verification and update method
-    :param event_message: The message received from the exchange.
-    :param sequence_reader: The method to read the sequence number from the message.
-    :param sequences: The dictionary of sequence numbers.
-    :param key: The key to the sequence number in the dictionary.
-    :param logger: The logger to use.
-    :return: Generator of unmodified messages received from the exchange.
-    """
-    sequence = sequence_reader(event_message)
-    if sequence != sequences[key] + 1:
-        if logger:
-            logger.warning(f"Sequence number mismatch. Expected {sequences[key] + 1}, received {sequence} for {key}")
-        # This should never occur, it indicates a flaw in the code
-        if sequence < sequences[key]:
-            raise ValueError(f"Sequence number lower than expected {sequences[key] + 1}, received {sequence} for {key}")
-    sequences[key] = sequence
-
-    yield event_message
-
-
-def _timestamp_filter_sequence(
-        event_message: Dict[str, Any],
-        *,
-        sequencer: Callable[[int, str], Any],
-        logger: HummingbotLogger | logging.Logger | None = None,
-) -> Generator[T, None, None]:
-    """
-    Reformat the timestamp to seconds.
-    Filter out heartbeat and (subscriptions?) messages.
-    Call the sequencer to track the sequence number.
-    :param event_message: The message received from the exchange.
-    """
-    """
-    https://docs.cloud.coinbase.com/advanced-trade-api/docs/ws-channels#user-channel
-    {
-      "channel": "user",
-      "client_id": "",
-      "timestamp": "2023-02-09T20:33:57.609931463Z",
-      "sequence_num": 0,
-      "events": [...]
-    }
-    """
-    if logger:
-        if event_message["channel"] == "user":
-            logger.debug(f"Sequence handler {event_message['channel']}:{event_message['sequence_num']}:{event_message}")
-        else:
-            logger.debug(f"Sequence handler {event_message['channel']}:{event_message['sequence_num']}")
-            logger.debug(f"{event_message}")
-
-    # sequence_num = 0: subscriptions message for heartbeats
-    # sequence_num = 1: user snapshot message
-    # sequence_num = 2: subscriptions message for user
-    sequencer(event_message["sequence_num"], event_message["channel"])
-
-    if event_message["channel"] == "user":
-        # logging.debug(f"      DEBUG: Filter {event_message}")
-        if isinstance(event_message["timestamp"], str):
-            event_message["timestamp"] = get_timestamp_from_exchange_time(event_message["timestamp"], "s")
-        yield event_message
-    # else:
-    #     logging.debug(f"*** DEBUG: Filtering message {event_message} {event_message['channel']} not user")
 
 
 class MultiStreamDataSource:
@@ -351,7 +227,7 @@ class MultiStreamDataSource:
         return await asyncio.gather(*[apply_on_(stream) for stream in self._streams.values()])
 
     async def _open_connection(self, stream: StreamDataSource) -> bool:
-        """Initialize all the streams, subscribe to heartbeats channels"""
+        """Open connection for a stream"""
         if stream.state[0] == StreamState.OPENED:
             return True
 
@@ -363,7 +239,7 @@ class MultiStreamDataSource:
         return True
 
     async def _close_connection(self, stream: StreamDataSource) -> bool:
-        """Initialize all the streams, subscribe to heartbeats channels"""
+        """Close connection for a stream"""
         if stream.state[0] == StreamState.CLOSED:
             return True
 
@@ -387,7 +263,7 @@ class MultiStreamDataSource:
         return True
 
     async def _start_task(self, stream: StreamDataSource) -> bool:
-        """Subscribe to a stream"""
+        """Start the task for a stream"""
         if stream.state[1] == TaskState.STARTED:
             return True
 
@@ -409,7 +285,7 @@ class MultiStreamDataSource:
         return True
 
     async def _unsubscribe(self, stream: StreamDataSource) -> bool:
-        """Unsubscribe to all the streams"""
+        """Unsubscribe a stream"""
         if stream.state[0] == StreamState.UNSUBSCRIBED:
             return True
 

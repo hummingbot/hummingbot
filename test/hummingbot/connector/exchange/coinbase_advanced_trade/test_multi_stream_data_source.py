@@ -2,9 +2,11 @@ from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCa
 from typing import Tuple
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
-from hummingbot.connector.exchange.coinbase_advanced_trade.multi_stream_data_source import MultiStreamDataSource
-from hummingbot.connector.exchange.coinbase_advanced_trade.pipeline import PipeBlock
-from hummingbot.connector.exchange.coinbase_advanced_trade.stream_data_source import StreamState
+from hummingbot.connector.exchange.coinbase_advanced_trade.multi_stream_data_source.multi_stream_data_source import (
+    MultiStreamDataSource,
+)
+from hummingbot.connector.exchange.coinbase_advanced_trade.pipeline.pipe_block import PipeBlock
+from hummingbot.connector.exchange.coinbase_advanced_trade.stream_data_source.enums import StreamState
 from hummingbot.connector.exchange.coinbase_advanced_trade.task_manager import TaskState
 
 

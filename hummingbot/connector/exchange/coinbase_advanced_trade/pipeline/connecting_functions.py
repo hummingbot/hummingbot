@@ -3,14 +3,16 @@ import inspect
 import logging
 from typing import Any, AsyncGenerator, Awaitable, Callable, Coroutine, List
 
-from .data_types import DataT, FromDataT, FromTupleDataT, HandlerT, ToDataT
-from .errors import PipeFullError
-from .protocols import PipeGetPtl, PipePutPtl, PutOperationPtl, StreamMessageIteratorPtl, StreamSourcePtl
-from .sentinel import SENTINEL, Sentinel, sentinel_ize
-from .utilities import log_if_possible, pipe_snapshot
+from ..pipe.data_types import FromTupleDataT
+from ..pipe.errors import PipeFullError
+from ..pipe.protocols import PipeGetPtl, PipePutPtl, PutOperationPtl
+from ..pipe.sentinel import SENTINEL, Sentinel, sentinel_ize
+from ..pipe.utilities import log_if_possible, pipe_snapshot
+from .data_types import FromDataT, HandlerT, ToDataT
+from .protocols import StreamMessageIteratorPtl, StreamSourcePtl
 
 
-async def pipe_to_async_generator(pipe: PipeGetPtl[DataT]) -> AsyncGenerator[DataT, None]:
+async def pipe_to_async_generator(pipe: PipeGetPtl[FromDataT]) -> AsyncGenerator[FromDataT, None]:
     """
     An async generator that iterates over a Pipe content.
 

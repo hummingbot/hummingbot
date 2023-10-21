@@ -19,8 +19,8 @@ from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_tra
     sequence_reader,
     timestamp_and_filter,
 )
-from hummingbot.connector.exchange.coinbase_advanced_trade.multi_stream_data_source import WSAssistantPtl
-from hummingbot.connector.exchange.coinbase_advanced_trade.stream_data_source import StreamAction, StreamState
+from hummingbot.connector.exchange.coinbase_advanced_trade.stream_data_source.enums import StreamAction, StreamState
+from hummingbot.connector.exchange.coinbase_advanced_trade.stream_data_source.protocols import WSAssistantPtl
 from hummingbot.connector.exchange.coinbase_advanced_trade.task_manager import TaskState
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.connections.data_types import WSRequest, WSResponse

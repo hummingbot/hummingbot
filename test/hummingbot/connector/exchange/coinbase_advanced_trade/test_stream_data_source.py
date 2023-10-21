@@ -5,17 +5,14 @@ from test.logger_mixin_for_test import LoggerMixinForTest
 from typing import Any, AsyncGenerator, Awaitable, Callable, Coroutine, Dict
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from hummingbot.connector.exchange.coinbase_advanced_trade.stream_data_source import (
-    StreamAction,
-    StreamDataSource,
-    StreamState,
-    _WSAssistantPtl,
-)
+from hummingbot.connector.exchange.coinbase_advanced_trade.stream_data_source.enums import StreamAction, StreamState
+from hummingbot.connector.exchange.coinbase_advanced_trade.stream_data_source.protocols import WSAssistantPtl
+from hummingbot.connector.exchange.coinbase_advanced_trade.stream_data_source.stream_data_source import StreamDataSource
 from hummingbot.connector.exchange.coinbase_advanced_trade.task_manager import TaskManager, TaskState
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest, WSRequest, WSResponse
 
 
-class MockWebAssistant(_WSAssistantPtl):
+class MockWebAssistant(WSAssistantPtl):
     def __init__(self):
         self.send_args = None
         self.connect_args = None

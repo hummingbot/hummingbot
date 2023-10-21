@@ -3,16 +3,15 @@ from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCa
 from typing import Any, List
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from hummingbot.connector.exchange.coinbase_advanced_trade.pipe.connecting_functions import pipe_to_pipe_connector
 from hummingbot.connector.exchange.coinbase_advanced_trade.pipe.data_types import HandlerT
 from hummingbot.connector.exchange.coinbase_advanced_trade.pipe.pipe import Pipe
-from hummingbot.connector.exchange.coinbase_advanced_trade.pipe.protocols import PipePutPtl, StreamMessageIteratorPtl
-from hummingbot.connector.exchange.coinbase_advanced_trade.pipeline import (
-    PipeBlock,
-    PipelineBlock,
-    PipesCollector,
-    StreamBlock,
-)
+from hummingbot.connector.exchange.coinbase_advanced_trade.pipe.protocols import PipePutPtl
+from hummingbot.connector.exchange.coinbase_advanced_trade.pipeline.connecting_functions import pipe_to_pipe_connector
+from hummingbot.connector.exchange.coinbase_advanced_trade.pipeline.pipe_block import PipeBlock
+from hummingbot.connector.exchange.coinbase_advanced_trade.pipeline.pipeline_block import PipelineBlock
+from hummingbot.connector.exchange.coinbase_advanced_trade.pipeline.pipes_collector import PipesCollector
+from hummingbot.connector.exchange.coinbase_advanced_trade.pipeline.protocols import StreamMessageIteratorPtl
+from hummingbot.connector.exchange.coinbase_advanced_trade.pipeline.stream_block import StreamBlock
 from hummingbot.connector.exchange.coinbase_advanced_trade.task_manager import TaskManager
 
 

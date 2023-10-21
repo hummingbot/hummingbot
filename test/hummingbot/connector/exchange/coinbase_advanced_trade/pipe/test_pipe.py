@@ -5,13 +5,6 @@ from test.logger_mixin_for_test import LoggerMixinForTest
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from hummingbot.connector.exchange.coinbase_advanced_trade.pipe.connecting_functions import (
-    _get_pipe_put_operation_for_handler,
-    pipe_to_async_generator,
-    pipe_to_multipipe_distributor,
-    pipe_to_pipe_connector,
-    stream_to_pipe_connector,
-)
 from hummingbot.connector.exchange.coinbase_advanced_trade.pipe.data_types import HandlerT
 from hummingbot.connector.exchange.coinbase_advanced_trade.pipe.errors import (
     PipeFullError,
@@ -23,6 +16,13 @@ from hummingbot.connector.exchange.coinbase_advanced_trade.pipe.pipe_async_itera
 from hummingbot.connector.exchange.coinbase_advanced_trade.pipe.protocols import PipeGetPtl, PipePutPtl
 from hummingbot.connector.exchange.coinbase_advanced_trade.pipe.sentinel import SENTINEL, sentinel_ize
 from hummingbot.connector.exchange.coinbase_advanced_trade.pipe.utilities import pipe_snapshot
+from hummingbot.connector.exchange.coinbase_advanced_trade.pipeline.connecting_functions import (
+    _get_pipe_put_operation_for_handler,
+    pipe_to_async_generator,
+    pipe_to_multipipe_distributor,
+    pipe_to_pipe_connector,
+    stream_to_pipe_connector,
+)
 
 
 class TestPipe(IsolatedAsyncioWrapperTestCase):

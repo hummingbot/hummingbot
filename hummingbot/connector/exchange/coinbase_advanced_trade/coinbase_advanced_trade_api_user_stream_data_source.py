@@ -10,8 +10,9 @@ from hummingbot.core.data_type.user_stream_tracker_data_source import UserStream
 from hummingbot.logger import HummingbotLogger
 
 from .coinbase_advanced_trade_web_utils import get_timestamp_from_exchange_time
-from .multi_stream_data_source import MultiStreamDataSource, WSAssistantPtl
-from .stream_data_source import StreamAction
+from .multi_stream_data_source.multi_stream_data_source import MultiStreamDataSource
+from .stream_data_source.enums import StreamAction
+from .stream_data_source.protocols import WSAssistantPtl
 
 
 class CoinbaseAdvancedTradeCumulativeUpdate(NamedTuple):

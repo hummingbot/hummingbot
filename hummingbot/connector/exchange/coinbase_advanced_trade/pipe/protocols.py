@@ -1,4 +1,4 @@
-from typing import Any, AsyncGenerator, Protocol, runtime_checkable
+from typing import Any, Protocol
 
 from .data_types import DataT, FromDataT, PipeDataT, PipeTupleDataT
 
@@ -72,21 +72,4 @@ class PutOperationPtl(Protocol[FromDataT]):
     A protocol for a PutOperation that can be used to put items into the Pipe.
     """
     async def __call__(self, item: FromDataT, **kwargs: Any) -> None:
-        ...
-
-
-class StreamMessageIteratorPtl(Protocol[DataT]):
-    """
-    A protocol for an iterator that can be used to get items from a stream.
-    """
-    async def iter_messages(self) -> AsyncGenerator[DataT, None]:
-        ...
-
-
-@runtime_checkable
-class StreamSourcePtl(Protocol[DataT]):
-    """
-    A protocol as a prototype for a stream source.
-    """
-    async def __call__(self) -> StreamMessageIteratorPtl[DataT]:
         ...

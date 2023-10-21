@@ -2,102 +2,23 @@ import asyncio
 import functools
 import logging
 import time
-from enum import Enum
-from typing import (
-    Any,
-    AsyncGenerator,
-    Awaitable,
-    Callable,
-    Coroutine,
-    Dict,
-    Generator,
-    Generic,
-    Protocol,
-    Tuple,
-    TypeVar,
-)
+from typing import Any, Awaitable, Callable, Coroutine, Generator, Generic, Tuple, TypeVar
 
-from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest, WSRequest, WSResponse
+from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.logger import HummingbotLogger
 
 # This '.' not recommended, however, it helps reduce the length of the import, as well as avoid
 # mis-ordering with other more general hummingbot packages
-from .pipeline import AutoStreamBlock
-from .task_manager import TaskState
-
-
-class _WSAssistantPtl(Protocol):
-    async def connect(
-            self,
-            ws_url: str,
-            *,
-            ping_timeout: float = 10,
-            message_timeout: float | None = None,
-            ws_headers: Dict | None = None,
-    ) -> None:
-        ...
-
-    async def disconnect(self) -> None:
-        ...
-
-    async def ping(self) -> None:
-        ...
-
-    async def receive(self) -> WSResponse | None:
-        ...
-
-    async def send(self, request: WSRequest) -> None:
-        ...
-
-    async def iter_messages(self) -> AsyncGenerator[WSResponse | None, None]:
-        ...
-
-
-class StreamDataSourceError(Exception):
-    pass
-
-
-class StreamState(Enum):
-    CLOSED = "CLOSED"
-    OPENED = "OPENED"
-    SUBSCRIBED = "SUBSCRIBED"
-    UNSUBSCRIBED = "UNSUBSCRIBED"
-
-
-class StreamAction(Enum):
-    SUBSCRIBE = "Subscribe"
-    UNSUBSCRIBE = "Unsubscribe"
-
-
-class SubscriptionBuilderT(Protocol):
-    """
-    SubscriptionBuilderT is the prototype, or type hint for the method
-    that builds the subscribe/unsubscribe payload.
-    """
-
-    async def __call__(
-            self,
-            *,
-            action: StreamAction,
-            channel: str,
-            pair: str,
-            pair_to_symbol: Callable[[str], Awaitable[str]]) -> Dict[str, Any]:
-        ...
-
-    def __await__(
-            self,
-            *,
-            action: StreamAction,
-            channel: str,
-            pair: str,
-            pair_to_symbol: Callable[[str], Awaitable[str]]) -> Dict[str, Any]:
-        ...
-
+from ..pipeline.auto_stream_block import AutoStreamBlock
+from ..task_manager import TaskState
+from .enums import StreamAction, StreamState
+from .errors import StreamDataSourceError
+from .protocols import SubscriptionBuilderT, WSAssistantPtl, WSResponsePtl
 
 T = TypeVar("T")
 
 
-class StreamDataSource(AutoStreamBlock[WSResponse, T], Generic[T]):
+class StreamDataSource(AutoStreamBlock[WSResponsePtl, T], Generic[T]):
     """
     UserStreamTrackerDataSource implementation for Coinbase Advanced Trade API.
     """
@@ -131,12 +52,12 @@ class StreamDataSource(AutoStreamBlock[WSResponse, T], Generic[T]):
             *,
             channel: str,
             pair: str,
-            ws_factory: Callable[[], Coroutine[Any, Any, _WSAssistantPtl]],
+            ws_factory: Callable[[], Coroutine[Any, Any, WSAssistantPtl]],
             ws_url: str,
             pair_to_symbol: Callable[[str], Awaitable[str]],
             subscription_builder: SubscriptionBuilderT,
             heartbeat_channel: str | None = None,
-            stream_handler: Callable[[WSResponse], Generator[T, None, None] | T | None] = None,
+            stream_handler: Callable[[WSResponsePtl], Generator[T, None, None] | T | None] = None,
     ) -> None:
         """
         Initialize a StreamDataSource.
@@ -150,11 +71,11 @@ class StreamDataSource(AutoStreamBlock[WSResponse, T], Generic[T]):
         """
         self._channel: str = channel
         self._pair: str = pair
-        self._ws_factory: Callable[[], Coroutine[Any, Any, _WSAssistantPtl]] = ws_factory
+        self._ws_factory: Callable[[], Coroutine[Any, Any, WSAssistantPtl]] = ws_factory
         self._ws_url: str = ws_url
         self._heartbeat_channel: str | None = heartbeat_channel
 
-        self._ws_assistant: _WSAssistantPtl | None = None
+        self._ws_assistant: WSAssistantPtl | None = None
         self._ws_assistant_ready: asyncio.Event = asyncio.Event()
 
         # Construct the subscription builder
@@ -175,7 +96,7 @@ class StreamDataSource(AutoStreamBlock[WSResponse, T], Generic[T]):
 
         self._task_state: TaskState = TaskState.STOPPED
 
-    def _filter_empty_data(self, response: WSResponse) -> Generator[T, None, None]:
+    def _filter_empty_data(self, response: WSResponsePtl) -> Generator[T, None, None]:
         """
         Filters out empty data from the response.
 
@@ -217,7 +138,7 @@ class StreamDataSource(AutoStreamBlock[WSResponse, T], Generic[T]):
         """Returns the time of the last received message"""
         return self._last_recv_time_s
 
-    async def get_ws_assistant(self) -> _WSAssistantPtl:
+    async def get_ws_assistant(self) -> WSAssistantPtl:
         """Returns the WS Assistant, when it is available (created by a call to open_connection)"""
         # self.logger().debug("Waiting for WS Assistant to be ready...")
         await self._ws_assistant_ready.wait()
