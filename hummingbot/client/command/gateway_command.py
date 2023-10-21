@@ -429,7 +429,7 @@ class GatewayCommand(GatewayChainApiManager):
     async def process_all_results(self, chain: str, network: str, wallet_address: str, connector: str, tokens: list[str]):
         chain_network_address = (chain, network, wallet_address)
         connector_tokens = {connector: tokens}
-        all_tokens = self.calculate_all_tokens(chain_network_address, connector_tokens)
+        all_tokens = self.get_all_tokens(chain_network_address, connector_tokens)
         token_balances_resp, allowances_resp = await self.get_token_balances_and_allowances(chain_network_address, connector_tokens, connector)
         token_balances = token_balances_resp.get("balances", {})
 
