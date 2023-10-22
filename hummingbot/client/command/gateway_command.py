@@ -452,6 +452,7 @@ class GatewayCommand(GatewayChainApiManager):
             return
 
         if token_balances_resp and allowances_resp:
+
             # Process token balances and allowances
             token_balances = token_balances_resp.get("balances", {})
             allowance_data = {}
