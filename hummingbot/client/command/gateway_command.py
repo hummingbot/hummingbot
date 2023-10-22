@@ -399,9 +399,7 @@ class GatewayCommand(GatewayChainApiManager):
         wallet_address: str = response["address"]
         return wallet_address, additional_prompt_values
 
-    async def get_balances(
-        self  # type: HummingbotApplication
-    ):
+    async def get_balances(self):
         # Load gateway connections from settings
         gateway_connections: List[Dict[str, str]] = GatewayConnectionSetting.load()
 
@@ -413,77 +411,86 @@ class GatewayCommand(GatewayChainApiManager):
         # Notify that gateway balances are being updated
         self.notify("Updating gateway balances, please wait...")
 
-        # Dictionary to store connector tokens for each unique chain, network, and wallet address combination
-        chain_network_address_to_connector_tokens = {}
+        # wait for balances and allowance for all gateway connection
+        result = await self.gather_all_bal_allowances(gateway_connections)
+        return result
+
+    async def gather_all_bal_allowances(self, gateway_connections: List[Dict[str, str]]):
         tasks = []
+        # Adjust the concurrency limit as per your API limits
+        semaphore = asyncio.Semaphore(10)
 
-        # Iterate through gateway connections and process results asynchronously
+        async def process_gather_result(conf):
+            async with semaphore:
+                chain, network, wallet_address = conf["chain"], conf["network"], conf["wallet_address"]
+                tokens_str = conf.get('tokens', '')
+                connector = conf.get('connector', '')
+                tokens = [token.strip() for token in tokens_str.split(',')] if tokens_str else []
+                await self.process_allow_balance(chain, network, wallet_address, connector, tokens)
+
         for conf in gateway_connections:
-            chain, network, wallet_address = conf["chain"], conf["network"], conf["wallet_address"]
-            tokens_str = conf.get('tokens', '')
-            connector = conf.get('connector', '')
-            tokens = [token.strip() for token in tokens_str.split(',')] if tokens_str else []
+            tasks.append(process_gather_result(conf))
 
-            # Store connector tokens based on unique chain, network, and wallet address
-            if (chain, network, wallet_address) not in chain_network_address_to_connector_tokens:
-                chain_network_address_to_connector_tokens[(chain, network, wallet_address)] = {connector: tokens}
-            else:
-                chain_network_address_to_connector_tokens[(chain, network, wallet_address)][connector] = tokens
-
-            # Add asynchronous tasks to the tasks list for processing results
-            tasks.append(self.process_all_results(chain, network, wallet_address, connector, tokens))
-
-        # Execute tasks concurrently and wait for completion
         await asyncio.gather(*tasks)
 
-    async def process_all_results(self, chain: str, network: str, wallet_address: str, connector: str, tokens: list[str]):
-        # Fetch all tokens for the given chain, network, and connector
+    async def process_allow_balance(
+            self,   # type: HummingbotApplication
+            chain: str,
+            network: str,
+            wallet_address: str,
+            connector: str,
+            tokens: List[str]):
         chain_network_address = (chain, network, wallet_address)
         connector_tokens = {connector: tokens}
         all_tokens = self.get_all_tokens(chain_network_address, connector_tokens)
 
-        # Fetch token balances and allowances asynchronously
-        token_balances_resp, allowances_resp = await self.get_token_balances_and_allowances(chain_network_address, connector_tokens, connector)
+        try:
+            token_balances_resp, allowances_resp = await self.get_token_balances_and_allowances(chain_network_address, connector_tokens, connector)
+        except Exception as e:
+            self.notify(f"Error occurred for {chain_network_address}")
+            self.logger().info(f"Error occurred for {chain_network_address}: {e}")
+            return
 
-        # Process token balances and allowances
-        token_balances = token_balances_resp.get("balances", {})
-        allowance_data = {}
-        for token, amount in allowances_resp["approvals"].items():
-            allowance_data[token] = Decimal(str(amount))
+        if token_balances_resp and allowances_resp:
+            print(f"{token_balances_resp} allowance: {allowances_resp}")
+            # Process token balances and allowances
+            token_balances = token_balances_resp.get("balances", {})
+            allowance_data = {}
+            for token, amount in allowances_resp["approvals"].items():
+                allowance_data[token] = Decimal(str(amount))
 
-        # Format balances and allowances as strings and display
-        balances: List[str] = [str(round(Decimal(token_balances.get(token, "0")), 4)) for token in all_tokens]
-        allowances: List[str] = [str(round(Decimal(allowance_data.get(token, "0")), 4)) for token in all_tokens]
-        await asyncio.sleep(0.5)
+            # Format balances and allowances as strings and display
+            balances: List[str] = [str(round(Decimal(token_balances.get(token, "0")), 4)) for token in all_tokens]
+            allowances: List[str] = [str(round(Decimal(allowance_data.get(token, "0")), 4)) for token in all_tokens]
 
-        # Display balances and allowances
-        self.display_bal(chain_network_address, all_tokens, balances, allowances)
-
-    def get_all_tokens(self, chain_network_address: Tuple[str, str, str], connector_tokens: Dict[str, str]):
-        # Get all unique tokens for the given chain, network, and connector
-        all_tokens: List[str] = list(set(itertools.chain.from_iterable(connector_tokens.values())))
-        native_token: str = native_tokens.get(chain_network_address[0], '')
-
-        # Include native token in the list if available
-        if native_token:
-            all_tokens.append(native_token)
-        return all_tokens
+            # Display balances and allowances
+            self.display_bal(chain_network_address, all_tokens, balances, allowances)
 
     async def get_token_balances_and_allowances(self, chain_network_address, connector_tokens, connector):
-        # Fetch token balances and allowances asynchronously
         all_tokens = self.get_all_tokens(chain_network_address, connector_tokens)
         gateway_instance = self._get_gateway_instance()
         network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
         return await self.fetch_bal_allowance(chain_network_address, connector, all_tokens, gateway_instance, network_timeout)
 
+    def get_all_tokens(
+            self,  # type: HummingbotApplication
+            chain_network_address: Tuple[str, str, str],
+            connector_tokens: Dict[str, str]):
+
+        all_tokens: List[str] = list(set(itertools.chain.from_iterable(connector_tokens.values())))
+        native_token: str = native_tokens.get(chain_network_address[0], '')
+        if native_token:
+            all_tokens.append(native_token)
+        return all_tokens
+
     async def fetch_bal_allowance(
             self,
             chain_network_address: Tuple[str, str, str],
-            connector: str, all_tokens: List[str],
+            connector: str,
+            all_tokens: List[str],
             gateway_instance: GatewayHttpClient,
             network_timeout: float):
         try:
-            # Fetch token balances and allowances
             token_balances_resp = await asyncio.wait_for(
                 gateway_instance.get_balances(*chain_network_address, all_tokens), network_timeout
             )
@@ -492,9 +499,7 @@ class GatewayCommand(GatewayChainApiManager):
             )
             return token_balances_resp, allowances_resp
         except asyncio.TimeoutError:
-            # Handle error
-            self.notify("\nAn error prevented token balances and allowances from updating. See logs for more details.")
-            raise
+            raise TimeoutError(f"A network error prevented the balances to update {chain_network_address}. See logs for more details.")
 
     def display_bal(
             self,  # type: HummingbotApplication
@@ -513,14 +518,13 @@ class GatewayCommand(GatewayChainApiManager):
 
         # Create the DataFrame and display it
         balances_allowances_df: pd.DataFrame = pd.DataFrame(data=data, columns=columns)
+
+        if balances_allowances_df.empty:
+            self.notify("You have no balance on this exchange.")
         self.notify(balances_allowances_df.to_string(index=False))
 
     async def _get_gateway_balance(self):
-        try:
-            all_balances = await self.get_balances()
-        except Exception:
-            self.notify("An error occurred while fetching all balances.")
-            raise
+        all_balances = await self.get_balances()
         return all_balances
 
     async def _show_gateway_connector_tokens(
