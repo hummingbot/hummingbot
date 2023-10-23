@@ -932,6 +932,13 @@ class ClientConfigMap(BaseClientModel):
             prompt=lambda cm: "Instance UID of the bot",
         ),
     )
+    fetch_pairs_from_all_exchanges: bool = Field(
+        default=False,
+        description="Fetch trading pairs from all exchanges if True, otherwise fetch only from connected exchanges.",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Would you like to fetch from all exchanges? (True/False)",
+        ),
+    )
     log_level: str = Field(default="INFO")
     debug_console: bool = Field(default=False)
     strategy_report_interval: float = Field(default=900)
@@ -1144,7 +1151,7 @@ class ClientConfigMap(BaseClientModel):
             sub_model = TELEGRAM_MODES[v].construct()
         return sub_model
 
-    @validator("send_error_logs", pre=True)
+    @validator("send_error_logs", "fetch_pairs_from_all_exchanges", pre=True)
     def validate_bool(cls, v: str):
         """Used for client-friendly error output."""
         if isinstance(v, str):

@@ -9,7 +9,6 @@ connector_status = {
     'bitfinex': 'bronze',
     'bitget_perpetual': 'bronze',
     'bitmart': 'bronze',
-    'bittrex': 'bronze',
     'bitmex': 'bronze',
     'bitmex_perpetual': 'bronze',
     'bitmex_testnet': 'bronze',
