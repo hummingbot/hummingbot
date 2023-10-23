@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 connector_status = {
-    'altmarkets': 'bronze',
     'ascend_ex': 'silver',
     'binance': 'gold',
     'binance_perpetual': 'gold',
@@ -10,7 +9,6 @@ connector_status = {
     'bitfinex': 'bronze',
     'bitget_perpetual': 'bronze',
     'bitmart': 'bronze',
-    'bittrex': 'bronze',
     'bitmex': 'bronze',
     'bitmex_perpetual': 'bronze',
     'bitmex_testnet': 'bronze',
@@ -51,7 +49,6 @@ connector_status = {
     'xswap': 'bronze',
     'dexalot': 'silver',
     'kucoin_perpetual': 'silver',
-    'kucoin_perpetual_testnet': 'silver',
     'injective_perpetual': 'bronze',
     'bit_com_perpetual': 'bronze',
     'bit_com_perpetual_testnet': 'bronze',
