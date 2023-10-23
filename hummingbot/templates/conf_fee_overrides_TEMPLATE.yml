@@ -68,13 +68,7 @@ bitmart_maker_percent_fee:
 bitmart_percent_fee_token:
 bitmart_taker_fixed_fees:
 bitmart_taker_percent_fee:
-bittrex_buy_percent_fee_deducted_from_returns:
-bittrex_maker_fixed_fees:
-bittrex_maker_percent_fee:
-bittrex_percent_fee_token:
-bittrex_taker_fixed_fees:
-bittrex_taker_percent_fee:
-btc_markets_percent_fee_token:  
+btc_markets_percent_fee_token:
 btc_markets_maker_percent_fee:  
 btc_markets_taker_percent_fee:  
 btc_markets_buy_percent_fee_deducted_from_returns: 
