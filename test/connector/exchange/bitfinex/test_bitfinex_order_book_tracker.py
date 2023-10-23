@@ -4,7 +4,7 @@ import math
 import sys
 import time
 import unittest
-from typing import Dict, Optional, List
+from typing import Dict, List, Optional
 
 from hummingbot.connector.exchange.bitfinex.bitfinex_order_book_tracker import BitfinexOrderBookTracker
 from hummingbot.core.data_type.common import TradeType
@@ -93,13 +93,13 @@ class BitfinexOrderBookTrackerUnitTest(unittest.TestCase):
         """
         self.run_parallel(self.event_logger.wait_for(OrderBookTradeEvent))
         for ob_trade_event in self.event_logger.event_log:
-            self.assertTrue(type(ob_trade_event) == OrderBookTradeEvent)
             self.assertTrue(ob_trade_event.trading_pair in self.trading_pairs)
-            self.assertTrue(type(ob_trade_event.timestamp) in [float, int])
-            self.assertTrue(type(ob_trade_event.amount) == float)
-            self.assertTrue(type(ob_trade_event.price) == float)
-            self.assertTrue(type(ob_trade_event.type) == TradeType)
-            # Bittrex datetime is in epoch milliseconds
+            self.assertTrue(isinstance(ob_trade_event, OrderBookTradeEvent))
+            self.assertTrue(isinstance(ob_trade_event.timestamp, (int, float)))
+            self.assertTrue(isinstance(ob_trade_event.amount, float))
+            self.assertTrue(isinstance(ob_trade_event.price, float))
+            self.assertTrue(isinstance(ob_trade_event.type, TradeType))
+
             self.assertTrue(math.ceil(math.log10(ob_trade_event.timestamp)) == 10)
             self.assertTrue(ob_trade_event.amount > 0)
             self.assertTrue(ob_trade_event.price > 0)
