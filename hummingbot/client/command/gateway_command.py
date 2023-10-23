@@ -448,7 +448,7 @@ class GatewayCommand(GatewayChainApiManager):
         try:
             token_balances_resp, allowances_resp = await self.get_token_balances_and_allowances(chain_network_address, connector_tokens, connector)
         except Exception as e:
-            self.notify(f"Error occurred for fetching balance for {chain_network_address[0]}_{chain_network_address[1]}")
+            self.notify(f"Error occurred while fetching balance for {chain_network_address[0]}_{chain_network_address[1]}")
             self.logger().info(f"Error occurred for {chain_network_address}: {e}")
             return
 
