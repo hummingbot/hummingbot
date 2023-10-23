@@ -11,6 +11,7 @@ from hummingbot.client.command.gateway_api_manager import GatewayChainApiManager
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import refresh_trade_fees_config
 from hummingbot.client.config.security import Security
+from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.client.settings import AllConnectorSettings, GatewayConnectionSetting
 from hummingbot.client.ui.completer import load_completer
 from hummingbot.client.ui.interface_utils import format_df_for_printout
@@ -451,12 +452,11 @@ class GatewayCommand(GatewayChainApiManager):
             token_balances = token_balances_resp.get("balances", {})
             allowance_data = {}
             for token, amount in allowances_resp["approvals"].items():
-                allowance_data[token] = Decimal(str(amount))
+                allowance_data[token] = amount
 
-        # Format balances and allowances as strings and display
-        balances: List[str] = [str(round(Decimal(token_balances.get(token, "0")), 4)) for token in all_tokens]
-        allowances: List[str] = [str(round(Decimal(allowance_data.get(token, "0")), 4)) for token in all_tokens]
-        await asyncio.sleep(0.5)
+            # Format balances and allowances as strings and display
+            balances: List[str] = [str(PerformanceMetrics.smart_round(Decimal(token_balances.get(token, "0")), 4)) for token in all_tokens]
+            allowances: List[str] = [str(PerformanceMetrics.smart_round(Decimal(allowance_data.get(token, "0")), 4)) for token in all_tokens]
 
         # Display balances and allowances
         self.display_bal(chain_network_address, all_tokens, balances, allowances)
