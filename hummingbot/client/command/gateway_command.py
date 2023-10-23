@@ -2,6 +2,7 @@
 import asyncio
 import itertools
 import time
+from asyncio import Semaphore
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
@@ -377,7 +378,6 @@ class GatewayCommand(GatewayChainApiManager):
             return
 
         additional_prompt_values = {}
-
         if chain == "near":
             wallet_account_id: str = await self.app.prompt(
                 prompt=f"Enter your {chain}-{network} account Id >>> ",
@@ -408,30 +408,25 @@ class GatewayCommand(GatewayChainApiManager):
         if not gateway_connections:
             self.notify("No existing gateway connection.\n")
             return
-
-        # Notify that gateway balances are being updated
         self.notify("Updating gateway balances, please wait...")
-
         # wait for balances and allowance for all gateway connection
         result = await self.gather_all_bal_allowances(gateway_connections)
         return result
 
+    async def process_gather_result(self, conf: Dict[str, str], semaphore: Semaphore):
+        async with semaphore:
+            chain, network, wallet_address = conf["chain"], conf["network"], conf["wallet_address"]
+            tokens_str = conf.get('tokens', '')
+            connector = conf.get('connector', '')
+            tokens = [token.strip() for token in tokens_str.split(',')] if tokens_str else []
+            await self.process_allow_balance(chain, network, wallet_address, connector, tokens)
+
     async def gather_all_bal_allowances(self, gateway_connections: List[Dict[str, str]]):
         tasks = []
         # Adjust the concurrency limit as per your API limits
-        semaphore = asyncio.Semaphore(10)
-
-        async def process_gather_result(conf):
-            async with semaphore:
-                chain, network, wallet_address = conf["chain"], conf["network"], conf["wallet_address"]
-                tokens_str = conf.get('tokens', '')
-                connector = conf.get('connector', '')
-                tokens = [token.strip() for token in tokens_str.split(',')] if tokens_str else []
-                await self.process_allow_balance(chain, network, wallet_address, connector, tokens)
-
+        semaphore = asyncio.Semaphore(30)
         for conf in gateway_connections:
-            tasks.append(process_gather_result(conf))
-
+            tasks.append(self.process_gather_result(conf, semaphore))
         await asyncio.gather(*tasks)
 
     async def process_allow_balance(
@@ -449,14 +444,13 @@ class GatewayCommand(GatewayChainApiManager):
             token_balances_resp, allowances_resp = await self.get_token_balances_and_allowances(chain_network_address, connector_tokens, connector)
         except Exception as e:
             self.notify(f"Error occurred while fetching balance for {chain_network_address[0]}_{chain_network_address[1]}")
-            self.logger().info(f"Error occurred for {chain_network_address}: {e}")
+            self.logger().info(f"Error fetching balances and approval for {chain_network_address}: {e}")
             return
 
         if token_balances_resp and allowances_resp:
-
             # Process token balances and allowances
             token_balances = token_balances_resp.get("balances", {})
-            allowance_data = {}
+            allowance_data: Dict[str, Any] = {}
             for token, amount in allowances_resp["approvals"].items():
                 allowance_data[token] = amount
 
@@ -523,9 +517,6 @@ class GatewayCommand(GatewayChainApiManager):
 
         # Create the DataFrame and display it
         balances_allowances_df: pd.DataFrame = pd.DataFrame(data=data, columns=columns)
-
-        if balances_allowances_df.empty:
-            self.notify("You have no balance on this exchange.")
         self.notify(balances_allowances_df.to_string(index=False))
 
     async def _get_gateway_balance(self):
