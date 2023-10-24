@@ -25,6 +25,7 @@ from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_tra
     get_timestamp_from_exchange_time,
     set_exchange_time_from_timestamp,
 )
+from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
@@ -1947,3 +1948,30 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
                 OrderType.LIMIT,
                 Decimal("7000")
             )
+
+    @patch.object(ExchangePyBase, "_api_post")
+    async def test_retry_on_server_issue(self, mock_super):
+        mock_super._api_post.return_value = {"status": 502}
+
+        response = await self.exchange._api_post("some_path")
+
+        self.assertEqual(response, {"success": False, "failure_reason": "MAX_RETRIES_REACHED"})
+        self.exchange.logger.error.assert_called()
+
+    @patch.object(ExchangePyBase, "_api_post")
+    async def test_no_retry_on_success(self, mock_super):
+        mock_super._api_post.return_value = {"status": 200}
+
+        response = await self.exchange._api_post("some_path")
+
+        self.assertEqual(response, {"status": 200})
+        self.exchange.logger.error.assert_not_called()
+
+    @patch.object(ExchangePyBase, "_api_post")
+    async def test_api_get_retry_on_server_issue(self, mock_super):
+        mock_super._api_get.return_value = {"status": 502}
+
+        response = await self.exchange._api_get("some_path")
+
+        self.assertEqual(response, {"success": False, "failure_reason": "MAX_RETRIES_REACHED"})
+        self.exchange.logger.error.assert_called()

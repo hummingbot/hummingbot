@@ -47,7 +47,8 @@ async def coinbase_advanced_trade_subscription_builder(
     :param pair: The trading pair to subscribe to.
     :param pair_to_symbol: The function to convert trading pair to symbol.
     :return: The subscription message.
-
+    """
+    """
     https://docs.cloud.coinbase.com/advanced-trade-api/docs/ws-overview
     {
         "type": "subscribe",
@@ -75,12 +76,19 @@ async def coinbase_advanced_trade_subscription_builder(
     }
 
 
+# --- Websocket message parsers ---
+
 def sequence_reader(
         message: Dict[str, Any],
         *,
         logger: HummingbotLogger | logging.Logger | None = None,
 ) -> int:
     """Extract the sequence number from the message."""
+    """
+    {'channel': 'subscriptions', 'client_id': '', 'timestamp': '2023-10-14T23:34:47.866340883Z', 'sequence_num': 0, 'events': [{'subscriptions': {'heartbeats': ['heartbeats']}}]}
+    {'channel': 'user', 'client_id': '', 'timestamp': '2023-10-14T23:34:48.160207575Z', 'sequence_num': 1, 'events': [{'type': 'snapshot', 'orders': []}]}
+    {'channel': 'subscriptions', 'client_id': '', 'timestamp': '2023-10-14T23:34:48.160220355Z', 'sequence_num': 2, 'events': [{'subscriptions': {'heartbeats': ['heartbeats'], 'user': ['df59559b-af66-5c60-9cbc-b497d26c6608']}}]}
+    """
     # sequence_num = 0: subscriptions message for heartbeats
     # sequence_num = 1: user snapshot message
     # sequence_num = 2: subscriptions message for user
@@ -116,12 +124,11 @@ def timestamp_and_filter(
     }
     """
     if event_message["channel"] == "user":
-        # logging.debug(f"      DEBUG: Filter {event_message}")
         if isinstance(event_message["timestamp"], str):
             event_message["timestamp"] = get_timestamp_from_exchange_time(event_message["timestamp"], "s")
         yield event_message
-    # else:
-    #     logging.debug(f"*** DEBUG: Filtering message {event_message} {event_message['channel']} not user")
+    elif event_message["channel"] not in ["subscriptions", "heartbeats"]:
+        logging.debug(f"Filtering message {event_message} {event_message['channel']} not user")
 
 
 async def message_to_cumulative_update(
@@ -215,7 +222,6 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
     """
     UserStreamTrackerDataSource implementation for Coinbase Advanced Trade API.
     """
-
     _logger: HummingbotLogger | logging.Logger | None = None
 
     @classmethod
@@ -226,6 +232,7 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         return cls._logger
 
     __slots__ = (
+        "_sequences",
         "_stream_to_queue",
     )
 

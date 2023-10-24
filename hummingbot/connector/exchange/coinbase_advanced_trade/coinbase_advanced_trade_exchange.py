@@ -36,7 +36,11 @@ from .coinbase_advanced_trade_api_user_stream_data_source import (
 from .coinbase_advanced_trade_auth import CoinbaseAdvancedTradeAuth
 from .coinbase_advanced_trade_order_book import CoinbaseAdvancedTradeOrderBook
 from .coinbase_advanced_trade_utils import DEFAULT_FEES
-from .coinbase_advanced_trade_web_utils import get_timestamp_from_exchange_time, set_exchange_time_from_timestamp
+from .coinbase_advanced_trade_web_utils import (
+    get_timestamp_from_exchange_time,
+    retry_async_api_call,
+    set_exchange_time_from_timestamp,
+)
 
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -322,7 +326,6 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
             path_url=constants.ORDER_EP,
             data=api_params,
             is_auth_required=True,
-            # return_err=True,
         )
 
         if order_result["success"]:
@@ -331,9 +334,14 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
             return o_id, transact_time
 
         elif "INSUFFICIENT_FUND" in order_result['error_response']["error"]:
-            self.logger().warning(
+            self.logger().error(
                 f"{self.name} reports insufficient funds for {side_str} {amount_str} {symbol} @ {price_str}")
-            raise ValueError(f"Failed to place order on {self.name}. Error: {order_result['error_response']}")
+            raise ValueError
+
+        elif "INVALID_LIMIT_PRICE_POST_ONLY" in order_result['error_response']["error"]:
+            self.logger().error(
+                f"{self.name} cannot place {type_str} order {side_str} {symbol} @ {price_str}. Likely not POST-able.")
+            raise ValueError
 
         else:
             raise ValueError(f"Failed to place order on {self.name}. Error: {order_result['error_response']}")
@@ -1005,6 +1013,14 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
                 trade_updates.append(trade_update)
 
         return trade_updates
+
+    @retry_async_api_call()
+    async def _api_post(self, *args, **kwargs):
+        return await super()._api_post(*args, **kwargs)
+
+    @retry_async_api_call()
+    async def _api_get(self, *args, **kwargs):
+        return await super()._api_get(*args, **kwargs)
 
     async def _make_network_check_request(self):
         await self._api_get(path_url=constants.SERVER_TIME_EP, is_auth_required=False)

@@ -1,3 +1,5 @@
+import asyncio
+import functools
 import re
 from typing import Callable, Dict, NamedTuple, Optional, Tuple
 
@@ -178,3 +180,40 @@ class CoinbaseAdvancedTradeWSSMessage(NamedTuple):
     timestamp: str
     sequence_num: int
     events: Tuple
+
+
+class CoinbaseAdvancedTradeServerIssueException(Exception):
+    """
+    Exception raised when the Coinbase Advanced Trade server returns an error
+    """
+    pass
+
+
+def retry_async_api_call(max_retries=5, initial_sleep=0.25, max_sleep=2.0):
+    def decorator(f):
+        @functools.wraps(f)
+        async def wrapper(*args, **kwargs):
+            print(f"Calling {f.__name__}")
+            assert any(p in f.__name__ for p in ['api_post', 'api_get']), f"{f.__name__} is not an API call"
+            retries = 0
+            sleep_time = initial_sleep
+
+            while retries < max_retries:
+                try:
+                    response = await f(*args, **kwargs)
+                    if response.get("status") >= 500:
+                        raise CoinbaseAdvancedTradeServerIssueException
+                    return response
+                except CoinbaseAdvancedTradeServerIssueException as e:
+                    retries += 1
+                    if retries >= max_retries:
+                        args[0].logger().error(f"Max retries reached for function {f.__name__}. Error: {e}")
+                        return [{"success": False, "failure_reason": "MAX_RETRIES_REACHED"}]
+
+                    args[0].logger().error(f"Error in function {f.__name__}: {e}. Retrying...")
+                    await asyncio.sleep(sleep_time)
+                    sleep_time = min(sleep_time * 2, max_sleep)  # Exponential backoff, capped at max_sleep
+
+        return wrapper
+
+    return decorator

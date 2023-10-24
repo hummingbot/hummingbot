@@ -13,6 +13,7 @@ from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_tra
     get_timestamp_from_exchange_time,
     private_rest_url,
     public_rest_url,
+    retry_async_api_call,
     set_exchange_time_from_timestamp,
 )
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -117,8 +118,10 @@ class CoinbaseAdvancedTradeUtilTestCases(IsolatedAsyncioWrapperTestCase):
 
         self.assertEqual(get_timestamp_from_exchange_time('2023-05-11T12:34:56.789012+00:00', 's'), expected_seconds)
 
-        self.assertEqual(get_timestamp_from_exchange_time('2023-05-11T12:34:56.789012+00:01', 's'), expected_seconds - 60)
-        self.assertEqual(get_timestamp_from_exchange_time('2023-05-11T12:34:56.789012-01:00', 's'), expected_seconds + 3600)
+        self.assertEqual(get_timestamp_from_exchange_time('2023-05-11T12:34:56.789012+00:01', 's'),
+                         expected_seconds - 60)
+        self.assertEqual(get_timestamp_from_exchange_time('2023-05-11T12:34:56.789012-01:00', 's'),
+                         expected_seconds + 3600)
 
         # Test with milliseconds
         expected_milliseconds = expected_seconds * 1000
@@ -182,6 +185,60 @@ class CoinbaseAdvancedTradeUtilTestCases(IsolatedAsyncioWrapperTestCase):
         # Test with a variety of timestamps and units
         self.assertEqual(set_exchange_time_from_timestamp(1683808496.789012, "s"), '2023-05-11T12:34:56.789012Z')
         self.assertEqual(set_exchange_time_from_timestamp(1683808496789.012, "ms"), '2023-05-11T12:34:56.789012Z')
+
+
+class TestRetryDecorator(IsolatedAsyncioWrapperTestCase):
+    async def test_retry_on_server_issue(self):
+        mock_logger = AsyncMock()
+        mock_logger.error = AsyncMock()
+
+        @retry_async_api_call(max_retries=2)
+        async def api_post(*args, **kwargs):
+            return {"status": 500}
+
+        class MockClass:
+            def logger(self):
+                return mock_logger
+
+        mock_instance = MockClass()
+
+        result = await api_post(mock_instance)
+        self.assertEqual(result, [{"success": False, "failure_reason": "MAX_RETRIES_REACHED"}])
+        self.assertEqual(mock_logger.error.call_count, 2)
+
+    async def test_no_retry_on_success(self):
+        mock_logger = AsyncMock()
+        mock_logger.error = AsyncMock()
+
+        @retry_async_api_call(max_retries=2)
+        async def api_post(self, *args, **kwargs):
+            return {"status": 200}
+
+        class MockClass:
+            def logger(self):
+                return mock_logger
+
+        mock_instance = MockClass()
+
+        result = await api_post(mock_instance)
+        self.assertEqual(result, {"status": 200})
+        mock_logger.error.assert_not_called()
+
+    async def test_invalid_function_name(self):
+        mock_logger = AsyncMock()
+        mock_logger.error = AsyncMock()
+        with self.assertRaises(AssertionError):
+            @retry_async_api_call(max_retries=2)
+            async def not_an_api_call(*args, **kwargs):
+                return {"status": 200}
+
+            class MockClass:
+                def logger(self):
+                    return mock_logger
+
+            mock_instance = MockClass()
+
+            await not_an_api_call(mock_instance)
 
 
 if __name__ == "__main__":
