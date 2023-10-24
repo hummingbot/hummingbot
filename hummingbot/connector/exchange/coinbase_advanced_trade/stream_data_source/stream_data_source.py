@@ -226,7 +226,8 @@ class StreamDataSource(AutoStreamBlock[WSResponsePtl, T], Generic[T]):
         channel: str = channel or self._channel
 
         if self._stream_state == StreamState.SUBSCRIBED:
-            # self.logger().warning(f"Attempted to subscribe to {channel}/{self._pair} stream while already subscribed.")
+            # self.logger().warning(f"Attempted to subscribe to {channel}/{self._pair} stream while already
+            # subscribed.")
             return
 
         if self._task_state != TaskState.STARTED and channel != "heartbeats":
@@ -261,7 +262,7 @@ class StreamDataSource(AutoStreamBlock[WSResponsePtl, T], Generic[T]):
 
     async def unsubscribe(self, *, channel: str | None = None, set_state: bool = True) -> None:
         """
-        Unsubscribes to the stream with a unsubscribe data.
+        Unsubscribes to the stream with an unsubscribe data.
         When no data is provided, the default subscription data
 
         :param channel: Channel to unsubscribe from.
@@ -270,7 +271,8 @@ class StreamDataSource(AutoStreamBlock[WSResponsePtl, T], Generic[T]):
         channel: str = channel or self._channel
 
         if self._stream_state != StreamState.SUBSCRIBED:
-            # self.logger().warning(f"Attempted to unsubscribe from {channel}/{self._pair} stream while not subscribed.")
+            # self.logger().warning(f"Attempted to unsubscribe from {channel}/{self._pair} stream while not
+            # subscribed.")
             return
 
         subscription_builder = functools.partial(
@@ -293,7 +295,7 @@ class StreamDataSource(AutoStreamBlock[WSResponsePtl, T], Generic[T]):
         Sends a payload to the Stream.
 
         :param subscription_builder: The subscription builder to use
-        :type subscription_builder: functools.partial[SubscriptionBuilderT]
+        :type subscription_builder: partial[SubscriptionBuilderT]
         :return: None
         """
         async with self._subscription_lock:
@@ -316,7 +318,7 @@ class StreamDataSource(AutoStreamBlock[WSResponsePtl, T], Generic[T]):
                 )
                 raise StreamDataSourceError(
                     "Connection reset error occurred sending payload"
-                )
+                ) from e
 
             except Exception as e:
                 await self.close_connection()
