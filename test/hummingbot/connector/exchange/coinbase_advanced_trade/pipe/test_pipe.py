@@ -277,7 +277,7 @@ class TestPipeAsyncIterator(IsolatedAsyncioWrapperTestCase):
 
 
 class TestHandler(IsolatedAsyncioWrapperTestCase):
-    async def test_get_pipe_put_operation_for_handler(self):
+    async def test_get_pipe_put_operation_for_handler_no_condition(self):
         destination = AsyncMock()
 
         # Regular function
@@ -315,6 +315,78 @@ class TestHandler(IsolatedAsyncioWrapperTestCase):
         put_operation = _get_pipe_put_operation_for_handler(handler=handler4, destination=destination)
         await put_operation(5)
         assert destination.put.call_count == 5
+
+    async def test_handler_scenarios(self):
+        destination = AsyncMock()
+
+        def on_condition(x):
+            return x > 10
+
+        # When handler is None, no condition
+        destination.reset_mock()
+        put_operation = _get_pipe_put_operation_for_handler(handler=None, destination=destination)
+        await put_operation(5)
+        destination.put.assert_called()
+
+        # When handler is None, with condition
+        destination.reset_mock()
+        put_operation = _get_pipe_put_operation_for_handler(handler=None, destination=destination,
+                                                            on_condition=on_condition)
+        await put_operation(5)
+        destination.put.assert_not_called()
+
+        # When handler is not callable
+        with self.assertRaises(TypeError):
+            _get_pipe_put_operation_for_handler(handler=5, destination=destination)
+
+        # Regular function
+        def handler1(m):
+            return m * 2
+
+        destination.put.reset_mock()
+        put_operation = _get_pipe_put_operation_for_handler(handler=handler1, destination=destination)
+        await put_operation(5)
+        destination.put.assert_called_once_with(10)
+
+        # 4. Coroutine function
+        async def handler2(m):
+            return m * 3
+
+        destination.put.reset_mock()
+        put_operation = _get_pipe_put_operation_for_handler(handler=handler2, destination=destination)
+        await put_operation(5)
+        destination.put.assert_called_with(15)
+
+        # 5. Generator function
+        def handler3(m):
+            for i in range(m):
+                yield i
+
+        destination.reset_mock()
+        put_operation = _get_pipe_put_operation_for_handler(handler=handler3, destination=destination)
+        await put_operation(5)
+        self.assertEqual(destination.put.call_count, 5)
+
+        # 6. Async generator function
+        async def handler4(m):
+            for i in range(m):
+                yield i
+
+        destination.reset_mock()
+        put_operation = _get_pipe_put_operation_for_handler(handler=handler4, destination=destination)
+        await put_operation(5)
+        self.assertEqual(destination.put.call_count, 5)
+
+        # 7. on_condition returns True
+        put_operation = _get_pipe_put_operation_for_handler(handler=handler1, destination=destination,
+                                                            on_condition=on_condition)
+        await put_operation(6)  # 6 * 2 = 12 > 10
+        destination.put.assert_called_with(12)
+
+        # 8. on_condition returns False
+        destination.reset_mock()
+        await put_operation(4)  # 4 * 2 = 8 < 10
+        destination.put.assert_not_called()
 
 
 class TestGetPutOperationForHandler(IsolatedAsyncioWrapperTestCase):
@@ -552,30 +624,30 @@ class TestStreamToPipeConnector(IsolatedAsyncioWrapperTestCase):
         # Assert that the destination's stop method was called
         destination.stop.assert_not_called()
 
-# TODO: This may not be a valid/necessary test
-#    async def test_task_cancellation(self):
-#        class MockStream:
-#            async def iter_messages(self):
-#                yield 'message1'
-#                yield 'message2'
-#                raise asyncio.CancelledError
-#
-#        # Mock the source stream, handler, and destination pipe
-#        source = MockStream()
-#        handler = MagicMock(spec=HandlerT)
-#        destination = MagicMock(spec=PipePutPtl[Any])
-#
-#        # Define the behavior of the source and handler when they are called
-#        handler.side_effect = ['processed_message1', 'processed_message2']
-#
-#        # Create TaskManager with the function
-#        await stream_to_pipe_connector(source=source, handler=handler, destination=destination)
-#
-#        # Wait for the task to finish
-#        await asyncio.sleep(0.2)
-#
-#        # Assert that the destination's stop method was called
-#        destination.stop.assert_called_once()
+    # TODO: This may not be a valid/necessary test
+    #    async def test_task_cancellation(self):
+    #        class MockStream:
+    #            async def iter_messages(self):
+    #                yield 'message1'
+    #                yield 'message2'
+    #                raise asyncio.CancelledError
+    #
+    #        # Mock the source stream, handler, and destination pipe
+    #        source = MockStream()
+    #        handler = MagicMock(spec=HandlerT)
+    #        destination = MagicMock(spec=PipePutPtl[Any])
+    #
+    #        # Define the behavior of the source and handler when they are called
+    #        handler.side_effect = ['processed_message1', 'processed_message2']
+    #
+    #        # Create TaskManager with the function
+    #        await stream_to_pipe_connector(source=source, handler=handler, destination=destination)
+    #
+    #        # Wait for the task to finish
+    #        await asyncio.sleep(0.2)
+    #
+    #        # Assert that the destination's stop method was called
+    #        destination.stop.assert_called_once()
 
     async def test_unexpected_error(self):
         class MockStream:

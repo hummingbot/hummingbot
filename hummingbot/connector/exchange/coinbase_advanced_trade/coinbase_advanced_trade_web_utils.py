@@ -193,7 +193,6 @@ def retry_async_api_call(max_retries=5, initial_sleep=0.25, max_sleep=2.0):
     def decorator(f):
         @functools.wraps(f)
         async def wrapper(*args, **kwargs):
-            print(f"Calling {f.__name__}")
             assert any(p in f.__name__ for p in ['api_post', 'api_get']), f"{f.__name__} is not an API call"
             retries = 0
             sleep_time = initial_sleep
@@ -201,7 +200,8 @@ def retry_async_api_call(max_retries=5, initial_sleep=0.25, max_sleep=2.0):
             while retries < max_retries:
                 try:
                     response = await f(*args, **kwargs)
-                    if response.get("status") >= 500:
+                    status = response.get("status")
+                    if status and status >= 500:
                         raise CoinbaseAdvancedTradeServerIssueException
                     return response
                 except CoinbaseAdvancedTradeServerIssueException as e:
