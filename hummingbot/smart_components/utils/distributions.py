@@ -56,7 +56,7 @@ class Distributions:
 
     @classmethod
     def logarithmic(cls, n_levels: int, base: float = exp(1), scaling_factor: float = 1.0,
-                    initial_value: float = 0.4) -> List[Decimal]:
+                    start: float = 0.4) -> List[Decimal]:
         """
         Generate a logarithmic sequence of spreads.
 
@@ -69,7 +69,7 @@ class Distributions:
         Returns:
         List[Decimal]: A list containing the generated logarithmic sequence.
         """
-        translation = Decimal(initial_value) - Decimal(scaling_factor) * Decimal(log(2, base))
+        translation = Decimal(start) - Decimal(scaling_factor) * Decimal(log(2, base))
         return [Decimal(scaling_factor) * Decimal(log(i + 2, base)) + translation for i in range(n_levels)]
 
     @classmethod
