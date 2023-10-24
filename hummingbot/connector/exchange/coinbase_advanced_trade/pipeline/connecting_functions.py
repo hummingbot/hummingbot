@@ -1,7 +1,7 @@
 import asyncio
 import inspect
 import logging
-from typing import Any, AsyncGenerator, Awaitable, Callable, Coroutine, List
+from typing import Any, AsyncGenerator, Awaitable, Callable, Coroutine, Generator, List
 
 from ..pipe.data_types import FromTupleDataT
 from ..pipe.errors import PipeFullError
@@ -89,10 +89,10 @@ async def pipe_to_pipe_connector(
 
     while True:
         try:
-            message: FromDataT | Sentinel = await source.get()
+            msg: FromDataT | Sentinel = await source.get()
 
             # The source pipe was stopped and sent the SENTINEL
-            if message is SENTINEL:
+            if msg is SENTINEL:
                 # Stop the destination pipe in turn
                 await destination.stop()
                 source.task_done()
@@ -100,7 +100,7 @@ async def pipe_to_pipe_connector(
 
             # Raises PipeFullError if the destination pipe is full after wait/retries
             await put_operation(
-                message,
+                msg,
                 wait_time=wait_time,
                 max_retries=max_retries,
                 max_wait_time_per_retry=max_wait_time_per_retry)
@@ -155,13 +155,67 @@ async def multipipe_to_pipe_connector(
     :param logger: Optional logger for logging events and exceptions. If not provided, no logging will occur.
     """
     # Create a task for each source
-    tasks: List[Coroutine[None, None, Any]] = [
+    _tasks: Generator[Coroutine[None, None, Any]] = (
         pipe_to_pipe_connector(source=source, handler=handler, destination=destination, logger=logger)
         for source in sources
-    ]
+    )
 
     # Run all tasks concurrently
-    await asyncio.gather(*tasks)
+    await asyncio.gather(*_tasks)
+
+
+# async def pipe_to_split_destinations(
+#        *,
+#        source: PipeGetPtl[FromDataT],
+#        handler: HandlerT | None,
+#        destinations: List[Tuple[Callable[[ToDataT], bool], PipePutPtl[ToDataT]]],
+#        logger: logging.Logger | None = None) -> None:
+#    """
+#    Distributes items conditionally from a source pipe to multiple destination pipes
+#    using a handler function and a validating function for each destination.
+#
+#    The handler function can be a synchronous function, an asynchronous function,
+#    a generator function, or an asynchronous generator function.
+#
+#    If the handler is a generator or async generator, it is expected to yield
+#    items that will be put into the destination pipes.
+#
+#    If the handler is a function or async function, it is expected to return
+#    a single item that will be put into the destination pipes.
+#
+#    If the task is cancelled, it will stop the destination pipes.
+#
+#    :param source: The source pipe to get items from.
+#    :param handler: The handler functions to process items.
+#    :param destinations: List of tuples (validator, destination).
+#    :param logger: Optional logger for logging events and exceptions. If not provided, no logging will occur.
+#    """
+#    put_operations: List[PutOperationPtl[FromDataT]] = [_get_pipe_put_operation_for_handler(
+#        handler=handler,
+#        destination=destination) for destination in destinations]
+#    else:
+#        if logger:
+#            logger.error("The handlers must match the number of destinations, or there must be only one handler.")
+#        raise ValueError("The handlers must match the number of destinations, or there must be only one handler.")
+#
+#    while True:
+#        # Get the next message from the source pipe
+#        message: FromDataT = await source.get()
+#
+#        # The source pipe was stopped and sent the SENTINEL
+#        if message is SENTINEL:
+#            # Stop the destination pipes
+#            tasks: List[Awaitable[None]] = [destination.stop() for destination in destinations]
+#            await asyncio.gather(*tasks)
+#            source.task_done()
+#            break
+#
+#        # Create a task for each destination pipe
+#        tasks: List[Awaitable[None]] = [put_operation(message) for put_operation in put_operations]
+#        source.task_done()
+#
+#        # Run all tasks concurrently
+#        await asyncio.gather(*tasks)
 
 
 async def pipe_to_multipipe_distributor(
@@ -210,13 +264,13 @@ async def pipe_to_multipipe_distributor(
         # The source pipe was stopped and sent the SENTINEL
         if message is SENTINEL:
             # Stop the destination pipes
-            tasks: List[Awaitable[None]] = [destination.stop() for destination in destinations]
+            tasks: Generator[Coroutine[Any, Any, None]] = (destination.stop() for destination in destinations)
             await asyncio.gather(*tasks)
             source.task_done()
             break
 
         # Create a task for each destination pipe
-        tasks: List[Awaitable[None]] = [put_operation(message) for put_operation in put_operations]
+        tasks: Generator[Coroutine[Any, Any, None]] = (put_operation(message) for put_operation in put_operations)
         source.task_done()
 
         # Run all tasks concurrently
@@ -355,6 +409,7 @@ def _get_pipe_put_operation_for_handler(
         *,
         handler: HandlerT,
         destination: PipePutPtl[ToDataT],
+        on_condition: Callable[[FromDataT | ToDataT], bool] | None = None
 ) -> PutOperationPtl[FromDataT]:
     """
     Returns an awaitable function that applies the handler to a message and puts
@@ -368,13 +423,18 @@ def _get_pipe_put_operation_for_handler(
                  This can be a regular function, a coroutine function,
                  a generator function, or an async generator function.
     :param destination: The destination pipe where the results will be put.
+    :param on_condition: An optional function that validates whether the result should be put into the destination.
     :returns: An awaitable function that takes a message, applies the handler to it,
               and puts the result into the destination pipe.
     """
 
+    async def put_if_condition_met(item: FromDataT | ToDataT, **kwargs: Any):
+        if on_condition is None or on_condition(item):
+            await destination.put(item, **kwargs)
+
     if handler is None:
         async def put_operation(m: FromDataT, **kwargs: Any):
-            await destination.put(m, **kwargs)
+            await put_if_condition_met(m, **kwargs)
 
         return put_operation
 
@@ -390,16 +450,20 @@ def _get_pipe_put_operation_for_handler(
     if is_generator:
         async def put_operation(m: FromDataT, **kwargs: Any):
             for item in handler(m):
-                await destination.put(item, **kwargs)
+                await put_if_condition_met(item, **kwargs)
+
     elif is_coroutine:
         async def put_operation(m: FromDataT, **kwargs: Any):
-            await destination.put(await handler(m), **kwargs)
+            item: ToDataT = await handler(m)
+            await put_if_condition_met(item, **kwargs)
+
     elif is_async_generator:
         async def put_operation(m: FromDataT, **kwargs: Any):
             async for item in handler(m):
-                await destination.put(item, **kwargs)
+                await put_if_condition_met(item, **kwargs)
     else:
         async def put_operation(m: FromDataT, **kwargs: Any):
-            await destination.put(handler(m), **kwargs)
+            item: ToDataT = handler(m)
+            await put_if_condition_met(item, **kwargs)
 
     return put_operation
