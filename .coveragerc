@@ -24,7 +24,7 @@ omit =
         hummingbot/connector/exchange/hitbtc*
         hummingbot/connector/exchange/loopring*
         hummingbot/connector/exchange/paper_trade*
-        hummingbot/connector/gateway*
+        hummingbot/connector/gateway/**
         hummingbot/connector/test_support/*
         hummingbot/core/utils/gateway_config_utils.py
         hummingbot/core/utils/kill_switch.py
