@@ -229,10 +229,9 @@ class ExecutorHandlerBase:
         lines.extend(self.controller.to_format_status())
         lines.extend(["\n################################ Active Executors ################################"])
         executors_df = self.get_active_executors_df()
-        executors_df = executors_df['spread_to_next_level'].map(lambda n: '{:.2%}'.format(n))
-        executors_df = executors_df['net_pnl'].map(lambda n: '{:.2%}'.format(n))
         if len(executors_df) > 0:
-            columns_to_show = ["level_id", "side", "executor_status", "entry_price", "close_price", "spread_to_next_level", "net_pnl", "net_pnl_quote", "amount", "timestamp", "close_type"]
+            executors_df["amount_quote"] = executors_df["amount"] * executors_df["entry_price"]
+            columns_to_show = ["level_id", "side", "entry_price", "close_price", "spread_to_next_level", "net_pnl", "net_pnl_quote", "amount", "amount_quote", "timestamp", "close_type", "executor_status"]
             executors_df_str = format_df_for_printout(executors_df[columns_to_show].round(decimals=3), table_format="psql")
             lines.extend([executors_df_str])
         lines.extend(["\n################################## Performance ##################################"])
