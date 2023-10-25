@@ -425,7 +425,7 @@ class GatewayCommand(GatewayChainApiManager):
         for exchange, bals in all_ex_bals.items():
 
             self.notify(f"\nAddress: {address}\n"
-                        f"Exchange: {exchange}")
+                        f"Exchange: {exchange}\n")
             df = await self.exchange_balances_extra(bals)
             if df.empty:
                 self.notify("You have no balance on this exchange.")
@@ -441,7 +441,7 @@ class GatewayCommand(GatewayChainApiManager):
         for token, bal in ex_balances.items():
             rows.append({"Symbol": token.upper(),
                          "Balance": round(bal, 4),
-                         "sum_not_for_show": ""})
+                         "sum_not_for_show": " "})
         df = pd.DataFrame(data=rows, columns=["Symbol", "Balance", "sum_not_for_show"])
         df.sort_values(by=["Symbol"], inplace=True)
         return df
