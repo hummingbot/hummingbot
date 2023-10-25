@@ -389,7 +389,7 @@ class PositionExecutor(SmartComponentBase):
             "exchange": self.exchange,
             "trading_pair": self.trading_pair,
             "side": self.side.name,
-            "amount": self.amount,
+            "amount": self.filled_amount,
             "trade_pnl": self.trade_pnl,
             "trade_pnl_quote": self.trade_pnl_quote,
             "cum_fee_quote": self.cum_fee_quote,
