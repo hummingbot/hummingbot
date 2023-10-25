@@ -111,6 +111,7 @@ def main():
         "tabulate",
         "tzlocal",
         "ujson",
+        "vega-python-sdk",
         "web3",
         "websockets",
         "yarl",
