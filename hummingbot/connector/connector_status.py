@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 connector_status = {
-    'ascend_ex': 'silver',
+    'ascend_ex': 'bronze',
     'binance': 'gold',
     'binance_perpetual': 'gold',
     'binance_perpetual_testnet': 'gold',
@@ -23,7 +23,7 @@ connector_status = {
     'gate_io': 'silver',
     'gate_io_perpetual': 'silver',
     'hitbtc': 'bronze',
-    'huobi': 'bronze',
+    'huobi': 'silver',
     'kraken': 'bronze',
     'kucoin': 'silver',
     'loopring': 'bronze',
