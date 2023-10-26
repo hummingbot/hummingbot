@@ -1,6 +1,5 @@
 import logging
 from decimal import Decimal
-from typing import Dict, Optional
 
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.logger import HummingbotLogger
@@ -25,8 +24,6 @@ class MarketMakingExecutorHandler(ExecutorHandlerBase):
                  update_interval: float = 1.0, executors_update_interval: float = 1.0):
         super().__init__(strategy, controller, update_interval, executors_update_interval)
         self.controller = controller
-        self.global_trailing_stop_config = self.controller.config.global_trailing_stop_config
-        self._trailing_stop_pnl_by_side: Dict[TradeType, Optional[Decimal]] = {TradeType.BUY: None, TradeType.SELL: None}
 
     def on_stop(self):
         if self.controller.is_perpetual:
@@ -72,17 +69,3 @@ class MarketMakingExecutorHandler(ExecutorHandlerBase):
                     position_config = self.controller.get_position_config(order_level)
                     if position_config:
                         self.create_executor(position_config, order_level)
-            for side, global_trailing_stop_conf in self.global_trailing_stop_config.items():
-                if current_metrics[TradeType.BUY]["amount"] > 0:
-                    current_pnl = current_metrics[side]["net_pnl_quote"] / current_metrics[TradeType.BUY]["amount"]
-                    trailing_stop_pnl = self._trailing_stop_pnl_by_side[side]
-                    if not trailing_stop_pnl and current_pnl > global_trailing_stop_conf.activation_price_delta:
-                        self._trailing_stop_pnl_by_side[side] = current_pnl - global_trailing_stop_conf.trailing_delta
-                    if trailing_stop_pnl:
-                        if current_pnl < trailing_stop_pnl:
-                            self.logger().info("Global Trailing Stop Activated!")
-                            for executor in current_metrics[side]["executors"]:
-                                executor.early_stop()
-                            self._trailing_stop_pnl_by_side[side] = None
-                        elif current_pnl - global_trailing_stop_conf.trailing_delta > trailing_stop_pnl:
-                            self._trailing_stop_pnl_by_side[side] = current_pnl - global_trailing_stop_conf.trailing_delta
