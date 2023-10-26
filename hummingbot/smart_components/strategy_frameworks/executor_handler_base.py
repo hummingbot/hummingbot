@@ -8,7 +8,7 @@ import pandas as pd
 
 from hummingbot import data_path
 from hummingbot.client.ui.interface_utils import format_df_for_printout
-from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide, TradeType
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
 from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig
@@ -255,11 +255,6 @@ class ExecutorHandlerBase:
 Closed executors: {closed_executors_info["total_executors"]}
     {closed_executors_info["close_types"]}
     """])
-        ts_long_pct = 0 if not self._trailing_stop_pnl_by_side[TradeType.BUY] else self._trailing_stop_pnl_by_side[TradeType.BUY]
-        ts_short_pct = 0 if not self._trailing_stop_pnl_by_side[TradeType.SELL] else self._trailing_stop_pnl_by_side[TradeType.SELL]
-        lines.extend([f"""
-| Global Trailing Stop by Side --> LONG: {ts_long_pct:.2%} | SHORT: {ts_short_pct:.2%}
-        """])
         return "\n".join(lines)
 
     async def _sleep(self, delay: float):
