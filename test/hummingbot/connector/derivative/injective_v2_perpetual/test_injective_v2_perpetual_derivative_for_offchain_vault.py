@@ -2,12 +2,11 @@ import asyncio
 import base64
 import json
 from collections import OrderedDict
-from copy import copy
 from decimal import Decimal
 from functools import partial
 from test.hummingbot.connector.exchange.injective_v2.programmable_query_executor import ProgrammableQueryExecutor
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
@@ -74,6 +73,11 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         cls._transaction_hash = "017C130E3602A48E5C9D661CAC657BF1B79262D4B71D5C25B1DA62DE2338DA0E"  # noqa: mock"
 
     def setUp(self) -> None:
+        self._initialize_timeout_height_sync_task = patch(
+            "hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source"
+            ".AsyncClient._initialize_timeout_height_sync_task"
+        )
+        self._initialize_timeout_height_sync_task.start()
         super().setUp()
         self._original_async_loop = asyncio.get_event_loop()
         self.async_loop = asyncio.new_event_loop()
@@ -87,6 +91,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
 
     def tearDown(self) -> None:
         super().tearDown()
+        self._initialize_timeout_height_sync_task.stop()
         self.async_loop.stop()
         self.async_loop.close()
         asyncio.set_event_loop(self._original_async_loop)
@@ -163,6 +168,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             "trades": [
                 {
                     "orderHash": "0x9ffe4301b24785f09cb529c1b5748198098b17bd6df8fe2744d923a574179229",  # noqa: mock
+                    "cid": "",
                     "subaccountId": "0xa73ad39eab064051fb468a5965ee48ca87ab66d4000000000000000000000000",  # noqa: mock
                     "marketId": "0x0611780ba69656949525013d947713300f56c37b6175e02f26bffa495c3208fe",  # noqa: mock
                     "tradeExecutionType": "limitMatchRestingOrder",
@@ -741,6 +747,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                 {
                     "status": "Booked",
                     "orderHash": base64.b64encode(bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
+                    "cid": order.client_order_id,
                     "order": {
                         "marketId": self.market_id,
                         "order": {
@@ -750,6 +757,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                                 "price": str(
                                     int(order.price * Decimal(f"1e{self.quote_decimals + 18}"))),
                                 "quantity": str(int(order.amount * Decimal("1e18"))),
+                                "cid": order.client_order_id,
                             },
                             "orderType": order.trade_type.name.lower(),
                             "fillable": str(int(order.amount * Decimal("1e18"))),
@@ -758,7 +766,6 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                             "triggerPrice": "",
                         }
                     },
-                    "cid": ""
                 },
             ],
             "positions": [],
@@ -780,6 +787,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                 {
                     "status": "Cancelled",
                     "orderHash": base64.b64encode(bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
+                    "cid": order.client_order_id,
                     "order": {
                         "marketId": self.market_id,
                         "order": {
@@ -789,6 +797,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                                 "price": str(
                                     int(order.price * Decimal(f"1e{self.quote_decimals + 18}"))),
                                 "quantity": str(int(order.amount * Decimal("1e18"))),
+                                "cid": order.client_order_id,
                             },
                             "orderType": order.trade_type.name.lower(),
                             "fillable": str(int(order.amount * Decimal("1e18"))),
@@ -797,7 +806,6 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                             "triggerPrice": "",
                         }
                     },
-                    "cid": ""
                 },
             ],
             "positions": [],
@@ -819,6 +827,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                 {
                     "status": "Matched",
                     "orderHash": base64.b64encode(bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
+                    "cid": order.client_order_id,
                     "order": {
                         "marketId": self.market_id,
                         "order": {
@@ -828,6 +837,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                                 "price": str(
                                     int(order.price * Decimal(f"1e{self.quote_decimals + 18}"))),
                                 "quantity": str(int(order.amount * Decimal("1e18"))),
+                                "cid": order.client_order_id,
                             },
                             "orderType": order.trade_type.name.lower(),
                             "fillable": str(int(order.amount * Decimal("1e18"))),
@@ -836,7 +846,6 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                             "triggerPrice": "",
                         }
                     },
-                    "cid": ""
                 },
             ],
             "positions": [],
@@ -868,6 +877,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
                     "fee": str(self.expected_fill_fee.flat_fees[0].amount * Decimal(f"1e{self.quote_decimals + 18}")),
                     "orderHash": base64.b64encode(bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
                     "feeRecipientAddress": self.vault_contract_address,
+                    "cid": order.client_order_id,
                 },
             ],
             "spotOrders": [],
@@ -998,16 +1008,8 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         self.assertIn(sell_order_to_create_in_flight.client_order_id, self.exchange.in_flight_orders)
 
         self.assertEqual(
-            buy_order_to_create_in_flight.exchange_order_id,
-            self.exchange.in_flight_orders[buy_order_to_create_in_flight.client_order_id].exchange_order_id
-        )
-        self.assertEqual(
             buy_order_to_create_in_flight.creation_transaction_hash,
             self.exchange.in_flight_orders[buy_order_to_create_in_flight.client_order_id].creation_transaction_hash
-        )
-        self.assertEqual(
-            sell_order_to_create_in_flight.exchange_order_id,
-            self.exchange.in_flight_orders[sell_order_to_create_in_flight.client_order_id].exchange_order_id
         )
         self.assertEqual(
             sell_order_to_create_in_flight.creation_transaction_hash,
@@ -1076,7 +1078,6 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
 
         order = self.exchange.in_flight_orders[order_id]
 
-        self.assertEqual(expected_order_hash, order.exchange_order_id)
         self.assertEqual(response["txhash"], order.creation_transaction_hash)
 
     @aioresponses()
@@ -1139,7 +1140,6 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
 
         order = self.exchange.in_flight_orders[order_id]
 
-        self.assertEqual(expected_order_hash, order.exchange_order_id)
         self.assertEqual(response["txhash"], order.creation_transaction_hash)
 
     @aioresponses()
@@ -1292,9 +1292,6 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
 
         order = self.exchange.in_flight_orders[order_id]
 
-        self.assertEqual(expected_order_hash, order.exchange_order_id)
-        self.assertEqual(response["txhash"], order.creation_transaction_hash)
-
     @aioresponses()
     def test_create_order_to_close_long_position(self, mock_api):
         self.configure_all_symbols_response(mock_api=None)
@@ -1354,9 +1351,6 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         self.assertIn(order_id, self.exchange.in_flight_orders)
 
         order = self.exchange.in_flight_orders[order_id]
-
-        self.assertEqual(expected_order_hash, order.exchange_order_id)
-        self.assertEqual(response["txhash"], order.creation_transaction_hash)
 
     def test_batch_order_cancel(self):
         request_sent_event = asyncio.Event()
@@ -1428,49 +1422,6 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
 
         self.assertEqual(self.quote_asset, linear_buy_collateral_token)
         self.assertEqual(self.quote_asset, linear_sell_collateral_token)
-
-    def test_order_not_found_in_its_creating_transaction_marked_as_failed_during_order_creation_check(self):
-        self.configure_all_symbols_response(mock_api=None)
-        self.exchange._set_current_timestamp(1640780000)
-
-        self.exchange.start_tracking_order(
-            order_id=self.client_order_id_prefix + "1",
-            exchange_order_id="0x9f94598b4842ab66037eaa7c64ec10ae16dcf196e61db8522921628522c0f62e",  # noqa: mock
-            trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
-            price=Decimal("10000"),
-            amount=Decimal("100"),
-            order_type=OrderType.LIMIT,
-        )
-
-        self.assertIn(self.client_order_id_prefix + "1", self.exchange.in_flight_orders)
-        order: GatewayPerpetualInFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
-        order.update_creation_transaction_hash(creation_transaction_hash="66A360DA2FD6884B53B5C019F1A2B5BED7C7C8FC07E83A9C36AD3362EDE096AE")  # noqa: mock
-
-        modified_order = copy(order)
-        modified_order.amount = modified_order.amount + Decimal("1")
-        transaction_response = self._orders_creation_transaction_response(
-            orders=[modified_order],
-            order_hashes=["0xc5d66f56942e1ae407c01eedccd0471deb8e202a514cde3bae56a8307e376cd1"],  # noqa: mock"
-        )
-        self.exchange._data_source._query_executor._transaction_by_hash_responses.put_nowait(transaction_response)
-
-        self.async_run_with_timeout(self.exchange._check_orders_creation_transactions())
-
-        self.assertEquals(0, len(self.buy_order_created_logger.event_log))
-        failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
-        self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
-        self.assertEqual(OrderType.LIMIT, failure_event.order_type)
-        self.assertEqual(order.client_order_id, failure_event.order_id)
-
-        self.assertTrue(
-            self.is_logged(
-                "INFO",
-                f"Order {order.client_order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
-                f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
-                f"client_order_id='{order.client_order_id}', exchange_order_id=None, misc_updates=None)"
-            )
-        )
 
     def test_user_stream_balance_update(self):
         self.configure_all_symbols_response(mock_api=None)
@@ -2266,6 +2217,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             "trades": [
                 {
                     "orderHash": "0xbe1db35669028d9c7f45c23d31336c20003e4f8879721bcff35fc6f984a6481a",  # noqa: mock
+                    "cid": "",
                     "subaccountId": "0x16aef18dbaa341952f1af1795cb49960f68dfee3000000000000000000000000",  # noqa: mock
                     "marketId": self.market_id,
                     "tradeExecutionType": "market",
@@ -2351,6 +2303,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             "trades": [
                 {
                     "orderHash": "0xbe1db35669028d9c7f45c23d31336c20003e4f8879721bcff35fc6f984a6481a",  # noqa: mock
+                    "cid": "",
                     "subaccountId": "0x16aef18dbaa341952f1af1795cb49960f68dfee3000000000000000000000000",  # noqa: mock
                     "marketId": self.market_id,
                     "tradeExecutionType": "market",
@@ -2686,6 +2639,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             "orders": [
                 {
                     "orderHash": order.exchange_order_id,
+                    "cid": order.client_order_id,
                     "marketId": self.market_id,
                     "subaccountId": self.vault_contract_subaccount_id,
                     "executionType": "market" if order.order_type == OrderType.MARKET else "limit",
@@ -2713,6 +2667,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             "trades": [
                 {
                     "orderHash": order.exchange_order_id,
+                    "cid": order.client_order_id,
                     "subaccountId": self.vault_contract_subaccount_id,
                     "marketId": self.market_id,
                     "tradeExecutionType": "limitFill",
@@ -2742,6 +2697,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             "orders": [
                 {
                     "orderHash": order.exchange_order_id,
+                    "cid": order.client_order_id,
                     "marketId": self.market_id,
                     "subaccountId": self.vault_contract_subaccount_id,
                     "executionType": "market" if order.order_type == OrderType.MARKET else "limit",
@@ -2769,6 +2725,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             "orders": [
                 {
                     "orderHash": order.exchange_order_id,
+                    "cid": order.client_order_id,
                     "marketId": self.market_id,
                     "subaccountId": self.vault_contract_subaccount_id,
                     "executionType": "market" if order.order_type == OrderType.MARKET else "limit",
@@ -2796,6 +2753,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             "trades": [
                 {
                     "orderHash": order.exchange_order_id,
+                    "cid": order.client_order_id,
                     "subaccountId": self.vault_contract_subaccount_id,
                     "marketId": self.market_id,
                     "tradeExecutionType": "limitFill",
@@ -2825,6 +2783,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
             "orders": [
                 {
                     "orderHash": order.exchange_order_id,
+                    "cid": order.client_order_id,
                     "marketId": self.market_id,
                     "subaccountId": self.vault_contract_subaccount_id,
                     "executionType": "market" if order.order_type == OrderType.MARKET else "limit",

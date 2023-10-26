@@ -23,7 +23,6 @@ class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
         self._derivative_trades_responses = asyncio.Queue()
         self._historical_spot_orders_responses = asyncio.Queue()
         self._historical_derivative_orders_responses = asyncio.Queue()
-        self._transaction_block_height_responses = asyncio.Queue()
         self._funding_rates_responses = asyncio.Queue()
         self._oracle_prices_responses = asyncio.Queue()
         self._funding_payments_responses = asyncio.Queue()
@@ -58,10 +57,6 @@ class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
 
     async def get_tx_by_hash(self, tx_hash: str) -> Dict[str, Any]:
         response = await self._transaction_by_hash_responses.get()
-        return response
-
-    async def get_tx_block_height(self, tx_hash: str) -> int:
-        response = await self._transaction_block_height_responses.get()
         return response
 
     async def account_portfolio(self, account_address: str) -> Dict[str, Any]:

@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, Dict, List, Mapping, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional
 
 from bidict import bidict
 from google.protobuf import any_pb2
@@ -16,7 +16,6 @@ from hummingbot.connector.exchange.injective_v2.injective_market import (
     InjectiveToken,
 )
 from hummingbot.connector.exchange.injective_v2.injective_query_executor import PythonSDKInjectiveQueryExecutor
-from hummingbot.connector.gateway.common_types import PlaceOrderResult
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder, GatewayPerpetualInFlightOrder
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -65,10 +64,6 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
     @property
     def query_executor(self):
         return self._query_executor
-
-    @property
-    def order_creation_lock(self) -> asyncio.Lock:
-        return None
 
     @property
     def throttler(self):
@@ -321,20 +316,11 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
     def _uses_default_portfolio_subaccount(self) -> bool:
         raise NotImplementedError
 
-    async def _calculate_order_hashes(
-            self,
-            spot_orders: List[GatewayInFlightOrder],
-            derivative_orders: [GatewayPerpetualInFlightOrder]) -> Tuple[List[str], List[str]]:
-        raise NotImplementedError
-
-    def _reset_order_hash_manager(self):
-        raise NotImplementedError
-
     async def _order_creation_messages(
             self,
             spot_orders_to_create: List[GatewayInFlightOrder],
             derivative_orders_to_create: List[GatewayPerpetualInFlightOrder]
-    ) -> Tuple[List[any_pb2.Any], List[str], List[str]]:
+    ) -> List[any_pb2.Any]:
         raise NotImplementedError
 
     async def _order_cancel_message(
@@ -364,15 +350,6 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
 
         market = self._parse_derivative_market_info(market_info=market_info)
         return market
-
-    def _place_order_results(
-            self,
-            orders_to_create: List[GatewayInFlightOrder],
-            order_hashes: List[str],
-            misc_updates: Dict[str, Any],
-            exception: Optional[Exception] = None
-    ) -> List[PlaceOrderResult]:
-        raise NotImplementedError
 
     def _token_from_market_info(
             self, denom: str, token_meta: Dict[str, Any], candidate_symbol: Optional[str] = None

@@ -8,6 +8,8 @@ EXCHANGE_NAME = "injective_v2"
 DEFAULT_DOMAIN = ""
 TESTNET_DOMAIN = "testnet"
 
+MAX_ORDER_ID_LEN = 36  # Injective supports uuid style client ids (36 characters)
+
 DEFAULT_SUBACCOUNT_INDEX = 0
 EXTRA_TRANSACTION_GAS = 20000
 DEFAULT_GAS_PRICE = 500000000
@@ -21,11 +23,9 @@ DERIVATIVE_MARKETS_LIMIT_ID = "DerivativeMarkets"
 SPOT_ORDERBOOK_LIMIT_ID = "SpotOrderBookSnapshot"
 DERIVATIVE_ORDERBOOK_LIMIT_ID = "DerivativeOrderBookSnapshot"
 GET_TRANSACTION_INDEXER_LIMIT_ID = "GetTransactionIndexer"
-GET_TRANSACTION_CHAIN_LIMIT_ID = "GetTransactionChain"
 FUNDING_RATES_LIMIT_ID = "FundingRates"
 ORACLE_PRICES_LIMIT_ID = "OraclePrices"
 FUNDING_PAYMENTS_LIMIT_ID = "FundingPayments"
-GET_SUBACCOUNT_LIMIT_ID = "GetSubaccount"
 
 # Private limit ids
 PORTFOLIO_BALANCES_LIMIT_ID = "AccountPortfolio"
@@ -44,16 +44,6 @@ NO_LIMIT = sys.maxsize
 ONE_SECOND = 1
 
 ENDPOINTS_RATE_LIMITS = [
-    RateLimit(
-        limit_id=GET_SUBACCOUNT_LIMIT_ID,
-        limit=NO_LIMIT,
-        time_interval=ONE_SECOND,
-        linked_limits=[LinkedLimitWeightPair(CHAIN_ENDPOINTS_GROUP_LIMIT_ID)]),
-    RateLimit(
-        limit_id=GET_TRANSACTION_CHAIN_LIMIT_ID,
-        limit=NO_LIMIT,
-        time_interval=ONE_SECOND,
-        linked_limits=[LinkedLimitWeightPair(CHAIN_ENDPOINTS_GROUP_LIMIT_ID)]),
     RateLimit(
         limit_id=SIMULATE_TRANSACTION_LIMIT_ID,
         limit=NO_LIMIT,

@@ -431,7 +431,7 @@ class InjectiveVaultsDataSourceTests(TestCase):
         )
         orders.append(order)
 
-        messages, spot_order_hashes, derivative_order_hashes = self.async_run_with_timeout(
+        messages = self.async_run_with_timeout(
             self.data_source._order_creation_messages(
                 spot_orders_to_create=orders,
                 derivative_orders_to_create=[],
@@ -441,7 +441,6 @@ class InjectiveVaultsDataSourceTests(TestCase):
         pub_key = self._grantee_private_key.to_public_key()
         address = pub_key.to_address()
 
-        self.assertEqual(0, len(spot_order_hashes))
         self.assertEqual(address.to_acc_bech32(), messages[0].sender)
         self.assertEqual(self._vault_address, messages[0].contract)
 
@@ -468,7 +467,8 @@ class InjectiveVaultsDataSourceTests(TestCase):
                                             "fee_recipient": self._vault_address,
                                             "subaccount_id": "1",
                                             "price": f"{message_price:f}",
-                                            "quantity": f"{message_quantity:f}"
+                                            "quantity": f"{message_quantity:f}",
+                                            "cid": order.client_order_id,
                                         },
                                         "order_type": 1,
                                         "trigger_price": "0",
@@ -502,6 +502,7 @@ class InjectiveVaultsDataSourceTests(TestCase):
         order_data = composer.OrderData(
             market_id=market["marketId"],
             subaccount_id="1",
+            cid="client order id",
             order_hash="0xba954bc613a81cd712b9ec0a3afbfc94206cf2ff8c60d1868e031d59ea82bf27",  # noqa: mock"
             order_direction="buy",
             order_type="limit",
@@ -539,6 +540,7 @@ class InjectiveVaultsDataSourceTests(TestCase):
                                         "market_id": market["marketId"],
                                         "subaccount_id": "1",
                                         "order_hash": "0xba954bc613a81cd712b9ec0a3afbfc94206cf2ff8c60d1868e031d59ea82bf27",  # noqa: mock"
+                                        "cid": "client order id",
                                         "order_mask": 74,
                                     }
                                 ],
