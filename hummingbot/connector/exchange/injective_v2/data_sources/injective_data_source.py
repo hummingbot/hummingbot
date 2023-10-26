@@ -26,7 +26,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide, TradeType
 from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
-from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase, TradeFeeSchema
 from hummingbot.core.event.event_listener import EventListener
@@ -45,8 +45,6 @@ from hummingbot.logger import HummingbotLogger
 class InjectiveDataSource(ABC):
     _logger: Optional[HummingbotLogger] = None
 
-    TRANSACTIONS_LOOKUP_TIMEOUT = CONSTANTS.EXPECTED_BLOCK_TIME * 3
-
     @classmethod
     def logger(cls) -> HummingbotLogger:
         if cls._logger is None:
@@ -61,11 +59,6 @@ class InjectiveDataSource(ABC):
     @property
     @abstractmethod
     def query_executor(self):
-        raise NotImplementedError
-
-    @property
-    @abstractmethod
-    def order_creation_lock(self) -> asyncio.Lock:
         raise NotImplementedError
 
     @property
@@ -406,41 +399,34 @@ class InjectiveDataSource(ABC):
         spot_orders = spot_orders or []
         perpetual_orders = perpetual_orders or []
         results = []
-        if self.order_creation_lock.locked():
-            raise RuntimeError("It is not possible to create new orders because the hash manager is not synchronized")
-
         if len(spot_orders) > 0 or len(perpetual_orders) > 0:
-            async with self.order_creation_lock:
+            order_creation_messages = await self._order_creation_messages(
+                spot_orders_to_create=spot_orders,
+                derivative_orders_to_create=perpetual_orders,
+            )
 
-                order_creation_messages, spot_order_hashes, derivative_order_hashes = await self._order_creation_messages(
-                    spot_orders_to_create=spot_orders,
-                    derivative_orders_to_create=perpetual_orders,
-                )
-
-                try:
-                    result = await self._send_in_transaction(messages=order_creation_messages)
-                    if result["rawLog"] != "[]" or result["txhash"] in [None, ""]:
-                        raise ValueError(f"Error sending the order creation transaction ({result['rawLog']})")
-                    else:
-                        transaction_hash = result["txhash"]
-                        results = self._place_order_results(
-                            orders_to_create=spot_orders + perpetual_orders,
-                            order_hashes=spot_order_hashes + derivative_order_hashes,
-                            misc_updates={
-                                "creation_transaction_hash": transaction_hash,
-                            },
-                        )
-                except asyncio.CancelledError:
-                    raise
-                except Exception as ex:
-                    self.logger().debug(
-                        f"Error broadcasting transaction to create orders (message: {order_creation_messages})")
+            try:
+                result = await self._send_in_transaction(messages=order_creation_messages)
+                if result["rawLog"] != "[]" or result["txhash"] in [None, ""]:
+                    raise ValueError(f"Error sending the order creation transaction ({result['rawLog']})")
+                else:
+                    transaction_hash = result["txhash"]
                     results = self._place_order_results(
                         orders_to_create=spot_orders + perpetual_orders,
-                        order_hashes=spot_order_hashes + derivative_order_hashes,
-                        misc_updates={},
-                        exception=ex,
+                        misc_updates={
+                            "creation_transaction_hash": transaction_hash,
+                        },
                     )
+            except asyncio.CancelledError:
+                raise
+            except Exception as ex:
+                self.logger().debug(
+                    f"Error broadcasting transaction to create orders (message: {order_creation_messages})")
+                results = self._place_order_results(
+                    orders_to_create=spot_orders + perpetual_orders,
+                    misc_updates={},
+                    exception=ex,
+                )
 
         return results
 
@@ -459,30 +445,16 @@ class InjectiveDataSource(ABC):
 
         if len(spot_orders) > 0 or len(perpetual_orders) > 0:
             for order in spot_orders:
-                if order.exchange_order_id is None:
-                    results.append(CancelOrderResult(
-                        client_order_id=order.client_order_id,
-                        trading_pair=order.trading_pair,
-                        not_found=True,
-                    ))
-                else:
-                    market_id = await self.market_id_for_spot_trading_pair(trading_pair=order.trading_pair)
-                    order_data = await self._generate_injective_order_data(order=order, market_id=market_id)
-                    spot_orders_data.append(order_data)
-                    orders_with_hash.append(order)
+                market_id = await self.market_id_for_spot_trading_pair(trading_pair=order.trading_pair)
+                order_data = await self._generate_injective_order_data(order=order, market_id=market_id)
+                spot_orders_data.append(order_data)
+                orders_with_hash.append(order)
 
             for order in perpetual_orders:
-                if order.exchange_order_id is None:
-                    results.append(CancelOrderResult(
-                        client_order_id=order.client_order_id,
-                        trading_pair=order.trading_pair,
-                        not_found=True,
-                    ))
-                else:
-                    market_id = await self.market_id_for_derivative_trading_pair(trading_pair=order.trading_pair)
-                    order_data = await self._generate_injective_order_data(order=order, market_id=market_id)
-                    derivative_orders_data.append(order_data)
-                    orders_with_hash.append(order)
+                market_id = await self.market_id_for_derivative_trading_pair(trading_pair=order.trading_pair)
+                order_data = await self._generate_injective_order_data(order=order, market_id=market_id)
+                derivative_orders_data.append(order_data)
+                orders_with_hash.append(order)
 
             if len(orders_with_hash) > 0:
                 delegated_message = await self._order_cancel_message(
@@ -642,23 +614,6 @@ class InjectiveDataSource(ABC):
 
         return order_updates
 
-    async def reset_order_hash_generator(self, active_orders: List[GatewayInFlightOrder]):
-        if not self.order_creation_lock.locked:
-            raise RuntimeError("The order creation lock should be acquired before resetting the order hash manager")
-        transactions_to_wait_before_reset = set()
-        for order in active_orders:
-            if order.creation_transaction_hash is not None and order.current_state == OrderState.PENDING_CREATE:
-                transactions_to_wait_before_reset.add(order.creation_transaction_hash)
-        transaction_wait_tasks = [
-            asyncio.wait_for(
-                self._transaction_from_chain(tx_hash=transaction_hash, retries=2),
-                timeout=self.TRANSACTIONS_LOOKUP_TIMEOUT
-            )
-            for transaction_hash in transactions_to_wait_before_reset
-        ]
-        await safe_gather(*transaction_wait_tasks, return_exceptions=True)
-        self._reset_order_hash_manager()
-
     async def get_spot_trading_fees(self) -> Dict[str, TradeFeeSchema]:
         markets = await self.spot_markets()
         fees = await self._create_trading_fees(markets=markets)
@@ -728,23 +683,11 @@ class InjectiveDataSource(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def _calculate_order_hashes(
-            self,
-            spot_orders: List[GatewayInFlightOrder],
-            derivative_orders: [GatewayPerpetualInFlightOrder]
-    ) -> Tuple[List[str], List[str]]:
-        raise NotImplementedError
-
-    @abstractmethod
-    def _reset_order_hash_manager(self):
-        raise NotImplementedError
-
-    @abstractmethod
     async def _order_creation_messages(
             self,
             spot_orders_to_create: List[GatewayInFlightOrder],
             derivative_orders_to_create: List[GatewayPerpetualInFlightOrder],
-    ) -> Tuple[List[any_pb2.Any], List[str], List[str]]:
+    ) -> List[any_pb2.Any]:
         raise NotImplementedError
 
     @abstractmethod
@@ -771,15 +714,22 @@ class InjectiveDataSource(ABC):
     async def _updated_derivative_market_info_for_id(self, market_id: str) -> InjectiveDerivativeMarket:
         raise NotImplementedError
 
-    @abstractmethod
     def _place_order_results(
             self,
             orders_to_create: List[GatewayInFlightOrder],
-            order_hashes: List[str],
             misc_updates: Dict[str, Any],
             exception: Optional[Exception] = None,
     ) -> List[PlaceOrderResult]:
-        raise NotImplementedError
+        return [
+            PlaceOrderResult(
+                update_timestamp=self._time(),
+                client_order_id=order.client_order_id,
+                exchange_order_id=None,
+                trading_pair=order.trading_pair,
+                misc_updates=misc_updates,
+                exception=exception
+            ) for order in orders_to_create
+        ]
 
     async def _last_traded_price(self, market_id: str) -> Decimal:
         price = Decimal("nan")
@@ -808,28 +758,6 @@ class InjectiveDataSource(ABC):
                     chain_price=Decimal(trades_response["trades"][0]["positionDelta"]["executionPrice"]))
 
         return price
-
-    async def _transaction_from_chain(self, tx_hash: str, retries: int) -> int:
-        executed_tries = 0
-        found = False
-        block_height = None
-
-        while executed_tries < retries and not found:
-            executed_tries += 1
-            try:
-                async with self.throttler.execute_task(limit_id=CONSTANTS.GET_TRANSACTION_CHAIN_LIMIT_ID):
-                    block_height = await self.query_executor.get_tx_block_height(tx_hash=tx_hash)
-                found = True
-            except ValueError:
-                # No block found containing the transaction, continue the search
-                raise NotImplementedError
-            if executed_tries < retries and not found:
-                await self._sleep(CONSTANTS.EXPECTED_BLOCK_TIME)
-
-        if not found:
-            raise ValueError(f"The transaction {tx_hash} is not included in any mined block")
-
-        return block_height
 
     async def _oracle_price(self, market_id: str) -> Decimal:
         market = await self.derivative_market_info_for_id(market_id=market_id)
@@ -908,6 +836,7 @@ class InjectiveDataSource(ABC):
 
     async def _parse_spot_trade_entry(self, trade_info: Dict[str, Any]) -> TradeUpdate:
         exchange_order_id: str = trade_info["orderHash"]
+        client_order_id: str = trade_info.get("cid", "")
         market = await self.spot_market_info_for_id(market_id=trade_info["marketId"])
         trading_pair = await self.trading_pair_for_market(market_id=trade_info["marketId"])
         trade_id: str = trade_info["tradeId"]
@@ -928,7 +857,7 @@ class InjectiveDataSource(ABC):
 
         trade_update = TradeUpdate(
             trade_id=trade_id,
-            client_order_id=None,
+            client_order_id=client_order_id,
             exchange_order_id=exchange_order_id,
             trading_pair=trading_pair,
             fill_timestamp=trade_time,
@@ -943,6 +872,7 @@ class InjectiveDataSource(ABC):
 
     async def _parse_derivative_trade_entry(self, trade_info: Dict[str, Any]) -> TradeUpdate:
         exchange_order_id: str = trade_info["orderHash"]
+        client_order_id: str = trade_info.get("cid", "")
         market = await self.derivative_market_info_for_id(market_id=trade_info["marketId"])
         trading_pair = await self.trading_pair_for_market(market_id=trade_info["marketId"])
         trade_id: str = trade_info["tradeId"]
@@ -962,7 +892,7 @@ class InjectiveDataSource(ABC):
 
         trade_update = TradeUpdate(
             trade_id=trade_id,
-            client_order_id=None,
+            client_order_id=client_order_id,
             exchange_order_id=exchange_order_id,
             trading_pair=trading_pair,
             fill_timestamp=trade_time,
@@ -977,13 +907,14 @@ class InjectiveDataSource(ABC):
 
     async def _parse_order_entry(self, order_info: Dict[str, Any]) -> OrderUpdate:
         exchange_order_id: str = order_info["orderHash"]
+        client_order_id: str = order_info.get("cid", "")
         trading_pair = await self.trading_pair_for_market(market_id=order_info["marketId"])
 
         status_update = OrderUpdate(
             trading_pair=trading_pair,
             update_timestamp=int(order_info["updatedAt"]) * 1e-3,
             new_state=CONSTANTS.ORDER_STATE_MAP[order_info["state"]],
-            client_order_id=None,
+            client_order_id=client_order_id,
             exchange_order_id=exchange_order_id,
         )
 
@@ -1309,6 +1240,7 @@ class InjectiveDataSource(ABC):
                 )
                 price = market_info.price_from_special_chain_format(chain_price=Decimal(str(trade_update["price"])))
                 order_hash = "0x" + base64.b64decode(trade_update["orderHash"]).hex()
+                client_order_id = trade_update.get("cid", "")
                 trade_id = self._trade_id(
                     timestamp=block_timestamp, order_hash=order_hash, trade_type=trade_type, amount=amount, price=price
                 )
@@ -1338,7 +1270,7 @@ class InjectiveDataSource(ABC):
 
                 trade_update = TradeUpdate(
                     trade_id=trade_id,
-                    client_order_id=None,
+                    client_order_id=client_order_id,
                     exchange_order_id=order_hash,
                     trading_pair=trading_pair,
                     fill_timestamp=timestamp,
@@ -1373,6 +1305,7 @@ class InjectiveDataSource(ABC):
                 price = market_info.price_from_special_chain_format(
                     chain_price=Decimal(str(trade_update["positionDelta"]["executionPrice"])))
                 order_hash = "0x" + base64.b64decode(trade_update["orderHash"]).hex()
+                client_order_id = trade_update.get("cid", "")
                 trade_id = self._trade_id(
                     timestamp=block_timestamp, order_hash=order_hash, trade_type=trade_type, amount=amount, price=price
                 )
@@ -1402,7 +1335,7 @@ class InjectiveDataSource(ABC):
 
                 trade_update = TradeUpdate(
                     trade_id=trade_id,
-                    client_order_id=None,
+                    client_order_id=client_order_id,
                     exchange_order_id=order_hash,
                     trading_pair=trading_pair,
                     fill_timestamp=block_timestamp,
@@ -1427,13 +1360,14 @@ class InjectiveDataSource(ABC):
         for order_update in order_updates:
             try:
                 exchange_order_id = "0x" + base64.b64decode(order_update["orderHash"]).hex()
+                client_order_id = order_update.get("cid", "")
                 trading_pair = await self.trading_pair_for_market(market_id=order_update["order"]["marketId"])
 
                 status_update = OrderUpdate(
                     trading_pair=trading_pair,
                     update_timestamp=block_timestamp,
                     new_state=CONSTANTS.STREAM_ORDER_STATE_MAP[order_update["status"]],
-                    client_order_id=None,
+                    client_order_id=client_order_id,
                     exchange_order_id=exchange_order_id,
                 )
 
@@ -1567,6 +1501,7 @@ class InjectiveDataSource(ABC):
             fee_recipient=self.portfolio_account_injective_address,
             price=order.price,
             quantity=order.amount,
+            cid=order.client_order_id,
             is_buy=order.trade_type == TradeType.BUY,
             is_po=order.order_type == OrderType.LIMIT_MAKER
         )
@@ -1581,6 +1516,7 @@ class InjectiveDataSource(ABC):
             fee_recipient=self.portfolio_account_injective_address,
             price=order.price,
             quantity=order.amount,
+            cid=order.client_order_id,
             leverage=order.leverage,
             is_buy=order.trade_type == TradeType.BUY,
             is_po=order.order_type == OrderType.LIMIT_MAKER,

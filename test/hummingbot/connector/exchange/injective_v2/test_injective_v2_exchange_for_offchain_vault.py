@@ -6,7 +6,7 @@ from decimal import Decimal
 from functools import partial
 from test.hummingbot.connector.exchange.injective_v2.programmable_query_executor import ProgrammableQueryExecutor
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
@@ -69,6 +69,11 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
         cls._transaction_hash = "017C130E3602A48E5C9D661CAC657BF1B79262D4B71D5C25B1DA62DE2338DA0E"  # noqa: mock"
 
     def setUp(self) -> None:
+        self._initialize_timeout_height_sync_task = patch(
+            "hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source"
+            ".AsyncClient._initialize_timeout_height_sync_task"
+        )
+        self._initialize_timeout_height_sync_task.start()
         super().setUp()
         self._original_async_loop = asyncio.get_event_loop()
         self.async_loop = asyncio.new_event_loop()
@@ -82,6 +87,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
 
     def tearDown(self) -> None:
         super().tearDown()
+        self._initialize_timeout_height_sync_task.stop()
         self.async_loop.stop()
         self.async_loop.close()
         asyncio.set_event_loop(self._original_async_loop)
@@ -134,6 +140,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
             "trades": [
                 {
                     "orderHash": "0x9ffe4301b24785f09cb529c1b5748198098b17bd6df8fe2744d923a574179229",  # noqa: mock
+                    "cid": "",
                     "subaccountId": "0xa73ad39eab064051fb468a5965ee48ca87ab66d4000000000000000000000000",  # noqa: mock
                     "marketId": "0x0611780ba69656949525013d947713300f56c37b6175e02f26bffa495c3208fe",  # noqa: mock
                     "tradeExecutionType": "limitMatchRestingOrder",
@@ -622,6 +629,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
                 {
                     "status": "Booked",
                     "orderHash": base64.b64encode(bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
+                    "cid": order.client_order_id,
                     "order": {
                         "marketId": self.market_id,
                         "order": {
@@ -631,6 +639,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
                                 "price": str(
                                     int(order.price * Decimal(f"1e{self.quote_decimals - self.base_decimals + 18}"))),
                                 "quantity": str(int(order.amount * Decimal(f"1e{self.base_decimals + 18}"))),
+                                "cid": order.client_order_id,
                             },
                             "orderType": order.trade_type.name.lower(),
                             "fillable": str(int(order.amount * Decimal(f"1e{self.base_decimals + 18}"))),
@@ -639,7 +648,6 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
                             "triggerPrice": "",
                         }
                     },
-                    "cid": ""
                 },
             ],
             "derivativeOrders": [],
@@ -661,6 +669,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
                 {
                     "status": "Cancelled",
                     "orderHash": base64.b64encode(bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
+                    "cid": order.client_order_id,
                     "order": {
                         "marketId": self.market_id,
                         "order": {
@@ -670,6 +679,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
                                 "price": str(
                                     int(order.price * Decimal(f"1e{self.quote_decimals - self.base_decimals + 18}"))),
                                 "quantity": str(int(order.amount * Decimal(f"1e{self.base_decimals + 18}"))),
+                                "cid": order.client_order_id,
                             },
                             "orderType": order.trade_type.name.lower(),
                             "fillable": str(int(order.amount * Decimal(f"1e{self.base_decimals + 18}"))),
@@ -678,7 +688,6 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
                             "triggerPrice": "",
                         }
                     },
-                    "cid": ""
                 },
             ],
             "derivativeOrders": [],
@@ -700,6 +709,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
                 {
                     "status": "Matched",
                     "orderHash": base64.b64encode(bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
+                    "cid": order.client_order_id,
                     "order": {
                         "marketId": self.market_id,
                         "order": {
@@ -709,6 +719,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
                                 "price": str(
                                     int(order.price * Decimal(f"1e{self.quote_decimals - self.base_decimals + 18}"))),
                                 "quantity": str(int(order.amount * Decimal(f"1e{self.base_decimals + 18}"))),
+                                "cid": order.client_order_id,
                             },
                             "orderType": order.trade_type.name.lower(),
                             "fillable": str(int(order.amount * Decimal(f"1e{self.base_decimals + 18}"))),
@@ -717,7 +728,6 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
                             "triggerPrice": "",
                         }
                     },
-                    "cid": ""
                 },
             ],
             "derivativeOrders": [],
@@ -746,6 +756,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
                     )),
                     "orderHash": base64.b64encode(bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
                     "feeRecipientAddress": self.vault_contract_address,
+                    "cid": order.client_order_id,
                 },
             ],
             "derivativeTrades": [],
@@ -876,16 +887,8 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
         self.assertIn(sell_order_to_create_in_flight.client_order_id, self.exchange.in_flight_orders)
 
         self.assertEqual(
-            buy_order_to_create_in_flight.exchange_order_id,
-            self.exchange.in_flight_orders[buy_order_to_create_in_flight.client_order_id].exchange_order_id
-        )
-        self.assertEqual(
             buy_order_to_create_in_flight.creation_transaction_hash,
             self.exchange.in_flight_orders[buy_order_to_create_in_flight.client_order_id].creation_transaction_hash
-        )
-        self.assertEqual(
-            sell_order_to_create_in_flight.exchange_order_id,
-            self.exchange.in_flight_orders[sell_order_to_create_in_flight.client_order_id].exchange_order_id
         )
         self.assertEqual(
             sell_order_to_create_in_flight.creation_transaction_hash,
@@ -949,7 +952,6 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
 
         order = self.exchange.in_flight_orders[order_id]
 
-        self.assertEqual(expected_order_hash, order.exchange_order_id)
         self.assertEqual(response["txhash"], order.creation_transaction_hash)
 
     @aioresponses()
@@ -1010,7 +1012,6 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
         self.assertEqual(1, len(self.exchange.in_flight_orders))
         self.assertIn(order_id, self.exchange.in_flight_orders)
 
-        self.assertEqual(expected_order_hash, order.exchange_order_id)
         self.assertEqual(response["txhash"], order.creation_transaction_hash)
 
     @aioresponses()
@@ -1732,6 +1733,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
             "orders": [
                 {
                     "orderHash": order.exchange_order_id,
+                    "cid": order.client_order_id,
                     "marketId": self.market_id,
                     "isActive": True,
                     "subaccountId": self.vault_contract_subaccount_id,
@@ -1758,6 +1760,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
             "orders": [
                 {
                     "orderHash": order.exchange_order_id,
+                    "cid": order.client_order_id,
                     "marketId": self.market_id,
                     "isActive": True,
                     "subaccountId": self.vault_contract_subaccount_id,
@@ -1784,6 +1787,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
             "orders": [
                 {
                     "orderHash": order.exchange_order_id,
+                    "cid": order.client_order_id,
                     "marketId": self.market_id,
                     "isActive": True,
                     "subaccountId": self.vault_contract_subaccount_id,
@@ -1810,6 +1814,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
             "orders": [
                 {
                     "orderHash": order.exchange_order_id,
+                    "cid": order.client_order_id,
                     "marketId": self.market_id,
                     "isActive": True,
                     "subaccountId": self.vault_contract_subaccount_id,
@@ -1844,6 +1849,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
             "trades": [
                 {
                     "orderHash": order.exchange_order_id,
+                    "cid": order.client_order_id,
                     "subaccountId": self.vault_contract_subaccount_id,
                     "marketId": self.market_id,
                     "tradeExecutionType": "limitFill",
@@ -1872,6 +1878,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
             "trades": [
                 {
                     "orderHash": order.exchange_order_id,
+                    "cid": order.client_order_id,
                     "subaccountId": self.vault_contract_subaccount_id,
                     "marketId": self.market_id,
                     "tradeExecutionType": "limitFill",

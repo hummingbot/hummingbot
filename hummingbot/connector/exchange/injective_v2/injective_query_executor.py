@@ -38,10 +38,6 @@ class BaseInjectiveQueryExecutor(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def get_tx_block_height(self, tx_hash: str) -> int:
-        raise NotImplementedError
-
-    @abstractmethod
     async def account_portfolio(self, account_address: str) -> Dict[str, Any]:
         raise NotImplementedError
 
@@ -205,18 +201,6 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
                 raise
 
         result = json_format.MessageToDict(transaction_response)
-        return result
-
-    async def get_tx_block_height(self, tx_hash: str) -> int:  # pragma: no cover
-        try:
-            transaction_response = await self._sdk_client.get_tx(tx_hash=tx_hash)
-        except RpcError as rpc_exception:
-            if "StatusCode.NOT_FOUND" in str(rpc_exception):
-                raise ValueError(f"The transaction with hash {tx_hash} was not found")
-            else:
-                raise
-
-        result = transaction_response.tx_response.height
         return result
 
     async def account_portfolio(self, account_address: str) -> Dict[str, Any]:  # pragma: no cover
