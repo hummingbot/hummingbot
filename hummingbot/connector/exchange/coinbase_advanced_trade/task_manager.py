@@ -14,6 +14,10 @@ class TaskState(Enum):
     STOPPED = "STOPPED"
 
 
+class TaskManagerException(Exception):
+    pass
+
+
 class TaskManager:
     """
     A wrapper class for asyncio tasks that provides logging and exception handling.
@@ -70,7 +74,7 @@ class TaskManager:
         self._task_kwargs: Any = kwargs
 
         self._task: Task | None = None
-        self._task_exception: Exception | None = None
+        self._task_exception: TaskManagerException | None = None
         self._task_state: TaskState = TaskState.STOPPED
 
     @property
@@ -121,12 +125,14 @@ class TaskManager:
         try:
             await self.__task_function(*self._task_args, **self._task_kwargs)
         except Exception as ex:
-            self._task_exception = ex
-            self._exception_callback(ex) if self._exception_callback else None
-            self._exception_event.set() if self._exception_event else None
+            self._task_exception = TaskManagerException(
+                f"An error occurred while executing the task {self.task}\n"
+                f" in the TaskManager:\n {ex}")
+            self._exception_callback(ex) if self._exception_callback is not None else None
+            self._exception_event.set() if self._exception_event is not None else None
         else:
-            self._success_callback() if self._success_callback else None
-            self._success_event.set() if self._success_event else None
+            self._success_callback() if self._success_callback is not None else None
+            self._success_event.set() if self._success_event is not None else None
         finally:
             self._task_state = TaskState.STOPPED
             self._task = None

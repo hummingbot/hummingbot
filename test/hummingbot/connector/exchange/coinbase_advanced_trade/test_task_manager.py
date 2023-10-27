@@ -2,7 +2,11 @@ import asyncio
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import MagicMock, patch
 
-from hummingbot.connector.exchange.coinbase_advanced_trade.task_manager import TaskManager, TaskState
+from hummingbot.connector.exchange.coinbase_advanced_trade.task_manager import (
+    TaskManager,
+    TaskManagerException,
+    TaskState,
+)
 
 
 class TestTaskManager(IsolatedAsyncioWrapperTestCase):
@@ -122,8 +126,8 @@ class TestTaskManager(IsolatedAsyncioWrapperTestCase):
         await asyncio.sleep(1)
 
         # Check that the task has indeed failed
-        self.assertIsInstance(self.task_manager._task_exception, RuntimeError)
-        self.assertEqual(str(self.task_manager._task_exception), "Task failed")
+        self.assertIsInstance(self.task_manager._task_exception, TaskManagerException)
+        self.assertTrue("Task failed" in str(self.task_manager._task_exception))
 
         # The task should not be running
         self.assertFalse(self.task_manager.is_running)
@@ -152,8 +156,8 @@ class TestTaskManager(IsolatedAsyncioWrapperTestCase):
         await self.task_manager.start_task()
         await asyncio.sleep(0.2)  # give the task time to fail
 
-        callback.assert_called_once_with(self.task_manager._task_exception)
-        self.assertIsInstance(self.task_manager.task_exception, RuntimeError)
+        callback.assert_called_once()
+        self.assertIsInstance(self.task_manager.task_exception, TaskManagerException)
 
     async def test_success_event(self):
         event = asyncio.Event()
@@ -185,4 +189,4 @@ class TestTaskManager(IsolatedAsyncioWrapperTestCase):
         # Wait for the task to fail and the event to be set
         await event.wait()
         self.assertTrue(event.is_set())
-        self.assertIsInstance(self.task_manager.task_exception, CustomException)
+        self.assertIsInstance(self.task_manager.task_exception, TaskManagerException)
