@@ -1,7 +1,6 @@
 import logging
 from decimal import Decimal
 
-from hummingbot.core.data_type.common import TradeType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorStatus
 from hummingbot.smart_components.strategy_frameworks.executor_handler_base import ExecutorHandlerBase
@@ -45,9 +44,6 @@ class MarketMakingExecutorHandler(ExecutorHandlerBase):
 
     async def control_task(self):
         if self.controller.all_candles_ready:
-            current_metrics = {
-                TradeType.BUY: self.empty_metrics_dict(),
-                TradeType.SELL: self.empty_metrics_dict()}
             for order_level in self.controller.config.order_levels:
                 current_executor = self.level_executors[order_level.level_id]
                 if current_executor:
@@ -61,10 +57,6 @@ class MarketMakingExecutorHandler(ExecutorHandlerBase):
                         self.store_executor(current_executor, order_level)
                     elif active_and_early_stop_condition or order_placed_and_refresh_condition:
                         current_executor.early_stop()
-                    else:
-                        current_metrics[current_executor.side]["amount"] += current_executor.filled_amount
-                        current_metrics[current_executor.side]["net_pnl_quote"] += current_executor.net_pnl_quote
-                        current_metrics[current_executor.side]["executors"].append(current_executor)
                 else:
                     position_config = self.controller.get_position_config(order_level)
                     if position_config:
