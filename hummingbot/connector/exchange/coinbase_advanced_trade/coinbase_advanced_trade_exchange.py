@@ -336,12 +336,12 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
         elif "INSUFFICIENT_FUND" in order_result['error_response']["error"]:
             self.logger().error(
                 f"{self.name} reports insufficient funds for {side_str} {amount_str} {symbol} @ {price_str}")
-            raise ValueError
+            return "UNKNOWN", self.time_synchronizer.time()
 
         elif "INVALID_LIMIT_PRICE_POST_ONLY" in order_result['error_response']["error"]:
             self.logger().error(
                 f"{self.name} cannot place {type_str} order {side_str} {symbol} @ {price_str}. Likely not POST-able.")
-            raise ValueError
+            return "UNKNOWN", self.time_synchronizer.time()
 
         else:
             raise ValueError(f"Failed to place order on {self.name}. Error: {order_result['error_response']}")
