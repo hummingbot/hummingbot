@@ -27,7 +27,7 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
     def setUpClass(cls) -> None:
         super().setUpClass()
         cls.ev_loop = asyncio.get_event_loop()
-        cls.interval = "ONE_MINUTE"
+        cls.interval = "1m"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = cls.trading_pair
 
@@ -157,15 +157,13 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
 
     def test_intervals(self):
         self.assertEqual("ONE_MINUTE", self.data_feed.intervals["1m"])
-        self.assertEqual(60, self.data_feed.intervals["ONE_MINUTE"])
-        self.assertEqual(60, self.data_feed.intervals[self.data_feed.intervals["1m"]])
 
     def test_get_exchange_trading_pair(self):
         self.assertEqual(self.data_feed.get_exchange_trading_pair("BTC-USDT"), "BTC-USDT")
 
     @patch.object(CoinbaseAdvancedTradeSpotCandles, "fetch_candles")
     async def test_fill_historical_sufficient_candles(self, mock_fetch_candles):
-        self.interval = "ONE_MINUTE"
+        self.interval = "1m"
         mock_fetch_candles.return_value = np.array(
             [
                 [(1697498000 + 0), 1, 1, 1, 1, 1],
@@ -192,7 +190,7 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
 
     @patch.object(CoinbaseAdvancedTradeSpotCandles, "fetch_candles")
     async def test_fill_historical_insufficient_candles(self, mock_fetch_candles):
-        self.interval = "ONE_MINUTE"
+        self.interval = "1m"
         mock_fetch_candles.side_effect = [
             np.array([
                 [(1697498000 + 0), 1, 1, 1, 1, 1],
@@ -261,7 +259,7 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
         start_time = 1
         end_time = 1639508050 + 60 * 60 * 24 * 7
         url = (f"{CONSTANTS.REST_URL}{CONSTANTS.CANDLES_ENDPOINT.format(product_id=self.ex_trading_pair)}?"
-               f"end={end_time}&granularity=ONE_MINUTE&start={start_time}")
+               f"end={end_time}&granularity=1m&start={start_time}")
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         data_mock = self.get_candles_rest_data_mock()
         mock_api.get(url=regex_url, body=json.dumps(data_mock))

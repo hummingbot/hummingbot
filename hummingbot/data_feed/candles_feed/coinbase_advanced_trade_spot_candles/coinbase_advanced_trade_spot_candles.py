@@ -6,7 +6,6 @@ from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from bidict import bidict
 
 from hummingbot.core.network_iterator import NetworkStatus, safe_ensure_future
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
@@ -25,15 +24,13 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
     class HistoricalCallOnEmptyCandles(Exception):
         pass
 
-    interval_to_seconds: bidict[str, int] = CONSTANTS.INTERVALS
-
     @classmethod
     def logger(cls) -> HummingbotLogger | logging.Logger:
         if cls._logger is None:
             cls._logger: HummingbotLogger | logging.Logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, trading_pair: str, interval: str = "ONE_MINUTE", max_records: int = 150):
+    def __init__(self, trading_pair: str, interval: str = "1m", max_records: int = 150):
         super().__init__(trading_pair, interval, max_records)
 
     @property
