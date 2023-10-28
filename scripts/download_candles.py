@@ -16,9 +16,9 @@ class DownloadCandles(ScriptStrategyBase):
     Is important to notice that the component will fail if all the candles are not available since the idea of it is to
     use it in production based on candles needed to compute technical indicators.
     """
-    exchange = os.getenv("EXCHANGE", "binance_perpetual")
-    trading_pairs = os.getenv("TRADING_PAIRS", "DODO-BUSD,LTC-USDT").split(",")
-    intervals = os.getenv("INTERVALS", "1m,3m,5m,1h").split(",")
+    exchange = os.getenv("EXCHANGE", "coinbase_advanced_trade")
+    trading_pairs = os.getenv("TRADING_PAIRS", "BTC-USD,ETH-USD").split(",")
+    intervals = ["ONE_MINUTE", "FIVE_MINUTE"]
     days_to_download = int(os.getenv("DAYS_TO_DOWNLOAD", "3"))
     # we can initialize any trading pair since we only need the candles
     markets = {"binance_paper_trade": {"BTC-USDT"}}

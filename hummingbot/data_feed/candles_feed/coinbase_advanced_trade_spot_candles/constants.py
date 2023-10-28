@@ -9,7 +9,17 @@ CANDLES_ENDPOINT_ID = "candles"
 
 WSS_URL = "wss://advanced-trade-ws.coinbase.com/"
 
+# TODO: Understand what this is supposed to be
 INTERVALS = bidict({
+    "1m": "ONE_MINUTE",
+    "5m": "FIVE_MINUTE",
+    "15m": "FIFTEEN_MINUTE",
+    "30m": "THIRTY_MINUTE",
+    "1h": "ONE_HOUR",
+    "2h": "TWO_HOUR",
+    "6h": "SIX_HOUR",
+    "1d": "ONE_DAY",
+    # Couldn't understand what INTERVALS is supposed to be
     "ONE_MINUTE": 60,
     "FIVE_MINUTE": 300,
     "FIFTEEN_MINUTE": 900,
