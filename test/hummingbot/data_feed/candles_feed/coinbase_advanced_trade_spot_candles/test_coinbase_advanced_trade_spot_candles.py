@@ -155,6 +155,11 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
         self.assertEqual(self.data_feed.intervals, CONSTANTS.INTERVALS)
         self.assertEqual(self.data_feed.candle_keys_order, ("start", "open", "high", "low", "close", "volume"))
 
+    def test_intervals(self):
+        self.assertEqual("ONE_MINUTE", self.data_feed.intervals["1m"])
+        self.assertEqual(60, self.data_feed.intervals["ONE_MINUTE"])
+        self.assertEqual(60, self.data_feed.intervals[self.data_feed.intervals["1m"]])
+
     def test_get_exchange_trading_pair(self):
         self.assertEqual(self.data_feed.get_exchange_trading_pair("BTC-USDT"), "BTC-USDT")
 
@@ -223,7 +228,7 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
         ), self.data_feed._candles)
 
     @patch.object(CoinbaseAdvancedTradeSpotCandles, "fetch_candles", new_callable=AsyncMock)
-    async def test_fill_historical_candles_empty_candles(self):
+    async def test_fill_historical_candles_empty_candles(self, mock_fetch_candles):
         with self.assertRaises(CoinbaseAdvancedTradeSpotCandles.HistoricalCallOnEmptyCandles):
             await self.data_feed.fill_historical_candles()
 
