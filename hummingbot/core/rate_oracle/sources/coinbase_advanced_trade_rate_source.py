@@ -1,6 +1,7 @@
 from decimal import Decimal
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING, Dict
 
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_constants import DEFAULT_DOMAIN
 from hummingbot.core.rate_oracle.sources.rate_source_base import RateSourceBase
 from hummingbot.core.utils import async_ttl_cache
 from hummingbot.core.utils.async_utils import safe_gather
@@ -21,11 +22,14 @@ class CoinbaseAdvancedTradeRateSource(RateSourceBase):
         return "coinbase_advanced_trade"
 
     @async_ttl_cache(ttl=30, maxsize=1)
-    async def get_prices(self, quote_token: Optional[str] = None) -> Dict[str, Decimal]:
+    async def get_prices(self, quote_token: str | None = None) -> Dict[str, Decimal]:
+        if quote_token is None:
+            quote_token = "USD"
+
         self._ensure_exchanges()
         results = {}
         tasks = [
-            self._get_coinbase_prices(exchange=self._coinbase_exchange, quote_token="USD"),
+            self._get_coinbase_prices(exchange=self._coinbase_exchange, quote_token=quote_token),
         ]
         task_results = await safe_gather(*tasks, return_exceptions=True)
         for task_result in task_results:
@@ -36,15 +40,17 @@ class CoinbaseAdvancedTradeRateSource(RateSourceBase):
                 )
                 break
             else:
-                results |= task_result
+                results |= {f"{k}-{quote_token}": v for k, v in task_result.items()}
         return results
 
     def _ensure_exchanges(self):
         if self._coinbase_exchange is None:
             self._coinbase_exchange = self._build_coinbase_connector_without_private_keys(domain="com")
 
-    @staticmethod
-    async def _get_coinbase_prices(exchange: 'CoinbaseAdvancedTradeExchange', quote_token: str = None) -> Dict[str, Decimal]:
+    async def _get_coinbase_prices(
+            self,
+            exchange: 'CoinbaseAdvancedTradeExchange',
+            quote_token: str = None) -> Dict[str, Decimal]:
         """
         Fetches coinbase prices
 
@@ -53,14 +59,11 @@ class CoinbaseAdvancedTradeRateSource(RateSourceBase):
         :return: A dictionary of trading pairs and prices
         """
         token_price: Dict[str, str] = await exchange.get_exchange_rates(quote_token=quote_token)
-
-        results = {}
-        for token, price in token_price.items():
-            results[token] = Decimal(price)
-        return results
+        self.logger().debug(f"retrieved {len(token_price)} prices for {quote_token}")
+        return {token: Decimal(price) for token, price in token_price.items()}
 
     @staticmethod
-    def _build_coinbase_connector_without_private_keys(domain: str) -> 'CoinbaseAdvancedTradeExchange':
+    def _build_coinbase_connector_without_private_keys(domain: str = DEFAULT_DOMAIN) -> 'CoinbaseAdvancedTradeExchange':
         from hummingbot.client.hummingbot_application import HummingbotApplication
         from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_exchange import (
             CoinbaseAdvancedTradeExchange,
