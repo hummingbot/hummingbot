@@ -68,7 +68,7 @@ class TestExecutorHandlerBase(IsolatedAsyncioWrapperTestCase):
         mock_position_config = MagicMock()
         mock_order_level = MagicMock()
         self.executor_handler.create_executor(mock_position_config, mock_order_level)
-        mock_position_executor.assert_called_once_with(self.mock_strategy, mock_position_config)
+        mock_position_executor.assert_called_once_with(self.mock_strategy, mock_position_config, update_interval=1.0)
         self.assertIsNotNone(self.executor_handler.level_executors[mock_order_level.level_id])
 
     def generate_random_data(self, num_rows):
