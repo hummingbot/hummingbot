@@ -1,10 +1,12 @@
 import random
+from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pandas as pd
 
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide
+from hummingbot.logger import HummingbotLogger
 from hummingbot.smart_components.strategy_frameworks.controller_base import ControllerBase
 from hummingbot.smart_components.strategy_frameworks.executor_handler_base import ExecutorHandlerBase
 
@@ -22,7 +24,7 @@ class TestExecutorHandlerBase(IsolatedAsyncioWrapperTestCase):
     def test_initialization(self):
         self.assertEqual(self.executor_handler.strategy, self.mock_strategy)
         self.assertEqual(self.executor_handler.controller, self.mock_controller)
-        # ... other assertions ...
+        self.assertTrue(isinstance(self.executor_handler.logger(), HummingbotLogger))
 
     @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.safe_ensure_future")
     def test_start(self, mock_safe_ensure_future):
@@ -132,3 +134,15 @@ class TestExecutorHandlerBase(IsolatedAsyncioWrapperTestCase):
             price=100,
             position_action=PositionAction.CLOSE
         )
+
+    def test_get_active_executors_df(self):
+        position_executor_mock = MagicMock()
+        position_executor_mock.to_json = MagicMock(return_value={"entry_price": Decimal("100"),
+                                                                 "amount": Decimal("10")})
+        self.executor_handler.level_executors = {
+            "level1": position_executor_mock,
+            "level2": position_executor_mock,
+            "level3": position_executor_mock
+        }
+        active_executors_df = self.executor_handler.get_active_executors_df()
+        self.assertEqual(active_executors_df.shape[0], 3)
