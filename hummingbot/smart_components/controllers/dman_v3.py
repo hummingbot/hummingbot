@@ -111,7 +111,7 @@ class DManV3(MarketMakingControllerBase):
             amount=amount,
             take_profit=order_level.triple_barrier_conf.take_profit * target_spread,
             stop_loss=order_level.triple_barrier_conf.stop_loss * target_spread,
-            time_limit=order_level.triple_barrier_conf.time_limit * target_spread,
+            time_limit=order_level.triple_barrier_conf.time_limit,
             entry_price=Decimal(order_price),
             open_order_type=order_level.triple_barrier_conf.open_order_type,
             take_profit_order_type=order_level.triple_barrier_conf.take_profit_order_type,
