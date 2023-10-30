@@ -2,13 +2,26 @@ import asyncio
 import logging
 from datetime import datetime
 from time import time
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 
+import hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils as web_utils
+from hummingbot.client.config.security import Security
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_auth import CoinbaseAdvancedTradeAuth
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_constants import (
+    DEFAULT_DOMAIN,
+    REST_URL,
+    SERVER_TIME_EP,
+    WSS_URL,
+)
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.network_iterator import NetworkStatus, safe_ensure_future
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
 from hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles import constants as CONSTANTS
@@ -17,6 +30,9 @@ from hummingbot.logger import HummingbotLogger
 
 class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
     _logger: Optional[HummingbotLogger] = None
+    _ws_subscriptions: Dict[str, Any] = {}
+
+    web_utils = web_utils
 
     class NotEnoughDataAvailableError(Exception):
         pass
@@ -32,6 +48,23 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
 
     def __init__(self, trading_pair: str, interval: str = "1m", max_records: int = 150):
         super().__init__(trading_pair, interval, max_records)
+        self._pub_api_factory = self._api_factory
+        self._api_factory = None
+        self.logger().debug(f"Initializing {self.name} candles feed...")
+
+    async def _build_auth_api_factory(self) -> WebAssistantsFactory:
+        """Builds the API factory with authentication."""
+        time_sync = TimeSynchronizer()
+        await Security.wait_til_decryption_done()
+        api_keys = Security.api_keys("coinbase_advanced_trade")
+        return web_utils.build_api_factory(
+            throttler=AsyncThrottler(rate_limits=self.rate_limits),
+            time_synchronizer=time_sync,
+            domain=DEFAULT_DOMAIN,
+            auth=CoinbaseAdvancedTradeAuth(
+                api_key=api_keys["coinbase_advanced_trade_api_key"],
+                secret_key=api_keys["coinbase_advanced_trade_api_secret"],
+                time_provider=time_sync))
 
     @property
     def name(self) -> str:
@@ -41,17 +74,12 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
     @property
     def rest_url(self) -> str:
         """REST URL for the exchange."""
-        return CONSTANTS.REST_URL
+        return REST_URL.format(domain=DEFAULT_DOMAIN)
 
     @property
     def wss_url(self) -> str:
         """Websocket URL for the exchange."""
-        return CONSTANTS.WSS_URL
-
-    @property
-    def health_check_url(self) -> str:
-        """Health check URL for the exchange."""
-        return self.rest_url + CONSTANTS.HEALTH_CHECK_ENDPOINT
+        return WSS_URL.format(domain=DEFAULT_DOMAIN)
 
     @property
     def candles_url(self) -> str:
@@ -59,7 +87,7 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
         return self.rest_url + CONSTANTS.CANDLES_ENDPOINT.format(product_id=self._ex_trading_pair)
 
     @property
-    def rate_limits(self) -> Dict[str, int]:
+    def rate_limits(self) -> List[RateLimit]:
         """Rate limits for the exchange."""
         return CONSTANTS.RATE_LIMITS
 
@@ -83,9 +111,14 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
 
     async def check_network(self) -> NetworkStatus:
         """Verifies the exchange status."""
+        if self._api_factory is None or self._api_factory is self._pub_api_factory:
+            self._api_factory = await self._build_auth_api_factory()
+
         rest_assistant = await self._api_factory.get_rest_assistant()
-        await rest_assistant.execute_request(url=self.health_check_url,
-                                             throttler_limit_id=CONSTANTS.HEALTH_CHECK_ENDPOINT)
+        await rest_assistant.execute_request(
+            url=web_utils.public_rest_url(path_url=SERVER_TIME_EP),
+            throttler_limit_id=SERVER_TIME_EP,
+        )
         return NetworkStatus.CONNECTED
 
     def get_exchange_trading_pair(self, trading_pair) -> str:
@@ -105,15 +138,28 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
         :return: a numpy array with the candles
         https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_getcandles
         """
+        if self._api_factory is None or self._api_factory is self._pub_api_factory:
+            self._api_factory = await self._build_auth_api_factory()
+
         rest_assistant = await self._api_factory.get_rest_assistant()
-        params = {"granularity": self.interval,
+        params = {"granularity": CONSTANTS.INTERVALS[self.interval],
                   "start": str(start_time) or str(int(datetime(2023, 1, 1).timestamp())),
                   "end": str(end_time) or str(time())}
+        # time_sync = TimeSynchronizer()
+        # await Security.wait_til_decryption_done()
+        # api_keys = Security.api_keys("coinbase_advanced_trade")
         data = await rest_assistant.execute_request(
             url=self.candles_url,
             throttler_limit_id=CONSTANTS.CANDLES_ENDPOINT_ID,
-            params=params)
+            params=params,
+            is_auth_required=True,
+            # auth=CoinbaseAdvancedTradeAuth(
+            #     api_key=api_keys["coinbase_advanced_trade_api_key"],
+            #     secret_key=api_keys["coinbase_advanced_trade_api_secret"],
+            #     time_provider=time_sync),
+        )
 
+        self.logger().debug(f"fetch_candles() returned {len(data['candles'])} candles")
         return np.array(
             [
                 [float(candle[key]) for key in self.candle_keys_order]
@@ -136,7 +182,7 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
             end_timestamp: int = int(self._candles[0][0])
             interval_s: float = self.get_seconds_from_interval(self.interval)
             # Estimated start_time to gather maxlen candles given the current interval
-            start_time: int = end_timestamp - int(self._candles.maxlen * interval_s)
+            start_time: int = end_timestamp - int(min(self._candles.maxlen, CONSTANTS.MAX_CANDLES_SIZE) * interval_s)
 
             try:
                 candles = await self.fetch_candles(
@@ -155,7 +201,12 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
                 break
             except Exception as e:
                 self.logger().exception(
-                    f"Unexpected error occurred when getting historical candles {e}. Retrying in 1 seconds...",
+                    f"Unexpected error occurred when getting historical candles {e}.\n"
+                    f"   end_timestamp: {end_timestamp}\n"
+                    f"   start_time: {start_time}\n"
+                    f"   interval_s: {interval_s}\n"
+                    f"   candles req: {(end_timestamp - start_time) / interval_s} < 300?\n"
+                    f"Retrying in 1 seconds...",
                 )
                 await self._sleep(1.0)
                 continue
@@ -180,21 +231,32 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
                 # Enough or too many candles were fetched to fill the deque
                 self._candles.extendleft(candles[:missing_records])
 
+    async def _connected_websocket_assistant(self) -> WSAssistant:
+        if self._api_factory is None:
+            self._api_factory = await self._build_auth_api_factory()
+
+        return await super()._connected_websocket_assistant()
+
     async def _subscribe_channels(self, ws: WSAssistant):
         """
         Subscribes to the candles events through the provided websocket connection.
         :param ws: the websocket assistant used to connect to the exchange
         """
-        try:
-            payload = {
-                "type": "subscribe",
-                "product_ids": [self._ex_trading_pair],
-                "channel": "candles",
-            }
-            subscribe_candles_request: WSJSONRequest = WSJSONRequest(payload=payload)
+        if self._ws_subscriptions.get(self._trading_pair) is not None:
+            return
 
-            await ws.send(subscribe_candles_request)
-            self.logger().info("Subscribed to public candles...")
+        try:
+            for channel in ("candles",):
+                payload = {
+                    "type": "subscribe",
+                    "product_ids": [self._ex_trading_pair],
+                    "channel": channel,
+                }
+                self.logger().debug(f"Subscribing to public {channel} with payload: {payload}")
+
+                await ws.send(WSJSONRequest(payload=payload, is_auth_required=True))
+                self._ws_subscriptions[self._trading_pair] = True
+                self.logger().info(f"Subscribed to public {channel}...")
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -207,6 +269,12 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
         async for ws_response in websocket_assistant.iter_messages():
             data: Dict[str, Any] = ws_response.data
+            self.logger().debug(f"Received message from websocket: {data}")
+
+            if data is not None and data.get("type") == "error":
+                self._ws_subscriptions.pop(self._trading_pair)
+                self.logger().error(f"Failed to subscribed to public candles: {data.get('message')}")
+
             if data is not None and data.get("channel") == "candles":
                 for event in data["events"]:
                     for candle in event["candles"]:
