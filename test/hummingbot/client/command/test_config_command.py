@@ -64,6 +64,7 @@ class ConfigCommandTest(unittest.TestCase):
                            "    | Key                               | Value                |\n"
                            "    |-----------------------------------+----------------------|\n"
                            "    | instance_id                       | TEST_ID              |\n"
+                           "    | fetch_pairs_from_all_exchanges    | False                |\n"
                            "    | kill_switch_mode                  | kill_switch_disabled |\n"
                            "    | autofill_import                   | disabled             |\n"
                            "    | telegram_mode                     | telegram_disabled    |\n"
