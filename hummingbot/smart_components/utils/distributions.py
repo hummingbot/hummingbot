@@ -73,7 +73,7 @@ class Distributions:
         return [Decimal(scaling_factor) * Decimal(log(i + 2, base)) + translation for i in range(n_levels)]
 
     @classmethod
-    def arithmetic(cls, n_levels: int, start: float, increment: float) -> List[Decimal]:
+    def arithmetic(cls, n_levels: int, start: float, step: float) -> List[Decimal]:
         """
         Generate an arithmetic sequence of spreads.
 
@@ -85,7 +85,7 @@ class Distributions:
         Returns:
         List[Decimal]: A list containing the generated arithmetic sequence.
         """
-        return [Decimal(start) + i * Decimal(increment) for i in range(n_levels)]
+        return [Decimal(start) + i * Decimal(step) for i in range(n_levels)]
 
     @classmethod
     def geometric(cls, n_levels: int, start: float, ratio: float) -> List[Decimal]:
