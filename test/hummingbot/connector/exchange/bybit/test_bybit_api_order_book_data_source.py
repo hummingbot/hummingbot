@@ -7,6 +7,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses import aioresponses
 from bidict import bidict
+from os.path import (
+    join,
+    realpath
+)
+import sys; sys.path.insert(0, realpath(join(__file__, "../../../../../../")))
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
