@@ -34,7 +34,7 @@ class BingXConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         )
     )
-    bingx_secret_key: SecretStr = Field(
+    bingx_api_secret: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
             prompt=lambda cm: "Enter your BingX secret key",

@@ -433,7 +433,7 @@ class BingXExchange(ExchangePyBase):
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
-        for symbol_data in filter(bing_x_utils.is_exchange_information_valid, exchange_info["result"]):
+        for symbol_data in filter(bing_x_utils.is_exchange_information_valid, exchange_info["data"]["symbols"]):
             mapping[symbol_data["name"]] = combine_to_hb_trading_pair(base=symbol_data["baseCurrency"],
                                                                       quote=symbol_data["quoteCurrency"])
         self._set_trading_pair_symbol_map(mapping)
@@ -463,8 +463,9 @@ class BingXExchange(ExchangePyBase):
         last_exception = None
         rest_assistant = await self._web_assistants_factory.get_rest_assistant()
         url = web_utils.rest_url(path_url, domain=self.domain)
-        local_headers = {
-            "Content-Type": "application/x-www-form-urlencoded"}
+        local_headers = {}
+        # local_headers = {
+        #     "Content-Type": "application/x-www-form-urlencoded"}
         # request_result = await rest_assistant.execute_request(
         #     url=url,
         #     params=params,
@@ -485,7 +486,7 @@ class BingXExchange(ExchangePyBase):
                     method=method,
                     is_auth_required=is_auth_required,
                     return_err=return_err,
-                    headers=local_headers,
+                    # headers=local_headers,
                     throttler_limit_id=limit_id if limit_id else path_url,
                 )
                 return request_result

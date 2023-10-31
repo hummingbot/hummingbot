@@ -18,7 +18,7 @@ SNAPSHOT_PATH_URL = "/openApi/spot/v1/market/depth"
 SERVER_TIME_PATH_URL = "/openApi/swap/v2/server/time"
 
 # Private API endpoints
-ACCOUNTS_PATH_URL = ""
+ACCOUNTS_PATH_URL = "/openApi/spot/v1/account/balance"
 MY_TRADES_PATH_URL = ""
 ORDER_PATH_URL = ""
 
