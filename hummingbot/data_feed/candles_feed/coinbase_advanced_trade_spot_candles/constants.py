@@ -1,13 +1,14 @@
 from bidict import bidict
 
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_constants import (
+    MAX_REST_REQUESTS_S,
+    RATE_LIMITS,
+    REST_REQUESTS,
+)
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 
-REST_URL = "https://api.coinbase.com"
-HEALTH_CHECK_ENDPOINT = "/v2/time"
-CANDLES_ENDPOINT = "/api/v3/brokerage/products/{product_id}/candles"
+CANDLES_ENDPOINT = "/brokerage/products/{product_id}/candles"
 CANDLES_ENDPOINT_ID = "candles"
-
-WSS_URL = "wss://advanced-trade-ws.coinbase.com/"
 
 INTERVALS = bidict({
     "1m": "ONE_MINUTE",
@@ -20,9 +21,16 @@ INTERVALS = bidict({
     "1d": "ONE_DAY",
 })
 
-REQUEST_WEIGHT = "REQUEST_WEIGHT"
+WS_INTERVALS = bidict({
+    "5m": "FIVE_MINUTE",
+})
 
-RATE_LIMITS = [
-    RateLimit(REQUEST_WEIGHT, limit=30, time_interval=1),
-    RateLimit(CANDLES_ENDPOINT_ID, limit=30, time_interval=1, linked_limits=[LinkedLimitWeightPair("raw", 1)]),
-    RateLimit(HEALTH_CHECK_ENDPOINT, limit=10000, time_interval=3600, linked_limits=[LinkedLimitWeightPair("raw", 1)])]
+MAX_CANDLES_SIZE = 300
+
+RATE_LIMITS.append(
+    RateLimit(
+        CANDLES_ENDPOINT_ID,
+        limit=MAX_REST_REQUESTS_S,
+        time_interval=1,
+        linked_limits=[LinkedLimitWeightPair(REST_REQUESTS, 1)]),
+)
