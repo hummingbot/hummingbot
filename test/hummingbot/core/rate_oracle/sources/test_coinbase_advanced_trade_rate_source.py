@@ -36,6 +36,40 @@ class CoinbaseAdvancedTradeRateSourceTest(IsolatedAsyncioWrapperTestCase):
         return ret
 
     def setup_coinbase_responses(self, mock_api, expected_rate: Decimal):
+        time_url = web_utils.private_rest_url(path_url=CONSTANTS.SERVER_TIME_EP)
+        mock_api.get(time_url, body=json.dumps({
+            "data": {
+                "iso": "2015-06-23T18:02:51Z",
+                "epoch": 1435082571
+            }
+        }))
+
+        product_url = web_utils.private_rest_url(path_url=CONSTANTS.ALL_PAIRS_EP)
+        products_response = {
+            "products": [
+                {
+                    "product_id": "COINALPHA-USD",
+                    "quote_currency_id": "USD",
+                    "base_currency_id": "COINALPHA",
+                    "cancel_only": False,
+                    "is_disabled": False,
+                    "trading_disabled": False,
+                    "auction_mode": False,
+                    "product_type": "SPOT",
+                    "base_min_size": "0.010000000000000000",
+                    "base_max_size": "1000000",
+                    "quote_increment": "0.010000000000000000",
+                    "base_increment": "0.010000000000000000",
+                    "quote_min_size": "0.010000000000000000",
+                    "price": "1",
+                    "supports_limit_orders": True,
+                    "supports_market_orders": True
+                }
+            ],
+            "num_products": 1,
+        }
+        mock_api.get(product_url, body=json.dumps(products_response))
+
         pairs_url = web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_RATES_QUOTE_EP.format(quote_token='USD'))
         symbols_response = {  # truncated
             "data":
@@ -63,5 +97,5 @@ class CoinbaseAdvancedTradeRateSourceTest(IsolatedAsyncioWrapperTestCase):
         rate_source = CoinbaseAdvancedTradeRateSource()
         prices = self.async_run_with_timeout(rate_source.get_prices())
 
-        self.assertIn("COINALPHA", prices)
-        self.assertEqual(expected_rate, prices["COINALPHA"])
+        self.assertIn("COINALPHA-USD", prices)
+        self.assertEqual(expected_rate, prices["COINALPHA-USD"])

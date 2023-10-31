@@ -4,11 +4,18 @@ import re
 from collections import deque
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from test.logger_mixin_for_test import LoggerMixinForTest
+from time import time
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import numpy as np
 from aioresponses import aioresponses
 
+from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_constants import (
+    REST_URL,
+    SERVER_TIME_EP,
+    SIGNIN_URL,
+    WSS_URL,
+)
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
@@ -146,9 +153,9 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
             np.testing.assert_array_equal(arr1, arr2)
 
     def test_properties(self):
-        self.assertEqual(self.data_feed.rest_url, CONSTANTS.REST_URL)
-        self.assertEqual(self.data_feed.wss_url, CONSTANTS.WSS_URL)
-        self.assertEqual(self.data_feed.health_check_url, self.data_feed.rest_url + CONSTANTS.HEALTH_CHECK_ENDPOINT)
+        self.assertEqual(self.data_feed.rest_url, REST_URL.format(domain="com"))
+        self.assertEqual(self.data_feed.wss_url, WSS_URL.format(domain="com"))
+        self.assertEqual(self.data_feed.health_check_url, SIGNIN_URL.format(domain="com") + SERVER_TIME_EP)
         self.assertEqual(self.data_feed.candles_url,
                          self.data_feed.rest_url + CONSTANTS.CANDLES_ENDPOINT.format(product_id=self.ex_trading_pair))
         self.assertEqual(self.data_feed.rate_limits, CONSTANTS.RATE_LIMITS)
@@ -209,8 +216,8 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
         await self.data_feed.fill_historical_candles()
 
         mock_fetch_candles.assert_has_calls([
-            call(end_time=1697498300, start_time=1697497760),  # 8 intervals: 8 * 60 = 480 seconds -> 1697497760
-            call(end_time=1697498000, start_time=1697497460)])  # Verifying that the start_time is not too short
+            call(end_time=1697498300),  # 8 intervals: 8 * 60 = 480 seconds -> 1697497760
+            call(end_time=1697498000)])  # Verifying that the start_time is not too short
         self.assertEqual(6, self.data_feed.candles_df.shape[0])
         self.assertEqual(10, self.data_feed.candles_df.shape[1])
         self.assertDequeEqual(deque(
@@ -237,7 +244,8 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
         mock_fetch_candles.return_value = np.array([])
 
         await self.data_feed.fill_historical_candles()
-        self.assertTrue(self.is_partially_logged("ERROR", "There is not enough data available to fill historical candles for "))
+        self.assertTrue(
+            self.is_partially_logged("ERROR", "There is not enough data available to fill historical candles for "))
 
     @patch.object(CoinbaseAdvancedTradeSpotCandles, "_sleep", new_callable=AsyncMock)
     @patch.object(CoinbaseAdvancedTradeSpotCandles, "fetch_candles", new_callable=AsyncMock)
@@ -254,12 +262,61 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
             "ERROR",
             "Unexpected error occurred when getting historical candles Something went wrong"))
 
+    @patch("hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles.constants.MAX_CANDLES_SIZE", 100)
+    @patch.object(CoinbaseAdvancedTradeSpotCandles, "get_seconds_from_interval")
+    def test_get_valid_start_time_with_start_time(self, mock_interval):
+        end_time = 200000
+        mock_interval.return_value = 60
+        start_time = 150000
+        result = self.data_feed._get_valid_start_time(end_time, start_time)
+        self.assertEqual(200000 - 100 * mock_interval.return_value, result)
+
+    @patch("hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles.constants.MAX_CANDLES_SIZE", 100)
+    @patch.object(CoinbaseAdvancedTradeSpotCandles, "get_seconds_from_interval")
+    def test_get_valid_start_time_without_start_time(self, mock_interval):
+        end_time = 200000
+        mock_interval.return_value = 60
+        result = self.data_feed._get_valid_start_time(end_time)
+        expected_start_time = end_time - (mock_interval.return_value * 100)
+        self.assertEqual(result, expected_start_time)
+
+    @patch("hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles.constants.MAX_CANDLES_SIZE", 100)
+    @patch.object(CoinbaseAdvancedTradeSpotCandles, "get_seconds_from_interval")
+    def test_get_valid_start_time_with_candles_maxlen_greater_than_constant(self, mock_interval):
+        data_feed = CoinbaseAdvancedTradeSpotCandles(
+            trading_pair=self.trading_pair,
+            interval=self.interval,
+            max_records=150
+        )
+        end_time = 200000
+        mock_interval.return_value = 60
+        result = data_feed._get_valid_start_time(end_time)
+        expected_start_time = end_time - (mock_interval.return_value * 100)
+        self.assertEqual(result, expected_start_time)
+
+    @patch("hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles.constants.MAX_CANDLES_SIZE", 100)
+    @patch.object(CoinbaseAdvancedTradeSpotCandles, "get_seconds_from_interval")
+    def test_get_valid_start_time_with_candles_maxlen_less_than_constant(self, mock_interval):
+        data_feed = CoinbaseAdvancedTradeSpotCandles(
+            trading_pair=self.trading_pair,
+            interval=self.interval,
+            max_records=50
+        )
+        mock_interval.return_value = 60
+        end_time = 200000
+        result = data_feed._get_valid_start_time(end_time)
+        expected_start_time = end_time - (mock_interval.return_value * 50)
+        self.assertEqual(expected_start_time, result)
+
     @aioresponses()
-    async def test_fetch_candles(self, mock_api: aioresponses):
-        start_time = 1
-        end_time = 1639508050 + 60 * 60 * 24 * 7
-        url = (f"{CONSTANTS.REST_URL}{CONSTANTS.CANDLES_ENDPOINT.format(product_id=self.ex_trading_pair)}?"
-               f"end={end_time}&granularity=1m&start={start_time}")
+    @patch.object(CoinbaseAdvancedTradeSpotCandles, "get_seconds_from_interval")
+    async def test_fetch_candles(self, mock_api: aioresponses, mock_interval):
+        end_time = int(time()) + 60
+        mock_interval.return_value = 60
+        start_time = self.data_feed._get_valid_start_time(end_time=end_time)
+
+        url = (f"{REST_URL.format(domain='com')}{CONSTANTS.CANDLES_ENDPOINT.format(product_id=self.ex_trading_pair)}?"
+               f"end={end_time}&granularity=ONE_MINUTE&start={start_time}")
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         data_mock = self.get_candles_rest_data_mock()
         mock_api.get(url=regex_url, body=json.dumps(data_mock))
@@ -285,7 +342,8 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
             websocket_mock=ws_connect_mock.return_value,
             message=json.dumps(result_subscribe_klines))
 
-        self.listening_task = asyncio.create_task(self.data_feed.listen_for_subscriptions())
+        self.data_feed._api_factory = self.data_feed._public_api_factory
+        self.listening_task = asyncio.create_task(self.data_feed._listen_for_subscriptions())
 
         # Man, this thing is annoying!
         # self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
@@ -317,25 +375,26 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
         mock_ws.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = asyncio.create_task(self.data_feed.listen_for_subscriptions())
+            self.data_feed._api_factory = self.data_feed._public_api_factory
+            self.listening_task = asyncio.create_task(self.data_feed._listen_for_subscriptions())
             await asyncio.wait_for(self.listening_task, 1)
 
     @patch("hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles.CoinbaseAdvancedTradeSpotCandles"
            "._sleep")
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch.object(CoinbaseAdvancedTradeSpotCandles, "_connected_websocket_assistant", new_callable=AsyncMock)
     async def test_listen_for_subscriptions_logs_exception_details(self, mock_ws, sleep_mock: AsyncMock):
         mock_ws.side_effect = Exception("TEST ERROR.")
         sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(
             asyncio.CancelledError())
 
-        self.listening_task = asyncio.create_task(self.data_feed.listen_for_subscriptions())
-
+        asyncio.create_task(self.data_feed._listen_for_subscriptions())
+        await asyncio.sleep(0.1)
         await self.resume_test_event.wait()
 
         self.assertTrue(
-            self.is_logged(
+            self.is_partially_logged(
                 "ERROR",
-                "Unexpected error occurred when listening to public klines. Retrying in 1 seconds..."),
+                "Unexpected error occurred when listening to public klines"),
             self.log_records
         )
 
@@ -343,17 +402,19 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
         mock_ws = MagicMock()
         mock_ws.send.side_effect = asyncio.CancelledError
 
+        self.data_feed._ws_subscriptions = {}
         with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = asyncio.create_task(self.data_feed._subscribe_channels(mock_ws))
-            await asyncio.wait_for(self.listening_task, 1)
+            listening_task = asyncio.create_task(self.data_feed._subscribe_channels(mock_ws))
+            await asyncio.wait_for(listening_task, 1)
 
     async def test_subscribe_channels_raises_exception_and_logs_error(self):
         mock_ws = MagicMock()
         mock_ws.send.side_effect = Exception("Test Error")
 
+        self.data_feed._ws_subscriptions = {}
         with self.assertRaises(Exception):
-            self.listening_task = asyncio.create_task(self.data_feed._subscribe_channels(mock_ws))
-            await asyncio.wait_for(self.listening_task, 1)
+            listening_task = asyncio.create_task(self.data_feed._subscribe_channels(mock_ws))
+            await asyncio.wait_for(listening_task, 1)
 
         self.assertTrue(
             self.is_logged("ERROR", "Unexpected error occurred subscribing to public candles..."),
@@ -371,7 +432,8 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
             websocket_mock=ws_connect_mock.return_value,
             message=json.dumps(self.get_candles_ws_data_mock_1()))
 
-        self.listening_task = asyncio.create_task(self.data_feed.listen_for_subscriptions())
+        self.data_feed._api_factory = self.data_feed._public_api_factory
+        self.listening_task = asyncio.create_task(self.data_feed._listen_for_subscriptions())
 
         all_delivered = self.mocking_assistant._all_incoming_websocket_aiohttp_delivered_event[
             ws_connect_mock.return_value]
@@ -398,7 +460,8 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
             websocket_mock=ws_connect_mock.return_value,
             message=json.dumps(self.get_candles_ws_data_mock_1()))
 
-        self.listening_task = asyncio.create_task(self.data_feed.listen_for_subscriptions())
+        self.data_feed._api_factory = self.data_feed._public_api_factory
+        self.listening_task = asyncio.create_task(self.data_feed._listen_for_subscriptions())
 
         all_delivered = self.mocking_assistant._all_incoming_websocket_aiohttp_delivered_event[
             ws_connect_mock.return_value]
@@ -421,7 +484,8 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
             websocket_mock=ws_connect_mock.return_value,
             message=json.dumps(self.get_candles_ws_data_mock_2()))
 
-        self.listening_task = asyncio.create_task(self.data_feed.listen_for_subscriptions())
+        self.data_feed._api_factory = self.data_feed._public_api_factory
+        self.listening_task = asyncio.create_task(self.data_feed._listen_for_subscriptions())
 
         # self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value, timeout=2)
         all_delivered = self.mocking_assistant._all_incoming_websocket_aiohttp_delivered_event[
@@ -435,13 +499,13 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
         self.resume_test_event.set()
         raise exception
 
-    @patch.object(WebAssistantsFactory, "get_rest_assistant")
+    @patch.object(CoinbaseAdvancedTradeSpotCandles, "_build_auth_api_factory")
     async def test_check_network(self, mock_api_factory):
-        mock_api_factory.return_value.execute_request = AsyncMock()
+        mock_api_factory.return_value = AsyncMock(spec=WebAssistantsFactory)
         result = await self.data_feed.check_network()
-        mock_api_factory.return_value.execute_request.assert_called_once()
-        mock_api_factory.return_value.execute_request.assert_called_once_with(
+        mock_api_factory.return_value.get_rest_assistant.assert_called_once()
+        mock_api_factory.return_value.get_rest_assistant.return_value.execute_request.assert_called_once_with(
             url=self.data_feed.health_check_url,
-            throttler_limit_id=CONSTANTS.HEALTH_CHECK_ENDPOINT
+            throttler_limit_id=SERVER_TIME_EP
         )
         self.assertEqual(result, NetworkStatus.CONNECTED)

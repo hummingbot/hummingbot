@@ -1,7 +1,5 @@
 import asyncio
 import logging
-from datetime import datetime
-from time import time
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -48,7 +46,7 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
 
     def __init__(self, trading_pair: str, interval: str = "1m", max_records: int = 150):
         super().__init__(trading_pair, interval, max_records)
-        self._pub_api_factory = self._api_factory
+        self._public_api_factory = self._api_factory
         self._api_factory = None
         self.logger().debug(f"Initializing {self.name} candles feed...")
 
@@ -87,6 +85,11 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
         return self.rest_url + CONSTANTS.CANDLES_ENDPOINT.format(product_id=self._ex_trading_pair)
 
     @property
+    def health_check_url(self) -> str:
+        """Candles URL for the exchange."""
+        return web_utils.public_rest_url(path_url=SERVER_TIME_EP)
+
+    @property
     def rate_limits(self) -> List[RateLimit]:
         """Rate limits for the exchange."""
         return CONSTANTS.RATE_LIMITS
@@ -111,7 +114,7 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
 
     async def check_network(self) -> NetworkStatus:
         """Verifies the exchange status."""
-        if self._api_factory is None or self._api_factory is self._pub_api_factory:
+        if self._api_factory is None or self._api_factory is self._public_api_factory:
             self._api_factory = await self._build_auth_api_factory()
 
         rest_assistant = await self._api_factory.get_rest_assistant()
@@ -125,10 +128,17 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
         """Returns the trading pair in the format required by the exchange."""
         return trading_pair.replace("-", "-")
 
+    def _get_valid_start_time(self, end_time: int, start_time: int | None = None) -> int:
+        """Returns the start time of the candles deque."""
+        interval_s: float = self.get_seconds_from_interval(self.interval)
+        _start_time: int = end_time - int(min(self._candles.maxlen, CONSTANTS.MAX_CANDLES_SIZE) * interval_s)
+        start_time: int = max(start_time or _start_time, _start_time)
+        return start_time
+
     async def fetch_candles(
             self,
-            start_time: int | None = None,
             end_time: int | None = None,
+            start_time: int | None = None,
             limit: int | None = 500) -> np.ndarray:
         """
         Fetches candles from the exchange.
@@ -138,25 +148,23 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
         :return: a numpy array with the candles
         https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_getcandles
         """
-        if self._api_factory is None or self._api_factory is self._pub_api_factory:
-            self._api_factory = await self._build_auth_api_factory()
+        # if self._api_factory is None or self._api_factory is self._public_api_factory:
+        #     self._api_factory = await self._build_auth_api_factory()
 
-        rest_assistant = await self._api_factory.get_rest_assistant()
+        rest_assistant = await self._public_api_factory.get_rest_assistant()
+
+        end_time = end_time or await web_utils.get_current_server_time_s()
+        start_time = self._get_valid_start_time(end_time=end_time, start_time=start_time)
+
         params = {"granularity": CONSTANTS.INTERVALS[self.interval],
-                  "start": str(start_time) or str(int(datetime(2023, 1, 1).timestamp())),
-                  "end": str(end_time) or str(time())}
-        # time_sync = TimeSynchronizer()
-        # await Security.wait_til_decryption_done()
-        # api_keys = Security.api_keys("coinbase_advanced_trade")
+                  "start": str(start_time),
+                  "end": str(end_time)}
+
         data = await rest_assistant.execute_request(
             url=self.candles_url,
             throttler_limit_id=CONSTANTS.CANDLES_ENDPOINT_ID,
             params=params,
             is_auth_required=True,
-            # auth=CoinbaseAdvancedTradeAuth(
-            #     api_key=api_keys["coinbase_advanced_trade_api_key"],
-            #     secret_key=api_keys["coinbase_advanced_trade_api_secret"],
-            #     time_provider=time_sync),
         )
 
         self.logger().debug(f"fetch_candles() returned {len(data['candles'])} candles")
@@ -167,7 +175,7 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
             ]
         )
 
-    async def fill_historical_candles(self) -> None:
+    async def fill_historical_candles(self, end_time: int | None = None) -> None:
         """
         Fills the historical candles deque with the candles fetched from the exchange.
         Ideally, one request should provide the number of candles needed to fill the deque.
@@ -179,15 +187,9 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
                 )
                 raise CoinbaseAdvancedTradeSpotCandles.HistoricalCallOnEmptyCandles
 
-            end_timestamp: int = int(self._candles[0][0])
-            interval_s: float = self.get_seconds_from_interval(self.interval)
-            # Estimated start_time to gather maxlen candles given the current interval
-            start_time: int = end_timestamp - int(min(self._candles.maxlen, CONSTANTS.MAX_CANDLES_SIZE) * interval_s)
-
+            end_timestamp: int = end_time or int(self._candles[0][0])
             try:
-                candles = await self.fetch_candles(
-                    end_time=end_timestamp,
-                    start_time=start_time)
+                candles = await self.fetch_candles(end_time=end_timestamp)
 
                 if len(candles) == 0:
                     # No candles were fetched (Coinbase Advanced Trade may only have 9 days of candles)
@@ -203,9 +205,6 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
                 self.logger().exception(
                     f"Unexpected error occurred when getting historical candles {e}.\n"
                     f"   end_timestamp: {end_timestamp}\n"
-                    f"   start_time: {start_time}\n"
-                    f"   interval_s: {interval_s}\n"
-                    f"   candles req: {(end_timestamp - start_time) / interval_s} < 300?\n"
                     f"Retrying in 1 seconds...",
                 )
                 await self._sleep(1.0)
@@ -230,6 +229,65 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
             else:
                 # Enough or too many candles were fetched to fill the deque
                 self._candles.extendleft(candles[:missing_records])
+
+    async def listen_for_subscriptions(self):
+        """
+        Connects to the candlestick websocket endpoint and listens to the messages sent by the
+        exchange.
+        """
+        if self.interval in CONSTANTS.WS_INTERVALS:
+            await self._listen_for_subscriptions()
+        else:
+            await self._listen_to_fetch()
+
+    async def _listen_for_subscriptions(self):
+        """
+        Connects to the candlestick websocket endpoint and listens to the messages sent by the
+        exchange.
+        """
+        ws: Optional[WSAssistant] = None
+        while True:
+            try:
+                ws: WSAssistant = await self._connected_websocket_assistant()
+                await self._subscribe_channels(ws)
+                await self._process_websocket_messages(websocket_assistant=ws)
+
+            except asyncio.CancelledError:
+                raise
+            except ConnectionError as connection_exception:
+                self.logger().warning(f"The websocket connection was closed ({connection_exception})")
+            except Exception:
+                self.logger().exception(
+                    "Unexpected error occurred when listening to public klines. Retrying in 1 "
+                    "seconds...",
+                )
+                await self._sleep(1.0)
+            finally:
+                await self._on_order_stream_interruption(websocket_assistant=ws)
+
+    async def _listen_to_fetch(self):
+        """
+        Repeatedly calls fetch_candles on interval.
+        """
+        if len(self._candles) == 0:
+            np.array([[]])
+
+        while True:
+            try:
+                end_time = await web_utils.get_current_server_time_s()
+                await self.fill_historical_candles(end_time=int(end_time))
+                await self._sleep(self.get_seconds_from_interval(self.interval))
+
+            except asyncio.CancelledError:
+                raise
+            except ConnectionError as connection_exception:
+                self.logger().warning(f"The websocket connection was closed ({connection_exception})")
+            except Exception:
+                self.logger().exception(
+                    "Unexpected error occurred when listening to public REST candle call. Retrying in 1 "
+                    "seconds...",
+                )
+                await self._sleep(1.0)
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         if self._api_factory is None:
