@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Dict, List
 import pandas as pd
 
 from hummingbot import check_dev_mode
+from hummingbot.client.command.gateway_command import GatewayCommand
 from hummingbot.client.config.config_helpers import (
     ClientConfigAdapter,
     get_strategy_config_map,
@@ -93,7 +94,10 @@ class StatusCommand:
     ) -> Dict[str, str]:
         invalid_conns = {}
         if not any([str(exchange).endswith("paper_trade") for exchange in required_exchanges]):
-            connections = await UserBalances.instance().update_exchanges(self.client_config_map, exchanges=required_exchanges)
+            if any([UserBalances.instance().is_gateway_market(exchange) for exchange in required_exchanges]):
+                connections = await GatewayCommand.update_exchange(self, self.client_config_map, exchanges=required_exchanges)
+            else:
+                connections = await UserBalances.instance().update_exchanges(self.client_config_map, exchanges=required_exchanges)
             invalid_conns.update({ex: err_msg for ex, err_msg in connections.items()
                                   if ex in required_exchanges and err_msg is not None})
             if ethereum_wallet_required():
