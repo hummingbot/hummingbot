@@ -1,6 +1,8 @@
 import logging
 from decimal import Decimal
+from typing import Dict, Optional
 
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorStatus
 from hummingbot.smart_components.strategy_frameworks.executor_handler_base import ExecutorHandlerBase
@@ -23,6 +25,8 @@ class MarketMakingExecutorHandler(ExecutorHandlerBase):
                  update_interval: float = 1.0, executors_update_interval: float = 1.0):
         super().__init__(strategy, controller, update_interval, executors_update_interval)
         self.controller = controller
+        self.global_trailing_stop_config = self.controller.config.global_trailing_stop_config
+        self._trailing_stop_pnl_by_side: Dict[TradeType, Optional[Decimal]] = {TradeType.BUY: None, TradeType.SELL: None}
 
     def on_stop(self):
         if self.controller.is_perpetual:
@@ -44,6 +48,9 @@ class MarketMakingExecutorHandler(ExecutorHandlerBase):
 
     async def control_task(self):
         if self.controller.all_candles_ready:
+            current_metrics = {
+                TradeType.BUY: self.empty_metrics_dict(),
+                TradeType.SELL: self.empty_metrics_dict()}
             for order_level in self.controller.config.order_levels:
                 current_executor = self.level_executors[order_level.level_id]
                 if current_executor:
@@ -57,7 +64,26 @@ class MarketMakingExecutorHandler(ExecutorHandlerBase):
                         self.store_executor(current_executor, order_level)
                     elif active_and_early_stop_condition or order_placed_and_refresh_condition:
                         current_executor.early_stop()
+                    else:
+                        current_metrics[current_executor.side]["amount"] += current_executor.filled_amount
+                        current_metrics[current_executor.side]["net_pnl_quote"] += current_executor.net_pnl_quote
+                        current_metrics[current_executor.side]["executors"].append(current_executor)
                 else:
                     position_config = self.controller.get_position_config(order_level)
                     if position_config:
                         self.create_executor(position_config, order_level)
+            for side, global_trailing_stop_conf in self.global_trailing_stop_config.items():
+                if current_metrics[side]["amount"] > 0:
+                    current_pnl_pct = current_metrics[side]["net_pnl_quote"] / current_metrics[side]["amount"]
+                    trailing_stop_pnl = self._trailing_stop_pnl_by_side[side]
+                    if not trailing_stop_pnl and current_pnl_pct > global_trailing_stop_conf.activation_price_delta:
+                        self._trailing_stop_pnl_by_side[side] = current_pnl_pct - global_trailing_stop_conf.trailing_delta
+                        self.logger().info("Global Trailing Stop Activated!")
+                    if trailing_stop_pnl:
+                        if current_pnl_pct < trailing_stop_pnl:
+                            self.logger().info("Global Trailing Stop Triggered!")
+                            for executor in current_metrics[side]["executors"]:
+                                executor.early_stop()
+                            self._trailing_stop_pnl_by_side[side] = None
+                        elif current_pnl_pct - global_trailing_stop_conf.trailing_delta > trailing_stop_pnl:
+                            self._trailing_stop_pnl_by_side[side] = current_pnl_pct - global_trailing_stop_conf.trailing_delta
