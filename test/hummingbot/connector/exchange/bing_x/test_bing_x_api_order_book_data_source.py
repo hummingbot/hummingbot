@@ -145,6 +145,40 @@ class TestBingXAPIOrderBookDataSource(unittest.TestCase):
         self.assertEqual(988.7, ask_entries[0].amount)
         self.assertEqual(int(resp["ts"]), ask_entries[0].update_id)
 
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_for_subscriptions_subscribes_to_trades_and_depth(self, ws_connect_mock):
+        ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+
+        result_subscribe_trades = {
+            'id': 'trade',
+            'dataType': self.ex_trading_pair + "@trade"
+        }
+
+        result_subscribe_depth = {
+            'id': 'depth',
+            'dataType': self.ex_trading_pair + "@depth"
+        }
+
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(result_subscribe_trades))
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(result_subscribe_depth))
+
+        self.listening_task = self.ev_loop.create_task(self.ob_data_source.listen_for_subscriptions())
+
+        self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
+
+        sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
+            websocket_mock=ws_connect_mock.return_value)
+
+        self.assertEqual(2, len(sent_subscription_messages))
+        self.assertTrue(self._is_logged(
+            "INFO",
+            f"Subscribed to public order book and trade channels of {self.trading_pair}..."
+        ))
+
     @aioresponses()
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     def test_listen_for_order_book_snapshots_successful_rest(self, mock_api, _):
@@ -308,3 +342,93 @@ class TestBingXAPIOrderBookDataSource(unittest.TestCase):
             }
         }
         return exchange_rules
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
+    def test_listen_for_subscriptions_raises_cancel_exception(self, _, ws_connect_mock):
+        ws_connect_mock.side_effect = asyncio.CancelledError
+        with self.assertRaises(asyncio.CancelledError):
+            self.listening_task = self.ev_loop.create_task(self.ob_data_source.listen_for_subscriptions())
+            self.async_run_with_timeout(self.listening_task)
+
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
+    def test_listen_for_subscriptions_logs_exception_details(self, sleep_mock, ws_connect_mock):
+        sleep_mock.side_effect = asyncio.CancelledError
+        ws_connect_mock.side_effect = Exception("TEST ERROR.")
+
+        with self.assertRaises(asyncio.CancelledError):
+            self.listening_task = self.ev_loop.create_task(self.ob_data_source.listen_for_subscriptions())
+            self.async_run_with_timeout(self.listening_task)
+
+        self.assertTrue(
+            self._is_logged(
+                "ERROR",
+                "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."))
+
+    def test_listen_for_trades_cancelled_when_listening(self):
+        mock_queue = MagicMock()
+        mock_queue.get.side_effect = asyncio.CancelledError()
+        self.ob_data_source._message_queue[CONSTANTS.TRADE_EVENT_TYPE] = mock_queue
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        with self.assertRaises(asyncio.CancelledError):
+            self.listening_task = self.ev_loop.create_task(
+                self.ob_data_source.listen_for_trades(self.ev_loop, msg_queue)
+            )
+            self.async_run_with_timeout(self.listening_task)
+
+    def test_listen_for_trades_logs_exception(self):
+        incomplete_resp = {
+            "topic": "trade",
+            "params": {
+                "symbol": self.ex_trading_pair,
+                "binary": "false",
+                "symbolName": self.ex_trading_pair
+            },
+            "data": {
+                "v": "564265886622695424",
+                # "t": 1582001735462,
+                "p": "9787.5",
+                "q": "0.195009",
+                "m": True
+            }
+        }
+
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [incomplete_resp, asyncio.CancelledError()]
+        self.ob_data_source._message_queue[CONSTANTS.TRADE_EVENT_TYPE] = mock_queue
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        self.listening_task = self.ev_loop.create_task(
+            self.ob_data_source.listen_for_trades(self.ev_loop, msg_queue)
+        )
+
+        try:
+            self.async_run_with_timeout(self.listening_task)
+        except asyncio.CancelledError:
+            pass
+
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
+
+    def test_listen_for_trades_successful(self):
+        mock_queue = AsyncMock()
+        trade_event = {"code": 0, "data": {"E": 1698820885373, "T": 1698820885294, "e": "trade", "m": True, "p": "34411.07", "q": "0.01530", "s": "BTC-USDT", "t": "68710186"}, "dataType": "BTC-USDT@trade", "success": True}
+        mock_queue.get.side_effect = [trade_event, asyncio.CancelledError()]
+        self.ob_data_source._message_queue[CONSTANTS.TRADE_EVENT_TYPE] = mock_queue
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        try:
+            self.listening_task = self.ev_loop.create_task(
+                self.ob_data_source.listen_for_trades(self.ev_loop, msg_queue)
+            )
+        except asyncio.CancelledError:
+            pass
+
+        msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
+
+        self.assertTrue(trade_event["data"]['T'], msg.trade_id)

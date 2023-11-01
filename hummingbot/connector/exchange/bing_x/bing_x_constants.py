@@ -4,6 +4,8 @@ from hummingbot.core.data_type.in_flight_order import OrderState
 DEFAULT_DOMAIN = "main"
 REST_URLS = {"main": "https://open-api.bingx.com"}
 
+WSS_PUBLIC_URL = {"main": "wss://open-api-ws.bingx.com/market"}
+
 WSS_PRIVATE_URL = {"main": "wss://open-api-ws.bingx.com/market"}
 
 # Websocket event types
@@ -22,6 +24,7 @@ ACCOUNTS_PATH_URL = "/openApi/spot/v1/account/balance"
 MY_TRADES_PATH_URL = ""
 ORDER_PATH_URL = ""
 
+WS_HEARTBEAT_TIME_INTERVAL = 30
 
 # Rate Limit Type
 REQUEST_GET = "GET"
@@ -90,6 +93,6 @@ REST_URL = "https://open-api.bingx.com/openapi"
 SYMBOL_PATH_URL = "/spot/v1/common/symbols"
 
 TRADE_EVENT_TYPE = "trade"
-DIFF_EVENT_TYPE = "depthUpdate"
+DIFF_EVENT_TYPE = "depth"
 
 BINGX_USER_STREAM_PATH_URL = "/user/auth/userDataStream"
