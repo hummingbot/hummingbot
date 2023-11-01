@@ -82,7 +82,7 @@ class BingXOrderBook(OrderBook):
         """
         if metadata:
             msg.update(metadata)
-        ts = msg["t"]
+        ts = msg["T"]
         return OrderBookMessage(OrderBookMessageType.TRADE, {
             "trading_pair": msg["trading_pair"],
             "trade_type": float(TradeType.BUY.value) if msg["m"] else float(TradeType.SELL.value),
@@ -90,4 +90,4 @@ class BingXOrderBook(OrderBook):
             "update_id": ts,
             "price": msg["p"],
             "amount": msg["q"]
-        }, timestamp=ts * 1e-3)
+        }, timestamp= ts * 1e-3)

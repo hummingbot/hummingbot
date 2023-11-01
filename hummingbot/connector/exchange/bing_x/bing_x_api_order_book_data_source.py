@@ -84,11 +84,12 @@ class BingXAPIOrderBookDataSource(OrderBookTrackerDataSource):
         return snapshot_msg
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["symbol"])
-        for trades in raw_message["data"]:
-            trade_message: OrderBookMessage = BingXOrderBook.trade_message_from_exchange(
-                trades, {"trading_pair": trading_pair})
-            message_queue.put_nowait(trade_message)
+        # trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["symbol"])
+        trading_pair = raw_message["dataType"].split('@')[0]
+        # for trades in raw_message["data"]:
+        trade_message: OrderBookMessage = BingXOrderBook.trade_message_from_exchange(
+            raw_message["data"], {"trading_pair": trading_pair})
+        message_queue.put_nowait(trade_message)
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["symbol"])
@@ -126,7 +127,7 @@ class BingXAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 ws: WSAssistant = await self._api_factory.get_ws_assistant()
-                await ws.connect(ws_url=CONSTANTS.WSS_V1_PUBLIC_URL[self._domain])
+                await ws.connect(ws_url=CONSTANTS.WSS_PUBLIC_URL[self._domain])
                 await self._subscribe_channels(ws)
                 self._last_ws_message_sent_timestamp = self._time()
 
@@ -161,24 +162,16 @@ class BingXAPIOrderBookDataSource(OrderBookTrackerDataSource):
         """
         try:
             for trading_pair in self._trading_pairs:
-                symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+
                 trade_payload = {
-                    "topic": "trade",
-                    "event": "sub",
-                    "symbol": symbol,
-                    "params": {
-                        "binary": False
-                    }
+                    "id": "trade",
+                    "dataType": trading_pair + "@trade"
                 }
                 subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trade_payload)
 
                 depth_payload = {
-                    "topic": "diffDepth",
-                    "event": "sub",
-                    "symbol": symbol,
-                    "params": {
-                        "binary": False
-                    }
+                    "id": "depth",
+                    "dataType": trading_pair + "@depth"
                 }
                 subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=depth_payload)
 
@@ -198,16 +191,22 @@ class BingXAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _process_ws_messages(self, ws: WSAssistant):
         async for ws_response in ws.iter_messages():
             data = ws_response.data
-            if data.get("msg") == "Success":
+            if data.get("success") == True:
                 continue
-            event_type = data.get("topic")
-            if event_type == CONSTANTS.DIFF_EVENT_TYPE:
-                if data.get("f"):
+            if data.get("ping"):
+                payload = "pong"
+                ping_request = WSJSONRequest(payload=payload)
+                await ws.send(request=ping_request)
+            else:
+                event_type = data.get("dataType").split('@')[1]
+                if event_type == CONSTANTS.DIFF_EVENT_TYPE:
                     self._message_queue[CONSTANTS.SNAPSHOT_EVENT_TYPE].put_nowait(data)
-                else:
-                    self._message_queue[CONSTANTS.DIFF_EVENT_TYPE].put_nowait(data)
-            elif event_type == CONSTANTS.TRADE_EVENT_TYPE:
-                self._message_queue[CONSTANTS.TRADE_EVENT_TYPE].put_nowait(data)
+                    # if data.get("f"):
+                    #     self._message_queue[CONSTANTS.SNAPSHOT_EVENT_TYPE].put_nowait(data)
+                    # else:
+                    #     self._message_queue[CONSTANTS.DIFF_EVENT_TYPE].put_nowait(data)
+                elif event_type == CONSTANTS.TRADE_EVENT_TYPE:
+                    self._message_queue[CONSTANTS.TRADE_EVENT_TYPE].put_nowait(data)
 
     async def _process_ob_snapshot(self, snapshot_queue: asyncio.Queue):
         message_queue = self._message_queue[CONSTANTS.SNAPSHOT_EVENT_TYPE]
