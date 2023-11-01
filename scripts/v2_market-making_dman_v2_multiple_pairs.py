@@ -118,20 +118,21 @@ class DManV2MultiplePairs(ScriptStrategyBase):
         # we are going to close all the open positions when the bot stops
         for connector_name, connector in self.connectors.items():
             for trading_pair, position in connector.account_positions.items():
-                if position.position_side == PositionSide.LONG:
-                    self.sell(connector_name=connector_name,
-                              trading_pair=position.trading_pair,
-                              amount=abs(position.amount),
-                              order_type=OrderType.MARKET,
-                              price=connector.get_mid_price(position.trading_pair),
-                              position_action=PositionAction.CLOSE)
-                elif position.position_side == PositionSide.SHORT:
-                    self.buy(connector_name=connector_name,
-                             trading_pair=position.trading_pair,
-                             amount=abs(position.amount),
-                             order_type=OrderType.MARKET,
-                             price=connector.get_mid_price(position.trading_pair),
-                             position_action=PositionAction.CLOSE)
+                if trading_pair in self.markets[connector_name]:
+                    if position.position_side == PositionSide.LONG:
+                        self.sell(connector_name=connector_name,
+                                  trading_pair=position.trading_pair,
+                                  amount=abs(position.amount),
+                                  order_type=OrderType.MARKET,
+                                  price=connector.get_mid_price(position.trading_pair),
+                                  position_action=PositionAction.CLOSE)
+                    elif position.position_side == PositionSide.SHORT:
+                        self.buy(connector_name=connector_name,
+                                 trading_pair=position.trading_pair,
+                                 amount=abs(position.amount),
+                                 order_type=OrderType.MARKET,
+                                 price=connector.get_mid_price(position.trading_pair),
+                                 position_action=PositionAction.CLOSE)
 
     def on_tick(self):
         """
