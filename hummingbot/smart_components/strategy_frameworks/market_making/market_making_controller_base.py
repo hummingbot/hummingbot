@@ -1,8 +1,8 @@
 from decimal import Decimal
-from typing import List, Optional, Set
+from typing import Dict, List, Optional, Set
 
-from hummingbot.core.data_type.common import PositionMode
-from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig
+from hummingbot.core.data_type.common import PositionMode, TradeType
+from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig, TrailingStop
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.smart_components.strategy_frameworks.controller_base import ControllerBase, ControllerConfigBase
 from hummingbot.smart_components.strategy_frameworks.data_types import OrderLevel
@@ -13,6 +13,7 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
     trading_pair: str
     leverage: int = 10
     position_mode: PositionMode = PositionMode.HEDGE
+    global_trailing_stop_config: Optional[Dict[TradeType, TrailingStop]] = None
 
 
 class MarketMakingControllerBase(ControllerBase):
