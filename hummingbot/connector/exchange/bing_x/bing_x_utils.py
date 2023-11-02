@@ -1,9 +1,10 @@
-
+import gzip
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from typing import Any, Dict
 from pydantic import Field, SecretStr
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from decimal import Decimal
+import io
 
 CENTRALIZED = True
 EXAMPLE_PAIR = "AURA-USDT"
@@ -21,6 +22,16 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     :return: True if the trading pair is enabled, False otherwise
     """
     return exchange_info.get("showStatus") is True
+
+
+def decompress_ws_message(message):
+    if type(message) == bytes:
+        compressed_data = gzip.GzipFile(fileobj=io.BytesIO(message), mode='rb')
+        decompressed_data = compressed_data.read()
+        utf8_data = decompressed_data.decode('utf-8')
+        return utf8_data
+    else:
+        return message
 
 
 class BingXConfigMap(BaseConnectorConfigMap):

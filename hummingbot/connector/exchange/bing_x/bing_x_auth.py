@@ -28,9 +28,7 @@ class BingXAuth(AuthBase):
         :param request: the request to be configured for authenticated interaction
         """
         request.params = self.add_auth_to_params(params=request.params)
-        headers = {
-            "X-BX-APIKEY": self.api_key
-        }
+        headers = self.header_for_authentication()
         if request.headers is not None:
             headers.update(request.headers)
         request.headers = headers
@@ -86,3 +84,8 @@ class BingXAuth(AuthBase):
 
     def _time(self):
         return time.time()
+
+    def header_for_authentication(self) -> Dict[str, str]:
+        return {
+            "X-BX-APIKEY": self.api_key
+        }

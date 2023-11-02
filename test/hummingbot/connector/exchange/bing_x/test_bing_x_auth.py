@@ -11,7 +11,7 @@ from hummingbot.connector.exchange.bing_x.bing_x_auth import BingXAuth
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSJSONRequest
 
 
-class BybitAuthTests(TestCase):
+class BingXAuthTests(TestCase):
 
     def setUp(self) -> None:
         super().setUp()

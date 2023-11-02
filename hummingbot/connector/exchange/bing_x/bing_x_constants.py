@@ -2,6 +2,16 @@ from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, Rate
 from hummingbot.core.data_type.in_flight_order import OrderState
 
 DEFAULT_DOMAIN = "main"
+
+HBOT_ORDER_ID_PREFIX = "BINGX-"
+MAX_ORDER_ID_LEN = 32
+
+SIDE_BUY = "BUY"
+SIDE_SELL = "SELL"
+
+TIME_IN_FORCE_IOC = "IOC"
+TIME_IN_FORCE_POC = "POC"
+
 REST_URLS = {"main": "https://open-api.bingx.com"}
 
 WSS_PUBLIC_URL = {"main": "wss://open-api-ws.bingx.com/market"}
@@ -20,9 +30,10 @@ SNAPSHOT_PATH_URL = "/openApi/spot/v1/market/depth"
 SERVER_TIME_PATH_URL = "/openApi/swap/v2/server/time"
 
 # Private API endpoints
+USER_STREAM_PATH_URL = "/openApi/user/auth/userDataStream"
 ACCOUNTS_PATH_URL = "/openApi/spot/v1/account/balance"
 MY_TRADES_PATH_URL = ""
-ORDER_PATH_URL = ""
+ORDER_PATH_URL = "/openApi/spot/v1/trade/order"
 
 WS_HEARTBEAT_TIME_INTERVAL = 30
 
@@ -61,13 +72,16 @@ RATE_LIMITS = {
     RateLimit(limit_id=LAST_TRADED_PRICE_PATH, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
               linked_limits=[LinkedLimitWeightPair(REQUEST_GET, 1), LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
                              LinkedLimitWeightPair(REQUEST_GET_MIXED, 1)]),
+    RateLimit(limit_id=USER_STREAM_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_GET, 1), LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
+                             LinkedLimitWeightPair(REQUEST_GET_MIXED, 1)]),
     RateLimit(limit_id=EXCHANGE_INFO_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
               linked_limits=[LinkedLimitWeightPair(REQUEST_GET, 1), LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
                              LinkedLimitWeightPair(REQUEST_GET_MIXED, 1)]),
     RateLimit(limit_id=SNAPSHOT_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
               linked_limits=[LinkedLimitWeightPair(REQUEST_GET, 1), LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
                              LinkedLimitWeightPair(REQUEST_GET_MIXED, 1)]),
-    RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
+    RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=MAX_REQUEST_GET, time_interval=ONE_SECOND,
               linked_limits=[LinkedLimitWeightPair(REQUEST_GET, 1), LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
                              LinkedLimitWeightPair(REQUEST_GET_MIXED, 1)]),
     RateLimit(limit_id=ORDER_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,

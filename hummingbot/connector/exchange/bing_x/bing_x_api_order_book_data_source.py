@@ -4,6 +4,7 @@ from collections import defaultdict
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional
 
 import hummingbot.connector.exchange.bing_x.bing_x_constants as CONSTANTS
+import hummingbot.connector.exchange.bing_x.bing_x_utils as utils
 from hummingbot.connector.exchange.bing_x import bing_x_web_utils as web_utils
 from hummingbot.connector.exchange.bing_x.bing_x_order_book import BingXOrderBook
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
@@ -190,7 +191,8 @@ class BingXAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _process_ws_messages(self, ws: WSAssistant):
         async for ws_response in ws.iter_messages():
-            data = ws_response.data
+            data = utils.decompress_ws_message(ws_response.data)
+            self.logger().info(data)
             if data.get("success") == True:
                 continue
             if data.get("ping"):
