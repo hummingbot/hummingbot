@@ -107,7 +107,7 @@ class BingXExchange(ExchangePyBase):
         return self._trading_required
 
     def supported_order_types(self):
-        return [OrderType.MARKET, OrderType.LIMIT, OrderType.LIMIT_MAKER]
+        return [OrderType.MARKET, OrderType.LIMIT]
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         return False
@@ -133,7 +133,7 @@ class BingXExchange(ExchangePyBase):
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
             throttler=self._throttler,
-
+            time_synchronizer=self._time_synchronizer,
             domain=self._domain,
             auth=self._auth)
 
@@ -165,7 +165,7 @@ class BingXExchange(ExchangePyBase):
                  is_maker: Optional[bool] = None) -> TradeFeeBase:
         is_maker = order_type is OrderType.LIMIT_MAKER
         trade_base_fee = build_trade_fee(
-            exchange=self.name,
+            exchange='bing_x',
             is_maker=is_maker,
             order_side=order_side,
             order_type=order_type,
@@ -188,27 +188,28 @@ class BingXExchange(ExchangePyBase):
         type_str = self.bingx_order_type(order_type)
 
         side_str = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
-        symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+        symbol = trading_pair
         api_params = {"symbol": symbol,
                       "side": side_str,
                       "qty": amount_str,
                       "type": type_str,
-                      "orderLinkId": order_id}
+                      "newClientOrderId": order_id}
         if order_type != OrderType.MARKET:
             api_params["price"] = f"{price:f}"
         if order_type == OrderType.LIMIT:
-            api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_GTC
+            # api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_GTC
+            # bing x not has GTC
+            pass
 
         order_result = await self._api_post(
             path_url=CONSTANTS.ORDER_PATH_URL,
             params=api_params,
             is_auth_required=True,
             trading_pair=trading_pair,
-            headers={"referer": CONSTANTS.HBOT_BROKER_ID},
         )
 
-        o_id = str(order_result["result"]["orderId"])
-        transact_time = int(order_result["result"]["transactTime"]) * 1e-3
+        o_id = str(order_result["data"]["orderId"])
+        transact_time = int(order_result["data"]["transactTime"]) * 1e-3
         return (o_id, transact_time)
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
@@ -216,70 +217,56 @@ class BingXExchange(ExchangePyBase):
         if tracked_order.exchange_order_id:
             api_params["orderId"] = tracked_order.exchange_order_id
         else:
-            api_params["orderLinkId"] = tracked_order.client_order_id
-        cancel_result = await self._api_delete(
+            api_params["clientOrderId"] = tracked_order.client_order_id
+        cancel_result = await self._api_post(
             path_url=CONSTANTS.ORDER_PATH_URL,
             params=api_params,
             is_auth_required=True)
 
-        if isinstance(cancel_result, dict) and "orderLinkId" in cancel_result["result"]:
+        if isinstance(cancel_result, dict) and "clientOrderID" in cancel_result["data"]:
             return True
         return False
 
     async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
         """
         Example:
-                {
-            "ret_code": 0,
-            "ret_msg": "",
-            "ext_code": null,
-            "ext_info": null,
-            "result": [
-                {
-                    "name": "BTCUSDT",
-                    "alias": "BTCUSDT",
-                    "baseCurrency": "BTC",
-                    "quoteCurrency": "USDT",
-                    "basePrecision": "0.000001",
-                    "quotePrecision": "0.01",
-                    "minTradeQuantity": "0.0001",
-                    "minTradeAmount": "10",
-                    "minPricePrecision": "0.01",
-                    "maxTradeQuantity": "2",
-                    "maxTradeAmount": "200",
-                    "category": 1
-                },
-                {
-                    "name": "ETHUSDT",
-                    "alias": "ETHUSDT",
-                    "baseCurrency": "ETH",
-                    "quoteCurrency": "USDT",
-                    "basePrecision": "0.0001",
-                    "quotePrecision": "0.01",
-                    "minTradeQuantity": "0.0001",
-                    "minTradeAmount": "10",
-                    "minPricePrecision": "0.01",
-                    "maxTradeQuantity": "2",
-                    "maxTradeAmount": "200",
-                    "category": 1
-                }
-            ]
+        {
+            "code": 0,
+            "msg": "",
+            "debugMsg": "",
+            "data": {
+                "symbols": [
+                    {
+                        "symbol": "AURA-USDT",
+                        "minQty": 74,
+                        "maxQty": 296331.5,
+                        "minNotional": 5,
+                        "maxNotional": 20000,
+                        "status": 1,
+                        "tickSize": 0.000001,
+                        "stepSize": 0.1
+                    }
+                ]
+            }
         }
         """
-        trading_pair_rules = exchange_info_dict.get("result", [])
+        trading_pair_rules = exchange_info_dict['data'].get("symbols", [])
         retval = []
         for rule in trading_pair_rules:
             try:
-                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule.get("name"))
+                trading_pair = rule.get("symbol")
 
-                min_order_size = rule.get("minTradeQuantity")
-                min_price_increment = rule.get("minPricePrecision")
-                min_base_amount_increment = rule.get("basePrecision")
-                min_notional_size = rule.get("minTradeAmount")
+                min_price_increment = rule.get("tickSize")
+                min_base_amount_increment = rule.get("stepSize")
+                min_notional_size = rule.get("minNotional")
+                max_notional_size = rule.get("maxNotional")
+                min_order_size = rule.get("minQty")
+                max_order_size = rule.get("maxQty")
 
                 retval.append(
                     TradingRule(trading_pair,
                                 min_order_size=Decimal(min_order_size),
+                                max_order_size=Decimal(max_order_size),
                                 min_price_increment=Decimal(min_price_increment),
                                 min_base_amount_increment=Decimal(min_base_amount_increment),
                                 min_notional_size=Decimal(min_notional_size)))
@@ -417,11 +404,11 @@ class BingXExchange(ExchangePyBase):
             method=RESTMethod.GET,
             path_url=CONSTANTS.ACCOUNTS_PATH_URL,
             is_auth_required=True)
-        balances = account_info["result"]["balances"]
+        balances = account_info["data"]["balances"]
         for balance_entry in balances:
-            asset_name = balance_entry["coin"]
+            asset_name = balance_entry["asset"]
             free_balance = Decimal(balance_entry["free"])
-            total_balance = Decimal(balance_entry["total"])
+            total_balance = Decimal(balance_entry["free"]) + Decimal(balance_entry["locked"])
             self._account_available_balances[asset_name] = free_balance
             self._account_balances[asset_name] = total_balance
             remote_asset_names.add(asset_name)
@@ -463,9 +450,8 @@ class BingXExchange(ExchangePyBase):
         last_exception = None
         rest_assistant = await self._web_assistants_factory.get_rest_assistant()
         url = web_utils.rest_url(path_url, domain=self.domain)
-        local_headers = {}
-        # local_headers = {
-        #     "Content-Type": "application/x-www-form-urlencoded"}
+        local_headers = {
+            "Content-Type": "application/x-www-form-urlencoded"}
         # request_result = await rest_assistant.execute_request(
         #     url=url,
         #     params=params,
@@ -486,17 +472,17 @@ class BingXExchange(ExchangePyBase):
                     method=method,
                     is_auth_required=is_auth_required,
                     return_err=return_err,
-                    # headers=local_headers,
+                    headers=local_headers,
                     throttler_limit_id=limit_id if limit_id else path_url,
                 )
                 return request_result
             except IOError as request_exception:
                 last_exception = request_exception
-                if self._is_request_exception_related_to_time_synchronizer(request_exception=request_exception):
-                    self._time_synchronizer.clear_time_offset_ms_samples()
-                    await self._update_time_synchronizer()
-                else:
-                    raise
+                # if self._is_request_exception_related_to_time_synchronizer(request_exception=request_exception):
+                #     self._time_synchronizer.clear_time_offset_ms_samples()
+                #     await self._update_time_synchronizer()
+                # else:
+                #     raise
 
         # Failed even after the last retry
         raise last_exception

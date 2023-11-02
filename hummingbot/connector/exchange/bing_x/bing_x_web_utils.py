@@ -20,6 +20,16 @@ def rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
     return CONSTANTS.REST_URLS[domain] + path_url
 
 
+def wss_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
+    """
+    Creates a full URL for provided public REST endpoint
+    :param path_url: a public REST endpoint
+    :param domain: the Bybit domain to connect to ("mainnet" or "testnet"). The default value is "mainnet"
+    :return: the full URL to the endpoint
+    """
+    return CONSTANTS.WSS_PRIVATE_URL[domain] + path_url
+
+
 def build_api_factory(
         throttler: Optional[AsyncThrottler] = None,
         time_synchronizer: Optional[TimeSynchronizer] = None,
@@ -76,7 +86,7 @@ async def api_request(path: str,
     rest_assistant = await api_factory.get_rest_assistant()
 
     local_headers = {
-        "Content-Type": "application/json"}
+        "Content-Type": "application/x-www-form-urlencoded"}
     local_headers.update(headers)
     url = rest_url(path, domain=domain)
 
@@ -118,6 +128,7 @@ async def get_current_server_time(
         path=CONSTANTS.SERVER_TIME_PATH_URL,
         api_factory=api_factory,
         throttler=throttler,
+        time_synchronizer=None,
         domain=domain,
         method=RESTMethod.GET)
     server_time = response["data"]["serverTime"]
