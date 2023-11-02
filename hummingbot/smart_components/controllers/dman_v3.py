@@ -26,7 +26,8 @@ class DManV3Config(MarketMakingControllerConfigBase):
 
 class DManV3(MarketMakingControllerBase):
     """
-    Directional Market Making Strategy making use of NATR indicator to make spreads dynamic and shift the mid price.
+    Mean reversion strategy with Grid execution making use of Bollinger Bands indicator to make spreads dynamic
+    and shift the mid price.
     """
 
     def __init__(self, config: DManV3Config):
