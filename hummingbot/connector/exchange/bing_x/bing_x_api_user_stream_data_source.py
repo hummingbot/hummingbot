@@ -5,6 +5,7 @@ from typing import Optional
 
 import hummingbot.connector.exchange.bing_x.bing_x_constants as CONSTANTS
 import hummingbot.connector.exchange.bing_x.bing_x_web_utils as web_utils
+import hummingbot.connector.exchange.bing_x.bing_x_utils as utils
 from hummingbot.connector.exchange.bing_x.bing_x_auth import BingXAuth
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -14,6 +15,7 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJ
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
+import hummingbot.connector.exchange.bing_x.bing_x_utils as utils
 
 
 class BingXAPIUserStreamDataSource(UserStreamTrackerDataSource):
@@ -43,6 +45,7 @@ class BingXAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
         self._listen_key_initialized_event: asyncio.Event = asyncio.Event()
         self._last_listen_key_ping_ts = 0
+        self._current_listen_key = None
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
@@ -57,7 +60,7 @@ class BingXAPIUserStreamDataSource(UserStreamTrackerDataSource):
         :return: the timestamp of the last received message in seconds
         """
         if self._ws_assistant:
-            return self._ws_assistant.last_recv_time
+            return self._last_recv_time
         return 0
 
     async def listen_for_user_stream(self, output: asyncio.Queue):
@@ -106,14 +109,18 @@ class BingXAPIUserStreamDataSource(UserStreamTrackerDataSource):
     #     await ws.send(auth_message)
 
     async def _process_ws_messages(self, ws: WSAssistant, output: asyncio.Queue):
+        # self.logger().info('process ws msgs')
+        self._last_recv_time = self._time()
         async for ws_response in ws.iter_messages():
-            data = ws_response.data
-            if isinstance(data, list):
-                for message in data:
-                    if message["e"] in ["executionReport", "outboundAccountInfo"]:
-                        output.put_nowait(message)
-            elif data.get("auth") == "fail":
-                raise IOError("Private channel authentication failed.")
+            data = utils.decompress_ws_message(ws_response.data)
+            if data.get("e") == "ACCOUNT_UPDATE":
+                output.put_nowait(data)
+            # if isinstance(data, list):
+            #     for message in data:
+            #         if message["e"] in ["executionReport", "outboundAccountInfo"]:
+            #             output.put_nowait(message)
+            # elif data.get("auth") == "fail":
+            #     raise IOError("Private channel authentication failed.")
 
     async def _get_ws_assistant(self) -> WSAssistant:
         if self._ws_assistant is None:
@@ -141,19 +148,15 @@ class BingXAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def _ping_listen_key(self) -> bool:
         rest_assistant = await self._api_factory.get_rest_assistant()
+        # self.logger().info("start renew listen key")
         try:
-            data = await rest_assistant.execute_request(
+            await rest_assistant.execute_request(
                 url=web_utils.rest_url(path_url=CONSTANTS.USER_STREAM_PATH_URL, domain=self._domain),
                 params={"listenKey": self._current_listen_key},
                 method=RESTMethod.PUT,
                 return_err=True,
-                throttler_limit_id=CONSTANTS.USER_STREAM_PATH_URL,
-                headers=self._auth.header_for_authentication()
+                throttler_limit_id=CONSTANTS.USER_STREAM_PATH_URL
             )
-
-            if "code" in data:
-                self.logger().warning(f"Failed to refresh the listen key {self._current_listen_key}: {data}")
-                return False
 
         except asyncio.CancelledError:
             raise
@@ -199,3 +202,10 @@ class BingXAPIUserStreamDataSource(UserStreamTrackerDataSource):
         url = f"{CONSTANTS.WSS_PRIVATE_URL[self._domain]}?listenKey={self._current_listen_key}"
         await ws.connect(ws_url=url, ping_timeout=CONSTANTS.WS_HEARTBEAT_TIME_INTERVAL)
         return ws
+
+    async def _on_user_stream_interruption(self, websocket_assistant: Optional[WSAssistant]):
+        await super()._on_user_stream_interruption(websocket_assistant=websocket_assistant)
+        self._manage_listen_key_task and self._manage_listen_key_task.cancel()
+        self._current_listen_key = None
+        self._listen_key_initialized_event.clear()
+        await self._sleep(5)
