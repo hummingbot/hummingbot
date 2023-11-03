@@ -29,7 +29,7 @@ class PriceFollowerV1MultiplePairs(ScriptStrategyBase):
     single_amount = Decimal("20")
 
     # Select interval
-    interval = "1m"
+    interval = "3m"
 
     # Set up technical indicators config
     bb_length = 200
@@ -102,9 +102,10 @@ class PriceFollowerV1MultiplePairs(ScriptStrategyBase):
     # Set up triple barrier confs. Should be coefficients that will be multiplied by the spread multiplier to get the target prices
     take_profit = Decimal("10.0")
     stop_loss = Decimal("99.0")
-    trailing_stop_activation_price_delta_factor = Decimal("5.0")
+    trailing_stop_activation_price_delta_factor = Decimal("4.0")
     trailing_stop_trailing_delta_factor = Decimal("0.5")
     time_limit = 60 * 60 * 24 * 1
+    liquidation_thold = False
 
     # Build triple barrier confs for every spread
     triple_barrier_confs = []
@@ -149,6 +150,7 @@ class PriceFollowerV1MultiplePairs(ScriptStrategyBase):
             leverage=leverage_by_trading_pair.get(trading_pair, 1),
             intra_spread_pct=intra_spread_pct,
             min_price_pct_between_levels=min_price_pct_between_levels,
+            liquidation_thold=liquidation_thold
         )
         controller = PriceFollowerV1(config=config)
         markets = controller.update_strategy_markets_dict(markets)

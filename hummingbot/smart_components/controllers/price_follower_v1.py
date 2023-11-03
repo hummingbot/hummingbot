@@ -24,6 +24,7 @@ class PriceFollowerV1Config(MarketMakingControllerConfigBase):
     dynamic_target_spread: bool = False
     intra_spread_pct: float = 0.005
     min_price_pct_between_levels: float = 0.01
+    liquidation_thold: bool = False
 
 
 class PriceFollowerV1(MarketMakingControllerBase):
@@ -208,6 +209,7 @@ class PriceFollowerV1(MarketMakingControllerBase):
         """
         liquidation_pct = Decimal(str(liquidation_pct))
         # Calculate dynamic percentages
+        dynamic_stop_loss_pct = self.price_pct_between_levels * order_level.triple_barrier_conf.stop_loss
         dynamic_take_profit_pct = self.price_pct_between_levels * order_level.triple_barrier_conf.take_profit
         dynamic_trailing_stop_activation_pct = (self.price_pct_between_levels *
                                                 order_level.triple_barrier_conf.trailing_stop_activation_price_delta)
@@ -223,9 +225,11 @@ class PriceFollowerV1(MarketMakingControllerBase):
                                           order_level.triple_barrier_conf.stop_loss) * liquidation_pct
 
         # Calculate final percentages, ensuring they don't exceed the liquidation percentage
-        stop_loss_pct = min(self.price_pct_between_levels * order_level.triple_barrier_conf.stop_loss, liquidation_pct)
+        stop_loss_pct = min(dynamic_stop_loss_pct, liquidation_pct)
         take_profit_pct = min(dynamic_take_profit_pct, max_take_profit_pct)
         trailing_stop_activation_pct = min(dynamic_trailing_stop_activation_pct, max_trailing_stop_activation_pct)
         trailing_stop_trailing_pct = min(dynamic_trailing_stop_trailing_pct, max_trailing_stop_trailing_pct)
-
-        return stop_loss_pct, take_profit_pct, trailing_stop_activation_pct, trailing_stop_trailing_pct
+        if self.config.liquidation_thold:
+            return stop_loss_pct, take_profit_pct, trailing_stop_activation_pct, trailing_stop_trailing_pct
+        else:
+            return dynamic_stop_loss_pct, dynamic_take_profit_pct, dynamic_trailing_stop_activation_pct, dynamic_trailing_stop_trailing_pct
