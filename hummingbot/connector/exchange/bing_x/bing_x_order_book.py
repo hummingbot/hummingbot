@@ -20,12 +20,12 @@ class BingXOrderBook(OrderBook):
         """
         if metadata:
             msg.update(metadata)
-        ts = msg["t"]
+        ts = timestamp
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
             "trading_pair": msg["trading_pair"],
             "update_id": ts,
-            "bids": msg["b"],
-            "asks": msg["a"]
+            "bids": msg["bids"],
+            "asks": msg["asks"]
         }, timestamp=timestamp)
 
     @classmethod
@@ -64,12 +64,12 @@ class BingXOrderBook(OrderBook):
         """
         if metadata:
             msg.update(metadata)
-        ts = msg["t"]
+        ts = timestamp
         return OrderBookMessage(OrderBookMessageType.DIFF, {
             "trading_pair": msg["trading_pair"],
             "update_id": ts,
-            "bids": msg["b"],
-            "asks": msg["a"]
+            "bids": msg["data"]["bids"],
+            "asks": msg["data"]["asks"]
         }, timestamp=timestamp)
 
     @classmethod

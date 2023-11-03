@@ -1,4 +1,5 @@
 import asyncio
+import json
 import time
 from collections import defaultdict
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional
@@ -93,11 +94,16 @@ class BingXAPIOrderBookDataSource(OrderBookTrackerDataSource):
         message_queue.put_nowait(trade_message)
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["symbol"])
-        for diff_message in raw_message["data"]:
-            order_book_message: OrderBookMessage = BingXOrderBook.diff_message_from_exchange(
-                diff_message, diff_message["t"], {"trading_pair": trading_pair})
-            message_queue.put_nowait(order_book_message)
+        # self.logger().info(f"parse msg queue: {raw_message}")
+        trading_pair = raw_message["symbol"]
+        # for diff_message in raw_message["data"]:
+        #     order_book_message: OrderBookMessage = BingXOrderBook.diff_message_from_exchange(
+        #         diff_message, diff_message["t"], {"trading_pair": trading_pair})
+        #     message_queue.put_nowait(order_book_message)
+        time = self._time()
+        order_book_message: OrderBookMessage = BingXOrderBook.diff_message_from_exchange(
+            raw_message, time, {"trading_pair": trading_pair})
+        message_queue.put_nowait(order_book_message)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         """
@@ -192,17 +198,20 @@ class BingXAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def _process_ws_messages(self, ws: WSAssistant):
         async for ws_response in ws.iter_messages():
             data = utils.decompress_ws_message(ws_response.data)
-            self.logger().info(data)
-            if data.get("success") == True:
+            if data.get("msg") == "SUCCESS":
                 continue
+            # self.logger().info(f"data process: {data}")
             if data.get("ping"):
+                # self.logger().info("send pong through websocket")
                 payload = "pong"
                 ping_request = WSJSONRequest(payload=payload)
                 await ws.send(request=ping_request)
-            else:
+            elif data.get("dataType"):
+                symbol = data.get("dataType").split('@')[0]
                 event_type = data.get("dataType").split('@')[1]
+                data['symbol'] = symbol
                 if event_type == CONSTANTS.DIFF_EVENT_TYPE:
-                    self._message_queue[CONSTANTS.SNAPSHOT_EVENT_TYPE].put_nowait(data)
+                    self._message_queue[CONSTANTS.DIFF_EVENT_TYPE].put_nowait(data)
                     # if data.get("f"):
                     #     self._message_queue[CONSTANTS.SNAPSHOT_EVENT_TYPE].put_nowait(data)
                     # else:
@@ -215,10 +224,12 @@ class BingXAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 json_msg = await message_queue.get()
-                trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
-                    symbol=json_msg["symbol"])
+                # self.logger().info(f"data in queue: {json_msg}")
+                trading_pair = json_msg["symbol"]
+                # trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
+                #     symbol=json_msg["symbol"])
                 order_book_message: OrderBookMessage = BingXOrderBook.snapshot_message_from_exchange_websocket(
-                    json_msg["data"][0], json_msg["data"][0], {"trading_pair": trading_pair})
+                    json_msg["data"], self._time(), {"trading_pair": trading_pair})
                 snapshot_queue.put_nowait(order_book_message)
             except asyncio.CancelledError:
                 raise

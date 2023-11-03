@@ -1,5 +1,6 @@
 import asyncio
 from decimal import Decimal
+import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from bidict import bidict
@@ -421,21 +422,20 @@ class BingXExchange(ExchangePyBase):
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
         for symbol_data in filter(bing_x_utils.is_exchange_information_valid, exchange_info["data"]["symbols"]):
-            mapping[symbol_data["name"]] = combine_to_hb_trading_pair(base=symbol_data["baseCurrency"],
-                                                                      quote=symbol_data["quoteCurrency"])
+            mapping[symbol_data["symbol"]] = symbol_data["symbol"]
         self._set_trading_pair_symbol_map(mapping)
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         params = {
-            "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
+            "symbol": trading_pair
         }
         resp_json = await self._api_request(
             method=RESTMethod.GET,
             path_url=CONSTANTS.LAST_TRADED_PRICE_PATH,
             params=params,
+            is_auth_required=True
         )
-
-        return float(resp_json["result"]["price"])
+        return float(resp_json["data"][0]["lastPrice"])
 
     async def _api_request(self,
                            path_url,

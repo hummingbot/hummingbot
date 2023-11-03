@@ -5,6 +5,7 @@ from pydantic import Field, SecretStr
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from decimal import Decimal
 import io
+import json
 
 CENTRALIZED = True
 EXAMPLE_PAIR = "AURA-USDT"
@@ -21,7 +22,7 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     :param exchange_info: the exchange information for a trading pair
     :return: True if the trading pair is enabled, False otherwise
     """
-    return exchange_info.get("showStatus") is True
+    return exchange_info.get("status") == 1
 
 
 def decompress_ws_message(message):
@@ -29,7 +30,7 @@ def decompress_ws_message(message):
         compressed_data = gzip.GzipFile(fileobj=io.BytesIO(message), mode='rb')
         decompressed_data = compressed_data.read()
         utf8_data = decompressed_data.decode('utf-8')
-        return utf8_data
+        return json.loads(utf8_data)
     else:
         return message
 
