@@ -3,7 +3,7 @@ from hummingbot.core.data_type.in_flight_order import OrderState
 
 DEFAULT_DOMAIN = "main"
 
-HBOT_ORDER_ID_PREFIX = "BINGX-"
+HBOT_ORDER_ID_PREFIX = "BINGX_"
 MAX_ORDER_ID_LEN = 32
 
 SIDE_BUY = "BUY"

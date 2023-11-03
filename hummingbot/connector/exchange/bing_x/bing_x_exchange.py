@@ -192,7 +192,7 @@ class BingXExchange(ExchangePyBase):
         symbol = trading_pair
         api_params = {"symbol": symbol,
                       "side": side_str,
-                      "qty": amount_str,
+                      "quantity": amount_str,
                       "type": type_str,
                       "newClientOrderId": order_id}
         if order_type != OrderType.MARKET:
