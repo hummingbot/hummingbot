@@ -134,7 +134,7 @@ class ExecutorHandlerBase:
                        position_action=PositionAction.CLOSE)
 
     def get_closed_executors_df(self):
-        dfs = [pd.read_csv(file) for file in glob.glob(data_path() + f"/{self.controller.get_csv_prefix()}*")]
+        dfs = [pd.read_csv(file) for file in glob.glob(data_path() + f"/{self.controller.get_csv_prefix()}*.csv")]
         if len(dfs) > 0:
             df = pd.concat(dfs)
             return self.controller.filter_executors_df(df)
