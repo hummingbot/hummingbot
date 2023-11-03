@@ -14,7 +14,7 @@ from hummingbot.smart_components.strategy_frameworks.market_making.market_making
 
 
 class PriceFollowerV1Config(MarketMakingControllerConfigBase):
-    strategy_name: str = "trend_follower_v1"
+    strategy_name: str = "price_follower_v1"
     bb_length: int = 100
     bb_std: float = 2.0
     side_filter: bool = False
