@@ -20,12 +20,14 @@ class DManV3Config(MarketMakingControllerConfigBase):
     side_filter: bool = False
     smart_activation: bool = False
     activation_threshold: Decimal = Decimal("0.001")
+    dynamic_spread_factor: bool = True
     dynamic_target_spread: bool = False
 
 
 class DManV3(MarketMakingControllerBase):
     """
-    Directional Market Making Strategy making use of NATR indicator to make spreads dynamic and shift the mid price.
+    Mean reversion strategy with Grid execution making use of Bollinger Bands indicator to make spreads dynamic
+    and shift the mid price.
     """
 
     def __init__(self, config: DManV3Config):
@@ -76,6 +78,8 @@ class DManV3(MarketMakingControllerBase):
         close_price = self.get_close_price(self.config.exchange, self.config.trading_pair)
 
         bollinger_mid_price, spread_multiplier = self.get_price_and_spread_multiplier()
+        if not self.config.dynamic_spread_factor:
+            spread_multiplier = 1
         side_multiplier = -1 if order_level.side == TradeType.BUY else 1
         order_spread_multiplier = order_level.spread_factor * spread_multiplier * side_multiplier
         order_price = bollinger_mid_price * (1 + order_spread_multiplier)
