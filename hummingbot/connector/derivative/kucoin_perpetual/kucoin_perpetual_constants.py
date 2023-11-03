@@ -128,4 +128,5 @@ RATE_LIMITS = [
     RateLimit(limit_id=GET_FILL_INFO_PATH_URL, limit=9, time_interval=3),
     RateLimit(limit_id=GET_RECENT_FILLS_INFO_PATH_URL, limit=9, time_interval=3),
     RateLimit(limit_id=GET_FUNDING_HISTORY_PATH_URL, limit=9, time_interval=3),
+    RateLimit(limit_id=GET_RISK_LIMIT_LEVEL_PATH_URL, limit=9, time_interval=3),
 ]
