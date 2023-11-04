@@ -886,11 +886,12 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
                                         params=params,
                                         return_err=True
                                         )
-        _positions = positions["positions"]
+        _positions = positions.get("positions", None)
 
-        for position in _positions["edges"]:
-            _position = position["node"]
-            await self._process_user_position(_position)
+        if _positions is not None:
+            for position in _positions["edges"]:
+                _position = position["node"]
+                await self._process_user_position(_position)
 
     async def _get_position_mode(self) -> Optional[PositionMode]:
         # NOTE: This is default to ONEWAY as there is nothing available on current version of Vega
@@ -1082,6 +1083,9 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
             m.hb_base_name = m.symbol.replace("-", ".").replace("/", ".").upper()
             m.quote_name = self._get_quote(instrument["metadata"]["tags"])  # [1].replace("quote:", "")
             m.hb_quote_name = m.quote.hb_name.upper()
+            if not m.base_name or not m.quote_name:
+                self.logger().warning(f"Skipping Market {m.name} as metadata is missing")
+                continue
 
             m.funding_fee_interval = None
             if "perpetual" in instrument:
