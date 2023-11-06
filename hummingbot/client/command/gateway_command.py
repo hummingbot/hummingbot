@@ -409,8 +409,6 @@ class GatewayCommand(GatewayChainApiManager):
     async def _get_balances(self):
         gateway_connections = GatewayConnectionSetting.load()
 
-        for conf in gateway_connections:
-            address = conf["wallet_address"]
         sum_not_for_show_name = "sum_not_for_show"
         self.notify("Updating gateway balances, please wait...")
         network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
@@ -423,28 +421,39 @@ class GatewayCommand(GatewayChainApiManager):
             raise
 
         for exchange, bals in all_ex_bals.items():
+            # Flag to check if exchange data has been found
+            exchange_found = False
 
-            self.notify(f"\nAddress: {address}\n"
-                        f"Exchange: {exchange}\n")
-            df = await self.exchange_balances_extra(bals)
-            if df.empty:
-                self.notify("You have no balance on this exchange.")
-            else:
-                lines = [
-                    "    " + line for line in df.drop(sum_not_for_show_name, axis=1).to_string(index=False).split("\n")
-                ]
-                self.notify("\n".join(lines))
+            for conf in gateway_connections:
+                conf: Dict[str, Any] = conf
+                if exchange == (f'{conf["connector"]}_{conf["chain"]}_{conf["network"]}'):
+                    exchange_found = True
+                    address = conf["wallet_address"]
+                    rows = []
+                    for token, bal in bals.items():
+                        rows.append({
+                            "Symbol": token.upper(),
+                            "Balance": round(bal, 4),
+                            "sum_not_for_show": " "
+                        })
+                    df = pd.DataFrame(data=rows, columns=["Symbol", "Balance", "sum_not_for_show"])
+                    df.sort_values(by=["Symbol"], inplace=True)
 
-    async def exchange_balances_extra(self,  # type: HummingbotApplication
-                                      ex_balances: Dict[str, Decimal]):
-        rows = []
-        for token, bal in ex_balances.items():
-            rows.append({"Symbol": token.upper(),
-                         "Balance": round(bal, 4),
-                         "sum_not_for_show": " "})
-        df = pd.DataFrame(data=rows, columns=["Symbol", "Balance", "sum_not_for_show"])
-        df.sort_values(by=["Symbol"], inplace=True)
-        return df
+                    self.notify(f"\nExchange: {exchange}")
+                    self.notify(f"Address: {address}")
+
+                    if df.empty:
+                        self.notify("You have no balance on this exchange.")
+                    else:
+                        lines = [
+                            "    " + line for line in df.drop(sum_not_for_show_name, axis=1).to_string(index=False).split("\n")
+                        ]
+                        self.notify("\n".join(lines))
+                    # Exit loop once exchange data is found
+                    break
+
+            if not exchange_found:
+                self.notify(f"No configuration found for exchange: {exchange}")
 
     def connect_markets(exchange, client_config_map: ClientConfigMap, **api_details):
         connector = None
