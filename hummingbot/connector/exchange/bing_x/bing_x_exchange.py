@@ -65,7 +65,7 @@ class BingXExchange(ExchangePyBase):
 
     @property
     def name(self) -> str:
-        return self._domain
+        return "bing_x"
 
     @property
     def rate_limits_rules(self):
@@ -214,19 +214,21 @@ class BingXExchange(ExchangePyBase):
         return (o_id, transact_time)
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
-        api_params = {}
+        api_params = {
+            "symbol": tracked_order.trading_pair
+        }
         if tracked_order.exchange_order_id:
             api_params["orderId"] = tracked_order.exchange_order_id
         else:
             api_params["clientOrderId"] = tracked_order.client_order_id
         cancel_result = await self._api_post(
-            path_url=CONSTANTS.ORDER_PATH_URL,
+            path_url=CONSTANTS.CANCEL_ORDER_PATH_URL,
             params=api_params,
             is_auth_required=True)
 
-        if isinstance(cancel_result, dict) and "clientOrderID" in cancel_result["data"]:
-            return True
-        return False
+        # if isinstance(cancel_result, dict) and "clientOrderID" in cancel_result["data"]:
+        #     return True
+        return True
 
     async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
         """
@@ -290,46 +292,47 @@ class BingXExchange(ExchangePyBase):
         """
         async for event_message in self._iter_user_event_queue():
             try:
-                event_type = event_message.get("e")
-                if event_type == "executionReport":
-                    execution_type = event_message.get("X")
-                    client_order_id = event_message.get("c")
-                    tracked_order = self._order_tracker.fetch_order(client_order_id=client_order_id)
+                if event_message.get("dataType") == "spot.executionReport":
+                    # client_order_id = event_message.get("c")
+                    data = event_message.get('data')
+                    exchange_order_id = data.get('i')
+                    execution_type = data.get('x')
+                    tracked_order = self._order_tracker.fetch_order(exchange_order_id=str(exchange_order_id))
                     if tracked_order is not None:
                         if execution_type in ["PARTIALLY_FILLED", "FILLED"]:
                             fee = TradeFeeBase.new_spot_fee(
                                 fee_schema=self.trade_fee_schema(),
                                 trade_type=tracked_order.trade_type,
-                                flat_fees=[TokenAmount(amount=Decimal(event_message["n"]), token=event_message["N"])]
+                                flat_fees=[TokenAmount(amount=Decimal(data["n"]), token=data["N"])]
                             )
                             trade_update = TradeUpdate(
-                                trade_id=str(event_message["t"]),
-                                client_order_id=client_order_id,
-                                exchange_order_id=str(event_message["i"]),
+                                trade_id=str(data["t"]),
+                                client_order_id=tracked_order.client_order_id,
+                                exchange_order_id=str(data["i"]),
                                 trading_pair=tracked_order.trading_pair,
                                 fee=fee,
-                                fill_base_amount=Decimal(event_message["l"]),
-                                fill_quote_amount=Decimal(event_message["l"]) * Decimal(event_message["L"]),
-                                fill_price=Decimal(event_message["L"]),
-                                fill_timestamp=int(event_message["E"]) * 1e-3,
+                                fill_base_amount=Decimal(data["l"]),
+                                fill_quote_amount=Decimal(data["l"]) * Decimal(data["L"]),
+                                fill_price=Decimal(data["L"]),
+                                fill_timestamp=int(data["E"]) * 1e-3,
                             )
                             self._order_tracker.process_trade_update(trade_update)
 
                         order_update = OrderUpdate(
                             trading_pair=tracked_order.trading_pair,
-                            update_timestamp=int(event_message["E"]) * 1e-3,
-                            new_state=CONSTANTS.ORDER_STATE[event_message["X"]],
-                            client_order_id=client_order_id,
-                            exchange_order_id=str(event_message["i"]),
+                            update_timestamp=int(data["E"]) * 1e-3,
+                            new_state=CONSTANTS.ORDER_STATE[data["X"]],
+                            client_order_id=tracked_order.client_order_id,
+                            exchange_order_id=str(data["i"]),
                         )
                         self._order_tracker.process_order_update(order_update=order_update)
 
-                elif event_type == "outboundAccountInfo":
-                    balances = event_message["B"]
+                elif event_message.get("e") == "ACCOUNT_UPDATE":
+                    balances = event_message["a"]["B"]
                     for balance_entry in balances:
                         asset_name = balance_entry["a"]
-                        free_balance = Decimal(balance_entry["f"])
-                        total_balance = Decimal(balance_entry["f"]) + Decimal(balance_entry["l"])
+                        free_balance = Decimal(balance_entry["cw"])
+                        total_balance = Decimal(balance_entry["wb"])
                         self._account_available_balances[asset_name] = free_balance
                         self._account_balances[asset_name] = total_balance
 

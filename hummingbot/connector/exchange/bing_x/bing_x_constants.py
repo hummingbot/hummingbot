@@ -34,8 +34,20 @@ USER_STREAM_PATH_URL = "/openApi/user/auth/userDataStream"
 ACCOUNTS_PATH_URL = "/openApi/spot/v1/account/balance"
 MY_TRADES_PATH_URL = ""
 ORDER_PATH_URL = "/openApi/spot/v1/trade/order"
+CANCEL_ORDER_PATH_URL = "/openApi/spot/v1/trade/cancel"
 
 WS_HEARTBEAT_TIME_INTERVAL = 30
+
+# Order States
+ORDER_STATE = {
+    "PENDING": OrderState.PENDING_CREATE,
+    "NEW": OrderState.OPEN,
+    "PARTIALLY_FILLED": OrderState.PARTIALLY_FILLED,
+    "FILLED": OrderState.FILLED,
+    "PENDING_CANCEL": OrderState.PENDING_CANCEL,
+    "CANCELED": OrderState.CANCELED,
+    "REJECTED": OrderState.FAILED,
+}
 
 # Rate Limit Type
 REQUEST_GET = "GET"
@@ -85,6 +97,9 @@ RATE_LIMITS = {
               linked_limits=[LinkedLimitWeightPair(REQUEST_GET, 1), LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
                              LinkedLimitWeightPair(REQUEST_GET_MIXED, 1)]),
     RateLimit(limit_id=ORDER_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
+              linked_limits=[LinkedLimitWeightPair(REQUEST_POST, 1), LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
+                             LinkedLimitWeightPair(REQUEST_POST_MIXED, 1)]),
+    RateLimit(limit_id=CANCEL_ORDER_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
               linked_limits=[LinkedLimitWeightPair(REQUEST_POST, 1), LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
                              LinkedLimitWeightPair(REQUEST_POST_MIXED, 1)]),
     RateLimit(limit_id=ACCOUNTS_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
