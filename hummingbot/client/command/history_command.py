@@ -105,7 +105,7 @@ class HistoryCommand:
         else:
             if UserBalances.instance().is_gateway_market(market):
                 await GatewayCommand.update_exchange_balances(self, market, self.client_config_map)
-                return GatewayCommand.all_balance(market)
+                return GatewayCommand.all_balance(self, market)
             else:
                 await UserBalances.instance().update_exchange_balance(market, self.client_config_map)
                 return UserBalances.instance().all_balances(market)
