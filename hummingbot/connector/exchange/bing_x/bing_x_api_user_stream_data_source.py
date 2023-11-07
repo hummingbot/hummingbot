@@ -76,6 +76,7 @@ class BingXAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 ws: WSAssistant = await self._connected_websocket_assistant()
                 # await ws.connect(ws_url=CONSTANTS.WSS_PRIVATE_URL[self._domain])
                 # await self._authenticate_connection(ws)
+                await self._subscribe_channels(ws)
                 self._last_ws_message_sent_timestamp = self._time()
                 while True:
                     try:
@@ -100,6 +101,37 @@ class BingXAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 ws and await ws.disconnect()
                 await self._sleep(5)
 
+    async def _subscribe_channels(self, ws: WSAssistant):
+        """
+        Subscribes to the trade events and diff orders events through the provided websocket connection.
+        :param ws: the websocket assistant used to connect to the exchange
+        """
+        try:
+            trade_payload = {
+                "id": "usertrade",
+                "dataType": "spot.executionReport"
+            }
+            subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trade_payload)
+
+            balance_payload = {
+                "id": "userbalance",
+                "dataType": "ACCOUNT_UPDATE"
+            }
+            subscribe_balance_request: WSJSONRequest = WSJSONRequest(payload=balance_payload)
+
+            await ws.send(subscribe_trade_request)
+            await ws.send(subscribe_balance_request)
+
+            self.logger().info(f"Subscribed to private channel...")
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().error(
+                "Unexpected error occurred subscribing to order book trading and delta streams...",
+                exc_info=True
+            )
+            raise
+
     # async def _authenticate_connection(self, ws: WSAssistant):
     #     """
     #     Sends the authentication message.
@@ -114,6 +146,8 @@ class BingXAPIUserStreamDataSource(UserStreamTrackerDataSource):
         async for ws_response in ws.iter_messages():
             data = utils.decompress_ws_message(ws_response.data)
             if data.get("e") == "ACCOUNT_UPDATE":
+                output.put_nowait(data)
+            elif (data.get("dataType") == "spot.executionReport"):
                 output.put_nowait(data)
             # if isinstance(data, list):
             #     for message in data:
