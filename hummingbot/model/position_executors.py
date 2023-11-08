@@ -2,14 +2,14 @@
 from typing import List, Optional
 
 import pandas as pd
-from sqlalchemy import JSON, BigInteger, Column, Float, Index, Integer, Text
+from sqlalchemy import BigInteger, Column, Float, Index, Integer, Text
 from sqlalchemy.orm import Session
 
 from . import HummingbotBase
 
 
 class PositionExecutors(HummingbotBase):
-    __tablename__ = "PositionExecutor"
+    __tablename__ = "PositionExecutors"
     __table_args__ = (Index("pe_controller_name_timestamp",
                             "controller_name", "timestamp"),
                       Index("pe_exchange_trading_pair_timestamp",
@@ -43,7 +43,6 @@ class PositionExecutors(HummingbotBase):
     time_limit_order_type = Column(Text, nullable=False)
     leverage = Column(Integer, nullable=False)
     controller_name = Column(Text, nullable=True)
-    controller_config = Column(JSON, nullable=True)
 
     def __repr__(self) -> str:
         return f"PositionExecutor(timestamp={self.timestamp}, controller_name='{self.controller_name}', " \
