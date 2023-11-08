@@ -1285,6 +1285,9 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         )
 
         exchange_with_non_default_subaccount._data_source._query_executor = self.exchange._data_source._query_executor
+        exchange_with_non_default_subaccount._data_source._composer = Composer(
+            network=exchange_with_non_default_subaccount._data_source.network_name
+        )
         self.exchange = exchange_with_non_default_subaccount
         self.configure_all_symbols_response(mock_api=None)
         self.exchange._set_current_timestamp(1640780000)
