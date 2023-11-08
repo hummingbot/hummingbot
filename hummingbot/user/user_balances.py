@@ -84,13 +84,15 @@ class UserBalances:
 
     async def add_exchange(self, exchange, client_config_map: ClientConfigMap, **api_details) -> Optional[str]:
         self._markets.pop(exchange, None)
-        market = UserBalances.connect_market(exchange, client_config_map, **api_details)
-        if not market:
-            return "API keys have not been added."
-        err_msg = await UserBalances._update_balances(market)
-        if err_msg is None:
-            self._markets[exchange] = market
-        return err_msg
+        is_gateway_market = self.is_gateway_market(exchange)
+        if not is_gateway_market:
+            market = UserBalances.connect_market(exchange, client_config_map, **api_details)
+            if not market:
+                return "API keys have not been added."
+            err_msg = await UserBalances._update_balances(market)
+            if err_msg is None:
+                self._markets[exchange] = market
+            return err_msg
 
     def all_balances(self, exchange) -> Dict[str, Decimal]:
         if exchange not in self._markets:
@@ -137,12 +139,14 @@ class UserBalances:
         results = await safe_gather(*tasks)
         return {ex: err_msg for ex, err_msg in zip(exchanges, results)}
 
+    # returns only for non-gateway connectors since balance command no longer reports gateway connector balances
     async def all_balances_all_exchanges(self, client_config_map: ClientConfigMap) -> Dict[str, Dict[str, Decimal]]:
         await self.update_exchanges(client_config_map)
-        return {k: v.get_all_balances() for k, v in sorted(self._markets.items(), key=lambda x: x[0])}
+        return {k: v.get_all_balances() for k, v in sorted(self._markets.items(), key=lambda x: x[0]) if not self.is_gateway_market(k)}
 
+    # returns only for non-gateway connectors since balance command no longer reports gateway connector balances
     def all_available_balances_all_exchanges(self) -> Dict[str, Dict[str, Decimal]]:
-        return {k: v.available_balances for k, v in sorted(self._markets.items(), key=lambda x: x[0])}
+        return {k: v.available_balances for k, v in sorted(self._markets.items(), key=lambda x: x[0]) if not self.is_gateway_market(k)}
 
     async def balances(self, exchange, client_config_map: ClientConfigMap, *symbols) -> Dict[str, Decimal]:
         if await self.update_exchange_balance(exchange, client_config_map) is None:
