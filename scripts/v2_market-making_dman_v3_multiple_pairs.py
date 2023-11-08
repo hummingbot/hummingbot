@@ -72,7 +72,7 @@ class DManV3MultiplePairs(ScriptStrategyBase):
             ],
             bb_length=bollinger_band_length,
             bb_std=bollinger_band_std,
-            side_filter=True,
+            side_filter=side_filter,
             dynamic_spread_factor=dynamic_spread_factor,
             dynamic_target_spread=dynamic_target_spread,
             smart_activation=smart_activation,
