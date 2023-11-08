@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, List, Optional, Set, Tuple
 
 import pandas as pd
 
+from hummingbot.client.command.gateway_command import GatewayCommand
 from hummingbot.client.performance import PerformanceMetrics
 from hummingbot.client.settings import MAXIMUM_TRADE_FILLS_DISPLAY_OUTPUT, AllConnectorSettings
 from hummingbot.client.ui.interface_utils import format_df_for_printout
@@ -102,8 +103,12 @@ class HistoryCommand:
                 return {}
             return {token: Decimal(str(bal)) for token, bal in paper_balances.items()}
         else:
-            await UserBalances.instance().update_exchange_balance(market, self.client_config_map)
-            return UserBalances.instance().all_balances(market)
+            if UserBalances.instance().is_gateway_market(market):
+                await GatewayCommand.update_exchange_balances(self, market, self.client_config_map)
+                return GatewayCommand.all_balance(self, market)
+            else:
+                await UserBalances.instance().update_exchange_balance(market, self.client_config_map)
+                return UserBalances.instance().all_balances(market)
 
     def report_header(self,  # type: HummingbotApplication
                       start_time: float):
