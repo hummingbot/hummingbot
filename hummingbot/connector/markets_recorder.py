@@ -47,6 +47,7 @@ from hummingbot.model.trade_fill import TradeFill
 
 class MarketsRecorder:
     _logger = None
+    _shared_instance: "MarketsRecorder" = None
     market_event_tag_map: Dict[int, MarketEvent] = {
         event_obj.value: event_obj
         for event_obj in MarketEvent.__members__.values()
@@ -57,6 +58,12 @@ class MarketsRecorder:
         if cls._logger is None:
             cls._logger = logging.getLogger(__name__)
         return cls._logger
+
+    @classmethod
+    def get_instance(cls, *args, **kwargs) -> "MarketsRecorder":
+        if cls._shared_instance is None:
+            cls._shared_instance = MarketsRecorder(*args, **kwargs)
+        return cls._shared_instance
 
     def __init__(self,
                  sql: SQLConnectionManager,
