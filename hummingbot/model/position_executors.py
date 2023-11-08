@@ -72,32 +72,33 @@ class PositionExecutors(HummingbotBase):
 
     @classmethod
     def to_pandas(cls, executors: List):
-        columns: List[str] = [
-            "timestamp",
-            "exchange",
-            "trading_pair",
-            "side",
-            "amount",
-            "trade_pnl",
-            "trade_pnl_quote",
-            "cum_fee_quote",
-            "net_pnl_quote",
-            "net_pnl",
-            "close_timestamp",
-            "executor_status",
-            "close_type",
-            "entry_price",
-            "close_price",
-            "sl",
-            "tp",
-            "tl",
-            "open_order_type",
-            "take_profit_order_type",
-            "stop_loss_order_type",
-            "time_limit_order_type",
-            "leverage",
-            "controller_name",
-            "controller_config",
-        ]
-        df = pd.DataFrame(data=executors, columns=columns)
+        df = pd.DataFrame(data=[executor.to_json() for executor in executors])
         return df
+
+    def to_json(self):
+        return {
+            "timestamp": self.timestamp,
+            "exchange": self.exchange,
+            "trading_pair": self.trading_pair,
+            "side": self.side,
+            "amount": self.amount,
+            "trade_pnl": self.trade_pnl,
+            "trade_pnl_quote": self.trade_pnl_quote,
+            "cum_fee_quote": self.cum_fee_quote,
+            "net_pnl_quote": self.net_pnl_quote,
+            "net_pnl": self.net_pnl,
+            "close_timestamp": self.close_timestamp,
+            "executor_status": self.executor_status,
+            "close_type": self.close_type,
+            "entry_price": self.entry_price,
+            "close_price": self.close_price,
+            "sl": self.sl,
+            "tp": self.tp,
+            "tl": self.tl,
+            "open_order_type": self.open_order_type,
+            "take_profit_order_type": self.take_profit_order_type,
+            "stop_loss_order_type": self.stop_loss_order_type,
+            "time_limit_order_type": self.time_limit_order_type,
+            "leverage": self.leverage,
+            "controller_name": self.controller_name,
+        }
