@@ -76,7 +76,6 @@ def main():
         "eth-keyfile",
         "eth-typing",
         "eth-utils",
-        "ethsnarks-loopring",
         "flake8",
         "gql",
         "hexbytes",
