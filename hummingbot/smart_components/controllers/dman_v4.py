@@ -17,9 +17,9 @@ class DManV4Config(MarketMakingControllerConfigBase):
     strategy_name: str = "dman_v4"
     bb_length: int = 100
     bb_std: float = 2.0
-    side_filter: bool = False
     smart_activation: bool = False
     activation_threshold: Decimal = Decimal("0.001")
+    price_band: bool = False
     price_band_long_filter: Decimal = Decimal("0.8")
     price_band_short_filter: Decimal = Decimal("0.8")
     dynamic_target_spread: bool = False
@@ -89,10 +89,10 @@ class DManV4(MarketMakingControllerBase):
         amount = order_level.order_amount_usd / order_price
 
         # Avoid placing the order from the opposite side
-        side_filter_condition = self.config.side_filter and (
+        price_band_condition = self.config.price_band and (
             (order_price > max_buy_price and order_level.side == TradeType.BUY) or
             (order_price < min_sell_price and order_level.side == TradeType.SELL))
-        if side_filter_condition:
+        if price_band_condition:
             return
 
         # Smart activation of orders
