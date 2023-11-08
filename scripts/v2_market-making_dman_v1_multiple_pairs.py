@@ -1,98 +1,77 @@
 from decimal import Decimal
 from typing import Dict
 
-from hummingbot.connector.connector_base import ConnectorBase, TradeType
+from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
-from hummingbot.smart_components.controllers.bollingrid import BollingGrid, BollingGridConfig
-from hummingbot.smart_components.strategy_frameworks.data_types import (
-    ExecutorHandlerStatus,
-    OrderLevel,
-    TripleBarrierConf,
-)
+from hummingbot.smart_components.controllers.dman_v1 import DManV1, DManV1Config
+from hummingbot.smart_components.strategy_frameworks.data_types import ExecutorHandlerStatus, TripleBarrierConf
 from hummingbot.smart_components.strategy_frameworks.market_making.market_making_executor_handler import (
     MarketMakingExecutorHandler,
 )
+from hummingbot.smart_components.utils.distributions import Distributions
+from hummingbot.smart_components.utils.order_level_builder import OrderLevelBuilder
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
-class BollinGridMultiplePairs(ScriptStrategyBase):
-    trading_pairs = ["RUNE-USDT", "AGLD-USDT"]
+class DManV1MultiplePairs(ScriptStrategyBase):
+    # Account configuration
     exchange = "binance_perpetual"
+    trading_pairs = ["ETH-USDT"]
+    leverage = 20
 
-    # This is only for the perpetual markets
-    leverage_by_trading_pair = {
-        "HBAR-USDT": 25,
-        "CYBER-USDT": 20,
-        "ETH-USDT": 100,
-        "LPT-USDT": 10,
-        "UNFI-USDT": 20,
-        "BAKE-USDT": 20,
-        "YGG-USDT": 20,
-        "SUI-USDT": 50,
-        "TOMO-USDT": 25,
-        "RUNE-USDT": 25,
-        "STX-USDT": 25,
-        "API3-USDT": 20,
-        "LIT-USDT": 20,
-        "PERP-USDT": 16,
-        "HOOK-USDT": 20,
-        "AMB-USDT": 20,
-        "ARKM-USDT": 20,
-        "TRB-USDT": 10,
-        "OMG-USDT": 25,
-        "WLD-USDT": 50,
-        "PEOPLE-USDT": 25,
-        "AGLD-USDT": 20,
-        "BAT-USDT": 20
-    }
+    # Candles configuration
+    candles_exchange = "binance_perpetual"
+    candles_interval = "3m"
+    candles_max_records = 300
 
-    triple_barrier_conf = TripleBarrierConf(
-        stop_loss=Decimal("0.15"), take_profit=Decimal("0.02"),
-        time_limit=60 * 60 * 12,
-        take_profit_order_type=OrderType.LIMIT,
-        trailing_stop_activation_price_delta=Decimal("0.005"),
-        trailing_stop_trailing_delta=Decimal("0.002"),
+    # Orders configuration
+    order_amount = Decimal("25")
+    n_levels = 5
+    start_spread = 0.0006
+    step_between_orders = 0.009
+    order_refresh_time = 60 * 15  # 15 minutes
+    cooldown_time = 5
+
+    # Triple barrier configuration
+    stop_loss = Decimal("0.2")
+    take_profit = Decimal("0.06")
+    time_limit = 60 * 60 * 12
+    trailing_stop_activation_price_delta = Decimal(str(step_between_orders / 2))
+    trailing_stop_trailing_delta = Decimal(str(step_between_orders / 3))
+
+    # Advanced configurations
+    natr_length = 100
+
+    # Applying the configuration
+    order_level_builder = OrderLevelBuilder(n_levels=n_levels)
+    order_levels = order_level_builder.build_order_levels(
+        amounts=order_amount,
+        spreads=Distributions.arithmetic(n_levels=n_levels, start=start_spread, step=step_between_orders),
+        triple_barrier_confs=TripleBarrierConf(
+            stop_loss=stop_loss, take_profit=take_profit, time_limit=time_limit,
+            trailing_stop_activation_price_delta=trailing_stop_activation_price_delta,
+            trailing_stop_trailing_delta=trailing_stop_trailing_delta),
+        order_refresh_time=order_refresh_time,
+        cooldown_time=cooldown_time,
     )
-
-    order_levels = [
-        OrderLevel(level=1, side=TradeType.BUY, order_amount_usd=Decimal("10"),
-                   spread_factor=Decimal(0.5), order_refresh_time=60 * 5,
-                   cooldown_time=15, triple_barrier_conf=triple_barrier_conf),
-        OrderLevel(level=2, side=TradeType.BUY, order_amount_usd=Decimal("20"),
-                   spread_factor=Decimal(1.0), order_refresh_time=60 * 5,
-                   cooldown_time=15, triple_barrier_conf=triple_barrier_conf),
-        OrderLevel(level=3, side=TradeType.BUY, order_amount_usd=Decimal("30"),
-                   spread_factor=Decimal(1.5), order_refresh_time=60 * 5,
-                   cooldown_time=15, triple_barrier_conf=triple_barrier_conf),
-
-        OrderLevel(level=1, side=TradeType.SELL, order_amount_usd=Decimal("10"),
-                   spread_factor=Decimal(0.5), order_refresh_time=60 * 5,
-                   cooldown_time=15, triple_barrier_conf=triple_barrier_conf),
-        OrderLevel(level=2, side=TradeType.SELL, order_amount_usd=Decimal("20"),
-                   spread_factor=Decimal(1.0), order_refresh_time=60 * 5,
-                   cooldown_time=15, triple_barrier_conf=triple_barrier_conf),
-        OrderLevel(level=3, side=TradeType.SELL, order_amount_usd=Decimal("30"),
-                   spread_factor=Decimal(1.5), order_refresh_time=60 * 5,
-                   cooldown_time=15, triple_barrier_conf=triple_barrier_conf),
-    ]
     controllers = {}
     markets = {}
     executor_handlers = {}
 
     for trading_pair in trading_pairs:
-        config = BollingGridConfig(
+        config = DManV1Config(
             exchange=exchange,
             trading_pair=trading_pair,
             order_levels=order_levels,
             candles_config=[
-                CandlesConfig(connector=exchange, trading_pair=trading_pair, interval="15m", max_records=300),
+                CandlesConfig(connector=candles_exchange, trading_pair=trading_pair,
+                              interval=candles_interval, max_records=candles_max_records),
             ],
-            bb_length=200,
-            bb_std=3.0,
-            leverage=leverage_by_trading_pair.get(trading_pair, 1),
+            leverage=leverage,
+            natr_length=natr_length,
         )
-        controller = BollingGrid(config=config)
+        controller = DManV1(config=config)
         markets = controller.update_strategy_markets_dict(markets)
         controllers[trading_pair] = controller
 
