@@ -107,6 +107,7 @@ class PolkadexDataSource:
     async def start(self, market_symbols: List[str]):
         if len(self._events_listening_tasks) > 0:
             raise AssertionError("Polkadex datasource is already listening to events and can't be started again")
+        await self._query_executor.create_ws_session()
 
         for market_symbol in market_symbols:
             self._events_listening_tasks.append(
