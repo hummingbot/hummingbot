@@ -26,7 +26,6 @@ connector_status = {
     'huobi': 'silver',
     'kraken': 'bronze',
     'kucoin': 'silver',
-    'loopring': 'bronze',
     'mexc': 'bronze',
     'ndax': 'bronze',
     'ndax_testnet': 'bronze',
