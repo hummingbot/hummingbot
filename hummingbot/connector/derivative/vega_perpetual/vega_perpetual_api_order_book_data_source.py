@@ -78,9 +78,6 @@ class VegaPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         """
         ws: Optional[WSAssistant] = None
         self._ws_total_count += 1
-
-        self.logger().warning(f"starting ORDER BOOK WS -  WSTOTAL {self._ws_total_count} closed - {self._ws_total_closed_count}")
-
         _sleep_count = 0
         while True:
             try:
@@ -92,7 +89,7 @@ class VegaPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
             except ConnectionError as connection_exception:
                 self._ws_total_closed_count += 1
-                self.logger().warning(f"The websocket connection was closed opened -  WSTOTAL {self._ws_total_count} closed - {self._ws_total_closed_count} ({connection_exception})")
+                self.logger().warning(f"The websocket connection was closed ({connection_exception})")
             except Exception as e:
                 self._ws_total_closed_count += 1
                 self.logger().exception(

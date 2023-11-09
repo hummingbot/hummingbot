@@ -128,7 +128,7 @@ def calculate_fees(fees: Dict[str, any], quantum: Decimal) -> Decimal:
     return fee
 
 
-def get_account_type(account_type: any) -> str:
+def get_account_type(account_type: any) -> Optional[str]:
     VegaIntAccountType = {
         0: "ACCOUNT_TYPE_UNSPECIFIED",
         1: "ACCOUNT_TYPE_INSURANCE",
@@ -136,6 +136,6 @@ def get_account_type(account_type: any) -> str:
         3: "ACCOUNT_TYPE_MARGIN",
         4: "ACCOUNT_TYPE_GENERAL",
     }
-    if isinstance(account_type, int):
+    if isinstance(account_type, int) and (account_type in VegaIntAccountType.keys()):
         account_type = VegaIntAccountType[account_type]
     return account_type
