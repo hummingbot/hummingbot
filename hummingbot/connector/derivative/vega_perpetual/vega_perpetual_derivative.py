@@ -762,7 +762,7 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
 
         account_type = web_utils.get_account_type(account.get("type"))
 
-        if account_type in ["ACCOUNT_TYPE_GENERAL", "ACCOUNT_TYPE_MARGIN"]:
+        if account_type and (account_type in ["ACCOUNT_TYPE_GENERAL", "ACCOUNT_TYPE_MARGIN"]):
             locked_balance = s_decimal_0
             available_balance = s_decimal_0
             if account_type == "ACCOUNT_TYPE_MARGIN":
@@ -1034,6 +1034,10 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
             # the actual instrument
             instrument = tradable_inst["instrument"]
 
+            if "perpetual" not in instrument:
+                # we only care about perpetual markets
+                continue
+
             m = Market()
             # our trading pair in human readable format
             m.name = instrument["name"]
@@ -1042,13 +1046,9 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
             m.id = node["id"]
             m.status = node["state"]
 
-            if "future" in instrument:
-                m.quote = self._assets_by_id[instrument["future"]["settlementAsset"]]
-                m.quote_asset_id = instrument["future"]["settlementAsset"]
-                continue
-            elif "perpetual" in instrument:
-                m.quote = self._assets_by_id[instrument["perpetual"]["settlementAsset"]]
-                m.quote_asset_id = instrument["perpetual"]["settlementAsset"]
+            m.quote: Asset = self._assets_by_id.get(instrument["perpetual"]["settlementAsset"])
+            m.quote_asset_id = instrument["perpetual"]["settlementAsset"]
+            m.funding_fee_interval = int(instrument["perpetual"]["dataSourceSpecForSettlementSchedule"]["data"]["internal"]["timeTrigger"]["triggers"][0]["every"])
 
             linear_slippage_factor = node.get("linearSlippageFactor", None)
             m.linear_slippage_factor = Decimal(linear_slippage_factor) if linear_slippage_factor is not None else linear_slippage_factor
@@ -1074,28 +1074,26 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
             m.price_quantum = Decimal(10 ** decimal_places)
             m.quantity_quantum = Decimal(10 ** position_decimal_places)
 
-            # get our base and quote symbol names.  These have the format of base:BTC and quote:USD
+            # get our base and quote symbol names. These have the format of base:BTC and quote:USD
             # NOTE: some of these have ticker: like tesla.
-            # NOTE: Overriding this with the instrument code not the base (even if the instrument is composed with an asset,
-            # technically an instrument is a synthetic system (outside of some options where you actually do settle with receipt
-            # of asset))
-            m.base_name = self._get_base(instrument["metadata"]["tags"])  # [0].replace("base:", "")
-            m.hb_base_name = m.symbol.replace("-", ".").replace("/", ".").upper()
-            m.quote_name = self._get_quote(instrument["metadata"]["tags"])  # [1].replace("quote:", "")
+            # NOTE: Overriding this with the instrument code not the base, even if the instrument is composed with an asset,
+            # technically an instrument is a synthetic asset (outside of some options where you actually do settle with receipt
+            # of asset)
+            m.base_name = m.symbol
+            # NOTE: This cleans up any parsing issues from Hummingbot, but may lead to a confusing result if metadata is not included
+            m.hb_base_name = m.symbol.replace("-", "").replace("/", "").replace(".", "").upper()
+            if "metadata" in instrument:
+                if "tags" in instrument["metadata"]:
+                    if len(instrument["metadata"]["tags"]) > 0:
+                        m.base_name = self._get_base(instrument["metadata"]["tags"])
+                        m.hb_base_name = m.base_name.upper()
+
+            m.quote_name = m.quote.symbol
             m.hb_quote_name = m.quote.hb_name.upper()
             if not m.base_name or not m.quote_name:
-                self.logger().warning(f"Skipping Market {m.name} as metadata is missing")
+                self.logger().warning(f"Skipping Market {m.name} as critical data is missing")
                 continue
 
-            m.funding_fee_interval = None
-            if "perpetual" in instrument:
-                m.funding_fee_interval = int(instrument["perpetual"]["dataSourceSpecForSettlementSchedule"]["data"]["internal"]["timeTrigger"]["triggers"][0]["every"])
-
-            # store the hb trading pair in hb format
-            if self.domain == 'vega_perpetual_testnet':
-                quote_name = m.quote_name.replace("-", "")
-                m.hb_quote_name = quote_name + "C" if quote_name[len(quote_name) - 1] == "D" else quote_name
-                m.hb_base_name = m.base_name
             m.hb_trading_pair = combine_to_hb_trading_pair(m.hb_base_name, m.hb_quote_name)
 
             _exchange_info[m.id] = m
@@ -1160,13 +1158,6 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
             symbol = node["details"]["symbol"]
 
             hb_name = symbol.replace("-", "")
-            if self.domain == 'vega_perpetual_testnet':
-                if hb_name[0] == "t":
-                    symbol_length = len(hb_name)
-                    trimmed_symbol = hb_name[1:symbol_length]
-                    trimmed_symbol_length = len(trimmed_symbol)
-                    last_character = trimmed_symbol[trimmed_symbol_length - 1]
-                    hb_name = trimmed_symbol + "C" if last_character == "D" else trimmed_symbol
             # NOTE: HB expects all name's to be upper case
             hb_name = hb_name.upper()
             quantum = Decimal(10 ** Decimal(node["details"]["decimals"]))

@@ -90,11 +90,9 @@ class VegaPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
     async def _start_websocket(self, url: str, channel_id: str, output: asyncio.Queue):
         ws: Optional[WSAssistant] = None
         self._ws_total_count += 1
-        self.logger().warning(f"starting USER WS -  WSTOTAL {self._ws_total_count} closed - {self._ws_total_closed_count}")
         _sleep_count = 0
         while True:
             try:
-
                 ws = await self._get_connected_websocket_assistant(url)
                 self._ws_assistants.append(ws)
                 await ws.ping()
