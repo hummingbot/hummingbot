@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Mapping, Optional, Tuple
 from grpc.aio import UnaryStreamCall
 from pyinjective.async_client import AsyncClient
 from pyinjective.composer import Composer as ProtoMsgComposer
-from pyinjective.constant import Network
+from pyinjective.core.network import Network
 from pyinjective.proto.exchange.injective_accounts_rpc_pb2 import StreamSubaccountBalanceResponse
 from pyinjective.proto.exchange.injective_explorer_rpc_pb2 import GetTxByTxHashResponse, StreamTxsResponse
 from pyinjective.proto.exchange.injective_portfolio_rpc_pb2 import (
