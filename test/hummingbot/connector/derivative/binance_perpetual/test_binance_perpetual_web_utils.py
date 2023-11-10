@@ -50,16 +50,15 @@ class BinancePerpetualWebUtilsUnitTests(unittest.TestCase):
     def test_rest_url_main_domain(self):
         path_url = "/TEST_PATH_URL"
 
-        expected_url = f"{CONSTANTS.PERPETUAL_BASE_URL}{CONSTANTS.API_VERSION_V2}{path_url}"
-        self.assertEqual(expected_url, web_utils.rest_url(path_url, api_version=CONSTANTS.API_VERSION_V2))
-        self.assertEqual(expected_url, web_utils.rest_url(path_url, api_version=CONSTANTS.API_VERSION_V2))
+        expected_url = f"{CONSTANTS.PERPETUAL_BASE_URL}{path_url}"
+        self.assertEqual(expected_url, web_utils.public_rest_url(path_url))
 
     def test_rest_url_testnet_domain(self):
         path_url = "/TEST_PATH_URL"
 
-        expected_url = f"{CONSTANTS.TESTNET_BASE_URL}{CONSTANTS.API_VERSION_V2}{path_url}"
+        expected_url = f"{CONSTANTS.TESTNET_BASE_URL}{path_url}"
         self.assertEqual(
-            expected_url, web_utils.rest_url(path_url=path_url, domain="testnet", api_version=CONSTANTS.API_VERSION_V2)
+            expected_url, web_utils.public_rest_url(path_url=path_url, domain="testnet")
         )
 
     def test_wss_url_main_domain(self):
