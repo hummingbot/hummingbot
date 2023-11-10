@@ -95,7 +95,7 @@ class BingXAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         # self.logger().info(f"parse msg queue: {raw_message}")
-        trading_pair = raw_message["symbol"]
+        trading_pair = raw_message.get('dataType').split('@')[0]
         # for diff_message in raw_message["data"]:
         #     order_book_message: OrderBookMessage = BingXOrderBook.diff_message_from_exchange(
         #         diff_message, diff_message["t"], {"trading_pair": trading_pair})

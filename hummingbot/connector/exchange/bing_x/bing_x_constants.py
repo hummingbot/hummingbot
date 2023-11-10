@@ -32,7 +32,7 @@ SERVER_TIME_PATH_URL = "/openApi/swap/v2/server/time"
 # Private API endpoints
 USER_STREAM_PATH_URL = "/openApi/user/auth/userDataStream"
 ACCOUNTS_PATH_URL = "/openApi/spot/v1/account/balance"
-MY_TRADES_PATH_URL = ""
+MY_TRADES_PATH_URL = "/openApi/spot/v1/trade/query"
 ORDER_PATH_URL = "/openApi/spot/v1/trade/order"
 CANCEL_ORDER_PATH_URL = "/openApi/spot/v1/trade/cancel"
 
@@ -46,7 +46,7 @@ ORDER_STATE = {
     "FILLED": OrderState.FILLED,
     "PENDING_CANCEL": OrderState.PENDING_CANCEL,
     "CANCELED": OrderState.CANCELED,
-    "REJECTED": OrderState.FAILED,
+    "FAILED": OrderState.FAILED,
 }
 
 # Rate Limit Type
