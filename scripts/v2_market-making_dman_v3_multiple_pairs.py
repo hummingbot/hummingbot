@@ -1,81 +1,62 @@
 from decimal import Decimal
 from typing import Dict
 
-from hummingbot.connector.connector_base import ConnectorBase, TradeType
+from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
 from hummingbot.smart_components.controllers.dman_v3 import DManV3, DManV3Config
-from hummingbot.smart_components.strategy_frameworks.data_types import (
-    ExecutorHandlerStatus,
-    OrderLevel,
-    TripleBarrierConf,
-)
+from hummingbot.smart_components.strategy_frameworks.data_types import ExecutorHandlerStatus, TripleBarrierConf
 from hummingbot.smart_components.strategy_frameworks.market_making.market_making_executor_handler import (
     MarketMakingExecutorHandler,
 )
+from hummingbot.smart_components.utils.distributions import Distributions
+from hummingbot.smart_components.utils.order_level_builder import OrderLevelBuilder
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
 class DManV3MultiplePairs(ScriptStrategyBase):
-    trading_pairs = ["RUNE-USDT", "AGLD-USDT"]
+    # Account configuration
     exchange = "binance_perpetual"
+    trading_pairs = ["ETH-USDT"]
+    leverage = 20
 
-    # This is only for the perpetual markets
-    leverage_by_trading_pair = {
-        "HBAR-USDT": 25,
-        "CYBER-USDT": 20,
-        "ETH-USDT": 100,
-        "LPT-USDT": 10,
-        "UNFI-USDT": 20,
-        "BAKE-USDT": 20,
-        "YGG-USDT": 20,
-        "SUI-USDT": 50,
-        "TOMO-USDT": 25,
-        "RUNE-USDT": 25,
-        "STX-USDT": 25,
-        "API3-USDT": 20,
-        "LIT-USDT": 20,
-        "PERP-USDT": 16,
-        "HOOK-USDT": 20,
-        "AMB-USDT": 20,
-        "ARKM-USDT": 20,
-        "TRB-USDT": 10,
-        "OMG-USDT": 25,
-        "WLD-USDT": 50,
-        "PEOPLE-USDT": 25,
-        "AGLD-USDT": 20,
-        "BAT-USDT": 20
-    }
+    # Candles configuration
+    candles_exchange = "binance_perpetual"
+    candles_interval = "1h"
+    candles_max_records = 300
+    bollinger_band_length = 200
+    bollinger_band_std = 3.0
 
-    triple_barrier_conf = TripleBarrierConf(
-        stop_loss=Decimal("0.15"), take_profit=Decimal("0.02"),
-        time_limit=60 * 60 * 12,
-        take_profit_order_type=OrderType.LIMIT,
-        trailing_stop_activation_price_delta=Decimal("0.005"),
-        trailing_stop_trailing_delta=Decimal("0.002"),
+    # Orders configuration
+    order_amount = Decimal("25")
+    n_levels = 5
+    start_spread = 0.5  # percentage of the bollinger band (0.5 means that the order will be between the bollinger mid-price and the upper band)
+    step_between_orders = 0.3  # percentage of the bollinger band (0.1 means that the next order will be 10% of the bollinger band away from the previous order)
+
+    # Triple barrier configuration
+    stop_loss = Decimal("0.01")
+    take_profit = Decimal("0.03")
+    time_limit = 60 * 60 * 6
+    trailing_stop_activation_price_delta = Decimal("0.008")
+    trailing_stop_trailing_delta = Decimal("0.004")
+
+    # Advanced configurations
+    side_filter = True
+    dynamic_spread_factor = True
+    dynamic_target_spread = False
+    smart_activation = False
+    activation_threshold = Decimal("0.001")
+
+    # Applying the configuration
+    order_level_builder = OrderLevelBuilder(n_levels=n_levels)
+    order_levels = order_level_builder.build_order_levels(
+        amounts=order_amount,
+        spreads=Distributions.arithmetic(n_levels=n_levels, start=start_spread, step=step_between_orders),
+        triple_barrier_confs=TripleBarrierConf(
+            stop_loss=stop_loss, take_profit=take_profit, time_limit=time_limit,
+            trailing_stop_activation_price_delta=trailing_stop_activation_price_delta,
+            trailing_stop_trailing_delta=trailing_stop_trailing_delta),
     )
-
-    order_levels = [
-        OrderLevel(level=1, side=TradeType.BUY, order_amount_usd=Decimal("10"),
-                   spread_factor=Decimal(0.5), order_refresh_time=60 * 5,
-                   cooldown_time=15, triple_barrier_conf=triple_barrier_conf),
-        OrderLevel(level=2, side=TradeType.BUY, order_amount_usd=Decimal("20"),
-                   spread_factor=Decimal(1.0), order_refresh_time=60 * 5,
-                   cooldown_time=15, triple_barrier_conf=triple_barrier_conf),
-        OrderLevel(level=3, side=TradeType.BUY, order_amount_usd=Decimal("30"),
-                   spread_factor=Decimal(1.5), order_refresh_time=60 * 5,
-                   cooldown_time=15, triple_barrier_conf=triple_barrier_conf),
-
-        OrderLevel(level=1, side=TradeType.SELL, order_amount_usd=Decimal("10"),
-                   spread_factor=Decimal(0.5), order_refresh_time=60 * 5,
-                   cooldown_time=15, triple_barrier_conf=triple_barrier_conf),
-        OrderLevel(level=2, side=TradeType.SELL, order_amount_usd=Decimal("20"),
-                   spread_factor=Decimal(1.0), order_refresh_time=60 * 5,
-                   cooldown_time=15, triple_barrier_conf=triple_barrier_conf),
-        OrderLevel(level=3, side=TradeType.SELL, order_amount_usd=Decimal("30"),
-                   spread_factor=Decimal(1.5), order_refresh_time=60 * 5,
-                   cooldown_time=15, triple_barrier_conf=triple_barrier_conf),
-    ]
     controllers = {}
     markets = {}
     executor_handlers = {}
@@ -86,11 +67,17 @@ class DManV3MultiplePairs(ScriptStrategyBase):
             trading_pair=trading_pair,
             order_levels=order_levels,
             candles_config=[
-                CandlesConfig(connector=exchange, trading_pair=trading_pair, interval="15m", max_records=300),
+                CandlesConfig(connector=candles_exchange, trading_pair=trading_pair,
+                              interval=candles_interval, max_records=candles_max_records),
             ],
-            bb_length=200,
-            bb_std=3.0,
-            leverage=leverage_by_trading_pair.get(trading_pair, 1),
+            bb_length=bollinger_band_length,
+            bb_std=bollinger_band_std,
+            side_filter=side_filter,
+            dynamic_spread_factor=dynamic_spread_factor,
+            dynamic_target_spread=dynamic_target_spread,
+            smart_activation=smart_activation,
+            activation_threshold=activation_threshold,
+            leverage=leverage,
         )
         controller = DManV3(config=config)
         markets = controller.update_strategy_markets_dict(markets)
@@ -118,20 +105,21 @@ class DManV3MultiplePairs(ScriptStrategyBase):
         # we are going to close all the open positions when the bot stops
         for connector_name, connector in self.connectors.items():
             for trading_pair, position in connector.account_positions.items():
-                if position.position_side == PositionSide.LONG:
-                    self.sell(connector_name=connector_name,
-                              trading_pair=position.trading_pair,
-                              amount=abs(position.amount),
-                              order_type=OrderType.MARKET,
-                              price=connector.get_mid_price(position.trading_pair),
-                              position_action=PositionAction.CLOSE)
-                elif position.position_side == PositionSide.SHORT:
-                    self.buy(connector_name=connector_name,
-                             trading_pair=position.trading_pair,
-                             amount=abs(position.amount),
-                             order_type=OrderType.MARKET,
-                             price=connector.get_mid_price(position.trading_pair),
-                             position_action=PositionAction.CLOSE)
+                if trading_pair in self.markets[connector_name]:
+                    if position.position_side == PositionSide.LONG:
+                        self.sell(connector_name=connector_name,
+                                  trading_pair=position.trading_pair,
+                                  amount=abs(position.amount),
+                                  order_type=OrderType.MARKET,
+                                  price=connector.get_mid_price(position.trading_pair),
+                                  position_action=PositionAction.CLOSE)
+                    elif position.position_side == PositionSide.SHORT:
+                        self.buy(connector_name=connector_name,
+                                 trading_pair=position.trading_pair,
+                                 amount=abs(position.amount),
+                                 order_type=OrderType.MARKET,
+                                 price=connector.get_mid_price(position.trading_pair),
+                                 position_action=PositionAction.CLOSE)
 
     def on_tick(self):
         """
