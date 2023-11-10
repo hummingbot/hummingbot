@@ -31,7 +31,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
         take_profit (float): The take profit percentage.
         time_limit (int): The time limit for the position.
         open_order_type (OrderType): The order type for opening the position.
-        open_order_slippage_buffer (int): The slippage buffer for the opening order.
+        open_order_slippage_buffer (float): The slippage buffer for the opening order.
         take_profit_order_type (OrderType): The order type for the take profit order.
         stop_loss_order_type (OrderType): The order type for the stop loss order.
         time_limit_order_type (OrderType): The order type for the time limit order.
@@ -59,7 +59,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
     take_profit: float = 0.01
     time_limit: int = 120
     open_order_type = OrderType.MARKET
-    open_order_slippage_buffer: int = 0.001
+    open_order_slippage_buffer: float = 0.001
     take_profit_order_type: OrderType = OrderType.MARKET
     stop_loss_order_type: OrderType = OrderType.MARKET
     time_limit_order_type: OrderType = OrderType.MARKET

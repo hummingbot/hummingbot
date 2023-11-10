@@ -132,6 +132,10 @@ class HummingbotApplication(*commands):
         return self.client_config_map.instance_id
 
     @property
+    def fetch_pairs_from_all_exchanges(self) -> bool:
+        return self.client_config_map.fetch_pairs_from_all_exchanges
+
+    @property
     def gateway_config_keys(self) -> List[str]:
         return self._gateway_monitor.gateway_config_keys
 
