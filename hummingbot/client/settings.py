@@ -192,6 +192,10 @@ class ConnectorSetting(NamedTuple):
         non_gateway_connectors_types = [ConnectorType.Exchange, ConnectorType.Derivative, ConnectorType.Connector]
         return self.type not in non_gateway_connectors_types
 
+    def connector_connected(self) -> str:
+        from hummingbot.client.config.security import Security
+        return True if Security.connector_config_file_exists(self.name) else False
+
     def uses_clob_connector(self) -> bool:
         return self.type in [ConnectorType.CLOB_SPOT, ConnectorType.CLOB_PERP]
 
