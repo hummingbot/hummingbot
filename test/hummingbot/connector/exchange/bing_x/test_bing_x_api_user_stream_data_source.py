@@ -77,150 +77,115 @@ class TestBingXAPIUserStreamDataSource(unittest.TestCase):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
 
-    # def test_last_recv_time(self):
-    #     # Initial last_recv_time
-    #     self.assertEqual(0, self.data_source.last_recv_time)
+    def test_last_recv_time(self):
+        # Initial last_recv_time
+        self.assertEqual(0, self.data_source.last_recv_time)
 
-    #     ws_assistant = self.async_run_with_timeout(self.data_source._get_ws_assistant())
-    #     ws_assistant._connection._last_recv_time = 1000
-    #     self.assertEqual(1000, self.data_source.last_recv_time)
+        ws_assistant = self.async_run_with_timeout(self.data_source._get_ws_assistant())
+        ws_assistant._connection._last_recv_time = 1000
+        self.assertEqual(1000, self.data_source.last_recv_time)
 
-    # @aioresponses()
-    # def test_get_listen_key_log_exception(self, mock_api):
-    #     url = web_utils.rest_url(path_url=CONSTANTS.USER_STREAM_PATH_URL, domain=self.domain)
-    #     regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+    @aioresponses()
+    def test_get_listen_key_log_exception(self, mock_api):
+        url = web_utils.rest_url(path_url=CONSTANTS.USER_STREAM_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-    #     mock_api.post(regex_url, status=400, body=json.dumps(self._error_response()))
+        mock_api.post(regex_url, status=400, body=json.dumps(self._error_response()))
 
-    #     with self.assertRaises(IOError):
-    #         self.async_run_with_timeout(self.data_source._get_listen_key())
+        with self.assertRaises(IOError):
+            self.async_run_with_timeout(self.data_source._get_listen_key())
 
-    # @aioresponses()
-    # def test_get_listen_key_successful(self, mock_api):
-    #     url = web_utils.rest_url(path_url=CONSTANTS.USER_STREAM_PATH_URL, domain=self.domain)
-    #     regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+    @aioresponses()
+    def test_get_listen_key_successful(self, mock_api):
+        url = web_utils.rest_url(path_url=CONSTANTS.USER_STREAM_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-    #     mock_response = {
-    #         "listenKey": self.listen_key
-    #     }
-    #     mock_api.post(regex_url, body=json.dumps(mock_response))
+        mock_response = {
+            "listenKey": self.listen_key
+        }
+        mock_api.post(regex_url, body=json.dumps(mock_response))
 
-    #     result: str = self.async_run_with_timeout(self.data_source._get_listen_key())
+        result: str = self.async_run_with_timeout(self.data_source._get_listen_key())
 
-    #     self.assertEqual(self.listen_key, result)
+        self.assertEqual(self.listen_key, result)
 
-    # @aioresponses()
-    # def test_ping_listen_key_log_exception(self, mock_api):
-    #     url = web_utils.rest_url(path_url=CONSTANTS.USER_STREAM_PATH_URL, domain=self.domain)
-    #     regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+    @aioresponses()
+    def test_ping_listen_key_successful(self, mock_api):
+        url = web_utils.rest_url(path_url=CONSTANTS.USER_STREAM_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.put(regex_url, body=json.dumps({}))
 
-    #     mock_api.put(regex_url, status=400, body=json.dumps(self._error_response()))
+        self.data_source._current_listen_key = self.listen_key
+        result: bool = self.async_run_with_timeout(self.data_source._ping_listen_key())
+        self.assertTrue(result)
 
-    #     self.data_source._current_listen_key = self.listen_key
-    #     result: bool = self.async_run_with_timeout(self.data_source._ping_listen_key())
+    @patch("hummingbot.connector.exchange.bing_x.bing_x_api_user_stream_data_source.BingXAPIUserStreamDataSource"
+           "._ping_listen_key",
+           new_callable=AsyncMock)
+    def test_manage_listen_key_task_loop_keep_alive_failed(self, mock_ping_listen_key):
+        mock_ping_listen_key.side_effect = (lambda *args, **kwargs:
+                                            self._create_return_value_and_unlock_test_with_event(False))
 
-    #     self.assertTrue(self._is_logged("WARNING", f"Failed to refresh the listen key {self.listen_key}: "
-    #                                                f"{self._error_response()}"))
-    #     self.assertFalse(result)
+        self.data_source._current_listen_key = self.listen_key
 
-    # @aioresponses()
-    # def test_ping_listen_key_successful(self, mock_api):
-    #     url = web_utils.rest_url(path_url=CONSTANTS.USER_STREAM_PATH_URL, domain=self.domain)
-    #     regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-    #     mock_api.put(regex_url, body=json.dumps({}))
+        # Simulate LISTEN_KEY_KEEP_ALIVE_INTERVAL reached
+        self.data_source._last_listen_key_ping_ts = 0
 
-    #     self.data_source._current_listen_key = self.listen_key
-    #     result: bool = self.async_run_with_timeout(self.data_source._ping_listen_key())
-    #     self.assertTrue(result)
+        self.listening_task = self.ev_loop.create_task(self.data_source._manage_listen_key_task_loop())
 
-    # @patch("hummingbot.connector.exchange.bing_x.bing_x_api_user_stream_data_source.BingXAPIUserStreamDataSource"
-    #        "._ping_listen_key",
-    #        new_callable=AsyncMock)
-    # def test_manage_listen_key_task_loop_keep_alive_failed(self, mock_ping_listen_key):
-    #     mock_ping_listen_key.side_effect = (lambda *args, **kwargs:
-    #                                         self._create_return_value_and_unlock_test_with_event(False))
+        self.async_run_with_timeout(self.resume_test_event.wait())
 
-    #     self.data_source._current_listen_key = self.listen_key
+        self.assertTrue(self._is_logged("ERROR", "Error occurred renewing listen key ..."))
+        self.assertIsNone(self.data_source._current_listen_key)
+        self.assertFalse(self.data_source._listen_key_initialized_event.is_set())
 
-    #     # Simulate LISTEN_KEY_KEEP_ALIVE_INTERVAL reached
-    #     self.data_source._last_listen_key_ping_ts = 0
+    @patch("hummingbot.connector.exchange.bing_x.bing_x_api_user_stream_data_source.BingXAPIUserStreamDataSource."
+           "_ping_listen_key",
+           new_callable=AsyncMock)
+    def test_manage_listen_key_task_loop_keep_alive_successful(self, mock_ping_listen_key):
+        mock_ping_listen_key.side_effect = (lambda *args, **kwargs:
+                                            self._create_return_value_and_unlock_test_with_event(True))
 
-    #     self.listening_task = self.ev_loop.create_task(self.data_source._manage_listen_key_task_loop())
+        # Simulate LISTEN_KEY_KEEP_ALIVE_INTERVAL reached
+        self.data_source._current_listen_key = self.listen_key
+        self.data_source._listen_key_initialized_event.set()
+        self.data_source._last_listen_key_ping_ts = 0
 
-    #     self.async_run_with_timeout(self.resume_test_event.wait())
+        self.listening_task = self.ev_loop.create_task(self.data_source._manage_listen_key_task_loop())
 
-    #     self.assertTrue(self._is_logged("ERROR", "Error occurred renewing listen key ..."))
-    #     self.assertIsNone(self.data_source._current_listen_key)
-    #     self.assertFalse(self.data_source._listen_key_initialized_event.is_set())
+        self.async_run_with_timeout(self.resume_test_event.wait())
 
-    # @patch("hummingbot.connector.exchange.bing_x.bing_x_api_user_stream_data_source.BingXAPIUserStreamDataSource."
-    #        "_ping_listen_key",
-    #        new_callable=AsyncMock)
-    # def test_manage_listen_key_task_loop_keep_alive_successful(self, mock_ping_listen_key):
-    #     mock_ping_listen_key.side_effect = (lambda *args, **kwargs:
-    #                                         self._create_return_value_and_unlock_test_with_event(True))
+        self.assertTrue(self._is_logged("INFO", f"Refreshed listen key {self.listen_key}."))
+        self.assertGreater(self.data_source._last_listen_key_ping_ts, 0)
 
-    #     # Simulate LISTEN_KEY_KEEP_ALIVE_INTERVAL reached
-    #     self.data_source._current_listen_key = self.listen_key
-    #     self.data_source._listen_key_initialized_event.set()
-    #     self.data_source._last_listen_key_ping_ts = 0
+    @aioresponses()
+    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    def test_listen_for_user_stream_iter_message_throws_exception(self, mock_api, mock_ws):
+        url = web_utils.rest_url(path_url=CONSTANTS.USER_STREAM_PATH_URL, domain=self.domain)
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
-    #     self.listening_task = self.ev_loop.create_task(self.data_source._manage_listen_key_task_loop())
+        mock_response = {
+            "listenKey": self.listen_key
+        }
+        mock_api.post(regex_url, body=json.dumps(mock_response))
 
-    #     self.async_run_with_timeout(self.resume_test_event.wait())
+        msg_queue: asyncio.Queue = asyncio.Queue()
+        mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
+        mock_ws.return_value.receive.side_effect = (lambda *args, **kwargs:
+                                                    self._create_exception_and_unlock_test_with_event(
+                                                        Exception("TEST ERROR")))
+        mock_ws.close.return_value = None
 
-    #     self.assertTrue(self._is_logged("INFO", f"Refreshed listen key {self.listen_key}."))
-    #     self.assertGreater(self.data_source._last_listen_key_ping_ts, 0)
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_user_stream(msg_queue)
+        )
 
-    # @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    # @patch("hummingbot.core.data_type.user_stream_tracker_data_source.UserStreamTrackerDataSource._sleep")
-    # def test_listen_for_user_stream_iter_message_throws_exception(self, sleep_mock, mock_ws):
-    #     msg_queue: asyncio.Queue = asyncio.Queue()
-    #     mock_ws.return_value = self.mocking_assistant.create_websocket_mock()
-    #     mock_ws.return_value.receive.side_effect = Exception("TEST ERROR")
-    #     sleep_mock.side_effect = asyncio.CancelledError  # to finish the task execution
+        self.async_run_with_timeout(self.resume_test_event.wait())
 
-    #     try:
-    #         self.async_run_with_timeout(self.data_source.listen_for_user_stream(msg_queue))
-    #     except asyncio.CancelledError:
-    #         pass
-
-    #     self.assertTrue(
-    #         self._is_logged(
-    #             "ERROR",
-    #             "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
-
-    # @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    # @patch("hummingbot.connector.exchange.bybit.bing_x_api_user_stream_data_source.BingXAPIUserStreamDataSource"
-    #        "._time")
-    # def test_listen_for_user_stream_sends_ping_message_before_ping_interval_finishes(
-    #         self,
-    #         time_mock,
-    #         ws_connect_mock):
-
-    #     time_mock.side_effect = [1000, 1100, 1101, 1102]  # Simulate first ping interval is already due
-
-    #     ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
-
-    #     result_auth = {'auth': 'success', 'userId': 24068148}
-
-    #     self.mocking_assistant.add_websocket_aiohttp_message(
-    #         websocket_mock=ws_connect_mock.return_value,
-    #         message=json.dumps(result_auth))
-
-    #     output_queue = asyncio.Queue()
-
-    #     self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_user_stream(output=output_queue))
-
-    #     self.mocking_assistant.run_until_all_aiohttp_messages_delivered(ws_connect_mock.return_value)
-
-    #     sent_messages = self.mocking_assistant.json_messages_sent_through_websocket(
-    #         websocket_mock=ws_connect_mock.return_value)
-
-    #     expected_ping_message = {
-    #         "ping": 1101 * 1e3,
-    #     }
-    #     self.assertEqual(expected_ping_message, sent_messages[-1])
+        self.assertTrue(
+            self._is_logged(
+                "ERROR",
+                "Unexpected error while listening to user stream. Retrying after 5 seconds..."))
 
     def _error_response(self) -> Dict[str, Any]:
         resp = {

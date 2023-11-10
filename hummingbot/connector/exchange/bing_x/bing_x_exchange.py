@@ -347,7 +347,7 @@ class BingXExchange(ExchangePyBase):
 
         if order.exchange_order_id is not None:
             exchange_order_id = int(order.exchange_order_id)
-            trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
+            trading_pair = order.trading_pair
             all_fills_response = await self._api_get(
                 path_url=CONSTANTS.MY_TRADES_PATH_URL,
                 params={
@@ -356,45 +356,47 @@ class BingXExchange(ExchangePyBase):
                 },
                 is_auth_required=True,
                 limit_id=CONSTANTS.MY_TRADES_PATH_URL)
-            fills_data = all_fills_response.get("result", [])
-            if fills_data is not None:
-                for trade in fills_data:
-                    exchange_order_id = str(trade["orderId"])
-                    fee = TradeFeeBase.new_spot_fee(
-                        fee_schema=self.trade_fee_schema(),
-                        trade_type=order.trade_type,
-                        percent_token=trade["commissionAsset"],
-                        flat_fees=[TokenAmount(amount=Decimal(trade["commission"]), token=trade["commissionAsset"])]
-                    )
-                    trade_update = TradeUpdate(
-                        trade_id=str(trade["ticketId"]),
-                        client_order_id=order.client_order_id,
-                        exchange_order_id=exchange_order_id,
-                        trading_pair=trading_pair,
-                        fee=fee,
-                        fill_base_amount=Decimal(trade["qty"]),
-                        fill_quote_amount=Decimal(trade["price"]) * Decimal(trade["qty"]),
-                        fill_price=Decimal(trade["price"]),
-                        fill_timestamp=int(trade["executionTime"]) * 1e-3,
-                    )
-                    trade_updates.append(trade_update)
+            trade = all_fills_response.get("data", [])
+            if trade is not None:
+                # for trade in fills_data:
+                exchange_order_id = str(trade["orderId"])
+                fee = TradeFeeBase.new_spot_fee(
+                    fee_schema=self.trade_fee_schema(),
+                    trade_type=order.trade_type,
+                    percent_token=trade["feeAsset"],
+                    flat_fees=[TokenAmount(amount=Decimal(trade["fee"]), token=trade["feeAsset"])]
+                )
+                trade_update = TradeUpdate(
+                    trade_id=str(trade["orderId"]),
+                    client_order_id=order.client_order_id,
+                    exchange_order_id=exchange_order_id,
+                    trading_pair=trading_pair,
+                    fee=fee,
+                    fill_base_amount=Decimal(trade["executedQty"]),
+                    fill_quote_amount=Decimal(trade["price"]) * Decimal(trade["executedQty"]),
+                    fill_price=Decimal(trade["price"]),
+                    fill_timestamp=int(trade["updateTime"]) * 1e-3,
+                )
+                trade_updates.append(trade_update)
 
         return trade_updates
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         updated_order_data = await self._api_get(
-            path_url=CONSTANTS.ORDER_PATH_URL,
+            path_url=CONSTANTS.MY_TRADES_PATH_URL,
             params={
-                "orderLinkId": tracked_order.client_order_id},
+                "symbol": tracked_order.trading_pair,
+                "orderId": tracked_order.exchange_order_id
+            },
             is_auth_required=True)
 
-        new_state = CONSTANTS.ORDER_STATE[updated_order_data["result"]["status"]]
+        new_state = CONSTANTS.ORDER_STATE[updated_order_data["data"]["status"]]
 
         order_update = OrderUpdate(
             client_order_id=tracked_order.client_order_id,
-            exchange_order_id=str(updated_order_data["result"]["orderId"]),
+            exchange_order_id=str(updated_order_data["data"]["orderId"]),
             trading_pair=tracked_order.trading_pair,
-            update_timestamp=int(updated_order_data["result"]["updateTime"]) * 1e-3,
+            update_timestamp=int(updated_order_data["data"]["updateTime"]) * 1e-3,
             new_state=new_state,
         )
 
@@ -481,11 +483,11 @@ class BingXExchange(ExchangePyBase):
                 return request_result
             except IOError as request_exception:
                 last_exception = request_exception
-                # if self._is_request_exception_related_to_time_synchronizer(request_exception=request_exception):
-                #     self._time_synchronizer.clear_time_offset_ms_samples()
-                #     await self._update_time_synchronizer()
-                # else:
-                #     raise
+                if self._is_request_exception_related_to_time_synchronizer(request_exception=request_exception):
+                    self._time_synchronizer.clear_time_offset_ms_samples()
+                    await self._update_time_synchronizer()
+                else:
+                    raise
 
         # Failed even after the last retry
         raise last_exception

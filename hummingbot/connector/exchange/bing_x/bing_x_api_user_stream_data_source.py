@@ -60,7 +60,7 @@ class BingXAPIUserStreamDataSource(UserStreamTrackerDataSource):
         :return: the timestamp of the last received message in seconds
         """
         if self._ws_assistant:
-            return self._last_recv_time
+            return self._ws_assistant.last_recv_time
         return 0
 
     async def listen_for_user_stream(self, output: asyncio.Queue):
@@ -184,13 +184,14 @@ class BingXAPIUserStreamDataSource(UserStreamTrackerDataSource):
         rest_assistant = await self._api_factory.get_rest_assistant()
         # self.logger().info("start renew listen key")
         try:
-            await rest_assistant.execute_request(
+            data = await rest_assistant.execute_request(
                 url=web_utils.rest_url(path_url=CONSTANTS.USER_STREAM_PATH_URL, domain=self._domain),
                 params={"listenKey": self._current_listen_key},
                 method=RESTMethod.PUT,
                 return_err=True,
                 throttler_limit_id=CONSTANTS.USER_STREAM_PATH_URL
             )
+            self.logger().info(data)
 
         except asyncio.CancelledError:
             raise
