@@ -17,6 +17,7 @@ class TestExecutorHandlerBase(IsolatedAsyncioWrapperTestCase):
         self.mock_strategy = MagicMock()
         self.mock_controller = MagicMock(spec=ControllerBase)
         self.mock_controller.config = MagicMock()
+        self.mock_controller.config.strategy_name = "test_strategy"
         self.mock_controller.config.order_levels = []
         self.mock_controller.get_csv_prefix = MagicMock(return_value="test_strategy")
         self.executor_handler = ExecutorHandlerBase(self.mock_strategy, self.mock_controller)
@@ -47,10 +48,12 @@ class TestExecutorHandlerBase(IsolatedAsyncioWrapperTestCase):
 
     @patch("hummingbot.connector.markets_recorder.MarketsRecorder", new_callable=MagicMock)
     @patch("pandas.DataFrame.to_csv", new_callable=MagicMock)
-    def test_store_executor_removes_executor(self, _, __):
+    def test_store_executor_removes_executor(self, _, market_recorder_mock):
+        market_recorder_mock.store_executor = MagicMock()
         mock_executor = MagicMock()
         mock_executor.to_json = MagicMock(return_value={"timestamp": 123445634})
         mock_order_level = MagicMock()
+        mock_order_level.level_id = "BUY_1"
         self.executor_handler.store_executor(mock_executor, mock_order_level)
         self.assertIsNone(self.executor_handler.level_executors[mock_order_level.level_id])
 
