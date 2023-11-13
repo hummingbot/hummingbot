@@ -49,7 +49,7 @@ class TestExecutorHandlerBase(IsolatedAsyncioWrapperTestCase):
     @patch("pandas.DataFrame.to_csv", new_callable=MagicMock)
     def test_store_executor_removes_executor(self, _, __):
         mock_executor = MagicMock()
-        mock_executor.to_json = MagicMock(return_value={"test": "test"})
+        mock_executor.to_json = MagicMock(return_value={"timestamp": 123445634})
         mock_order_level = MagicMock()
         self.executor_handler.store_executor(mock_executor, mock_order_level)
         self.assertIsNone(self.executor_handler.level_executors[mock_order_level.level_id])
