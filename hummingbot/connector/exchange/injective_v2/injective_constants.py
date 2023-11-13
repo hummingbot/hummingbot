@@ -9,6 +9,7 @@ DEFAULT_DOMAIN = ""
 TESTNET_DOMAIN = "testnet"
 
 MAX_ORDER_ID_LEN = 36  # Injective supports uuid style client ids (36 characters)
+HBOT_ORDER_ID_PREFIX = "HBOT"
 
 DEFAULT_SUBACCOUNT_INDEX = 0
 EXTRA_TRANSACTION_GAS = 20000

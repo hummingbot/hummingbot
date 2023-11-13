@@ -97,7 +97,7 @@ class InjectiveV2Exchange(ExchangePyBase):
 
     @property
     def client_order_id_prefix(self) -> str:
-        return ""
+        return CONSTANTS.HBOT_ORDER_ID_PREFIX
 
     @property
     def trading_rules_request_path(self) -> str:

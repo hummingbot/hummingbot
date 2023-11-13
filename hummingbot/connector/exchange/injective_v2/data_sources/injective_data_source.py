@@ -1131,15 +1131,6 @@ class InjectiveDataSource(ABC):
             )
         )
 
-        self.logger().debug(
-            f"--- Spot Orders Updates (block {block_height} - ts {block_timestamp}) ---"
-            f"\n{chain_stream_update.get('spotOrders', [])}"
-        )
-        self.logger().debug(
-            f"--- Derivative Orders Updates (block {block_height} - ts {block_timestamp}) ---"
-            f"\n{chain_stream_update.get('derivativeOrders', [])}"
-        )
-
         await safe_gather(*tasks)
 
     async def _process_chain_spot_order_book_update(
