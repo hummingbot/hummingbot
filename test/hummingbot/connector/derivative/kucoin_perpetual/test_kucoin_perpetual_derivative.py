@@ -846,7 +846,7 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> Tuple[str, str]:
         url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.SET_LEVERAGE_PATH_URL
+            endpoint=CONSTANTS.GET_RISK_LIMIT_LEVEL_PATH_URL.format(symbol=self.exchange_trading_pair)
         )
         regex_url = re.compile(f"^{url}")
 
@@ -868,7 +868,7 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ):
         url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.SET_LEVERAGE_PATH_URL
+            endpoint=CONSTANTS.GET_RISK_LIMIT_LEVEL_PATH_URL.format(symbol=self.exchange_trading_pair)
         )
         regex_url = re.compile(f"^{url}")
 
