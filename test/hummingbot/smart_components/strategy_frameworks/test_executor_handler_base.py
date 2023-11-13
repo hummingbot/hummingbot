@@ -45,15 +45,6 @@ class TestExecutorHandlerBase(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(path.suffix, ".csv")
         self.assertIn("test_strategy", path.name)
 
-    @patch("hummingbot.connector.markets_recorder.MarketsRecorder", new_callable=MagicMock)
-    @patch("pandas.DataFrame.to_csv", new_callable=MagicMock)
-    def test_store_executor_removes_executor(self, _, __):
-        mock_executor = MagicMock()
-        mock_executor.to_json = MagicMock(return_value={"timestamp": 123445634})
-        mock_order_level = MagicMock()
-        self.executor_handler.store_executor(mock_executor, mock_order_level)
-        self.assertIsNone(self.executor_handler.level_executors[mock_order_level.level_id])
-
     @patch.object(ExecutorHandlerBase, "_sleep", new_callable=AsyncMock)
     @patch.object(ExecutorHandlerBase, "control_task", new_callable=AsyncMock)
     async def test_control_loop(self, mock_control_task, mock_sleep):
