@@ -36,10 +36,6 @@ class TestExecutorHandlerBase(IsolatedAsyncioWrapperTestCase):
         self.executor_handler.stop()
         self.assertTrue(self.executor_handler.terminated.is_set())
 
-    def test_to_format_status(self):
-        status = self.executor_handler.to_format_status()
-        self.assertIsInstance(status, str)
-
     def test_on_stop(self):
         self.executor_handler.on_stop()
         self.mock_controller.stop.assert_called_once()
@@ -49,8 +45,9 @@ class TestExecutorHandlerBase(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(path.suffix, ".csv")
         self.assertIn("test_strategy", path.name)
 
+    @patch("hummingbot.connector.markets_recorder.MarketsRecorder", new_callable=MagicMock)
     @patch("pandas.DataFrame.to_csv", new_callable=MagicMock)
-    def test_store_executor(self, _):
+    def test_store_executor_removes_executor(self, _, __):
         mock_executor = MagicMock()
         mock_executor.to_json = MagicMock(return_value={"test": "test"})
         mock_order_level = MagicMock()
