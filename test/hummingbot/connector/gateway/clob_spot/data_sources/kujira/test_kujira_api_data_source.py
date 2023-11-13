@@ -708,15 +708,9 @@ class KujiraAPIDataSourceTest(AbstractGatewayCLOBAPIDataSourceTests.GatewayCLOBA
 
     def test_order_types(self):
         for item in KujiraOrderType:
-            if item != KujiraOrderType.MARKET:
-                hummingbot_type = KujiraOrderType.to_hummingbot(item)
-                kujira_type = KujiraOrderType.from_hummingbot(hummingbot_type)
-                kujira_type_from_name = KujiraOrderType.from_name(kujira_type.name)
+            hummingbot_type = KujiraOrderType.to_hummingbot(item)
+            kujira_type = KujiraOrderType.from_hummingbot(hummingbot_type)
+            kujira_type_from_name = KujiraOrderType.from_name(kujira_type.name)
 
-                self.assertEqual(item, kujira_type)
-                self.assertEqual(item, kujira_type_from_name)
-            else:
-                with self.assertRaises(ValueError) as context:
-                    KujiraOrderType.to_hummingbot(item)
-
-                self.assertEqual(str(context.exception), 'Unrecognized order type "OrderType.MARKET".')
+            self.assertEqual(item, kujira_type)
+            self.assertEqual(item, kujira_type_from_name)
