@@ -51,7 +51,30 @@ class TestExecutorHandlerBase(IsolatedAsyncioWrapperTestCase):
     def test_store_executor_removes_executor(self, _, market_recorder_mock):
         market_recorder_mock.store_executor = MagicMock()
         mock_executor = MagicMock()
-        mock_executor.to_json = MagicMock(return_value={"timestamp": 123445634})
+        mock_executor.to_json = MagicMock(return_value={"timestamp": 123445634,
+                                                        "exchange": "binance_perpetual",
+                                                        "trading_pair": "BTC-USDT",
+                                                        "side": "BUY",
+                                                        "amount": 100,
+                                                        "trade_pnl": 0.1,
+                                                        "trade_pnl_quote": 10,
+                                                        "cum_fee_quote": 1,
+                                                        "net_pnl_quote": 9,
+                                                        "net_pnl": 0.09,
+                                                        "close_timestamp": 1234156423,
+                                                        "executor_status": "CLOSED",
+                                                        "close_type": "TAKE_PROFIT",
+                                                        "entry_price": 100,
+                                                        "close_price": 110,
+                                                        "sl": 0.03,
+                                                        "tp": 0.05,
+                                                        "tl": 0.1,
+                                                        "open_order_type": "MARKET",
+                                                        "take_profit_order_type": "MARKET",
+                                                        "stop_loss_order_type": "MARKET",
+                                                        "time_limit_order_type": "MARKET",
+                                                        "leverage": 10,
+                                                        })
         mock_order_level = MagicMock()
         mock_order_level.level_id = "BUY_1"
         self.executor_handler.store_executor(mock_executor, mock_order_level)
