@@ -856,22 +856,22 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             "code": "300016",
             "data": [
                 {
-                "symbol": "ADAUSDTM",
-                "level": 1,
-                "maxRiskLimit": 500,
-                "minRiskLimit": 0, 
-                "maxLeverage": 1, 
-                "initialMargin": 0.05,
-                "maintainMargin": 0.025
+                    "symbol": "ADAUSDTM",
+                    "level": 1,
+                    "maxRiskLimit": 500,
+                    "minRiskLimit": 0,
+                    "maxLeverage": 1,
+                    "initialMargin": 0.05,
+                    "maintainMargin": 0.025
                 },
                 {
-                "symbol": "ADAUSDTM",
-                "level": 2,
-                "maxRiskLimit": 1000,
-                "minRiskLimit": 500,
-                "maxLeverage": 1,
-                "initialMargin": 0.5,
-                "maintainMargin": 0.25
+                    "symbol": "ADAUSDTM",
+                    "level": 2,
+                    "maxRiskLimit": 1000,
+                    "minRiskLimit": 500,
+                    "maxLeverage": 1,
+                    "initialMargin": 0.5,
+                    "maintainMargin": 0.25
                 }
             ]
         }
@@ -895,22 +895,22 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             "code": "200000",
             "data": [
                 {
-                "symbol": "ADAUSDTM",
-                "level": 1,
-                "maxRiskLimit": 500,
-                "minRiskLimit": 0, 
-                "maxLeverage": 20, 
-                "initialMargin": 0.05,
-                "maintainMargin": 0.025
+                    "symbol": "ADAUSDTM",
+                    "level": 1,
+                    "maxRiskLimit": 500,
+                    "minRiskLimit": 0,
+                    "maxLeverage": 20,
+                    "initialMargin": 0.05,
+                    "maintainMargin": 0.025
                 },
                 {
-                "symbol": "ADAUSDTM",
-                "level": 2,
-                "maxRiskLimit": 1000,
-                "minRiskLimit": 500,
-                "maxLeverage": 2,
-                "initialMargin": 0.5,
-                "maintainMargin": 0.25
+                    "symbol": "ADAUSDTM",
+                    "level": 2,
+                    "maxRiskLimit": 1000,
+                    "minRiskLimit": 500,
+                    "maxLeverage": 2,
+                    "initialMargin": 0.5,
+                    "maintainMargin": 0.25
                 }
             ]
         }
@@ -918,6 +918,7 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         mock_api.get(regex_url, body=json.dumps(mock_response), callback=callback)
 
         return url
+
     def order_event_for_new_order_websocket_update(self, order: InFlightOrder):
         return {
             "type": "message",
