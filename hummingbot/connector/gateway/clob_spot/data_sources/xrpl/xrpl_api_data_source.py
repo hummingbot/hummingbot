@@ -343,7 +343,12 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
             network=self._network,
             trading_pair=trading_pair,
         )
-        return ticker_data["markets"][trading_pair]
+
+        for market in ticker_data["markets"]:
+            if market["marketId"] == trading_pair:
+                return market
+
+        raise ValueError(f"Ticker data not found for trading pair {trading_pair}.")
 
     def _get_last_trade_price_from_ticker_data(self, ticker_data: Dict[str, Any]) -> Decimal:
         # Get mid-price from order book for now since there is no easy way to get last trade price from ticker data
