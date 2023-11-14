@@ -1749,3 +1749,47 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         self.assertNotIn(order.client_order_id, self.exchange._order_tracker.lost_orders)
         self.assertTrue(order.is_filled)
         self.assertTrue(order.is_failure)
+
+    @aioresponses()
+    def test_fail_max_leverage(self, mock_api, callback: Optional[Callable] = lambda *args, **kwargs: None):
+        target_leverage = 10000
+        request_sent_event = asyncio.Event()
+        url = web_utils.get_rest_url_for_endpoint(
+            endpoint=CONSTANTS.GET_RISK_LIMIT_LEVEL_PATH_URL.format(symbol=self.exchange_trading_pair)
+        )
+        regex_url = re.compile(f"^{url}")
+
+        mock_response = {
+            "code": "200000",
+            "data": [
+                {
+                    "symbol": "ADAUSDTM",
+                    "level": 1,
+                    "maxRiskLimit": 500,
+                    "minRiskLimit": 0,
+                    "maxLeverage": 20,
+                    "initialMargin": 0.05,
+                    "maintainMargin": 0.025
+                },
+                {
+                    "symbol": "ADAUSDTM",
+                    "level": 2,
+                    "maxRiskLimit": 1000,
+                    "minRiskLimit": 500,
+                    "maxLeverage": 2,
+                    "initialMargin": 0.5,
+                    "maintainMargin": 0.25
+                }
+            ]
+        }
+
+        mock_api.get(regex_url, body=json.dumps(mock_response), callback=lambda *args, **kwargs: request_sent_event.set())        
+        self.exchange.set_leverage(trading_pair=self.trading_pair, leverage=target_leverage)
+        self.async_run_with_timeout(request_sent_event.wait())
+        max_leverage = mock_response["data"][0]["maxLeverage"]
+        self.assertTrue(
+            self.is_logged(
+                log_level="NETWORK",
+                message=f"Error setting leverage {target_leverage} for {self.trading_pair}: Max leverage for {self.trading_pair} is {max_leverage}.",
+            )
+        )

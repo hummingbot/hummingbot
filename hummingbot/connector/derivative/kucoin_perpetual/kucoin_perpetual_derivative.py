@@ -869,7 +869,7 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
         max_leverage = resp['data'][0]['maxLeverage']
         if leverage > max_leverage:
             self.logger().error(f"Max leverage for {trading_pair} is {max_leverage}.")
-            return False, f"{formatted_ret_code} - Some problem"
+            return False, f"Max leverage for {trading_pair} is {max_leverage}."
         return True, ""
 
     async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
