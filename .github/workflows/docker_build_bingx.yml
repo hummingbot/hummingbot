@@ -1,0 +1,39 @@
+name: Build Development Docker image
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/add-connector-bingx]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set environment variable
+        run: |
+          SHORT_SHA_COMMIT=$(git rev-parse --short HEAD)
+          echo CONTAINER_RELEASE_IMAGE=ghcr.io/aura-nw/hummingbot:${GITHUB_REF_NAME}_${SHORT_SHA_COMMIT} >> $GITHUB_ENV
+      - name: Build and push
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.CONTAINER_RELEASE_IMAGE }}
