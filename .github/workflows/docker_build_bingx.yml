@@ -27,7 +27,7 @@ jobs:
       - name: Set environment variable
         run: |
           SHORT_SHA_COMMIT=$(git rev-parse --short HEAD)
-          echo CONTAINER_RELEASE_IMAGE=ghcr.io/aura-nw/hummingbot:${GITHUB_REF_NAME}_${SHORT_SHA_COMMIT} >> $GITHUB_ENV
+          echo CONTAINER_RELEASE_IMAGE=ghcr.io/aura-nw/hummingbot:bing_x_supported_${SHORT_SHA_COMMIT} >> $GITHUB_ENV
       - name: Build and push
         uses: docker/build-push-action@v2
         with:
