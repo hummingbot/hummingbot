@@ -141,11 +141,12 @@ class XrplClientMock:
         def update_market_and_return(*_, **__):
             self.update_ticker_called_event.set()
             return {
-                "markets": {
-                    trading_pair: {
+                "markets": [
+                    {
+                        "marketId": trading_pair,
                         "midprice": price
                     }
-                }
+                ]
             }
 
         self.gateway_instance_mock.get_clob_ticker.side_effect = update_market_and_return
