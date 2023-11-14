@@ -296,7 +296,7 @@ class BingXExchange(ExchangePyBase):
                     # client_order_id = event_message.get("c")
                     data = event_message.get('data')
                     exchange_order_id = data.get('i')
-                    execution_type = data.get('x')
+                    execution_type = data.get('X')
                     tracked_order = self._order_tracker.fetch_order(exchange_order_id=str(exchange_order_id))
                     if tracked_order is not None:
                         if execution_type in ["PARTIALLY_FILLED", "FILLED"]:
