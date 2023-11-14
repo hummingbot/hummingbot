@@ -109,7 +109,7 @@ class RESTResponse:
         return headers_
 
     async def json(self) -> Any:
-        json_ = await self._aiohttp_response.json()
+        json_ = await self._aiohttp_response.json(content_type=None)
         return json_
 
     async def text(self) -> str:
