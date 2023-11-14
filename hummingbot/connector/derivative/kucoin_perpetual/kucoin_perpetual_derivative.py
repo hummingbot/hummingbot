@@ -865,12 +865,11 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
         )
         if resp["code"] != CONSTANTS.RET_CODE_OK:
             formatted_ret_code = self._format_ret_code_for_print(resp['code'])
-            self.logger().error(f"Error fetching risk limit level for {trading_pair}: {formatted_ret_code} - {resp['msg']}")
-            return True, f"Error fetching risk limit level for {trading_pair}: {formatted_ret_code} - {resp['msg']}"
+            return False, f"{formatted_ret_code} - Some problem"
         max_leverage = resp['data'][0]['maxLeverage']
         if leverage > max_leverage:
             self.logger().error(f"Max leverage for {trading_pair} is {max_leverage}.")
-            return False, f"Max leverage for {trading_pair} is {max_leverage}."
+            return False, f"{formatted_ret_code} - Some problem"
         return True, "Success"
 
     async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
