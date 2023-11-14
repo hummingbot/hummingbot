@@ -1783,7 +1783,7 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
             ]
         }
 
-        mock_api.get(regex_url, body=json.dumps(mock_response), callback=lambda *args, **kwargs: request_sent_event.set())        
+        mock_api.get(regex_url, body=json.dumps(mock_response), callback=lambda *args, **kwargs: request_sent_event.set())
         self.exchange.set_leverage(trading_pair=self.trading_pair, leverage=target_leverage)
         self.async_run_with_timeout(request_sent_event.wait())
         max_leverage = mock_response["data"][0]["maxLeverage"]
