@@ -1,5 +1,7 @@
 import sys
 
+import pyinjective.constant
+
 from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.data_type.in_flight_order import OrderState
 
@@ -12,8 +14,8 @@ MAX_ORDER_ID_LEN = 36  # Injective supports uuid style client ids (36 characters
 HBOT_ORDER_ID_PREFIX = "HBOT"
 
 DEFAULT_SUBACCOUNT_INDEX = 0
-EXTRA_TRANSACTION_GAS = 20000
-DEFAULT_GAS_PRICE = 500000000
+EXTRA_TRANSACTION_GAS = pyinjective.constant.GAS_FEE_BUFFER_AMOUNT
+DEFAULT_GAS_PRICE = pyinjective.constant.GAS_PRICE
 
 EXPECTED_BLOCK_TIME = 1.5
 TRANSACTIONS_CHECK_INTERVAL = 3 * EXPECTED_BLOCK_TIME
