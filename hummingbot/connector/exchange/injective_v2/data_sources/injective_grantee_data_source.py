@@ -528,10 +528,13 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
 
     async def _generate_injective_order_data(self, order: GatewayInFlightOrder, market_id: str) -> injective_exchange_tx_pb.OrderData:
         composer = await self.composer()
+        order_hash = order.exchange_order_id
+        cid = order.client_order_id if order_hash is None else None
         order_data = composer.OrderData(
             market_id=market_id,
             subaccount_id=self.portfolio_account_subaccount_id,
-            cid=order.client_order_id,
+            order_hash=order_hash,
+            cid=cid,
             order_direction="buy" if order.trade_type == TradeType.BUY else "sell",
             order_type="market" if order.order_type == OrderType.MARKET else "limit",
         )
