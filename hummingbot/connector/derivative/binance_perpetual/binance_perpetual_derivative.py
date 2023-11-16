@@ -61,6 +61,7 @@ class BinancePerpetualDerivative(PerpetualDerivativePyBase):
         self._position_mode = None
         self._last_trade_history_timestamp = None
         super().__init__(client_config_map)
+        self.real_time_balance_update = False
 
     @property
     def name(self) -> str:
