@@ -444,6 +444,9 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
 
         return "\n".join(lines)
 
+    def start(self, clock: Clock, timestamp: float):
+        self._market_info.market.set_leverage(self.trading_pair, self._leverage)
+
     def tick(self, timestamp: float):
         if not self._position_mode_ready:
             self._position_mode_not_ready_counter += 1
