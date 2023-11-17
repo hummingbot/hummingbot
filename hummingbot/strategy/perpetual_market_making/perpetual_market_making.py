@@ -9,6 +9,7 @@ import pandas as pd
 
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.derivative_base import DerivativeBase
+from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PriceType, TradeType
 from hummingbot.core.data_type.limit_order import LimitOrder
 from hummingbot.core.data_type.order_candidate import PerpetualOrderCandidate
@@ -443,6 +444,9 @@ class PerpetualMarketMakingStrategy(StrategyPyBase):
             lines.extend(["", "*** WARNINGS ***"] + warning_lines)
 
         return "\n".join(lines)
+
+    def start(self, clock: Clock, timestamp: float):
+        self._market_info.market.set_leverage(self.trading_pair, self._leverage)
 
     def tick(self, timestamp: float):
         if not self._position_mode_ready:
