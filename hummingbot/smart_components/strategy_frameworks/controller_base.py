@@ -9,6 +9,8 @@ from hummingbot.smart_components.strategy_frameworks.data_types import OrderLeve
 
 
 class ControllerConfigBase(BaseModel):
+    exchange: str
+    trading_pair: str
     strategy_name: str
     candles_config: List[CandlesConfig]
     order_levels: List[OrderLevel]

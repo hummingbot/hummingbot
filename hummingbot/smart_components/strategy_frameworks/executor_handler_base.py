@@ -1,6 +1,5 @@
 import asyncio
 import datetime
-import glob
 import logging
 from pathlib import Path
 
@@ -8,9 +7,11 @@ import pandas as pd
 
 from hummingbot import data_path
 from hummingbot.client.ui.interface_utils import format_df_for_printout
+from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
+from hummingbot.model.position_executors import PositionExecutors
 from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.smart_components.strategy_frameworks.controller_base import ControllerBase
@@ -82,14 +83,10 @@ class ExecutorHandlerBase:
         :param order_level: The order level instance.
         """
         if executor:
-            csv_path = self.get_csv_path()
             executor_data = executor.to_json()
-            if not csv_path.exists():
-                headers = executor_data.keys()
-                df_header = pd.DataFrame(columns=headers)
-                df_header.to_csv(csv_path, mode='a', header=True, index=False)
-            df = pd.DataFrame([executor_data])
-            df.to_csv(csv_path, mode='a', header=False, index=False)
+            executor_data["order_level"] = order_level.level_id
+            executor_data["controller_name"] = self.controller.config.strategy_name
+            MarketsRecorder.get_instance().store_executor(executor_data)
             self.level_executors[order_level.level_id] = None
 
     def create_executor(self, position_config: PositionConfig, order_level: OrderLevel):
@@ -134,11 +131,12 @@ class ExecutorHandlerBase:
                        position_action=PositionAction.CLOSE)
 
     def get_closed_executors_df(self):
-        dfs = [pd.read_csv(file) for file in glob.glob(data_path() + f"/{self.controller.get_csv_prefix()}*.csv")]
-        if len(dfs) > 0:
-            df = pd.concat(dfs)
-            return self.controller.filter_executors_df(df)
-        return pd.DataFrame()
+        executors = MarketsRecorder.get_instance().get_position_executors(
+            self.controller.config.strategy_name,
+            self.controller.config.exchange,
+            self.controller.config.trading_pair)
+        executors_df = PositionExecutors.to_pandas(executors)
+        return executors_df
 
     def get_active_executors_df(self) -> pd.DataFrame:
         """
@@ -231,8 +229,10 @@ class ExecutorHandlerBase:
         executors_df = self.get_active_executors_df()
         if len(executors_df) > 0:
             executors_df["amount_quote"] = executors_df["amount"] * executors_df["entry_price"]
-            columns_to_show = ["level_id", "side", "entry_price", "close_price", "spread_to_next_level", "net_pnl", "net_pnl_quote", "amount", "amount_quote", "timestamp", "close_type", "executor_status"]
-            executors_df_str = format_df_for_printout(executors_df[columns_to_show].round(decimals=3), table_format="psql")
+            columns_to_show = ["level_id", "side", "entry_price", "close_price", "spread_to_next_level", "net_pnl",
+                               "net_pnl_quote", "amount", "amount_quote", "timestamp", "close_type", "executor_status"]
+            executors_df_str = format_df_for_printout(executors_df[columns_to_show].round(decimals=3),
+                                                      table_format="psql")
             lines.extend([executors_df_str])
         lines.extend(["\n################################## Performance ##################################"])
         closed_executors_info = self.closed_executors_info()
