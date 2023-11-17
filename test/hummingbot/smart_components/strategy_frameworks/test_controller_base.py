@@ -46,7 +46,7 @@ class TestControllerBase(unittest.TestCase):
         mock_candle.candles_df = pd.DataFrame({"close": [100.0, 200.0, 300.0],
                                                "open": [100.0, 200.0, 300.0]})
         self.controller.candles = [mock_candle]
-        close_price = self.controller.get_close_price("binance", "BTC-USDT")
+        close_price = self.controller.get_close_price("BTC-USDT")
         self.assertEqual(close_price, 300)
 
     def test_get_candles_by_connector_trading_pair(self):
