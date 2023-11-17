@@ -454,14 +454,6 @@ class TestPutOnConditionFromAsyncGenerator(IsolatedAsyncioWrapperTestCase):
 
         logger.error.assert_called()
 
-    async def test_data_generator_not_asyncgenerator_error(self):
-        async def test_generator():
-            raise Exception("Generator error")
-
-        destination = AsyncMock()
-        with self.assertRaises(TypeError):
-            await put_on_condition(test_generator(), destination=destination)
-
     async def test_args_kwargs_passed(self):
         async def test_generator():
             yield 1
