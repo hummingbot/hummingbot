@@ -839,13 +839,15 @@ class InjectiveDataSource(ABC):
         client_order_id: str = trade_info.get("cid", "")
         market = await self.spot_market_info_for_id(market_id=trade_info["marketId"])
         trading_pair = await self.trading_pair_for_market(market_id=trade_info["marketId"])
-        trade_id: str = trade_info["tradeId"]
 
         price = market.price_from_chain_format(chain_price=Decimal(trade_info["price"]["price"]))
         size = market.quantity_from_chain_format(chain_quantity=Decimal(trade_info["price"]["quantity"]))
         trade_type = TradeType.BUY if trade_info["tradeDirection"] == "buy" else TradeType.SELL
         is_taker: bool = trade_info["executionSide"] == "taker"
         trade_time = int(trade_info["executedAt"]) * 1e-3
+        trade_id = self._trade_id(
+            timestamp=trade_time, order_hash=exchange_order_id, trade_type=trade_type, amount=size, price=price
+        )
 
         fee_amount = market.quote_token.value_from_chain_format(chain_value=Decimal(trade_info["fee"]))
         fee = TradeFeeBase.new_spot_fee(
@@ -875,12 +877,15 @@ class InjectiveDataSource(ABC):
         client_order_id: str = trade_info.get("cid", "")
         market = await self.derivative_market_info_for_id(market_id=trade_info["marketId"])
         trading_pair = await self.trading_pair_for_market(market_id=trade_info["marketId"])
-        trade_id: str = trade_info["tradeId"]
 
         price = market.price_from_chain_format(chain_price=Decimal(trade_info["positionDelta"]["executionPrice"]))
         size = market.quantity_from_chain_format(chain_quantity=Decimal(trade_info["positionDelta"]["executionQuantity"]))
+        trade_type = TradeType.BUY if trade_info["positionDelta"]["tradeDirection"] == "buy" else TradeType.SELL
         is_taker: bool = trade_info["executionSide"] == "taker"
         trade_time = int(trade_info["executedAt"]) * 1e-3
+        trade_id = self._trade_id(
+            timestamp=trade_time, order_hash=exchange_order_id, trade_type=trade_type, amount=size, price=price
+        )
 
         fee_amount = market.quote_token.value_from_chain_format(chain_value=Decimal(trade_info["fee"]))
         fee = TradeFeeBase.new_perpetual_fee(
