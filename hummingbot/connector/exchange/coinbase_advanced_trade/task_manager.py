@@ -6,6 +6,7 @@ from enum import Enum
 from typing import Any, Awaitable, Callable
 
 from hummingbot.logger import HummingbotLogger
+from hummingbot.logger.indenting_logger import indented_debug_decorator
 
 
 class TaskState(Enum):
@@ -44,6 +45,7 @@ class TaskManager:
         "_exception_event",
     )
 
+    @indented_debug_decorator(msg="TaskManager", bullet=":")
     def __init__(
             self,
             task_function: Callable[[...], Awaitable[Any]],
@@ -107,7 +109,8 @@ class TaskManager:
         """Returns True if the has run and is done."""
         return self._task is not None and self._task.done()
 
-    async def start_task(self) -> None:
+    # @indented_debug_decorator(msg="start_task", bullet=">")
+    def start_task(self) -> None:
         """Starts the queue processor."""
         if self.is_running:
             self.logger().debug("Cannot start_task() a Task Manager that is already started")
@@ -117,7 +120,7 @@ class TaskManager:
             return
         self._task: Task = asyncio.create_task(self._task_wrapper())
         self._task_state = TaskState.CREATED
-        await asyncio.sleep(0)
+        # await asyncio.sleep(0)
 
     async def _task_wrapper(self) -> None:
         """Wraps the task in a try/except block to catch any exceptions."""

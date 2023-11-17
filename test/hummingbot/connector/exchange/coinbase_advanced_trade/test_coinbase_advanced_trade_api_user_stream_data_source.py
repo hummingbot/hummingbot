@@ -179,39 +179,12 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSourceTests(
             with contextlib.suppress(StopAsyncIteration):
                 await self.data_source.listen_for_user_stream(self.output_queue)
 
-        stream_to_queue_mock.open.assert_called_once()
-        stream_to_queue_mock.start_stream.assert_called_once()
+        stream_to_queue_mock.start_streams.assert_called_once()
         stream_to_queue_mock.subscribe.assert_called_once()
         # The number of calls to get should be the number of side effects + 1 for the StopAsyncIteration
         self.assertEqual(len(side_effects) + 1, stream_to_queue_mock.queue.get.call_count)
         # The number of calls to put should be the number of side effects
         self.assertEqual(len(side_effects), self.output_queue.qsize())
-
-    async def test_listen_for_user_stream_mocked_open(self):
-        self.assertTrue(
-            all(s == (StreamState.CLOSED, TaskState.STOPPED) for s in self.data_source._stream_to_queue.states))
-        open = self.data_source._stream_to_queue.open
-        with patch.object(self.data_source, "_stream_to_queue",
-                          AsyncMock(spec=MultiStreamDataSource)) as stream_to_queue_mock:
-            self.data_source._stream_to_queue.open = open
-            side_effects = []
-            stream_to_queue_mock.queue.get = AsyncMock(side_effect=side_effects)
-
-            with contextlib.suppress(StopAsyncIteration):
-                await self.data_source.listen_for_user_stream(self.output_queue)
-
-            stream_to_queue_mock.start_stream.assert_called_once()
-            stream_to_queue_mock.subscribe.assert_called_once()
-            # The number of calls to get should be the number of side effects + 1 for the StopAsyncIteration
-            self.assertEqual(len(side_effects) + 1, stream_to_queue_mock.queue.get.call_count)
-            # The number of calls to put should be the number of side effects
-            self.assertEqual(len(side_effects), self.output_queue.qsize())
-        self.assertTrue(
-            all(s == (StreamState.OPENED, TaskState.STOPPED) for s in self.data_source._stream_to_queue.states))
-        self.assertEqual(4, self.get_ws_assistant_count)
-        self.assertEqual(4, self.ws_assistant.connect_count)
-        # 4 heartbeats
-        self.assertEqual(4, self.ws_assistant.send_count)
 
     async def test_connected_websocket_assistant_connect_call(self):
         with self.assertRaises(NotImplementedError):

@@ -1,7 +1,4 @@
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from .data_types import PipeTupleDataT
+from typing import Tuple, TypeVar
 
 
 class Sentinel:
@@ -14,8 +11,10 @@ class Sentinel:
 
 SENTINEL: Sentinel = Sentinel()
 
+T = TypeVar("T")
 
-def sentinel_ize(items: "PipeTupleDataT") -> "PipeTupleDataT":
+
+def sentinel_ize(items: Tuple[T | Sentinel, ...]) -> Tuple[T | Sentinel, ...]:
     """
     Returns a tuple with a sentinel value at the end. If a sentinel value is already present in the tuple,
     it returns a new tuple up to the first sentinel. If no sentinel is present, it adds one to the end of the tuple.

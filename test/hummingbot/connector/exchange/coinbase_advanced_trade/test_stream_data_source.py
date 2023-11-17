@@ -377,41 +377,39 @@ class TestStreamDataSource(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(StreamState.CLOSED, self.stream_data_source._stream_state, )
 
     async def test_start_mocked(self) -> None:
-        with patch.object(StreamDataSource, "start_task", new_callable=AsyncMock) as mock_task:
-            self.assertFalse(self.stream_data_source.is_running)
+        with patch.object(StreamDataSource, "start_task", new_callable=MagicMock) as mock_task:
+            self.assertFalse(self.stream_data_source.is_running())
 
             await self.stream_data_source.start_stream()
 
             # Note that we check that the TaskManager is running before setting the state to STARTED
             mock_task.assert_called_once()
-            mock_task.assert_awaited_once()
             # is_running did not change since it is not mocked (default value is false ... of course)
-            self.assertFalse(self.stream_data_source.is_running)
+            self.assertFalse(self.stream_data_source.is_running())
             self.assertEqual(TaskState.STOPPED, self.stream_data_source._task_state, )
 
         with patch.object(TaskManager, "is_running", new_callable=MagicMock(return_value=True)):
-            with patch.object(StreamDataSource, "start_task", new_callable=AsyncMock) as mock_task:
+            with patch.object(StreamDataSource, "start_task", new_callable=MagicMock) as mock_task:
                 await self.stream_data_source.start_stream()
                 # With a mocked is_running the state changes to STARTED
                 mock_task.assert_called_once()
-                mock_task.assert_awaited_once()
                 # start_all_tasks is mocked
                 self.assertEqual(TaskState.STOPPED, self.stream_data_source._task_state, )
 
     async def test_start_task(self) -> None:
-        self.assertFalse(self.stream_data_source.is_running)
+        self.assertFalse(self.stream_data_source.is_running())
         self.assertEqual(TaskState.STOPPED, self.stream_data_source._task_state, )
         self.assertEqual((StreamState.CLOSED, TaskState.STOPPED), self.stream_data_source.state, )
 
-        await self.stream_data_source.start_task()
+        self.stream_data_source.start_task()
 
-        self.assertTrue(self.stream_data_source.is_running)
+        self.assertTrue(self.stream_data_source.is_running())
         self.assertEqual(TaskState.STARTED, self.stream_data_source._task_state, )
         # Auto-reconnecting Stream will call open_connection
-        self.assertEqual((StreamState.OPENED, TaskState.STARTED), self.stream_data_source.state, )
+        self.assertEqual(TaskState.STARTED, self.stream_data_source.state[1], )
 
         # Cleanup: stop the TaskManager, clear the wait for the assistant
-        if self.stream_data_source.is_running:
+        if self.stream_data_source.is_running():
             await self.stream_data_source.stop_task()
             self.stream_data_source._ws_assistant_ready.clear()
 
@@ -429,26 +427,26 @@ class TestStreamDataSource(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
                 self.assertEqual(TaskState.STARTED, self.stream_data_source._task_state, )
 
         with patch.object(TaskManager, "is_running", new_callable=MagicMock(return_value=False)):
-            self.stream_data_source._task_state = TaskState.STARTED
+            with patch.object(StreamDataSource, "stop_task", new_callable=AsyncMock) as mock_task:
+                self.stream_data_source._task_state = TaskState.STOPPED
 
-            await self.stream_data_source.stop_stream()
+                await self.stream_data_source.stop_stream()
 
-            # With a mocked is_running the state changes to STOPPED
-            mock_task.assert_called_once()
-            mock_task.assert_awaited_once()
-            self.assertEqual(TaskState.STOPPED, self.stream_data_source._task_state, )
+                mock_task.assert_called_once()
+                mock_task.assert_awaited_once()
+                self.assertEqual(TaskState.STOPPED, self.stream_data_source._task_state, )
 
     # TODO: Fix this test. It hangs forever
     async def _test_stop(self) -> None:
         await self.stream_data_source.start_stream()
-        self.assertTrue(self.stream_data_source.is_running)
+        self.assertTrue(self.stream_data_source.is_running())
         self.assertTrue(self.ws_assistant.send_called)
         self.assertEqual(TaskState.STARTED, self.stream_data_source._task_state, )
         self.assertEqual((StreamState.OPENED, TaskState.STARTED), self.stream_data_source.state, )
 
         await self.stream_data_source.stop_stream()
 
-        # self.assertFalse(self.stream_data_source.is_running)
+        # self.assertFalse(self.stream_data_source.is_running())
         self.assertEqual(TaskState.STOPPED, self.stream_data_source._task_state, )
         self.assertEqual((StreamState.CLOSED, TaskState.STOPPED), self.stream_data_source.state, )
 

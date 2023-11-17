@@ -1,8 +1,10 @@
 import logging
 
-from .data_types import DataT, PipeTupleDataT
-from .errors import PipeTypeError
-from .protocols import PipeGetPtl
+from ..connecting_functions.exception_log_manager import log_exception
+from .data_types import DataT, FromDataT, FromTupleDataT, PipeTupleDataT, ToDataT
+from .errors import PipeFullError, PipeTypeError
+from .protocols import PipeGetPtl, PipePutPtl, PutOperationPtl
+from .sentinel import sentinel_ize
 
 
 async def pipe_snapshot(pipe: PipeGetPtl[DataT]) -> PipeTupleDataT:
@@ -14,15 +16,21 @@ async def pipe_snapshot(pipe: PipeGetPtl[DataT]) -> PipeTupleDataT:
     return await getattr(pipe, "snapshot")()
 
 
-def log_if_possible(logger: logging.Logger | None, level: str, message: str, exc_info: bool = False):
+async def process_residual_data_on_cancel(
+        source: PipeGetPtl[FromDataT],
+        put_operation: PutOperationPtl[FromDataT],
+        destination: PipePutPtl[ToDataT],
+        logger: logging.Logger | None = None) -> None:
     """
-    Logs a message if a logger is provided.
-
-    :param logger: The logger to use for logging.
-    :param level: The level of the log message ('info', 'warning', 'error', etc.).
-    :param message: The message to log.
-    :param exc_info: Whether to include exception information in the log.
+    Helper function to process residual data on cancellation of a task.
     """
-    if logger:
-        log_func = getattr(logger, level)
-        log_func(message, exc_info=exc_info)
+    messages: FromTupleDataT = sentinel_ize(await pipe_snapshot(source))
+    try:
+        [await put_operation(m) for m in messages[:-1]]
+    except PipeFullError as e:
+        log_exception(e,
+                      logger,
+                      'ERROR',
+                      "Data loss: Attempted to flush upstream Pipe on cancellation, however, "
+                      "downstream Pipe is full.")
+    await destination.stop()

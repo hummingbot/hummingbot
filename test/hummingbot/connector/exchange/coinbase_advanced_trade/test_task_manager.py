@@ -74,35 +74,35 @@ class TestTaskManager(IsolatedAsyncioWrapperTestCase):
             self.task_manager.stop_task_nowait()
             mock_logger.debug.assert_called_with("Attempting to stop_task_nowait() a task that has not been created ("
                                                  "or already stopped)")
-            await self.task_manager.start_task()
-            await self.task_manager.start_task()
+            self.task_manager.start_task()
+            self.task_manager.start_task()
             mock_logger.debug.assert_called_with("Cannot start_task() a Task Manager that is already started")
 
     async def test_start_with_task(self) -> None:
         self.assertIsNone(self.task_manager._task)
-        await self.task_manager.start_task()
+        self.task_manager.start_task()
         self.assertIsNotNone(self.task_manager._task)
         self.assertFalse(self.task_manager._task.done())
 
     async def test_stop_with_start(self) -> None:
-        await self.task_manager.start_task()
+        self.task_manager.start_task()
         await self.task_manager.stop_task()
         await asyncio.sleep(0.1)
         self.assertIsNone(self.task_manager._task)
 
     async def test_start_while_running(self) -> None:
-        await self.task_manager.start_task()
+        self.task_manager.start_task()
         with patch.object(TaskManager, "logger") as mock_logger:
-            await self.task_manager.start_task()
+            self.task_manager.start_task()
             mock_logger.assert_called()
 
     async def test_stop_while_running(self) -> None:
-        await self.task_manager.start_task()
+        self.task_manager.start_task()
         await self.task_manager.stop_task()
         await self.task_manager.stop_task()
 
     async def test_task_completion(self) -> None:
-        await self.task_manager.start_task()
+        self.task_manager.start_task()
         self.assertFalse(self.task_manager._task.done())
         await asyncio.sleep(1.01)  # give the task time to finish
         self.assertIsNone(self.task_manager._task)
@@ -116,7 +116,7 @@ class TestTaskManager(IsolatedAsyncioWrapperTestCase):
 
         self.task_manager = TaskManager(failing_task)
         # Start the task
-        await self.task_manager.start_task()
+        self.task_manager.start_task()
         await asyncio.sleep(0.1)  # give the task time to start
 
         # The task should be running
@@ -139,7 +139,7 @@ class TestTaskManager(IsolatedAsyncioWrapperTestCase):
             await asyncio.sleep(0.1)
 
         self.task_manager = TaskManager(successful_task, success_callback=callback)
-        await self.task_manager.start_task()
+        self.task_manager.start_task()
         await asyncio.sleep(0.2)  # give the task time to finish
 
         callback.assert_called_once()
@@ -153,7 +153,7 @@ class TestTaskManager(IsolatedAsyncioWrapperTestCase):
             raise RuntimeError("Task failed")
 
         self.task_manager = TaskManager(failing_task, exception_callback=callback)
-        await self.task_manager.start_task()
+        self.task_manager.start_task()
         await asyncio.sleep(0.2)  # give the task time to fail
 
         callback.assert_called_once()
@@ -166,7 +166,7 @@ class TestTaskManager(IsolatedAsyncioWrapperTestCase):
             await asyncio.sleep(0.1)
 
         self.task_manager = TaskManager(successful_task, success_event=event)
-        await self.task_manager.start_task()
+        self.task_manager.start_task()
 
         # Wait for the task to finish and the event to be set
         await event.wait()
@@ -184,7 +184,7 @@ class TestTaskManager(IsolatedAsyncioWrapperTestCase):
             raise CustomException("Task failed")
 
         self.task_manager = TaskManager(failing_task, exception_event=event)
-        await self.task_manager.start_task()
+        self.task_manager.start_task()
 
         # Wait for the task to fail and the event to be set
         await event.wait()

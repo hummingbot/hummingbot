@@ -2,17 +2,19 @@ import logging
 from typing import Any, Awaitable, Callable, Dict, Generic, Protocol
 
 from hummingbot.logger import HummingbotLogger
+from hummingbot.logger.indenting_logger import indented_debug_decorator
 
+from ..connecting_functions import pipe_to_pipe_connector
+from ..fittings.data_types import ConnectToPipeTaskT, ReConnectToPipeTaskT
 from ..pipe.data_types import FromDataT, HandlerT, ToDataT
 from ..pipe.pipe import Pipe
 from ..pipe.protocols import PipeGetPtl
 from ..task_manager import TaskManager
-from .connecting_functions import pipe_to_pipe_connector
-from .data_types import ConnectToPipeTaskT, DestinationT, ReConnectToPipeTaskT
+from .data_types import DestinationT
 from .protocols import StreamSourcePtl
 
 
-def _default_handler(message: FromDataT) -> ToDataT:
+def pass_message_through_handler(message: FromDataT) -> ToDataT:
     return message
 
 
@@ -20,9 +22,9 @@ class _HasDataPtl(Protocol):
     data: Any
 
 
-class PipelineBlock(Generic[FromDataT, ToDataT]):
+class PipelineBase(Generic[FromDataT, ToDataT]):
     """
-    A PipelineBlock is a TaskManager that connects a source to a destination.
+    A PipelineBase is a TaskManager that connects a source to a destination.
     """
     _logger: HummingbotLogger | logging.Logger | None = None
 
@@ -33,29 +35,35 @@ class PipelineBlock(Generic[FromDataT, ToDataT]):
                 HummingbotLogger.logger_name_for_class(cls))
         return cls._logger
 
-    __slots__ = ("destination",
-                 "task_manager"
-                 )
+    __slots__ = (
+        "destination",
+        "task_manager"
+    )
 
-    def __init__(self,
-                 *,
-                 source: PipeGetPtl[FromDataT] | StreamSourcePtl,
-                 handler: HandlerT | None = _default_handler,
-                 destination: DestinationT | None = Pipe[ToDataT](),
-                 connecting_task: ConnectToPipeTaskT | ReConnectToPipeTaskT = pipe_to_pipe_connector,
-                 connect: Callable[..., Awaitable[None]] | None = None,
-                 disconnect: Callable[..., Awaitable[None]] | None = None, ):
+    @indented_debug_decorator(msg="PipelineBase.__init__", bullet=":")
+    def __init__(
+            self,
+            *,
+            source: PipeGetPtl[FromDataT] | StreamSourcePtl,
+            handler: HandlerT | None = pass_message_through_handler,
+            destination: DestinationT | None = Pipe[ToDataT](),
+            connecting_task: ConnectToPipeTaskT | ReConnectToPipeTaskT = pipe_to_pipe_connector,
+            connect: Callable[..., Awaitable[None]] | None = None,
+            disconnect: Callable[..., Awaitable[None]] | None = None,
+    ):
         """
-        Initialize a PipelineBlock.
+        Initialize a PipelineBase.
 
         :param source: The source of data.
         :param handler: The function to handle data. If None, a default handler is used that does not change the data.
         :param destination: The destination to put the handled data. If None, a new Pipe is created.
-        :param connecting_task: The task that connects the source and destination.
+        :param connect: A function to connect to the source. If None, the source is assumed to be already connected.
+        :param disconnect: A function to disconnect from the source. If None, the source is assumed to be already
+                             disconnected.
         """
         # If no handler is specified, use the default handler
         if handler is None:
-            handler = _default_handler
+            handler = pass_message_through_handler
 
         # Record the destination to be the source for the next block
         if destination is None:
@@ -74,15 +82,14 @@ class PipelineBlock(Generic[FromDataT, ToDataT]):
             **task_args,
             exception_callback=self.task_exception_callback)
 
-    async def start_task(self) -> None:
+    def start_task(self) -> None:
         """Start the task."""
-        await self.task_manager.start_task()
+        self.task_manager.start_task()
 
     async def stop_task(self) -> None:
         """Stop the task."""
         await self.task_manager.stop_task()
 
-    @property
     def is_running(self) -> bool:
         """Stop the task."""
         return self.task_manager.is_running
@@ -90,7 +97,7 @@ class PipelineBlock(Generic[FromDataT, ToDataT]):
     def task_exception_callback(self, ex: Exception) -> None:
         """Handle an exception raised during the execution of the task."""
         # Log the exception
-        self.logger().error("An error occurred while executing the task in the PipelineBlock:\n"
+        self.logger().error("An error occurred while executing the task in the PipelineBase:\n"
                             f"    {ex}")
         # self.stop_all_tasks()
         # If necessary, you can re-raise the exception, handle it in some other way, or just log it and continue

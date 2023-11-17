@@ -6,10 +6,13 @@ from typing import Any, Awaitable, Callable, Coroutine, Generator, Generic, Tupl
 
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.logger import HummingbotLogger
+from hummingbot.logger.indenting_logger import indented_debug_decorator
+
+from ..connecting_functions.call_or_await import CallOrAwait
 
 # This '.' not recommended, however, it helps reduce the length of the import, as well as avoid
 # mis-ordering with other more general hummingbot packages
-from ..pipeline.auto_stream_block import AutoStreamBlock
+from ..fittings.auto_stream_pipe_fitting import AutoStreamPipeFitting
 from ..task_manager import TaskState
 from .enums import StreamAction, StreamState
 from .errors import StreamDataSourceError
@@ -18,7 +21,7 @@ from .protocols import SubscriptionBuilderT, WSAssistantPtl, WSResponsePtl
 T = TypeVar("T")
 
 
-class StreamDataSource(AutoStreamBlock[WSResponsePtl, T], Generic[T]):
+class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
     """
     UserStreamTrackerDataSource implementation for Coinbase Advanced Trade API.
     """
@@ -47,6 +50,7 @@ class StreamDataSource(AutoStreamBlock[WSResponsePtl, T], Generic[T]):
         "_task_state",
     )
 
+    @indented_debug_decorator(msg="StreamDataSource", bullet=":")
     def __init__(
             self,
             *,
@@ -138,6 +142,7 @@ class StreamDataSource(AutoStreamBlock[WSResponsePtl, T], Generic[T]):
         """Returns the time of the last received message"""
         return self._last_recv_time_s
 
+    @indented_debug_decorator(bullet="g")
     async def get_ws_assistant(self) -> WSAssistantPtl:
         """Returns the WS Assistant, when it is available (created by a call to open_connection)"""
         # self.logger().debug("Waiting for WS Assistant to be ready...")
@@ -147,7 +152,7 @@ class StreamDataSource(AutoStreamBlock[WSResponsePtl, T], Generic[T]):
 
     async def start_stream(self) -> None:
         """Starts the Streaming operation."""
-        await self.start_task()
+        self.start_task()
         await self.open_connection()
 
     async def stop_stream(self) -> None:
@@ -155,11 +160,11 @@ class StreamDataSource(AutoStreamBlock[WSResponsePtl, T], Generic[T]):
         await self.close_connection()
         await self.stop_task()
 
-    async def start_task(self) -> None:
+    def start_task(self) -> None:
         """Starts the TaskManager transferring messages to Pipeline."""
-        if not super(AutoStreamBlock, self).is_running:
-            await super(AutoStreamBlock, self).start_task()
-            if super(AutoStreamBlock, self).is_running:
+        if not super(AutoStreamPipeFitting, self).is_running():
+            super(AutoStreamPipeFitting, self).start_task()
+            if super(AutoStreamPipeFitting, self).is_running():
                 self._task_state = TaskState.STARTED
 
     async def stop_task(self) -> None:
@@ -167,13 +172,14 @@ class StreamDataSource(AutoStreamBlock[WSResponsePtl, T], Generic[T]):
         if self._stream_state != StreamState.CLOSED:
             self.logger().error(f"Attempting to stop Task of an unclosed {self._channel}/{self._pair} stream.")
             return
-        await super(AutoStreamBlock, self).stop_task()
+        await super(AutoStreamPipeFitting, self).stop_task()
 
-        if not super(AutoStreamBlock, self).is_running:
+        if not super(AutoStreamPipeFitting, self).is_running():
             self._task_state = TaskState.STOPPED
         else:
             self.logger().error(f"Failed to stop the TaskManager for {self._channel}/{self._pair} stream.")
 
+    @indented_debug_decorator(bullet="o")
     async def open_connection(self) -> None:
         """Initializes the websocket connection and subscribe to the heartbeats channel."""
         if self._stream_state == StreamState.CLOSED:
@@ -195,8 +201,10 @@ class StreamDataSource(AutoStreamBlock[WSResponsePtl, T], Generic[T]):
 
         else:
             self.logger().warning(
-                f"Attempting to open unclosed {self._channel}/{self._pair} stream. State left unchanged")
+                f"Attempting to open unclosed {self._channel}/{self._pair} stream. "
+                f"State {self._stream_state} left unchanged")
 
+    @indented_debug_decorator(bullet="x")
     async def close_connection(self) -> None:
         """Closes websocket operations"""
         if self._ws_assistant is not None:
@@ -290,6 +298,7 @@ class StreamDataSource(AutoStreamBlock[WSResponsePtl, T], Generic[T]):
             self._stream_state = StreamState.UNSUBSCRIBED
         self.logger().info(f"Unsubscribed from {channel} for {self._pair}.")
 
+    @indented_debug_decorator(bullet="s")
     async def _send_to_stream(self, *, subscription_builder: functools.partial[SubscriptionBuilderT]) -> None:
         """
         Sends a payload to the Stream.
@@ -298,11 +307,14 @@ class StreamDataSource(AutoStreamBlock[WSResponsePtl, T], Generic[T]):
         :type subscription_builder: partial[SubscriptionBuilderT]
         :return: None
         """
+        self.logger().error("Awaiting lock")
         async with self._subscription_lock:
             try:
+                payload = await CallOrAwait(subscription_builder).call(logger=self.logger())
+                self.logger().error(f"Awaiting send() with {payload}")
                 await self._ws_assistant.send(
                     WSJSONRequest(
-                        payload=await subscription_builder(),
+                        payload=payload,
                         is_auth_required=True))
 
             except asyncio.CancelledError as e:
@@ -329,10 +341,11 @@ class StreamDataSource(AutoStreamBlock[WSResponsePtl, T], Generic[T]):
                 )
                 raise e
 
+    @indented_debug_decorator(bullet="c")
     async def _connect(self) -> None:
         """
         Connects to the websocket and subscribes to the user events.
-        This method is called by the AutoStreamBlock.
+        This method is called by the AutoStreamPipeFitting.
         """
         await self.open_connection()
         await self.subscribe()

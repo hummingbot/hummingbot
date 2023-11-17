@@ -7,6 +7,7 @@ class StreamMessageIteratorPtl(Protocol[DataT]):
     """
     A protocol for an iterator that can be used to get items from a stream.
     """
+    connected: bool
 
     async def iter_messages(self) -> AsyncGenerator[DataT, None]:
         """Gets an item from the stream or blocks until an item is available."""

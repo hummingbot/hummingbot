@@ -1,6 +1,6 @@
 import unittest
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
-from unittest.mock import ANY, AsyncMock, Mock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, Mock, patch
 
 import hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_constants as CONSTANTS
 from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils import (
@@ -189,8 +189,8 @@ class CoinbaseAdvancedTradeUtilTestCases(IsolatedAsyncioWrapperTestCase):
 
 class TestRetryDecorator(IsolatedAsyncioWrapperTestCase):
     async def test_retry_on_server_issue(self):
-        mock_logger = AsyncMock()
-        mock_logger.error = AsyncMock()
+        mock_logger = MagicMock()
+        mock_logger.error = MagicMock()
 
         @retry_async_api_call(max_retries=2)
         async def api_post(*args, **kwargs):
@@ -207,8 +207,8 @@ class TestRetryDecorator(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(mock_logger.error.call_count, 2)
 
     async def test_no_retry_on_success(self):
-        mock_logger = AsyncMock()
-        mock_logger.error = AsyncMock()
+        mock_logger = MagicMock()
+        mock_logger.error = MagicMock()
 
         @retry_async_api_call(max_retries=2)
         async def api_post(self, *args, **kwargs):
@@ -225,8 +225,8 @@ class TestRetryDecorator(IsolatedAsyncioWrapperTestCase):
         mock_logger.error.assert_not_called()
 
     async def test_invalid_function_name(self):
-        mock_logger = AsyncMock()
-        mock_logger.error = AsyncMock()
+        mock_logger = MagicMock()
+        mock_logger.error = MagicMock()
         with self.assertRaises(AssertionError):
             @retry_async_api_call(max_retries=2)
             async def not_an_api_call(*args, **kwargs):
