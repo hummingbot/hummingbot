@@ -108,6 +108,6 @@ class HyperliquidPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             })
         elif event_message.get("event") == "update" and event_message.get("channel") in [
             CONSTANTS.USER_ORDERS_ENDPOINT_NAME,
-            CONSTANTS.USER_POSITIONS_ENDPOINT_NAME,
+            CONSTANTS.USEREVENT_ENDPOINT_NAME,
         ]:
             queue.put_nowait(event_message)
