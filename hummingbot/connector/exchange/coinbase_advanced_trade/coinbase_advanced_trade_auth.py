@@ -1,10 +1,13 @@
 import hashlib
 import hmac
+import logging
 from typing import Dict
 
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSJSONRequest, WSRequest
+from hummingbot.logger import HummingbotLogger
+from hummingbot.logger.indenting_logger import indented_debug_decorator
 
 from .coinbase_advanced_trade_web_utils import endpoint_from_url
 
@@ -20,12 +23,21 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
     TIME_SYNC_UPDATE_S: float = 30
     _time_sync_last_updated_s: float = -1
 
+    _logger: HummingbotLogger | logging.Logger | None = None
+
+    @classmethod
+    def logger(cls) -> HummingbotLogger | logging.Logger:
+        if cls._logger is None:
+            cls._logger = logging.getLogger(HummingbotLogger.logger_name_for_class(cls))
+        return cls._logger
+
     __slots__ = (
         'api_key',
         'secret_key',
         'time_provider',
     )
 
+    @indented_debug_decorator(msg="CoinbaseAdvancedTradeAuth", bullet=":")
     def __init__(self, api_key: str, secret_key: str, time_provider: TimeSynchronizer):
         """
         :param api_key: The API key.
@@ -64,9 +76,7 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
         message = timestamp + str(request.method) + endpoint + str(request.data or '')
         signature: str = self._generate_signature(message=message)
 
-        headers: Dict = (
-            dict(request.headers) if request.headers is not None else {}
-        ) | {
+        headers: Dict = dict(request.headers or {}) | {
             "accept": 'application/json',
             "content-type": 'application/json',
             "CB-ACCESS-KEY": self.api_key,
@@ -77,6 +87,7 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
 
         return request
 
+    @indented_debug_decorator(msg="ws_authenticate", bullet="'")
     async def ws_authenticate(self, request: WSJSONRequest) -> WSRequest:
         """
         This method is intended to configure a websocket request to be authenticated.
@@ -106,12 +117,13 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
         message: str = timestamp + str(request.payload["channel"]) + products
         signature: str = self._generate_signature(message=message)
 
-        payload: Dict = dict(request.payload) | {
+        payload: Dict = dict(request.payload or {}) | {
             "api_key": self.api_key,
             "signature": signature,
             "timestamp": timestamp,
         }
         request.payload = payload
+        self.logger().debug(f"ws_authenticate payload: {payload}")
 
         return request
 

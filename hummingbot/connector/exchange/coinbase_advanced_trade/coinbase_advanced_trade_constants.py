@@ -90,7 +90,7 @@ WS_ORDER_SUBSCRIPTION_CHANNELS["level2"] = "l2_data"
 WS_USER_SUBSCRIPTION_KEYS: Tuple[str, ...] = ("user",)
 WS_USER_SUBSCRIPTION_CHANNELS: bidict[str, str] = bidict({k: k for k in WS_USER_SUBSCRIPTION_KEYS})
 
-WS_OTHERS_SUBSCRIPTION_KEYS: Tuple[str, ...] = ("ticker", "ticker_batch", "status")
+WS_OTHERS_SUBSCRIPTION_KEYS: Tuple[str, ...] = ("ticker", "ticker_batch", "status", "candles")
 WS_OTHERS_SUBSCRIPTION_CHANNELS: bidict[str, str] = bidict({k: k for k in WS_OTHERS_SUBSCRIPTION_KEYS})
 
 # CoinbaseAdvancedTrade params

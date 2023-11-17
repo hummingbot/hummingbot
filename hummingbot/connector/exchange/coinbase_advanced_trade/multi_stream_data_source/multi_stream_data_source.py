@@ -5,10 +5,13 @@ from collections import defaultdict
 from typing import Any, AsyncGenerator, Callable, Coroutine, Dict, List, Tuple, Type, TypeVar
 
 from hummingbot.logger import HummingbotLogger
+from hummingbot.logger.indenting_logger import indented_debug_decorator
 
+from ..connecting_functions.call_or_await import CallOrAwait
+from ..connecting_functions.exception_log_manager import log_exception
+from ..fittings.pipe_pipe_fitting import PipePipeFitting
+from ..fittings.pipes_pipe_fitting import PipesPipeFitting
 from ..pipe.protocols import PipeGetPtl
-from ..pipeline.pipe_block import PipeBlock
-from ..pipeline.pipes_collector import PipesCollector
 from ..stream_data_source.protocols import WSAssistantPtl
 from ..stream_data_source.stream_data_source import StreamDataSource, StreamState, SubscriptionBuilderT
 from ..task_manager import TaskState
@@ -16,7 +19,7 @@ from .helper_functions import sequence_verifier
 
 T = TypeVar("T")
 
-CollectorT: Type = PipesCollector[Dict[str, Any], T]
+CollectorT: Type = PipesPipeFitting[Dict[str, Any], T]
 
 
 class MultiStreamDataSource:
@@ -44,6 +47,7 @@ class MultiStreamDataSource:
         "_stream_access_lock",
     )
 
+    @indented_debug_decorator(msg="MultiStream", bullet="|")
     def __init__(self,
                  *,
                  channels: Tuple[str, ...],
@@ -65,9 +69,49 @@ class MultiStreamDataSource:
         :param pair_to_symbol: Async function to convert the pair to symbol.
         """
 
+        #        def create_stream_data_sources() -> Generator[StreamDataSource, None, None]:
+        #            for c in channels:
+        #                for p in pairs:
+        #                    yield StreamDataSource(
+        #                        channel=c,
+        #                        pair=p,
+        #                        ws_factory=ws_factory,
+        #                        ws_url=ws_url,
+        #                        pair_to_symbol=pair_to_symbol,
+        #                        subscription_builder=subscription_builder,
+        #                        heartbeat_channel=heartbeat_channel,
+        #                    )
+        #
+        #        def create_pipe_blocks(stream_data_source):
+        #            cp = self._stream_key(channel=stream_data_source.channel, pair=stream_data_source.pair)
+        #            yield PipePipeFitting[Dict[str, Any], Dict[str, Any]](
+        #                stream_data_source.destination,
+        #                functools.partial(
+        #                    sequence_verifier,
+        #                    sequence_reader=sequence_reader,
+        #                    sequences=self._sequences,
+        #                    key=cp,
+        #                    logger=self.logger()
+        #                )
+        #            )
+        #            for t in transformers:
+        #                yield PipePipeFitting[Dict[str, Any], Dict[str, Any]](
+        #                    self._transformers[cp][-1].destination,
+        #                    t
+        #                )
+
         self._streams: Dict[str, StreamDataSource] = {}
-        self._transformers: Dict[str, List[PipeBlock]] = {}
+        self._transformers: Dict[str, List[PipePipeFitting]] = {}
         self._sequences: defaultdict[str, int] = defaultdict(int)
+        self._stream_access_lock: asyncio.Lock = asyncio.Lock()
+
+        #        self._streams = {
+        #            self._stream_key(channel=stream_data_source.channel, pair=stream_data_source.pair): stream_data_source
+        #            for stream_data_source in create_stream_data_sources()}
+        #
+        #        self._transformers = {
+        #            channel_pair: list(create_pipe_blocks(stream_data_source))
+        #            for channel_pair, stream_data_source in self._streams.items()}
 
         for channel in channels:
             for pair in pairs:
@@ -84,10 +128,10 @@ class MultiStreamDataSource:
                     heartbeat_channel=heartbeat_channel,
                 )
 
-                # Create the PipeBlocks that transform the messages
-                self._transformers[channel_pair]: List[PipeBlock] = []
+                # Create the PipePipeFittings that transform the messages
+                self._transformers[channel_pair]: List[PipePipeFitting] = []
 
-                # Create the callable to pass as a handler to the PipeBlock
+                # Create the callable to pass as a handler to the PipePipeFitting
                 verify_sequence = functools.partial(
                     sequence_verifier,
                     sequence_reader=sequence_reader,
@@ -95,15 +139,18 @@ class MultiStreamDataSource:
                     key=channel_pair,
                     logger=self.logger())
 
-                # Create the PipeBlocks that verify the sequence number and update it
+                # Create the PipePipeFittings that verify the sequence number and update it
                 self._transformers[channel_pair].append(
-                    PipeBlock[Dict[str, Any], Dict[str, Any]](
+                    PipePipeFitting[Dict[str, Any], Dict[str, Any]](
                         self._streams[channel_pair].destination,
-                        verify_sequence))
+                        handler=verify_sequence,
+                        logger=self.logger(),
+                    ),
+                )
 
                 for transformer in transformers:
                     self._transformers[channel_pair].append(
-                        PipeBlock[Dict[str, Any], Dict[str, Any]](
+                        PipePipeFitting[Dict[str, Any], Dict[str, Any]](
                             self._transformers[channel_pair][-1].destination,
                             transformer,
                         ))
@@ -112,7 +159,6 @@ class MultiStreamDataSource:
             sources=tuple(self._transformers[t][-1].destination for t in self._transformers),
             handler=collector,
         )
-        self._stream_access_lock: asyncio.Lock = asyncio.Lock()
 
     @staticmethod
     def _stream_key(*, channel: str, pair: str) -> str:
@@ -132,19 +178,21 @@ class MultiStreamDataSource:
     @property
     def last_recv_time(self) -> float:
         """Returns the time of the last received message"""
-        return min((self._streams[t].last_recv_time for t in self._streams))
+        return min((self._streams[t].last_recv_time for t in self._streams), default=0)
 
-    async def open(self) -> None:
-        """Open all the streams"""
-        self.logger().debug(f"Opening {len(self._streams)} streams")
-        done: Tuple[bool, ...] = await self._perform_on_all_streams(self._open_connection)
-        await self._pop_unsuccessful_streams(done)
-        self.logger().debug(f" '> Opened {len(self._streams)} streams")
+    #    @indented_debug_decorator(bullet="o")
+    #    async def _open_connections(self) -> None:
+    #        """Open all the streams"""
+    #        self.logger().debug(f"Opening {len(self._streams)} streams")
+    #        done: Tuple[bool, ...] = await self._perform_on_all_streams(self._open_connection)
+    #        await self._pop_unsuccessful_streams(done)
+    #        self.logger().debug(f" '> Opened {len(self._streams)} streams")
+    #
+    #    async def _close_connections(self) -> None:
+    #        """Close all the streams"""
+    #        await self._perform_on_all_streams(self._close_connection)
 
-    async def close(self) -> None:
-        """Close all the streams"""
-        await self._perform_on_all_streams(self._close_connection)
-
+    @indented_debug_decorator(bullet="s")
     async def subscribe(self) -> None:
         """Subscribe to all the streams"""
         self.logger().debug(f"Subscribing {len(self._streams)} streams")
@@ -156,7 +204,7 @@ class MultiStreamDataSource:
         """Unsubscribe to all the streams"""
         await self._perform_on_all_streams(self._unsubscribe)
 
-    async def start_stream(self) -> None:
+    async def start_streams(self) -> None:
         """Listen to all the streams and put the messages to the output queue."""
         # Open the streams connection, eliminate the ones that failed
         done: Tuple[bool, ...] = await self._perform_on_all_streams(self._open_connection)
@@ -167,20 +215,20 @@ class MultiStreamDataSource:
         await self._pop_unsuccessful_streams(done)
 
         # Collector
-        await self._collector.start_all_tasks()
-        if not all(self._collector.are_running):
+        self._collector.start_all_tasks()
+        if not all(self._collector.are_running()):
             self.logger().warning("Collector failed to start all its upstream tasks.")
-            await self._pop_unsuccessful_streams(self._collector.are_running)
+            await self._pop_unsuccessful_streams(self._collector.are_running())
 
         # Transformers for each stream in reverse order
         for key in self._streams:
             for transformer in reversed(self._transformers[key]):
-                await transformer.start_task()
+                transformer.start_task()
                 if not transformer.is_running:
                     self.logger().warning(f"A transformer {transformer} failed to start for stream {key}.")
-                    await self._pop_unsuccessful_streams((transformer.is_running,))
+                    await self._pop_unsuccessful_streams(success_list=(transformer.is_running(),))
 
-    async def stop_stream(self) -> None:
+    async def stop_streams(self) -> None:
         """Listen to all the streams and put the messages to the output queue."""
         await self._perform_on_all_streams(self._close_connection)
         await self._perform_on_all_streams(self._stop_task)
@@ -217,15 +265,29 @@ class MultiStreamDataSource:
 
         async def apply_on_(stream: StreamDataSource) -> bool:
             try:
-                await action(stream)
+                await CallOrAwait(action, (stream,)).call()
                 return True
             except Exception as e:
-                self.logger().error(
-                    f"An error occurred while performing action on stream {stream.channel}:{stream.pair}: {e}")
+                log_exception(
+                    e,
+                    self.logger(),
+                    "ERROR",
+                    f"An error occurred while performing action {action} on stream {stream.channel}:{stream.pair}: {e}")
+                # self.logger().error(
+                #    f"An error occurred while performing action on stream {stream.channel}:{stream.pair}: {e}")
                 return False
+
+        if not isinstance(action, Callable):
+            self.logger().warning("The action provided is not callable.")
+            return tuple((True for _ in self._streams.values()))
+
+        if action is None:
+            self.logger().warning("No action provided to perform on the streams.")
+            return tuple((True for _ in self._streams.values()))
 
         return await asyncio.gather(*[apply_on_(stream) for stream in self._streams.values()])
 
+    @indented_debug_decorator(bullet="c")
     async def _open_connection(self, stream: StreamDataSource) -> bool:
         """Open connection for a stream"""
         if stream.state[0] == StreamState.OPENED:
@@ -233,7 +295,7 @@ class MultiStreamDataSource:
 
         await stream.open_connection()
         if stream.state[0] != StreamState.OPENED:
-            self.logger().warning(f"Stream {stream.channel}:{stream.pair} failed to open.")
+            self.logger().warning(f"Stream {stream.channel}:{stream.pair} failed to open.{stream.state[0]}")
             await stream.close_connection()
             return False
         return True

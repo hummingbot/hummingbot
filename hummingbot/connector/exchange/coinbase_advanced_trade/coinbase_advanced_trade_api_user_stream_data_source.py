@@ -8,6 +8,7 @@ from typing import Any, AsyncGenerator, Awaitable, Callable, Coroutine, Dict, Ge
 
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
+from hummingbot.logger.indenting_logger import indented_debug_decorator
 
 from .coinbase_advanced_trade_web_utils import get_timestamp_from_exchange_time
 from .multi_stream_data_source.multi_stream_data_source import MultiStreamDataSource
@@ -192,6 +193,8 @@ async def message_to_cumulative_update(
                     remainder_base_amount=Decimal(order["leaves_quantity"]),
                     cumulative_fee=Decimal(order["total_fees"]),
                 )
+                if logger:
+                    logger.debug(f"Cumulative handler {cumulative_order}")
                 yield cumulative_order
             except Exception as e:
                 if logger:
@@ -236,6 +239,7 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         "_stream_to_queue",
     )
 
+    @indented_debug_decorator(msg="CoinbaseAdvancedTradeAPIUserStreamDataSource", bullet=":")
     def __init__(
             self,
             channels: Tuple[str, ...],
@@ -298,9 +302,11 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         return self._stream_to_queue.last_recv_time
 
+    @indented_debug_decorator(bullet="|")
     async def listen_for_user_stream(self, output: asyncio.Queue[CoinbaseAdvancedTradeCumulativeUpdate]):
-        await self._stream_to_queue.open()
-        await self._stream_to_queue.start_stream()
+        self.logger().debug(f"Starting for user streams {self._stream_to_queue}")
+        await self._stream_to_queue.start_streams()
+        self.logger().debug("Subscribing to the streams")
         await self._stream_to_queue.subscribe()
 
         while True:
@@ -309,4 +315,5 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
             if isinstance(message, CoinbaseAdvancedTradeCumulativeUpdate):
                 await output.put(message)
             else:
+                self.logger().error(f"Invalid message type: {type(message)} {message}")
                 raise ValueError(f"Invalid message type: {type(message)} {message}")

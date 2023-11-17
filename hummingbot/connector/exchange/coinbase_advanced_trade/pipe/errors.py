@@ -1,3 +1,6 @@
+from typing import Any
+
+
 class PipeStoppedError(Exception):
     """Raised when an attempt is made to get an item from a stopped Pipe."""
     pass
@@ -5,7 +8,16 @@ class PipeStoppedError(Exception):
 
 class PipeFullError(Exception):
     """Raised when an attempt is made to put an item in a full Pipe."""
-    pass
+    def __init__(self, msg: str = None, lost_item: Any = None):
+        self.lost_item = lost_item
+        super().__init__(msg)
+
+
+class PipeFullWithItemError(Exception):
+    """Raised when an attempt is made to put an item in a full Pipe."""
+    def __init__(self, *, msg: str = None, lost_item: Any = None):
+        self.lost_item = lost_item
+        super().__init__(msg)
 
 
 class PipeSentinelError(Exception):

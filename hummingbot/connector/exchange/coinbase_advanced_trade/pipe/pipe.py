@@ -2,17 +2,18 @@ import asyncio
 import contextlib
 import logging
 from logging import Logger
-from typing import Generic, List, Type
+from typing import Generic, List, Protocol, Type
 
 from hummingbot.logger import HummingbotLogger
+from hummingbot.logger.indenting_logger import indented_debug_decorator
 
 from .data_types import DataT, PipeDataT, PipeTupleDataT
 from .errors import PipeFullError, PipeSentinelError, PipeStoppedError
-from .protocols import PipeGetPtl, PipePutPtl
+from .protocols import PipePtl
 from .sentinel import SENTINEL
 
 
-class _PipePtl(Generic[DataT]):
+class _PipeBasePtl(Protocol[DataT]):
     def __init__(self, maxsize: int) -> None:
         ...
 
@@ -44,7 +45,7 @@ class _PipePtl(Generic[DataT]):
         ...
 
 
-class Pipe(Generic[DataT], PipeGetPtl[DataT], PipePutPtl[DataT]):
+class Pipe(Generic[DataT], PipePtl[DataT]):
     """
     A node in the pipeline that has a queue and recognizes a SENTINEL value to stop the pipeline.
     """
@@ -59,26 +60,24 @@ class Pipe(Generic[DataT], PipeGetPtl[DataT], PipePutPtl[DataT]):
     __slots__ = (
         "_pipe",
         "_is_stopped",
-        "_release_to_loop",
+        "_perform_task_done",
         "_sentinel_position",
         "_snapshot_lock",
+        "_space_available",
     )
 
+    @indented_debug_decorator(msg="Pipe.__init__", bullet=":")
     def __init__(self,
                  maxsize: int = 0,
-                 pipe: Type[_PipePtl[DataT]] = asyncio.Queue[DataT],
-                 release_to_loop: bool = True) -> None:
-        self._pipe: _PipePtl[DataT] = pipe(maxsize=max(maxsize, 0))
+                 pipe: Type[_PipeBasePtl[DataT]] = asyncio.Queue[DataT],
+                 perform_task_done: bool = True) -> None:
+        self._pipe: _PipeBasePtl[DataT] = pipe(maxsize=max(maxsize, 0))
 
         self._is_stopped: bool = False
-        self._release_to_loop: bool = release_to_loop
+        self._perform_task_done: bool = perform_task_done
         self._sentinel_position: int = -1
         self._snapshot_lock: asyncio.Lock = asyncio.Lock()
         self._space_available = asyncio.Condition()
-
-    @property
-    def pipe(self) -> _PipePtl[DataT]:
-        return self._pipe
 
     @property
     def is_stopped(self) -> bool:
@@ -95,38 +94,19 @@ class Pipe(Generic[DataT], PipeGetPtl[DataT], PipePutPtl[DataT]):
         """
         await self._pipe.put(SENTINEL)
 
-    async def _attempt_put_or_wait(self, item: PipeDataT, delay: float) -> bool:
-        """
-        Attempts to put an item into the pipe. On failure, waits for the specified delay.
-        This is a private method and should only be used internally by the Pipe class.
-
-        :param item: The item to put into the queue
-        :param delay: The delay between retries
-        :return: True if the item was put into the queue, False otherwise
-        """
-        try:
-            await self._wait_for_snapshot_to_finish()
-            self._pipe.put_nowait(item)
-            return True
-        except asyncio.QueueFull:
-            self.logger().debug(f"Pipe is full - Retrying in {delay}s")
-            await asyncio.sleep(delay)
-            return False
-
     async def put(
             self,
             item: PipeDataT,
             *,
-            wait_time: float = 0,
-            max_retries: int = 0,
-            max_wait_time_per_retry: float = 10) -> None:
+            timeout: float = 1) -> None:
         """
         Puts an item into the pipe.
 
         :param item: The item to put into the queue
-        :param wait_time: The timeout to wait for the queue to be available
-        :param max_retries: The maximum number of retries to put the item into the queue
-        :param max_wait_time_per_retry: The maximum wait time between retries (exponential backoff can go crazy)
+        :param timeout: The timeout to wait for the queue to be available
+        :raises PipeFullError: If the item cannot be put into the queue after the maximum number of retries
+        :raises PipeSentinelError: If the SENTINEL is put into the queue
+        :raises PipeStoppedError: If the queue is stopped
         """
         if self._is_stopped:
             raise PipeStoppedError("Cannot put item into a stopped Pipe")
@@ -134,60 +114,30 @@ class Pipe(Generic[DataT], PipeGetPtl[DataT], PipePutPtl[DataT]):
         if item is SENTINEL:
             raise PipeSentinelError("The SENTINEL cannot be inserted in the Pipe")
 
-        await self._put_exponential_wait(
-            item,
-            wait_time=wait_time,
-            max_retries=max_retries,
-            max_wait_time_per_retry=max_wait_time_per_retry)
+        await self._put_on_condition(item, timeout=timeout)
 
-        if self._release_to_loop:
-            # This allows the event loop to switch to other tasks
-            # Doing so should help propagate the message
-            await asyncio.sleep(0)
-
-    async def _put_exponential_wait(
-            self,
-            item: PipeDataT,
-            *,
-            wait_time: float = 0,
-            max_retries: int = 0,
-            max_wait_time_per_retry: float = 10) -> None:
+    async def _put_on_condition(self, item: PipeDataT, timeout: float | None = None) -> None:
         """
-        Puts an item into the pipe with exponential wait.
+        Puts an item into the pipe.
 
-        :param item: The item to put into the queue
-        :param wait_time: The timeout to wait for the queue to be available
-        :param max_retries: The maximum number of retries to put the item into the queue
-        :param max_wait_time_per_retry: The maximum wait time between retries (exponential backoff can go crazy)
+        :param item: The item to put into the queue.
+        :raises asyncio.TimeoutError: If the pipe is full and the timeout is reached.
+
+        Explanation: This method puts an item into the pipe. It first acquires the `_space_available` lock to ensure
+        exclusive access to the pipe. If the pipe is full, it waits until space becomes available by using the
+        `_space_available.wait()` method. If the timeout is reached while waiting for space to become available,
+        it raises an `asyncio.TimeoutError`. Once space is available, it puts the item into the pipe using the
+        `put_nowait()` method. If `_release_to_loop` is True, it allows the event loop to switch to other tasks by
+        sleeping for a short duration.
         """
-        # This allows to test if the queue has been stopped rather than blocking
-        retries: int = 0
-        while not self._is_stopped and retries <= abs(max_retries):
-            geometric_wait: float = (wait_time * 1000.0) ** retries / 1000.0
-            delay: float = min(retries * geometric_wait, abs(max_wait_time_per_retry))
-            if await self._attempt_put_or_wait(item, delay):
-                break
-            retries += 1
-
-        if retries == max_retries + 1:
-            self.logger().error(f"Failed to put item after {retries} attempts")
-            raise PipeFullError("Failed to put item into the pipe after maximum retries")
-
-        if self._release_to_loop:
-            # This allows the event loop to switch to other tasks
-            # Doing so should help propagate the message
-            await asyncio.sleep(0)
-
-    async def _put_on_condition(self, item: PipeDataT) -> None:
         async with self._space_available:
             while self._pipe.full():
-                await self._space_available.wait()
+                try:
+                    await asyncio.wait_for(self._space_available.wait(), timeout=timeout)
+                except asyncio.TimeoutError as e:
+                    self.logger().error(f"Failed to put item after {timeout} seconds")
+                    raise PipeFullError("Pipe is full and timeout reached") from e
             self._pipe.put_nowait(item)
-
-        if self._release_to_loop:
-            # This allows the event loop to switch to other tasks
-            # Doing so should help propagate the message
-            await asyncio.sleep(0)
 
     def _get_internally_no_lock(self) -> PipeDataT:
         """
@@ -213,7 +163,7 @@ class Pipe(Generic[DataT], PipeGetPtl[DataT], PipePutPtl[DataT]):
             # Attempting to get an item
             # If the queue is empty, this will raise an exception
             item: PipeDataT = self._pipe.get_nowait()
-            self._pipe.task_done()
+            self._pipe.task_done() if self._perform_task_done else None
             return item
         except asyncio.QueueEmpty:
             raise
@@ -229,7 +179,7 @@ class Pipe(Generic[DataT], PipeGetPtl[DataT], PipePutPtl[DataT]):
             item: PipeDataT = self._get_internally_no_lock()
         except asyncio.QueueEmpty:
             item: PipeDataT = await self._pipe.get()
-            self._pipe.task_done()
+            self._pipe.task_done() if self._perform_task_done else None
 
         return item
 
@@ -244,7 +194,7 @@ class Pipe(Generic[DataT], PipeGetPtl[DataT], PipePutPtl[DataT]):
             item: PipeDataT = self._get_internally_no_lock()
         except asyncio.QueueEmpty:
             item: PipeDataT = await self._pipe.get()
-            self._pipe.task_done()
+            self._pipe.task_done() if self._perform_task_done else None
 
         async with self._space_available:
             self._space_available.notify()
@@ -255,6 +205,12 @@ class Pipe(Generic[DataT], PipeGetPtl[DataT], PipePutPtl[DataT]):
         Blocks until all items in the queue have been processed.
         """
         await self._pipe.join()
+
+    def task_done(self) -> None:
+        """
+        Accounts for the processing of an element obtained by get()
+        """
+        None if self._perform_task_done else self._pipe.task_done()
 
     async def stop(self) -> None:
         """
@@ -267,11 +223,6 @@ class Pipe(Generic[DataT], PipeGetPtl[DataT], PipePutPtl[DataT]):
             else:
                 self._sentinel_position = -1
                 await self._put_sentinel()
-
-            if self._release_to_loop:
-                # This allows the event loop to switch to other tasks
-                # Doing so should help propagate the stop signal
-                await asyncio.sleep(0)
 
     async def _wait_for_snapshot_to_finish(self):
         """Waits for the snapshot to finish."""
@@ -300,7 +251,7 @@ class Pipe(Generic[DataT], PipeGetPtl[DataT], PipePutPtl[DataT]):
                         # so the task_done() can be used to enable the join() call.
                         while not self._pipe.empty():
                             _ = self._pipe.get_nowait()
-                            self._pipe.task_done()
+                            self._pipe.task_done() if self._perform_task_done else None
                         break
 
             return tuple(snapshot)
