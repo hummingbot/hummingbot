@@ -20,6 +20,8 @@ class TestControllerBase(unittest.TestCase):
         # Mocking the ControllerConfigBase
         self.mock_controller_config = ControllerConfigBase(
             strategy_name="dman_strategy",
+            exchange="binance_perpetual",
+            trading_pair="BTC-USDT",
             candles_config=[self.mock_candles_config],
             order_levels=[]
         )
@@ -86,4 +88,4 @@ class TestControllerBase(unittest.TestCase):
 
     def test_to_format_status(self):
         status = self.controller.to_format_status()
-        self.assertEqual("     strategy_name: dman_strategy", status[1])
+        self.assertEqual("     exchange: binance_perpetual", status[1])
