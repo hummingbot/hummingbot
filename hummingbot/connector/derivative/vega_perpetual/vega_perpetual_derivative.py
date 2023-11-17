@@ -818,13 +818,17 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         for key, m in exchange_info.items():
 
             if m.hb_trading_pair in mapping.inverse:
-                self._resolve_trading_pair_symbols_duplicate(mapping, m)
+                continue
             else:
                 mapping[m.id] = m.hb_trading_pair
 
         # this sets the mapping up in the base class
         # so we can use the default implementation of the trading_pair_associated_to_exchange_symbol and vice versa
         self._set_trading_pair_symbol_map(mapping)
+
+    #  def _resolve_trading_pair_symbols_duplicate(mapping: bidict, m: Market):
+    # NOTE: This is a stub for a duplicate trading pair
+    #     mapping[m.id] = m.hb_trading_pair
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         market_id = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
@@ -1042,11 +1046,13 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
             # our trading pair in human readable format
             m.name = instrument["name"]
             m.symbol = instrument["code"]
+
             # the symbol id (number)
             m.id = node["id"]
             m.status = node["state"]
 
             m.quote: Asset = self._assets_by_id.get(instrument["perpetual"]["settlementAsset"])
+
             m.quote_asset_id = instrument["perpetual"]["settlementAsset"]
             m.funding_fee_interval = int(instrument["perpetual"]["dataSourceSpecForSettlementSchedule"]["data"]["internal"]["timeTrigger"]["triggers"][0]["every"])
 
@@ -1082,11 +1088,12 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
             m.base_name = m.symbol
             # NOTE: This cleans up any parsing issues from Hummingbot, but may lead to a confusing result if metadata is not included
             m.hb_base_name = m.symbol.replace("-", "").replace("/", "").replace(".", "").upper()
-            if "metadata" in instrument:
-                if "tags" in instrument["metadata"]:
-                    if len(instrument["metadata"]["tags"]) > 0:
-                        m.base_name = self._get_base(instrument["metadata"]["tags"])
-                        m.hb_base_name = m.base_name.upper()
+
+            # if "metadata" in instrument:
+            #     if "tags" in instrument["metadata"]:
+            #         if len(instrument["metadata"]["tags"]) > 0:
+            #             m.base_name = self._get_base(instrument["metadata"]["tags"])
+            #             m.hb_base_name = m.base_name.upper()
 
             m.quote_name = m.quote.symbol
             m.hb_quote_name = m.quote.hb_name.upper()
@@ -1097,6 +1104,11 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
             m.hb_trading_pair = combine_to_hb_trading_pair(m.hb_base_name, m.hb_quote_name)
 
             _exchange_info[m.id] = m
+            if m.hb_trading_pair in self._id_by_hb_pair:
+                # if we have a duplicate, make our trading pair be the id-quote name.
+                # not user friendly, but?
+                m.hb_trading_pair = combine_to_hb_trading_pair(m.id, m.hb_quote_name)
+
             self._id_by_hb_pair[m.hb_trading_pair] = m.id
 
         return _exchange_info
