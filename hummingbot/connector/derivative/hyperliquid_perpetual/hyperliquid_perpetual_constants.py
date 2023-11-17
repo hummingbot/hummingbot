@@ -21,8 +21,12 @@ FUNDING_RATE_INTERNAL_MIL_SECOND = 10 * 1000
 CURRENCY = "USD"
 #yes
 ASSET_CONTEXT_TYPE = "metaAndAssetCtxs"
-
+#yes
 TRADES_TYPE = "userFills"
+#yes
+ORDER_STATUS_TYPE = "orderStatus"
+#yes
+USER_STATE_TYPE = "clearinghouseState"
 
 SNAPSHOT_REST_URL = "/linear/v1/orderbooks"
 
@@ -35,34 +39,39 @@ CANCEL_ORDER_URL = "/exchange"
 CREATE_ORDER_URL = "/exchange"
 #yes
 ACCOUNT_TRADE_LIST_URL = "/info"
+#yes
+ORDER_URL = "/info"
+#yes
+ACCOUNT_INFO_URL = "/info"
+#yes
+POSITION_INFORMATION_URL = "/info"
+#yes
+SET_LEVERAGE_URL = "/exchange"
+#yes
+GET_LAST_FUNDING_RATE_PATH_URL = "/info"
 
 PING_URL = "/linear/v1/system/time"
 
-GET_LAST_FUNDING_RATE_PATH_URL = "/linear/v1/funding_rate"
 
 # Private API v1 Endpoints
 
 
 
-ORDER_URL = "/linear/v1/orders"
 
 
-SET_LEVERAGE_URL = "/linear/v1/leverage_ratio"
 USERSTREAM_AUTH_URL = "/v1/ws/auth"
 USER_TRADES_ENDPOINT_NAME = "user_trade"
 USER_ORDERS_ENDPOINT_NAME = "order"
-USER_POSITIONS_ENDPOINT_NAME = "position"
+USEREVENT_ENDPOINT_NAME = "userEvents"
 USER_BALANCES_ENDPOINT_NAME = "um_account"
 ORDERS_UPDATE_ENDPOINT_NAME = "depth"
 TRADES_ENDPOINT_NAME = "trade"
 FUNDING_INFO_STREAM_NAME = "ticker"
 
-ACCOUNT_INFO_URL = "/um/v1/accounts"
 
-POSITION_INFORMATION_URL = "/linear/v1/positions"
 
 # Order Statuses
-
+# todo 需要根据返回结果填写status。
 ORDER_STATE = {
     "pending": OrderState.OPEN,
     "open": OrderState.OPEN,
