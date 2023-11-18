@@ -166,15 +166,15 @@ class TestMultiStreamDataSource(IsolatedAsyncioWrapperTestCase):
             logger_mock().warning.assert_called()
         self.assertFalse(result)
 
-    async def test__start_task_successful(self):
+    def test__start_task_successful(self):
         self.stream_mock.state = [StreamState.SUBSCRIBED, TaskState.STARTED]
-        result = await self.msds._start_task(self.stream_mock)
+        result = self.msds._start_task(self.stream_mock)
         self.assertTrue(result)
 
-    async def test__start_task_unsuccessful(self):
+    def test__start_task_unsuccessful(self):
         self.stream_mock.state = [StreamState.SUBSCRIBED, TaskState.STOPPED]
         with patch.object(MultiStreamDataSource, 'logger') as logger_mock:
-            result = await self.msds._start_task(self.stream_mock)
+            result = self.msds._start_task(self.stream_mock)
             logger_mock().warning.assert_called()
         self.assertFalse(result)
 
