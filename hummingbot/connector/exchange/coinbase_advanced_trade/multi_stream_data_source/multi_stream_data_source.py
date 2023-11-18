@@ -260,7 +260,7 @@ class MultiStreamDataSource:
         self._streams.pop(key)
         self._transformers.pop(key)
 
-    async def _perform_on_all_streams(self, action: Callable[[StreamDataSource], Coroutine]) -> Tuple[bool, ...]:
+    async def _perform_on_all_streams(self, action: Callable[[StreamDataSource], Any]) -> Tuple[bool, ...]:
         """Perform an action on all the streams."""
 
         async def apply_on_(stream: StreamDataSource) -> bool:
@@ -324,12 +324,12 @@ class MultiStreamDataSource:
             return False
         return True
 
-    async def _start_task(self, stream: StreamDataSource) -> bool:
+    def _start_task(self, stream: StreamDataSource) -> bool:
         """Start the task for a stream"""
         if stream.state[1] == TaskState.STARTED:
             return True
 
-        await stream.start_task()
+        stream.start_task()
         if stream.state[1] != TaskState.STARTED:
             self.logger().warning(f"Stream {stream.channel}:{stream.pair} failed to start the task.")
             return False
