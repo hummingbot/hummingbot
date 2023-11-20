@@ -17,12 +17,12 @@ BASE_URLS = {
 }
 
 WSS_URLS = {
-    DEFAULT_DOMAIN: "wss://phemex.com",
+    DEFAULT_DOMAIN: "wss://ws.phemex.com",
     TESTNET_DOMAIN: "wss://testnet.phemex.com",
 }
 
-PUBLIC_WS_ENDPOINT = "/ws"
-PRIVATE_WS_ENDPOINT = "/ws"
+PUBLIC_WS_ENDPOINT = ""
+PRIVATE_WS_ENDPOINT = ""
 
 WS_HEARTBEAT = 5  # https://phemex-docs.github.io/#heartbeat
 

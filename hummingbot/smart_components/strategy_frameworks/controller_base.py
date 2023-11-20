@@ -9,6 +9,8 @@ from hummingbot.smart_components.strategy_frameworks.data_types import OrderLeve
 
 
 class ControllerConfigBase(BaseModel):
+    exchange: str
+    trading_pair: str
     strategy_name: str
     candles_config: List[CandlesConfig]
     order_levels: List[OrderLevel]
@@ -49,13 +51,23 @@ class ControllerBase(ABC):
     def initialize_candles(self, candles_config: List[CandlesConfig]):
         return [CandlesFactory.get_candle(candles_config) for candles_config in candles_config]
 
-    def get_close_price(self, connector: str, trading_pair: str):
+    def get_close_price(self, trading_pair: str):
         """
         Gets the close price of the last candlestick.
         """
-        candles = self.get_candles_by_connector_trading_pair(connector, trading_pair)
+        candles = self.get_candles_by_trading_pair(trading_pair)
         first_candle = list(candles.values())[0]
         return Decimal(first_candle.candles_df["close"].iloc[-1])
+
+    def get_candles_by_trading_pair(self, trading_pair: str):
+        """
+        Gets all the candlesticks with the given trading pair.
+        """
+        candles = {}
+        for candle in self.candles:
+            if candle._trading_pair == trading_pair:
+                candles[candle.interval] = candle
+        return candles
 
     def get_candles_by_connector_trading_pair(self, connector: str, trading_pair: str):
         """
