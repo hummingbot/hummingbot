@@ -52,6 +52,7 @@ CREATE_ORDER_PATH_URL = f"{REST_API_VERSION}/orders"
 CANCEL_ORDER_PATH_URL = f"{REST_API_VERSION}/orders/{{orderid}}"
 QUERY_ORDER_BY_EXCHANGE_ORDER_ID_PATH_URL = f"{REST_API_VERSION}/orders/{{orderid}}"
 QUERY_ORDER_BY_CLIENT_ORDER_ID_PATH_URL = f"{REST_API_VERSION}/orders/byClientOid?clientOid={{clientorderid}}"
+GET_RISK_LIMIT_LEVEL_PATH_URL = f"{REST_API_VERSION}/contracts/risk-limit/{{symbol}}"
 SET_LEVERAGE_PATH_URL = f"{REST_API_VERSION}/position/risk-limit-level/change"
 GET_RECENT_FILLS_INFO_PATH_URL = f"{REST_API_VERSION}/recentFills"
 GET_FILL_INFO_PATH_URL = f"{REST_API_VERSION}/fills?orderId={{orderid}}"
@@ -127,4 +128,5 @@ RATE_LIMITS = [
     RateLimit(limit_id=GET_FILL_INFO_PATH_URL, limit=9, time_interval=3),
     RateLimit(limit_id=GET_RECENT_FILLS_INFO_PATH_URL, limit=9, time_interval=3),
     RateLimit(limit_id=GET_FUNDING_HISTORY_PATH_URL, limit=9, time_interval=3),
+    RateLimit(limit_id=GET_RISK_LIMIT_LEVEL_PATH_URL, limit=9, time_interval=3),
 ]
