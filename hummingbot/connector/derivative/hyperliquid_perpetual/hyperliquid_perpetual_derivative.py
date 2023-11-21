@@ -59,6 +59,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         self._domain = domain
         self._position_mode = None
         self._last_trade_history_timestamp = None
+        self.coin_to_asset: Dict[str, int] = {}
         super().__init__(client_config_map)
 
     @property
@@ -241,7 +242,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         api_params = {
             "type": "cancel",
             "cancels": [{
-                "asset": coin,
+                "asset": self.coin_to_asset[coin],
                 "cloid": order_id
             }],
         }
@@ -276,17 +277,16 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         api_params = {
             "type": "order",
             "grouping": "na",
-            "orders": [{
-                "coin": coin,
-                "is_buy": True if trade_type is TradeType.BUY else False,
+            "orders": {
+                "asset": self.coin_to_asset[coin],
+                "isBuy": True if trade_type is TradeType.BUY else False,
+                "limitPx": price_str,
                 "sz": amount_str,
-                "limit_px": price_str,
-                "cloid": order_id,
                 "reduceOnly": position_action == PositionAction.CLOSE,
-                "order_type": param_order_type,
-            }]
+                "orderType": param_order_type,
+                "cloid": order_id,
+            }
         }
-
         order_result = await self._api_post(
             path_url=CONSTANTS.CREATE_ORDER_URL,
             data=api_params,
@@ -529,6 +529,8 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             Trading rules dictionary response from the exchange
         """
         # rules: list = exchange_info_dict[0]
+        self.coin_to_asset = {asset_info["name"]: asset for (asset, asset_info) in enumerate(exchange_info_dict[0]["universe"])}
+
         coin_infos: list = exchange_info_dict[0]['universe']
         price_infos: list = exchange_info_dict[1]
         return_val: list = []

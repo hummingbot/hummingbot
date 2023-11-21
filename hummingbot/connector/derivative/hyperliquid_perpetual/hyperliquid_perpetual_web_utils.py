@@ -1,5 +1,5 @@
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_constants as CONSTANTS
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -76,3 +76,46 @@ def is_exchange_information_valid(rule: Dict[str, Any]) -> bool:
     :return: True if the trading pair is enabled, False otherwise
     """
     return True
+
+def order_type_to_tuple(order_type) -> Tuple[int, float]:
+    if "limit" in order_type:
+        tif = order_type["limit"]["tif"]
+        if tif == "Gtc":
+            return 2, 0
+        elif tif == "Alo":
+            return 1, 0
+        elif tif == "Ioc":
+            return 3, 0
+    elif "trigger" in order_type:
+        trigger = order_type["trigger"]
+        trigger_px = trigger["triggerPx"]
+        if trigger["isMarket"] and trigger["tpsl"] == "tp":
+            return 4, trigger_px
+        elif not trigger["isMarket"] and trigger["tpsl"] == "tp":
+            return 5, trigger_px
+        elif trigger["isMarket"] and trigger["tpsl"] == "sl":
+            return 6, trigger_px
+        elif not trigger["isMarket"] and trigger["tpsl"] == "sl":
+            return 7, trigger_px
+    raise ValueError("Invalid order type", order_type)
+
+def float_to_int_for_hashing(x: float) -> int:
+    return float_to_int(x, 8)
+
+def float_to_int(x: float, power: int) -> int:
+    with_decimals = x * 10**power
+    if abs(round(with_decimals) - with_decimals) >= 1e-3:
+        raise ValueError("float_to_int causes rounding", x)
+    return round(with_decimals)
+
+def str_to_bytes16(x: str) -> bytearray:
+    assert x.startswith("0x")
+    return bytearray.fromhex(x[2:])
+
+def order_grouping_to_number(grouping) -> int:
+    if grouping == "na":
+        return 0
+    elif grouping == "normalTpsl":
+        return 1
+    elif grouping == "positionTpsl":
+        return 2
