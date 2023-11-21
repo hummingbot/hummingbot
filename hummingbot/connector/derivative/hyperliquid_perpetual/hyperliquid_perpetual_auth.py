@@ -89,8 +89,8 @@ class HyperliquidPerpetualAuth(AuthBase):
         base_url = request.endpoint_url
         if request.method == RESTMethod.POST:
             request.data = self.add_auth_to_params_post(request.data, base_url)
-        else:
-            request.params = self.add_auth_to_params(request.params, base_url)
+        # else:
+        #     request.params = self.add_auth_to_params(request.params, base_url)
         # request.headers = {"X-Bit-Access-Key": self._api_key}
         return request
 
@@ -131,33 +131,65 @@ class HyperliquidPerpetualAuth(AuthBase):
     #     output = '&'.join(sorted_list)
     #     return output
     #
-    def add_auth_to_params(self, params: Dict[str, Any], path):
-        timestamp = int(self._get_timestamp() * 1e3)
+    # def add_auth_to_params(self, params: Dict[str, Any], path):
+    #     timestamp = int(self._get_timestamp() * 1e3)
+    #
+    #     request_params = OrderedDict(params or {})
+    #     request_params.update({'timestamp': timestamp})
+    #     str_to_sign = path + '&' + self._encode_object(request_params)
+    #     request_params["signature"] = self.generate_signature_from_payload(payload=str_to_sign)
+    #
+    #     return request_params
 
-        request_params = OrderedDict(params or {})
-        request_params.update({'timestamp': timestamp})
-        str_to_sign = path + '&' + self._encode_object(request_params)
-        request_params["signature"] = self.generate_signature_from_payload(payload=str_to_sign)
-
-        return request_params
-
-    def _sign_cancel_params(self, params, base_url, timestamp):
-        cancel = params["cancels"]
-
-        signature_types = CONSTANTS.SIGNATURE_TYPE["cancel_by_cloid"]
+    def _sign_update_leverage_params(self, params, base_url, timestamp):
+        res = [
+            params["asset"],
+            params["isCross"],
+            params["leverage"],
+        ]
+        signature_types = CONSTANTS.SIGNATURE_TYPE["updateLeverage"]
         signature = self.sign_l1_action(
             self.wallet,
             signature_types,
-            [
-                [
-                    (self.coin_to_asset[cancel["coin"]], str_to_bytes16(cancel["cloid"].to_raw()))
-                    for cancel in cancel_requests
-                ]
-            ],
+            res,
             ZERO_ADDRESS,
             timestamp,
             base_url == CONSTANTS.PERPETUAL_BASE_URL,
         )
+        payload = {
+            "action": params,
+            "nonce": timestamp,
+            "signature": signature,
+            "vaultAddress": ZERO_ADDRESS,
+        }
+        return payload
+
+    def _sign_cancel_params(self, params, base_url, timestamp):
+        cancel = params["cancels"]
+        res = (
+            cancel["asset"],
+            str_to_bytes16(cancel["cloid"])
+
+        )
+        signature_types = CONSTANTS.SIGNATURE_TYPE["cancel_by_cloid"]
+        signature = self.sign_l1_action(
+            self.wallet,
+            signature_types,
+            [[res]],
+            ZERO_ADDRESS,
+            timestamp,
+            base_url == CONSTANTS.PERPETUAL_BASE_URL,
+        )
+        payload = {
+            "action": {
+                "type": "cancelByCloid",
+                "cancels": [cancel],
+            },
+            "nonce": timestamp,
+            "signature": signature,
+            "vaultAddress": ZERO_ADDRESS,
+        }
+        return payload
 
     def _sign_order_params(self, params, base_url, timestamp):
 
@@ -173,7 +205,7 @@ class HyperliquidPerpetualAuth(AuthBase):
             order["reduceOnly"],
             order_type_array[0],
             float_to_int_for_hashing(order_type_array[1]),
-            str_to_bytes16(order["cloid"].to_raw())
+            str_to_bytes16(order["cloid"])
         )
         signature_types = CONSTANTS.SIGNATURE_TYPE["orderl_by_cloid"]
         signature = self.sign_l1_action(
@@ -207,8 +239,10 @@ class HyperliquidPerpetualAuth(AuthBase):
         request_type = request_params.get("type")
         if request_type == "order":
             payload = self._sign_order_params(request_params, base_url, timestamp)
-        if request_type == "cancel":
-            pass
+        elif request_type == "cancel":
+            payload = self._sign_cancel_params(request_params, base_url, timestamp)
+        elif request_type == "updateLeverage":
+            payload = self._sign_update_leverage_params(request_params, base_url, timestamp)
         res = json.dumps(payload)
         return res
 
