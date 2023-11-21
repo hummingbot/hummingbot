@@ -34,13 +34,13 @@ class ExceptionLogManager:
             return ()
 
         if id(exception) not in cls._logged_exceptions[logger]:
-            log = (str(exception) or exception.__class__.__name__,)
+            log = (f"{str(exception) or exception.__class__.__name__}",)
         else:
             log = ()
 
         e = exception.__cause__
         while e is not None and id(e) not in cls._logged_exceptions[logger]:
-            log = log + (str(e) or e.__class__.__name__,)
+            log = log + (f"{str(e) or e.__class__.__name__}",)
             e = e.__cause__
 
         # Update the history for the specific logger

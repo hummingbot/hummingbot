@@ -55,7 +55,7 @@ class TestPipePipeFitting(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         await self.source.put(1)
 
         # Start the pipe to pipe fitting task
-        self.pipe_pipe_fitting.start_task()
+        await self.pipe_pipe_fitting.start_task()
 
         # Get the item from the destination pipe
         result = await self.destination.get()
@@ -73,7 +73,7 @@ class TestPipePipeFitting(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         # Start the task and expect the exception callback to be invoked
         with patch.object(PipePipeFitting, "_logger") as mock_logger:
-            self.pipe_pipe_fitting.start_task()
+            await self.pipe_pipe_fitting.start_task()
             await asyncio.sleep(0.01)  # Give time for the exception to be raised
             mock_logger.error.assert_called_once()
 
@@ -114,7 +114,7 @@ class TestPipePipeFitting(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
     async def test_start_and_stop_task(self):
         # Starting the task should set the task_manager to running
-        self.pipe_pipe_fitting.start_task()
+        await self.pipe_pipe_fitting.start_task()
         self.assertTrue(self.pipe_pipe_fitting.is_running())
 
         # Stopping the task should set the task_manager to not running
@@ -132,7 +132,7 @@ class TestPipePipeFitting(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         await self.source.put(1)
         # Start the fitting task without a handler
-        no_handler_fitting.start_task()
+        await no_handler_fitting.start_task()
         await asyncio.sleep(0.1)  # Allow some time for the task to process
 
         # Verify that the destination put method was called

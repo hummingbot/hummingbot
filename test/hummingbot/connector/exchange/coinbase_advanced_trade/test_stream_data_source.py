@@ -377,7 +377,7 @@ class TestStreamDataSource(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(StreamState.CLOSED, self.stream_data_source._stream_state, )
 
     async def test_start_mocked(self) -> None:
-        with patch.object(StreamDataSource, "start_task", new_callable=MagicMock) as mock_task:
+        with patch.object(StreamDataSource, "start_task", new_callable=AsyncMock) as mock_task:
             self.assertFalse(self.stream_data_source.is_running())
 
             await self.stream_data_source.start_stream()
@@ -389,7 +389,7 @@ class TestStreamDataSource(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             self.assertEqual(TaskState.STOPPED, self.stream_data_source._task_state, )
 
         with patch.object(TaskManager, "is_running", new_callable=MagicMock(return_value=True)):
-            with patch.object(StreamDataSource, "start_task", new_callable=MagicMock) as mock_task:
+            with patch.object(StreamDataSource, "start_task", new_callable=AsyncMock) as mock_task:
                 await self.stream_data_source.start_stream()
                 # With a mocked is_running the state changes to STARTED
                 mock_task.assert_called_once()
@@ -401,7 +401,7 @@ class TestStreamDataSource(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertEqual(TaskState.STOPPED, self.stream_data_source._task_state, )
         self.assertEqual((StreamState.CLOSED, TaskState.STOPPED), self.stream_data_source.state, )
 
-        self.stream_data_source.start_task()
+        await self.stream_data_source.start_task()
 
         self.assertTrue(self.stream_data_source.is_running())
         self.assertEqual(TaskState.STARTED, self.stream_data_source._task_state, )

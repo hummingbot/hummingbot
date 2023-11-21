@@ -83,6 +83,7 @@ class PipePtl(PipeGetPtl[DataT], PipePutPtl[DataT], Protocol[DataT]):
         return ...
 
 
+@runtime_checkable
 class PutOperationPtl(Protocol[FromDataT]):
     """
     A protocol for a PutOperation that can be used to put items into the Pipe.

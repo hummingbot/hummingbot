@@ -6,7 +6,7 @@ import unittest
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from test.logger_mixin_for_test import LoggerMixinForTest
-from typing import Any, Dict, Generator
+from typing import Any, Dict
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 from hummingbot.connector.exchange.coinbase_advanced_trade import coinbase_advanced_trade_constants as CONSTANTS
@@ -285,14 +285,14 @@ class TestTimestampAndFilter(unittest.TestCase):
                 "sequence_num": 0,
                 "events": []
             }
-            result: Generator[Dict[str, Any], None, None] = timestamp_and_filter(event_message)
+            result: Dict[str, Any] = timestamp_and_filter(event_message)
             expected_output = {
                 "channel": "user",
                 "timestamp": 1678900000,
                 "sequence_num": 0,
                 "events": []
             }
-            self.assertEqual(next(result), expected_output)
+            self.assertEqual(result, expected_output)
             mock_get_timestamp.assert_called_with("2023-02-09T20:33:57.609931463Z", "s")
 
     def test_filter_non_user_channel(self):
@@ -302,9 +302,8 @@ class TestTimestampAndFilter(unittest.TestCase):
             "sequence_num": 0,
             "events": []
         }
-        result: Generator[Dict[str, Any], None, None] = timestamp_and_filter(event_message)
-        with self.assertRaises(StopIteration):
-            next(result)
+        result: Dict[str, Any] = timestamp_and_filter(event_message)
+        self.assertIsNone(result)
 
 
 class TestMessageToCumulativeUpdate(IsolatedAsyncioWrapperTestCase):

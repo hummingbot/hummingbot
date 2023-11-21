@@ -41,7 +41,7 @@ class TestStreamPipeFitting(unittest.IsolatedAsyncioTestCase):
 
     async def test_successful_data_transfer(self):
         # Start the fitting task
-        self.stream_pipe_fitting.start_task()
+        await self.stream_pipe_fitting.start_task()
         await asyncio.sleep(0.2)  # Allow some time for the task to process
 
         # Verify the handler was called with the correct data
@@ -59,7 +59,7 @@ class TestStreamPipeFitting(unittest.IsolatedAsyncioTestCase):
 
         # Patch the logger to verify the logging on exception
         with patch.object(StreamPipeFitting, "_logger") as mock_logger:
-            self.stream_pipe_fitting.start_task()
+            await self.stream_pipe_fitting.start_task()
             await asyncio.sleep(0.2)  # Allow some time for the task to process
 
             # Verify logger was called with the error
@@ -73,7 +73,7 @@ class TestStreamPipeFitting(unittest.IsolatedAsyncioTestCase):
 
     async def test_start_and_stop_task(self):
         # Starting the task should set the task_manager to running
-        self.stream_pipe_fitting.start_task()
+        await self.stream_pipe_fitting.start_task()
         self.assertTrue(self.stream_pipe_fitting.is_running())
 
         # Stopping the task should set the task_manager to not running
@@ -89,7 +89,7 @@ class TestStreamPipeFitting(unittest.IsolatedAsyncioTestCase):
         )
 
         # Start the fitting task without a handler
-        no_handler_fitting.start_task()
+        await no_handler_fitting.start_task()
         await asyncio.sleep(0.2)  # Allow some time for the task to process
 
         # Verify that the destination put method was called with the stream's data

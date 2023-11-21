@@ -79,8 +79,8 @@ class TestMultiStreamDataSource(IsolatedAsyncioWrapperTestCase):
 
     @patch.object(MultiStreamDataSource, 'logger')
     async def test_start_stream(self, mock_logger):
-        with patch.object(self.msds._collector, 'start_all_tasks', new_callable=MagicMock) as mock_collector_task:
-            with patch.object(PipePipeFitting, 'start_task', new_callable=MagicMock) as mock_transformers_task:
+        with patch.object(self.msds._collector, 'start_all_tasks', new_callable=AsyncMock) as mock_collector_task:
+            with patch.object(PipePipeFitting, 'start_task', new_callable=AsyncMock) as mock_transformers_task:
                 with patch.object(MultiStreamDataSource,
                                   '_perform_on_all_streams',
                                   new_callable=AsyncMock) as mock_perform:
@@ -166,15 +166,15 @@ class TestMultiStreamDataSource(IsolatedAsyncioWrapperTestCase):
             logger_mock().warning.assert_called()
         self.assertFalse(result)
 
-    def test__start_task_successful(self):
+    async def test__start_task_successful(self):
         self.stream_mock.state = [StreamState.SUBSCRIBED, TaskState.STARTED]
-        result = self.msds._start_task(self.stream_mock)
+        result = await self.msds._start_task(self.stream_mock)
         self.assertTrue(result)
 
-    def test__start_task_unsuccessful(self):
+    async def test__start_task_unsuccessful(self):
         self.stream_mock.state = [StreamState.SUBSCRIBED, TaskState.STOPPED]
         with patch.object(MultiStreamDataSource, 'logger') as logger_mock:
-            result = self.msds._start_task(self.stream_mock)
+            result = await self.msds._start_task(self.stream_mock)
             logger_mock().warning.assert_called()
         self.assertFalse(result)
 

@@ -29,7 +29,7 @@ class PipesPipeFitting(Generic[FromDataT, ToDataT]):
     def __init__(
             self,
             *,
-            sources: Tuple[PipeGetPtl[FromDataT]],
+            sources: Tuple[PipeGetPtl[FromDataT], ...],
             handler: HandlerT | None = None,
             destination: DestinationT | None = None,
             logger: HummingbotLogger | logging.Logger | None = None,
@@ -60,9 +60,9 @@ class PipesPipeFitting(Generic[FromDataT, ToDataT]):
         )
         self._update_lock: asyncio.Lock = asyncio.Lock()
 
-    def start_all_tasks(self) -> None:
+    async def start_all_tasks(self) -> None:
         """Start all the collecting tasks."""
-        [p.start_task() for p in self._pipe_blocks if not p.is_running()]
+        await asyncio.gather(*[p.start_task() for p in self._pipe_blocks if not p.is_running()])
 
     async def stop_all_tasks(self) -> None:
         """Stop all the collecting tasks."""

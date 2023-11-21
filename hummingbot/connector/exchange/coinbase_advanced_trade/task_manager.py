@@ -109,8 +109,7 @@ class TaskManager:
         """Returns True if the has run and is done."""
         return self._task is not None and self._task.done()
 
-    # @indented_debug_decorator(msg="start_task", bullet=">")
-    def start_task(self) -> None:
+    async def start_task(self) -> None:
         """Starts the queue processor."""
         if self.is_running:
             self.logger().debug("Cannot start_task() a Task Manager that is already started")
@@ -120,7 +119,6 @@ class TaskManager:
             return
         self._task: Task = asyncio.create_task(self._task_wrapper())
         self._task_state = TaskState.CREATED
-        # await asyncio.sleep(0)
 
     async def _task_wrapper(self) -> None:
         """Wraps the task in a try/except block to catch any exceptions."""

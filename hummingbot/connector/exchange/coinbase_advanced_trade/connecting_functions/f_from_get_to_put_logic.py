@@ -1,7 +1,7 @@
 import asyncio
 import functools
 import logging
-from typing import AsyncGenerator, Callable, Coroutine
+from typing import AsyncGenerator, Callable, Coroutine, Iterable, List, Tuple
 
 from ..pipe.data_types import FromDataT, HandlerT, ToDataT
 from ..pipe.protocols import PutOperationPtl
@@ -54,8 +54,18 @@ async def from_get_to_put_logic(
     if not isinstance(get_operation, AsyncGenerator):
         raise TypeError("get_operation must be an AsyncGenerator.")
 
-    if not asyncio.iscoroutinefunction(put_operation):
-        raise TypeError("put_operation must be a coroutine function.")
+    if all((not isinstance(put_operation, Iterable),
+            not isinstance(put_operation, PutOperationPtl))):
+        raise TypeError("put_operation must be a PutOperationPtl or an Iterable of PutOperationPtl.")
+
+    put_operations: List[PutOperationPtl[FromDataT, ToDataT]] = [put_operation] if isinstance(put_operation, PutOperationPtl) else put_operation
+
+    for put_operation_item in list(put_operations):
+        if not asyncio.iscoroutinefunction(put_operation_item):
+            put_operations.remove(put_operation_item)
+
+    if put_operations is []:
+        raise TypeError("put_operation cannot be None.")
 
     _try_helper = functools.partial(
         try_except_conditional_raise,
@@ -81,7 +91,7 @@ async def from_get_to_put_logic(
         async for msg in data_gen:
             await _inner_try_except_put(
                 msg=msg,
-                put_operation=put_operation,
+                put_operations=tuple(put_operations),
                 on_successful_put=on_successful_put,
                 on_failed_put=on_failed_put,
                 skip_put_none=skip_put_none,
@@ -122,7 +132,7 @@ async def from_get_to_put_logic(
 
 async def _inner_try_except_put(
         msg: FromDataT,
-        put_operation: PutOperationPtl[FromDataT],
+        put_operations: Tuple[PutOperationPtl[ToDataT], ...],
         try_helper: Callable[[...], Coroutine],
         on_successful_put: _HelpersT = None,
         on_failed_put: _HelpersT = None,
@@ -133,27 +143,30 @@ async def _inner_try_except_put(
     Puts a message into a destination, and calls a post-put function.
 
     :param msg: The message to put into the destination.
-    :param put_operation: A PutOperation that puts items into the destination.
+    :param put_operations: A Tuple of PutOperation that puts items into the destination.
     :param try_helper: A function to wrap helper functions with.
     :param on_failed_put: An optional function to call when an item is unsuccessfully put into the destination.
     :param skip_put_none: Whether to skip putting None items into the destination.
     :param logger: Optional logger for logging events and exceptions. If not provided, no logging will occur.
     :raises: Any exceptions raised by the put_operation, as well as _ShieldingException.
     """
-    try:
-        if msg is not None or not skip_put_none:
+    if msg is None and skip_put_none:
+        return
+
+    for put_operation in put_operations:
+        try:
             await put_operation(msg)
             await try_helper(CallOrAwait(on_successful_put))
 
-    except _HelpersException as e:
-        raise _ShieldingException from e
+        except _HelpersException as e:
+            raise _ShieldingException from e
 
-    except asyncio.CancelledError as e:
-        log_exception(e, logger)
-        await try_except_log_only(CallOrAwait(on_failed_put), logger=logger)
-        raise _ShieldingException from e
+        except asyncio.CancelledError as e:
+            log_exception(e, logger)
+            await try_except_log_only(CallOrAwait(on_failed_put), logger=logger)
+            raise _ShieldingException from e
 
-    except Exception as e:
-        log_exception(e, logger, 'ERROR')
-        await try_except_log_only(CallOrAwait(on_failed_put), logger=logger)
-        raise _ShieldingException from e
+        except Exception as e:
+            log_exception(e, logger, 'ERROR')
+            await try_except_log_only(CallOrAwait(on_failed_put), logger=logger)
+            raise _ShieldingException from e

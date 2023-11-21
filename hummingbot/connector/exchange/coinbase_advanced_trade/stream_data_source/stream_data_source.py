@@ -9,6 +9,7 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.indenting_logger import indented_debug_decorator
 
 from ..connecting_functions.call_or_await import CallOrAwait
+from ..connecting_functions.exception_log_manager import log_exception
 
 # This '.' not recommended, however, it helps reduce the length of the import, as well as avoid
 # mis-ordering with other more general hummingbot packages
@@ -100,7 +101,7 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
 
         self._task_state: TaskState = TaskState.STOPPED
 
-    def _filter_empty_data(self, response: WSResponsePtl) -> Generator[T, None, None]:
+    def _filter_empty_data(self, response: WSResponsePtl) -> T:
         """
         Filters out empty data from the response.
 
@@ -109,8 +110,7 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
         """
         if response.data:
             self._last_recv_time_s: float = self._time()
-            # self.logger().debug(f"Received data from {self._channel}/{self._pair}:{self._last_recv_time_s}")
-            yield response.data
+            return response.data
 
     @property
     def state(self) -> Tuple[StreamState, TaskState]:
@@ -152,7 +152,7 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
 
     async def start_stream(self) -> None:
         """Starts the Streaming operation."""
-        self.start_task()
+        await self.start_task()
         await self.open_connection()
 
     async def stop_stream(self) -> None:
@@ -160,10 +160,10 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
         await self.close_connection()
         await self.stop_task()
 
-    def start_task(self) -> None:
+    async def start_task(self) -> None:
         """Starts the TaskManager transferring messages to Pipeline."""
         if not super(AutoStreamPipeFitting, self).is_running():
-            super(AutoStreamPipeFitting, self).start_task()
+            await super(AutoStreamPipeFitting, self).start_task()
             if super(AutoStreamPipeFitting, self).is_running():
                 self._task_state = TaskState.STARTED
 
@@ -256,8 +256,10 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
             try:
                 await self._send_to_stream(subscription_builder=subscription_builder)
                 break
-            except StreamDataSourceError:
+            except ConnectionResetError:
+                self.logger().debug("Connection reset error occurred")
                 await self.close_connection()
+                await asyncio.sleep(0.1)
                 await self.open_connection()
             except Exception as e:
                 raise e
@@ -307,38 +309,28 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
         :type subscription_builder: partial[SubscriptionBuilderT]
         :return: None
         """
-        self.logger().error("Awaiting lock")
+        self.logger().debug("Awaiting lock")
         async with self._subscription_lock:
             try:
                 payload = await CallOrAwait(subscription_builder).call(logger=self.logger())
-                self.logger().error(f"Awaiting send() with {payload}")
+                self.logger().debug(f"Awaiting send() with {payload}")
                 await self._ws_assistant.send(
                     WSJSONRequest(
                         payload=payload,
                         is_auth_required=True))
 
             except asyncio.CancelledError as e:
+                log_exception(e, self.logger(), "ERROR", f"Cancellation occurred sending sending {payload}")
                 await self.close_connection()
-                self.logger().error("Cancellation occurred sending sending the payload")
                 raise e
 
             except ConnectionResetError as e:
-                self.logger().error(
-                    "Connection reset error occurred sending payload\n"
-                    f"Exception: {e}",
-                    exc_info=True
-                )
-                raise StreamDataSourceError(
-                    "Connection reset error occurred sending payload"
-                ) from e
+                log_exception(e, self.logger(), "ERROR", f"Connection reset error occurred sending {payload}")
+                raise e
 
             except Exception as e:
                 await self.close_connection()
-                self.logger().error(
-                    "Unexpected error occurred sending payload\n"
-                    f"Exception: {e}",
-                    exc_info=True
-                )
+                log_exception(e, self.logger(), "ERROR", f"Unexpected error occurred sending {payload}")
                 raise e
 
     @indented_debug_decorator(bullet="c")

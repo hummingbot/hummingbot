@@ -64,7 +64,7 @@ class TestAutoStreamPipeFitting(IsolatedAsyncioWrapperTestCase):
 
     async def test_successful_data_transfer(self):
         # Start the fitting task
-        self.auto_stream_pipe_fitting.start_task()
+        await self.auto_stream_pipe_fitting.start_task()
         await asyncio.sleep(0.2)  # Allow some time for the task to process
 
         # Verify the handler was called with the correct data
@@ -88,7 +88,7 @@ class TestAutoStreamPipeFitting(IsolatedAsyncioWrapperTestCase):
 
     async def test_connection_handling(self):
         # Start the fitting task
-        self.auto_stream_pipe_fitting.start_task()
+        await self.auto_stream_pipe_fitting.start_task()
         await asyncio.sleep(0.01)  # Allow some time for the task to start
 
         # Verify connect was called
@@ -109,7 +109,7 @@ class TestAutoStreamPipeFitting(IsolatedAsyncioWrapperTestCase):
         # Simulate an exception in the stream
         self.stream_source.iter_messages = iter_messages
 
-        self.auto_stream_pipe_fitting.start_task()
+        await self.auto_stream_pipe_fitting.start_task()
         await asyncio.sleep(0.2)  # Allow some time for the task to process
 
         self.destination_pipe.put.assert_has_calls([call('handled_message', timeout=0.1)])
@@ -153,7 +153,7 @@ class TestAutoStreamPipeFitting(IsolatedAsyncioWrapperTestCase):
         # Simulate an exception in the stream
         self.stream_source.iter_messages = iter_messages
 
-        self.auto_stream_pipe_fitting.start_task()
+        await self.auto_stream_pipe_fitting.start_task()
         await asyncio.sleep(0.2)  # Allow some time for the task to process
 
         self.destination_pipe.put.assert_not_called()
@@ -193,7 +193,7 @@ class TestAutoStreamPipeFitting(IsolatedAsyncioWrapperTestCase):
 
         self.stream_source.iter_messages = iter_messages
 
-        self.auto_stream_pipe_fitting.start_task()
+        await self.auto_stream_pipe_fitting.start_task()
         await asyncio.sleep(0.2)  # Allow some time for the task to process
 
         # Normal operation before the exception
@@ -238,7 +238,7 @@ class TestAutoStreamPipeFitting(IsolatedAsyncioWrapperTestCase):
 
         self.stream_source.iter_messages = iter_messages
 
-        self.auto_stream_pipe_fitting.start_task()
+        await self.auto_stream_pipe_fitting.start_task()
         await asyncio.sleep(0.1)  # Allow one round on the event loop to start the task
 
         # Normal operation before the exception

@@ -82,9 +82,9 @@ class PipelineBase(Generic[FromDataT, ToDataT]):
             **task_args,
             exception_callback=self.task_exception_callback)
 
-    def start_task(self) -> None:
+    async def start_task(self) -> None:
         """Start the task."""
-        self.task_manager.start_task()
+        await self.task_manager.start_task()
 
     async def stop_task(self) -> None:
         """Stop the task."""

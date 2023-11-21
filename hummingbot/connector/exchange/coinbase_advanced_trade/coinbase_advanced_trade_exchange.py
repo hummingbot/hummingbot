@@ -509,6 +509,9 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
         https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_cancelorders
 
         """
+        # Safeguarding the API call
+        order_ids = [o for o in order_ids if o is not None and o != "" and o != "UNKNOWN"]
+
         api_data = {
             "order_ids": order_ids
         }
@@ -519,8 +522,9 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
                 is_auth_required=True)
             results: List[Dict[str, Any]] = cancel_result.get("results", [])
             return results
-        except IOError as e:
-            self.logger().error(f"Error cancelling orders: {e}", exc_info=True)
+
+        except OSError as e:
+            self.logger().error(f"Error cancelling orders: {str(e)}\n   {api_data}", exc_info=False)
             return [{"success": False, "failure_reason": "UNKNOWN_CANCEL_FAILURE_REASON"} for _ in order_ids]
 
     @indented_debug_decorator(bullet="s")

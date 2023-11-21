@@ -49,7 +49,7 @@ class TestPipelineBase(IsolatedAsyncioWrapperTestCase):
         self.source_pipe.get = mock_get
         self.destination_pipe.put = AsyncMock()
 
-        self.pipeline_base.start_task()
+        await self.pipeline_base.start_task()
 
         await asyncio.sleep(0.2)
 
@@ -70,7 +70,7 @@ class TestPipelineBase(IsolatedAsyncioWrapperTestCase):
         self.destination_pipe.put = put_exception
 
         with patch.object(PipelineBase, "logger") as mock_logger:
-            self.pipeline_base.start_task()
+            await self.pipeline_base.start_task()
             await asyncio.sleep(0.1)  # give the task time to start
             self.assertTrue(self.pipeline_base.is_running())
             await asyncio.sleep(1)  # give the task time to throw exception
@@ -87,7 +87,7 @@ class TestPipelineBase(IsolatedAsyncioWrapperTestCase):
         success_callback = MagicMock()
         task_manager = TaskManager(successful_task, success_callback=success_callback)
 
-        task_manager.start_task()
+        await task_manager.start_task()
         await asyncio.sleep(0.01)  # give the task time to complete
 
         success_callback.assert_called_once()
@@ -101,7 +101,7 @@ class TestPipelineBase(IsolatedAsyncioWrapperTestCase):
         exception_callback = MagicMock()
         task_manager = TaskManager(failing_task, exception_callback=exception_callback)
 
-        task_manager.start_task()
+        await task_manager.start_task()
         await asyncio.sleep(0.1)  # give the task time to throw exception
 
         exception_callback.assert_called_once()

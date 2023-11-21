@@ -2,7 +2,7 @@ import asyncio
 import functools
 import logging
 from collections import defaultdict
-from typing import Any, AsyncGenerator, Callable, Coroutine, Dict, List, Tuple, Type, TypeVar
+from typing import Any, Callable, Coroutine, Dict, List, Tuple, Type, TypeVar
 
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.indenting_logger import indented_debug_decorator
@@ -11,6 +11,7 @@ from ..connecting_functions.call_or_await import CallOrAwait
 from ..connecting_functions.exception_log_manager import log_exception
 from ..fittings.pipe_pipe_fitting import PipePipeFitting
 from ..fittings.pipes_pipe_fitting import PipesPipeFitting
+from ..pipe import HandlerT
 from ..pipe.protocols import PipeGetPtl
 from ..stream_data_source.protocols import WSAssistantPtl
 from ..stream_data_source.stream_data_source import StreamDataSource, StreamState, SubscriptionBuilderT
@@ -58,7 +59,7 @@ class MultiStreamDataSource:
                  subscription_builder: SubscriptionBuilderT,
                  sequence_reader: Callable[[Dict[str, Any]], int],
                  transformers: List[Callable],
-                 collector: Callable[..., AsyncGenerator[T, None]],
+                 collector: HandlerT,
                  heartbeat_channel: str | None = None) -> None:
         """
         Initialize the CoinbaseAdvancedTradeAPIUserStreamDataSource.
@@ -69,49 +70,10 @@ class MultiStreamDataSource:
         :param pair_to_symbol: Async function to convert the pair to symbol.
         """
 
-        #        def create_stream_data_sources() -> Generator[StreamDataSource, None, None]:
-        #            for c in channels:
-        #                for p in pairs:
-        #                    yield StreamDataSource(
-        #                        channel=c,
-        #                        pair=p,
-        #                        ws_factory=ws_factory,
-        #                        ws_url=ws_url,
-        #                        pair_to_symbol=pair_to_symbol,
-        #                        subscription_builder=subscription_builder,
-        #                        heartbeat_channel=heartbeat_channel,
-        #                    )
-        #
-        #        def create_pipe_blocks(stream_data_source):
-        #            cp = self._stream_key(channel=stream_data_source.channel, pair=stream_data_source.pair)
-        #            yield PipePipeFitting[Dict[str, Any], Dict[str, Any]](
-        #                stream_data_source.destination,
-        #                functools.partial(
-        #                    sequence_verifier,
-        #                    sequence_reader=sequence_reader,
-        #                    sequences=self._sequences,
-        #                    key=cp,
-        #                    logger=self.logger()
-        #                )
-        #            )
-        #            for t in transformers:
-        #                yield PipePipeFitting[Dict[str, Any], Dict[str, Any]](
-        #                    self._transformers[cp][-1].destination,
-        #                    t
-        #                )
-
         self._streams: Dict[str, StreamDataSource] = {}
         self._transformers: Dict[str, List[PipePipeFitting]] = {}
         self._sequences: defaultdict[str, int] = defaultdict(int)
         self._stream_access_lock: asyncio.Lock = asyncio.Lock()
-
-        #        self._streams = {
-        #            self._stream_key(channel=stream_data_source.channel, pair=stream_data_source.pair): stream_data_source
-        #            for stream_data_source in create_stream_data_sources()}
-        #
-        #        self._transformers = {
-        #            channel_pair: list(create_pipe_blocks(stream_data_source))
-        #            for channel_pair, stream_data_source in self._streams.items()}
 
         for channel in channels:
             for pair in pairs:
@@ -207,23 +169,27 @@ class MultiStreamDataSource:
     async def start_streams(self) -> None:
         """Listen to all the streams and put the messages to the output queue."""
         # Open the streams connection, eliminate the ones that failed
+        self.logger().debug(f"Opening {len(self._streams)} streams")
         done: Tuple[bool, ...] = await self._perform_on_all_streams(self._open_connection)
         await self._pop_unsuccessful_streams(done)
 
         # Streams
+        self.logger().debug(f"Starting {len(self._streams)} stream tasks")
         done: Tuple[bool, ...] = await self._perform_on_all_streams(self._start_task)
         await self._pop_unsuccessful_streams(done)
 
         # Collector
-        self._collector.start_all_tasks()
+        self.logger().debug("Starting the collector task")
+        await self._collector.start_all_tasks()
         if not all(self._collector.are_running()):
             self.logger().warning("Collector failed to start all its upstream tasks.")
             await self._pop_unsuccessful_streams(self._collector.are_running())
 
         # Transformers for each stream in reverse order
         for key in self._streams:
+            self.logger().debug(f"Starting transformers for stream {key}")
             for transformer in reversed(self._transformers[key]):
-                transformer.start_task()
+                await transformer.start_task()
                 if not transformer.is_running:
                     self.logger().warning(f"A transformer {transformer} failed to start for stream {key}.")
                     await self._pop_unsuccessful_streams(success_list=(transformer.is_running(),))
@@ -324,12 +290,17 @@ class MultiStreamDataSource:
             return False
         return True
 
-    def _start_task(self, stream: StreamDataSource) -> bool:
+    async def _start_task(self, stream: StreamDataSource) -> bool:
         """Start the task for a stream"""
         if stream.state[1] == TaskState.STARTED:
             return True
 
-        stream.start_task()
+        try:
+            await stream.start_task()
+        except Exception as e:
+            self.logger().warning(f"Stream {stream.channel}:{stream.pair} failed to start the task: {e}")
+            raise
+
         if stream.state[1] != TaskState.STARTED:
             self.logger().warning(f"Stream {stream.channel}:{stream.pair} failed to start the task.")
             return False

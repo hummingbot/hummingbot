@@ -17,13 +17,13 @@ class TestPipesPipeFitting(IsolatedAsyncioWrapperTestCase):
             sources=tuple(self.source_pipes), destination=self.destination_pipe
         ))
 
-    def test_start_task(self) -> None:
+    async def test_start_task(self) -> None:
         # Mock the start_all_tasks method of the PipePipeFitting instances
         for pipe_block in self.pipes_collector._pipe_blocks:
             pipe_block.start_task = MagicMock()
             pipe_block.is_running = MagicMock(return_value=False)
 
-        self.pipes_collector.start_all_tasks()
+        await self.pipes_collector.start_all_tasks()
 
         # Assert that start_all_tasks was called on each PipePipeFitting instance
         for pipe_block in self.pipes_collector._pipe_blocks:
@@ -71,7 +71,7 @@ class TestPipesPipeFitting(IsolatedAsyncioWrapperTestCase):
         self.pipes_collector: PipesPipeFitting[str, str] = PipesPipeFitting(
             sources=tuple(self.source_pipes), destination=self.destination_pipe
         )
-        self.pipes_collector.start_all_tasks()
+        await self.pipes_collector.start_all_tasks()
         await asyncio.sleep(0.1)  # give the tasks time to start
 
         # Check the running status

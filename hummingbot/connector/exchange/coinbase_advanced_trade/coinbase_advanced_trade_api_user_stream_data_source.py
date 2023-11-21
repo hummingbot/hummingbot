@@ -4,13 +4,14 @@ import logging
 from collections import defaultdict
 from decimal import Decimal
 from enum import Enum
-from typing import Any, AsyncGenerator, Awaitable, Callable, Coroutine, Dict, Generator, NamedTuple, Tuple
+from typing import Any, AsyncGenerator, Awaitable, Callable, Coroutine, Dict, NamedTuple, Tuple
 
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 from hummingbot.logger.indenting_logger import indented_debug_decorator
 
 from .coinbase_advanced_trade_web_utils import get_timestamp_from_exchange_time
+from .connecting_functions.exception_log_manager import log_if_possible
 from .multi_stream_data_source.multi_stream_data_source import MultiStreamDataSource
 from .stream_data_source.enums import StreamAction
 from .stream_data_source.protocols import WSAssistantPtl
@@ -93,6 +94,10 @@ def sequence_reader(
     # sequence_num = 0: subscriptions message for heartbeats
     # sequence_num = 1: user snapshot message
     # sequence_num = 2: subscriptions message for user
+    if not isinstance(message, dict):
+        log_if_possible(logger, "ERROR", f"Invalid message type: {type(message)} {message}")
+        raise ValueError(f"Invalid message type: {type(message)} {message}")
+
     if logger:
         if message["channel"] == "user":
             logger.debug(f"Sequence handler {message['channel']}:{message['sequence_num']}:{message}")
@@ -107,7 +112,7 @@ def timestamp_and_filter(
         event_message: Dict[str, Any],
         *,
         logger: HummingbotLogger | logging.Logger | None = None,
-) -> Generator[Dict[str, Any], None, None]:
+) -> Dict[str, Any]:
     """
     Reformat the timestamp to seconds.
     Filter out heartbeat and (subscriptions?) messages.
@@ -127,8 +132,9 @@ def timestamp_and_filter(
     if event_message["channel"] == "user":
         if isinstance(event_message["timestamp"], str):
             event_message["timestamp"] = get_timestamp_from_exchange_time(event_message["timestamp"], "s")
-        yield event_message
-    elif event_message["channel"] not in ["subscriptions", "heartbeats"]:
+        return event_message
+
+    elif event_message["channel"] in ["subscriptions", "heartbeats"]:
         logging.debug(f"Filtering message {event_message} {event_message['channel']} not user")
 
 
@@ -196,6 +202,7 @@ async def message_to_cumulative_update(
                 if logger:
                     logger.debug(f"Cumulative handler {cumulative_order}")
                 yield cumulative_order
+
             except Exception as e:
                 if logger:
                     logger.error(f"Failed to create a CumulativeUpdate error {e}"
@@ -203,10 +210,10 @@ async def message_to_cumulative_update(
                 raise e
 
 
-async def collect_cumulative_update(
+def collect_cumulative_update(
         event_message: CoinbaseAdvancedTradeCumulativeUpdate,
         logger: HummingbotLogger | logging.Logger | None = None,
-) -> AsyncGenerator[CoinbaseAdvancedTradeCumulativeUpdate, None]:
+) -> CoinbaseAdvancedTradeCumulativeUpdate:
     """
     Collect the CumulativeUpdate messages from the stream.
     :param event_message: The message received from the exchange.
@@ -214,11 +221,11 @@ async def collect_cumulative_update(
     """
     # Filter-out non-CumulativeUpdate messages
     if isinstance(event_message, CoinbaseAdvancedTradeCumulativeUpdate):
-        yield event_message
-    else:
-        if logger:
-            logger.error(f"Invalid message type: {type(event_message)} {event_message}")
-        raise ValueError(f"Invalid message type: {type(event_message)} {event_message}")
+        return event_message
+
+    if logger:
+        logger.error(f"Invalid message type: {type(event_message)} {event_message}")
+    raise ValueError(f"Invalid message type: {type(event_message)} {event_message}")
 
 
 class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
@@ -283,7 +290,9 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
                     symbol_to_pair=symbol_to_pair,
                     logger=self.logger())
             ],
-            collector=collect_cumulative_update,
+            collector=functools.partial(
+                collect_cumulative_update,
+                logger=self.logger()),
             heartbeat_channel=heartbeat_channel,
         )
 
