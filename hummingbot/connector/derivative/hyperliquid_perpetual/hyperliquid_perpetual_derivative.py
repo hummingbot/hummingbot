@@ -20,13 +20,14 @@ from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativePyBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.network_iterator import safe_ensure_future
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
@@ -113,6 +114,9 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
     @property
     def funding_fee_poll_interval(self) -> int:
         return 120
+
+    async def _make_network_check_request(self):
+        await self._api_post(path_url=self.check_network_request_path,params={"type": CONSTANTS.META_INFO})
 
     def supported_order_types(self) -> List[OrderType]:
         """
@@ -241,18 +245,89 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
         api_params = {
             "type": "cancel",
-            "cancels": [{
+            "cancels": {
                 "asset": self.coin_to_asset[coin],
                 "cloid": order_id
-            }],
+            },
         }
         cancel_result = await self._api_post(
             path_url=CONSTANTS.CANCEL_ORDER_URL,
             data=api_params,
             is_auth_required=True)
+        if "error" in cancel_result["response"]["data"]["statuses"][0]:
+            self.logger().debug(f"The order {order_id} does not exist on Binance Perpetuals. "
+                                f"No cancelation needed.")
+            await self._order_tracker.process_order_not_found(order_id)
+            raise IOError(f'{cancel_result["response"]["data"]["statuses"][0]["error"]}')
         if "success" in cancel_result["response"]["data"]["statuses"][0]:
             return True
         return False
+
+    # === Orders placing ===
+
+    def buy(self,
+            trading_pair: str,
+            amount: Decimal,
+            order_type=OrderType.LIMIT,
+            price: Decimal = s_decimal_NaN,
+            **kwargs) -> str:
+        """
+        Creates a promise to create a buy order using the parameters
+
+        :param trading_pair: the token pair to operate with
+        :param amount: the order amount
+        :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
+        :param price: the order price
+
+        :return: the id assigned by the connector to the order (the client id)
+        """
+        order_id = get_new_client_order_id(
+            is_buy=True,
+            trading_pair=trading_pair,
+            hbot_order_id_prefix=self.client_order_id_prefix,
+            max_id_len=self.client_order_id_max_length
+        )
+        hex_order_id = f"0x{order_id.encode('utf-8').hex()}"
+        safe_ensure_future(self._create_order(
+            trade_type=TradeType.BUY,
+            order_id=hex_order_id,
+            trading_pair=trading_pair,
+            amount=amount,
+            order_type=order_type,
+            price=price,
+            **kwargs))
+        return hex_order_id
+
+    def sell(self,
+             trading_pair: str,
+             amount: Decimal,
+             order_type: OrderType = OrderType.LIMIT,
+             price: Decimal = s_decimal_NaN,
+             **kwargs) -> str:
+        """
+        Creates a promise to create a sell order using the parameters.
+        :param trading_pair: the token pair to operate with
+        :param amount: the order amount
+        :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
+        :param price: the order price
+        :return: the id assigned by the connector to the order (the client id)
+        """
+        order_id = get_new_client_order_id(
+            is_buy=False,
+            trading_pair=trading_pair,
+            hbot_order_id_prefix=self.client_order_id_prefix,
+            max_id_len=self.client_order_id_max_length
+        )
+        hex_order_id = f"0x{order_id.encode('utf-8').hex()}"
+        safe_ensure_future(self._create_order(
+            trade_type=TradeType.SELL,
+            order_id=hex_order_id,
+            trading_pair=trading_pair,
+            amount=amount,
+            order_type=order_type,
+            price=price,
+            **kwargs))
+        return hex_order_id
 
     async def _place_order(
             self,
@@ -361,15 +436,15 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             },
             is_auth_required=True)
         # todo 需要根据实际返回修改字段
-        # current_state = order_update["data"][0]["status"]
-        # _order_update: OrderUpdate = OrderUpdate(
-        #     trading_pair=tracked_order.trading_pair,
-        #     update_timestamp=order_update["data"][0]["updated_at"] * 1e-3,
-        #     new_state=CONSTANTS.ORDER_STATE[current_state],
-        #     client_order_id=order_update["data"][0]["label"],
-        #     exchange_order_id=order_update["data"][0]["order_id"],
-        # )
-        # return _order_update
+        current_state = order_update["order"]["status"]
+        _order_update: OrderUpdate = OrderUpdate(
+            trading_pair=tracked_order.trading_pair,
+            update_timestamp=order_update["order"]["order"]["timestamp"] * 1e-3,
+            new_state=CONSTANTS.ORDER_STATE[current_state],
+            client_order_id=order_update["order"]["order"]["cloid"],
+            exchange_order_id=tracked_order.exchange_order_id,
+        )
+        return _order_update
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:
@@ -569,7 +644,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         coin = exchange_symbol.split('_')[0]
-        response = await self._api_post(path_url=self.trading_rules_request_path,
+        response = await self._api_post(path_url=CONSTANTS.TICKER_PRICE_CHANGE_URL,
                                         params={"type": CONSTANTS.ASSET_CONTEXT_TYPE})
         price = 0
         for i in response[0]['universe']:
@@ -659,7 +734,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         coin = trading_pair.split("_")[0]
         params = {
                 "type": "updateLeverage",
-                "asset": coin,
+                "asset": self.coin_to_asset[coin],
                 "isCross": True,
                 "leverage": leverage,
             }

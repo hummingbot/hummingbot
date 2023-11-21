@@ -69,7 +69,7 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
         }
 
         data = await self._connector._api_post(
-            path_url=CONSTANTS.EXCHANGE_INFO_URL,
+            path_url=CONSTANTS.SNAPSHOT_REST_URL,
             params=params)
         return data
 
