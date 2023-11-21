@@ -2,8 +2,8 @@ from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, Rate
 from hummingbot.core.data_type.in_flight_order import OrderState
 
 EXCHANGE_NAME = "hyperliquid_perpetual"
-BROKER_ID = "HBOT"
-MAX_ORDER_ID_LEN = 32
+BROKER_ID = "0x"
+MAX_ORDER_ID_LEN = 34
 
 DOMAIN = EXCHANGE_NAME
 TESTNET_DOMAIN = "hyperliquid_perpetual_testnet"
@@ -19,13 +19,13 @@ TESTNET_WS_URL = "wss://api.hyperliquid-testnet.xyz/ws"
 FUNDING_RATE_INTERNAL_MIL_SECOND = 10 * 1000
 
 CURRENCY = "USD"
-#yes
+# yes
 ASSET_CONTEXT_TYPE = "metaAndAssetCtxs"
-#yes
+# yes
 TRADES_TYPE = "userFills"
-#yes
+# yes
 ORDER_STATUS_TYPE = "orderStatus"
-#yes
+# yes
 USER_STATE_TYPE = "clearinghouseState"
 
 SNAPSHOT_REST_URL = "/linear/v1/orderbooks"
@@ -33,30 +33,33 @@ SNAPSHOT_REST_URL = "/linear/v1/orderbooks"
 TICKER_PRICE_CHANGE_URL = "/linear/v1/tickers"
 # yes
 EXCHANGE_INFO_URL = "/info"
-#yes
+# yes
 CANCEL_ORDER_URL = "/exchange"
-#yes
+# yes
 CREATE_ORDER_URL = "/exchange"
-#yes
+# yes
 ACCOUNT_TRADE_LIST_URL = "/info"
-#yes
+# yes
 ORDER_URL = "/info"
-#yes
+# yes
 ACCOUNT_INFO_URL = "/info"
-#yes
+# yes
 POSITION_INFORMATION_URL = "/info"
-#yes
+# yes
 SET_LEVERAGE_URL = "/exchange"
-#yes
+# yes
 GET_LAST_FUNDING_RATE_PATH_URL = "/info"
+# yes
+
+SIGNATURE_TYPE = {
+    "orderl_by_cloid": ["(uint32,bool,uint64,uint64,bool,uint8,uint64,bytes16)[]", "uint8"],
+    "cancel_by_cloid": ["(uint32,bytes16)[]"],
+    "updateLeverage": ["uint32", "bool", "uint32"],
+}
 
 PING_URL = "/linear/v1/system/time"
 
-
 # Private API v1 Endpoints
-
-
-
 
 
 USERSTREAM_AUTH_URL = "/v1/ws/auth"
@@ -67,8 +70,6 @@ USER_BALANCES_ENDPOINT_NAME = "um_account"
 ORDERS_UPDATE_ENDPOINT_NAME = "depth"
 TRADES_ENDPOINT_NAME = "trade"
 FUNDING_INFO_STREAM_NAME = "ticker"
-
-
 
 # Order Statuses
 # todo 需要根据返回结果填写status。
