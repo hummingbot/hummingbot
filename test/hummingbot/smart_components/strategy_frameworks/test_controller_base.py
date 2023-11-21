@@ -42,6 +42,7 @@ class TestControllerBase(unittest.TestCase):
     def test_get_close_price(self):
         mock_candle = MagicMock()
         mock_candle.name = "binance_BTC-USDT"
+        mock_candle._trading_pair = "BTC-USDT"
         mock_candle.interval = "1m"
         mock_candle.candles_df = pd.DataFrame({"close": [100.0, 200.0, 300.0],
                                                "open": [100.0, 200.0, 300.0]})
