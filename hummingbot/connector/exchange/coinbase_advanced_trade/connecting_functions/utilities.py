@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from functools import partial
-from typing import Any, AsyncGenerator, Awaitable, Callable, Generator, Iterable, Type, TypeVar, Union
+from typing import Any, AsyncGenerator, Awaitable, Callable, Generator, Iterable, NamedTupleMeta, Type, TypeVar, Union
 
 from ..pipe import PipePutPtl
 from ..pipe.data_types import FromDataT, ToDataT
@@ -59,7 +59,7 @@ async def data_to_async_generator(
             async for sub_item in data:
                 yield sub_item
 
-        elif isinstance(data, Iterable) and not isinstance(data, (str, bytes)):
+        elif isinstance(data, (Generator, list, set, tuple)) and not isinstance(data, NamedTupleMeta):
             for sub_item in data:
                 yield sub_item
 
@@ -182,7 +182,7 @@ async def put_on_condition(
         on_condition: Callable[[FromDataT | ToDataT], bool] = lambda x: True
 
     try:
-        async for item in data_to_async_generator(data, exception=DataGeneratorError):
+        async for item in data_to_async_generator(data, exception=DataGeneratorError, logger=logger):
             if await try_except_conditional_raise(
                     CallOrAwait(on_condition, (item,)),
                     exception=ConditionalPutError):
