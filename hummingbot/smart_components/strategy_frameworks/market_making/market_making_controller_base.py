@@ -24,6 +24,21 @@ class MarketMakingControllerBase(ControllerBase):
         super().__init__(config, excluded_parameters)
         self.config = config  # this is only for type hints
 
+    @property
+    def is_perpetual(self):
+        """
+        Checks if the exchange is a perpetual market.
+        """
+        return "perpetual" in self.config.exchange
+
+    def get_balance_required_by_order_levels(self):
+        """
+        Get the balance required by the order levels.
+        """
+        sell_amount = sum([order_level.order_amount_usd for order_level in self.config.order_levels if order_level.side == TradeType.SELL])
+        buy_amount = sum([order_level.order_amount_usd for order_level in self.config.order_levels if order_level.side == TradeType.BUY])
+        return {TradeType.SELL: sell_amount, TradeType.BUY: buy_amount}
+
     def filter_executors_df(self, df):
         return df[df["trading_pair"] == self.config.trading_pair]
 
@@ -40,13 +55,6 @@ class MarketMakingControllerBase(ControllerBase):
         else:
             markets_dict[self.config.exchange].add(self.config.trading_pair)
         return markets_dict
-
-    @property
-    def is_perpetual(self):
-        """
-        Checks if the exchange is a perpetual market.
-        """
-        return "perpetual" in self.config.exchange
 
     def refresh_order_condition(self, executor: PositionExecutor, order_level: OrderLevel) -> bool:
         raise NotImplementedError
