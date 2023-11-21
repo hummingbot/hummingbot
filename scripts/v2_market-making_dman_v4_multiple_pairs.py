@@ -3,6 +3,7 @@ from typing import Dict
 
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide, TradeType
+from hummingbot.core.event.events import BuyOrderCompletedEvent, SellOrderCompletedEvent
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
 from hummingbot.smart_components.controllers.dman_v4 import DManV4, DManV4Config
 from hummingbot.smart_components.executors.position_executor.data_types import TrailingStop
@@ -17,35 +18,39 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 class DManV4MultiplePairs(ScriptStrategyBase):
     # Account configuration
-    exchange = "binance_perpetual"
-    trading_pairs = ["ETH-USDT"]
+    exchange = "kucoin"
+    trading_pairs = ["VERSE-USDT"]
     leverage = 20
+    initial_auto_rebalance = True
+    extra_inventory_pct = 0.1
+    asset_to_rebalance = "USDT"
+    rebalanced = False
 
     # Candles configuration
-    candles_exchange = "binance_perpetual"
+    candles_exchange = "kucoin"
     candles_interval = "1h"
     candles_max_records = 300
     bollinger_band_length = 200
     bollinger_band_std = 3.0
 
     # Orders configuration
-    order_amount = Decimal("25")
-    n_levels = 5
-    start_spread = 0.0006
-    step_between_orders = 0.01
-    order_refresh_time = 60 * 15  # 15 minutes
-    cooldown_time = 5
+    order_amount = Decimal("4")
+    n_levels = 10
+    start_spread = 0.002
+    step_between_orders = 0.004
+    order_refresh_time = 30
+    cooldown_time = 0
 
     # Triple barrier configuration
-    stop_loss = Decimal("0.2")
-    take_profit = Decimal("0.06")
+    stop_loss = Decimal("0.03")
+    take_profit = Decimal("0.01")
     time_limit = 60 * 60 * 12
-    trailing_stop_activation_price_delta = Decimal(str(step_between_orders))
-    trailing_stop_trailing_delta = Decimal(str(step_between_orders / 2))
+    trailing_stop_activation_price_delta = Decimal("0.008")
+    trailing_stop_trailing_delta = Decimal("0.002")
 
     # Global Trailing Stop configuration
-    global_trailing_stop_activation_price_delta = Decimal(str(step_between_orders))
-    global_trailing_stop_trailing_delta = Decimal(str(step_between_orders / 2))
+    global_trailing_stop_activation_price_delta = Decimal("0.009")
+    global_trailing_stop_trailing_delta = Decimal("0.002")
 
     # Advanced configurations
     dynamic_spread_factor = False
@@ -64,7 +69,9 @@ class DManV4MultiplePairs(ScriptStrategyBase):
         triple_barrier_confs=TripleBarrierConf(
             stop_loss=stop_loss, take_profit=take_profit, time_limit=time_limit,
             trailing_stop_activation_price_delta=trailing_stop_activation_price_delta,
-            trailing_stop_trailing_delta=trailing_stop_trailing_delta),
+            trailing_stop_trailing_delta=trailing_stop_trailing_delta,
+            take_profit_order_type=OrderType.LIMIT,
+        ),
         order_refresh_time=order_refresh_time,
         cooldown_time=cooldown_time,
     )
@@ -104,8 +111,18 @@ class DManV4MultiplePairs(ScriptStrategyBase):
 
     def __init__(self, connectors: Dict[str, ConnectorBase]):
         super().__init__(connectors)
+        all_assets = set([token for trading_pair in self.trading_pairs for token in trading_pair.split("-")])
+        balance_required_in_quote = {asset: Decimal("0") for asset in all_assets}
         for trading_pair, controller in self.controllers.items():
             self.executor_handlers[trading_pair] = MarketMakingExecutorHandler(strategy=self, controller=controller)
+            balance_required_by_side = controller.get_balance_required_by_order_levels()
+            if self.is_perpetual:
+                balance_required_in_quote[trading_pair.split("-")[1]] += (balance_required_by_side[TradeType.SELL] + balance_required_by_side[TradeType.BUY]) / self.leverage
+            else:
+                balance_required_in_quote[trading_pair.split("-")[0]] += balance_required_by_side.get(TradeType.SELL, Decimal("0"))
+                balance_required_in_quote[trading_pair.split("-")[1]] += balance_required_by_side.get(TradeType.BUY, Decimal("0"))
+        self.balance_required_in_quote = {asset: float(balance) * (1 + self.extra_inventory_pct) for asset, balance in balance_required_in_quote.items()}
+        self.rebalance_orders = {}
 
     @property
     def is_perpetual(self):
@@ -145,9 +162,26 @@ class DManV4MultiplePairs(ScriptStrategyBase):
         This shows you how you can start meta controllers. You can run more than one at the same time and based on the
         market conditions, you can orchestrate from this script when to stop or start them.
         """
-        for executor_handler in self.executor_handlers.values():
-            if executor_handler.status == ExecutorHandlerStatus.NOT_STARTED:
-                executor_handler.start()
+        if not self.rebalanced:
+            if len(self.rebalance_orders) > 0:
+                return
+            self.rebalance()
+        else:
+            for executor_handler in self.executor_handlers.values():
+                if executor_handler.status == ExecutorHandlerStatus.NOT_STARTED:
+                    executor_handler.start()
+
+    def rebalance(self):
+        current_balances = self.get_balance_df()
+        for asset, balance_needed in self.balance_required_in_quote.items():
+            if asset != self.asset_to_rebalance:
+                trading_pair = f"{asset}-{self.asset_to_rebalance}"
+                balance_diff_in_base = Decimal(balance_needed) / self.connectors[self.exchange].get_mid_price(trading_pair) - Decimal(current_balances[current_balances["Asset"] == asset]["Total Balance"].item())
+                if balance_diff_in_base > self.connectors[self.exchange].trading_rules[trading_pair].min_order_size:
+                    if balance_diff_in_base > 0:
+                        self.rebalance_orders[trading_pair] = self.buy(connector_name=self.exchange, trading_pair=trading_pair, amount=balance_diff_in_base, order_type=OrderType.MARKET)
+                    elif balance_diff_in_base < 0:
+                        self.rebalance_orders[trading_pair] = self.sell(connector_name=self.exchange, trading_pair=trading_pair, amount=abs(balance_diff_in_base), order_type=OrderType.MARKET)
 
     def format_status(self) -> str:
         if not self.ready_to_trade:
@@ -158,3 +192,18 @@ class DManV4MultiplePairs(ScriptStrategyBase):
                 [f"Strategy: {executor_handler.controller.config.strategy_name} | Trading Pair: {trading_pair}",
                  executor_handler.to_format_status()])
         return "\n".join(lines)
+
+    def did_complete_buy_order(self, order_completed_event: BuyOrderCompletedEvent):
+        if not self.rebalanced:
+            self.check_rebalance_orders(order_completed_event)
+
+    def did_complete_sell_order(self, order_completed_event: SellOrderCompletedEvent):
+        if not self.rebalanced:
+            self.check_rebalance_orders(order_completed_event)
+
+    def check_rebalance_orders(self, order_completed_event):
+        if order_completed_event.order_id in self.rebalance_orders.values():
+            trading_pair = f"{order_completed_event.base_asset}-{order_completed_event.quote_asset}"
+            del self.rebalance_orders[trading_pair]
+        if len(self.rebalance_orders) == 0:
+            self.rebalanced = True
