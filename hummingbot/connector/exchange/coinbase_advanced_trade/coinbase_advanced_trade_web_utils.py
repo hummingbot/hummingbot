@@ -1,5 +1,6 @@
 import asyncio
 import functools
+import logging
 import re
 from typing import Callable, Dict, NamedTuple, Optional, Tuple
 
@@ -11,6 +12,7 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 from . import coinbase_advanced_trade_constants as constants
+from .connecting_functions.exception_log_manager import log_exception, log_if_possible
 
 
 def public_rest_url(path_url: str, domain: str = constants.DEFAULT_DOMAIN) -> str:
@@ -194,25 +196,45 @@ def retry_async_api_call(max_retries=5, initial_sleep=0.25, max_sleep=2.0):
         @functools.wraps(f)
         async def wrapper(*args, **kwargs):
             assert any(p in f.__name__ for p in ['api_post', 'api_get']), f"{f.__name__} is not an API call"
-            retries = 0
-            sleep_time = initial_sleep
+            retries: int = 0
+            sleep_time: float = initial_sleep
+            response: Dict = {}
+            logger: logging.Logger = args[0].logger()
+            url: str | None = kwargs.get("url")
 
             while retries < max_retries:
                 try:
                     response = await f(*args, **kwargs)
-                    status = response.get("status")
-                    if status and status >= 500:
-                        raise CoinbaseAdvancedTradeServerIssueException
-                    return response
-                except CoinbaseAdvancedTradeServerIssueException as e:
+                    break
+
+                except IOError as e:
+                    if any(f"HTTP status is {c}" in str(e) for c in ("400", "403", "500", "501", "502", "503", "504")):
+                        log_exception(e, args[0].logger(), "ERROR", str(e))
+                        raise e
+
                     retries += 1
                     if retries >= max_retries:
-                        args[0].logger().error(f"Max retries reached for function {f.__name__}. Error: {e}")
+                        log_exception(e, logger, "ERROR", f"Max retries reached for {url}.")
                         return [{"success": False, "failure_reason": "MAX_RETRIES_REACHED"}]
 
-                    args[0].logger().error(f"Error in function {f.__name__}: {e}. Retrying...")
+                    if "HTTP status is 401" in str(e):
+                        log_if_possible(logger, "WARNING", "Unauthorized. This could be temporary.")
+
+                    if "HTTP status is 429" in str(e):
+                        log_if_possible(logger, "WARNING", "API call rate limited. Notify hummingbot Foundation if "
+                                                           "this happens frequently.")
+                        # sleep_time = 1 / constants.MAX_REST_REQUESTS_S
+
+                    log_if_possible(logger, "INFO", f"Retrying REST call in {sleep_time} seconds.")
                     await asyncio.sleep(sleep_time)
                     sleep_time = min(sleep_time * 2, max_sleep)  # Exponential backoff, capped at max_sleep
+
+                except Exception as e:
+                    log_exception(e, args[0].logger(), "ERROR", f"Unexpected error in function {f.__name__}.")
+                    raise CoinbaseAdvancedTradeServerIssueException from e
+                    # return [{"success": False, "failure_reason": "UNKNOWN_ERROR"}]
+
+            return response
 
         return wrapper
 
