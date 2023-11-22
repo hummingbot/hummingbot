@@ -11,7 +11,9 @@ from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
 if TYPE_CHECKING:
-    from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_derivative import HyperliquidPerpetualDerivative
+    from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_derivative import (
+        HyperliquidPerpetualDerivative,
+    )
 
 
 class HyperliquidPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
@@ -111,3 +113,13 @@ class HyperliquidPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             CONSTANTS.USEREVENT_ENDPOINT_NAME,
         ]:
             queue.put_nowait(event_message)
+
+    async def _process_websocket_messages(self, websocket_assistant: WSAssistant, queue: asyncio.Queue):
+        while True:
+            try:
+                await super()._process_websocket_messages(
+                    websocket_assistant=websocket_assistant,
+                    queue=queue)
+            except asyncio.TimeoutError:
+                ping_request = WSJSONRequest(payload={"method": "ping"})
+                await websocket_assistant.send(ping_request)
