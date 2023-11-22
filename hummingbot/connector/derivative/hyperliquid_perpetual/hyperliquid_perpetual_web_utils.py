@@ -9,7 +9,7 @@ from hummingbot.core.web_assistant.rest_pre_processors import RESTPreProcessorBa
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
-class BitComPerpetualRESTPreProcessor(RESTPreProcessorBase):
+class HyperliquidPerpetualRESTPreProcessor(RESTPreProcessorBase):
 
     async def pre_process(self, request: RESTRequest) -> RESTRequest:
         if request.headers is None:
@@ -44,7 +44,7 @@ def build_api_factory(
     throttler = throttler or create_throttler()
     api_factory = WebAssistantsFactory(
         throttler=throttler,
-        rest_pre_processors=[BitComPerpetualRESTPreProcessor()],
+        rest_pre_processors=[HyperliquidPerpetualRESTPreProcessor()],
         auth=auth)
     return api_factory
 
@@ -52,7 +52,7 @@ def build_api_factory(
 def build_api_factory_without_time_synchronizer_pre_processor(throttler: AsyncThrottler) -> WebAssistantsFactory:
     api_factory = WebAssistantsFactory(
         throttler=throttler,
-        rest_pre_processors=[BitComPerpetualRESTPreProcessor()])
+        rest_pre_processors=[HyperliquidPerpetualRESTPreProcessor()])
     return api_factory
 
 
@@ -77,6 +77,7 @@ def is_exchange_information_valid(rule: Dict[str, Any]) -> bool:
     """
     return True
 
+
 def order_type_to_tuple(order_type) -> Tuple[int, float]:
     if "limit" in order_type:
         tif = order_type["limit"]["tif"]
@@ -99,18 +100,22 @@ def order_type_to_tuple(order_type) -> Tuple[int, float]:
             return 7, trigger_px
     raise ValueError("Invalid order type", order_type)
 
+
 def float_to_int_for_hashing(x: float) -> int:
     return float_to_int(x, 8)
 
+
 def float_to_int(x: float, power: int) -> int:
-    with_decimals = x * 10**power
+    with_decimals = x * 10 ** power
     if abs(round(with_decimals) - with_decimals) >= 1e-3:
         raise ValueError("float_to_int causes rounding", x)
     return round(with_decimals)
 
+
 def str_to_bytes16(x: str) -> bytearray:
     assert x.startswith("0x")
     return bytearray.fromhex(x[2:])
+
 
 def order_grouping_to_number(grouping) -> int:
     if grouping == "na":
