@@ -16,7 +16,8 @@ from hummingbot.connector.derivative.hyperliquid_perpetual import hyperliquid_pe
 from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_api_order_book_data_source import (
     HyperliquidPerpetualAPIOrderBookDataSource,
 )
-from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_derivative import HyperliquidPerpetualDerivative
+from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_derivative import \
+    HyperliquidPerpetualDerivative
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
@@ -33,7 +34,7 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
         cls.base_asset = "BTC"
         cls.quote_asset = "USD"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
-        cls.ex_trading_pair = f"{cls.base_asset}-{cls.quote_asset}-PERPETUAL"
+        cls.ex_trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
 
     def setUp(self) -> None:
         super().setUp()
@@ -86,105 +87,41 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
         return ret
 
     def get_rest_snapshot_msg(self) -> Dict:
-        return {
-            "code": 0,
-            "message": "",
-            "data": {
-                "instrument_id": "BTC-USD-PERPETUAL",
-                "timestamp": 1642994567453,
-                "bids": [
-                    ["35324.15000000", "0.47000000"],
-                    ["35324.10000000", "1.67000000"],
-                    ["35321.95000000", "2.40000000"],
-                    ["35321.90000000", "4.36000000"],
-                    ["35321.85000000", "1.24000000"]
-                ],
-                "asks": [
-                    ["35325.15000000", "4.68000000"],
-                    ["35327.80000000", "0.53000000"],
-                    ["35351.00000000", "1.00000000"],
-                    ["35352.00000000", "1.00000000"],
-                    ["35353.00000000", "1.00000000"]
-                ]
-            }
-        }
+        return {"coin": "DYDX", "levels": [
+            [{'px': '2080.3', 'sz': '74.6923', 'n': 2}, {'px': '2080.0', 'sz': '162.2829', 'n': 2},
+             {'px': '1825.5', 'sz': '0.0259', 'n': 1}, {'px': '1823.6', 'sz': '0.0259', 'n': 1}],
+            [{'px': '2080.5', 'sz': '73.018', 'n': 2}, {'px': '2080.6', 'sz': '74.6799', 'n': 2},
+             {'px': '2118.9', 'sz': '377.495', 'n': 1}, {'px': '2122.1', 'sz': '348.8644', 'n': 1}]], "time": 1700687397643}
 
     def get_ws_snapshot_msg(self) -> Dict:
-        return {
-            "channel": "depth",
-            "timestamp": 1643094930373,
-            "module": "linear",
-            "data": {
-                "type": "snapshot",
-                "instrument_id": "BTC-USD-PERPETUAL",
-                "sequence": 9,
-                "bids": [
-                    [
-                        "35731.05000000",
-                        "6.82000000"
-                    ]
-                ],
-                "asks": [
-                    [
-                        "35875.00000000",
-                        "1.00000000"
-                    ]
-                ]
-            }
-        }
+        return {'channel': 'l2Book', 'data': {'coin': 'BTC', 'time': 1700687397643, 'levels': [
+            [{'px': '2080.3', 'sz': '74.6923', 'n': 2}, {'px': '2080.0', 'sz': '162.2829', 'n': 2},
+             {'px': '1825.5', 'sz': '0.0259', 'n': 1}, {'px': '1823.6', 'sz': '0.0259', 'n': 1}],
+            [{'px': '2080.5', 'sz': '73.018', 'n': 2}, {'px': '2080.6', 'sz': '74.6799', 'n': 2},
+             {'px': '2118.9', 'sz': '377.495', 'n': 1}, {'px': '2122.1', 'sz': '348.8644', 'n': 1}]]}}
 
     def get_ws_diff_msg(self) -> Dict:
-        return {
-            "channel": "depth",
-            "timestamp": 1643094930373,
-            "module": "linear",
-            "data": {
-                "type": "update",
-                "instrument_id": "BTC-USD-PERPETUAL",
-                "sequence": 10,
-                "prev_sequence": 9,
-                "changes": [
-                    [
-                        "sell",
-                        "35733.00000000",
-                        "1.10000000"
-                    ],
-                    [
-                        "buy",
-                        "35732.00000000",
-                        "1.10000000"
-                    ]
-                ]
-            }
-        }
+        return {'channel': 'l2Book', 'data': {'coin': 'BTC', 'time': 1700687397643, 'levels': [
+            [{'px': '2080.3', 'sz': '74.6923', 'n': 2}, {'px': '2080.0', 'sz': '162.2829', 'n': 2},
+             {'px': '1825.5', 'sz': '0.0259', 'n': 1}, {'px': '1823.6', 'sz': '0.0259', 'n': 1}],
+            [{'px': '2080.5', 'sz': '73.018', 'n': 2}, {'px': '2080.6', 'sz': '74.6799', 'n': 2},
+             {'px': '2118.9', 'sz': '377.495', 'n': 1}, {'px': '2122.1', 'sz': '348.8644', 'n': 1}]]}}
 
-    def get_funding_info_msg(self) -> Dict:
-        return {
-            "code": 0,
-            "message": "",
-            "data": {
-                "instrument_id": "BTC-USD-PERPETUAL",
-                "time": 1635913370000,
-                "funding_rate": "0.00000000",
-                "funding_rate_8h": "-0.00102858",
-                "index_price": "62989.63000000",
-                "mark_price": "62969.83608581"
-            }
-        }
 
     def get_funding_info_rest_msg(self):
-        return {
-            "code": 0,
-            "message": "",
-            "data": {
-                "instrument_id": "BTC-USD-PERPETUAL",
-                "time": 1635913370000,
-                "funding_rate": "0.00000000",
-                "funding_rate_8h": "-0.00102858",
-                "index_price": "62989.63000000",
-                "mark_price": "62969.83608581"
-            }
-        }
+        return [
+            {
+                "delta": {
+                    "coin": "ETH",
+                    "fundingRate": "0.0000417",
+                    "szi": "49.1477",
+                    "type": "funding",
+                    "usdc": "-3.625312"
+                },
+                "hash": "0xa166e3fa63c25663024b03f2e0da011a00307e4017465df020210d3d432e7cb8",
+                "time": 1681222254710
+            },
+        ]
 
     @aioresponses()
     def test_get_new_order_book_successful(self, mock_api):
@@ -198,15 +135,15 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
             self.data_source.get_new_order_book(self.trading_pair)
         )
 
-        self.assertEqual(1642994567453, order_book.snapshot_uid)
+        self.assertEqual(1700687397643, order_book.snapshot_uid)
         bids = list(order_book.bid_entries())
         asks = list(order_book.ask_entries())
-        self.assertEqual(5, len(bids))
-        self.assertEqual(35324.15, bids[0].price)
-        self.assertEqual(0.47, bids[0].amount)
-        self.assertEqual(5, len(asks))
-        self.assertEqual(35325.15, asks[0].price)
-        self.assertEqual(4.68, asks[0].amount)
+        self.assertEqual(4, len(bids))
+        self.assertEqual(2080.3, bids[0].price)
+        self.assertEqual(74.6923, bids[0].amount)
+        self.assertEqual(4, len(asks))
+        self.assertEqual(2080.5, asks[0].price)
+        self.assertEqual(73.018, asks[0].amount)
 
     @aioresponses()
     def test_get_new_order_book_raises_exception(self, mock_api):
@@ -236,22 +173,18 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
             websocket_mock=ws_connect_mock.return_value
         )
 
-        self.assertEqual(3, len(sent_subscription_messages))
-        expected_trade_subscription_channel = [CONSTANTS.TRADES_ENDPOINT_NAME]
-        expected_trade_subscription_payload = [self.ex_trading_pair]
-        self.assertEqual(expected_trade_subscription_channel, sent_subscription_messages[0]["channels"])
-        self.assertEqual(expected_trade_subscription_payload, sent_subscription_messages[0]["instruments"])
-        expected_depth_subscription_channel = [CONSTANTS.ORDERS_UPDATE_ENDPOINT_NAME]
-        expected_depth_subscription_payload = [self.ex_trading_pair]
-        self.assertEqual(expected_depth_subscription_channel, sent_subscription_messages[1]["channels"])
-        self.assertEqual(expected_depth_subscription_payload, sent_subscription_messages[1]["instruments"])
-        expected_funding_rate_subscription_channel = [CONSTANTS.FUNDING_INFO_STREAM_NAME]
-        expected_funding_rate_subscription_payload = [self.ex_trading_pair]
-        self.assertEqual(expected_funding_rate_subscription_channel, sent_subscription_messages[2]["channels"])
-        self.assertEqual(expected_funding_rate_subscription_payload, sent_subscription_messages[2]["instruments"])
+        self.assertEqual(2, len(sent_subscription_messages))
+        expected_trade_subscription_channel = CONSTANTS.TRADES_ENDPOINT_NAME
+        expected_trade_subscription_payload = self.ex_trading_pair.split("-")[0]
+        self.assertEqual(expected_trade_subscription_channel, sent_subscription_messages[0]["subscription"]["type"])
+        self.assertEqual(expected_trade_subscription_payload, sent_subscription_messages[0]["subscription"]["coin"])
+        expected_depth_subscription_channel = CONSTANTS.DEPTH_ENDPOINT_NAME
+        expected_depth_subscription_payload = self.ex_trading_pair.split("-")[0]
+        self.assertEqual(expected_depth_subscription_channel, sent_subscription_messages[0]["subscription"]["type"])
+        self.assertEqual(expected_depth_subscription_payload, sent_subscription_messages[0]["subscription"]["coin"])
 
         self.assertTrue(
-            self._is_logged("INFO", "Subscribed to public order book, trade and fundingrate channels...")
+            self._is_logged("INFO", "Subscribed to public order book, trade channels...")
         )
 
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
@@ -367,25 +300,11 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
 
     def test_listen_for_trades_successful(self):
         mock_queue = AsyncMock()
-        trade_event = {
-            "code": 0,
-            "timestamp": 1643099734031,
-            "channel": "trade",
-            "data": [
-                {
-                    "created_at": 1642994704633,
-                    "trade_id": 1005483402,
-                    "instrument_id": "BTC-USD-PERPETUAL",
-                    "price": "2449.20000000",
-                    "qty": "1.00000000",
-                    "side": "sell",
-                    "sigma": "0.00000000",
-                    "index_price": "2447.79750000",
-                    "underlying_price": "0.00000000",
-                    "is_block_trade": False
-                }
-            ]
-        }
+        trade_event = {'channel': 'user', 'data': {'fills': [
+            {'coin': 'ETH', 'px': '2091.3', 'sz': '0.01', 'side': 'B', 'time': 1700688460805, 'startPosition': '0.0',
+             'dir': 'Open Long', 'closedPnl': '0.0',
+             'hash': '0x544c46b72e0efdada8cd04080bb32b010d005a7d0554c10c4d0287e9a2c237e7', 'oid': 2260113568,
+             'crossed': True, 'fee': '0.005228', 'liquidationMarkPx': None}]}}
         mock_queue.get.side_effect = [trade_event, asyncio.CancelledError()]
         self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue
 
@@ -397,8 +316,8 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 
         self.assertEqual(OrderBookMessageType.TRADE, msg.type)
-        self.assertEqual(trade_event["data"][0]["trade_id"], msg.trade_id)
-        self.assertEqual(trade_event["timestamp"] * 1e-3, msg.timestamp)
+        self.assertEqual(trade_event["data"]["fills"][0]["hash"], msg.trade_id)
+        self.assertEqual(trade_event["data"]["fills"][0]["time"] * 1e-3, msg.timestamp)
 
     def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
@@ -415,7 +334,7 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
 
     def test_listen_for_order_book_diffs_logs_exception(self):
         incomplete_resp = self.get_ws_diff_msg()
-        del incomplete_resp["data"]["sequence"]
+        del incomplete_resp["data"]["time"]
 
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [incomplete_resp, asyncio.CancelledError()]
@@ -450,17 +369,17 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
 
         self.assertEqual(OrderBookMessageType.DIFF, msg.type)
         self.assertEqual(-1, msg.trade_id)
-        expected_update_id = int(diff_event["data"]["sequence"])
+        expected_update_id = diff_event["data"]["time"]
         self.assertEqual(expected_update_id, msg.update_id)
 
         bids = msg.bids
         asks = msg.asks
-        self.assertEqual(1, len(bids))
-        self.assertEqual(35732, bids[0].price)
-        self.assertEqual(1.1, bids[0].amount)
-        self.assertEqual(1, len(asks))
-        self.assertEqual(35733, asks[0].price)
-        self.assertEqual(1.1, asks[0].amount)
+        self.assertEqual(4, len(bids))
+        self.assertEqual(2080.3, bids[0].price)
+        self.assertEqual(74.6923, bids[0].amount)
+        self.assertEqual(4, len(asks))
+        self.assertEqual(2080.5, asks[0].price)
+        self.assertEqual(73.018, asks[0].amount)
 
     @aioresponses()
     def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
@@ -515,17 +434,19 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
 
         self.assertEqual(OrderBookMessageType.SNAPSHOT, msg.type)
         self.assertEqual(-1, msg.trade_id)
-        expected_update_id = resp["data"]["timestamp"]
+        expected_update_id = resp["time"]
         self.assertEqual(expected_update_id, msg.update_id)
 
         bids = msg.bids
         asks = msg.asks
-        self.assertEqual(5, len(bids))
-        self.assertEqual(35324.15, bids[0].price)
-        self.assertEqual(0.47, bids[0].amount)
-        self.assertEqual(5, len(asks))
-        self.assertEqual(35325.15, asks[0].price)
-        self.assertEqual(4.68, asks[0].amount)
+
+        self.assertEqual(4, len(bids))
+        self.assertEqual(2080.3, bids[0].price)
+        self.assertEqual(74.6923, bids[0].amount)
+        self.assertEqual(4, len(asks))
+        self.assertEqual(2080.5, asks[0].price)
+        self.assertEqual(73.018, asks[0].amount)
+
 
     @aioresponses()
     def test_get_funding_info(self, mock_api):
@@ -541,8 +462,7 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
         msg_result = resp
 
         self.assertEqual(self.trading_pair, funding_info.trading_pair)
-        self.assertEqual(Decimal(str(msg_result["data"]["mark_price"])), funding_info.mark_price)
-        self.assertEqual((int(msg_result["data"]["time"] / CONSTANTS.FUNDING_RATE_INTERNAL_MIL_SECOND) + 1) *
+        self.assertEqual((int((msg_result[0]["time"]/1e-3) / CONSTANTS.FUNDING_RATE_INTERNAL_MIL_SECOND) + 1) *
                          CONSTANTS.FUNDING_RATE_INTERNAL_MIL_SECOND,
                          funding_info.next_funding_utc_timestamp)
-        self.assertEqual(Decimal(str(msg_result["data"]["funding_rate"])), funding_info.rate)
+        self.assertEqual(Decimal(str(msg_result[0]["delta"]["fundingRate"])), funding_info.rate)
