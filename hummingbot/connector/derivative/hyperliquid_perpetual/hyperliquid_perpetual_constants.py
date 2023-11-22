@@ -16,7 +16,7 @@ PERPETUAL_WS_URL = "wss://api.hyperliquid.xyz/ws"
 
 TESTNET_WS_URL = "wss://api.hyperliquid-testnet.xyz/ws"
 
-FUNDING_RATE_INTERNAL_MIL_SECOND = 10 * 1000
+FUNDING_RATE_INTERNAL_MIL_SECOND = 3600
 
 CURRENCY = "USD"
 
@@ -54,6 +54,10 @@ SET_LEVERAGE_URL = "/exchange"
 GET_LAST_FUNDING_RATE_PATH_URL = "/info"
 
 PING_URL = "/info"
+
+TRADES_ENDPOINT_NAME = "trades"
+DEPTH_ENDPOINT_NAME = "l2Book"
+
 
 USER_ORDERS_ENDPOINT_NAME = "orderUpdates"
 USEREVENT_ENDPOINT_NAME = "user"

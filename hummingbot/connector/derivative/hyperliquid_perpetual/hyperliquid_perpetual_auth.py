@@ -11,8 +11,8 @@ from hummingbot.connector.derivative.hyperliquid_perpetual import hyperliquid_pe
 from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_web_utils import (
     float_to_int_for_hashing,
     order_grouping_to_number,
-    order_type_to_tuple,
     order_spec_to_order_wire,
+    order_type_to_tuple,
     str_to_bytes16,
 )
 from hummingbot.core.web_assistant.auth import AuthBase

@@ -104,7 +104,7 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
                 trades_payload = {
                     "method": "subscribe",
                     "subscription": {
-                        "type": "trades",
+                        "type": CONSTANTS.TRADES_ENDPOINT_NAME,
                         "coin": coin,
                     }
                 }
@@ -113,7 +113,7 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
                 order_book_payload = {
                     "method": "subscribe",
                     "subscription": {
-                        "type": "l2Book",
+                        "type": CONSTANTS.DEPTH_ENDPOINT_NAME,
                         "coin": coin,
                     }
                 }
@@ -122,7 +122,7 @@ class HyperliquidPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
                 await ws.send(subscribe_trade_request)
                 await ws.send(subscribe_orderbook_request)
 
-                self.logger().info("Subscribed to public order book, trade and fundingrate channels...")
+                self.logger().info("Subscribed to public order book, trade channels...")
         except asyncio.CancelledError:
             raise
         except Exception:
