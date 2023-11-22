@@ -435,7 +435,6 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 "oid": tracked_order.exchange_order_id
             },
             is_auth_required=True)
-        # todo 需要根据实际返回修改字段
         current_state = order_update["order"]["status"]
         _order_update: OrderUpdate = OrderUpdate(
             trading_pair=tracked_order.trading_pair,
@@ -495,9 +494,9 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                         for trade_msg in results["fills"]:
                             self._process_trade_message(trade_msg)
                     #todo 添加position的key
-                    elif "WsUserFunding" in results:
-                        for position_msg in results:
-                            await self._process_account_position_message(position_msg)
+                    # elif "WsUserFunding" in results:
+                    #     for position_msg in results:
+                    #         await self._process_account_position_message(position_msg)
                 # elif channel == CONSTANTS.USER_BALANCES_ENDPOINT_NAME:
                 #     self._process_balance_message_ws(results)
             except asyncio.CancelledError:
@@ -540,29 +539,29 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             )
             self._order_tracker.process_trade_update(trade_update)
 
-    async def _process_account_position_message(self, position_msg: Dict[str, Any]):
-        """
-        Updates position
-        :param position_msg: The position event message payload
-        """
-        ex_trading_pair = position_msg["coin"] + "_" + CONSTANTS.CURRENCY
-        trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=ex_trading_pair)
-        amount = Decimal(position_msg["szi"])
-        position_side = PositionSide.LONG if Decimal(position_msg.get("szi")) > 0 else PositionSide.SHORT
-
-        pos_key = self._perpetual_trading.position_key(trading_pair, position_side)
-        entry_price = Decimal(str(position_msg["entryPx"]))
-        position = self._perpetual_trading.get_position(trading_pair, position_side)
-        if position is not None:
-            if amount == Decimal("0"):
-                self._perpetual_trading.remove_position(pos_key)
-            else:
-                position.update_position(position_side=position_side,
-                                         unrealized_pnl=Decimal(position_msg['unrealizedPnl']),
-                                         entry_price=entry_price,
-                                         amount=amount)
-        else:
-            await self._update_positions()
+    # async def _process_account_position_message(self, position_msg: Dict[str, Any]):
+    #     """
+    #     Updates position
+    #     :param position_msg: The position event message payload
+    #     """
+    #     ex_trading_pair = position_msg["coin"] + "_" + CONSTANTS.CURRENCY
+    #     trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=ex_trading_pair)
+    #     amount = Decimal(position_msg["szi"])
+    #     position_side = PositionSide.LONG if Decimal(position_msg.get("szi")) > 0 else PositionSide.SHORT
+    #
+    #     pos_key = self._perpetual_trading.position_key(trading_pair, position_side)
+    #     entry_price = Decimal(str(position_msg["entryPx"]))
+    #     position = self._perpetual_trading.get_position(trading_pair, position_side)
+    #     if position is not None:
+    #         if amount == Decimal("0"):
+    #             self._perpetual_trading.remove_position(pos_key)
+    #         else:
+    #             position.update_position(position_side=position_side,
+    #                                      unrealized_pnl=Decimal(position_msg['unrealizedPnl']),
+    #                                      entry_price=entry_price,
+    #                                      amount=amount)
+    #     else:
+    #         await self._update_positions()
 
     def _process_order_message(self, order_msg: Dict[str, Any]):
         """
@@ -572,7 +571,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
         Example Order:
         """
-        client_order_id = str(order_msg.get("cloid", ""))
+        client_order_id = str(order_msg["order"].get("cloid", ""))
         tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
         if not tracked_order:
             self.logger().debug(f"Ignoring order message with id {client_order_id}: not in in_flight_orders.")
@@ -583,8 +582,8 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             trading_pair=tracked_order.trading_pair,
             update_timestamp=order_msg["statusTimestamp"] * 1e-3,
             new_state=CONSTANTS.ORDER_STATE[current_state],
-            client_order_id=order_msg["cloid"],
-            exchange_order_id=order_msg["oid"],
+            client_order_id=order_msg["order"]["cloid"],
+            exchange_order_id=order_msg["order"]["oid"],
         )
         self._order_tracker.process_order_update(order_update=order_update)
 
@@ -770,7 +769,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             },
             method=RESTMethod.POST,
         )
-        #todo 这里主席下时间的排序是否为倒叙
+        #todo 这里注意下时间的排序是否为倒叙
         sorted_payment_response = [i for i in funding_info_response if i["delta"]["coin"] == coin]
         if len(sorted_payment_response) < 1:
             timestamp, funding_rate, payment = 0, Decimal("-1"), Decimal("-1")

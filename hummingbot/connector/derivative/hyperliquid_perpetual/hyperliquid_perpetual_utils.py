@@ -16,7 +16,7 @@ CENTRALIZED = True
 
 EXAMPLE_PAIR = "BTC_USD"
 
-BROKER_ID = "x-3QreWesy"
+BROKER_ID = "HBOT"
 
 
 class BitComPerpetualConfigMap(BaseConnectorConfigMap):
