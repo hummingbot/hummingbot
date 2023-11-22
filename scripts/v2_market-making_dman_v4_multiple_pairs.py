@@ -162,9 +162,7 @@ class DManV4MultiplePairs(ScriptStrategyBase):
         This shows you how you can start meta controllers. You can run more than one at the same time and based on the
         market conditions, you can orchestrate from this script when to stop or start them.
         """
-        if not self.rebalanced:
-            if len(self.rebalance_orders) > 0:
-                return
+        if not self.rebalanced and len(self.rebalance_orders) == 0:
             self.rebalance()
         else:
             for executor_handler in self.executor_handlers.values():
@@ -182,6 +180,8 @@ class DManV4MultiplePairs(ScriptStrategyBase):
                         self.rebalance_orders[trading_pair] = self.buy(connector_name=self.exchange, trading_pair=trading_pair, amount=balance_diff_in_base, order_type=OrderType.MARKET)
                     elif balance_diff_in_base < 0:
                         self.rebalance_orders[trading_pair] = self.sell(connector_name=self.exchange, trading_pair=trading_pair, amount=abs(balance_diff_in_base), order_type=OrderType.MARKET)
+        if len(self.rebalance_orders) == 0:
+            self.rebalanced = True
 
     def format_status(self) -> str:
         if not self.ready_to_trade:
