@@ -72,18 +72,19 @@ class MarketMakingExecutorHandler(ExecutorHandlerBase):
                     position_config = self.controller.get_position_config(order_level)
                     if position_config:
                         self.create_executor(position_config, order_level)
-            for side, global_trailing_stop_conf in self.global_trailing_stop_config.items():
-                if current_metrics[side]["amount"] > 0:
-                    current_pnl_pct = current_metrics[side]["net_pnl_quote"] / current_metrics[side]["amount"]
-                    trailing_stop_pnl = self._trailing_stop_pnl_by_side[side]
-                    if not trailing_stop_pnl and current_pnl_pct > global_trailing_stop_conf.activation_price_delta:
-                        self._trailing_stop_pnl_by_side[side] = current_pnl_pct - global_trailing_stop_conf.trailing_delta
-                        self.logger().info("Global Trailing Stop Activated!")
-                    if trailing_stop_pnl:
-                        if current_pnl_pct < trailing_stop_pnl:
-                            self.logger().info("Global Trailing Stop Triggered!")
-                            for executor in current_metrics[side]["executors"]:
-                                executor.early_stop()
-                            self._trailing_stop_pnl_by_side[side] = None
-                        elif current_pnl_pct - global_trailing_stop_conf.trailing_delta > trailing_stop_pnl:
+            if self.global_trailing_stop_config:
+                for side, global_trailing_stop_conf in self.global_trailing_stop_config.items():
+                    if current_metrics[side]["amount"] > 0:
+                        current_pnl_pct = current_metrics[side]["net_pnl_quote"] / current_metrics[side]["amount"]
+                        trailing_stop_pnl = self._trailing_stop_pnl_by_side[side]
+                        if not trailing_stop_pnl and current_pnl_pct > global_trailing_stop_conf.activation_price_delta:
                             self._trailing_stop_pnl_by_side[side] = current_pnl_pct - global_trailing_stop_conf.trailing_delta
+                            self.logger().info("Global Trailing Stop Activated!")
+                        if trailing_stop_pnl:
+                            if current_pnl_pct < trailing_stop_pnl:
+                                self.logger().info("Global Trailing Stop Triggered!")
+                                for executor in current_metrics[side]["executors"]:
+                                    executor.early_stop()
+                                self._trailing_stop_pnl_by_side[side] = None
+                            elif current_pnl_pct - global_trailing_stop_conf.trailing_delta > trailing_stop_pnl:
+                                self._trailing_stop_pnl_by_side[side] = current_pnl_pct - global_trailing_stop_conf.trailing_delta
