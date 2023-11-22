@@ -339,8 +339,6 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             **kwargs,
     ) -> Tuple[str, float]:
 
-        amount_str = f"{amount:f}"
-        price_str = f"{price:f}"
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         coin = symbol.split("-")[0]
         param_order_type = {"limit": {"tif": "Gtc"}}
@@ -353,8 +351,8 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             "orders": {
                 "asset": self.coin_to_asset[coin],
                 "isBuy": True if trade_type is TradeType.BUY else False,
-                "limitPx": price_str,
-                "sz": amount_str,
+                "limitPx": float(price),
+                "sz": float(amount),
                 "reduceOnly": position_action == PositionAction.CLOSE,
                 "orderType": param_order_type,
                 "cloid": order_id,

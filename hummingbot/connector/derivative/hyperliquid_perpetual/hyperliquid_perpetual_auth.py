@@ -12,6 +12,7 @@ from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual
     float_to_int_for_hashing,
     order_grouping_to_number,
     order_type_to_tuple,
+    order_spec_to_order_wire,
     str_to_bytes16,
 )
 from hummingbot.core.web_assistant.auth import AuthBase
@@ -102,7 +103,7 @@ class HyperliquidPerpetualAuth(AuthBase):
             "action": params,
             "nonce": timestamp,
             "signature": signature,
-            "vaultAddress": ZERO_ADDRESS,
+            "vaultAddress": None,
         }
         return payload
 
@@ -129,7 +130,7 @@ class HyperliquidPerpetualAuth(AuthBase):
             },
             "nonce": timestamp,
             "signature": signature,
-            "vaultAddress": ZERO_ADDRESS,
+            "vaultAddress": None,
         }
         return payload
 
@@ -163,11 +164,11 @@ class HyperliquidPerpetualAuth(AuthBase):
             "action": {
                 "type": "order",
                 "grouping": grouping,
-                "orders": [order],
+                "orders": [order_spec_to_order_wire(order)],
             },
             "nonce": timestamp,
             "signature": signature,
-            "vaultAddress": ZERO_ADDRESS,
+            "vaultAddress": None,
         }
         return payload
 
@@ -185,8 +186,8 @@ class HyperliquidPerpetualAuth(AuthBase):
             payload = self._sign_cancel_params(request_params, base_url, timestamp)
         elif request_type == "updateLeverage":
             payload = self._sign_update_leverage_params(request_params, base_url, timestamp)
-        res = json.dumps(payload)
-        return res
+            payload = json.dumps(payload)
+        return payload
 
     @staticmethod
     def _get_timestamp():
