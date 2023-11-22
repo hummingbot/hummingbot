@@ -124,3 +124,37 @@ def order_grouping_to_number(grouping) -> int:
         return 1
     elif grouping == "positionTpsl":
         return 2
+
+def order_spec_to_order_wire(order_spec):
+    order = order_spec["order"]
+    cloid = None
+    if "cloid" in order and order["cloid"]:
+        cloid = order["cloid"].to_raw()
+    return {
+        "asset": order["asset"],
+        "isBuy": order["isBuy"],
+        "limitPx": float_to_wire(order["limitPx"]),
+        "sz": float_to_wire(order["sz"]),
+        "reduceOnly": order["reduceOnly"],
+        "orderType": order_type_to_wire(order_spec["orderType"]),
+        "cloid": cloid,
+    }
+
+def float_to_wire(x: float) -> str:
+    rounded = "{:.8f}".format(x)
+    if abs(float(rounded) - x) >= 1e-12:
+        raise ValueError("float_to_wire causes rounding", x)
+    return rounded
+
+def order_type_to_wire(order_type):
+    if "limit" in order_type:
+        return {"limit": order_type["limit"]}
+    elif "trigger" in order_type:
+        return {
+            "trigger": {
+                "triggerPx": float_to_wire(order_type["trigger"]["triggerPx"]),
+                "tpsl": order_type["trigger"]["tpsl"],
+                "isMarket": order_type["trigger"]["isMarket"],
+            }
+        }
+    raise ValueError("Invalid order type", order_type)
