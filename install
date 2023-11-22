@@ -34,6 +34,12 @@ conda develop .
 # or it'll give you the graphviz install error.
 pip install objgraph
 
+# Check if pre-commit is installed, if not, pip install pre-commit
+if ! command -v pre-commit &> /dev/null; then
+    echo "pre-commit not found, installing..."
+    pip install pre-commit
+fi
+
 pre-commit install
 
 # The following logic is required to replace the grpcio package installed from conda binaries in Mac Intel
