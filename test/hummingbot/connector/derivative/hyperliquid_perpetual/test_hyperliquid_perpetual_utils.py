@@ -1,5 +1,5 @@
 from unittest import TestCase
 
 
-class BitComPerpetualUtilsTests(TestCase):
+class HyperliquidPerpetualUtilsTests(TestCase):
     pass

@@ -94,7 +94,7 @@ class HyperliquidPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             await websocket_assistant.send(subscribe_order_change_request)
             await websocket_assistant.send(subscribe_positions_request)
 
-            self.logger().info("Subscribed to private order changes channels...")
+            self.logger().info("Subscribed to private order and trades changes channels...")
         except asyncio.CancelledError:
             raise
         except Exception:

@@ -598,9 +598,9 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         response = await self._api_post(path_url=CONSTANTS.TICKER_PRICE_CHANGE_URL,
                                         data={"type": CONSTANTS.ASSET_CONTEXT_TYPE})
         price = 0
-        for i in response[0]['universe']:
+        for index, i in enumerate(response[0]['universe']):
             if i['name'] == coin:
-                price = float(response[1][i]['markPx'])
+                price = float(response[1][index]['markPx'])
         return price
 
     def _resolve_trading_pair_symbols_duplicate(self, mapping: bidict, new_exchange_symbol: str, base: str, quote: str):

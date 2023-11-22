@@ -11,11 +11,13 @@ import pandas as pd
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
 
-import hummingbot.connector.derivative.bit_com_perpetual.bit_com_perpetual_constants as CONSTANTS
-import hummingbot.connector.derivative.bit_com_perpetual.bit_com_perpetual_web_utils as web_utils
+import hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_constants as CONSTANTS
+import hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_web_utils as web_utils
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.derivative.bit_com_perpetual.bit_com_perpetual_derivative import BitComPerpetualDerivative
+from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_derivative import (
+    HyperliquidPerpetualDerivative,
+)
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.test_support.perpetual_derivative_test import AbstractPerpetualDerivativeTests
 from hummingbot.connector.trading_rule import TradingRule
@@ -26,7 +28,7 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 
 
-class BitComPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDerivativeTests):
+class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDerivativeTests):
     _logger = logging.getLogger(__name__)
 
     @classmethod
@@ -96,81 +98,34 @@ class BitComPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
     @property
     def all_symbols_request_mock_response(self):
-        mock_response = {
-            "code": 0,
-            "message": "",
-            "data": [
-                {
-                    "instrument_id": self.exchange_trading_pair,
-                    "created_at": 1640944328750,
-                    "updated_at": 1640944328750,
-                    "base_currency": "BTC",
-                    "quote_currency": "USD",
-                    "strike_price": "",
-                    "expiration_at": 4102444800000,
-                    "option_type": "",
-                    "category": "future",
-                    "min_price": "0.00050000",
-                    "max_price": "1000000.00000000",
-                    "price_step": "0.01000000",
-                    "min_size": "0.00010000",
-                    "size_step": "0.00010000",
-                    "delivery_fee_rate": "",
-                    "contract_size": "",
-                    "contract_size_currency": "BTC",
-                    "active": True,
-                    "status": "online",
-                    "groups": [
-                        1,
-                        10,
-                        100,
-                        10000
-                    ],
-                    "group_steps": [
-                        "0.01000000",
-                        "0.10000000",
-                        "1.00000000",
-                        "100.00000000"
-                    ],
-                    "display_at": 1640944328422,
-                    "is_display": True
-                }
-            ]
-        }
+        mock_response = [{'universe': [{'maxLeverage': 50, 'name': 'BTC', 'onlyIsolated': False, 'szDecimals': 5},
+                                       {'maxLeverage': 50, 'name': 'ETH', 'onlyIsolated': False, 'szDecimals': 4}]}, [
+                             {'dayNtlVlm': '27009889.88843001', 'funding': '0.00001793',
+                              'impactPxs': ['36724.0', '36736.9'],
+                              'markPx': '36733.0', 'midPx': '36730.0', 'openInterest': '34.37756',
+                              'oraclePx': '36717.0',
+                              'premium': '0.00036632', 'prevDayPx': '35242.0'},
+                             {'dayNtlVlm': '8781185.14306', 'funding': '0.00005324', 'impactPxs': ['1922.9', '1923.1'],
+                              'markPx': '1923.1',
+                              'midPx': '1923.05', 'openInterest': '638.8957', 'oraclePx': '1921.7',
+                              'premium': '0.00067648',
+                              'prevDayPx': '1877.1'}]]
         return mock_response
 
     @property
     def latest_prices_request_mock_response(self):
-        mock_response = {
-            "code": 0,
-            "message": "",
-            "data": {
-                "time": self.target_funding_info_next_funding_utc_timestamp,
-                "instrument_id": self.exchange_trading_pair,
-                "best_bid": "35310.40000000",
-                "best_ask": "35311.15000000",
-                "best_bid_qty": "4.46000000",
-                "best_ask_qty": "3.10000000",
-                "ask_sigma": "",
-                "bid_sigma": "",
-                "last_price": str(self.expected_latest_price),
-                "last_qty": "5.85000000",
-                "open24h": "35064.40000000",
-                "high24h": "36480.60000000",
-                "low24h": "34688.50000000",
-                "price_change24h": "0.00700426",
-                "volume24h": "2329.37000000",
-                "volume_usd24h": "82236990.06700000",
-                "open_interest": "94.21840000",
-                "funding_rate": "0.00000000",
-                "funding_rate8h": "0.00017589",
-                "underlying_price": "0.00000000",
-                "mark_price": "35310.69417074",
-                "index_price": "1",
-                "min_sell": "34781.03000000",
-                "max_buy": "35840.36000000"
-            }
-        }
+        mock_response = [{'universe': [{'maxLeverage': 50, 'name': 'BTC', 'onlyIsolated': False, 'szDecimals': 5},
+                                       {'maxLeverage': 50, 'name': 'ETH', 'onlyIsolated': False, 'szDecimals': 4}]}, [
+                             {'dayNtlVlm': '27009889.88843001', 'funding': '0.00001793',
+                              'impactPxs': ['36724.0', '36736.9'],
+                              'markPx': '36733.0', 'midPx': '36730.0', 'openInterest': '34.37756',
+                              'oraclePx': '36717.0',
+                              'premium': '0.00036632', 'prevDayPx': '35242.0'},
+                             {'dayNtlVlm': '8781185.14306', 'funding': '0.00005324', 'impactPxs': ['1922.9', '1923.1'],
+                              'markPx': '1923.1',
+                              'midPx': '1923.05', 'openInterest': '638.8957', 'oraclePx': '1921.7',
+                              'premium': '0.00067648',
+                              'prevDayPx': '1877.1'}]]
 
         return mock_response
 
@@ -796,7 +751,7 @@ class BitComPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
     def create_exchange_instance(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
-        exchange = BitComPerpetualDerivative(
+        exchange = HyperliquidPerpetualDerivative(
             client_config_map,
             self.api_key,
             self.api_secret,
@@ -1280,10 +1235,10 @@ class BitComPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
     def test_user_stream_balance_update(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
-        connector = BitComPerpetualDerivative(
+        connector = HyperliquidPerpetualDerivative(
             client_config_map=client_config_map,
-            bit_com_perpetual_api_key=self.api_key,
-            bit_com_perpetual_api_secret=self.api_secret,
+            hyperliquid_perpetual_api_key=self.api_key,
+            hyperliquid_perpetual_api_secret=self.api_secret,
             trading_pairs=[self.trading_pair],
         )
         connector._set_current_timestamp(1640780000)
@@ -1304,10 +1259,10 @@ class BitComPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
     def test_user_stream_position_update(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
-        connector = BitComPerpetualDerivative(
+        connector = HyperliquidPerpetualDerivative(
             client_config_map=client_config_map,
-            bit_com_perpetual_api_key=self.api_key,
-            bit_com_perpetual_api_secret=self.api_secret,
+            hyperliquid_perpetual_api_key=self.api_key,
+            hyperliquid_perpetual_api_secret=self.api_secret,
             trading_pairs=[self.trading_pair],
         )
         connector._set_current_timestamp(1640780000)
@@ -1339,10 +1294,10 @@ class BitComPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
     def test_user_stream_remove_position_update(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
-        connector = BitComPerpetualDerivative(
+        connector = HyperliquidPerpetualDerivative(
             client_config_map=client_config_map,
-            bit_com_perpetual_api_key=self.api_key,
-            bit_com_perpetual_api_secret=self.api_secret,
+            hyperliquid_perpetual_api_key=self.api_key,
+            hyperliquid_perpetual_api_secret=self.api_secret,
             trading_pairs=[self.trading_pair],
         )
         connector._set_current_timestamp(1640780000)
@@ -1369,10 +1324,10 @@ class BitComPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
 
     def test_supported_position_modes(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
-        linear_connector = BitComPerpetualDerivative(
+        linear_connector = HyperliquidPerpetualDerivative(
             client_config_map=client_config_map,
-            bit_com_perpetual_api_key=self.api_key,
-            bit_com_perpetual_api_secret=self.api_secret,
+            hyperliquid_perpetual_api_key=self.api_key,
+            hyperliquid_perpetual_api_secret=self.api_secret,
             trading_pairs=[self.trading_pair],
         )
 
