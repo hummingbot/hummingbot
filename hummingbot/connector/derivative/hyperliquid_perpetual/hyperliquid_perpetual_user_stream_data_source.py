@@ -98,7 +98,7 @@ class HyperliquidPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         except Exception:
             self.logger().exception("Unexpected error occurred subscribing to user streams...")
             raise
-    # todo orderUpdates等 raw wsmessage 未处理。
+
     async def _process_event_message(self, event_message: Dict[str, Any], queue: asyncio.Queue):
         if event_message.get("error") is not None:
             err_msg = event_message.get("error", {}).get("message", event_message.get("error"))
@@ -106,7 +106,7 @@ class HyperliquidPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 "label": "WSS_ERROR",
                 "message": f"Error received via websocket - {err_msg}."
             })
-        elif event_message.get("event") == "update" and event_message.get("channel") in [
+        elif event_message.get("channel") in [
             CONSTANTS.USER_ORDERS_ENDPOINT_NAME,
             CONSTANTS.USEREVENT_ENDPOINT_NAME,
         ]:

@@ -61,6 +61,10 @@ SIGNATURE_TYPE = {
     "updateLeverage": ["uint32", "bool", "uint32"],
 }
 
+
+USER_ORDERS_ENDPOINT_NAME = "orderUpdates"
+USEREVENT_ENDPOINT_NAME = "user"
+
 # Order Statuses
 # todo 需要根据返回结果填写status。
 ORDER_STATE = {
