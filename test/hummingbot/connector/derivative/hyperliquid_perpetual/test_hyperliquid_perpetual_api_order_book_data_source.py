@@ -16,8 +16,9 @@ from hummingbot.connector.derivative.hyperliquid_perpetual import hyperliquid_pe
 from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_api_order_book_data_source import (
     HyperliquidPerpetualAPIOrderBookDataSource,
 )
-from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_derivative import \
-    HyperliquidPerpetualDerivative
+from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_derivative import (
+    HyperliquidPerpetualDerivative,
+)
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
@@ -91,7 +92,8 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
             [{'px': '2080.3', 'sz': '74.6923', 'n': 2}, {'px': '2080.0', 'sz': '162.2829', 'n': 2},
              {'px': '1825.5', 'sz': '0.0259', 'n': 1}, {'px': '1823.6', 'sz': '0.0259', 'n': 1}],
             [{'px': '2080.5', 'sz': '73.018', 'n': 2}, {'px': '2080.6', 'sz': '74.6799', 'n': 2},
-             {'px': '2118.9', 'sz': '377.495', 'n': 1}, {'px': '2122.1', 'sz': '348.8644', 'n': 1}]], "time": 1700687397643}
+             {'px': '2118.9', 'sz': '377.495', 'n': 1}, {'px': '2122.1', 'sz': '348.8644', 'n': 1}]],
+                "time": 1700687397643}
 
     def get_ws_snapshot_msg(self) -> Dict:
         return {'channel': 'l2Book', 'data': {'coin': 'BTC', 'time': 1700687397643, 'levels': [
@@ -106,7 +108,6 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
              {'px': '1825.5', 'sz': '0.0259', 'n': 1}, {'px': '1823.6', 'sz': '0.0259', 'n': 1}],
             [{'px': '2080.5', 'sz': '73.018', 'n': 2}, {'px': '2080.6', 'sz': '74.6799', 'n': 2},
              {'px': '2118.9', 'sz': '377.495', 'n': 1}, {'px': '2122.1', 'sz': '348.8644', 'n': 1}]]}}
-
 
     def get_funding_info_rest_msg(self):
         return [
@@ -447,7 +448,6 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(2080.5, asks[0].price)
         self.assertEqual(73.018, asks[0].amount)
 
-
     @aioresponses()
     def test_get_funding_info(self, mock_api):
         endpoint = CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL
@@ -462,7 +462,7 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
         msg_result = resp
 
         self.assertEqual(self.trading_pair, funding_info.trading_pair)
-        self.assertEqual((int((msg_result[0]["time"]/1e-3) / CONSTANTS.FUNDING_RATE_INTERNAL_MIL_SECOND) + 1) *
+        self.assertEqual((int((msg_result[0]["time"] / 1e-3) / CONSTANTS.FUNDING_RATE_INTERNAL_MIL_SECOND) + 1) *
                          CONSTANTS.FUNDING_RATE_INTERNAL_MIL_SECOND,
                          funding_info.next_funding_utc_timestamp)
         self.assertEqual(Decimal(str(msg_result[0]["delta"]["fundingRate"])), funding_info.rate)
