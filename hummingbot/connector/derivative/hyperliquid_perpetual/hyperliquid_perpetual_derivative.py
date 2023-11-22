@@ -697,7 +697,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 is_auth_required=True)
             success = False
             msg = ""
-            if Decimal(set_leverage["data"]["leverage_ratio"]) == Decimal(str(leverage)):
+            if set_leverage["status"] == 'ok':
                 success = True
             else:
                 msg = 'Unable to set leverage'
