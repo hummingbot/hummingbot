@@ -126,18 +126,14 @@ def order_grouping_to_number(grouping) -> int:
         return 2
 
 def order_spec_to_order_wire(order_spec):
-    order = order_spec["order"]
-    cloid = None
-    if "cloid" in order and order["cloid"]:
-        cloid = order["cloid"].to_raw()
     return {
-        "asset": order["asset"],
-        "isBuy": order["isBuy"],
-        "limitPx": float_to_wire(order["limitPx"]),
-        "sz": float_to_wire(order["sz"]),
-        "reduceOnly": order["reduceOnly"],
+        "asset": order_spec["asset"],
+        "isBuy": order_spec["isBuy"],
+        "limitPx": float_to_wire(order_spec["limitPx"]),
+        "sz": float_to_wire(order_spec["sz"]),
+        "reduceOnly": order_spec["reduceOnly"],
         "orderType": order_type_to_wire(order_spec["orderType"]),
-        "cloid": cloid,
+        "cloid": order_spec["cloid"],
     }
 
 def float_to_wire(x: float) -> str:
