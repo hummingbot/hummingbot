@@ -72,7 +72,6 @@ class TestFromGetToPutLogic(unittest.IsolatedAsyncioTestCase):
            ".try_except_conditional_raise")
     async def test_successful_get_and_put(self, try_except_conditional_raise, log_exception_mock):
         # Test
-        objgraph.show_growth(limit=3)
         await from_get_to_put_logic(
             get_operation=self.get_operation,
             put_operation=self.put_operation,
@@ -84,7 +83,6 @@ class TestFromGetToPutLogic(unittest.IsolatedAsyncioTestCase):
             raise_for_helpers=False,
             logger=self.logger
         )
-        objgraph.show_growth()
         # Assertions
         # Get operation exhausted raises StopAsyncIteration
         with self.assertRaises(StopAsyncIteration):
