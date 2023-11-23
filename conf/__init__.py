@@ -58,12 +58,6 @@ coinbase_pro_passphrase = os.getenv("COINBASE_PRO_PASSPHRASE")
 huobi_api_key = os.getenv("HUOBI_API_KEY")
 huobi_secret_key = os.getenv("HUOBI_SECRET_KEY")
 
-# Loopring Tests
-loopring_accountid = os.getenv("LOOPRING_ACCOUNTID")
-loopring_exchangeid = os.getenv("LOOPRING_EXCHANGEID")
-loopring_api_key = os.getenv("LOOPRING_API_KEY")
-loopring_private_key = os.getenv("LOOPRING_PRIVATE_KEY")
-
 # Bittrex Tests
 bittrex_api_key = os.getenv("BITTREX_API_KEY")
 bittrex_secret_key = os.getenv("BITTREX_SECRET_KEY")
