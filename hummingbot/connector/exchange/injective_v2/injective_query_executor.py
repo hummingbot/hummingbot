@@ -4,6 +4,8 @@ from typing import Any, Dict, List, Optional
 from google.protobuf import json_format
 from grpc import RpcError
 from pyinjective.async_client import AsyncClient
+from pyinjective.core.market import DerivativeMarket, SpotMarket
+from pyinjective.core.token import Token
 from pyinjective.proto.injective.stream.v1beta1 import query_pb2 as chain_stream_query
 
 
@@ -14,11 +16,15 @@ class BaseInjectiveQueryExecutor(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def spot_markets(self, status: str) -> Dict[str, Any]:
+    async def spot_markets(self) -> Dict[str, SpotMarket]:
         raise NotImplementedError
 
     @abstractmethod
-    async def derivative_markets(self, status: str) -> Dict[str, Any]:
+    async def derivative_markets(self) -> Dict[str, DerivativeMarket]:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def tokens(self) -> Dict[str, Token]:
         raise NotImplementedError
 
     @abstractmethod
@@ -143,25 +149,16 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
     async def ping(self):  # pragma: no cover
         await self._sdk_client.ping()
 
-    async def spot_markets(self, status: str) -> List[Dict[str, Any]]:  # pragma: no cover
-        response = await self._sdk_client.get_spot_markets(status=status)
-        markets = []
+    async def spot_markets(self) -> Dict[str, SpotMarket]:  # pragma: no cover
+        return await self._sdk_client.all_spot_markets()
 
-        for market_info in response.markets:
-            markets.append(json_format.MessageToDict(market_info))
+    async def derivative_markets(self) -> Dict[str, DerivativeMarket]:  # pragma: no cover
+        return await self._sdk_client.all_derivative_markets()
 
-        return markets
+    async def tokens(self) -> Dict[str, Token]:  # pragma: no cover
+        return await self._sdk_client.all_tokens()
 
-    async def derivative_markets(self, status: str) -> List[Dict[str, Any]]:  # pragma: no cover
-        response = await self._sdk_client.get_derivative_markets(status=status)
-        markets = []
-
-        for market_info in response.markets:
-            markets.append(json_format.MessageToDict(market_info))
-
-        return markets
-
-    async def derivative_market(self, market_id: str) -> List[Dict[str, Any]]:  # pragma: no cover
+    async def derivative_market(self, market_id: str) -> Dict[str, Any]:  # pragma: no cover
         response = await self._sdk_client.get_derivative_market(market_id=market_id)
         market = json_format.MessageToDict(response.market)
 
