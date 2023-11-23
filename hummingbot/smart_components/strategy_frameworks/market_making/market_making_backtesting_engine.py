@@ -37,8 +37,7 @@ class MarketMakingBacktestingEngine(BacktestingEngineBase):
                 orders_info = self.level_executors[order_level.level_id]
                 cooldown_condition = index >= orders_info["last_cooldown_time"] + pd.Timedelta(seconds=order_level.cooldown_time)
                 order_refresh_condition = index >= orders_info["last_order_refresh_time"] + pd.Timedelta(seconds=order_level.order_refresh_time)
-                active_side_condition = row["active_side"] == row["side"]
-                if order_refresh_condition and cooldown_condition and active_side_condition:
+                if order_refresh_condition and cooldown_condition:
                     if row["close_type"] == "sl":
                         triple_barrier_row = df_triple_barrier.loc[row["close_time"]]
                         triple_barrier_row["order_level"] = order_level.level_id
