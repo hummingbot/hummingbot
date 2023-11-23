@@ -1053,6 +1053,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
         return await super()._api_get(*args, **kwargs)
 
     async def _make_network_check_request(self):
+        self.logger().debug(f"Checking network status of {self.name} by querying server time.")
         await self._api_get(path_url=constants.SERVER_TIME_EP, is_auth_required=False)
 
     async def _format_trading_rules(self, e: Dict[str, Any]) -> List[TradingRule]:
