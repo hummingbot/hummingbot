@@ -1,7 +1,6 @@
 import asyncio
 from typing import Any, Dict, List, Mapping, Optional
 
-from bidict import bidict
 from google.protobuf import any_pb2
 from pyinjective import Transaction
 from pyinjective.async_client import AsyncClient
@@ -53,7 +52,7 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
         self._spot_market_and_trading_pair_map: Optional[Mapping[str, str]] = None
         self._derivative_market_and_trading_pair_map: Optional[Mapping[str, str]] = None
         self._tokens_map: Optional[Dict[str, InjectiveToken]] = None
-        self._token_symbol_symbol_and_denom_map: Optional[Mapping[str, str]] = None
+        self._token_symbol_and_denom_map: Optional[Mapping[str, str]] = None
 
         self._events_listening_tasks: List[asyncio.Task] = []
 
@@ -206,67 +205,14 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
         raise NotImplementedError
 
     async def update_markets(self):
-        self._tokens_map = {}
-        self._token_symbol_symbol_and_denom_map = bidict()
-        spot_markets_map = {}
-        derivative_markets_map = {}
-        spot_market_id_to_trading_pair = bidict()
-        derivative_market_id_to_trading_pair = bidict()
-
-        async with self.throttler.execute_task(limit_id=CONSTANTS.SPOT_MARKETS_LIMIT_ID):
-            markets = await self._query_executor.spot_markets(status="active")
-
-        for market_info in markets:
-            try:
-                if "/" in market_info["ticker"]:
-                    ticker_base, ticker_quote = market_info["ticker"].split("/")
-                else:
-                    ticker_base = market_info["ticker"]
-                    ticker_quote = None
-                base_token = self._token_from_market_info(
-                    denom=market_info["baseDenom"],
-                    token_meta=market_info["baseTokenMeta"],
-                    candidate_symbol=ticker_base,
-                )
-                quote_token = self._token_from_market_info(
-                    denom=market_info["quoteDenom"],
-                    token_meta=market_info["quoteTokenMeta"],
-                    candidate_symbol=ticker_quote,
-                )
-                market = InjectiveSpotMarket(
-                    market_id=market_info["marketId"],
-                    base_token=base_token,
-                    quote_token=quote_token,
-                    market_info=market_info
-                )
-                spot_market_id_to_trading_pair[market.market_id] = market.trading_pair()
-                spot_markets_map[market.market_id] = market
-            except KeyError:
-                self.logger().debug(f"The spot market {market_info['marketId']} will be excluded because it could not "
-                                    f"be parsed ({market_info})")
-                continue
-
-        async with self.throttler.execute_task(limit_id=CONSTANTS.DERIVATIVE_MARKETS_LIMIT_ID):
-            markets = await self._query_executor.derivative_markets(status="active")
-        for market_info in markets:
-            try:
-                market = self._parse_derivative_market_info(market_info=market_info)
-                if market.trading_pair() in derivative_market_id_to_trading_pair.inverse:
-                    self.logger().debug(
-                        f"The derivative market {market_info['marketId']} will be excluded because there is other"
-                        f" market with trading pair {market.trading_pair()} ({market_info})")
-                    continue
-                derivative_market_id_to_trading_pair[market.market_id] = market.trading_pair()
-                derivative_markets_map[market.market_id] = market
-            except KeyError:
-                self.logger().debug(f"The derivative market {market_info['marketId']} will be excluded because it could"
-                                    f" not be parsed ({market_info})")
-                continue
-
-        self._spot_market_info_map = spot_markets_map
-        self._spot_market_and_trading_pair_map = spot_market_id_to_trading_pair
-        self._derivative_market_info_map = derivative_markets_map
-        self._derivative_market_and_trading_pair_map = derivative_market_id_to_trading_pair
+        (
+            self._tokens_map,
+            self._token_symbol_and_denom_map,
+            self._spot_market_info_map,
+            self._spot_market_and_trading_pair_map,
+            self._derivative_market_info_map,
+            self._derivative_market_and_trading_pair_map,
+        ) = await self._get_markets_and_tokens()
 
     def real_tokens_spot_trading_pair(self, unique_trading_pair: str) -> str:
         resulting_trading_pair = unique_trading_pair
@@ -344,12 +290,11 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
     ) -> injective_exchange_tx_pb.OrderData:
         raise NotImplementedError
 
-    async def _updated_derivative_market_info_for_id(self, market_id: str) -> InjectiveDerivativeMarket:
+    async def _updated_derivative_market_info_for_id(self, market_id: str) -> Dict[str, Any]:
         async with self.throttler.execute_task(limit_id=CONSTANTS.DERIVATIVE_MARKETS_LIMIT_ID):
             market_info = await self._query_executor.derivative_market(market_id=market_id)
 
-        market = self._parse_derivative_market_info(market_info=market_info)
-        return market
+        return market_info
 
     def _token_from_market_info(
             self, denom: str, token_meta: Dict[str, Any], candidate_symbol: Optional[str] = None
@@ -357,8 +302,8 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
         token = self._tokens_map.get(denom)
         if token is None:
             unique_symbol = token_meta["symbol"]
-            if unique_symbol in self._token_symbol_symbol_and_denom_map:
-                if candidate_symbol is not None and candidate_symbol not in self._token_symbol_symbol_and_denom_map:
+            if unique_symbol in self._token_symbol_and_denom_map:
+                if candidate_symbol is not None and candidate_symbol not in self._token_symbol_and_denom_map:
                     unique_symbol = candidate_symbol
                 else:
                     unique_symbol = token_meta["name"]
@@ -370,22 +315,6 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
                 decimals=token_meta["decimals"]
             )
             self._tokens_map[denom] = token
-            self._token_symbol_symbol_and_denom_map[unique_symbol] = denom
+            self._token_symbol_and_denom_map[unique_symbol] = denom
 
         return token
-
-    def _parse_derivative_market_info(self, market_info: Dict[str, Any]) -> InjectiveDerivativeMarket:
-        ticker_quote = None
-        if "/" in market_info["ticker"]:
-            _, ticker_quote = market_info["ticker"].split("/")
-        quote_token = self._token_from_market_info(
-            denom=market_info["quoteDenom"],
-            token_meta=market_info["quoteTokenMeta"],
-            candidate_symbol=ticker_quote,
-        )
-        market = InjectiveDerivativeMarket(
-            market_id=market_info["marketId"],
-            quote_token=quote_token,
-            market_info=market_info
-        )
-        return market

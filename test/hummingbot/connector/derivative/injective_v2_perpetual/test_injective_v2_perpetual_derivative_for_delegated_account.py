@@ -13,6 +13,8 @@ from bidict import bidict
 from grpc import RpcError
 from pyinjective import Address, PrivateKey
 from pyinjective.composer import Composer
+from pyinjective.core.market import DerivativeMarket, SpotMarket
+from pyinjective.core.token import Token
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -236,16 +238,23 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
     @property
     def all_symbols_including_invalid_pair_mock_response(self) -> Tuple[str, Any]:
         response = self.all_derivative_markets_mock_response
-        response.append({
-            "marketId": "invalid_market_id",
-            "marketStatus": "active",
-            "ticker": "INVALID/MARKET",
-            "makerFeeRate": "-0.0001",
-            "takerFeeRate": "0.001",
-            "serviceProviderFee": "0.4",
-            "minPriceTickSize": "0.000000000000001",
-            "minQuantityTickSize": "1000000000000000"
-        })
+        response["invalid_market_id"] = DerivativeMarket(
+            id="invalid_market_id",
+            status="active",
+            ticker="INVALID/MARKET",
+            oracle_base="",
+            oracle_quote="",
+            oracle_type="pyth",
+            oracle_scale_factor=6,
+            initial_margin_ratio=Decimal("0.195"),
+            maintenance_margin_ratio=Decimal("0.05"),
+            quote_token=None,
+            maker_fee_rate=Decimal("-0.0003"),
+            taker_fee_rate=Decimal("0.003"),
+            service_provider_fee=Decimal("0.4"),
+            min_price_tick_size=Decimal("100"),
+            min_quantity_tick_size=Decimal("0.0001"),
+        )
 
         return ("INVALID_MARKET", response)
 
@@ -259,32 +268,35 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     @property
     def trading_rules_request_erroneous_mock_response(self):
-        return [{
-            "marketId": "0x0611780ba69656949525013d947713300f56c37b6175e02f26bffa495c3208fe",  # noqa: mock
-            "marketStatus": "active",
-            "ticker": f"{self.base_asset}/{self.quote_asset}",
-            "baseDenom": self.base_asset_denom,
-            "baseTokenMeta": {
-                "name": "Base Asset",
-                "address": "0xe28b3B32B6c345A34Ff64674606124Dd5Aceca30",  # noqa: mock
-                "symbol": self.base_asset,
-                "logo": "https://static.alchemyapi.io/images/assets/7226.png",
-                "decimals": self.base_decimals,
-                "updatedAt": "1687190809715"
-            },
-            "quoteDenom": self.quote_asset_denom,  # noqa: mock
-            "quoteTokenMeta": {
-                "name": "Quote Asset",
-                "address": "0x0000000000000000000000000000000000000000",  # noqa: mock
-                "symbol": self.quote_asset,
-                "logo": "https://static.alchemyapi.io/images/assets/825.png",
-                "decimals": self.quote_decimals,
-                "updatedAt": "1687190809716"
-            },
-            "makerFeeRate": "-0.0001",
-            "takerFeeRate": "0.001",
-            "serviceProviderFee": "0.4",
-        }]
+        quote_native_token = Token(
+            name="Base Asset",
+            symbol=self.quote_asset,
+            denom=self.quote_asset_denom,
+            address="0x0000000000000000000000000000000000000000",  # noqa: mock
+            decimals=self.quote_decimals,
+            logo="https://static.alchemyapi.io/images/assets/825.png",
+            updated=1687190809716,
+        )
+
+        native_market = DerivativeMarket(
+            id=self.market_id,
+            status="active",
+            ticker=f"{self.base_asset}/{self.quote_asset} PERP",
+            oracle_base="0x2d9315a88f3019f8efa88dfe9c0f0843712da0bac814461e27733f6b83eb51b3",  # noqa: mock
+            oracle_quote="0x1fc18861232290221461220bd4e2acd1dcdfbc89c84092c93c18bdc7756c1588",  # noqa: mock
+            oracle_type="pyth",
+            oracle_scale_factor=6,
+            initial_margin_ratio=Decimal("0.195"),
+            maintenance_margin_ratio=Decimal("0.05"),
+            quote_token=quote_native_token,
+            maker_fee_rate=Decimal("-0.0003"),
+            taker_fee_rate=Decimal("0.003"),
+            service_provider_fee=Decimal("0.4"),
+            min_price_tick_size=None,
+            min_quantity_tick_size=None,
+        )
+
+        return {native_market.id: native_market}
 
     @property
     def order_creation_request_successful_mock_response(self):
@@ -387,10 +399,10 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     @property
     def expected_trading_rule(self):
-        market_info = self.all_derivative_markets_mock_response[0]
-        min_price_tick_size = (Decimal(market_info["minPriceTickSize"])
-                               * Decimal(f"1e{-market_info['quoteTokenMeta']['decimals']}"))
-        min_quantity_tick_size = Decimal(market_info["minQuantityTickSize"])
+        market = list(self.all_derivative_markets_mock_response.values())[0]
+        min_price_tick_size = (market.min_price_tick_size
+                               * Decimal(f"1e{-market.quote_token.decimals}"))
+        min_quantity_tick_size = market.min_quantity_tick_size
         trading_rule = TradingRule(
             trading_pair=self.trading_pair,
             min_order_size=min_quantity_tick_size,
@@ -403,7 +415,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     @property
     def expected_logged_error_for_erroneous_trading_rule(self):
-        erroneous_rule = self.trading_rules_request_erroneous_mock_response[0]
+        erroneous_rule = list(self.trading_rules_request_erroneous_mock_response.values())[0]
         return f"Error parsing the trading pair rule: {erroneous_rule}. Skipping..."
 
     @property
@@ -437,77 +449,72 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         return "10414162_22_33"
 
     @property
-    def all_spot_markets_mock_response(self):
-        return [{
-            "marketId": "0x0611780ba69656949525013d947713300f56c37b6175e02f26bffa495c3208fe",  # noqa: mock
-            "marketStatus": "active",
-            "ticker": f"{self.base_asset}/{self.quote_asset}",
-            "baseDenom": self.base_asset_denom,
-            "baseTokenMeta": {
-                "name": "Base Asset",
-                "address": "0xe28b3B32B6c345A34Ff64674606124Dd5Aceca30",  # noqa: mock
-                "symbol": self.base_asset,
-                "logo": "https://static.alchemyapi.io/images/assets/7226.png",
-                "decimals": self.base_decimals,
-                "updatedAt": "1687190809715"
-            },
-            "quoteDenom": self.quote_asset_denom,  # noqa: mock
-            "quoteTokenMeta": {
-                "name": "Quote Asset",
-                "address": "0x0000000000000000000000000000000000000000",  # noqa: mock
-                "symbol": self.quote_asset,
-                "logo": "https://static.alchemyapi.io/images/assets/825.png",
-                "decimals": self.quote_decimals,
-                "updatedAt": "1687190809716"
-            },
-            "makerFeeRate": "-0.0001",
-            "takerFeeRate": "0.001",
-            "serviceProviderFee": "0.4",
-            "minPriceTickSize": "0.000000000000001",
-            "minQuantityTickSize": "1000000000000000"
-        }]
+    def all_spot_markets_mock_response(self) -> Dict[str, SpotMarket]:
+        base_native_token = Token(
+            name="Base Asset",
+            symbol=self.base_asset,
+            denom=self.base_asset_denom,
+            address="0xe28b3B32B6c345A34Ff64674606124Dd5Aceca30",  # noqa: mock
+            decimals=self.base_decimals,
+            logo="https://static.alchemyapi.io/images/assets/7226.png",
+            updated=1687190809715,
+        )
+        quote_native_token = Token(
+            name="Base Asset",
+            symbol=self.quote_asset,
+            denom=self.quote_asset_denom,
+            address="0x0000000000000000000000000000000000000000",  # noqa: mock
+            decimals=self.quote_decimals,
+            logo="https://static.alchemyapi.io/images/assets/825.png",
+            updated=1687190809716,
+        )
+
+        native_market = SpotMarket(
+            id="0x0611780ba69656949525013d947713300f56c37b6175e02f26bffa495c3208fe",  # noqa: mock
+            status="active",
+            ticker=f"{self.base_asset}/{self.quote_asset}",
+            base_token=base_native_token,
+            quote_token=quote_native_token,
+            maker_fee_rate=Decimal("-0.0001"),
+            taker_fee_rate=Decimal("0.001"),
+            service_provider_fee=Decimal("0.4"),
+            min_price_tick_size=Decimal("0.000000000000001"),
+            min_quantity_tick_size=Decimal("1000000000000000"),
+        )
+
+        return {native_market.id: native_market}
 
     @property
-    def all_derivative_markets_mock_response(self):
-        return [
-            {
-                "marketId": self.market_id,
-                "marketStatus": "active",
-                "ticker": f"{self.base_asset}/{self.quote_asset} PERP",
-                "oracleBase": "0x2d9315a88f3019f8efa88dfe9c0f0843712da0bac814461e27733f6b83eb51b3",  # noqa: mock
-                "oracleQuote": "0x1fc18861232290221461220bd4e2acd1dcdfbc89c84092c93c18bdc7756c1588",  # noqa: mock
-                "oracleType": "pyth",
-                "oracleScaleFactor": 6,
-                "initialMarginRatio": "0.195",
-                "maintenanceMarginRatio": "0.05",
-                "quoteDenom": self.quote_asset_denom,
-                "quoteTokenMeta": {
-                    "name": "Testnet Tether USDT",
-                    "address": "0x0000000000000000000000000000000000000000",  # noqa: mock
-                    "symbol": self.quote_asset,
-                    "logo": "https://static.alchemyapi.io/images/assets/825.png",
-                    "decimals": self.quote_decimals,
-                    "updatedAt": "1687190809716"
-                },
-                "makerFeeRate": "-0.0003",
-                "takerFeeRate": "0.003",
-                "serviceProviderFee": "0.4",
-                "isPerpetual": True,
-                "minPriceTickSize": "100",
-                "minQuantityTickSize": "0.0001",
-                "perpetualMarketInfo": {
-                    "hourlyFundingRateCap": "0.000625",
-                    "hourlyInterestRate": "0.00000416666",
-                    "nextFundingTimestamp": str(self.target_funding_info_next_funding_utc_timestamp),
-                    "fundingInterval": "3600"
-                },
-                "perpetualMarketFunding": {
-                    "cumulativeFunding": "81363.592243119007273334",
-                    "cumulativePrice": "1.432536051546776736",
-                    "lastTimestamp": "1689423842"
-                }
-            },
-        ]
+    def all_derivative_markets_mock_response(self) -> Dict[str, DerivativeMarket]:
+        quote_native_token = Token(
+            name="Base Asset",
+            symbol=self.quote_asset,
+            denom=self.quote_asset_denom,
+            address="0x0000000000000000000000000000000000000000",  # noqa: mock
+            decimals=self.quote_decimals,
+            logo="https://static.alchemyapi.io/images/assets/825.png",
+            updated=1687190809716,
+        )
+
+        native_market = DerivativeMarket(
+            id=self.market_id,
+            status="active",
+            ticker=f"{self.base_asset}/{self.quote_asset} PERP",
+            oracle_base="0x2d9315a88f3019f8efa88dfe9c0f0843712da0bac814461e27733f6b83eb51b3",  # noqa: mock
+            oracle_quote="0x1fc18861232290221461220bd4e2acd1dcdfbc89c84092c93c18bdc7756c1588",  # noqa: mock
+            oracle_type="pyth",
+            oracle_scale_factor=6,
+            initial_margin_ratio=Decimal("0.195"),
+            maintenance_margin_ratio=Decimal("0.05"),
+            quote_token=quote_native_token,
+            maker_fee_rate=Decimal("-0.0003"),
+            taker_fee_rate=Decimal("0.003"),
+            service_provider_fee=Decimal("0.4"),
+            min_price_tick_size=Decimal("100"),
+            min_quantity_tick_size=Decimal("0.0001"),
+        )
+
+        return {native_market.id: native_market}
 
     def exchange_symbol_for_tokens(self, base_token: str, quote_token: str) -> str:
         return self.market_id
@@ -562,6 +569,10 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
     ) -> str:
         all_markets_mock_response = self.all_spot_markets_mock_response
         self.exchange._data_source._query_executor._spot_markets_responses.put_nowait(all_markets_mock_response)
+        market = list(all_markets_mock_response.values())[0]
+        self.exchange._data_source._query_executor._tokens_responses.put_nowait(
+            {token.symbol: token for token in [market.base_token, market.quote_token]}
+        )
         all_markets_mock_response = self.all_derivative_markets_mock_response
         self.exchange._data_source._query_executor._derivative_markets_responses.put_nowait(all_markets_mock_response)
         return ""
@@ -581,9 +592,13 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> List[str]:
 
-        self.exchange._data_source._query_executor._spot_markets_responses.put_nowait([])
+        self.exchange._data_source._query_executor._spot_markets_responses.put_nowait({})
         response = self.trading_rules_request_erroneous_mock_response
         self.exchange._data_source._query_executor._derivative_markets_responses.put_nowait(response)
+        market = list(response.values())[0]
+        self.exchange._data_source._query_executor._tokens_responses.put_nowait(
+            {token.symbol: token for token in [market.quote_token]}
+        )
         return ""
 
     def configure_successful_cancelation_response(
@@ -2058,8 +2073,9 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.configure_all_symbols_response(mock_api=None)
         self.async_run_with_timeout(self.exchange._update_trading_fees())
 
-        maker_fee_rate = Decimal(self.all_derivative_markets_mock_response[0]["makerFeeRate"])
-        taker_fee_rate = Decimal(self.all_derivative_markets_mock_response[0]["takerFeeRate"])
+        market = list(self.all_derivative_markets_mock_response.values())[0]
+        maker_fee_rate = market.maker_fee_rate
+        taker_fee_rate = market.taker_fee_rate
 
         maker_fee = self.exchange.get_fee(
             base_currency=self.base_asset,
@@ -2258,7 +2274,43 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.exchange._data_source._derivative_market_and_trading_pair_map = None
         self.configure_all_symbols_response(mock_api=None)
         self.exchange._data_source._query_executor._derivative_market_responses.put_nowait(
-            self.all_derivative_markets_mock_response[0]
+            {
+                "marketId": self.market_id,
+                "marketStatus": "active",
+                "ticker": f"{self.base_asset}/{self.quote_asset} PERP",
+                "oracleBase": "0x2d9315a88f3019f8efa88dfe9c0f0843712da0bac814461e27733f6b83eb51b3",  # noqa: mock
+                "oracleQuote": "0x1fc18861232290221461220bd4e2acd1dcdfbc89c84092c93c18bdc7756c1588",  # noqa: mock
+                "oracleType": "pyth",
+                "oracleScaleFactor": 6,
+                "initialMarginRatio": "0.195",
+                "maintenanceMarginRatio": "0.05",
+                "quoteDenom": self.quote_asset_denom,
+                "quoteTokenMeta": {
+                    "name": "Testnet Tether USDT",
+                    "address": "0x0000000000000000000000000000000000000000",  # noqa: mock
+                    "symbol": self.quote_asset,
+                    "logo": "https://static.alchemyapi.io/images/assets/825.png",
+                    "decimals": self.quote_decimals,
+                    "updatedAt": "1687190809716"
+                },
+                "makerFeeRate": "-0.0003",
+                "takerFeeRate": "0.003",
+                "serviceProviderFee": "0.4",
+                "isPerpetual": True,
+                "minPriceTickSize": "100",
+                "minQuantityTickSize": "0.0001",
+                "perpetualMarketInfo": {
+                    "hourlyFundingRateCap": "0.000625",
+                    "hourlyInterestRate": "0.00000416666",
+                    "nextFundingTimestamp": str(self.target_funding_info_next_funding_utc_timestamp),
+                    "fundingInterval": "3600"
+                },
+                "perpetualMarketFunding": {
+                    "cumulativeFunding": "81363.592243119007273334",
+                    "cumulativePrice": "1.432536051546776736",
+                    "lastTimestamp": "1689423842"
+                }
+            }
         )
 
         funding_rate = {
@@ -2344,7 +2396,43 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.exchange._data_source._derivative_market_and_trading_pair_map = None
         self.configure_all_symbols_response(mock_api=None)
         self.exchange._data_source._query_executor._derivative_market_responses.put_nowait(
-            self.all_derivative_markets_mock_response[0]
+            {
+                "marketId": self.market_id,
+                "marketStatus": "active",
+                "ticker": f"{self.base_asset}/{self.quote_asset} PERP",
+                "oracleBase": "0x2d9315a88f3019f8efa88dfe9c0f0843712da0bac814461e27733f6b83eb51b3",  # noqa: mock
+                "oracleQuote": "0x1fc18861232290221461220bd4e2acd1dcdfbc89c84092c93c18bdc7756c1588",  # noqa: mock
+                "oracleType": "pyth",
+                "oracleScaleFactor": 6,
+                "initialMarginRatio": "0.195",
+                "maintenanceMarginRatio": "0.05",
+                "quoteDenom": self.quote_asset_denom,
+                "quoteTokenMeta": {
+                    "name": "Testnet Tether USDT",
+                    "address": "0x0000000000000000000000000000000000000000",  # noqa: mock
+                    "symbol": self.quote_asset,
+                    "logo": "https://static.alchemyapi.io/images/assets/825.png",
+                    "decimals": self.quote_decimals,
+                    "updatedAt": "1687190809716"
+                },
+                "makerFeeRate": "-0.0003",
+                "takerFeeRate": "0.003",
+                "serviceProviderFee": "0.4",
+                "isPerpetual": True,
+                "minPriceTickSize": "100",
+                "minQuantityTickSize": "0.0001",
+                "perpetualMarketInfo": {
+                    "hourlyFundingRateCap": "0.000625",
+                    "hourlyInterestRate": "0.00000416666",
+                    "nextFundingTimestamp": str(self.target_funding_info_next_funding_utc_timestamp),
+                    "fundingInterval": "3600"
+                },
+                "perpetualMarketFunding": {
+                    "cumulativeFunding": "81363.592243119007273334",
+                    "cumulativePrice": "1.432536051546776736",
+                    "lastTimestamp": "1689423842"
+                }
+            }
         )
 
         funding_rate = {

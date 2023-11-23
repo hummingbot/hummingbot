@@ -6,11 +6,14 @@ from abc import ABC, abstractmethod
 from decimal import Decimal
 from enum import Enum
 from functools import partial
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple, Union
 
+from bidict import bidict
 from google.protobuf import any_pb2
 from pyinjective import Transaction
 from pyinjective.composer import Composer, injective_exchange_tx_pb
+from pyinjective.core.market import DerivativeMarket, SpotMarket
+from pyinjective.core.token import Token
 
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.exchange.injective_v2 import injective_constants as CONSTANTS
@@ -636,7 +639,7 @@ class InjectiveDataSource(ABC):
             trading_pair=await self.trading_pair_for_market(market_id=market_id),
             index_price=last_traded_price,  # Use the last traded price as the index_price
             mark_price=oracle_price,
-            next_funding_utc_timestamp=updated_market_info.next_funding_timestamp(),
+            next_funding_utc_timestamp=int(updated_market_info["perpetualMarketInfo"]["nextFundingTimestamp"]),
             rate=funding_rate,
         )
         return funding_info
@@ -711,7 +714,7 @@ class InjectiveDataSource(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def _updated_derivative_market_info_for_id(self, market_id: str) -> InjectiveDerivativeMarket:
+    async def _updated_derivative_market_info_for_id(self, market_id: str) -> Dict[str, Any]:
         raise NotImplementedError
 
     def _place_order_results(
@@ -1539,7 +1542,7 @@ class InjectiveDataSource(ABC):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().exception(f"Error parsing the trading pair rule: {market.market_info}. Skipping...")
+                self.logger().exception(f"Error parsing the trading pair rule: {market.native_market}. Skipping...")
 
         return trading_rules
 
@@ -1561,6 +1564,82 @@ class InjectiveDataSource(ABC):
             self, timestamp: float, order_hash: str, trade_type: TradeType, amount: Decimal, price: Decimal
     ) -> str:
         return f"{int(timestamp*1e3)}_{order_hash}_{trade_type.name}_{amount.normalize():f}_{price.normalize():f}"
+
+    async def _get_markets_and_tokens(
+        self
+    ) -> Tuple[
+        Dict[str, InjectiveToken],
+        Mapping[str, str],
+        Dict[str, InjectiveSpotMarket],
+        Mapping[str, str],
+        Dict[str, InjectiveDerivativeMarket],
+        Mapping[str, str]
+    ]:
+        tokens_map = {}
+        token_symbol_and_denom_map = bidict()
+        spot_markets_map = {}
+        derivative_markets_map = {}
+        spot_market_id_to_trading_pair = bidict()
+        derivative_market_id_to_trading_pair = bidict()
+
+        async with self.throttler.execute_task(limit_id=CONSTANTS.SPOT_MARKETS_LIMIT_ID):
+            async with self.throttler.execute_task(limit_id=CONSTANTS.DERIVATIVE_MARKETS_LIMIT_ID):
+                spot_markets: Dict[str, SpotMarket] = await self.query_executor.spot_markets()
+                derivative_markets: Dict[str, DerivativeMarket] = await self.query_executor.derivative_markets()
+                tokens: Dict[str, Token] = await self.query_executor.tokens()
+
+        for unique_symbol, injective_native_token in tokens.items():
+            token = InjectiveToken(
+                unique_symbol=unique_symbol,
+                native_token=injective_native_token
+            )
+            tokens_map[token.denom] = token
+            token_symbol_and_denom_map[unique_symbol] = token.denom
+
+        for market in spot_markets.values():
+            try:
+                parsed_market = InjectiveSpotMarket(
+                    market_id=market.id,
+                    base_token=tokens_map[market.base_token.denom],
+                    quote_token=tokens_map[market.quote_token.denom],
+                    native_market=market
+                )
+
+                spot_market_id_to_trading_pair[parsed_market.market_id] = parsed_market.trading_pair()
+                spot_markets_map[parsed_market.market_id] = parsed_market
+            except KeyError:
+                self.logger().debug(f"The spot market {market.id} will be excluded because it could not "
+                                    f"be parsed ({market})")
+                continue
+
+        for market in derivative_markets.values():
+            try:
+                parsed_market = InjectiveDerivativeMarket(
+                    market_id=market.id,
+                    quote_token=tokens_map[market.quote_token.denom],
+                    native_market=market,
+                )
+
+                if parsed_market.trading_pair() in derivative_market_id_to_trading_pair.inverse:
+                    self.logger().debug(
+                        f"The derivative market {market.id} will be excluded because there is other"
+                        f" market with trading pair {parsed_market.trading_pair()} ({market})")
+                    continue
+                derivative_market_id_to_trading_pair[parsed_market.market_id] = parsed_market.trading_pair()
+                derivative_markets_map[parsed_market.market_id] = parsed_market
+            except KeyError:
+                self.logger().debug(f"The derivative market {market.id} will be excluded because it could"
+                                    f" not be parsed ({market})")
+                continue
+
+        return (
+            tokens_map,
+            token_symbol_and_denom_map,
+            spot_markets_map,
+            spot_market_id_to_trading_pair,
+            derivative_markets_map,
+            derivative_market_id_to_trading_pair
+        )
 
     def _time(self):
         return time.time()

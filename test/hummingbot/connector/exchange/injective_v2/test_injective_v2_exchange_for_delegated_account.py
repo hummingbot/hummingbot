@@ -12,6 +12,8 @@ from aioresponses.core import RequestCall
 from bidict import bidict
 from grpc import RpcError
 from pyinjective.composer import Composer
+from pyinjective.core.market import SpotMarket
+from pyinjective.core.token import Token
 from pyinjective.wallet import Address, PrivateKey
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
@@ -168,16 +170,18 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     @property
     def all_symbols_including_invalid_pair_mock_response(self) -> Tuple[str, Any]:
         response = self.all_markets_mock_response
-        response.append({
-            "marketId": "invalid_market_id",
-            "marketStatus": "active",
-            "ticker": "INVALID/MARKET",
-            "makerFeeRate": "-0.0001",
-            "takerFeeRate": "0.001",
-            "serviceProviderFee": "0.4",
-            "minPriceTickSize": "0.000000000000001",
-            "minQuantityTickSize": "1000000000000000"
-        })
+        response["invalid_market_id"] = SpotMarket(
+            id="invalid_market_id",
+            status="active",
+            ticker="INVALID/MARKET",
+            base_token=None,
+            quote_token=None,
+            maker_fee_rate=Decimal("-0.0001"),
+            taker_fee_rate=Decimal("0.001"),
+            service_provider_fee=Decimal("0.4"),
+            min_price_tick_size=Decimal("0.000000000000001"),
+            min_quantity_tick_size=Decimal("1000000000000000"),
+        )
 
         return ("INVALID_MARKET", response)
 
@@ -191,32 +195,39 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
     @property
     def trading_rules_request_erroneous_mock_response(self):
-        return [{
-            "marketId": self.market_id,
-            "marketStatus": "active",
-            "ticker": f"{self.base_asset}/{self.quote_asset}",
-            "baseDenom": self.base_asset_denom,
-            "baseTokenMeta": {
-                "name": "Base Asset",
-                "address": "0xe28b3B32B6c345A34Ff64674606124Dd5Aceca30",  # noqa: mock
-                "symbol": self.base_asset,
-                "logo": "https://static.alchemyapi.io/images/assets/7226.png",
-                "decimals": 18,
-                "updatedAt": "1687190809715"
-            },
-            "quoteDenom": self.quote_asset_denom,  # noqa: mock
-            "quoteTokenMeta": {
-                "name": "Quote Asset",
-                "address": "0x0000000000000000000000000000000000000000",  # noqa: mock
-                "symbol": self.quote_asset,
-                "logo": "https://static.alchemyapi.io/images/assets/825.png",
-                "decimals": 6,
-                "updatedAt": "1687190809716"
-            },
-            "makerFeeRate": "-0.0001",
-            "takerFeeRate": "0.001",
-            "serviceProviderFee": "0.4",
-        }]
+        base_native_token = Token(
+            name="Base Asset",
+            symbol=self.base_asset,
+            denom=self.base_asset_denom,
+            address="0xe28b3B32B6c345A34Ff64674606124Dd5Aceca30",  # noqa: mock
+            decimals=self.base_decimals,
+            logo="https://static.alchemyapi.io/images/assets/7226.png",
+            updated=1687190809715,
+        )
+        quote_native_token = Token(
+            name="Base Asset",
+            symbol=self.quote_asset,
+            denom=self.quote_asset_denom,
+            address="0x0000000000000000000000000000000000000000",  # noqa: mock
+            decimals=self.quote_decimals,
+            logo="https://static.alchemyapi.io/images/assets/825.png",
+            updated=1687190809716,
+        )
+
+        native_market = SpotMarket(
+            id="0x0611780ba69656949525013d947713300f56c37b6175e02f26bffa495c3208fe",  # noqa: mock
+            status="active",
+            ticker=f"{self.base_asset}/{self.quote_asset}",
+            base_token=base_native_token,
+            quote_token=quote_native_token,
+            maker_fee_rate=Decimal("-0.0001"),
+            taker_fee_rate=Decimal("0.001"),
+            service_provider_fee=Decimal("0.4"),
+            min_price_tick_size=None,
+            min_quantity_tick_size=None,
+        )
+
+        return {native_market.id: native_market}
 
     @property
     def order_creation_request_successful_mock_response(self):
@@ -318,11 +329,11 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
     @property
     def expected_trading_rule(self):
-        market_info = self.all_markets_mock_response[0]
-        min_price_tick_size = (Decimal(market_info["minPriceTickSize"])
-                               * Decimal(f"1e{market_info['baseTokenMeta']['decimals']-market_info['quoteTokenMeta']['decimals']}"))
-        min_quantity_tick_size = Decimal(market_info["minQuantityTickSize"]) * Decimal(
-            f"1e{-market_info['baseTokenMeta']['decimals']}")
+        market = list(self.all_markets_mock_response.values())[0]
+        min_price_tick_size = (market.min_price_tick_size
+                               * Decimal(f"1e{market.base_token.decimals-market.quote_token.decimals}"))
+        min_quantity_tick_size = market.min_quantity_tick_size * Decimal(
+            f"1e{-market.base_token.decimals}")
         trading_rule = TradingRule(
             trading_pair=self.trading_pair,
             min_order_size=min_quantity_tick_size,
@@ -335,7 +346,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
     @property
     def expected_logged_error_for_erroneous_trading_rule(self):
-        erroneous_rule = self.trading_rules_request_erroneous_mock_response[0]
+        erroneous_rule = list(self.trading_rules_request_erroneous_mock_response.values())[0]
         return f"Error parsing the trading pair rule: {erroneous_rule}. Skipping..."
 
     @property
@@ -370,34 +381,39 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
     @property
     def all_markets_mock_response(self):
-        return [{
-            "marketId": self.market_id,
-            "marketStatus": "active",
-            "ticker": f"{self.base_asset}/{self.quote_asset}",
-            "baseDenom": self.base_asset_denom,
-            "baseTokenMeta": {
-                "name": "Base Asset",
-                "address": "0xe28b3B32B6c345A34Ff64674606124Dd5Aceca30",  # noqa: mock
-                "symbol": self.base_asset,
-                "logo": "https://static.alchemyapi.io/images/assets/7226.png",
-                "decimals": self.base_decimals,
-                "updatedAt": "1687190809715"
-            },
-            "quoteDenom": self.quote_asset_denom,  # noqa: mock
-            "quoteTokenMeta": {
-                "name": "Quote Asset",
-                "address": "0x0000000000000000000000000000000000000000",  # noqa: mock
-                "symbol": self.quote_asset,
-                "logo": "https://static.alchemyapi.io/images/assets/825.png",
-                "decimals": self.quote_decimals,
-                "updatedAt": "1687190809716"
-            },
-            "makerFeeRate": "-0.0001",
-            "takerFeeRate": "0.001",
-            "serviceProviderFee": "0.4",
-            "minPriceTickSize": "0.000000000000001",
-            "minQuantityTickSize": "1000000000000000"
-        }]
+        base_native_token = Token(
+            name="Base Asset",
+            symbol=self.base_asset,
+            denom=self.base_asset_denom,
+            address="0xe28b3B32B6c345A34Ff64674606124Dd5Aceca30",  # noqa: mock
+            decimals=self.base_decimals,
+            logo="https://static.alchemyapi.io/images/assets/7226.png",
+            updated=1687190809715,
+        )
+        quote_native_token = Token(
+            name="Base Asset",
+            symbol=self.quote_asset,
+            denom=self.quote_asset_denom,
+            address="0x0000000000000000000000000000000000000000",  # noqa: mock
+            decimals=self.quote_decimals,
+            logo="https://static.alchemyapi.io/images/assets/825.png",
+            updated=1687190809716,
+        )
+
+        native_market = SpotMarket(
+            id=self.market_id,
+            status="active",
+            ticker=f"{self.base_asset}/{self.quote_asset}",
+            base_token=base_native_token,
+            quote_token=quote_native_token,
+            maker_fee_rate=Decimal("-0.0001"),
+            taker_fee_rate=Decimal("0.001"),
+            service_provider_fee=Decimal("0.4"),
+            min_price_tick_size=Decimal("0.000000000000001"),
+            min_quantity_tick_size=Decimal("1000000000000000"),
+        )
+
+        return {native_market.id: native_market}
 
     def exchange_symbol_for_tokens(self, base_token: str, quote_token: str) -> str:
         return self.market_id
@@ -452,7 +468,11 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     ) -> str:
         all_markets_mock_response = self.all_markets_mock_response
         self.exchange._data_source._query_executor._spot_markets_responses.put_nowait(all_markets_mock_response)
-        self.exchange._data_source._query_executor._derivative_markets_responses.put_nowait([])
+        market = list(all_markets_mock_response.values())[0]
+        self.exchange._data_source._query_executor._tokens_responses.put_nowait(
+            {token.symbol: token for token in [market.base_token, market.quote_token]}
+        )
+        self.exchange._data_source._query_executor._derivative_markets_responses.put_nowait({})
         return ""
 
     def configure_trading_rules_response(
@@ -472,7 +492,11 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
 
         response = self.trading_rules_request_erroneous_mock_response
         self.exchange._data_source._query_executor._spot_markets_responses.put_nowait(response)
-        self.exchange._data_source._query_executor._derivative_markets_responses.put_nowait([])
+        market = list(response.values())[0]
+        self.exchange._data_source._query_executor._tokens_responses.put_nowait(
+            {token.symbol: token for token in [market.base_token, market.quote_token]}
+        )
+        self.exchange._data_source._query_executor._derivative_markets_responses.put_nowait({})
         return ""
 
     def configure_successful_cancelation_response(self, order: InFlightOrder, mock_api: aioresponses,
@@ -1717,8 +1741,9 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
         self.configure_all_symbols_response(mock_api=None)
         self.async_run_with_timeout(self.exchange._update_trading_fees())
 
-        maker_fee_rate = Decimal(self.all_markets_mock_response[0]["makerFeeRate"])
-        taker_fee_rate = Decimal(self.all_markets_mock_response[0]["takerFeeRate"])
+        market = list(self.all_markets_mock_response.values())[0]
+        maker_fee_rate = market.maker_fee_rate
+        taker_fee_rate = market.taker_fee_rate
 
         maker_fee = self.exchange.get_fee(
             base_currency=self.base_asset,
@@ -1822,7 +1847,11 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     ) -> str:
         all_markets_mock_response = self.all_markets_mock_response
         self.exchange._data_source._query_executor._spot_markets_responses.put_nowait(all_markets_mock_response)
-        self.exchange._data_source._query_executor._derivative_markets_responses.put_nowait([])
+        market = list(all_markets_mock_response.values())[0]
+        self.exchange._data_source._query_executor._tokens_responses.put_nowait(
+            {token.symbol: token for token in [market.base_token, market.quote_token]}
+        )
+        self.exchange._data_source._query_executor._derivative_markets_responses.put_nowait({})
         self.exchange._data_source._query_executor._account_portfolio_responses.put_nowait(response)
         return ""
 
@@ -2025,3 +2054,31 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                 "to": 1
             }
         }
+
+    @aioresponses()
+    def test_update_balances(self, mock_api):
+        response = self.balance_request_mock_response_for_base_and_quote
+        self._configure_balance_response(response=response, mock_api=mock_api)
+
+        self.async_run_with_timeout(self.exchange._update_balances())
+
+        available_balances = self.exchange.available_balances
+        total_balances = self.exchange.get_all_balances()
+
+        self.assertEqual(Decimal("10"), available_balances[self.base_asset])
+        self.assertEqual(Decimal("2000"), available_balances[self.quote_asset])
+        self.assertEqual(Decimal("15"), total_balances[self.base_asset])
+        self.assertEqual(Decimal("2000"), total_balances[self.quote_asset])
+
+        response = self.balance_request_mock_response_only_base
+
+        self._configure_balance_response(response=response, mock_api=mock_api)
+        self.async_run_with_timeout(self.exchange._update_balances())
+
+        available_balances = self.exchange.available_balances
+        total_balances = self.exchange.get_all_balances()
+
+        self.assertNotIn(self.quote_asset, available_balances)
+        self.assertNotIn(self.quote_asset, total_balances)
+        self.assertEqual(Decimal("10"), available_balances[self.base_asset])
+        self.assertEqual(Decimal("15"), total_balances[self.base_asset])

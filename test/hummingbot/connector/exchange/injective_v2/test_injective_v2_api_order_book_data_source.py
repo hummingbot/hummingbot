@@ -9,6 +9,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from bidict import bidict
 from pyinjective.composer import Composer
+from pyinjective.core.market import SpotMarket
+from pyinjective.core.token import Token
 from pyinjective.wallet import Address, PrivateKey
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
@@ -145,10 +147,14 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
 
     def test_get_new_order_book_successful(self):
         spot_markets_response = self._spot_markets_response()
+        market = list(spot_markets_response.values())[0]
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
-        self.query_executor._derivative_markets_responses.put_nowait([])
-        base_decimals = spot_markets_response[0]["baseTokenMeta"]["decimals"]
-        quote_decimals = spot_markets_response[0]["quoteTokenMeta"]["decimals"]
+        self.query_executor._derivative_markets_responses.put_nowait({})
+        self.query_executor._tokens_responses.put_nowait(
+            {token.symbol: token for token in [market.base_token, market.quote_token]}
+        )
+        base_decimals = market.base_token.decimals
+        quote_decimals = market.quote_token.decimals
 
         order_book_snapshot = {
             "buys": [(Decimal("9487") * Decimal(f"1e{quote_decimals-base_decimals}"),
@@ -191,8 +197,12 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
 
     def test_listen_for_trades_logs_exception(self):
         spot_markets_response = self._spot_markets_response()
+        market = list(spot_markets_response.values())[0]
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
-        self.query_executor._derivative_markets_responses.put_nowait([])
+        self.query_executor._derivative_markets_responses.put_nowait({})
+        self.query_executor._tokens_responses.put_nowait(
+            {token.symbol: token for token in [market.base_token, market.quote_token]}
+        )
 
         self.query_executor._chain_stream_events.put_nowait({"spotTrades": [{}]})
 
@@ -245,10 +255,14 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         time_mock.return_value = 1640001112.223
 
         spot_markets_response = self._spot_markets_response()
+        market = list(spot_markets_response.values())[0]
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
-        self.query_executor._derivative_markets_responses.put_nowait([])
-        base_decimals = spot_markets_response[0]["baseTokenMeta"]["decimals"]
-        quote_decimals = spot_markets_response[0]["quoteTokenMeta"]["decimals"]
+        self.query_executor._derivative_markets_responses.put_nowait({})
+        self.query_executor._tokens_responses.put_nowait(
+            {token.symbol: token for token in [market.base_token, market.quote_token]}
+        )
+        base_decimals = market.base_token.decimals
+        quote_decimals = market.quote_token.decimals
 
         order_hash = "0x070e2eb3d361c8b26eae510f481bed513a1fb89c0869463a387cfa7995a27043"  # noqa: mock
 
@@ -311,8 +325,12 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
 
     def test_listen_for_order_book_snapshots_logs_exception(self):
         spot_markets_response = self._spot_markets_response()
+        market = list(spot_markets_response.values())[0]
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
-        self.query_executor._derivative_markets_responses.put_nowait([])
+        self.query_executor._derivative_markets_responses.put_nowait({})
+        self.query_executor._tokens_responses.put_nowait(
+            {token.symbol: token for token in [market.base_token, market.quote_token]}
+        )
 
         self.query_executor._chain_stream_events.put_nowait({
             "spotOrderbookUpdates": [{}]
@@ -377,10 +395,14 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         time_mock.return_value = 1640001112.223
 
         spot_markets_response = self._spot_markets_response()
+        market = list(spot_markets_response.values())[0]
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
-        self.query_executor._derivative_markets_responses.put_nowait([])
-        base_decimals = spot_markets_response[0]["baseTokenMeta"]["decimals"]
-        quote_decimals = spot_markets_response[0]["quoteTokenMeta"]["decimals"]
+        self.query_executor._derivative_markets_responses.put_nowait({})
+        self.query_executor._tokens_responses.put_nowait(
+            {token.symbol: token for token in [market.base_token, market.quote_token]}
+        )
+        base_decimals = market.base_token.decimals
+        quote_decimals = market.quote_token.decimals
 
         order_book_data = {
             "blockHeight": "20583",
@@ -451,31 +473,36 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         self.assertEqual(expected_update_id, asks[0].update_id)
 
     def _spot_markets_response(self):
-        return [{
-            "marketId": self.market_id,
-            "marketStatus": "active",
-            "ticker": self.ex_trading_pair,
-            "baseDenom": "inj",
-            "baseTokenMeta": {
-                "name": "Base Asset",
-                "address": "0xe28b3B32B6c345A34Ff64674606124Dd5Aceca30",  # noqa: mock
-                "symbol": self.base_asset,
-                "logo": "https://static.alchemyapi.io/images/assets/7226.png",
-                "decimals": 18,
-                "updatedAt": "1687190809715"
-            },
-            "quoteDenom": "peggy0x87aB3B4C8661e07D6372361211B96ed4Dc36B1B5",  # noqa: mock
-            "quoteTokenMeta": {
-                "name": "Quote Asset",
-                "address": "0x0000000000000000000000000000000000000000",
-                "symbol": self.quote_asset,
-                "logo": "https://static.alchemyapi.io/images/assets/825.png",
-                "decimals": 6,
-                "updatedAt": "1687190809716"
-            },
-            "makerFeeRate": "-0.0001",
-            "takerFeeRate": "0.001",
-            "serviceProviderFee": "0.4",
-            "minPriceTickSize": "0.000000000000001",
-            "minQuantityTickSize": "1000000000000000"
-        }]
+        base_native_token = Token(
+            name="Base Asset",
+            symbol=self.base_asset,
+            denom="inj",
+            address="0xe28b3B32B6c345A34Ff64674606124Dd5Aceca30",  # noqa: mock
+            decimals=18,
+            logo="https://static.alchemyapi.io/images/assets/7226.png",
+            updated=1687190809715,
+        )
+        quote_native_token = Token(
+            name="Quote Asset",
+            symbol=self.quote_asset,
+            denom="peggy0x87aB3B4C8661e07D6372361211B96ed4Dc36B1B5",  # noqa: mock
+            address="0x0000000000000000000000000000000000000000",  # noqa: mock
+            decimals=6,
+            logo="https://static.alchemyapi.io/images/assets/825.png",
+            updated=1687190809716,
+        )
+
+        native_market = SpotMarket(
+            id=self.market_id,
+            status="active",
+            ticker=self.ex_trading_pair,
+            base_token=base_native_token,
+            quote_token=quote_native_token,
+            maker_fee_rate=Decimal("-0.0001"),
+            taker_fee_rate=Decimal("0.001"),
+            service_provider_fee=Decimal("0.4"),
+            min_price_tick_size=Decimal("0.000000000000001"),
+            min_quantity_tick_size=Decimal("1000000000000000"),
+        )
+
+        return {native_market.id: native_market}

@@ -1,6 +1,8 @@
 import asyncio
 from typing import Any, Dict, List, Optional
 
+from pyinjective.core.market import DerivativeMarket, SpotMarket
+from pyinjective.core.token import Token
 from pyinjective.proto.injective.stream.v1beta1 import query_pb2 as chain_stream_query
 
 from hummingbot.connector.exchange.injective_v2.injective_query_executor import BaseInjectiveQueryExecutor
@@ -13,6 +15,7 @@ class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
         self._spot_markets_responses = asyncio.Queue()
         self._derivative_market_responses = asyncio.Queue()
         self._derivative_markets_responses = asyncio.Queue()
+        self._tokens_responses = asyncio.Queue()
         self._spot_order_book_responses = asyncio.Queue()
         self._derivative_order_book_responses = asyncio.Queue()
         self._transaction_by_hash_responses = asyncio.Queue()
@@ -35,12 +38,16 @@ class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
         response = await self._ping_responses.get()
         return response
 
-    async def spot_markets(self, status: str) -> Dict[str, Any]:
+    async def spot_markets(self) -> Dict[str, SpotMarket]:
         response = await self._spot_markets_responses.get()
         return response
 
-    async def derivative_markets(self, status: str) -> Dict[str, Any]:
+    async def derivative_markets(self) -> Dict[str, DerivativeMarket]:
         response = await self._derivative_markets_responses.get()
+        return response
+
+    async def tokens(self) -> Dict[str, Token]:
+        response = await self._tokens_responses.get()
         return response
 
     async def derivative_market(self, market_id: str) -> Dict[str, Any]:

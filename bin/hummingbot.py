@@ -15,6 +15,7 @@ from hummingbot.client.config.config_helpers import (
     load_client_config_map_from_file,
     write_config_to_yml,
 )
+from hummingbot.client.config.security import Security
 from hummingbot.client.hummingbot_application import HummingbotApplication
 from hummingbot.client.settings import AllConnectorSettings
 from hummingbot.client.ui import login_prompt
@@ -50,6 +51,7 @@ class UIStartListener(EventListener):
 
 
 async def main_async(client_config_map: ClientConfigAdapter):
+    await Security.wait_til_decryption_done()
     await create_yml_files_legacy()
 
     # This init_logging() call is important, to skip over the missing config warnings.

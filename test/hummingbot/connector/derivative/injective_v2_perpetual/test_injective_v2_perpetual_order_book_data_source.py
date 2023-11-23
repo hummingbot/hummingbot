@@ -10,6 +10,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from bidict import bidict
 from pyinjective import Address, PrivateKey
 from pyinjective.composer import Composer
+from pyinjective.core.market import DerivativeMarket, SpotMarket
+from pyinjective.core.token import Token
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -148,11 +150,16 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
 
     def test_get_new_order_book_successful(self):
         spot_markets_response = self._spot_markets_response()
+        market = list(spot_markets_response.values())[0]
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
+        self.query_executor._tokens_responses.put_nowait(
+            {token.symbol: token for token in [market.base_token, market.quote_token]}
+        )
         derivative_markets_response = self._derivative_markets_response()
         self.query_executor._derivative_markets_responses.put_nowait(derivative_markets_response)
+        derivative_market = list(derivative_markets_response.values())[0]
 
-        quote_decimals = derivative_markets_response[0]["quoteTokenMeta"]["decimals"]
+        quote_decimals = derivative_market.quote_token.decimals
 
         order_book_snapshot = {
             "buys": [(Decimal("9487") * Decimal(f"1e{quote_decimals}"),
@@ -195,7 +202,11 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
 
     def test_listen_for_trades_logs_exception(self):
         spot_markets_response = self._spot_markets_response()
+        market = list(spot_markets_response.values())[0]
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
+        self.query_executor._tokens_responses.put_nowait(
+            {token.symbol: token for token in [market.base_token, market.quote_token]}
+        )
         derivative_markets_response = self._derivative_markets_response()
         self.query_executor._derivative_markets_responses.put_nowait(derivative_markets_response)
 
@@ -250,11 +261,16 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
 
     def test_listen_for_trades_successful(self):
         spot_markets_response = self._spot_markets_response()
+        market = list(spot_markets_response.values())[0]
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
+        self.query_executor._tokens_responses.put_nowait(
+            {token.symbol: token for token in [market.base_token, market.quote_token]}
+        )
         derivative_markets_response = self._derivative_markets_response()
         self.query_executor._derivative_markets_responses.put_nowait(derivative_markets_response)
+        derivative_market = list(derivative_markets_response.values())[0]
 
-        quote_decimals = derivative_markets_response[0]["quoteTokenMeta"]["decimals"]
+        quote_decimals = derivative_market.quote_token.decimals
 
         order_hash = "0x070e2eb3d361c8b26eae510f481bed513a1fb89c0869463a387cfa7995a27043"  # noqa: mock
 
@@ -324,7 +340,11 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
 
     def test_listen_for_order_book_snapshots_logs_exception(self):
         spot_markets_response = self._spot_markets_response()
+        market = list(spot_markets_response.values())[0]
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
+        self.query_executor._tokens_responses.put_nowait(
+            {token.symbol: token for token in [market.base_token, market.quote_token]}
+        )
         derivative_markets_response = self._derivative_markets_response()
         self.query_executor._derivative_markets_responses.put_nowait(derivative_markets_response)
 
@@ -385,11 +405,16 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         "hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source.InjectiveGranteeDataSource._initialize_timeout_height")
     def test_listen_for_order_book_snapshots_successful(self, _):
         spot_markets_response = self._spot_markets_response()
+        market = list(spot_markets_response.values())[0]
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
+        self.query_executor._tokens_responses.put_nowait(
+            {token.symbol: token for token in [market.base_token, market.quote_token]}
+        )
         derivative_markets_response = self._derivative_markets_response()
         self.query_executor._derivative_markets_responses.put_nowait(derivative_markets_response)
+        derivative_market = list(derivative_markets_response.values())[0]
 
-        quote_decimals = derivative_markets_response[0]["quoteTokenMeta"]["decimals"]
+        quote_decimals = derivative_market.quote_token.decimals
 
         order_book_data = {
             "blockHeight": "20583",
@@ -479,7 +504,11 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         "hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source.InjectiveGranteeDataSource._initialize_timeout_height")
     def test_listen_for_funding_info_logs_exception(self, _):
         spot_markets_response = self._spot_markets_response()
+        market = list(spot_markets_response.values())[0]
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
+        self.query_executor._tokens_responses.put_nowait(
+            {token.symbol: token for token in [market.base_token, market.quote_token]}
+        )
         derivative_markets_response = self._derivative_markets_response()
         self.query_executor._derivative_markets_responses.put_nowait(derivative_markets_response)
 
@@ -542,7 +571,45 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         }
         self.query_executor._derivative_trades_responses.put_nowait(trades)
 
-        self.query_executor._derivative_market_responses.put_nowait(derivative_markets_response[0])
+        self.query_executor._derivative_market_responses.put_nowait(
+            {
+                "marketId": self.market_id,
+                "marketStatus": "active",
+                "ticker": f"{self.ex_trading_pair} PERP",
+                "oracleBase": "0x2d9315a88f3019f8efa88dfe9c0f0843712da0bac814461e27733f6b83eb51b3",  # noqa: mock
+                "oracleQuote": "0x1fc18861232290221461220bd4e2acd1dcdfbc89c84092c93c18bdc7756c1588",  # noqa: mock
+                "oracleType": "pyth",
+                "oracleScaleFactor": 6,
+                "initialMarginRatio": "0.195",
+                "maintenanceMarginRatio": "0.05",
+                "quoteDenom": "peggy0x87aB3B4C8661e07D6372361211B96ed4Dc36B1B5",  # noqa: mock
+                "quoteTokenMeta": {
+                    "name": "Testnet Tether USDT",
+                    "address": "0x0000000000000000000000000000000000000000",  # noqa: mock
+                    "symbol": self.quote_asset,
+                    "logo": "https://static.alchemyapi.io/images/assets/825.png",
+                    "decimals": 6,
+                    "updatedAt": "1687190809716"
+                },
+                "makerFeeRate": "-0.0003",
+                "takerFeeRate": "0.003",
+                "serviceProviderFee": "0.4",
+                "isPerpetual": True,
+                "minPriceTickSize": "100",
+                "minQuantityTickSize": "0.0001",
+                "perpetualMarketInfo": {
+                    "hourlyFundingRateCap": "0.000625",
+                    "hourlyInterestRate": "0.00000416666",
+                    "nextFundingTimestamp": "1687190809716",
+                    "fundingInterval": "3600"
+                },
+                "perpetualMarketFunding": {
+                    "cumulativeFunding": "81363.592243119007273334",
+                    "cumulativePrice": "1.432536051546776736",
+                    "lastTimestamp": "1689423842"
+                }
+            }
+        )
 
         oracle_price_event = {
             "blockHeight": "20583",
@@ -589,11 +656,16 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         "hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source.InjectiveGranteeDataSource._initialize_timeout_height")
     def test_listen_for_funding_info_successful(self, _):
         spot_markets_response = self._spot_markets_response()
+        market = list(spot_markets_response.values())[0]
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
+        self.query_executor._tokens_responses.put_nowait(
+            {token.symbol: token for token in [market.base_token, market.quote_token]}
+        )
         derivative_markets_response = self._derivative_markets_response()
         self.query_executor._derivative_markets_responses.put_nowait(derivative_markets_response)
+        derivative_market = list(derivative_markets_response.values())[0]
 
-        quote_decimals = derivative_markets_response[0]["quoteTokenMeta"]["decimals"]
+        quote_decimals = derivative_market.quote_token.decimals
 
         funding_rate = {
             "fundingRates": [
@@ -643,7 +715,44 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         }
         self.query_executor._derivative_trades_responses.put_nowait(trades)
 
-        self.query_executor._derivative_market_responses.put_nowait(derivative_markets_response[0])
+        derivative_market_info = {
+            "marketId": self.market_id,
+            "marketStatus": "active",
+            "ticker": f"{self.base_asset}/{self.quote_asset} PERP",
+            "oracleBase": "0x2d9315a88f3019f8efa88dfe9c0f0843712da0bac814461e27733f6b83eb51b3",  # noqa: mock
+            "oracleQuote": "0x1fc18861232290221461220bd4e2acd1dcdfbc89c84092c93c18bdc7756c1588",  # noqa: mock
+            "oracleType": "pyth",
+            "oracleScaleFactor": 6,
+            "initialMarginRatio": "0.195",
+            "maintenanceMarginRatio": "0.05",
+            "quoteDenom": "peggy0x87aB3B4C8661e07D6372361211B96ed4Dc36B1B5",  # noqa: mock
+            "quoteTokenMeta": {
+                "name": "Testnet Tether USDT",
+                "address": "0x0000000000000000000000000000000000000000",  # noqa: mock
+                "symbol": self.quote_asset,
+                "logo": "https://static.alchemyapi.io/images/assets/825.png",
+                "decimals": 6,
+                "updatedAt": "1687190809716"
+            },
+            "makerFeeRate": "-0.0003",
+            "takerFeeRate": "0.003",
+            "serviceProviderFee": "0.4",
+            "isPerpetual": True,
+            "minPriceTickSize": "100",
+            "minQuantityTickSize": "0.0001",
+            "perpetualMarketInfo": {
+                "hourlyFundingRateCap": "0.000625",
+                "hourlyInterestRate": "0.00000416666",
+                "nextFundingTimestamp": "1687190809716",
+                "fundingInterval": "3600"
+            },
+            "perpetualMarketFunding": {
+                "cumulativeFunding": "81363.592243119007273334",
+                "cumulativePrice": "1.432536051546776736",
+                "lastTimestamp": "1689423842"
+            }
+        }
+        self.query_executor._derivative_market_responses.put_nowait(derivative_market_info)
 
         oracle_price_event = {
             "blockHeight": "20583",
@@ -685,17 +794,22 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
             funding_info.index_price)
         self.assertEqual(Decimal(oracle_price["price"]), funding_info.mark_price)
         self.assertEqual(
-            int(derivative_markets_response[0]["perpetualMarketInfo"]["nextFundingTimestamp"]),
+            int(derivative_market_info["perpetualMarketInfo"]["nextFundingTimestamp"]),
             funding_info.next_funding_utc_timestamp)
         self.assertEqual(Decimal(funding_rate["fundingRates"][0]["rate"]), funding_info.rate)
 
     def test_get_funding_info(self):
         spot_markets_response = self._spot_markets_response()
+        market = list(spot_markets_response.values())[0]
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
+        self.query_executor._tokens_responses.put_nowait(
+            {token.symbol: token for token in [market.base_token, market.quote_token]}
+        )
         derivative_markets_response = self._derivative_markets_response()
         self.query_executor._derivative_markets_responses.put_nowait(derivative_markets_response)
+        derivative_market = list(derivative_markets_response.values())[0]
 
-        quote_decimals = derivative_markets_response[0]["quoteTokenMeta"]["decimals"]
+        quote_decimals = derivative_market.quote_token.decimals
 
         funding_rate = {
             "fundingRates": [
@@ -745,67 +859,20 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         }
         self.query_executor._derivative_trades_responses.put_nowait(trades)
 
-        self.query_executor._derivative_market_responses.put_nowait(derivative_markets_response[0])
-
-        funding_info: FundingInfo = self.async_run_with_timeout(
-            self.data_source.get_funding_info(self.trading_pair)
-        )
-
-        self.assertEqual(self.trading_pair, funding_info.trading_pair)
-        self.assertEqual(
-            Decimal(trades["trades"][0]["positionDelta"]["executionPrice"]) * Decimal(f"1e{-quote_decimals}"),
-            funding_info.index_price)
-        self.assertEqual(Decimal(oracle_price["price"]), funding_info.mark_price)
-        self.assertEqual(
-            int(derivative_markets_response[0]["perpetualMarketInfo"]["nextFundingTimestamp"]),
-            funding_info.next_funding_utc_timestamp)
-        self.assertEqual(Decimal(funding_rate["fundingRates"][0]["rate"]), funding_info.rate)
-
-    def _spot_markets_response(self):
-        return [{
-            "marketId": "0x0611780ba69656949525013d947713300f56c37b6175e02f26bffa495c3208fe",  # noqa: mock
-            "marketStatus": "active",
-            "ticker": self.ex_trading_pair,
-            "baseDenom": "inj",
-            "baseTokenMeta": {
-                "name": "Base Asset",
-                "address": "0xe28b3B32B6c345A34Ff64674606124Dd5Aceca30",  # noqa: mock
-                "symbol": self.base_asset,
-                "logo": "https://static.alchemyapi.io/images/assets/7226.png",
-                "decimals": 18,
-                "updatedAt": "1687190809715"
-            },
-            "quoteDenom": "peggy0x87aB3B4C8661e07D6372361211B96ed4Dc36B1B5",  # noqa: mock
-            "quoteTokenMeta": {
-                "name": "Quote Asset",
-                "address": "0x0000000000000000000000000000000000000000",
-                "symbol": self.quote_asset,
-                "logo": "https://static.alchemyapi.io/images/assets/825.png",
-                "decimals": 6,
-                "updatedAt": "1687190809716"
-            },
-            "makerFeeRate": "-0.0001",
-            "takerFeeRate": "0.001",
-            "serviceProviderFee": "0.4",
-            "minPriceTickSize": "0.000000000000001",
-            "minQuantityTickSize": "1000000000000000"
-        }]
-
-    def _derivative_markets_response(self):
-        return [{
+        derivative_market_info = {
             "marketId": self.market_id,
             "marketStatus": "active",
             "ticker": f"{self.ex_trading_pair} PERP",
-            "oracleBase": self.base_asset,
-            "oracleQuote": self.quote_asset,
-            "oracleType": "bandibc",
+            "oracleBase": "0x2d9315a88f3019f8efa88dfe9c0f0843712da0bac814461e27733f6b83eb51b3",  # noqa: mock
+            "oracleQuote": "0x1fc18861232290221461220bd4e2acd1dcdfbc89c84092c93c18bdc7756c1588",  # noqa: mock
+            "oracleType": "pyth",
             "oracleScaleFactor": 6,
             "initialMarginRatio": "0.195",
             "maintenanceMarginRatio": "0.05",
             "quoteDenom": "peggy0x87aB3B4C8661e07D6372361211B96ed4Dc36B1B5",  # noqa: mock
             "quoteTokenMeta": {
-                "name": "Quote Asset",
-                "address": "0x0000000000000000000000000000000000000000",
+                "name": "Testnet Tether USDT",
+                "address": "0x0000000000000000000000000000000000000000",  # noqa: mock
                 "symbol": self.quote_asset,
                 "logo": "https://static.alchemyapi.io/images/assets/825.png",
                 "decimals": 6,
@@ -820,7 +887,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
             "perpetualMarketInfo": {
                 "hourlyFundingRateCap": "0.000625",
                 "hourlyInterestRate": "0.00000416666",
-                "nextFundingTimestamp": "1690318800",
+                "nextFundingTimestamp": "1687190809716",
                 "fundingInterval": "3600"
             },
             "perpetualMarketFunding": {
@@ -828,4 +895,85 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
                 "cumulativePrice": "1.432536051546776736",
                 "lastTimestamp": "1689423842"
             }
-        }]
+        }
+        self.query_executor._derivative_market_responses.put_nowait(derivative_market_info)
+
+        funding_info: FundingInfo = self.async_run_with_timeout(
+            self.data_source.get_funding_info(self.trading_pair)
+        )
+
+        self.assertEqual(self.trading_pair, funding_info.trading_pair)
+        self.assertEqual(
+            Decimal(trades["trades"][0]["positionDelta"]["executionPrice"]) * Decimal(f"1e{-quote_decimals}"),
+            funding_info.index_price)
+        self.assertEqual(Decimal(oracle_price["price"]), funding_info.mark_price)
+        self.assertEqual(
+            int(derivative_market_info["perpetualMarketInfo"]["nextFundingTimestamp"]),
+            funding_info.next_funding_utc_timestamp)
+        self.assertEqual(Decimal(funding_rate["fundingRates"][0]["rate"]), funding_info.rate)
+
+    def _spot_markets_response(self):
+        base_native_token = Token(
+            name="Base Asset",
+            symbol=self.base_asset,
+            denom="inj",
+            address="0xe28b3B32B6c345A34Ff64674606124Dd5Aceca30",  # noqa: mock
+            decimals=18,
+            logo="https://static.alchemyapi.io/images/assets/7226.png",
+            updated=1687190809715,
+        )
+        quote_native_token = Token(
+            name="Quote Asset",
+            symbol=self.quote_asset,
+            denom="peggy0x87aB3B4C8661e07D6372361211B96ed4Dc36B1B5",  # noqa: mock
+            address="0x0000000000000000000000000000000000000000",  # noqa: mock
+            decimals=6,
+            logo="https://static.alchemyapi.io/images/assets/825.png",
+            updated=1687190809716,
+        )
+
+        native_market = SpotMarket(
+            id="0x0611780ba69656949525013d947713300f56c37b6175e02f26bffa495c3208fe",  # noqa: mock
+            status="active",
+            ticker=self.ex_trading_pair,
+            base_token=base_native_token,
+            quote_token=quote_native_token,
+            maker_fee_rate=Decimal("-0.0001"),
+            taker_fee_rate=Decimal("0.001"),
+            service_provider_fee=Decimal("0.4"),
+            min_price_tick_size=Decimal("0.000000000000001"),
+            min_quantity_tick_size=Decimal("1000000000000000"),
+        )
+
+        return {native_market.id: native_market}
+
+    def _derivative_markets_response(self):
+        quote_native_token = Token(
+            name="Quote Asset",
+            symbol=self.quote_asset,
+            denom="peggy0x87aB3B4C8661e07D6372361211B96ed4Dc36B1B5",  # noqa: mock
+            address="0x0000000000000000000000000000000000000000",  # noqa: mock
+            decimals=6,
+            logo="https://static.alchemyapi.io/images/assets/825.png",
+            updated=1687190809716,
+        )
+
+        native_market = DerivativeMarket(
+            id=self.market_id,
+            status="active",
+            ticker=f"{self.ex_trading_pair} PERP",
+            oracle_base=self.base_asset,
+            oracle_quote=self.quote_asset,
+            oracle_type="bandibc",
+            oracle_scale_factor=6,
+            initial_margin_ratio=Decimal("0.195"),
+            maintenance_margin_ratio=Decimal("0.05"),
+            quote_token=quote_native_token,
+            maker_fee_rate=Decimal("-0.0003"),
+            taker_fee_rate=Decimal("0.003"),
+            service_provider_fee=Decimal("0.4"),
+            min_price_tick_size=Decimal("100"),
+            min_quantity_tick_size=Decimal("0.0001"),
+        )
+
+        return {native_market.id: native_market}
