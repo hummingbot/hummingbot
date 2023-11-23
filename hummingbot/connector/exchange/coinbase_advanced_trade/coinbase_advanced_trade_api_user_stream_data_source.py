@@ -8,13 +8,13 @@ from typing import Any, AsyncGenerator, Awaitable, Callable, Coroutine, Dict, Na
 
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
-from hummingbot.logger.indenting_logger import indented_debug_decorator
 
 from .coinbase_advanced_trade_web_utils import get_timestamp_from_exchange_time
 from .connecting_functions.exception_log_manager import log_if_possible
 from .multi_stream_data_source.multi_stream_data_source import MultiStreamDataSource
 from .stream_data_source.enums import StreamAction
-from .stream_data_source.protocols import WSAssistantPtl
+from .stream_data_source.errors import CoinbaseAdvancedTradeWSSubscriptionError
+from .stream_data_source.protocols import WSAssistantPtl, WSResponsePtl
 
 
 class CoinbaseAdvancedTradeCumulativeUpdate(NamedTuple):
@@ -76,6 +76,26 @@ async def coinbase_advanced_trade_subscription_builder(
         "product_ids": [await pair_to_symbol(pair)],
         "channel": channel,
     }
+
+
+def on_failed_subscription(
+        response: WSResponsePtl,
+        *,
+        logger: HummingbotLogger | logging.Logger | None = None,
+) -> WSResponsePtl:
+    """
+    Log the failed subscription message.
+    :param response: The message received from the exchange.
+    :param logger: The logger to use.
+    """
+    """
+    {'type': 'subscriptions', 'channels': [{'name': 'heartbeat', 'product_ids': ['BTC-USD']}, {'name': 'user', 'product_ids': ['BTC-USD']}], 'message': 'Invalid product_ids: BTC-USD'}
+    """
+    if response.data:
+        if response.data.get("type") != "error":
+            return response
+        else:
+            raise CoinbaseAdvancedTradeWSSubscriptionError(f"Failed subscription: {response.data}")
 
 
 # --- Websocket message parsers ---
@@ -188,7 +208,7 @@ async def message_to_cumulative_update(
     for event in event_message.get("events"):
         for order in event["orders"]:
             try:
-                cumulative_order = CoinbaseAdvancedTradeCumulativeUpdate(
+                cumulative_order: CoinbaseAdvancedTradeCumulativeUpdate = CoinbaseAdvancedTradeCumulativeUpdate(
                     exchange_order_id=order["order_id"],
                     client_order_id=order["client_order_id"],
                     status=order["status"],
@@ -246,7 +266,6 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         "_stream_to_queue",
     )
 
-    @indented_debug_decorator(msg="CoinbaseAdvancedTradeAPIUserStreamDataSource", bullet=":")
     def __init__(
             self,
             channels: Tuple[str, ...],
@@ -278,6 +297,7 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
             ws_url=ws_url,
             pair_to_symbol=pair_to_symbol,
             subscription_builder=coinbase_advanced_trade_subscription_builder,
+            on_failed_subscription=on_failed_subscription,
             sequence_reader=functools.partial(
                 sequence_reader,  # Validate the sequence number
                 logger=self.logger()),
@@ -311,7 +331,6 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         return self._stream_to_queue.last_recv_time
 
-    @indented_debug_decorator(bullet="|")
     async def listen_for_user_stream(self, output: asyncio.Queue[CoinbaseAdvancedTradeCumulativeUpdate]):
         self.logger().debug(f"Starting for user streams {self._stream_to_queue}")
         await self._stream_to_queue.start_streams()

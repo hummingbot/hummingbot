@@ -2,6 +2,7 @@ import functools
 import inspect
 import logging
 import os
+from contextlib import suppress
 
 from hummingbot.logger import HummingbotLogger
 
@@ -69,12 +70,16 @@ class IndentingLogger:
 
             logfile_dir: str = os.path.dirname(handler.baseFilename)
             classes_dir = os.path.join(logfile_dir, "classes")
+
             if not os.path.exists(classes_dir):
-                os.mkdir(classes_dir)
+                with suppress(Exception):
+                    os.mkdir(classes_dir)
 
             # Create a new file handler for the debug logger in a subdirectory
             # with the name of the class
-            self._class_log_path = os.path.join(classes_dir, f"debug_{self._class_name}.log")
+            if os.path.exists(classes_dir):
+                self._class_log_path = os.path.join(classes_dir, f"debug_{self._class_name}.log")
+
             self.refresh_handlers()
 
     def handle_error(self, record):

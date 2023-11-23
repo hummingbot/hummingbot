@@ -3,6 +3,8 @@ from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCa
 from unittest import TestCase
 from unittest.mock import MagicMock, call, patch
 
+import objgraph
+
 from hummingbot.connector.exchange.coinbase_advanced_trade.connecting_functions.call_or_await import CallOrAwait
 from hummingbot.connector.exchange.coinbase_advanced_trade.connecting_functions.errors import ExceptionWithItem
 from hummingbot.connector.exchange.coinbase_advanced_trade.connecting_functions.exception_log_manager import (
@@ -22,6 +24,15 @@ class TestExceptionLogManager(TestCase):
         log_if_possible(logger, 'INFO', 'Test message')
 
         logger.info.assert_called_once_with('Test message')
+
+    def test_log_if_possible_memory(self):
+        logger = MagicMock()
+        logger.isEnabledFor.return_value = True
+        objgraph.show_growth(limit=1)
+        log_if_possible(logger, 'INFO', 'Test message')
+        del logger
+        print("- Diff -")
+        objgraph.show_growth()
 
     def test_log_if_possible_no_logger(self):
         logger = None
@@ -343,7 +354,18 @@ class TestTryExceptLogOnly(IsolatedAsyncioWrapperTestCase):
 
     async def test_regular_function_no_error(self):
         result = await try_except_log_only(CallOrAwait(self.regular_function_no_error), logger=self.logger)
+
         self.assertEqual(42, result)
+        self.logger.warning.assert_not_called()
+
+    async def test_regular_function_no_error_memory(self):
+        call_or_await = CallOrAwait(self.regular_function_no_error)
+        # Generate similar objects to try to decipher the memory leak
+        [await try_except_log_only(call_or_await.get_weakref(), logger=self.logger) for _ in range(100)]
+        objgraph.show_growth(limit=1)
+        [await try_except_log_only(call_or_await.get_weakref(), logger=self.logger) for _ in range(100)]
+        print("- Diff -")
+        objgraph.show_growth()
         self.logger.warning.assert_not_called()
 
     async def test_regular_function_with_error(self):
@@ -398,6 +420,16 @@ class TestTryExceptConditionalRaise(IsolatedAsyncioWrapperTestCase):
         result = await try_except_conditional_raise(CallOrAwait(self.regular_function_no_error), logger=self.logger)
         self.assertEqual(result, 42)
         self.logger.error.assert_not_called()
+
+    async def test_regular_function_no_error_memory(self):
+        call_or_await = CallOrAwait(self.regular_function_no_error)
+        # Generate similar objects to try to decipher the memory leak
+        [await try_except_conditional_raise(call_or_await.get_weakref(), logger=self.logger) for _ in range(100)]
+        objgraph.show_growth(limit=1)
+        [await try_except_conditional_raise(call_or_await.get_weakref(), logger=self.logger) for _ in range(100)]
+        print("- Diff -")
+        objgraph.show_growth()
+        self.logger.warning.assert_not_called()
 
     async def test_async_function_no_error(self):
         result = await try_except_conditional_raise(CallOrAwait(self.async_function_no_error), logger=self.logger)

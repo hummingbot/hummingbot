@@ -5,7 +5,6 @@ from logging import Logger
 from typing import Generic, List, Protocol, Type
 
 from hummingbot.logger import HummingbotLogger
-from hummingbot.logger.indenting_logger import indented_debug_decorator
 
 from .data_types import DataT, PipeDataT, PipeTupleDataT
 from .errors import PipeFullError, PipeSentinelError, PipeStoppedError
@@ -66,7 +65,6 @@ class Pipe(Generic[DataT], PipePtl[DataT]):
         "_space_available",
     )
 
-    @indented_debug_decorator(msg="Pipe.__init__", bullet=":")
     def __init__(self,
                  maxsize: int = 0,
                  pipe: Type[_PipeBasePtl[DataT]] = asyncio.Queue[DataT],

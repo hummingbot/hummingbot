@@ -139,7 +139,7 @@ class TestPipelineBlocks(IsolatedAsyncioWrapperTestCase):
             await asyncio.sleep(1)  # give the task time to throw exception
             self.assertFalse(self.pipe_block.is_running())
             self.assertIsInstance(self.pipe_block.task_manager._task_exception, Exception)
-            mock_logger().error.assert_called_once()
+            mock_logger().error.assert_called_with("DestinationPutError(, item={'data': 'message', 'item': None})")
 
     async def test_success_callback(self):
         """Test that the success_callback is called when a task completes successfully."""

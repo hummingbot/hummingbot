@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from functools import partial
-from typing import Any, AsyncGenerator, Awaitable, Callable, Generator, Iterable, NamedTupleMeta, Type, TypeVar, Union
+from typing import Any, AsyncGenerator, Awaitable, Callable, Generator, Iterable, Type, TypeVar, Union
 
 from ..pipe import PipePutPtl
 from ..pipe.data_types import FromDataT, ToDataT
@@ -59,7 +59,8 @@ async def data_to_async_generator(
             async for sub_item in data:
                 yield sub_item
 
-        elif isinstance(data, (Generator, list, set, tuple)) and not isinstance(data, NamedTupleMeta):
+        # elif isinstance(data, (Generator, list, set, tuple)) and not isinstance(data, NamedTupleMeta):
+        elif isinstance(data, (Generator, list, set, tuple)) and not hasattr(data, '_fields'):
             for sub_item in data:
                 yield sub_item
 
@@ -85,8 +86,7 @@ async def _apply_transform(
     :param logger: Optional logger for logging events and exceptions.
     :return: An async generator yielding transformed items from the original generator.
     """
-
-    call: Callable[[...], Awaitable[U]] = partial(CallOrAwait, transform)
+    call_or_await: Callable[[CallOrAwait[U]], Awaitable[U]] = partial(CallOrAwait, transform, logger=logger)
     try_call: Callable[[CallOrAwait[U]], Awaitable[U]] = partial(try_except_conditional_raise,
                                                                  exception=DataTransformerError,
                                                                  logger=logger)
@@ -99,11 +99,16 @@ async def _apply_transform(
             return
 
         async for item in generator:
-            transformed: MultiTypeDataT = await try_call(call((item,)))
-            async_gen: AsyncGenerator[U, None] = data_gen(transformed)
+            transform: CallOrAwait[U] = call_or_await((item,))
+            transformed: MultiTypeDataT = await try_call(transform.get_weakref())
 
-            async for u in async_gen:
-                yield u
+            # Check if the transformed item is a NamedTuple
+            if isinstance(transformed, tuple) and hasattr(transformed, '_fields'):
+                yield transformed
+            else:
+                async_gen: AsyncGenerator[U, None] = data_gen(transformed)
+                async for u in async_gen:
+                    yield u
 
     except asyncio.CancelledError as e:
         log_exception(e, logger, 'WARNING', "Failed while executing transform")
@@ -181,18 +186,26 @@ async def put_on_condition(
     if on_condition is None:
         on_condition: Callable[[FromDataT | ToDataT], bool] = lambda x: True
 
+    try_condition_call: Callable[[CallOrAwait[U]], Awaitable[U]] = partial(try_except_conditional_raise,
+                                                                           exception=ConditionalPutError,
+                                                                           logger=logger)
+    condition_call: Callable[[CallOrAwait[U]], Awaitable[U]] = partial(CallOrAwait, on_condition)
+
+    try_put_call: Callable[[CallOrAwait[U]], Awaitable[U]] = partial(try_except_conditional_raise,
+                                                                     exception=DestinationPutError,
+                                                                     logger=logger)
+    put_call: Callable[[CallOrAwait[U]], Awaitable[U]] = partial(CallOrAwait, destination.put, kwargs=kwargs)
+
+    data_gen: Callable[[MultiTypeDataT], AsyncGenerator[U, None]] = partial(data_to_async_generator,
+                                                                            exception=DataGeneratorError,
+                                                                            logger=logger)
+
     try:
-        async for item in data_to_async_generator(data, exception=DataGeneratorError, logger=logger):
-            if await try_except_conditional_raise(
-                    CallOrAwait(on_condition, (item,)),
-                    exception=ConditionalPutError):
-                await try_except_conditional_raise(
-                    CallOrAwait(
-                        destination.put,
-                        (item, *args),
-                        kwargs
-                    ),
-                    exception=DestinationPutError, )
+        async for item in data_gen(data):
+            condition: CallOrAwait[U] = condition_call((item,))
+            put: CallOrAwait[U] = put_call((item, *args))
+            if await try_condition_call(condition.get_weakref()):
+                await try_put_call(put.get_weakref())
 
     except (ConditionalPutError, DestinationPutError, DataGeneratorError) as e:
         log_exception(e, logger, 'ERROR', "Failed to put item into destination pipe.")

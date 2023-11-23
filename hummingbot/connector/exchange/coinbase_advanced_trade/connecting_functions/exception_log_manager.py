@@ -239,11 +239,11 @@ async def try_except_conditional_raise(
     if func is None:
         return None
 
+    name = getattr(func.func, '__name__', '[function name undefined]')
     try:
         return await func.call(logger=logger)
 
     except ExceptionWithItem as e:
-        name: str = getattr(func.func, '__name__', '[function name undefined]')
         message: str = f"Failed while executing {{calling_function}} for function: {name}."
         if raise_condition:
             log_exception(e, logger, 'ERROR', message)

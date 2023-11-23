@@ -4,6 +4,7 @@ from typing import Generic, Tuple
 
 from hummingbot.logger import HummingbotLogger
 
+from ..connecting_functions.exception_log_manager import log_exception
 from ..pipe.data_types import FromDataT, HandlerT, ToDataT
 from ..pipe.pipe import Pipe
 from ..pipe.protocols import PipeGetPtl
@@ -68,11 +69,6 @@ class PipesPipeFitting(Generic[FromDataT, ToDataT]):
         """Stop all the collecting tasks."""
         await asyncio.gather(*[p.stop_task() for p in self._pipe_blocks if p.is_running()])
 
-    # async def start_task(self, pipe: PipePipeFitting[FromDataT, ToDataT]) -> None:
-    #     """Start the task associated with a pipe."""
-    #     if pipe in self._pipe_blocks and not pipe.is_running:
-    #         pipe.start_task()
-
     async def stop_task(self, pipe: PipePipeFitting[FromDataT, ToDataT]) -> None:
         """Stop the task associated with a pipe."""
         if pipe in self._pipe_blocks and pipe.is_running:
@@ -97,5 +93,4 @@ class PipesPipeFitting(Generic[FromDataT, ToDataT]):
     def task_exception_callback(self, ex: Exception) -> None:
         """Handle an exception raised during the execution of the task."""
         # Log the exception
-        self.logger().error("An error occurred while executing the task in the PipesPipeFitting:\n"
-                            f" {ex}")
+        log_exception(ex, self.logger(), "ERROR")

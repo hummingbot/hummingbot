@@ -7,7 +7,6 @@ from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSJSONRequest, WSRequest
 from hummingbot.logger import HummingbotLogger
-from hummingbot.logger.indenting_logger import indented_debug_decorator
 
 from .coinbase_advanced_trade_web_utils import endpoint_from_url
 
@@ -37,7 +36,6 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
         'time_provider',
     )
 
-    @indented_debug_decorator(msg="CoinbaseAdvancedTradeAuth", bullet=":")
     def __init__(self, api_key: str, secret_key: str, time_provider: TimeSynchronizer):
         """
         :param api_key: The API key.
@@ -87,7 +85,6 @@ class CoinbaseAdvancedTradeAuth(AuthBase):
 
         return request
 
-    @indented_debug_decorator(msg="ws_authenticate", bullet="'")
     async def ws_authenticate(self, request: WSJSONRequest) -> WSRequest:
         """
         This method is intended to configure a websocket request to be authenticated.

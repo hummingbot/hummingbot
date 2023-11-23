@@ -2,11 +2,10 @@ import asyncio
 import functools
 import logging
 import time
-from typing import Any, Awaitable, Callable, Coroutine, Generator, Generic, Tuple, TypeVar
+from typing import Any, Awaitable, Callable, Coroutine, Generic, Tuple, TypeVar
 
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.logger import HummingbotLogger
-from hummingbot.logger.indenting_logger import indented_debug_decorator
 
 from ..connecting_functions.call_or_await import CallOrAwait
 from ..connecting_functions.exception_log_manager import log_exception
@@ -16,7 +15,7 @@ from ..connecting_functions.exception_log_manager import log_exception
 from ..fittings.auto_stream_pipe_fitting import AutoStreamPipeFitting
 from ..task_manager import TaskState
 from .enums import StreamAction, StreamState
-from .errors import StreamDataSourceError
+from .errors import CoinbaseAdvancedTradeWSSubscriptionError, StreamDataSourceError
 from .protocols import SubscriptionBuilderT, WSAssistantPtl, WSResponsePtl
 
 T = TypeVar("T")
@@ -42,6 +41,7 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
         "_ws_url",
         "_pair_to_symbol",
         "_subscription_builder",
+        "_on_failed_subscription",
         "_heartbeat_channel",
         "_subscription_lock",
         "_ws_assistant",
@@ -51,7 +51,6 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
         "_task_state",
     )
 
-    @indented_debug_decorator(msg="StreamDataSource", bullet=":")
     def __init__(
             self,
             *,
@@ -61,8 +60,8 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
             ws_url: str,
             pair_to_symbol: Callable[[str], Awaitable[str]],
             subscription_builder: SubscriptionBuilderT,
+            on_failed_subscription: Callable[[WSResponsePtl], None] | None = None,
             heartbeat_channel: str | None = None,
-            stream_handler: Callable[[WSResponsePtl], Generator[T, None, None] | T | None] = None,
     ) -> None:
         """
         Initialize a StreamDataSource.
@@ -89,28 +88,45 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
             pair=self._pair,
             pair_to_symbol=pair_to_symbol,
         )
+        self._on_failed_subscription: Callable[[WSResponsePtl], None] | None = on_failed_subscription
         self._subscription_lock: asyncio.Lock = asyncio.Lock()
 
         self._last_recv_time_s: float = 0.0
         self._stream_state: StreamState = StreamState.CLOSED
 
         super().__init__(source=self.get_ws_assistant,
-                         handler=stream_handler or self._filter_empty_data,
+                         handler=self._filter_empty_data,
                          connect=self._connect,
                          disconnect=self.close_connection)
 
         self._task_state: TaskState = TaskState.STOPPED
 
-    def _filter_empty_data(self, response: WSResponsePtl) -> T:
+    async def _filter_empty_data(self, response: WSResponsePtl) -> T:
         """
         Filters out empty data from the response.
 
         :param response: The response to filter.
         :return: The filtered response.
         """
-        if response.data:
-            self._last_recv_time_s: float = self._time()
-            return response.data
+        try:
+            response = self._on_failed_subscription(response)
+
+        except CoinbaseAdvancedTradeWSSubscriptionError:
+            self.logger().error(f"Failed to subscribe to {self._channel} for {self._pair}.")
+            await asyncio.sleep(0.25)
+            await self.subscribe()
+            return
+
+        except asyncio.CancelledError:
+            raise
+
+        except Exception as e:
+            self.logger().error(f"Unexpected message: {response}.")
+            raise e
+
+        self.logger().debug(f"Validated subscription to {self._channel} for {self._pair}.")
+        self._last_recv_time_s: float = self._time()
+        return response.data
 
     @property
     def state(self) -> Tuple[StreamState, TaskState]:
@@ -142,7 +158,6 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
         """Returns the time of the last received message"""
         return self._last_recv_time_s
 
-    @indented_debug_decorator(bullet="g")
     async def get_ws_assistant(self) -> WSAssistantPtl:
         """Returns the WS Assistant, when it is available (created by a call to open_connection)"""
         # self.logger().debug("Waiting for WS Assistant to be ready...")
@@ -179,7 +194,6 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
         else:
             self.logger().error(f"Failed to stop the TaskManager for {self._channel}/{self._pair} stream.")
 
-    @indented_debug_decorator(bullet="o")
     async def open_connection(self) -> None:
         """Initializes the websocket connection and subscribe to the heartbeats channel."""
         if self._stream_state == StreamState.CLOSED:
@@ -204,7 +218,6 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
                 f"Attempting to open unclosed {self._channel}/{self._pair} stream. "
                 f"State {self._stream_state} left unchanged")
 
-    @indented_debug_decorator(bullet="x")
     async def close_connection(self) -> None:
         """Closes websocket operations"""
         if self._ws_assistant is not None:
@@ -300,7 +313,6 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
             self._stream_state = StreamState.UNSUBSCRIBED
         self.logger().info(f"Unsubscribed from {channel} for {self._pair}.")
 
-    @indented_debug_decorator(bullet="s")
     async def _send_to_stream(self, *, subscription_builder: functools.partial[SubscriptionBuilderT]) -> None:
         """
         Sends a payload to the Stream.
@@ -333,7 +345,6 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
                 log_exception(e, self.logger(), "ERROR", f"Unexpected error occurred sending {payload}")
                 raise e
 
-    @indented_debug_decorator(bullet="c")
     async def _connect(self) -> None:
         """
         Connects to the websocket and subscribes to the user events.

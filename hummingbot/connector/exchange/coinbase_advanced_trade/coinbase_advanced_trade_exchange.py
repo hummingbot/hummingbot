@@ -26,7 +26,6 @@ from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.logger import HummingbotLogger
-from hummingbot.logger.indenting_logger import indented_debug_decorator
 
 from . import coinbase_advanced_trade_constants as constants, coinbase_advanced_trade_web_utils as web_utils
 from .coinbase_advanced_trade_api_order_book_data_source import CoinbaseAdvancedTradeAPIOrderBookDataSource
@@ -61,7 +60,6 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
             cls._logger = logging.getLogger(name)
         return cls._logger
 
-    @indented_debug_decorator(msg="CoinbaseAdvancedTradeExchange", bullet=":")
     def __init__(self,
                  client_config_map: "ClientConfigAdapter",
                  coinbase_advanced_trade_api_key: str,
@@ -189,13 +187,11 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
         mapping = await self.trading_pair_symbol_map()
         return list(mapping.values())
 
-    @indented_debug_decorator(bullet="S")
     async def start_network(self):
         await self._initialize_market_assets()
         await self._update_trading_rules()
         await super().start_network()
 
-    @indented_debug_decorator(bullet="T")
     async def _update_time_synchronizer(self, pass_on_non_cancelled_error: bool = False):
         # Overriding ExchangePyBase: Synchronizer expects time in ms
         try:
@@ -230,7 +226,6 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
             domain=self.domain,
             api_factory=self._web_assistants_factory)
 
-    @indented_debug_decorator(msg="User Stream Data Source", bullet=":")
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
         # self.logger().debug("Creating user stream data source.")
         self._multi_stream_tracker = CoinbaseAdvancedTradeAPIUserStreamDataSource(
@@ -274,7 +269,6 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
         )
         return trade_base_fee
 
-    @indented_debug_decorator(bullet="O")
     async def _place_order(self,
                            order_id: str,
                            trading_pair: str,
@@ -358,7 +352,6 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
         else:
             raise ValueError(f"Failed to place order on {self.name}. Error: {order_result['error_response']}")
 
-    @indented_debug_decorator(bullet="c")
     async def _place_order_and_process_update(self, order: InFlightOrder, **kwargs) -> str:
         # Overriding ExchangePyBase since it sets the status to OPEN
         exchange_order_id, update_timestamp = await self._place_order(
@@ -382,13 +375,11 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
 
         return exchange_order_id
 
-    @indented_debug_decorator(bullet="C")
     async def cancel_all(self, timeout_seconds: float) -> List[CancellationResult]:
         """
         Cancels all currently active orders. The cancellations are performed in parallel tasks.
 
         :param timeout_seconds: the maximum time (in seconds) the cancel logic should run
-
         :return: a list of CancellationResult instances, one for each of the orders to be cancelled
         """
 
@@ -433,7 +424,6 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
     async def _cancel_lost_orders(self):
         await self._execute_orders_cancel(orders=[l for _, l in self._order_tracker.lost_orders.items()])
 
-    @indented_debug_decorator(bullet="E")
     async def _execute_orders_cancel(self, orders: List[InFlightOrder]) -> List[str]:
         try:
             cancelled: List[bool] = await self._execute_orders_cancel_and_process_update(orders=orders)
@@ -442,7 +432,6 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
         except asyncio.CancelledError:
             raise
 
-    @indented_debug_decorator(bullet="e")
     async def _execute_orders_cancel_and_process_update(self, orders: List[InFlightOrder]) -> List[bool]:
         cancelled = await self._place_cancels(order_ids=[o.exchange_order_id for o in orders])
         for o, c in zip(orders, cancelled):
@@ -468,11 +457,14 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
 
         return [c["success"] for c in cancelled]
 
-    @indented_debug_decorator(bullet="Q")
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder) -> bool:
         """
         Cancels an order with the exchange and returns the order ID and the timestamp of the order.
         https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_cancelorders
+
+        :param order_id: str
+        :param tracked_order: InFlightOrder
+        :return: bool
         """
         # Requesting to cancel an empty order seems to hang the request
         if (
@@ -502,15 +494,19 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
                                 f"request)")
         return False
 
-    @indented_debug_decorator(bullet="D")
     async def _place_cancels(self, order_ids: List[str]) -> List[Dict[str, Any]]:
         """
         Cancels an order with the exchange and returns the order ID and the timestamp of the order.
         https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_cancelorders
 
+        :param order_ids: List[str]
+        :return: List[Dict[str, Any]]
         """
         # Safeguarding the API call
         order_ids = [o for o in order_ids if o is not None and o != "" and o != "UNKNOWN"]
+
+        if not order_ids:
+            return [{"success": True, "failure_reason": "EMPTY_CANCEL_REQUEST"}]
 
         api_data = {
             "order_ids": order_ids
@@ -527,12 +523,13 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
             self.logger().error(f"Error cancelling orders: {str(e)}\n   {api_data}", exc_info=False)
             return [{"success": False, "failure_reason": "UNKNOWN_CANCEL_FAILURE_REASON"} for _ in order_ids]
 
-    @indented_debug_decorator(bullet="s")
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         """
         Get a list of bids/asks for a single product.
         https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_getproductbook
 
+        :param trading_pair: str
+        :return: OrderBookMessage
         """
         params = {
             "product_id": await self.trading_pair_associated_to_exchange_symbol(trading_pair)
@@ -554,12 +551,13 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
         )
         return snapshot_msg
 
-    @indented_debug_decorator(bullet="R")
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         """
         Queries Order status by order_id.
         https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_gethistoricalorder
 
+        :param tracked_order: InFlightOrder
+        :return: OrderUpdate
         """
         if (
                 tracked_order.exchange_order_id is None or
@@ -601,7 +599,6 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
 
     # Overwriting this method from ExchangePyBase that seems to force mis-handling data flow
     # as well as duplicating expensive API calls (call for all products)
-    # @indented_debug_decorator( msg="Update Rules", bullet="U")
     async def _update_trading_rules(self):
         self.trading_rules.clear()
         trading_pair_symbol_map: bidict[str, str] = bidict()
@@ -689,7 +686,6 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
             self._account_balances.pop(asset, None)
             self._account_available_balances.pop(asset, None)
 
-    @indented_debug_decorator(msg="Update Bal", bullet="B")
     async def _update_balances(self):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
@@ -711,7 +707,6 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
         # Request removal of non-valid assets
         self.remove_balances(local_asset_names.difference(remote_asset_names))
 
-    @indented_debug_decorator(msg="One page", bullet="l")
     async def _list_one_page_of_accounts(self, cursor: str) -> Dict[str, Any]:
         """
         List one page of accounts with maximum of 250 accounts per page.
@@ -727,7 +722,6 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
         )
         return response
 
-    @indented_debug_decorator(msg="List Accounts", bullet="A")
     async def _list_trading_accounts(self) -> AsyncGenerator[Dict[str, Any], None]:
         has_next_page = True
         cursor = "0"
@@ -740,7 +734,6 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
                 self._asset_uuid_map[account.get("currency")] = account.get("uuid")
                 yield account
 
-    @indented_debug_decorator(msg="Last price", bullet="P")
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         product_id = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         params: Dict[str, Any] = {

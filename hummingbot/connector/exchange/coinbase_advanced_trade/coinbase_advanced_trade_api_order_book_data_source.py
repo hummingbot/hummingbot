@@ -10,7 +10,6 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJ
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
-from hummingbot.logger.indenting_logger import indented_debug_decorator
 
 from . import coinbase_advanced_trade_constants as constants, coinbase_advanced_trade_web_utils as web_utils
 
@@ -35,7 +34,6 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSource(OrderBookTrackerDataSource):
             cls._logger = logging.getLogger(name)
         return cls._logger
 
-    @indented_debug_decorator(msg="CoinbaseAdvancedTradeAPIOrderBookDataSource", bullet=":")
     def __init__(self,
                  trading_pairs: List[str],
                  connector: 'CoinbaseAdvancedTradeExchange',

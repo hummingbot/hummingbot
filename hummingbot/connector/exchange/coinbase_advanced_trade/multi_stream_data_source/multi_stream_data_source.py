@@ -2,10 +2,9 @@ import asyncio
 import functools
 import logging
 from collections import defaultdict
-from typing import Any, Callable, Coroutine, Dict, List, Tuple, Type, TypeVar
+from typing import Any, Awaitable, Callable, Coroutine, Dict, List, Tuple, Type, TypeVar
 
 from hummingbot.logger import HummingbotLogger
-from hummingbot.logger.indenting_logger import indented_debug_decorator
 
 from ..connecting_functions.call_or_await import CallOrAwait
 from ..connecting_functions.exception_log_manager import log_exception
@@ -13,7 +12,7 @@ from ..fittings.pipe_pipe_fitting import PipePipeFitting
 from ..fittings.pipes_pipe_fitting import PipesPipeFitting
 from ..pipe import HandlerT
 from ..pipe.protocols import PipeGetPtl
-from ..stream_data_source.protocols import WSAssistantPtl
+from ..stream_data_source.protocols import WSAssistantPtl, WSResponsePtl
 from ..stream_data_source.stream_data_source import StreamDataSource, StreamState, SubscriptionBuilderT
 from ..task_manager import TaskState
 from .helper_functions import sequence_verifier
@@ -48,18 +47,18 @@ class MultiStreamDataSource:
         "_stream_access_lock",
     )
 
-    @indented_debug_decorator(msg="MultiStream", bullet="|")
     def __init__(self,
                  *,
                  channels: Tuple[str, ...],
                  pairs: Tuple[str, ...],
                  ws_factory: Callable[[], Coroutine[Any, Any, WSAssistantPtl]],
                  ws_url: str,
-                 pair_to_symbol: Callable[[str], Coroutine[Any, Any, str]],
+                 pair_to_symbol: Callable[[str], Awaitable[str]],
                  subscription_builder: SubscriptionBuilderT,
                  sequence_reader: Callable[[Dict[str, Any]], int],
                  transformers: List[Callable],
                  collector: HandlerT,
+                 on_failed_subscription: Callable[[WSResponsePtl], WSResponsePtl] | None = None,
                  heartbeat_channel: str | None = None) -> None:
         """
         Initialize the CoinbaseAdvancedTradeAPIUserStreamDataSource.
@@ -87,6 +86,7 @@ class MultiStreamDataSource:
                     ws_url=ws_url,
                     pair_to_symbol=pair_to_symbol,
                     subscription_builder=subscription_builder,
+                    on_failed_subscription=on_failed_subscription,
                     heartbeat_channel=heartbeat_channel,
                 )
 
@@ -142,19 +142,6 @@ class MultiStreamDataSource:
         """Returns the time of the last received message"""
         return min((self._streams[t].last_recv_time for t in self._streams), default=0)
 
-    #    @indented_debug_decorator(bullet="o")
-    #    async def _open_connections(self) -> None:
-    #        """Open all the streams"""
-    #        self.logger().debug(f"Opening {len(self._streams)} streams")
-    #        done: Tuple[bool, ...] = await self._perform_on_all_streams(self._open_connection)
-    #        await self._pop_unsuccessful_streams(done)
-    #        self.logger().debug(f" '> Opened {len(self._streams)} streams")
-    #
-    #    async def _close_connections(self) -> None:
-    #        """Close all the streams"""
-    #        await self._perform_on_all_streams(self._close_connection)
-
-    @indented_debug_decorator(bullet="s")
     async def subscribe(self) -> None:
         """Subscribe to all the streams"""
         self.logger().debug(f"Subscribing {len(self._streams)} streams")
@@ -253,7 +240,6 @@ class MultiStreamDataSource:
 
         return await asyncio.gather(*[apply_on_(stream) for stream in self._streams.values()])
 
-    @indented_debug_decorator(bullet="c")
     async def _open_connection(self, stream: StreamDataSource) -> bool:
         """Open connection for a stream"""
         if stream.state[0] == StreamState.OPENED:

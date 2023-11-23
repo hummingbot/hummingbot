@@ -4,6 +4,7 @@ import logging
 from hummingbot.logger import HummingbotLogger
 
 from ..connecting_functions import pipe_to_pipe_connector
+from ..connecting_functions.exception_log_manager import log_exception
 from ..pipe.data_types import FromDataT, HandlerT, PipeDataT, PipeTupleDataT, ToDataT
 from ..pipe.protocols import PipeGetPtl
 from ..pipeline.data_types import DestinationT
@@ -61,5 +62,4 @@ class PipePipeFitting(PipelineBase[FromDataT, ToDataT]):
     def task_exception_callback(self, ex: Exception) -> None:
         """Handle an exception raised during the execution of the task."""
         # Log the exception
-        self.logger().error("An error occurred while executing the task in the PipePipeFitting:\n"
-                            f" {ex}")
+        log_exception(ex, self.logger(), level="ERROR")

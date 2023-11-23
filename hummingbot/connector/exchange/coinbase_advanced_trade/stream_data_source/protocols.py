@@ -75,6 +75,7 @@ class WSResponsePtl(Protocol):
     """
     WSResponsePtl is the prototype, or type hint for the websocket response.
     """
+    type: str
 
     @property
     def data(self) -> Any:

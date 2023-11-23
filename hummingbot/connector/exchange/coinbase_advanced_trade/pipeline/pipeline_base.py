@@ -2,7 +2,6 @@ import logging
 from typing import Any, Awaitable, Callable, Dict, Generic, Protocol
 
 from hummingbot.logger import HummingbotLogger
-from hummingbot.logger.indenting_logger import indented_debug_decorator
 
 from ..connecting_functions import pipe_to_pipe_connector
 from ..fittings.data_types import ConnectToPipeTaskT, ReConnectToPipeTaskT
@@ -40,7 +39,6 @@ class PipelineBase(Generic[FromDataT, ToDataT]):
         "task_manager"
     )
 
-    @indented_debug_decorator(msg="PipelineBase.__init__", bullet=":")
     def __init__(
             self,
             *,

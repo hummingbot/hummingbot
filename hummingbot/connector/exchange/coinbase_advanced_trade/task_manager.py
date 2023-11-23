@@ -6,7 +6,6 @@ from enum import Enum
 from typing import Any, Awaitable, Callable
 
 from hummingbot.logger import HummingbotLogger
-from hummingbot.logger.indenting_logger import indented_debug_decorator
 
 
 class TaskState(Enum):
@@ -45,7 +44,6 @@ class TaskManager:
         "_exception_event",
     )
 
-    @indented_debug_decorator(msg="TaskManager", bullet=":")
     def __init__(
             self,
             task_function: Callable[[...], Awaitable[Any]],
@@ -76,7 +74,7 @@ class TaskManager:
         self._task_kwargs: Any = kwargs
 
         self._task: Task | None = None
-        self._task_exception: TaskManagerException | None = None
+        self._task_exception: Exception | None = None
         self._task_state: TaskState = TaskState.STOPPED
 
     @property
@@ -126,9 +124,9 @@ class TaskManager:
         try:
             await self.__task_function(*self._task_args, **self._task_kwargs)
         except Exception as ex:
-            self._task_exception = TaskManagerException(
-                f"An error occurred while executing the task {self.task}\n"
-                f" in the TaskManager:\n {ex}")
+            self._task_exception = TaskManagerException(ex)
+            self.logger().error("Exception caught in TaskManager:\n"
+                                f"   {getattr(self.__task_function, '__name__', repr(self.__task_function))}")
             self._exception_callback(ex) if self._exception_callback is not None else None
             self._exception_event.set() if self._exception_event is not None else None
         else:

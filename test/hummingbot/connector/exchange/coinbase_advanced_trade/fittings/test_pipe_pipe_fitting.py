@@ -75,7 +75,7 @@ class TestPipePipeFitting(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         with patch.object(PipePipeFitting, "_logger") as mock_logger:
             await self.pipe_pipe_fitting.start_task()
             await asyncio.sleep(0.01)  # Give time for the exception to be raised
-            mock_logger.error.assert_called_once()
+            mock_logger.error.assert_called_with('SourceGetError(, item=None)')
 
         # Stop the task
         await self.pipe_pipe_fitting.stop_task()

@@ -1,7 +1,7 @@
 import asyncio
 import logging
+import weakref
 from dataclasses import dataclass, field
-from functools import partial
 from typing import Any, Awaitable, Callable, Dict, Generic, Tuple, TypeVar
 
 from .errors import ExceptionWithItem
@@ -9,7 +9,7 @@ from .errors import ExceptionWithItem
 T = TypeVar('T')
 
 
-@dataclass
+@dataclass()
 class CallOrAwait(Generic[T]):
     """
     Wrapper for calling a function or awaiting a coroutine function.
@@ -33,6 +33,7 @@ class CallOrAwait(Generic[T]):
         """
 
         if self.func is None:
+            self._call = None
             return
 
         if not callable(self.func):
@@ -44,12 +45,24 @@ class CallOrAwait(Generic[T]):
         if not isinstance(self.kwargs, dict):
             raise TypeError("kwargs must be a dict")
 
-        _call: Callable = partial(self.func, *self.args, **self.kwargs)
+        func = self.func
 
         if asyncio.iscoroutinefunction(self.func):
-            self._call: Callable[..., Awaitable[T]] = _call
+            self._call: Callable[..., Awaitable[T]] = lambda: func(*self.args, **self.kwargs)
         else:
-            self._call: Callable[..., Awaitable[T]] = partial(asyncio.to_thread, _call)
+            self._call: Callable[..., Awaitable[T]] = lambda: asyncio.to_thread(func, *self.args, **self.kwargs)
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.func}, {self.args}, {self.kwargs})"
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, CallOrAwait):
+            return False
+        return self.func == other.func and self.args == other.args and self.kwargs == other.kwargs
+
+    def get_weakref(self):
+        """Return a weak reference to this instance."""
+        return weakref.proxy(self)
 
     async def call(self, *, logger: logging.Logger | None = None) -> T | None:
         """
@@ -60,7 +73,7 @@ class CallOrAwait(Generic[T]):
                  Captures the function name, args, kwargs, and the original function.
         :return: The result of the function call.
         """
-        if self.func is None:
+        if self._call is None:
             return None
 
         try:

@@ -1,7 +1,11 @@
 import asyncio
+import gc
+import timeit
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
-from typing import AsyncGenerator, Generator
+from typing import Any, AsyncGenerator, Generator, NamedTuple
 from unittest.mock import AsyncMock, MagicMock, call, patch
+
+import objgraph
 
 from hummingbot.connector.exchange.coinbase_advanced_trade.connecting_functions import pipe_to_async_generator
 from hummingbot.connector.exchange.coinbase_advanced_trade.connecting_functions.call_or_await import CallOrAwait
@@ -30,7 +34,7 @@ class _ExceptionWithItem(ExceptionWithItem):
 class TestCallOrAwait(IsolatedAsyncioWrapperTestCase):
 
     async def async_func(self, a, b):
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0)
         return a + b
 
     def sync_func(self, a, b):
@@ -40,9 +44,36 @@ class TestCallOrAwait(IsolatedAsyncioWrapperTestCase):
         raise ValueError("Test Error")
 
     async def test_async_function_call(self):
+        # objgraph.show_growth(limit=3)
         wrapper = CallOrAwait(func=self.async_func, args=(10, 20))
         result = await wrapper.call()
+        await wrapper.call()
         self.assertEqual(result, 30)
+
+    async def test_async_function_call_memory(self):
+        objgraph.show_growth(limit=1)
+        result = [await CallOrAwait(func=self.async_func, args=(10, 20)).call() for _ in range(1000)]
+        print("- Diff -")
+        objgraph.show_growth()
+        self.assertEqual(result, [30] * 1000)
+
+    async def test_async_function_call_weakref(self):
+        objgraph.show_growth(limit=1)
+        result = [await CallOrAwait(func=self.async_func, args=(10, 20)).get_weakref().call() for _ in range(1000)]
+        print("- Diff -")
+        objgraph.show_growth()
+        self.assertEqual(result, [30] * 1000)
+
+    async def test_async_function_call_weakref_time(self):
+        start_time = timeit.default_timer()
+        [CallOrAwait(func=self.async_func, args=(10, 20)) for _ in range(10000)]
+        creation_time = timeit.default_timer() - start_time
+        start_time = timeit.default_timer()
+        result = [await CallOrAwait(func=self.async_func, args=(10, 20)).call() for _ in range(10000)]
+        call_time = timeit.default_timer() - start_time
+        print(f"Creation time: {creation_time} seconds")
+        print(f"Call time: {call_time} seconds")
+        self.assertEqual(result, [30] * 10000)
 
     async def test_sync_function_call(self):
         wrapper = CallOrAwait(func=self.sync_func, args=(10, 20))
@@ -164,18 +195,44 @@ class TestDataToAsyncGenerator(IsolatedAsyncioWrapperTestCase):
 
     async def test_single_item(self):
         item = 42
+        objgraph.show_growth(limit=1)
         async_gen = data_to_async_generator(item)
         results = [i async for i in async_gen]
+        print("- Diff -")
+        objgraph.show_growth()
         self.assertEqual(results, [item])
 
+    async def test_single_item_memory(self):
+        item = 42
+        objgraph.show_growth(limit=1)
+        async_gen = [data_to_async_generator(item) for _ in range(1000)]
+        for gen in async_gen:
+            results = [i async for i in gen]
+            self.assertEqual(results, [item])
+        print("- Diff -")
+        del async_gen
+        objgraph.show_growth()
+
     async def test_iterable_list(self):
-        items = [1, 2, 3]
+        items = list(range(10000))
+        objgraph.show_growth(limit=1)
         async_gen = data_to_async_generator(items)
         results = [i async for i in async_gen]
         self.assertEqual(results, items)
+        print("- Diff -")
+        del results
+        objgraph.show_growth()
 
     async def test_iterable_tuple(self):
         items = (1, 2, 3)
+        async_gen = data_to_async_generator(items)
+        results = [i async for i in async_gen]
+        self.assertEqual(results, list(items))
+
+    async def test_iterable_namedtuple(self):
+        items = [NamedTuple("Test", [("a", int), ("b", int)])(1, 2),
+                 NamedTuple("Test", [("a", int), ("b", int)])(3, 4),
+                 NamedTuple("Test", [("a", int), ("b", int)])(5, 6)]
         async_gen = data_to_async_generator(items)
         results = [i async for i in async_gen]
         self.assertEqual(results, list(items))
@@ -297,8 +354,16 @@ class TestTransformAsyncGenerator(IsolatedAsyncioWrapperTestCase):
             yield i
             await asyncio.sleep(0)
 
+    async def sample_async_generator_namedtuple(self) -> AsyncGenerator[int, None]:
+        for i in range(3):
+            yield NamedTuple("Test", [("a", int), ("b", int)])(i, i * 2)
+            await asyncio.sleep(0)
+
     def sync_transform(self, x: int) -> int:
         return x * 2
+
+    def pass_transform(self, x: Any) -> Any:
+        return x
 
     async def async_transform(self, x: int) -> int:
         await asyncio.sleep(0)
@@ -322,11 +387,33 @@ class TestTransformAsyncGenerator(IsolatedAsyncioWrapperTestCase):
     def error_transform(self, x: int):
         raise ValueError("Transformation Error")
 
+    async def test_async_gen_namedtuple(self):
+        gen = self.sample_async_generator_namedtuple()
+        transformed_gen = transform_async_generator(gen, self.pass_transform)
+        results = [i async for i in transformed_gen]
+        self.assertEqual(results, [
+            (0, 0),
+            (1, 2),
+            (2, 4)])
+
     async def test_sync_transform(self):
         gen = self.sample_async_generator()
         transformed_gen = transform_async_generator(gen, self.sync_transform)
         results = [i async for i in transformed_gen]
         self.assertEqual(results, [0, 2, 4])
+
+    async def test_sync_transform_memory(self):
+        objgraph.show_growth(limit=1)
+        transformed_gen = [transform_async_generator(self.sample_async_generator(), self.sync_transform) for _ in range(1000)]
+        print("- Diff -")
+        objgraph.show_growth()
+        for gen in transformed_gen:
+            results = [i async for i in gen]
+            self.assertEqual(results, [0, 2, 4])
+        print("- Diff -")
+        del transformed_gen
+        gc.collect()
+        objgraph.show_growth()
 
     async def test_async_transform(self):
         gen = self.sample_async_generator()
@@ -410,6 +497,21 @@ class TestPutOnConditionFromAsyncGenerator(IsolatedAsyncioWrapperTestCase):
         await put_on_condition(test_generator(), destination=destination)
 
         destination.put.assert_has_awaits([call(0), call(1), call(2)])
+
+    async def test_normal_operation_memory(self):
+        async def test_generator():
+            for i in range(3):
+                yield i
+
+        destination = AsyncMock()
+        # Generate similar objects to test_generator() to see if they are garbage collected
+        [await put_on_condition(test_generator(), destination=destination) for _ in range(1000)]
+        objgraph.show_growth(limit=1)
+        [await put_on_condition(test_generator(), destination=destination) for _ in range(1000)]
+        print("- Diff -")
+        del destination
+        gc.collect()
+        objgraph.show_growth()
 
     async def test_condition_not_met(self):
         async def test_generator():
