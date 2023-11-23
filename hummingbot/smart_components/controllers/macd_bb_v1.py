@@ -2,6 +2,7 @@ import time
 from typing import Optional
 
 import pandas as pd
+import pandas_ta as ta  # noqa: F401
 from pydantic import Field
 
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
