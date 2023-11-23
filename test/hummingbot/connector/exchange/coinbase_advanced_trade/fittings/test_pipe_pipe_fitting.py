@@ -67,6 +67,30 @@ class TestPipePipeFitting(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         # Stop the task
         await self.pipe_pipe_fitting.stop_task()
 
+    async def test_data_transfer_memory(self):
+        self.source = Pipe[int]()
+        self.destination = Pipe[int]()
+        self.pipe_pipe_fitting = PipePipeFitting(
+            source=self.source,
+            handler=self.sync_handler,
+            destination=self.destination
+        )
+        # Put a test item in the source pipe
+        await self.source.put(1)
+
+        # Start the pipe to pipe fitting task
+        await self.pipe_pipe_fitting.start_task()
+
+        # Get the item from the destination pipe
+        result = await self.destination.get()
+
+        # Check if the handler was called and transformed the data
+        self.assertEqual(1, self.handler.call_count)
+        self.assertEqual(10, result)
+
+        # Stop the task
+        await self.pipe_pipe_fitting.stop_task()
+
     async def test_exception_handling(self):
         # Simulate an exception in the source get method
         self.source.get = AsyncMock(side_effect=Exception("Test exception"))
