@@ -6,14 +6,15 @@ from hummingbot.smart_components.strategy_frameworks.backtesting_engine_base imp
 class DirectionalTradingBacktestingEngine(BacktestingEngineBase):
     def simulate_execution(self, df, initial_portfolio_usd, trade_cost):
         executors = []
-        df["side"] = df["signal"].apply(lambda x: "BUY" if x > 0 else "SELL" if x < 0 else 0)
+        df["side"] = df["signal"].apply(lambda x: 1 if x > 0 else -1 if x < 0 else 0)
         for order_level in self.controller.config.order_levels:
             df = self.apply_triple_barrier_method(df,
                                                   tp=float(order_level.triple_barrier_conf.take_profit),
                                                   sl=float(order_level.triple_barrier_conf.stop_loss),
                                                   tl=int(order_level.triple_barrier_conf.time_limit),
                                                   trade_cost=trade_cost)
-            for index, row in df[(df["side"] == order_level.side.name)].iterrows():
+            order_side = 1 if order_level.side == "BUY" else -1
+            for index, row in df[(df["side"] == order_side)].iterrows():
                 last_close_time = self.level_executors[order_level.level_id]
                 if index >= last_close_time + pd.Timedelta(seconds=order_level.cooldown_time):
                     row["order_level"] = order_level.level_id
