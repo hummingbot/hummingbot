@@ -200,16 +200,17 @@ def retry_async_api_call(max_retries=5, initial_sleep=0.25, max_sleep=2.0):
             sleep_time: float = initial_sleep
             response: Dict = {}
             logger: logging.Logger = args[0].logger()
-            url: str | None = kwargs.get("url")
+            url: str | None = kwargs.get("path_url")
 
             while retries < max_retries:
                 try:
+                    logger.debug(f"   Calling {f.__name__} request with {url}: {retries}/{max_retries}.")
                     response = await f(*args, **kwargs)
                     break
 
                 except IOError as e:
                     if any(f"HTTP status is {c}" in str(e) for c in ("400", "403", "500", "501", "502", "503", "504")):
-                        log_exception(e, args[0].logger(), "ERROR", str(e))
+                        log_exception(e, logger, "ERROR", str(e))
                         raise e
 
                     retries += 1
@@ -230,7 +231,7 @@ def retry_async_api_call(max_retries=5, initial_sleep=0.25, max_sleep=2.0):
                     sleep_time = min(sleep_time * 2, max_sleep)  # Exponential backoff, capped at max_sleep
 
                 except Exception as e:
-                    log_exception(e, args[0].logger(), "ERROR", f"Unexpected error in function {f.__name__}.")
+                    log_exception(e, logger, "ERROR", f"Unexpected error in function {f.__name__}.")
                     raise CoinbaseAdvancedTradeServerIssueException from e
                     # return [{"success": False, "failure_reason": "UNKNOWN_ERROR"}]
 
