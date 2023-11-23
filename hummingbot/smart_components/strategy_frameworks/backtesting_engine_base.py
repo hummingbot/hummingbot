@@ -45,11 +45,13 @@ class BacktestingEngineBase:
         df = self.apply_tp_sl_on_tl(df, tp=tp, sl=sl)
 
         df = self.get_bins(df, trade_cost)
+        tp = tp if tp else 0
+        sl = sl if sl else 0
         df["tp"] = df["target"] * tp
         df["sl"] = df["target"] * sl
 
-        df["take_profit_price"] = df["close"] * (1 + df["tp"] * df["signal"])
-        df["stop_loss_price"] = df["close"] * (1 - df["sl"] * df["signal"])
+        df["take_profit_price"] = df["close"] * (1 + df["tp"] * df["side"])
+        df["stop_loss_price"] = df["close"] * (1 - df["sl"] * df["side"])
 
         return df
 
@@ -60,27 +62,27 @@ class BacktestingEngineBase:
         px = df.close.reindex(px, method="ffill")
 
         # 2) create out object
-        df["trade_pnl"] = (px.loc[df["close_time"].values].values / px.loc[df.index] - 1) * df["signal"]
+        df["trade_pnl"] = (px.loc[df["close_time"].values].values / px.loc[df.index] - 1) * df["side"]
         df["net_pnl"] = df["trade_pnl"] - trade_cost
         df["profitable"] = np.sign(df["trade_pnl"] - trade_cost)
         df["close_price"] = px.loc[df["close_time"].values].values
         return df
 
     @staticmethod
-    def apply_tp_sl_on_tl(df: pd.DataFrame, tp: float, sl: float):
-        events = df[df["signal"] != 0].copy()
-        if tp > 0:
+    def apply_tp_sl_on_tl(df: pd.DataFrame, tp: Optional[float], sl: Optional[float]):
+        events = df[df["side"] != 0].copy()
+        if tp:
             take_profit = tp * events["target"]
         else:
             take_profit = pd.Series(index=df.index)  # NaNs
-        if sl > 0:
+        if sl:
             stop_loss = - sl * events["target"]
         else:
             stop_loss = pd.Series(index=df.index)  # NaNs
 
         for loc, tl in events["tl"].fillna(df.index[-1]).items():
             df0 = df.close[loc:tl]  # path prices
-            df0 = (df0 / df.close[loc] - 1) * events.at[loc, "signal"]  # path returns
+            df0 = (df0 / df.close[loc] - 1) * events.at[loc, "side"]  # path returns
             df.loc[loc, "stop_loss_time"] = df0[df0 < stop_loss[loc]].index.min()  # earliest stop loss.
             df.loc[loc, "take_profit_time"] = df0[df0 > take_profit[loc]].index.min()  # earliest profit taking.
         df["close_time"] = df[["tl", "take_profit_time", "stop_loss_time"]].dropna(how="all").min(axis=1)
@@ -135,8 +137,8 @@ class BacktestingEngineBase:
 
             # Additional metrics
             total_positions = executors_df.shape[0]
-            win_signals = executors_df.loc[(executors_df["profitable"] > 0) & (executors_df["signal"] != 0)]
-            loss_signals = executors_df.loc[(executors_df["profitable"] < 0) & (executors_df["signal"] != 0)]
+            win_signals = executors_df.loc[(executors_df["profitable"] > 0) & (executors_df["side"] != 0)]
+            loss_signals = executors_df.loc[(executors_df["profitable"] < 0) & (executors_df["side"] != 0)]
             accuracy = win_signals.shape[0] / total_positions
             cumulative_returns = executors_df["net_pnl_quote"].cumsum()
             peak = np.maximum.accumulate(cumulative_returns)
