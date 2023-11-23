@@ -1,6 +1,9 @@
 import asyncio
+import gc
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import AsyncMock, MagicMock
+
+import objgraph
 
 from hummingbot.connector.exchange.coinbase_advanced_trade.connecting_functions import pipe_to_async_generator
 from hummingbot.connector.exchange.coinbase_advanced_trade.pipe import SENTINEL
@@ -21,6 +24,19 @@ class TestPipeToAsyncGenerator(IsolatedAsyncioWrapperTestCase):
         result = [i async for i in async_gen]
         self.assertEqual(result, [1, 2, 3])
         self.assertEqual(1, pipe.task_done.call_count)
+
+    async def test_normal_operation_memory(self):
+        pipe = AsyncMock()
+        pipe.task_done = MagicMock()
+        pipe.get.side_effect = [1, 2, 3, SENTINEL]
+        objgraph.show_growth(limit=1)
+        async_gen = pipe_to_async_generator(pipe)
+        _ = [i async for i in async_gen]
+        del async_gen
+        del pipe
+        gc.collect()
+        print("- Diff -")
+        objgraph.show_growth()
 
     async def test_sentinel_handling(self):
         pipe = MagicMock()
