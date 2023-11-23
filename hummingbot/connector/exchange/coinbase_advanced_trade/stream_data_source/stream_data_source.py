@@ -88,7 +88,7 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
             pair=self._pair,
             pair_to_symbol=pair_to_symbol,
         )
-        self._on_failed_subscription: Callable[[WSResponsePtl], None] | None = on_failed_subscription
+        self._on_failed_subscription: Callable[[WSResponsePtl], WSResponsePtl] | None = on_failed_subscription
         self._subscription_lock: asyncio.Lock = asyncio.Lock()
 
         self._last_recv_time_s: float = 0.0
@@ -213,8 +213,10 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
             if self._heartbeat_channel is not None:
                 await self.subscribe(channel=self._heartbeat_channel, set_state=False)
 
+            # # Initiate closure of downstream pipes
+            # await super().destination.start()
         else:
-            self.logger().warning(
+            self.logger().debug(
                 f"Attempting to open unclosed {self._channel}/{self._pair} stream. "
                 f"State {self._stream_state} left unchanged")
 
@@ -224,7 +226,7 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
             try:
                 await self.unsubscribe()
             except Exception as e:
-                self.logger().error(f"Failed to unsubscribe from channels: {e}", exc_info=True)
+                log_exception(e, self.logger(), "ERROR", f"Failed to unsubscribe from channels: {str(e)}")
 
             # Disconnect from the websocket
             await self._ws_assistant.disconnect()
@@ -233,8 +235,8 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
 
         self._stream_state = StreamState.CLOSED
 
-        # Initiate closure of downstream pipes
-        await super().destination.stop()
+        # # Initiate closure of downstream pipes
+        # await super().destination.stop()
 
     async def subscribe(self, *, channel: str | None = None, set_state: bool = True) -> None:
         """
@@ -350,6 +352,7 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
         Connects to the websocket and subscribes to the user events.
         This method is called by the AutoStreamPipeFitting.
         """
+        self.logger().debug(f"_connect to {self._channel} for {self._pair}...")
         await self.open_connection()
         await self.subscribe()
 
