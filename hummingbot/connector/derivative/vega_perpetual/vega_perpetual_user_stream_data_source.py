@@ -30,6 +30,7 @@ class VegaPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         self._listen_for_user_stream_task = None
         self._ws_total_count = 0
         self._ws_total_closed_count = 0
+        self._ws_connected = True
 
     @property
     def last_recv_time(self) -> float:
@@ -97,17 +98,18 @@ class VegaPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 self._ws_assistants.append(ws)
                 await ws.ping()
                 _sleep_count = 0  # success, reset sleep count
+                self._ws_connected = True
                 await self._process_websocket_messages(websocket_assistant=ws, channel_id=channel_id, queue=output)
 
             except Exception as e:
                 self._ws_total_closed_count += 1
-                self.logger().error(
-                    f"Unexpected error while listening to user stream {url}. Retrying after 5 seconds... WSTOTAL {self._ws_total_count} closed - {self._ws_total_closed_count} {e}"
-                )
+                self.logger().error("Websocket closed.  Reconnecting. Retrying after 1 seconds...")
+                self.logger().debug(e)
                 _sleep_count += 1
-                _sleep_duration = 5.0
+                _sleep_duration = 1.0
                 if _sleep_count > 10:
                     # sleep for longer as we keep failing
+                    self._ws_connected = False
                     _sleep_duration = 30.0
                 await self._sleep(_sleep_duration)
             finally:
