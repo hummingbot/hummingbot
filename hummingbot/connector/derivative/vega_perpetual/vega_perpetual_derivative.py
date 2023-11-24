@@ -170,6 +170,8 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         """
         Checks connectivity with the exchange using the API
         """
+        if not self._user_stream_tracker._data_source._ws_connected:
+            return NetworkStatus.NOT_CONNECTED
         try:
             if await self._make_blockchain_check_request():
                 await self._make_network_check_request()
@@ -307,8 +309,12 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         market_id = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
 
+        if tracked_order.current_state == OrderState.FAILED:
+            self.logger().warning(f"Order {tracked_order.current_state} for {order_id}")
+            return True
+
         if tracked_order.current_state not in [OrderState.OPEN, OrderState.PARTIALLY_FILLED]:
-            self.logger().warning(f"Not canceling order due to state {tracked_order.current_state} for  {order_id}")
+            self.logger().warning(f"Not canceling order due to state {tracked_order.current_state} for {order_id}")
             return False
 
         cancel_payload = {
@@ -351,6 +357,7 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
                 # NOTE: Since this is submitted to the blockchain for processing, we've got a pending status until update.
                 new_state=OrderState.PENDING_CREATE,
             )
+
         self._order_tracker.process_order_update(order_update)
 
         return exchange_order_id
@@ -513,10 +520,8 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
 
         tracked_order: InFlightOrder = self._order_tracker.all_fillable_orders.get(client_order_id, None)
         if tracked_order is None:
-            tracked_order: InFlightOrder = self._order_tracker.all_orders.get(client_order_id, None)
-            if tracked_order is None:
-                self.logger().debug(f"Ignoring trade message with id {id}: not in in_flight_orders.")
-                return None
+            self.logger().debug(f"Ignoring trade message with id {id}: not in in_flight_orders.")
+            return None
 
         m: Market = self._exchange_info.get(trade["marketId"])
         fee_asset = tracked_order.quote_asset
@@ -543,9 +548,13 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
             fee=fee,
             is_taker=is_taker,
         )
+
         return trade_update
 
     async def _request_order_status(self, tracked_order: Optional[InFlightOrder] = None, exchange_order_id: Optional[str] = None) -> Optional[OrderUpdate]:
+        if tracked_order:
+            exchange_order_id = tracked_order.exchange_order_id
+
         if exchange_order_id is None:
             reference = tracked_order.client_order_id
             params = {
@@ -566,14 +575,10 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
             if orders_data.get("code") == 70:
                 self.logger().warning(f"Order not found {orders_data}")
             if tracked_order is not None:
-                await self._order_tracker.process_order_not_found(client_order_id=tracked_order.client_order_id)
                 self.logger().warning(f"unable to locate order {orders_data.get('message')}")
-                raise IOError(f"error locating order status {orders_data.get('code')} - {orders_data.get('message')}")
             else:
-                inflight_order = self._order_tracker.all_updatable_orders_by_exchange_order_id[exchange_order_id]
-                await self._order_tracker.process_order_not_found(client_order_id=inflight_order.client_order_id)
                 self.logger().warning(f"unable to locate order in our inflight {orders_data.get('message')}")
-                raise IOError(f"error locating order status {orders_data.get('code')} - {orders_data.get('message')}")
+
         # Multiple orders
         if "orders" in orders_data:
             for order in orders_data["orders"]["edges"]:
@@ -659,12 +664,12 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
 
         exchange_order_id = order.get("id")
         client_order_id = order.get("reference")
-        tracked_order: Optional[InFlightOrder] = self._order_tracker.all_orders.get(client_order_id, None)
+        tracked_order: Optional[InFlightOrder] = self._order_tracker.all_fillable_orders.get(client_order_id, None)
         order_status = order.get("status")
         mapped_status = CONSTANTS.VegaIntOrderStatusToHummingbot[order_status] if isinstance(order_status, int) else CONSTANTS.VegaStringOrderStatusToHummingbot[order_status]
         if not tracked_order:
             if mapped_status not in [OrderState.CANCELED, OrderState.FAILED]:
-                self.logger().warning(f"Ignoring order message with id {id}: not in our orders. Client ID: {client_order_id}")
+                self.logger().warning(f"Ignoring order message with id {exchange_order_id}: not in our orders. Client ID: {client_order_id}")
             return
 
         _hb_state = mapped_status
@@ -688,6 +693,7 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
             exchange_order_id=exchange_order_id,
             misc_updates=misc_updates
         )
+
         if is_rest:
             return order_update
 
@@ -821,6 +827,9 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
                 continue
             else:
                 mapping[m.id] = m.hb_trading_pair
+
+        if len(mapping) == 0:
+            raise ValueError("No symbols found for exchange.")
 
         # this sets the mapping up in the base class
         # so we can use the default implementation of the trading_pair_associated_to_exchange_symbol and vice versa
@@ -1022,7 +1031,13 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         return timestamp, funding_rate, payment
 
     async def _map_exchange_info(self, exchange_info: Dict[str, Any]) -> Any:
+        if len(exchange_info["markets"]["edges"]) == 0:
+            return self._exchange_info
+
         _exchange_info = {}
+        # reset our maps
+        self._id_by_hb_pair = {}
+
         await self._populate_symbols()
         for symbol_data in exchange_info["markets"]["edges"]:
 
@@ -1247,6 +1262,6 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
 
         map_copy = self._exchange_order_id_to_hb_order_id.copy()
         for exchange_id, client_id in map_copy.items():
-            if client_id not in self._order_tracker.all_orders:
+            if client_id not in self._order_tracker.all_fillable_orders:
                 # do our cleanup
                 del self._exchange_order_id_to_hb_order_id[exchange_id]
