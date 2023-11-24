@@ -125,8 +125,7 @@ class Pipe(Generic[DataT], PipePtl[DataT]):
         exclusive access to the pipe. If the pipe is full, it waits until space becomes available by using the
         `_space_available.wait()` method. If the timeout is reached while waiting for space to become available,
         it raises an `asyncio.TimeoutError`. Once space is available, it puts the item into the pipe using the
-        `put_nowait()` method. If `_release_to_loop` is True, it allows the event loop to switch to other tasks by
-        sleeping for a short duration.
+        `put_nowait()` method.
         """
         async with self._space_available:
             while self._pipe.full():
@@ -210,6 +209,14 @@ class Pipe(Generic[DataT], PipePtl[DataT]):
         """
         None if self._perform_task_done else self._pipe.task_done()
 
+    async def start(self) -> None:
+        """
+        Signals operation resume, flushing the queue if needed.
+        """
+        if self._is_stopped:
+            self._is_stopped = False
+            await self._flush()
+
     async def stop(self) -> None:
         """
         Signals that no more items will be put in the queue, but the SENTINEL
@@ -253,3 +260,15 @@ class Pipe(Generic[DataT], PipePtl[DataT]):
                         break
 
             return tuple(snapshot)
+
+    async def _flush(self) -> None:
+        """
+        Flushes out all data in the pipe.
+        """
+        async with self._snapshot_lock:
+            while not self._pipe.empty():
+                try:
+                    _ = await self._pipe.get_nowait()
+                    self._pipe.task_done() if self._perform_task_done else None
+                except asyncio.QueueEmpty:
+                    break
