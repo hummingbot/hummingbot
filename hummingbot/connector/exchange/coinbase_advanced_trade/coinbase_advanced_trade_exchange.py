@@ -820,11 +820,12 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
                     )
                 continue
 
-            # self.logger().debug(f"Received: {event_message.client_order_id} {event_message.status}")
-
             fillable_order: InFlightOrder = self._order_tracker.all_fillable_orders.get(event_message.client_order_id)
             updatable_order: InFlightOrder = self._order_tracker.all_updatable_orders.get(
                 event_message.client_order_id)
+
+            self.logger().debug(f"Received: {event_message.client_order_id} {event_message.status} "
+                                f"fillable: {fillable_order} updatable: {updatable_order}")
 
             new_state: OrderState = constants.ORDER_STATE[event_message.status]
             partially: bool = all((event_message.cumulative_base_amount > Decimal("0"),
@@ -837,6 +838,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
                     new_state == OrderState.PARTIALLY_FILLED,
                     new_state == OrderState.FILLED,
             )):
+                self.logger().debug(f"Received: {event_message.client_order_id} {event_message.status} fillable: {fillable_order} updatable: {updatable_order}")
                 transaction_fee: Decimal = Decimal(event_message.cumulative_fee) - fillable_order.cumulative_fee_paid(
                     "USD")
                 fee = TradeFeeBase.new_spot_fee(
@@ -883,6 +885,24 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
                     exchange_order_id=event_message.exchange_order_id,
                 )
                 self._order_tracker.process_order_update(order_update)
+
+            # elif event_message.client_order_id.startswith(self.client_order_id_prefix):
+            #     self.logger().debug(f"Restoring exchange order: {event_message.client_order_id}")
+            #     self._order_tracker.start_tracking_order(
+            #         InFlightOrder(
+            #             client_order_id=event_message.client_order_id,
+            #             trading_pair=event_message.trading_pair,
+            #             order_type=event_message.order_type,
+            #             trade_type=event_message.trade_type,
+            #             amount=event_message.remainder_base_amount,
+            #             creation_timestamp=event_message.creation_timestamp_s,
+            #             price=event_message.average_price,
+            #             exchange_order_id=event_message.exchange_order_id,
+            #             initial_state=new_state,
+            #         )
+            #     )
+            else:
+                self.logger().debug(f"Skipping order: {event_message.client_order_id}")
 
     async def _update_order_fills_from_trades(self):
         """
