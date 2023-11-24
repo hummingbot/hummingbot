@@ -118,11 +118,11 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                                        {'maxLeverage': 50, 'name': 'ETH', 'onlyIsolated': False, 'szDecimals': 4}]}, [
                              {'dayNtlVlm': '27009889.88843001', 'funding': '0.00001793',
                               'impactPxs': ['36724.0', '36736.9'],
-                              'markPx': '36733.0', 'midPx': '36730.0', 'openInterest': '34.37756',
+                              'markPx': str(self.expected_latest_price), 'midPx': '36730.0', 'openInterest': '34.37756',
                               'oraclePx': '36717.0',
                               'premium': '0.00036632', 'prevDayPx': '35242.0'},
                              {'dayNtlVlm': '8781185.14306', 'funding': '0.00005324', 'impactPxs': ['1922.9', '1923.1'],
-                              'markPx': '1923.1',
+                              'markPx': str(self.expected_latest_price),
                               'midPx': '1923.05', 'openInterest': '638.8957', 'oraclePx': '1921.7',
                               'premium': '0.00067648',
                               'prevDayPx': '1877.1'}]]
@@ -131,47 +131,19 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     @property
     def all_symbols_including_invalid_pair_mock_response(self):
-        mock_response = {
-            "code": 0,
-            "message": "",
-            "data": [
-                {
-                    "instrument_id": f"{self.base_asset}_{self.quote_asset}",
-                    "created_at": 1640944328750,
-                    "updated_at": 1640944328750,
-                    "base_currency": "BTC",
-                    "quote_currency": "USD",
-                    "strike_price": "",
-                    "expiration_at": 4102444800000,
-                    "option_type": "",
-                    "category": "future",
-                    "min_price": "0.00050000",
-                    "max_price": "1000000.00000000",
-                    "price_step": "0.01000000",
-                    "min_size": "0.00010000",
-                    "size_step": "0.00010000",
-                    "delivery_fee_rate": "",
-                    "contract_size": "",
-                    "contract_size_currency": "BTC",
-                    "active": True,
-                    "status": "online",
-                    "groups": [
-                        1,
-                        10,
-                        100,
-                        10000
-                    ],
-                    "group_steps": [
-                        "0.01000000",
-                        "0.10000000",
-                        "1.00000000",
-                        "100.00000000"
-                    ],
-                    "display_at": 1640944328422,
-                    "is_display": True
-                }
-            ]
-        }
+        mock_response = [
+            {'universe': [{'maxLeverage': 50, 'name': self.base_asset, 'onlyIsolated': False, 'szDecimals': 5},
+                          {'maxLeverage': 50, 'name': 'ETH', 'onlyIsolated': False, 'szDecimals': 4}]}, [
+                {'dayNtlVlm': '27009889.88843001', 'funding': '0.00001793',
+                 'impactPxs': ['36724.0', '36736.9'],
+                 'markPx': '36733.0', 'midPx': '36730.0', 'openInterest': '34.37756',
+                 'oraclePx': '36717.0',
+                 'premium': '0.00036632', 'prevDayPx': '35242.0'},
+                {'dayNtlVlm': '8781185.14306', 'funding': '0.00005324', 'impactPxs': ['1922.9', '1923.1'],
+                 'markPx': '1923.1',
+                 'midPx': '1923.05', 'openInterest': '638.8957', 'oraclePx': '1921.7',
+                 'premium': '0.00067648',
+                 'prevDayPx': '1877.1'}]]
         return "INVALID-PAIR", mock_response
 
     def empty_funding_payment_mock_response(self):
@@ -196,194 +168,44 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     @property
     def trading_rules_request_erroneous_mock_response(self):
-        mock_response = {
-            "code": 0,
-            "message": "",
-            "data": [
-                {
-                    "instrument_id": self.exchange_trading_pair,
-                    "created_at": 1640944328750,
-                    "updated_at": 1640944328750,
-                    "base_currency": "BTC",
-                    "quote_currency": "USD",
-                    "strike_price": "",
-                    "expiration_at": 4102444800000,
-                    "option_type": "",
-                    "category": "future",
-                    "size_step": "0.00010000",
-                    "delivery_fee_rate": "",
-                    "contract_size": "",
-                    "contract_size_currency": "BTC",
-                    "active": True,
-                    "status": "online",
-                    "groups": [
-                        1,
-                        10,
-                        100,
-                        10000
-                    ],
-                    "group_steps": [
-                        "0.01000000",
-                        "0.10000000",
-                        "1.00000000",
-                        "100.00000000"
-                    ],
-                    "display_at": 1640944328422,
-                    "is_display": True
-                }
-            ]
-        }
+        mock_response = [{'universe': [{'maxLeverage': 50, 'name': self.base_asset, 'onlyIsolated': False},
+                                       {'maxLeverage': 50, 'name': 'ETH', 'onlyIsolated': False}]}, [
+                             {'dayNtlVlm': '27009889.88843001', 'funding': '0.00001793',
+                              'impactPxs': ['36724.0', '36736.9'],
+                              'markPx': '36733.0', 'midPx': '36730.0', 'openInterest': '34.37756',
+                              'oraclePx': '36717.0',
+                              'premium': '0.00036632', 'prevDayPx': '35242.0'},
+                             {'dayNtlVlm': '8781185.14306', 'funding': '0.00005324', 'impactPxs': ['1922.9', '1923.1'],
+                              'markPx': '1923.1',
+                              'midPx': '1923.05', 'openInterest': '638.8957', 'oraclePx': '1921.7',
+                              'premium': '0.00067648',
+                              'prevDayPx': '1877.1'}]]
         return mock_response
 
     @property
     def order_creation_request_successful_mock_response(self):
-        mock_response = {
-            "code": 0,
-            "message": "",
-            "data": {
-                "order_id": self.expected_exchange_order_id,
-                "created_at": 1589523803017,
-                "updated_at": 1589523803017,
-                "user_id": "51140",
-                "instrument_id": self.exchange_trading_pair,
-                "order_type": "limit",
-                "side": "buy",
-                "price": "50000.00000000",
-                "qty": "3.00000000",
-                "time_in_force": "gtc",
-                "avg_price": "0.00000000",
-                "filled_qty": "0.00000000",
-                "status": "open",
-                "is_liquidation": False,
-                "auto_price": "0.00000000",
-                "auto_price_type": "",
-                "taker_fee_rate": "0.00050000",
-                "maker_fee_rate": "0.00020000",
-                "label": get_new_client_order_id(
-                    is_buy=True,
-                    trading_pair=self.trading_pair,
-                    hbot_order_id_prefix=CONSTANTS.BROKER_ID,
-                    max_id_len=CONSTANTS.MAX_ORDER_ID_LEN,
-                ),
-                "stop_price": "0.00000000",
-                "reduce_only": False,
-                "post_only": False,
-                "reject_post_only": False,
-                "mmp": False,
-                "source": "api",
-                "hidden": False
-            }
-        }
+        mock_response = {'status': 'ok', 'response': {'type': 'order', 'data': {
+            'statuses': [{'resting': {'oid': self.expected_exchange_order_id}}]}}}
         return mock_response
 
     @property
     def balance_request_mock_response_for_base_and_quote(self):
-        mock_response = {
-            "code": 0,
-            "message": "",
-            "data": {
-                "user_id": 481554,
-                "created_at": 1649923879505,
-                "total_collateral": "3170125.05978108",
-                "total_margin_balance": "3170125.05978108",
-                "total_available": "3169721.64891398",
-                "total_initial_margin": "403.41086710",
-                "total_maintenance_margin": "303.16627631",
-                "total_initial_margin_ratio": "0.00012725",
-                "total_maintenance_margin_ratio": "0.00009563",
-                "total_liability": "0.00000000",
-                "total_unsettled_amount": "-0.84400340",
-                "total_future_value": "1.26000000",
-                "total_option_value": "0.00000000",
-                "spot_orders_hc_loss": "0.00000000",
-                "total_position_pnl": "1225.53245820",
-                "details": [
-                    {
-                        "currency": "BTC",
-                        "equity": "78.13359310",
-                        "liability": "0.00000000",
-                        "index_price": "41311.20615385",
-                        "cash_balance": "78.13360190",
-                        "margin_balance": "78.13359310",
-                        "available_balance": "78.12382795",
-                        "initial_margin": "0.00976516",
-                        "spot_margin": "0.00000000",
-                        "maintenance_margin": "0.00733859",
-                        "potential_liability": "0.00000000",
-                        "interest": "0.00000000",
-                        "interest_rate": "0.07000000",
-                        "pnl": "0.02966586",
-                        "total_delta": "0.48532539",
-                        "session_rpl": "0.00001552",
-                        "session_upl": "-0.00003595",
-                        "option_value": "0.00000000",
-                        "option_pnl": "0.00000000",
-                        "option_session_rpl": "0.00000000",
-                        "option_session_upl": "0.00000000",
-                        "option_delta": "0.00000000",
-                        "option_gamma": "0.00000000",
-                        "option_vega": "0.00000000",
-                        "option_theta": "0.00000000",
-                        "future_value": "1.23000000",
-                        "future_pnl": "0.02966586",
-                        "future_session_rpl": "0.00001552",
-                        "future_session_upl": "-0.00003595",
-                        "future_session_funding": "0.00001552",
-                        "future_delta": "0.48532539",
-                        "future_available_balance": "76.72788921",
-                        "option_available_balance": "76.72788921",
-                        "unsettled_amount": "-0.00002043",
-                        "usdt_index_price": "41311.20615385"
-                    },
-                    {
-                        "currency": self.quote_asset,
-                        "equity": "2000",
-                        "liability": "0.00000000",
-                        "index_price": "3119.01923077",
-                        "cash_balance": "1.99960000",
-                        "margin_balance": "1.99960000",
-                        "available_balance": "2000",
-                        "initial_margin": "0.00000000",
-                        "spot_margin": "0.00000000",
-                        "maintenance_margin": "0.00000000",
-                        "potential_liability": "0.00000000",
-                        "interest": "0.00000000",
-                        "interest_rate": "0.07000000",
-                        "pnl": "0.00000000",
-                        "total_delta": "0.00000000",
-                        "session_rpl": "0.00000000",
-                        "session_upl": "0.00000000",
-                        "option_value": "0.00000000",
-                        "option_pnl": "0.00000000",
-                        "option_session_rpl": "0.00000000",
-                        "option_session_upl": "0.00000000",
-                        "option_delta": "0.00000000",
-                        "option_gamma": "0.00000000",
-                        "option_vega": "0.00000000",
-                        "option_theta": "0.00000000",
-                        "future_value": "0.03000000",
-                        "future_pnl": "0.00000000",
-                        "future_session_rpl": "0.00000000",
-                        "future_session_upl": "0.00000000",
-                        "future_session_funding": "0.00000000",
-                        "future_delta": "0.00000000",
-                        "future_available_balance": "1.99960000",
-                        "option_available_balance": "1.99960000",
-                        "unsettled_amount": "0.00000000",
-                        "usdt_index_price": "3119.01923077"
-                    }
-                ],
-                "usdt_total_collateral": "3170125.05978108",
-                "usdt_total_margin_balance": "3170125.05978108",
-                "usdt_total_available": "3169721.64891398",
-                "usdt_total_initial_margin": "403.41086710",
-                "usdt_total_maintenance_margin": "303.16627631",
-                "usdt_total_initial_margin_ratio": "0.00012725",
-                "usdt_total_maintenance_margin_ratio": "0.00009563",
-                "usdt_total_liability": "0.00000000",
-                "usdt_total_unsettled_amount": "-0.84400340"
-            }
-        }
+        mock_response = {'assetPositions': [{'position': {'coin': 'ETH', 'cumFunding': {'allTime': '-0.442044',
+                                                                                        'sinceChange': '0.036699',
+                                                                                        'sinceOpen': '0.036699'},
+                                                          'entryPx': '2059.6',
+                                                          'leverage': {'type': 'cross', 'value': 21},
+                                                          'liquidationPx': None, 'marginUsed': '0.990428',
+                                                          'maxLeverage': 50, 'positionValue': '20.797',
+                                                          'returnOnEquity': '0.20294257', 'szi': '0.01',
+                                                          'unrealizedPnl': '0.201'}, 'type': 'oneWay'}],
+                         'crossMaintenanceMarginUsed': '0.20799',
+                         'crossMarginSummary': {'accountValue': '2000', 'totalMarginUsed': '0.990428',
+                                                'totalNtlPos': '20.799', 'totalRawUsd': '63.442322'},
+                         'marginSummary': {'accountValue': '84.241322', 'totalMarginUsed': '0.990428',
+                                           'totalNtlPos': '20.799', 'totalRawUsd': '63.442322'},
+                         'withdrawable': '2000'}
+
         return mock_response
 
     @aioresponses()
@@ -425,36 +247,6 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             )
         )
 
-    def funding_info_event_for_websocket_update(self):
-        return {
-            "channel": "ticker",
-            "timestamp": 1643099422727,
-            "module": "linear",
-            "data": {
-                "ask_sigma": "",
-                "best_ask": "36295.00000000",
-                "best_ask_qty": "1.00000000",
-                "best_bid": "36242.30000000",
-                "best_bid_qty": "7.01000000",
-                "bid_sigma": "",
-                "funding_rate": "0.00203429",
-                "funding_rate8h": "0.00009707",
-                "high24h": "37377.00000000",
-                "instrument_id": "BTC-USD-PERPETUAL",
-                "last_price": "36242.30000000",
-                "last_qty": "0.42000000",
-                "low24h": "33117.95000000",
-                "mark_price": "36261.48392714",
-                "max_buy": "36805.41000000",
-                "min_sell": "35717.56000000",
-                "open24h": "34998.65000000",
-                "open_interest": "87.69310000",
-                "price_change24h": "0.03553423",
-                "time": 1643099422727,
-                "volume24h": "4422.94140000"
-            }
-        }
-
     def is_cancel_request_executed_synchronously_by_server(self):
         return False
 
@@ -468,177 +260,6 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                 message=f"Position mode switched to {PositionMode.ONEWAY}.",
             )
         )
-
-    @property
-    def balance_event_websocket_update(self):
-        mock_response = {
-            "channel": "um_account",
-            "timestamp": 1632439007081,
-            "module": "um",
-            "data": {
-                "user_id": 481554,
-                "created_at": 1649923879505,
-                "total_collateral": "3170125.05978108",
-                "total_margin_balance": "3170125.05978108",
-                "total_available": "3169721.64891398",
-                "total_initial_margin": "403.41086710",
-                "total_maintenance_margin": "303.16627631",
-                "total_initial_margin_ratio": "0.00012725",
-                "total_maintenance_margin_ratio": "0.00009563",
-                "total_liability": "0.00000000",
-                "total_unsettled_amount": "-0.84400340",
-                "spot_orders_hc_loss": "0.00000000",
-                "total_position_pnl": "1225.53245820",
-                "details": [
-                    {
-                        "currency": "BTC",
-                        "equity": "78.13359310",
-                        "liability": "0.00000000",
-                        "index_price": "41311.20615385",
-                        "cash_balance": "78.13360190",
-                        "margin_balance": "78.13359310",
-                        "available_balance": "78.12382795",
-                        "initial_margin": "0.00976516",
-                        "spot_margin": "0.00000000",
-                        "maintenance_margin": "0.00733859",
-                        "potential_liability": "0.00000000",
-                        "interest": "0.00000000",
-                        "interest_rate": "0.07000000",
-                        "pnl": "0.02966586",
-                        "total_delta": "0.48532539",
-                        "session_rpl": "0.00001552",
-                        "session_upl": "-0.00003595",
-                        "option_value": "0.00000000",
-                        "option_pnl": "0.00000000",
-                        "option_session_rpl": "0.00000000",
-                        "option_session_upl": "0.00000000",
-                        "option_delta": "0.00000000",
-                        "option_gamma": "0.00000000",
-                        "option_vega": "0.00000000",
-                        "option_theta": "0.00000000",
-                        "future_pnl": "0.02966586",
-                        "future_session_rpl": "0.00001552",
-                        "future_session_upl": "-0.00003595",
-                        "future_session_funding": "0.00001552",
-                        "future_delta": "0.48532539",
-                        "future_available_balance": "76.72788921",
-                        "option_available_balance": "76.72788921",
-                        "unsettled_amount": "-0.00002043",
-                        "usdt_index_price": "41311.20615385"
-                    },
-                    {
-                        "currency": "USD",
-                        "equity": "15",
-                        "liability": "0.00000000",
-                        "index_price": "3119.01923077",
-                        "cash_balance": "1.99960000",
-                        "margin_balance": "1.99960000",
-                        "available_balance": "10",
-                        "initial_margin": "0.00000000",
-                        "spot_margin": "0.00000000",
-                        "maintenance_margin": "0.00000000",
-                        "potential_liability": "0.00000000",
-                        "interest": "0.00000000",
-                        "interest_rate": "0.07000000",
-                        "pnl": "0.00000000",
-                        "total_delta": "0.00000000",
-                        "session_rpl": "0.00000000",
-                        "session_upl": "0.00000000",
-                        "option_value": "0.00000000",
-                        "option_pnl": "0.00000000",
-                        "option_session_rpl": "0.00000000",
-                        "option_session_upl": "0.00000000",
-                        "option_delta": "0.00000000",
-                        "option_gamma": "0.00000000",
-                        "option_vega": "0.00000000",
-                        "option_theta": "0.00000000",
-                        "future_pnl": "0.00000000",
-                        "future_session_rpl": "0.00000000",
-                        "future_session_upl": "0.00000000",
-                        "future_session_funding": "0.00000000",
-                        "future_delta": "0.00000000",
-                        "future_available_balance": "1.99960000",
-                        "option_available_balance": "1.99960000",
-                        "unsettled_amount": "0.00000000",
-                        "usdt_index_price": "3119.01923077"
-                    }
-                ],
-                "usdt_total_collateral": "3170125.05978108",
-                "usdt_total_margin_balance": "3170125.05978108",
-                "usdt_total_available": "3169721.64891398",
-                "usdt_total_initial_margin": "403.41086710",
-                "usdt_total_maintenance_margin": "303.16627631",
-                "usdt_total_initial_margin_ratio": "0.00012725",
-                "usdt_total_maintenance_margin_ratio": "0.00009563",
-                "usdt_total_liability": "0.00000000",
-                "usdt_total_unsettled_amount": "-0.84400340"
-            }
-        }
-        return mock_response
-
-    @property
-    def position_event_websocket_update(self):
-        mock_response = {
-            "channel": "position",
-            "timestamp": 1643101230232,
-            "module": "linear",
-            "data": [
-                {
-                    "avg_price": "42474.49668874",
-                    "category": "future",
-                    "expiration_at": 4102444800000,
-                    "index_price": "36076.66600000",
-                    "initial_margin": "21.81149685",
-                    "instrument_id": "BTC-USD-PERPETUAL",
-                    "leverage": "50.00000000",
-                    "maintenance_margin": "16.36076260",
-                    "mark_price": "36097.57784846",
-                    "position_pnl": "192.58294898",
-                    "position_session_rpl": "-0.16699671",
-                    "position_session_upl": "-1.28505101",
-                    "qty": "1",
-                    "qty_base": "1",
-                    "roi": "8.82942378",
-                    "session_avg_price": "36055.02649047",
-                    "session_funding": "-0.16699671",
-                    "liq_price": "3587263.29572346",
-                }
-            ]
-        }
-
-        return mock_response
-
-    @property
-    def position_event_websocket_update_zero(self):
-        mock_response = {
-            "channel": "position",
-            "timestamp": 1643101230232,
-            "module": "linear",
-            "data": [
-                {
-                    "avg_price": "42474.49668874",
-                    "category": "future",
-                    "expiration_at": 4102444800000,
-                    "index_price": "36076.66600000",
-                    "initial_margin": "21.81149685",
-                    "instrument_id": "BTC-USD-PERPETUAL",
-                    "leverage": "50.00000000",
-                    "maintenance_margin": "16.36076260",
-                    "mark_price": "36097.57784846",
-                    "position_pnl": "192.58294898",
-                    "position_session_rpl": "-0.16699671",
-                    "position_session_upl": "-1.28505101",
-                    "qty": "0",
-                    "qty_base": "1",
-                    "roi": "8.82942378",
-                    "session_avg_price": "36055.02649047",
-                    "session_funding": "-0.16699671",
-                    "liq_price": "3587263.29572346",
-                }
-            ]
-        }
-
-        return mock_response
 
     @property
     def expected_latest_price(self):
@@ -679,32 +300,35 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
     @property
     def funding_info_mock_response(self):
         mock_response = self.latest_prices_request_mock_response
-        funding_info = mock_response["data"]
-        funding_info["mark_price"] = self.target_funding_info_mark_price
-        funding_info["index_price"] = self.target_funding_info_index_price
-        funding_info["funding_rate"] = self.target_funding_info_rate
+        funding_info = mock_response[1][0]
+        funding_info["markPx"] = self.target_funding_info_mark_price
+        # funding_info["index_price"] = self.target_funding_info_index_price
+        funding_info["funding"] = self.target_funding_info_rate
         return mock_response
 
     @property
     def expected_supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.MARKET, OrderType.LIMIT_MAKER]
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
     @property
     def expected_trading_rule(self):
-        rule = self.trading_rules_request_mock_response["data"][0]
-        collateral_token = rule["quote_currency"]
+        price_info = self.trading_rules_request_mock_response[1][0]
+        coin_info = self.trading_rules_request_mock_response[0]["universe"][0]
+        collateral_token = self.trading_rules_request_mock_response[0]["universe"][0]["name"]
+
+        step_size = Decimal(str(10 ** -coin_info.get("szDecimals")))
+        price_size = Decimal(str(10 ** -len(price_info.get("markPx").split('.')[1])))
 
         return TradingRule(self.trading_pair,
-                           min_order_size=Decimal(rule.get("min_size")),
-                           min_price_increment=Decimal(rule.get("price_step")),
-                           min_base_amount_increment=Decimal(rule.get("size_step")),
+                           min_base_amount_increment=step_size,
+                           min_price_increment=price_size,
                            buy_order_collateral_token=collateral_token,
                            sell_order_collateral_token=collateral_token,
                            )
 
     @property
     def expected_logged_error_for_erroneous_trading_rule(self):
-        erroneous_rule = self.trading_rules_request_erroneous_mock_response["data"][0]
+        erroneous_rule = self.trading_rules_request_erroneous_mock_response
         return f"Error parsing the trading pair rule {erroneous_rule}. Skipping."
 
     @property
@@ -747,7 +371,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         return ret
 
     def exchange_symbol_for_tokens(self, base_token: str, quote_token: str) -> str:
-        return f"{base_token}-{quote_token}-PERPETUAL"
+        return f"{base_token}-{quote_token}"
 
     def create_exchange_instance(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
@@ -760,29 +384,28 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         # exchange._last_trade_history_timestamp = self.latest_trade_hist_timestamp
         return exchange
 
-    def validate_auth_credentials_present(self, request_call: RequestCall):
-        request_headers = request_call.kwargs["headers"]
-        self.assertIn("X-Bit-Access-Key", request_headers)
+    #
+    # def validate_auth_credentials_present(self, request_call: RequestCall):
+    #     request_headers = request_call.kwargs["headers"]
+    #     self.assertIn("X-Bit-Access-Key", request_headers)
 
     def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = json.loads(request_call.kwargs["data"])
-        self.assertEqual(order.trade_type.name.lower(), request_data["side"])
-        self.assertEqual(self.exchange_trading_pair, request_data["instrument_id"])
-        self.assertEqual(order.amount, abs(Decimal(str(request_data["qty"]))))
-        self.assertEqual(order.client_order_id, request_data["label"])
+        self.assertEqual(order.trade_type.name.lower(), request_data["orders"]["isBuy"])
+        self.assertEqual(order.amount, abs(Decimal(str(request_data["sz"]))))
+        self.assertEqual(order.client_order_id, request_data["cloid"])
 
     def validate_order_cancelation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
         self.assertIsNone(request_params)
 
     def validate_order_status_request(self, order: InFlightOrder, request_call: RequestCall):
-        request_data = request_call.kwargs["data"]
+        request_data = request_call.kwargs["params"]
         self.assertIsNone(request_data)
 
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
-        request_params = request_call.kwargs["params"]
-        self.assertEqual(self.exchange_trading_pair, request_params["instrument_id"])
-        self.assertEqual(order.exchange_order_id, request_params["order_id"])
+        request_params = request_call.kwargs["data"]
+        self.assertEqual(self.api_key, request_params["user"])
 
     def configure_successful_cancelation_response(
             self,
@@ -979,6 +602,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
         err_msg = "Unable to set leverage"
         mock_response = {
+            "status": "error",
             "code": 0,
             "message": "",
             "data": {
@@ -1002,6 +626,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         regex_url = re.compile(f"^{url}")
 
         mock_response = {
+            "status": "ok",
             "code": 0,
             "message": "",
             "data": {
@@ -1015,167 +640,40 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         return url
 
     def order_event_for_new_order_websocket_update(self, order: InFlightOrder):
-        return {
-            "channel": "order",
-            "timestamp": 1643101425658,
-            "module": "linear",
-            "data": [
-                {
-                    "auto_price": "0.00000000",
-                    "auto_price_type": "",
-                    "avg_price": "0.00000000",
-                    "cash_flow": "0.00000000",
-                    "created_at": 1643101425539,
-                    "fee": "0.00000000",
-                    "filled_qty": "0.00000000",
-                    "hidden": False,
-                    "initial_margin": "",
-                    "instrument_id": self.exchange_trading_pair,
-                    "is_liquidation": False,
-                    "is_um": True,
-                    "label": order.client_order_id or "",
-                    "maker_fee_rate": "0.00010000",
-                    "mmp": False,
-                    "order_id": order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
-                    "order_type": "limit",
-                    "pnl": "0.00000000",
-                    "post_only": False,
-                    "price": order.price,
-                    "qty": float(order.amount),
-                    "reduce_only": False,
-                    "reject_post_only": False,
-                    "reorder_index": 0,
-                    "side": "buy",
-                    "source": "web",
-                    "status": "open",
-                    "stop_order_id": "",
-                    "stop_price": "0.00000000",
-                    "taker_fee_rate": "0.00010000",
-                    "time_in_force": "gtc",
-                    "updated_at": 1643101425539,
-                    "user_id": "606122"
-                }
-            ]
-        }
+        return {'channel': 'orderUpdates', 'data': [{'order': {'coin': 'BTC', 'side': 'B', 'limitPx': order.price,
+                                                               'sz': float(order.amount),
+                                                               'oid': order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
+                                                               'timestamp': 1700818402905, 'origSz': '0.01',
+                                                               'cloid': order.client_order_id or ""},
+                                                     'status': 'open', 'statusTimestamp': 1700818867334}]}
 
     def order_event_for_canceled_order_websocket_update(self, order: InFlightOrder):
-        return {
-            "channel": "order",
-            "timestamp": 1643101425658,
-            "module": "linear",
-            "data": [
-                {
-                    "auto_price": "0.00000000",
-                    "auto_price_type": "",
-                    "avg_price": "0.00000000",
-                    "cash_flow": "0.00000000",
-                    "created_at": 1643101425539,
-                    "fee": "0.00000000",
-                    "filled_qty": "0.00000000",
-                    "hidden": False,
-                    "initial_margin": "",
-                    "instrument_id": self.exchange_trading_pair,
-                    "is_liquidation": False,
-                    "is_um": True,
-                    "label": order.client_order_id or "",
-                    "maker_fee_rate": "0.00010000",
-                    "mmp": False,
-                    "order_id": order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
-                    "order_type": "limit",
-                    "pnl": "0.00000000",
-                    "post_only": False,
-                    "price": order.price,
-                    "qty": float(order.amount),
-                    "reduce_only": False,
-                    "reject_post_only": False,
-                    "reorder_index": 0,
-                    "side": "buy",
-                    "source": "web",
-                    "status": "cancelled",
-                    "stop_order_id": "",
-                    "stop_price": "0.00000000",
-                    "taker_fee_rate": "0.00010000",
-                    "time_in_force": "gtc",
-                    "updated_at": 1643101425539,
-                    "user_id": "606122"
-                }
-            ]
-        }
+        return {'channel': 'orderUpdates', 'data': [{'order': {'coin': 'BTC', 'side': 'B', 'limitPx': order.price,
+                                                               'sz': float(order.amount),
+                                                               'oid': order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
+                                                               'timestamp': 1700818402905, 'origSz': '0.01',
+                                                               'cloid': order.client_order_id or ""},
+                                                     'status': 'canceled', 'statusTimestamp': 1700818867334}]}
 
     def order_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         self._simulate_trading_rules_initialized()
-
-        return {
-            "channel": "order",
-            "timestamp": 1643101425658,
-            "module": "linear",
-            "data": [
-                {
-                    "auto_price": "0.00000000",
-                    "auto_price_type": "",
-                    "avg_price": "0.00000000",
-                    "cash_flow": "0.00000000",
-                    "created_at": 1643101425539,
-                    "fee": "0.00000000",
-                    "filled_qty": "0.00000000",
-                    "hidden": False,
-                    "initial_margin": "",
-                    "instrument_id": self.exchange_trading_pair,
-                    "is_liquidation": False,
-                    "is_um": True,
-                    "label": order.client_order_id or "",
-                    "maker_fee_rate": "0.00010000",
-                    "mmp": False,
-                    "order_id": order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
-                    "order_type": "limit",
-                    "pnl": "0.00000000",
-                    "post_only": False,
-                    "price": order.price,
-                    "qty": float(order.amount),
-                    "reduce_only": False,
-                    "reject_post_only": False,
-                    "reorder_index": 0,
-                    "side": "buy",
-                    "source": "web",
-                    "status": "filled",
-                    "stop_order_id": "",
-                    "stop_price": "0.00000000",
-                    "taker_fee_rate": "0.00010000",
-                    "time_in_force": "gtc",
-                    "updated_at": 1643101425539,
-                    "user_id": "606122"
-                }
-            ]
-        }
+        return {'channel': 'orderUpdates', 'data': [{'order': {'coin': 'BTC', 'side': 'B', 'limitPx': order.price,
+                                                               'sz': float(order.amount),
+                                                               'oid': order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
+                                                               'timestamp': 1700818402905, 'origSz': '0.01',
+                                                               'cloid': order.client_order_id or ""},
+                                                     'status': 'filled', 'statusTimestamp': 1700818867334}]}
 
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         self._simulate_trading_rules_initialized()
-        return {
-            "channel": "user_trade",
-            "timestamp": 1643101722258,
-            "module": "linear",
-            "data": [
-                {
-                    "created_at": 1643101722020,
-                    "fee": Decimal(self.expected_fill_fee.flat_fees[0].amount),
-                    "fee_rate": "0.00010000",
-                    "index_price": "36214.05400000",
-                    "instrument_id": self.exchange_trading_pair,
-                    "is_block_trade": False,
-                    "is_taker": True,
-                    "label": order.client_order_id or "",
-                    "order_id": order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
-                    "order_type": "limit",
-                    "price": str(order.price),
-                    "qty": Decimal(order.amount),
-                    "side": "buy",
-                    "sigma": "0.00000000",
-                    "trade_id": self.expected_fill_trade_id,
-                    "underlying_price": "",
-                    "usd_price": ""
-                }
-            ]
-        }
+        return {'channel': 'user', 'data': {'fills': [
+            {'coin': 'ETH', 'px': order.price, 'sz': float(order.amount), 'side': 'B', 'time': 1700819083138,
+             'startPosition': '0.0',
+             'dir': 'Open Long', 'closedPnl': '0.0',
+             'hash': '0x6065d86346c0ee0f5d9504081647930115005f95c201c3a6fb5ba2440507f2cf',
+             'oid': order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
+             'cloid': order.client_order_id or "",
+             'crossed': True, 'fee': '0.005273', 'liquidationMarkPx': None}]}}
 
     def position_event_for_full_fill_websocket_update(self, order: InFlightOrder, unrealized_pnl: float):
         pass
@@ -1257,71 +755,6 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.assertEqual(Decimal("10"), self.exchange.available_balances[self.quote_asset])
         self.assertEqual(Decimal("15"), self.exchange.get_balance(self.quote_asset))
 
-    def test_user_stream_position_update(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
-        connector = HyperliquidPerpetualDerivative(
-            client_config_map=client_config_map,
-            hyperliquid_perpetual_api_key=self.api_key,
-            hyperliquid_perpetual_api_secret=self.api_secret,
-            trading_pairs=[self.trading_pair],
-        )
-        connector._set_current_timestamp(1640780000)
-
-        position_event = self.position_event_websocket_update
-
-        mock_queue = AsyncMock()
-        mock_queue.get.side_effect = [position_event, asyncio.CancelledError]
-        self.exchange._user_stream_tracker._user_stream = mock_queue
-        self._simulate_trading_rules_initialized()
-        self.exchange.account_positions[self.trading_pair] = Position(
-
-            trading_pair=self.trading_pair,
-            position_side=PositionSide.SHORT,
-            unrealized_pnl=Decimal('1'),
-            entry_price=Decimal('1'),
-            amount=Decimal('1'),
-            leverage=Decimal('1'),
-        )
-        amount_precision = Decimal(self.exchange.trading_rules[self.trading_pair].min_base_amount_increment)
-        try:
-            asyncio.get_event_loop().run_until_complete(self.exchange._user_stream_event_listener())
-        except asyncio.CancelledError:
-            pass
-
-        self.assertEqual(len(self.exchange.account_positions), 1)
-        pos = list(self.exchange.account_positions.values())[0]
-        self.assertEqual(pos.amount, Decimal(1e6) * amount_precision)
-
-    def test_user_stream_remove_position_update(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
-        connector = HyperliquidPerpetualDerivative(
-            client_config_map=client_config_map,
-            hyperliquid_perpetual_api_key=self.api_key,
-            hyperliquid_perpetual_api_secret=self.api_secret,
-            trading_pairs=[self.trading_pair],
-        )
-        connector._set_current_timestamp(1640780000)
-
-        position_event = self.position_event_websocket_update_zero
-        self._simulate_trading_rules_initialized()
-        self.exchange.account_positions[self.trading_pair] = Position(
-            trading_pair=self.trading_pair,
-            position_side=PositionSide.SHORT,
-            unrealized_pnl=Decimal('1'),
-            entry_price=Decimal('1'),
-            amount=Decimal('1'),
-            leverage=Decimal('1'),
-        )
-        mock_queue = AsyncMock()
-        mock_queue.get.side_effect = [position_event, asyncio.CancelledError]
-        self.exchange._user_stream_tracker._user_stream = mock_queue
-
-        try:
-            asyncio.get_event_loop().run_until_complete(self.exchange._user_stream_event_listener())
-        except asyncio.CancelledError:
-            pass
-        self.assertEqual(len(self.exchange.account_positions), 0)
-
     def test_supported_position_modes(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         linear_connector = HyperliquidPerpetualDerivative(
@@ -1360,7 +793,6 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         funding_info: FundingInfo = self.exchange.get_funding_info(self.trading_pair)
 
         self.assertEqual(self.trading_pair, funding_info.trading_pair)
-        self.assertEqual(self.target_funding_info_index_price, funding_info.index_price)
         self.assertEqual(self.target_funding_info_mark_price, funding_info.mark_price)
         self.assertEqual(
             self.target_funding_info_next_funding_utc_timestamp + CONSTANTS.FUNDING_RATE_INTERNAL_MIL_SECOND,
@@ -1375,10 +807,10 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         url = self.trading_rules_url
 
         response = self.trading_rules_request_mock_response
-        results = response["data"]
+        results = response[0]["universe"]
         duplicate = deepcopy(results[0])
-        duplicate["instrument_id"] = f"{self.exchange_trading_pair}_12345"
-        duplicate["min_size"] = str(float(duplicate["min_size"]) + 1)
+        duplicate["name"] = f"{self.base_asset}_12345"
+        duplicate["szDecimals"] = str(float(duplicate["szDecimals"]) + 1)
         results.append(duplicate)
         mock_api.get(url, body=json.dumps(response))
 
@@ -1395,10 +827,10 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         url = self.trading_rules_url
 
         response = self.trading_rules_request_mock_response
-        results = response["data"]
+        results = response[0]["universe"]
         duplicate = deepcopy(results[0])
-        duplicate["instrument_id"] = f"{self.exchange_trading_pair}_12345"
-        duplicate["min_size"] = str(float(duplicate["min_size"]) + 1)
+        duplicate["name"] = f"{self.exchange_trading_pair}_12345"
+        duplicate["szDecimals"] = str(float(duplicate["szDecimals"]) + 1)
         results.insert(0, duplicate)
         mock_api.get(url, body=json.dumps(response))
 
@@ -1415,16 +847,16 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         url = self.trading_rules_url
 
         response = self.trading_rules_request_mock_response
-        results = response["data"]
+        results = response[0]["universe"]
         first_duplicate = deepcopy(results[0])
-        first_duplicate["instrument_id"] = f"{self.exchange_trading_pair}_12345"
-        first_duplicate["min_size"] = (
-            str(float(first_duplicate["min_size"]) + 1)
+        first_duplicate["name"] = f"{self.exchange_trading_pair}_12345"
+        first_duplicate["szDecimals"] = (
+            str(float(first_duplicate["szDecimals"]) + 1)
         )
         second_duplicate = deepcopy(results[0])
-        second_duplicate["instrument_id"] = f"{self.exchange_trading_pair}_67890"
-        second_duplicate["min_size"] = (
-            str(float(second_duplicate["min_size"]) + 2)
+        second_duplicate["name"] = f"{self.exchange_trading_pair}_67890"
+        second_duplicate["szDecimals"] = (
+            str(float(second_duplicate["szDecimals"]) + 2)
         )
         results.pop(0)
         results.append(first_duplicate)
@@ -1574,71 +1006,34 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         pass
 
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
-        return {
-            "code": 0,
-            "message": "",
-            "data": {
-                "num_cancelled": 1
-            }
-        }
+        return {'status': 'ok', 'response': {'type': 'cancel', 'data': {'statuses': ['success']}}}
 
     def _order_status_request_completely_filled_mock_response(self, order: InFlightOrder) -> Any:
-        return {
-            "code": 0,
-            "message": "",
-            "data": [{
-                "order_id": order.exchange_order_id,
-                "created_at": 1589202185000,
-                "updated_at": 1589460149000,
-                "user_id": "51140",
-                "instrument_id": self.exchange_trading_pair,
-                "order_type": "limit",
-                "side": "buy",
-                "price": str(order.price),
-                "qty": float(order.amount),
-                "time_in_force": "gtc",
-                "avg_price": str(order.price),
-                "filled_qty": float(order.amount),
-                "status": "filled",
-                "fee": "0.00000000",
-                "is_liquidation": False,
-                "auto_price": "0.00000000",
-                "auto_price_type": "",
-                "pnl": "0.00000000",
-                "cash_flow": "0.00000000",
-                "initial_margin": "",
-                "taker_fee_rate": "0.00050000",
-                "maker_fee_rate": "0.00020000",
-                "label": order.client_order_id or "2b1d811c-8ff0-4ef0-92ed-b4ed5fd6de34",
-                "stop_price": "0.00000000",
-                "reduce_only": False,
-                "post_only": False,
-                "reject_post_only": False,
-                "mmp": False,
-                "reorder_index": 1,
-                "source": "api",
-                "hidden": False,
-                "is_um": True
-            }]
-        }
+        return {'order': {
+            'order': {'children': [], 'cloid': '0x000000000000000000000000000ee056', 'coin': self.base_asset,
+                      'isPositionTpsl': False, 'isTrigger': False, 'limitPx': str(order.price),
+                      'oid': order.exchange_order_id,
+                      'orderType': 'Limit', 'origSz': '0.01', 'reduceOnly': False, 'side': 'B',
+                      'sz': float(order.amount), 'tif': 'Gtc', 'timestamp': 1700814942565, 'triggerCondition': 'N/A',
+                      'triggerPx': '0.0'}, 'status': 'filled', 'statusTimestamp': 1700818403290}, 'status': 'order'}
 
     def _order_status_request_canceled_mock_response(self, order: InFlightOrder) -> Any:
         resp = self._order_status_request_completely_filled_mock_response(order)
-        resp["data"][0]["status"] = "cancelled"
-        resp["data"][0]["filled_qty"] = "0"
-        resp["data"][0]["avg_price"] = "0"
+        resp["order"]["status"] = "canceled"
+        resp["order"]["order"]["sz"] = "0"
+        resp["order"]["order"]["limitPx"] = "0"
         return resp
 
     def _order_status_request_open_mock_response(self, order: InFlightOrder) -> Any:
         resp = self._order_status_request_completely_filled_mock_response(order)
-        resp["data"][0]["status"] = "open"
-        resp["data"][0]["avg_price"] = "0"
+        resp["order"]["status"] = "open"
+        resp["order"]["order"]["limitPx"] = "0"
         return resp
 
     def _order_status_request_partially_filled_mock_response(self, order: InFlightOrder) -> Any:
         resp = self._order_status_request_completely_filled_mock_response(order)
-        resp["data"][0]["status"] = "open"
-        resp["data"][0]["avg_price"] = str(order.price)
+        resp["order"]["status"] = "open"
+        resp["order"]["order"]["limitPx"] = str(order.price)
         return resp
 
     @aioresponses()
@@ -1647,35 +1042,31 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     def _order_fills_request_partial_fill_mock_response(self, order: InFlightOrder):
         resp = self._order_status_request_completely_filled_mock_response(order)
-        resp["data"][0]["status"] = "open"
-        resp["data"][0]["avg_price"] = str(order.price)
-        resp["data"][0]["filled_qty"] = float(order.amount) / 2
+        resp["order"]["status"] = "open"
+        resp["order"]["order"]["limitPx"] = str(order.price)
+        resp["order"]["order"]["sz"] = float(order.amount) / 2
         return resp
 
     def _order_fills_request_full_fill_mock_response(self, order: InFlightOrder):
         self._simulate_trading_rules_initialized()
-        return {
-            "code": 0,
-            "message": "",
-            "data": [{
-                "trade_id": self.expected_fill_trade_id,
-                "order_id": order.exchange_order_id,
-                "instrument_id": self.exchange_trading_pair,
-                "qty": str(Decimal(order.amount)),
-                "price": str(order.price),
-                "sigma": "0.00000000",
-                "underlying_price": "",
-                "index_price": "50012.81000000",
-                "usd_price": "",
-                "fee": str(self.expected_fill_fee.flat_fees[0].amount),
-                "fee_rate": "0.00050000",
-                "side": "buy",
-                "created_at": 1589521371000,
-                "is_taker": True,
-                "order_type": "limit",
-                "label": order.client_order_id,
-            }]
+        return [
+        {
+            "closedPnl": "0.0",
+            "coin": self.base_asset,
+            "crossed": False,
+            "dir": "Open Long",
+            "hash": self.expected_fill_trade_id,
+            "oid": order.exchange_order_id,
+            "cloid":  order.client_order_id,
+            "px": str(order.price),
+            "side": "B",
+            "startPosition": "26.86",
+            "sz": str(Decimal(order.amount)),
+            "time": 1681222254710,
+            "fee": str(self.expected_fill_fee.flat_fees[0].amount),
         }
+    ]
+
 
     def _simulate_trading_rules_initialized(self):
         self.exchange._trading_rules = {
