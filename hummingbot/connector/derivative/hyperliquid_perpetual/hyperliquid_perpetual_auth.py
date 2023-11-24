@@ -186,7 +186,7 @@ class HyperliquidPerpetualAuth(AuthBase):
             payload = self._sign_cancel_params(request_params, base_url, timestamp)
         elif request_type == "updateLeverage":
             payload = self._sign_update_leverage_params(request_params, base_url, timestamp)
-            payload = json.dumps(payload)
+        payload = json.dumps(payload)
         return payload
 
     @staticmethod
