@@ -595,6 +595,8 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
             "remainder_base_amount": Decimal(str(order.amount)),
             "cumulative_fee": "0",
             "is_taker": False,
+            "order_type": OrderType.LIMIT,
+            "trade_type": TradeType.BUY,
         })
 
     def order_event_for_canceled_order_websocket_update(self, order: InFlightOrder):
@@ -609,6 +611,8 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
             "remainder_base_amount": Decimal(str(order.amount)),
             "cumulative_fee": "0",
             "is_taker": False,
+            "order_type": OrderType.LIMIT,
+            "trade_type": TradeType.BUY,
         })
 
     def order_event_for_full_fill_websocket_update(self, order: InFlightOrder):
@@ -623,6 +627,8 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
             "remainder_base_amount": Decimal("0"),
             "cumulative_fee": Decimal(str(self.expected_fill_fee.flat_fees[0].amount)),
             "is_taker": False,
+            "order_type": OrderType.LIMIT,
+            "trade_type": TradeType.BUY,
         })
 
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
@@ -1296,6 +1302,8 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
             cumulative_base_amount=Decimal("0"),
             remainder_base_amount=Decimal("0.000994"),
             cumulative_fee=Decimal("0"),
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
         )
 
         mock_queue = AsyncMock()

@@ -257,14 +257,14 @@ class TestRetryDecorator(IsolatedAsyncioWrapperTestCase):
 
         mock_instance = MockClass()
 
-        result = await api_post_2(mock_instance, url="authorized_url")
+        result = await api_post_2(mock_instance, path_url="authorized_url")
         mock_logger.info.assert_has_calls([call('Retrying REST call in 0.25 seconds.')])
         mock_logger.warning.assert_has_calls([
             call('Unauthorized. This could be temporary.')])
         mock_logger.error.assert_has_calls([call('Max retries reached for authorized_url.')])
         self.assertEqual(result, [{"success": False, "failure_reason": "MAX_RETRIES_REACHED"}])
 
-        result = await api_post_3(mock_instance, url="authorized_url")
+        result = await api_post_3(mock_instance, path_url="authorized_url")
         mock_logger.info.assert_has_calls([
             call('Retrying REST call in 0.25 seconds.'),
             call('Retrying REST call in 0.5 seconds.')])
@@ -297,7 +297,7 @@ class TestRetryDecorator(IsolatedAsyncioWrapperTestCase):
 
         mock_instance = MockClass()
 
-        result = await api_post(mock_instance, url="authorized_url")
+        result = await api_post(mock_instance, path_url="authorized_url")
         mock_logger.info.assert_has_calls([call('Retrying REST call in 0.25 seconds.')])
         mock_logger.warning.assert_has_calls([
             call('API call rate limited. Notify hummingbot Foundation if this happens frequently.')])

@@ -23,6 +23,7 @@ from hummingbot.connector.exchange.coinbase_advanced_trade.stream_data_source.en
 from hummingbot.connector.exchange.coinbase_advanced_trade.stream_data_source.protocols import WSAssistantPtl
 from hummingbot.connector.exchange.coinbase_advanced_trade.task_manager import TaskState
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.web_assistant.connections.data_types import WSRequest, WSResponse
 from hummingbot.logger import HummingbotLogger
 
@@ -106,6 +107,8 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSourceTests(
             cumulative_base_amount=Decimal("123.456"),
             remainder_base_amount=Decimal("123.456"),
             cumulative_fee=Decimal("123.456"),
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
         )
         self.data_source = CoinbaseAdvancedTradeAPIUserStreamDataSource(
             channels=self.channels,
