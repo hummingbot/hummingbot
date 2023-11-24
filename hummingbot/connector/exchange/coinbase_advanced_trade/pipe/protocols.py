@@ -70,6 +70,12 @@ class PipePutPtl(Protocol[DataT]):
         """
         ...
 
+    async def start(self) -> None:
+        """
+        Starts. Flushes the Pipe.
+        """
+        ...
+
 
 @runtime_checkable
 class PipePtl(PipeGetPtl[DataT], PipePutPtl[DataT], Protocol[DataT]):
@@ -88,5 +94,6 @@ class PutOperationPtl(Protocol[FromDataT]):
     """
     A protocol for a PutOperation that can be used to put items into the Pipe.
     """
+
     async def __call__(self, item: FromDataT, **kwargs: Any) -> None:
         ...
