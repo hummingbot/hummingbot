@@ -6,12 +6,14 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any, AsyncGenerator, Awaitable, Callable, Coroutine, Dict, NamedTuple, Tuple
 
+from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.logger import HummingbotLogger
 
 from .coinbase_advanced_trade_web_utils import get_timestamp_from_exchange_time
 from .connecting_functions.exception_log_manager import log_if_possible
 from .multi_stream_data_source.multi_stream_data_source import MultiStreamDataSource
+from .pipe import SENTINEL
 from .stream_data_source.enums import StreamAction
 from .stream_data_source.errors import CoinbaseAdvancedTradeWSSubscriptionError
 from .stream_data_source.protocols import WSAssistantPtl, WSResponsePtl
@@ -27,7 +29,12 @@ class CoinbaseAdvancedTradeCumulativeUpdate(NamedTuple):
     cumulative_base_amount: Decimal
     remainder_base_amount: Decimal
     cumulative_fee: Decimal
-    is_taker: bool = False  # Coinbase Advanced Trade delivers trade events from the maker's perspective
+    # Needed for tracking existing orders on the exchange
+    order_type: OrderType
+    trade_type: TradeType
+    creation_timestamp_s: float = 0.0  # seconds
+    # Coinbase Advanced Trade delivers trade events from the maker's perspective
+    is_taker: bool = False
 
 
 class WebsocketAction(Enum):
@@ -208,20 +215,34 @@ async def message_to_cumulative_update(
     for event in event_message.get("events"):
         for order in event["orders"]:
             try:
-                cumulative_order: CoinbaseAdvancedTradeCumulativeUpdate = CoinbaseAdvancedTradeCumulativeUpdate(
-                    exchange_order_id=order["order_id"],
-                    client_order_id=order["client_order_id"],
-                    status=order["status"],
-                    trading_pair=await symbol_to_pair(order["product_id"]),
-                    fill_timestamp_s=timestamp_s,
-                    average_price=Decimal(order["avg_price"]),
-                    cumulative_base_amount=Decimal(order["cumulative_quantity"]),
-                    remainder_base_amount=Decimal(order["leaves_quantity"]),
-                    cumulative_fee=Decimal(order["total_fees"]),
-                )
-                if logger:
-                    logger.debug(f"Cumulative handler {cumulative_order}")
-                yield cumulative_order
+                if order["client_order_id"] != '':
+                    order_type: OrderType | None = None
+                    if order["order_type"] == "Limit":
+                        order_type = OrderType.LIMIT
+                    elif order["order_type"] == "Market":
+                        order_type = OrderType.MARKET
+                    # elif order["order_type"] == "Stop Limit":
+                    #     order_type = OrderType.STOP_LIMIT
+
+                    cumulative_order: CoinbaseAdvancedTradeCumulativeUpdate = CoinbaseAdvancedTradeCumulativeUpdate(
+                        exchange_order_id=order["order_id"],
+                        client_order_id=order["client_order_id"],
+                        status=order["status"],
+                        trading_pair=await symbol_to_pair(order["product_id"]),
+                        fill_timestamp_s=timestamp_s,
+                        average_price=Decimal(order["avg_price"]),
+                        cumulative_base_amount=Decimal(order["cumulative_quantity"]),
+                        remainder_base_amount=Decimal(order["leaves_quantity"]),
+                        cumulative_fee=Decimal(order["total_fees"]),
+                        order_type=order_type,
+                        trade_type=TradeType.BUY if order["order_side"] == "BUY" else TradeType.SELL,
+                        creation_timestamp_s=get_timestamp_from_exchange_time(order["creation_time"], "s"),
+                    )
+                    if logger:
+                        logger.debug(f"Cumulative handler {cumulative_order}")
+                    yield cumulative_order
+                elif logger:
+                    logger.debug(f"Skipping order {order}")
 
             except Exception as e:
                 if logger:
@@ -342,6 +363,8 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
             # Filter-out non-CumulativeUpdate messages
             if isinstance(message, CoinbaseAdvancedTradeCumulativeUpdate):
                 await output.put(message)
+            elif message is SENTINEL:
+                self.logger().debug("SENTINEL received")
             else:
                 self.logger().error(f"Invalid message type: {type(message)} {message}")
                 raise ValueError(f"Invalid message type: {type(message)} {message}")
