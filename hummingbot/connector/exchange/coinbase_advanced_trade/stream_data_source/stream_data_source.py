@@ -213,8 +213,10 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
             if self._heartbeat_channel is not None:
                 await self.subscribe(channel=self._heartbeat_channel, set_state=False)
 
-            # # Initiate closure of downstream pipes
-            # await super().destination.start()
+            # Flush out any messages left-over (in particular the SENTINEL)
+            self.logger().debug("Restarting the destination")
+            await self.destination.start()
+
         else:
             self.logger().debug(
                 f"Attempting to open unclosed {self._channel}/{self._pair} stream. "
@@ -235,8 +237,8 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
 
         self._stream_state = StreamState.CLOSED
 
-        # # Initiate closure of downstream pipes
-        # await super().destination.stop()
+        # Initiate snapshot downstream
+        await self.destination.stop()
 
     async def subscribe(self, *, channel: str | None = None, set_state: bool = True) -> None:
         """
