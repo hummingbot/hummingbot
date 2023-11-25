@@ -59,7 +59,7 @@ class StyleTest(unittest.TestCase):
                 "dialog frame.label": "bg:#FCFCFC #000000",
                 "dialog.body": "bg:#000000 #FCFCFC",
                 "dialog shadow": "bg:#171E2B",
-                "button": "bg:#000000",
+                "button": "bg:#FFFFFF #000000",
                 "text-area": "bg:#000000 #FCFCFC",
                 # Label bg and font color
                 "primary_label": "bg:#5FFFD7 #FAFAFA",
@@ -115,7 +115,7 @@ class StyleTest(unittest.TestCase):
                 "dialog frame.label": "bg:#ansiwhite #ansiblack",
                 "dialog.body": "bg:#ansiblack #ansiwhite",
                 "dialog shadow": "bg:#ansigreen",
-                "button": "bg:#ansigreen",
+                "button": "bg:#ansiwhite #ansiblack",
                 "text-area": "bg:#ansiblack #ansiwhite",
                 # Label bg and font color
                 "primary_label": "bg:#ansicyan #ansiwhite",
@@ -171,7 +171,7 @@ class StyleTest(unittest.TestCase):
                 "dialog frame.label": "bg:#5FFFD7 #000000",
                 "dialog.body": "bg:#000000 #5FFFD7",
                 "dialog shadow": "bg:#171E2B",
-                "button": "bg:#000000",
+                "button": "bg:#FFFFFF #000000",
                 "text-area": "bg:#000000 #5FFFD7",
                 # Label bg and font color
                 "primary_label": "bg:#5FFFD7 #262626",
