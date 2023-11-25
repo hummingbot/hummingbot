@@ -148,10 +148,10 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
         :return: a numpy array with the candles
         https://docs.cloud.coinbase.com/advanced-trade-api/reference/retailbrokerageapi_getcandles
         """
-        # if self._api_factory is None or self._api_factory is self._public_api_factory:
-        #     self._api_factory = await self._build_auth_api_factory()
+        if self._api_factory is None or self._api_factory is self._public_api_factory:
+            self._api_factory = await self._build_auth_api_factory()
 
-        rest_assistant = await self._public_api_factory.get_rest_assistant()
+        rest_assistant = await self._api_factory.get_rest_assistant()
 
         end_time = end_time or await web_utils.get_current_server_time_s()
         start_time = self._get_valid_start_time(end_time=end_time, start_time=start_time)
@@ -160,7 +160,7 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
                   "start": str(start_time),
                   "end": str(end_time)}
 
-        data = await rest_assistant.execute_request(
+        data: Dict[str, Any] = await rest_assistant.execute_request(
             url=self.candles_url,
             throttler_limit_id=CONSTANTS.CANDLES_ENDPOINT_ID,
             params=params,
@@ -270,7 +270,7 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
         Repeatedly calls fetch_candles on interval.
         """
         if len(self._candles) == 0:
-            np.array([[]])
+            self._candles.append(np.array([[]]))
 
         while True:
             try:
