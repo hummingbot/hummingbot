@@ -25,7 +25,7 @@ class VegaPerpetualUserStreamDataSourceUnitTests(unittest.TestCase):
         cls.ev_loop = asyncio.get_event_loop()
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "HBOT"
-        cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
+        cls.trading_pair = f"{cls.base_asset}{cls.quote_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = cls.base_asset + cls.quote_asset
         cls.domain = CONSTANTS.TESTNET_DOMAIN
 
