@@ -34,7 +34,7 @@ class VegaPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "HBOT"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
-        cls.ex_trading_pair = f"{cls.base_asset}{cls.quote_asset}"
+        cls.ex_trading_pair = f"{cls.base_asset}{cls.quote_asset}-{cls.quote_asset}"
         cls.domain = "vega_perpetual_testnet"
 
     def setUp(self) -> None:
@@ -50,12 +50,12 @@ class VegaPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             client_config_map,
             vega_perpetual_public_key="",
             vega_perpetual_seed_phrase="",
-            trading_pairs=[self.trading_pair],
+            trading_pairs=[self.ex_trading_pair],
             trading_required=False,
             domain=self.domain,
         )
         self.data_source = VegaPerpetualAPIOrderBookDataSource(
-            trading_pairs=[self.trading_pair],
+            trading_pairs=[self.ex_trading_pair],
             connector=self.connector,
             api_factory=self.connector._web_assistants_factory,
             domain=self.domain,
@@ -67,11 +67,11 @@ class VegaPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.mocking_assistant = NetworkMockingAssistant()
         self.resume_test_event = asyncio.Event()
         VegaPerpetualAPIOrderBookDataSource._trading_pair_symbol_map = {
-            self.domain: bidict({self.ex_trading_pair: self.trading_pair})
+            self.domain: bidict({self.ex_trading_pair: self.ex_trading_pair})
         }
 
         self.connector._set_trading_pair_symbol_map(
-            bidict({f"{self.base_asset}{self.quote_asset}": self.trading_pair}))
+            bidict({f"{self.base_asset}{self.quote_asset}": self.ex_trading_pair}))
 
     @property
     def all_symbols_url(self):
@@ -172,7 +172,7 @@ class VegaPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(OrderBookMessageType.DIFF, result.type)
         self.assertTrue(result.has_update_id)
         self.assertEqual(result.update_id, 1697590646276860086)
-        self.assertEqual(self.trading_pair, result.content["trading_pair"])
+        self.assertEqual(self.ex_trading_pair, result.content["trading_pair"])
         self.assertEqual(0, len(result.content["bids"]))
         self.assertEqual(4, len(result.content["asks"]))
 
@@ -200,7 +200,7 @@ class VegaPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(OrderBookMessageType.SNAPSHOT, result.type)
         self.assertTrue(result.has_update_id)
         self.assertEqual(result.update_id, 1697590437480112072)
-        self.assertEqual(self.trading_pair, result.content["trading_pair"])
+        self.assertEqual(self.ex_trading_pair, result.content["trading_pair"])
         self.assertEqual(26, len(result.content["bids"]))
         self.assertEqual(25, len(result.content["asks"]))
 
@@ -228,7 +228,7 @@ class VegaPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.assertEqual(OrderBookMessageType.TRADE, result.type)
         self.assertTrue(result.has_trade_id)
         self.assertEqual(result.trade_id, '374eefc4c872845df70d5302fe3953b35004371ca42364d962e804ff063be817')  # noqa: mock
-        self.assertEqual(self.trading_pair, result.content["trading_pair"])
+        self.assertEqual(self.ex_trading_pair, result.content["trading_pair"])
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
@@ -268,10 +268,10 @@ class VegaPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             headers={"Ratelimit-Limit": "100", "Ratelimit-Reset": "1"},
         )
 
-        task = self.ev_loop.create_task(self.data_source.get_funding_info(self.trading_pair))
+        task = self.ev_loop.create_task(self.data_source.get_funding_info(self.ex_trading_pair))
         info = self.async_run_with_timeout(task)
 
-        self.assertEqual(info.trading_pair, self.trading_pair)
+        self.assertEqual(info.trading_pair, self.ex_trading_pair)
         self.assertIsInstance(info, FundingInfo)
         self.assertEqual(info.index_price, Decimal("28432.23000"))
 
@@ -289,12 +289,12 @@ class VegaPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             headers={"Ratelimit-Limit": "100", "Ratelimit-Reset": "1"},
         )
 
-        task = self.ev_loop.create_task(self.data_source._order_book_snapshot(self.trading_pair))
+        task = self.ev_loop.create_task(self.data_source._order_book_snapshot(self.ex_trading_pair))
         result: OrderBookMessage = self.async_run_with_timeout(task)
         self.assertIsInstance(result, OrderBookMessage)
         self.assertEqual(OrderBookMessageType.SNAPSHOT, result.type)
         self.assertTrue(result.has_update_id)
         self.assertEqual(result.update_id, 1697591562856384102)
-        self.assertEqual(self.trading_pair, result.content["trading_pair"])
+        self.assertEqual(self.ex_trading_pair, result.content["trading_pair"])
         self.assertEqual(20, len(result.content["bids"]))
         self.assertEqual(21, len(result.content["asks"]))

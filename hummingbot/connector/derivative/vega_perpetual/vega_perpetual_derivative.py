@@ -152,7 +152,7 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         except Exception as e:
             self.logger().warning(e)
             return False
-        current_block_time = None if response == "" else response.get("timestamp", None)
+        current_block_time = None if response is None else response.get("timestamp", None)
         if current_block_time is None:
             self.logger().error("Unable to fetch blockchain time, stopping network")
             return False
