@@ -58,6 +58,7 @@ PAPER_TRADE_EXCHANGES = [  # todo: fix after global config map refactor
     "kucoin_paper_trade",
     "ascend_ex_paper_trade",
     "gate_io_paper_trade",
+    "injective_v2_paper_trade",
     "mock_paper_exchange",
 ]
 
