@@ -18,11 +18,10 @@ from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_derivative import (
     HyperliquidPerpetualDerivative,
 )
-from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.test_support.perpetual_derivative_test import AbstractPerpetualDerivativeTests
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
-from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
+from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
@@ -98,34 +97,39 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     @property
     def all_symbols_request_mock_response(self):
-        mock_response = [{'universe': [{'maxLeverage': 50, 'name': 'BTC', 'onlyIsolated': False, 'szDecimals': 5},
-                                       {'maxLeverage': 50, 'name': 'ETH', 'onlyIsolated': False, 'szDecimals': 4}]}, [
-                             {'dayNtlVlm': '27009889.88843001', 'funding': '0.00001793',
-                              'impactPxs': ['36724.0', '36736.9'],
-                              'markPx': '36733.0', 'midPx': '36730.0', 'openInterest': '34.37756',
-                              'oraclePx': '36717.0',
-                              'premium': '0.00036632', 'prevDayPx': '35242.0'},
-                             {'dayNtlVlm': '8781185.14306', 'funding': '0.00005324', 'impactPxs': ['1922.9', '1923.1'],
-                              'markPx': '1923.1',
-                              'midPx': '1923.05', 'openInterest': '638.8957', 'oraclePx': '1921.7',
-                              'premium': '0.00067648',
-                              'prevDayPx': '1877.1'}]]
+        mock_response = [
+            {'universe': [{'maxLeverage': 50, 'name': 'BTC', 'onlyIsolated': False, 'szDecimals': 5},
+                          {'maxLeverage': 50, 'name': 'ETH', 'onlyIsolated': False, 'szDecimals': 4}]}, [
+                {'dayNtlVlm': '27009889.88843001', 'funding': '0.00001793',
+                 'impactPxs': ['36724.0', '36736.9'],
+                 'markPx': '36733.0', 'midPx': '36730.0', 'openInterest': '34.37756',
+                 'oraclePx': '36717.0',
+                 'premium': '0.00036632', 'prevDayPx': '35242.0'},
+                {'dayNtlVlm': '8781185.14306', 'funding': '0.00005324', 'impactPxs': ['1922.9', '1923.1'],
+                 'markPx': '1923.1',
+                 'midPx': '1923.05', 'openInterest': '638.8957', 'oraclePx': '1921.7',
+                 'premium': '0.00067648',
+                 'prevDayPx': '1877.1'
+                 }]
+        ]
         return mock_response
 
     @property
     def latest_prices_request_mock_response(self):
-        mock_response = [{'universe': [{'maxLeverage': 50, 'name': 'BTC', 'onlyIsolated': False, 'szDecimals': 5},
-                                       {'maxLeverage': 50, 'name': 'ETH', 'onlyIsolated': False, 'szDecimals': 4}]}, [
-                             {'dayNtlVlm': '27009889.88843001', 'funding': '0.00001793',
-                              'impactPxs': ['36724.0', '36736.9'],
-                              'markPx': str(self.expected_latest_price), 'midPx': '36730.0', 'openInterest': '34.37756',
-                              'oraclePx': '36717.0',
-                              'premium': '0.00036632', 'prevDayPx': '35242.0'},
-                             {'dayNtlVlm': '8781185.14306', 'funding': '0.00005324', 'impactPxs': ['1922.9', '1923.1'],
-                              'markPx': str(self.expected_latest_price),
-                              'midPx': '1923.05', 'openInterest': '638.8957', 'oraclePx': '1921.7',
-                              'premium': '0.00067648',
-                              'prevDayPx': '1877.1'}]]
+        mock_response = [
+            {'universe': [{'maxLeverage': 50, 'name': 'BTC', 'onlyIsolated': False, 'szDecimals': 5},
+                          {'maxLeverage': 50, 'name': 'ETH', 'onlyIsolated': False, 'szDecimals': 4}]}, [
+                {'dayNtlVlm': '27009889.88843001', 'funding': '0.00001793',
+                 'impactPxs': ['36724.0', '36736.9'],
+                 'markPx': str(self.expected_latest_price), 'midPx': '36730.0', 'openInterest': '34.37756',
+                 'oraclePx': '36717.0',
+                 'premium': '0.00036632', 'prevDayPx': '35242.0'},
+                {'dayNtlVlm': '8781185.14306', 'funding': '0.00005324', 'impactPxs': ['1922.9', '1923.1'],
+                 'markPx': str(self.expected_latest_price),
+                 'midPx': '1923.05', 'openInterest': '638.8957', 'oraclePx': '1921.7',
+                 'premium': '0.00067648',
+                 'prevDayPx': '1877.1'}]
+        ]
 
         return mock_response
 
@@ -168,18 +172,20 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     @property
     def trading_rules_request_erroneous_mock_response(self):
-        mock_response = [{'universe': [{'maxLeverage': 50, 'name': self.base_asset, 'onlyIsolated': False},
-                                       {'maxLeverage': 50, 'name': 'ETH', 'onlyIsolated': False}]}, [
-                             {'dayNtlVlm': '27009889.88843001', 'funding': '0.00001793',
-                              'impactPxs': ['36724.0', '36736.9'],
-                              'markPx': '36733.0', 'midPx': '36730.0', 'openInterest': '34.37756',
-                              'oraclePx': '36717.0',
-                              'premium': '0.00036632', 'prevDayPx': '35242.0'},
-                             {'dayNtlVlm': '8781185.14306', 'funding': '0.00005324', 'impactPxs': ['1922.9', '1923.1'],
-                              'markPx': '1923.1',
-                              'midPx': '1923.05', 'openInterest': '638.8957', 'oraclePx': '1921.7',
-                              'premium': '0.00067648',
-                              'prevDayPx': '1877.1'}]]
+        mock_response = [
+            {'universe': [{'maxLeverage': 50, 'name': self.base_asset, 'onlyIsolated': False},
+                          {'maxLeverage': 50, 'name': 'ETH', 'onlyIsolated': False}]}, [
+                {'dayNtlVlm': '27009889.88843001', 'funding': '0.00001793',
+                 'impactPxs': ['36724.0', '36736.9'],
+                 'markPx': '36733.0', 'midPx': '36730.0', 'openInterest': '34.37756',
+                 'oraclePx': '36717.0',
+                 'premium': '0.00036632', 'prevDayPx': '35242.0'},
+                {'dayNtlVlm': '8781185.14306', 'funding': '0.00005324', 'impactPxs': ['1922.9', '1923.1'],
+                 'markPx': '1923.1',
+                 'midPx': '1923.05', 'openInterest': '638.8957', 'oraclePx': '1921.7',
+                 'premium': '0.00067648',
+                 'prevDayPx': '1877.1'}]
+        ]
         return mock_response
 
     @property
@@ -670,7 +676,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             {'coin': 'ETH', 'px': order.price, 'sz': float(order.amount), 'side': 'B', 'time': 1700819083138,
              'startPosition': '0.0',
              'dir': 'Open Long', 'closedPnl': '0.0',
-             'hash': '0x6065d86346c0ee0f5d9504081647930115005f95c201c3a6fb5ba2440507f2cf',
+             'hash': '0x6065d86346c0ee0f5d9504081647930115005f95c201c3a6fb5ba2440507f2cf', # noqa: mock
              'oid': order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
              'cloid': order.client_order_id or "",
              'crossed': True, 'fee': '0.005273', 'liquidationMarkPx': None}]}}
@@ -1050,23 +1056,22 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
     def _order_fills_request_full_fill_mock_response(self, order: InFlightOrder):
         self._simulate_trading_rules_initialized()
         return [
-        {
-            "closedPnl": "0.0",
-            "coin": self.base_asset,
-            "crossed": False,
-            "dir": "Open Long",
-            "hash": self.expected_fill_trade_id,
-            "oid": order.exchange_order_id,
-            "cloid":  order.client_order_id,
-            "px": str(order.price),
-            "side": "B",
-            "startPosition": "26.86",
-            "sz": str(Decimal(order.amount)),
-            "time": 1681222254710,
-            "fee": str(self.expected_fill_fee.flat_fees[0].amount),
-        }
-    ]
-
+            {
+                "closedPnl": "0.0",
+                "coin": self.base_asset,
+                "crossed": False,
+                "dir": "Open Long",
+                "hash": self.expected_fill_trade_id, # noqa: mock
+                "oid": order.exchange_order_id,
+                "cloid": order.client_order_id,
+                "px": str(order.price),
+                "side": "B",
+                "startPosition": "26.86",
+                "sz": str(Decimal(order.amount)),
+                "time": 1681222254710,
+                "fee": str(self.expected_fill_fee.flat_fees[0].amount),
+            }
+        ]
 
     def _simulate_trading_rules_initialized(self):
         self.exchange._trading_rules = {

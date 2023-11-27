@@ -125,6 +125,7 @@ def order_grouping_to_number(grouping) -> int:
     elif grouping == "positionTpsl":
         return 2
 
+
 def order_spec_to_order_wire(order_spec):
     return {
         "asset": order_spec["asset"],
@@ -136,11 +137,13 @@ def order_spec_to_order_wire(order_spec):
         "cloid": order_spec["cloid"],
     }
 
+
 def float_to_wire(x: float) -> str:
     rounded = "{:.8f}".format(x)
     if abs(float(rounded) - x) >= 1e-12:
         raise ValueError("float_to_wire causes rounding", x)
     return rounded
+
 
 def order_type_to_wire(order_type):
     if "limit" in order_type:

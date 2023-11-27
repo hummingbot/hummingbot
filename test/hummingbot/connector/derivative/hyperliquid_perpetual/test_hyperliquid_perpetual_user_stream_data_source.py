@@ -1,14 +1,11 @@
 import asyncio
 import json
-import re
 import unittest
 from typing import Awaitable, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from aioresponses import aioresponses
 from bidict import bidict
 
-import hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_web_utils as web_utils
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.hyperliquid_perpetual import hyperliquid_perpetual_constants as CONSTANTS
