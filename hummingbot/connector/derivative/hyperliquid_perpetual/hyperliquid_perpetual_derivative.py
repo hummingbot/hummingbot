@@ -63,7 +63,8 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def name(self) -> str:
-        return CONSTANTS.EXCHANGE_NAME
+        # Note: domain here refers to the entire exchange name. i.e. hyperliquid_perpetual or hyperliquid_perpetual_testnet
+        return self._domain
 
     @property
     def authenticator(self) -> HyperliquidPerpetualAuth:
