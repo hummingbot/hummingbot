@@ -68,6 +68,7 @@ ORDER_STATE = {
     "resting": OrderState.OPEN,
     "filled": OrderState.FILLED,
     "canceled": OrderState.CANCELED,
+    "rejected": OrderState.FAILED,
 }
 
 HEARTBEAT_TIME_INTERVAL = 30.0
