@@ -72,7 +72,7 @@ class BollingGrid(MarketMakingControllerBase):
         Creates a PositionConfig object from an OrderLevel object.
         Here you can use technical indicators to determine the parameters of the position config.
         """
-        close_price = self.get_close_price(self.config.exchange, self.config.trading_pair)
+        close_price = self.get_close_price(self.config.trading_pair)
         bbp, spread_multiplier = self.get_price_and_spread_multiplier()
         side_multiplier = -1 if order_level.side == TradeType.BUY else 1
 

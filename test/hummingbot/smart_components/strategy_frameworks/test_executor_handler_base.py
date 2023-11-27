@@ -1,10 +1,12 @@
 import random
+from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pandas as pd
 
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide
+from hummingbot.logger import HummingbotLogger
 from hummingbot.smart_components.strategy_frameworks.controller_base import ControllerBase
 from hummingbot.smart_components.strategy_frameworks.executor_handler_base import ExecutorHandlerBase
 
@@ -15,6 +17,7 @@ class TestExecutorHandlerBase(IsolatedAsyncioWrapperTestCase):
         self.mock_strategy = MagicMock()
         self.mock_controller = MagicMock(spec=ControllerBase)
         self.mock_controller.config = MagicMock()
+        self.mock_controller.config.strategy_name = "test_strategy"
         self.mock_controller.config.order_levels = []
         self.mock_controller.get_csv_prefix = MagicMock(return_value="test_strategy")
         self.executor_handler = ExecutorHandlerBase(self.mock_strategy, self.mock_controller)
@@ -22,7 +25,7 @@ class TestExecutorHandlerBase(IsolatedAsyncioWrapperTestCase):
     def test_initialization(self):
         self.assertEqual(self.executor_handler.strategy, self.mock_strategy)
         self.assertEqual(self.executor_handler.controller, self.mock_controller)
-        # ... other assertions ...
+        self.assertTrue(isinstance(self.executor_handler.logger(), HummingbotLogger))
 
     @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.safe_ensure_future")
     def test_start(self, mock_safe_ensure_future):
@@ -34,10 +37,6 @@ class TestExecutorHandlerBase(IsolatedAsyncioWrapperTestCase):
         self.executor_handler.stop()
         self.assertTrue(self.executor_handler.terminated.is_set())
 
-    def test_to_format_status(self):
-        status = self.executor_handler.to_format_status()
-        self.assertIsInstance(status, str)
-
     def test_on_stop(self):
         self.executor_handler.on_stop()
         self.mock_controller.stop.assert_called_once()
@@ -47,11 +46,37 @@ class TestExecutorHandlerBase(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(path.suffix, ".csv")
         self.assertIn("test_strategy", path.name)
 
+    @patch("hummingbot.connector.markets_recorder.MarketsRecorder", new_callable=MagicMock)
     @patch("pandas.DataFrame.to_csv", new_callable=MagicMock)
-    def test_store_executor(self, _):
+    def test_store_executor_removes_executor(self, _, market_recorder_mock):
+        market_recorder_mock.store_executor = MagicMock()
         mock_executor = MagicMock()
-        mock_executor.to_json = MagicMock(return_value={"test": "test"})
+        mock_executor.to_json = MagicMock(return_value={"timestamp": 123445634,
+                                                        "exchange": "binance_perpetual",
+                                                        "trading_pair": "BTC-USDT",
+                                                        "side": "BUY",
+                                                        "amount": 100,
+                                                        "trade_pnl": 0.1,
+                                                        "trade_pnl_quote": 10,
+                                                        "cum_fee_quote": 1,
+                                                        "net_pnl_quote": 9,
+                                                        "net_pnl": 0.09,
+                                                        "close_timestamp": 1234156423,
+                                                        "executor_status": "CLOSED",
+                                                        "close_type": "TAKE_PROFIT",
+                                                        "entry_price": 100,
+                                                        "close_price": 110,
+                                                        "sl": 0.03,
+                                                        "tp": 0.05,
+                                                        "tl": 0.1,
+                                                        "open_order_type": "MARKET",
+                                                        "take_profit_order_type": "MARKET",
+                                                        "stop_loss_order_type": "MARKET",
+                                                        "time_limit_order_type": "MARKET",
+                                                        "leverage": 10,
+                                                        })
         mock_order_level = MagicMock()
+        mock_order_level.level_id = "BUY_1"
         self.executor_handler.store_executor(mock_executor, mock_order_level)
         self.assertIsNone(self.executor_handler.level_executors[mock_order_level.level_id])
 
@@ -68,7 +93,7 @@ class TestExecutorHandlerBase(IsolatedAsyncioWrapperTestCase):
         mock_position_config = MagicMock()
         mock_order_level = MagicMock()
         self.executor_handler.create_executor(mock_position_config, mock_order_level)
-        mock_position_executor.assert_called_once_with(self.mock_strategy, mock_position_config)
+        mock_position_executor.assert_called_once_with(self.mock_strategy, mock_position_config, update_interval=1.0)
         self.assertIsNotNone(self.executor_handler.level_executors[mock_order_level.level_id])
 
     def generate_random_data(self, num_rows):
@@ -132,3 +157,15 @@ class TestExecutorHandlerBase(IsolatedAsyncioWrapperTestCase):
             price=100,
             position_action=PositionAction.CLOSE
         )
+
+    def test_get_active_executors_df(self):
+        position_executor_mock = MagicMock()
+        position_executor_mock.to_json = MagicMock(return_value={"entry_price": Decimal("100"),
+                                                                 "amount": Decimal("10")})
+        self.executor_handler.level_executors = {
+            "level1": position_executor_mock,
+            "level2": position_executor_mock,
+            "level3": position_executor_mock
+        }
+        active_executors_df = self.executor_handler.get_active_executors_df()
+        self.assertEqual(active_executors_df.shape[0], 3)

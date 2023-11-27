@@ -1,3 +1,7 @@
+import logging
+from decimal import Decimal
+
+from hummingbot.logger import HummingbotLogger
 from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorStatus
 from hummingbot.smart_components.strategy_frameworks.executor_handler_base import ExecutorHandlerBase
 from hummingbot.smart_components.strategy_frameworks.market_making.market_making_controller_base import (
@@ -7,9 +11,17 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
 class MarketMakingExecutorHandler(ExecutorHandlerBase):
+    _logger = None
+
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        if cls._logger is None:
+            cls._logger = logging.getLogger(__name__)
+        return cls._logger
+
     def __init__(self, strategy: ScriptStrategyBase, controller: MarketMakingControllerBase,
-                 update_interval: float = 1.0):
-        super().__init__(strategy, controller, update_interval)
+                 update_interval: float = 1.0, executors_update_interval: float = 1.0):
+        super().__init__(strategy, controller, update_interval, executors_update_interval)
         self.controller = controller
 
     def on_stop(self):
@@ -25,6 +37,10 @@ class MarketMakingExecutorHandler(ExecutorHandlerBase):
         connector = self.strategy.connectors[self.controller.config.exchange]
         connector.set_position_mode(self.controller.config.position_mode)
         connector.set_leverage(trading_pair=self.controller.config.trading_pair, leverage=self.controller.config.leverage)
+
+    @staticmethod
+    def empty_metrics_dict():
+        return {"amount": Decimal("0"), "net_pnl_quote": Decimal("0"), "executors": []}
 
     async def control_task(self):
         if self.controller.all_candles_ready:

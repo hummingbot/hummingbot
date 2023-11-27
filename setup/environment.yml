@@ -41,7 +41,6 @@ dependencies:
     - docker==5.0.3
     - eip712-structs==1.1.0
     - dotmap==1.3.30
-    - ethsnarks-loopring==0.1.5
     - flake8==3.7.9
     - gql
     - importlib-metadata==0.23

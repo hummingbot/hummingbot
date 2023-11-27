@@ -17,11 +17,17 @@ class DManV3Config(MarketMakingControllerConfigBase):
     strategy_name: str = "dman_v3"
     bb_length: int = 100
     bb_std: float = 2.0
+    side_filter: bool = False
+    smart_activation: bool = False
+    activation_threshold: Decimal = Decimal("0.001")
+    dynamic_spread_factor: bool = True
+    dynamic_target_spread: bool = False
 
 
 class DManV3(MarketMakingControllerBase):
     """
-    Directional Market Making Strategy making use of NATR indicator to make spreads dynamic and shift the mid price.
+    Mean reversion strategy with Grid execution making use of Bollinger Bands indicator to make spreads dynamic
+    and shift the mid price.
     """
 
     def __init__(self, config: DManV3Config):
@@ -60,8 +66,8 @@ class DManV3(MarketMakingControllerBase):
         candles_df = self.candles[0].candles_df
         bbp = ta.bbands(candles_df["close"], length=self.config.bb_length, std=self.config.bb_std)
 
-        candles_df["spread_multiplier"] = bbp[f"BBB_{self.config.bb_length}_{self.config.bb_std}"] / 200
         candles_df["price_multiplier"] = bbp[f"BBM_{self.config.bb_length}_{self.config.bb_std}"]
+        candles_df["spread_multiplier"] = bbp[f"BBB_{self.config.bb_length}_{self.config.bb_std}"] / 200
         return candles_df
 
     def get_position_config(self, order_level: OrderLevel) -> PositionConfig:
@@ -69,18 +75,35 @@ class DManV3(MarketMakingControllerBase):
         Creates a PositionConfig object from an OrderLevel object.
         Here you can use technical indicators to determine the parameters of the position config.
         """
-        close_price = self.get_close_price(self.config.exchange, self.config.trading_pair)
+        close_price = self.get_close_price(self.config.trading_pair)
 
-        amount = order_level.order_amount_usd / close_price
-        price_multiplier, spread_multiplier = self.get_price_and_spread_multiplier()
+        bollinger_mid_price, spread_multiplier = self.get_price_and_spread_multiplier()
+        if not self.config.dynamic_spread_factor:
+            spread_multiplier = 1
         side_multiplier = -1 if order_level.side == TradeType.BUY else 1
-
         order_spread_multiplier = order_level.spread_factor * spread_multiplier * side_multiplier
-        order_price = price_multiplier * (1 + order_spread_multiplier)
+        order_price = bollinger_mid_price * (1 + order_spread_multiplier)
+        amount = order_level.order_amount_usd / order_price
+
+        # Avoid placing the order from the opposite side
+        side_filter_condition = self.config.side_filter and (
+            (bollinger_mid_price > close_price and side_multiplier == 1) or
+            (bollinger_mid_price < close_price and side_multiplier == -1))
+        if side_filter_condition:
+            return
+
+        # Smart activation of orders
+        smart_activation_condition = self.config.smart_activation and (
+            side_multiplier == 1 and (close_price < order_price * (1 + self.config.activation_threshold)) or
+            (side_multiplier == -1 and (close_price > order_price * (1 - self.config.activation_threshold))))
+        if smart_activation_condition:
+            return
+
+        target_spread = spread_multiplier if self.config.dynamic_target_spread else 1
         if order_level.triple_barrier_conf.trailing_stop_trailing_delta and order_level.triple_barrier_conf.trailing_stop_trailing_delta:
             trailing_stop = TrailingStop(
-                activation_price_delta=order_level.triple_barrier_conf.trailing_stop_activation_price_delta,
-                trailing_delta=order_level.triple_barrier_conf.trailing_stop_trailing_delta,
+                activation_price_delta=order_level.triple_barrier_conf.trailing_stop_activation_price_delta * target_spread,
+                trailing_delta=order_level.triple_barrier_conf.trailing_stop_trailing_delta * target_spread,
             )
         else:
             trailing_stop = None
@@ -90,8 +113,8 @@ class DManV3(MarketMakingControllerBase):
             exchange=self.config.exchange,
             side=order_level.side,
             amount=amount,
-            take_profit=order_level.triple_barrier_conf.take_profit,
-            stop_loss=order_level.triple_barrier_conf.stop_loss,
+            take_profit=order_level.triple_barrier_conf.take_profit * target_spread,
+            stop_loss=order_level.triple_barrier_conf.stop_loss * target_spread,
             time_limit=order_level.triple_barrier_conf.time_limit,
             entry_price=Decimal(order_price),
             open_order_type=order_level.triple_barrier_conf.open_order_type,
