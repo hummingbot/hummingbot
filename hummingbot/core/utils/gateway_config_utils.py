@@ -8,6 +8,7 @@ native_tokens = {
     "avalanche": "AVAX",
     "algorand": "ALGO",
     "cosmos": "ATOM",
+    "osmosis": "OSMO",
     "polygon": "MATIC",
     "harmony": "ONE",
     "binance-smart-chain": "BNB",
