@@ -181,12 +181,6 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
         Ideally, one request should provide the number of candles needed to fill the deque.
         """
         while not self.is_ready:
-            if len(self._candles) == 0:
-                self.logger().error(
-                    "fill_historical_candles() was called on an empty candles deque."
-                )
-                raise CoinbaseAdvancedTradeSpotCandles.HistoricalCallOnEmptyCandles
-
             end_timestamp: int = end_time or int(self._candles[0][0])
             try:
                 candles = await self.fetch_candles(end_time=end_timestamp)
@@ -227,7 +221,6 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
                                     "to fetch more.")
                 self._candles.extendleft(candles)
             else:
-                # Enough or too many candles were fetched to fill the deque
                 self._candles.extendleft(candles[:missing_records])
 
     async def listen_for_subscriptions(self):
@@ -236,8 +229,10 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
         exchange.
         """
         if self.interval in CONSTANTS.WS_INTERVALS:
+            self.logger().debug(f"Using websocket for {self.interval} (in {CONSTANTS.WS_INTERVALS})")
             await self._listen_for_subscriptions()
         else:
+            self.logger().warning(f"Using REST loop for {self.interval} (not in {CONSTANTS.WS_INTERVALS})")
             await self._listen_to_fetch()
 
     async def _listen_for_subscriptions(self):
@@ -269,19 +264,16 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
         """
         Repeatedly calls fetch_candles on interval.
         """
-        if len(self._candles) == 0:
-            self._candles.append(np.array([[]]))
-
         while True:
+            self.logger().warning(f"REST loop {self._candles}...")
             try:
                 end_time = await web_utils.get_current_server_time_s()
                 await self.fill_historical_candles(end_time=int(end_time))
                 await self._sleep(self.get_seconds_from_interval(self.interval))
+                self.logger().warning(f"Fetching candles for {self._candles}...")
 
             except asyncio.CancelledError:
                 raise
-            except ConnectionError as connection_exception:
-                self.logger().warning(f"The websocket connection was closed ({connection_exception})")
             except Exception:
                 self.logger().exception(
                     "Unexpected error occurred when listening to public REST candle call. Retrying in 1 "
