@@ -1078,7 +1078,7 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
 
             m.min_order_size = Decimal(1 / 10 ** position_decimal_places)
             m.min_price_increment = Decimal(1 / 10 ** decimal_places)
-            m.min_base_amount_increment = Decimal(1 / 10 ** decimal_places)
+            m.min_base_amount_increment = Decimal(1 / 10 ** position_decimal_places)
             # NOTE: Used for rounding automagically
             m.max_price_significant_digits = decimal_places
             m.min_notional = Decimal(1 / 10 ** position_decimal_places) * Decimal(1 / 10 ** decimal_places)
