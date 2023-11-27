@@ -34,7 +34,7 @@ class PositionExecutor(SmartComponentBase):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, strategy: ScriptStrategyBase, position_config: PositionConfig):
+    def __init__(self, strategy: ScriptStrategyBase, position_config: PositionConfig, update_interval: float = 1.0):
         if not (position_config.take_profit or position_config.stop_loss or position_config.time_limit):
             error = "At least one of take_profit, stop_loss or time_limit must be set"
             self.logger().error(error)
@@ -54,7 +54,7 @@ class PositionExecutor(SmartComponentBase):
         self._take_profit_order: TrackedOrder = TrackedOrder()
         self._trailing_stop_price = Decimal("0")
         self._trailing_stop_activated = False
-        super().__init__(strategy, [position_config.exchange])
+        super().__init__(strategy=strategy, connectors=[position_config.exchange], update_interval=update_interval)
 
     @property
     def executor_status(self):
@@ -276,7 +276,7 @@ class PositionExecutor(SmartComponentBase):
         )
         self.close_type = close_type
         self._close_order.order_id = order_id
-        self.logger().info("Placing close order")
+        self.logger().info(f"Placing close order --> Filled amount: {self.filled_amount} | TP Partial execution: {tp_partial_execution}")
 
     def control_stop_loss(self):
         if self.stop_loss_condition():
@@ -301,7 +301,7 @@ class PositionExecutor(SmartComponentBase):
         order_id = self.place_order(
             connector_name=self._position_config.exchange,
             trading_pair=self._position_config.trading_pair,
-            amount=self.open_order.executed_amount_base,
+            amount=self.filled_amount,
             price=self.take_profit_price,
             order_type=self.take_profit_order_type,
             position_action=PositionAction.CLOSE,
@@ -389,24 +389,24 @@ class PositionExecutor(SmartComponentBase):
             "exchange": self.exchange,
             "trading_pair": self.trading_pair,
             "side": self.side.name,
-            "amount": self.amount,
+            "amount": self.filled_amount,
             "trade_pnl": self.trade_pnl,
             "trade_pnl_quote": self.trade_pnl_quote,
             "cum_fee_quote": self.cum_fee_quote,
             "net_pnl_quote": self.net_pnl_quote,
             "net_pnl": self.net_pnl,
             "close_timestamp": self.close_timestamp,
-            "executor_status": self.executor_status,
+            "executor_status": self.executor_status.name,
             "close_type": self.close_type.name if self.close_type else None,
             "entry_price": self.entry_price,
             "close_price": self.close_price,
             "sl": self.position_config.stop_loss,
             "tp": self.position_config.take_profit,
             "tl": self.position_config.time_limit,
-            "open_order_type": self.open_order_type,
-            "take_profit_order_type": self.take_profit_order_type,
-            "stop_loss_order_type": self.stop_loss_order_type,
-            "time_limit_order_type": self.time_limit_order_type,
+            "open_order_type": self.open_order_type.name,
+            "take_profit_order_type": self.take_profit_order_type.name,
+            "stop_loss_order_type": self.stop_loss_order_type.name,
+            "time_limit_order_type": self.time_limit_order_type.name,
             "leverage": self.position_config.leverage,
         }
 
