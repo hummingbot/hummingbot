@@ -265,12 +265,10 @@ class CoinbaseAdvancedTradeSpotCandles(CandlesBase):
         Repeatedly calls fetch_candles on interval.
         """
         while True:
-            self.logger().warning(f"REST loop {self._candles}...")
             try:
                 end_time = await web_utils.get_current_server_time_s()
                 await self.fill_historical_candles(end_time=int(end_time))
                 await self._sleep(self.get_seconds_from_interval(self.interval))
-                self.logger().warning(f"Fetching candles for {self._candles}...")
 
             except asyncio.CancelledError:
                 raise
