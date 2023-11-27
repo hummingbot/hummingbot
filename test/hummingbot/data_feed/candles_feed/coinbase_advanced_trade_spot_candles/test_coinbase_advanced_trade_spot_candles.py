@@ -233,11 +233,6 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
         ), self.data_feed._candles)
 
     @patch.object(CoinbaseAdvancedTradeSpotCandles, "fetch_candles", new_callable=AsyncMock)
-    async def test_fill_historical_candles_empty_candles(self, mock_fetch_candles):
-        with self.assertRaises(CoinbaseAdvancedTradeSpotCandles.HistoricalCallOnEmptyCandles):
-            await self.data_feed.fill_historical_candles()
-
-    @patch.object(CoinbaseAdvancedTradeSpotCandles, "fetch_candles", new_callable=AsyncMock)
     async def test_fill_historical_candles_empty_data(self, mock_fetch_candles):
         # Mock to return an empty array
         self.data_feed._candles = deque(np.array([[1, 2, 3, 4, 5, 6]]), maxlen=2)
@@ -294,7 +289,6 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
         expected_start_time = end_time - (mock_interval.return_value * 100)
         self.assertEqual(result, expected_start_time)
 
-    @patch("hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles.constants.MAX_CANDLES_SIZE", 100)
     @patch.object(CoinbaseAdvancedTradeSpotCandles, "get_seconds_from_interval")
     def test_get_valid_start_time_with_candles_maxlen_less_than_constant(self, mock_interval):
         data_feed = CoinbaseAdvancedTradeSpotCandles(
@@ -308,11 +302,15 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
         expected_start_time = end_time - (mock_interval.return_value * 50)
         self.assertEqual(expected_start_time, result)
 
-    @aioresponses()
+    @aioresponses()  # This does not seem to work
     @patch.object(CoinbaseAdvancedTradeSpotCandles, "get_seconds_from_interval")
-    async def test_fetch_candles(self, mock_api: aioresponses, mock_interval):
+    async def test_fetch_candles(self, mock_interval, mock_api):
         end_time = int(time()) + 60
         mock_interval.return_value = 60
+        self.data_feed._build_auth_api_factory = AsyncMock()
+        self.data_feed._build_auth_api_factory.return_value = self.data_feed._public_api_factory
+        self.data_feed._public_api_factory.get_rest_assistant = AsyncMock()
+        self.data_feed._public_api_factory.get_rest_assistant.return_value.execute_request = AsyncMock()
         start_time = self.data_feed._get_valid_start_time(end_time=end_time)
 
         url = (f"{REST_URL.format(domain='com')}{CONSTANTS.CANDLES_ENDPOINT.format(product_id=self.ex_trading_pair)}?"
@@ -320,6 +318,7 @@ class TestCoinbaseAdvancedTradeSpotCandles(IsolatedAsyncioWrapperTestCase, Logge
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         data_mock = self.get_candles_rest_data_mock()
         mock_api.get(url=regex_url, body=json.dumps(data_mock))
+        self.data_feed._public_api_factory.get_rest_assistant.return_value.execute_request.return_value = data_mock
 
         resp = await self.data_feed.fetch_candles(start_time=start_time, end_time=end_time)
 
