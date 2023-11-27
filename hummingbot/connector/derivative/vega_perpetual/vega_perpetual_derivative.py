@@ -434,12 +434,11 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         return None, time.time()
 
     async def _get_client_order_id_from_exchange_order_id(self, exchange_order_id: str):
-        # TODO: Can't we use self._order_tracker.all_updatable_orders_by_exchange_order_id
         if exchange_order_id in self._exchange_order_id_to_hb_order_id:
             return self._exchange_order_id_to_hb_order_id.get(exchange_order_id)
 
         # wait for exchange order id
-        tracked_orders: List[InFlightOrder] = list(self._in_flight_orders.values())
+        tracked_orders: List[InFlightOrder] = list(self._order_tracker._in_flight_orders.values())
         for order in tracked_orders:
             if order.exchange_order_id is None:
                 await order.get_exchange_order_id()
@@ -669,7 +668,7 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         mapped_status = CONSTANTS.VegaIntOrderStatusToHummingbot[order_status] if isinstance(order_status, int) else CONSTANTS.VegaStringOrderStatusToHummingbot[order_status]
         if not tracked_order:
             if mapped_status not in [OrderState.CANCELED, OrderState.FAILED]:
-                self.logger().warning(f"Ignoring order message with id {exchange_order_id}: not in our orders. Client ID: {client_order_id}")
+                self.logger().debug(f"Ignoring order message with id {exchange_order_id}: not in our orders. Client ID: {client_order_id}")
             return
 
         _hb_state = mapped_status
@@ -1249,8 +1248,9 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
             except Exception as e:
                 print(e)
 
-        # Failed even after the last retry
-        raise last_exception
+        if last_exception is not None:
+            # Failed even after the last retry
+            raise last_exception
 
     def _market_id_from_hb_pair(self, trading_pair: str) -> str:
         return self._id_by_hb_pair.get(trading_pair, "")
