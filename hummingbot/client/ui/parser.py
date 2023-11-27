@@ -93,6 +93,9 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingA
     gateway_parser = subparsers.add_parser("gateway", help="Helper comands for Gateway server.")
     gateway_subparsers = gateway_parser.add_subparsers()
 
+    gateway_balance_parser = gateway_subparsers.add_parser("balance", help="Display your asset balances and allowances across all connected gateway connectors")
+    gateway_balance_parser.set_defaults(func=hummingbot.gateway_balance)
+
     gateway_config_parser = gateway_subparsers.add_parser("config", help="View or update gateway configuration")
     gateway_config_parser.add_argument("key", nargs="?", default=None, help="Name of the parameter you want to view/change")
     gateway_config_parser.add_argument("value", nargs="?", default=None, help="New value for the parameter")

@@ -120,12 +120,6 @@ kucoin_maker_percent_fee:
 kucoin_percent_fee_token:
 kucoin_taker_fixed_fees:
 kucoin_taker_percent_fee:
-loopring_buy_percent_fee_deducted_from_returns:
-loopring_maker_fixed_fees:
-loopring_maker_percent_fee:
-loopring_percent_fee_token:
-loopring_taker_fixed_fees:
-loopring_taker_percent_fee:
 mexc_buy_percent_fee_deducted_from_returns:
 mexc_maker_fixed_fees:
 mexc_maker_percent_fee:
