@@ -119,7 +119,7 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
                     "type": "funding",
                     "usdc": "-3.625312"
                 },
-                "hash": "0xa166e3fa63c25663024b03f2e0da011a00307e4017465df020210d3d432e7cb8",
+                "hash": "0xa166e3fa63c25663024b03f2e0da011a00307e4017465df020210d3d432e7cb8", # noqa: mock
                 "time": 1681222254710
             },
         ]
@@ -304,7 +304,7 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
         trade_event = {'channel': 'user', 'data': {'fills': [
             {'coin': 'ETH', 'px': '2091.3', 'sz': '0.01', 'side': 'B', 'time': 1700688460805, 'startPosition': '0.0',
              'dir': 'Open Long', 'closedPnl': '0.0',
-             'hash': '0x544c46b72e0efdada8cd04080bb32b010d005a7d0554c10c4d0287e9a2c237e7', 'oid': 2260113568,
+             'hash': '0x544c46b72e0efdada8cd04080bb32b010d005a7d0554c10c4d0287e9a2c237e7', 'oid': 2260113568, # noqa: mock
              'crossed': True, 'fee': '0.005228', 'liquidationMarkPx': None}]}}
         mock_queue.get.side_effect = [trade_event, asyncio.CancelledError()]
         self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue

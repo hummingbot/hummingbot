@@ -54,7 +54,7 @@ class HyperliquidPerpetualTestnetConfigMap(BaseConnectorConfigMap):
     hyperliquid_perpetual_testnet_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Arbitrum wallet public key",
+            prompt=lambda cm: "Enter your Arbitrum wallet address",
             is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,

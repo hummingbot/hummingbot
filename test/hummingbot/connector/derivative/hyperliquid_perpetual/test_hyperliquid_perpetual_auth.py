@@ -1,6 +1,4 @@
 import asyncio
-import hashlib
-import hmac
 import json
 from typing import Awaitable
 from unittest import TestCase

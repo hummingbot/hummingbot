@@ -626,8 +626,6 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         """
         Calls the REST API to update total and available balances.
         """
-        local_asset_names = set(self._account_balances.keys())
-        remote_asset_names = set()
 
         account_info = await self._api_post(path_url=CONSTANTS.ACCOUNT_INFO_URL,
                                             data={"type": CONSTANTS.USER_STATE_TYPE,
