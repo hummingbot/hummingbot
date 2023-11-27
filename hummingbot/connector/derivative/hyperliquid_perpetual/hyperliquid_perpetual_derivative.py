@@ -23,7 +23,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -418,21 +418,30 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         return trade_update
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
-        order_update = await self._api_post(
-            path_url=CONSTANTS.ORDER_URL,
-            data={
-                "type": CONSTANTS.ORDER_STATUS_TYPE,
-                "user": self.hyperliquid_perpetual_api_key,
-                "oid": tracked_order.exchange_order_id
-            })
-        current_state = order_update["order"]["status"]
-        _order_update: OrderUpdate = OrderUpdate(
-            trading_pair=tracked_order.trading_pair,
-            update_timestamp=order_update["order"]["order"]["timestamp"] * 1e-3,
-            new_state=CONSTANTS.ORDER_STATE[current_state],
-            client_order_id=order_update["order"]["order"]["cloid"],
-            exchange_order_id=tracked_order.exchange_order_id,
-        )
+        if tracked_order.exchange_order_id is None:
+            # Order placement failed previously
+            _order_update = OrderUpdate(
+                client_order_id=tracked_order.client_order_id,
+                trading_pair=tracked_order.trading_pair,
+                update_timestamp=self.current_timestamp,
+                new_state=OrderState.FAILED,
+            )
+        else:
+            order_update = await self._api_post(
+                path_url=CONSTANTS.ORDER_URL,
+                data={
+                    "type": CONSTANTS.ORDER_STATUS_TYPE,
+                    "user": self.hyperliquid_perpetual_api_key,
+                    "oid": tracked_order.exchange_order_id
+                })
+            current_state = order_update["order"]["status"]
+            _order_update: OrderUpdate = OrderUpdate(
+                trading_pair=tracked_order.trading_pair,
+                update_timestamp=order_update["order"]["order"]["timestamp"] * 1e-3,
+                new_state=CONSTANTS.ORDER_STATE[current_state],
+                client_order_id=order_update["order"]["order"]["cloid"],
+                exchange_order_id=tracked_order.exchange_order_id,
+            )
         return _order_update
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
@@ -682,6 +691,8 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _set_trading_pair_leverage(self, trading_pair: str, leverage: int) -> Tuple[bool, str]:
         coin = trading_pair.split("-")[0]
+        if not self.coin_to_asset:
+            await self._update_trading_rules()
         params = {
             "type": "updateLeverage",
             "asset": self.coin_to_asset[coin],
