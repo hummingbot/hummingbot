@@ -88,12 +88,14 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
         return ret
 
     def get_rest_snapshot_msg(self) -> Dict:
-        return {"coin": "DYDX", "levels": [
-            [{'px': '2080.3', 'sz': '74.6923', 'n': 2}, {'px': '2080.0', 'sz': '162.2829', 'n': 2},
-             {'px': '1825.5', 'sz': '0.0259', 'n': 1}, {'px': '1823.6', 'sz': '0.0259', 'n': 1}],
-            [{'px': '2080.5', 'sz': '73.018', 'n': 2}, {'px': '2080.6', 'sz': '74.6799', 'n': 2},
-             {'px': '2118.9', 'sz': '377.495', 'n': 1}, {'px': '2122.1', 'sz': '348.8644', 'n': 1}]],
-                "time": 1700687397643}
+        return {
+            "coin": "DYDX", "levels": [
+                [{'px': '2080.3', 'sz': '74.6923', 'n': 2}, {'px': '2080.0', 'sz': '162.2829', 'n': 2},
+                 {'px': '1825.5', 'sz': '0.0259', 'n': 1}, {'px': '1823.6', 'sz': '0.0259', 'n': 1}],
+                [{'px': '2080.5', 'sz': '73.018', 'n': 2}, {'px': '2080.6', 'sz': '74.6799', 'n': 2},
+                 {'px': '2118.9', 'sz': '377.495', 'n': 1}, {'px': '2122.1', 'sz': '348.8644', 'n': 1}]],
+            "time": 1700687397643
+        }
 
     def get_ws_snapshot_msg(self) -> Dict:
         return {'channel': 'l2Book', 'data': {'coin': 'BTC', 'time': 1700687397643, 'levels': [
@@ -119,7 +121,7 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
                     "type": "funding",
                     "usdc": "-3.625312"
                 },
-                "hash": "0xa166e3fa63c25663024b03f2e0da011a00307e4017465df020210d3d432e7cb8", # noqa: mock
+                "hash": "0xa166e3fa63c25663024b03f2e0da011a00307e4017465df020210d3d432e7cb8",  # noqa: mock
                 "time": 1681222254710
             },
         ]
@@ -304,7 +306,8 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
         trade_event = {'channel': 'user', 'data': {'fills': [
             {'coin': 'ETH', 'px': '2091.3', 'sz': '0.01', 'side': 'B', 'time': 1700688460805, 'startPosition': '0.0',
              'dir': 'Open Long', 'closedPnl': '0.0',
-             'hash': '0x544c46b72e0efdada8cd04080bb32b010d005a7d0554c10c4d0287e9a2c237e7', 'oid': 2260113568, # noqa: mock
+             'hash': '0x544c46b72e0efdada8cd04080bb32b010d005a7d0554c10c4d0287e9a2c237e7',  # noqa: mock
+             'oid': 2260113568,
              'crossed': True, 'fee': '0.005228', 'liquidationMarkPx': None}]}}
         mock_queue.get.side_effect = [trade_event, asyncio.CancelledError()]
         self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue
