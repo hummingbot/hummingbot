@@ -11,6 +11,12 @@ class TestDistributions(unittest.TestCase):
         expected = [Decimal(x) for x in [0, 2.5, 5, 7.5, 10]]
         self.assertEqual(result, expected)
 
+    def test_linear_single_level(self):
+        result = Distributions.linear(1, 0.5, 1)
+        expected = [Decimal("0.5")]
+        for r, e in zip(result, expected):
+            self.assertAlmostEqual(r, e, places=2)
+
     def test_fibonacci(self):
         result = Distributions.fibonacci(5, 0.01)
         expected = [Decimal("0.01"), Decimal("0.02"), Decimal("0.03"), Decimal("0.05"), Decimal("0.08")]
