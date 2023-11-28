@@ -17,10 +17,10 @@ class PreviousCommand:
         option: str,
     ):
         if option is not None:
+            # Handle specific options if necessary
             pass
 
         previous_strategy_file = self.client_config_map.previous_strategy
-
         if previous_strategy_file is not None:
             safe_ensure_future(self.prompt_for_previous_strategy(previous_strategy_file))
         else:
@@ -30,42 +30,36 @@ class PreviousCommand:
         self,  # type: HummingbotApplication
         file_name: str,
     ):
+        try:
+            self.prepare_for_user_input()
+            previous_strategy = self.create_previous_strategy_configvar(file_name)
+
+            await self.prompt_and_process_answer(previous_strategy)
+            if self.should_stop_config():
+                return
+
+            if self.is_strategy_accepted(previous_strategy):
+                ImportCommand.import_command(self, file_name)
+        finally:
+            self.cleanup_after_prompt()
+
+    def prepare_for_user_input(self):
         self.app.clear_input()
         self.placeholder_mode = True
         self.app.hide_input = True
 
-        previous_strategy = ConfigVar(
+    def create_previous_strategy_configvar(self, file_name: str) -> ConfigVar:
+        return ConfigVar(
             key="previous_strategy_answer",
             prompt=f"Do you want to import the previously stored config? [{file_name}] (Yes/No) >>>",
             type_str="bool",
             validator=validate_bool,
         )
 
-        await self.prompt_answer(previous_strategy)
-        if self.app.to_stop_config:
-            self.app.to_stop_config = False
-            return
-
-        if previous_strategy.value:
-            ImportCommand.import_command(self, file_name)
-
-        # clean
-        self.app.change_prompt(prompt=">>> ")
-
-        # reset input
-        self.placeholder_mode = False
-        self.app.hide_input = False
-
-    async def prompt_answer(
-        self,  # type: HummingbotApplication
-        config: ConfigVar,
-        input_value: Optional[str] = None,
-        assign_default: bool = True,
-    ):
-
-        if input_value is None:
-            if assign_default:
-                self.app.set_text(parse_config_default_to_text(config))
+    async def prompt_and_process_answer(self, config: ConfigVar):
+        input_value = None
+        if not self.app.to_stop_config:
+            self.app.set_text(parse_config_default_to_text(config))
             prompt = await config.get_prompt()
             input_value = await self.app.prompt(prompt=prompt)
 
@@ -76,4 +70,18 @@ class PreviousCommand:
         if err_msg is not None:
             self.notify(err_msg)
             config.value = None
-            await self.prompt_answer(config)
+            await self.prompt_and_process_answer(config)
+
+    def should_stop_config(self) -> bool:
+        if self.app.to_stop_config:
+            self.app.to_stop_config = False
+            return True
+        return False
+
+    def is_strategy_accepted(self, config: ConfigVar) -> bool:
+        return config.value
+
+    def cleanup_after_prompt(self):
+        self.app.change_prompt(prompt=">>> ")
+        self.placeholder_mode = False
+        self.app.hide_input = False
