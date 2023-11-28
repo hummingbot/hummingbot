@@ -34,7 +34,8 @@ class TestHyperliquidPerpetualAPIUserStreamDataSource(unittest.TestCase):
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = f"{cls.base_asset}_{cls.quote_asset}"
         cls.api_key = "someKey"
-        cls.api_secret_key = "someSecretKey"
+        cls.api_secret_key = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930" # noqa: mock"
+
 
     def setUp(self) -> None:
         super().setUp()
@@ -54,8 +55,8 @@ class TestHyperliquidPerpetualAPIUserStreamDataSource(unittest.TestCase):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = HyperliquidPerpetualDerivative(
             client_config_map=client_config_map,
-            hyperliquid_perpetual_api_key="",
-            hyperliquid_perpetual_api_secret="",
+            hyperliquid_perpetual_api_key=self.api_key,
+            hyperliquid_perpetual_api_secret=self.api_secret_key,
             trading_pairs=[])
         self.connector._web_assistants_factory._auth = self.auth
 
