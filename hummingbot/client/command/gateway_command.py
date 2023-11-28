@@ -274,7 +274,7 @@ class GatewayCommand(GatewayChainApiManager):
                     self.app.clear_input()
                     # they use an existing wallet
                     if use_existing_wallet is not None and use_existing_wallet in ["Y", "y", "Yes", "yes"]:
-                        native_token: str = native_tokens[chain]
+                        native_token: str = native_tokens[chain] if chain != 'aura' else native_tokens[network]
                         wallet_table: List[Dict[str, Any]] = []
                         for w in wallets:
                             balances: Dict[str, Any] = await self._get_gateway_instance().get_balances(
@@ -312,7 +312,12 @@ class GatewayCommand(GatewayChainApiManager):
                                 self.notify("Error adding wallet. Check private key.\n")
 
                         # display wallet balance
-                        native_token: str = native_tokens[chain]
+                        native_token: str
+                        if (chain == 'aura'):
+                            native_token = native_tokens[network]
+                        else:
+                            native_token = native_tokens[chain]
+                        
                         balances: Dict[str, Any] = await self._get_gateway_instance().get_balances(
                             chain, network, wallet_address, [native_token], connector
                         )

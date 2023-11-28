@@ -16,7 +16,9 @@ native_tokens = {
     "injective": "INJ",
     "xdc": "XDC",
     "tezos": "XTZ",
-    "kujira": "KUJI"
+    "kujira": "KUJI",
+    "euphoria": "EAURA",
+    "xstaxy": "AURA"
 }
 
 SUPPORTED_CHAINS = set(native_tokens.keys())

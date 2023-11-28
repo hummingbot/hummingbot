@@ -118,7 +118,12 @@ class GatewayConnectionSetting:
     def get_connector_spec_from_market_name(market_name: str) -> Optional[Dict[str, str]]:
         for chain in SUPPORTED_CHAINS:
             if chain in market_name:
-                connector, network = market_name.split(f"_{chain}_")
+                if chain in ['xstaxy', 'euphoria']:
+                    connector = 'halotrade'
+                    network = chain
+                    chain = 'aura'
+                else:    
+                    connector, network = market_name.split(f"_{chain}_")
                 return GatewayConnectionSetting.get_connector_spec(connector, chain, network)
         return None
 
