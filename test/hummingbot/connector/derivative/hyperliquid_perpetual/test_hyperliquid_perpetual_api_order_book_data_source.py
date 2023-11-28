@@ -20,6 +20,7 @@ from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual
     HyperliquidPerpetualDerivative,
 )
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
+from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
@@ -46,8 +47,9 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         self.connector = HyperliquidPerpetualDerivative(
             client_config_map,
-            hyperliquid_perpetual_api_key="",
-            hyperliquid_perpetual_api_secret="",
+            hyperliquid_perpetual_api_key="testkey",
+            hyperliquid_perpetual_api_secret="13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930",
+            # noqa: mock
             trading_pairs=[self.trading_pair],
         )
         self.data_source = HyperliquidPerpetualAPIOrderBookDataSource(
@@ -98,14 +100,14 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
         }
 
     def get_ws_snapshot_msg(self) -> Dict:
-        return {'channel': 'l2Book', 'data': {'coin': 'BTC', 'time': 1700687397643, 'levels': [
+        return {'channel': 'l2Book', 'data': {'coin': 'BTC', 'time': 1700687397641, 'levels': [
             [{'px': '2080.3', 'sz': '74.6923', 'n': 2}, {'px': '2080.0', 'sz': '162.2829', 'n': 2},
              {'px': '1825.5', 'sz': '0.0259', 'n': 1}, {'px': '1823.6', 'sz': '0.0259', 'n': 1}],
             [{'px': '2080.5', 'sz': '73.018', 'n': 2}, {'px': '2080.6', 'sz': '74.6799', 'n': 2},
              {'px': '2118.9', 'sz': '377.495', 'n': 1}, {'px': '2122.1', 'sz': '348.8644', 'n': 1}]]}}
 
     def get_ws_diff_msg(self) -> Dict:
-        return {'channel': 'l2Book', 'data': {'coin': 'BTC', 'time': 1700687397643, 'levels': [
+        return {'channel': 'l2Book', 'data': {'coin': 'BTC', 'time': 1700687397642, 'levels': [
             [{'px': '2080.3', 'sz': '74.6923', 'n': 2}, {'px': '2080.0', 'sz': '162.2829', 'n': 2},
              {'px': '1825.5', 'sz': '0.0259', 'n': 1}, {'px': '1823.6', 'sz': '0.0259', 'n': 1}],
             [{'px': '2080.5', 'sz': '73.018', 'n': 2}, {'px': '2080.6', 'sz': '74.6799', 'n': 2},
@@ -113,17 +115,34 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
 
     def get_funding_info_rest_msg(self):
         return [
-            {
-                "delta": {
-                    "coin": "ETH",
-                    "fundingRate": "0.0000417",
-                    "szi": "49.1477",
-                    "type": "funding",
-                    "usdc": "-3.625312"
-                },
-                "hash": "0xa166e3fa63c25663024b03f2e0da011a00307e4017465df020210d3d432e7cb8",  # noqa: mock
-                "time": 1681222254710
-            },
+            {'universe': [{'maxLeverage': 50, 'name': self.base_asset, 'onlyIsolated': False},
+                          {'maxLeverage': 50, 'name': 'ETH', 'onlyIsolated': False}]}, [
+                {'dayNtlVlm': '27009889.88843001', 'funding': '0.00001793',
+                 'impactPxs': ['36724.0', '36736.9'],
+                 'markPx': '36733.0', 'midPx': '36730.0', 'openInterest': '34.37756',
+                 'oraclePx': '36717.0',
+                 'premium': '0.00036632', 'prevDayPx': '35242.0'},
+                {'dayNtlVlm': '8781185.14306', 'funding': '0.00005324', 'impactPxs': ['1922.9', '1923.1'],
+                 'markPx': '1923.1',
+                 'midPx': '1923.05', 'openInterest': '638.8957', 'oraclePx': '1921.7',
+                 'premium': '0.00067648',
+                 'prevDayPx': '1877.1'}]
+        ]
+
+    def get_trading_rule_rest_msg(self):
+        return [
+            {'universe': [{'maxLeverage': 50, 'name': self.base_asset, 'onlyIsolated': False},
+                          {'maxLeverage': 50, 'name': 'ETH', 'onlyIsolated': False}]}, [
+                {'dayNtlVlm': '27009889.88843001', 'funding': '0.00001793',
+                 'impactPxs': ['36724.0', '36736.9'],
+                 'markPx': '36733.0', 'midPx': '36730.0', 'openInterest': '34.37756',
+                 'oraclePx': '36717.0',
+                 'premium': '0.00036632', 'prevDayPx': '35242.0'},
+                {'dayNtlVlm': '8781185.14306', 'funding': '0.00005324', 'impactPxs': ['1922.9', '1923.1'],
+                 'markPx': '1923.1',
+                 'midPx': '1923.05', 'openInterest': '638.8957', 'oraclePx': '1921.7',
+                 'premium': '0.00067648',
+                 'prevDayPx': '1877.1'}]
         ]
 
     @aioresponses()
@@ -132,7 +151,7 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
         url = web_utils.public_rest_url(endpoint)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         resp = self.get_rest_snapshot_msg()
-        mock_api.get(regex_url, body=json.dumps(resp))
+        mock_api.post(regex_url, body=json.dumps(resp))
 
         order_book = self.async_run_with_timeout(
             self.data_source.get_new_order_book(self.trading_pair)
@@ -154,7 +173,7 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
         url = web_utils.public_rest_url(endpoint)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
-        mock_api.get(regex_url, status=400)
+        mock_api.post(regex_url, status=400)
         with self.assertRaises(IOError):
             self.async_run_with_timeout(self.data_source.get_new_order_book(self.trading_pair))
 
@@ -183,8 +202,8 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(expected_trade_subscription_payload, sent_subscription_messages[0]["subscription"]["coin"])
         expected_depth_subscription_channel = CONSTANTS.DEPTH_ENDPOINT_NAME
         expected_depth_subscription_payload = self.ex_trading_pair.split("-")[0]
-        self.assertEqual(expected_depth_subscription_channel, sent_subscription_messages[0]["subscription"]["type"])
-        self.assertEqual(expected_depth_subscription_payload, sent_subscription_messages[0]["subscription"]["coin"])
+        self.assertEqual(expected_depth_subscription_channel, sent_subscription_messages[1]["subscription"]["type"])
+        self.assertEqual(expected_depth_subscription_payload, sent_subscription_messages[1]["subscription"]["coin"])
 
         self.assertTrue(
             self._is_logged("INFO", "Subscribed to public order book, trade channels...")
@@ -302,13 +321,14 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
             self._is_logged("ERROR", "Unexpected error when processing public trade updates from exchange"))
 
     def test_listen_for_trades_successful(self):
+        self._simulate_trading_rules_initialized()
         mock_queue = AsyncMock()
-        trade_event = {'channel': 'user', 'data': {'fills': [
-            {'coin': 'ETH', 'px': '2091.3', 'sz': '0.01', 'side': 'B', 'time': 1700688460805, 'startPosition': '0.0',
-             'dir': 'Open Long', 'closedPnl': '0.0',
-             'hash': '0x544c46b72e0efdada8cd04080bb32b010d005a7d0554c10c4d0287e9a2c237e7',  # noqa: mock
-             'oid': 2260113568,
-             'crossed': True, 'fee': '0.005228', 'liquidationMarkPx': None}]}}
+        trade_event = {'channel': 'trades', 'data': [
+            {'coin': 'BTC', 'side': 'A', 'px': '2009.0', 'sz': '0.0079', 'time': 1701156061468,
+             'hash': '0x3e2bc327cc925903cebe0408315a98010b002fda921d23fd1468bbb5d573f902'},
+            {'coin': 'BTC', 'side': 'B', 'px': '2009.0', 'sz': '0.0079', 'time': 1701156052596,
+             'hash': '0x0b2e11dc4ac8efee94660408315a690109003301ae47ae3512cded47641a42b1'}]}
+
         mock_queue.get.side_effect = [trade_event, asyncio.CancelledError()]
         self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue
 
@@ -320,8 +340,8 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 
         self.assertEqual(OrderBookMessageType.TRADE, msg.type)
-        self.assertEqual(trade_event["data"]["fills"][0]["hash"], msg.trade_id)
-        self.assertEqual(trade_event["data"]["fills"][0]["time"] * 1e-3, msg.timestamp)
+        self.assertEqual(trade_event["data"][0]["hash"], msg.trade_id)
+        self.assertEqual(trade_event["data"][0]["time"] * 1e-3, msg.timestamp)
 
     def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
@@ -359,10 +379,11 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
             self._is_logged("ERROR", "Unexpected error when processing public order book updates from exchange"))
 
     def test_listen_for_order_book_diffs_successful(self):
+        self._simulate_trading_rules_initialized()
         mock_queue = AsyncMock()
         diff_event = self.get_ws_diff_msg()
         mock_queue.get.side_effect = [diff_event, asyncio.CancelledError()]
-        self.data_source._message_queue[self.data_source._diff_messages_queue_key] = mock_queue
+        self.data_source._message_queue[self.data_source._snapshot_messages_queue_key] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -391,7 +412,7 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
         url = web_utils.public_rest_url(endpoint)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
-        mock_api.get(regex_url, exception=asyncio.CancelledError)
+        mock_api.post(regex_url, exception=asyncio.CancelledError)
 
         with self.assertRaises(asyncio.CancelledError):
             self.async_run_with_timeout(
@@ -408,7 +429,7 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
         url = web_utils.public_rest_url(endpoint)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
-        mock_api.get(regex_url, exception=Exception)
+        mock_api.post(regex_url, exception=Exception)
 
         self.listening_task = self.ev_loop.create_task(
             self.data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue)
@@ -428,7 +449,7 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
 
         resp = self.get_rest_snapshot_msg()
 
-        mock_api.get(regex_url, body=json.dumps(resp))
+        mock_api.post(regex_url, body=json.dumps(resp))
 
         self.listening_task = self.ev_loop.create_task(
             self.data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue)
@@ -453,11 +474,11 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
 
     @aioresponses()
     def test_get_funding_info(self, mock_api):
-        endpoint = CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL
+        endpoint = CONSTANTS.EXCHANGE_INFO_URL
         url = web_utils.public_rest_url(endpoint)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         resp = self.get_funding_info_rest_msg()
-        mock_api.get(regex_url, body=json.dumps(resp))
+        mock_api.post(regex_url, body=json.dumps(resp))
 
         funding_info: FundingInfo = self.async_run_with_timeout(
             self.data_source.get_funding_info(self.trading_pair)
@@ -465,7 +486,16 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
         msg_result = resp
 
         self.assertEqual(self.trading_pair, funding_info.trading_pair)
-        self.assertEqual((int((msg_result[0]["time"] / 1e-3) / CONSTANTS.FUNDING_RATE_INTERNAL_MIL_SECOND) + 1) *
-                         CONSTANTS.FUNDING_RATE_INTERNAL_MIL_SECOND,
-                         funding_info.next_funding_utc_timestamp)
-        self.assertEqual(Decimal(str(msg_result[0]["delta"]["fundingRate"])), funding_info.rate)
+        self.assertEqual(Decimal(str(msg_result[1][0]["funding"])), funding_info.rate)
+
+    def _simulate_trading_rules_initialized(self):
+        mocked_response = self.get_trading_rule_rest_msg()
+        self.connector._initialize_trading_pair_symbols_from_exchange_info(mocked_response)
+        self.connector._trading_rules = {
+            self.trading_pair: TradingRule(
+                trading_pair=self.trading_pair,
+                min_order_size=Decimal(str(0.01)),
+                min_price_increment=Decimal(str(0.0001)),
+                min_base_amount_increment=Decimal(str(0.000001)),
+            )
+        }
