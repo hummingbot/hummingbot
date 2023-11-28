@@ -223,7 +223,7 @@ class BitComPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
         pass
 
     @aioresponses()
-    def test_funding_payment_polling_loop_sends_update_event(self, *args, **kwargs):
+    def test_funding_payment_polling_loop(self, *args, **kwargs):
         pass
 
     @property

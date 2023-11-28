@@ -381,7 +381,7 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
         await self._update_all_funding_payments(fire_event_on_new=False)  # initialization of the timestamps
         while True:
             await self._update_all_funding_payments(fire_event_on_new=True)
-            await asyncio.sleep(self.funding_fee_poll_interval)
+            await self._sleep(self.funding_fee_poll_interval)
 
     async def _update_all_funding_payments(self, fire_event_on_new: bool):
         try:
@@ -444,3 +444,9 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
 
         if trading_pair not in self._last_funding_fee_payment_ts:
             self._last_funding_fee_payment_ts[trading_pair] = timestamp
+
+    async def _sleep(self, delay: float):
+        """
+        Sleeps for a given amount of time, but wakes up if the connector is stopped.
+        """
+        await asyncio.sleep(delay)

@@ -2349,7 +2349,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         pass
 
     @aioresponses()
-    def test_funding_payment_polling_loop_sends_update_event(self, mock_api):
+    def test_funding_payment_polling_loop(self, mock_api):
         self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
 
