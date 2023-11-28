@@ -225,6 +225,8 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
                     "fee": "-249974460000000000000000",
                     "orderHash": base64.b64encode(bytes.fromhex(order_hash.replace("0x", ""))).decode(),
                     "feeRecipientAddress": "inj10xvv532h2sy03d86x487v9dt7dp4eud8fe2qv5",  # noqa: mock
+                    "cid": "cid1",
+                    "tradeId": "7959737_3_0",
                 },
             ],
             "derivativeTrades": [],
@@ -284,6 +286,8 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
                     "fee": "-249974460000000000000000",
                     "orderHash": base64.b64encode(bytes.fromhex(order_hash.replace("0x", ""))).decode(),
                     "feeRecipientAddress": "inj10xvv532h2sy03d86x487v9dt7dp4eud8fe2qv5",  # noqa: mock
+                    "cid": "cid1",
+                    "tradeId": "7959737_3_0",
                 },
             ],
             "derivativeTrades": [],
@@ -301,10 +305,9 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
 
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 
-        expected_timestamp = int(trade_data["blockTime"]) * 1e-3
         expected_price = Decimal(trade_data["spotTrades"][0]["price"]) * Decimal(f"1e{base_decimals-quote_decimals-18}")
         expected_amount = Decimal(trade_data["spotTrades"][0]["quantity"]) * Decimal(f"1e{-base_decimals-18}")
-        expected_trade_id = f"{int(expected_timestamp*1e3)}_{order_hash}_SELL_{expected_amount.normalize():f}_{expected_price.normalize():f}"
+        expected_trade_id = trade_data["spotTrades"][0]["tradeId"]
         self.assertEqual(OrderBookMessageType.TRADE, msg.type)
         self.assertEqual(expected_trade_id, msg.trade_id)
         self.assertEqual(time_mock.return_value, msg.timestamp)

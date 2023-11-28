@@ -785,6 +785,7 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
                     "orderHash": base64.b64encode(bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
                     "feeRecipientAddress": self.portfolio_account_injective_address,
                     "cid": order.client_order_id,
+                    "tradeId": self.expected_fill_trade_id,
                 },
             ],
             "derivativeTrades": [],
