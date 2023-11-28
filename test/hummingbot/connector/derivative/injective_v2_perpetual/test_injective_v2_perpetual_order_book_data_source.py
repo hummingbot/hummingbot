@@ -238,6 +238,8 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
                     "fee": "-93340800000000000000000",
                     "orderHash": base64.b64encode(bytes.fromhex(order_hash.replace("0x", ""))).decode(),
                     "feeRecipientAddress": "inj10xvv532h2sy03d86x487v9dt7dp4eud8fe2qv5",  # noqa: mock
+                    "cid": "cid1",
+                    "tradeId": "7959737_3_0",
                 },
             ],
             "spotOrders": [],
@@ -298,6 +300,8 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
                     "fee": "-93340800000000000000000",
                     "orderHash": base64.b64encode(bytes.fromhex(order_hash.replace("0x", ""))).decode(),
                     "feeRecipientAddress": "inj10xvv532h2sy03d86x487v9dt7dp4eud8fe2qv5",  # noqa: mock
+                    "cid": "cid1",
+                    "tradeId": "7959737_3_0",
                 },
             ],
             "spotOrders": [],
@@ -319,7 +323,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
             f"1e{-quote_decimals-18}")
         expected_amount = Decimal(trade_data["derivativeTrades"][0]["positionDelta"]["executionQuantity"]) * Decimal(
             "1e-18")
-        expected_trade_id = f"{int(expected_timestamp*1e3)}_{order_hash}_SELL_{expected_amount.normalize():f}_{expected_price.normalize():f}"
+        expected_trade_id = trade_data["derivativeTrades"][0]["tradeId"]
         self.assertEqual(OrderBookMessageType.TRADE, msg.type)
         self.assertEqual(expected_trade_id, msg.trade_id)
         self.assertEqual(expected_timestamp, msg.timestamp)

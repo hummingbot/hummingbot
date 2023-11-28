@@ -848,9 +848,7 @@ class InjectiveDataSource(ABC):
         trade_type = TradeType.BUY if trade_info["tradeDirection"] == "buy" else TradeType.SELL
         is_taker: bool = trade_info["executionSide"] == "taker"
         trade_time = int(trade_info["executedAt"]) * 1e-3
-        trade_id = self._trade_id(
-            timestamp=trade_time, order_hash=exchange_order_id, trade_type=trade_type, amount=size, price=price
-        )
+        trade_id = trade_info["tradeId"]
 
         fee_amount = market.quote_token.value_from_chain_format(chain_value=Decimal(trade_info["fee"]))
         fee = TradeFeeBase.new_spot_fee(
@@ -883,12 +881,9 @@ class InjectiveDataSource(ABC):
 
         price = market.price_from_chain_format(chain_price=Decimal(trade_info["positionDelta"]["executionPrice"]))
         size = market.quantity_from_chain_format(chain_quantity=Decimal(trade_info["positionDelta"]["executionQuantity"]))
-        trade_type = TradeType.BUY if trade_info["positionDelta"]["tradeDirection"] == "buy" else TradeType.SELL
         is_taker: bool = trade_info["executionSide"] == "taker"
         trade_time = int(trade_info["executedAt"]) * 1e-3
-        trade_id = self._trade_id(
-            timestamp=trade_time, order_hash=exchange_order_id, trade_type=trade_type, amount=size, price=price
-        )
+        trade_id = trade_info["tradeId"]
 
         fee_amount = market.quote_token.value_from_chain_format(chain_value=Decimal(trade_info["fee"]))
         fee = TradeFeeBase.new_perpetual_fee(
@@ -1240,9 +1235,7 @@ class InjectiveDataSource(ABC):
                 price = market_info.price_from_special_chain_format(chain_price=Decimal(str(trade_update["price"])))
                 order_hash = "0x" + base64.b64decode(trade_update["orderHash"]).hex()
                 client_order_id = trade_update.get("cid", "")
-                trade_id = self._trade_id(
-                    timestamp=block_timestamp, order_hash=order_hash, trade_type=trade_type, amount=amount, price=price
-                )
+                trade_id = trade_update["tradeId"]
                 message_content = {
                     "trade_id": trade_id,
                     "trading_pair": trading_pair,
@@ -1305,9 +1298,8 @@ class InjectiveDataSource(ABC):
                     chain_price=Decimal(str(trade_update["positionDelta"]["executionPrice"])))
                 order_hash = "0x" + base64.b64decode(trade_update["orderHash"]).hex()
                 client_order_id = trade_update.get("cid", "")
-                trade_id = self._trade_id(
-                    timestamp=block_timestamp, order_hash=order_hash, trade_type=trade_type, amount=amount, price=price
-                )
+                trade_id = trade_update["tradeId"]
+
                 message_content = {
                     "trade_id": trade_id,
                     "trading_pair": trading_pair,
@@ -1559,11 +1551,6 @@ class InjectiveDataSource(ABC):
             )
 
         return fees
-
-    def _trade_id(
-            self, timestamp: float, order_hash: str, trade_type: TradeType, amount: Decimal, price: Decimal
-    ) -> str:
-        return f"{int(timestamp*1e3)}_{order_hash}_{trade_type.name}_{amount.normalize():f}_{price.normalize():f}"
 
     async def _get_markets_and_tokens(
         self

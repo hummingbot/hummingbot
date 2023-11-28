@@ -780,6 +780,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
                     "orderHash": base64.b64encode(bytes.fromhex(order.exchange_order_id.replace("0x", ""))).decode(),
                     "feeRecipientAddress": self.vault_contract_address,
                     "cid": order.client_order_id,
+                    "tradeId": self.expected_fill_trade_id,
                 },
             ],
             "derivativeTrades": [],
