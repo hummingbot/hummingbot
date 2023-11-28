@@ -711,15 +711,15 @@ class AbstractPerpetualDerivativeTests:
         def test_funding_payment_polling_loop(self, mock_api, mock_sleep):
             self._simulate_trading_rules_initialized()
             url = self.funding_payment_url
-            mock_sleep.side_effect = asyncio.CancelledError
+            mock_sleep.side_effect = [0.1, 0.1, asyncio.CancelledError, 0.1, 0.1, asyncio.CancelledError]
 
             self.exchange._funding_fee_poll_interval = 0.1
             response = self.empty_funding_payment_mock_response
             mock_api.get(url, body=json.dumps(response))
             with self.assertRaises(asyncio.CancelledError):
                 self.async_run_with_timeout(self.exchange._funding_payment_polling_loop())
-
             self.assertEqual(0, len(self.funding_payment_logger.event_log))
+            # TODO: Add more tests for funding payment correct response
 
         @abstractmethod
         def test_get_buy_and_sell_collateral_tokens(self):
