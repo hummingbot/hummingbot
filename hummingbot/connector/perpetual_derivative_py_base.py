@@ -35,14 +35,18 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
         self._perpetual_trading = PerpetualTrading(self.trading_pairs)
         self._funding_info_listener_task: Optional[asyncio.Task] = None
         self._funding_fee_polling_task: Optional[asyncio.Task] = None
+        self._funding_fee_poll_interval = 120
         self._orderbook_ds: PerpetualAPIOrderBookDataSource = self._orderbook_ds  # for type-hinting
 
         self._budget_checker = PerpetualBudgetChecker(self)
 
     @property
-    @abstractmethod
     def funding_fee_poll_interval(self) -> int:
-        raise NotImplementedError
+        return self._funding_fee_poll_interval
+
+    @funding_fee_poll_interval.setter
+    def funding_fee_poll_interval(self, value: int):
+        self._funding_fee_poll_interval = value
 
     @property
     def status_dict(self) -> Dict[str, bool]:
