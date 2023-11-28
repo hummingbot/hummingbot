@@ -3,14 +3,13 @@ import json
 from functools import partial
 from test.hummingbot.connector.exchange.polkadex.programmable_query_executor import ProgrammableQueryExecutor
 from typing import Any, Callable, Dict, List, Optional, Tuple
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from _decimal import Decimal
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
 from bidict import bidict
 from gql.transport.exceptions import TransportQueryError
-from substrateinterface import SubstrateInterface
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -349,19 +348,16 @@ class PolkadexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
     def create_exchange_instance(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
 
-        with patch("hummingbot.connector.exchange.polkadex.polkadex_data_source.SubstrateInterface.connect_websocket"):
-            exchange = PolkadexExchange(
-                client_config_map=client_config_map,
-                polkadex_seed_phrase=self._seed_phrase,
-                trading_pairs=[self.trading_pair],
-            )
+        exchange = PolkadexExchange(
+            client_config_map=client_config_map,
+            polkadex_seed_phrase=self._seed_phrase,
+            trading_pairs=[self.trading_pair],
+        )
         encode_mock = MagicMock(
             return_value="0x1b99cba5555ad0ba890756fe16e499cb884b46a165b89bdce77ee8913b55fff1"  # noqa: mock
         )
-        exchange._data_source._substrate_interface = MagicMock(
-            spec=SubstrateInterface, spec_sec=SubstrateInterface, autospec=True
-        )
-        exchange._data_source._substrate_interface.create_scale_object.return_value.encode = encode_mock
+        exchange._data_source._runtime_config = MagicMock()
+        exchange._data_source._runtime_config.create_scale_object.return_value.encode = encode_mock
 
         exchange._data_source._query_executor = ProgrammableQueryExecutor()
         return exchange
@@ -954,48 +950,6 @@ class PolkadexExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTest
 
         self.assertIn(order.client_order_id, self.exchange.in_flight_orders)
         self.assertTrue(order.is_pending_cancel_confirmation)
-
-    @aioresponses()
-    @patch("hummingbot.connector.exchange.polkadex.polkadex_data_source.PolkadexDataSource._build_substrate_interface")
-    @patch("hummingbot.connector.exchange.polkadex.polkadex_data_source.Keypair.sign")
-    def test_cancel_order_retries_on_substrate_broken_pipe(
-        self, mock_api: aioresponses, sign_mock: MagicMock, _: MagicMock
-    ):
-        sign_mock.hex.return_value = "0x1234adf"
-        request_sent_event = asyncio.Event()
-        self.exchange._set_current_timestamp(1640780000)
-
-        self.exchange.start_tracking_order(
-            order_id=self.client_order_id_prefix + "1",
-            exchange_order_id=self.exchange_order_id_prefix + "1",
-            trading_pair=self.trading_pair,
-            trade_type=TradeType.BUY,
-            price=Decimal("10000"),
-            amount=Decimal("100"),
-            order_type=OrderType.LIMIT,
-        )
-
-        self.assertIn(self.client_order_id_prefix + "1", self.exchange.in_flight_orders)
-        order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
-
-        create_scale_object_mock = MagicMock(
-            "substrateinterface.base.SubstrateInterface.create_scale_object", autospec=True
-        )
-        self.exchange._data_source._substrate_interface.create_scale_object.return_value = create_scale_object_mock
-        create_scale_object_mock.encode.side_effect = [
-            BrokenPipeError,
-            "0x1b99cba5555ad0ba890756fe16e499cb884b46a165b89bdce77ee8913b55fff1",  # noqa: mock
-        ]
-        self.configure_successful_cancelation_response(
-            order=order, mock_api=mock_api, callback=lambda *args, **kwargs: request_sent_event.set()
-        )
-
-        self.exchange.cancel(trading_pair=order.trading_pair, client_order_id=order.client_order_id)
-        self.async_run_with_timeout(request_sent_event.wait())
-
-        self.assertIn(order.client_order_id, self.exchange.in_flight_orders)
-        self.assertTrue(order.is_pending_cancel_confirmation)
-        self.assertTrue(self.is_logged(log_level="ERROR", message="Rebuilding the substrate interface."))
 
     @aioresponses()
     def test_cancel_order_raises_failure_event_when_request_fails(self, mock_api):
