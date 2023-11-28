@@ -4,7 +4,6 @@ from typing import Awaitable, Dict
 from unittest import TestCase
 from unittest.mock import patch
 
-from hummingbot.client import settings
 from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.client.config.config_helpers import ClientConfigAdapter, ConfigValidationError
 from hummingbot.client.config.strategy_config_data_types import (
@@ -97,7 +96,7 @@ class BaseTradingStrategyConfigMapTest(TestCase):
             AllConnectorSettings.get_connector_settings().values()
             if connector_setting.type in [ConnectorType.Exchange, ConnectorType.CLOB_SPOT, ConnectorType.CLOB_PERP]
         ]
-        expected_connectors.extend(settings.PAPER_TRADE_EXCHANGES)
+        expected_connectors.extend(AllConnectorSettings.paper_trade_connectors_names)
         expected_connectors.sort()
         self.assertEqual(expected_connectors, schema_dict["definitions"]["Exchanges"]["enum"])
 
@@ -114,7 +113,7 @@ class BaseTradingStrategyMakerTakerConfigMapTests(TestCase):
             AllConnectorSettings.get_connector_settings().values()
             if connector_setting.type in [ConnectorType.Exchange, ConnectorType.CLOB_SPOT, ConnectorType.CLOB_PERP]
         ]
-        expected_connectors.extend(settings.PAPER_TRADE_EXCHANGES)
+        expected_connectors.extend(AllConnectorSettings.paper_trade_connectors_names)
         expected_connectors.sort()
         self.assertEqual(expected_connectors, schema_dict["definitions"]["MakerMarkets"]["enum"])
 
@@ -128,6 +127,6 @@ class BaseTradingStrategyMakerTakerConfigMapTests(TestCase):
             AllConnectorSettings.get_connector_settings().values()
             if connector_setting.type in [ConnectorType.Exchange, ConnectorType.CLOB_SPOT, ConnectorType.CLOB_PERP]
         ]
-        expected_connectors.extend(settings.PAPER_TRADE_EXCHANGES)
+        expected_connectors.extend(AllConnectorSettings.paper_trade_connectors_names)
         expected_connectors.sort()
         self.assertEqual(expected_connectors, schema_dict["definitions"]["TakerMarkets"]["enum"])
