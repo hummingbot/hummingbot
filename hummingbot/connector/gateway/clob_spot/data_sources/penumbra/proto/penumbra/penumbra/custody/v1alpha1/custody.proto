@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package penumbra.custody.v1alpha1;
+
+import "penumbra/core/keys/v1alpha1/keys.proto";
+import "penumbra/core/transaction/v1alpha1/transaction.proto";
+
+// The custody protocol is used by a wallet client to request authorization for
+// a transaction they've constructed.
+//
+// Modeling transaction authorization as an asynchronous RPC call encourages
+// software to be written in a way that has a compatible data flow with a "soft
+// HSM", threshold signing, a hardware wallet, etc.
+//
+// The custody protocol does not trust the client to authorize spends, so
+// custody requests must contain sufficient information for the custodian to
+// understand the transaction and determine whether or not it should be
+// authorized.
+service CustodyProtocolService {
+  // Requests authorization of the transaction with the given description.
+  rpc Authorize(AuthorizeRequest) returns (AuthorizeResponse);
+}
+
+message AuthorizeRequest {
+  // The transaction plan to authorize.
+  core.transaction.v1alpha1.TransactionPlan plan = 1;
+  // Identifies the FVK (and hence the spend authorization key) to use for signing.
+  core.keys.v1alpha1.WalletId wallet_id = 2;
+
+  // Optionally, pre-authorization data, if required by the custodian.
+  //
+  // Multiple `PreAuthorization` packets can be included in a single request,
+  // to support multi-party pre-authorizations.
+  repeated PreAuthorization pre_authorizations = 3;
+}
+
+message AuthorizeResponse {
+  core.transaction.v1alpha1.AuthorizationData data = 1;
+}
+
+// A pre-authorization packet.  This allows a custodian to delegate (partial)
+// signing authority to other authorization mechanisms.  Details of how a
+// custodian manages those keys are out-of-scope for the custody protocol and
+// are custodian-specific.
+message PreAuthorization {
+  // An Ed25519-based preauthorization, containing an Ed25519 signature over the
+  // `TransactionPlan`.
+  message Ed25519 {
+    // The Ed25519 verification key used to verify the signature.
+    bytes vk = 1;
+    // The Ed25519 signature over the `TransactionPlan`.
+    bytes sig = 2;
+  }
+  oneof pre_authorization {
+    Ed25519 ed25519 = 1;
+  }
+}

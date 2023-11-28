@@ -1,0 +1,563 @@
+syntax = "proto3";
+package penumbra.core.component.dex.v1alpha1;
+
+import "penumbra/crypto/tct/v1alpha1/tct.proto";
+import "penumbra/core/num/v1alpha1/num.proto";
+import "penumbra/core/asset/v1alpha1/asset.proto";
+import "penumbra/core/keys/v1alpha1/keys.proto";
+import "penumbra/core/component/sct/v1alpha1/sct.proto";
+import "penumbra/core/component/fee/v1alpha1/fee.proto";
+import "penumbra/core/component/shielded_pool/v1alpha1/shielded_pool.proto";
+
+// A Penumbra ZK swap proof.
+message ZKSwapProof {
+    bytes inner = 1;
+}
+
+// A Penumbra ZK swap claim proof.
+message ZKSwapClaimProof {
+    bytes inner = 1;
+}
+
+// A transaction action that submits a swap to the dex.
+message Swap {
+  // Contains the Swap proof.
+  ZKSwapProof proof = 1;
+  // Encapsulates the authorized fields of the Swap action, used in signing.
+  SwapBody body = 4;
+}
+
+// A transaction action that obtains assets previously confirmed
+// via a Swap transaction. Does not include a spend authorization
+// signature, as it is only capable of consuming the NFT from a
+// Swap transaction.
+message SwapClaim {
+  // Contains the SwapClaim proof.
+  ZKSwapClaimProof proof = 1;
+  // Encapsulates the authorized fields of the SwapClaim action, used in signing.
+  SwapClaimBody body = 2;
+  // The epoch duration of the chain when the swap claim took place.
+  uint64 epoch_duration = 7;
+}
+
+// Encapsulates the authorized fields of the SwapClaim action, used in signing.
+message SwapClaimBody {
+  // The nullifier for the Swap commitment to be consumed.
+  component.sct.v1alpha1.Nullifier nullifier = 1;
+  // The fee allows `SwapClaim` without an additional `Spend`.
+  component.fee.v1alpha1.Fee fee = 2;
+  // Note output for asset 1.
+  crypto.tct.v1alpha1.StateCommitment output_1_commitment = 3;
+  // Note output for asset 2.
+  crypto.tct.v1alpha1.StateCommitment output_2_commitment = 4;
+  // Input and output amounts, and asset IDs for the assets in the swap.
+  BatchSwapOutputData output_data = 6;
+}
+
+// The authorized data of a Swap transaction.
+message SwapBody {
+  // The trading pair to swap.
+  TradingPair trading_pair = 1;
+  // The amount for asset 1.
+  num.v1alpha1.Amount delta_1_i = 2;
+  // The amount for asset 2.
+  num.v1alpha1.Amount delta_2_i = 3;
+  // A commitment to a prepaid fee for the future SwapClaim.
+  // This is recorded separately from delta_j_i because it's shielded;
+  // in the future we'll want separate commitments to each delta_j_i
+  // anyways in order to prove consistency with flow encryption.
+  asset.v1alpha1.BalanceCommitment fee_commitment = 4;
+  // The swap commitment and encryption of the swap data.
+  SwapPayload payload = 5;
+}
+
+message SwapPayload {
+  crypto.tct.v1alpha1.StateCommitment commitment = 1;
+  bytes encrypted_swap = 2;
+}
+
+message SwapPlaintext {
+  // The trading pair to swap.
+  TradingPair trading_pair = 1;
+  // Input amount of asset 1
+  num.v1alpha1.Amount delta_1_i = 2;
+  // Input amount of asset 2
+  num.v1alpha1.Amount delta_2_i = 3;
+  // Pre-paid fee to claim the swap
+  fee.v1alpha1.Fee claim_fee = 4;
+  // Address that will claim the swap outputs via SwapClaim.
+  keys.v1alpha1.Address claim_address = 5;
+  // Swap rseed (blinding factors are derived from this)
+  bytes rseed = 6;
+}
+
+message SwapPlan {
+  // The plaintext version of the swap to be performed.
+  dex.v1alpha1.SwapPlaintext swap_plaintext = 1;
+  // The blinding factor for the fee commitment. The fee in the SwapPlan is private to prevent linkability with the SwapClaim.
+  bytes fee_blinding = 2;
+  // The first blinding factor to use for the ZK swap proof.
+  bytes proof_blinding_r = 3;
+  // The second blinding factor to use for the ZK swap proof.
+  bytes proof_blinding_s = 4;
+}
+
+message SwapClaimPlan {
+  // The plaintext version of the swap to be performed.
+  dex.v1alpha1.SwapPlaintext swap_plaintext = 1;
+  // The position of the swap commitment.
+  uint64 position = 2;
+  // Input and output amounts for the Swap.
+  dex.v1alpha1.BatchSwapOutputData output_data = 3;
+  // The epoch duration, used in proving.
+  uint64 epoch_duration = 4;
+  // The first blinding factor to use for the ZK swap claim proof.
+  bytes proof_blinding_r = 5;
+  // The second blinding factor to use for the ZK swap claim proof.
+  bytes proof_blinding_s = 6;
+}
+
+message SwapView {
+  message Visible {
+    dex.v1alpha1.Swap swap = 1;
+    dex.v1alpha1.SwapPlaintext swap_plaintext = 3;
+  }
+
+  message Opaque {
+    dex.v1alpha1.Swap swap = 1;
+  }
+
+  oneof swap_view {
+    Visible visible = 1;
+    Opaque opaque = 2;
+  }
+}
+
+message SwapClaimView {
+  message Visible {
+    dex.v1alpha1.SwapClaim swap_claim = 1;
+    shielded_pool.v1alpha1.NoteView output_1 = 2;
+    shielded_pool.v1alpha1.NoteView output_2 = 3;
+  }
+  message Opaque {
+    dex.v1alpha1.SwapClaim swap_claim = 1;
+  }
+  oneof swap_claim_view {
+    Visible visible = 1;
+    Opaque opaque = 2;
+  }
+}
+
+// Holds two asset IDs. Ordering doesn't reflect trading direction. Instead, we
+// require `asset_1 < asset_2` as field elements, to ensure a canonical
+// representation of an unordered pair.
+message TradingPair {
+  // The first asset of the pair.
+  asset.v1alpha1.AssetId asset_1 = 1;
+  // The second asset of the pair.
+  asset.v1alpha1.AssetId asset_2 = 2;
+}
+
+// Encodes a trading pair starting from asset `start`
+// and ending on asset `end`.
+message DirectedTradingPair {
+  // The start asset of the pair.
+  asset.v1alpha1.AssetId start = 1;
+  // The end asset of the pair.
+  asset.v1alpha1.AssetId end = 2;
+}
+
+// Records the result of a batch swap on-chain.
+//
+// Used as a public input to a swap claim proof, as it implies the effective
+// clearing price for the batch.
+message BatchSwapOutputData {
+  // The total amount of asset 1 that was input to the batch swap.
+  num.v1alpha1.Amount delta_1 = 1;
+  // The total amount of asset 2 that was input to the batch swap.
+  num.v1alpha1.Amount delta_2 = 2;
+  // The total amount of asset 1 that was output from the batch swap for 2=>1 trades.
+  num.v1alpha1.Amount lambda_1 = 3;
+  // The total amount of asset 2 that was output from the batch swap for 1=>2 trades.
+  num.v1alpha1.Amount lambda_2 = 4;
+  // The total amount of asset 1 that was returned unfilled from the batch swap for 1=>2 trades.
+  num.v1alpha1.Amount unfilled_1 = 5;
+  // The total amount of asset 2 that was returned unfilled from the batch swap for 2=>1 trades.
+  num.v1alpha1.Amount unfilled_2 = 6;
+  // The height for which the batch swap data is valid.
+  uint64 height = 7;
+  // The trading pair associated with the batch swap.
+  TradingPair trading_pair = 8;
+  // The starting block height of the epoch for which the batch swap data is valid.
+  uint64 epoch_starting_height = 9;
+}
+
+// The trading function for a specific pair.
+// For a pair (asset_1, asset_2), a trading function is defined by:
+// `phi(R) = p*R_1 + q*R_2` and `gamma = 1 - fee`.
+// The trading function is frequently referred to as "phi".
+message TradingFunction {
+  BareTradingFunction component = 1;
+  TradingPair pair = 2;
+}
+
+// The minimum amount of data describing a trading function.
+//
+// This implicitly treats the trading function as being between assets 1 and 2,
+// without specifying what those assets are, to avoid duplicating data (each
+// asset ID alone is twice the size of the trading function).
+message BareTradingFunction {
+  uint32 fee = 1;
+  // This is not actually an amount, it's an integer the same width as an amount
+  num.v1alpha1.Amount p = 2;
+  // This is not actually an amount, it's an integer the same width as an amount
+  num.v1alpha1.Amount q = 3;
+}
+
+// The reserves of a position.
+//
+// Like a position, this implicitly treats the trading function as being
+// between assets 1 and 2, without specifying what those assets are, to avoid
+// duplicating data (each asset ID alone is four times the size of the
+// reserves).
+message Reserves {
+  num.v1alpha1.Amount r1 = 1;
+  num.v1alpha1.Amount r2 = 2;
+}
+
+// Data identifying a position.
+message Position {
+  TradingFunction phi = 1;
+  // A random value used to disambiguate different positions with the exact same
+  // trading function.  The chain should reject newly created positions with the
+  // same nonce as an existing position.  This ensures that `PositionId`s will
+  // be unique, and allows us to track position ownership with a
+  // sequence of stateful NFTs based on the `PositionId`.
+  bytes nonce = 2;
+  PositionState state = 3;
+  Reserves reserves = 4;
+  /// If set to true, the position is a limit-order and will be closed
+  /// immediately after being filled.
+  bool close_on_fill = 5;
+}
+
+// A hash of a `Position`.
+message PositionId {
+  // The bytes of the position ID.
+  bytes inner = 1;
+
+  // Alternatively, a Bech32m-encoded string representation of the `inner`
+  // bytes.
+  //
+  // NOTE: implementations are not required to support parsing this field.
+  // Implementations should prefer to encode the bytes in all messages they
+  // produce. Implementations must not accept messages with both `inner` and
+  // `alt_bech32m` set.
+  string alt_bech32m = 2;
+}
+
+// The state of a position.
+message PositionState {
+  enum PositionStateEnum {
+    POSITION_STATE_ENUM_UNSPECIFIED = 0;
+    // The position has been opened, is active, has reserves and accumulated
+    // fees, and can be traded against.
+    POSITION_STATE_ENUM_OPENED = 1;
+    // The position has been closed, is inactive and can no longer be traded
+    // against, but still has reserves and accumulated fees.
+    POSITION_STATE_ENUM_CLOSED = 2;
+    // The final reserves and accumulated fees have been withdrawn, leaving an
+    // empty, inactive position awaiting (possible) retroactive rewards.
+    POSITION_STATE_ENUM_WITHDRAWN = 3;
+    // Any retroactive rewards have been claimed. The position is now an inert,
+    // historical artefact.
+    POSITION_STATE_ENUM_CLAIMED = 4;
+  }
+  PositionStateEnum state = 1;
+}
+
+// An LPNFT tracking both ownership and state of a position.
+//
+// Tracking the state as part of the LPNFT means that all LP-related actions can
+// be authorized by spending funds: a state transition (e.g., closing a
+// position) is modeled as spending an "open position LPNFT" and minting a
+// "closed position LPNFT" for the same (globally unique) position ID.
+//
+// This means that the LP mechanics can be agnostic to the mechanism used to
+// record custody and spend authorization.  For instance, they can be recorded
+// in the shielded pool, where custody is based on off-chain keys, or they could
+// be recorded in a programmatic on-chain account (in the future, e.g., to
+// support interchain accounts).  This also means that LP-related actions don't
+// require any cryptographic implementation (proofs, signatures, etc), other
+// than hooking into the value commitment mechanism used for transaction
+// balances.
+message LpNft {
+  PositionId position_id = 1;
+  PositionState state = 2;
+}
+
+// A transaction action that opens a new position.
+//
+// This action's contribution to the transaction's value balance is to consume
+// the initial reserves and contribute an opened position NFT.
+message PositionOpen {
+  // Contains the data defining the position, sufficient to compute its `PositionId`.
+  //
+  // Positions are immutable, so the `PositionData` (and hence the `PositionId`)
+  // are unchanged over the entire lifetime of the position.
+  Position position = 1;
+}
+
+// A transaction action that closes a position.
+//
+// This action's contribution to the transaction's value balance is to consume
+// an opened position NFT and contribute a closed position NFT.
+//
+// Closing a position does not immediately withdraw funds, because Penumbra
+// transactions (like any ZK transaction model) are early-binding: the prover
+// must know the state transition they prove knowledge of, and they cannot know
+// the final reserves with certainty until after the position has been deactivated.
+message PositionClose {
+  PositionId position_id = 1;
+}
+
+// A transaction action that withdraws funds from a closed position.
+//
+// This action's contribution to the transaction's value balance is to consume a
+// closed position NFT and contribute a withdrawn position NFT, as well as all
+// of the funds that were in the position at the time of closing.
+message PositionWithdraw {
+  PositionId position_id = 1;
+  // A transparent (zero blinding factor) commitment to the position's final reserves and fees.
+  //
+  // The chain will check this commitment by recomputing it with the on-chain state.
+  asset.v1alpha1.BalanceCommitment reserves_commitment = 2;
+}
+
+// A transaction action that claims retroactive rewards for a historical
+// position.
+//
+// This action's contribution to the transaction's value balance is to consume a
+// withdrawn position NFT and contribute its reward balance.
+message PositionRewardClaim {
+  PositionId position_id = 1;
+  // A transparent (zero blinding factor) commitment to the position's accumulated rewards.
+  //
+  // The chain will check this commitment by recomputing it with the on-chain state.
+  asset.v1alpha1.BalanceCommitment rewards_commitment = 2;
+}
+
+// Contains the entire execution of a particular swap.
+message SwapExecution {
+  // Contains all individual steps consisting of a trade trace.
+  message Trace {
+    // Each step in the trade trace.
+    repeated asset.v1alpha1.Value value = 1;
+  }
+  repeated Trace traces = 1;
+
+  // The total input amount for this execution.
+  asset.v1alpha1.Value input = 2;
+  // The total output amount for this execution.
+  asset.v1alpha1.Value output = 3;
+}
+
+// Contains private and public data for withdrawing funds from a closed position.
+message PositionWithdrawPlan {
+  Reserves reserves = 1;
+  PositionId position_id = 2;
+  TradingPair pair = 3;
+}
+
+// Contains private and public data for claiming rewards from a position.
+message PositionRewardClaimPlan {
+  Reserves reserves = 1;
+}
+
+// Query operations for the DEX component.
+service QueryService {
+  // Get the batch clearing prices for a specific block height and trading pair.
+  rpc BatchSwapOutputData(BatchSwapOutputDataRequest) returns (BatchSwapOutputDataResponse);
+  // Get the precise swap execution used for a specific batch swap.
+  rpc SwapExecution(SwapExecutionRequest) returns (SwapExecutionResponse);
+  // Get the precise execution used to perform on-chain arbitrage.
+  rpc ArbExecution(ArbExecutionRequest) returns (ArbExecutionResponse);
+
+  // Stream all swap executions over a range of heights, optionally subscribing to future executions.
+  rpc SwapExecutions(SwapExecutionsRequest) returns (stream SwapExecutionsResponse);
+  // Stream all arbitrage executions over a range of heights, optionally subscribing to future executions.
+  rpc ArbExecutions(ArbExecutionsRequest) returns (stream ArbExecutionsResponse);
+
+  // Query all liquidity positions on the DEX.
+  rpc LiquidityPositions(LiquidityPositionsRequest) returns (stream LiquidityPositionsResponse);
+  // Query liquidity positions by ID.
+  //
+  // To get multiple positions, use `LiquidityPositionsById`.
+  rpc LiquidityPositionById(LiquidityPositionByIdRequest) returns (LiquidityPositionByIdResponse);
+  // Query multiple liquidity positions by ID.
+  rpc LiquidityPositionsById(LiquidityPositionsByIdRequest) returns (stream LiquidityPositionsByIdResponse);
+  // Query liquidity positions on a specific pair, sorted by effective price.
+  rpc LiquidityPositionsByPrice(LiquidityPositionsByPriceRequest) returns (stream LiquidityPositionsByPriceResponse);
+
+  // Get the current (direct) spread on a trading pair.
+  // 
+  // This method doesn't do simulation, so actually executing might result in a
+  // better price (if the chain takes a different route to the target asset).
+  rpc Spread(SpreadRequest) returns (SpreadResponse);
+}
+
+// Simulation for the DEX component.
+// 
+// This is a separate service from the QueryService because it's not just a
+// simple read query from the state. Thus it poses greater DoS risks, and node
+// operators may want to enable it separately.
+service SimulationService {
+  // Simulate routing and trade execution.
+  rpc SimulateTrade(SimulateTradeRequest) returns (SimulateTradeResponse);
+}
+
+// Requests batch swap data associated with a given height and trading pair from the view service.
+message BatchSwapOutputDataRequest {
+  // The expected chain id (empty string if no expectation).
+  string chain_id = 1;
+  uint64 height = 2;
+  core.component.dex.v1alpha1.TradingPair trading_pair = 3;
+}
+
+message BatchSwapOutputDataResponse {
+  core.component.dex.v1alpha1.BatchSwapOutputData data = 1;
+}
+
+message SwapExecutionRequest {
+  // The expected chain id (empty string if no expectation).
+  string chain_id = 1;
+  uint64 height = 2;
+  core.component.dex.v1alpha1.DirectedTradingPair trading_pair = 3;
+}
+
+message SwapExecutionResponse {
+  core.component.dex.v1alpha1.SwapExecution swap_execution = 1;
+}
+
+message ArbExecutionRequest {
+  // The expected chain id (empty string if no expectation).
+  string chain_id = 1;
+  uint64 height = 2;
+}
+
+message ArbExecutionResponse {
+  core.component.dex.v1alpha1.SwapExecution swap_execution = 1;
+  uint64 height = 2;
+}
+
+message SwapExecutionsRequest {
+  // The expected chain id (empty string if no expectation).
+  string chain_id = 1;
+  // If present, only return swap executions occurring after the given height.
+  uint64 start_height = 2;
+  // If present, only return swap executions occurring before the given height.
+  uint64 end_height = 3;
+  // If present, filter swap executions by the given trading pair.
+  core.component.dex.v1alpha1.DirectedTradingPair trading_pair = 4;
+}
+
+message SwapExecutionsResponse {
+  core.component.dex.v1alpha1.SwapExecution swap_execution = 1;
+  uint64 height = 2;
+  core.component.dex.v1alpha1.DirectedTradingPair trading_pair = 3;
+}
+
+message ArbExecutionsRequest {
+  // The expected chain id (empty string if no expectation).
+  string chain_id = 1;
+  // If present, only return arb executions occurring after the given height.
+  uint64 start_height = 2;
+  // If present, only return arb executions occurring before the given height.
+  uint64 end_height = 3;
+}
+
+message ArbExecutionsResponse {
+  core.component.dex.v1alpha1.SwapExecution swap_execution = 1;
+  uint64 height = 2;
+}
+
+message LiquidityPositionsRequest {
+  // The expected chain id (empty string if no expectation).
+  string chain_id = 1;
+  // If true, include closed and withdrawn positions.
+  bool include_closed = 4;
+}
+
+message LiquidityPositionsResponse {
+  core.component.dex.v1alpha1.Position data = 1;
+}
+  
+message LiquidityPositionByIdRequest {
+  // The expected chain id (empty string if no expectation).
+  string chain_id = 1;
+  core.component.dex.v1alpha1.PositionId position_id = 2;
+}
+
+message LiquidityPositionByIdResponse {
+  core.component.dex.v1alpha1.Position data = 1;
+}
+
+message LiquidityPositionsByIdRequest {
+  // The expected chain id (empty string if no expectation).
+  string chain_id = 1;
+  repeated core.component.dex.v1alpha1.PositionId position_id = 2;
+}
+
+message LiquidityPositionsByIdResponse {
+  core.component.dex.v1alpha1.Position data = 1;
+}
+
+message LiquidityPositionsByPriceRequest {
+  // The expected chain id (empty string if no expectation).
+  string chain_id = 1;
+  // The directed trading pair to request positions for
+  core.component.dex.v1alpha1.DirectedTradingPair trading_pair = 2;
+  // The maximum number of positions to return.
+  uint64 limit = 5;
+}
+
+message LiquidityPositionsByPriceResponse {
+  core.component.dex.v1alpha1.Position data = 1;
+}
+
+message SpreadRequest {
+  // The expected chain id (empty string if no expectation).
+  string chain_id = 1;
+  core.component.dex.v1alpha1.TradingPair trading_pair = 2;
+}
+
+message SpreadResponse {
+  // The best position when trading 1 => 2.
+  core.component.dex.v1alpha1.Position best_1_to_2_position = 1;
+  // The best position when trading 2 => 1.
+  core.component.dex.v1alpha1.Position best_2_to_1_position = 2;
+  // An approximation of the effective price when trading 1 => 2.
+  double approx_effective_price_1_to_2 = 3;
+  // An approximation of the effective price when trading 2 => 1.
+  double approx_effective_price_2_to_1 = 4;
+}
+
+message SimulateTradeRequest {
+  message Routing {
+    oneof setting {
+      Default default = 1;
+      SingleHop single_hop = 2;
+    }
+
+    message SingleHop {}
+    message Default {}
+  }
+
+  core.asset.v1alpha1.Value input = 1;
+  core.asset.v1alpha1.AssetId output = 2;
+  Routing routing = 3;
+}
+
+message SimulateTradeResponse {
+  core.component.dex.v1alpha1.SwapExecution output = 1;
+}

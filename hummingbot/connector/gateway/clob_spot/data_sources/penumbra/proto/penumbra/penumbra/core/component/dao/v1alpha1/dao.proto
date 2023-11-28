@@ -1,0 +1,14 @@
+syntax = "proto3";
+package penumbra.core.component.dao.v1alpha1;
+
+// Dao parameter data.
+message DaoParameters {
+  // Whether DAO spend proposals are enabled.
+  bool dao_spend_proposals_enabled = 1;
+}
+
+// Dao genesis state.
+message GenesisContent {
+  // Dao parameters.
+  DaoParameters dao_params = 1;
+}

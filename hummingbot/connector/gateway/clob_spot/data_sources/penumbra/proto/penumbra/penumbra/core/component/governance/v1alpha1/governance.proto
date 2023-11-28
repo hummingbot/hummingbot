@@ -1,0 +1,378 @@
+syntax = "proto3";
+package penumbra.core.component.governance.v1alpha1;
+
+import "google/protobuf/any.proto";
+
+import "penumbra/crypto/decaf377_rdsa/v1alpha1/decaf377_rdsa.proto";
+import "penumbra/core/num/v1alpha1/num.proto";
+import "penumbra/core/asset/v1alpha1/asset.proto";
+import "penumbra/core/keys/v1alpha1/keys.proto";
+import "penumbra/core/component/chain/v1alpha1/chain.proto";
+import "penumbra/core/component/fee/v1alpha1/fee.proto";
+import "penumbra/core/component/dao/v1alpha1/dao.proto";
+import "penumbra/core/component/ibc/v1alpha1/ibc.proto";
+import "penumbra/core/component/stake/v1alpha1/stake.proto";
+import "penumbra/core/component/shielded_pool/v1alpha1/shielded_pool.proto";
+
+// A Penumbra ZK delegator vote proof.
+message ZKDelegatorVoteProof {
+    bytes inner = 1;
+}
+
+message ProposalSubmit {
+  // The proposal to be submitted.
+  governance.v1alpha1.Proposal proposal = 1;
+  // The amount of the proposal deposit.
+  num.v1alpha1.Amount deposit_amount = 3;
+}
+
+message ProposalWithdraw {
+  // The proposal to be withdrawn.
+  uint64 proposal = 1;
+  // The reason for the proposal being withdrawn.
+  string reason = 2;
+}
+
+message ProposalDepositClaim {
+  // The proposal to claim the deposit for.
+  uint64 proposal = 1;
+  // The expected deposit amount.
+  num.v1alpha1.Amount deposit_amount = 2;
+  // The outcome of the proposal.
+  ProposalOutcome outcome = 3;
+}
+
+message ValidatorVote {
+  // The effecting data for the vote.
+  ValidatorVoteBody body = 1;
+  // The vote authorization signature is authorizing data.
+  penumbra.crypto.decaf377_rdsa.v1alpha1.SpendAuthSignature auth_sig = 2;
+}
+
+message ValidatorVoteReason {
+  string reason = 1;
+}
+
+message ValidatorVoteBody {
+  // The proposal being voted on.
+  uint64 proposal = 1;
+  // The vote.
+  governance.v1alpha1.Vote vote = 2;
+  // The validator identity.
+  keys.v1alpha1.IdentityKey identity_key = 3;
+  // The validator governance key.
+  keys.v1alpha1.GovernanceKey governance_key = 4;
+  // A justification of the vote.
+  ValidatorVoteReason reason = 5;
+}
+
+message DelegatorVote {
+  // The effecting data for the vote.
+  DelegatorVoteBody body = 1;
+  // The vote authorization signature is authorizing data.
+  penumbra.crypto.decaf377_rdsa.v1alpha1.SpendAuthSignature auth_sig = 2;
+  // The vote proof is authorizing data.
+  ZKDelegatorVoteProof proof = 3;
+}
+
+message DelegatorVoteBody {
+  // The proposal being voted on.
+  uint64 proposal = 1;
+  // The start position of the proposal in the TCT.
+  uint64 start_position = 2;
+  // The vote.
+  governance.v1alpha1.Vote vote = 3;
+  // The value of the delegation note.
+  asset.v1alpha1.Value value = 4;
+  // The amount of the delegation note, in unbonded penumbra.
+  num.v1alpha1.Amount unbonded_amount = 5;
+  // The nullifier of the input note.
+  bytes nullifier = 6;
+  // The randomized validating key for the spend authorization signature.
+  bytes rk = 7;
+}
+
+message DelegatorVoteView {
+  message Visible {
+    governance.v1alpha1.DelegatorVote delegator_vote = 1;
+    shielded_pool.v1alpha1.NoteView note = 2;
+  }
+  message Opaque {
+    governance.v1alpha1.DelegatorVote delegator_vote = 1;
+  }
+  oneof delegator_vote {
+    Visible visible = 1;
+    Opaque opaque = 2;
+  }
+}
+
+
+message DelegatorVotePlan {
+  // The proposal to vote on.
+  uint64 proposal = 1;
+  // The start position of the proposal in the TCT.
+  uint64 start_position = 2;
+  // The vote to cast.
+  governance.v1alpha1.Vote vote = 3;
+  // The delegation note to prove that we can vote.
+  shielded_pool.v1alpha1.Note staked_note = 4;
+  // The position of that delegation note.
+  uint64 staked_note_position = 5;
+  // The unbonded amount equivalent to the delegation note.
+  num.v1alpha1.Amount unbonded_amount = 6;
+  // The randomizer to use for the proof of spend capability.
+  bytes randomizer = 7;
+  // The first blinding factor to use for the ZK delegator vote proof.
+  bytes proof_blinding_r = 8;
+  // The second blinding factor to use for the ZK delegator vote proof.
+  bytes proof_blinding_s = 9;
+}
+
+message DaoDeposit {
+    // The value to deposit into the DAO.
+    asset.v1alpha1.Value value = 1;
+}
+
+message DaoSpend {
+    // The value to spend from the DAO.
+    asset.v1alpha1.Value value = 1;
+}
+
+message DaoOutput {
+    // The value to output from the DAO.
+    asset.v1alpha1.Value value = 1;
+    // The address to send the output to.
+    keys.v1alpha1.Address address = 2;
+}
+
+// A vote on a proposal.
+message Vote {
+  // A vote.
+  enum Vote {
+    VOTE_UNSPECIFIED = 0;
+    VOTE_ABSTAIN = 1;
+    VOTE_YES = 2;
+    VOTE_NO = 3;
+  }
+
+  // The vote.
+  Vote vote = 1;
+}
+
+// The current state of a proposal.
+message ProposalState {
+  // Voting is in progress and the proposal has not yet concluded voting or been withdrawn.
+  message Voting {}
+
+  // The proposal has been withdrawn but the voting period is not yet concluded.
+  message Withdrawn {
+    // The reason for the withdrawal.
+    string reason = 1;
+  }
+
+  // The voting period has ended, and the proposal has been assigned an outcome.
+  message Finished {
+    ProposalOutcome outcome = 1;
+  }
+
+  // The voting period has ended, and the original proposer has claimed their deposit.
+  message Claimed {
+    ProposalOutcome outcome = 1;
+  }
+
+  // The state of the proposal.
+  oneof state {
+    Voting voting = 2;
+    Withdrawn withdrawn = 3;
+    Finished finished = 4;
+    Claimed claimed = 5;
+  }
+}
+
+// The outcome of a concluded proposal.
+message ProposalOutcome {
+  // Whether or not the proposal was withdrawn.
+  message Withdrawn {
+      // The reason for withdrawing the proposal during the voting period.
+      string reason = 1;
+  }
+
+  // The proposal was passed.
+  message Passed {}
+
+  // The proposal did not pass.
+  message Failed {
+      // Present if the proposal was withdrawn during the voting period.
+      Withdrawn withdrawn = 1;
+  }
+
+  // The proposal did not pass, and was slashed.
+  message Slashed {
+      // Present if the proposal was withdrawn during the voting period.
+      Withdrawn withdrawn = 1;
+  }
+
+  oneof outcome {
+      Passed passed = 1;
+      Failed failed = 2;
+      Slashed slashed = 3;
+  }
+}
+
+// A tally of votes on a proposal.
+message Tally {
+  // The number of votes in favor of the proposal.
+  uint64 yes = 1;
+  // The number of votes against the proposal.
+  uint64 no = 2;
+  // The number of abstentions.
+  uint64 abstain = 3;
+}
+
+// A proposal to be voted upon.
+message Proposal {
+  // The unique identifier of the proposal.
+  uint64 id = 4;
+
+  // A short title for the proposal.
+  string title = 1;
+
+  // A natural-language description of the effect of the proposal and its justification.
+  string description = 2;
+
+  // The different kinds of proposal. Only one of these should be set.
+  Signaling signaling = 5;
+  Emergency emergency = 6;
+  ParameterChange parameter_change = 7;
+  DaoSpend dao_spend = 8;
+  UpgradePlan upgrade_plan = 9;
+
+  // A signaling proposal is meant to register a vote on-chain, but does not have an automatic
+  // effect when passed.
+  //
+  // It optionally contains a reference to a commit which contains code to upgrade the chain.
+  message Signaling {
+    // The commit to be voted upon, if any is relevant.
+    string commit = 1;
+  }
+
+  // An emergency proposal can be passed instantaneously by a 2/3 majority of validators, without
+  // waiting for the voting period to expire.
+  //
+  // If the boolean `halt_chain` is set to `true`, then the chain will halt immediately when the
+  // proposal is passed.
+  message Emergency {
+    // If `true`, the chain will halt immediately when the proposal is passed.
+    bool halt_chain = 1;
+  }
+
+  // A parameter change proposal describes a replacement of the app parameters, which should take
+  // effect when the proposal is passed.
+  message ParameterChange {
+    // The old app parameters to be replaced: even if the proposal passes, the update will not be
+    // applied if the app parameters have changed *at all* from these app parameters. Usually,
+    // this should be set to the current app parameters at time of proposal.
+    ChangedAppParameters old_parameters = 1;
+
+    // The new app parameters to be set: the *entire* app parameters will be replaced with these
+    // at the time the proposal is passed, for every component's parameters that is set. If a component's
+    // parameters are not set, then they were not changed by the proposal, and will not be updated.
+    ChangedAppParameters new_parameters = 2;
+  }
+
+  // A DAO spend proposal describes zero or more transactions to execute on behalf of the DAO, with
+  // access to its funds, and zero or more scheduled transactions from previous passed proposals to
+  // cancel.
+  message DaoSpend {
+    // The transaction plan to be executed at the time the proposal is passed. This must be a
+    // transaction plan which can be executed by the DAO, which means it can't require any witness
+    // data or authorization signatures, but it may use the `DaoSpend` action.
+    google.protobuf.Any transaction_plan = 2;
+  }
+
+  // An upgrade plan describes a candidate upgrade to be executed at a certain height. If passed, the chain
+  // will halt at the specified height.
+  message UpgradePlan {
+    uint64 height = 1;
+  }
+}
+
+// Query operations for the governance component.
+service QueryService {
+  rpc ProposalInfo(ProposalInfoRequest) returns (ProposalInfoResponse);
+  // Used for computing voting power ?
+  rpc ProposalRateData(ProposalRateDataRequest) returns (stream ProposalRateDataResponse);
+}
+
+message ProposalInfoRequest {
+  // The expected chain id (empty string if no expectation).
+  string chain_id = 1;
+  // The proposal id to request information on.
+  uint64 proposal_id = 2;
+}
+
+message ProposalInfoResponse {
+  // The block height at which the proposal started voting.
+  uint64 start_block_height = 1;
+  // The position of the state commitment tree at which the proposal is considered to have started voting.
+  uint64 start_position = 2;
+}
+
+// Requests the validator rate data for a proposal.
+message ProposalRateDataRequest {
+  // The expected chain id (empty string if no expectation).
+  string chain_id = 1;
+  // The proposal id to request information on.
+  uint64 proposal_id = 2;
+}
+
+// The rate data for a single validator.
+message ProposalRateDataResponse {
+  core.component.stake.v1alpha1.RateData rate_data = 1;
+}
+
+// Governance configuration data.
+message GovernanceParameters {
+  // The number of blocks during which a proposal is voted on.
+  uint64 proposal_voting_blocks = 1;
+  // The deposit required to create a proposal.
+  penumbra.core.num.v1alpha1.Amount proposal_deposit_amount = 2;
+  // The quorum required for a proposal to be considered valid, as a fraction of the total stake
+  // weight of the network.
+  string proposal_valid_quorum = 3;
+  // The threshold for a proposal to pass voting, as a ratio of "yes" votes over "no" votes.
+  string proposal_pass_threshold = 4;
+  // The threshold for a proposal to be slashed, regardless of whether the "yes" and "no" votes
+  // would have passed it, as a ratio of "no" votes over all total votes.
+  string proposal_slash_threshold = 5;
+}
+
+// Governance genesis state.
+message GenesisContent {
+  // Governance parameters.
+  GovernanceParameters governance_params = 1;
+}
+
+// Note: must be kept in sync with AppParameters.
+// Each field here is optional.
+message ChangedAppParameters {
+    // Chain module parameters.
+    core.component.chain.v1alpha1.ChainParameters chain_params = 1;
+    // DAO module parameters.
+    core.component.dao.v1alpha1.DaoParameters dao_params = 2;
+    // Governance module parameters.
+    core.component.governance.v1alpha1.GovernanceParameters governance_params = 3;
+    // IBC module parameters.
+    core.component.ibc.v1alpha1.IbcParameters ibc_params = 4;
+    // Stake module parameters.
+    core.component.stake.v1alpha1.StakeParameters stake_params = 5;
+    // Fee module parameters.
+    core.component.fee.v1alpha1.FeeParameters fee_params = 6;
+}
+
+message ChangedAppParametersSet {
+  // The set of app parameters at the time the proposal was submitted.
+  ChangedAppParameters old = 1;
+  // The new set of parameters the proposal is trying to enact.
+  ChangedAppParameters new = 2;
+}

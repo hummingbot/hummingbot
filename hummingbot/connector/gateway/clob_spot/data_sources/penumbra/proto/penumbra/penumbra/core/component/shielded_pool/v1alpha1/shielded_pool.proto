@@ -1,0 +1,189 @@
+syntax = "proto3";
+package penumbra.core.component.shielded_pool.v1alpha1;
+
+import "penumbra/crypto/tct/v1alpha1/tct.proto";
+import "penumbra/crypto/decaf377_rdsa/v1alpha1/decaf377_rdsa.proto";
+import "penumbra/core/asset/v1alpha1/asset.proto";
+import "penumbra/core/keys/v1alpha1/keys.proto";
+import "penumbra/core/num/v1alpha1/num.proto";
+
+message Note {
+    asset.v1alpha1.Value value = 1;
+    bytes rseed = 2;
+    keys.v1alpha1.Address address = 3;
+}
+
+message NoteView {
+    asset.v1alpha1.ValueView value = 1;
+    bytes rseed = 2;
+    keys.v1alpha1.AddressView address = 3;
+}
+
+// An encrypted note.
+// 132 = 1(type) + 11(d) + 8(amount) + 32(asset_id) + 32(rcm) + 32(pk_d) + 16(MAC) bytes.
+message NoteCiphertext {
+    bytes inner = 1;
+}
+
+// The body of an output description, including only the minimal
+// data required to scan and process the output.
+message NotePayload {
+  // The note commitment for the output note. 32 bytes.
+  crypto.tct.v1alpha1.StateCommitment note_commitment = 1;
+  // The encoding of an ephemeral public key. 32 bytes.
+  bytes ephemeral_key = 2;
+  // An encryption of the newly created note.
+  // 132 = 1(type) + 11(d) + 8(amount) + 32(asset_id) + 32(rcm) + 32(pk_d) + 16(MAC) bytes.
+  NoteCiphertext encrypted_note = 3;
+}
+
+// A Penumbra ZK output proof.
+message ZKOutputProof {
+  bytes inner = 1;
+}
+
+// A Penumbra ZK spend proof.
+message ZKSpendProof {
+  bytes inner = 1;
+}
+
+// A Penumbra ZK nullifier derivation proof.
+message ZKNullifierDerivationProof {
+  bytes inner = 1;
+}
+
+// Spends a shielded note.
+message Spend {
+  // The effecting data of the spend.
+  SpendBody body = 1;
+  // The authorizing signature for the spend.
+  crypto.decaf377_rdsa.v1alpha1.SpendAuthSignature auth_sig = 2;
+  // The proof that the spend is well-formed is authorizing data.
+  ZKSpendProof proof = 3;
+}
+
+// The body of a spend description, containing only the effecting data
+// describing changes to the ledger, and not the authorizing data that allows
+// those changes to be performed.
+message SpendBody {
+  // A commitment to the value of the input note.
+  asset.v1alpha1.BalanceCommitment balance_commitment = 1;
+  // The nullifier of the input note.
+  bytes nullifier = 3;
+  // The randomized validating key for the spend authorization signature.
+  bytes rk = 4;
+}
+message SpendView {
+  message Visible {
+    Spend spend = 1;
+    NoteView note = 2;
+  }
+  message Opaque {
+    Spend spend = 1;
+  }
+  oneof spend_view {
+    Visible visible = 1;
+    Opaque opaque = 2;
+  }
+}
+
+message SpendPlan {
+    // The plaintext note we plan to spend.
+    Note note = 1;
+    // The position of the note we plan to spend.
+    uint64 position = 2;
+    // The randomizer to use for the spend.
+    bytes randomizer = 3;
+    // The blinding factor to use for the value commitment.
+    bytes value_blinding = 4;
+    // The first blinding factor to use for the ZK spend proof.
+    bytes proof_blinding_r = 5;
+    // The second blinding factor to use for the ZK spend proof.
+    bytes proof_blinding_s = 6;
+}
+
+// Creates a new shielded note.
+message Output {
+  // The effecting data for the output.
+  OutputBody body = 1;
+  // The output proof is authorizing data.
+  ZKOutputProof proof = 2;
+}
+
+// The body of an output description, containing only the effecting data
+// describing changes to the ledger, and not the authorizing data that allows
+// those changes to be performed.
+message OutputBody {
+  // The minimal data required to scan and process the new output note.
+  NotePayload note_payload = 1;
+  // A commitment to the value of the output note. 32 bytes.
+  asset.v1alpha1.BalanceCommitment balance_commitment = 2;
+  // An encrypted key for decrypting the memo.
+  bytes wrapped_memo_key = 3;
+  // The key material used for note encryption, wrapped in encryption to the
+  // sender's outgoing viewing key. 80 bytes.
+  bytes ovk_wrapped_key = 4;
+}
+
+message OutputView {
+  message Visible {
+    Output output = 1;
+    NoteView note = 2;
+    keys.v1alpha1.PayloadKey payload_key = 3;
+  }
+
+  message Opaque {
+    Output output = 1;
+  }
+  oneof output_view {
+    Visible visible = 1;
+    Opaque opaque = 2;
+  }
+}
+
+message OutputPlan {
+    // The value to send to this output.
+    asset.v1alpha1.Value value = 1;
+    // The destination address to send it to.
+    keys.v1alpha1.Address dest_address = 2;
+    // The rseed to use for the new note.
+    bytes rseed = 3;
+    // The blinding factor to use for the value commitment.
+    bytes value_blinding = 4;
+    // The first blinding factor to use for the ZK output proof.
+    bytes proof_blinding_r = 5;
+    // The second blinding factor to use for the ZK output proof.
+    bytes proof_blinding_s = 6;
+}
+
+// Query operations for the shielded pool component.
+service QueryService {
+  rpc DenomMetadataById(DenomMetadataByIdRequest) returns (DenomMetadataByIdResponse);
+}
+
+// Requests information on an asset by asset id
+message DenomMetadataByIdRequest {
+  // The expected chain id (empty string if no expectation).
+  string chain_id = 1;
+  // The asset id to request information on.
+  core.asset.v1alpha1.AssetId asset_id = 2;
+}
+
+message DenomMetadataByIdResponse {
+  // If present, information on the requested asset.
+  //
+  // If the requested asset was unknown, this field will not be present.
+  core.asset.v1alpha1.DenomMetadata denom_metadata = 1;
+}
+
+// Genesis data for the shielded pool component.
+message GenesisContent {
+  message Allocation {
+    penumbra.core.num.v1alpha1.Amount amount = 1;
+    string denom = 2;
+    penumbra.core.keys.v1alpha1.Address address = 3;
+  }
+
+  // The allocations present at genesis
+  repeated Allocation allocations = 2;
+}

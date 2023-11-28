@@ -1,0 +1,71 @@
+syntax = "proto3";
+package penumbra.core.component.chain.v1alpha1;
+
+import "penumbra/core/asset/v1alpha1/asset.proto";
+
+// An authorization hash for a Penumbra transaction.
+message EffectHash {
+  bytes inner = 1;
+}
+
+// Global chain configuration data, such as chain ID, epoch duration, etc.
+message ChainParameters {
+  // The identifier of the chain.
+  string chain_id = 1;
+  // The duration of each epoch, in number of blocks.
+  uint64 epoch_duration = 2;
+}
+
+// The ratio between two numbers, used in governance to describe vote thresholds and quorums.
+message Ratio {
+  // The numerator.
+  uint64 numerator = 1;
+  // The denominator.
+  uint64 denominator = 2;
+}
+
+// Parameters for Fuzzy Message Detection
+message FmdParameters {
+  uint32 precision_bits = 1;
+  uint64 as_of_block_height = 2;
+}
+
+message KnownAssets {
+  repeated asset.v1alpha1.DenomMetadata assets = 1;
+}
+
+// A spicy transaction ID
+message NoteSource {
+  bytes inner = 1;
+}
+
+// A NoteSource paired with the height at which the note was spent
+message SpendInfo {
+  NoteSource note_source = 1;
+  uint64 spend_height = 2;
+}
+
+// Chain-specific genesis content.
+message GenesisContent {
+  // The ChainParameters present at genesis.
+  ChainParameters chain_params = 1;
+}
+
+message Epoch {
+  uint64 index = 1;
+  uint64 start_height = 2;
+}
+
+// Query operations for the chain component.
+service QueryService {
+  // TODO: move to SCT cf sct/src/component/view.rs:9 "make epoch management the responsibility of this component"
+  rpc EpochByHeight(EpochByHeightRequest) returns (EpochByHeightResponse);
+}
+
+message EpochByHeightRequest {
+  uint64 height = 1;
+}
+
+message EpochByHeightResponse {
+  core.component.chain.v1alpha1.Epoch epoch = 1;
+}

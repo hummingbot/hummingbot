@@ -1,0 +1,24 @@
+syntax = "proto3";
+package penumbra.crypto.tct.v1alpha1;
+
+message StateCommitment {
+    bytes inner = 1;
+}
+
+message MerkleRoot {
+    bytes inner = 1;
+}
+
+// An authentication path from a state commitment to the root of the state commitment tree.
+message StateCommitmentProof {
+  StateCommitment note_commitment = 1;
+  uint64 position = 2;
+  repeated MerklePathChunk auth_path = 3; // always length 24
+}
+
+// A set of 3 sibling hashes in the auth path for some note commitment.
+message MerklePathChunk {
+    bytes sibling_1 = 1;
+    bytes sibling_2 = 2;
+    bytes sibling_3 = 3;
+}

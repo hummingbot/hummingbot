@@ -1,0 +1,26 @@
+syntax = "proto3";
+package penumbra.core.component.sct.v1alpha1;
+
+import "penumbra/crypto/tct/v1alpha1/tct.proto";
+import "penumbra/core/component/chain/v1alpha1/chain.proto";
+
+message Nullifier {
+    bytes inner = 1;
+}
+
+// Query operations for the SCT component.
+service QueryService {
+  // TODO: change to generic tx-by-commitment
+  rpc TransactionByNote(TransactionByNoteRequest) returns (TransactionByNoteResponse);
+}
+
+message TransactionByNoteRequest {
+  // The expected chain id (empty string if no expectation).
+  string chain_id = 1;
+  crypto.tct.v1alpha1.StateCommitment note_commitment = 2;
+}
+
+message TransactionByNoteResponse {
+  core.component.chain.v1alpha1.NoteSource note_source = 1;
+}
+

@@ -1,0 +1,102 @@
+syntax = "proto3";
+
+package penumbra.tools.summoning.v1alpha1;
+
+import "penumbra/core/keys/v1alpha1/keys.proto";
+import "penumbra/core/num/v1alpha1/num.proto";
+
+// Runs a Phase 2 MPC ceremony with dynamic slot allocation.
+service CeremonyCoordinatorService {
+  // The protocol used to participate in the ceremony.
+  //
+  // The message flow is
+  // ```
+  // Client                     Server
+  //  Identify     ===========>
+  //               <=========== Position (repeated)
+  //               <=========== ContributeNow
+  //  Contribution ===========>
+  //               <=========== Confirm
+  // ```
+  rpc Participate(stream ParticipateRequest) returns (stream ParticipateResponse);
+}
+
+message ParticipateRequest {
+  // Sent at the beginning of the connection to identify the participant.
+  message Identify {
+    core.keys.v1alpha1.Address address = 1;
+  }
+
+  // Sent by the participant after getting a `ContributeNow` message.
+  message Contribution {
+    CeremonyCrs updated = 1;
+    CeremonyLinkingProof update_proofs = 2;
+    CeremonyParentHashes parent_hashes = 3;
+  }
+
+  oneof msg {
+    Identify identify = 1;
+    Contribution contribution = 2;
+  }
+}
+
+message CeremonyCrs {
+  bytes spend = 100;
+  bytes output = 101;
+  bytes delegator_vote = 102;
+  bytes undelegate_claim = 103;
+  bytes swap = 104;
+  bytes swap_claim = 105;
+  bytes nullifer_derivation_crs = 106;
+}
+
+message CeremonyLinkingProof {
+  bytes spend = 100;
+  bytes output = 101;
+  bytes delegator_vote = 102;
+  bytes undelegate_claim = 103;
+  bytes swap = 104;
+  bytes swap_claim = 105;
+  bytes nullifer_derivation_crs = 106;
+}
+
+message CeremonyParentHashes {
+  bytes spend = 100;
+  bytes output = 101;
+  bytes delegator_vote = 102;
+  bytes undelegate_claim = 103;
+  bytes swap = 104;
+  bytes swap_claim = 105;
+  bytes nullifer_derivation_crs = 106;
+}
+
+message ParticipateResponse {
+  // Streamed to the participant to inform them of their position in the queue.
+  message Position {
+    // The position of the participant in the queue.
+    uint32 position = 1;
+    // The total number of participants in the queue.
+    uint32 connected_participants = 2;
+    // The bid for the most recently executed contribution slot.
+    core.num.v1alpha1.Amount last_slot_bid = 3;
+    // The participant's current bid.
+    core.num.v1alpha1.Amount your_bid = 4;
+  }
+
+  // Sent to the participant to inform them that they should contribute now.
+  message ContributeNow {
+    // The most recent CRS, which the participant should update.
+    CeremonyCrs parent = 1;
+  }
+
+  // Sent to the participant to confim their contribution was accepted.
+  message Confirm {
+    uint64 slot = 1;
+  }
+
+  oneof msg {
+    Position position = 1;
+    ContributeNow contribute_now = 2;
+    Confirm confirm = 3;
+  }
+}

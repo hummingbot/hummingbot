@@ -1,0 +1,74 @@
+syntax = "proto3";
+package penumbra.core.component.compact_block.v1alpha1;
+
+import "penumbra/crypto/tct/v1alpha1/tct.proto";
+import "penumbra/core/component/sct/v1alpha1/sct.proto";
+import "penumbra/core/component/chain/v1alpha1/chain.proto";
+import "penumbra/core/component/dex/v1alpha1/dex.proto";
+import "penumbra/core/component/fee/v1alpha1/fee.proto";
+import "penumbra/core/component/shielded_pool/v1alpha1/shielded_pool.proto";
+
+// Contains the minimum data needed to update client state.
+message CompactBlock {
+  uint64 height = 1;
+  // State payloads describing new state fragments.
+  repeated StatePayload state_payloads = 2;
+  // Nullifiers identifying spent notes.
+  repeated sct.v1alpha1.Nullifier nullifiers = 3;
+  // The block root of this block.
+  crypto.tct.v1alpha1.MerkleRoot block_root = 4;
+  // The epoch root of this epoch (only present when the block is the last in an epoch).
+  crypto.tct.v1alpha1.MerkleRoot epoch_root = 17;
+  // If a proposal started voting in this block, this is set to `true`.
+  bool proposal_started = 20;
+  // Latest Fuzzy Message Detection parameters.
+  chain.v1alpha1.FmdParameters fmd_parameters = 100;
+  // Price data for swaps executed in this block.
+  repeated dex.v1alpha1.BatchSwapOutputData swap_outputs = 5;
+  // Indicates updated app parameters.
+  bool app_parameters_updated = 6;
+  // Updated gas prices, if they have changed.
+  fee.v1alpha1.GasPrices gas_prices = 7;
+}
+
+message StatePayload {
+  message RolledUp {
+    crypto.tct.v1alpha1.StateCommitment commitment = 1;
+  }
+  message Note {
+    chain.v1alpha1.NoteSource source = 1;
+    shielded_pool.v1alpha1.NotePayload note = 2;
+  }
+  message Swap {
+    chain.v1alpha1.NoteSource source = 1;
+    dex.v1alpha1.SwapPayload swap = 2;
+  }
+  oneof state_payload {
+    RolledUp rolled_up = 1;
+    Note note = 2;
+    Swap swap = 3;
+  }
+}
+
+// Query operations for the compact block component.
+service QueryService {
+  // Returns a stream of `CompactBlockRangeResponse`s.
+  rpc CompactBlockRange(CompactBlockRangeRequest) returns (stream CompactBlockRangeResponse);
+}
+
+// Requests a range of compact block data.
+message CompactBlockRangeRequest {
+  // The expected chain id (empty string if no expectation).
+  string chain_id = 1;
+  // The start height of the range.
+  uint64 start_height = 2;
+  // The end height of the range, defaults to the latest block height.
+  uint64 end_height = 3;
+  // If set, keeps the connection alive past `end_height`,
+  // streaming new compact blocks as they are created.
+  bool keep_alive = 4;
+}
+
+message CompactBlockRangeResponse {
+  core.component.compact_block.v1alpha1.CompactBlock compact_block = 1;
+}

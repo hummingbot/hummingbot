@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package penumbra.storage.v1alpha1;
+
+
+/*
+// This code really seems to belong in the storage crate,
+// but it can't quite go there: the KeyValueResponse returns an IBC
+// proof up to the Penumbra AppHash, which is a concern of the Penumbra
+// application, not the storage layer, which doesn't know about the extra
+// "dummy proof" we insert for IBC compatibility.
+
+import "ibc/core/commitment/v1/commitment.proto";
+
+service QueryService {
+  // General-purpose key-value state query API, that can be used to query
+  // arbitrary keys in the JMT storage.
+  rpc KeyValue(KeyValueRequest) returns (KeyValueResponse);
+
+  // General-purpose prefixed key-value state query API, that can be used to query
+  // arbitrary prefixes in the JMT storage.
+  // Returns a stream of `PrefixValueResponse`s.
+  rpc PrefixValue(PrefixValueRequest) returns (stream PrefixValueResponse);
+}
+
+// Performs a key-value query, either by key or by key hash.
+//
+// Proofs are only supported by key.
+message KeyValueRequest {
+  // The expected chain id (empty string if no expectation).
+  string chain_id = 1;
+  // If set, the key to fetch from storage.
+  string key = 2;
+  // whether to return a proof
+  bool proof = 3;
+}
+
+message KeyValueResponse {
+  message Value {
+    bytes value = 1;
+  }
+  // The value corresponding to the specified key, if it was found.
+  Value value = 1;
+  // A proof of existence or non-existence.
+  .ibc.core.commitment.v1.MerkleProof proof = 2;
+}
+
+// Performs a prefixed key-value query, by string prefix.
+message PrefixValueRequest {
+  // The expected chain id (empty string if no expectation).
+  string chain_id = 1;
+  // The prefix to fetch subkeys from storage.
+  string prefix = 2;
+}
+
+message PrefixValueResponse {
+  string key = 1;
+  bytes value = 2;
+}
+*/

@@ -1,0 +1,37 @@
+syntax = "proto3";
+package penumbra.core.component.fee.v1alpha1;
+
+import "penumbra/core/num/v1alpha1/num.proto";
+import "penumbra/core/asset/v1alpha1/asset.proto";
+
+// Specifies fees paid by a transaction.
+message Fee {
+    // The amount of the token used to pay fees.
+    num.v1alpha1.Amount amount = 1;
+    // If present, the asset ID of the token used to pay fees.
+    // If absent, specifies the staking token implicitly.
+    asset.v1alpha1.AssetId asset_id = 2;
+}
+
+message GasPrices {
+    // The price per unit block space in terms of the staking token, with an implicit 1,000 denominator.
+    uint64 block_space_price = 1;
+    // The price per unit compact block space in terms of the staking token, with an implicit 1,000 denominator.
+    uint64 compact_block_space_price = 2;
+    // The price per unit verification cost in terms of the staking token, with an implicit 1,000 denominator.
+    uint64 verification_price = 3;
+    // The price per unit execution cost in terms of the staking token, with an implicit 1,000 denominator.
+    uint64 execution_price = 4;
+}
+
+// Fee component configuration data.
+message FeeParameters {
+}
+
+// Fee-specific genesis content.
+message GenesisContent {
+  // The FeeParameters present at genesis.
+  FeeParameters fee_params = 1;
+  // The initial gas prices.
+  GasPrices gas_prices = 2;
+}

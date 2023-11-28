@@ -1,0 +1,18 @@
+version: v1
+name: buf.build/penumbra-zone/penumbra
+# We pin versions of the upstream cosmos deps, to avoid the chore of bumping
+# the lockfile regularly, while still detecting uncommitted changes to our
+# protos in CI.
+deps:
+  # https://buf.build/cosmos/ibc/docs/7ab44ae956a0488ea04e04511efa5f70, 2023-09-13
+  - buf.build/cosmos/ibc:7ab44ae956a0488ea04e04511efa5f70
+  # cosmos-sdk 9d547dbea90f47afbe1898388fcebffb, 2023-05-31, breaks the build, requiring
+  # attributes 'extension' and 'extension_signature' on 'proto::tendermint::types::Vote'.
+  # https://buf.build/cosmos/cosmos-sdk/docs/e7a85cef453e4b999ad9aff8714ae05f, 2023-05-22
+  - buf.build/cosmos/cosmos-sdk:e7a85cef453e4b999ad9aff8714ae05f
+breaking:
+  use:
+    - FILE
+lint:
+  use:
+    - DEFAULT

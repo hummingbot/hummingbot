@@ -1,0 +1,104 @@
+syntax = "proto3";
+package penumbra.core.asset.v1alpha1;
+
+import "penumbra/core/num/v1alpha1/num.proto";
+
+message BalanceCommitment {
+    bytes inner = 1;
+}
+
+// A Penumbra asset ID.
+message AssetId {
+    // The bytes of the asset ID.
+    bytes inner = 1;
+
+    // Alternatively, a Bech32m-encoded string representation of the `inner`
+    // bytes.
+    //
+    // NOTE: implementations are not required to support parsing this field.
+    // Implementations should prefer to encode the `inner` bytes in all messages they
+    // produce. Implementations must not accept messages with both `inner` and
+    // `alt_bech32m` set.  This field exists for convenience of RPC users.
+    string alt_bech32m = 2;
+
+    // Alternatively, a base denomination string which should be hashed to obtain the asset ID.
+    //
+    // NOTE: implementations are not required to support parsing this field.
+    // Implementations should prefer to encode the bytes in all messages they
+    // produce. Implementations must not accept messages with both `inner` and
+    // `alt_base_denom` set.  This field exists for convenience of RPC users.
+    string alt_base_denom = 3;
+}
+
+message Denom {
+    string denom = 1;
+}
+
+// DenomMetadata represents a struct that describes a basic token.
+ message DenomMetadata {
+     string description = 1;
+     // denom_units represents the list of DenomUnit's for a given coin
+     repeated DenomUnit denom_units = 2;
+     // base represents the base denom (should be the DenomUnit with exponent = 0).
+     string base = 3;
+     // display indicates the suggested denom that should be
+     // displayed in clients.
+     string display = 4;
+     // name defines the name of the token (eg: Cosmos Atom)
+     string name = 5;
+     // symbol is the token symbol usually shown on exchanges (eg: ATOM). This can
+     // be the same as the display.
+     string symbol = 6;
+     // URI to a document (on or off-chain) that contains additional information. Optional.
+     string uri = 7;
+     // URIHash is a sha256 hash of a document pointed by URI. It's used to verify that
+     // the document didn't change. Optional.
+     string uri_hash = 8;
+
+     // the asset ID on Penumbra for this denomination.
+     AssetId penumbra_asset_id = 1984;
+ }
+
+ // DenomUnit represents a struct that describes a given denomination unit of the basic token.
+ message DenomUnit {
+     // denom represents the string name of the given denom unit (e.g uatom).
+     string denom = 1;
+     // exponent represents power of 10 exponent that one must
+     // raise the base_denom to in order to equal the given DenomUnit's denom
+     // 1 denom = 10^exponent base_denom
+     // (e.g. with a base_denom of uatom, one can create a DenomUnit of 'atom' with
+     // exponent = 6, thus: 1 atom = 10^6 uatom).
+     uint32 exponent = 2;
+     // aliases is a list of string aliases for the given denom
+     repeated string aliases = 3;
+ }
+
+message Value {
+    core.num.v1alpha1.Amount amount = 1;
+    AssetId asset_id = 2;
+}
+
+// Represents a value of a known or unknown denomination.
+//
+// Note: unlike some other View types, we don't just store the underlying
+// `Value` message together with an additional `Denom`.  Instead, we record
+// either an `Amount` and `Denom` (only) or an `Amount` and `AssetId`.  This is
+// because we don't want to allow a situation where the supplied `Denom` doesn't
+// match the `AssetId`, and a consumer of the API that doesn't check is tricked.
+// This way, the `Denom` will always match, because the consumer is forced to
+// recompute it themselves if they want it.
+message ValueView {
+    // A value whose asset ID has a known denomination.
+    message KnownDenom {
+        core.num.v1alpha1.Amount amount = 1;
+        DenomMetadata denom = 2;
+    }
+    message UnknownDenom {
+        core.num.v1alpha1.Amount amount = 1;
+        AssetId asset_id = 2;
+    }
+    oneof value_view {
+        KnownDenom known_denom = 1;
+        UnknownDenom unknown_denom = 2;
+    }
+}

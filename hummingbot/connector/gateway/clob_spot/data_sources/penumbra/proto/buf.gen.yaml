@@ -1,0 +1,11 @@
+version: v1
+managed:
+  enabled: true
+  go_package_prefix:
+    default: github.com/penumbra-zone/penumbra/proto/go/gen
+    except:
+      - buf.build/cosmos/ibc
+plugins:
+  - plugin: buf.build/protocolbuffers/go
+    out: go/gen
+    opt: paths=source_relative

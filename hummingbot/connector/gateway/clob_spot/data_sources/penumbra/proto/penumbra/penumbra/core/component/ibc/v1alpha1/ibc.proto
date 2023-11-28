@@ -1,0 +1,93 @@
+syntax = "proto3";
+package penumbra.core.component.ibc.v1alpha1;
+
+import "ibc/core/client/v1/client.proto";
+import "google/protobuf/any.proto";
+
+import "penumbra/core/keys/v1alpha1/keys.proto";
+import "penumbra/core/num/v1alpha1/num.proto";
+import "penumbra/core/asset/v1alpha1/asset.proto";
+
+message IbcAction {
+  .google.protobuf.Any raw_action = 1;
+}
+
+// FungibleTokenPacketData defines a struct for the packet payload
+// See FungibleTokenPacketData spec:
+// https://github.com/cosmos/ibc/tree/master/spec/app/ics-020-fungible-token-transfer#data-structures
+message FungibleTokenPacketData {
+  // the token denomination to be transferred
+  string denom = 1;
+  // the token amount to be transferred
+  string amount = 2;
+  // the sender address
+  string sender = 3;
+  // the recipient address on the destination chain
+  string receiver = 4;
+}
+
+// A Penumbra transaction action requesting an ICS20 transfer.
+message Ics20Withdrawal {
+  num.v1alpha1.Amount amount = 1;
+  asset.v1alpha1.Denom denom = 2;
+
+  // the address on the destination chain to send the transfer to 
+  string destination_chain_address = 3;
+
+  // a "sender" penumbra address to use to return funds from this withdrawal.
+  // this should be an ephemeral address
+  keys.v1alpha1.Address return_address = 4;
+
+  // The height on the counterparty chain at which this transfer expires, and
+  // funds are sent back to the return address.
+  .ibc.core.client.v1.Height timeout_height = 5;
+
+  // the timestamp at which this transfer expires.
+  uint64 timeout_time = 6;
+
+  // the source channel used for the withdrawal
+  string source_channel = 7;
+}
+
+message ClientData {
+  string client_id = 1;
+  google.protobuf.Any client_state = 2; // NOTE: left as Any to allow us to add more client types later
+  string processed_time = 3;
+  uint64 processed_height = 4;
+}
+
+message ClientCounter {
+  uint64 counter = 1;
+}
+
+message ConsensusState {
+  google.protobuf.Any consensus_state = 1;
+}
+
+message VerifiedHeights {
+  repeated .ibc.core.client.v1.Height heights = 1; 
+}
+
+message ConnectionCounter {
+  uint64 counter = 1;
+}
+
+message ClientConnections {
+  repeated string connections = 1;
+}
+
+// IBC configuration data.
+message IbcParameters {
+  // Whether IBC (forming connections, processing IBC packets) is enabled.
+  bool ibc_enabled = 1;
+  // Whether inbound ICS-20 transfers are enabled
+  bool inbound_ics20_transfers_enabled = 2;
+  // Whether outbound ICS-20 transfers are enabled
+  bool outbound_ics20_transfers_enabled = 3;
+}
+
+// IBC genesis state.
+message GenesisContent {
+  // IBC parameters.
+  IbcParameters ibc_params = 1;
+}

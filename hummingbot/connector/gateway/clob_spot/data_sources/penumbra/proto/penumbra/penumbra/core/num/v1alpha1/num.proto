@@ -1,0 +1,12 @@
+syntax = "proto3";
+package penumbra.core.num.v1alpha1;
+
+// The quantity of a particular Asset. Represented as a 128-bit unsigned integer,
+// split over two fields, `lo` and `hi`, representing the low- and high-order bytes
+// of the 128-bit value, respectively. Clients must assemble these bits in their
+// implementation into a `uint128` or comparable data structure, in order to model
+// the Amount accurately.
+message Amount {
+    uint64 lo = 1;
+    uint64 hi = 2;
+}

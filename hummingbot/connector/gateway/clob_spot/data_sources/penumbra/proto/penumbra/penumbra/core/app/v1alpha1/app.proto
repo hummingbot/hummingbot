@@ -1,0 +1,110 @@
+syntax = "proto3";
+package penumbra.core.app.v1alpha1;
+
+import "penumbra/core/component/chain/v1alpha1/chain.proto";
+import "penumbra/core/component/stake/v1alpha1/stake.proto";
+import "penumbra/core/component/shielded_pool/v1alpha1/shielded_pool.proto";
+import "penumbra/core/component/governance/v1alpha1/governance.proto";
+import "penumbra/core/component/ibc/v1alpha1/ibc.proto";
+import "penumbra/core/component/fee/v1alpha1/fee.proto";
+import "penumbra/core/component/dao/v1alpha1/dao.proto";
+import "ibc/core/commitment/v1/commitment.proto";
+
+// Query operations for the overall Penumbra application.
+service QueryService {
+  // Gets the app parameters.
+  rpc AppParameters(AppParametersRequest) returns (AppParametersResponse);
+
+  // General-purpose key-value state query API, that can be used to query
+  // arbitrary keys in the JMT storage.
+  rpc KeyValue(KeyValueRequest) returns (KeyValueResponse);
+
+  // General-purpose prefixed key-value state query API, that can be used to query
+  // arbitrary prefixes in the JMT storage.
+  // Returns a stream of `PrefixValueResponse`s.
+  rpc PrefixValue(PrefixValueRequest) returns (stream PrefixValueResponse);
+}
+
+// Performs a key-value query, either by key or by key hash.
+//
+// Proofs are only supported by key.
+message KeyValueRequest {
+  // The expected chain id (empty string if no expectation).
+  string chain_id = 1;
+  // If set, the key to fetch from storage.
+  string key = 2;
+  // whether to return a proof
+  bool proof = 3;
+}
+
+message KeyValueResponse {
+  message Value {
+    bytes value = 1;
+  }
+  // The value corresponding to the specified key, if it was found.
+  Value value = 1;
+  // A proof of existence or non-existence.
+  .ibc.core.commitment.v1.MerkleProof proof = 2;
+}
+
+// Performs a prefixed key-value query, by string prefix.
+message PrefixValueRequest {
+  // The expected chain id (empty string if no expectation).
+  string chain_id = 1;
+  // The prefix to fetch subkeys from storage.
+  string prefix = 2;
+}
+
+message PrefixValueResponse {
+  string key = 1;
+  bytes value = 2;
+}
+
+message AppParameters {
+    // Chain module parameters.
+    core.component.chain.v1alpha1.ChainParameters chain_params = 1;
+    // DAO module parameters.
+    core.component.dao.v1alpha1.DaoParameters dao_params = 2;
+    // Governance module parameters.
+    core.component.governance.v1alpha1.GovernanceParameters governance_params = 3;
+    // IBC module parameters.
+    core.component.ibc.v1alpha1.IbcParameters ibc_params = 4;
+    // Stake module parameters.
+    core.component.stake.v1alpha1.StakeParameters stake_params = 5;
+    // Fee module parameters.
+    core.component.fee.v1alpha1.FeeParameters fee_params = 6;
+}
+
+// Requests the global configuration data for the app.
+message AppParametersRequest {
+  // The expected chain id (empty string if no expectation).
+  string chain_id = 1;
+}
+
+message AppParametersResponse {
+  AppParameters app_parameters = 1;
+}
+
+message GenesisAppState {
+  oneof genesis_app_state {
+    GenesisContent genesis_content = 1;
+    bytes genesis_checkpoint = 2;
+  }
+}
+
+message GenesisContent {
+    // Stake module genesis state.
+    core.component.stake.v1alpha1.GenesisContent stake_content = 1;
+    // Shielded pool module genesis state.
+    core.component.shielded_pool.v1alpha1.GenesisContent shielded_pool_content = 2;
+    // Governance module genesis state.
+    core.component.governance.v1alpha1.GenesisContent governance_content = 3;
+    // IBC module genesis state.
+    core.component.ibc.v1alpha1.GenesisContent ibc_content = 4;
+    // Chain module genesis state.
+    core.component.chain.v1alpha1.GenesisContent chain_content = 5;
+    // DAO module genesis state.
+    core.component.dao.v1alpha1.GenesisContent dao_content = 6;
+    // Fee module genesis state.
+    core.component.fee.v1alpha1.GenesisContent fee_content = 7;
+}

@@ -46,3 +46,14 @@ for address in TOKEN_ADDRESS_MAP:
         "decimals": TOKEN_ADDRESS_MAP[address]["decimals"],
         "baseDenom": TOKEN_ADDRESS_MAP[address]["baseDenom"]
     }
+
+
+# !
+# PROTO COMPILATION COMANDS -- Must run from base repo directory
+# pip install grpcio-tools
+'''
+find /Users/phil/Desktop/hummingbot/hummingbot/hummingbot/connector/gateway/clob_spot/data_sources/penumbra -name "*.proto" | xargs python3.10 -m grpc_tools.protoc  \
+    --python_out=/Users/phil/Desktop/hummingbot/hummingbot/hummingbot/connector/gateway/clob_spot/data_sources/penumbra/generated \
+    --grpc_python_out=/Users/phil/Desktop/hummingbot/hummingbot/hummingbot/connector/gateway/clob_spot/data_sources/penumbra/generated \
+    -I/Users/phil/Desktop/hummingbot/hummingbot/hummingbot/connector/gateway/clob_spot/data_sources/penumbra/proto/penumbra
+'''

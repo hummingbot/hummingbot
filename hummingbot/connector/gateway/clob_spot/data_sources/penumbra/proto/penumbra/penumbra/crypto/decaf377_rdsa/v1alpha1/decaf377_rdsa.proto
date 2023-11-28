@@ -1,0 +1,10 @@
+syntax = "proto3";
+package penumbra.crypto.decaf377_rdsa.v1alpha1;
+
+message SpendAuthSignature {
+    bytes inner = 1;
+}
+
+message BindingSignature {
+    bytes inner = 1;
+}
