@@ -90,7 +90,7 @@ class TestMultiStreamDataSource(IsolatedAsyncioWrapperTestCase):
                         await self.msds.start_streams()
         mock_collector_task.assert_called()
         mock_transformers_task.assert_called()
-        mock_perform.assert_has_awaits([call(self.msds._open_connection), call(self.msds._start_task), ])
+        mock_perform.assert_has_awaits([call(self.msds._open_connection, sequential=True), call(self.msds._start_task), ])
         mock_pop.assert_has_awaits([call(mock_perform.return_value), call(mock_perform.return_value)])
         mock_logger().warning.assert_called()
 

@@ -81,7 +81,7 @@ class MultiStreamDataSource:
                 # Create the StreamDataSource, websocket to queue
                 self._streams[channel_pair] = StreamDataSource(
                     channel=channel,
-                    pair=pair,
+                    pairs=(pair, ),
                     ws_factory=ws_factory,
                     ws_url=ws_url,
                     pair_to_symbol=pair_to_symbol,
@@ -157,7 +157,7 @@ class MultiStreamDataSource:
         """Listen to all the streams and put the messages to the output queue."""
         # Open the streams connection, eliminate the ones that failed
         self.logger().debug(f"Opening {len(self._streams)} streams")
-        done: Tuple[bool, ...] = await self._perform_on_all_streams(self._open_connection)
+        done: Tuple[bool, ...] = await self._perform_on_all_streams(self._open_connection, sequential=True)
         await self._pop_unsuccessful_streams(done)
 
         # Streams
@@ -187,6 +187,11 @@ class MultiStreamDataSource:
         await self._perform_on_all_streams(self._stop_task)
         await self._collector.stop_all_tasks()
 
+    def stop_tasks_nowait(self) -> None:
+        """Listen to all the streams and put the messages to the output queue."""
+        [self._stop_task_nowait(stream) for stream in self._streams.values()]
+        self._collector.stop_all_tasks_nowait()
+
     async def _pop_unsuccessful_streams(self, success_list: Tuple[bool, ...]) -> None:
         """Remove the streams that fails based on a list of success/failure"""
         for (k, v), s in zip(tuple(self._streams.items()), success_list):
@@ -213,21 +218,22 @@ class MultiStreamDataSource:
         self._streams.pop(key)
         self._transformers.pop(key)
 
-    async def _perform_on_all_streams(self, action: Callable[[StreamDataSource], Any]) -> Tuple[bool, ...]:
+    async def _perform_on_all_streams(
+            self,
+            action: Callable[[StreamDataSource], Any],
+            sequential: bool = False) -> Tuple[bool, ...]:
         """Perform an action on all the streams."""
 
-        async def apply_on_(stream: StreamDataSource) -> bool:
+        async def apply_on_(_stream: StreamDataSource) -> bool:
             try:
-                await CallOrAwait(action, (stream,)).call()
+                await CallOrAwait(action, (_stream,)).call()
                 return True
             except Exception as e:
                 log_exception(
                     e,
                     self.logger(),
                     "ERROR",
-                    f"An error occurred while performing action {action} on stream {stream.channel}:{stream.pair}: {e}")
-                # self.logger().error(
-                #    f"An error occurred while performing action on stream {stream.channel}:{stream.pair}: {e}")
+                    f"An error occurred while performing action {action} on stream {_stream.channel}:{','.join(_stream.pairs)}: {e}")
                 return False
 
         if not isinstance(action, Callable):
@@ -238,6 +244,15 @@ class MultiStreamDataSource:
             self.logger().warning("No action provided to perform on the streams.")
             return tuple((True for _ in self._streams.values()))
 
+        if sequential:
+            response: List[bool] = []
+            for stream in self._streams.values():
+                self.logger().debug(f"Performing action {action} on stream {stream.channel}:{','.join(stream.pairs)}")
+                response.append(await apply_on_(stream))
+                self.logger().debug("Done")
+                await asyncio.sleep(1)
+            return tuple(response)
+
         return await asyncio.gather(*[apply_on_(stream) for stream in self._streams.values()])
 
     async def _open_connection(self, stream: StreamDataSource) -> bool:
@@ -247,7 +262,7 @@ class MultiStreamDataSource:
 
         await stream.open_connection()
         if stream.state[0] != StreamState.OPENED:
-            self.logger().warning(f"Stream {stream.channel}:{stream.pair} failed to open.{stream.state[0]}")
+            self.logger().warning(f"Stream {stream.channel}:{','.join(stream.pairs)} failed to open.{stream.state[0]}")
             await stream.close_connection()
             return False
         return True
@@ -259,7 +274,7 @@ class MultiStreamDataSource:
 
         await stream.close_connection()
         if stream.state[0] != StreamState.CLOSED:
-            self.logger().warning(f"Stream {stream.channel}:{stream.pair} failed to close.")
+            self.logger().warning(f"Stream {stream.channel}:{','.join(stream.pairs)} failed to close.")
             await stream.close_connection()
             return False
         return True
@@ -271,7 +286,7 @@ class MultiStreamDataSource:
 
         await stream.subscribe()
         if stream.state[0] != StreamState.SUBSCRIBED:
-            self.logger().warning(f"Stream {stream.channel}:{stream.pair} failed to subscribe.")
+            self.logger().warning(f"Stream {stream.channel}:{','.join(stream.pairs)} failed to subscribe.")
             await stream.close_connection()
             return False
         return True
@@ -284,11 +299,11 @@ class MultiStreamDataSource:
         try:
             await stream.start_task()
         except Exception as e:
-            self.logger().warning(f"Stream {stream.channel}:{stream.pair} failed to start the task: {e}")
+            self.logger().warning(f"Stream {stream.channel}:{','.join(stream.pairs)} failed to start the task: {e}")
             raise
 
         if stream.state[1] != TaskState.STARTED:
-            self.logger().warning(f"Stream {stream.channel}:{stream.pair} failed to start the task.")
+            self.logger().warning(f"Stream {stream.channel}:{','.join(stream.pairs)} failed to start the task.")
             return False
         return True
 
@@ -299,7 +314,19 @@ class MultiStreamDataSource:
 
         await stream.stop_task()
         if stream.state[1] != TaskState.STOPPED:
-            self.logger().warning(f"Stream {stream.channel}:{stream.pair} failed to stop the task.")
+            self.logger().warning(f"Stream {stream.channel}:{','.join(stream.pairs)} failed to stop the task.")
+            return False
+        return True
+
+    def _stop_task_nowait(self, stream: StreamDataSource) -> bool:
+        """Stop the task for a stream"""
+        if stream.state[1] == TaskState.STOPPED:
+            return True
+
+        self.logger().warning(f"Stopping {stream.channel}:{','.join(stream.pairs)}")
+        stream.stop_task_nowait()
+        if stream.state[1] != TaskState.STOPPED:
+            self.logger().warning(f"Stream {stream.channel}:{','.join(stream.pairs)} failed to stop the task.")
             return False
         return True
 
@@ -310,7 +337,7 @@ class MultiStreamDataSource:
 
         await stream.unsubscribe()
         if stream.state[0] != StreamState.UNSUBSCRIBED:
-            self.logger().warning(f"Stream {stream.channel}:{stream.pair} failed to unsubscribe.")
+            self.logger().warning(f"Stream {stream.channel}:{','.join(stream.pairs)} failed to unsubscribe.")
             await stream.close_connection()
             return False
         return True
