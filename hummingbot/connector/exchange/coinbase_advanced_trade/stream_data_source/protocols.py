@@ -1,4 +1,4 @@
-from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, Protocol
+from typing import Any, AsyncGenerator, Awaitable, Callable, Dict, Protocol, Tuple
 
 from hummingbot.connector.exchange.coinbase_advanced_trade.stream_data_source.enums import StreamAction
 from hummingbot.core.web_assistant.connections.data_types import WSRequest, WSResponse
@@ -57,7 +57,7 @@ class SubscriptionBuilderT(Protocol):
             *,
             action: StreamAction,
             channel: str,
-            pair: str,
+            pairs: Tuple[str, ...],
             pair_to_symbol: Callable[[str], Awaitable[str]]) -> Dict[str, Any]:
         ...
 
@@ -66,7 +66,7 @@ class SubscriptionBuilderT(Protocol):
             *,
             action: StreamAction,
             channel: str,
-            pair: str,
+            pairs: Tuple[str, ...],
             pair_to_symbol: Callable[[str], Awaitable[str]]) -> Dict[str, Any]:
         ...
 
