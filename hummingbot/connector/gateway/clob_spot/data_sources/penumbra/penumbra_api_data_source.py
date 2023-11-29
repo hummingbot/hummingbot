@@ -1,33 +1,15 @@
 import asyncio
-import json
-import time
-from asyncio import Lock
-from collections import defaultdict
-from decimal import Decimal
-from enum import Enum
-from math import floor
-from typing import Any, Dict, List, Mapping, Optional, Tuple
-from aiohttp import ClientSession
-
-from grpc.aio import UnaryStreamCall
-from hummingbot.client.config.client_config_map import ClientConfigMap
-
-from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.gateway.clob_spot.data_sources.clob_api_data_source_base import CLOBAPIDataSourceBase
-
-from hummingbot.connector.gateway.common_types import CancelOrderResult, PlaceOrderResult
-from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
-from hummingbot.connector.utils import combine_to_hb_trading_pair, split_hb_trading_pair
-from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
-from hummingbot.core.data_type.order_book_message import OrderBookMessageType
-from hummingbot.core.data_type.trade_fee import MakerTakerExchangeFeeRates, TokenAmount, TradeFeeBase, TradeFeeSchema
-from hummingbot.core.event.events import AccountEvent, BalanceUpdateEvent, MarketEvent, OrderBookDataSourceEvent
-from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.logger import HummingbotLogger
 from pprint import pprint
+from typing import Any, Dict, List, Optional
+
+from aiohttp import ClientSession
 from penumbra_constants import TOKEN_ADDRESS_MAP, TOKEN_SYMBOL_MAP
+
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import ClientConfigAdapter
+from hummingbot.core.data_type.common import OrderType
+from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
+from hummingbot.logger import HummingbotLogger
 
 
 class PenumbraAPIDataSource():
@@ -47,6 +29,8 @@ class PenumbraAPIDataSource():
         self._shared_client = shared_client
         self._connection_secure = connection_secure
         self._gateway = self._get_gateway_instance()
+
+        # self.viewProtocolServiceClient
 
     def get_supported_order_types(self) -> List[OrderType]:
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
@@ -93,10 +77,9 @@ class PenumbraAPIDataSource():
             market_assets[token1Symbol] = TOKEN_SYMBOL_MAP[token1Symbol]
             market_assets[token2Symbol] = TOKEN_SYMBOL_MAP[token2Symbol]
 
-        print(f"Assets not in token config: ", undefined_assets)
+        print("Assets not in token config: ", undefined_assets)
 
         return market_assets
-
 
     async def get_all_market_metadata(self):
         markets = await self._gateway.get_clob_markets(chain=self._chain,
@@ -116,7 +99,6 @@ class PenumbraAPIDataSource():
                 token1Symbol = assetAddress1
             else:
                 token1Symbol = TOKEN_ADDRESS_MAP[assetAddress1]['symbol']
-
 
             if assetAddress2 not in TOKEN_ADDRESS_MAP:
                 token2Symbol = assetAddress2
@@ -143,9 +125,9 @@ class PenumbraAPIDataSource():
         if trading_pairs is None:
             return markets
 
-        network = markets['network']
-        timestamp = markets['timestamp']
-        latency = markets['latency']
+        # network = markets['network']
+        # timestamp = markets['timestamp']
+        # latency = markets['latency']
         markets: list = markets['markets']
         return_list = []
 
@@ -167,7 +149,7 @@ class PenumbraAPIDataSource():
                 token1Symbol = assetAddress1
             else:
                 token1Symbol = TOKEN_ADDRESS_MAP[assetAddress1]['symbol']
-                
+
             if assetAddress2 not in TOKEN_ADDRESS_MAP:
                 token2Symbol = assetAddress2
             else:
@@ -208,3 +190,19 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+# Resources:
+# Working torwards https://hummingbot.org/strategies/avellaneda-market-making/
+# https://hummingbot.org/developers/strategies/tutorial/#what-youll-learn
+# https://www.youtube.com/watch?v=ZbkkGvB-fis
+# M1 & M2 Chip Setup https://hummingbot.org/installation/mac/#conda-and-apple-m1m2-chips
+
+# Installation command copypasta
+
+'''
+conda activate hummingbot
+./install
+./compile
+./start
+
+'''
