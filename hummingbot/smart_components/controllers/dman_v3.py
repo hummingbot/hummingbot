@@ -100,7 +100,7 @@ class DManV3(MarketMakingControllerBase):
             return
 
         target_spread = spread_multiplier if self.config.dynamic_target_spread else 1
-        if order_level.triple_barrier_conf.trailing_stop_trailing_delta and order_level.triple_barrier_conf.trailing_stop_trailing_delta:
+        if order_level.triple_barrier_conf.trailing_stop_activation_price_delta and order_level.triple_barrier_conf.trailing_stop_trailing_delta:
             trailing_stop = TrailingStop(
                 activation_price_delta=order_level.triple_barrier_conf.trailing_stop_activation_price_delta * target_spread,
                 trailing_delta=order_level.triple_barrier_conf.trailing_stop_trailing_delta * target_spread,
