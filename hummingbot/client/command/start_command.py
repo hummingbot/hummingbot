@@ -12,6 +12,7 @@ import pandas as pd
 import hummingbot.client.settings as settings
 from hummingbot import init_logging
 from hummingbot.client.command.gateway_api_manager import GatewayChainApiManager
+from hummingbot.client.command.gateway_command import GatewayCommand
 from hummingbot.client.config.config_helpers import get_strategy_starter_file
 from hummingbot.client.config.config_validators import validate_bool
 from hummingbot.client.config.config_var import ConfigVar
@@ -23,7 +24,6 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.exceptions import InvalidScriptModule, OracleRateUnavailable
 from hummingbot.strategy.directional_strategy_base import DirectionalStrategyBase
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
-from hummingbot.user.user_balances import UserBalances
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
@@ -148,10 +148,10 @@ class StartCommand(GatewayChainApiManager):
                     # check for node URL
                     await self._test_node_url_from_gateway_config(connector_details['chain'], connector_details['network'])
 
-                    await UserBalances.instance().update_exchange_balance(connector, self.client_config_map)
+                    await GatewayCommand.update_exchange_balances(self, connector, self.client_config_map)
                     balances: List[str] = [
                         f"{str(PerformanceMetrics.smart_round(v, 8))} {k}"
-                        for k, v in UserBalances.instance().all_balances(connector).items()
+                        for k, v in GatewayCommand.all_balance(self, connector).items()
                     ]
                     data.append(["balances", ""])
                     for bal in balances:

@@ -1,13 +1,17 @@
 import asyncio
 import datetime
-import glob
+import logging
 from pathlib import Path
 
 import pandas as pd
 
 from hummingbot import data_path
+from hummingbot.client.ui.interface_utils import format_df_for_printout
+from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.logger import HummingbotLogger
+from hummingbot.model.position_executors import PositionExecutors
 from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.smart_components.strategy_frameworks.controller_base import ControllerBase
@@ -16,7 +20,16 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
 class ExecutorHandlerBase:
-    def __init__(self, strategy: ScriptStrategyBase, controller: ControllerBase, update_interval: float = 1.0):
+    _logger = None
+
+    @classmethod
+    def logger(cls) -> HummingbotLogger:
+        if cls._logger is None:
+            cls._logger = logging.getLogger(__name__)
+        return cls._logger
+
+    def __init__(self, strategy: ScriptStrategyBase, controller: ControllerBase, update_interval: float = 1.0,
+                 executors_update_interval: float = 1.0):
         """
         Initialize the ExecutorHandlerBase.
 
@@ -27,6 +40,7 @@ class ExecutorHandlerBase:
         self.strategy = strategy
         self.controller = controller
         self.update_interval = update_interval
+        self.executors_update_interval = executors_update_interval
         self.terminated = asyncio.Event()
         self.level_executors = {level.level_id: None for level in self.controller.config.order_levels}
         self.status = ExecutorHandlerStatus.NOT_STARTED
@@ -69,14 +83,10 @@ class ExecutorHandlerBase:
         :param order_level: The order level instance.
         """
         if executor:
-            csv_path = self.get_csv_path()
             executor_data = executor.to_json()
-            if not csv_path.exists():
-                headers = executor_data.keys()
-                df_header = pd.DataFrame(columns=headers)
-                df_header.to_csv(csv_path, mode='a', header=True, index=False)
-            df = pd.DataFrame([executor_data])
-            df.to_csv(csv_path, mode='a', header=False, index=False)
+            executor_data["order_level"] = order_level.level_id
+            executor_data["controller_name"] = self.controller.config.strategy_name
+            MarketsRecorder.get_instance().store_executor(executor_data)
             self.level_executors[order_level.level_id] = None
 
     def create_executor(self, position_config: PositionConfig, order_level: OrderLevel):
@@ -86,7 +96,7 @@ class ExecutorHandlerBase:
         :param position_config: The position configuration.
         :param order_level: The order level instance.
         """
-        executor = PositionExecutor(self.strategy, position_config)
+        executor = PositionExecutor(self.strategy, position_config, update_interval=self.executors_update_interval)
         self.level_executors[order_level.level_id] = executor
 
     async def control_loop(self):
@@ -94,7 +104,10 @@ class ExecutorHandlerBase:
         self.on_start()
         self.status = ExecutorHandlerStatus.ACTIVE
         while not self.terminated.is_set():
-            await self.control_task()
+            try:
+                await self.control_task()
+            except Exception as e:
+                self.logger().error(e, exc_info=True)
             await self._sleep(self.update_interval)
         self.status = ExecutorHandlerStatus.TERMINATED
         self.on_stop()
@@ -118,11 +131,12 @@ class ExecutorHandlerBase:
                        position_action=PositionAction.CLOSE)
 
     def get_closed_executors_df(self):
-        dfs = [pd.read_csv(file) for file in glob.glob(data_path() + f"/{self.controller.get_csv_prefix()}*")]
-        if len(dfs) > 0:
-            df = pd.concat(dfs)
-            return self.controller.filter_executors_df(df)
-        return pd.DataFrame()
+        executors = MarketsRecorder.get_instance().get_position_executors(
+            self.controller.config.strategy_name,
+            self.controller.config.exchange,
+            self.controller.config.trading_pair)
+        executors_df = PositionExecutors.to_pandas(executors)
+        return executors_df
 
     def get_active_executors_df(self) -> pd.DataFrame:
         """
@@ -130,8 +144,19 @@ class ExecutorHandlerBase:
 
         :return: DataFrame containing active executors.
         """
-        executors = [executor.to_json() for executor in self.level_executors.values() if executor]
-        return pd.DataFrame(executors) if executors else pd.DataFrame()
+        executors_info = []
+        for level, executor in self.level_executors.items():
+            if executor:
+                executor_info = executor.to_json()
+                executor_info["level_id"] = level
+                executors_info.append(executor_info)
+        if len(executors_info) > 0:
+            executors_df = pd.DataFrame(executors_info)
+            executors_df.sort_values(by="entry_price", ascending=False, inplace=True)
+            executors_df["spread_to_next_level"] = -1 * executors_df["entry_price"].pct_change(periods=1)
+            return executors_df
+        else:
+            return pd.DataFrame()
 
     @staticmethod
     def get_executors_df(csv_prefix: str) -> pd.DataFrame:
@@ -199,14 +224,16 @@ class ExecutorHandlerBase:
         Base status for executor handler.
         """
         lines = []
+        lines.extend(self.controller.to_format_status())
         lines.extend(["\n################################ Active Executors ################################"])
-
-        for level_id, executor in self.level_executors.items():
-            lines.extend([f"|Level: {level_id}"])
-            if executor:
-                lines.extend(executor.to_format_status())
-            else:
-                lines.extend(["|  No active executor."])
+        executors_df = self.get_active_executors_df()
+        if len(executors_df) > 0:
+            executors_df["amount_quote"] = executors_df["amount"] * executors_df["entry_price"]
+            columns_to_show = ["level_id", "side", "entry_price", "close_price", "spread_to_next_level", "net_pnl",
+                               "net_pnl_quote", "amount", "amount_quote", "timestamp", "close_type", "executor_status"]
+            executors_df_str = format_df_for_printout(executors_df[columns_to_show].round(decimals=3),
+                                                      table_format="psql")
+            lines.extend([executors_df_str])
         lines.extend(["\n################################## Performance ##################################"])
         closed_executors_info = self.closed_executors_info()
         active_executors_info = self.active_executors_info()
@@ -228,7 +255,6 @@ class ExecutorHandlerBase:
 Closed executors: {closed_executors_info["total_executors"]}
     {closed_executors_info["close_types"]}
     """])
-        lines.extend(self.controller.to_format_status())
         return "\n".join(lines)
 
     async def _sleep(self, delay: float):
