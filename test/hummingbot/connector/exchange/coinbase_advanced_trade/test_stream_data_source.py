@@ -2,7 +2,7 @@ import asyncio
 import functools
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from test.logger_mixin_for_test import LoggerMixinForTest
-from typing import Any, AsyncGenerator, Awaitable, Callable, Coroutine, Dict
+from typing import Any, AsyncGenerator, Awaitable, Callable, Coroutine, Dict, Tuple
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from hummingbot.connector.exchange.coinbase_advanced_trade.stream_data_source.enums import StreamAction, StreamState
@@ -80,7 +80,7 @@ class TestStreamDataSource(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.heartbeat_channel = "heartbeats"
         self.stream_data_source = StreamDataSource(
             channel=self.channel,
-            pair=self.trading_pair,
+            pairs=self.trading_pairs,
             ws_factory=self.partial_assistant,
             ws_url="wss://test_url",
             pair_to_symbol=self.pair_to_symbol,
@@ -91,7 +91,8 @@ class TestStreamDataSource(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
     async def asyncSetUp(self) -> None:
         await super().asyncSetUp()
-        self.symbol = await self.pair_to_symbol(f"{self.base_asset}-{self.quote_asset}")
+        self.symbol = await self.pair_to_symbol(self.trading_pair)
+        self.symbols = [await self.pair_to_symbol(pair) for pair in self.trading_pairs]
         # Reset the mock
         self.pair_to_symbol_called = False
         self.pair_to_symbol_args = None
@@ -117,7 +118,7 @@ class TestStreamDataSource(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             *,
             action: StreamAction,
             channel: str,
-            pair: str,
+            pairs: Tuple[str],
             pair_to_symbol: Callable[[str], Awaitable[str]]) -> Dict[str, Any]:
         if action == StreamAction.SUBSCRIBE:
             _type = "subscribe"
@@ -127,7 +128,7 @@ class TestStreamDataSource(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
             raise ValueError(f"Invalid action: {action}")
         return {
             "type": _type,
-            "product_ids": [await pair_to_symbol(pair)],
+            "product_ids": [await pair_to_symbol(pair) for pair in pairs],
             "channel": channel,
         }
 
@@ -140,7 +141,7 @@ class TestStreamDataSource(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
     async def test_initialization_sets_correct_attributes(self) -> None:
         self.assertEqual(self.channel, self.stream_data_source._channel, )
-        self.assertEqual(self.trading_pair, self.stream_data_source._pair, )
+        self.assertEqual(tuple(self.trading_pairs), self.stream_data_source._pairs, )
         self.assertEqual(self.partial_assistant,
                          self.stream_data_source._ws_factory)
         self.assertEqual(self.subscription_builder,
@@ -154,7 +155,7 @@ class TestStreamDataSource(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
 
         # Properties
         self.assertEqual(self.channel, self.stream_data_source.channel, )
-        self.assertEqual(self.trading_pair, self.stream_data_source.pair, )
+        self.assertEqual(tuple(self.trading_pairs), self.stream_data_source.pairs, )
         self.assertEqual((StreamState.CLOSED, TaskState.STOPPED), self.stream_data_source.state, )
 
     async def test_ws_factory_called(self):
@@ -168,7 +169,7 @@ class TestStreamDataSource(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         )
         self.assertTrue(self.pair_to_symbol_called)
         self.assertEqual("subscribe", payload["type"])
-        self.assertEqual([self.symbol], payload["product_ids"])
+        self.assertEqual(self.symbols, payload["product_ids"])
         self.assertEqual(self.channel, payload["channel"])
 
     async def test__subscription_builder_after_init_unsubscribe(self):
@@ -178,7 +179,7 @@ class TestStreamDataSource(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         )
         self.assertTrue(self.pair_to_symbol_called)
         self.assertEqual("unsubscribe", payload["type"])
-        self.assertEqual([self.symbol], payload["product_ids"])
+        self.assertEqual(self.symbols, payload["product_ids"])
         self.assertEqual(self.channel, payload["channel"])
 
     async def test_open(self) -> None:
@@ -248,7 +249,7 @@ class TestStreamDataSource(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertTrue(self.stream_data_source._ws_assistant.send_called)
         self.assertEqual(WSJSONRequest(payload={
             "type": "subscribe",
-            "product_ids": [self.symbol],
+            "product_ids": self.symbols,
             "channel": self.channel,
         }, is_auth_required=True),
             self.stream_data_source._ws_assistant.send_args)
@@ -274,7 +275,7 @@ class TestStreamDataSource(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         self.assertTrue(self.stream_data_source._ws_assistant.send_called)
         self.assertEqual(WSJSONRequest(payload={
             "type": "unsubscribe",
-            "product_ids": [self.symbol],
+            "product_ids": self.symbols,
             "channel": self.channel,
         }, is_auth_required=True),
             self.stream_data_source._ws_assistant.send_args)
@@ -365,14 +366,15 @@ class TestStreamDataSource(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
         # Attempt to unsubscribe: note that after close the internal _ws_assistant is None
         self.assertEqual(WSJSONRequest(payload={
             "type": "unsubscribe",
-            "product_ids": [self.symbol],
+            "product_ids": self.symbols,
             "channel": self.channel,
         }, is_auth_required=True),
             self.ws_assistant.send_args)
+        print(self.log_records)
         self.assertTrue(
             self.is_logged(
                 "INFO",
-                f"Unsubscribed from {self.channel} for {self.trading_pair}.")
+                f"Unsubscribed from {self.channel} for {self.stream_data_source._pairs}.")
         )
         self.assertEqual(StreamState.CLOSED, self.stream_data_source._stream_state, )
 

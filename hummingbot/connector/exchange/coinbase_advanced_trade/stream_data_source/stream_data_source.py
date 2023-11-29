@@ -2,7 +2,9 @@ import asyncio
 import functools
 import logging
 import time
-from typing import Any, Awaitable, Callable, Coroutine, Generic, Tuple, TypeVar
+from typing import Any, Awaitable, Callable, Coroutine, Generic, Iterable, Tuple, TypeVar
+
+from async_timeout import timeout
 
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.logger import HummingbotLogger
@@ -36,7 +38,7 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
 
     __slots__ = (
         "_channel",
-        "_pair",
+        "_pairs",
         "_ws_factory",
         "_ws_url",
         "_pair_to_symbol",
@@ -55,7 +57,7 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
             self,
             *,
             channel: str,
-            pair: str,
+            pairs: str | Iterable[str],
             ws_factory: Callable[[], Coroutine[Any, Any, WSAssistantPtl]],
             ws_url: str,
             pair_to_symbol: Callable[[str], Awaitable[str]],
@@ -67,14 +69,14 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
         Initialize a StreamDataSource.
 
         :param channel: The channel to subscribe to.
-        :param pair: The pair to subscribe to.
+        :param pairs: The pairs to subscribe to.
         :param ws_factory: The method for creating the WSAssistant.
         :param pair_to_symbol: The method for converting a pair to a symbol.
         :param subscription_builder: The method for building a subscription payload.
         :param heartbeat_channel: The channel to subscribe to for heartbeats.
         """
         self._channel: str = channel
-        self._pair: str = pair
+        self._pairs: Tuple[str] = tuple(pairs) if isinstance(pairs, Iterable) else (pairs,)
         self._ws_factory: Callable[[], Coroutine[Any, Any, WSAssistantPtl]] = ws_factory
         self._ws_url: str = ws_url
         self._heartbeat_channel: str | None = heartbeat_channel
@@ -85,7 +87,7 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
         # Construct the subscription builder
         self._subscription_builder: functools.partial[SubscriptionBuilderT] = functools.partial(
             subscription_builder,
-            pair=self._pair,
+            pairs=self._pairs,
             pair_to_symbol=pair_to_symbol,
         )
         self._on_failed_subscription: Callable[[WSResponsePtl], WSResponsePtl] | None = on_failed_subscription
@@ -112,7 +114,7 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
             response = self._on_failed_subscription(response)
 
         except CoinbaseAdvancedTradeWSSubscriptionError:
-            self.logger().error(f"Failed to subscribe to {self._channel} for {self._pair}.")
+            self.logger().error(f"Failed to subscribe to {self._channel} for {self._pairs}.")
             await asyncio.sleep(0.25)
             await self.subscribe()
             return
@@ -124,7 +126,7 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
             self.logger().error(f"Unexpected message: {response}.")
             raise e
 
-        self.logger().debug(f"Validated subscription to {self._channel} for {self._pair}.")
+        self.logger().debug(f"Validated subscription to {self._channel} for {self._pairs}.")
         self._last_recv_time_s: float = self._time()
         return response.data
 
@@ -149,9 +151,9 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
         return self._channel
 
     @property
-    def pair(self) -> str:
-        """Returns the pair of the stream"""
-        return self._pair
+    def pairs(self) -> Tuple[str]:
+        """Returns the pairs of the stream"""
+        return self._pairs
 
     @property
     def last_recv_time(self) -> float:
@@ -185,14 +187,27 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
     async def stop_task(self) -> None:
         """Stops the TaskManager transferring messages to Pipeline."""
         if self._stream_state != StreamState.CLOSED:
-            self.logger().error(f"Attempting to stop Task of an unclosed {self._channel}/{self._pair} stream.")
+            self.logger().error(f"Attempting to stop Task of an unclosed {self._channel}/{self._pairs} stream.")
             return
         await super(AutoStreamPipeFitting, self).stop_task()
 
         if not super(AutoStreamPipeFitting, self).is_running():
             self._task_state = TaskState.STOPPED
         else:
-            self.logger().error(f"Failed to stop the TaskManager for {self._channel}/{self._pair} stream.")
+            self.logger().error(f"Failed to stop the TaskManager for {self._channel}/{self._pairs} stream.")
+
+    def stop_task_nowait(self) -> None:
+        """Stops the TaskManager transferring messages to Pipeline."""
+        if self._stream_state != StreamState.CLOSED:
+            self.logger().warning(f"Scheduling clean close of an unclosed {self._channel}/{self._pairs} stream.")
+            asyncio.create_task(self.close_connection())
+
+        super(AutoStreamPipeFitting, self).stop_task_nowait()
+
+        if not super(AutoStreamPipeFitting, self).is_running():
+            self._task_state = TaskState.STOPPED
+        else:
+            self.logger().error(f"Failed to stop the TaskManager for {self._channel}/{self._pairs} stream.")
 
     async def open_connection(self) -> None:
         """Initializes the websocket connection and subscribe to the heartbeats channel."""
@@ -202,7 +217,18 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
             self.logger().debug(f"_ws_assistant {self._ws_assistant}")
 
             self.logger().debug(f"_ws_assistant CONNECT {self._ws_url}")
-            await self._ws_assistant.connect(ws_url=self._ws_url, ping_timeout=30)
+            while True:
+                try:
+                    async with timeout(0.25):
+                        await self._ws_assistant.connect(ws_url=self._ws_url, ping_timeout=30)
+                    break
+                except (ConnectionResetError, asyncio.TimeoutError) as e:
+                    self.logger().debug(f"Connection reset error occurred {str(e)}")
+                    # await self.close_connection()
+                    await asyncio.sleep(0.1)
+                except Exception as e:
+                    raise e
+
             self.logger().debug(" '-> CONNECTED")
 
             # Signal that the WS Assistant is ready when connected
@@ -214,12 +240,12 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
                 await self.subscribe(channel=self._heartbeat_channel, set_state=False)
 
             # Flush out any messages left-over (in particular the SENTINEL)
-            self.logger().debug("Restarting the destination")
+            self.logger().debug(f"Starting the destination for {self._channel}/{self._pairs} stream.")
             await self.destination.start()
 
         else:
             self.logger().debug(
-                f"Attempting to open unclosed {self._channel}/{self._pair} stream. "
+                f"Attempting to open unclosed {self._channel}/{self._pairs} stream. "
                 f"State {self._stream_state} left unchanged")
 
     async def close_connection(self) -> None:
@@ -251,16 +277,16 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
         channel: str = channel or self._channel
 
         if self._stream_state == StreamState.SUBSCRIBED:
-            # self.logger().warning(f"Attempted to subscribe to {channel}/{self._pair} stream while already
+            # self.logger().warning(f"Attempted to subscribe to {channel}/{self._pairs} stream while already
             # subscribed.")
             return
 
         if self._task_state != TaskState.STARTED and channel != "heartbeats":
-            self.logger().warning(f"Subscribing to {channel}/{self._pair} stream the TaskManager is NOT "
+            self.logger().warning(f"Subscribing to {channel}/{self._pairs} stream the TaskManager is NOT "
                                   f"started: Message loss is likely to occur.")
 
         if self._stream_state != StreamState.OPENED:
-            self.logger().warning(f"Subscribing to {channel}/{self._pair} stream while not opened. "
+            self.logger().warning(f"Subscribing to {channel}/{self._pairs} stream while not opened. "
                                   f"Attempting to open the stream...")
             await self.open_connection()
 
@@ -283,9 +309,9 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
 
         if set_state:
             self._stream_state = StreamState.SUBSCRIBED
-        # self.logger().debug(f"Request sent to {channel} for {self._pair}.")
+        # self.logger().debug(f"Request sent to {channel} for {self._pairs}.")
 
-        self.logger().info(f"Subscribed to {channel} for {self._pair}...")
+        self.logger().info(f"Subscribed to {channel} for {self._pairs}...")
 
     async def unsubscribe(self, *, channel: str | None = None, set_state: bool = True) -> None:
         """
@@ -298,7 +324,7 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
         channel: str = channel or self._channel
 
         if self._stream_state != StreamState.SUBSCRIBED:
-            # self.logger().warning(f"Attempted to unsubscribe from {channel}/{self._pair} stream while not
+            # self.logger().warning(f"Attempted to unsubscribe from {channel}/{self._pairs} stream while not
             # subscribed.")
             return
 
@@ -315,7 +341,7 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
 
         if set_state:
             self._stream_state = StreamState.UNSUBSCRIBED
-        self.logger().info(f"Unsubscribed from {channel} for {self._pair}.")
+        self.logger().info(f"Unsubscribed from {channel} for {self._pairs}.")
 
     async def _send_to_stream(self, *, subscription_builder: functools.partial[SubscriptionBuilderT]) -> None:
         """
@@ -354,7 +380,7 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
         Connects to the websocket and subscribes to the user events.
         This method is called by the AutoStreamPipeFitting.
         """
-        self.logger().debug(f"_connect to {self._channel} for {self._pair}...")
+        self.logger().debug(f"_connect to {self._channel} for {self._pairs}...")
         await self.open_connection()
         await self.subscribe()
 
