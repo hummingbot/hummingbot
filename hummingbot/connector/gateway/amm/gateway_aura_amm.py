@@ -7,7 +7,7 @@ from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.trade_fee import TokenAmount
 from hummingbot.core.event.events import TradeType
 from hummingbot.core.gateway import check_transaction_exceptions
-
+from hummingbot.core.utils.async_utils import safe_ensure_future
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
@@ -16,7 +16,7 @@ class GatewayAuraAMM(GatewayEVMAMM):
     """
     Defines basic functions common to connectors that interact with Gateway.
     """
-
+    UPDATE_BALANCE_INTERVAL = 1.0
     API_CALL_TIMEOUT = 60.0
     POLL_INTERVAL = 15.0
 
@@ -46,6 +46,35 @@ class GatewayAuraAMM(GatewayEVMAMM):
                          trading_pairs=trading_pairs,
                          additional_spenders=additional_spenders,
                          trading_required=trading_required)
+
+    async def start_network(self):
+        if self._trading_required:
+            self._status_polling_task = safe_ensure_future(self._status_polling_loop())
+            # self._update_allowances = safe_ensure_future(self.update_allowances())
+            self._get_gas_estimate_task = safe_ensure_future(self.get_gas_estimate())
+        self._get_chain_info_task = safe_ensure_future(self.get_chain_info())
+
+    async def stop_network(self):
+        if self._status_polling_task is not None:
+            self._status_polling_task.cancel()
+            self._status_polling_task = None
+        if self._get_chain_info_task is not None:
+            self._get_chain_info_task.cancel()
+            self._get_chain_info_task = None
+        if self._get_gas_estimate_task is not None:
+            self._get_gas_estimate_task.cancel()
+            self._get_chain_info_task = None
+    @property
+    def ready(self):
+        return all(self.status_dict.values())
+
+    @property
+    def status_dict(self) -> Dict[str, bool]:
+        return {
+            "account_balance": len(self._account_balances) > 0 if self._trading_required else True,
+            "native_currency": self._native_currency is not None,
+            # "network_transaction_fee": self.network_transaction_fee is not None if self._trading_required else True,
+        }
 
     async def get_chain_info(self):
         """
@@ -136,3 +165,9 @@ class GatewayAuraAMM(GatewayEVMAMM):
         This is intentionally left blank, because cancellation is not supported for tezos blockchain.
         """
         return []
+
+    async def update_allowances(self):
+        pass
+
+    async def get_allowances(self):
+        pass

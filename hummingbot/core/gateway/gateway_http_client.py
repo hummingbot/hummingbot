@@ -282,7 +282,7 @@ class GatewayHttpClient:
                 "chain": chain,
                 "network": network,
                 "address": address,
-                "tokenSymbols": ['EAURA' if network == 'euphoria' else 'AURA'],
+                "tokenSymbols": token_symbols,
             }
             if connector is not None:
                 request_params["connector"] = connector
