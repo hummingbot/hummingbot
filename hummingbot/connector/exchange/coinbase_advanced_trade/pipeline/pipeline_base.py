@@ -86,7 +86,12 @@ class PipelineBase(Generic[FromDataT, ToDataT]):
 
     async def stop_task(self) -> None:
         """Stop the task."""
+        await self.destination.stop()
         await self.task_manager.stop_task()
+
+    def stop_task_nowait(self) -> None:
+        """Stop the task."""
+        self.task_manager.stop_task_nowait()
 
     def is_running(self) -> bool:
         """Stop the task."""
