@@ -325,9 +325,9 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
         mock_queue = AsyncMock()
         trade_event = {'channel': 'trades', 'data': [
             {'coin': 'BTC', 'side': 'A', 'px': '2009.0', 'sz': '0.0079', 'time': 1701156061468,
-             'hash': '0x3e2bc327cc925903cebe0408315a98010b002fda921d23fd1468bbb5d573f902'},
+             'hash': '0x3e2bc327cc925903cebe0408315a98010b002fda921d23fd1468bbb5d573f902'}, # noqa: mock
             {'coin': 'BTC', 'side': 'B', 'px': '2009.0', 'sz': '0.0079', 'time': 1701156052596,
-             'hash': '0x0b2e11dc4ac8efee94660408315a690109003301ae47ae3512cded47641a42b1'}]}
+             'hash': '0x0b2e11dc4ac8efee94660408315a690109003301ae47ae3512cded47641a42b1'}]} # noqa: mock
 
         mock_queue.get.side_effect = [trade_event, asyncio.CancelledError()]
         self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue
