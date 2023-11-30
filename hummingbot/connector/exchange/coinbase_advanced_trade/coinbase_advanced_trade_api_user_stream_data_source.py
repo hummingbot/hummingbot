@@ -12,8 +12,8 @@ from hummingbot.logger import HummingbotLogger
 
 from .coinbase_advanced_trade_web_utils import get_timestamp_from_exchange_time
 from .connecting_functions.exception_log_manager import log_if_possible
-from .multi_stream_data_source.multi_stream_data_source import MultiStreamDataSource
 from .pipe import SENTINEL
+from .single_stream_data_source.single_stream_data_source import SingleStreamDataSource
 from .stream_data_source.enums import StreamAction
 from .stream_data_source.errors import CoinbaseAdvancedTradeWSSubscriptionError
 from .stream_data_source.protocols import WSAssistantPtl, WSResponsePtl
@@ -46,14 +46,14 @@ async def coinbase_advanced_trade_subscription_builder(
         *,
         action: StreamAction,
         channel: str,
-        pair: str,
+        pairs: Tuple[str],
         pair_to_symbol: Callable[[str], Awaitable[str]]
 ) -> Dict[str, Any]:
     """
     Build the subscription message for Coinbase Advanced Trade API.
     :param action: The action to perform.
     :param channel: The channel to subscribe to.
-    :param pair: The trading pair to subscribe to.
+    :param pairs: The trading pairs to subscribe to.
     :param pair_to_symbol: The function to convert trading pair to symbol.
     :return: The subscription message.
     """
@@ -80,7 +80,7 @@ async def coinbase_advanced_trade_subscription_builder(
         raise ValueError(f"Invalid action: {action}")
     return {
         "type": _type,
-        "product_ids": [await pair_to_symbol(pair)],
+        "product_ids": [await pair_to_symbol(pair) for pair in pairs],
         "channel": channel,
     }
 
@@ -289,7 +289,7 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     def __init__(
             self,
-            channels: Tuple[str, ...],
+            channel: str,
             pairs: Tuple[str, ...],
             ws_factory: Callable[[], Coroutine[Any, Any, WSAssistantPtl]],
             ws_url: str,
@@ -300,7 +300,7 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         Initialize the Coinbase Advanced Trade API user stream data source.
 
-        :param channels: The channels to subscribe to.
+        :param channel: The channels to subscribe to.
         :param pairs: The trading pairs to subscribe to.
         :param ws_factory: The factory function to create a websocket connection.
         :param ws_url: The websocket URL.
@@ -311,8 +311,8 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
         super().__init__()
         self._sequences: defaultdict[str, int] = defaultdict(int)
 
-        self._stream_to_queue: MultiStreamDataSource = MultiStreamDataSource(
-            channels=channels,
+        self._stream_to_queue: SingleStreamDataSource = SingleStreamDataSource(
+            channel=channel,
             pairs=pairs,
             ws_factory=ws_factory,
             ws_url=ws_url,
@@ -329,11 +329,11 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
                 functools.partial(
                     message_to_cumulative_update,
                     symbol_to_pair=symbol_to_pair,
-                    logger=self.logger())
+                    logger=self.logger()),
+                functools.partial(
+                    collect_cumulative_update,
+                    logger=self.logger()),
             ],
-            collector=functools.partial(
-                collect_cumulative_update,
-                logger=self.logger()),
             heartbeat_channel=heartbeat_channel,
         )
 
@@ -354,7 +354,7 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def listen_for_user_stream(self, output: asyncio.Queue[CoinbaseAdvancedTradeCumulativeUpdate]):
         self.logger().debug(f"Starting for user streams {self._stream_to_queue}")
-        await self._stream_to_queue.start_streams()
+        await self._stream_to_queue.start_stream()
         self.logger().debug("Subscribing to the streams")
         await self._stream_to_queue.subscribe()
 
@@ -368,3 +368,8 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
             else:
                 self.logger().error(f"Invalid message type: {type(message)} {message}")
                 raise ValueError(f"Invalid message type: {type(message)} {message}")
+
+    def stop_nowait(self):
+        self.logger().debug("Stopping the stream")
+        self._stream_to_queue.stop_task_nowait()
+        self.logger().debug("Stopped")
