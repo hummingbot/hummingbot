@@ -174,6 +174,24 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
     def in_flight_orders(self) -> Dict[str, InFlightOrder]:
         return self._order_tracker.active_orders
 
+    @property
+    def status_dict(self) -> Dict[str, bool]:
+        self.logger().debug(
+            f"\n   symbols_mapping_initialized: {self.trading_pair_symbol_map_ready()}\n"
+            f"   order_books_initialized: {self.order_book_tracker.ready}\n"
+            f"   account_balance: {len(self._account_balances) > 0}\n"
+            f"   trading_required: {not self.is_trading_required}\n"
+            f"   trading_rule_initialized: {len(self._trading_rules) > 0 if self.is_trading_required else True}\n"
+            f"   user_stream_initialized: {self._is_user_stream_initialized()}\n"
+        )
+        return {
+            "symbols_mapping_initialized": self.trading_pair_symbol_map_ready(),
+            "order_books_initialized": self.order_book_tracker.ready,
+            "account_balance": not self.is_trading_required or len(self._account_balances) > 0,
+            "trading_rule_initialized": len(self._trading_rules) > 0 if self.is_trading_required else True,
+            "user_stream_initialized": self._is_user_stream_initialized(),
+        }
+
     def supported_order_types(self) -> List[OrderType]:
         return [OrderType.MARKET, OrderType.LIMIT, OrderType.LIMIT_MAKER]
 
@@ -191,6 +209,12 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
         await self._initialize_market_assets()
         await self._update_trading_rules()
         await super().start_network()
+
+    def _stop_network(self):
+        if self._multi_stream_data_source is not None:
+            self.logger().debug(f"Stopping custom Stream {self._multi_stream_data_source}...")
+            self._multi_stream_data_source.stop_nowait()
+        super()._stop_network()
 
     async def _update_time_synchronizer(self, pass_on_non_cancelled_error: bool = False):
         # Overriding ExchangePyBase: Synchronizer expects time in ms
@@ -227,9 +251,9 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
             api_factory=self._web_assistants_factory)
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
-        # self.logger().debug("Creating user stream data source.")
-        self._multi_stream_tracker = CoinbaseAdvancedTradeAPIUserStreamDataSource(
-            channels=("user",),
+        self.logger().debug("Creating user stream data source.")
+        self._multi_stream_data_source = CoinbaseAdvancedTradeAPIUserStreamDataSource(
+            channel="user",
             pairs=tuple(self._trading_pairs),
             ws_factory=self._web_assistants_factory.get_ws_assistant,  # type: ignore
             ws_url=constants.WSS_URL.format(domain=self.domain),
@@ -237,7 +261,8 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
             symbol_to_pair=partial(self.trading_pair_associated_to_exchange_symbol),
             heartbeat_channel="heartbeats",
         )
-        return self._multi_stream_tracker
+        self.logger().debug(f"Created {self._multi_stream_data_source}.")
+        return self._multi_stream_data_source
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
         return (
@@ -673,6 +698,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
 
     async def _status_polling_loop_fetch_updates(self):
         await self._update_order_fills_from_trades()
+        await self._update_balances()
         await super()._status_polling_loop_fetch_updates()
 
     def update_balance(self, asset: str, balance: Decimal):
@@ -689,7 +715,9 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
     async def _update_balances(self):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
-        # self.logger().debug(f"{local_asset_names} {remote_asset_names}")
+        self.logger().debug(f"{local_asset_names} {remote_asset_names}")
+
+        self.logger().debug(f"Updating balances from {self.name}...")
 
         async for account in self._list_trading_accounts():  # type: ignore # Known Pycharm issue
             asset_name: str = account.get("currency")
@@ -786,9 +814,6 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
                                                    is_auth_required=True)
         self._trading_fees = fees
 
-    def _stop_network(self):
-        super()._stop_network()
-
     async def _iter_user_event_queue(self) -> AsyncIterable[CoinbaseAdvancedTradeCumulativeUpdate]:
         """
         Called by _user_stream_event_listener.
@@ -838,7 +863,8 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
                     new_state == OrderState.PARTIALLY_FILLED,
                     new_state == OrderState.FILLED,
             )):
-                self.logger().debug(f"Received: {event_message.client_order_id} {event_message.status} fillable: {fillable_order} updatable: {updatable_order}")
+                self.logger().debug(
+                    f"Received: {event_message.client_order_id} {event_message.status} fillable: {fillable_order} updatable: {updatable_order}")
                 transaction_fee: Decimal = Decimal(event_message.cumulative_fee) - fillable_order.cumulative_fee_paid(
                     "USD")
                 fee = TradeFeeBase.new_spot_fee(
