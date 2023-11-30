@@ -314,7 +314,7 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
             return True
 
         if tracked_order.current_state not in [OrderState.OPEN, OrderState.PARTIALLY_FILLED]:
-            self.logger().warning(f"Not canceling order due to state {tracked_order.current_state} for {order_id}")
+            self.logger().debug(f"Not canceling order due to state {tracked_order.current_state} for {order_id}")
             return False
 
         cancel_payload = {
@@ -426,10 +426,10 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         )
 
         if not response.get("success", False):
-            raise
+            raise IOError(f"Failed transaction submission for {order_id} with {response}")
 
         if "code" in response and response["code"] != 0:
-            raise
+            raise ValueError(f"Failed transaction submission for {order_id} with {response}")
 
         return None, time.time()
 
@@ -444,7 +444,7 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
                 await order.get_exchange_order_id()
         track_order: List[InFlightOrder] = [o for o in tracked_orders if exchange_order_id == o.exchange_order_id]
         # if this is none request using the exchange order id
-        if track_order[0] is None:
+        if len(track_order) == 0 or track_order[0] is None:
             order_update: OrderUpdate = await self._request_order_status(exchange_order_id=exchange_order_id)
             client_order_id = order_update.client_order_id
         else:
@@ -504,15 +504,20 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         trade_id = trade.get("id")
 
         # We don't know if we're the buyer or seller, so we need to check
+        aggressor = trade.get("aggressor")
         fees = trade.get("buyerFee")
+        if "infrastructureFee" in fees and Decimal(fees["infrastructureFee"]) == s_decimal_0:
+            fees = trade.get("sellerFee")
         exchange_order_id = trade.get("buyOrder")
-        is_taker = True if trade.get("aggressor") == 1 else False
+        is_taker = True if (aggressor == 1 or aggressor == 'BUY_SIDE') else False
 
         # we are the seller if our key matches the seller key
         if trade.get("seller") == self.vega_perpetual_public_key:
             fees = trade.get("sellerFee")
+            if "infrastructureFee" in fees and Decimal(fees["infrastructureFee"]) == s_decimal_0:
+                fees = trade.get("buyerFee")
             exchange_order_id = trade.get("sellOrder")
-            is_taker = True if trade.get("aggressor") == 2 else False
+            is_taker = True if (aggressor == 2 or aggressor == 'SELL_SIDE') else False
 
         # Get our client id and tracked_order from it
         client_order_id = await self._get_client_order_id_from_exchange_order_id(exchange_order_id)
@@ -523,8 +528,9 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
             return None
 
         m: Market = self._exchange_info.get(trade["marketId"])
+        a: Asset = self._assets_by_id.get(m.quote_asset_id)
         fee_asset = tracked_order.quote_asset
-        total_fees_paid = web_utils.calculate_fees(fees, m.quantity_quantum)
+        total_fees_paid = web_utils.calculate_fees(fees, a.quantum, is_taker)
 
         fee = TradeFeeBase.new_perpetual_fee(
             fee_schema=self.trade_fee_schema(),
@@ -576,7 +582,7 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
             if tracked_order is not None:
                 self.logger().warning(f"unable to locate order {orders_data.get('message')}")
             else:
-                self.logger().warning(f"unable to locate order in our inflight {orders_data.get('message')}")
+                self.logger().warning(f"unable to locate order in our inflight orders {orders_data.get('message')}")
 
         # Multiple orders
         if "orders" in orders_data:
