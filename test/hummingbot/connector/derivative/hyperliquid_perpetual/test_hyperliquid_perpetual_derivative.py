@@ -393,10 +393,6 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         # exchange._last_trade_history_timestamp = self.latest_trade_hist_timestamp
         return exchange
 
-    #
-    def validate_auth_credentials_present(self, request_call: RequestCall):
-        pass
-
     def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = json.loads(request_call.kwargs["data"])
         self.assertEqual(True if order.trade_type is TradeType.BUY else False,
@@ -910,8 +906,8 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             order_type=OrderType.LIMIT,
         )
 
-        self.assertIn("0x48424f54424548554436306163303012", self.exchange.in_flight_orders)
-        order = self.exchange.in_flight_orders["0x48424f54424548554436306163303012"]
+        self.assertIn("0x48424f54424548554436306163303012", self.exchange.in_flight_orders) # noqa: mock
+        order = self.exchange.in_flight_orders["0x48424f54424548554436306163303012"] # noqa: mock
 
         for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
             self.async_run_with_timeout(
@@ -1141,8 +1137,8 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             order_type=OrderType.LIMIT,
         )
 
-        self.assertIn("0x48424f54424548554436306163303012", self.exchange.in_flight_orders)
-        order: InFlightOrder = self.exchange.in_flight_orders["0x48424f54424548554436306163303012"]
+        self.assertIn("0x48424f54424548554436306163303012", self.exchange.in_flight_orders) # noqa: mock
+        order: InFlightOrder = self.exchange.in_flight_orders["0x48424f54424548554436306163303012"] # noqa: mock
 
         for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
             self.async_run_with_timeout(
