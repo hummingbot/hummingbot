@@ -387,10 +387,13 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         time_in_force: int = int(VegaTimeInForce.TIME_IN_FORCE_GTC.value)
         _order_type: int = CONSTANTS.HummingbotToVegaIntOrderType[order_type]
 
-        if order_type == OrderType.LIMIT or order_type == OrderType.LIMIT_MAKER:
+        if price is not None:
             price: str = str(int(price * m.price_quantum))
         if order_type == OrderType.LIMIT_MAKER:
             post_only = True
+        # NOTE: Market orders only support FOK or IOC
+        if order_type == OrderType.MARKET:
+            time_in_force: int = int(VegaTimeInForce.TIME_IN_FORCE_IOC.value)
         # NOTE: This is created by hummingbot and added to our order to be able to reference on
         reference_id: str = order_id
 
@@ -401,19 +404,24 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
 
         order_payload = {
             "market_id": market_id,
-            "price": price,
             "size": size,
+            # "price": price,
             "side": side,
             "time_in_force": time_in_force,
             "type": _order_type,
             "reference": reference_id,
-            "post_only": post_only,
-            "reduce_only": reduce_only,
+            # "post_only": post_only,
+            # "reduce_only": reduce_only
             # NOTE: Unused params
             # "pegged_order": None,
             # "expires_at": None,
             # "iceberg_opts": None
         }
+        if order_type != OrderType.MARKET:
+            order_payload["price"] = price
+            order_payload["post_only"] = post_only
+            order_payload["reduce_only"] = reduce_only
+
         # Setup for Sync
         transaction = self._auth.sign_payload(order_payload, "order_submission")
         data = json.dumps({"tx": str(transaction.decode("utf-8")), "type": "TYPE_SYNC"})
@@ -446,6 +454,10 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         # if this is none request using the exchange order id
         if len(track_order) == 0 or track_order[0] is None:
             order_update: OrderUpdate = await self._request_order_status(exchange_order_id=exchange_order_id)
+            # NOTE: Untracked order
+            if order_update is None:
+                self.logger().debug(f"Received untracked order with exchange order id of {exchange_order_id}")
+                return None
             client_order_id = order_update.client_order_id
         else:
             client_order_id = track_order[0].client_order_id
@@ -521,6 +533,10 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
 
         # Get our client id and tracked_order from it
         client_order_id = await self._get_client_order_id_from_exchange_order_id(exchange_order_id)
+
+        # NOTE: untracked order processed
+        if client_order_id is None:
+            return None
 
         tracked_order: InFlightOrder = self._order_tracker.all_fillable_orders.get(client_order_id, None)
         if tracked_order is None:
@@ -675,7 +691,7 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         if not tracked_order:
             if mapped_status not in [OrderState.CANCELED, OrderState.FAILED]:
                 self.logger().debug(f"Ignoring order message with id {exchange_order_id}: not in our orders. Client ID: {client_order_id}")
-            return
+            return None
 
         _hb_state = mapped_status
         misc_updates: Optional[Dict] = None
@@ -859,6 +875,8 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         """
         Calls the REST API to update total and available balances.
         """
+        if not self.authenticator.is_valid:
+            raise IOError('Invalid key and mnemonic, check values and try again')
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
         await self._populate_symbols()

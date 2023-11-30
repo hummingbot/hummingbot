@@ -127,7 +127,7 @@ def calculate_fees(fees: Dict[str, any], quantum: Decimal, is_taker: bool) -> De
     if not is_taker:
         calcInfraFee = 0
         calcLiquidityFee = 0
-        calcMakerFee = min(0, -1 * (makerFee))
+        calcMakerFee = min(0, -1 * (makerFee - makerFeeRefererDiscount - makerFeeVolumeDiscount))
 
     fee = Decimal(calcInfraFee + calcLiquidityFee + calcMakerFee) / quantum
     return fee

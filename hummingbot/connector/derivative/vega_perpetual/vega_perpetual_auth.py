@@ -21,14 +21,18 @@ class VegaPerpetualAuth(AuthBase):
         self._public_key = public_key
         self._mnemonic = mnemonic
         self.domain = domain
+        self.is_valid = self.confirm_pub_key_matches_generated()
 
     def confirm_pub_key_matches_generated(self) -> bool:
         mnemonic_length = len(self._mnemonic.split())
         if self._mnemonic is not None and mnemonic_length > 0:
             derivations = (0 if mnemonic_length == 12 else 1)
-            signer = Signer.from_mnemonic(mnemonic=self._mnemonic, derivations=derivations)
-            if signer._pub_key == self._public_key:
-                return True
+            try:
+                signer = Signer.from_mnemonic(mnemonic=self._mnemonic, derivations=derivations)
+                if signer._pub_key == self._public_key:
+                    return True
+            except Exception:
+                return False
         return False
 
     def sign_payload(self, payload: Dict[str, Any], method: str) -> str:
