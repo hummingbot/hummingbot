@@ -33,27 +33,10 @@ class VegaPerpetualWebUtilsUnitTests(unittest.TestCase):
         fees["makerFeeRefererDiscount"] = 0
         fees["makerFeeVolumeDiscount"] = 0
         # no discounts
-        self.assertEqual(Decimal(3.0), utils.calculate_fees(fees, quantum))
+        self.assertEqual(Decimal(2.0), utils.calculate_fees(fees, quantum, True))
 
-        # all discounts
-        fees["infrastructureFeeRefererDiscount"] = 500
-        fees["infrastructureFeeVolumeDiscount"] = 500
-        fees["liquidityFeeRefererDiscount"] = 500
-        fees["liquidityFeeVolumeDiscount"] = 500
-
-        fees["makerFeeRefererDiscount"] = 500
-        fees["makerFeeVolumeDiscount"] = 500
-        self.assertEqual(Decimal(0), utils.calculate_fees(fees, quantum))
-
-        # TOO MUCH all discounts
-        fees["infrastructureFeeRefererDiscount"] = 1000
-        fees["infrastructureFeeVolumeDiscount"] = 10000
-        fees["liquidityFeeRefererDiscount"] = 10000
-        fees["liquidityFeeVolumeDiscount"] = 10000
-
-        fees["makerFeeRefererDiscount"] = 10000
-        fees["makerFeeVolumeDiscount"] = 10000
-        self.assertEqual(Decimal(0), utils.calculate_fees(fees, quantum))
+        # maker
+        self.assertEqual(Decimal(-1.0), utils.calculate_fees(fees, quantum, False))
 
     def test_get_account_type(self):
         self.assertEqual("ACCOUNT_TYPE_INSURANCE", utils.get_account_type(1))
