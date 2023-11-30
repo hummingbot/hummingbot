@@ -98,13 +98,13 @@ class TestHyperliquidPerpetualAPIUserStreamDataSource(unittest.TestCase):
                                                                                   'oid': 2260108845,
                                                                                   'timestamp': 1700688451563,
                                                                                   'origSz': '0.01',
-                                                                                  'cloid': '0x48424f54534548554436306163343632'},
+                                                                                  'cloid': '0x48424f54534548554436306163343632'}, # noqa: mock
                                                                         'status': 'canceled',
                                                                         'statusTimestamp': 1700688453173}]}
         result_subscribe_trades = {'channel': 'user', 'data': {'fills': [
             {'coin': 'ETH', 'px': '2091.3', 'sz': '0.01', 'side': 'B', 'time': 1700688460805, 'startPosition': '0.0',
              'dir': 'Open Long', 'closedPnl': '0.0',
-             'hash': '0x544c46b72e0efdada8cd04080bb32b010d005a7d0554c10c4d0287e9a2c237e7', 'oid': 2260113568,
+             'hash': '0x544c46b72e0efdada8cd04080bb32b010d005a7d0554c10c4d0287e9a2c237e7', 'oid': 2260113568, # noqa: mock
              # noqa: mock
              'crossed': True, 'fee': '0.005228', 'liquidationMarkPx': None}]}}
 
