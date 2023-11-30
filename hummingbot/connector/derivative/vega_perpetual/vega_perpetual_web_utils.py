@@ -103,7 +103,7 @@ def hb_time_from_vega(timestamp: str) -> float:
     return float(int(timestamp) * 1e-9)
 
 
-def calculate_fees(fees: Dict[str, any], quantum: Decimal) -> Decimal:
+def calculate_fees(fees: Dict[str, any], quantum: Decimal, is_taker: bool) -> Decimal:
     # discounts
     infraFeeRefererDiscount = int(fees.get("infrastructureFeeRefererDiscount", 0))
     infraFeeVolumeDiscount = int(fees.get("infrastructureFeeVolumeDiscount", 0))
@@ -115,7 +115,7 @@ def calculate_fees(fees: Dict[str, any], quantum: Decimal) -> Decimal:
     makerFeeVolumeDiscount = int(fees.get("makerFeeVolumeDiscount", 0))
 
     # fees
-    infraFee = int(fees.get("infrastrucureFee", 0))
+    infraFee = int(fees.get("infrastructureFee", 0))
     liquidityFee = int(fees.get("liquidityFee", 0))
     makerFee = int(fees.get("makerFee", 0))
 
@@ -123,6 +123,11 @@ def calculate_fees(fees: Dict[str, any], quantum: Decimal) -> Decimal:
     calcInfraFee = max(0, infraFee - infraFeeRefererDiscount - infraFeeVolumeDiscount)
     calcLiquidityFee = max(0, liquidityFee - liquidityFeeRefererDiscount - liquidityFeeVolumeDiscount)
     calcMakerFee = max(0, makerFee - makerFeeRefererDiscount - makerFeeVolumeDiscount)
+    # check as rebates
+    if not is_taker:
+        calcInfraFee = 0
+        calcLiquidityFee = 0
+        calcMakerFee = min(0, -1 * (makerFee))
 
     fee = Decimal(calcInfraFee + calcLiquidityFee + calcMakerFee) / quantum
     return fee
