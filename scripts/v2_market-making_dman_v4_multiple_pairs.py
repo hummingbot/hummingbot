@@ -18,38 +18,39 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 class DManV4MultiplePairs(ScriptStrategyBase):
     # Account configuration
-    exchange = "kucoin"
-    trading_pairs = ["VERSE-USDT"]
+    exchange = "binance_perpetual"
+    trading_pairs = ["USTC-USDT"]
     leverage = 20
-    initial_auto_rebalance = True
+    initial_auto_rebalance = False
     extra_inventory_pct = 0.1
     asset_to_rebalance = "USDT"
     rebalanced = False
 
     # Candles configuration
-    candles_exchange = "kucoin"
-    candles_interval = "1h"
+    candles_exchange = "binance_perpetual"
+    candles_interval = "3m"
     candles_max_records = 300
     bollinger_band_length = 200
     bollinger_band_std = 3.0
 
     # Orders configuration
-    order_amount = Decimal("4")
+    order_amount = Decimal("6")
+    amount_ratio_increase = Decimal("1.6")
     n_levels = 10
-    start_spread = 0.002
-    step_between_orders = 0.004
-    order_refresh_time = 30
+    start_spread = 0.001
+    step_between_orders = 0.015
+    order_refresh_time = 60 * 60 * 2
     cooldown_time = 0
 
     # Triple barrier configuration
-    stop_loss = Decimal("0.03")
-    take_profit = Decimal("0.01")
+    stop_loss = Decimal("0.2")
+    take_profit = Decimal("0.06")
     time_limit = 60 * 60 * 12
     trailing_stop_activation_price_delta = Decimal("0.008")
     trailing_stop_trailing_delta = Decimal("0.002")
 
     # Global Trailing Stop configuration
-    global_trailing_stop_activation_price_delta = Decimal("0.009")
+    global_trailing_stop_activation_price_delta = Decimal("0.015")
     global_trailing_stop_trailing_delta = Decimal("0.002")
 
     # Advanced configurations
@@ -61,10 +62,11 @@ class DManV4MultiplePairs(ScriptStrategyBase):
     price_band_long_filter = Decimal("0.8")
     price_band_short_filter = Decimal("0.8")
 
+    amounts = Distributions.geometric(n_levels=n_levels, start=float(order_amount), ratio=float(amount_ratio_increase))
     # Applying the configuration
     order_level_builder = OrderLevelBuilder(n_levels=n_levels)
     order_levels = order_level_builder.build_order_levels(
-        amounts=order_amount,
+        amounts=amounts,
         spreads=Distributions.arithmetic(n_levels=n_levels, start=start_spread, step=step_between_orders),
         triple_barrier_confs=TripleBarrierConf(
             stop_loss=stop_loss, take_profit=take_profit, time_limit=time_limit,
