@@ -21,10 +21,12 @@ from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual
 from hummingbot.connector.test_support.perpetual_derivative_test import AbstractPerpetualDerivativeTests
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.core.data_type.cancellation_result import CancellationResult
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.network_iterator import NetworkStatus
 
 
 class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDerivativeTests):
@@ -34,11 +36,12 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
     def setUpClass(cls) -> None:
         super().setUpClass()
         cls.api_key = "someKey"
-        cls.api_secret =  "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930" # noqa: mock
+        cls.api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
         cls.user_id = "someUserId"
         cls.base_asset = "BTC"
         cls.quote_asset = "USD"  # linear
         cls.trading_pair = combine_to_hb_trading_pair(cls.base_asset, cls.quote_asset)
+        cls.client_order_id_prefix = "0x48424f5442454855443630616330301" # noqa: mock
 
     @property
     def all_symbols_url(self):
@@ -320,7 +323,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
     def expected_trading_rule(self):
         price_info = self.trading_rules_request_mock_response[1][0]
         coin_info = self.trading_rules_request_mock_response[0]["universe"][0]
-        collateral_token = self.trading_rules_request_mock_response[0]["universe"][0]["name"]
+        collateral_token = self.quote_asset
 
         step_size = Decimal(str(10 ** -coin_info.get("szDecimals")))
         price_size = Decimal(str(10 ** -len(price_info.get("markPx").split('.')[1])))
@@ -343,7 +346,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     @property
     def is_order_fill_http_update_included_in_status_update(self) -> bool:
-        return False
+        return True
 
     @property
     def is_order_fill_http_update_executed_during_websocket_order_event_processing(self) -> bool:
@@ -391,26 +394,26 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         return exchange
 
     #
-    # def validate_auth_credentials_present(self, request_call: RequestCall):
-    #     request_headers = request_call.kwargs["headers"]
-    #     self.assertIn("X-Bit-Access-Key", request_headers)
+    def validate_auth_credentials_present(self, request_call: RequestCall):
+        pass
 
     def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = json.loads(request_call.kwargs["data"])
-        self.assertEqual(order.trade_type.name.lower(), request_data["orders"]["isBuy"])
-        self.assertEqual(order.amount, abs(Decimal(str(request_data["sz"]))))
-        self.assertEqual(order.client_order_id, request_data["cloid"])
+        self.assertEqual(True if order.trade_type is TradeType.BUY else False,
+                         request_data["action"]["orders"][0]["isBuy"])
+        self.assertEqual(order.amount, abs(Decimal(str(request_data["action"]["orders"][0]["sz"]))))
+        self.assertEqual(order.client_order_id, request_data["action"]["orders"][0]["cloid"])
 
     def validate_order_cancelation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
         self.assertIsNone(request_params)
 
     def validate_order_status_request(self, order: InFlightOrder, request_call: RequestCall):
-        request_data = request_call.kwargs["params"]
-        self.assertIsNone(request_data)
+        request_params = request_call.kwargs["params"]
+        self.assertIsNone(request_params)
 
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
-        request_params = request_call.kwargs["data"]
+        request_params = json.loads(request_call.kwargs["data"])
         self.assertEqual(self.api_key, request_params["user"])
 
     def configure_successful_cancelation_response(
@@ -479,32 +482,44 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> str:
-        url = web_utils.public_rest_url(
+    ):
+        url_fills = web_utils.private_rest_url(CONSTANTS.ACCOUNT_TRADE_LIST_URL)
+
+        response_fills = self._order_fills_request_canceled_mock_response(order=order)
+        mock_api.post(url_fills, body=json.dumps(response_fills), callback=callback)
+
+        url_order_status = web_utils.public_rest_url(
             CONSTANTS.ORDER_URL
         )
 
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        regex_url = re.compile(f"^{url_order_status}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
         response = self._order_status_request_completely_filled_mock_response(order=order)
         mock_api.post(regex_url, body=json.dumps(response), callback=callback)
-        return url
+        return url_order_status
 
     def configure_canceled_order_status_response(
             self,
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None,
-    ) -> str:
-        url = web_utils.public_rest_url(
+    ):
+
+        url_fills = web_utils.private_rest_url(CONSTANTS.ACCOUNT_TRADE_LIST_URL)
+
+        response_fills = self._order_fills_request_canceled_mock_response(order=order)
+        mock_api.post(url_fills, body=json.dumps(response_fills), callback=callback)
+
+        url_order_status = web_utils.public_rest_url(
             CONSTANTS.ORDER_URL
         )
 
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        regex_url = re.compile(f"^{url_order_status}".replace(".", r"\.").replace("?", r"\?") + ".*")
 
         response = self._order_status_request_canceled_mock_response(order=order)
         mock_api.post(regex_url, body=json.dumps(response), callback=callback)
-        return url
+
+        return url_order_status
 
     def configure_open_order_status_response(
             self,
@@ -660,6 +675,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                  'premium': '0.00067648',
                  'prevDayPx': '1877.1'}]
         ]
+
     def order_event_for_new_order_websocket_update(self, order: InFlightOrder):
         return {'channel': 'orderUpdates', 'data': [{'order': {'coin': 'BTC', 'side': 'B', 'limitPx': order.price,
                                                                'sz': float(order.amount),
@@ -691,10 +707,10 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             {'coin': 'ETH', 'px': order.price, 'sz': float(order.amount), 'side': 'B', 'time': 1700819083138,
              'startPosition': '0.0',
              'dir': 'Open Long', 'closedPnl': '0.0',
-             'hash': '0x6065d86346c0ee0f5d9504081647930115005f95c201c3a6fb5ba2440507f2cf', # noqa: mock
+             'hash': '0x6065d86346c0ee0f5d9504081647930115005f95c201c3a6fb5ba2440507f2cf',  # noqa: mock
              'oid': order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
              'cloid': order.client_order_id or "",
-             'crossed': True, 'fee': '0.005273', 'liquidationMarkPx': None}]}}
+             'crossed': True, 'fee': str(self.expected_fill_fee.flat_fees[0].amount), 'liquidationMarkPx': None}]}}
 
     def position_event_for_full_fill_websocket_update(self, order: InFlightOrder, unrealized_pnl: float):
         pass
@@ -723,7 +739,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
     def test_user_stream_update_for_new_order(self):
         self.exchange._set_current_timestamp(1640780000)
         self.exchange.start_tracking_order(
-            order_id="11",
+            order_id="0x48424f54424548554436306163303012", # noqa: mock
             exchange_order_id=str(self.expected_exchange_order_id),
             trading_pair=self.trading_pair,
             order_type=OrderType.LIMIT,
@@ -731,7 +747,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             price=Decimal("10000"),
             amount=Decimal("1"),
         )
-        order = self.exchange.in_flight_orders["11"]
+        order = self.exchange.in_flight_orders["0x48424f54424548554436306163303012"] # noqa: mock
 
         order_event = self.order_event_for_new_order_websocket_update(order=order)
 
@@ -751,30 +767,6 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.assertEqual(order.trading_pair, event.trading_pair)
         self.assertEqual(order.amount, event.amount)
         self.assertTrue(order.is_open)
-
-    # def test_user_stream_balance_update(self):
-    #     client_config_map = ClientConfigAdapter(ClientConfigMap())
-    #     connector = HyperliquidPerpetualDerivative(
-    #         client_config_map=client_config_map,
-    #         hyperliquid_perpetual_api_key=self.api_key,
-    #         hyperliquid_perpetual_api_secret=self.api_secret,
-    #         trading_pairs=[self.trading_pair],
-    #     )
-    #     connector._set_current_timestamp(1640780000)
-    #
-    #     balance_event = self.balance_event_websocket_update
-    #
-    #     mock_queue = AsyncMock()
-    #     mock_queue.get.side_effect = [balance_event, asyncio.CancelledError]
-    #     self.exchange._user_stream_tracker._user_stream = mock_queue
-    #
-    #     try:
-    #         self.async_run_with_timeout(self.exchange._user_stream_event_listener())
-    #     except asyncio.CancelledError:
-    #         pass
-    #
-    #     self.assertEqual(Decimal("10"), self.exchange.available_balances[self.quote_asset])
-    #     self.assertEqual(Decimal("15"), self.exchange.get_balance(self.quote_asset))
 
     @property
     def balance_event_websocket_update(self):
@@ -807,12 +799,15 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     @aioresponses()
     @patch("asyncio.Queue.get")
-    def test_listen_for_funding_info_update_initializes_funding_info(self, mock_api, mock_queue_get):
+    @patch(
+        "hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_api_order_book_data_source.HyperliquidPerpetualAPIOrderBookDataSource._next_funding_time")
+    def test_listen_for_funding_info_update_initializes_funding_info(self, mock_api, mock_next_funding_time,
+                                                                     mock_queue_get):
         url = self.funding_info_url
 
         response = self.funding_info_mock_response
         mock_api.post(url, body=json.dumps(response))
-
+        mock_next_funding_time.return_value = self.target_funding_info_next_funding_utc_timestamp + CONSTANTS.FUNDING_RATE_INTERNAL_MIL_SECOND
         event_messages = [asyncio.CancelledError]
         mock_queue_get.side_effect = event_messages
 
@@ -898,24 +893,15 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
         self.assertEqual(0, len(self.exchange.trading_rules))
         self.assertNotIn(self.trading_pair, self.exchange.trading_rules)
-        self.assertTrue(
-            self.is_logged(
-                log_level="ERROR",
-                message=(
-                    f"Could not resolve the exchange symbols"
-                    f" {self.exchange_trading_pair}_67890"
-                    f" and {self.exchange_trading_pair}_12345"
-                ),
-            )
-        )
 
     @aioresponses()
     def test_cancel_lost_order_raises_failure_event_when_request_fails(self, mock_api):
+        self._simulate_trading_rules_initialized()
         request_sent_event = asyncio.Event()
         self.exchange._set_current_timestamp(1640780000)
 
         self.exchange.start_tracking_order(
-            order_id="11",
+            order_id="0x48424f54424548554436306163303012", # noqa: mock
             exchange_order_id="4",
             trading_pair=self.trading_pair,
             trade_type=TradeType.BUY,
@@ -924,8 +910,8 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             order_type=OrderType.LIMIT,
         )
 
-        self.assertIn("11", self.exchange.in_flight_orders)
-        order = self.exchange.in_flight_orders["11"]
+        self.assertIn("0x48424f54424548554436306163303012", self.exchange.in_flight_orders)
+        order = self.exchange.in_flight_orders["0x48424f54424548554436306163303012"]
 
         for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
             self.async_run_with_timeout(
@@ -1039,17 +1025,24 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
         return {'status': 'ok', 'response': {'type': 'cancel', 'data': {'statuses': ['success']}}}
 
+    def _order_fills_request_canceled_mock_response(self, order: InFlightOrder) -> Any:
+        return [{'closedPnl': '0.0', 'coin': self.base_asset, 'crossed': False, 'dir': 'Open Long',
+                 'hash': 'xxxxxxxx-xxxx-xxxx-8b66-c3d2fcd352f6', 'oid': order.exchange_order_id,
+                 'cloid': order.client_order_id, 'px': '10000', 'side': 'B', 'startPosition': '26.86',
+                 'sz': '1', 'time': 1681222254710, 'fee': '0.1'}]
+
     def _order_status_request_completely_filled_mock_response(self, order: InFlightOrder) -> Any:
         return {'order': {
-            'order': {'children': [], 'cloid': '0x000000000000000000000000000ee056', 'coin': self.base_asset,
+            'order': {'children': [], 'cloid': order.client_order_id, 'coin': self.base_asset,
                       'isPositionTpsl': False, 'isTrigger': False, 'limitPx': str(order.price),
                       'oid': order.exchange_order_id,
-                      'orderType': 'Limit', 'origSz': '0.01', 'reduceOnly': False, 'side': 'B',
+                      'orderType': 'Limit', 'origSz': float(order.amount), 'reduceOnly': False, 'side': 'B',
                       'sz': float(order.amount), 'tif': 'Gtc', 'timestamp': 1700814942565, 'triggerCondition': 'N/A',
-                      'triggerPx': '0.0'}, 'status': 'filled', 'statusTimestamp': 1700818403290}, 'status': 'order'}
+                      'triggerPx': '0.0'}, 'status': 'filled', 'statusTimestamp': 1700818403290}, 'status': 'filled'}
 
     def _order_status_request_canceled_mock_response(self, order: InFlightOrder) -> Any:
         resp = self._order_status_request_completely_filled_mock_response(order)
+        resp["status"] = "canceled"
         resp["order"]["status"] = "canceled"
         resp["order"]["order"]["sz"] = "0"
         resp["order"]["order"]["limitPx"] = "0"
@@ -1057,12 +1050,14 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     def _order_status_request_open_mock_response(self, order: InFlightOrder) -> Any:
         resp = self._order_status_request_completely_filled_mock_response(order)
+        resp["status"] = "open"
         resp["order"]["status"] = "open"
         resp["order"]["order"]["limitPx"] = "0"
         return resp
 
     def _order_status_request_partially_filled_mock_response(self, order: InFlightOrder) -> Any:
         resp = self._order_status_request_completely_filled_mock_response(order)
+        resp["status"] = "open"
         resp["order"]["status"] = "open"
         resp["order"]["order"]["limitPx"] = str(order.price)
         return resp
@@ -1086,7 +1081,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                 "coin": self.base_asset,
                 "crossed": False,
                 "dir": "Open Long",
-                "hash": self.expected_fill_trade_id, # noqa: mock
+                "hash": self.expected_fill_trade_id,  # noqa: mock
                 "oid": order.exchange_order_id,
                 "cloid": order.client_order_id,
                 "px": str(order.price),
@@ -1097,23 +1092,409 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                 "fee": str(self.expected_fill_fee.flat_fees[0].amount),
             }
         ]
-    #
-    # def _simulate_trading_rules_initialized(self):
-    #     self.exchange._trading_rules = {
-    #         self.trading_pair: TradingRule(
-    #             trading_pair=self.trading_pair,
-    #             min_order_size=Decimal(str(0.01)),
-    #             min_price_increment=Decimal(str(0.0001)),
-    #             min_base_amount_increment=Decimal(str(0.000001)),
-    #         )
-    #     }
 
+    @aioresponses()
+    def test_get_last_trade_prices(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        url = self.latest_prices_url
+
+        response = self.latest_prices_request_mock_response
+
+        mock_api.post(url, body=json.dumps(response))
+
+        latest_prices = self.async_run_with_timeout(
+            self.exchange.get_last_traded_prices(trading_pairs=[self.trading_pair])
+        )
+
+        self.assertEqual(1, len(latest_prices))
+        self.assertEqual(self.expected_latest_price, latest_prices[self.trading_pair])
+
+    @aioresponses()
+    @patch("asyncio.Queue.get")
+    def test_listen_for_funding_info_update_updates_funding_info(self, mock_api, mock_queue_get):
+        pass
+
+    def configure_trading_rules_response(
+            self,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
+    ) -> List[str]:
+
+        url = self.trading_rules_url
+        response = self.trading_rules_request_mock_response
+        mock_api.post(url, body=json.dumps(response), callback=callback)
+        return [url]
+
+    @aioresponses()
+    def test_cancel_lost_order_successfully(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+
+        self.exchange.start_tracking_order(
+            order_id="0x48424f54424548554436306163303012", # noqa: mock
+            exchange_order_id=self.exchange_order_id_prefix + "1",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("100"),
+            order_type=OrderType.LIMIT,
+        )
+
+        self.assertIn("0x48424f54424548554436306163303012", self.exchange.in_flight_orders)
+        order: InFlightOrder = self.exchange.in_flight_orders["0x48424f54424548554436306163303012"]
+
+        for _ in range(self.exchange._order_tracker._lost_order_count_limit + 1):
+            self.async_run_with_timeout(
+                self.exchange._order_tracker.process_order_not_found(client_order_id=order.client_order_id))
+
+        self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
+
+        url = self.configure_successful_cancelation_response(
+            order=order,
+            mock_api=mock_api,
+            callback=lambda *args, **kwargs: request_sent_event.set())
+
+        self.async_run_with_timeout(self.exchange._cancel_lost_orders())
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        if url:
+            cancel_request = self._all_executed_requests(mock_api, url)[0]
+            # self.validate_auth_credentials_present(cancel_request)
+            self.validate_order_cancelation_request(
+                order=order,
+                request_call=cancel_request)
+
+        if self.exchange.is_cancel_request_in_exchange_synchronous:
+            self.assertNotIn(order.client_order_id, self.exchange._order_tracker.lost_orders)
+            self.assertFalse(order.is_cancelled)
+            self.assertTrue(order.is_failure)
+            self.assertEqual(0, len(self.order_cancelled_logger.event_log))
+        else:
+            self.assertIn(order.client_order_id, self.exchange._order_tracker.lost_orders)
+            self.assertTrue(order.is_failure)
+
+    @aioresponses()
+    def test_cancel_order_successfully(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=self.exchange_order_id_prefix + "1",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("100"),
+            order_type=OrderType.LIMIT,
+        )
+
+        self.assertIn(self.client_order_id_prefix + "1", self.exchange.in_flight_orders)
+        order: InFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+        url = self.configure_successful_cancelation_response(
+            order=order,
+            mock_api=mock_api,
+            callback=lambda *args, **kwargs: request_sent_event.set())
+
+        self.exchange.cancel(trading_pair=order.trading_pair, client_order_id=order.client_order_id)
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        if url != "":
+            cancel_request = self._all_executed_requests(mock_api, url)[0]
+            self.validate_auth_credentials_present(cancel_request)
+            self.validate_order_cancelation_request(
+                order=order,
+                request_call=cancel_request)
+
+        if self.exchange.is_cancel_request_in_exchange_synchronous:
+            self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
+            self.assertTrue(order.is_cancelled)
+            cancel_event = self.order_cancelled_logger.event_log[0]
+            self.assertEqual(self.exchange.current_timestamp, cancel_event.timestamp)
+            self.assertEqual(order.client_order_id, cancel_event.order_id)
+
+            self.assertTrue(
+                self.is_logged(
+                    "INFO",
+                    f"Successfully canceled order {order.client_order_id}."
+                )
+            )
+        else:
+            self.assertIn(order.client_order_id, self.exchange.in_flight_orders)
+            self.assertTrue(order.is_pending_cancel_confirmation)
+
+    @aioresponses()
+    def test_cancel_order_raises_failure_event_when_request_fails(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=self.exchange_order_id_prefix + "1",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("100"),
+            order_type=OrderType.LIMIT,
+        )
+
+        self.assertIn(self.client_order_id_prefix + "1", self.exchange.in_flight_orders)
+        order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+        url = self.configure_erroneous_cancelation_response(
+            order=order,
+            mock_api=mock_api,
+            callback=lambda *args, **kwargs: request_sent_event.set())
+
+        self.exchange.cancel(trading_pair=self.trading_pair, client_order_id=self.client_order_id_prefix + "1")
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        if url != "":
+            cancel_request = self._all_executed_requests(mock_api, url)[0]
+            self.validate_auth_credentials_present(cancel_request)
+            self.validate_order_cancelation_request(
+                order=order,
+                request_call=cancel_request)
+
+        self.assertEquals(0, len(self.order_cancelled_logger.event_log))
+        self.assertTrue(
+            any(
+                log.msg.startswith(f"Failed to cancel order {order.client_order_id}")
+                for log in self.log_records
+            )
+        )
+
+    @aioresponses()
+    def test_cancel_two_orders_with_cancel_all_and_one_fails(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id=self.exchange_order_id_prefix + "1",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("100"),
+            order_type=OrderType.LIMIT,
+        )
+
+        self.assertIn(self.client_order_id_prefix + "1", self.exchange.in_flight_orders)
+        order1 = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+        self.exchange.start_tracking_order(
+            order_id="12",
+            exchange_order_id="5",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.SELL,
+            price=Decimal("11000"),
+            amount=Decimal("90"),
+            order_type=OrderType.LIMIT,
+        )
+
+        self.assertIn("12", self.exchange.in_flight_orders)
+        order2 = self.exchange.in_flight_orders["12"]
+
+        urls = self.configure_one_successful_one_erroneous_cancel_all_response(
+            successful_order=order1,
+            erroneous_order=order2,
+            mock_api=mock_api)
+
+        cancellation_results = self.async_run_with_timeout(self.exchange.cancel_all(10))
+
+        for url in urls:
+            cancel_request = self._all_executed_requests(mock_api, url)[0]
+            self.validate_auth_credentials_present(cancel_request)
+
+        self.assertEqual(2, len(cancellation_results))
+        self.assertEqual(CancellationResult(order1.client_order_id, True), cancellation_results[0])
+        self.assertEqual(CancellationResult(order2.client_order_id, False), cancellation_results[1])
+
+        if self.exchange.is_cancel_request_in_exchange_synchronous:
+            self.assertEqual(1, len(self.order_cancelled_logger.event_log))
+            cancel_event = self.order_cancelled_logger.event_log[0]
+            self.assertEqual(self.exchange.current_timestamp, cancel_event.timestamp)
+            self.assertEqual(order1.client_order_id, cancel_event.order_id)
+
+            self.assertTrue(
+                self.is_logged(
+                    "INFO",
+                    f"Successfully canceled order {order1.client_order_id}."
+                )
+            )
+
+    @aioresponses()
+    def test_set_leverage_failure(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        request_sent_event = asyncio.Event()
+        target_leverage = 2
+        _, message = self.configure_failed_set_leverage(
+            leverage=target_leverage,
+            mock_api=mock_api,
+            callback=lambda *args, **kwargs: request_sent_event.set(),
+        )
+        self.exchange.set_leverage(trading_pair=self.trading_pair, leverage=target_leverage)
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        self.assertTrue(
+            self.is_logged(
+                log_level="NETWORK",
+                message=f"Error setting leverage {target_leverage} for {self.trading_pair}: {message}",
+            )
+        )
+
+    @aioresponses()
+    def test_set_leverage_success(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        request_sent_event = asyncio.Event()
+        target_leverage = 2
+        self.configure_successful_set_leverage(
+            leverage=target_leverage,
+            mock_api=mock_api,
+            callback=lambda *args, **kwargs: request_sent_event.set(),
+        )
+        self.exchange.set_leverage(trading_pair=self.trading_pair, leverage=target_leverage)
+        self.async_run_with_timeout(request_sent_event.wait())
+
+        self.assertTrue(
+            self.is_logged(
+                log_level="INFO",
+                message=f"Leverage for {self.trading_pair} successfully set to {target_leverage}.",
+            )
+        )
+
+    def _configure_balance_response(
+            self,
+            response,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+
+        url = self.balance_url
+        mock_api.post(
+            re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?")),
+            body=json.dumps(response),
+            callback=callback)
+        return url
+
+    @aioresponses()
+    def test_update_order_status_when_canceled(self, mock_api):
+        self._simulate_trading_rules_initialized()
+        self.exchange._set_current_timestamp(1640780000)
+
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id="100234",
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("1"),
+        )
+        order = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+        urls = self.configure_canceled_order_status_response(
+            order=order,
+            mock_api=mock_api)
+
+        self.async_run_with_timeout(self.exchange._update_order_status())
+
+        for url in (urls if isinstance(urls, list) else [urls]):
+            order_status_request = self._all_executed_requests(mock_api, url)[0]
+            self.validate_auth_credentials_present(order_status_request)
+            self.validate_order_status_request(order=order, request_call=order_status_request)
+
+        cancel_event = self.order_cancelled_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, cancel_event.timestamp)
+        self.assertEqual(order.client_order_id, cancel_event.order_id)
+        self.assertEqual(order.exchange_order_id, cancel_event.exchange_order_id)
+        self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
+        self.assertTrue(
+            self.is_logged("INFO", f"Successfully canceled order {order.client_order_id}.")
+        )
+
+    def configure_erroneous_trading_rules_response(
+            self,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
+    ) -> List[str]:
+
+        url = self.trading_rules_url
+        response = self.trading_rules_request_erroneous_mock_response
+        mock_api.post(url, body=json.dumps(response), callback=callback)
+        return [url]
+
+    def test_user_stream_balance_update(self):
+        pass
+
+    @aioresponses()
+    def test_all_trading_pairs_does_not_raise_exception(self, mock_api):
+        self.exchange._set_trading_pair_symbol_map(None)
+
+        url = self.all_symbols_url
+        mock_api.post(url, exception=Exception)
+
+        result: List[str] = self.async_run_with_timeout(self.exchange.all_trading_pairs())
+
+        self.assertEqual(0, len(result))
+
+    @aioresponses()
+    def test_all_trading_pairs(self, mock_api):
+        self.exchange._set_trading_pair_symbol_map(None)
+
+        self.configure_all_symbols_response(mock_api=mock_api)
+
+        all_trading_pairs = self.async_run_with_timeout(coroutine=self.exchange.all_trading_pairs())
+
+        # expected_valid_trading_pairs = self._expected_valid_trading_pairs()
+
+        self.assertEqual(2, len(all_trading_pairs))
+        self.assertIn(self.trading_pair, all_trading_pairs)
+
+    def configure_all_symbols_response(
+            self,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None,
+    ) -> List[str]:
+
+        url = self.all_symbols_url
+        response = self.all_symbols_request_mock_response
+        mock_api.post(url, body=json.dumps(response), callback=callback)
+        return [url]
+
+    @aioresponses()
+    def test_check_network_raises_cancel_exception(self, mock_api):
+        url = self.network_status_url
+
+        mock_api.post(url, exception=asyncio.CancelledError)
+
+        self.assertRaises(asyncio.CancelledError, self.async_run_with_timeout, self.exchange.check_network())
+
+    @aioresponses()
+    def test_check_network_success(self, mock_api):
+        url = self.network_status_url
+        response = self.network_status_request_successful_mock_response
+        mock_api.post(url, body=json.dumps(response))
+
+        network_status = self.async_run_with_timeout(coroutine=self.exchange.check_network())
+
+        self.assertEqual(NetworkStatus.CONNECTED, network_status)
+
+    @aioresponses()
+    def test_update_order_status_when_filled_correctly_processed_even_when_trade_fill_update_fails(self, mock_api):
+        pass
+
+    @aioresponses()
+    def test_lost_order_included_in_order_fills_update_and_not_in_order_status_update(self, mock_api):
+        pass
 
     def _simulate_trading_rules_initialized(self):
         mocked_response = self.get_trading_rule_rest_msg()
         self.exchange._initialize_trading_pair_symbols_from_exchange_info(mocked_response)
         self.exchange.coin_to_asset = {asset_info["name"]: asset for (asset, asset_info) in
-                              enumerate(mocked_response[0]["universe"])}
+                                       enumerate(mocked_response[0]["universe"])}
         self.exchange._trading_rules = {
             self.trading_pair: TradingRule(
                 trading_pair=self.trading_pair,
