@@ -34,8 +34,7 @@ class TestHyperliquidPerpetualAPIUserStreamDataSource(unittest.TestCase):
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = f"{cls.base_asset}_{cls.quote_asset}"
         cls.api_key = "someKey"
-        cls.api_secret_key = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930" # noqa: mock"
-
+        cls.api_secret_key = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock"
 
     def setUp(self) -> None:
         super().setUp()
@@ -105,7 +104,8 @@ class TestHyperliquidPerpetualAPIUserStreamDataSource(unittest.TestCase):
         result_subscribe_trades = {'channel': 'user', 'data': {'fills': [
             {'coin': 'ETH', 'px': '2091.3', 'sz': '0.01', 'side': 'B', 'time': 1700688460805, 'startPosition': '0.0',
              'dir': 'Open Long', 'closedPnl': '0.0',
-             'hash': '0x544c46b72e0efdada8cd04080bb32b010d005a7d0554c10c4d0287e9a2c237e7', 'oid': 2260113568, # noqa: mock
+             'hash': '0x544c46b72e0efdada8cd04080bb32b010d005a7d0554c10c4d0287e9a2c237e7', 'oid': 2260113568,
+             # noqa: mock
              'crossed': True, 'fee': '0.005228', 'liquidationMarkPx': None}]}}
 
         self.mocking_assistant.add_websocket_aiohttp_message(
