@@ -219,14 +219,20 @@ class StreamDataSource(AutoStreamPipeFitting[WSResponsePtl, T], Generic[T]):
             self.logger().debug(f"_ws_assistant CONNECT {self._ws_url}")
             while True:
                 try:
-                    async with timeout(0.25):
+                    async with timeout(2):
                         await self._ws_assistant.connect(ws_url=self._ws_url, ping_timeout=30)
                     break
-                except (ConnectionResetError, asyncio.TimeoutError) as e:
-                    self.logger().debug(f"Connection reset error occurred {str(e)}")
+                except ConnectionResetError:
+                    self.logger().debug("Connection reset error occurred. Reconnecting after 0.1s.")
                     # await self.close_connection()
                     await asyncio.sleep(0.1)
+
+                except asyncio.TimeoutError:
+                    self.logger().debug("Connection timed-out after 2s. Reconnecting.")
+
                 except Exception as e:
+                    self.logger().debug("Unexpected error occurred while connecting to {self._channel}/{self._pairs}.")
+                    await self.close_connection()
                     raise e
 
             self.logger().debug(" '-> CONNECTED")
