@@ -362,6 +362,7 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSource(UserStreamTrackerDataSource):
             message: CoinbaseAdvancedTradeCumulativeUpdate = await self._stream_to_queue.queue.get()
             # Filter-out non-CumulativeUpdate messages
             if isinstance(message, CoinbaseAdvancedTradeCumulativeUpdate):
+                self.logger().debug(f"Message: {message} to processing")
                 await output.put(message)
             elif message is SENTINEL:
                 self.logger().debug("SENTINEL received")
