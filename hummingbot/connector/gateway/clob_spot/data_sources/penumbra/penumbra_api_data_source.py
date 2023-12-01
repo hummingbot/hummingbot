@@ -181,7 +181,7 @@ async def main():
     print("Markets metadata: ")
     pprint(await connector.get_all_market_metadata())
 
-    trading_pairs = [["cube", "penumbra"]]
+    trading_pairs = [["gm", "gn"]]
     print("Looking for trading pairs: ", trading_pairs)
     pprint(await connector.get_markets(trading_pairs=trading_pairs))
 
@@ -190,19 +190,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-# Resources:
-# Working torwards https://hummingbot.org/strategies/avellaneda-market-making/
-# https://hummingbot.org/developers/strategies/tutorial/#what-youll-learn
-# https://www.youtube.com/watch?v=ZbkkGvB-fis
-# M1 & M2 Chip Setup https://hummingbot.org/installation/mac/#conda-and-apple-m1m2-chips
-
-# Installation command copypasta
-
-'''
-conda activate hummingbot
-./install
-./compile
-./start
-
-'''

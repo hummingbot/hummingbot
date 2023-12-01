@@ -162,3 +162,21 @@ class PenumbraExchange(ExchangePyBase):
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
         return None
+
+
+# Resources:
+# Working torwards https://hummingbot.org/strategies/avellaneda-market-making/
+# https://hummingbot.org/developers/strategies/tutorial/#what-youll-learn
+# https://www.youtube.com/watch?v=ZbkkGvB-fis
+# M1 & M2 Chip Setup https://hummingbot.org/installation/mac/#conda-and-apple-m1m2-chips
+
+# Installation command copypasta
+
+'''
+
+conda activate hummingbot
+./install
+./compile
+./start
+
+'''

@@ -4,7 +4,7 @@ from pydantic import Field, SecretStr
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 
-EXAMPLE_PAIR = "test_usd-penumbra"
+EXAMPLE_PAIR = "gm-gn"
 
 
 def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
