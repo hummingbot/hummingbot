@@ -32,7 +32,7 @@ from hummingbot.core.data_type.user_stream_tracker_data_source import UserStream
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.estimate_fee import build_trade_fee
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, aiohttp
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 if TYPE_CHECKING:
@@ -239,10 +239,10 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         return False  # pragma no cover
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
-        return False  # pragma no cover
+        return str("Order not found") in str(status_update_exception)  # pragma no cover
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
-        return False  # pragma no cover
+        return str("error code 60") in str(cancelation_exception)  # pragma no cover
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
@@ -323,17 +323,24 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         }
         transaction = self._auth.sign_payload(cancel_payload, "order_cancellation")
         data = json.dumps({"tx": str(transaction.decode("utf-8")), "type": "TYPE_SYNC"})
-        response = await self._api_post(
-            path_url=CONSTANTS.TRANSACTION_POST_URL,
-            full_append=False,
-            data=data,
-            return_err=True
-        )
-        if not response.get("success", False) or ("code" in response and response["code"] != 0):
-            self.logger().warning(f"Failed transaction submission for cancel of {order_id} with {response}")
-            return False
+        try:
+            response = await self._api_post(
+                path_url=CONSTANTS.TRANSACTION_POST_URL,
+                full_append=False,
+                data=data,
+                return_err=True
+            )
+            if not response.get("success", False) or ("code" in response and response["code"] != 0):
+                if ("code" in response and response["code"] == 60):
+                    self.logger().debug('Unable to submit cancel to blockchain')
+                    raise IOError('Unable to submit cancel to blockchain error code 60')
+                self.logger().debug(f"Failed transaction submission for cancel of {order_id} with {response}")
+                return False
 
-        return True
+            return True
+        except asyncio.CancelledError as cancelled_error:
+            self.logger().warning(f"Timeout hit when attempting to cancel order {cancelled_error}")
+            return False
 
     async def _place_order_and_process_update(self, order: InFlightOrder, **kwargs) -> str:
         exchange_order_id, update_timestamp = await self._place_order(
@@ -449,7 +456,16 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         tracked_orders: List[InFlightOrder] = list(self._order_tracker._in_flight_orders.values())
         for order in tracked_orders:
             if order.exchange_order_id is None:
-                await order.get_exchange_order_id()
+                _hb_order_id_to_exchange_order_id = {v: k for k, v in self._exchange_order_id_to_hb_order_id.items()}
+                # NOTE: Attempt to update with our current state information, if not wait for update
+                if order.client_order_id in _hb_order_id_to_exchange_order_id.keys():
+                    _exchange_order_id = _hb_order_id_to_exchange_order_id[order.client_order_id]
+                    order.update_exchange_order_id(_exchange_order_id)
+                else:
+                    try:
+                        await order.get_exchange_order_id()
+                    except Exception as e:
+                        self.logger().warning(f"Unable to locate order on exchange waiting to sync with blockchain {e}")
         track_order: List[InFlightOrder] = [o for o in tracked_orders if exchange_order_id == o.exchange_order_id]
         # if this is none request using the exchange order id
         if len(track_order) == 0 or track_order[0] is None:
@@ -483,7 +499,15 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         trade_updates = []
 
         try:
-            exchange_order_id = await tracked_order.get_exchange_order_id()
+            exchange_order_id = tracked_order.exchange_order_id
+            if exchange_order_id is None:
+                _hb_order_id_to_exchange_order_id = {v: k for k, v in self._exchange_order_id_to_hb_order_id.items()}
+                if tracked_order.client_order_id in _hb_order_id_to_exchange_order_id.keys():
+                    exchange_order_id = _hb_order_id_to_exchange_order_id[tracked_order.client_order_id]
+                else:
+                    if tracked_order.current_state == OrderState.FAILED:
+                        return trade_updates
+                    exchange_order_id = await tracked_order.get_exchange_order_id()
             all_fills_response = await self._api_get(
                 path_url=CONSTANTS.TRADE_LIST_URL,
                 params={
@@ -595,6 +619,7 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         if "code" in orders_data and orders_data.get("code", 0) != 0:
             if orders_data.get("code") == 70:
                 self.logger().warning(f"Order not found {orders_data}")
+                raise IOError('Order not found')
             if tracked_order is not None:
                 self.logger().warning(f"unable to locate order {orders_data.get('message')}")
             else:
@@ -1229,7 +1254,6 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
             limit_id: Optional[str] = None,
             **kwargs,
     ) -> Dict[str, Any]:
-        last_exception = None
         rest_assistant = await self._web_assistants_factory.get_rest_assistant()
         url = web_utils.rest_url(path_url, self.domain, api_version)
         if not full_append:
@@ -1238,43 +1262,41 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         if is_block_explorer:
             url = web_utils.explorer_url(path_url, self.domain)
 
-        for _ in range(2):
-            try:
-                async with self._throttler.execute_task(limit_id=CONSTANTS.ALL_URLS):
-                    request = RESTRequest(
-                        method=method,
-                        url=url,
-                        params=params,
-                        data=data,
-                        is_auth_required=is_auth_required,
-                        throttler_limit_id=CONSTANTS.ALL_URLS
-                    )
-                    response = await rest_assistant.call(request=request)
+        try:
+            async with self._throttler.execute_task(limit_id=CONSTANTS.ALL_URLS):
+                request = RESTRequest(
+                    method=method,
+                    url=url,
+                    params=params,
+                    data=data,
+                    is_auth_required=is_auth_required,
+                    throttler_limit_id=CONSTANTS.ALL_URLS
+                )
+                response = await rest_assistant.call(request=request)
 
-                    if not self._has_updated_throttler:
-                        rate_limit = int(response.headers.get("Ratelimit-Limit"))
-                        rate_limit_time_interval = int(response.headers.get("Ratelimit-Reset"))
-                        await self._update_throttler(rate_limit, rate_limit_time_interval)
+                if not self._has_updated_throttler:
+                    rate_limit = int(response.headers.get("Ratelimit-Limit"))
+                    rate_limit_time_interval = int(response.headers.get("Ratelimit-Reset"))
+                    await self._update_throttler(rate_limit, rate_limit_time_interval)
 
-                    if response.status != 200:
-                        if return_err:
-                            error_response = await response.json()
-                            return error_response
-                        else:
-                            error_response = await response.text()
-                            raise IOError(f"Error executing request {method.name} {path_url}. "
-                                          f"HTTP status is {response.status}. "
-                                          f"Error: {error_response}")
-                    return await response.json()
-            except IOError as request_exception:
-                last_exception = request_exception
-                raise
-            except Exception as e:
-                print(e)
-
-        if last_exception is not None:
-            # Failed even after the last retry
-            raise last_exception
+                if response.status != 200:
+                    if return_err:
+                        error_response = await response.json()
+                        return error_response
+                    else:
+                        error_response = await response.text()
+                        raise IOError(f"Error executing request {method.name} {path_url}. "
+                                      f"HTTP status is {response.status}. "
+                                      f"Error: {error_response}")
+                self._is_connected = True
+                return await response.json()
+        except IOError as request_exception:
+            raise request_exception
+        except aiohttp.ClientConnectionError as connection_exception:
+            self.logger().warning(connection_exception)
+            raise connection_exception
+        except Exception as e:
+            raise e
 
     def _market_id_from_hb_pair(self, trading_pair: str) -> str:
         return self._id_by_hb_pair.get(trading_pair, "")
