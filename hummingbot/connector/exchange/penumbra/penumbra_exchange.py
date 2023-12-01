@@ -173,7 +173,6 @@ class PenumbraExchange(ExchangePyBase):
 # Installation command copypasta
 
 '''
-
 conda activate hummingbot
 ./install
 ./compile
