@@ -60,7 +60,7 @@ class CoinbaseAdvancedTradeRateSource(RateSourceBase):
         """
         token_price: Dict[str, str] = await exchange.get_exchange_rates(quote_token=quote_token)
         self.logger().debug(f"retrieved {len(token_price)} prices for {quote_token}")
-        self.logger().debug(f"   {token_price.get('ATOM')} prices for ATOM")
+        self.logger().debug(f"   {token_price.get('ATOM')} {quote_token} for 1 ATOM")
         return {token: Decimal(1.0) / Decimal(price) for token, price in token_price.items() if Decimal(price) != 0}
 
     @staticmethod
