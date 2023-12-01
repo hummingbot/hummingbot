@@ -105,7 +105,7 @@ class PenumbraAPIDataSource():
             else:
                 token2Symbol = TOKEN_ADDRESS_MAP[assetAddress2]['symbol']
 
-            pair = f'{token1Symbol}/{token2Symbol}'
+            pair = f'{token1Symbol}-{token2Symbol}'
 
             # TODO: Add in more metadata as is needed
             if pair not in markets_metadata:

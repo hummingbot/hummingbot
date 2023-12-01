@@ -60,7 +60,6 @@ class ExchangePyBase(ExchangeBase, ABC):
         self._trading_rules_polling_task: Optional[asyncio.Task] = None
         self._trading_fees_polling_task: Optional[asyncio.Task] = None
         self._lost_orders_update_task: Optional[asyncio.Task] = None
-
         self._time_synchronizer = TimeSynchronizer()
         self._throttler = AsyncThrottler(
             rate_limits=self.rate_limits_rules,
@@ -73,10 +72,13 @@ class ExchangePyBase(ExchangeBase, ABC):
 
         # init OrderBook Data Source and Tracker
         self._orderbook_ds: OrderBookTrackerDataSource = self._create_order_book_data_source()
-        self._set_order_book_tracker(OrderBookTracker(
-            data_source=self._orderbook_ds,
-            trading_pairs=self.trading_pairs,
-            domain=self.domain))
+
+        # TODO: Do all exchangs need this orderbook tracker?
+        if self._orderbook_ds is not None:
+            self._set_order_book_tracker(OrderBookTracker(
+                data_source=self._orderbook_ds,
+                trading_pairs=self.trading_pairs,
+                domain=self.domain))
 
         # init UserStream Data Source and Tracker
         self._user_stream_tracker = self._create_user_stream_tracker()
@@ -167,9 +169,13 @@ class ExchangePyBase(ExchangeBase, ABC):
 
     @property
     def status_dict(self) -> Dict[str, bool]:
+        order_book_ready = True
+        if self.order_book_tracker is not None:
+            order_book_ready = self.order_book_tracker.ready
+
         return {
             "symbols_mapping_initialized": self.trading_pair_symbol_map_ready(),
-            "order_books_initialized": self.order_book_tracker.ready,
+            "order_books_initialized": order_book_ready,
             "account_balance": not self.is_trading_required or len(self._account_balances) > 0,
             "trading_rule_initialized": len(self._trading_rules) > 0 if self.is_trading_required else True,
             "user_stream_initialized": self._is_user_stream_initialized(),

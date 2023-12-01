@@ -19,6 +19,7 @@ class UserBalances:
     def connect_market(exchange, client_config_map: ClientConfigMap, **api_details):
         connector = None
         conn_setting = AllConnectorSettings.get_connector_settings()[exchange]
+
         if api_details or conn_setting.uses_gateway_generic_connector():
             connector_class = get_connector_class(exchange)
             read_only_client_config = ReadOnlyClientConfigAdapter.lock_config(client_config_map)
