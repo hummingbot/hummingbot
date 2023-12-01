@@ -13,7 +13,7 @@ from hummingbot.connector.exchange.coinbase_advanced_trade import coinbase_advan
 from hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_api_user_stream_data_source import (
     CoinbaseAdvancedTradeAPIUserStreamDataSource,
     CoinbaseAdvancedTradeCumulativeUpdate,
-    MultiStreamDataSource,
+    SingleStreamDataSource,
     coinbase_advanced_trade_subscription_builder,
     message_to_cumulative_update,
     sequence_reader,
@@ -91,7 +91,7 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSourceTests(
     def setUp(self) -> None:
         super().setUp()
         self.auth = MagicMock()
-        self.channels = ("user", "channel0")
+        self.channel = "user"
         self.trading_pairs = ("ETH-USD", "BTC-USD")
         self.ws_assistant = MockWebAssistant()
         self.partial_assistant = functools.partial(self.get_ws_assistant, self.ws_assistant)
@@ -111,7 +111,7 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSourceTests(
             trade_type=TradeType.BUY,
         )
         self.data_source = CoinbaseAdvancedTradeAPIUserStreamDataSource(
-            channels=self.channels,
+            channel=self.channel,
             pairs=self.trading_pairs,
             ws_factory=self.partial_assistant,
             ws_url="ws://localhost:1234",
@@ -167,22 +167,21 @@ class CoinbaseAdvancedTradeAPIUserStreamDataSourceTests(
         return f"{s0}-{s1}"
 
     def test_init(self):
-        self.assertIsInstance(self.data_source._stream_to_queue, MultiStreamDataSource, )
-        self.assertEqual(4, len(self.data_source._stream_to_queue.states))
-        self.assertTrue(
-            all(s == (StreamState.CLOSED, TaskState.STOPPED) for s in self.data_source._stream_to_queue.states))
+        self.assertIsInstance(self.data_source._stream_to_queue, SingleStreamDataSource, )
+        self.assertEqual(2, len(self.data_source._stream_to_queue.state))
+        self.assertEqual((StreamState.CLOSED, TaskState.STOPPED), self.data_source._stream_to_queue.state)
         self.assertEqual(0, self.ws_assistant.connect_count)
 
     async def test_listen_for_user_stream_mocked(self):
         with patch.object(self.data_source, "_stream_to_queue",
-                          AsyncMock(spec=MultiStreamDataSource)) as stream_to_queue_mock:
+                          AsyncMock()) as stream_to_queue_mock:
             side_effects = [self.cumulative_update for _ in range(random.randint(5, 10))]
             stream_to_queue_mock.queue.get = AsyncMock(side_effect=side_effects)
 
             with contextlib.suppress(StopAsyncIteration):
                 await self.data_source.listen_for_user_stream(self.output_queue)
 
-        stream_to_queue_mock.start_streams.assert_called_once()
+        stream_to_queue_mock.start_stream.assert_called_once()
         stream_to_queue_mock.subscribe.assert_called_once()
         # The number of calls to get should be the number of side effects + 1 for the StopAsyncIteration
         self.assertEqual(len(side_effects) + 1, stream_to_queue_mock.queue.get.call_count)
@@ -239,7 +238,7 @@ class TestCoinbaseAdvancedTradeSubscriptionBuilder(IsolatedAsyncioWrapperTestCas
         result = await coinbase_advanced_trade_subscription_builder(
             action=StreamAction.SUBSCRIBE,
             channel="level2",
-            pair="ETH-USD",
+            pairs=("ETH-USD",),
             pair_to_symbol=pair_to_symbol_mock
         )
         self.assertEqual(result, {
@@ -254,7 +253,7 @@ class TestCoinbaseAdvancedTradeSubscriptionBuilder(IsolatedAsyncioWrapperTestCas
         result = await coinbase_advanced_trade_subscription_builder(
             action=StreamAction.UNSUBSCRIBE,
             channel="level2",
-            pair="ETH-USD",
+            pairs=("ETH-USD",),
             pair_to_symbol=pair_to_symbol_mock
         )
         self.assertEqual(result, {
@@ -270,7 +269,7 @@ class TestCoinbaseAdvancedTradeSubscriptionBuilder(IsolatedAsyncioWrapperTestCas
             await coinbase_advanced_trade_subscription_builder(
                 action="invalid_action",
                 channel="level2",
-                pair="ETH-USD",
+                pairs=("ETH-USD",),
                 pair_to_symbol=pair_to_symbol_mock
             )
         pair_to_symbol_mock.assert_not_awaited()
