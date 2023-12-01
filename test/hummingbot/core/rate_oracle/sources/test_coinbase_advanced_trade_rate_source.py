@@ -82,7 +82,7 @@ class CoinbaseAdvancedTradeRateSourceTest(IsolatedAsyncioWrapperTestCase):
                       "ANG": "1.7968655",
                       "AOA": "509.99999999999745",
                       "ARS": "228.661430047360453",
-                      "COINALPHA": "10",
+                      "COINALPHA": "0.1",
                       }
                  }
 
