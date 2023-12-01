@@ -516,7 +516,7 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
 
         self.assertEqual(timestamp, float(1697724166.111149))
         self.assertEqual(funding_rate, Decimal("-0.0014109983417459"))
-        self.assertEqual(payment, Decimal("47.0078"))
+        self.assertEqual(payment, Decimal("0.00000000000470078"))
 
     @aioresponses()
     def test_update_balances(self, mock_api):
