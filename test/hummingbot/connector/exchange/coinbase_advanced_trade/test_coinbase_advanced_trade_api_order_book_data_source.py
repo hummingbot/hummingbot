@@ -3,7 +3,8 @@ import json
 import re
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
 from test.logger_mixin_for_test import LoggerMixinForTest
-from test.track_memory_usage import track_memory_growth
+
+# from test.track_memory_usage import track_memory_growth
 from typing import Awaitable
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -215,7 +216,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
         mock_api.clear()
 
     @aioresponses()
-    @track_memory_growth()
+    # @track_memory_growth()
     def test_get_new_order_book_raises_exception(self, mock_api):
         url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_EP, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -226,7 +227,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
             )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    @track_memory_growth(runs=10)
+    # @track_memory_growth(runs=10)
     def test_listen_for_subscriptions_subscribes_to_trades_and_order_diffs(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
