@@ -1016,10 +1016,11 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
 
             funding_period_sequence_id = funding_payment_data.get("fundingPeriodSeq")
             m: Market = self._exchange_info.get(market_id)
+            a: Asset = self._assets_by_id.get(m.quote_asset_id)
             time_paid = funding_payment_data.get("timestamp")
             quanity_paid = funding_payment_data.get("amount")
 
-            payment = Decimal(quanity_paid) / m.price_quantum
+            payment = Decimal(quanity_paid) / a.quantum
             timestamp = web_utils.hb_time_from_vega(time_paid)
 
             if most_recent_funding_payment["timestamp"] < timestamp:
@@ -1288,7 +1289,6 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
                         raise IOError(f"Error executing request {method.name} {path_url}. "
                                       f"HTTP status is {response.status}. "
                                       f"Error: {error_response}")
-                self._is_connected = True
                 return await response.json()
         except IOError as request_exception:
             raise request_exception
