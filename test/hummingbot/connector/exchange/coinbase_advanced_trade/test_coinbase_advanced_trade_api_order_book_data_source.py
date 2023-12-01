@@ -2,6 +2,8 @@ import asyncio
 import json
 import re
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
+from test.logger_mixin_for_test import LoggerMixinForTest
+from test.track_memory_usage import track_memory_growth
 from typing import Awaitable
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -28,11 +30,10 @@ from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 
 
-class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase):
+class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     # logging.Level required to receive logs from the data source logger
     quote_asset = None
     base_asset = None
-    level = 0
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -45,7 +46,6 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
 
     def setUp(self) -> None:
         super().setUp()
-        self.log_records = []
         self.listening_task = None
 
         client_config_map = ClientConfigAdapter(ClientConfigMap())
@@ -60,8 +60,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
                                                                        connector=self.connector,
                                                                        api_factory=self.connector._web_assistants_factory,
                                                                        domain=self.domain)
-        self.data_source.logger().setLevel(1)
-        self.data_source.logger().addHandler(self)
+        self.set_loggers(self.data_source.logger())
 
         self._original_full_order_book_reset_time = self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS
         self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = -1
@@ -79,13 +78,6 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
 
     def tearDown(self) -> None:
         super().tearDown()
-
-    def handle(self, record):
-        self.log_records.append(record)
-
-    def _is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message
-                   for record in self.log_records)
 
     def _create_exception_and_unlock_test_with_event(self, exception):
         self.resume_test_event.set()
@@ -220,7 +212,10 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
         self.assertEqual(12, asks[0].amount)
         self.assertEqual(expected_update_id, asks[0].update_id)
 
+        mock_api.clear()
+
     @aioresponses()
+    @track_memory_growth()
     def test_get_new_order_book_raises_exception(self, mock_api):
         url = web_utils.public_rest_url(path_url=CONSTANTS.SNAPSHOT_EP, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
@@ -231,6 +226,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
             )
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
+    @track_memory_growth(runs=10)
     def test_listen_for_subscriptions_subscribes_to_trades_and_order_diffs(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
@@ -262,7 +258,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
         self.assertTrue(subs["level2"])
         self.assertTrue(subs["heartbeats"])
 
-        self.assertTrue(self._is_logged(
+        self.assertTrue(self.is_logged(
             "INFO",
             f"Subscribed to order book channels for: {self.ex_trading_pair.upper()}"
         ))
@@ -287,7 +283,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
         self.async_run_with_timeout(self.resume_test_event.wait())
 
         self.assertTrue(
-            self._is_logged(
+            self.is_logged(
                 "ERROR",
                 "Unexpected error occurred when listening to order book streams. Retrying in 5 seconds..."))
 
@@ -308,7 +304,7 @@ class CoinbaseAdvancedTradeAPIOrderBookDataSourceUnitTests(IsolatedAsyncioWrappe
             self.async_run_with_timeout(self.listening_task)
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error occurred subscribing to order book trading and delta streams...")
+            self.is_logged("ERROR", "Unexpected error occurred subscribing to order book trading and delta streams...")
         )
 
     def test_listen_for_trades_cancelled_when_listening(self):
