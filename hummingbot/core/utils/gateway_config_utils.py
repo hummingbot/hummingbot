@@ -16,6 +16,7 @@ native_tokens = {
     "injective": "INJ",
     "xdc": "XDC",
     "tezos": "XTZ",
+    "xrpl": "XRP",
     "kujira": "KUJI"
 }
 
@@ -99,6 +100,24 @@ def build_connector_tokens_display(connectors: List[Dict[str, Any]]) -> pd.DataF
             [
                 f"{connector_spec['connector']}_{connector_spec['chain']}_{connector_spec['network']}",
                 connector_spec.get("tokens", ""),
+            ]
+        ])
+
+    return pd.DataFrame(data=data, columns=columns)
+
+
+def build_balances_allowances_display(symbols: List[str], balances: List[str], allowances: List[str]) -> pd.DataFrame:
+    """
+    Display balances and allowances for a list of symbols as a table
+    """
+    columns = ["Symbol", "Balance", "Allowances"]
+    data = []
+    for i in range(len(symbols)):
+        data.extend([
+            [
+                symbols[i],
+                balances[i],
+                allowances[i]
             ]
         ])
 

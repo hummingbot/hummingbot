@@ -2,6 +2,7 @@ from typing import Any, Callable, Dict, Optional
 
 import hummingbot.connector.derivative.binance_perpetual.binance_perpetual_constants as CONSTANTS
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
+from hummingbot.connector.utils import TimeSynchronizerRESTPreProcessor
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
@@ -51,8 +52,7 @@ def build_api_factory(
         throttler=throttler,
         auth=auth,
         rest_pre_processors=[
-            # TODO: Uncomment this when time synchronizer is fixed
-            # TimeSynchronizerRESTPreProcessor(synchronizer=time_synchronizer, time_provider=time_provider),
+            TimeSynchronizerRESTPreProcessor(synchronizer=time_synchronizer, time_provider=time_provider),
             BinancePerpetualRESTPreProcessor(),
         ])
     return api_factory

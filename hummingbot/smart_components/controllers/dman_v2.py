@@ -80,13 +80,13 @@ class DManV2(MarketMakingControllerBase):
         Creates a PositionConfig object from an OrderLevel object.
         Here you can use technical indicators to determine the parameters of the position config.
         """
-        close_price = self.get_close_price(self.config.exchange, self.config.trading_pair)
-        amount = order_level.order_amount_usd / close_price
+        close_price = self.get_close_price(self.config.trading_pair)
         price_multiplier, spread_multiplier = self.get_price_and_spread_multiplier()
 
         price_adjusted = close_price * (1 + price_multiplier)
         side_multiplier = -1 if order_level.side == TradeType.BUY else 1
         order_price = price_adjusted * (1 + order_level.spread_factor * spread_multiplier * side_multiplier)
+        amount = order_level.order_amount_usd / order_price
         if order_level.triple_barrier_conf.trailing_stop_trailing_delta and order_level.triple_barrier_conf.trailing_stop_trailing_delta:
             trailing_stop = TrailingStop(
                 activation_price_delta=order_level.triple_barrier_conf.trailing_stop_activation_price_delta,

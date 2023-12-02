@@ -2305,7 +2305,7 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         account_request = next(((key, value) for key, value in mock_api.requests.items()
                                 if key[1].human_repr().startswith(url)))
         request_params = account_request[1][0].kwargs["params"]
-        self.assertTrue(isinstance(request_params["timestamp"], int))
+        self.assertIsInstance(request_params["timestamp"], int)
 
     def test_limit_orders(self):
         self.exchange.start_tracking_order(
@@ -2334,8 +2334,8 @@ class BinancePerpetualDerivativeUnitTest(unittest.TestCase):
         limit_orders = self.exchange.limit_orders
 
         self.assertEqual(len(limit_orders), 2)
-        self.assertTrue(isinstance(limit_orders, list))
-        self.assertTrue(isinstance(limit_orders[0], LimitOrder))
+        self.assertIsInstance(limit_orders, list)
+        self.assertIsInstance(limit_orders[0], LimitOrder)
 
     def _simulate_trading_rules_initialized(self):
 
