@@ -2,7 +2,10 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from hummingbot.connector.constants import s_decimal_NaN
+from hummingbot.connector.exchange.penumbra.penumbra_api_order_book_data_source import PenumbraAPIOrderBookDataSource
+from hummingbot.connector.exchange.penumbra.penumbra_api_user_stream_data_source import PenumbraAPIUserStreamDataSource
 from hummingbot.connector.exchange.penumbra.penumbra_constants import EXCHANGE_NAME, RATE_LIMITS
+from hummingbot.connector.exchange.penumbra.penumbra_utils import build_api_factory
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.data_types import RateLimit
@@ -63,12 +66,11 @@ class PenumbraExchange(ExchangePyBase):
         """
         return [OrderType.LIMIT, OrderType.MARKET, OrderType.LIMIT_MAKER]
 
-    # TODO: Implement the below methods
-
     @property
     def domain(self) -> str:
-        return
+        return self._pclientd_url
 
+    # TODO: Implement the below methods
     @property
     def client_order_id_max_length(self) -> int:
         return
@@ -151,17 +153,28 @@ class PenumbraExchange(ExchangePyBase):
             self, exchange_info: Dict[str, Any]):
         return
 
-    # !! Ok we need to implement the below methods
-
-    # TODO: Consider if any of the below are actually necessary (as we use proto services)
-    def _create_web_assistants_factory(self) -> WebAssistantsFactory:
-        return None
-
+    # Definitely need order book data source
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
-        return None
+        return PenumbraAPIOrderBookDataSource(
+            trading_pairs=self._trading_pairs,
+            connector=self,
+            domain=self.domain,
+        )
+
+    # TODO: Consider if any of the below are actually necessary (as we use proto services), possible unnecessary for Avellaneda
+    def _create_web_assistants_factory(self) -> WebAssistantsFactory:
+        return build_api_factory(
+            throttler=self._throttler,
+            auth=self._auth)
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
-        return None
+        return PenumbraAPIUserStreamDataSource(
+            auth=self._auth,
+            trading_pairs=self._trading_pairs,
+            api_factory=self._web_assistants_factory,
+            connector=self,
+            domain=self.domain,
+        )
 
 
 # Resources:

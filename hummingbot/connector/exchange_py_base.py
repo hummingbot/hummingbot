@@ -73,12 +73,10 @@ class ExchangePyBase(ExchangeBase, ABC):
         # init OrderBook Data Source and Tracker
         self._orderbook_ds: OrderBookTrackerDataSource = self._create_order_book_data_source()
 
-        # TODO: Do all exchangs need this orderbook tracker?
-        if self._orderbook_ds is not None:
-            self._set_order_book_tracker(OrderBookTracker(
-                data_source=self._orderbook_ds,
-                trading_pairs=self.trading_pairs,
-                domain=self.domain))
+        self._set_order_book_tracker(OrderBookTracker(
+            data_source=self._orderbook_ds,
+            trading_pairs=self.trading_pairs,
+            domain=self.domain))
 
         # init UserStream Data Source and Tracker
         self._user_stream_tracker = self._create_user_stream_tracker()
