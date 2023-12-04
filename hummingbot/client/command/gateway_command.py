@@ -73,11 +73,11 @@ class GatewayCommand(GatewayChainApiManager):
         safe_ensure_future(self._get_balances(), loop=self.ev_loop)
 
     @ensure_gateway_online
-    def gateway_connector_tokens(self, connector_chain_network: Optional[str], new_tokens: Optional[str]):
-        if connector_chain_network is not None and new_tokens is not None:
-            safe_ensure_future(self._update_gateway_connector_tokens(connector_chain_network, new_tokens), loop=self.ev_loop)
+    def gateway_connector_tokens(self, chain_network: Optional[str], new_tokens: Optional[str]):
+        if chain_network is not None and new_tokens is not None:
+            safe_ensure_future(self._update_gateway_connector_tokens(chain_network, new_tokens), loop=self.ev_loop)
         else:
-            safe_ensure_future(self._show_gateway_connector_tokens(connector_chain_network), loop=self.ev_loop)
+            safe_ensure_future(self._show_gateway_connector_tokens(chain_network), loop=self.ev_loop)
 
     @ensure_gateway_online
     def gateway_approve_tokens(self, connector_chain_network: Optional[str], tokens: Optional[str]):
@@ -425,8 +425,8 @@ class GatewayCommand(GatewayChainApiManager):
             exchange_found = False
 
             for conf in gateway_connections:
-                conf: Dict[str, Any] = conf
-                if exchange == (f'{conf["connector"]}_{conf["chain"]}_{conf["network"]}'):
+                chain, network = conf['chain'], conf['network']
+                if exchange == (f"{chain}_{network}"):
                     exchange_found = True
                     address = conf["wallet_address"]
                     rows = []
@@ -439,7 +439,7 @@ class GatewayCommand(GatewayChainApiManager):
                     df = pd.DataFrame(data=rows, columns=["Symbol", "Balance", "sum_not_for_show"])
                     df.sort_values(by=["Symbol"], inplace=True)
 
-                    self.notify(f"\nExchange: {exchange}")
+                    self.notify(f"\nExchange: {chain}_{network}")
                     self.notify(f"Address: {address}")
 
                     if df.empty:
@@ -565,12 +565,26 @@ class GatewayCommand(GatewayChainApiManager):
     # returns only for non-gateway connectors since balance command no longer reports gateway connector balances
 
     async def all_balances_all_exc(self, client_config_map: ClientConfigMap) -> Dict[str, Dict[str, Decimal]]:
+        # Waits for the update_exchange method to complete with the provided client_config_map
         await self.update_exchange(client_config_map)
-        return {k: v.get_all_balances() for k, v in sorted(self._market.items(), key=lambda x: x[0])}
+
+        # Sorts the items in the self._market dictionary based on keys
+        sorted_market_items = sorted(self._market.items(), key=lambda x: x[0])
+        # Initializes an empty dictionary to store balances
+        balances = {}
+
+        # Iterates through the sorted items and retrieves balances for each item
+        for key, value in sorted_market_items:
+            new_key = key.split("_")
+            ex = new_key[1:]
+            result = "_".join(ex)
+            balances[result] = value.get_all_balances()
+
+        return balances
 
     # returns only for non-gateway connectors since balance command no longer reports gateway connector balances
     def all_available_balances_all_exc(self) -> Dict[str, Dict[str, Decimal]]:
-        # refactor to get all available balances and allowances for all exchanges
+        # Get available balances for all exchanges
         return {k: v.available_balances for k, v in sorted(self._market.items(), key=lambda x: x[0])}
 
     async def balance(self, exchange, client_config_map: ClientConfigMap, *symbols) -> Dict[str, Decimal]:
@@ -584,12 +598,12 @@ class GatewayCommand(GatewayChainApiManager):
 
     async def _show_gateway_connector_tokens(
             self,           # type: HummingbotApplication
-            connector_chain_network: str = None
+            chain_network: str = None
     ):
         """
         Display connector tokens that hummingbot will report balances for
         """
-        if connector_chain_network is None:
+        if chain_network is None:
             gateway_connections_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
             if len(gateway_connections_conf) < 1:
                 self.notify("No existing connection.\n")
@@ -597,16 +611,16 @@ class GatewayCommand(GatewayChainApiManager):
                 connector_df: pd.DataFrame = build_connector_tokens_display(gateway_connections_conf)
                 self.notify(connector_df.to_string(index=False))
         else:
-            conf: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(connector_chain_network)
+            conf: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(chain_network)
             if conf is not None:
                 connector_df: pd.DataFrame = build_connector_tokens_display([conf])
                 self.notify(connector_df.to_string(index=False))
             else:
-                self.notify(f"There is no gateway connection for {connector_chain_network}.\n")
+                self.notify(f"There is no gateway connection for {chain_network}.\n")
 
     async def _update_gateway_connector_tokens(
             self,           # type: HummingbotApplication
-            connector_chain_network: str,
+            chain_network: str,
             new_tokens: str,
     ):
         """
@@ -616,13 +630,13 @@ class GatewayCommand(GatewayChainApiManager):
         connector-chain-network and a particular strategy. This is only for
         report balances.
         """
-        conf: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(connector_chain_network)
+        conf: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(chain_network)
 
         if conf is None:
-            self.notify(f"'{connector_chain_network}' is not available. You can add and review available gateway connectors with the command 'gateway connect'.")
+            self.notify(f"'{chain_network}' is not available. You can add and review available gateway connectors with the command 'gateway connect'.")
         else:
-            GatewayConnectionSetting.upsert_connector_spec_tokens(connector_chain_network, new_tokens)
-            self.notify(f"The 'gateway balance' command will now report token balances {new_tokens} for '{connector_chain_network}'.")
+            GatewayConnectionSetting.upsert_connector_spec_tokens(chain_network, new_tokens)
+            self.notify(f"The 'gateway balance' command will now report token balances {new_tokens} for '{chain_network}'.")
 
     async def _gateway_list(
         self           # type: HummingbotApplication
