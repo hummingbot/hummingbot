@@ -22,6 +22,7 @@ class DManV3MultiplePairs(ScriptStrategyBase):
 
     # Candles configuration
     candles_exchange = "binance_perpetual"
+    candles_trading_pair = "ETH-USDT"
     candles_interval = "1h"
     candles_max_records = 300
     bollinger_band_length = 200
@@ -66,8 +67,9 @@ class DManV3MultiplePairs(ScriptStrategyBase):
             exchange=exchange,
             trading_pair=trading_pair,
             order_levels=order_levels,
+            close_price_trading_pair=candles_trading_pair,  # if this is None, the controller will use the default trading pair
             candles_config=[
-                CandlesConfig(connector=candles_exchange, trading_pair=trading_pair,
+                CandlesConfig(connector=candles_exchange, trading_pair=candles_trading_pair,
                               interval=candles_interval, max_records=candles_max_records),
             ],
             bb_length=bollinger_band_length,

@@ -22,6 +22,7 @@ class DManV2MultiplePairs(ScriptStrategyBase):
 
     # Candles configuration
     candles_exchange = "binance_perpetual"
+    candles_trading_pair = "ETH-USDT"
     candles_interval = "3m"
     candles_max_records = 300
 
@@ -68,7 +69,7 @@ class DManV2MultiplePairs(ScriptStrategyBase):
             trading_pair=trading_pair,
             order_levels=order_levels,
             candles_config=[
-                CandlesConfig(connector=candles_exchange, trading_pair=trading_pair,
+                CandlesConfig(connector=candles_exchange, trading_pair=candles_trading_pair,
                               interval=candles_interval, max_records=candles_max_records),
             ],
             leverage=leverage,
