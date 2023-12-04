@@ -14,6 +14,7 @@ class ControllerConfigBase(BaseModel):
     strategy_name: str
     candles_config: List[CandlesConfig]
     order_levels: List[OrderLevel]
+    close_price_trading_pair: Optional[str]
 
 
 class ControllerBase(ABC):
@@ -34,6 +35,7 @@ class ControllerBase(ABC):
         self.config = config
         self._excluded_parameters = excluded_parameters or ["order_levels", "candles_config"]
         self.candles = self.initialize_candles(config.candles_config)
+        self.close_price_trading_pair = config.close_price_trading_pair or config.trading_pair
 
     def get_processed_data(self):
         """
