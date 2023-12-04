@@ -73,11 +73,11 @@ class GatewayCommand(GatewayChainApiManager):
         safe_ensure_future(self._get_balances(), loop=self.ev_loop)
 
     @ensure_gateway_online
-    def gateway_connector_tokens(self, chain_network: Optional[str], new_tokens: Optional[str]):
-        if chain_network is not None and new_tokens is not None:
-            safe_ensure_future(self._update_gateway_connector_tokens(chain_network, new_tokens), loop=self.ev_loop)
+    def gateway_connector_tokens(self, connector_chain_network: Optional[str], new_tokens: Optional[str]):
+        if connector_chain_network is not None and new_tokens is not None:
+            safe_ensure_future(self._update_gateway_connector_tokens(connector_chain_network, new_tokens), loop=self.ev_loop)
         else:
-            safe_ensure_future(self._show_gateway_connector_tokens(chain_network), loop=self.ev_loop)
+            safe_ensure_future(self._show_gateway_connector_tokens(connector_chain_network), loop=self.ev_loop)
 
     @ensure_gateway_online
     def gateway_approve_tokens(self, connector_chain_network: Optional[str], tokens: Optional[str]):
