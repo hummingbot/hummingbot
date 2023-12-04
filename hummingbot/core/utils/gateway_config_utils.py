@@ -98,7 +98,7 @@ def build_connector_tokens_display(connectors: List[Dict[str, Any]]) -> pd.DataF
     for connector_spec in connectors:
         data.extend([
             [
-                f"{connector_spec['connector']}_{connector_spec['chain']}_{connector_spec['network']}",
+                f"{connector_spec['chain']}_{connector_spec['network']}",
                 connector_spec.get("tokens", ""),
             ]
         ])
