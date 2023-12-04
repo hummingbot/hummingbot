@@ -113,6 +113,13 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
             [{'px': '2080.5', 'sz': '73.018', 'n': 2}, {'px': '2080.6', 'sz': '74.6799', 'n': 2},
              {'px': '2118.9', 'sz': '377.495', 'n': 1}, {'px': '2122.1', 'sz': '348.8644', 'n': 1}]]}}
 
+    def get_ws_diff_msg_2(self) -> Dict:
+        return {'channel': 'l2Book', 'data': {'coin': 'BTC', 'time': 1700687397642, 'levels': [
+            [{'px': '2080.4', 'sz': '74.6923', 'n': 2}, {'px': '2080.0', 'sz': '162.2829', 'n': 2},
+             {'px': '1825.5', 'sz': '0.0259', 'n': 1}, {'px': '1823.6', 'sz': '0.0259', 'n': 1}],
+            [{'px': '2080.5', 'sz': '73.018', 'n': 2}, {'px': '2080.6', 'sz': '74.6799', 'n': 2},
+             {'px': '2118.9', 'sz': '377.495', 'n': 1}, {'px': '2122.1', 'sz': '348.8644', 'n': 1}]]}}
+
     def get_funding_info_rest_msg(self):
         return [
             {'universe': [{'maxLeverage': 50, 'name': self.base_asset, 'onlyIsolated': False},
@@ -381,9 +388,9 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
     def test_listen_for_order_book_diffs_successful(self):
         self._simulate_trading_rules_initialized()
         mock_queue = AsyncMock()
-        diff_event = self.get_ws_diff_msg()
+        diff_event = self.get_ws_diff_msg_2()
         mock_queue.get.side_effect = [diff_event, asyncio.CancelledError()]
-        self.data_source._message_queue[self.data_source._snapshot_messages_queue_key] = mock_queue
+        self.data_source._message_queue[self.data_source._diff_messages_queue_key] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
@@ -400,7 +407,7 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
         bids = msg.bids
         asks = msg.asks
         self.assertEqual(4, len(bids))
-        self.assertEqual(2080.3, bids[0].price)
+        self.assertEqual(2080.4, bids[0].price)
         self.assertEqual(74.6923, bids[0].amount)
         self.assertEqual(4, len(asks))
         self.assertEqual(2080.5, asks[0].price)
@@ -491,6 +498,8 @@ class HyperliquidPerpetualAPIOrderBookDataSourceTests(TestCase):
     def _simulate_trading_rules_initialized(self):
         mocked_response = self.get_trading_rule_rest_msg()
         self.connector._initialize_trading_pair_symbols_from_exchange_info(mocked_response)
+        self.connector.coin_to_asset = {asset_info["name"]: asset for (asset, asset_info) in
+                                       enumerate(mocked_response[0]["universe"])}
         self.connector._trading_rules = {
             self.trading_pair: TradingRule(
                 trading_pair=self.trading_pair,

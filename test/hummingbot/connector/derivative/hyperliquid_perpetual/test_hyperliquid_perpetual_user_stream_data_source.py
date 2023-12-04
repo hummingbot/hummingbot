@@ -89,8 +89,7 @@ class TestHyperliquidPerpetualAPIUserStreamDataSource(unittest.TestCase):
         return "be4ffcc9-2b2b-4c3e-9d47-68bf062cf651"
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_user_stream_subscribes_to_orders_and_balances_events(self, time_mock, ws_connect_mock):
-        time_mock.return_value = 1000
+    def test_listen_for_user_stream_subscribes_to_orders_and_balances_events(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
         result_subscribe_orders = {'channel': 'orderUpdates', 'data': [{'order': {'coin': 'ETH', 'side': 'A',
@@ -123,7 +122,7 @@ class TestHyperliquidPerpetualAPIUserStreamDataSource(unittest.TestCase):
         sent_subscription_messages = self.mocking_assistant.json_messages_sent_through_websocket(
             websocket_mock=ws_connect_mock.return_value)
 
-        self.assertEqual(3, len(sent_subscription_messages))
+        self.assertEqual(2, len(sent_subscription_messages))
         expected_orders_subscription = {
             "method": "subscribe",
             "subscription": {
