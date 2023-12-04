@@ -117,9 +117,10 @@ class HyperliquidPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             queue.put_nowait(event_message)
 
     async def _ping_thread(self, websocket_assistant: WSAssistant,):
-        ping_request = WSJSONRequest(payload={"method": "ping"})
-        await asyncio.sleep(CONSTANTS.HEARTBEAT_TIME_INTERVAL)
-        await websocket_assistant.send(ping_request)
+        while True:
+            ping_request = WSJSONRequest(payload={"method": "ping"})
+            await asyncio.sleep(CONSTANTS.HEARTBEAT_TIME_INTERVAL)
+            await websocket_assistant.send(ping_request)
 
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant, queue: asyncio.Queue):
         while True:
