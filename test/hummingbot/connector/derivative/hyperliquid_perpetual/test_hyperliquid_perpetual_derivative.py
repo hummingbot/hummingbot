@@ -699,7 +699,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         self._simulate_trading_rules_initialized()
         return {'channel': 'user', 'data': {'fills': [
-            {'coin': 'ETH', 'px': order.price, 'sz': float(order.amount), 'side': 'B', 'time': 1700819083138,
+            {'coin': 'BTC', 'px': order.price, 'sz': float(order.amount), 'side': 'B', 'time': 1700819083138,
              'startPosition': '0.0',
              'dir': 'Open Long', 'closedPnl': '0.0',
              'hash': '0x6065d86346c0ee0f5d9504081647930115005f95c201c3a6fb5ba2440507f2cf',  # noqa: mock

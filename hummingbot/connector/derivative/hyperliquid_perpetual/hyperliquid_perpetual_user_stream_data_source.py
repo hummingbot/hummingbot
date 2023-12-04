@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 import hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_web_utils as web_utils
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
+from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
@@ -61,6 +62,7 @@ class HyperliquidPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         ws: WSAssistant = await self._get_ws_assistant()
         url = f"{web_utils.wss_url(self._domain)}"
         await ws.connect(ws_url=url, ping_timeout=self.HEARTBEAT_TIME_INTERVAL)
+        safe_ensure_future(self._ping_thread(ws))
         return ws
 
     async def _subscribe_channels(self, websocket_assistant: WSAssistant):
@@ -113,6 +115,11 @@ class HyperliquidPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             CONSTANTS.USEREVENT_ENDPOINT_NAME,
         ]:
             queue.put_nowait(event_message)
+
+    async def _ping_thread(self, websocket_assistant: WSAssistant,):
+        ping_request = WSJSONRequest(payload={"method": "ping"})
+        await asyncio.sleep(CONSTANTS.HEARTBEAT_TIME_INTERVAL)
+        await websocket_assistant.send(ping_request)
 
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant, queue: asyncio.Queue):
         while True:
