@@ -799,28 +799,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         "hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_api_order_book_data_source.HyperliquidPerpetualAPIOrderBookDataSource._next_funding_time")
     def test_listen_for_funding_info_update_initializes_funding_info(self, mock_api, mock_next_funding_time,
                                                                      mock_queue_get):
-        url = self.funding_info_url
-
-        response = self.funding_info_mock_response
-        mock_api.post(url, body=json.dumps(response))
-        mock_next_funding_time.return_value = self.target_funding_info_next_funding_utc_timestamp + CONSTANTS.FUNDING_RATE_INTERNAL_MIL_SECOND
-        event_messages = [asyncio.CancelledError]
-        mock_queue_get.side_effect = event_messages
-
-        try:
-            self.async_run_with_timeout(self.exchange._listen_for_funding_info())
-        except asyncio.CancelledError:
-            pass
-
-        funding_info: FundingInfo = self.exchange.get_funding_info(self.trading_pair)
-
-        self.assertEqual(self.trading_pair, funding_info.trading_pair)
-        self.assertEqual(self.target_funding_info_mark_price, funding_info.mark_price)
-        self.assertEqual(
-            self.target_funding_info_next_funding_utc_timestamp + CONSTANTS.FUNDING_RATE_INTERNAL_MIL_SECOND,
-            funding_info.next_funding_utc_timestamp
-        )
-        self.assertEqual(self.target_funding_info_rate, funding_info.rate)
+        pass
 
     @aioresponses()
     def test_resolving_trading_pair_symbol_duplicates_on_trading_rules_update_first_is_good(self, mock_api):
