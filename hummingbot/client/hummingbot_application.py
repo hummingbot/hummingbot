@@ -49,7 +49,7 @@ s_logger = None
 
 
 class HummingbotApplication(*commands):
-    KILL_TIMEOUT = 10.0
+    KILL_TIMEOUT = 20.0
     APP_WARNING_EXPIRY_DURATION = 3600.0
     APP_WARNING_STATUS_LIMIT = 6
 
