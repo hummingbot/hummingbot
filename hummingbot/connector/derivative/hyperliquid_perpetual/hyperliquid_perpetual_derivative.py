@@ -254,7 +254,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             data=api_params,
             is_auth_required=True)
         if "error" in cancel_result["response"]["data"]["statuses"][0]:
-            self.logger().debug(f"The order {order_id} does not exist on Binance Perpetuals. "
+            self.logger().debug(f"The order {order_id} does not exist on Hyperliquid Perpetuals. "
                                 f"No cancelation needed.")
             await self._order_tracker.process_order_not_found(order_id)
             raise IOError(f'{cancel_result["response"]["data"]["statuses"][0]["error"]}')
@@ -372,19 +372,23 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         trade_updates = []
+        trading_pair_base_coin = order.trading_pair.split("-")[0]
         try:
-            all_fills_response = await self._api_post(
-                path_url=CONSTANTS.ACCOUNT_TRADE_LIST_URL,
-                data={
-                    "type": CONSTANTS.TRADES_TYPE,
-                    "user": self.hyperliquid_perpetual_api_key,
-                })
+            if order.exchange_order_id is not None:
+                all_fills_response = await self._api_post(
+                    path_url=CONSTANTS.ACCOUNT_TRADE_LIST_URL,
+                    data={
+                        "type": CONSTANTS.TRADES_TYPE,
+                        "user": self.hyperliquid_perpetual_api_key,
+                    })
 
-            for trade_fill in all_fills_response:
-                trade_update = self._create_trade_update_with_order_fill_data(
-                    order_fill=trade_fill,
-                    order=order)
-                trade_updates.append(trade_update)
+                for trade_fill in all_fills_response:
+                    trade_coin = trade_fill["coin"]
+                    if trade_coin == trading_pair_base_coin:
+                        trade_update = self._create_trade_update_with_order_fill_data(
+                            order_fill=trade_fill,
+                            order=order)
+                        trade_updates.append(trade_update)
 
         except asyncio.TimeoutError:
             raise IOError(f"Skipped order update with order fills for {order.client_order_id} "
@@ -507,26 +511,28 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         if tracked_order is None:
             self.logger().debug(f"Ignoring trade message with id {client_order_id}: not in in_flight_orders.")
         else:
-            position_action = PositionAction.OPEN if trade["dir"].split(" ")[0] == "Open" else PositionAction.CLOSE
-            fee_asset = tracked_order.quote_asset
-            fee = TradeFeeBase.new_perpetual_fee(
-                fee_schema=self.trade_fee_schema(),
-                position_action=position_action,
-                percent_token=fee_asset,
-                flat_fees=[TokenAmount(amount=Decimal(trade["fee"]), token=fee_asset)]
-            )
-            trade_update: TradeUpdate = TradeUpdate(
-                trade_id=str(trade["hash"]),
-                client_order_id=tracked_order.client_order_id,
-                exchange_order_id=trade["oid"],
-                trading_pair=tracked_order.trading_pair,
-                fill_timestamp=trade["time"] * 1e-3,
-                fill_price=Decimal(trade["px"]),
-                fill_base_amount=Decimal(trade["sz"]),
-                fill_quote_amount=Decimal(trade["px"]) * Decimal(trade["sz"]),
-                fee=fee,
-            )
-            self._order_tracker.process_trade_update(trade_update)
+            trading_pair_base_coin = tracked_order.base_asset
+            if trade["coin"] == trading_pair_base_coin:
+                position_action = PositionAction.OPEN if trade["dir"].split(" ")[0] == "Open" else PositionAction.CLOSE
+                fee_asset = tracked_order.quote_asset
+                fee = TradeFeeBase.new_perpetual_fee(
+                    fee_schema=self.trade_fee_schema(),
+                    position_action=position_action,
+                    percent_token=fee_asset,
+                    flat_fees=[TokenAmount(amount=Decimal(trade["fee"]), token=fee_asset)]
+                )
+                trade_update: TradeUpdate = TradeUpdate(
+                    trade_id=str(trade["hash"]),
+                    client_order_id=tracked_order.client_order_id,
+                    exchange_order_id=trade["oid"],
+                    trading_pair=tracked_order.trading_pair,
+                    fill_timestamp=trade["time"] * 1e-3,
+                    fill_price=Decimal(trade["px"]),
+                    fill_base_amount=Decimal(trade["sz"]),
+                    fill_quote_amount=Decimal(trade["px"]) * Decimal(trade["sz"]),
+                    fee=fee,
+                )
+                self._order_tracker.process_trade_update(trade_update)
 
     def _process_order_message(self, order_msg: Dict[str, Any]):
         """
