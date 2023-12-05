@@ -478,6 +478,7 @@ async def amm_trade(
     side: TradeType,
     amount: Decimal,
     price: Decimal,
+    allowedSlippage: str = "0/1",  # Default value is "0/1"
     nonce: Optional[int] = None,
     max_fee_per_gas: Optional[int] = None,
     max_priority_fee_per_gas: Optional[int] = None
@@ -508,7 +509,8 @@ async def amm_trade(
         "quote": quote_asset,
         "side": side,
         "amount": amount_str,
-        "limitPrice": price_str,  # Hummingbot applies slippage itself
+        "limitPrice": price_str,
+        "allowedSlippage": allowedSlippage  # Include the allowedSlippage parameter
     }
     if nonce is not None:
         request_payload["nonce"] = int(nonce)
