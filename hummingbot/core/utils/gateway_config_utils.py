@@ -3,6 +3,9 @@ from typing import Any, Dict, Iterable, List, Optional
 
 import pandas as pd
 
+# from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
+# from hummingbot.core.utils.async_utils import safe_ensure_future
+
 native_tokens = {
     "ethereum": "ETH",
     "avalanche": "AVAX",
@@ -21,6 +24,12 @@ native_tokens = {
 }
 
 SUPPORTED_CHAINS = set(native_tokens.keys())
+
+
+# def get_gateway_chains_with_network() -> List[str]:
+#     resp: Dict[str, Any] = safe_ensure_future(
+#         GatewayHttpClient.get_configuration())
+#     return [c["chain"] for c in resp["chains"]]
 
 
 def flatten(items):
@@ -89,17 +98,17 @@ def build_list_display(connectors: List[Dict[str, Any]]) -> pd.DataFrame:
     return pd.DataFrame(data=data, columns=columns)
 
 
-def build_connector_tokens_display(connectors: List[Dict[str, Any]]) -> pd.DataFrame:
+def build_connector_tokens_display(connectors: Dict[str, List[str]]) -> pd.DataFrame:
     """
     Display connector and the tokens the balance command will report on
     """
     columns = ["Exchange", "Report Token Balances"]
     data = []
-    for connector_spec in connectors:
+    for connector_spec, tokens in connectors:
         data.extend([
             [
-                f"{connector_spec['chain']}_{connector_spec['network']}",
-                connector_spec.get("tokens", ""),
+                connector_spec,
+                tokens,
             ]
         ])
 

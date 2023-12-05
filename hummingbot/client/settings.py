@@ -13,6 +13,9 @@ from hummingbot import get_strategy_list, root_path
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.core.utils.gateway_config_utils import SUPPORTED_CHAINS
 
+# from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
+# from hummingbot.core.utils.async_utils import safe_ensure_future
+
 if TYPE_CHECKING:
     from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -169,6 +172,33 @@ class GatewayConnectionSetting:
                 break
 
         GatewayConnectionSetting.save(connectors_conf)
+
+
+class GatewayTokenSetting:
+    @staticmethod
+    def config_path() -> str:
+        return realpath(join(CONF_DIR_PATH, "gateway_network.json"))
+
+    @staticmethod
+    def load() -> List[Dict[str, str]]:
+        connections_conf_path: str = GatewayTokenSetting.config_path()
+        if exists(connections_conf_path):
+            with open(connections_conf_path) as fd:
+                return json.load(fd)
+        return []
+
+    @staticmethod
+    def save(settings: List[Dict[str, str]]):
+        connections_conf_path: str = GatewayTokenSetting.config_path()
+        with open(connections_conf_path, "w") as fd:
+            json.dump(settings, fd)
+
+    @staticmethod
+    def upsert_network_spec_tokens(chain_network: str, tokens: List[str]):
+        network_conf: List[Dict[str, str]] = GatewayTokenSetting.load()
+        network_conf[chain_network] = tokens
+
+        GatewayTokenSetting.save(network_conf)
 
 
 class ConnectorSetting(NamedTuple):
@@ -365,6 +395,11 @@ class ConnectorSetting(NamedTuple):
 
 class AllConnectorSettings:
     all_connector_settings: Dict[str, ConnectorSetting] = {}
+
+    # @classmethod
+    # def get_gateway_chains_with_network() -> List[str]:
+    #     resp: Dict[str, Any] = safe_ensure_future(GatewayHttpClient.get_configuration())
+    #     return [c["chain"] for c in resp["chains"]]
 
     @classmethod
     def create_connector_settings(cls):
