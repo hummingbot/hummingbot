@@ -81,6 +81,8 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
             self.domain: bidict({self.symbol: self.trading_pair})
         }
 
+        self.exchange._best_connection_endpoint = CONSTANTS.TESTNET_BASE_URL
+
         self.exchange._set_current_timestamp(1640780000)
         self.exchange.logger().setLevel(1)
         self.exchange.logger().addHandler(self)
@@ -467,7 +469,8 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
 
     @aioresponses()
     @patch('hummingbot.connector.derivative.vega_perpetual.vega_perpetual_auth.VegaPerpetualAuth.sign_payload', return_value="FAKE_SIGNATURE".encode('utf-8'))
-    def test_place_cancel_missing_exchange_order_id_tx_failed(self, mock_api, mock_signature):
+    @patch('hummingbot.connector.derivative.vega_perpetual.vega_perpetual_web_utils.get_current_server_time', return_value=1000000000.00)
+    def test_place_cancel_missing_exchange_order_id_tx_failed(self, mock_api, mock_signature, mock_server_time):
         self._setup_markets(mock_api)
         o = InFlightOrder(client_order_id= "FAKE_CLIENT_ID",
                           trading_pair=self.ex_trading_pair,
@@ -477,6 +480,10 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
                           creation_timestamp= 10000.0,
                           exchange_order_id="FAKE_CLIENT_ID",
                           initial_state=OrderState.CREATED)
+
+        mock_api.post(self.submit_transaction_url,
+                      body=json.dumps(mock_requests.get_transaction_failure_mock()),
+                      headers={"Ratelimit-Limit": "100", "Ratelimit-Reset": "1"})
 
         task = self.ev_loop.create_task(self.exchange._place_cancel(
             order_id="FAKE_CLIENT_ID",
@@ -634,6 +641,9 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_ws_error(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+
+        self.exchange._user_stream_tracker.data_source._connector._best_connection_endpoint = "wss://test.com"
+
         self.ev_loop.create_task(self.exchange._user_stream_tracker.start())
 
         self.assertEqual(len(self.exchange.account_positions), 0)
@@ -653,6 +663,7 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
     def test_ws_invalid_data(self, ws_connect_mock):
 
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+        self.exchange._user_stream_tracker.data_source._connector._best_connection_endpoint = "wss://test.com"
         self.ev_loop.create_task(self.exchange._user_stream_tracker.start())
 
         error_payload = mock_ws.ws_invalid_data()
@@ -683,6 +694,8 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
     def test_ws_cancel_exception(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
+
+        self.exchange._user_stream_tracker.data_source._connector._best_connection_endpoint = "wss://test.com"
         self.ev_loop.create_task(self.exchange._user_stream_tracker.start())
 
         self.mocking_assistant.add_websocket_aiohttp_exception(ws_connect_mock.return_value, exception=asyncio.CancelledError)
@@ -945,6 +958,10 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
     @aioresponses()
     def test_start_network(self, mock_api):
         self._setup_markets(mock_api)
+
+        network_status_resp = mock_requests._get_network_requests_rest_mock()
+
+        mock_api.get(self.network_status_url, body=json.dumps(network_status_resp))
 
         mock_api.get(self.symbols_url,
                      body=json.dumps(mock_requests._get_exchange_symbols_rest_mock()),

@@ -27,13 +27,28 @@ def rest_url(path_url: str, domain: str = "vega_perpetual", api_version: str = C
     return base_url + "api/" + api_version + path_url
 
 
+def _rest_url(path_url: str, base: str, api_version: str = CONSTANTS.API_VERSION):
+    base_url = base
+    return base_url + "api/" + api_version + path_url
+
+
 def short_url(path_url: str, domain: str = "vega_perpetual"):
     base_url = CONSTANTS.PERPETUAL_BASE_URL if domain == "vega_perpetual" else CONSTANTS.TESTNET_BASE_URL
     return base_url + path_url
 
 
+def _short_url(path_url: str, base: str):
+    base_url = base
+    return base_url + path_url
+
+
 def wss_url(endpoint: str, domain: str = "vega_perpetual", api_version: str = CONSTANTS.API_VERSION):
     base_ws_url = CONSTANTS.PERPETUAL_WS_URL if domain == "vega_perpetual" else CONSTANTS.TESTNET_WS_URL
+    return base_ws_url + "api/" + api_version + endpoint
+
+
+def _wss_url(endpoint: str, base: str, api_version: str = CONSTANTS.API_VERSION):
+    base_ws_url = process_ws_url_from_https(base)
     return base_ws_url + "api/" + api_version + endpoint
 
 
@@ -144,3 +159,7 @@ def get_account_type(account_type: any) -> Optional[str]:
     if isinstance(account_type, int) and (account_type in VegaIntAccountType.keys()):
         account_type = VegaIntAccountType[account_type]
     return account_type
+
+
+def process_ws_url_from_https(url: str) -> str:
+    return f"{url}".replace("https", "wss")

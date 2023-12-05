@@ -133,6 +133,8 @@ class VegaPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         msg_queue: asyncio.Queue = asyncio.Queue()
         mock_ws.side_effect = asyncio.CancelledError
 
+        self.data_source._connector._best_connection_endpoint = "wss://test.com"
+
         with self.assertRaises(asyncio.CancelledError):
             self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
             self.async_run_with_timeout(self.listening_task)
@@ -143,6 +145,8 @@ class VegaPerpetualAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     def test_listen_for_subscriptions_logs_exception_details(self, mock_ws, sleep_mock):
         sleep_mock.side_effect = asyncio.CancelledError
         mock_ws.side_effect = Exception("TEST ERROR.")
+
+        self.data_source._connector._best_connection_endpoint = "wss://test.com"
 
         with self.assertRaises(asyncio.CancelledError):
             self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
