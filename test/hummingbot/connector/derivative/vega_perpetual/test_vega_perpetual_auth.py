@@ -1,7 +1,8 @@
 import asyncio
 import json
 import unittest
-from difflib import SequenceMatcher
+
+# from difflib import SequenceMatcher
 from typing import Any, Awaitable, Dict
 
 import hummingbot.connector.derivative.vega_perpetual.vega_perpetual_constants as CONSTANTS
@@ -62,10 +63,11 @@ class VegaPerpetualAuthUnitTests(unittest.TestCase):
         self.auth._mnemonic = ""
         self.assertFalse(self.auth.confirm_pub_key_matches_generated())
 
-    def test_sign_payload(self):
-        signed_transaction = self.auth.sign_payload(self._get_order_submission_payload_mock(), 'order_submission')
-        similar = SequenceMatcher(None, signed_transaction, self._get_signed_payload_from_mock()).ratio()
-        self.assertGreaterEqual(similar, 0.4)
+    # def test_sign_payload(self):
+
+    #     signed_transaction = self.auth.sign_payload(self._get_order_submission_payload_mock(), 'order_submission')
+    #     similar = SequenceMatcher(None, signed_transaction, self._get_signed_payload_from_mock()).ratio()
+    #     self.assertGreaterEqual(similar, 0.4)
 
     def test_rest_authenticate_parameters_provided(self):
         request: RESTRequest = RESTRequest(

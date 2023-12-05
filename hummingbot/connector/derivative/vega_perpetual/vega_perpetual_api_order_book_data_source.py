@@ -60,8 +60,10 @@ class VegaPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 market_id_param += f"marketIds={market_id}"
 
             for channel in channels:
-                url = f"{web_utils.wss_url(channel, self._domain)}?{market_id_param}"
-                tasks.append(self._start_websocket(url=url))
+                if self._connector._best_connection_endpoint == "":
+                    await self._connector.connection_base()
+                _url = f"{web_utils._wss_url(channel, self._connector._best_connection_endpoint)}?{market_id_param}"
+                tasks.append(self._start_websocket(url=_url))
 
             tasks_future = asyncio.gather(*tasks)
             await tasks_future

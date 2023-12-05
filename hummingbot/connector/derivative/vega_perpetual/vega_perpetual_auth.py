@@ -1,5 +1,7 @@
 import base64
-from typing import Any, Dict
+import time
+from decimal import Decimal
+from typing import Any, Dict, List
 
 from vega.auth import Signer
 from vega.client import Client
@@ -22,6 +24,38 @@ class VegaPerpetualAuth(AuthBase):
         self._mnemonic = mnemonic
         self.domain = domain
         self.is_valid = self.confirm_pub_key_matches_generated()
+        self._best_grpc_url = ""
+
+    async def grpc_base(self) -> None:
+        endpoints = CONSTANTS.PERPETUAL_GRPC_ENDPOINTS
+        if self.domain == CONSTANTS.TESTNET_DOMAIN:
+            endpoints = CONSTANTS.TESTNET_GRPC_ENDPOINTS
+        results: List[Dict[str, str]] = []
+        for url in endpoints:
+            try:
+                _start_time = time.time_ns()
+                mnemonic_length = len(self._mnemonic.split())
+                if self._mnemonic is not None and mnemonic_length > 0:
+                    # NOTE: This trys to connect, if not it cycles through the endpoints
+                    self._client: Client = Client(
+                        mnemonic=self._mnemonic,
+                        grpc_url=web_utils.grpc_url(self.domain),
+                        # NOTE: This is for vega vs metamask snap
+                        derivations=(0 if mnemonic_length == 12 else 1)
+                    )
+                _end_time = time.time_ns()
+                _request_latency = _end_time - _start_time
+                # Check to ensure we have a match
+                _time_ms = Decimal(_request_latency)
+                results.append({"connection": url, "latency": _time_ms})
+            except Exception:
+                pass
+
+        if len(results) > 0:
+            # Sort the results
+            sorted_result = sorted(results, key=lambda x: x['latency'])
+            # Return the connection endpoint with the best response time
+            self._best_grpc_url = sorted_result[0]["connection"]
 
     def confirm_pub_key_matches_generated(self) -> bool:
         mnemonic_length = len(self._mnemonic.split())
@@ -35,12 +69,15 @@ class VegaPerpetualAuth(AuthBase):
                 return False
         return False
 
-    def sign_payload(self, payload: Dict[str, Any], method: str) -> str:
+    async def sign_payload(self, payload: Dict[str, Any], method: str) -> str:
+        if self._best_grpc_url == "":
+            await self.grpc_base()
         mnemonic_length = len(self._mnemonic.split())
         if self._mnemonic is not None and mnemonic_length > 0:
+            # NOTE: This trys to connect, if not it cycles through the endpoints
             self._client: Client = Client(
                 mnemonic=self._mnemonic,
-                grpc_url=web_utils.grpc_url(self.domain),
+                grpc_url=self._best_grpc_url,
                 # NOTE: This is for vega vs metamask snap
                 derivations=(0 if mnemonic_length == 12 else 1)
             )

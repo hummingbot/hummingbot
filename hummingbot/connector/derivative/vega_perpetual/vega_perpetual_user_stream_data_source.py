@@ -55,28 +55,30 @@ class VegaPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         tasks_future = None
         try:
             tasks = []
+            if self._connector._best_connection_endpoint == "":
+                await self._connector.connection_base()
 
             tasks.append(
                 # account stream
-                self._start_websocket(url=f"{web_utils.wss_url(CONSTANTS.ACCOUNT_STREAM_URL, self._domain)}?partyId={self._connector.vega_perpetual_public_key}",
+                self._start_websocket(url=f"{web_utils._wss_url(CONSTANTS.ACCOUNT_STREAM_URL, self._connector._best_connection_endpoint)}?partyId={self._connector.vega_perpetual_public_key}",
                                       channel_id=CONSTANTS.ACCOUNT_STREAM_ID,
                                       output=output)
             )
             tasks.append(
                 # orders stream
-                self._start_websocket(url=f"{web_utils.wss_url(CONSTANTS.ORDERS_STREAM_URL, self._domain)}?partyIds={self._connector.vega_perpetual_public_key}",
+                self._start_websocket(url=f"{web_utils._wss_url(CONSTANTS.ORDERS_STREAM_URL, self._connector._best_connection_endpoint)}?partyIds={self._connector.vega_perpetual_public_key}",
                                       channel_id=CONSTANTS.ORDERS_STREAM_ID,
                                       output=output)
             )
             tasks.append(
                 # positions stream
-                self._start_websocket(url=f"{web_utils.wss_url(CONSTANTS.POSITIONS_STREAM_URL, self._domain)}?partyId={self._connector.vega_perpetual_public_key}",
+                self._start_websocket(url=f"{web_utils._wss_url(CONSTANTS.POSITIONS_STREAM_URL, self._connector._best_connection_endpoint)}?partyId={self._connector.vega_perpetual_public_key}",
                                       channel_id=CONSTANTS.POSITIONS_STREAM_ID,
                                       output=output)
             )
             tasks.append(
                 # trades stream
-                self._start_websocket(url=f"{web_utils.wss_url(CONSTANTS.TRADE_STREAM_URL, self._domain)}?partyIds={self._connector.vega_perpetual_public_key}",
+                self._start_websocket(url=f"{web_utils._wss_url(CONSTANTS.TRADE_STREAM_URL, self._connector._best_connection_endpoint)}?partyIds={self._connector.vega_perpetual_public_key}",
                                       channel_id=CONSTANTS.TRADES_STREAM_ID,
                                       output=output)
             )
