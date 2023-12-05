@@ -411,8 +411,8 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
         trade_update = TradeUpdate(
             trade_id=str(order_fill["hash"]),
-            client_order_id=order.client_order_id,
-            exchange_order_id=order.exchange_order_id,
+            client_order_id=order_fill.get("cloid") or order.client_order_id,
+            exchange_order_id=str(order_fill["oid"]),
             trading_pair=order.trading_pair,
             fee=fee,
             fill_base_amount=Decimal(order_fill["sz"]),
@@ -523,8 +523,8 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 )
                 trade_update: TradeUpdate = TradeUpdate(
                     trade_id=str(trade["hash"]),
-                    client_order_id=tracked_order.client_order_id,
-                    exchange_order_id=trade["oid"],
+                    client_order_id=trade.get("cloid") or tracked_order.client_order_id,
+                    exchange_order_id=str(trade["oid"]),
                     trading_pair=tracked_order.trading_pair,
                     fill_timestamp=trade["time"] * 1e-3,
                     fill_price=Decimal(trade["px"]),
