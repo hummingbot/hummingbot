@@ -384,7 +384,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
                 for trade_fill in all_fills_response:
                     trade_coin = trade_fill["coin"]
-                    if trade_coin == trading_pair_base_coin and trade_fill["oid"] == order.exchange_order_id:
+                    if trade_coin == trading_pair_base_coin and str(trade_fill["oid"]) == order.exchange_order_id:
                         trade_update = self._create_trade_update_with_order_fill_data(
                             order_fill=trade_fill,
                             order=order)
@@ -512,7 +512,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             self.logger().debug(f"Ignoring trade message with id {client_order_id}: not in in_flight_orders.")
         else:
             trading_pair_base_coin = tracked_order.base_asset
-            if trade["coin"] == trading_pair_base_coin and trade["oid"] == tracked_order.exchange_order_id:
+            if trade["coin"] == trading_pair_base_coin and str(trade["oid"]) == tracked_order.exchange_order_id:
                 position_action = PositionAction.OPEN if trade["dir"].split(" ")[0] == "Open" else PositionAction.CLOSE
                 fee_asset = tracked_order.quote_asset
                 fee = TradeFeeBase.new_perpetual_fee(
