@@ -2,7 +2,9 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-from penumbra.core.component.compact_block.v1alpha1 import compact_block_pb2 as penumbra_dot_core_dot_component_dot_compact__block_dot_v1alpha1_dot_compact__block__pb2
+from hummingbot.connector.gateway.clob_spot.data_sources.penumbra.generated.penumbra.core.component.compact_block.v1alpha1 import (
+    compact_block_pb2 as penumbra_dot_core_dot_component_dot_compact__block_dot_v1alpha1_dot_compact__block__pb2,
+)
 
 
 class QueryServiceStub(object):
@@ -47,7 +49,7 @@ def add_QueryServiceServicer_to_server(servicer, server):
     server.add_generic_rpc_handlers((generic_handler,))
 
 
- # This class is part of an EXPERIMENTAL API.
+# This class is part of an EXPERIMENTAL API.
 class QueryService(object):
     """Query operations for the compact block component.
     """

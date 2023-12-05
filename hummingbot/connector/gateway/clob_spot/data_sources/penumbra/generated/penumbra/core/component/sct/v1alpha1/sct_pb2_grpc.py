@@ -2,7 +2,9 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-from penumbra.core.component.sct.v1alpha1 import sct_pb2 as penumbra_dot_core_dot_component_dot_sct_dot_v1alpha1_dot_sct__pb2
+from hummingbot.connector.gateway.clob_spot.data_sources.penumbra.generated.penumbra.core.component.sct.v1alpha1 import (
+    sct_pb2 as penumbra_dot_core_dot_component_dot_sct_dot_v1alpha1_dot_sct__pb2,
+)
 
 
 class QueryServiceStub(object):
@@ -47,7 +49,7 @@ def add_QueryServiceServicer_to_server(servicer, server):
     server.add_generic_rpc_handlers((generic_handler,))
 
 
- # This class is part of an EXPERIMENTAL API.
+# This class is part of an EXPERIMENTAL API.
 class QueryService(object):
     """Query operations for the SCT component.
     """

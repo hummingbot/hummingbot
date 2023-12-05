@@ -3,10 +3,13 @@ from pprint import pprint
 from typing import Any, Dict, List, Optional
 
 from aiohttp import ClientSession
-from penumbra_constants import TOKEN_ADDRESS_MAP, TOKEN_SYMBOL_MAP
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
+from hummingbot.connector.gateway.clob_spot.data_sources.penumbra.penumbra_constants import (
+    TOKEN_ADDRESS_MAP,
+    TOKEN_SYMBOL_MAP,
+)
 from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.logger import HummingbotLogger

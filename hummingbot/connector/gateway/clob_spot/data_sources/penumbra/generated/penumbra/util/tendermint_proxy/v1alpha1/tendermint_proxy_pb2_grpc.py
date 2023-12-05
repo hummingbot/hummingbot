@@ -2,7 +2,9 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-from penumbra.util.tendermint_proxy.v1alpha1 import tendermint_proxy_pb2 as penumbra_dot_util_dot_tendermint__proxy_dot_v1alpha1_dot_tendermint__proxy__pb2
+from hummingbot.connector.gateway.clob_spot.data_sources.penumbra.generated.penumbra.util.tendermint_proxy.v1alpha1 import (
+    tendermint_proxy_pb2 as penumbra_dot_util_dot_tendermint__proxy_dot_v1alpha1_dot_tendermint__proxy__pb2,
+)
 
 
 class TendermintProxyServiceStub(object):
@@ -134,7 +136,7 @@ def add_TendermintProxyServiceServicer_to_server(servicer, server):
     server.add_generic_rpc_handlers((generic_handler,))
 
 
- # This class is part of an EXPERIMENTAL API.
+# This class is part of an EXPERIMENTAL API.
 class TendermintProxyService(object):
     """Defines the gRPC query service for proxying requests to an upstream Tendermint RPC.
     """

@@ -43,7 +43,17 @@ class PenumbraConfigMap(BaseConnectorConfigMap):
         default=...,
         client_data=ClientFieldData(
             prompt=lambda cm: "Enter your pclientd url (e.g. localhost:8081)",
-            is_secure=True,
+            is_secure=False,
+            is_connect_key=True,
+            prompt_on_new=True,
+        ))
+
+    gateway_url: SecretStr = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm:
+            "Enter your gateway url (e.g. localhost:15888)",
+            is_secure=False,
             is_connect_key=True,
             prompt_on_new=True,
         ))

@@ -2,7 +2,9 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-from penumbra.custody.v1alpha1 import custody_pb2 as penumbra_dot_custody_dot_v1alpha1_dot_custody__pb2
+from hummingbot.connector.gateway.clob_spot.data_sources.penumbra.generated.penumbra.custody.v1alpha1 import (
+    custody_pb2 as penumbra_dot_custody_dot_v1alpha1_dot_custody__pb2,
+)
 
 
 class CustodyProtocolServiceStub(object):
@@ -67,7 +69,7 @@ def add_CustodyProtocolServiceServicer_to_server(servicer, server):
     server.add_generic_rpc_handlers((generic_handler,))
 
 
- # This class is part of an EXPERIMENTAL API.
+# This class is part of an EXPERIMENTAL API.
 class CustodyProtocolService(object):
     """The custody protocol is used by a wallet client to request authorization for
     a transaction they've constructed.

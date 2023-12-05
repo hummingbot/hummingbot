@@ -36,10 +36,12 @@ class PenumbraAPIOrderBookDataSource(OrderBookTrackerDataSource):
     # TODO: Need to actually implement
 
     async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
-        return
+        print("get_last_traded_prices")
+        raise NotImplementedError
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
-        return
+        print("_order_book_snapshot")
+        raise NotImplementedError
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
         """
@@ -49,13 +51,16 @@ class PenumbraAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         :return: the response from the exchange (JSON dictionary)
         """
-        return
+        print("_request_order_book_snapshot")
+        raise NotImplementedError
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        return
+        print("_parse_trade_message")
+        raise NotImplementedError
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        return
+        print("_parse_order_book_diff_message")
+        raise NotImplementedError
 
     async def _subscribe_channels(self, websocket_assistant: WSAssistant):
         """
@@ -63,19 +68,22 @@ class PenumbraAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
         :param websocket_assistant: the websocket assistant used to connect to the exchange
         """
+        print("_subscribe_channels")
 
-        return
+        raise NotImplementedError
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
-
-        return
+        print("_channel_originating_message")
+        raise NotImplementedError
 
     async def _process_websocket_messages(self, websocket_assistant: WSAssistant):
         """
         Connects to the trade events and order diffs websocket endpoints and listens to the messages sent by the
         exchange. Each message is stored in its own queue.
         """
-        return
+        print("_process_websocket_messages")
+        raise NotImplementedError
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
-        return
+        print("_connected_websocket_assistant")
+        raise NotImplementedError

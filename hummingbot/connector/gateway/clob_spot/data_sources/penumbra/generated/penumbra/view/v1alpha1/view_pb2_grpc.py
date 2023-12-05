@@ -2,7 +2,9 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-from penumbra.view.v1alpha1 import view_pb2 as penumbra_dot_view_dot_v1alpha1_dot_view__pb2
+from hummingbot.connector.gateway.clob_spot.data_sources.penumbra.generated.penumbra.view.v1alpha1 import (
+    view_pb2 as penumbra_dot_view_dot_v1alpha1_dot_view__pb2,
+)
 
 
 class ViewProtocolServiceStub(object):

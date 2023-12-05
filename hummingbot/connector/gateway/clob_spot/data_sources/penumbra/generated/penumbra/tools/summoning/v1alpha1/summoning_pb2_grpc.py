@@ -2,7 +2,9 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-from penumbra.tools.summoning.v1alpha1 import summoning_pb2 as penumbra_dot_tools_dot_summoning_dot_v1alpha1_dot_summoning__pb2
+from hummingbot.connector.gateway.clob_spot.data_sources.penumbra.generated.penumbra.tools.summoning.v1alpha1 import (
+    summoning_pb2 as penumbra_dot_tools_dot_summoning_dot_v1alpha1_dot_summoning__pb2,
+)
 
 
 class CeremonyCoordinatorServiceStub(object):
@@ -57,7 +59,7 @@ def add_CeremonyCoordinatorServiceServicer_to_server(servicer, server):
     server.add_generic_rpc_handlers((generic_handler,))
 
 
- # This class is part of an EXPERIMENTAL API.
+# This class is part of an EXPERIMENTAL API.
 class CeremonyCoordinatorService(object):
     """Runs a Phase 2 MPC ceremony with dynamic slot allocation.
     """
