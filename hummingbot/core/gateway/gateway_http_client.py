@@ -467,38 +467,53 @@ class GatewayHttpClient:
             "nonce": nonce
         })
 
-    async def amm_trade(
-            self,
-            chain: str,
-            network: str,
-            connector: str,
-            address: str,
-            base_asset: str,
-            quote_asset: str,
-            side: TradeType,
-            amount: Decimal,
-            price: Decimal,
-            nonce: Optional[int] = None,
-            max_fee_per_gas: Optional[int] = None,
-            max_priority_fee_per_gas: Optional[int] = None
-    ) -> Dict[str, Any]:
-        # XXX(martin_kou): The amount is always output with 18 decimal places.
-        request_payload: Dict[str, Any] = {
-            "chain": chain,
-            "network": network,
-            "connector": connector,
-            "address": address,
-            "base": base_asset,
-            "quote": quote_asset,
-            "side": side.name,
-            "amount": f"{amount:.18f}",
-            "limitPrice": str(price),
-            "allowedSlippage": "0/1",  # hummingbot applies slippage itself
-        }
-        if nonce is not None:
-            request_payload["nonce"] = int(nonce)
-        if max_fee_per_gas is not None:
-            request_payload["maxFeePerGas"] = str(max_fee_per_gas)
+async def amm_trade(
+    self,
+    chain: str,
+    network: str,
+    connector: str,
+    address: str,
+    base_asset: str,
+    quote_asset: str,
+    side: TradeType,
+    amount: Decimal,
+    price: Decimal,
+    nonce: Optional[int] = None,
+    max_fee_per_gas: Optional[int] = None,
+    max_priority_fee_per_gas: Optional[int] = None
+) -> Dict[str, Any]:
+    # Check if the amount and price are valid numbers
+    if not isinstance(amount, (int, float, Decimal)) or not isinstance(price, (int, float, Decimal)):
+        raise ValueError("Amount and price must be numbers")
+
+    # Check if the amount and price are not null
+    if amount is None or price is None:
+        raise ValueError("Amount and price cannot be null")
+
+    # Check if the price is too small
+    if price < 1e-7:
+        raise ValueError("Price is too small")
+
+    # Format the amount and price
+    amount_str = f'{amount:.18f}'
+    price_str = f'{price:.20f}'
+
+    # Prepare the request payload
+    request_payload: Dict[str, Any] = {
+        "chain": chain,
+        "network": network,
+        "connector": connector,
+        "address": address,
+        "base": base_asset,
+        "quote": quote_asset,
+        "side": side,
+        "amount": amount_str,
+        "limitPrice": price_str,  # Hummingbot applies slippage itself
+    }
+    if nonce is not None:
+        request_payload["nonce"] = int(nonce)
+    if max_fee_per_gas is not None:
+        request_payload["maxFeePerGas"] = str(max_fee_per_gas)
         if max_priority_fee_per_gas is not None:
             request_payload["maxPriorityFeePerGas"] = str(max_priority_fee_per_gas)
         return await self.api_request("post", "amm/trade", request_payload)
