@@ -3,7 +3,7 @@ name: Build Development Docker image
 on:
   workflow_dispatch:
   push:
-    branches: [feat/add-gateway-halotrade-merge-bing]
+    branches: [feat/support-aura]
 
 jobs:
   build:
