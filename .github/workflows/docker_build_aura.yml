@@ -3,7 +3,7 @@ name: Build Development Docker image
 on:
   workflow_dispatch:
   push:
-    branches: [feat/add-connector-bingx]
+    branches: [feat/add-gateway-halotrade-merge-bing]
 
 jobs:
   build:
@@ -27,7 +27,7 @@ jobs:
       - name: Set environment variable
         run: |
           SHORT_SHA_COMMIT=$(git rev-parse --short HEAD)
-          echo CONTAINER_RELEASE_IMAGE=ghcr.io/aura-nw/hummingbot:bing_x_supported_${SHORT_SHA_COMMIT} >> $GITHUB_ENV
+          echo CONTAINER_RELEASE_IMAGE=ghcr.io/aura-nw/hummingbot:aura_supported_${SHORT_SHA_COMMIT} >> $GITHUB_ENV
       - name: Build and push
         uses: docker/build-push-action@v2
         with:
