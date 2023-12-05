@@ -171,3 +171,6 @@ class GatewayAuraAMM(GatewayEVMAMM):
 
     async def get_allowances(self):
         pass
+
+    async def all_trading_pairs(self):
+        pass
