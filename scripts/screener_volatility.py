@@ -52,39 +52,39 @@ class VolatilityScreener(ScriptStrategyBase):
         for candle in self.candles.values():
             candle.stop()
 
-        def get_formatted_market_analysis(self):
-            volatility_metrics_df = self.get_market_analysis()
-            volatility_metrics_pct_str = format_df_for_printout(
-                volatility_metrics_df[self.columns_to_show].sort_values(by=self.sort_values_by).head(self.top_n),
-                table_format="psql")
-            return volatility_metrics_pct_str
+    def get_formatted_market_analysis(self):
+        volatility_metrics_df = self.get_market_analysis()
+        volatility_metrics_pct_str = format_df_for_printout(
+            volatility_metrics_df[self.columns_to_show].sort_values(by=self.sort_values_by).head(self.top_n),
+            table_format="psql")
+        return volatility_metrics_pct_str
 
-        def format_status(self) -> str:
-            if all(candle.is_ready for candle in self.candles.values()):
-                lines = []
-                lines.extend(["Configuration:", f"Volatility Interval: {self.volatility_interval}"])
-                lines.extend(["", "Volatility Metrics", ""])
-                lines.extend([self.get_formatted_market_analysis()])
-                return "\n".join(lines)
-            else:
-                return "Candles not ready yet!"
+    def format_status(self) -> str:
+        if all(candle.is_ready for candle in self.candles.values()):
+            lines = []
+            lines.extend(["Configuration:", f"Volatility Interval: {self.volatility_interval}"])
+            lines.extend(["", "Volatility Metrics", ""])
+            lines.extend([self.get_formatted_market_analysis()])
+            return "\n".join(lines)
+        else:
+            return "Candles not ready yet!"
 
-        def get_market_analysis(self):
-            market_metrics = {}
-            for trading_pair_interval, candle in self.candles.items():
-                df = candle.candles_df
-                df["trading_pair"] = trading_pair_interval.split("_")[0]
-                df["interval"] = trading_pair_interval.split("_")[1]
-                # adding volatility metrics
-                df["volatility"] = df["close"].pct_change().rolling(self.volatility_interval).std()
-                df["volatility_pct"] = df["volatility"] / df["close"]
-                df["volatility_pct_mean"] = df["volatility_pct"].rolling(self.volatility_interval).mean()
+    def get_market_analysis(self):
+        market_metrics = {}
+        for trading_pair_interval, candle in self.candles.items():
+            df = candle.candles_df
+            df["trading_pair"] = trading_pair_interval.split("_")[0]
+            df["interval"] = trading_pair_interval.split("_")[1]
+            # adding volatility metrics
+            df["volatility"] = df["close"].pct_change().rolling(self.volatility_interval).std()
+            df["volatility_pct"] = df["volatility"] / df["close"]
+            df["volatility_pct_mean"] = df["volatility_pct"].rolling(self.volatility_interval).mean()
 
-                # adding bbands metrics
-                df.ta.bbands(length=self.volatility_interval, append=True)
-                df["bbands_width_pct"] = df[f"BBB_{self.volatility_interval}_2.0"]
-                df["bbands_width_pct_mean"] = df["bbands_width_pct"].rolling(self.volatility_interval).mean()
-                df["bbands_percentage"] = df[f"BBP_{self.volatility_interval}_2.0"]
-                market_metrics[trading_pair_interval] = df.iloc[-1]
-            volatility_metrics_df = pd.DataFrame(market_metrics).T
-            return volatility_metrics_df
+            # adding bbands metrics
+            df.ta.bbands(length=self.volatility_interval, append=True)
+            df["bbands_width_pct"] = df[f"BBB_{self.volatility_interval}_2.0"]
+            df["bbands_width_pct_mean"] = df["bbands_width_pct"].rolling(self.volatility_interval).mean()
+            df["bbands_percentage"] = df[f"BBP_{self.volatility_interval}_2.0"]
+            market_metrics[trading_pair_interval] = df.iloc[-1]
+        volatility_metrics_df = pd.DataFrame(market_metrics).T
+        return volatility_metrics_df
