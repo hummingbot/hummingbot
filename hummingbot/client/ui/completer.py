@@ -63,6 +63,9 @@ class HummingbotCompleter(Completer):
                 )
             ), ignore_case=True
         )
+        # self._gateway_connector_tokens_completer = WordCompleter(
+        #     AllConnectorSettings.get_gateway_chains_with_network(), ignore_case=True
+        # )
         self._gateway_approve_tokens_completer = WordCompleter(
             sorted(
                 AllConnectorSettings.get_gateway_amm_connector_names().union(
