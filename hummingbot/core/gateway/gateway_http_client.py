@@ -13,6 +13,7 @@ from hummingbot.core.data_type.common import OrderType, PositionSide
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.event.events import TradeType
 from hummingbot.logger import HummingbotLogger
+from decimal import Decimal, getcontext
 
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -496,8 +497,9 @@ async def amm_trade(
         raise ValueError("Price is too small")
 
     # Format the amount and price
-    amount_str = f'{amount:.18f}'
-    price_str = f'{price:.20f}'
+    getcontext().prec = 28  # Set the precision high enough
+    amount_str = str(Decimal(amount))
+    price_str = str(Decimal(price))
 
     # Prepare the request payload
     request_payload: Dict[str, Any] = {
