@@ -341,11 +341,11 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     @property
     def expected_exchange_order_id(self):
-        return "335fd977-e5a5-4781-b6d0-c772d5bfb95b"
+        return "2650113037"
 
     @property
     def is_order_fill_http_update_included_in_status_update(self) -> bool:
-        return True
+        return False
 
     @property
     def is_order_fill_http_update_executed_during_websocket_order_event_processing(self) -> bool:
@@ -478,10 +478,6 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None
     ):
-        url_fills = web_utils.private_rest_url(CONSTANTS.ACCOUNT_TRADE_LIST_URL)
-
-        response_fills = self._order_fills_request_canceled_mock_response(order=order)
-        mock_api.post(url_fills, body=json.dumps(response_fills), callback=callback)
 
         url_order_status = web_utils.public_rest_url(
             CONSTANTS.ORDER_URL
@@ -499,11 +495,6 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None,
     ):
-
-        url_fills = web_utils.private_rest_url(CONSTANTS.ACCOUNT_TRADE_LIST_URL)
-
-        response_fills = self._order_fills_request_canceled_mock_response(order=order)
-        mock_api.post(url_fills, body=json.dumps(response_fills), callback=callback)
 
         url_order_status = web_utils.public_rest_url(
             CONSTANTS.ORDER_URL
@@ -1009,9 +1000,9 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         return {'order': {
             'order': {'children': [], 'cloid': order.client_order_id, 'coin': self.base_asset,
                       'isPositionTpsl': False, 'isTrigger': False, 'limitPx': str(order.price),
-                      'oid': order.exchange_order_id,
+                      'oid': int(order.exchange_order_id),
                       'orderType': 'Limit', 'origSz': float(order.amount), 'reduceOnly': False, 'side': 'B',
-                      'sz': float(order.amount), 'tif': 'Gtc', 'timestamp': 1700814942565, 'triggerCondition': 'N/A',
+                      'sz': str(order.amount), 'tif': 'Gtc', 'timestamp': 1700814942565, 'triggerCondition': 'N/A',
                       'triggerPx': '0.0'}, 'status': 'filled', 'statusTimestamp': 1700818403290}, 'status': 'filled'}
 
     def _order_status_request_canceled_mock_response(self, order: InFlightOrder) -> Any:
