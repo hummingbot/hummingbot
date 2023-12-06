@@ -694,6 +694,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
              'startPosition': '0.0',
              'dir': 'Open Long', 'closedPnl': '0.0',
              'hash': '0x6065d86346c0ee0f5d9504081647930115005f95c201c3a6fb5ba2440507f2cf',  # noqa: mock
+             'tid': '0x6065d86346c0ee0f5d9504081647930115005f95c201c3a6fb5ba2440507f2cf',  # noqa: mock
              'oid': order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
              'cloid': order.client_order_id or "",
              'crossed': True, 'fee': str(self.expected_fill_fee.flat_fees[0].amount), 'liquidationMarkPx': None}]}}

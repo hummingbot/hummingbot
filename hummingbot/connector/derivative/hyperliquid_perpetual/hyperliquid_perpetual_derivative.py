@@ -1,6 +1,7 @@
 import asyncio
 import time
 from decimal import Decimal
+import hashlib
 from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional, Tuple
 
 from bidict import bidict
@@ -297,7 +298,9 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             hbot_order_id_prefix=self.client_order_id_prefix,
             max_id_len=self.client_order_id_max_length
         )
-        hex_order_id = f"0x{order_id.encode('utf-8').hex()}"[:CONSTANTS.MAX_ORDER_ID_LEN]
+        md5 = hashlib.md5()
+        md5.update(order_id.encode('utf-8'))
+        hex_order_id = f"0x{md5.hexdigest()}"
         safe_ensure_future(self._create_order(
             trade_type=TradeType.BUY,
             order_id=hex_order_id,
@@ -328,7 +331,9 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             hbot_order_id_prefix=self.client_order_id_prefix,
             max_id_len=self.client_order_id_max_length
         )
-        hex_order_id = f"0x{order_id.encode('utf-8').hex()}"[:CONSTANTS.MAX_ORDER_ID_LEN]
+        md5 = hashlib.md5()
+        md5.update(order_id.encode('utf-8'))
+        hex_order_id = f"0x{md5.hexdigest()}"
         safe_ensure_future(self._create_order(
             trade_type=TradeType.SELL,
             order_id=hex_order_id,
@@ -378,7 +383,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         if "error" in o_order_result:
             raise IOError(f"Error submitting order {order_id}: {o_order_result['error']}")
         o_data = o_order_result.get("resting") or o_order_result.get("filled")
-        o_id = o_data["oid"]
+        o_id = str(o_data["oid"])
         return (o_id, self.current_timestamp)
 
     async def _update_trade_history(self):
@@ -418,7 +423,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             )
 
             trade_update = TradeUpdate(
-                trade_id=str(order_fill["hash"]),
+                trade_id=str(order_fill["tid"]),
                 client_order_id=fillable_order.client_order_id,
                 exchange_order_id=str(order_fill["oid"]),
                 trading_pair=fillable_order.trading_pair,
@@ -458,7 +463,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 update_timestamp=order_update["order"]["order"]["timestamp"] * 1e-3,
                 new_state=CONSTANTS.ORDER_STATE[current_state],
                 client_order_id=order_update["order"]["order"]["cloid"],
-                exchange_order_id=tracked_order.exchange_order_id,
+                exchange_order_id=str(tracked_order.exchange_order_id),
             )
         return _order_update
 
@@ -518,8 +523,9 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         event if the total executed amount equals to the specified order amount.
         Example Trade:
         """
-        exchange_order_id =str(trade.get("oid", ""))
+        exchange_order_id = str(trade.get("oid", ""))
         tracked_order = self._order_tracker.all_fillable_orders_by_exchange_order_id.get(exchange_order_id)
+        print(self._order_tracker.all_fillable_orders_by_exchange_order_id)
 
         if tracked_order is None:
             self.logger().debug(f"Ignoring trade message with id {client_order_id}: not in in_flight_orders.")
@@ -535,7 +541,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                     flat_fees=[TokenAmount(amount=Decimal(trade["fee"]), token=fee_asset)]
                 )
                 trade_update: TradeUpdate = TradeUpdate(
-                    trade_id=str(trade["hash"]),
+                    trade_id=str(trade["tid"]),
                     client_order_id=tracked_order.client_order_id,
                     exchange_order_id=str(trade["oid"]),
                     trading_pair=tracked_order.trading_pair,
@@ -566,7 +572,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             update_timestamp=order_msg["statusTimestamp"] * 1e-3,
             new_state=CONSTANTS.ORDER_STATE[current_state],
             client_order_id=order_msg["order"]["cloid"],
-            exchange_order_id=order_msg["order"]["oid"],
+            exchange_order_id=str(order_msg["order"]["oid"]),
         )
         self._order_tracker.process_order_update(order_update=order_update)
 
