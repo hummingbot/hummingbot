@@ -3,7 +3,7 @@ from hummingbot.core.data_type.in_flight_order import OrderState
 
 EXCHANGE_NAME = "hyperliquid_perpetual"
 BROKER_ID = "HBOT"
-MAX_ORDER_ID_LEN = 34
+MAX_ORDER_ID_LEN = None
 
 DOMAIN = EXCHANGE_NAME
 TESTNET_DOMAIN = "hyperliquid_perpetual_testnet"
