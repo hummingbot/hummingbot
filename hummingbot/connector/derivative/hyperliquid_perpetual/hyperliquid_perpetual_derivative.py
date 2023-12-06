@@ -525,7 +525,6 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         """
         exchange_order_id = str(trade.get("oid", ""))
         tracked_order = self._order_tracker.all_fillable_orders_by_exchange_order_id.get(exchange_order_id)
-        print(self._order_tracker.all_fillable_orders_by_exchange_order_id)
 
         if tracked_order is None:
             self.logger().debug(f"Ignoring trade message with id {client_order_id}: not in in_flight_orders.")
