@@ -72,7 +72,7 @@ class Constants:
     INTERVAL_TRADING_RULES = 600
 
     # Trading pair splitter regex
-    TRADING_PAIR_SPLITTER = r"^(\w+)(btc|ltc|altm|doge|eth|bnb|usdt|usdc|usds|tusd|cro|roger)$"
+    TRADING_PAIR_SPLITTER = r"^(\w+)(btc|ltc|altm|doge|eth|try|eur|irt|bnb|usdt|usdc|usds|tusd|cro|roger)$"
 
     RL_TIME_INTERVAL = 12
     RL_ID_HTTP_ENDPOINTS = "AllHTTP"
