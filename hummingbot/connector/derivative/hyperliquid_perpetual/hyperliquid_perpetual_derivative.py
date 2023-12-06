@@ -383,6 +383,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _update_trade_history(self):
         orders = list(self._order_tracker.all_fillable_orders.values())
+        all_fillable_orders = self._order_tracker.all_fillable_orders_by_exchange_order_id
         all_fills_response = []
         if len(orders) > 0:
             try:
@@ -400,11 +401,11 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                     exc_info=request_error,
                 )
             for trade_fill in all_fills_response:
-                self._process_trade_rs_event_message(order_fill=trade_fill)
+                self._process_trade_rs_event_message(order_fill=trade_fill, all_fillable_order=all_fillable_orders)
 
-    def _process_trade_rs_event_message(self, order_fill: Dict[str, Any]):
-        client_order_id = order_fill.get("cloid")
-        fillable_order = self._order_tracker.all_fillable_orders.get(client_order_id)
+    def _process_trade_rs_event_message(self, order_fill: Dict[str, Any], all_fillable_order):
+        exchange_order_id = str(order_fill.get("oid"))
+        fillable_order = all_fillable_order.get(exchange_order_id)
         if fillable_order is not None:
             fee_asset = fillable_order.quote_asset
 
@@ -517,8 +518,8 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         event if the total executed amount equals to the specified order amount.
         Example Trade:
         """
-        client_order_id = client_order_id or str(trade.get("cloid", ""))
-        tracked_order = self._order_tracker.all_fillable_orders.get(client_order_id)
+        exchange_order_id =str(trade.get("oid", ""))
+        tracked_order = self._order_tracker.all_fillable_orders_by_exchange_order_id.get(exchange_order_id)
 
         if tracked_order is None:
             self.logger().debug(f"Ignoring trade message with id {client_order_id}: not in in_flight_orders.")
