@@ -180,6 +180,29 @@ class GatewayTokenSetting:
         return realpath(join(CONF_DIR_PATH, "gateway_network.json"))
 
     @staticmethod
+    def get_gateway_chains_with_network() -> str:
+        chain_network_config: List[Dict[str, str]] = GatewayTokenSetting.load()
+        return [spec["chain_network"] for spec in chain_network_config]
+
+    @staticmethod
+    def get_network_spec(chain: str, network: str) -> Optional[Dict[str, str]]:
+        chain_network: Optional[Dict[str, str]] = None
+        chain_network_config: List[Dict[str, str]] = GatewayTokenSetting.load()
+        for spec in chain_network_config:
+            if f'{spec["chain_network"]}' == f"{chain}_{network}":
+                chain_network = spec
+
+        return chain_network
+
+    @staticmethod
+    def get_network_spec_from_name(chain_network: str) -> Optional[Dict[str, str]]:
+        for chain in SUPPORTED_CHAINS:
+            network = chain_network.split("_")[-1]
+            if chain in chain_network:
+                return GatewayTokenSetting.get_network_spec(chain, network)
+        return None
+
+    @staticmethod
     def load() -> List[Dict[str, str]]:
         connections_conf_path: str = GatewayTokenSetting.config_path()
         if exists(connections_conf_path):
@@ -195,8 +218,20 @@ class GatewayTokenSetting:
 
     @staticmethod
     def upsert_network_spec_tokens(chain_network: str, tokens: List[str]):
-        network_conf: List[Dict[str, str]] = GatewayTokenSetting.load()
-        network_conf[chain_network] = tokens
+        network_conf: List[Dict[str, Union[str, List[str]]]] = GatewayTokenSetting.load()
+
+        network_found = False
+
+        for network in network_conf:
+            if network.get("chain_network") == chain_network:
+                network['tokens'] = tokens
+                network_found = True
+                break
+
+        if not network_found:
+            # If the chain_network doesn't exist, create a new dictionary
+            new_network = {"chain_network": chain_network, "tokens": tokens}
+            network_conf.append(new_network)
 
         GatewayTokenSetting.save(network_conf)
 

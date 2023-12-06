@@ -443,45 +443,50 @@ class GatewayCommand(GatewayChainApiManager):
         return wallet_address, additional_prompt_values
 
     async def _get_balances(self):
-        gateway_connections = GatewayConnectionSetting.load()
-        gateway_tokens = GatewayTokenSetting.load()
+        network_connections = GatewayConnectionSetting.load()
 
-        chain_network_wallets = {}
-        for chain_network in gateway_tokens:
-            chain, network = chain_network.split("_")
-            for connection in gateway_connections:
-                if connection["chain"] == chain and connection["network"] == network:
-                    chain_network_wallets[chain_network] = connection["wallet_address"]
-
+        self.notify("Updating gateway balances, please wait...")
+        network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
         try:
-            for k, w in chain_network_wallets.items():
-                bals: Dict[str, Any] = await self._get_gateway_instance().get_balances(
-                    chain, network, w, [gateway_tokens[k]],
-                )
-                rows = []
-                for token, bal in bals.items():
-                    rows.append({
-                        "Symbol": token.upper(),
-                        "Balance": round(bal, 4),
-                    })
-                df = pd.DataFrame(data=rows, columns=[
-                                  "Symbol", "Balance", "sum_not_for_show"])
-                df.sort_values(by=["Symbol"], inplace=True)
-
-                self.notify(f"\n{chain}_{network}, {w}")
-
-                if df.empty:
-                    self.notify("You have no balance on this exchange.")
-                else:
-                    lines = [
-                        "    " + line for line in df.to_string(index=False).split("\n")
-                    ]
-                    self.notify("\n".join(lines))
-
+            all_ex_bals = await asyncio.wait_for(
+                self.all_balances_all_exc(self.client_config_map), network_timeout
+            )
         except asyncio.TimeoutError:
-            self.notify(
-                "\nA network error prevented the balances to update. See logs for more details.")
+            self.notify("\nA network error prevented the balances to update. See logs for more details.")
             raise
+
+        for exchange, bals in all_ex_bals.items():
+            # Flag to check if exchange data has been found
+            exchange_found = False
+
+            for conf in network_connections:
+                if exchange == (f'{conf["chain"]}_{conf["network"]}'):
+                    exchange_found = True
+                    address = conf["wallet_address"]
+                    rows = []
+                    for token, bal in bals.items():
+                        rows.append({
+                            "Symbol": token.upper(),
+                            "Balance": round(bal, 4),
+                        })
+                    df = pd.DataFrame(data=rows, columns=["Symbol", "Balance"])
+                    df.sort_values(by=["Symbol"], inplace=True)
+
+                    self.notify(f"\nExchange: {exchange}")
+                    self.notify(f"Address: {address}")
+
+                    if df.empty:
+                        self.notify("You have no balance on this exchange.")
+                    else:
+                        lines = [
+                            "    " + line for line in df.to_string(index=False).split("\n")
+                        ]
+                        self.notify("\n".join(lines))
+                    # Exit loop once exchange data is found
+                    break
+
+            if not exchange_found:
+                self.notify(f"No configuration found for exchange: {exchange}")
 
     def connect_markets(exchange, client_config_map: ClientConfigMap, **api_details):
         connector = None
@@ -503,7 +508,7 @@ class GatewayCommand(GatewayChainApiManager):
 
             # collect unique trading pairs that are for balance reporting only
             if conn_setting.uses_gateway_generic_connector():
-                config: Optional[Dict[str, str]] = GatewayConnectionSetting.get_network_spec_from_market_name(
+                config: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(
                     conn_setting.name)
                 if config is not None:
                     existing_pairs = set(
@@ -602,11 +607,21 @@ class GatewayCommand(GatewayChainApiManager):
         results = await safe_gather(*tasks)
         return {ex: err_msg for ex, err_msg in zip(exchanges, results)}
 
-    # returns only for non-gateway connectors since balance command no longer reports gateway connector balances
+    async def all_balances_all_exc(self, client_config_map: ClientConfigMap) -> Dict[str, Dict[str, Decimal]]:
+        # Waits for the update_exchange method to complete with the provided client_config_map
+        await self.update_exchange(client_config_map)
+        # Sorts the items in the self._market dictionary based on keys
+        sorted_market_items = sorted(self._market.items(), key=lambda x: x[0])
+        # Initializes an empty dictionary to store balances
+        balances = {}
 
-    def all_available_balances_all_exc(self) -> Dict[str, Dict[str, Decimal]]:
-        # Get available balances for all exchanges
-        return {k: v.available_balances for k, v in sorted(self._market.items(), key=lambda x: x[0])}
+        # Iterates through the sorted items and retrieves balances for each item
+        for key, value in sorted_market_items:
+            new_key = key.split("_")[1:]
+            result = "_".join(new_key)
+            balances[result] = value.get_all_balances()
+
+        return balances
 
     async def balance(self, exchange, client_config_map: ClientConfigMap, *symbols) -> Dict[str, Decimal]:
         if await self.update_exchange_balance(exchange, client_config_map) is None:
@@ -625,20 +640,16 @@ class GatewayCommand(GatewayChainApiManager):
         Display connector tokens that hummingbot will report balances for
         """
         if chain_network is None:
-            gateway_connections_conf: Dict[str,
-                                           List[str]] = GatewayTokenSetting.load()
+            gateway_connections_conf: Dict[str, List[str]] = GatewayTokenSetting.load()
             if len(gateway_connections_conf) < 1:
                 self.notify("No existing connection.\n")
             else:
-                connector_df: pd.DataFrame = build_connector_tokens_display(
-                    gateway_connections_conf)
+                connector_df: pd.DataFrame = build_connector_tokens_display(gateway_connections_conf)
                 self.notify(connector_df.to_string(index=False))
         else:
-            conf: Optional[Dict[str, List[str]]
-                           ] = GatewayTokenSetting.get(chain_network)
+            conf: Optional[Dict[str, List[str]]] = GatewayTokenSetting.get_network_spec_from_name(chain_network)
             if conf is not None:
-                connector_df: pd.DataFrame = build_connector_tokens_display(
-                    {chain_network: conf[chain_network]})
+                connector_df: pd.DataFrame = build_connector_tokens_display([conf])
                 self.notify(connector_df.to_string(index=False))
             else:
                 self.notify(
