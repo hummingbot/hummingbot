@@ -472,8 +472,8 @@ class GatewayCommand(GatewayChainApiManager):
                     df = pd.DataFrame(data=rows, columns=["Symbol", "Balance"])
                     df.sort_values(by=["Symbol"], inplace=True)
 
-                    self.notify(f"\nExchange: {exchange}")
-                    self.notify(f"Address: {address}")
+                    self.notify(f"\nChain_network: {exchange}")
+                    self.notify(f"Wallet_Address: {address}")
 
                     if df.empty:
                         self.notify("You have no balance on this exchange.")

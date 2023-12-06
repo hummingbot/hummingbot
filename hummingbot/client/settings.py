@@ -13,9 +13,6 @@ from hummingbot import get_strategy_list, root_path
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 from hummingbot.core.utils.gateway_config_utils import SUPPORTED_CHAINS
 
-# from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
-# from hummingbot.core.utils.async_utils import safe_ensure_future
-
 if TYPE_CHECKING:
     from hummingbot.client.config.config_data_types import BaseConnectorConfigMap
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -430,11 +427,6 @@ class ConnectorSetting(NamedTuple):
 
 class AllConnectorSettings:
     all_connector_settings: Dict[str, ConnectorSetting] = {}
-
-    # @classmethod
-    # def get_gateway_chains_with_network() -> List[str]:
-    #     resp: Dict[str, Any] = safe_ensure_future(GatewayHttpClient.get_configuration())
-    #     return [c["chain"] for c in resp["chains"]]
 
     @classmethod
     def create_connector_settings(cls):
