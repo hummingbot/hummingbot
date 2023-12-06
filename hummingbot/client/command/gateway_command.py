@@ -578,7 +578,6 @@ class GatewayCommand(GatewayChainApiManager):
             )
         )
 
-        # returns error message for each exchange
     async def update_exchange(
         self,
         client_config_map: ClientConfigMap,

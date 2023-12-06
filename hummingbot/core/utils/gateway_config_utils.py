@@ -3,9 +3,6 @@ from typing import Any, Dict, Iterable, List, Optional
 
 import pandas as pd
 
-# from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
-# from hummingbot.core.utils.async_utils import safe_ensure_future
-
 native_tokens = {
     "ethereum": "ETH",
     "avalanche": "AVAX",
@@ -24,12 +21,6 @@ native_tokens = {
 }
 
 SUPPORTED_CHAINS = set(native_tokens.keys())
-
-
-# def get_gateway_chains_with_network() -> List[str]:
-#     resp: Dict[str, Any] = safe_ensure_future(
-#         GatewayHttpClient.get_configuration())
-#     return [c["chain"] for c in resp["chains"]]
 
 
 def flatten(items):
