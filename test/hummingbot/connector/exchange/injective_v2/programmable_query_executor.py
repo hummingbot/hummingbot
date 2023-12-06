@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from pyinjective.core.market import DerivativeMarket, SpotMarket
 from pyinjective.core.token import Token
@@ -142,13 +142,21 @@ class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
         response = await self._oracle_prices_responses.get()
         return response
 
-    async def transactions_stream(self,):
+    async def listen_transactions_updates(
+        self,
+        callback: Callable,
+        on_end_callback: Callable,
+        on_status_callback: Callable,
+    ):
         while True:
             next_event = await self._transaction_events.get()
-            yield next_event
+            await callback(next_event)
 
-    async def chain_stream(
+    async def listen_chain_stream_updates(
         self,
+        callback: Callable,
+        on_end_callback: Callable,
+        on_status_callback: Callable,
         bank_balances_filter: Optional[chain_stream_query.BankBalancesFilter] = None,
         subaccount_deposits_filter: Optional[chain_stream_query.SubaccountDepositsFilter] = None,
         spot_trades_filter: Optional[chain_stream_query.TradesFilter] = None,
@@ -162,4 +170,4 @@ class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
     ):
         while True:
             next_event = await self._chain_stream_events.get()
-            yield next_event
+            await callback(next_event)
