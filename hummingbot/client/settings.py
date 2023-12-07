@@ -157,7 +157,7 @@ class GatewayConnectionSetting:
 
     @staticmethod
     def upsert_connector_spec_tokens(chain_network: str, tokens: List[str]):
-        chain, network = chain_network.split("_")  # Updated split method to retrieve last two elements
+        chain, network = chain_network.split("_")
         connectors_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
         network_found = False
 
@@ -182,7 +182,8 @@ class GatewayTokenSetting:
     @staticmethod
     def get_gateway_chains_with_network() -> List[str]:
         chain_network_config: List[Dict[str, str]] = GatewayConnectionSetting.load()
-        data = set()  # Use a set to store unique chain_network combinations
+        # Use a set to store unique chain_network combinations
+        data = set()
         for chain_network in chain_network_config:
             chain = chain_network.get("chain")
             network = chain_network.get('network')
