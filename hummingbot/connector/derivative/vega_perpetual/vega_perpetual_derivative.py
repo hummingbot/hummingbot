@@ -462,7 +462,7 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
             amount: Decimal,
             trade_type: TradeType,
             order_type: OrderType,
-            price: Optional[Decimal],
+            price: Optional[Decimal] = s_decimal_NaN,
             position_action: PositionAction = PositionAction.NIL,
             **kwargs,
     ) -> Tuple[str, float]:
@@ -480,7 +480,7 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         time_in_force: int = int(VegaTimeInForce.TIME_IN_FORCE_GTC.value)
         _order_type: int = CONSTANTS.HummingbotToVegaIntOrderType[order_type]
 
-        if price is not None:
+        if price is not None and price is not s_decimal_NaN:
             price: str = str(int(price * m.price_quantum))
         if order_type == OrderType.LIMIT_MAKER:
             post_only = True
