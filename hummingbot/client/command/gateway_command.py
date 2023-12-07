@@ -390,6 +390,9 @@ class GatewayCommand(GatewayChainApiManager):
                     additional_spenders=additional_spenders,
                     additional_prompt_values=additional_prompt_values,
                 )
+                chain_network = (f"{chain}_{network}")
+                # write chain to Gateway connectors settings.
+                GatewayTokenSetting.upsert_network_spec(chain_network=chain_network,)
                 self.notify(
                     f"The {connector} connector now uses wallet {wallet_address} on {chain}-{network}")
 
@@ -673,6 +676,7 @@ class GatewayCommand(GatewayChainApiManager):
             self.notify(
                 f"'{chain_network}' is not available. You can add and review available gateway connectors with the command 'gateway connect'.")
         else:
+            GatewayConnectionSetting.upsert_connector_spec_tokens(chain_network, new_tokens)
             GatewayTokenSetting.upsert_network_spec_tokens(
                 chain_network, new_tokens)
             self.notify(
