@@ -356,12 +356,19 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
             if update_timestamp is None or math.isnan(update_timestamp):
                 update_timestamp = self._time()
             order_update: OrderUpdate = OrderUpdate(
+                exchange_order_id=order.exchange_order_id,
                 client_order_id=order.client_order_id,
                 trading_pair=order.trading_pair,
                 update_timestamp=update_timestamp,
-                new_state=(OrderState.FAILED),
+                new_state=OrderState.FAILED,
             )
-            self._order_tracker.process_order_update(order_update)
+            # NOTE: This is a failed order, we need to attempt an update within the system
+            await self._order_tracker.process_order_update(order_update)
+            # TODO: Unclear which of these is the best to handle this event
+            self._order_tracker._trigger_order_completion(order, order_update)
+            # NOTE: The order has failed, we need to purge it from the orders available to cancel
+            if order.client_order_id in self._order_tracker._cached_orders:
+                del self._order_tracker._cached_orders[order.client_order_id]
             self.logger().debug("Attempting to cancel a failed order, unable to do so.")
             return False
 
@@ -433,7 +440,7 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         )
 
         # NOTE: Attempt to query the block in the event it has passed through.
-        order_update: OrderUpdate = await self._request_order_status(tracked_order=order)
+        order_update: OrderUpdate = await self._request_order_status(tracked_order=order, is_lost_order=False)
         if order_update is None:
             order_update: OrderUpdate = OrderUpdate(
                 client_order_id=order.client_order_id,
@@ -548,7 +555,7 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         track_order: List[InFlightOrder] = [o for o in tracked_orders if exchange_order_id == o.exchange_order_id]
         # if this is none request using the exchange order id
         if len(track_order) == 0 or track_order[0] is None:
-            order_update: OrderUpdate = await self._request_order_status(exchange_order_id=exchange_order_id)
+            order_update: OrderUpdate = await self._request_order_status(exchange_order_id=exchange_order_id, is_lost_order=False)
             # NOTE: Untracked order
             if order_update is None:
                 self.logger().debug(f"Received untracked order with exchange order id of {exchange_order_id}")
@@ -675,7 +682,7 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
 
         return trade_update
 
-    async def _request_order_status(self, tracked_order: Optional[InFlightOrder] = None, exchange_order_id: Optional[str] = None) -> Optional[OrderUpdate]:
+    async def _request_order_status(self, tracked_order: Optional[InFlightOrder] = None, exchange_order_id: Optional[str] = None, is_lost_order: Optional[bool] = True) -> Optional[OrderUpdate]:
         if tracked_order:
             exchange_order_id = tracked_order.exchange_order_id
 
@@ -697,12 +704,13 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
 
         if "code" in orders_data and orders_data.get("code", 0) != 0:
             if orders_data.get("code") == 70:
-                self.logger().warning(f"Order not found {orders_data}")
-                raise IOError('Order not found')
+                self.logger().debug(f"Order not found {orders_data}")
+                raise IOError("Order not found")
             if tracked_order is not None:
-                self.logger().warning(f"unable to locate order {orders_data.get('message')}")
+                self.logger().debug(f"unable to locate order {orders_data.get('message')}")
+                raise IOError("Order not found")
             else:
-                self.logger().warning(f"unable to locate order in our inflight orders {orders_data.get('message')}")
+                self.logger().debug(f"unable to locate order in our inflight orders {orders_data.get('message')}")
 
         # Multiple orders
         if "orders" in orders_data:
@@ -716,8 +724,10 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
             _order = orders_data["order"]
             if _order is not None:
                 return await self._process_user_order(order=_order, is_rest=True)
-
-        return None
+        if not is_lost_order:
+            return None
+        else:
+            raise IOError("Order not found")
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
         while True:
