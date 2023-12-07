@@ -207,7 +207,7 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
     async def trading_account_number(self) -> int:
         raise NotImplementedError
 
-    async def initialize_trading_account(self):
+    async def initialize_trading_account(self):  # pragma: no cover
         # Do nothing
         pass
 
@@ -313,7 +313,7 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
     def supported_order_types(self) -> List[OrderType]:
         return []
 
-    async def _initialize_timeout_height(self):
+    async def _initialize_timeout_height(self):  # pragma: no cover
         # Do nothing
         pass
 
@@ -415,18 +415,18 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
         )
         return market
 
-    async def _listen_to_positions_updates(self):
+    async def _listen_to_positions_updates(self):  # pragma: no cover
         # Do nothing
         pass
 
-    async def _listen_to_account_balance_updates(self):
+    async def _listen_to_account_balance_updates(self):  # pragma: no cover
         # Do nothing
         pass
 
-    async def _listen_to_subaccount_spot_order_updates(self, market_id: str):
+    async def _listen_to_subaccount_spot_order_updates(self, market_id: str):  # pragma: no cover
         # Do nothing
         pass
 
-    async def _listen_to_subaccount_derivative_order_updates(self, market_id: str):
+    async def _listen_to_subaccount_derivative_order_updates(self, market_id: str):  # pragma: no cover
         # Do nothing
         pass
