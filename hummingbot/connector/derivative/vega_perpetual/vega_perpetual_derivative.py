@@ -425,7 +425,7 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
 
             return True
         except asyncio.CancelledError as cancelled_error:
-            self.logger().warning(f"Timeout hit when attempting to cancel order {cancelled_error}")
+            self.logger().debug(f"Timeout hit when attempting to cancel order {cancelled_error}")
             return False
 
     async def _place_order_and_process_update(self, order: InFlightOrder, **kwargs) -> str:
