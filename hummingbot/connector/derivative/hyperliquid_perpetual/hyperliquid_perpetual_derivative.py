@@ -122,7 +122,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         """
         :return a list of OrderType supported by this connector
         """
-        return [OrderType.LIMIT, OrderType.LIMIT_MAKER]
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
     def supported_position_modes(self):
         """
@@ -301,6 +301,12 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         md5 = hashlib.md5()
         md5.update(order_id.encode('utf-8'))
         hex_order_id = f"0x{md5.hexdigest()}"
+        if order_type is OrderType.MARKET:
+            mid_price = self.get_mid_price(trading_pair)
+            slippage = CONSTANTS.MARKET_ORDER_SLIPPAGE
+            market_price = mid_price * Decimal(1 + slippage)
+            price = self.quantize_order_price(trading_pair, market_price)
+
         safe_ensure_future(self._create_order(
             trade_type=TradeType.BUY,
             order_id=hex_order_id,
@@ -334,6 +340,12 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         md5 = hashlib.md5()
         md5.update(order_id.encode('utf-8'))
         hex_order_id = f"0x{md5.hexdigest()}"
+        if order_type is OrderType.MARKET:
+            mid_price = self.get_mid_price(trading_pair)
+            slippage = CONSTANTS.MARKET_ORDER_SLIPPAGE
+            market_price = mid_price * Decimal(1 - slippage)
+            price = self.quantize_order_price(trading_pair, market_price)
+
         safe_ensure_future(self._create_order(
             trade_type=TradeType.SELL,
             order_id=hex_order_id,
@@ -361,6 +373,8 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         param_order_type = {"limit": {"tif": "Gtc"}}
         if order_type is OrderType.LIMIT_MAKER:
             param_order_type = {"limit": {"tif": "Alo"}}
+        if order_type is OrderType.MARKET:
+            param_order_type = {"limit": {"tif": "Ioc"}}
 
         api_params = {
             "type": "order",

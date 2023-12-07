@@ -76,7 +76,7 @@ class HyperliquidPerpetualAuth(AuthBase):
         return self.sign_inner(wallet, data)
 
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
-        base_url = request.endpoint_url
+        base_url = request.url
         if request.method == RESTMethod.POST:
             request.data = self.add_auth_to_params_post(request.data, base_url)
         return request
@@ -97,7 +97,7 @@ class HyperliquidPerpetualAuth(AuthBase):
             res,
             ZERO_ADDRESS,
             timestamp,
-            base_url == CONSTANTS.PERPETUAL_BASE_URL,
+            CONSTANTS.PERPETUAL_BASE_URL in base_url,
         )
         payload = {
             "action": params,
@@ -121,7 +121,7 @@ class HyperliquidPerpetualAuth(AuthBase):
             [[res]],
             ZERO_ADDRESS,
             timestamp,
-            base_url == CONSTANTS.PERPETUAL_BASE_URL,
+            CONSTANTS.PERPETUAL_BASE_URL in base_url,
         )
         payload = {
             "action": {
@@ -157,7 +157,7 @@ class HyperliquidPerpetualAuth(AuthBase):
             [[res], order_grouping_to_number(grouping)],
             ZERO_ADDRESS,
             timestamp,
-            base_url == CONSTANTS.PERPETUAL_BASE_URL,
+            CONSTANTS.PERPETUAL_BASE_URL in base_url,
         )
 
         payload = {
