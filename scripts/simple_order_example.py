@@ -42,18 +42,16 @@ class SimpleOrder(ScriptStrategyBase):
             conversion_rate = RateOracle.get_instance().get_pair_rate(f"{self.base}-USDT")
             amount = self.order_amount_usd / conversion_rate
             price = self.connectors[self.exchange].get_mid_price(f"{self.base}-{self.quote}")
+
+            # applies spread to price if order type is limit
             order_type = OrderType.MARKET if self.order_type == "market" else OrderType.LIMIT_MAKER
-
-            logging.info(f"Price: {price}")
-
             if order_type == "limit" and self.side == "buy":
                 price = price * (1 - self.spread)
             else:
                 if order_type == "limit" and self.side == "sell":
                     price = price * (1 + self.spread)
 
-            logging.info(f"Price: {price}")
-
+            # places order
             if self.side == "sell":
                 self.sell(
                     connector_name=self.exchange,
