@@ -42,6 +42,9 @@ class SimplePMM(ScriptStrategyBase):
         ref_price = self.connectors[self.exchange].get_price_by_type(self.trading_pair, self.price_source)
         buy_price = ref_price * Decimal(1 - self.bid_spread)
         sell_price = ref_price * Decimal(1 + self.ask_spread)
+        print("ref price: ", ref_price)
+        print("bid spread: ", buy_price)
+        print("ask spread: ", sell_price)
 
         buy_order = OrderCandidate(trading_pair=self.trading_pair, is_maker=True, order_type=OrderType.LIMIT,
                                    order_side=TradeType.BUY, amount=Decimal(self.order_amount), price=buy_price)

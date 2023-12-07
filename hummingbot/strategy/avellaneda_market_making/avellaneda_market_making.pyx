@@ -568,35 +568,20 @@ cdef class AvellanedaMarketMakingStrategy(StrategyBase):
 
     cdef c_start(self, Clock clock, double timestamp):
         try:
-            self.logger().info(f"Starting Avellaneda Market Making Strategy for {self._market_info.trading_pair} on "
-                            f"{self._market_info.market.name}.")
-
             StrategyBase.c_start(self, clock, timestamp)
-            self.logger().info(f"Avellaneda Market Making Strategy base executed.")
-
             self.update_from_config_map()
-            self.logger().info(f"Avellaneda Market Making config map created.")
-
             self._last_timestamp = timestamp
-
             self._hanging_orders_tracker.register_events(self.active_markets)
-            self.logger().info(f"Avellaneda Market Making order tracker called.")
 
-
-            self.logger().info(f"Hanging orders enabled: {self._hanging_orders_enabled}")
             if self._hanging_orders_enabled:
                 # start tracking any restored limit order
                 restored_order_ids = self.c_track_restored_orders(self.market_info)
-                self.logger().info(f"Restored order ids: restored_order_ids {restored_order_ids}.")
-
                 for order_id in restored_order_ids:
                     order = next(o for o in self.market_info.market.limit_orders if o.client_order_id == order_id)
                     if order:
                         self._hanging_orders_tracker.add_as_hanging_order(order)
 
             self._execution_state.time_left = self._execution_state.closing_time
-
-            self.logger().info(f"Avellaneda Market Making Strategy done starting.")
         except Exception as e:
             self.logger().error(str(e), exc_info=True)
 

@@ -22,6 +22,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -139,8 +140,18 @@ class PenumbraExchange(ExchangePyBase):
         return False
 
     # ------------------------------------------------------ WIP
+    #! Overridden method
+    def get_order_book(self, trading_pair: str) -> OrderBook:
+        """
+        Returns the current order book for a particular market
+
+        :param trading_pair: the pair of tokens for which the order book should be retrieved
+        """
+        print("get_order_book -- overriden method, here to see if this is executed, if so reevaluate until websockets are implemented")
+        return 
 
     async def _update_balances(self):
+        print("~~~~~~~Trying to get balances~~~~~~~")
         return
         # Create new grpc.Channel + client
         channel = grpc.insecure_channel(self._pclientd_url)
