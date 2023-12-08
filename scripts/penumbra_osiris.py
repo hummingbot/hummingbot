@@ -259,9 +259,11 @@ class PenumbraOsiris(ScriptStrategyBase):
             # Broadcast
             broadcast_request = penumbra_dot_view_dot_v1alpha1_dot_view__pb2.BroadcastTransactionRequest()
             broadcast_request.transaction.CopyFrom(wit_and_build_resp.transaction)
-
             # Service will await detection on chain
-            broadcast_request.await_detection = False
+            broadcast_request.await_detection = True
+            
+            
+            
             breakpoint()
 
             broadcast_response = client.BroadcastTransaction(request=broadcast_request,target=self._pclientd_url,insecure=True)
