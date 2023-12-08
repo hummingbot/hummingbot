@@ -250,10 +250,22 @@ class PenumbraOsiris(ScriptStrategyBase):
             authorized_resp = self.authorize_tx(transactionPlanResponse)
 
             # Witness & Build
+            wit_and_build_req = penumbra_dot_view_dot_v1alpha1_dot_view__pb2.WitnessAndBuildRequest()
+            wit_and_build_req.transaction_plan.CopyFrom(transactionPlanResponse.plan)
+            wit_and_build_req.authorization_data.CopyFrom(authorized_resp.data)
+
+            wit_and_build_resp = client.WitnessAndBuild(request=wit_and_build_req,target=self._pclientd_url,insecure=True)
 
             # Broadcast
+            broadcast_request = penumbra_dot_view_dot_v1alpha1_dot_view__pb2.BroadcastTransactionRequest()
+            broadcast_request.transaction.CopyFrom(wit_and_build_resp.transaction)
 
+            # Service will await detection on chain
+            broadcast_request.await_detection = False
             breakpoint()
+
+            broadcast_response = client.BroadcastTransaction(request=broadcast_request,target=self._pclientd_url,insecure=True)
+
 
 
             return
