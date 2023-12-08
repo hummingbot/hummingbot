@@ -36,6 +36,7 @@ class VegaPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._message_queue: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
         self._ws_total_count = 0
         self._ws_total_closed_count = 0
+        self._ws_connected = True
 
     async def listen_for_subscriptions(self):
         """
@@ -87,6 +88,7 @@ class VegaPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 self._ws_assistants.append(ws)
                 await ws.ping()
                 _sleep_count = 0  # success, reset sleep count
+                self._ws_connected = True
                 await self._process_websocket_messages(websocket_assistant=ws)
 
             except ConnectionError as connection_exception:
@@ -101,6 +103,7 @@ class VegaPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 _sleep_duration = 5.0
                 if _sleep_count > 10:
                     # sleep for longer as we keep failing
+                    self._ws_connected = False
                     _sleep_duration = 30.0
                 await self._sleep(_sleep_duration)
             finally:
