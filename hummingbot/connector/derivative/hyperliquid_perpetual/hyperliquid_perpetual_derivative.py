@@ -455,30 +455,22 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         pass
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
-        if tracked_order.exchange_order_id is None:
-            # Order placement failed previously
-            _order_update = OrderUpdate(
-                client_order_id=tracked_order.client_order_id,
-                trading_pair=tracked_order.trading_pair,
-                update_timestamp=self.current_timestamp,
-                new_state=OrderState.FAILED,
-            )
-        else:
-            order_update = await self._api_post(
-                path_url=CONSTANTS.ORDER_URL,
-                data={
-                    "type": CONSTANTS.ORDER_STATUS_TYPE,
-                    "user": self.hyperliquid_perpetual_api_key,
-                    "oid": int(tracked_order.exchange_order_id)
-                })
-            current_state = order_update["order"]["status"]
-            _order_update: OrderUpdate = OrderUpdate(
-                trading_pair=tracked_order.trading_pair,
-                update_timestamp=order_update["order"]["order"]["timestamp"] * 1e-3,
-                new_state=CONSTANTS.ORDER_STATE[current_state],
-                client_order_id=order_update["order"]["order"]["cloid"],
-                exchange_order_id=str(tracked_order.exchange_order_id),
-            )
+        client_order_id = tracked_order.client_order_id
+        order_update = await self._api_post(
+            path_url=CONSTANTS.ORDER_URL,
+            data={
+                "type": CONSTANTS.ORDER_STATUS_TYPE,
+                "user": self.hyperliquid_perpetual_api_key,
+                "oid": int(tracked_order.exchange_order_id) if tracked_order.exchange_order_id else client_order_id
+            })
+        current_state = order_update["order"]["status"]
+        _order_update: OrderUpdate = OrderUpdate(
+            trading_pair=tracked_order.trading_pair,
+            update_timestamp=order_update["order"]["order"]["timestamp"] * 1e-3,
+            new_state=CONSTANTS.ORDER_STATE[current_state],
+            client_order_id=order_update["order"]["order"]["cloid"] or client_order_id,
+            exchange_order_id=str(tracked_order.exchange_order_id),
+        )
         return _order_update
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
