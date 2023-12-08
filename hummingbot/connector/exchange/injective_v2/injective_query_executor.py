@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 from google.protobuf import json_format
 from grpc import RpcError
 from pyinjective.async_client import AsyncClient
+from pyinjective.client.model.pagination import PaginationOption
 from pyinjective.core.market import DerivativeMarket, SpotMarket
 from pyinjective.core.token import Token
 from pyinjective.proto.injective.stream.v1beta1 import query_pb2 as chain_stream_query
@@ -225,15 +226,14 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
             skip: Optional[int] = None,
             limit: Optional[int] = None,
     ) -> Dict[str, Any]:  # pragma: no cover
-        response = await self._sdk_client.get_spot_trades(
+        subaccount_ids = [subaccount_id] if subaccount_id is not None else None
+        pagination = PaginationOption(skip=skip, limit=limit, start_time=start_time)
+        response = await self._sdk_client.fetch_spot_trades(
             market_ids=market_ids,
-            subaccount_id=subaccount_id,
-            start_time=start_time,
-            skip=skip,
-            limit=limit,
+            subaccount_ids=subaccount_ids,
+            pagination=pagination,
         )
-        result = json_format.MessageToDict(response)
-        return result
+        return response
 
     async def get_derivative_trades(
             self,
@@ -243,15 +243,14 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
             skip: Optional[int] = None,
             limit: Optional[int] = None,
     ) -> Dict[str, Any]:  # pragma: no cover
-        response = await self._sdk_client.get_derivative_trades(
+        subaccount_ids = [subaccount_id] if subaccount_id is not None else None
+        pagination = PaginationOption(skip=skip, limit=limit, start_time=start_time)
+        response = await self._sdk_client.fetch_derivative_trades(
             market_ids=market_ids,
-            subaccount_id=subaccount_id,
-            start_time=start_time,
-            skip=skip,
-            limit=limit,
+            subaccount_ids=subaccount_ids,
+            pagination=pagination,
         )
-        result = json_format.MessageToDict(response)
-        return result
+        return response
 
     async def get_historical_spot_orders(
             self,
