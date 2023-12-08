@@ -53,14 +53,6 @@ GATEAWAY_CA_CERT_PATH = DEFAULT_GATEWAY_CERTS_PATH / "ca_cert.pem"
 GATEAWAY_CLIENT_CERT_PATH = DEFAULT_GATEWAY_CERTS_PATH / "client_cert.pem"
 GATEAWAY_CLIENT_KEY_PATH = DEFAULT_GATEWAY_CERTS_PATH / "client_key.pem"
 
-PAPER_TRADE_EXCHANGES = [  # todo: fix after global config map refactor
-    "binance_paper_trade",
-    "kucoin_paper_trade",
-    "ascend_ex_paper_trade",
-    "gate_io_paper_trade",
-    "mock_paper_exchange",
-]
-
 CONNECTOR_SUBMODULES_THAT_ARE_NOT_CEX_TYPES = ["test_support", "utilities", "gateway"]
 
 
@@ -364,6 +356,7 @@ class ConnectorSetting(NamedTuple):
 
 
 class AllConnectorSettings:
+    paper_trade_connectors_names: List[str] = []
     all_connector_settings: Dict[str, ConnectorSetting] = {}
 
     @classmethod
@@ -458,6 +451,7 @@ class AllConnectorSettings:
 
     @classmethod
     def initialize_paper_trade_settings(cls, paper_trade_exchanges: List[str]):
+        cls.paper_trade_connectors_names = paper_trade_exchanges
         for e in paper_trade_exchanges:
             base_connector_settings: Optional[ConnectorSetting] = cls.all_connector_settings.get(e, None)
             if base_connector_settings:
@@ -509,7 +503,7 @@ class AllConnectorSettings:
         return {
             cs.name for cs in cls.get_connector_settings().values()
             if cs.type in [ConnectorType.Exchange, ConnectorType.CLOB_SPOT, ConnectorType.CLOB_PERP]
-        }.union(set(PAPER_TRADE_EXCHANGES))
+        }.union(set(cls.paper_trade_connectors_names))
 
     @classmethod
     def get_derivative_names(cls) -> Set[str]:
