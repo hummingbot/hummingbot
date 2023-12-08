@@ -214,6 +214,8 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         """
         if not self._user_stream_tracker._data_source._ws_connected:
             return NetworkStatus.NOT_CONNECTED
+        if not self._orderbook_ds._ws_connected:
+            return NetworkStatus.NOT_CONNECTED
         try:
             if await self._make_blockchain_check_request():
                 await self._make_network_check_request()
