@@ -1,10 +1,10 @@
 import base64
 import logging
+import os
 from decimal import Decimal
 from pprint import pprint
 from typing import Any, List
 
-import grpc
 import numpy as np
 import pandas as pd
 import requests
@@ -15,6 +15,12 @@ from hummingbot.connector.gateway.clob_spot.data_sources.penumbra.generated.penu
 from hummingbot.connector.gateway.clob_spot.data_sources.penumbra.generated.penumbra.core.component.shielded_pool.v1alpha1.shielded_pool_pb2_grpc import (
     QueryService,
 )
+from hummingbot.connector.gateway.clob_spot.data_sources.penumbra.generated.penumbra.custody.v1alpha1 import (
+    custody_pb2 as penumbra_dot_custody_dot_v1alpha1_dot_custody__pb2,
+)
+from hummingbot.connector.gateway.clob_spot.data_sources.penumbra.generated.penumbra.custody.v1alpha1.custody_pb2_grpc import (
+    CustodyProtocolService,
+)
 from hummingbot.connector.gateway.clob_spot.data_sources.penumbra.generated.penumbra.view.v1alpha1 import (
     view_pb2 as penumbra_dot_view_dot_v1alpha1_dot_view__pb2,
 )
@@ -24,6 +30,7 @@ from hummingbot.connector.gateway.clob_spot.data_sources.penumbra.generated.penu
 from hummingbot.connector.gateway.clob_spot.data_sources.penumbra.penumbra_api_data_source import (
     PenumbraAPIDataSource as PenumbraGateway,
 )
+from hummingbot.connector.gateway.clob_spot.data_sources.penumbra.penumbra_constants import TOKEN_SYMBOL_MAP
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.event.events import OrderFilledEvent
@@ -67,47 +74,191 @@ class PenumbraOsiris(ScriptStrategyBase):
     def on_tick(self):
         if self.create_timestamp <= self.current_timestamp:
             self.cancel_all_orders()
-            proposal: List[OrderCandidate] = self.create_proposal()
-            proposal_adjusted: List[OrderCandidate] = self.adjust_proposal_to_budget(proposal)
-            self.place_orders(proposal_adjusted)
+            bid_ask: List[float] = self.create_proposal()
+            self.make_liquidity_position(bid_ask)
             self.create_timestamp = self.order_refresh_time + self.current_timestamp
 
-    def create_proposal(self) -> List[OrderCandidate]:
-        bookTicker = requests.get(f"https://api.binance.com/api/v3/ticker/bookTicker?symbol={self.reference_pair.replace('-', '')}").json()
-        buy_price = bookTicker['bidPrice']
-        sell_price = bookTicker['askPrice']
+    def create_proposal(self) -> List[float]:
+        try:
+            bookTicker = requests.get(f"https://api.binance.com/api/v3/ticker/bookTicker?symbol={self.reference_pair.replace('-', '')}").json()
+            bid_price = bookTicker['bidPrice']
+            ask_price = bookTicker['askPrice']
+        except:
+            logging.getLogger().error("Error fetching bid/ask from binance, is your IP geolocked?")
 
-        #print("bid spread: ", buy_price)
-        #print("ask spread: ", sell_price)
+        return [Decimal(str(bid_price)), Decimal(str(ask_price))]
 
-        buy_order = OrderCandidate(trading_pair=self.trading_pair, is_maker=True, order_type=OrderType.LIMIT,
-                                   order_side=TradeType.BUY, amount=Decimal(self.order_amount), price=buy_price)
 
-        sell_order = OrderCandidate(trading_pair=self.trading_pair, is_maker=True, order_type=OrderType.LIMIT,
-                                    order_side=TradeType.SELL, amount=Decimal(self.order_amount), price=sell_price)
+    def clamp(self, value, min_value, max_value):
+        """Clamps a value between a minimum and maximum value."""
+        return max(min_value, min(value, max_value))
 
-        #print("buy order: ", buy_order)
-        #print("sell order: ", sell_order)
 
-        return [buy_order, sell_order]
+    def calculate_half_reserves(self, reserve1, reserve2):
+        """
+        Calculates half of the given reserves and clamps them to 80 bits.
+        :param reserve1: The first reserve value.
+        :param reserve2: The second reserve value.
+        :return: Tuple of clamped half reserves (r1, r2).
+        """
 
+        if reserve1 == None or reserve1 == 0:
+            logging.getLogger().error(
+                "Not enough r1 reserves available to open a position.")
+            raise ValueError("No reserves available to open a position.")
+        if reserve2 == None or reserve2 == 0:
+            logging.getLogger().error(
+                "Not enough r2 reserves available to open a position.")
+            raise ValueError("No reserves available to open a position.")
+
+        max_80_bits = 2**80 - 1
+        half_reserve1 = self.clamp(reserve1 // 2, 0, max_80_bits)
+        half_reserve2 = self.clamp(reserve2 // 2, 0, max_80_bits)
+
+        if half_reserve1 == 0 or half_reserve2 == 0:
+            logging.getLogger().error(
+                "Not enough reserves available to open a position.")
+            raise ValueError("No reserves available to open a position.")
+
+        return [half_reserve1, half_reserve2]
+
+    def int_to_lo_hi(self, value):
+        """
+        Converts a large integer into lo and hi parts for a 128-bit unsigned integer.
+        :param value: The integer to be converted.
+        :return: A tuple (lo, hi) representing the low and high parts of the integer.
+        """
+        # Ensure value fits in 128 bits
+        if value.bit_length() > 128:
+            raise ValueError("Value is too large to fit in 128 bits")
+
+        # Mask to extract 64 bits.
+        mask = (1 << 64) - 1
+
+        # Extract lo and hi values.
+        lo = value & mask
+        hi = (value >> 64) & mask
+
+        return [lo, hi]
+
+
+    def generate_nonce(self):
+        """Generate a 32-byte nonce."""
+        nonce_bytes = os.urandom(32)
+        return nonce_bytes
+
+    def authorize_tx(self, transaction):
+        auth_client = CustodyProtocolService()
+
+        auth_request = penumbra_dot_custody_dot_v1alpha1_dot_custody__pb2.AuthorizeRequest()
+        auth_request.plan.CopyFrom(transaction.plan)
+
+        auth_response = auth_client.Authorize(request=auth_request,target=self._pclientd_url,insecure=True)
+
+        return auth_response
 
     #! TODO
-    def adjust_proposal_to_budget(self, proposal: List[OrderCandidate]) -> List[OrderCandidate]:
-        proposal_adjusted = self.connectors[self.exchange].budget_checker.adjust_candidates(proposal, all_or_none=True)
-        return proposal_adjusted
+    # https://guide.penumbra.zone/main/pclientd/build_transaction.html
+    def make_liquidity_position(self, bid_ask: List[int]):
+        try:
+            client = ViewProtocolService()
+            transactionPlanRequest = penumbra_dot_view_dot_v1alpha1_dot_view__pb2.TransactionPlannerRequest()
 
-    def place_orders(self, proposal: List[OrderCandidate]) -> None:
-        for order in proposal:
-            self.place_order(connector_name=self.exchange, order=order)
+            # Set fee to zero
+            transactionPlanRequest.fee.amount.lo = self.int_to_lo_hi(0)[0]
 
-    def place_order(self, connector_name: str, order: OrderCandidate):
-        if order.order_side == TradeType.SELL:
-            self.sell(connector_name=connector_name, trading_pair=order.trading_pair, amount=order.amount,
-                      order_type=order.order_type, price=order.price)
-        elif order.order_side == TradeType.BUY:
-            self.buy(connector_name=connector_name, trading_pair=order.trading_pair, amount=order.amount,
-                     order_type=order.order_type, price=order.price)
+            # Assuming you have values for fee, p, q, your_trading_pair, your_reserve1, your_reserve2, and your_nonce
+            # Set the TradingFunction directly
+            trading_function = transactionPlanRequest.position_opens.add().position.phi
+
+            midPrice = Decimal(bid_ask[0] + bid_ask[1]) / 2
+            scaling_factor = Decimal('1000')
+            midPrice = midPrice * scaling_factor
+
+            while midPrice < 1:
+                scaling_factor = scaling_factor * 1000
+                midPrice = midPrice * 1000
+
+            # P is always scaling value
+            p_val = self.int_to_lo_hi(int(scaling_factor))
+
+            trading_function.component.p.lo = p_val[0]
+            trading_function.component.p.hi = p_val[1]
+
+            q_val = self.int_to_lo_hi(int(midPrice))
+
+            trading_function.component.q.lo = q_val[0]
+            trading_function.component.q.hi = q_val[1]
+
+            # Calculate spread:
+            difference = scaling_factor * abs(bid_ask[1] - bid_ask[0])
+            fraction = difference / midPrice
+            # max of 50% fee, min of 100 bps (1%)
+            spread = fraction * 100 * 100
+            spread = max(100, min(spread, 5000))
+
+            trading_function.component.fee = int(spread)
+
+            # Get asset ids from constants file
+            id_1 = TOKEN_SYMBOL_MAP[self.trading_pair.split('-')[0]]
+            id_2 = TOKEN_SYMBOL_MAP[self.trading_pair.split('-')[1]]
+
+            if id_1 is None:
+                logging.getLogger().error(
+                    f"Asset {self.trading_pair.split('-')[0]} not found in constants file"
+                )
+            if id_2 is None:
+                logging.getLogger().error(
+                    f"Asset {self.trading_pair.split('-')[1]} not found in constants file"
+                )
+
+            trading_function.pair.asset_1.inner = base64.b64decode(
+                id_1['address'])
+            trading_function.pair.asset_2.inner = base64.b64decode(
+                id_2['address'])
+
+            # Set the PositionState directly
+            position_state = transactionPlanRequest.position_opens[0].position.state
+            position_state.state = 1
+
+            # Set the Reserves directly
+            reserves = transactionPlanRequest.position_opens[0].position.reserves
+
+            # Get all balances
+            balances = self.get_all_balances()
+            res1 = balances[self.trading_pair.split('-')[0]]['amount'] * 10**balances[self.trading_pair.split('-')[0]]['decimals']
+            res2 = balances[self.trading_pair.split('-')[1]]['amount'] * 10**balances[self.trading_pair.split('-')[1]]['decimals']
+
+            half_reserve1, half_reserve2 = self.calculate_half_reserves(res1, res2)
+
+            half_reserve1 = self.int_to_lo_hi(int(half_reserve1))
+            half_reserve2 = self.int_to_lo_hi(int(half_reserve2))
+
+            reserves.r1.lo = half_reserve1[0]
+            reserves.r1.hi = half_reserve1[1]
+            reserves.r2.lo = half_reserve2[0]
+            reserves.r2.hi = half_reserve2[1]
+
+
+            # Set other fields of Position
+            transactionPlanRequest.position_opens[0].position.close_on_fill = False
+            transactionPlanRequest.position_opens[0].position.nonce = self.generate_nonce()
+
+            transactionPlanResponse = client.TransactionPlanner(request=transactionPlanRequest,target=self._pclientd_url,insecure=True)
+
+            # Authorize the tx
+            authorized_resp = self.authorize_tx(transactionPlanResponse)
+
+            # Witness & Build
+
+            # Broadcast
+
+            breakpoint()
+
+
+            return
+        except Exception as e:
+            logging.getLogger().error(f"Error making liquidity position: {str(e)}")
 
     def cancel_all_orders(self):
         for order in self.get_active_orders(connector_name=self.exchange):
@@ -194,7 +345,7 @@ class PenumbraOsiris(ScriptStrategyBase):
         Returns a data frame for all asset balances for displaying purpose.
         """
         columns: List[str] = [
-            "Exchange", "Asset", "Total Balance"
+            "Exchange", "Asset", "Availible Balance"
         ]
         data: List[Any] = []
 
