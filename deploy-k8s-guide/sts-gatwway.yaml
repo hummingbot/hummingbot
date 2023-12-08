@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: halotrade-gateway-hummingbot
+spec:
+  replicas: 1
+  serviceName: halotrade-gateway-hummingbot-svc
+  selector:
+    matchLabels:
+      app: halotrade-gateway-hummingbot
+  template:
+    metadata:
+      labels:
+        app: halotrade-gateway-hummingbot
+    spec:
+      containers:
+        - name: halotrade-gateway-hummingbot
+          image: ghcr.io/aura-nw/hummingbot-gateway:halotrade_supported_24f2519
+          imagePullPolicy: IfNotPresent
+          # command: [ "/bin/bash", "-c", "--" ]
+          # args: [ "while true; do sleep 30; done;" ]
+          tty: true
+          stdin: true
+          env:
+            - name: GATEWAY_PASSPHRASE
+              valueFrom:
+                secretKeyRef:
+                  name: secret-passphrase
+                  key: password
+          volumeMounts:
+            - name: pvc-config-gateway
+              mountPath: /home/gateway/conf
+              subPath: conf
+            - name: pvc-config-gateway
+              mountPath: /home/gateway/certs
+              subPath: certs
+      imagePullSecrets:
+        - name: regcred-github
+  volumeClaimTemplates:
+  - metadata:
+      name: pvc-config-gateway
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: halotrade-gateway-hummingbot-svc
+spec:
+  ports:
+  - port: 15888
+  clusterIP: None
+  selector:
+    app: halotrade-gateway-hummingbot

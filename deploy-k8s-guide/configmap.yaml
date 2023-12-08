@@ -1,0 +1,361 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aura-usdt-config
+data:
+  config_strategy_file: conf_pure_mm_bingx.yml
+  conf_pure_mm_bingx.yml: |
+    ########################################################
+    ###       Pure market making strategy config         ###
+    ########################################################
+
+    template_version: 24
+    strategy: pure_market_making
+
+    # Exchange and token parameters.
+    exchange: bing_x
+
+    # Token trading pair for the exchange, e.g. BTC-USDT
+    market: AURA-USDT
+
+    # How far away from mid price to place the bid order.
+    # Spread of 1 = 1% away from mid price at that time.
+    # Example if mid price is 100 and bid_spread is 1.
+    # Your bid is placed at 99.
+    bid_spread: 1.0
+
+    # How far away from mid price to place the ask order.
+    # Spread of 1 = 1% away from mid price at that time.
+    # Example if mid price is 100 and ask_spread is 1.
+    # Your bid is placed at 101.
+    ask_spread: 1.0
+
+    # Minimum Spread
+    # How far away from the mid price to cancel active orders
+    minimum_spread: -100.0
+
+    # Time in seconds before cancelling and placing new orders.
+    # If the value is 60, the bot cancels active orders and placing new ones after a minute.
+    order_refresh_time: 70.0
+
+    # Time in seconds before replacing existing order with new orders at the same price.
+    max_order_age: 80.0
+
+    # The spread (from mid price) to defer order refresh process to the next cycle.
+    # (Enter 1 to indicate 1%), value below 0, e.g. -1, is to disable this feature - not recommended.
+    order_refresh_tolerance_pct: 0.0
+
+    # Size of your bid and ask order.
+    order_amount: 150.0
+
+    # Price band ceiling.
+    price_ceiling: 0.045
+
+    # Price band floor.
+    price_floor: 0.035
+
+    # enable moving price floor and ceiling.
+    moving_price_band_enabled: no
+
+    # Price band ceiling pct.
+    price_ceiling_pct: 1.0
+
+    # Price band floor pct.
+    price_floor_pct: -1.0
+
+    # price_band_refresh_time.
+    price_band_refresh_time: 86400.0
+
+    # Whether to alternate between buys and sells (true/false).
+    ping_pong_enabled: false
+
+    # Whether to enable Inventory skew feature (true/false).
+    inventory_skew_enabled: false
+
+    # Target base asset inventory percentage target to be maintained (for Inventory skew feature).
+    inventory_target_base_pct: 50.0
+
+    # The range around the inventory target base percent to maintain, expressed in multiples of total order size (for
+    # inventory skew feature).
+    inventory_range_multiplier: 1.0
+
+    # Initial price of the base asset. Note: this setting is not affects anything, the price is kept in the database.
+    inventory_price: 1.0
+
+    # Number of levels of orders to place on each side of the order book.
+    order_levels: 1
+
+    # Increase or decrease size of consecutive orders after the first order (if order_levels > 1).
+    order_level_amount: 0.0001
+
+    # Order price space between orders (if order_levels > 1).
+    order_level_spread: 0.2
+
+    # How long to wait before placing the next order in case your order gets filled.
+    filled_order_delay: 200
+
+    # Whether to stop cancellations of orders on the other side (of the order book),
+    # when one side is filled (hanging orders feature) (true/false).
+    hanging_orders_enabled: false
+
+    # Spread (from mid price, in percentage) hanging orders will be canceled (Enter 1 to indicate 1%)
+    hanging_orders_cancel_pct: 10.0
+
+    # Whether to enable order optimization mode (true/false).
+    order_optimization_enabled: false
+
+    # The depth in base asset amount to be used for finding top ask (for order optimization mode).
+    ask_order_optimization_depth: 0.0
+
+    # The depth in base asset amount to be used for finding top bid (for order optimization mode).
+    bid_order_optimization_depth: 0.0
+
+    # Whether to enable adding transaction costs to order price calculation (true/false).
+    add_transaction_costs: false
+
+    # The price source (current_market/external_market/custom_api).
+    price_source: current_market
+
+    # The price type (mid_price/last_price/last_own_trade_price/best_bid/best_ask/inventory_cost).
+    price_type: mid_price
+
+    # An external exchange name (for external exchange pricing source).
+    price_source_exchange: gate_io
+
+    # A trading pair for the external exchange, e.g. BTC-USDT (for external exchange pricing source).
+    price_source_market: AURA-USDT
+
+    # An external api that returns price (for custom_api pricing source).
+    price_source_custom_api:
+
+    # An interval time in second to update the price from custom api (for custom_api pricing source).
+    custom_api_update_interval: 5.0
+
+    #Take order if they cross order book when external price source is enabled
+    take_if_crossed: false
+
+    # Use user provided orders to directly override the orders placed by order_amount and order_level_parameter
+    # This is an advanced feature and user is expected to directly edit this field in config file
+    # Below is an sample input, the format is a dictionary, the key is user-defined order name, the value is a list which includes buy/sell, order spread, and order amount
+    # order_override:
+    #   order_1: [buy, 0.5, 100]
+    #   order_2: [buy, 0.75, 200]
+    #   order_3: [sell, 0.1, 500]
+    # Please make sure there is a space between : and [
+    order_override:
+
+    # Simpler override config for separate bid and order level spreads
+    split_order_levels_enabled: false
+    bid_order_level_spreads:
+    ask_order_level_spreads:
+    bid_order_level_amounts:
+    ask_order_level_amounts:
+    # If the strategy should wait to receive cancellations confirmation before creating new orders during refresh time
+    should_wait_order_cancel_confirmation: true
+
+
+  conf_client.yml: |
+    ####################################
+    ###   client_config_map config   ###
+    ####################################
+
+    instance_id: TEST_ID
+
+    # Fetch trading pairs from all exchanges if True, otherwise fetch only from connected exchanges.
+    fetch_pairs_from_all_exchanges: false
+
+    log_level: INFO
+
+    debug_console: false
+
+    strategy_report_interval: 900.0
+
+    logger_override_whitelist:
+    - hummingbot.strategy.arbitrage
+    - hummingbot.strategy.cross_exchange_market_making
+    - conf
+
+    log_file_path: /home/hummingbot/logs
+    # log_file_path: /var/log
+
+    kill_switch_mode:
+      kill_switch_rate: -2.0
+
+    # What to auto-fill in the prompt after each import command (start/config)
+    autofill_import: disabled
+
+    telegram_mode: {}
+
+    # MQTT Bridge configuration.
+    mqtt_bridge:
+      mqtt_host: localhost
+      mqtt_port: 1888
+      mqtt_username: ''
+      mqtt_password: ''
+      mqtt_namespace: hbot
+      mqtt_ssl: false
+      mqtt_logger: true
+      mqtt_notifier: true
+      mqtt_commands: true
+      mqtt_events: true
+      mqtt_external_events: true
+      mqtt_autostart: false
+
+    # Error log sharing
+    send_error_logs: false
+
+    # Can store the previous strategy ran for quick retrieval.
+    previous_strategy: conf_pure_mm_test_bing_x.yml
+
+    # Advanced database options, currently supports SQLAlchemy's included dialects
+    # Reference: https://docs.sqlalchemy.org/en/13/dialects/
+    # To use an instance of SQLite DB the required configuration is 
+    #   db_engine: sqlite
+    # To use a DBMS the required configuration is
+    #   db_host: 127.0.0.1
+    #   db_port: 3306
+    #   db_username: username
+    #   db_password: password
+    #   db_name: dbname
+    db_mode:
+      db_engine: sqlite
+
+    pmm_script_mode: {}
+
+    # Balance Limit Configurations
+    # e.g. Setting USDT and BTC limits on Binance.
+    # balance_asset_limit:
+    #   binance:
+    #     BTC: 0.1
+    #     USDT: 1000
+    balance_asset_limit:
+      bitmart: {}
+      mock_paper_exchange: {}
+      binance_us: {}
+      coinbase_pro: {}
+      btc_markets: {}
+      mexc: {}
+      kraken: {}
+      ndax: {}
+      binance_paper_trade: {}
+      kucoin_paper_trade: {}
+      huobi: {}
+      bybit_testnet: {}
+      ndax_testnet: {}
+      gate_io: {}
+      vertex: {}
+      bybit: {}
+      polkadex: {}
+      ascend_ex_paper_trade: {}
+      okx: {}
+      woo_x_testnet: {}
+      loopring: {}
+      ascend_ex: {}
+      bitmex: {}
+      bitfinex: {}
+      woo_x: {}
+      vertex_testnet: {}
+      bing_x: {}
+      binance:
+        BTC-USD: 1.0
+      injective_v2: {}
+      kucoin: {}
+      hitbtc: {}
+      gate_io_paper_trade: {}
+      bitmex_testnet: {}
+
+    # Fixed gas price (in Gwei) for Ethereum transactions
+    manual_gas_price: 50.0
+
+    # Gateway API Configurations
+    # default host to only use localhost
+    # Port need to match the final installation port for Gateway
+    gateway:
+      gateway_api_host: localhost
+      gateway_api_port: '15888'
+
+    certs_path: /home/hummingbot/certs
+
+    # Whether to enable aggregated order and trade data collection
+    anonymized_metrics_mode:
+      anonymized_metrics_interval_min: 15.0
+
+    # Command Shortcuts
+    # Define abbreviations for often used commands
+    # or batch grouped commands together
+    command_shortcuts:
+    - command: spreads
+      help: Set bid and ask spread
+      arguments:
+      - Bid Spread
+      - Ask Spread
+      output:
+      - config bid_spread $1
+      - config ask_spread $2
+
+    # A source for rate oracle, currently ascend_ex, binance, coin_gecko, coin_cap, kucoin, gate_io
+    rate_oracle_source:
+      name: gate_io
+
+    # A universal token which to display tokens values in, e.g. USD,EUR,BTC
+    global_token:
+      global_token_name: USDT
+      global_token_symbol: $
+
+    # Percentage of API rate limits (on any exchange and any end point) allocated to this bot instance.
+    # Enter 50 to indicate 50%. E.g. if the API rate limit is 100 calls per second, and you allocate 
+    # 50% to this setting, the bot will have a maximum (limit) of 50 calls per second
+    rate_limits_share_pct: 100.0
+
+    commands_timeout:
+      create_command_timeout: 10.0
+      other_commands_timeout: 30.0
+
+    # Tabulate table format style (https://github.com/astanin/python-tabulate#table-format)
+    tables_format: psql
+
+    paper_trade:
+      paper_trade_exchanges:
+      - binance
+      - kucoin
+      - ascend_ex
+      - gate_io
+      paper_trade_account_balance:
+        BTC: 1.0
+        USDT: 1000.0
+        ONE: 1000.0
+        USDQ: 1000.0
+        TUSD: 1000.0
+        ETH: 10.0
+        WETH: 10.0
+        USDC: 1000.0
+        DAI: 1000.0
+        BTC-USD: 1.0
+
+    color:
+      top_pane: '#000000'
+      bottom_pane: '#000000'
+      output_pane: '#262626'
+      input_pane: '#1C1C1C'
+      logs_pane: '#121212'
+      terminal_primary: '#5FFFD7'
+      primary_label: '#5FFFD7'
+      secondary_label: '#FFFFFF'
+      success_label: '#5FFFD7'
+      warning_label: '#FFFF00'
+      info_label: '#5FD7FF'
+      error_label: '#FF0000'
+      gold_label: '#FFD700'
+      silver_label: '#C0C0C0'
+      bronze_label: '#CD7F32'
+
+    # The tick size is the frequency with which the clock notifies the time iterators by calling the
+    # c_tick() method, that means for example that if the tick size is 1, the logic of the strategy 
+    # will run every second.
+    tick_size: 1.0
+
+    market_data_collection:
+      market_data_collection_enabled: true
+      market_data_collection_interval: 60
+      market_data_collection_depth: 20
+

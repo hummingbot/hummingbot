@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: aura-usdt-bing-x-hummingbot
+spec:
+  replicas: 1
+  serviceName: aura-usdt
+  selector:
+    matchLabels:
+      app: aura-usdt-bing-x-hummingbot
+  template:
+    metadata:
+      labels:
+        app: aura-usdt-bing-x-hummingbot
+    spec:
+      containers:
+        - name: aura-usdt-bing-x-hummingbot
+          image: ghcr.io/aura-nw/hummingbot:bing_x_supported_634d939
+          imagePullPolicy: IfNotPresent
+          # command: [ "/bin/bash", "-c", "--" ]
+          # args: [ "while true; do sleep 30; done;" ]
+          tty: true
+          stdin: true
+          env:
+            - name: CONFIG_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: secret-basic-auth
+                  key: password
+            - name: CONFIG_FILE_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: aura-usdt-config
+                  key: config_strategy_file
+          volumeMounts:
+            - name: pvc-config
+              mountPath: /home/hummingbot/conf
+            - name: config
+              mountPath: /home/hummingbot/conf/conf_client.yml
+              subPath: conf_client.yml
+            - name: config
+              mountPath: /home/hummingbot/conf/strategies/conf_pure_mm_bingx.yml
+              subPath: conf_pure_mm_bingx.yml
+            - name: logs
+              mountPath: /home/hummingbot/logs
+        - name: log
+          image: busybox:1.28
+          args: [/bin/sh, -c, 'tail -n+1 -F /home/hummingbot/logs/logs_conf_pure_mm_bingx.log']
+          volumeMounts:
+            - name: logs
+              mountPath: /home/hummingbot/logs
+      imagePullSecrets:
+        - name: regcred-github
+      volumes:
+        - name: config
+          configMap:
+            name: aura-usdt-config
+        - name: logs
+          emptyDir: {}
+  volumeClaimTemplates:
+  - metadata:
+      name: pvc-config
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
