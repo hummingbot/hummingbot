@@ -9,6 +9,12 @@ import numpy as np
 import pandas as pd
 import requests
 
+from hummingbot.connector.gateway.clob_spot.data_sources.penumbra.generated.penumbra.core.component.dex.v1alpha1 import (
+    dex_pb2 as penumbra_dot_core_dot_component_dot_dex_dot_v1alpha1_dot_dex__pb2,
+)
+from hummingbot.connector.gateway.clob_spot.data_sources.penumbra.generated.penumbra.core.component.dex.v1alpha1.dex_pb2_grpc import (
+    QueryService as DexQueryService,
+)
 from hummingbot.connector.gateway.clob_spot.data_sources.penumbra.generated.penumbra.core.component.shielded_pool.v1alpha1 import (
     shielded_pool_pb2 as penumbra_dot_core_dot_component_dot_shielded__pool_dot_v1alpha1_dot_shielded__pool__pb2,
 )
@@ -36,6 +42,8 @@ from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.event.events import OrderFilledEvent
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
+LP_NFT_OPEN_PREFIX = 'lpnft_opened_'
+LP_NFT_CLOSED_PREFIX = 'lpnft_closed_'
 
 # The original Osiris bot uses binance feeds, so we aim to do the same here
 # https://binance-docs.github.io/apidocs/spot/en/#market-data-endpoints
@@ -51,7 +59,7 @@ class PenumbraOsiris(ScriptStrategyBase):
 
     bid_spread = 0.001
     ask_spread = 0.001
-    order_refresh_time = 15
+    order_refresh_time = 60
     order_amount = 0.01
     create_timestamp = 0
     trading_pair = "test_usd-penumbra"
@@ -141,6 +149,8 @@ class PenumbraOsiris(ScriptStrategyBase):
 
         return [lo, hi]
 
+    def hi_low_to_human_readable(self, hi, lo, decimals):
+        return ((hi << 64) | lo) / (10**decimals)
 
     def generate_nonce(self):
         """Generate a 32-byte nonce."""
@@ -263,22 +273,121 @@ class PenumbraOsiris(ScriptStrategyBase):
             # Service will await detection on chain
             broadcast_request.await_detection = True
 
-            broadcast_response = client.BroadcastTransaction(request=broadcast_request,target=self._pclientd_url,insecure=True)
-            breakpoint()
+            logging.getLogger().info("Creating order...")
+            broadcast_response = client.BroadcastTransaction(request=broadcast_request,target=self._pclientd_url,insecure=True, timeout=60)
+            logging.getLogger().info(f"Order created at block {broadcast_response.detection_height} in tx hash: {broadcast_response.id.hash.hex()}")
+            #breakpoint()
 
-            # TODO: idk come back to this after cancelling funcs
-
-            return
         except Exception as e:
             logging.getLogger().error(f"Error making liquidity position: {str(e)}")
 
+    # Cancel & withdraw from all orders
     def cancel_all_orders(self):
-        # TODO: Cancel all orders
-        active_orders = self.get_active_orders()
-        logging.getLogger().info("Orders: ", active_orders)
+        active_orders, closed_orders = self.get_orders()
+        #logging.getLogger().info("Orders: ", active_orders)
 
+        client = ViewProtocolService()
+
+        # Iterate over dictionary keys
+        order_key_list = list(active_orders.keys())
+
+        for order_key in order_key_list:
+            try:
+                transactionPlanRequest = penumbra_dot_view_dot_v1alpha1_dot_view__pb2.TransactionPlannerRequest()
+
+                # Set fee to zero
+                transactionPlanRequest.fee.amount.lo = self.int_to_lo_hi(0)[0]
+
+                # Set the Position directly
+                position_close_bech32m = transactionPlanRequest.position_closes.add().position_id
+                position_close_bech32m.alt_bech32m = order_key_list[order_key]['asset'].denom_metadata.display.split(LP_NFT_OPEN_PREFIX)[1]
+
+                transactionPlanResponse = client.TransactionPlanner(request=transactionPlanRequest,target=self._pclientd_url,insecure=True)
+
+                # Authorize the tx
+                authorized_resp = self.authorize_tx(transactionPlanResponse)
+
+                # Witness & Build
+                wit_and_build_req = penumbra_dot_view_dot_v1alpha1_dot_view__pb2.WitnessAndBuildRequest()
+                wit_and_build_req.transaction_plan.CopyFrom(transactionPlanResponse.plan)
+                wit_and_build_req.authorization_data.CopyFrom(authorized_resp.data)
+
+                wit_and_build_resp = client.WitnessAndBuild(request=wit_and_build_req,target=self._pclientd_url,insecure=True)
+
+                # Broadcast
+                broadcast_request = penumbra_dot_view_dot_v1alpha1_dot_view__pb2.BroadcastTransactionRequest()
+                broadcast_request.transaction.CopyFrom(wit_and_build_resp.transaction)
+                # Service will await detection on chain
+                broadcast_request.await_detection = True
+
+                logging.getLogger().info("Deleting order..")
+                broadcast_response = client.BroadcastTransaction(request=broadcast_request,target=self._pclientd_url,insecure=True)
+                logging.getLogger().info(
+                    f"Order deleted at block {broadcast_response.detection_height} in tx hash: {broadcast_response.id.hash.hex()}"
+                )
+
+                #breakpoint()
+
+            except Exception as e:
+                logging.getLogger().error(f"Error cancelling liquidity position: {str(e)}")
+
+
+        # Withdraw from positions, iterate over closed orders if there were any, and also attempt to withdraw from any active positions since we just closed them
+        # Concat the 2 dictionaries
+        all_orders = {**active_orders, **closed_orders}
+        all_order_keys = list(all_orders.keys())
         breakpoint()
-        return
+
+        for order_key in all_order_keys:
+            try:
+                transactionPlanRequest = penumbra_dot_view_dot_v1alpha1_dot_view__pb2.TransactionPlannerRequest()
+
+                # Set fee to zero
+                transactionPlanRequest.fee.amount.lo = self.int_to_lo_hi(0)[0]
+
+                # Set the Position directly
+                position_withdraw_bech32m = transactionPlanRequest.position_withdraws.add().position_id
+                position_withdraw_bech32m.alt_bech32m = all_orders[order_key]['asset'].denom_metadata.display.split(LP_NFT_CLOSED_PREFIX)[1] # Always closed prefix bc these orders should always be closed this point
+
+                # Set the remaining Reserves
+                zero_res = self.int_to_lo_hi(0)
+                transactionPlanRequest.position_withdraws[0].reserves.r1.lo = zero_res[0]
+                transactionPlanRequest.position_withdraws[0].reserves.r1.hi = zero_res[1]
+                transactionPlanRequest.position_withdraws[0].reserves.r2.lo = zero_res[0]
+                transactionPlanRequest.position_withdraws[0].reserves.r2.hi = zero_res[1]
+
+                # Set the trading pair
+                transactionPlanRequest.position_withdraws[0].trading_pair.asset_1.inner = bytes.fromhex(all_orders[order_key]['position'].phi.pair.asset_1.inner.hex())
+                transactionPlanRequest.position_withdraws[0].trading_pair.asset_2.inner = bytes.fromhex(all_orders[order_key]['position'].phi.pair.asset_2.inner.hex())
+
+                transactionPlanResponse = client.TransactionPlanner(request=transactionPlanRequest,target=self._pclientd_url,insecure=True)
+
+                # Authorize the tx
+                authorized_resp = self.authorize_tx(transactionPlanResponse)
+
+                # Witness & Build
+                wit_and_build_req = penumbra_dot_view_dot_v1alpha1_dot_view__pb2.WitnessAndBuildRequest()
+                wit_and_build_req.transaction_plan.CopyFrom(transactionPlanResponse.plan)
+                wit_and_build_req.authorization_data.CopyFrom(authorized_resp.data)
+
+                wit_and_build_resp = client.WitnessAndBuild(request=wit_and_build_req,target=self._pclientd_url,insecure=True)
+
+                # Broadcast
+                broadcast_request = penumbra_dot_view_dot_v1alpha1_dot_view__pb2.BroadcastTransactionRequest()
+                broadcast_request.transaction.CopyFrom(wit_and_build_resp.transaction)
+                # Service will await detection on chain
+                broadcast_request.await_detection = True
+
+                breakpoint()
+
+                logging.getLogger().info("Withdrawing from position..")
+                broadcast_response = client.BroadcastTransaction(request=broadcast_request,target=self._pclientd_url,insecure=True)
+                logging.getLogger().info(
+                    f"Withdrawn from position at block {broadcast_response.detection_height} in tx hash: {broadcast_response.id.hash.hex()}"
+                )
+
+            except Exception as e:
+                logging.getLogger().error(f"Error withdrawing from liquidity position: {str(e)}")
 
 
     def did_fill_order(self, event: OrderFilledEvent):
@@ -315,7 +424,7 @@ class PenumbraOsiris(ScriptStrategyBase):
                 target=self._pclientd_url,
                 insecure=True)
 
-            if not denom_res.denom_metadata:
+            if not denom_res.denom_metadata.denom_units:
                 decimals = 0
             else:
                 decimals = denom_res.denom_metadata.denom_units[0].exponent
@@ -323,8 +432,7 @@ class PenumbraOsiris(ScriptStrategyBase):
             symbol = denom_res.denom_metadata.display
 
             # amount's are uint 128 bit https://buf.build/penumbra-zone/penumbra/docs/300a488c79c9490d86cf09e1eceff593:penumbra.core.num.v1alpha1#penumbra.core.num.v1alpha1.Amount
-            balance = ((response.balance.amount.hi << 64)
-                       | response.balance.amount.lo) / (10**decimals)
+            balance = Decimal(str(self.hi_low_to_human_readable(response.balance.amount.hi, response.balance.amount.lo, decimals)))
 
             balance_dict[symbol] = {
                 "asset_id_str":
@@ -384,9 +492,9 @@ class PenumbraOsiris(ScriptStrategyBase):
         df.sort_values(by=["Exchange", "Asset"], inplace=True)
         return df
 
-    def get_active_orders(self):
+    def get_orders(self):
         client = ViewProtocolService()
-        query_client = QueryService()
+        query_client = DexQueryService()
 
         # Get all the cleaned assets
         assets_req = penumbra_dot_view_dot_v1alpha1_dot_view__pb2.AssetsRequest()
@@ -396,50 +504,86 @@ class PenumbraOsiris(ScriptStrategyBase):
         cleaned_assets = {}
 
         for asset in assets:
-            cleaned_assets[asset.denom_metadata.display] = {
-                "data":
-                asset,
-                "asset_id":
-                base64.b64encode(bytes.fromhex(asset.denom_metadata.penumbra_asset_id.inner.hex()))
-            }
+            # Only get assets with prefix 'lpnft_opened'
 
-        breakpoint()
+            denomDisplay = asset.denom_metadata.display
 
+            if str(denomDisplay).startswith(LP_NFT_OPEN_PREFIX) or str(denomDisplay).startswith(LP_NFT_CLOSED_PREFIX):
+                asset_id = base64.b64encode(bytes.fromhex(asset.denom_metadata.penumbra_asset_id.inner.hex()))
+                cleaned_assets[asset_id] = asset
 
         # Get all the notes
         notes_req = penumbra_dot_view_dot_v1alpha1_dot_view__pb2.NotesRequest()
         notes_req.include_spent = False
 
-        notes_resp = client.Notes(
-            request=notes_req,
-            target=self._pclientd_url,
-            insecure=True)
+        notes_resp = client.Notes(request=notes_req,target=self._pclientd_url,insecure=True)
 
-        liq_positions = {}
+        active_liq_positions = {}
+        closed_liq_positions = {}
 
         for note in notes_resp:
-            id_str =  base64.b64encode(bytes.fromhex(note.note_record.note.value.asset_id.inner.hex()))
+            id_byte_str =  base64.b64encode(bytes.fromhex(note.note_record.note.value.asset_id.inner.hex()))
 
-            denom_req = penumbra_dot_core_dot_component_dot_shielded__pool_dot_v1alpha1_dot_shielded__pool__pb2.DenomMetadataByIdRequest()
-            denom_req.asset_id.inner = id_str
+            # Associate the note with it's relevant asset in cleaned_assets by matching on penumbra_asset_id.inner & id_str
+            if id_byte_str in cleaned_assets:
+                # Get Position Data
+                liq_request = penumbra_dot_core_dot_component_dot_dex_dot_v1alpha1_dot_dex__pb2.LiquidityPositionByIdRequest()
 
-            # TODO: Associate the note with it's relevant asset in cleaned_assets by matching on penumbra_asset_id.inner & id_str
+                # get the current prefix
+                if str(cleaned_assets[id_byte_str].denom_metadata.display).startswith(LP_NFT_OPEN_PREFIX):
+                    current_prefix = LP_NFT_OPEN_PREFIX
+                elif str(cleaned_assets[id_byte_str].denom_metadata.display).startswith(LP_NFT_CLOSED_PREFIX):
+                    current_prefix = LP_NFT_CLOSED_PREFIX
+                else:
+                    logging.getLogger().error(f"Prefix unsupported: {id_byte_str}")
+                    raise ValueError(f"Prefix unsupported: {id_byte_str}")
 
-            #if symbol == '':
-            # TODO
-            #    breakpoint()
+                liq_request.position_id.alt_bech32m = str(
+                    cleaned_assets[id_byte_str].denom_metadata.display).split(
+                        current_prefix)[1]
 
+                response = query_client.LiquidityPositionById(request=liq_request,target=self._pclientd_url,insecure=True)
 
-        breakpoint()
+                position = response.data
 
-        return "xx"
+                # Only add to list if position is open
+                if position.state.state == 1:
+                    active_liq_positions[id_byte_str] = {
+                        'note': note,
+                        'asset': cleaned_assets[id_byte_str],
+                        'position': response.data
+                    }
+                elif position.state.state == 2:
+                    closed_liq_positions[id_byte_str] = {
+                        'note': note,
+                        'asset': cleaned_assets[id_byte_str],
+                        'position': response.data
+                    }
+
+        return active_liq_positions, closed_liq_positions
 
     def active_orders_df(self):
-        # TODO
-
-
-        print("active orders df")
-        return
+        '''
+        """
+        Return a data frame of all active orders for displaying purpose.
+        """
+        columns = ["Exchange", "Market", "Side", "Price", "Amount"]
+        data = []
+        for order in self.get_active_orders():
+            data.append([
+                connector_name,
+                order.trading_pair,
+                "buy" if order.is_buy else "sell",
+                float(order.price),
+                float(order.quantity),
+            ])
+        if not data:
+            raise ValueError
+            
+        df = pd.DataFrame(data=data, columns=columns)
+        df.sort_values(by=["Exchange", "Market", "Side"], inplace=True)
+        '''
+        return 'df'
 
     # TODO: get ready
     def format_status(self) -> str:
