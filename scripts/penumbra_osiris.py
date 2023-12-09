@@ -224,6 +224,7 @@ class PenumbraOsiris(ScriptStrategyBase):
             # Set the Reserves directly
             reserves = transactionPlanRequest.position_opens[0].position.reserves
 
+            # TODO: really should be availible balances
             # Get all balances
             balances = self.get_all_balances()
             res1 = balances[self.trading_pair.split('-')[0]]['amount'] * 10**balances[self.trading_pair.split('-')[0]]['decimals']
@@ -261,22 +262,24 @@ class PenumbraOsiris(ScriptStrategyBase):
             broadcast_request.transaction.CopyFrom(wit_and_build_resp.transaction)
             # Service will await detection on chain
             broadcast_request.await_detection = True
-            
-            
-            
-            breakpoint()
 
             broadcast_response = client.BroadcastTransaction(request=broadcast_request,target=self._pclientd_url,insecure=True)
+            breakpoint()
 
-
+            # TODO: idk come back to this after cancelling funcs
 
             return
         except Exception as e:
             logging.getLogger().error(f"Error making liquidity position: {str(e)}")
 
     def cancel_all_orders(self):
-        for order in self.get_active_orders(connector_name=self.exchange):
-            self.cancel(self.exchange, order.trading_pair, order.client_order_id)
+        # TODO: Cancel all orders
+        active_orders = self.get_active_orders()
+        logging.getLogger().info("Orders: ", active_orders)
+
+        breakpoint()
+        return
+
 
     def did_fill_order(self, event: OrderFilledEvent):
         msg = (f"{event.trade_type.name} {round(event.amount, 2)} {event.trading_pair} {self.exchange} at {round(event.price, 2)}")
@@ -290,9 +293,7 @@ class PenumbraOsiris(ScriptStrategyBase):
         request = penumbra_dot_view_dot_v1alpha1_dot_view__pb2.BalancesRequest()
         query_client = QueryService()
 
-        responses = client.Balances(request=request,
-                                target=self._pclientd_url,
-                                insecure=True)
+        responses = client.Balances(request=request,target=self._pclientd_url,insecure=True)
 
         balance_dict = {}
 
@@ -383,8 +384,60 @@ class PenumbraOsiris(ScriptStrategyBase):
         df.sort_values(by=["Exchange", "Asset"], inplace=True)
         return df
 
+    def get_active_orders(self):
+        client = ViewProtocolService()
+        query_client = QueryService()
+
+        # Get all the cleaned assets
+        assets_req = penumbra_dot_view_dot_v1alpha1_dot_view__pb2.AssetsRequest()
+        assets_req.include_lp_nfts = True
+        assets = client.Assets(request=assets_req,target=self._pclientd_url,insecure=True)
+
+        cleaned_assets = {}
+
+        for asset in assets:
+            cleaned_assets[asset.denom_metadata.display] = {
+                "data":
+                asset,
+                "asset_id":
+                base64.b64encode(bytes.fromhex(asset.denom_metadata.penumbra_asset_id.inner.hex()))
+            }
+
+        breakpoint()
+
+
+        # Get all the notes
+        notes_req = penumbra_dot_view_dot_v1alpha1_dot_view__pb2.NotesRequest()
+        notes_req.include_spent = False
+
+        notes_resp = client.Notes(
+            request=notes_req,
+            target=self._pclientd_url,
+            insecure=True)
+
+        liq_positions = {}
+
+        for note in notes_resp:
+            id_str =  base64.b64encode(bytes.fromhex(note.note_record.note.value.asset_id.inner.hex()))
+
+            denom_req = penumbra_dot_core_dot_component_dot_shielded__pool_dot_v1alpha1_dot_shielded__pool__pb2.DenomMetadataByIdRequest()
+            denom_req.asset_id.inner = id_str
+
+            # TODO: Associate the note with it's relevant asset in cleaned_assets by matching on penumbra_asset_id.inner & id_str
+
+            #if symbol == '':
+            # TODO
+            #    breakpoint()
+
+
+        breakpoint()
+
+        return "xx"
+
     def active_orders_df(self):
         # TODO
+
+
         print("active orders df")
         return
 
