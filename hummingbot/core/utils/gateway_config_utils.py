@@ -16,6 +16,7 @@ native_tokens = {
     "injective": "INJ",
     "xdc": "XDC",
     "tezos": "XTZ",
+    "xrpl": "XRP",
     "kujira": "KUJI"
 }
 
