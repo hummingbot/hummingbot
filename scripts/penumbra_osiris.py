@@ -1,6 +1,7 @@
 import base64
 import logging
 import os
+import sys
 from decimal import Decimal
 from pprint import pprint
 from typing import Any, List
@@ -36,7 +37,10 @@ from hummingbot.connector.gateway.clob_spot.data_sources.penumbra.generated.penu
 from hummingbot.connector.gateway.clob_spot.data_sources.penumbra.penumbra_api_data_source import (
     PenumbraAPIDataSource as PenumbraGateway,
 )
-from hummingbot.connector.gateway.clob_spot.data_sources.penumbra.penumbra_constants import TOKEN_SYMBOL_MAP
+from hummingbot.connector.gateway.clob_spot.data_sources.penumbra.penumbra_constants import (
+    TOKEN_ADDRESS_MAP,
+    TOKEN_SYMBOL_MAP,
+)
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.event.events import OrderFilledEvent
@@ -80,9 +84,18 @@ class PenumbraOsiris(ScriptStrategyBase):
         self.on_tick()
 
     def on_tick(self):
-        if self.create_timestamp <= self.current_timestamp:
+        # Only run on tick if order_refresh_time is passed to not consume too many resources
+        if self.create_timestamp <= self.current_timestamp - self.order_refresh_time:
+            logging.getLogger().info("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Refreshing order book ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+
+            logging.getLogger().info("1. Canceling any outstanding orders...")
             self.cancel_all_orders()
+
+            logging.getLogger().info("2. Checking price feeds...")
             bid_ask: List[float] = self.create_proposal()
+            logging.getLogger().info(f"3. Best bid: {bid_ask[0]} and ask: {bid_ask[1]}")
+
+            logging.getLogger().info("4. Creating liquidity position...")
             self.make_liquidity_position(bid_ask)
             self.create_timestamp = self.order_refresh_time + self.current_timestamp
 
@@ -565,57 +578,84 @@ class PenumbraOsiris(ScriptStrategyBase):
         return active_liq_positions, closed_liq_positions
 
     def active_orders_df(self):
-        '''
         """
         Return a data frame of all active orders for displaying purpose.
         """
-        columns = ["Exchange", "Market", "Side", "Price", "Amount"]
+        columns = ["Exchange", "Market", "Status", "Reserves 1", "Reserves 2"]
         data = []
-        for order in self.get_active_orders():
+
+        open_orders, closed_orders = self.get_orders()
+        all_orders = {**open_orders, **closed_orders}
+        all_order_keys = list(all_orders.keys())
+
+        for order_key in all_order_keys:
+            order = all_orders[order_key]
+
+            state = "Unknown"
+
+            if order['position'].state.state == 1:
+                state = "Open"
+            elif order['position'].state.state == 2:
+                state = "Closed"
+
+            # Get decimals from const
+            r1_address = base64.b64encode(bytes.fromhex(order['position'].phi.pair.asset_1.inner.hex())).decode('utf-8')
+            r1_decimals = TOKEN_ADDRESS_MAP[r1_address]['decimals']
+            reserves_1_num = self.hi_low_to_human_readable(
+                order['position'].reserves.r1.hi,
+                order['position'].reserves.r1.lo, r1_decimals)
+
+            r2_address = base64.b64encode(bytes.fromhex(order['position'].phi.pair.asset_2.inner.hex())).decode('utf-8')
+            r2_decimals = TOKEN_ADDRESS_MAP[r2_address]['decimals']
+
+            reserves_2_num = self.hi_low_to_human_readable(
+                order['position'].reserves.r2.hi,
+                order['position'].reserves.r2.lo, r2_decimals)
+
             data.append([
-                connector_name,
-                order.trading_pair,
-                "buy" if order.is_buy else "sell",
-                float(order.price),
-                float(order.quantity),
+                self.exchange,
+                self.trading_pair,
+                state,
+                str(round(float(reserves_1_num),2)) + ' ' + TOKEN_ADDRESS_MAP[r1_address]['symbol'],
+                str(round(float(reserves_2_num),2)) + ' ' + TOKEN_ADDRESS_MAP[r2_address]['symbol'],
             ])
+            
         if not data:
             raise ValueError
-            
-        df = pd.DataFrame(data=data, columns=columns)
-        df.sort_values(by=["Exchange", "Market", "Side"], inplace=True)
-        '''
-        return 'df'
 
-    # TODO: get ready
+        df = pd.DataFrame(data=data, columns=columns)
+        df.sort_values(by=["Exchange", "Market", "Status"], inplace=True)
+        return df
+
+    def format_dataframe(self, df: pd.DataFrame, padding: int = 3) -> str:
+        # Find the maximum width for each column and add extra padding
+        max_widths = {col: max(df[col].astype(str).apply(len).max(), len(col)) + padding
+                      for col in df.columns}
+
+        # Create a formatter for each column that right-aligns the text with the added padding
+        formatters = {col: lambda x, w=max_widths[col]: f"{x: >{w}}" 
+                      for col in df.columns}
+
+        # Convert DataFrame to string using the custom formatters
+        return df.to_string(index=False, formatters=formatters)
+
     def format_status(self) -> str:
-        """
-        Returns status of the current strategy on user balances and current active orders. This function is called
-        when status command is issued. Override this function to create custom status display output.
-        """
         lines = []
-        warning_lines = []
-        warning_lines.extend(
-            self.network_warning(self.get_market_trading_pair_tuples()))
+        # Assume this method exists and fetches some warning lines
+        # warning_lines.extend(self.network_warning(self.get_market_trading_pair_tuples()))
 
         balance_df = self.get_balance_df()
         lines.extend(["", "  Balances:"] + [
             "    " + line
-            for line in balance_df.to_string(index=False).split("\n")
+            for line in self.format_dataframe(balance_df).split("\n")
         ])
-
-        return "\n".join(lines)
 
         try:
             df = self.active_orders_df()
             lines.extend(["", "  Orders:"] + [
-                "    " + line for line in df.to_string(index=False).split("\n")
+                "    " + line for line in self.format_dataframe(df).split("\n")
             ])
         except ValueError:
             lines.extend(["", "  No active maker orders."])
 
-        warning_lines.extend(
-            self.balance_warning(self.get_market_trading_pair_tuples()))
-        if len(warning_lines) > 0:
-            lines.extend(["", "*** WARNINGS ***"] + warning_lines)
         return "\n".join(lines)
