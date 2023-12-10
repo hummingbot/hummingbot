@@ -2,6 +2,7 @@ import base64
 import logging
 import os
 import sys
+import time
 from decimal import Decimal
 from pprint import pprint
 from typing import Any, List
@@ -86,18 +87,29 @@ class PenumbraOsiris(ScriptStrategyBase):
     def on_tick(self):
         # Only run on tick if order_refresh_time is passed to not consume too many resources
         if self.create_timestamp <= self.current_timestamp - self.order_refresh_time:
+            total_loop_time = time.time()
             logging.getLogger().info("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Refreshing order book ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
             logging.getLogger().info("1. Canceling any outstanding orders...")
+            start_time = (time.time())
             self.cancel_all_orders()
+            print(f"TOTAL Time to cancel all orders: {(time.time()) - start_time}")
+            start_time = (time.time())
 
             logging.getLogger().info("2. Checking price feeds...")
             bid_ask: List[float] = self.create_proposal()
+            print(f"TOTAL Time to get price feeds: {(time.time()) - start_time}")
             logging.getLogger().info(f"3. Best bid: {bid_ask[0]} and ask: {bid_ask[1]}")
+            start_time = (time.time())
 
             logging.getLogger().info("4. Creating liquidity position...")
             self.make_liquidity_position(bid_ask)
+            print(f"TOTAL Time to create liquidity position: {(time.time()) - start_time}")
+
             self.create_timestamp = self.order_refresh_time + self.current_timestamp
+            print(
+                f"~~~~~~~~~ TOTAL Time to refresh order book: {(time.time()) - total_loop_time} ~~~~~~~~~"
+            )
 
     def create_proposal(self) -> List[float]:
         try:
@@ -183,6 +195,8 @@ class PenumbraOsiris(ScriptStrategyBase):
     # https://guide.penumbra.zone/main/pclientd/build_transaction.html
     def make_liquidity_position(self, bid_ask: List[int]):
         try:
+            start_time = (time.time())
+
             client = ViewProtocolService()
             transactionPlanRequest = penumbra_dot_view_dot_v1alpha1_dot_view__pb2.TransactionPlannerRequest()
 
@@ -248,7 +262,10 @@ class PenumbraOsiris(ScriptStrategyBase):
 
             # TODO: really should be availible balances
             # Get all balances
+            b_time = (time.time())
             balances = self.get_all_balances()
+            print(f"Sub query time to get balances: {(time.time()) - b_time}")
+
             res1 = balances[self.trading_pair.split('-')[0]]['amount'] * 10**balances[self.trading_pair.split('-')[0]]['decimals']
             res2 = balances[self.trading_pair.split('-')[1]]['amount'] * 10**balances[self.trading_pair.split('-')[1]]['decimals']
 
@@ -269,6 +286,9 @@ class PenumbraOsiris(ScriptStrategyBase):
 
             transactionPlanResponse = client.TransactionPlanner(request=transactionPlanRequest,target=self._pclientd_url,insecure=True)
 
+            print(f"Time to get LP transaction plan: {(time.time()) - start_time}")
+            start_time = (time.time())
+
             # Authorize the tx
             authorized_resp = self.authorize_tx(transactionPlanResponse)
 
@@ -278,6 +298,8 @@ class PenumbraOsiris(ScriptStrategyBase):
             wit_and_build_req.authorization_data.CopyFrom(authorized_resp.data)
 
             wit_and_build_resp = client.WitnessAndBuild(request=wit_and_build_req,target=self._pclientd_url,insecure=True)
+            print(f"Time to get LP auth, witness and build: {(time.time()) - start_time}")
+            start_time = (time.time())
 
             # Broadcast
             broadcast_request = penumbra_dot_view_dot_v1alpha1_dot_view__pb2.BroadcastTransactionRequest()
@@ -288,6 +310,7 @@ class PenumbraOsiris(ScriptStrategyBase):
             logging.getLogger().info("Creating order...")
             broadcast_response = client.BroadcastTransaction(request=broadcast_request,target=self._pclientd_url,insecure=True, timeout=60)
             logging.getLogger().info(f"Order created at block {broadcast_response.detection_height} in tx hash: {broadcast_response.id.hash.hex()}")
+            print(f"Time to get LP broadcast: {(time.time()) - start_time}")
             #breakpoint()
 
         except Exception as e:
@@ -295,7 +318,9 @@ class PenumbraOsiris(ScriptStrategyBase):
 
     # Cancel & withdraw from all orders
     def cancel_all_orders(self):
+        start_time = (time.time())
         active_orders, closed_orders = self.get_orders()
+        print(f"Time to get orders: {(time.time()) - start_time}")
         #logging.getLogger().info("Orders: ", active_orders)
 
         client = ViewProtocolService()
@@ -304,6 +329,7 @@ class PenumbraOsiris(ScriptStrategyBase):
 
         for order_key in order_key_list:
             try:
+                start_time = (time.time())
                 transactionPlanRequest = penumbra_dot_view_dot_v1alpha1_dot_view__pb2.TransactionPlannerRequest()
 
                 # Set fee to zero
@@ -315,8 +341,13 @@ class PenumbraOsiris(ScriptStrategyBase):
 
                 transactionPlanResponse = client.TransactionPlanner(request=transactionPlanRequest,target=self._pclientd_url,insecure=True)
 
+                print(f"Time to get Cancel transaction plan: {(time.time()) - start_time}")
+                start_time = (time.time())
+
                 # Authorize the tx
                 authorized_resp = self.authorize_tx(transactionPlanResponse)
+                print(f"Time to get Cancel authorization: {(time.time()) - start_time}")
+                start_time = (time.time())
 
                 # Witness & Build
                 wit_and_build_req = penumbra_dot_view_dot_v1alpha1_dot_view__pb2.WitnessAndBuildRequest()
@@ -324,6 +355,9 @@ class PenumbraOsiris(ScriptStrategyBase):
                 wit_and_build_req.authorization_data.CopyFrom(authorized_resp.data)
 
                 wit_and_build_resp = client.WitnessAndBuild(request=wit_and_build_req,target=self._pclientd_url,insecure=True)
+
+                print(f"Time to get Cancel witness and build: {(time.time()) - start_time}")
+                start_time = (time.time())
 
                 # Broadcast
                 broadcast_request = penumbra_dot_view_dot_v1alpha1_dot_view__pb2.BroadcastTransactionRequest()
@@ -336,6 +370,7 @@ class PenumbraOsiris(ScriptStrategyBase):
                 logging.getLogger().info(
                     f"Order deleted at block {broadcast_response.detection_height} in tx hash: {broadcast_response.id.hash.hex()}"
                 )
+                print(f"Time to get Cancel broadcast: {(time.time()) - start_time}")
 
                 #breakpoint()
 
@@ -350,6 +385,7 @@ class PenumbraOsiris(ScriptStrategyBase):
 
         for order_key in all_order_keys:
             try:
+                start_time = (time.time())
                 transactionPlanRequest = penumbra_dot_view_dot_v1alpha1_dot_view__pb2.TransactionPlannerRequest()
 
                 # Set fee to zero
@@ -380,8 +416,14 @@ class PenumbraOsiris(ScriptStrategyBase):
 
                 transactionPlanResponse = client.TransactionPlanner(request=transactionPlanRequest,target=self._pclientd_url,insecure=True)
 
+                print(f"Time to get Withdraw transaction plan: {(time.time()) - start_time}")
+                start_time = (time.time())
+
                 # Authorize the tx
                 authorized_resp = self.authorize_tx(transactionPlanResponse)
+
+                print(f"Time to get Withdraw authorization: {(time.time()) - start_time}")
+                start_time = (time.time())
 
                 # Witness & Build
                 wit_and_build_req = penumbra_dot_view_dot_v1alpha1_dot_view__pb2.WitnessAndBuildRequest()
@@ -389,6 +431,9 @@ class PenumbraOsiris(ScriptStrategyBase):
                 wit_and_build_req.authorization_data.CopyFrom(authorized_resp.data)
 
                 wit_and_build_resp = client.WitnessAndBuild(request=wit_and_build_req,target=self._pclientd_url,insecure=True)
+
+                print(f"Time to get Withdraw witness and build: {(time.time()) - start_time}")
+                start_time = (time.time())
 
                 # Broadcast
                 broadcast_request = penumbra_dot_view_dot_v1alpha1_dot_view__pb2.BroadcastTransactionRequest()
@@ -401,6 +446,7 @@ class PenumbraOsiris(ScriptStrategyBase):
                 logging.getLogger().info(
                     f"Withdrawn from position at block {broadcast_response.detection_height} in tx hash: {broadcast_response.id.hash.hex()}"
                 )
+                print(f"Time to get Withdraw broadcast: {(time.time()) - start_time}")
 
             except Exception as e:
                 logging.getLogger().error(f"Error withdrawing from liquidity position: {str(e)}")
@@ -417,10 +463,13 @@ class PenumbraOsiris(ScriptStrategyBase):
         request = penumbra_dot_view_dot_v1alpha1_dot_view__pb2.BalancesRequest()
         query_client = QueryService()
 
+        start_time = (time.time())
         responses = client.Balances(request=request,target=self._pclientd_url,insecure=True)
+        print(f"Time to get Balances: {(time.time()) - start_time}")
 
         balance_dict = {}
 
+        start_time = (time.time())
         for response in responses:
             balance = {
                 "amount":
@@ -430,6 +479,8 @@ class PenumbraOsiris(ScriptStrategyBase):
                         response.balance.asset_id.inner.hex())
             }
 
+            # ! You can query denoms directly but this makes things significantly slower (22+ seconds), use constants file for speed
+            '''
             denom_req = penumbra_dot_core_dot_component_dot_shielded__pool_dot_v1alpha1_dot_shielded__pool__pb2.DenomMetadataByIdRequest()
             denom_req.asset_id.inner = balance["asset_id"]
 
@@ -445,6 +496,16 @@ class PenumbraOsiris(ScriptStrategyBase):
                 decimals = denom_res.denom_metadata.denom_units[0].exponent
 
             symbol = denom_res.denom_metadata.display
+            '''
+            token_address = base64.b64encode(bytes.fromhex(response.balance.asset_id.inner.hex())).decode('utf-8')
+
+            if token_address not in TOKEN_ADDRESS_MAP:
+                #! This will skip tokens not in the TOKEN_ADDRESS_MAP, so make sure your trading pair is in there
+                continue
+
+            decimals = TOKEN_ADDRESS_MAP[token_address]['decimals']
+            symbol = TOKEN_ADDRESS_MAP[token_address]['symbol']
+
 
             # amount's are uint 128 bit https://buf.build/penumbra-zone/penumbra/docs/300a488c79c9490d86cf09e1eceff593:penumbra.core.num.v1alpha1#penumbra.core.num.v1alpha1.Amount
             balance = Decimal(str(self.hi_low_to_human_readable(response.balance.amount.hi, response.balance.amount.lo, decimals)))
@@ -462,6 +523,7 @@ class PenumbraOsiris(ScriptStrategyBase):
                 "decimals":
                 decimals,
             }
+        print(f"Time to query all denoms & process data: {(time.time()) - start_time}")
 
         '''
         example return: 
@@ -619,7 +681,7 @@ class PenumbraOsiris(ScriptStrategyBase):
                 str(round(float(reserves_1_num),2)) + ' ' + TOKEN_ADDRESS_MAP[r1_address]['symbol'],
                 str(round(float(reserves_2_num),2)) + ' ' + TOKEN_ADDRESS_MAP[r2_address]['symbol'],
             ])
-            
+
         if not data:
             raise ValueError
 
@@ -633,7 +695,7 @@ class PenumbraOsiris(ScriptStrategyBase):
                       for col in df.columns}
 
         # Create a formatter for each column that right-aligns the text with the added padding
-        formatters = {col: lambda x, w=max_widths[col]: f"{x: >{w}}" 
+        formatters = {col: lambda x, w=max_widths[col]: f"{x: >{w}}"
                       for col in df.columns}
 
         # Convert DataFrame to string using the custom formatters
