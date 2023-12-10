@@ -167,10 +167,10 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
         for token, value in result["balances"].items():
             client_token = self._hb_to_exchange_tokens_map.inverse[token]
-            balance_value = Decimal(value)
-            if balance_value != 0:
-                balances[client_token]["total_balance"] = balance_value
-                balances[client_token]["available_balance"] = balance_value
+            # balance_value = value["total_balance"]
+            if value.get("total_balance") is not None and value.get("available_balance") is not None:
+                balances[client_token]["total_balance"] = Decimal(value.get("total_balance", 0))
+                balances[client_token]["available_balance"] = Decimal(value.get("available_balance", 0))
 
         return balances
 
@@ -245,12 +245,13 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
         return trade_updates
 
     def _get_exchange_base_quote_tokens_from_market_info(self, market_info: Dict[str, Any]) -> Tuple[str, str]:
-        base = market_info["baseCurrency"]
-        quote = market_info["quoteCurrency"]
+        # get base and quote tokens from market info "marketId" field which has format "baseCurrency-quoteCurrency"
+        base, quote = market_info["marketId"].split("-")
         return base, quote
 
     def _get_exchange_trading_pair_from_market_info(self, market_info: Dict[str, Any]) -> str:
-        exchange_trading_pair = f"{market_info['baseCurrency']}/{market_info['quoteCurrency']}"
+        base, quote = market_info["marketId"].split("-")
+        exchange_trading_pair = f"{base}/{quote}"
         return exchange_trading_pair
 
     def _get_maker_taker_exchange_fee_rates_from_market_info(
@@ -267,14 +268,12 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
         return maker_taker_exchange_fee_rates
 
     def _get_trading_pair_from_market_info(self, market_info: Dict[str, Any]) -> str:
-        base = market_info["baseCurrency"].upper()
-        quote = market_info["quoteCurrency"].upper()
+        base, quote = market_info["marketId"].split("-")
         trading_pair = combine_to_hb_trading_pair(base=base, quote=quote)
         return trading_pair
 
     def _parse_trading_rule(self, trading_pair: str, market_info: Dict[str, Any]) -> TradingRule:
-        base = market_info["baseCurrency"].upper()
-        quote = market_info["quoteCurrency"].upper()
+        base, quote = market_info["marketId"].split("-")
         return TradingRule(
             trading_pair=combine_to_hb_trading_pair(base=base, quote=quote),
             min_order_size=Decimal(f"1e-{market_info['baseTickSize']}"),
