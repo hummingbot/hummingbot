@@ -167,7 +167,6 @@ class PenumbraOsiris(ScriptStrategyBase):
 
         return auth_response
 
-    #! TODO
     # https://guide.penumbra.zone/main/pclientd/build_transaction.html
     def make_liquidity_position(self, bid_ask: List[int]):
         try:
@@ -287,7 +286,6 @@ class PenumbraOsiris(ScriptStrategyBase):
         #logging.getLogger().info("Orders: ", active_orders)
 
         client = ViewProtocolService()
-
         # Iterate over dictionary keys
         order_key_list = list(active_orders.keys())
 
@@ -300,7 +298,7 @@ class PenumbraOsiris(ScriptStrategyBase):
 
                 # Set the Position directly
                 position_close_bech32m = transactionPlanRequest.position_closes.add().position_id
-                position_close_bech32m.alt_bech32m = order_key_list[order_key]['asset'].denom_metadata.display.split(LP_NFT_OPEN_PREFIX)[1]
+                position_close_bech32m.alt_bech32m = active_orders[order_key]['asset'].denom_metadata.display.split(LP_NFT_OPEN_PREFIX)[1]
 
                 transactionPlanResponse = client.TransactionPlanner(request=transactionPlanRequest,target=self._pclientd_url,insecure=True)
 
@@ -336,7 +334,6 @@ class PenumbraOsiris(ScriptStrategyBase):
         # Concat the 2 dictionaries
         all_orders = {**active_orders, **closed_orders}
         all_order_keys = list(all_orders.keys())
-        breakpoint()
 
         for order_key in all_order_keys:
             try:
@@ -345,16 +342,24 @@ class PenumbraOsiris(ScriptStrategyBase):
                 # Set fee to zero
                 transactionPlanRequest.fee.amount.lo = self.int_to_lo_hi(0)[0]
 
+                # Get where current position is (active/closed) to figure out what prefix to use
+                if order_key in active_orders:
+                    prefix = LP_NFT_OPEN_PREFIX
+                elif order_key in closed_orders:
+                    prefix = LP_NFT_CLOSED_PREFIX
+                else:
+                    logging.Logger().error(f"Could not find prefix for order id: {order_key}")
+                    raise ValueError(f"Could not find prefix for order id: {order_key}")
+
                 # Set the Position directly
                 position_withdraw_bech32m = transactionPlanRequest.position_withdraws.add().position_id
-                position_withdraw_bech32m.alt_bech32m = all_orders[order_key]['asset'].denom_metadata.display.split(LP_NFT_CLOSED_PREFIX)[1] # Always closed prefix bc these orders should always be closed this point
+                position_withdraw_bech32m.alt_bech32m = all_orders[order_key]['asset'].denom_metadata.display.split(prefix)[1] # Always closed prefix bc these orders should always be closed this point
 
                 # Set the remaining Reserves
-                zero_res = self.int_to_lo_hi(0)
-                transactionPlanRequest.position_withdraws[0].reserves.r1.lo = zero_res[0]
-                transactionPlanRequest.position_withdraws[0].reserves.r1.hi = zero_res[1]
-                transactionPlanRequest.position_withdraws[0].reserves.r2.lo = zero_res[0]
-                transactionPlanRequest.position_withdraws[0].reserves.r2.hi = zero_res[1]
+                transactionPlanRequest.position_withdraws[0].reserves.r1.lo = all_orders[order_key]['position'].reserves.r1.lo
+                transactionPlanRequest.position_withdraws[0].reserves.r1.hi = all_orders[order_key]['position'].reserves.r1.hi
+                transactionPlanRequest.position_withdraws[0].reserves.r2.lo = all_orders[order_key]['position'].reserves.r2.lo
+                transactionPlanRequest.position_withdraws[0].reserves.r2.hi = all_orders[order_key]['position'].reserves.r2.hi
 
                 # Set the trading pair
                 transactionPlanRequest.position_withdraws[0].trading_pair.asset_1.inner = bytes.fromhex(all_orders[order_key]['position'].phi.pair.asset_1.inner.hex())
@@ -378,8 +383,6 @@ class PenumbraOsiris(ScriptStrategyBase):
                 # Service will await detection on chain
                 broadcast_request.await_detection = True
 
-                breakpoint()
-
                 logging.getLogger().info("Withdrawing from position..")
                 broadcast_response = client.BroadcastTransaction(request=broadcast_request,target=self._pclientd_url,insecure=True)
                 logging.getLogger().info(
@@ -394,7 +397,6 @@ class PenumbraOsiris(ScriptStrategyBase):
         msg = (f"{event.trade_type.name} {round(event.amount, 2)} {event.trading_pair} {self.exchange} at {round(event.price, 2)}")
         self.log_with_clock(logging.INFO, msg)
         self.notify_hb_app_with_timestamp(msg)
-    #! TODO
 
     def get_all_balances(self):
         # Create new grpc.Channel + client
