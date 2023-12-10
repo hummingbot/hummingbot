@@ -482,7 +482,7 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         time_in_force: int = int(VegaTimeInForce.TIME_IN_FORCE_GTC.value)
         _order_type: int = CONSTANTS.HummingbotToVegaIntOrderType[order_type]
 
-        if price is not None and price is not s_decimal_NaN:
+        if order_type != OrderType.MARKET:
             price: str = str(int(price * m.price_quantum))
         if order_type == OrderType.LIMIT_MAKER:
             post_only = True
