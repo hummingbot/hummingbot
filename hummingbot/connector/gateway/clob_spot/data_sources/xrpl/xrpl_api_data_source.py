@@ -22,8 +22,10 @@ from hummingbot.connector.gateway.common_types import CancelOrderResult, PlaceOr
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_numeric_client_order_id
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.common import OrderType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.trade_fee import MakerTakerExchangeFeeRates, TokenAmount, TradeFeeBase, TradeFeeSchema
 from hummingbot.core.event.events import MarketEvent
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
@@ -59,6 +61,9 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
         self._client = JsonRpcClient(self._base_url)
         self._client_order_id_nonce_provider = NonceCreator.for_microseconds()
+        self._throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
+        self.max_snapshots_update_interval = 10
+        self.min_snapshots_update_interval = 3
 
     @property
     def connector_name(self) -> str:
@@ -156,14 +161,19 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
     async def get_account_balances(self) -> Dict[str, Dict[str, Decimal]]:
         self._check_markets_initialized() or await self._update_markets()
 
-        result = await self._get_gateway_instance().get_balances(
-            chain=self.chain,
-            network=self._network,
-            address=self._account_id,
-            token_symbols=list(self._hb_to_exchange_tokens_map.values()),
-            connector=self.connector_name,
-        )
+        async with self._throttler.execute_task(limit_id=CONSTANTS.BALANCE_REQUEST_LIMIT_ID):
+            result = await self._get_gateway_instance().get_balances(
+                chain=self.chain,
+                network=self._network,
+                address=self._account_id,
+                token_symbols=list(self._hb_to_exchange_tokens_map.values()),
+                connector=self.connector_name,
+            )
+
         balances = defaultdict(dict)
+
+        if result.get("balances") is None:
+            raise ValueError(f"Error fetching balances for {self._account_id}.")
 
         for token, value in result["balances"].items():
             client_token = self._hb_to_exchange_tokens_map.inverse[token]
@@ -173,6 +183,34 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
                 balances[client_token]["available_balance"] = Decimal(value.get("available_balance", 0))
 
         return balances
+
+    async def get_order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
+        async with self._throttler.execute_task(limit_id=CONSTANTS.ORDERBOOK_REQUEST_LIMIT_ID):
+            data = await self._get_gateway_instance().get_clob_orderbook_snapshot(
+                trading_pair=trading_pair, connector=self.connector_name, chain=self._chain, network=self._network
+            )
+
+        bids = [
+            (Decimal(bid["price"]), Decimal(bid["quantity"]))
+            for bid in data["buys"]
+            if Decimal(bid["quantity"]) != 0
+        ]
+        asks = [
+            (Decimal(ask["price"]), Decimal(ask["quantity"]))
+            for ask in data["sells"]
+            if Decimal(ask["quantity"]) != 0
+        ]
+        snapshot_msg = OrderBookMessage(
+            message_type=OrderBookMessageType.SNAPSHOT,
+            content={
+                "trading_pair": trading_pair,
+                "update_id": self._time() * 1e3,
+                "bids": bids,
+                "asks": asks,
+            },
+            timestamp=data["timestamp"],
+        )
+        return snapshot_msg
 
     async def get_order_status_update(self, in_flight_order: GatewayInFlightOrder) -> OrderUpdate:
         await in_flight_order.get_creation_transaction_hash()
@@ -336,12 +374,13 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
         return status_update
 
     async def _get_ticker_data(self, trading_pair: str) -> Dict[str, Any]:
-        ticker_data = await self._get_gateway_instance().get_clob_ticker(
-            connector=self.connector_name,
-            chain=self._chain,
-            network=self._network,
-            trading_pair=trading_pair,
-        )
+        async with self._throttler.execute_task(limit_id=CONSTANTS.TICKER_REQUEST_LIMIT_ID):
+            ticker_data = await self._get_gateway_instance().get_clob_ticker(
+                connector=self.connector_name,
+                chain=self._chain,
+                network=self._network,
+                trading_pair=trading_pair,
+            )
 
         for market in ticker_data["markets"]:
             if market["marketId"] == trading_pair:
