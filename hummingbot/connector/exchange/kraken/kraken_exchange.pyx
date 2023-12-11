@@ -910,7 +910,7 @@ cdef class KrakenExchange(ExchangeBase):
         try:
             order_result = None
             order_decimal_amount = f"{decimal_amount:f}"
-            if order_type is OrderType.LIMIT or order_type is OrderType.LIMIT_MAKER or order_type is OrderType.MARKET:
+            if order_type in self.supported_order_types():
                 order_decimal_price = f"{decimal_price:f}"
                 self.c_start_tracking_order(
                     order_id,
