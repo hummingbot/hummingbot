@@ -1066,19 +1066,25 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
             return_err=True
         )
 
-        if "riskFactor" in risk_factor_data:
+        if "riskFactor" in risk_factor_data and m.linear_slippage_factor is not None:
             risk_factors = risk_factor_data["riskFactor"]
-            if m.linear_slippage_factor is not None:
-                max_leverage = int(Decimal("1") / (max(Decimal(risk_factors["long"]), Decimal(risk_factors["short"])) + m.linear_slippage_factor))
-                if leverage > max_leverage:
-                    self._perpetual_trading.set_leverage(trading_pair=trading_pair, leverage=max_leverage)
-                    self.logger().warning(f"Leverage has been reduced to {max_leverage}")
-                else:
-                    self._perpetual_trading.set_leverage(trading_pair=trading_pair, leverage=leverage)
+            max_leverage = int(Decimal("1") / (max(Decimal(risk_factors["long"]), Decimal(risk_factors["short"])) + m.linear_slippage_factor))
+            if leverage > max_leverage:
+                self._perpetual_trading.set_leverage(trading_pair=trading_pair, leverage=max_leverage)
+                self.logger().warning(f"Exceeded max leverage allowed. Leverage for {trading_pair} has been reduced to {max_leverage}")
+            else:
+                self._perpetual_trading.set_leverage(trading_pair=trading_pair, leverage=leverage)
+                self.logger().info(f"Leverage for {trading_pair} successfully set to {leverage}.")
         else:
             self._perpetual_trading.set_leverage(trading_pair=trading_pair, leverage=1)
-            self.logger().warning(f"Leverage has been reduced to {1}")
+            self.logger().warning(f"Missing risk details. Leverage for {trading_pair} has been reduced to {1}")
         return success, msg
+
+    async def _execute_set_leverage(self, trading_pair: str, leverage: int):
+        try:
+            await self._set_trading_pair_leverage(trading_pair, leverage)
+        except Exception:
+            self.logger().network(f"Error setting leverage {leverage} for {trading_pair}")
 
     async def _process_funding_payments(self, market_id: str, funding_payments_data: Optional[Dict[str, Any]]) -> Tuple[int, Decimal, Decimal]:
         """
