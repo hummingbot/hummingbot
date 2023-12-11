@@ -24,7 +24,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -463,14 +463,23 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 "user": self.hyperliquid_perpetual_api_key,
                 "oid": int(tracked_order.exchange_order_id) if tracked_order.exchange_order_id else client_order_id
             })
-        current_state = order_update["order"]["status"]
-        _order_update: OrderUpdate = OrderUpdate(
-            trading_pair=tracked_order.trading_pair,
-            update_timestamp=order_update["order"]["order"]["timestamp"] * 1e-3,
-            new_state=CONSTANTS.ORDER_STATE[current_state],
-            client_order_id=order_update["order"]["order"]["cloid"] or client_order_id,
-            exchange_order_id=str(tracked_order.exchange_order_id),
-        )
+        try:
+            current_state = order_update["order"]["status"]
+            _order_update: OrderUpdate = OrderUpdate(
+                trading_pair=tracked_order.trading_pair,
+                update_timestamp=order_update["order"]["order"]["timestamp"] * 1e-3,
+                new_state=CONSTANTS.ORDER_STATE[current_state],
+                client_order_id=order_update["order"]["order"]["cloid"] or client_order_id,
+                exchange_order_id=str(tracked_order.exchange_order_id),
+            )
+        except KeyError:
+            _order_update: OrderUpdate = OrderUpdate(
+                trading_pair=tracked_order.trading_pair,
+                update_timestamp=int(time.time()),
+                new_state=OrderState.PENDING_CREATE,
+                client_order_id=client_order_id,
+                exchange_order_id=str(tracked_order.exchange_order_id),
+            )
         return _order_update
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
