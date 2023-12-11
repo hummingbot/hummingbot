@@ -392,17 +392,21 @@ class PenumbraOsiris(ScriptStrategyBase):
                 transactionPlanRequest.fee.amount.lo = self.int_to_lo_hi(0)[0]
 
                 # Get where current position is (active/closed) to figure out what prefix to use
-                if order_key in active_orders:
+                if LP_NFT_OPEN_PREFIX in all_orders[order_key]['asset'].denom_metadata.display:
                     prefix = LP_NFT_OPEN_PREFIX
-                elif order_key in closed_orders:
+                elif LP_NFT_CLOSED_PREFIX in all_orders[order_key]['asset'].denom_metadata.display:
                     prefix = LP_NFT_CLOSED_PREFIX
+                #if order_key in active_orders:
+                #    prefix = LP_NFT_OPEN_PREFIX
+                #elif order_key in closed_orders:
+                #    prefix = LP_NFT_CLOSED_PREFIX
                 else:
                     logging.Logger().error(f"Could not find prefix for order id: {order_key}")
                     raise ValueError(f"Could not find prefix for order id: {order_key}")
 
                 # Set the Position directly
                 position_withdraw_bech32m = transactionPlanRequest.position_withdraws.add().position_id
-                position_withdraw_bech32m.alt_bech32m = all_orders[order_key]['asset'].denom_metadata.display.split(prefix)[1] # Always closed prefix bc these orders should always be closed this point
+                position_withdraw_bech32m.alt_bech32m = all_orders[order_key]['asset'].denom_metadata.display.split(prefix)[1] 
 
                 # Set the remaining Reserves
                 transactionPlanRequest.position_withdraws[0].reserves.r1.lo = all_orders[order_key]['position'].reserves.r1.lo
@@ -581,7 +585,7 @@ class PenumbraOsiris(ScriptStrategyBase):
         cleaned_assets = {}
 
         for asset in assets:
-            # Only get assets with prefix 'lpnft_opened'
+            # Only get assets with prefix 'lpnft_opened' or 'lpnft_closed'
 
             denomDisplay = asset.denom_metadata.display
 
