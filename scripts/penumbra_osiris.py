@@ -67,7 +67,7 @@ class PenumbraOsiris(ScriptStrategyBase):
     order_refresh_time = 60
     order_amount = 0.01
     create_timestamp = 0
-    trading_pair = "test_usd-penumbra"
+    trading_pair = "gm-penumbra"
     exchange = "penumbra"
     reference_pair = "ETH-USDC"
     markets = {exchange: {trading_pair}}
