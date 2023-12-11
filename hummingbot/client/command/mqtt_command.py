@@ -46,13 +46,13 @@ class MQTTCommand:
     async def start_mqtt_async(self,  # type: HummingbotApplication
                                timeout: float = 30.0
                                ):
-        start_t = time.time()
         if self._mqtt is None:
             while True:
                 try:
+                    start_t = time.time()
+                    self.logger().info('Connecting MQTT Bridge...')
                     self._mqtt = MQTTGateway(self)
                     self._mqtt.start()
-                    self.logger().info('Connecting MQTT Bridge...')
                     while True:
                         if time.time() - start_t > timeout:
                             raise Exception(
