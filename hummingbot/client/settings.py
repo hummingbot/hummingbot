@@ -53,14 +53,6 @@ GATEAWAY_CA_CERT_PATH = DEFAULT_GATEWAY_CERTS_PATH / "ca_cert.pem"
 GATEAWAY_CLIENT_CERT_PATH = DEFAULT_GATEWAY_CERTS_PATH / "client_cert.pem"
 GATEAWAY_CLIENT_KEY_PATH = DEFAULT_GATEWAY_CERTS_PATH / "client_key.pem"
 
-PAPER_TRADE_EXCHANGES = [  # todo: fix after global config map refactor
-    "binance_paper_trade",
-    "kucoin_paper_trade",
-    "ascend_ex_paper_trade",
-    "gate_io_paper_trade",
-    "mock_paper_exchange",
-]
-
 CONNECTOR_SUBMODULES_THAT_ARE_NOT_CEX_TYPES = ["test_support", "utilities", "gateway"]
 
 
@@ -156,19 +148,113 @@ class GatewayConnectionSetting:
         GatewayConnectionSetting.save(connectors_conf)
 
     @staticmethod
-    def upsert_connector_spec_tokens(connector_chain_network: str, tokens: List[str]):
-        updated_connector: Optional[Dict[str, Any]] = GatewayConnectionSetting.get_connector_spec_from_market_name(connector_chain_network)
-        updated_connector['tokens'] = tokens
-
+    def upsert_connector_spec_tokens(chain_network: str, tokens: List[str]):
+        chain, network = chain_network.split("_")
         connectors_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
-        for i, c in enumerate(connectors_conf):
-            if c["connector"] == updated_connector['connector'] \
-               and c["chain"] == updated_connector['chain'] \
-               and c["network"] == updated_connector['network']:
-                connectors_conf[i] = updated_connector
+        network_found = False
+
+        for c in connectors_conf:
+            if c["chain"] == chain and c["network"] == network:
+                c['tokens'] = tokens
+                network_found = True
                 break
 
+        if not network_found:
+            # If the chain_network doesn't exist, create a new dictionary
+            connectors_conf.append({"tokens": tokens})
+
         GatewayConnectionSetting.save(connectors_conf)
+
+
+class GatewayTokenSetting:
+    @staticmethod
+    def config_path() -> str:
+        return realpath(join(CONF_DIR_PATH, "gateway_network.json"))
+
+    @staticmethod
+    def get_gateway_chains_with_network() -> List[str]:
+        chain_network_config: List[Dict[str, str]] = GatewayConnectionSetting.load()
+        # Use a set to store unique chain_network combinations
+        data = set()
+        for chain_network in chain_network_config:
+            chain = chain_network.get("chain")
+            network = chain_network.get('network')
+
+            if chain and network:
+                chain_network_identifier = f"{chain}_{network}"
+                data.add(chain_network_identifier)
+
+        return list(data)
+
+    @staticmethod
+    def get_network_spec(chain: str, network: str) -> Optional[Dict[str, str]]:
+        chain_network: Optional[Dict[str, str]] = None
+        chain_network_config: List[Dict[str, str]] = GatewayTokenSetting.load()
+        for spec in chain_network_config:
+            if f'{spec["chain_network"]}' == f"{chain}_{network}":
+                chain_network = spec
+
+        return chain_network
+
+    @staticmethod
+    def get_network_spec_from_name(chain_network: str) -> Optional[Dict[str, str]]:
+        for chain in SUPPORTED_CHAINS:
+            network = chain_network.split("_")[-1]
+            if chain in chain_network:
+                return GatewayTokenSetting.get_network_spec(chain, network)
+        return None
+
+    @staticmethod
+    def load() -> List[Dict[str, str]]:
+        connections_conf_path: str = GatewayTokenSetting.config_path()
+        if exists(connections_conf_path):
+            with open(connections_conf_path) as fd:
+                return json.load(fd)
+        return []
+
+    @staticmethod
+    def save(settings: List[Dict[str, str]]):
+        connections_conf_path: str = GatewayTokenSetting.config_path()
+        with open(connections_conf_path, "w") as fd:
+            json.dump(settings, fd)
+
+    @staticmethod
+    def upsert_network_spec(chain_network: str):
+        new_connector_spec: Dict[str, str] = {
+            "chain_network": chain_network,
+        }
+        updated: bool = False
+        connectors_conf: List[Dict[str, str]] = GatewayTokenSetting.load()
+        for i, c in enumerate(connectors_conf):
+            if c["chain_network"] == chain_network:
+                connectors_conf[i] = new_connector_spec
+                updated = True
+                break
+
+        if updated is False:
+            connectors_conf.append(new_connector_spec)
+        GatewayTokenSetting.save(connectors_conf)
+
+    @staticmethod
+    def upsert_network_spec_tokens(chain_network: str, tokens: List[str]):
+        network_conf: List[Dict[str, List[str]]] = GatewayTokenSetting.load()
+
+        network_found = False
+
+        for network in network_conf:
+            if network.get("chain_network") == chain_network:
+                network['tokens'] = tokens
+                network_found = True
+                break
+        if not network_found:
+            # If the chain_network doesn't exist, create a new dictionary
+            new_network = {
+                "chain_network": chain_network,
+                "tokens": tokens
+            }
+            network_conf.append(new_network)
+
+        GatewayTokenSetting.save(network_conf)
 
 
 class ConnectorSetting(NamedTuple):
@@ -364,6 +450,7 @@ class ConnectorSetting(NamedTuple):
 
 
 class AllConnectorSettings:
+    paper_trade_connectors_names: List[str] = []
     all_connector_settings: Dict[str, ConnectorSetting] = {}
 
     @classmethod
@@ -458,6 +545,7 @@ class AllConnectorSettings:
 
     @classmethod
     def initialize_paper_trade_settings(cls, paper_trade_exchanges: List[str]):
+        cls.paper_trade_connectors_names = paper_trade_exchanges
         for e in paper_trade_exchanges:
             base_connector_settings: Optional[ConnectorSetting] = cls.all_connector_settings.get(e, None)
             if base_connector_settings:
@@ -509,7 +597,7 @@ class AllConnectorSettings:
         return {
             cs.name for cs in cls.get_connector_settings().values()
             if cs.type in [ConnectorType.Exchange, ConnectorType.CLOB_SPOT, ConnectorType.CLOB_PERP]
-        }.union(set(PAPER_TRADE_EXCHANGES))
+        }.union(set(cls.paper_trade_connectors_names))
 
     @classmethod
     def get_derivative_names(cls) -> Set[str]:
