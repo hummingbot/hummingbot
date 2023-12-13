@@ -448,7 +448,6 @@ class GatewayCommand(GatewayChainApiManager):
     async def _get_balances(self):
         network_connections = GatewayConnectionSetting.load()
         gateway_instance = GatewayHttpClient.get_instance(self.client_config_map)
-        allowance_responses = {}  # Initialize allowance_responses dictionary outside the loop
 
         self.notify("Updating gateway balances, please wait...")
         network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
@@ -458,17 +457,26 @@ class GatewayCommand(GatewayChainApiManager):
                 self.all_balances_all_exc(self.client_config_map), network_timeout
             )
 
+            allowance_tasks = []
+            allowance_responses = {}
+
             for conf in network_connections:
                 chain, network, address = conf["chain"], conf["network"], conf["wallet_address"]
                 connector = conf["connector"]
                 tokens_str = conf.get("tokens", "")
                 all_token = [token.strip() for token in tokens_str.split(',')] if tokens_str else []
 
-                allowance_resp = await gateway_instance.get_allowances(
+                allowance_resp = gateway_instance.get_allowances(
                     chain, network, address, all_token, connector
                 )
+                allowance_tasks.append(allowance_resp)
+
+            allowance_responses_list = await asyncio.gather(*allowance_tasks)
+
+            for idx, conf in enumerate(network_connections):
+                chain, network = conf["chain"], conf["network"]
                 exchange_key = f'{chain}_{network}'
-                allowance_responses[exchange_key] = allowance_resp
+                allowance_responses[exchange_key] = allowance_responses_list[idx]
 
             for exchange, bals in all_ex_bals.items():
                 exchange_found = False
@@ -596,9 +604,9 @@ class GatewayCommand(GatewayChainApiManager):
         return (
             exchange_name in sorted(
                 AllConnectorSettings.get_gateway_amm_connector_names().union(
-                    AllConnectorSettings.get_gateway_evm_amm_lp_connector_names()
-                ).union(
-                    AllConnectorSettings.get_gateway_clob_connector_names()
+                    AllConnectorSettings.get_gateway_evm_amm_lp_connector_names().union(
+                        AllConnectorSettings.get_gateway_clob_connector_names()
+                    )
                 )
             )
         )
