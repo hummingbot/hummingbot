@@ -172,7 +172,7 @@ class VWAPExample(ScriptStrategyBase):
             lines.extend(["", "  No active maker orders."])
         lines.extend(["", "VWAP Info:"] + ["   " + key + ": " + value
                                            for key, value in self.vwap.items()
-                                           if type(value) == str])
+                                           if isinstance(value, str)])
 
         lines.extend(["", "VWAP Stats:"] + ["   " + key + ": " + str(round(value, 4))
                                             for key, value in self.vwap.items()
