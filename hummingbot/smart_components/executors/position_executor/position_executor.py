@@ -70,7 +70,7 @@ class PositionExecutor(SmartComponentBase):
 
     @property
     def is_perpetual(self):
-        return self.exchange.split("_")[-1] == "perpetual"
+        return "perpetual" in self.exchange
 
     @property
     def position_config(self):
