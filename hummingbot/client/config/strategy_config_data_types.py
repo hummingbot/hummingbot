@@ -65,6 +65,14 @@ class BaseTradingStrategyConfigMap(BaseStrategyConfigMap):
         ret = validate_exchange(v)
         if ret is not None:
             raise ValueError(ret)
+
+        cls.__fields__["exchange"].type_ = ClientConfigEnum(  # rebuild the exchanges enum
+            value="Exchanges",  # noqa: F821
+            names={e: e for e in sorted(AllConnectorSettings.get_exchange_names())},
+            type=str,
+        )
+        cls._clear_schema_cache()
+
         return v
 
     @validator("market", pre=True)
@@ -143,6 +151,16 @@ class BaseTradingStrategyMakerTakerConfigMap(BaseStrategyConfigMap):
         ret = validate_exchange(v)
         if ret is not None:
             raise ValueError(ret)
+
+        enum_name = "MakerMarkets" if field.alias == "maker_market" else "TakerMarkets"
+
+        field.type_ = ClientConfigEnum(  # rebuild the exchanges enum
+            value=enum_name,
+            names={e: e for e in sorted(AllConnectorSettings.get_exchange_names())},
+            type=str,
+        )
+        cls._clear_schema_cache()
+
         return v
 
     @validator(
