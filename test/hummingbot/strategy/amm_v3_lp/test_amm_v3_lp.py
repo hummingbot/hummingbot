@@ -19,7 +19,7 @@ from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.uniswap_v3_lp.uniswap_v3_lp import UniswapV3LpStrategy
+from hummingbot.strategy.amm_v3_lp.amm_v3_lp import AmmV3LpStrategy
 
 TRADING_PAIR: str = "HBOT-USDT"
 BASE_ASSET: str = TRADING_PAIR.split("-")[0]
