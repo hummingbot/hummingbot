@@ -48,7 +48,7 @@ class GatewayPriceShim:
 
     How to use:
 
-    1. Set up an amm_arb strategy config that trades between a testnet trading pair (e.g. "WETH-DAI" on Amm Kovan),
+    1. Set up an amm_arb strategy config that trades between a testnet trading pair (e.g. "WETH-DAI" on Uniswap  Kovan),
        and a corresponding trading pair on a paper trading exchange (e.g. "ETH-USDT" on Binance paper trade).
     2. Set the `debug_price_shim` parameter of the strategy config to true.
     3. Start the strategy.
