@@ -21,6 +21,7 @@ from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
 from hummingbot.strategy.amm_v3_lp.amm_v3_lp import AmmV3LpStrategy
 
+
 TRADING_PAIR: str = "HBOT-USDT"
 BASE_ASSET: str = TRADING_PAIR.split("-")[0]
 QUOTE_ASSET: str = TRADING_PAIR.split("-")[1]
@@ -150,7 +151,7 @@ class UniswapV3LpUnitTest(unittest.TestCase):
         # Set some default price.
         self.lp.set_price(TRADING_PAIR, 1)
 
-        self.strategy = UniswapV3LpStrategy(
+        self.strategy = AmmV3LpStrategy(
             self.market_info,
             "LOW",
             Decimal("0.2"),
