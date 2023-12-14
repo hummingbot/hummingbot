@@ -50,7 +50,7 @@ async def main():
               await gateway_http_client.get_price(
                   "ethereum",
                   "ropsten",
-                  "amm",
+                  "uniswap",
                   "DAI",
                   "WETH",
                   Decimal(1000),
@@ -87,7 +87,7 @@ async def main():
                   "ropsten",
                   "0x5821715133bB451bDE2d5BC6a4cE3430a4fdAF92",
                   "WETH",
-                  "amm",
+                  "uniswap",
                   2
               ))
         print("approve DAI:",
@@ -96,7 +96,7 @@ async def main():
                   "ropsten",
                   "0x5821715133bB451bDE2d5BC6a4cE3430a4fdAF92",
                   "DAI",
-                  "amm",
+                  "uniswap",
                   3
               ))
         print("get WETH, DAI allowance:",
@@ -105,13 +105,13 @@ async def main():
                   "ropsten",
                   "0x5821715133bB451bDE2d5BC6a4cE3430a4fdAF92",
                   ["WETH", "DAI"],
-                  "amm"
+                  "uniswap"
               ))
         print("buy DAI with WETH:",
               await gateway_http_client.amm_trade(
                   "ethereum",
                   "ropsten",
-                  "amm",
+                  "uniswap",
                   "0x5821715133bB451bDE2d5BC6a4cE3430a4fdAF92",
                   "DAI",
                   "WETH",

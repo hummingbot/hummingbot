@@ -51,7 +51,7 @@ class MockAMMLP(ConnectorBase):
 
     @property
     def connector_name(self):
-        return "ammLP"
+        return "uniswapLP"
 
     @staticmethod
     def is_approval_order(in_flight_order: GatewayInFlightLPOrder) -> bool:
@@ -138,7 +138,7 @@ class MockAMMLP(ConnectorBase):
         return []
 
 
-class AmmV3LpUnitTest(unittest.TestCase):
+class UniswapV3LpUnitTest(unittest.TestCase):
     def setUp(self):
         self.clock: Clock = Clock(ClockMode.REALTIME)
         self.stack: contextlib.ExitStack = contextlib.ExitStack()
@@ -150,7 +150,7 @@ class AmmV3LpUnitTest(unittest.TestCase):
         # Set some default price.
         self.lp.set_price(TRADING_PAIR, 1)
 
-        self.strategy = AmmV3LpStrategy(
+        self.strategy = UniswapV3LpStrategy(
             self.market_info,
             "LOW",
             Decimal("0.2"),

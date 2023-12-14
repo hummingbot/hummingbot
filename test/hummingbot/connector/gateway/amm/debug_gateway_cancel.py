@@ -91,7 +91,7 @@ class GatewayCancelDataCollector:
         await self.collect_cancel_approval()
 
     async def collect_cancel_order(self):
-        print("Creating and then canceling Amm order...\t\t", end="", flush=True)
+        print("Creating and then canceling Uniswap order...\t\t", end="", flush=True)
         connector: GatewayEVMAMM = self._connector
         event_logger: EventLogger = EventLogger()
         connector.add_listener(MarketEvent.OrderCancelled, event_logger)

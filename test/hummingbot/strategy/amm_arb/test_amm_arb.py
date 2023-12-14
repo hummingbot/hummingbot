@@ -58,7 +58,7 @@ class MockAMM(ConnectorBase):
 
     @property
     def connector_name(self):
-        return "amm_ethereum_mainnet"
+        return "uniswap_ethereum_mainnet"
 
     @property
     def status_dict(self):
@@ -361,7 +361,7 @@ class AmmArbUnitTest(unittest.TestCase):
             _: unittest.mock.Mock
     ):
         get_connector_spec_from_market_name_mock.return_value = {
-            "connector": "amm",
+            "connector": "uniswap",
             "chain": "ethereum",
             "network": "mainnet",
             "trading_type": "AMM",

@@ -3,7 +3,7 @@ from decimal import Decimal
 from test.hummingbot.strategy import assign_config_default
 
 import hummingbot.strategy.amm_v3_lp.start as amm_v3_lp_start
-from hummingbot.strategy.amm_v3_lp.amm_v3_lp import AmmV3LpStrategy
+from hummingbot.strategy.uniswap_v3_lp.uniswap_v3_lp import UniswapV3LpStrategy
 from hummingbot.strategy.amm_v3_lp.amm_v3_lp_config_map import amm_v3_lp_config_map
 
 
