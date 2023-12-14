@@ -87,7 +87,7 @@ Exchanges may be centralized (**CEX**), or decentralized (**DEX**), in which cas
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Sushiswap](https://docs.hummingbot.org/exchanges/sushiswap/) | AMM DEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Tinyman](https://docs.hummingbot.org/exchanges/tinyman/) | SPOT DEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Traderjoe](https://docs.hummingbot.org/exchanges/traderjoe) | AMM 
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Uniswap](https://docs.hummingbot.org/exchanges/amm/) | AMM DEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Uniswap](https://docs.hummingbot.org/exchanges/uniswap/) | AMM DEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [VVS Finance](https://docs.hummingbot.org/exchanges/vvs/) | AMM DEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Vertex](https://docs.hummingbot.org/exchanges/vertex/) | CLOB DEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [WOO X](https://docs.hummingbot.org/exchanges/woo-x)| CEX CLOB |
