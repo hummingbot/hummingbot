@@ -38,7 +38,7 @@ class GatewayPriceDeltaEntry:
 
 class GatewayPriceShim:
     """
-    Developer / QA tool for modifying the apparent prices on DEX connectors (e.g. amm) during integration tests.
+    Developer / QA tool for modifying the apparent prices on DEX connectors (e.g. uniswap) during integration tests.
 
     When the gateway price shim is enabled for a particular DEX trading pair (e.g. "WETH-DAI" on amm), the apparent
     price on the DEX will follow the prices on a different trading pair on another exchange (e.g. "ETH-USDT" on
