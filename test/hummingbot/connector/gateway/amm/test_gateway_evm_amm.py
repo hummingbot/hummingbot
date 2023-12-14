@@ -53,7 +53,7 @@ class GatewayEVMAMMConnectorUnitTest(unittest.TestCase):
         cls._client_config_map = ClientConfigAdapter(ClientConfigMap())
         cls._connector: GatewayEVMAMM = GatewayEVMAMM(
             client_config_map=cls._client_config_map,
-            connector_name="amm",
+            connector_name="uniswap",
             chain="ethereum",
             network="ropsten",
             address="0x5821715133bB451bDE2d5BC6a4cE3430a4fdAF92",

@@ -38,7 +38,7 @@ class GatewayCancelDataCollector:
     def __init__(self):
         self._clock: Clock = Clock(ClockMode.REALTIME)
         self._connector: GatewayEVMAMM = GatewayEVMAMM(
-            "amm",
+            "uniswap",
             "ethereum",
             NETWORK,
             WALLET_ADDRESS,
