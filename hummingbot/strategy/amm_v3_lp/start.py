@@ -18,8 +18,10 @@ def start(self):
 
     market_info = MarketTradingPairTuple(self.markets[connector], pair, base, quote)
     self.market_trading_pair_tuples = [market_info]
-    self.strategy = AmmV3LpStrategy(market_info,
-                                        fee_tier,
-                                        price_spread,
-                                        amount,
-                                        min_profitability)
+    self.strategy = AmmV3LpStrategy(
+        market_info,
+        fee_tier,
+        price_spread,
+        amount,
+        min_profitability
+    )
