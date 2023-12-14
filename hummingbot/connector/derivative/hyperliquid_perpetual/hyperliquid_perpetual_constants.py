@@ -110,3 +110,4 @@ RATE_LIMITS = [
 
 ]
 ORDER_NOT_EXIST_MESSAGE = "order"
+UNKNOWN_ORDER_MESSAGE = "Order was never placed, already canceled, or filled"
