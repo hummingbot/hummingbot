@@ -108,9 +108,10 @@ class PositionExecutor(SmartComponentBase):
 
     @property
     def close_price(self):
-        if self.executor_status.COMPLETED:
+        if self.executor_status == PositionExecutorStatus.COMPLETED and self.close_type not in [CloseType.EXPIRED,
+                                                                                                CloseType.INSUFFICIENT_BALANCE]:
             return self.close_order.executed_price
-        elif self.executor_status.ACTIVE_POSITION:
+        elif self.executor_status == PositionExecutorStatus.ACTIVE_POSITION:
             price_type = PriceType.BestBid if self.side == TradeType.BUY else PriceType.BestAsk
             return self.get_price(self.exchange, self.trading_pair, price_type=price_type)
         else:
