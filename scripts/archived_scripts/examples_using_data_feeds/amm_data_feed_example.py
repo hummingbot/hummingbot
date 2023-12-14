@@ -24,21 +24,21 @@ class AMMDataFeedExample(ScriptStrategyBase):
 
     def __init__(self, connectors: Dict[str, ConnectorBase]):
         super().__init__(connectors)
-        self.amm_data_feed_amm.start()
+        self.amm_data_feed_uniswap.start()
         self.amm_data_feed_quickswap.start()
 
     def on_stop(self):
-        self.amm_data_feed_amm.stop()
+        self.amm_data_feed_uniswap.stop()
         self.amm_data_feed_quickswap.stop()
 
     def on_tick(self):
         pass
 
     def format_status(self) -> str:
-        if self.amm_data_feed_amm.is_ready() and self.amm_data_feed_quickswap.is_ready():
+        if self.amm_data_feed_uniswap.is_ready() and self.amm_data_feed_quickswap.is_ready():
             lines = []
             rows = []
-            rows.extend(dict(price) for token, price in self.amm_data_feed_amm.price_dict.items())
+            rows.extend(dict(price) for token, price in self.amm_data_feed_uniswap.price_dict.items())
             rows.extend(dict(price) for token, price in self.amm_data_feed_quickswap.price_dict.items())
             df = pd.DataFrame(rows)
             prices_str = format_df_for_printout(df, table_format="psql")

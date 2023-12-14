@@ -21,27 +21,27 @@ def validate_connector(value: str):
 
 
 def market_validator(value: str) -> None:
-    connector = amm_v3_lp_config_map.get("connector").value
+    connector = uniswap_v3_lp_config_map.get("connector").value
     return validate_market_trading_pair(connector, value)
 
 
 def market_on_validated(value: str) -> None:
-    connector = amm_v3_lp_config_map.get("connector").value
+    connector = uniswap_v3_lp_config_map.get("connector").value
     requried_connector_trading_pairs[connector] = [value]
 
 
 def market_prompt() -> str:
-    connector = amm_v3_lp_config_map.get("connector").value
+    connector = uniswap_v3_lp_config_map.get("connector").value
     example = AllConnectorSettings.get_example_pairs().get(connector)
     return "Enter the trading pair you would like to provide liquidity on {}>>> ".format(
         f"(e.g. {example}) " if example else "")
 
 
-amm_v3_lp_config_map = {
+uniswap_v3_lp_config_map = {
     "strategy": ConfigVar(
         key="strategy",
         prompt="",
-        default="amm_v3_lp"),
+        default="uniswap_v3_lp"),
     "connector": ConfigVar(
         key="connector",
         prompt="Enter name of LP connector >>> ",
