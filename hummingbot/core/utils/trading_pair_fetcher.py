@@ -42,7 +42,7 @@ class TradingPairFetcher:
     async def fetch_all(self, client_config_map: ClientConfigAdapter):
         connector_settings = self._all_connector_settings()
         for conn_setting in connector_settings.values():
-            # XXX(martin_kou): Some connectors, e.g. amm v3, aren't completed yet. Ignore if you can't find the
+            # XXX(martin_kou): Some connectors, e.g. uniswap v3, aren't completed yet. Ignore if you can't find the
             # data source module for them.
             try:
                 if conn_setting.base_name().endswith("paper_trade"):

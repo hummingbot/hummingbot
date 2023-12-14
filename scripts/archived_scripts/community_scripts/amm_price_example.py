@@ -6,10 +6,10 @@ from hummingbot.strategy.script_strategy_base import Decimal, ScriptStrategyBase
 
 class AmmPriceExample(ScriptStrategyBase):
     """
-    This example shows how to call the /amm/price Gateway endpoint to fetch price for a swap
+    This example shows how to call the /uniswap/price Gateway endpoint to fetch price for a swap
     """
     # swap params
-    connector_chain_network = "amm_ethereum_goerli"
+    connector_chain_network = "uniswap_ethereum_goerli"
     trading_pair = {"WETH-DAI"}
     side = "SELL"
     order_amount = Decimal("0.01")
