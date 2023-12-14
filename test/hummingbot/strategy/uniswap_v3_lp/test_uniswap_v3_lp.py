@@ -138,7 +138,7 @@ class MockAMMLP(ConnectorBase):
         return []
 
 
-class UniswapV3LpUnitTest(unittest.TestCase):
+class AmmV3LpUnitTest(unittest.TestCase):
     def setUp(self):
         self.clock: Clock = Clock(ClockMode.REALTIME)
         self.stack: contextlib.ExitStack = contextlib.ExitStack()

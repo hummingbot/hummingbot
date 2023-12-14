@@ -7,7 +7,7 @@ from hummingbot.strategy.amm_v3_lp.amm_v3_lp import AmmV3LpStrategy
 from hummingbot.strategy.amm_v3_lp.amm_v3_lp_config_map import amm_v3_lp_config_map
 
 
-class UniswapV3LpStartTest(unittest.TestCase):
+class AmmV3LpStartTest(unittest.TestCase):
 
     def setUp(self) -> None:
         super().setUp()
