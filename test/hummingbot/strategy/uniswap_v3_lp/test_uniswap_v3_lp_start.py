@@ -3,7 +3,7 @@ from decimal import Decimal
 from test.hummingbot.strategy import assign_config_default
 
 import hummingbot.strategy.amm_v3_lp.start as amm_v3_lp_start
-from hummingbot.strategy.amm_v3_lp.amm_v3_lp import UniswapV3LpStrategy
+from hummingbot.strategy.amm_v3_lp.amm_v3_lp import AmmV3LpStrategy
 from hummingbot.strategy.amm_v3_lp.amm_v3_lp_config_map import amm_v3_lp_config_map
 
 
@@ -11,7 +11,7 @@ class UniswapV3LpStartTest(unittest.TestCase):
 
     def setUp(self) -> None:
         super().setUp()
-        self.strategy: UniswapV3LpStrategy = None
+        self.strategy: AmmV3LpStrategy = None
         self.markets = {"uniswapLP": None}
         self.notifications = []
         self.log_errors = []
@@ -39,7 +39,7 @@ class UniswapV3LpStartTest(unittest.TestCase):
     def error(self, message, exc_info):
         self.log_errors.append(message)
 
-    @unittest.mock.patch('hummingbot.strategy.amm_v3_lp.amm_v3_lp.UniswapV3LpStrategy.add_markets')
+    @unittest.mock.patch('hummingbot.strategy.amm_v3_lp.amm_v3_lp.AmmV3LpStrategy.add_markets')
     def test_amm_v3_lp_strategy_creation(self, mock):
         amm_v3_lp_start.start(self)
         self.assertEqual(self.strategy._amount, Decimal(1))

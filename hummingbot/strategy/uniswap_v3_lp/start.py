@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.amm_v3_lp.amm_v3_lp import UniswapV3LpStrategy
+from hummingbot.strategy.amm_v3_lp.amm_v3_lp import AmmV3LpStrategy
 from hummingbot.strategy.amm_v3_lp.amm_v3_lp_config_map import amm_v3_lp_config_map as c_map
 
 
@@ -18,7 +18,7 @@ def start(self):
 
     market_info = MarketTradingPairTuple(self.markets[connector], pair, base, quote)
     self.market_trading_pair_tuples = [market_info]
-    self.strategy = UniswapV3LpStrategy(market_info,
+    self.strategy = AmmV3LpStrategy(market_info,
                                         fee_tier,
                                         price_spread,
                                         amount,
