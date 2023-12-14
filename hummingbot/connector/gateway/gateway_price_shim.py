@@ -58,7 +58,7 @@ class GatewayPriceShim:
     ```
     from hummingbot.connector.gateway_price_shim import GatewayPriceShim
     from decimal import Decimal
-    GatewayPriceShim.get_instance().apply_price_delta("amm", "ethereum", "kovan", "WETH-DAI", Decimal(40))
+    GatewayPriceShim.get_instance().apply_price_delta("uniswap", "ethereum", "kovan", "WETH-DAI", Decimal(40))
     ```
 
     6. Observe that the apparent AMM prices is increased by the delta amount, and the amm_arb strategy will start
