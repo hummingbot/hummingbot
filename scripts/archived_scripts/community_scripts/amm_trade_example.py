@@ -12,7 +12,7 @@ class AmmTradeExample(ScriptStrategyBase):
     This example shows how to call the /amm/trade Gateway endpoint to execute a swap transaction
     """
     # swap params
-    connector_chain_network = "uniswap_ethereum_goerli"
+    connector_chain_network = "amm_ethereum_goerli"
     trading_pair = {"WETH-DAI"}
     side = "SELL"
     order_amount = Decimal("0.01")

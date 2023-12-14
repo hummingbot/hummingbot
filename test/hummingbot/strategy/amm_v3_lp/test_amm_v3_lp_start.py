@@ -12,12 +12,12 @@ class AmmV3LpStartTest(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.strategy: AmmV3LpStrategy = None
-        self.markets = {"uniswapLP": None}
+        self.markets = {"ammLP": None}
         self.notifications = []
         self.log_errors = []
         assign_config_default(amm_v3_lp_config_map)
         amm_v3_lp_config_map.get("strategy").value = "amm_v3_lp"
-        amm_v3_lp_config_map.get("connector").value = "uniswapLP"
+        amm_v3_lp_config_map.get("connector").value = "ammLP"
         amm_v3_lp_config_map.get("market").value = "ETH-USDT"
         amm_v3_lp_config_map.get("fee_tier").value = "LOW"
         amm_v3_lp_config_map.get("price_spread").value = Decimal("1")

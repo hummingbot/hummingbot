@@ -75,9 +75,9 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
         result: Dict[str, Any] = await GatewayHttpClient.get_instance().get_connectors()
         self.assertIn("connectors", result)
 
-        uniswap: Dict[str, Any] = result["connectors"][0]
-        self.assertEqual("uniswap", uniswap["name"])
-        self.assertEqual(["AMM"], uniswap["trading_type"])
+        amm: Dict[str, Any] = result["connectors"][0]
+        self.assertEqual("amm", amm["name"])
+        self.assertEqual(["AMM"], amm["trading_type"])
 
     @async_test(loop=ev_loop)
     async def test_get_configuration(self):
@@ -109,7 +109,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
         result: Dict[str, Any] = await GatewayHttpClient.get_instance().get_price(
             "ethereum",
             "ropsten",
-            "uniswap",
+            "amm",
             "DAI",
             "WETH",
             Decimal(1000),
@@ -167,7 +167,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
             "ropsten",
             "0x5821715133bB451bDE2d5BC6a4cE3430a4fdAF92",
             "WETH",
-            "uniswap",
+            "amm",
             2
         )
         self.assertEqual("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D", result["spender"])
@@ -181,7 +181,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
             "ropsten",
             "0x5821715133bB451bDE2d5BC6a4cE3430a4fdAF92",
             ["WETH", "DAI"],
-            "uniswap"
+            "amm"
         )
         self.assertIn("approvals", result)
         self.assertEqual("115792089237316195423570985008687907853269984665640564039457.584007913129639935",
@@ -194,7 +194,7 @@ class GatewayHttpClientUnitTest(unittest.TestCase):
         result: Dict[str, Any] = await GatewayHttpClient.get_instance().amm_trade(
             "ethereum",
             "ropsten",
-            "uniswap",
+            "amm",
             "0x5821715133bB451bDE2d5BC6a4cE3430a4fdAF92",
             "DAI",
             "WETH",

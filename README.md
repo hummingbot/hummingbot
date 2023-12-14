@@ -12,7 +12,7 @@ This code is free and publicly available under the Apache 2.0 open source licens
 
 ## Why Hummingbot?
 
-* **Both CEX and DEX connectors**: Hummingbot supports connectors to centralized exchanges like Binance and KuCoin, as well as decentralized exchanges like Uniswap and PancakeSwap on various blockchains (Ethereum, BNB Chain, etc).
+* **Both CEX and DEX connectors**: Hummingbot supports connectors to centralized exchanges like Binance and KuCoin, as well as decentralized exchanges like Amm and PancakeSwap on various blockchains (Ethereum, BNB Chain, etc).
 * **Community-contributed strategies**: The Hummingbot community has added many customizable templates for market making, arbitrage, and other algo trading strategies.
 * **Secure local client**: Hummingbot is a local client software that you install and run on your own devices or cloud virtual machines. It encrypts your API keys and private keys and never exposes them to any third parties.
 * **Community modules and events**: Hummingbot is driven by a global community of quant traders and developers. Check out community-maintained modules like Orchestration, join our bi-weekly developer calls, and learn how to build custom strategies using Hummingbot by taking Botcamp!
@@ -87,7 +87,7 @@ Exchanges may be centralized (**CEX**), or decentralized (**DEX**), in which cas
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Sushiswap](https://docs.hummingbot.org/exchanges/sushiswap/) | AMM DEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Tinyman](https://docs.hummingbot.org/exchanges/tinyman/) | SPOT DEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Traderjoe](https://docs.hummingbot.org/exchanges/traderjoe) | AMM 
-| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Uniswap](https://docs.hummingbot.org/exchanges/uniswap/) | AMM DEX |
+| ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Amm](https://docs.hummingbot.org/exchanges/amm/) | AMM DEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [VVS Finance](https://docs.hummingbot.org/exchanges/vvs/) | AMM DEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [Vertex](https://docs.hummingbot.org/exchanges/vertex/) | CLOB DEX |
 | ![](https://img.shields.io/static/v1?label=Hummingbot&message=BRONZE&color=green) | [WOO X](https://docs.hummingbot.org/exchanges/woo-x)| CEX CLOB |

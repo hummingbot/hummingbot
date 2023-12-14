@@ -54,7 +54,7 @@ class GatewayCancelUnitTest(unittest.TestCase):
         cls._client_config_map = ClientConfigAdapter(ClientConfigMap())
         cls._connector: GatewayEVMAMM = GatewayEVMAMM(
             client_config_map=cls._client_config_map,
-            connector_name="uniswap",
+            connector_name="amm",
             chain="ethereum",
             network=NETWORK,
             address=WALLET_ADDRESS,

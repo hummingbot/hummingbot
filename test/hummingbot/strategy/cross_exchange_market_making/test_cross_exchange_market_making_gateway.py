@@ -71,7 +71,7 @@ class MockAMM(ConnectorBase):
 
     @property
     def connector_name(self):
-        return "uniswap"
+        return "amm"
 
     async def get_quote_price(self, trading_pair: str, is_buy: bool, amount: Decimal) -> Decimal:
         if is_buy:

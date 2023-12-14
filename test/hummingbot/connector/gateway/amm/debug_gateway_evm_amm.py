@@ -42,7 +42,7 @@ class GatewayEVMAMMDataCollector:
     def __init__(self):
         self._clock: Clock = Clock(ClockMode.REALTIME)
         self._connector: GatewayEVMAMM = GatewayEVMAMM(
-            "uniswap",
+            "amm",
             "ethereum",
             "ropsten",
             "0x5821715133bB451bDE2d5BC6a4cE3430a4fdAF92",
@@ -173,7 +173,7 @@ class GatewayEVMAMMDataCollector:
                 gas_price=gas_price,
                 creation_timestamp=self._connector.current_timestamp
             )
-        print("Getting uniswap order status...\t\t", end="", flush=True)
+        print("Getting amm order status...\t\t", end="", flush=True)
         successful_records: List[GatewayInFlightOrder] = [
             create_order_record(
                 "DAI-WETH",

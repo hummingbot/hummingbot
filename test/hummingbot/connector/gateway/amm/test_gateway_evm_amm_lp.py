@@ -51,7 +51,7 @@ class GatewayEVMAMMLPConnectorUnitTest(unittest.TestCase):
         cls._client_config_map = ClientConfigAdapter(ClientConfigMap())
         cls._connector: GatewayEVMAMMLP = GatewayEVMAMMLP(
             client_config_map=cls._client_config_map,
-            connector_name="uniswapLP",
+            connector_name="ammLP",
             chain="ethereum",
             network="kovan",
             address="0xefb7be8631d154d4c0ad8676fec0897b2894fe8f",
@@ -108,8 +108,8 @@ class GatewayEVMAMMLPConnectorUnitTest(unittest.TestCase):
         big_num: Decimal = Decimal("1000000000000000000000000000")
         allowances: Dict[str, Decimal] = await self._connector.get_allowances()
         self.assertEqual(2, len(allowances))
-        self.assertGreater(allowances.get("uniswapLP_COIN1"), big_num)
-        self.assertGreater(allowances.get("uniswapLP_COIN3"), big_num)
+        self.assertGreater(allowances.get("ammLP_COIN1"), big_num)
+        self.assertGreater(allowances.get("ammLP_COIN3"), big_num)
 
     @async_test(loop=ev_loop)
     async def test_get_chain_info(self):
@@ -122,7 +122,7 @@ class GatewayEVMAMMLPConnectorUnitTest(unittest.TestCase):
     async def test_update_approval_status(self):
         def create_approval_record(token_symbol: str, tx_hash: str) -> GatewayInFlightLPOrder:
             return GatewayInFlightLPOrder(
-                client_order_id=self._connector.create_approval_order_id("uniswapLP", token_symbol),
+                client_order_id=self._connector.create_approval_order_id("ammLP", token_symbol),
                 exchange_order_id=tx_hash,
                 trading_pair=token_symbol,
                 lp_type = LPType.ADD,
@@ -163,7 +163,7 @@ class GatewayEVMAMMLPConnectorUnitTest(unittest.TestCase):
             await self._connector.update_token_approval_status(successful_records)
             self.assertEqual(2, len(event_logger.event_log))
             self.assertEqual(
-                {"uniswapLP_COIN1", "uniswapLP_COIN3"},
+                {"ammLP_COIN1", "ammLP_COIN3"},
                 set(e.token_symbol for e in event_logger.event_log)
             )
         finally:
@@ -178,9 +178,9 @@ class GatewayEVMAMMLPConnectorUnitTest(unittest.TestCase):
     @async_test(loop=ev_loop)
     async def test_approve_token(self):
         self._http_player.replay_timestamp_ms = 1652728282963
-        coin1_in_flight_order: GatewayInFlightLPOrder = await self._connector.approve_token("uniswapLP", "COIN1")
+        coin1_in_flight_order: GatewayInFlightLPOrder = await self._connector.approve_token("ammLP", "COIN1")
         self._http_player.replay_timestamp_ms = 1652728286030
-        coin3_in_flight_order: GatewayInFlightLPOrder = await self._connector.approve_token("uniswapLP", "COIN3")
+        coin3_in_flight_order: GatewayInFlightLPOrder = await self._connector.approve_token("ammLP", "COIN3")
 
         self.assertEqual(
             "0x65ef330422dc9892460e3ea67338013b9ca619270f960c4531f47a1812cb7677",       # noqa: mock
@@ -202,7 +202,7 @@ class GatewayEVMAMMLPConnectorUnitTest(unittest.TestCase):
                     await event_logger.wait_for(TokenApprovalSuccessEvent)
             self.assertEqual(2, len(event_logger.event_log))
             self.assertEqual(
-                {"uniswapLP_COIN1", "uniswapLP_COIN3"},
+                {"ammLP_COIN1", "ammLP_COIN3"},
                 set(e.token_symbol for e in event_logger.event_log)
             )
         finally:

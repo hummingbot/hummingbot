@@ -42,7 +42,7 @@ class GatewayEVMAMMLPDataCollector:
     def __init__(self):
         self._clock: Clock = Clock(ClockMode.REALTIME)
         self._connector: GatewayEVMAMMLP = GatewayEVMAMMLP(
-            "uniswapLP",
+            "ammLP",
             "ethereum",
             "kovan",
             "0xefB7Be8631d154d4C0ad8676FEC0897B2894FE8F",

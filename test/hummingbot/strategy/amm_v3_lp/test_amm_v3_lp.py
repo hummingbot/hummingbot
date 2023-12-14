@@ -51,7 +51,7 @@ class MockAMMLP(ConnectorBase):
 
     @property
     def connector_name(self):
-        return "uniswapLP"
+        return "ammLP"
 
     @staticmethod
     def is_approval_order(in_flight_order: GatewayInFlightLPOrder) -> bool:
