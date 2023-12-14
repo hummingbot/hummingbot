@@ -656,9 +656,9 @@ class GatewayCommand(GatewayChainApiManager):
         return balances
 
     async def balance(self, exchange, client_config_map: ClientConfigMap, *symbols) -> Dict[str, Decimal]:
-        if await self.update_exchange_balance(exchange, client_config_map) is None:
+        if await self.update_exchange_balances(exchange, client_config_map) is None:
             results = {}
-            for token, bal in self.all_balances(exchange).items():
+            for token, bal in self.all_balance(exchange).items():
                 matches = [s for s in symbols if s.lower() == token.lower()]
                 if matches:
                     results[matches[0]] = bal
