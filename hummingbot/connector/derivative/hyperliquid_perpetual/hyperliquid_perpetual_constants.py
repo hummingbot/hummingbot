@@ -109,3 +109,4 @@ RATE_LIMITS = [
               linked_limits=[LinkedLimitWeightPair(ALL_ENDPOINTS_LIMIT)]),
 
 ]
+ORDER_NOT_EXIST_MESSAGE = "order"

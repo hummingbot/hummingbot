@@ -161,7 +161,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         # The default implementation was added when the functionality to detect not found orders was introduced in the
         # ExchangePyBase class. Also fix the unit test test_lost_order_removed_if_not_found_during_order_status_update
         # when replacing the dummy implementation
-        return False
+        return CONSTANTS.ORDER_NOT_EXIST_MESSAGE in str(status_update_exception)
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
         # TODO: implement this method correctly for the connector
@@ -454,6 +454,33 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         # Use _update_trade_history instead
         pass
 
+    async def _handle_update_error_for_active_order(self, order: InFlightOrder, error: Exception):
+        try:
+            raise error
+        except KeyError:
+            _order_update: OrderUpdate = OrderUpdate(
+                trading_pair=order.trading_pair,
+                update_timestamp=int(time.time()),
+                new_state=OrderState.PENDING_CREATE,
+                client_order_id=order.client_order_id,
+                exchange_order_id=str(order.exchange_order_id),
+            )
+            self._order_tracker.process_order_update(_order_update)
+        except asyncio.TimeoutError:
+            self.logger().debug(
+                f"Tracked order {order.client_order_id} does not have an exchange id. "
+                f"Attempting fetch in next polling interval."
+            )
+            await self._order_tracker.process_order_not_found(order.client_order_id)
+        except asyncio.CancelledError:
+            raise
+        except Exception as request_error:
+            self.logger().warning(
+                f"Error fetching status update for the active order {order.client_order_id}: {request_error}.",
+            )
+            self.logger().debug(f"Order {order.client_order_id} not found counter: {self._order_tracker._order_not_found_records.get(order.client_order_id, 0)}")
+            await self._order_tracker.process_order_not_found(order.client_order_id)
+
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         client_order_id = tracked_order.client_order_id
         order_update = await self._api_post(
@@ -463,23 +490,14 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 "user": self.hyperliquid_perpetual_api_key,
                 "oid": int(tracked_order.exchange_order_id) if tracked_order.exchange_order_id else client_order_id
             })
-        try:
-            current_state = order_update["order"]["status"]
-            _order_update: OrderUpdate = OrderUpdate(
-                trading_pair=tracked_order.trading_pair,
-                update_timestamp=order_update["order"]["order"]["timestamp"] * 1e-3,
-                new_state=CONSTANTS.ORDER_STATE[current_state],
-                client_order_id=order_update["order"]["order"]["cloid"] or client_order_id,
-                exchange_order_id=str(tracked_order.exchange_order_id),
-            )
-        except KeyError:
-            _order_update: OrderUpdate = OrderUpdate(
-                trading_pair=tracked_order.trading_pair,
-                update_timestamp=int(time.time()),
-                new_state=OrderState.PENDING_CREATE,
-                client_order_id=client_order_id,
-                exchange_order_id=str(tracked_order.exchange_order_id),
-            )
+        current_state = order_update["order"]["status"]
+        _order_update: OrderUpdate = OrderUpdate(
+            trading_pair=tracked_order.trading_pair,
+            update_timestamp=order_update["order"]["order"]["timestamp"] * 1e-3,
+            new_state=CONSTANTS.ORDER_STATE[current_state],
+            client_order_id=order_update["order"]["order"]["cloid"] or client_order_id,
+            exchange_order_id=str(tracked_order.exchange_order_id),
+        )
         return _order_update
 
     async def _iter_user_event_queue(self) -> AsyncIterable[Dict[str, any]]:
