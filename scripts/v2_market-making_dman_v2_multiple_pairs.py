@@ -17,7 +17,7 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 class DManV2MultiplePairs(ScriptStrategyBase):
     # Account configuration
     exchange = "binance_perpetual"
-    trading_pairs = ["ETH-USDT"]
+    trading_pairs = ["BIGTIME-USDT"]
     leverage = 20
 
     # Candles configuration
@@ -26,10 +26,10 @@ class DManV2MultiplePairs(ScriptStrategyBase):
     candles_max_records = 300
 
     # Orders configuration
-    order_amount = Decimal("25")
+    order_amount = Decimal("10")
     n_levels = 5
-    start_spread = 0.0006
-    step_between_orders = 0.009
+    start_spread = 0.5
+    step_between_orders = 1.0
     order_refresh_time = 60 * 15  # 15 minutes
     cooldown_time = 5
 
@@ -37,8 +37,8 @@ class DManV2MultiplePairs(ScriptStrategyBase):
     stop_loss = Decimal("0.2")
     take_profit = Decimal("0.06")
     time_limit = 60 * 60 * 12
-    trailing_stop_activation_price_delta = Decimal(str(step_between_orders / 2))
-    trailing_stop_trailing_delta = Decimal(str(step_between_orders / 3))
+    trailing_stop_activation_price_delta = Decimal("0.005")
+    trailing_stop_trailing_delta = Decimal("0.001")
 
     # Advanced configurations
     macd_fast = 12
