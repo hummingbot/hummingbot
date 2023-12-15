@@ -94,6 +94,7 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingA
     gateway_subparsers = gateway_parser.add_subparsers()
 
     gateway_balance_parser = gateway_subparsers.add_parser("balance", help="Display your asset balances and allowances across all connected gateway connectors")
+    gateway_balance_parser.add_argument("chain_network", nargs="?", default=None, help="Name of chain_network you want to view balances for")
     gateway_balance_parser.set_defaults(func=hummingbot.gateway_balance)
 
     gateway_config_parser = gateway_subparsers.add_parser("config", help="View or update gateway configuration")

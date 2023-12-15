@@ -57,6 +57,13 @@ class HummingbotCompleter(Completer):
         self._history_completer = WordCompleter(["--days", "--verbose", "--precision"], ignore_case=True)
         self._gateway_completer = WordCompleter(["balance", "config", "connect", "connector-tokens", "generate-certs", "test-connection", "list", "approve-tokens"], ignore_case=True)
         self._gateway_connect_completer = WordCompleter(GATEWAY_CONNECTORS, ignore_case=True)
+        self._gateway_balance_completer = WordCompleter(
+            sorted(
+                AllConnectorSettings.get_gateway_amm_connector_names().union(
+                    AllConnectorSettings.get_gateway_clob_connector_names()
+                )
+            ), ignore_case=True
+        )
         self._gateway_connector_tokens_completer = WordCompleter(
             GatewayTokenSetting.get_gateway_chains_with_network(), ignore_case=True
         )
@@ -184,6 +191,10 @@ class HummingbotCompleter(Completer):
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("balance ")
 
+    def _complete_gateway_balance_options(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return text_before_cursor.startswith("gateway balance ")
+
     def _complete_history_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("history ")
@@ -191,6 +202,10 @@ class HummingbotCompleter(Completer):
     def _complete_gateway_connect_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
         return text_before_cursor.startswith("gateway connect ")
+
+    def _complete_gateway_balance_arguments(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return text_before_cursor.startswith("gateway connector-tokens ")
 
     def _complete_gateway_connector_tokens_arguments(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
@@ -331,12 +346,20 @@ class HummingbotCompleter(Completer):
             for c in self._balance_completer.get_completions(document, complete_event):
                 yield c
 
+        elif self._complete_gateway_balance_options(document):
+            for c in self._gateway_balance_completer.get_completions(document, complete_event):
+                yield c
+
         elif self._complete_history_arguments(document):
             for c in self._history_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_gateway_connect_arguments(document):
             for c in self._gateway_connect_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_gateway_balance_arguments(document):
+            for c in self._gateway_balance_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_gateway_connector_tokens_arguments(document):
