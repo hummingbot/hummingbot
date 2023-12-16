@@ -492,7 +492,7 @@ class GatewayHttpClient:
             "quote": quote_asset,
             "side": side.name,
             "amount": f"{amount:.18f}",
-            "limitPrice": str(price),
+            "limitPrice": '{:f}'.format(price),
             "allowedSlippage": "0/1",  # hummingbot applies slippage itself
         }
         if nonce is not None:
