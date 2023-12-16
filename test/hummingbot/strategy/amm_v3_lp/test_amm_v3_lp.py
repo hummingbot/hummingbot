@@ -18,8 +18,8 @@ from hummingbot.core.event.events import LPType
 from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
+from hummingbot.strategy.amm_v3_lp.amm_v3_lp import AmmV3LpStrategy
 from hummingbot.strategy.market_trading_pair_tuple import MarketTradingPairTuple
-from hummingbot.strategy.uniswap_v3_lp.uniswap_v3_lp import UniswapV3LpStrategy
 
 TRADING_PAIR: str = "HBOT-USDT"
 BASE_ASSET: str = TRADING_PAIR.split("-")[0]
@@ -138,7 +138,7 @@ class MockAMMLP(ConnectorBase):
         return []
 
 
-class UniswapV3LpUnitTest(unittest.TestCase):
+class AmmV3LpUnitTest(unittest.TestCase):
     def setUp(self):
         self.clock: Clock = Clock(ClockMode.REALTIME)
         self.stack: contextlib.ExitStack = contextlib.ExitStack()
@@ -150,7 +150,7 @@ class UniswapV3LpUnitTest(unittest.TestCase):
         # Set some default price.
         self.lp.set_price(TRADING_PAIR, 1)
 
-        self.strategy = UniswapV3LpStrategy(
+        self.strategy = AmmV3LpStrategy(
             self.market_info,
             "LOW",
             Decimal("0.2"),
