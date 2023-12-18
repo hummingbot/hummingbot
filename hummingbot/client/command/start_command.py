@@ -241,7 +241,7 @@ class StartCommand(GatewayChainApiManager):
                     self.markets_recorder.restore_market_states(self.strategy_file_name, market)
                     if len(market.limit_orders) > 0:
                         self.notify(f"Canceling dangling limit orders on {market.name}...")
-                        await market.cancel_all(5.0)
+                        await market.cancel_all(10.0)
             if self.strategy:
                 self.clock.add_iterator(self.strategy)
             try:
