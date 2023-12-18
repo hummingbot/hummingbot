@@ -207,8 +207,9 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
     async def trading_account_number(self) -> int:
         raise NotImplementedError
 
-    async def initialize_trading_account(self):
-        raise NotImplementedError
+    async def initialize_trading_account(self):  # pragma: no cover
+        # Do nothing
+        pass
 
     async def update_markets(self):
         self._tokens_map = {}
@@ -312,8 +313,9 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
     def supported_order_types(self) -> List[OrderType]:
         return []
 
-    async def _initialize_timeout_height(self):
-        raise NotImplementedError
+    async def _initialize_timeout_height(self):  # pragma: no cover
+        # Do nothing
+        pass
 
     def _sign_and_encode(self, transaction: Transaction) -> bytes:
         raise NotImplementedError
@@ -412,3 +414,19 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
             market_info=market_info
         )
         return market
+
+    async def _listen_to_positions_updates(self):  # pragma: no cover
+        # Do nothing
+        pass
+
+    async def _listen_to_account_balance_updates(self):  # pragma: no cover
+        # Do nothing
+        pass
+
+    async def _listen_to_subaccount_spot_order_updates(self, market_id: str):  # pragma: no cover
+        # Do nothing
+        pass
+
+    async def _listen_to_subaccount_derivative_order_updates(self, market_id: str):  # pragma: no cover
+        # Do nothing
+        pass

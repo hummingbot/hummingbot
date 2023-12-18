@@ -16,7 +16,7 @@ from hummingbot.smart_components.strategy_frameworks.directional_trading.directi
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
-class MarketMakingDmanComposed(ScriptStrategyBase):
+class DirectionalTradingMACDBB(ScriptStrategyBase):
     trading_pairs = ["HBAR-USDT", "CYBER-USDT", "ETH-USDT", "LPT-USDT", "UNFI-USDT"]
     leverage_by_trading_pair = {
         "HBAR-USDT": 25,

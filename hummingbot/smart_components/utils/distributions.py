@@ -21,6 +21,9 @@ class Distributions:
         Returns:
         List[Decimal]: A list containing the generated linear sequence.
         """
+        if n_levels == 1:
+            return [Decimal(start)]
+
         return [Decimal(start) + (Decimal(end) - Decimal(start)) * Decimal(i) / (Decimal(n_levels) - 1) for i in range(n_levels)]
 
     @classmethod
