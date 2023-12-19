@@ -53,6 +53,7 @@ connector_status = {
     'openocean': 'bronze',
     'quickswap': 'bronze',
     'pancakeswap': 'bronze',
+    'pancakeswapLP': 'bronze',
     'pangolin': 'bronze',
     'perp': 'bronze',
     'plenty': 'bronze',
@@ -66,6 +67,7 @@ connector_status = {
     'woo_x': 'bronze',
     'woo_x_testnet': 'bronze',
     'xswap': 'bronze',
+    'xrpl': 'bronze'
 }
 
 warning_messages = {
