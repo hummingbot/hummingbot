@@ -68,6 +68,7 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         self._has_updated_throttler = False
         self._best_connection_endpoint = ""
         self._best_grpc_endpoint = ""
+        self._is_connected = True
 
         super().__init__(client_config_map)
 
@@ -148,6 +149,7 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         if self._domain == CONSTANTS.TESTNET_DOMAIN:
             endpoints = CONSTANTS.TESTNET_API_ENDPOINTS
         result = await self.lowest_latency_result(endpoints=endpoints)
+        self._is_connected = True
         self._best_connection_endpoint = result
 
     async def lowest_latency_result(self, endpoints: List[str]) -> str:
@@ -215,6 +217,8 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         if not self._user_stream_tracker._data_source._ws_connected:
             return NetworkStatus.NOT_CONNECTED
         if not self._orderbook_ds._ws_connected:
+            return NetworkStatus.NOT_CONNECTED
+        if not self._is_connected:
             return NetworkStatus.NOT_CONNECTED
         try:
             if await self._make_blockchain_check_request():
@@ -1390,13 +1394,16 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
                         raise IOError(f"Error executing request {method.name} {path_url}. "
                                       f"HTTP status is {response.status}. "
                                       f"Error: {error_response}")
+                self._is_connected = True
                 return await response.json()
         except IOError as request_exception:
             raise request_exception
         except aiohttp.ClientConnectionError as connection_exception:
             self.logger().warning(connection_exception)
+            self._is_connected = False
             raise connection_exception
         except Exception as e:
+            self._is_connected = False
             raise e
 
     def _market_id_from_hb_pair(self, trading_pair: str) -> str:
