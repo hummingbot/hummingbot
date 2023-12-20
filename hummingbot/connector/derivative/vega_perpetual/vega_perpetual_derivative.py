@@ -67,7 +67,6 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         self._exchange_order_id_to_hb_order_id = {}
         self._has_updated_throttler = False
         self._best_connection_endpoint = ""
-        self._best_grpc_endpoint = ""
         self._is_connected = True
         self._order_cancel_attempts = {}
 
@@ -167,7 +166,7 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
                     data=None,
                     throttler_limit_id=CONSTANTS.ALL_URLS
                 )
-                await rest_assistant.call(request=request)
+                await rest_assistant.call(request=request, timeout=3.0)
                 _end_time = time.time_ns()
                 _request_latency = _end_time - _start_time
                 # Check to ensure we have a match
@@ -371,12 +370,12 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
             )
             # NOTE: This is a failed order, we need to attempt an update within the system
             await self._order_tracker.process_order_update(order_update)
-            # TODO: Unclear which of these is the best to handle this event
+            # NOTE: Unclear which of these is the best to handle this event
             self._order_tracker._trigger_order_completion(order, order_update)
             # NOTE: The order has failed, we need to purge it from the orders available to cancel
             if order.client_order_id in self._order_tracker._cached_orders:
                 del self._order_tracker._cached_orders[order.client_order_id]
-            self.logger().warning("Attempting to cancel a failed order, unable to do so.")
+            self.logger().debug("Attempting to cancel a failed order, unable to do so.")
             return False
 
         if order.current_state in [OrderState.PENDING_CANCEL, OrderState.PENDING_CREATE]:
@@ -384,19 +383,20 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
                 self._order_cancel_attempts[order.client_order_id] = self._order_cancel_attempts[order.client_order_id] + 1
             else:
                 self._order_cancel_attempts[order.client_order_id] = 1
-            # TODO: Have a counter and then check, vs checking each time to reduce calls..
+            # NOTE: Have a counter and then check, vs checking each time to reduce calls..
             order_update = await self._request_order_status(order, None, False)
             if order_update is not None and order_update.new_state is not None and order_update.new_state != order.current_state:
                 await self._order_tracker.process_order_update(order_update)
                 if order_update.new_state == OrderState.OPEN:
-                    self.logger().warning("Got new state update for order, proceeding.")
+                    self.logger().debug("Got new state update for order, proceeding.")
             else:
                 if order_update is None:
                     if order.exchange_order_id is not None:
-                        self.logger().warning(f"Technically we can check if this is filled even if we can't find it anymore vs failed. {order.exchange_order_id}")
+                        # TODO: If it's filled create order update for filled, otherwise just marke it as failed and remove it from the tracking...
+                        self.logger().debug(f"Technically we can check if this is filled even if we can't find it anymore vs failed. {order.exchange_order_id}")
                     # TODO: We can't find the order, we need to do something after X times?? Or so long?
-                    self.logger().warning(f"Cancel attempts {self._order_cancel_attempts[order.client_order_id]}")
-                self.logger().warning(f"Attempting to cancel a pending order {order.client_order_id}, unable to do so.")
+                    self.logger().debug(f"Cancel attempts {self._order_cancel_attempts[order.client_order_id]}")
+                self.logger().debug(f"Attempting to cancel a pending order {order.client_order_id}, unable to do so.")
                 return False
 
         cancelled = await self._place_cancel(order.client_order_id, order)
@@ -419,11 +419,11 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         market_id = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
 
         if tracked_order.current_state == OrderState.FAILED:
-            self.logger().warning(f"Order {tracked_order.current_state} for {order_id}")
+            self.logger().debug(f"Order {tracked_order.current_state} for {order_id}")
             return False
 
         if tracked_order.current_state not in [OrderState.OPEN, OrderState.PARTIALLY_FILLED, OrderState.CREATED]:
-            self.logger().warning(f"Not canceling order due to state {tracked_order.current_state} for {order_id}")
+            self.logger().debug(f"Not canceling order due to state {tracked_order.current_state} for {order_id}")
             return False
 
         cancel_payload = {
@@ -640,8 +640,8 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
                     trade_updates.append(trade_update)
 
         except asyncio.TimeoutError:
-            raise IOError(f"Skipped order update with order fills for {tracked_order.client_order_id} "
-                          f"- waiting for exchange order id {exchange_order_id}.")
+            self.logger().warning(f"Skipped order update with order fills for {tracked_order.client_order_id} "
+                                  f"- waiting for exchange order id {exchange_order_id}.")
 
         return trade_updates
 
