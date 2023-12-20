@@ -379,23 +379,18 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
             return False
 
         if order.current_state in [OrderState.PENDING_CANCEL, OrderState.PENDING_CREATE]:
-            if order.client_order_id in self._order_cancel_attempts:
-                self._order_cancel_attempts[order.client_order_id] = self._order_cancel_attempts[order.client_order_id] + 1
-            else:
-                self._order_cancel_attempts[order.client_order_id] = 1
             # NOTE: Have a counter and then check, vs checking each time to reduce calls..
             order_update = await self._request_order_status(order, None, False)
             if order_update is not None and order_update.new_state is not None and order_update.new_state != order.current_state:
                 await self._order_tracker.process_order_update(order_update)
-                if order_update.new_state == OrderState.OPEN:
-                    self.logger().debug("Got new state update for order, proceeding.")
+                if order_update.new_state not in [OrderState.OPEN, OrderState.PARTIALLY_FILLED, OrderState.CREATED]:
+                    # We have a new state, however it's invalid and we shouldn't proceeed
+                    return False
             else:
                 if order_update is None:
-                    if order.exchange_order_id is not None:
-                        # TODO: If it's filled create order update for filled, otherwise just marke it as failed and remove it from the tracking...
-                        self.logger().debug(f"Technically we can check if this is filled even if we can't find it anymore vs failed. {order.exchange_order_id}")
-                    # TODO: We can't find the order, we need to do something after X times?? Or so long?
-                    self.logger().debug(f"Cancel attempts {self._order_cancel_attempts[order.client_order_id]}")
+                    # Process our not found, and increment
+                    self._order_tracker.process_order_not_found(order.client_order_id)
+                    self.logger().debug(f"Process order not found for {order.client_order_id}")
                 self.logger().debug(f"Attempting to cancel a pending order {order.client_order_id}, unable to do so.")
                 return False
 
@@ -640,8 +635,7 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
                     trade_updates.append(trade_update)
 
         except asyncio.TimeoutError:
-            self.logger().warning(f"Skipped order update with order fills for {tracked_order.client_order_id} "
-                                  f"- waiting for exchange order id {exchange_order_id}.")
+            self.logger().warning(f"Timeout when waiting for exchange order id {exchange_order_id}.")
 
         return trade_updates
 
