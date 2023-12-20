@@ -245,8 +245,8 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         await super().start_network()
 
     async def stop_network(self):
-        # await self.cancel_all(10.0)
-        # await self._sleep(1.0)
+        await self.cancel_all(10.0)
+        await self._sleep(1.0)
         await safe_gather(
             self._update_all_balances(),
             self._update_order_status(),
