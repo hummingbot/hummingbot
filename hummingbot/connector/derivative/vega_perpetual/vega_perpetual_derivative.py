@@ -69,6 +69,7 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         self._best_connection_endpoint = ""
         self._best_grpc_endpoint = ""
         self._is_connected = True
+        self._order_cancel_attempts = {}
 
         super().__init__(client_config_map)
 
@@ -245,8 +246,8 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         await super().start_network()
 
     async def stop_network(self):
-        await self.cancel_all(10.0)
-        await self._sleep(1.0)
+        # await self.cancel_all(10.0)
+        # await self._sleep(1.0)
         await safe_gather(
             self._update_all_balances(),
             self._update_order_status(),
@@ -375,12 +376,28 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
             # NOTE: The order has failed, we need to purge it from the orders available to cancel
             if order.client_order_id in self._order_tracker._cached_orders:
                 del self._order_tracker._cached_orders[order.client_order_id]
-            self.logger().debug("Attempting to cancel a failed order, unable to do so.")
+            self.logger().warning("Attempting to cancel a failed order, unable to do so.")
             return False
 
         if order.current_state in [OrderState.PENDING_CANCEL, OrderState.PENDING_CREATE]:
-            self.logger().debug("Attempting to cancel a pending order, unable to do so.")
-            return False
+            if order.client_order_id in self._order_cancel_attempts:
+                self._order_cancel_attempts[order.client_order_id] = self._order_cancel_attempts[order.client_order_id] + 1
+            else:
+                self._order_cancel_attempts[order.client_order_id] = 1
+            # TODO: Have a counter and then check, vs checking each time to reduce calls..
+            order_update = await self._request_order_status(order, None, False)
+            if order_update is not None and order_update.new_state is not None and order_update.new_state != order.current_state:
+                await self._order_tracker.process_order_update(order_update)
+                if order_update.new_state == OrderState.OPEN:
+                    self.logger().warning("Got new state update for order, proceeding.")
+            else:
+                if order_update is None:
+                    if order.exchange_order_id is not None:
+                        self.logger().warning(f"Technically we can check if this is filled even if we can't find it anymore vs failed. {order.exchange_order_id}")
+                    # TODO: We can't find the order, we need to do something after X times?? Or so long?
+                    self.logger().warning(f"Cancel attempts {self._order_cancel_attempts[order.client_order_id]}")
+                self.logger().warning(f"Attempting to cancel a pending order {order.client_order_id}, unable to do so.")
+                return False
 
         cancelled = await self._place_cancel(order.client_order_id, order)
         if cancelled:
@@ -402,11 +419,11 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         market_id = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
 
         if tracked_order.current_state == OrderState.FAILED:
-            self.logger().debug(f"Order {tracked_order.current_state} for {order_id}")
+            self.logger().warning(f"Order {tracked_order.current_state} for {order_id}")
             return False
 
         if tracked_order.current_state not in [OrderState.OPEN, OrderState.PARTIALLY_FILLED, OrderState.CREATED]:
-            self.logger().debug(f"Not canceling order due to state {tracked_order.current_state} for {order_id}")
+            self.logger().warning(f"Not canceling order due to state {tracked_order.current_state} for {order_id}")
             return False
 
         cancel_payload = {
@@ -589,17 +606,21 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[Optional[TradeUpdate]]:
         tracked_order = order
         trade_updates = []
+        exchange_order_id = tracked_order.exchange_order_id
+
+        if exchange_order_id is None:
+            _hb_order_id_to_exchange_order_id = {v: k for k, v in self._exchange_order_id_to_hb_order_id.items()}
+            if tracked_order.client_order_id in _hb_order_id_to_exchange_order_id.keys():
+                exchange_order_id = _hb_order_id_to_exchange_order_id[tracked_order.client_order_id]
+            else:
+                # Override to return if we can't get an exchange order id and the state is failed
+                if tracked_order.current_state == OrderState.FAILED:
+                    return trade_updates
 
         try:
-            exchange_order_id = tracked_order.exchange_order_id
+            # If exchange order id is STILL none, we'll try to use hummingbot's fetch
             if exchange_order_id is None:
-                _hb_order_id_to_exchange_order_id = {v: k for k, v in self._exchange_order_id_to_hb_order_id.items()}
-                if tracked_order.client_order_id in _hb_order_id_to_exchange_order_id.keys():
-                    exchange_order_id = _hb_order_id_to_exchange_order_id[tracked_order.client_order_id]
-                else:
-                    if tracked_order.current_state == OrderState.FAILED:
-                        return trade_updates
-                    exchange_order_id = await tracked_order.get_exchange_order_id()
+                exchange_order_id = await tracked_order.get_exchange_order_id()
             all_fills_response = await self._api_get(
                 path_url=CONSTANTS.TRADE_LIST_URL,
                 params={
@@ -620,7 +641,7 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
 
         except asyncio.TimeoutError:
             raise IOError(f"Skipped order update with order fills for {tracked_order.client_order_id} "
-                          "- waiting for exchange order id.")
+                          f"- waiting for exchange order id {exchange_order_id}.")
 
         return trade_updates
 
