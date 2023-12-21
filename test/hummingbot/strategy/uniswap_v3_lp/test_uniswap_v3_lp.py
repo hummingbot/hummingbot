@@ -137,13 +137,16 @@ class MockAMMLP(ConnectorBase):
     async def cancel_outdated_orders(self, _: int) -> List:
         return []
 
+    async def _update_balances(self):
+        pass
+
 
 class UniswapV3LpUnitTest(unittest.TestCase):
     def setUp(self):
         self.clock: Clock = Clock(ClockMode.REALTIME)
         self.stack: contextlib.ExitStack = contextlib.ExitStack()
         self.lp: MockAMMLP = MockAMMLP("onion")
-        self.lp.set_balance(BASE_ASSET, 500)
+        self.lp.set_balance(BASE_ASSET, 5)
         self.lp.set_balance(QUOTE_ASSET, 500)
         self.market_info = MarketTradingPairTuple(self.lp, TRADING_PAIR, BASE_ASSET, QUOTE_ASSET)
 
@@ -154,7 +157,8 @@ class UniswapV3LpUnitTest(unittest.TestCase):
             self.market_info,
             "LOW",
             Decimal("0.2"),
-            Decimal("1"),
+            Decimal("10"),
+            Decimal("100"),
             Decimal("10"),
         )
         self.clock.add_iterator(self.lp)
@@ -193,19 +197,27 @@ class UniswapV3LpUnitTest(unittest.TestCase):
 
   Assets:
       Exchange Asset  Total Balance  Available Balance
-    0    onion  HBOT            500                500
+    0    onion  HBOT              5                  5
     1    onion  USDT            500                500"""
         current_status = await self.strategy.format_status()
         print(current_status)
         self.assertTrue(expected_status in current_status)
 
     @async_test(loop=ev_loop)
-    async def test_any_active_position(self):
+    async def test_any_active_position_when_below_min_amount(self):
+        await asyncio.sleep(2)
+        self.assertFalse(self.strategy.any_active_position(Decimal("1")))
+
+    @async_test(loop=ev_loop)
+    async def test_any_active_position_when_above_min_amount(self):
+        await asyncio.sleep(2)
+        self.lp.set_balance(BASE_ASSET, 500)
         await asyncio.sleep(2)
         self.assertTrue(self.strategy.any_active_position(Decimal("1")))
 
     @async_test(loop=ev_loop)
     async def test_positions_are_created_with_price(self):
+        self.lp.set_balance(BASE_ASSET, 500)
         await asyncio.sleep(2)
         self.assertEqual(len(self.strategy.active_positions), 1)
         self.lp.set_price(TRADING_PAIR, 2)

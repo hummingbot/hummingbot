@@ -21,7 +21,8 @@ class UniswapV3LpStartTest(unittest.TestCase):
         uniswap_v3_lp_config_map.get("market").value = "ETH-USDT"
         uniswap_v3_lp_config_map.get("fee_tier").value = "LOW"
         uniswap_v3_lp_config_map.get("price_spread").value = Decimal("1")
-        uniswap_v3_lp_config_map.get("amount").value = Decimal("1")
+        uniswap_v3_lp_config_map.get("max_amount").value = Decimal("10")
+        uniswap_v3_lp_config_map.get("min_amount").value = Decimal("1")
         uniswap_v3_lp_config_map.get("min_profitability").value = Decimal("10")
 
     def _initialize_market_assets(self, market, trading_pairs):
@@ -42,5 +43,6 @@ class UniswapV3LpStartTest(unittest.TestCase):
     @unittest.mock.patch('hummingbot.strategy.uniswap_v3_lp.uniswap_v3_lp.UniswapV3LpStrategy.add_markets')
     def test_uniswap_v3_lp_strategy_creation(self, mock):
         uniswap_v3_lp_start.start(self)
-        self.assertEqual(self.strategy._amount, Decimal(1))
+        self.assertEqual(self.strategy._max_amount, Decimal(10))
+        self.assertEqual(self.strategy._min_amount, Decimal(1))
         self.assertEqual(self.strategy._min_profitability, Decimal("10"))
