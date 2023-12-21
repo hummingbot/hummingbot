@@ -97,7 +97,7 @@ class AmmV3LpStrategy(StrategyPyBase):
                     f"{PerformanceMetrics.smart_round(position.amount_1, 8)}",
                     f"{PerformanceMetrics.smart_round(position.unclaimed_fee_0, 8)} / "
                     f"{PerformanceMetrics.smart_round(position.unclaimed_fee_1, 8)}",
-                    "[In range]" if self._last_price >= position.adjusted_lower_price and self._last_price <= position.adjusted_upper_price else "[Out of range]"
+                    f"{self.get_position_status_by_price_range(self._last_price, position, Decimal(0.5))}",
                 ])
         return pd.DataFrame(data=data, columns=columns)
 
@@ -163,13 +163,14 @@ class AmmV3LpStrategy(StrategyPyBase):
                 await self.execute_proposal(lower_price, upper_price)
                 self.close_matured_positions()
 
-    def any_active_position(self, current_price: Decimal):
+    def any_active_position(self, current_price: Decimal, buffer_spread: Decimal = Decimal("0")) -> bool:
         """
         We use this to know if any existing position is in-range.
         :return: True/False
         """
         for position in self.active_positions:
-            if current_price >= position.lower_price and current_price <= position.upper_price:
+            if ((position.lower_price * (Decimal("1") - (buffer_spread / 100))) <= current_price <=
+                    (position.upper_price * (Decimal("1") + (buffer_spread / 100)))):
                 return True
         return False
 
@@ -184,7 +185,8 @@ class AmmV3LpStrategy(StrategyPyBase):
 
         if current_price != s_decimal_0:
             self._last_price = current_price
-            if not self.any_active_position(current_price):  # only set prices if there's no active position
+            if not self.any_active_position(Decimal(current_price),
+                                            Decimal("0.5")):  # only set prices if there's no active position
                 half_spread = self._price_spread / Decimal("2")
                 lower_price = (current_price * (Decimal("1") - half_spread))
                 upper_price = (current_price * (Decimal("1") + half_spread))
@@ -197,26 +199,35 @@ class AmmV3LpStrategy(StrategyPyBase):
         :param lower_price: lower price for position to be created
         :param upper_price: upper price for position to be created
         """
-        await self._market_info.market._update_balances()   # this is to ensure that we have the latest balances
+        await self._market_info.market._update_balances()  # this is to ensure that we have the latest balances
 
         base_balance = self._market_info.market.get_available_balance(self.base_asset)
         quote_balance = self._market_info.market.get_available_balance(self.quote_asset)
+
+        proposed_lower_price = lower_price
+        proposed_upper_price = upper_price
+
+        # Make sure we don't create position with too little amount of base asset
+        if base_balance < self._min_amount:
+            base_balance = s_decimal_0
+            proposed_upper_price = self._last_price * (Decimal("1") - Decimal("0.1") / 100)
+
+        # Make sure we don't create position with too little amount of quote asset
+        if (quote_balance * self._last_price) < self._min_amount:
+            quote_balance = s_decimal_0
+            proposed_lower_price = self._last_price * (Decimal("1") + Decimal("0.1") / 100)
+
         if base_balance + quote_balance == s_decimal_0:
             self.log_with_clock(logging.INFO,
                                 "Both balances exhausted. Add more assets.")
-        elif base_balance < self._min_amount:
-            self.log_with_clock(logging.INFO,
-                                f"Base balance exhausted. Available: {base_balance}, required: {self._min_amount}")
-        elif quote_balance < (self._min_amount * self._last_price):
-            self.log_with_clock(logging.INFO,
-                                f"Quote balance exhausted. Available: {quote_balance}, required: {(self._min_amount * self._last_price)}")
         else:
             self.log_with_clock(logging.INFO, f"Creating new position over {lower_price} to {upper_price} price range.")
+            self.log_with_clock(logging.INFO, f"Base balance: {base_balance}, quote balance: {quote_balance}")
             self._market_info.market.add_liquidity(self.trading_pair,
                                                    min(base_balance, self._max_amount),
                                                    min(quote_balance, (self._max_amount * self._last_price)),
-                                                   lower_price,
-                                                   upper_price,
+                                                   proposed_lower_price,
+                                                   proposed_upper_price,
                                                    self._fee_tier)
 
     def close_matured_positions(self):
@@ -228,9 +239,36 @@ class AmmV3LpStrategy(StrategyPyBase):
                 if position.unclaimed_fee_0 + (
                         position.unclaimed_fee_1 / self._last_price) > self._min_profitability:  # matured
                     self.log_with_clock(logging.INFO,
-                                        f"Closing position with Id {position.token_id}."
+                                        f"Closing position with Id {position.token_id} (Matured position)."
                                         f"Unclaimed base fee: {position.unclaimed_fee_0}, unclaimed quote fee: {position.unclaimed_fee_1}")
                     self._market_info.market.remove_liquidity(self.trading_pair, position.token_id)
+                else:
+                    self.close_out_of_buffered_range_position(position, Decimal("0.5"))
+
+    def close_out_of_buffered_range_position(self, position: any, buffer_spread: Decimal = None):
+        """
+        This closes out-of-range positions that are too far from last price.
+        """
+        if self._last_price <= (
+                position.lower_price * (Decimal("1") - (buffer_spread / 100))) or self._last_price >= (
+                position.upper_price * (Decimal("1") + (buffer_spread / 100))):  # out-of-range
+            self.log_with_clock(logging.INFO,
+                                f"Closing position with Id {position.token_id} (Out of range)."
+                                f"Unclaimed base fee: {position.unclaimed_fee_0}, unclaimed quote fee: {position.unclaimed_fee_1}")
+            self._market_info.market.remove_liquidity(self.trading_pair, position.token_id)
+
+    def get_position_status_by_price_range(self, last_price: Decimal, position: any, buffer_spread: Decimal = None):
+        """
+        This returns the status of a position based on last price and buffer spread.
+        There are 3 possible statuses: In range, In buffered range, Out of range.
+        """
+        if position.lower_price <= last_price <= position.upper_price:
+            return "[In range]"
+        elif ((position.lower_price * (Decimal("1") - (buffer_spread / 100))) <= last_price <=
+              (position.upper_price * (Decimal("1") + (buffer_spread / 100)))):
+            return "[In buffered range]"
+        else:
+            return "[Out of range]"
 
     def stop(self, clock: Clock):
         if self._main_task is not None:
