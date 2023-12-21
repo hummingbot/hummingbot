@@ -67,7 +67,7 @@ connector_status = {
     'woo_x': 'bronze',
     'woo_x_testnet': 'bronze',
     'xswap': 'bronze',
-    'xrpl': 'bronze'
+    'xrpl': 'bronze',
 }
 
 warning_messages = {
