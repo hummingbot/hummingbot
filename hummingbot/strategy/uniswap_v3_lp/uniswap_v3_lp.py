@@ -197,7 +197,7 @@ class UniswapV3LpStrategy(StrategyPyBase):
         :param lower_price: lower price for position to be created
         :param upper_price: upper price for position to be created
         """
-        await self._market_info.market._update_balances()
+        await self._market_info.market._update_balances()   # this is to ensure that we have the latest balances
 
         base_balance = self._market_info.market.get_available_balance(self.base_asset)
         quote_balance = self._market_info.market.get_available_balance(self.quote_asset)
