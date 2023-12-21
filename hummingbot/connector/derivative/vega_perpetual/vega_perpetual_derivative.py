@@ -635,7 +635,7 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
                     trade_updates.append(trade_update)
 
         except asyncio.TimeoutError:
-            self.logger().warning(f"Timeout when waiting for exchange order id {exchange_order_id}.")
+            self.logger().debug(f"Timeout when waiting for exchange order id got {exchange_order_id}.")
 
         return trade_updates
 
