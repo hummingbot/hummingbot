@@ -569,7 +569,7 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
                     try:
                         await order.get_exchange_order_id()
                     except Exception as e:
-                        self.logger().info(f"Unable to locate order on exchange waiting to sync with blockchain {e}")
+                        self.logger().info(f"Unable to locate order {order.client_order_id} on exchange. Pending update from blockchain {e}")
         track_order: List[InFlightOrder] = [o for o in tracked_orders if exchange_order_id == o.exchange_order_id]
         # if this is none request using the exchange order id
         if len(track_order) == 0 or track_order[0] is None:
