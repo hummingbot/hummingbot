@@ -28,14 +28,16 @@ class UniswapV3LpStrategy(StrategyPyBase):
                  market_info: MarketTradingPairTuple,
                  fee_tier: str,
                  price_spread: Decimal,
-                 amount: Decimal,
+                 min_amount: Decimal,
+                 max_amount: Decimal,
                  min_profitability: Decimal,
                  status_report_interval: float = 900):
         super().__init__()
         self._market_info = market_info
         self._fee_tier = fee_tier
         self._price_spread = price_spread
-        self._amount = amount
+        self._min_amount = min_amount
+        self._max_amount = max_amount
         self._min_profitability = min_profitability
 
         self._ev_loop = asyncio.get_event_loop()
@@ -65,11 +67,13 @@ class UniswapV3LpStrategy(StrategyPyBase):
 
     @property
     def active_positions(self):
-        return [pos for pos in self._market_info.market.amm_lp_orders if pos.is_nft and pos.trading_pair == self.trading_pair]
+        return [pos for pos in self._market_info.market.amm_lp_orders if
+                pos.is_nft and pos.trading_pair == self.trading_pair]
 
     @property
     def active_orders(self):
-        return [pos for pos in self._market_info.market.amm_lp_orders if not pos.is_nft and pos.trading_pair == self.trading_pair]
+        return [pos for pos in self._market_info.market.amm_lp_orders if
+                not pos.is_nft and pos.trading_pair == self.trading_pair]
 
     async def get_pool_price(self, update_volatility: bool = False) -> float:
         prices = await self._market_info.market.get_price(self.trading_pair, self._fee_tier)
@@ -120,7 +124,8 @@ class UniswapV3LpStrategy(StrategyPyBase):
         # See if there're any active positions.
         if len(self.active_positions) > 0:
             pos_info_df = self.active_positions_df()
-            lines.extend(["", "  Positions:"] + ["    " + line for line in pos_info_df.to_string(index=False).split("\n")])
+            lines.extend(
+                ["", "  Positions:"] + ["    " + line for line in pos_info_df.to_string(index=False).split("\n")])
         else:
             lines.extend(["", "  No active positions."])
 
@@ -155,7 +160,7 @@ class UniswapV3LpStrategy(StrategyPyBase):
         if len(self.active_orders) == 0:  # this ensures that there'll always be one lp order per time
             lower_price, upper_price = await self.propose_position_boundary()
             if lower_price + upper_price != s_decimal_0:
-                self.execute_proposal(lower_price, upper_price)
+                await self.execute_proposal(lower_price, upper_price)
                 self.close_matured_positions()
 
     def any_active_position(self, current_price: Decimal):
@@ -186,22 +191,30 @@ class UniswapV3LpStrategy(StrategyPyBase):
         lower_price = max(s_decimal_0, lower_price)
         return lower_price, upper_price
 
-    def execute_proposal(self, lower_price: Decimal, upper_price: Decimal):
+    async def execute_proposal(self, lower_price: Decimal, upper_price: Decimal):
         """
         This execute proposal generated earlier by propose_position_boundary function.
         :param lower_price: lower price for position to be created
         :param upper_price: upper price for position to be created
         """
+        await self._market_info.market._update_balances()
+
         base_balance = self._market_info.market.get_available_balance(self.base_asset)
         quote_balance = self._market_info.market.get_available_balance(self.quote_asset)
         if base_balance + quote_balance == s_decimal_0:
             self.log_with_clock(logging.INFO,
                                 "Both balances exhausted. Add more assets.")
+        elif base_balance < self._min_amount:
+            self.log_with_clock(logging.INFO,
+                                f"Base balance exhausted. Available: {base_balance}, required: {self._min_amount}")
+        elif quote_balance < (self._min_amount * self._last_price):
+            self.log_with_clock(logging.INFO,
+                                f"Quote balance exhausted. Available: {quote_balance}, required: {(self._min_amount * self._last_price)}")
         else:
             self.log_with_clock(logging.INFO, f"Creating new position over {lower_price} to {upper_price} price range.")
             self._market_info.market.add_liquidity(self.trading_pair,
-                                                   min(base_balance, self._amount),
-                                                   min(quote_balance, (self._amount * self._last_price)),
+                                                   min(base_balance, self._max_amount),
+                                                   min(quote_balance, (self._max_amount * self._last_price)),
                                                    lower_price,
                                                    upper_price,
                                                    self._fee_tier)
@@ -212,7 +225,8 @@ class UniswapV3LpStrategy(StrategyPyBase):
         """
         for position in self.active_positions:
             if self._last_price <= position.lower_price or self._last_price >= position.upper_price:  # out-of-range
-                if position.unclaimed_fee_0 + (position.unclaimed_fee_1 / self._last_price) > self._min_profitability:  # matured
+                if position.unclaimed_fee_0 + (
+                        position.unclaimed_fee_1 / self._last_price) > self._min_profitability:  # matured
                     self.log_with_clock(logging.INFO,
                                         f"Closing position with Id {position.token_id}."
                                         f"Unclaimed base fee: {position.unclaimed_fee_0}, unclaimed quote fee: {position.unclaimed_fee_1}")

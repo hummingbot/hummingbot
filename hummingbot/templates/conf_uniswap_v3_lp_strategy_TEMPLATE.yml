@@ -18,7 +18,8 @@ fee_tier: null
 price_spread: null
 
 # The amount of token (liquidity) provided to the pool
-amount: null
+max_amount: null
+min_amount: null
 
 # The minimum profit required before positions can be adjusted
 min_profitability: null

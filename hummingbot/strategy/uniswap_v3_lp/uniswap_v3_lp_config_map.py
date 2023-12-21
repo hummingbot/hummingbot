@@ -71,9 +71,15 @@ uniswap_v3_lp_config_map = {
         validator=lambda v: validate_decimal(v, Decimal("0"), inclusive=False),
         default=Decimal("1"),
         prompt_on_new=True),
-    "amount": ConfigVar(
-        key="amount",
+    "max_amount": ConfigVar(
+        key="max_amount",
         prompt="Enter the maximum value(in terms of base asset) to use for providing liquidity. >>>",
+        prompt_on_new=True,
+        validator=lambda v: validate_decimal(v, Decimal("0"), inclusive=False),
+        type_str="decimal"),
+    "min_amount": ConfigVar(
+        key="min_amount",
+        prompt="Enter the minimum value(in terms of base asset) to use for providing liquidity. >>>",
         prompt_on_new=True,
         validator=lambda v: validate_decimal(v, Decimal("0"), inclusive=False),
         type_str="decimal"),
