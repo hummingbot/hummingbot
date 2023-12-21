@@ -178,7 +178,7 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
             # Sort the results
             sorted_result = sorted(results, key=lambda x: x['latency'])
             # Return the connection endpoint with the best response time
-            self.logger().debug(sorted_result[0])
+            self.logger().info(f"Connected to Vega Protocol endpoint: {sorted_result[0]['connection']}")
             return sorted_result[0]["connection"]
         else:
             raise IOError("Unable to reach any endpoint for Vega Protocol, check configuration and try again.")
@@ -219,7 +219,7 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         if not self._orderbook_ds._ws_connected:
             return NetworkStatus.NOT_CONNECTED
         if not self._is_connected:
-            return NetworkStatus.NOT_CONNECTED
+            return NetworkStatus.STOPPED
         try:
             if await self._make_blockchain_check_request():
                 await self._make_network_check_request()
@@ -389,7 +389,7 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
             else:
                 if order_update is None:
                     # Process our not found, and increment
-                    self._order_tracker.process_order_not_found(order.client_order_id)
+                    await self._order_tracker.process_order_not_found(order.client_order_id)
                     self.logger().debug(f"Process order not found for {order.client_order_id}")
                 self.logger().debug(f"Attempting to cancel a pending order {order.client_order_id}, unable to do so.")
                 return False
@@ -435,7 +435,7 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
                 return_err=True
             )
             if not response.get("success", False) or ("code" in response and response["code"] != 0):
-                if ("code" in response and response["code"] == 60):
+                if ("code" in response and int(response["code"]) == 60):
                     self.logger().debug('Unable to submit cancel to blockchain')
                     raise IOError('Unable to submit cancel to blockchain error code 60')
                 self.logger().debug(f"Failed transaction submission for cancel of {order_id} with {response}")
@@ -547,8 +547,13 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         if not response.get("success", False):
             raise IOError(f"Failed transaction submission for {order_id} with {response}")
 
-        if "code" in response and response["code"] != 0:
-            raise ValueError(f"Failed transaction submission for {order_id} with {response}")
+        if "code" in response and int(response["code"]) != 0:
+            if int(response["code"]) == 89:
+                self._is_connected = False
+                raise IOError(f"Failed to submit transaction as too many transactions have been submitted to the blockchain, disconnecting. {response}")
+            if int(response["code"]) == 70:
+                raise IOError(f"Blockchain failed to process transaction will retry. {response}")
+            raise IOError(f"Failed transaction submission for {order_id} with {response}.")
 
         return None, time.time()
 
@@ -831,7 +836,10 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
         _hb_state = mapped_status
         misc_updates: Optional[Dict] = None
         if "reason" in order and _hb_state == OrderState.FAILED:
-            misc_updates = {"error": CONSTANTS.VegaOrderError[order["reason"]]}
+            misc_updates = {
+                # Check to see if we have string or integer
+                "error": order["reason"] if len(order["reason"]) > 6 else CONSTANTS.VegaOrderError[order["reason"]]
+            }
 
         # Updates the exchange_order_id ONLY here
         tracked_order.update_exchange_order_id(exchange_order_id)
@@ -877,11 +885,14 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
 
         # Calculate position leverage
         leverage = Decimal("1.0")
-        if m.hb_quote_name in self._account_balances:
-            # NOTE: Abs used here as position can be negative (short)
-            position_calculated_leverage = (entry_price * abs(amount)) / self._account_balances[m.hb_quote_name]
-            # NOTE: Ensures leverage is always one...
-            leverage = round(max(leverage, position_calculated_leverage), 1)
+        try:
+            if m.hb_quote_name in self._account_balances:
+                # NOTE: Abs used here as position can be negative (short)
+                position_calculated_leverage = (entry_price * abs(amount)) / self._account_balances[m.hb_quote_name]
+                # NOTE: Ensures leverage is always one...
+                leverage = round(max(leverage, position_calculated_leverage), 1)
+        except Exception as e:
+            self.logger().debug(f"Issue calculating leverage for position: {e}")
 
         _position: Position = self._perpetual_trading.get_position(m.hb_trading_pair, position_side)
         pos_key = self._perpetual_trading.position_key(m.hb_trading_pair, position_side)
