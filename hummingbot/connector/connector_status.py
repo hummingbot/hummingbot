@@ -44,8 +44,6 @@ connector_status = {
     'polkadex': 'silver',
     'vertex': 'bronze',
     'vertex_testnet': 'bronze',
-    'hyperliquid_perpetual_testnet': 'bronze',
-    'hyperliquid_perpetual': 'bronze',
     # gateway connectors
     'curve': 'bronze',
     'dexalot': 'silver',
