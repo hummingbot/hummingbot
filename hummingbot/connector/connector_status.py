@@ -29,6 +29,8 @@ connector_status = {
     'injective_v2': 'silver',
     'injective_v2_perpetual': 'silver',
     'hitbtc': 'bronze',
+    'hyperliquid_perpetual_testnet': 'bronze',
+    'hyperliquid_perpetual': 'bronze',
     'huobi': 'silver',
     'kraken': 'bronze',
     'kucoin': 'silver',
