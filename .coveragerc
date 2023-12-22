@@ -13,11 +13,6 @@ omit =
         hummingbot/client/ui/layout.py
         hummingbot/client/tab/*
         hummingbot/client/ui/parser.py
-        hummingbot/connector/connector/balancer*
-        hummingbot/connector/connector/terra*
-        hummingbot/connector/connector/uniswap*
-        hummingbot/connector/connector/uniswap_v3*
-        hummingbot/connector/derivative/perpetual_finance*
         hummingbot/connector/derivative/position.py
         hummingbot/connector/exchange/bitfinex*
         hummingbot/connector/exchange/coinbase_pro*
