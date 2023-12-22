@@ -17,6 +17,9 @@ fee_tier: null
 # The spread between lower price to the upper price
 price_spread: null
 
+# The buffer to keep position active when price is moving out of range
+buffer_spread: null
+
 # The amount of token (liquidity) provided to the pool
 max_amount: null
 min_amount: null

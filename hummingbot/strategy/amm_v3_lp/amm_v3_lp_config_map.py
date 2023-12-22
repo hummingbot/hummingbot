@@ -71,6 +71,13 @@ amm_v3_lp_config_map = {
         validator=lambda v: validate_decimal(v, Decimal("0"), inclusive=False),
         default=Decimal("1"),
         prompt_on_new=True),
+    "buffer_spread": ConfigVar(
+        key="buffer_spread",
+        prompt="How far from the position price range do you want to keep the position active? (Enter 1 to indicate 1%)  >>> ",
+        type_str="decimal",
+        validator=lambda v: validate_decimal(v, Decimal("0"), inclusive=False),
+        default=Decimal("0.5"),
+        prompt_on_new=True),
     "max_amount": ConfigVar(
         key="max_amount",
         prompt="Enter the maximum value(in terms of base asset) to use for providing liquidity. >>>",

@@ -15,6 +15,32 @@ ulp_logger = None
 s_decimal_0 = Decimal("0")
 
 
+def get_position_status_by_price_range(price: Decimal, lower_price: Decimal, upper_price: Decimal,
+                                       buffer_spread: Decimal = Decimal("0")):
+    """
+    This returns the status of a position based on last price and buffer spread.
+    There are 3 possible statuses: In range, In buffered range, Out of range.
+    """
+    if lower_price <= price <= upper_price:
+        return "[In range]"
+    elif is_price_in_range(price, lower_price, upper_price, buffer_spread):
+        return "[In buffered range]"
+    else:
+        return "[Out of range]"
+
+
+def is_price_in_range(price: Decimal, lower_price: Decimal, upper_price: Decimal,
+                      buffer_spread: Decimal = Decimal("0")):
+    """
+    Check if price is in range of lower and upper price with buffer spread.
+    """
+    if ((lower_price * (Decimal("1") - buffer_spread)) <= price <=
+            (upper_price * (Decimal("1") + buffer_spread))):
+        return True
+    else:
+        return False
+
+
 class AmmV3LpStrategy(StrategyPyBase):
 
     @classmethod
@@ -28,6 +54,7 @@ class AmmV3LpStrategy(StrategyPyBase):
                  market_info: MarketTradingPairTuple,
                  fee_tier: str,
                  price_spread: Decimal,
+                 buffer_spread: Decimal,
                  min_amount: Decimal,
                  max_amount: Decimal,
                  min_profitability: Decimal,
@@ -38,6 +65,7 @@ class AmmV3LpStrategy(StrategyPyBase):
         self._price_spread = price_spread
         self._min_amount = min_amount
         self._max_amount = max_amount
+        self._buffer_spread = buffer_spread
         self._min_profitability = min_profitability
 
         self._ev_loop = asyncio.get_event_loop()
@@ -97,7 +125,7 @@ class AmmV3LpStrategy(StrategyPyBase):
                     f"{PerformanceMetrics.smart_round(position.amount_1, 8)}",
                     f"{PerformanceMetrics.smart_round(position.unclaimed_fee_0, 8)} / "
                     f"{PerformanceMetrics.smart_round(position.unclaimed_fee_1, 8)}",
-                    f"{self.get_position_status_by_price_range(self._last_price, position, Decimal(0.5))}",
+                    f"{get_position_status_by_price_range(self._last_price, position.adjusted_lower_price, position.adjusted_upper_price, self._buffer_spread)}",
                 ])
         return pd.DataFrame(data=data, columns=columns)
 
@@ -169,8 +197,7 @@ class AmmV3LpStrategy(StrategyPyBase):
         :return: True/False
         """
         for position in self.active_positions:
-            if ((position.lower_price * (Decimal("1") - (buffer_spread / 100))) <= current_price <=
-                    (position.upper_price * (Decimal("1") + (buffer_spread / 100)))):
+            if is_price_in_range(current_price, position.lower_price, position.upper_price, buffer_spread):
                 return True
         return False
 
@@ -186,7 +213,7 @@ class AmmV3LpStrategy(StrategyPyBase):
         if current_price != s_decimal_0:
             self._last_price = current_price
             if not self.any_active_position(Decimal(current_price),
-                                            Decimal("0.5")):  # only set prices if there's no active position
+                                            self._buffer_spread):  # only set prices if there's no active position
                 half_spread = self._price_spread / Decimal("2")
                 lower_price = (current_price * (Decimal("1") - half_spread))
                 upper_price = (current_price * (Decimal("1") + half_spread))
@@ -206,16 +233,25 @@ class AmmV3LpStrategy(StrategyPyBase):
 
         proposed_lower_price = lower_price
         proposed_upper_price = upper_price
+        current_price = Decimal(await self.get_pool_price())
 
         # Make sure we don't create position with too little amount of base asset
         if base_balance < self._min_amount:
             base_balance = s_decimal_0
-            proposed_upper_price = self._last_price * (Decimal("1") - Decimal("0.1") / 100)
+            # Add 0.1% gap from current price to make sure we don't use any base balance in new position
+            # NOTE: Please make sure buffer_spread is bigger than 0.1% to avoid the position being closed immediately
+            proposed_upper_price = current_price * (Decimal("1") - Decimal("0.1") / 100)
+            # We use the whole price spread for lower bound
+            proposed_lower_price = current_price * (Decimal("1") - self._price_spread)
 
         # Make sure we don't create position with too little amount of quote asset
         if (quote_balance * self._last_price) < self._min_amount:
             quote_balance = s_decimal_0
-            proposed_lower_price = self._last_price * (Decimal("1") + Decimal("0.1") / 100)
+            # We use the whole price spread for upper bound
+            proposed_upper_price = current_price * (Decimal("1") + self._price_spread)
+            # Add 0.1% gap from current price to make sure we don't use any quote balance in new position
+            # NOTE: Please make sure buffer_spread is bigger than 0.1% to avoid the position being closed immediately
+            proposed_lower_price = current_price * (Decimal("1") + Decimal("0.1") / 100)
 
         if base_balance + quote_balance == s_decimal_0:
             self.log_with_clock(logging.INFO,
@@ -235,7 +271,8 @@ class AmmV3LpStrategy(StrategyPyBase):
         This closes out-of-range positions that have more than the min profitability.
         """
         for position in self.active_positions:
-            if self._last_price <= position.lower_price or self._last_price >= position.upper_price:  # out-of-range
+            if not is_price_in_range(self._last_price, position.lower_price, position.upper_price,
+                                     Decimal("0")):  # out-of-range
                 if position.unclaimed_fee_0 + (
                         position.unclaimed_fee_1 / self._last_price) > self._min_profitability:  # matured
                     self.log_with_clock(logging.INFO,
@@ -243,32 +280,17 @@ class AmmV3LpStrategy(StrategyPyBase):
                                         f"Unclaimed base fee: {position.unclaimed_fee_0}, unclaimed quote fee: {position.unclaimed_fee_1}")
                     self._market_info.market.remove_liquidity(self.trading_pair, position.token_id)
                 else:
-                    self.close_out_of_buffered_range_position(position, Decimal("0.5"))
+                    self.close_out_of_buffered_range_position(position)
 
-    def close_out_of_buffered_range_position(self, position: any, buffer_spread: Decimal = None):
+    def close_out_of_buffered_range_position(self, position: any):
         """
         This closes out-of-range positions that are too far from last price.
         """
-        if self._last_price <= (
-                position.lower_price * (Decimal("1") - (buffer_spread / 100))) or self._last_price >= (
-                position.upper_price * (Decimal("1") + (buffer_spread / 100))):  # out-of-range
+        if not is_price_in_range(self._last_price, position, self._buffer_spread):  # out-of-range
             self.log_with_clock(logging.INFO,
                                 f"Closing position with Id {position.token_id} (Out of range)."
                                 f"Unclaimed base fee: {position.unclaimed_fee_0}, unclaimed quote fee: {position.unclaimed_fee_1}")
             self._market_info.market.remove_liquidity(self.trading_pair, position.token_id)
-
-    def get_position_status_by_price_range(self, last_price: Decimal, position: any, buffer_spread: Decimal = None):
-        """
-        This returns the status of a position based on last price and buffer spread.
-        There are 3 possible statuses: In range, In buffered range, Out of range.
-        """
-        if position.lower_price <= last_price <= position.upper_price:
-            return "[In range]"
-        elif ((position.lower_price * (Decimal("1") - (buffer_spread / 100))) <= last_price <=
-              (position.upper_price * (Decimal("1") + (buffer_spread / 100)))):
-            return "[In buffered range]"
-        else:
-            return "[Out of range]"
 
     def stop(self, clock: Clock):
         if self._main_task is not None:
