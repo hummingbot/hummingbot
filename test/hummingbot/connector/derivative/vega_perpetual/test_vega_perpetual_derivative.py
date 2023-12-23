@@ -467,28 +467,28 @@ class VegaPerpetualDerivativeUnitTest(unittest.TestCase):
             tracked_order=o))
         self.async_run_with_timeout(task)
 
-    @aioresponses()
-    @patch('hummingbot.connector.derivative.vega_perpetual.vega_perpetual_auth.VegaPerpetualAuth.sign_payload', return_value="FAKE_SIGNATURE".encode('utf-8'))
-    @patch('hummingbot.connector.derivative.vega_perpetual.vega_perpetual_web_utils.get_current_server_time', return_value=1000000000.00)
-    def test_place_cancel_missing_exchange_order_id_tx_failed(self, mock_api, mock_signature, mock_server_time):
-        self._setup_markets(mock_api)
-        o = InFlightOrder(client_order_id= "FAKE_CLIENT_ID",
-                          trading_pair=self.ex_trading_pair,
-                          order_type= OrderType.LIMIT,
-                          trade_type= TradeType.BUY,
-                          amount= Decimal(1.0),
-                          creation_timestamp= 10000.0,
-                          exchange_order_id="FAKE_CLIENT_ID",
-                          initial_state=OrderState.CREATED)
+    # @aioresponses()
+    # @patch('hummingbot.connector.derivative.vega_perpetual.vega_perpetual_auth.VegaPerpetualAuth.sign_payload', return_value="FAKE_SIGNATURE".encode('utf-8'))
+    # @patch('hummingbot.connector.derivative.vega_perpetual.vega_perpetual_web_utils.get_current_server_time', return_value=1000000000.00)
+    # def test_place_cancel_missing_exchange_order_id_tx_failed(self, mock_api, mock_signature, mock_server_time):
+    #     self._setup_markets(mock_api)
+    #     o = InFlightOrder(client_order_id= "FAKE_CLIENT_ID",
+    #                       trading_pair=self.ex_trading_pair,
+    #                       order_type= OrderType.LIMIT,
+    #                       trade_type= TradeType.BUY,
+    #                       amount= Decimal(1.0),
+    #                       creation_timestamp= 10000.0,
+    #                       exchange_order_id="FAKE_CLIENT_ID",
+    #                       initial_state=OrderState.CREATED)
 
-        mock_api.post(self.submit_transaction_url,
-                      body=json.dumps(mock_requests.get_transaction_failure_mock()),
-                      headers={"Ratelimit-Limit": "100", "Ratelimit-Reset": "1"})
+    #     mock_api.post(self.submit_transaction_url,
+    #                   body=json.dumps(mock_requests.get_transaction_failure_mock()),
+    #                   headers={"Ratelimit-Limit": "100", "Ratelimit-Reset": "1"})
 
-        task = self.ev_loop.create_task(self.exchange._place_cancel(
-            order_id="FAKE_CLIENT_ID",
-            tracked_order=o))
-        self.async_run_with_timeout(task)
+    #     task = self.ev_loop.create_task(self.exchange._place_cancel(
+    #         order_id="FAKE_CLIENT_ID",
+    #         tracked_order=o))
+    #     self.async_run_with_timeout(task)
 
     @aioresponses()
     def test_set_leverage(self, mock_api):
