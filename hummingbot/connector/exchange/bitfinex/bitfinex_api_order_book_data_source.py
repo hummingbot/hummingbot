@@ -11,7 +11,16 @@ import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
 
+<<<<<<< HEAD
 from hummingbot.connector.exchange.bitfinex import BITFINEX_REST_URL, BITFINEX_WS_URI, ContentEventType
+=======
+from hummingbot.connector.exchange.bitfinex import (
+    BITFINEX_HEARTBEAT_INTERVAL,
+    BITFINEX_REST_URL,
+    BITFINEX_WS_URI,
+    ContentEventType,
+)
+>>>>>>> 89aff64ab ((feat) implement connected websocket assistant)
 from hummingbot.connector.exchange.bitfinex.bitfinex_active_order_tracker import BitfinexActiveOrderTracker
 from hummingbot.connector.exchange.bitfinex.bitfinex_order_book import BitfinexOrderBook
 from hummingbot.connector.exchange.bitfinex.bitfinex_order_book_message import BitfinexOrderBookMessage
@@ -27,6 +36,7 @@ from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
 BOOK_RET_TYPE = List[Dict[str, Any]]
@@ -487,3 +497,9 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 self.logger().error("Listening snapshots", err)
                 self.logger().error("Unexpected error", exc_info=True)
                 await asyncio.sleep(self.TIME_SLEEP_BETWEEN_REQUESTS)
+
+    async def _connected_websocket_assistant(self) -> WSAssistant:
+        ws_connection: websockets.WebSocketClientProtocol = websockets.connect(ws_url=BITFINEX_WS_URI,
+                                                                               ping_timeout=BITFINEX_HEARTBEAT_INTERVAL)
+        ws_assistant: WSAssistant = WSAssistant(ws_connection)
+        return ws_assistant
