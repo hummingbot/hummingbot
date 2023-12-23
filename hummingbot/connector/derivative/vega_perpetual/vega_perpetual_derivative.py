@@ -435,9 +435,15 @@ class VegaPerpetualDerivative(PerpetualDerivativePyBase):
                 return_err=True
             )
             if not response.get("success", False) or ("code" in response and response["code"] != 0):
-                if ("code" in response and int(response["code"]) == 60):
-                    self.logger().debug('Unable to submit cancel to blockchain')
-                    raise IOError('Unable to submit cancel to blockchain error code 60')
+                if "code" in response:
+                    if int(response["code"]) == 60:
+                        self.logger().debug('Unable to submit cancel to blockchain')
+                        raise IOError('Unable to submit cancel to blockchain error code 60')
+                    if int(response["code"]) == 89:
+                        self._is_connected = False
+                        raise IOError(f"Failed to submit transaction as too many transactions have been submitted to the blockchain, disconnecting. {response}")
+                    if int(response["code"]) == 70:
+                        raise IOError(f"Blockchain failed to process transaction will retry. {response}")
                 self.logger().debug(f"Failed transaction submission for cancel of {order_id} with {response}")
                 return False
 
