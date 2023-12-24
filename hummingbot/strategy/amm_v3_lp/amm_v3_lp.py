@@ -15,7 +15,7 @@ ulp_logger = None
 s_decimal_0 = Decimal("0")
 
 
-class UniswapV3LpStrategy(StrategyPyBase):
+class AmmV3LpStrategy(StrategyPyBase):
 
     @classmethod
     def logger(cls) -> HummingbotLogger:
