@@ -8,8 +8,9 @@ from urllib.parse import urlparse
 
 from bidict import bidict
 from gql.transport.appsync_auth import AppSyncJWTAuthentication
-from scalecodec import ScaleBytes
-from substrateinterface import Keypair, KeypairType, SubstrateInterface
+from scalecodec.base import RuntimeConfiguration
+from scalecodec.type_registry import load_type_registry_preset
+from substrateinterface import Keypair, KeypairType
 
 from hummingbot.connector.exchange.polkadex import polkadex_constants as CONSTANTS, polkadex_utils
 from hummingbot.connector.exchange.polkadex.polkadex_query_executor import GrapQLQueryExecutor
@@ -65,7 +66,13 @@ class PolkadexDataSource:
             self._user_proxy_address = "READ_ONLY"
             self._auth = AppSyncJWTAuthentication(netloc_host, "READ_ONLY")
 
-        self._substrate_interface = self._build_substrate_interface()
+        # Load Polkadex Runtime Config
+        self._runtime_config = RuntimeConfiguration()
+        # Register core types
+        self._runtime_config.update_type_registry(load_type_registry_preset("core"))
+        # Register Orderbook specific types
+        self._runtime_config.update_type_registry(CONSTANTS.CUSTOM_TYPES)
+
         self._query_executor = GrapQLQueryExecutor(auth=self._auth, domain=self._domain)
 
         self._publisher = PubSub()
@@ -100,6 +107,7 @@ class PolkadexDataSource:
     async def start(self, market_symbols: List[str]):
         if len(self._events_listening_tasks) > 0:
             raise AssertionError("Polkadex datasource is already listening to events and can't be started again")
+        await self._query_executor.create_ws_session()
 
         for market_symbol in market_symbols:
             self._events_listening_tasks.append(
@@ -325,7 +333,7 @@ class PolkadexDataSource:
             "side": self._polkadex_trade_type[trade_type],
         }
 
-        place_order_request = self._substrate_interface.create_scale_object("OrderPayload").encode(order_parameters)
+        place_order_request = self._runtime_config.create_scale_object("OrderPayload").encode(order_parameters)
         signature = self._keypair.sign(place_order_request)
 
         async with self._throttler.execute_task(limit_id=CONSTANTS.PLACE_ORDER_LIMIT_ID):
@@ -427,9 +435,7 @@ class PolkadexDataSource:
         return trade_updates
 
     async def _place_order_cancel(self, order: InFlightOrder, market_symbol: str) -> Dict[str, Any]:
-        cancel_request = self._build_substrate_request_with_retries(
-            type_string="H256", encode_value=order.exchange_order_id
-        )
+        cancel_request = self._runtime_config.create_scale_object("H256").encode(order.exchange_order_id)
         signature = self._keypair.sign(cancel_request)
 
         async with self._throttler.execute_task(limit_id=CONSTANTS.CANCEL_ORDER_LIMIT_ID):
@@ -442,30 +448,6 @@ class PolkadexDataSource:
             )
 
         return cancel_result
-
-    def _build_substrate_request_with_retries(
-        self, type_string: str, encode_value: Any, retries_left: int = 1
-    ) -> ScaleBytes:
-        try:
-            request = self._substrate_interface.create_scale_object(type_string=type_string).encode(value=encode_value)
-        except BrokenPipeError:
-            self.logger().exception("Rebuilding the substrate interface.")
-            if retries_left == 0:
-                raise
-            self._substrate_interface = self._build_substrate_interface()
-            request = self._build_substrate_request_with_retries(
-                type_string=type_string, encode_value=encode_value, retries_left=retries_left - 1
-            )
-        return request
-
-    def _build_substrate_interface(self) -> SubstrateInterface:
-        substrate_interface = SubstrateInterface(
-            url=CONSTANTS.BLOCKCHAIN_URLS[self._domain],
-            ss58_format=CONSTANTS.POLKADEX_SS58_PREFIX,
-            type_registry=CONSTANTS.CUSTOM_TYPES,
-            auto_discover=False,
-        )
-        return substrate_interface
 
     def _process_order_book_event(self, event: Dict[str, Any], market_symbol: str):
         safe_ensure_future(self._process_order_book_event_async(event=event, market_symbol=market_symbol))
