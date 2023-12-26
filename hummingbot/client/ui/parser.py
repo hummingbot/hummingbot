@@ -71,6 +71,7 @@ def load_parser(hummingbot: "HummingbotApplication", command_tabs) -> [ThrowingA
     start_parser = subparsers.add_parser("start", help="Start the current bot")
     # start_parser.add_argument("--log-level", help="Level of logging")
     start_parser.add_argument("--script", type=str, dest="script", help="Script strategy file name")
+    start_parser.add_argument("--conf", type=str, dest="conf", help="Script config file name")
 
     start_parser.set_defaults(func=hummingbot.start)
 
