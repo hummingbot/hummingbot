@@ -36,6 +36,7 @@ from hummingbot.core.data_type.order_book_row import OrderBookRow
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.order_book_tracker_entry import OrderBookTrackerEntry
 from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
@@ -503,3 +504,64 @@ class BitfinexAPIOrderBookDataSource(OrderBookTrackerDataSource):
                                                                                ping_timeout=BITFINEX_HEARTBEAT_INTERVAL)
         ws_assistant: WSAssistant = WSAssistant(ws_connection)
         return ws_assistant
+
+    async def _subscribe_channels(self, ws: WSAssistant):
+        try:
+            for trading_pair in self._trading_pairs:
+                # +------------------------+--------+-----------------------------------------------------------------+
+                # | Book Channel Subscription Request Fields (https://docs.bitfinex.com/reference/ws-public-books)    |
+                # +------------------------+--------+-----------------------------------------------------------------+
+                # | Fields                 | Type   | Description                                                     |
+                # | SYMBOL                 | String | Trading pair or funding currency                                |
+                # | PRECISION              | string | Level of price aggregation (P0, P1, P2, P3, P4). Default P0.    |
+                # | FREQUENCY              | string | Frequency of updates (F0=realtime, F1=2sec). Default F0         |
+                # | LENGTH                 | string | Number of price points ("1", "25", "100", "250") [default="25"] |
+                # | SUBID                  | string | Optional user-defined ID for the subscription                   |
+                # +------------------------+--------+-----------------------------------------------------------------+
+                book_subscription_request: WSJSONRequest = WSJSONRequest(payload={
+                    "event": "subscribe",
+                    "channel": "book",
+                    "prec": "P0",
+                    "freq": "F0",
+                    "symbol": convert_to_exchange_trading_pair(trading_pair),
+                })
+
+                # +------------------------+--------+-----------------------------------------------------------------+
+                # | Trades Channel Subscription Request Fields (https://docs.bitfinex.com/reference/ws-public-trades) |
+                # +------------------------+--------+-----------------------------------------------------------------+
+                # | Fields                 | Type   | Description                                                     |
+                # | SYMBOL                 | String | Trading pair or funding currency                                |
+                # | PRECISION              | string | Level of price aggregation (P0, P1, P2, P3, P4). Default P0.    |
+                # | FREQUENCY              | string | Frequency of updates (F0=realtime, F1=2sec). Default F0         |
+                # | LENGTH                 | string | Number of price points ("1", "25", "100", "250") [default="25"] |
+                # | SUBID                  | string | Optional user-defined ID for the subscription                   |
+                # +------------------------+--------+-----------------------------------------------------------------+
+                trades_subscription_request: WSJSONRequest = WSJSONRequest(payload={
+                    "event": "subscribe",
+                    "channel": "trades",
+                    "prec": "P0",
+                    "freq": "F0",
+                    "symbol": convert_to_exchange_trading_pair(trading_pair),
+                })
+
+                book_subscription_response = await ws.send(book_subscription_request)
+                trades_subscription_response = await ws.send(trades_subscription_request)
+
+                if "subscribed" in book_subscription_response.payload:
+                    self.logger().info(f"Subscribed to order book channel for {trading_pair}.")
+                else:
+                    self.logger().error(f"Failed to subscribe to order book channel for {trading_pair}.")
+
+                if "subscribed" in trades_subscription_response.payload:
+                    self.logger().info(f"Subscribed to trades channel for {trading_pair}.")
+                else:
+                    self.logger().error(f"Failed to subscribe to trades channel for {trading_pair}.")
+
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().error(
+                "Unexpected error occurred subscribing to order book trading and delta streams...",
+                exc_info=True
+            )
+            raise
