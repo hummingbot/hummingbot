@@ -47,3 +47,11 @@ if [[ "$OS" = "Darwin" && "$ARCH" = "x86_64" ]]; then
   pip install grpcio --ignore-installed
 fi
 
+# Check for build-essential (only relevant for Debian-based systems)
+if [ "$(uname)" = "Linux" ]; then
+    if ! dpkg -s build-essential &> /dev/null; then
+        echo "build-essential not found, installing..."
+        sudo apt-get update && sudo apt-get upgrade -y
+        sudo apt-get install -y build-essential
+    fi
+fi
