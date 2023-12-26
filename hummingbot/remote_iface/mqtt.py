@@ -162,6 +162,7 @@ class MQTTCommands:
                 self._hb_app.start(
                     log_level=msg.log_level,
                     script=msg.script,
+                    conf=msg.conf,
                     is_quickstart=msg.is_quickstart
                 )
             else:
@@ -169,6 +170,7 @@ class MQTTCommands:
                     self._hb_app.start_check(
                         log_level=msg.log_level,
                         script=msg.script,
+                        conf=msg.conf,
                         is_quickstart=msg.is_quickstart
                     ),
                     loop=self._ev_loop,
