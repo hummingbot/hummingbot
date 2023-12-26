@@ -11,6 +11,7 @@ from hummingbot.client.settings import (
     GATEWAY_CONNECTORS,
     PMM_SCRIPTS_PATH,
     SCRIPT_STRATEGIES_PATH,
+    SCRIPT_STRATEGY_CONFIG_PATH,
     STRATEGIES,
     STRATEGIES_CONF_DIR_PATH,
     AllConnectorSettings,
@@ -71,6 +72,7 @@ class HummingbotCompleter(Completer):
         self._strategy_completer = WordCompleter(STRATEGIES, ignore_case=True)
         self._py_file_completer = WordCompleter(file_name_list(str(PMM_SCRIPTS_PATH), "py"))
         self._script_strategy_completer = WordCompleter(file_name_list(str(SCRIPT_STRATEGIES_PATH), "py"))
+        self._scripts_config_completer = WordCompleter(file_name_list(str(SCRIPT_STRATEGY_CONFIG_PATH), "yml"))
         self._rate_oracle_completer = WordCompleter(list(RATE_ORACLE_SOURCES.keys()), ignore_case=True)
         self._mqtt_completer = WordCompleter(["start", "stop", "restart"], ignore_case=True)
         self._gateway_chains = []
@@ -141,7 +143,7 @@ class HummingbotCompleter(Completer):
 
     def _complete_configs(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
-        return "config" in text_before_cursor
+        return text_before_cursor.startswith("config")
 
     def _complete_options(self, document: Document) -> bool:
         return "(" in self.prompt_text and ")" in self.prompt_text and "/" in self.prompt_text
@@ -210,7 +212,11 @@ class HummingbotCompleter(Completer):
 
     def _complete_script_strategy_files(self, document: Document) -> bool:
         text_before_cursor: str = document.text_before_cursor
-        return text_before_cursor.startswith("start --script ")
+        return text_before_cursor.startswith("start --script ") and "--conf" not in text_before_cursor
+
+    def _complete_script_strategy_config(self, document: Document) -> bool:
+        text_before_cursor: str = document.text_before_cursor
+        return text_before_cursor.startswith("start --script ") and "--conf" in text_before_cursor
 
     def _complete_trading_pairs(self, document: Document) -> bool:
         return "trading pair" in self.prompt_text
@@ -262,6 +268,10 @@ class HummingbotCompleter(Completer):
 
         elif self._complete_script_strategy_files(document):
             for c in self._script_strategy_completer.get_completions(document, complete_event):
+                yield c
+
+        elif self._complete_script_strategy_config(document):
+            for c in self._scripts_config_completer.get_completions(document, complete_event):
                 yield c
 
         elif self._complete_paths(document):
