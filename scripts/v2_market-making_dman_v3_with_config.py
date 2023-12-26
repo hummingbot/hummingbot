@@ -1,9 +1,6 @@
 from decimal import Decimal
 from typing import Dict, List
 
-import yaml
-from pydantic import BaseModel
-
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
@@ -14,15 +11,10 @@ from hummingbot.smart_components.strategy_frameworks.market_making.market_making
 )
 from hummingbot.smart_components.utils.distributions import Distributions
 from hummingbot.smart_components.utils.order_level_builder import OrderLevelBuilder
-from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
+from hummingbot.strategy.script_strategy_base import ScriptConfigBase, ScriptStrategyBase
 
 
-def load_yaml_config(file_path: str) -> dict:
-    with open(file_path, 'r') as file:
-        return yaml.safe_load(file)
-
-
-class DManV3ScriptConfig(BaseModel):
+class DManV3ScriptConfig(ScriptConfigBase):
     exchange: str
     trading_pairs: List[str]
     leverage: int
@@ -48,49 +40,46 @@ class DManV3ScriptConfig(BaseModel):
 
 
 class DManV3MultiplePairs(ScriptStrategyBase):
-    # Account configuration
-    config_file_path = "./conf/scripts/dman_v3_1.yml"
-    config = DManV3ScriptConfig(**load_yaml_config(config_file_path))
+    @classmethod
+    def init_config(cls, config: DManV3ScriptConfig):
+        cls.markets = {config.exchange: set(config.trading_pairs)}
 
-    # Applying the configuration
-    order_level_builder = OrderLevelBuilder(n_levels=config.n_levels)
-    order_levels = order_level_builder.build_order_levels(
-        amounts=config.order_amount,
-        spreads=Distributions.arithmetic(n_levels=config.n_levels, start=config.start_spread, step=config.step_between_orders),
-        triple_barrier_confs=TripleBarrierConf(
-            stop_loss=config.stop_loss, take_profit=config.take_profit, time_limit=config.time_limit,
-            trailing_stop_activation_price_delta=config.trailing_stop_activation_price_delta,
-            trailing_stop_trailing_delta=config.trailing_stop_trailing_delta),
-    )
-    controllers = {}
-    markets = {}
-    executor_handlers = {}
-
-    for trading_pair in config.trading_pairs:
-        controller_config = DManV3Config(
-            exchange=config.exchange,
-            trading_pair=trading_pair,
-            order_levels=order_levels,
-            candles_config=[
-                CandlesConfig(connector=config.candles_exchange, trading_pair=trading_pair,
-                              interval=config.candles_interval, max_records=config.candles_max_records),
-            ],
-            bb_length=config.bollinger_band_length,
-            bb_std=config.bollinger_band_std,
-            side_filter=config.side_filter,
-            dynamic_spread_factor=config.dynamic_spread_factor,
-            dynamic_target_spread=config.dynamic_target_spread,
-            smart_activation=config.smart_activation,
-            activation_threshold=config.activation_threshold,
-            leverage=config.leverage,
-        )
-        controller = DManV3(config=controller_config)
-        markets = controller.update_strategy_markets_dict(markets)
-        controllers[trading_pair] = controller
-
-    def __init__(self, connectors: Dict[str, ConnectorBase]):
+    def __init__(self, connectors: Dict[str, ConnectorBase], config: DManV3ScriptConfig):
         super().__init__(connectors)
-        for trading_pair, controller in self.controllers.items():
+        self.config = config
+        order_level_builder = OrderLevelBuilder(n_levels=config.n_levels)
+        order_levels = order_level_builder.build_order_levels(
+            amounts=config.order_amount,
+            spreads=Distributions.arithmetic(n_levels=config.n_levels, start=config.start_spread, step=config.step_between_orders),
+            triple_barrier_confs=TripleBarrierConf(
+                stop_loss=config.stop_loss, take_profit=config.take_profit, time_limit=config.time_limit,
+                trailing_stop_activation_price_delta=config.trailing_stop_activation_price_delta,
+                trailing_stop_trailing_delta=config.trailing_stop_trailing_delta),
+        )
+        self.controllers = {}
+        self.markets = {}
+        self.executor_handlers = {}
+
+        for trading_pair in config.trading_pairs:
+            controller_config = DManV3Config(
+                exchange=config.exchange,
+                trading_pair=trading_pair,
+                order_levels=order_levels,
+                candles_config=[
+                    CandlesConfig(connector=config.candles_exchange, trading_pair=trading_pair,
+                                  interval=config.candles_interval, max_records=config.candles_max_records),
+                ],
+                bb_length=config.bollinger_band_length,
+                bb_std=config.bollinger_band_std,
+                side_filter=config.side_filter,
+                dynamic_spread_factor=config.dynamic_spread_factor,
+                dynamic_target_spread=config.dynamic_target_spread,
+                smart_activation=config.smart_activation,
+                activation_threshold=config.activation_threshold,
+                leverage=config.leverage,
+            )
+            controller = DManV3(config=controller_config)
+            self.controllers[trading_pair] = controller
             self.executor_handlers[trading_pair] = MarketMakingExecutorHandler(strategy=self, controller=controller)
 
     @property

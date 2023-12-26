@@ -83,7 +83,7 @@ class DManV3MultiplePairs(ScriptStrategyBase):
         markets = controller.update_strategy_markets_dict(markets)
         controllers[trading_pair] = controller
 
-    def __init__(self, connectors: Dict[str, ConnectorBase]):
+    def __init__(self, connectors: Dict[str, ConnectorBase], config=None):
         super().__init__(connectors)
         for trading_pair, controller in self.controllers.items():
             self.executor_handlers[trading_pair] = MarketMakingExecutorHandler(strategy=self, controller=controller)
