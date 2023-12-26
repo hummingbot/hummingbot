@@ -11,16 +11,12 @@ import ujson
 import websockets
 from websockets.exceptions import ConnectionClosed
 
-<<<<<<< HEAD
-from hummingbot.connector.exchange.bitfinex import BITFINEX_REST_URL, BITFINEX_WS_URI, ContentEventType
-=======
 from hummingbot.connector.exchange.bitfinex import (
     BITFINEX_HEARTBEAT_INTERVAL,
     BITFINEX_REST_URL,
     BITFINEX_WS_URI,
     ContentEventType,
 )
->>>>>>> 89aff64ab ((feat) implement connected websocket assistant)
 from hummingbot.connector.exchange.bitfinex.bitfinex_active_order_tracker import BitfinexActiveOrderTracker
 from hummingbot.connector.exchange.bitfinex.bitfinex_order_book import BitfinexOrderBook
 from hummingbot.connector.exchange.bitfinex.bitfinex_order_book_message import BitfinexOrderBookMessage
