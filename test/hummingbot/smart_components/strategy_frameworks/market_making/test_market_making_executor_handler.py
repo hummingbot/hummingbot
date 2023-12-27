@@ -34,6 +34,7 @@ class TestMarketMakingExecutorHandler(IsolatedAsyncioWrapperTestCase):
             OrderLevel(level=1, side=TradeType.SELL, order_amount_usd=Decimal("100"),
                        spread_factor=Decimal("0.01"), triple_barrier_conf=triple_barrier_conf)
         ]
+        self.mock_controller.config.global_trailing_stop_config = None
 
         # Instantiating the MarketMakingExecutorHandler
         self.handler = MarketMakingExecutorHandler(
