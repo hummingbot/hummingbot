@@ -41,7 +41,7 @@ class ScriptStrategyBase(StrategyPyBase):
         return lsb_logger
 
     @classmethod
-    def init_config(cls, config: BaseModel):
+    def init_markets(cls, config: BaseModel):
         """This method is called in the start command if the script has a config class defined, and allows
         the script to define the market connectors and trading pairs needed for the strategy operation."""
         raise NotImplementedError
