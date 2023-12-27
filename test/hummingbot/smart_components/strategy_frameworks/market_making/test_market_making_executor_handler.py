@@ -142,3 +142,13 @@ class TestMarketMakingExecutorHandler(IsolatedAsyncioWrapperTestCase):
         # Assert that the global trailing stop is activated and/or triggered as expected
         # This includes checking for logger messages, early_stop calls, and the state of _trailing_stop_pnl_by_side
         self.assertEqual(self.handler._trailing_stop_pnl_by_side[TradeType.BUY], Decimal("0.0195"))
+
+        # Update the executor's net_pnl_quote to simulate a decrease in PnL that triggers the early stop
+        mock_executor.net_pnl_quote = Decimal("50")  # Adjust this value to trigger the early stop
+
+        # Call the control_task method again
+        await self.handler.control_task()
+
+        # Assert Early Stop Triggered
+        mock_executor.early_stop.assert_called_once()
+        self.assertIsNone(self.handler._trailing_stop_pnl_by_side[TradeType.BUY])
