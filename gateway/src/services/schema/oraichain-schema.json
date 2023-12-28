@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "networks": {
+      "type": "object",
+      "patternProperties": {
+        "^\\w+$": {
+          "type": "object",
+          "properties": {
+            "chainId": { "type": "string" },
+            "nodeURL": { "type": "string" }
+          },
+          "required": ["chainId", "nodeURL"],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "nativeCurrencySymbol": { "type": "string" },
+    "gasLimitEstimate": { "type": "integer" }
+  },
+  "additionalProperties": false,
+  "required": ["nativeCurrencySymbol"]
+}
