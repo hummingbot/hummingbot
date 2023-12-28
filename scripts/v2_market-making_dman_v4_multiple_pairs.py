@@ -37,13 +37,13 @@ class DManV4MultiplePairs(ScriptStrategyBase):
     order_amount = Decimal("6")
     amount_ratio_increase = 1.5
     n_levels = 5
-    top_order_start_spread = 0.0003
+    top_order_start_spread = 0.0002
     start_spread = 0.02
     spread_ratio_increase = 2.0
 
     top_order_refresh_time = 60
     order_refresh_time = 60 * 60 * 2
-    cooldown_time = 10
+    cooldown_time = 30
 
     # Triple barrier configuration
     stop_loss = Decimal("0.2")
@@ -51,8 +51,8 @@ class DManV4MultiplePairs(ScriptStrategyBase):
     time_limit = 60 * 60 * 12
 
     # Global Trailing Stop configuration
-    global_trailing_stop_activation_price_delta = Decimal("0.006")
-    global_trailing_stop_trailing_delta = Decimal("0.001")
+    global_trailing_stop_activation_price_delta = Decimal("0.01")
+    global_trailing_stop_trailing_delta = Decimal("0.002")
 
     # Advanced configurations
     dynamic_spread_factor = False
@@ -70,7 +70,6 @@ class DManV4MultiplePairs(ScriptStrategyBase):
         spreads=[Decimal(top_order_start_spread)] + Distributions.geometric(n_levels=n_levels - 1, start=start_spread, ratio=spread_ratio_increase),
         triple_barrier_confs=TripleBarrierConf(
             stop_loss=stop_loss, take_profit=take_profit, time_limit=time_limit,
-            take_profit_order_type=OrderType.LIMIT,
         ),
         order_refresh_time=[top_order_refresh_time] + [order_refresh_time] * (n_levels - 1),
         cooldown_time=cooldown_time,
