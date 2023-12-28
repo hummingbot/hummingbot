@@ -19,7 +19,7 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 class DManV4MultiplePairs(ScriptStrategyBase):
     # Account configuration
     exchange = "binance_perpetual"
-    trading_pairs = ["USTC-USDT"]
+    trading_pairs = ["OP-USDT"]
     leverage = 20
     initial_auto_rebalance = False
     extra_inventory_pct = 0.1
@@ -35,46 +35,44 @@ class DManV4MultiplePairs(ScriptStrategyBase):
 
     # Orders configuration
     order_amount = Decimal("6")
-    amount_ratio_increase = Decimal("1.6")
-    n_levels = 10
-    start_spread = 0.001
-    step_between_orders = 0.015
+    amount_ratio_increase = 1.5
+    n_levels = 5
+    top_order_start_spread = 0.0003
+    start_spread = 0.02
+    spread_ratio_increase = 2.0
+
+    top_order_refresh_time = 60
     order_refresh_time = 60 * 60 * 2
-    cooldown_time = 0
+    cooldown_time = 10
 
     # Triple barrier configuration
     stop_loss = Decimal("0.2")
     take_profit = Decimal("0.06")
     time_limit = 60 * 60 * 12
-    trailing_stop_activation_price_delta = Decimal("0.008")
-    trailing_stop_trailing_delta = Decimal("0.002")
 
     # Global Trailing Stop configuration
-    global_trailing_stop_activation_price_delta = Decimal("0.015")
-    global_trailing_stop_trailing_delta = Decimal("0.002")
+    global_trailing_stop_activation_price_delta = Decimal("0.006")
+    global_trailing_stop_trailing_delta = Decimal("0.001")
 
     # Advanced configurations
     dynamic_spread_factor = False
     dynamic_target_spread = False
     smart_activation = False
     activation_threshold = Decimal("0.001")
-    price_band = True
+    price_band = False
     price_band_long_filter = Decimal("0.8")
     price_band_short_filter = Decimal("0.8")
 
-    amounts = Distributions.geometric(n_levels=n_levels, start=float(order_amount), ratio=float(amount_ratio_increase))
     # Applying the configuration
     order_level_builder = OrderLevelBuilder(n_levels=n_levels)
     order_levels = order_level_builder.build_order_levels(
-        amounts=amounts,
-        spreads=Distributions.arithmetic(n_levels=n_levels, start=start_spread, step=step_between_orders),
+        amounts=Distributions.geometric(n_levels=n_levels, start=float(order_amount), ratio=amount_ratio_increase),
+        spreads=[Decimal(top_order_start_spread)] + Distributions.geometric(n_levels=n_levels, start=start_spread, ratio=spread_ratio_increase),
         triple_barrier_confs=TripleBarrierConf(
             stop_loss=stop_loss, take_profit=take_profit, time_limit=time_limit,
-            trailing_stop_activation_price_delta=trailing_stop_activation_price_delta,
-            trailing_stop_trailing_delta=trailing_stop_trailing_delta,
             take_profit_order_type=OrderType.LIMIT,
         ),
-        order_refresh_time=order_refresh_time,
+        order_refresh_time=[top_order_refresh_time] + [order_refresh_time] * (n_levels - 1),
         cooldown_time=cooldown_time,
     )
     controllers = {}
