@@ -4,7 +4,7 @@ from typing import Dict, Optional
 
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.logger import HummingbotLogger
-from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorStatus
+from hummingbot.smart_components.executors.position_executor.data_types import CloseType, PositionExecutorStatus
 from hummingbot.smart_components.strategy_frameworks.executor_handler_base import ExecutorHandlerBase
 from hummingbot.smart_components.strategy_frameworks.market_making.market_making_controller_base import (
     MarketMakingControllerBase,
@@ -54,7 +54,7 @@ class MarketMakingExecutorHandler(ExecutorHandlerBase):
             for order_level in self.controller.config.order_levels:
                 current_executor = self.level_executors[order_level.level_id]
                 if current_executor:
-                    closed_and_not_in_cooldown = current_executor.is_closed and not self.controller.cooldown_condition(
+                    closed_and_not_in_cooldown = current_executor.is_closed and current_executor.close_type != CloseType.EXPIRED and not self.controller.cooldown_condition(
                         current_executor, order_level)
                     active_and_early_stop_condition = current_executor.executor_status == PositionExecutorStatus.ACTIVE_POSITION and self.controller.early_stop_condition(
                         current_executor, order_level)
