@@ -650,10 +650,12 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
                     min_notional_size=Decimal(product.get("quote_min_size", None)),
                     min_order_value=Decimal(product.get("base_min_size", None)) * Decimal(
                         product.get("price", None)),
-                    max_price_significant_digits=Decimal((math.floor(
-                        math.log10(abs(float(product.get("quote_increment", None))))))),
-                    supports_limit_orders=product.get("supports_limit_orders", None),
-                    supports_market_orders=product.get("supports_market_orders", None),
+                    max_price_significant_digits=Decimal(
+                        abs(math.floor(
+                            math.log10(
+                                abs(float(product.get("quote_increment", 0))))))),
+                    supports_limit_orders=product.get("supports_limit_orders", False),
+                    supports_market_orders=product.get("supports_market_orders", False),
                     buy_order_collateral_token=None,
                     sell_order_collateral_token=None
                 )

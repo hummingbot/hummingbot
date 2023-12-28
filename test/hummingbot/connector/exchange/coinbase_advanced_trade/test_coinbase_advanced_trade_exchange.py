@@ -317,7 +317,7 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
             min_quote_amount_increment=Decimal("0.010000000000000000"),
             min_notional_size=Decimal("0.010000000000000000"),
             min_order_value=Decimal("0.010000000000000000"),
-            max_price_significant_digits=Decimal("0.010000000000000000"),
+            max_price_significant_digits=Decimal("2"),
             supports_limit_orders=True,
             supports_market_orders=True,
             buy_order_collateral_token="HBOT",
@@ -1844,6 +1844,29 @@ class CoinbaseAdvancedTradeExchangeTests(AbstractExchangeConnectorTests.Exchange
             "Some error")
 
         self.async_run_with_timeout(self.exchange._update_time_synchronizer(pass_on_non_cancelled_error=True))
+
+    @aioresponses()
+    def test_update_trading_rules(self, mock_api):
+        self.exchange._set_current_timestamp(1000)
+
+        self.configure_trading_rules_response(mock_api=mock_api)
+
+        self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
+
+        self.assertTrue(self.trading_pair in self.exchange.trading_rules)
+        trading_rule: TradingRule = self.exchange.trading_rules[self.trading_pair]
+
+        self.assertTrue(self.trading_pair in self.exchange.trading_rules)
+        self.maxDiff = None
+        self.assertEqual(repr(self.expected_trading_rule), repr(trading_rule))
+
+        trading_rule_with_default_values = TradingRule(trading_pair=self.trading_pair)
+
+        # The following element can't be left with the default value because that breaks quantization in Cython
+        self.assertNotEqual(trading_rule_with_default_values.min_base_amount_increment,
+                            trading_rule.min_base_amount_increment)
+        self.assertNotEqual(trading_rule_with_default_values.min_price_increment,
+                            trading_rule.min_price_increment)
 
     @patch.object(ExchangePyBase, "_api_post", new_callable=AsyncMock)
     @patch.object(CoinbaseAdvancedTradeExchange, "exchange_symbol_associated_to_pair", new_callable=AsyncMock)
