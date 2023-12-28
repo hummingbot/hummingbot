@@ -54,8 +54,8 @@ class MarketMakingExecutorHandler(ExecutorHandlerBase):
             for order_level in self.controller.config.order_levels:
                 current_executor = self.level_executors[order_level.level_id]
                 if current_executor:
-                    closed_and_not_in_cooldown = current_executor.is_closed and current_executor.close_type != CloseType.EXPIRED and not self.controller.cooldown_condition(
-                        current_executor, order_level)
+                    closed_and_not_in_cooldown = current_executor.is_closed and not self.controller.cooldown_condition(
+                        current_executor, order_level) or current_executor.close_type == CloseType.EXPIRED
                     active_and_early_stop_condition = current_executor.executor_status == PositionExecutorStatus.ACTIVE_POSITION and self.controller.early_stop_condition(
                         current_executor, order_level)
                     order_placed_and_refresh_condition = current_executor.executor_status == PositionExecutorStatus.NOT_STARTED and self.controller.refresh_order_condition(
