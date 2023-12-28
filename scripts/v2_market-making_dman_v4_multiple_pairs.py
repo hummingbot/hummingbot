@@ -67,7 +67,7 @@ class DManV4MultiplePairs(ScriptStrategyBase):
     order_level_builder = OrderLevelBuilder(n_levels=n_levels)
     order_levels = order_level_builder.build_order_levels(
         amounts=Distributions.geometric(n_levels=n_levels, start=float(order_amount), ratio=amount_ratio_increase),
-        spreads=[Decimal(top_order_start_spread)] + Distributions.geometric(n_levels=n_levels, start=start_spread, ratio=spread_ratio_increase),
+        spreads=[Decimal(top_order_start_spread)] + Distributions.geometric(n_levels=n_levels - 1, start=start_spread, ratio=spread_ratio_increase),
         triple_barrier_confs=TripleBarrierConf(
             stop_loss=stop_loss, take_profit=take_profit, time_limit=time_limit,
             take_profit_order_type=OrderType.LIMIT,
