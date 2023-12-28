@@ -41,7 +41,7 @@ class DManV3ScriptConfig(ScriptConfigBase):
 
 class DManV3MultiplePairs(ScriptStrategyBase):
     @classmethod
-    def init_markets(cls, config: DManV3ScriptConfig):
+    def init_config(cls, config: DManV3ScriptConfig):
         cls.markets = {config.exchange: set(config.trading_pairs)}
 
     def __init__(self, connectors: Dict[str, ConnectorBase], config: DManV3ScriptConfig):
@@ -99,7 +99,7 @@ class DManV3MultiplePairs(ScriptStrategyBase):
         # we are going to close all the open positions when the bot stops
         for connector_name, connector in self.connectors.items():
             for trading_pair, position in connector.account_positions.items():
-                if trading_pair in self.markets[connector_name]:
+                if trading_pair in connector.trading_pairs:
                     if position.position_side == PositionSide.LONG:
                         self.sell(connector_name=connector_name,
                                   trading_pair=position.trading_pair,
