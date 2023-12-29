@@ -70,7 +70,7 @@ class DirectionalTradingControllerBase(ControllerBase):
         """
         if (signal == 1 and order_level.side == TradeType.BUY) or (signal == -1 and order_level.side == TradeType.SELL):
             # Here you can use the weight of the signal to tweak for example the order amount
-            close_price = self.get_close_price(self.config.trading_pair)
+            close_price = self.get_close_price(self.close_price_trading_pair)
             amount = order_level.order_amount_usd / close_price
             spread_multiplier = self.get_spread_multiplier()
             order_price = close_price * (1 + order_level.spread_factor * spread_multiplier * signal)
