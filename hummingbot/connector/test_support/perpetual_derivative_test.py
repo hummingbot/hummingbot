@@ -714,11 +714,6 @@ class AbstractPerpetualDerivativeTests:
 
             self.async_tasks.append(asyncio.get_event_loop().create_task(self.exchange._funding_payment_polling_loop()))
 
-            response = self.empty_funding_payment_mock_response
-            mock_api.get(url, body=json.dumps(response), callback=lambda *args, **kwargs: request_sent_event.set())
-            self.exchange._funding_fee_poll_notifier.set()
-            self.async_run_with_timeout(request_sent_event.wait())
-
             request_sent_event.clear()
             response = self.funding_payment_mock_response
             mock_api.get(url, body=json.dumps(response), callback=lambda *args, **kwargs: request_sent_event.set())
