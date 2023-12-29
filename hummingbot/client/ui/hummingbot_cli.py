@@ -65,7 +65,7 @@ class HummingbotCLI(PubSub):
         self.log_field = create_log_field(self.search_field)
         self.right_pane_toggle = create_log_toggle(self.toggle_right_pane)
         self.live_field = create_live_field()
-        self.log_field_button = create_tab_button("Log-pane", self.log_button_clicked)
+        self.log_field_button = create_tab_button("logs", self.log_button_clicked)
         self.timer = create_timer()
         self.process_usage = create_process_monitor()
         self.trade_monitor = create_trade_monitor()

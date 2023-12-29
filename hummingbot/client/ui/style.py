@@ -199,7 +199,7 @@ default_ui_style = {
     "dialog frame.label": "bg:#FFFFFF #000000",
     "dialog.body": "bg:#000000 ",
     "dialog shadow": "bg:#171E2B",
-    "button": "bg:#000000",
+    "button": "bg:#FFFFFF #000000",
     "text-area": "bg:#000000 #FFFFFF",
 }
 
@@ -223,6 +223,6 @@ win32_code_style = {
     "dialog frame.label": "bg:#ansiwhite #ansiblack",
     "dialog.body": "bg:#ansiblack ",
     "dialog shadow": "bg:#ansigreen",
-    "button": "bg:#ansigreen",
+    "button": "bg:#ansiwhite #ansiblack",
     "text-area": "bg:#ansiblack #ansigreen",
 }

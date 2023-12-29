@@ -29,6 +29,7 @@ from hummingbot.connector.connector_metrics_collector import (
 from hummingbot.connector.exchange.ascend_ex.ascend_ex_utils import AscendExConfigMap
 from hummingbot.connector.exchange.binance.binance_utils import BinanceConfigMap
 from hummingbot.connector.exchange.gate_io.gate_io_utils import GateIOConfigMap
+from hummingbot.connector.exchange.injective_v2.injective_v2_utils import InjectiveConfigMap
 from hummingbot.connector.exchange.kucoin.kucoin_utils import KuCoinConfigMap
 from hummingbot.connector.exchange_base import ExchangeBase
 from hummingbot.core.rate_oracle.rate_oracle import RATE_ORACLE_SOURCES, RateOracle
@@ -306,6 +307,7 @@ class PaperTradeConfigMap(BaseClientModel):
             KuCoinConfigMap.Config.title,
             AscendExConfigMap.Config.title,
             GateIOConfigMap.Config.title,
+            InjectiveConfigMap.Config.title,
         ],
     )
     paper_trade_account_balance: Dict[str, float] = Field(
@@ -932,6 +934,13 @@ class ClientConfigMap(BaseClientModel):
             prompt=lambda cm: "Instance UID of the bot",
         ),
     )
+    fetch_pairs_from_all_exchanges: bool = Field(
+        default=False,
+        description="Fetch trading pairs from all exchanges if True, otherwise fetch only from connected exchanges.",
+        client_data=ClientFieldData(
+            prompt=lambda cm: "Would you like to fetch from all exchanges? (True/False)",
+        ),
+    )
     log_level: str = Field(default="INFO")
     debug_console: bool = Field(default=False)
     strategy_report_interval: float = Field(default=900)
@@ -1144,7 +1153,7 @@ class ClientConfigMap(BaseClientModel):
             sub_model = TELEGRAM_MODES[v].construct()
         return sub_model
 
-    @validator("send_error_logs", pre=True)
+    @validator("send_error_logs", "fetch_pairs_from_all_exchanges", pre=True)
     def validate_bool(cls, v: str):
         """Used for client-friendly error output."""
         if isinstance(v, str):
