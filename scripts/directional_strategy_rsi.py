@@ -6,39 +6,40 @@ from hummingbot.strategy.directional_strategy_base import DirectionalStrategyBas
 
 class RSI(DirectionalStrategyBase):
     """
-    RSI (Relative Strength Index) strategy implementation based on the DirectionalStrategyBase.
+    相对强弱指数 (RSI) 策略实现基于 DirectionalStrategyBase。
 
-    This strategy uses the RSI indicator to generate trading signals and execute trades based on the RSI values.
-    It defines the specific parameters and configurations for the RSI strategy.
+    此策略使用 RSI 指标来生成交易信号并根据 RSI 值执行交易。
+    它定义了 RSI 策略的特定参数和配置。
 
-    Parameters:
-        directional_strategy_name (str): The name of the strategy.
-        trading_pair (str): The trading pair to be traded.
-        exchange (str): The exchange to be used for trading.
-        order_amount_usd (Decimal): The amount of the order in USD.
-        leverage (int): The leverage to be used for trading.
+    参数：
+        directional_strategy_name (str): 策略的名称。
+        trading_pair (str): 要交易的交易对。
+        exchange (str): 要用于交易的交易所。
+        order_amount_usd (Decimal): 订单的美元金额。
+        leverage (int): 要用于交易的杠杆。
 
-    Position Parameters:
-        stop_loss (float): The stop-loss percentage for the position.
-        take_profit (float): The take-profit percentage for the position.
-        time_limit (int): The time limit for the position in seconds.
-        trailing_stop_activation_delta (float): The activation delta for the trailing stop.
-        trailing_stop_trailing_delta (float): The trailing delta for the trailing stop.
+    仓位参数：
+        stop_loss (float): 该仓位的止损百分比。
+        take_profit (float): 该仓位的获利了结百分比。
+        time_limit (int): 该仓位的限时（秒）。
+        trailing_stop_activation_delta (float): 跟随止损的激活增量。
+        trailing_stop_trailing_delta (float): 跟随止损的跟随增量。
 
-    Candlestick Configuration:
-        candles (List[CandlesBase]): The list of candlesticks used for generating signals.
+    蜡烛图配置：
+        candles (List[CandlesBase]): 用于生成信号的蜡烛图列表。
 
-    Markets:
-        A dictionary specifying the markets and trading pairs for the strategy.
+    市场：
+        指定策略的市场和交易对的字典。
 
-    Methods:
-        get_signal(): Generates the trading signal based on the RSI indicator.
-        get_processed_df(): Retrieves the processed dataframe with RSI values.
-        market_data_extra_info(): Provides additional information about the market data.
+    方法：
+        get_signal(): 根据 RSI 指标生成交易信号。
+        get_processed_df(): 检索具有 RSI 值的已处理数据帧。
+        market_data_extra_info(): 提供有关市场数据的其他信息。
 
-    Inherits from:
-        DirectionalStrategyBase: Base class for creating directional strategies using the PositionExecutor.
+    继承自：
+        DirectionalStrategyBase：使用 PositionExecutor 创建方向策略的基类。
     """
+
     directional_strategy_name: str = "RSI"
     # Define the trading pair and exchange that we want to use and the csv where we are going to store the entries
     trading_pair: str = "ETH-USDT"
@@ -54,7 +55,11 @@ class RSI(DirectionalStrategyBase):
     trailing_stop_trailing_delta = 0.001
     cooldown_after_execution = 10
 
-    candles = [CandlesFactory.get_candle(CandlesConfig(connector=exchange, trading_pair=trading_pair, interval="3m", max_records=1000))]
+    candles = [
+        CandlesFactory.get_candle(
+            CandlesConfig(connector=exchange, trading_pair=trading_pair, interval="3m", max_records=1000)
+        )
+    ]
     markets = {exchange: {trading_pair}}
 
     def get_signal(self):

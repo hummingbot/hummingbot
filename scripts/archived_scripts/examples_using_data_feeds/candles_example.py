@@ -20,13 +20,20 @@ class CandlesExample(ScriptStrategyBase):
     indicators provides a comprehensive view of market trends and conditions, making this strategy a valuable tool for
     informed trading decisions.
     """
+
     # Available intervals: |1s|1m|3m|5m|15m|30m|1h|2h|4h|6h|8h|12h|1d|3d|1w|1M|
     # Is possible to use the Candles Factory to create the candlestick that you want, and then you have to start it.
     # Also, you can use the class directly like BinancePerpetualsCandles(trading_pair, interval, max_records), but
     # this approach is better if you want to initialize multiple candles with a list or dict of configurations.
-    eth_1m_candles = CandlesFactory.get_candle(CandlesConfig(connector="binance", trading_pair="ETH-USDT", interval="1m", max_records=1000))
-    eth_1h_candles = CandlesFactory.get_candle(CandlesConfig(connector="binance", trading_pair="ETH-USDT", interval="1h", max_records=1000))
-    eth_1w_candles = CandlesFactory.get_candle(CandlesConfig(connector="binance", trading_pair="ETH-USDT", interval="1w", max_records=200))
+    eth_1m_candles = CandlesFactory.get_candle(
+        CandlesConfig(connector="binance", trading_pair="ETH-USDT", interval="1m", max_records=1000)
+    )
+    eth_1h_candles = CandlesFactory.get_candle(
+        CandlesConfig(connector="binance", trading_pair="ETH-USDT", interval="1h", max_records=1000)
+    )
+    eth_1w_candles = CandlesFactory.get_candle(
+        CandlesConfig(connector="binance", trading_pair="ETH-USDT", interval="1w", max_records=200)
+    )
 
     # The markets are the connectors that you can use to execute all the methods of the scripts strategy base
     # The candlesticks are just a component that provides the information of the candlesticks
@@ -68,7 +75,11 @@ class CandlesExample(ScriptStrategyBase):
             return "Market connectors are not ready."
         lines = []
         if self.all_candles_ready:
-            lines.extend(["\n############################################ Market Data ############################################\n"])
+            lines.extend(
+                [
+                    "\n############################################ Market Data ############################################\n"
+                ]
+            )
             for candles in [self.eth_1w_candles, self.eth_1m_candles, self.eth_1h_candles]:
                 candles_df = candles.candles_df
                 # Let's add some technical indicators
@@ -78,7 +89,11 @@ class CandlesExample(ScriptStrategyBase):
                 candles_df["timestamp"] = pd.to_datetime(candles_df["timestamp"], unit="ms")
                 lines.extend([f"Candles: {candles.name} | Interval: {candles.interval}"])
                 lines.extend(["    " + line for line in candles_df.tail().to_string(index=False).split("\n")])
-                lines.extend(["\n-----------------------------------------------------------------------------------------------------------\n"])
+                lines.extend(
+                    [
+                        "\n-----------------------------------------------------------------------------------------------------------\n"
+                    ]
+                )
         else:
             lines.extend(["", "  No data collected."])
 
