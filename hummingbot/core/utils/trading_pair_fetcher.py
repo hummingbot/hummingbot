@@ -28,6 +28,7 @@ class TradingPairFetcher:
     def __init__(self, client_config_map: ClientConfigAdapter):
         self.ready = False
         self.trading_pairs: Dict[str, Any] = {}
+        self.fetch_pairs_from_all_exchanges = client_config_map.fetch_pairs_from_all_exchanges
         self._fetch_task = safe_ensure_future(self.fetch_all(client_config_map))
 
     def _fetch_pairs_from_connector_setting(
@@ -49,6 +50,9 @@ class TradingPairFetcher:
                         connector_setting=connector_settings[conn_setting.parent_name],
                         connector_name=conn_setting.name
                     )
+                elif not self.fetch_pairs_from_all_exchanges:
+                    if conn_setting.connector_connected():
+                        self._fetch_pairs_from_connector_setting(connector_setting=conn_setting)
                 else:
                     self._fetch_pairs_from_connector_setting(connector_setting=conn_setting)
             except ModuleNotFoundError:
@@ -56,7 +60,6 @@ class TradingPairFetcher:
             except Exception:
                 self.logger().exception(f"An error occurred when fetching trading pairs for {conn_setting.name}."
                                         "Please check the logs")
-
         self.ready = True
 
     async def call_fetch_pairs(self, fetch_fn: Callable[[], Awaitable[List[str]]], exchange_name: str):

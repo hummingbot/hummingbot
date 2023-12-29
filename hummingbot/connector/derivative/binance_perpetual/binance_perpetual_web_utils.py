@@ -21,9 +21,14 @@ class BinancePerpetualRESTPreProcessor(RESTPreProcessorBase):
         return request
 
 
-def rest_url(path_url: str, domain: str = "binance_perpetual", api_version: str = CONSTANTS.API_VERSION):
+def public_rest_url(path_url: str, domain: str = "binance_perpetual"):
     base_url = CONSTANTS.PERPETUAL_BASE_URL if domain == "binance_perpetual" else CONSTANTS.TESTNET_BASE_URL
-    return base_url + api_version + path_url
+    return base_url + path_url
+
+
+def private_rest_url(path_url: str, domain: str = "binance_perpetual"):
+    base_url = CONSTANTS.PERPETUAL_BASE_URL if domain == "binance_perpetual" else CONSTANTS.TESTNET_BASE_URL
+    return base_url + path_url
 
 
 def wss_url(endpoint: str, domain: str = "binance_perpetual"):
@@ -72,12 +77,11 @@ async def get_current_server_time(
     api_factory = build_api_factory_without_time_synchronizer_pre_processor(throttler=throttler)
     rest_assistant = await api_factory.get_rest_assistant()
     response = await rest_assistant.execute_request(
-        url=rest_url(path_url=CONSTANTS.SERVER_TIME_PATH_URL, domain=domain),
+        url=public_rest_url(path_url=CONSTANTS.SERVER_TIME_PATH_URL, domain=domain),
         method=RESTMethod.GET,
         throttler_limit_id=CONSTANTS.SERVER_TIME_PATH_URL,
     )
     server_time = response["serverTime"]
-
     return server_time
 
 
