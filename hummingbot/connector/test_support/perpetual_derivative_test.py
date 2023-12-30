@@ -706,25 +706,65 @@ class AbstractPerpetualDerivativeTests:
 
             self.assertEqual(1, self.exchange._perpetual_trading.funding_info_stream.qsize())  # rest in OB DS tests
 
+#        @aioresponses()
+#        def test_funding_payment_polling_loop_sends_update_event(self, mock_api):
+#            self._simulate_trading_rules_initialized()
+#            request_sent_event = asyncio.Event()
+#            url = self.funding_payment_url
+#
+#            self.async_tasks.append(asyncio.get_event_loop().create_task(self.exchange._funding_payment_polling_loop()))
+#
+#            request_sent_event.clear()
+#            response = self.funding_payment_mock_response
+#            mock_api.get(url, body=json.dumps(response), callback=lambda *args, **kwargs: request_sent_event.set())
+#            self.exchange._funding_fee_poll_notifier.set()
+#            self.async_run_with_timeout(request_sent_event.wait())
+#
+#            request_sent_event.clear()
+#            response = self.funding_payment_mock_response
+#            mock_api.get(url, body=json.dumps(response), callback=lambda *args, **kwargs: request_sent_event.set())
+#            self.exchange._funding_fee_poll_notifier.set()
+#            self.async_run_with_timeout(request_sent_event.wait())
+#
+#            self.assertEqual(1, len(self.funding_payment_logger.event_log))
+#            funding_event: FundingPaymentCompletedEvent = self.funding_payment_logger.event_log[0]
+#            self.assertEqual(self.target_funding_payment_timestamp, funding_event.timestamp)
+#            self.assertEqual(self.exchange.name, funding_event.market)
+#            self.assertEqual(self.trading_pair, funding_event.trading_pair)
+#            self.assertEqual(self.target_funding_payment_payment_amount, funding_event.amount)
+#            self.assertEqual(self.target_funding_payment_funding_rate, funding_event.funding_rate)
+
         @aioresponses()
         def test_funding_payment_polling_loop_sends_update_event(self, mock_api):
+            def callback(*args, **kwargs):
+                request_sent_event.set()
+
             self._simulate_trading_rules_initialized()
             request_sent_event = asyncio.Event()
             url = self.funding_payment_url
 
-            self.async_tasks.append(asyncio.get_event_loop().create_task(self.exchange._funding_payment_polling_loop()))
+            async def run_test():
+                response = self.empty_funding_payment_mock_response
+                mock_api.get(url, body=json.dumps(response), callback=callback)
+                _ = asyncio.create_task(self.exchange._funding_payment_polling_loop())
 
-            request_sent_event.clear()
-            response = self.funding_payment_mock_response
-            mock_api.get(url, body=json.dumps(response), callback=lambda *args, **kwargs: request_sent_event.set())
-            self.exchange._funding_fee_poll_notifier.set()
-            self.async_run_with_timeout(request_sent_event.wait())
+                # Allow task to start - on first pass no event is emitted (initialization)
+                await asyncio.sleep(0.1)
+                self.assertEqual(0, len(self.funding_payment_logger.event_log))
 
-            request_sent_event.clear()
-            response = self.funding_payment_mock_response
-            mock_api.get(url, body=json.dumps(response), callback=lambda *args, **kwargs: request_sent_event.set())
-            self.exchange._funding_fee_poll_notifier.set()
-            self.async_run_with_timeout(request_sent_event.wait())
+                response = self.funding_payment_mock_response
+                mock_api.get(url, body=json.dumps(response), callback=callback, repeat=True)
+
+                request_sent_event.clear()
+                self.exchange._funding_fee_poll_notifier.set()
+                await request_sent_event.wait()
+                self.assertEqual(1, len(self.funding_payment_logger.event_log))
+
+                request_sent_event.clear()
+                self.exchange._funding_fee_poll_notifier.set()
+                await request_sent_event.wait()
+
+            self.async_run_with_timeout(run_test())
 
             self.assertEqual(1, len(self.funding_payment_logger.event_log))
             funding_event: FundingPaymentCompletedEvent = self.funding_payment_logger.event_log[0]
