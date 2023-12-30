@@ -378,8 +378,10 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
         await self._update_all_funding_payments(fire_event_on_new=False)  # initialization of the timestamps
         while True:
             await self._funding_fee_poll_notifier.wait()
+            # There is a chance of race condition when the next await allows for a set() to occur before the clear()
+            # Maybe it is better to use a asyncio.Condition() instead of asyncio.Event()?
+            self._funding_fee_poll_notifier.clear()
             await self._update_all_funding_payments(fire_event_on_new=True)
-            self._funding_fee_poll_notifier = asyncio.Event()
 
     async def _update_all_funding_payments(self, fire_event_on_new: bool):
         try:
