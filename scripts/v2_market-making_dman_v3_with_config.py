@@ -41,7 +41,7 @@ class DManV3ScriptConfig(ScriptConfigBase):
 
 class DManV3MultiplePairs(ScriptStrategyBase):
     @classmethod
-    def init_config(cls, config: DManV3ScriptConfig):
+    def init_markets(cls, config: DManV3ScriptConfig):
         cls.markets = {config.exchange: set(config.trading_pairs)}
 
     def __init__(self, connectors: Dict[str, ConnectorBase], config: DManV3ScriptConfig):
