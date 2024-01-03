@@ -1,5 +1,7 @@
 from decimal import Decimal
-from typing import Dict, List
+from typing import Dict
+
+from pydantic import Field
 
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide
@@ -15,34 +17,34 @@ from hummingbot.strategy.script_strategy_base import ScriptConfigBase, ScriptStr
 
 
 class DManV3ScriptConfig(ScriptConfigBase):
-    exchange: str
-    trading_pairs: List[str]
-    leverage: int
-    candles_exchange: str
-    candles_interval: str
-    candles_max_records: int
-    bollinger_band_length: int
-    bollinger_band_std: float
-    order_amount: Decimal
-    n_levels: int
-    start_spread: float
-    step_between_orders: float
-    stop_loss: Decimal
-    take_profit: Decimal
-    time_limit: int
-    trailing_stop_activation_price_delta: Decimal
-    trailing_stop_trailing_delta: Decimal
-    side_filter: bool
-    dynamic_spread_factor: bool
-    dynamic_target_spread: bool
-    smart_activation: bool
-    activation_threshold: Decimal
+    exchange: str = Field("binance_perpetual", description="The exchange to trade on.", required=True)
+    trading_pairs: str = Field("DOGE-USDT,INJ-USDT", description="The trading pairs to trade on separated by comma.", required=True)
+    leverage: int = Field(1, description="The leverage to use for the perpetual market.")
+    candles_exchange: str = Field("binance_perpetual", description="The exchange to get candles from.")
+    candles_interval: str = Field("30m", description="The interval of the candles.")
+    candles_max_records: int = Field(100, description="The maximum number of candles to get.")
+    bollinger_band_length: int = Field(20, description="The length of the Bollinger Bands.")
+    bollinger_band_std: float = Field(2.0, description="The standard deviation of the Bollinger Bands.")
+    order_amount: Decimal = Field(20, description="The amount of the orders.")
+    n_levels: int = Field(5, description="The number of levels to place orders.")
+    start_spread: float = Field(0.01, description="The start spread.")
+    step_between_orders: float = Field(0.01, description="The step between orders.")
+    stop_loss: Decimal = Field(0.01, description="The stop loss.")
+    take_profit: Decimal = Field(0.01, description="The take profit.")
+    time_limit: int = Field(60, description="The time limit.")
+    trailing_stop_activation_price_delta: Decimal = Field(0.01, description="The trailing stop activation price delta.")
+    trailing_stop_trailing_delta: Decimal = Field(0.01, description="The trailing stop trailing delta.")
+    side_filter: bool = Field(True, description="The side filter.")
+    dynamic_spread_factor: bool = Field(True, description="The dynamic spread factor.")
+    dynamic_target_spread: bool = Field(True, description="The dynamic target spread.")
+    smart_activation: bool = Field(True, description="The smart activation.")
+    activation_threshold: Decimal = Field(0.01, description="The activation threshold.")
 
 
 class DManV3MultiplePairs(ScriptStrategyBase):
     @classmethod
     def init_markets(cls, config: DManV3ScriptConfig):
-        cls.markets = {config.exchange: set(config.trading_pairs)}
+        cls.markets = {config.exchange: set(config.trading_pairs.split(","))}
 
     def __init__(self, connectors: Dict[str, ConnectorBase], config: DManV3ScriptConfig):
         super().__init__(connectors)
