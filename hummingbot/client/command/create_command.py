@@ -1,10 +1,17 @@
 import asyncio
 import copy
+import importlib
+import inspect
 import os
 import shutil
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional
 
+import yaml
+from pydantic import ValidationError
+
+from hummingbot.client import settings
 from hummingbot.client.config.config_helpers import (
     ClientConfigAdapter,
     ConfigValidationError,
@@ -20,9 +27,11 @@ from hummingbot.client.config.config_helpers import (
 )
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.config.strategy_config_data_types import BaseStrategyConfigMap
-from hummingbot.client.settings import STRATEGIES_CONF_DIR_PATH, required_exchanges
+from hummingbot.client.settings import SCRIPT_STRATEGY_CONFIG_PATH, STRATEGIES_CONF_DIR_PATH, required_exchanges
 from hummingbot.client.ui.completer import load_completer
 from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.exceptions import InvalidScriptModule
+from hummingbot.strategy.script_strategy_base import ScriptConfigBase
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
@@ -30,18 +39,60 @@ if TYPE_CHECKING:
 
 class CreateCommand:
     def create(self,  # type: HummingbotApplication
-               file_name):
-        if file_name is not None:
-            file_name = format_config_file_name(file_name)
-            if (STRATEGIES_CONF_DIR_PATH / file_name).exists():
-                self.notify(f"{file_name} already exists.")
-                return
+               script_to_config: Optional[str] = None,):
+        if script_to_config is not None:
+            safe_ensure_future(self.prompt_for_configuration_v2(script_to_config))
+        else:
+            safe_ensure_future(self.prompt_for_configuration())
 
-        safe_ensure_future(self.prompt_for_configuration(file_name))
+    async def prompt_for_configuration_v2(self, script_to_config: str):
+        try:
+            module = sys.modules.get(f"{settings.SCRIPT_STRATEGIES_MODULE}.{script_to_config}")
+            script_module = importlib.reload(module)
+            config_class = next((member for member_name, member in inspect.getmembers(script_module)
+                                 if inspect.isclass(member) and
+                                 issubclass(member, ScriptConfigBase) and member not in [ScriptConfigBase]))
+            config_instance = config_class()  # Initialize with default values
+
+            for field_name, field_model in config_class.__fields__.items():
+                if field_model.required:
+                    default_value = getattr(config_instance, field_name)
+                    prompt = f"Enter value for {field_name} (default: {default_value}) >>> "
+                    while not self.app.to_stop_config:
+                        user_input = await self.app.prompt(prompt) or default_value
+                        try:
+                            setattr(config_instance, field_name, user_input)
+                            break
+                        except ValidationError as e:
+                            self.notify(str(e))
+                else:
+                    setattr(config_instance, field_name, None)
+
+            await self.save_config_strategy_v2(script_to_config, config_instance)  # Method to save config to file
+
+        except StopIteration:
+            raise InvalidScriptModule(f"The module {script_to_config} does not contain any subclass of BaseModel")
+
+    async def save_config_strategy_v2(self, strategy_name: str, config_instance: ScriptConfigBase):
+        file_name = await self.prompt_new_file_name(strategy_name)
+        if self.app.to_stop_config:
+            self.app.set_text("")
+            return
+        self.app.change_prompt(prompt=">>> ")
+        strategy_path = Path(SCRIPT_STRATEGY_CONFIG_PATH) / file_name
+        # Convert the Pydantic model instance to a dictionary
+        config_data = config_instance.dict()
+
+        # Write the configuration data to the YAML file
+        with open(strategy_path, 'w') as file:
+            yaml.safe_dump(config_data, file)
+
+        # You might want to add some logging or confirmation message here
+        self.notify(f"Configuration saved to {strategy_path}")
+        return file_name
 
     async def prompt_for_configuration(
         self,  # type: HummingbotApplication
-        file_name,
     ):
         self.app.clear_input()
         self.placeholder_mode = True
@@ -60,9 +111,9 @@ class CreateCommand:
         if isinstance(config_map, ClientConfigAdapter):
             await self.prompt_for_model_config(config_map)
             if not self.app.to_stop_config:
-                file_name = await self.save_config_to_file(file_name, config_map)
+                file_name = await self.save_config_to_file(config_map)
         elif config_map is not None:
-            file_name = await self.prompt_for_configuration_legacy(file_name, strategy, config_map)
+            file_name = await self.prompt_for_configuration_legacy(strategy, config_map)
         else:
             self.app.to_stop_config = True
 
@@ -107,7 +158,6 @@ class CreateCommand:
 
     async def prompt_for_configuration_legacy(
         self,  # type: HummingbotApplication
-        file_name,
         strategy: str,
         config_map: Dict,
     ):
@@ -132,12 +182,11 @@ class CreateCommand:
             self.app.set_text("")
             return
 
-        if file_name is None:
-            file_name = await self.prompt_new_file_name(strategy)
-            if self.app.to_stop_config:
-                self.restore_config_legacy(config_map, config_map_backup)
-                self.app.set_text("")
-                return
+        file_name = await self.prompt_new_file_name(strategy)
+        if self.app.to_stop_config:
+            self.restore_config_legacy(config_map, config_map_backup)
+            self.app.set_text("")
+            return
         self.app.change_prompt(prompt=">>> ")
         strategy_path = STRATEGIES_CONF_DIR_PATH / file_name
         template = get_strategy_template_path(strategy)
@@ -207,14 +256,12 @@ class CreateCommand:
 
     async def save_config_to_file(
         self,  # type: HummingbotApplication
-        file_name: Optional[str],
         config_map: ClientConfigAdapter,
     ) -> str:
-        if file_name is None:
-            file_name = await self.prompt_new_file_name(config_map.strategy)
-            if self.app.to_stop_config:
-                self.app.set_text("")
-                return
+        file_name = await self.prompt_new_file_name(config_map.strategy)
+        if self.app.to_stop_config:
+            self.app.set_text("")
+            return
         self.app.change_prompt(prompt=">>> ")
         strategy_path = Path(STRATEGIES_CONF_DIR_PATH) / file_name
         save_to_yml(strategy_path, config_map)
