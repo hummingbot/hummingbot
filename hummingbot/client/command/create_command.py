@@ -9,9 +9,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional
 
 import yaml
-from pydantic import ValidationError
 
 from hummingbot.client import settings
+from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.client.config.config_helpers import (
     ClientConfigAdapter,
     ConfigValidationError,
@@ -31,7 +31,6 @@ from hummingbot.client.settings import SCRIPT_STRATEGY_CONFIG_PATH, STRATEGIES_C
 from hummingbot.client.ui.completer import load_completer
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.exceptions import InvalidScriptModule
-from hummingbot.strategy.script_strategy_base import ScriptConfigBase
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
@@ -40,65 +39,54 @@ if TYPE_CHECKING:
 class CreateCommand:
     def create(self,  # type: HummingbotApplication
                script_to_config: Optional[str] = None,):
+        self.app.clear_input()
+        self.placeholder_mode = True
+        self.app.hide_input = True
+        required_exchanges.clear()
         if script_to_config is not None:
             safe_ensure_future(self.prompt_for_configuration_v2(script_to_config))
         else:
             safe_ensure_future(self.prompt_for_configuration())
 
-    async def prompt_for_configuration_v2(self, script_to_config: str):
+    async def prompt_for_configuration_v2(self,  # type: HummingbotApplication
+                                          script_to_config: str):
         try:
             module = sys.modules.get(f"{settings.SCRIPT_STRATEGIES_MODULE}.{script_to_config}")
             script_module = importlib.reload(module)
             config_class = next((member for member_name, member in inspect.getmembers(script_module)
                                  if inspect.isclass(member) and
-                                 issubclass(member, ScriptConfigBase) and member not in [ScriptConfigBase]))
-            config_instance = config_class()  # Initialize with default values
+                                 issubclass(member, BaseClientModel) and member not in [BaseClientModel]))
+            config_map = ClientConfigAdapter(config_class.construct())
 
-            for field_name, field_model in config_class.__fields__.items():
-                if field_model.required:
-                    default_value = getattr(config_instance, field_name)
-                    prompt = f"Enter value for {field_name} (default: {default_value}) >>> "
-                    while not self.app.to_stop_config:
-                        user_input = await self.app.prompt(prompt) or default_value
-                        try:
-                            setattr(config_instance, field_name, user_input)
-                            break
-                        except ValidationError as e:
-                            self.notify(str(e))
-                else:
-                    setattr(config_instance, field_name, None)
-
-            await self.save_config_strategy_v2(script_to_config, config_instance)  # Method to save config to file
+            await self.prompt_for_model_config(config_map)
+            if not self.app.to_stop_config:
+                file_name = await self.save_config_strategy_v2(script_to_config, config_map)
+                self.notify(f"A new config file has been created: {file_name}")
+            self.app.change_prompt(prompt=">>> ")
+            self.app.input_field.completer = load_completer(self)
+            self.placeholder_mode = False
+            self.app.hide_input = False
 
         except StopIteration:
             raise InvalidScriptModule(f"The module {script_to_config} does not contain any subclass of BaseModel")
 
-    async def save_config_strategy_v2(self, strategy_name: str, config_instance: ScriptConfigBase):
-        file_name = await self.prompt_new_file_name(strategy_name)
+    async def save_config_strategy_v2(self,  # type: HummingbotApplication
+                                      strategy_name: str, config_instance: BaseClientModel):
+        file_name = await self.prompt_new_file_name(strategy_name, True)
         if self.app.to_stop_config:
             self.app.set_text("")
             return
-        self.app.change_prompt(prompt=">>> ")
         strategy_path = Path(SCRIPT_STRATEGY_CONFIG_PATH) / file_name
         # Convert the Pydantic model instance to a dictionary
         config_data = config_instance.dict()
-
         # Write the configuration data to the YAML file
         with open(strategy_path, 'w') as file:
             yaml.safe_dump(config_data, file)
-
-        # You might want to add some logging or confirmation message here
-        self.notify(f"Configuration saved to {strategy_path}")
         return file_name
 
     async def prompt_for_configuration(
         self,  # type: HummingbotApplication
     ):
-        self.app.clear_input()
-        self.placeholder_mode = True
-        self.app.hide_input = True
-        required_exchanges.clear()
-
         strategy = await self.get_strategy_name()
 
         if self.app.to_stop_config:
@@ -268,18 +256,20 @@ class CreateCommand:
         return file_name
 
     async def prompt_new_file_name(self,  # type: HummingbotApplication
-                                   strategy):
+                                   strategy: str,
+                                   is_script: bool = False):
         file_name = default_strategy_file_path(strategy)
         self.app.set_text(file_name)
         input = await self.app.prompt(prompt="Enter a new file name for your configuration >>> ")
         input = format_config_file_name(input)
-        file_path = os.path.join(STRATEGIES_CONF_DIR_PATH, input)
+        conf_dir_path = STRATEGIES_CONF_DIR_PATH if not is_script else SCRIPT_STRATEGY_CONFIG_PATH
+        file_path = os.path.join(conf_dir_path, input)
         if input is None or input == "":
             self.notify("Value is required.")
-            return await self.prompt_new_file_name(strategy)
+            return await self.prompt_new_file_name(strategy, is_script)
         elif os.path.exists(file_path):
             self.notify(f"{input} file already exists, please enter a new name.")
-            return await self.prompt_new_file_name(strategy)
+            return await self.prompt_new_file_name(strategy, is_script)
         else:
             return input
 
