@@ -11,6 +11,7 @@ from prompt_toolkit.document import Document
 
 from hummingbot.client import settings
 from hummingbot.client.command.connect_command import OPTIONS as CONNECT_OPTIONS
+from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.client.settings import (
     GATEWAY_CONNECTORS,
     PMM_SCRIPTS_PATH,
@@ -25,7 +26,6 @@ from hummingbot.client.ui.parser import ThrowingArgumentParser
 from hummingbot.core.rate_oracle.rate_oracle import RATE_ORACLE_SOURCES
 from hummingbot.core.utils.gateway_config_utils import list_gateway_wallets
 from hummingbot.core.utils.trading_pair_fetcher import TradingPairFetcher
-from hummingbot.strategy.script_strategy_base import ScriptConfigBase
 
 
 def file_name_list(path, file_extension):
@@ -100,7 +100,7 @@ class HummingbotCompleter(Completer):
                                                             package=settings.SCRIPT_STRATEGIES_MODULE)
                 config_class = next((member for member_name, member in inspect.getmembers(script_module)
                                      if inspect.isclass(member) and
-                                     issubclass(member, ScriptConfigBase) and member not in [ScriptConfigBase]))
+                                     issubclass(member, BaseClientModel) and member not in [BaseClientModel]))
                 if config_class:
                     strategies_with_config.append(script_name)
             except Exception:

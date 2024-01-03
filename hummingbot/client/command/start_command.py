@@ -14,6 +14,7 @@ import hummingbot.client.settings as settings
 from hummingbot import init_logging
 from hummingbot.client.command.gateway_api_manager import GatewayChainApiManager
 from hummingbot.client.command.gateway_command import GatewayCommand
+from hummingbot.client.config.config_data_types import BaseClientModel
 from hummingbot.client.config.config_helpers import get_strategy_starter_file
 from hummingbot.client.config.config_validators import validate_bool
 from hummingbot.client.config.config_var import ConfigVar
@@ -24,7 +25,7 @@ from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.exceptions import InvalidScriptModule, OracleRateUnavailable
 from hummingbot.strategy.directional_strategy_base import DirectionalStrategyBase
-from hummingbot.strategy.script_strategy_base import ScriptConfigBase, ScriptStrategyBase
+from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
@@ -233,7 +234,7 @@ class StartCommand(GatewayChainApiManager):
             try:
                 config_class = next((member for member_name, member in inspect.getmembers(script_module)
                                     if inspect.isclass(member) and
-                                    issubclass(member, ScriptConfigBase) and member not in [ScriptConfigBase]))
+                                    issubclass(member, BaseClientModel) and member not in [BaseClientModel]))
                 config = config_class(**self.load_script_yaml_config(config_file_path=self.strategy_file_name))
                 script_class.init_markets(config)
             except StopIteration:
