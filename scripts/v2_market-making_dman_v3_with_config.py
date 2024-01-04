@@ -80,7 +80,7 @@ class DManV3MultiplePairs(ScriptStrategyBase):
         self.markets = {}
         self.executor_handlers = {}
 
-        for trading_pair in config.trading_pairs:
+        for trading_pair in config.trading_pairs.split(","):
             controller_config = DManV3Config(
                 exchange=config.exchange,
                 trading_pair=trading_pair,
