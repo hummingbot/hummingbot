@@ -89,6 +89,10 @@ class ClientConfigAdapter:
         return self._hb_config
 
     @property
+    def fetch_pairs_from_all_exchanges(self) -> bool:
+        return ClientConfigMap.fetch_pairs_from_all_exchanges
+
+    @property
     def title(self) -> str:
         return self._hb_config.Config.title
 
