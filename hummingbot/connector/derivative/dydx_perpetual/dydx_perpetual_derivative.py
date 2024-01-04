@@ -168,10 +168,6 @@ class DydxPerpetualDerivative(PerpetualDerivativePyBase):
     def is_trading_required(self) -> bool:
         return self._trading_required
 
-    @property
-    def funding_fee_poll_interval(self) -> int:
-        return 120
-
     def supported_order_types(self) -> List[OrderType]:
         return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 

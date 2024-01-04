@@ -1,11 +1,13 @@
 import asyncio
-import unittest
 from decimal import Decimal
 from test.hummingbot.connector.gateway.clob_perp.data_sources.injective_perpetual.injective_perpetual_mock_utils import (
     InjectivePerpetualClientMock,
 )
 from typing import Awaitable, Dict, List, Mapping
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
+
+from isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
+from logger_mixin_for_test import LoggerMixinForTest
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -17,6 +19,7 @@ from hummingbot.connector.gateway.clob_perp.data_sources.injective_perpetual.inj
 )
 from hummingbot.connector.gateway.clob_perp.gateway_clob_perp import GatewayCLOBPerp
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
+from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.clock import Clock, ClockMode
@@ -37,9 +40,8 @@ from hummingbot.core.event.events import (
 from hummingbot.core.network_iterator import NetworkStatus
 
 
-class GatewayCLOBPERPTest(unittest.TestCase):
+class GatewayCLOBPERPTest(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     # the level is required to receive logs from the data source logger
-    level = 0
     base_asset: str
     quote_asset: str
     trading_pair: str
@@ -97,6 +99,7 @@ class GatewayCLOBPERPTest(unittest.TestCase):
         self.clock: Clock = Clock(ClockMode.BACKTEST, self.clock_tick_size, self.start_timestamp, self.end_timestamp)
         self.clock.add_iterator(iterator=self.exchange)
 
+        # self.set_loggers([api_data_source.logger(), self.exchange.logger(), self.exchange._order_tracker.logger()])
         api_data_source.logger().setLevel(1)
         api_data_source.logger().addHandler(self)
         self.exchange.logger().setLevel(1)
@@ -106,13 +109,18 @@ class GatewayCLOBPERPTest(unittest.TestCase):
 
         self.initialize_event_loggers()
 
-        self.async_run_with_timeout(coroutine=self.exchange.start_network())
+    async def asyncSetUp(self) -> None:
+        await super().asyncSetUp()
+        await self.exchange.start_network()
 
-    def tearDown(self) -> None:
+    async def asyncTearDown(self) -> None:
         for task in self.async_tasks:
             task.cancel()
+        await self.exchange.stop_network()
+        await super().asyncTearDown()
+
+    def tearDown(self) -> None:
         self.clob_data_source_mock.stop()
-        self.async_run_with_timeout(coroutine=self.exchange.stop_network())
         super().tearDown()
 
     @property
@@ -171,21 +179,14 @@ class GatewayCLOBPERPTest(unittest.TestCase):
             flat_fees=[TokenAmount(token=self.quote_asset, amount=expected_fee)]
         )
 
-    def handle(self, record):
-        self.log_records.append(record)
-
-    def is_logged(self, log_level: str, message: str) -> bool:
-        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
-
     def is_logged_that_starts_with(self, log_level: str, message_starts_with: str):
         return any(
             record.levelname == log_level and record.getMessage().startswith(message_starts_with)
             for record in self.log_records
         )
 
-    @staticmethod
-    def async_run_with_timeout(coroutine: Awaitable, timeout: int = 1):
-        ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
+    def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
+        ret = self.local_event_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
 
     def initialize_event_loggers(self):
@@ -237,10 +238,10 @@ class GatewayCLOBPERPTest(unittest.TestCase):
         }
 
     def place_buy_order(
-        self,
-        size: Decimal = Decimal("100"),
-        price: Decimal = Decimal("10_000"),
-        position_action: PositionAction = PositionAction.OPEN,
+            self,
+            size: Decimal = Decimal("100"),
+            price: Decimal = Decimal("10_000"),
+            position_action: PositionAction = PositionAction.OPEN,
     ):
         order_id = self.exchange.buy(
             trading_pair=self.trading_pair,
@@ -252,10 +253,10 @@ class GatewayCLOBPERPTest(unittest.TestCase):
         return order_id
 
     def place_sell_order(
-        self,
-        size: Decimal = Decimal("100"),
-        price: Decimal = Decimal("10_000"),
-        position_action: PositionAction = PositionAction.OPEN,
+            self,
+            size: Decimal = Decimal("100"),
+            price: Decimal = Decimal("10_000"),
+            position_action: PositionAction = PositionAction.OPEN,
     ):
         order_id = self.exchange.sell(
             trading_pair=self.trading_pair,
@@ -1669,7 +1670,7 @@ class GatewayCLOBPERPTest(unittest.TestCase):
         self.async_run_with_timeout(self.exchange._cancel_lost_orders())
 
         self.assertIn(order.client_order_id, self.exchange._order_tracker.lost_orders)
-        self.assertEquals(0, len(self.order_cancelled_logger.event_log))
+        self.assertEqual(0, len(self.order_cancelled_logger.event_log))
         self.assertTrue(any(log.msg.startswith(f"Failed to cancel order {order.client_order_id}")
                             for log in self.log_records))
 
@@ -1817,7 +1818,15 @@ class GatewayCLOBPERPTest(unittest.TestCase):
         self.assertEqual(self.quote_asset, fee.percent_token)
         self.assertEqual(Decimal("0.0006"), fee.percent)
 
-    def test_funding_info_continuously_requested(self):
+    async def test_funding_info_continuously_requested(self):
+        loop_interval = 1.23
+
+        async def mock_sleep(duration):
+            if duration == self.exchange.funding_fee_poll_interval:
+                await asyncio.sleep(loop_interval)
+            else:
+                await asyncio.sleep(duration)
+
         first_amount = Decimal("2.1")
         funding_rate = Decimal("0.001")
         timestamp = self.start_timestamp + 1
@@ -1827,19 +1836,48 @@ class GatewayCLOBPERPTest(unittest.TestCase):
             amount=first_amount,
         )
 
-        self.clock.backtest_til(self.start_timestamp + 1)
-        self.clob_data_source_mock.run_until_all_items_delivered()
+        with patch.object(PerpetualDerivativePyBase, "_sleep", side_effect=mock_sleep) as sleep_mock:
+            await self.clob_data_source_mock.await_all_items_delivered()
+            sleep_mock.assert_has_calls(
+                [
+                    call(self.exchange.funding_fee_poll_interval),
+                ]
+            )
 
         self.assertEqual(1, len(self.funding_payment_logger.event_log))
+        self.assertEqual(first_amount, self.funding_payment_logger.event_log[0].amount)
 
         second_amount = Decimal("1.9")
         self.clob_data_source_mock.configure_get_funding_payments_response(
-            timestamp=timestamp + 60,
+            timestamp=timestamp + 1,
             funding_rate=funding_rate,
             amount=second_amount,
         )
 
-        self.clock.backtest_til(self.start_timestamp + 1 + self.exchange.funding_fee_poll_interval + 1)
-        self.clob_data_source_mock.run_until_all_items_delivered()
+        with patch.object(PerpetualDerivativePyBase, "_sleep", side_effect=mock_sleep) as sleep_mock:
+            # Await for the next funding payment (one _sleep is called)
+            await asyncio.sleep(loop_interval + 0.1)
+            await self.clob_data_source_mock.await_all_items_delivered()
+            sleep_mock.assert_has_calls(
+                [
+                    call(self.exchange.funding_fee_poll_interval),
+                ]
+            )
 
         self.assertEqual(2, len(self.funding_payment_logger.event_log))
+        self.assertEqual(first_amount, self.funding_payment_logger.event_log[0].amount)
+        self.assertEqual(second_amount, self.funding_payment_logger.event_log[1].amount)
+
+        with patch.object(PerpetualDerivativePyBase, "_sleep", side_effect=mock_sleep) as sleep_mock:
+            # Await for the next funding payment
+            await asyncio.sleep(loop_interval + 0.1)
+            sleep_mock.assert_has_calls(
+                [
+                    call(self.exchange.funding_fee_poll_interval),
+                ]
+            )
+
+        # No change in the event logs
+        self.assertEqual(2, len(self.funding_payment_logger.event_log))
+        self.assertEqual(first_amount, self.funding_payment_logger.event_log[0].amount)
+        self.assertEqual(second_amount, self.funding_payment_logger.event_log[1].amount)

@@ -126,10 +126,6 @@ class GateIoPerpetualDerivative(PerpetualDerivativePyBase):
     def is_trading_required(self) -> bool:
         return self._trading_required
 
-    @property
-    def funding_fee_poll_interval(self) -> int:
-        return 120
-
     def _format_amount_to_size(self, trading_pair, amount: Decimal) -> Decimal:
         trading_rule = self._trading_rules[trading_pair]
         quanto_multiplier = Decimal(trading_rule.min_base_amount_increment)

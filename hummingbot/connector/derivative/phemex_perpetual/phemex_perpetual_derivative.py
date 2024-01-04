@@ -113,10 +113,6 @@ class PhemexPerpetualDerivative(PerpetualDerivativePyBase):
     def is_trading_required(self) -> bool:
         return self._trading_required
 
-    @property
-    def funding_fee_poll_interval(self) -> int:
-        return 120
-
     async def start_network(self):
         """
         Start all required tasks to update the status of the connector.

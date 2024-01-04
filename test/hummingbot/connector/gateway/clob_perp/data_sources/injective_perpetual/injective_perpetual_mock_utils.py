@@ -84,6 +84,9 @@ class StreamMock:
     def run_until_all_items_delivered(self, timeout: float = 1):
         asyncio.get_event_loop().run_until_complete(asyncio.wait_for(fut=self.queue.join(), timeout=timeout))
 
+    async def await_all_items_delivered(self, timeout: float = 1):
+        await asyncio.wait_for(fut=self.queue.join(), timeout=timeout)
+
     def cancel(self):
         pass
 
@@ -234,6 +237,26 @@ class InjectivePerpetualClientMock:
         )
         self.injective_async_client_mock.stream_txs.return_value.run_until_all_items_delivered(timeout=timeout)
         self.injective_async_client_mock.stream_oracle_prices.return_value.run_until_all_items_delivered(
+            timeout=timeout)
+
+    async def await_all_items_delivered(self, timeout: float = 1):
+        await self.injective_async_client_mock.stream_derivative_trades.return_value.await_all_items_delivered(
+            timeout=timeout
+        )
+        await self.injective_async_client_mock.stream_historical_derivative_orders.return_value.await_all_items_delivered(
+            timeout=timeout
+        )
+        await self.injective_async_client_mock.stream_derivative_orderbook_snapshot.return_value.await_all_items_delivered(
+            timeout=timeout
+        )
+        await self.injective_async_client_mock.stream_account_portfolio.return_value.await_all_items_delivered(
+            timeout=timeout
+        )
+        await self.injective_async_client_mock.stream_subaccount_balance.return_value.await_all_items_delivered(
+            timeout=timeout
+        )
+        await self.injective_async_client_mock.stream_txs.return_value.await_all_items_delivered(timeout=timeout)
+        await self.injective_async_client_mock.stream_oracle_prices.return_value.await_all_items_delivered(
             timeout=timeout)
 
     def run_until_place_order_called(self, timeout: float = 1):

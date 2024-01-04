@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Un
 from async_timeout import timeout
 
 from hummingbot.connector.client_order_tracker import ClientOrderTracker
-from hummingbot.connector.constants import FUNDING_FEE_POLL_INTERVAL, s_decimal_NaN
+from hummingbot.connector.constants import s_decimal_NaN
 from hummingbot.connector.derivative.injective_v2_perpetual import (
     injective_constants as CONSTANTS,
     injective_v2_perpetual_web_utils as web_utils,
@@ -123,10 +123,6 @@ class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
     @property
     def is_trading_required(self) -> bool:
         return self._trading_required
-
-    @property
-    def funding_fee_poll_interval(self) -> int:
-        return FUNDING_FEE_POLL_INTERVAL
 
     def supported_position_modes(self) -> List[PositionMode]:
         return [PositionMode.ONEWAY]

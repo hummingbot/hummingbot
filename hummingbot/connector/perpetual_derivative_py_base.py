@@ -35,15 +35,18 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
         self._perpetual_trading = PerpetualTrading(self.trading_pairs)
         self._funding_info_listener_task: Optional[asyncio.Task] = None
         self._funding_fee_polling_task: Optional[asyncio.Task] = None
-        self._funding_fee_poll_notifier = asyncio.Event()
+        self._funding_fee_poll_interval = 120
         self._orderbook_ds: PerpetualAPIOrderBookDataSource = self._orderbook_ds  # for type-hinting
 
         self._budget_checker = PerpetualBudgetChecker(self)
 
     @property
-    @abstractmethod
     def funding_fee_poll_interval(self) -> int:
-        raise NotImplementedError
+        return self._funding_fee_poll_interval
+
+    @funding_fee_poll_interval.setter
+    def funding_fee_poll_interval(self, value: int):
+        self._funding_fee_poll_interval = value
 
     @property
     def status_dict(self) -> Dict[str, bool]:
@@ -208,6 +211,9 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
         if self._funding_info_listener_task is not None:
             self._funding_info_listener_task.cancel()
             self._funding_info_listener_task = None
+        if self._funding_fee_polling_task is not None:
+            self._funding_fee_polling_task.cancel()
+            self._funding_fee_polling_task = None
         self._last_funding_fee_payment_ts.clear()
         super()._stop_network()
 
@@ -377,24 +383,21 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
         """
         await self._update_all_funding_payments(fire_event_on_new=False)  # initialization of the timestamps
         while True:
-            await self._funding_fee_poll_notifier.wait()
-            success = await self._update_all_funding_payments(fire_event_on_new=True)
-            if success:
-                # Only when all tasks are successful would the event notifier be reset
-                self._funding_fee_poll_notifier = asyncio.Event()
+            await self._update_all_funding_payments(fire_event_on_new=True)
+            await self._sleep(self.funding_fee_poll_interval)
 
-    async def _update_all_funding_payments(self, fire_event_on_new: bool) -> bool:
-        success = False
+    async def _update_all_funding_payments(self, fire_event_on_new: bool):
         try:
-            tasks = []
-            for trading_pair in self.trading_pairs:
-                tasks.append(
-                    asyncio.create_task(
-                        self._update_funding_payment(trading_pair=trading_pair, fire_event_on_new=fire_event_on_new)
+            tasks = [
+                asyncio.create_task(
+                    self._update_funding_payment(
+                        trading_pair=trading_pair,
+                        fire_event_on_new=fire_event_on_new,
                     )
                 )
-            responses: List[bool] = await safe_gather(*tasks)
-            success = all(responses)
+                for trading_pair in self.trading_pairs
+            ]
+            await safe_gather(*tasks)
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -405,7 +408,6 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
                     f"Could not fetch funding fee updates for {self.name}. Check API key and network connection."
                 )
             )
-        return success
 
     async def _update_funding_payment(self, trading_pair: str, fire_event_on_new: bool) -> bool:
         fetch_success = True
@@ -447,3 +449,9 @@ class PerpetualDerivativePyBase(ExchangePyBase, ABC):
 
         if trading_pair not in self._last_funding_fee_payment_ts:
             self._last_funding_fee_payment_ts[trading_pair] = timestamp
+
+    async def _sleep(self, delay: float):
+        """
+        Sleeps for a given amount of time, but wakes up if the connector is stopped.
+        """
+        await asyncio.sleep(delay)
