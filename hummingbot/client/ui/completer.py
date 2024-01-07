@@ -58,11 +58,7 @@ class HummingbotCompleter(Completer):
         self._gateway_completer = WordCompleter(["balance", "config", "connect", "connector-tokens", "generate-certs", "test-connection", "list", "approve-tokens"], ignore_case=True)
         self._gateway_connect_completer = WordCompleter(GATEWAY_CONNECTORS, ignore_case=True)
         self._gateway_balance_completer = WordCompleter(
-            sorted(
-                AllConnectorSettings.get_gateway_amm_connector_names().union(
-                    AllConnectorSettings.get_gateway_clob_connector_names()
-                )
-            ), ignore_case=True
+            GatewayTokenSetting.get_gateway_chains_with_network(), ignore_case=True
         )
         self._gateway_connector_tokens_completer = WordCompleter(
             GatewayTokenSetting.get_gateway_chains_with_network(), ignore_case=True
