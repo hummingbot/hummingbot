@@ -277,6 +277,7 @@ class GatewayHttpClient:
             network: str,
             address: str,
             token_symbols: List[str],
+            capital_provider: str = '',
             connector: str = None,
             fail_silently: bool = False,
     ) -> Dict[str, Any]:
@@ -287,6 +288,7 @@ class GatewayHttpClient:
                 "network": network,
                 "address": address,
                 "tokenSymbols": token_symbols,
+                "capitalProvider": capital_provider
             }
             if connector is not None:
                 request_params["connector"] = connector
@@ -369,12 +371,14 @@ class GatewayHttpClient:
             address: str,
             token_symbols: List[str],
             spender: str,
+            capital_provider: str = "",
             fail_silently: bool = False
     ) -> Dict[str, Any]:
         return await self.api_request("post", "chain/allowances", {
             "chain": chain,
             "network": network,
             "address": address,
+            "capitalProvider": capital_provider,
             "tokenSymbols": token_symbols,
             "spender": spender
         }, fail_silently=fail_silently)
@@ -478,6 +482,7 @@ class GatewayHttpClient:
             side: TradeType,
             amount: Decimal,
             price: Decimal,
+            capitalProvider: str = "",
             nonce: Optional[int] = None,
             max_fee_per_gas: Optional[int] = None,
             max_priority_fee_per_gas: Optional[int] = None
@@ -488,6 +493,7 @@ class GatewayHttpClient:
             "network": network,
             "connector": connector,
             "address": address,
+            "capitalProvider": capitalProvider,
             "base": base_asset,
             "quote": quote_asset,
             "side": side.name,

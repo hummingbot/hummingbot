@@ -59,6 +59,7 @@ class GatewayEVMAMM(ConnectorBase):
     _trading_pairs: List[str]
     _tokens: Set[str]
     _wallet_address: str
+    _capital_provider_address: str
     _trading_required: bool
     _ev_loop: asyncio.AbstractEventLoop
     _last_poll_timestamp: float
@@ -79,6 +80,7 @@ class GatewayEVMAMM(ConnectorBase):
                  chain: str,
                  network: str,
                  address: str,
+                 capital_provider_address: str,
                  trading_pairs: List[str] = [],
                  additional_spenders: List[str] = [],  # not implemented
                  trading_required: bool = True
@@ -100,6 +102,7 @@ class GatewayEVMAMM(ConnectorBase):
         self._tokens = set()
         [self._tokens.update(set(trading_pair.split("-"))) for trading_pair in trading_pairs]
         self._wallet_address = address
+        self._capital_provider_address = capital_provider_address
         self._trading_required = trading_required
         self._ev_loop = asyncio.get_event_loop()
         self._last_poll_timestamp = 0.0
@@ -146,6 +149,10 @@ class GatewayEVMAMM(ConnectorBase):
     @property
     def address(self):
         return self._wallet_address
+    
+    @property
+    def capital_provider_address(self):
+        return self._capital_provider_address
 
     async def all_trading_pairs(self) -> List[str]:
         """
@@ -350,7 +357,7 @@ class GatewayEVMAMM(ConnectorBase):
         """
         ret_val = {}
         resp: Dict[str, Any] = await self._get_gateway_instance().get_allowances(
-            self.chain, self.network, self.address, list(self._tokens), self.connector_name
+            self.chain, self.network, self.address, list(self._tokens), self.connector_name, self.capital_provider_address
         )
         for token, amount in resp["approvals"].items():
             ret_val[token] = Decimal(str(amount))
@@ -555,6 +562,7 @@ class GatewayEVMAMM(ConnectorBase):
                 trade_type,
                 amount,
                 price,
+                self.capital_provider_address,
                 **request_args
             )
             transaction_hash: Optional[str] = order_result.get("txHash")
@@ -859,6 +867,7 @@ class GatewayEVMAMM(ConnectorBase):
         }
 
     async def start_network(self):
+        print("Starting network")
         if self._trading_required:
             self._status_polling_task = safe_ensure_future(self._status_polling_loop())
             self._update_allowances = safe_ensure_future(self.update_allowances())
@@ -944,6 +953,7 @@ class GatewayEVMAMM(ConnectorBase):
                 chain=self.chain,
                 network=self.network,
                 address=self.address,
+                capital_provider=self.capital_provider_address,
                 token_symbols=token_list
             )
             for token, bal in resp_json["balances"].items():

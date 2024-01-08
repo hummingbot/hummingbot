@@ -132,6 +132,7 @@ class GatewayConnectionSetting:
         wallet_address: str,
         additional_spenders: List[str],
         additional_prompt_values: Dict[str, str],
+        capital_provider: str = '',
     ):
         new_connector_spec: Dict[str, str] = {
             "connector": connector_name,
@@ -140,6 +141,7 @@ class GatewayConnectionSetting:
             "trading_type": trading_type,
             "chain_type": chain_type,
             "wallet_address": wallet_address,
+            "capital_provider": capital_provider,
             "additional_spenders": additional_spenders,
             "additional_prompt_values": additional_prompt_values,
         }
@@ -268,6 +270,7 @@ class ConnectorSetting(NamedTuple):
                 chain=connector_spec["chain"],
                 network=connector_spec["network"],
                 address=connector_spec["wallet_address"],
+                capital_provider_address=connector_spec["capital_provider"],
             )
             if not self.uses_clob_connector():
                 params["additional_spenders"] = connector_spec.get("additional_spenders", [])
