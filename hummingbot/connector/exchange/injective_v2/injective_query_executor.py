@@ -172,25 +172,25 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
 
     async def get_spot_orderbook(self, market_id: str) -> Dict[str, Any]:  # pragma: no cover
         order_book_response = await self._sdk_client.fetch_spot_orderbook_v2(market_id=market_id)
-        order_book_data = order_book_response.orderbook
+        order_book_data = order_book_response["orderbook"]
         result = {
-            "buys": [(buy["price"], buy["quantity"], buy["timestamp"]) for buy in order_book_data.get("buys", [])],
-            "sells": [(sell["price"], sell["quantity"], sell["timestamp"]) for sell in order_book_data.get("sells", [])],
-            "sequence": order_book_data["sequence"],
-            "timestamp": order_book_data["timestamp"],
+            "buys": [(buy["price"], buy["quantity"], int(buy["timestamp"])) for buy in order_book_data.get("buys", [])],
+            "sells": [(sell["price"], sell["quantity"], int(sell["timestamp"])) for sell in order_book_data.get("sells", [])],
+            "sequence": int(order_book_data["sequence"]),
+            "timestamp": int(order_book_data["timestamp"]),
         }
 
         return result
 
     async def get_derivative_orderbook(self, market_id: str) -> Dict[str, Any]:  # pragma: no cover
         order_book_response = await self._sdk_client.fetch_derivative_orderbooks_v2(market_ids=[market_id])
-        order_book_data = order_book_response.orderbooks[0].orderbook
+        order_book_data = order_book_response["orderbooks"][0]["orderbook"]
         result = {
-            "buys": [(buy["price"], buy["quantity"], buy["timestamp"]) for buy in order_book_data.get("buys", [])],
-            "sells": [(sell["price"], sell["quantity"], sell["timestamp"]) for sell in
+            "buys": [(buy["price"], buy["quantity"], int(buy["timestamp"])) for buy in order_book_data.get("buys", [])],
+            "sells": [(sell["price"], sell["quantity"], int(sell["timestamp"])) for sell in
                       order_book_data.get("sells", [])],
-            "sequence": order_book_data["sequence"],
-            "timestamp": order_book_data["timestamp"],
+            "sequence": int(order_book_data["sequence"]),
+            "timestamp": int(order_book_data["timestamp"]),
         }
 
         return result
@@ -207,7 +207,7 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
         return transaction_response
 
     async def account_portfolio(self, account_address: str) -> Dict[str, Any]:  # pragma: no cover
-        portfolio_response = await self._sdk_client.fetch_account_portfolio(account_address=account_address)
+        portfolio_response = await self._sdk_client.fetch_account_portfolio_balances(account_address=account_address)
         return portfolio_response
 
     async def simulate_tx(self, tx_byte: bytes) -> Dict[str, Any]:  # pragma: no cover
@@ -302,7 +302,7 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
 
     async def get_derivative_positions(self, subaccount_id: str, skip: int) -> Dict[str, Any]:
         pagination = PaginationOption(skip=skip)
-        response = await self._sdk_client.fetch_derivative_positions(
+        response = await self._sdk_client.fetch_derivative_positions_v2(
             subaccount_id=subaccount_id, pagination=pagination
         )
         return response

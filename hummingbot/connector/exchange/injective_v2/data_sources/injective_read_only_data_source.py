@@ -74,7 +74,7 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
 
     @property
     def portfolio_account_subaccount_id(self) -> str:
-        raise NotImplementedError
+        return ""
 
     @property
     def trading_account_injective_address(self) -> str:

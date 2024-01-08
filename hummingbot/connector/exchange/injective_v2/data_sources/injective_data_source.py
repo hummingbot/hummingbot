@@ -319,8 +319,8 @@ class InjectiveDataSource(ABC):
         async with self.throttler.execute_task(limit_id=CONSTANTS.PORTFOLIO_BALANCES_LIMIT_ID):
             portfolio_response = await self.query_executor.account_portfolio(account_address=account_address)
 
-        bank_balances = portfolio_response["bankBalances"]
-        sub_account_balances = portfolio_response.get("subaccounts", [])
+        bank_balances = portfolio_response["portfolio"]["bankBalances"]
+        sub_account_balances = portfolio_response["portfolio"].get("subaccounts", [])
 
         balances_dict: Dict[str, Dict[str, Decimal]] = {}
 
