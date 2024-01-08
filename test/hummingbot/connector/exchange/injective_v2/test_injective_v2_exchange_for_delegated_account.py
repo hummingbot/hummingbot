@@ -236,57 +236,61 @@ class InjectiveV2ExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorT
     @property
     def balance_request_mock_response_for_base_and_quote(self):
         return {
-            "accountAddress": self.portfolio_account_injective_address,
-            "bankBalances": [
-                {
-                    "denom": self.base_asset_denom,
-                    "amount": str(Decimal(5) * Decimal(1e18))
-                },
-                {
-                    "denom": self.quote_asset_denom,
-                    "amount": str(Decimal(1000) * Decimal(1e6))
-                }
-            ],
-            "subaccounts": [
-                {
-                    "subaccountId": self.portfolio_account_subaccount_id,
-                    "denom": self.quote_asset_denom,
-                    "deposit": {
-                        "totalBalance": str(Decimal(1000) * Decimal(1e6)),
-                        "availableBalance": str(Decimal(1000) * Decimal(1e6))
+            "portfolio": {
+                "accountAddress": self.portfolio_account_injective_address,
+                "bankBalances": [
+                    {
+                        "denom": self.base_asset_denom,
+                        "amount": str(Decimal(5) * Decimal(1e18))
+                    },
+                    {
+                        "denom": self.quote_asset_denom,
+                        "amount": str(Decimal(1000) * Decimal(1e6))
                     }
-                },
-                {
-                    "subaccountId": self.portfolio_account_subaccount_id,
-                    "denom": self.base_asset_denom,
-                    "deposit": {
-                        "totalBalance": str(Decimal(10) * Decimal(1e18)),
-                        "availableBalance": str(Decimal(5) * Decimal(1e18))
-                    }
-                },
-            ]
+                ],
+                "subaccounts": [
+                    {
+                        "subaccountId": self.portfolio_account_subaccount_id,
+                        "denom": self.quote_asset_denom,
+                        "deposit": {
+                            "totalBalance": str(Decimal(1000) * Decimal(1e6)),
+                            "availableBalance": str(Decimal(1000) * Decimal(1e6))
+                        }
+                    },
+                    {
+                        "subaccountId": self.portfolio_account_subaccount_id,
+                        "denom": self.base_asset_denom,
+                        "deposit": {
+                            "totalBalance": str(Decimal(10) * Decimal(1e18)),
+                            "availableBalance": str(Decimal(5) * Decimal(1e18))
+                        }
+                    },
+                ],
+            }
         }
 
     @property
     def balance_request_mock_response_only_base(self):
         return {
-            "accountAddress": self.portfolio_account_injective_address,
-            "bankBalances": [
-                {
-                    "denom": self.base_asset_denom,
-                    "amount": str(Decimal(5) * Decimal(1e18))
-                },
-            ],
-            "subaccounts": [
-                {
-                    "subaccountId": self.portfolio_account_subaccount_id,
-                    "denom": self.base_asset_denom,
-                    "deposit": {
-                        "totalBalance": str(Decimal(10) * Decimal(1e18)),
-                        "availableBalance": str(Decimal(5) * Decimal(1e18))
-                    }
-                },
-            ]
+            "portfolio": {
+                "accountAddress": self.portfolio_account_injective_address,
+                "bankBalances": [
+                    {
+                        "denom": self.base_asset_denom,
+                        "amount": str(Decimal(5) * Decimal(1e18))
+                    },
+                ],
+                "subaccounts": [
+                    {
+                        "subaccountId": self.portfolio_account_subaccount_id,
+                        "denom": self.base_asset_denom,
+                        "deposit": {
+                            "totalBalance": str(Decimal(10) * Decimal(1e18)),
+                            "availableBalance": str(Decimal(5) * Decimal(1e18))
+                        }
+                    },
+                ],
+            }
         }
 
     @property

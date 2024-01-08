@@ -237,7 +237,7 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         self._events_listening_tasks = []
 
     async def initialize_trading_account(self):
-        await self._client.get_account(address=self.trading_account_injective_address)
+        await self._client.fetch_account(address=self.trading_account_injective_address)
         self._is_trading_account_initialized = True
 
     def supported_order_types(self) -> List[OrderType]:
