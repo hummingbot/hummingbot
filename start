@@ -2,15 +2,19 @@
 
 PASSWORD=""
 FILENAME=""
+CONFIG=""
 
 # Argument parsing
-while getopts ":p:f:" opt; do
+while getopts ":p:f:c:" opt; do
   case $opt in
     p)
       PASSWORD="$OPTARG"
       ;;
     f)
       FILENAME="$OPTARG"
+      ;;
+    c)
+      CONFIG="$OPTARG"
       ;;
     \?)
       echo "Invalid option: -$OPTARG" >&2
@@ -40,21 +44,25 @@ CMD="./bin/hummingbot_quickstart.py"
 if [[ ! -z "$PASSWORD" ]]; then
     CMD="$CMD -p \"$PASSWORD\""
 fi
+
+# Check for valid file extensions
 if [[ ! -z "$FILENAME" ]]; then
-    CMD="$CMD -f \"$FILENAME\""
+    if [[ $FILENAME == *.yml || $FILENAME == *.py ]]; then
+        CMD="$CMD -f \"$FILENAME\""
+    else
+        echo "Error: Invalid strategy or script file. File must be a .yml or .py file."
+        exit 4
+    fi
 fi
 
-# Clear the errors.log file first before executing
-> ./logs/errors.log
+if [[ ! -z "$CONFIG" ]]; then
+    if [[ $CONFIG == *.yml ]]; then
+        CMD="$CMD -c \"$CONFIG\""
+    else
+        echo "Error: Config file must be a .yml file."
+        exit 3
+    fi
+fi
 
 # Execute the command
-eval $CMD 2>> ./logs/errors.log
-
-# Check errors.log for specific errors
-if grep -q "Invalid password" ./logs/errors.log; then
-    echo "Error: Incorrect password provided."
-    exit 1
-elif grep -q "FileNotFoundError" ./logs/errors.log; then
-    echo "Error: Invalid file or filename provided."
-    exit 2
-fi
+eval $CMD
