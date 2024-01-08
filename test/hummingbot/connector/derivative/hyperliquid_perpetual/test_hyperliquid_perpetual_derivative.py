@@ -91,7 +91,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
 
     @property
     def funding_payment_url(self):
-        pass
+        return ""
 
     @property
     def balance_request_mock_response_only_base(self):
@@ -152,8 +152,9 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
                  'prevDayPx': '1877.1'}]]
         return "INVALID-PAIR", mock_response
 
+    @property
     def empty_funding_payment_mock_response(self):
-        pass
+        return [{'empty': True}]
 
     @aioresponses()
     def test_funding_payment_polling_loop_sends_update_event(self, *args, **kwargs):

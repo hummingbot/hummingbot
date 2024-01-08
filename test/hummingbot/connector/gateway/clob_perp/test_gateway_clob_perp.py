@@ -3,11 +3,10 @@ from decimal import Decimal
 from test.hummingbot.connector.gateway.clob_perp.data_sources.injective_perpetual.injective_perpetual_mock_utils import (
     InjectivePerpetualClientMock,
 )
+from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
+from test.logger_mixin_for_test import LoggerMixinForTest
 from typing import Awaitable, Dict, List, Mapping
 from unittest.mock import AsyncMock, MagicMock, call, patch
-
-from isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
-from logger_mixin_for_test import LoggerMixinForTest
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
