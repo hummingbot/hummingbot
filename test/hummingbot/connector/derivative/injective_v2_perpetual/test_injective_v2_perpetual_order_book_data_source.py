@@ -332,17 +332,17 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         self.assertEqual(self.trading_pair, msg.content["trading_pair"])
         self.assertEqual(float(TradeType.SELL.value), msg.content["trade_type"])
 
-    def test_listen_for_order_book_snapshots_cancelled(self):
+    def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
-        self.data_source._message_queue[self.data_source._snapshot_messages_queue_key] = mock_queue
+        self.data_source._message_queue[self.data_source._diff_messages_queue_key] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         with self.assertRaises(asyncio.CancelledError):
-            self.async_run_with_timeout(self.data_source.listen_for_order_book_snapshots(self.async_loop, msg_queue))
+            self.async_run_with_timeout(self.data_source.listen_for_order_book_diffs(self.async_loop, msg_queue))
 
-    def test_listen_for_order_book_snapshots_logs_exception(self):
+    def test_listen_for_order_book_diffs_logs_exception(self):
         spot_markets_response = self._spot_markets_response()
         market = list(spot_markets_response.values())[0]
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
@@ -395,7 +395,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         self.async_run_with_timeout(self.data_source.listen_for_subscriptions(), timeout=5)
 
         msg_queue: asyncio.Queue = asyncio.Queue()
-        self.create_task(self.data_source.listen_for_order_book_snapshots(self.async_loop, msg_queue))
+        self.create_task(self.data_source.listen_for_order_book_diffs(self.async_loop, msg_queue))
 
         self.async_run_with_timeout(msg_queue.get())
 
@@ -407,7 +407,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
 
     @patch(
         "hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source.InjectiveGranteeDataSource._initialize_timeout_height")
-    def test_listen_for_order_book_snapshots_successful(self, _):
+    def test_listen_for_order_book_diffs_successful(self, _):
         spot_markets_response = self._spot_markets_response()
         market = list(spot_markets_response.values())[0]
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
@@ -463,11 +463,11 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         self.async_run_with_timeout(self.data_source.listen_for_subscriptions())
 
         msg_queue: asyncio.Queue = asyncio.Queue()
-        self.create_task(self.data_source.listen_for_order_book_snapshots(self.async_loop, msg_queue))
+        self.create_task(self.data_source.listen_for_order_book_diffs(self.async_loop, msg_queue))
 
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get(), timeout=5)
 
-        self.assertEqual(OrderBookMessageType.SNAPSHOT, msg.type)
+        self.assertEqual(OrderBookMessageType.DIFF, msg.type)
         self.assertEqual(-1, msg.trade_id)
         self.assertEqual(int(order_book_data["blockTime"]) * 1e-3, msg.timestamp)
         expected_update_id = int(order_book_data["derivativeOrderbookUpdates"][0]["seq"])

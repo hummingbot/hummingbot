@@ -1206,13 +1206,13 @@ class InjectiveDataSource(ABC):
             "bids": bids,
             "asks": asks,
         }
-        snapshot_message = OrderBookMessage(
-            message_type=OrderBookMessageType.SNAPSHOT,
+        diff_message = OrderBookMessage(
+            message_type=OrderBookMessageType.DIFF,
             content=order_book_message_content,
             timestamp=block_timestamp,
         )
         self.publisher.trigger_event(
-            event_tag=OrderBookDataSourceEvent.SNAPSHOT_EVENT, message=snapshot_message
+            event_tag=OrderBookDataSourceEvent.DIFF_EVENT, message=diff_message
         )
 
     async def _process_chain_spot_trade_update(

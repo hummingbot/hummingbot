@@ -53,7 +53,7 @@ class InjectiveV2PerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
         snapshot = await self._data_source.perpetual_order_book_snapshot(market_id=symbol, trading_pair=trading_pair)
         return snapshot
 
-    async def _parse_order_book_snapshot_message(self, raw_message: OrderBookMessage, message_queue: asyncio.Queue):
+    async def _parse_order_book_diff_message(self, raw_message: OrderBookMessage, message_queue: asyncio.Queue):
         # In Injective 'raw_message' is not a raw message, but the OrderBookMessage with type Trade created
         # by the data source
         message_queue.put_nowait(raw_message)
@@ -72,7 +72,7 @@ class InjectiveV2PerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
         event_forwarder = EventForwarder(to_function=self._process_order_book_event)
         self._forwarders.append(event_forwarder)
         self._data_source.add_listener(
-            event_tag=OrderBookDataSourceEvent.SNAPSHOT_EVENT, listener=event_forwarder
+            event_tag=OrderBookDataSourceEvent.DIFF_EVENT, listener=event_forwarder
         )
 
         event_forwarder = EventForwarder(to_function=self._process_public_trade_event)
@@ -83,8 +83,8 @@ class InjectiveV2PerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource
         self._forwarders.append(event_forwarder)
         self._data_source.add_listener(event_tag=MarketEvent.FundingInfo, listener=event_forwarder)
 
-    def _process_order_book_event(self, order_book_snapshot: OrderBookMessage):
-        self._message_queue[self._snapshot_messages_queue_key].put_nowait(order_book_snapshot)
+    def _process_order_book_event(self, order_book_diff: OrderBookMessage):
+        self._message_queue[self._diff_messages_queue_key].put_nowait(order_book_diff)
 
     def _process_public_trade_event(self, trade_update: OrderBookMessage):
         self._message_queue[self._trade_messages_queue_key].put_nowait(trade_update)
