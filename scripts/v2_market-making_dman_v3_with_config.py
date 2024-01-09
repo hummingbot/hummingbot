@@ -36,11 +36,11 @@ class DManV3ScriptConfig(BaseClientModel):
                                                                       prompt=lambda mi: "The max records of the candles"))
     bollinger_band_length: int = Field(200, client_data=ClientFieldData(prompt_on_new=True,
                                                                         prompt=lambda mi: "The length of the Bollinger Bands"))
-    bollinger_band_std: float = Field(20, client_data=ClientFieldData(prompt_on_new=False,
-                                                                      prompt=lambda mi: "The standard deviation of the Bollinger Bands"))
+    bollinger_band_std: float = Field(2.0, client_data=ClientFieldData(prompt_on_new=False,
+                                                                       prompt=lambda mi: "The standard deviation of the Bollinger Bands"))
     order_amount: Decimal = Field(20, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "The order amount in quote asset"))
     n_levels: int = Field(5, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "The number of order levels"))
-    start_spread: float = Field(10, client_data=ClientFieldData(
+    start_spread: float = Field(1.0, client_data=ClientFieldData(
         prompt_on_new=True,
         prompt=lambda mi: "The spread of the first order based on the value of the bollinger band, 1.0 == upper/lower band"))
     step_between_orders: float = Field(0.1, client_data=ClientFieldData(
@@ -50,7 +50,7 @@ class DManV3ScriptConfig(BaseClientModel):
     take_profit: Decimal = Field(0.06, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "The take profit"))
     time_limit: int = Field(60 * 60 * 24 * 3, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "The time limit"))
     trailing_stop_activation_price_delta: Decimal = Field(0.01, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "The trailing stop activation price delta"))
-    trailing_stop_trailing_delta: Decimal = Field(0.01, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "The trailing stop activation price delta"))
+    trailing_stop_trailing_delta: Decimal = Field(0.003, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "The trailing stop activation price delta"))
     side_filter: bool = Field(True, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "The side filter"))
     dynamic_spread_factor: bool = Field(True, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "The dynamic spread factor"))
     dynamic_target_spread: bool = Field(True, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "The dynamic target spread"))
