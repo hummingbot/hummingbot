@@ -639,7 +639,7 @@ class InjectiveDataSource(ABC):
             trading_pair=await self.trading_pair_for_market(market_id=market_id),
             index_price=last_traded_price,  # Use the last traded price as the index_price
             mark_price=oracle_price,
-            next_funding_utc_timestamp=int(updated_market_info["perpetualMarketInfo"]["nextFundingTimestamp"]),
+            next_funding_utc_timestamp=int(updated_market_info["market"]["perpetualMarketInfo"]["nextFundingTimestamp"]),
             rate=funding_rate,
         )
         return funding_info

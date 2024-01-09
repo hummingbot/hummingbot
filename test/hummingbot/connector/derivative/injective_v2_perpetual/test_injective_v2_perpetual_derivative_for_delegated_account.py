@@ -2280,40 +2280,42 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.configure_all_symbols_response(mock_api=None)
         self.exchange._data_source._query_executor._derivative_market_responses.put_nowait(
             {
-                "marketId": self.market_id,
-                "marketStatus": "active",
-                "ticker": f"{self.base_asset}/{self.quote_asset} PERP",
-                "oracleBase": "0x2d9315a88f3019f8efa88dfe9c0f0843712da0bac814461e27733f6b83eb51b3",  # noqa: mock
-                "oracleQuote": "0x1fc18861232290221461220bd4e2acd1dcdfbc89c84092c93c18bdc7756c1588",  # noqa: mock
-                "oracleType": "pyth",
-                "oracleScaleFactor": 6,
-                "initialMarginRatio": "0.195",
-                "maintenanceMarginRatio": "0.05",
-                "quoteDenom": self.quote_asset_denom,
-                "quoteTokenMeta": {
-                    "name": "Testnet Tether USDT",
-                    "address": "0x0000000000000000000000000000000000000000",  # noqa: mock
-                    "symbol": self.quote_asset,
-                    "logo": "https://static.alchemyapi.io/images/assets/825.png",
-                    "decimals": self.quote_decimals,
-                    "updatedAt": "1687190809716"
-                },
-                "makerFeeRate": "-0.0003",
-                "takerFeeRate": "0.003",
-                "serviceProviderFee": "0.4",
-                "isPerpetual": True,
-                "minPriceTickSize": "100",
-                "minQuantityTickSize": "0.0001",
-                "perpetualMarketInfo": {
-                    "hourlyFundingRateCap": "0.000625",
-                    "hourlyInterestRate": "0.00000416666",
-                    "nextFundingTimestamp": str(self.target_funding_info_next_funding_utc_timestamp),
-                    "fundingInterval": "3600"
-                },
-                "perpetualMarketFunding": {
-                    "cumulativeFunding": "81363.592243119007273334",
-                    "cumulativePrice": "1.432536051546776736",
-                    "lastTimestamp": "1689423842"
+                "market": {
+                    "marketId": self.market_id,
+                    "marketStatus": "active",
+                    "ticker": f"{self.base_asset}/{self.quote_asset} PERP",
+                    "oracleBase": "0x2d9315a88f3019f8efa88dfe9c0f0843712da0bac814461e27733f6b83eb51b3",  # noqa: mock
+                    "oracleQuote": "0x1fc18861232290221461220bd4e2acd1dcdfbc89c84092c93c18bdc7756c1588",  # noqa: mock
+                    "oracleType": "pyth",
+                    "oracleScaleFactor": 6,
+                    "initialMarginRatio": "0.195",
+                    "maintenanceMarginRatio": "0.05",
+                    "quoteDenom": self.quote_asset_denom,
+                    "quoteTokenMeta": {
+                        "name": "Testnet Tether USDT",
+                        "address": "0x0000000000000000000000000000000000000000",  # noqa: mock
+                        "symbol": self.quote_asset,
+                        "logo": "https://static.alchemyapi.io/images/assets/825.png",
+                        "decimals": self.quote_decimals,
+                        "updatedAt": "1687190809716"
+                    },
+                    "makerFeeRate": "-0.0003",
+                    "takerFeeRate": "0.003",
+                    "serviceProviderFee": "0.4",
+                    "isPerpetual": True,
+                    "minPriceTickSize": "100",
+                    "minQuantityTickSize": "0.0001",
+                    "perpetualMarketInfo": {
+                        "hourlyFundingRateCap": "0.000625",
+                        "hourlyInterestRate": "0.00000416666",
+                        "nextFundingTimestamp": str(self.target_funding_info_next_funding_utc_timestamp),
+                        "fundingInterval": "3600"
+                    },
+                    "perpetualMarketFunding": {
+                        "cumulativeFunding": "81363.592243119007273334",
+                        "cumulativePrice": "1.432536051546776736",
+                        "lastTimestamp": "1689423842"
+                    },
                 }
             }
         )
@@ -2402,40 +2404,42 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.configure_all_symbols_response(mock_api=None)
         self.exchange._data_source._query_executor._derivative_market_responses.put_nowait(
             {
-                "marketId": self.market_id,
-                "marketStatus": "active",
-                "ticker": f"{self.base_asset}/{self.quote_asset} PERP",
-                "oracleBase": "0x2d9315a88f3019f8efa88dfe9c0f0843712da0bac814461e27733f6b83eb51b3",  # noqa: mock
-                "oracleQuote": "0x1fc18861232290221461220bd4e2acd1dcdfbc89c84092c93c18bdc7756c1588",  # noqa: mock
-                "oracleType": "pyth",
-                "oracleScaleFactor": 6,
-                "initialMarginRatio": "0.195",
-                "maintenanceMarginRatio": "0.05",
-                "quoteDenom": self.quote_asset_denom,
-                "quoteTokenMeta": {
-                    "name": "Testnet Tether USDT",
-                    "address": "0x0000000000000000000000000000000000000000",  # noqa: mock
-                    "symbol": self.quote_asset,
-                    "logo": "https://static.alchemyapi.io/images/assets/825.png",
-                    "decimals": self.quote_decimals,
-                    "updatedAt": "1687190809716"
-                },
-                "makerFeeRate": "-0.0003",
-                "takerFeeRate": "0.003",
-                "serviceProviderFee": "0.4",
-                "isPerpetual": True,
-                "minPriceTickSize": "100",
-                "minQuantityTickSize": "0.0001",
-                "perpetualMarketInfo": {
-                    "hourlyFundingRateCap": "0.000625",
-                    "hourlyInterestRate": "0.00000416666",
-                    "nextFundingTimestamp": str(self.target_funding_info_next_funding_utc_timestamp),
-                    "fundingInterval": "3600"
-                },
-                "perpetualMarketFunding": {
-                    "cumulativeFunding": "81363.592243119007273334",
-                    "cumulativePrice": "1.432536051546776736",
-                    "lastTimestamp": "1689423842"
+                "market": {
+                    "marketId": self.market_id,
+                    "marketStatus": "active",
+                    "ticker": f"{self.base_asset}/{self.quote_asset} PERP",
+                    "oracleBase": "0x2d9315a88f3019f8efa88dfe9c0f0843712da0bac814461e27733f6b83eb51b3",  # noqa: mock
+                    "oracleQuote": "0x1fc18861232290221461220bd4e2acd1dcdfbc89c84092c93c18bdc7756c1588",  # noqa: mock
+                    "oracleType": "pyth",
+                    "oracleScaleFactor": 6,
+                    "initialMarginRatio": "0.195",
+                    "maintenanceMarginRatio": "0.05",
+                    "quoteDenom": self.quote_asset_denom,
+                    "quoteTokenMeta": {
+                        "name": "Testnet Tether USDT",
+                        "address": "0x0000000000000000000000000000000000000000",  # noqa: mock
+                        "symbol": self.quote_asset,
+                        "logo": "https://static.alchemyapi.io/images/assets/825.png",
+                        "decimals": self.quote_decimals,
+                        "updatedAt": "1687190809716"
+                    },
+                    "makerFeeRate": "-0.0003",
+                    "takerFeeRate": "0.003",
+                    "serviceProviderFee": "0.4",
+                    "isPerpetual": True,
+                    "minPriceTickSize": "100",
+                    "minQuantityTickSize": "0.0001",
+                    "perpetualMarketInfo": {
+                        "hourlyFundingRateCap": "0.000625",
+                        "hourlyInterestRate": "0.00000416666",
+                        "nextFundingTimestamp": str(self.target_funding_info_next_funding_utc_timestamp),
+                        "fundingInterval": "3600"
+                    },
+                    "perpetualMarketFunding": {
+                        "cumulativeFunding": "81363.592243119007273334",
+                        "cumulativePrice": "1.432536051546776736",
+                        "lastTimestamp": "1689423842"
+                    },
                 }
             }
         )
