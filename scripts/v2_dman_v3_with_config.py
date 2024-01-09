@@ -19,45 +19,40 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
 class DManV3ScriptConfig(BaseClientModel):
-    script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))  # This has to be defined to be able to filter the configs for this script
-    exchange: str = Field("binance_perpetual",
-                          client_data=ClientFieldData(prompt_on_new=True,
-                                                      prompt=lambda mi: "The exchange to trade on"))
-    trading_pairs: str = Field("DOGE-USDT,INJ-USDT",
-                               client_data=ClientFieldData(prompt_on_new=True,
-                                                           prompt=lambda mi: "The trading pairs to trade on separated by comma"))
-    leverage: int = Field(1, client_data=ClientFieldData(prompt_on_new=True,
-                                                         prompt=lambda mi: "The leverage to use for the perpetual market"))
-    candles_exchange: str = Field("binance_perpetual",
-                                  client_data=ClientFieldData(prompt_on_new=True,
-                                                              prompt=lambda mi: "The exchange to get the candles from"))
-    candles_interval: str = Field("30m",
-                                  client_data=ClientFieldData(prompt_on_new=True,
-                                                              prompt=lambda mi: "The interval of the candles"))
-    candles_max_records: int = Field(500, client_data=ClientFieldData(prompt_on_new=False,
-                                                                      prompt=lambda mi: "The max records of the candles"))
-    bollinger_band_length: int = Field(200, client_data=ClientFieldData(prompt_on_new=True,
-                                                                        prompt=lambda mi: "The length of the Bollinger Bands"))
-    bollinger_band_std: float = Field(2.0, client_data=ClientFieldData(prompt_on_new=False,
-                                                                       prompt=lambda mi: "The standard deviation of the Bollinger Bands"))
-    order_amount: Decimal = Field(20, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "The order amount in quote asset"))
-    n_levels: int = Field(5, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "The number of order levels"))
-    start_spread: float = Field(1.0, client_data=ClientFieldData(
-        prompt_on_new=True,
-        prompt=lambda mi: "The spread of the first order based on the value of the bollinger band, 1.0 == upper/lower band"))
-    step_between_orders: float = Field(0.1, client_data=ClientFieldData(
-        prompt_on_new=True,
-        prompt=lambda mi: "The step between orders based on the value of the bollinger band"))
-    stop_loss: Decimal = Field(0.2, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "The stop loss"))
-    take_profit: Decimal = Field(0.06, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "The take profit"))
-    time_limit: int = Field(60 * 60 * 24 * 3, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "The time limit"))
-    trailing_stop_activation_price_delta: Decimal = Field(0.01, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "The trailing stop activation price delta"))
-    trailing_stop_trailing_delta: Decimal = Field(0.003, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "The trailing stop activation price delta"))
-    side_filter: bool = Field(True, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "The side filter"))
-    dynamic_spread_factor: bool = Field(True, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "The dynamic spread factor"))
-    dynamic_target_spread: bool = Field(True, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "The dynamic target spread"))
-    smart_activation: bool = Field(True, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "The smart activation"))
-    activation_threshold: Decimal = Field(0.01, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "The activation threshold"))
+    script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
+
+    # Account configuration
+    exchange: str = Field("binance_perpetual", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the name of the exchange where the bot will operate (e.g., binance_perpetual):"))
+    trading_pairs: str = Field("DOGE-USDT,INJ-USDT", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "List the trading pairs for the bot to trade on, separated by commas (e.g., BTC-USDT,ETH-USDT):"))
+    leverage: int = Field(20, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the leverage to use for trading (e.g., 20 for 20x leverage):"))
+
+    # Candles configuration
+    candles_exchange: str = Field("binance_perpetual", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the exchange name to fetch candle data from (e.g., binance_perpetual):"))
+    candles_interval: str = Field("30m", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the time interval for candles (e.g., 1m, 5m, 1h):"))
+    bollinger_band_length: int = Field(200, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the length of the Bollinger Bands (e.g., 200):"))
+    bollinger_band_std: float = Field(3.0, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "Set the standard deviation for the Bollinger Bands (e.g., 2.0):"))
+
+    # Orders configuration
+    order_amount: Decimal = Field(20, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the base order amount in quote asset (e.g., 20 USDT):"))
+    n_levels: int = Field(5, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Specify the number of order levels (e.g., 5):"))
+    start_spread: float = Field(1.0, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the spread of the first order as a ratio of the Bollinger Band value (e.g., 1.0 for upper/lower band):"))
+    step_between_orders: float = Field(0.2, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Define the step between orders as a ratio of the Bollinger Band value (e.g., 0.1):"))
+
+    # Triple barrier configuration
+    stop_loss: Decimal = Field(0.2, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the stop loss percentage (e.g., 0.2 for 20% loss):"))
+    take_profit: Decimal = Field(0.06, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the take profit percentage (e.g., 0.06 for 6% gain):"))
+    time_limit: int = Field(60 * 60 * 24 * 3, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the time limit in seconds for the triple barrier (e.g., 259200 for 3 days):"))
+
+    # Trailing Stop configuration
+    trailing_stop_activation_price_delta: Decimal = Field(0.01, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the activation price delta for the trailing stop (e.g., 0.01 for 1%):"))
+    trailing_stop_trailing_delta: Decimal = Field(0.003, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the trailing delta for the trailing stop (e.g., 0.003 for 0.3%):"))
+
+    # Advanced configurations
+    side_filter: bool = Field(True, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "Enable filtering based on trade side (True/False):"))
+    dynamic_spread_factor: bool = Field(True, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "Enable dynamic spread factor for more responsive spread adjustments (True/False):"))
+    dynamic_target_spread: bool = Field(False, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "Activate dynamic target spread to adjust target spread based on the bollinger band (True/False):"))
+    smart_activation: bool = Field(False, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "Enable smart activation for intelligent order placement (True/False):"))
+    activation_threshold: Decimal = Field(0.001, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "Set the activation threshold for smart activation (e.g., 0.01 for 1%):"))
 
 
 class DManV3MultiplePairs(ScriptStrategyBase):
@@ -89,7 +84,8 @@ class DManV3MultiplePairs(ScriptStrategyBase):
                 order_levels=order_levels,
                 candles_config=[
                     CandlesConfig(connector=config.candles_exchange, trading_pair=trading_pair,
-                                  interval=config.candles_interval, max_records=config.candles_max_records),
+                                  interval=config.candles_interval,
+                                  max_records=config.bollinger_band_length + 200),  # we need more candles to calculate the bollinger bands
                 ],
                 bb_length=config.bollinger_band_length,
                 bb_std=config.bollinger_band_std,

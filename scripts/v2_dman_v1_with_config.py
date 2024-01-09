@@ -19,44 +19,34 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
 class DManV1ScriptConfig(BaseClientModel):
-    script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))  # This has to be defined to be able to filter the configs for this script
+    script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
+
     # Account configuration
-    exchange: str = Field("binance_perpetual",
-                          client_data=ClientFieldData(prompt_on_new=True,
-                                                      prompt=lambda mi: "The exchange to trade on"))
-    trading_pairs: str = Field("ETH-USDT",
-                               client_data=ClientFieldData(prompt_on_new=True,
-                                                           prompt=lambda mi: "The trading pairs to trade on separated by comma"))
-    leverage: int = Field(20, client_data=ClientFieldData(prompt_on_new=True,
-                                                          prompt=lambda mi: "The leverage to use"))
+    exchange: str = Field("binance_perpetual", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the name of the exchange where the bot will operate (e.g., binance_perpetual):"))
+    trading_pairs: str = Field("DOGE-USDT", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "List the trading pairs for the bot to trade on, separated by commas (e.g., BTC-USDT,ETH-USDT):"))
+    leverage: int = Field(20, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the leverage to use for trading (e.g., 20 for 20x leverage):"))
 
     # Candles configuration
-    candles_exchange: str = Field("binance_perpetual",
-                                  client_data=ClientFieldData(prompt_on_new=True,
-                                                              prompt=lambda mi: "The exchange to get the candles from"))
-    candles_interval: str = Field("3m",
-                                  client_data=ClientFieldData(prompt_on_new=True,
-                                                              prompt=lambda mi: "The interval of the candles"))
-    candles_max_records: int = Field(300, client_data=ClientFieldData(prompt_on_new=False,
-                                                                      prompt=lambda mi: "The max records of the candles"))
+    candles_exchange: str = Field("binance_perpetual", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the exchange name to fetch candle data from (e.g., binance_perpetual):"))
+    candles_interval: str = Field("3m", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the time interval for candles (e.g., 1m, 5m, 1h):"))
 
     # Orders configuration
-    order_amount: Decimal = Field(25, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "The order amount in quote asset"))
-    n_levels: int = Field(5, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "The number of order levels"))
-    start_spread: float = Field(0.0006, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "The start spread"))
-    step_between_orders: float = Field(0.009, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "The step between orders"))
-    order_refresh_time: int = Field(60 * 15, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "The order refresh time in seconds"))
-    cooldown_time: int = Field(5, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "The cooldown time in seconds"))
+    order_amount: Decimal = Field(25, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the base order amount in quote asset (e.g., 25 USDT):"))
+    n_levels: int = Field(5, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Specify the number of order levels (e.g., 5):"))
+    start_spread: float = Field(1.0, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the start spread as a multiple of the NATR (e.g., 1.0 for 1x NATR):"))
+    step_between_orders: float = Field(0.8, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Define the step between orders as a multiple of the NATR (e.g., 0.8 for 0.8x NATR):"))
+    order_refresh_time: int = Field(60 * 45, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the refresh time in seconds for orders (e.g., 900 for 15 minutes):"))
+    cooldown_time: int = Field(5, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "Specify the cooldown time in seconds between order placements (e.g., 5):"))
 
     # Triple barrier configuration
-    stop_loss: Decimal = Field(0.2, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "The stop loss"))
-    take_profit: Decimal = Field(0.06, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "The take profit"))
-    time_limit: int = Field(60 * 60 * 12, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "The time limit"))
-    trailing_stop_activation_price_delta: Decimal = Field(0.0045, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "The trailing stop activation price delta"))
-    trailing_stop_trailing_delta: Decimal = Field(0.003, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "The trailing stop activation price delta"))
+    stop_loss: Decimal = Field(0.2, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the stop loss percentage (e.g., 0.2 for 20% loss):"))
+    take_profit: Decimal = Field(0.06, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the take profit percentage (e.g., 0.06 for 6% gain):"))
+    time_limit: int = Field(60 * 60 * 12, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the time limit in seconds for the triple barrier (e.g., 43200 for 12 hours):"))
+    trailing_stop_activation_price_delta: Decimal = Field(0.0045, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the activation price delta for the trailing stop (e.g., 0.0045 for 0.45%):"))
+    trailing_stop_trailing_delta: Decimal = Field(0.003, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the trailing delta for the trailing stop (e.g., 0.003 for 0.3%):"))
 
     # Advanced configurations
-    natr_length: int = Field(100, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "The NATR length"))
+    natr_length: int = Field(100, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the NATR (Normalized Average True Range) length (e.g., 100):"))
 
 
 class DManV1MultiplePairs(ScriptStrategyBase):
@@ -88,6 +78,7 @@ class DManV1MultiplePairs(ScriptStrategyBase):
         self.controllers = {}
         self.executor_handlers = {}
         self.markets = {}
+        candles_max_records = config.natr_length + 100  # We need to get more candles than the indicators need
 
         for trading_pair in config.trading_pairs.split(","):
             # Configure the strategy for each trading pair
@@ -97,7 +88,7 @@ class DManV1MultiplePairs(ScriptStrategyBase):
                 order_levels=order_levels,
                 candles_config=[
                     CandlesConfig(connector=config.candles_exchange, trading_pair=trading_pair,
-                                  interval=config.candles_interval, max_records=config.candles_max_records),
+                                  interval=config.candles_interval, max_records=candles_max_records),
                 ],
                 leverage=config.leverage,
                 natr_length=config.natr_length,
