@@ -326,7 +326,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         with self.assertRaises(asyncio.CancelledError):
             self.async_run_with_timeout(self.data_source.listen_for_order_book_diffs(self.async_loop, msg_queue))
 
-    def test_listen_for_order_book_snapshots_logs_exception(self):
+    def test_listen_for_order_book_diffs_logs_exception(self):
         spot_markets_response = self._spot_markets_response()
         market = list(spot_markets_response.values())[0]
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
@@ -380,7 +380,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         self.async_run_with_timeout(self.data_source.listen_for_subscriptions(), timeout=5)
 
         msg_queue: asyncio.Queue = asyncio.Queue()
-        self.create_task(self.data_source.listen_for_order_book_snapshots(self.async_loop, msg_queue))
+        self.create_task(self.data_source.listen_for_order_book_diffs(self.async_loop, msg_queue))
 
         self.async_run_with_timeout(msg_queue.get())
 
@@ -394,7 +394,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
            "InjectiveGranteeDataSource._initialize_timeout_height")
     @patch("hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source."
            "InjectiveGranteeDataSource._time")
-    def test_listen_for_order_book_snapshots_successful(self, time_mock, _):
+    def test_listen_for_order_book_diffs_successful(self, time_mock, _):
         time_mock.return_value = 1640001112.223
 
         spot_markets_response = self._spot_markets_response()
@@ -449,11 +449,11 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         self.async_run_with_timeout(self.data_source.listen_for_subscriptions())
 
         msg_queue: asyncio.Queue = asyncio.Queue()
-        self.create_task(self.data_source.listen_for_order_book_snapshots(self.async_loop, msg_queue))
+        self.create_task(self.data_source.listen_for_order_book_diffs(self.async_loop, msg_queue))
 
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get(), timeout=10)
 
-        self.assertEqual(OrderBookMessageType.SNAPSHOT, msg.type)
+        self.assertEqual(OrderBookMessageType.DIFF, msg.type)
         self.assertEqual(-1, msg.trade_id)
         self.assertEqual(time_mock.return_value, msg.timestamp)
         expected_update_id = int(order_book_data["spotOrderbookUpdates"][0]["seq"])
