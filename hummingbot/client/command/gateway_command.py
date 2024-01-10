@@ -76,7 +76,7 @@ class GatewayCommand(GatewayChainApiManager):
     @ensure_gateway_online
     def gateway_balance(self, chain_network: Optional[str] = None):
         if chain_network is not None:
-            safe_ensure_future(self._get_bal_allowance_for_exchange(
+            safe_ensure_future(self._get_balance_for_exchange(
                 chain_network), loop=self.ev_loop)
         else:
             safe_ensure_future(self._get_balances(), loop=self.ev_loop)
@@ -449,7 +449,7 @@ class GatewayCommand(GatewayChainApiManager):
         wallet_address: str = response["address"]
         return wallet_address, additional_prompt_values
 
-    async def _get_bal_allowance_for_exchange(self, exchange_name: str):
+    async def _get_balance_for_exchange(self, exchange_name: str):
         gateway_connections = GatewayConnectionSetting.load()
         gateway_instance = GatewayHttpClient.get_instance(self.client_config_map)
 
