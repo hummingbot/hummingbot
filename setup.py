@@ -107,7 +107,6 @@ def main():
         "web3",
         "websockets",
         "yarl",
-        "python-telegram-bot==12.8",
         "pandas_ta==0.3.14b",
     ]
 
