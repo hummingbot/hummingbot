@@ -451,8 +451,7 @@ class GatewayCommand(GatewayChainApiManager):
 
     async def _get_balance_for_exchange(self, exchange_name: str):
         gateway_connections = GatewayConnectionSetting.load()
-        gateway_instance = GatewayHttpClient.get_instance(self.client_config_map)
-
+        network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
         self.notify("Updating gateway balances, please wait...")
         conf: Optional[Dict[str, str]] = GatewayTokenSetting.get_network_spec_from_name(
             exchange_name)
@@ -461,43 +460,41 @@ class GatewayCommand(GatewayChainApiManager):
             self.notify(
                 f"'{exchange_name}' is not available. You can add and review exchange with 'gateway connect'.")
         else:
-            connector_chain_network: List[Dict[str, Any]] = [
+            chain_network: List[Dict[str, Any]] = [
                 w for w in gateway_connections if f'{w["chain"]}_{w["network"]}' == f'{conf["chain_network"]}'
             ]
-
             chain, network = conf["chain_network"].split("_")
-            address = connector_chain_network[0]['wallet_address']
-            native_token: str = native_tokens[chain]
-            tokens_str = conf.get("tokens", "")
-            tokens = [token.strip() for token in tokens_str.split(',')] if tokens_str else []
-            all_token = tokens + [native_token]
+            connector = chain_network[0]['connector']
+            exchange = f"{connector}_{chain}_{network}"
+            exchange_key = f'{chain}_{network}'
+            address = chain_network[0]['wallet_address']
 
             try:
-                balance_resp = await gateway_instance.get_balances(
-                    chain, network, address, all_token
+                ex_bal = await asyncio.wait_for(
+                    GatewayCommand.single_balance_exc(self, exchange, self.client_config_map), network_timeout
                 )
-                balance: Dict[str, Decimal] = balance_resp.get("balances", {})
-                rows = []
-                for token, bal in balance.items():
-                    bal = Decimal(str(bal))
-                    rows.append({
-                        "Symbol": token.upper(),
-                        "Balance": round(bal, 4),
-                    })
+                for ex, bals in ex_bal.items():
+                    if ex == exchange_key:
+                        rows = []
+                        for token, bal in bals.items():
+                            rows.append({
+                                "Symbol": token.upper(),
+                                "Balance": round(bal, 4),
+                            })
 
-                df = pd.DataFrame(data=rows, columns=["Symbol", "Balance"])
-                df.sort_values(by=["Symbol"], inplace=True)
+                        df = pd.DataFrame(data=rows, columns=["Symbol", "Balance"])
+                        df.sort_values(by=["Symbol"], inplace=True)
 
-                self.notify(f"\nChain_network: {chain}_{network}")
-                self.notify(f"Wallet_Address: {address}")
+                        self.notify(f"\nChain_network: {ex}")
+                        self.notify(f"Wallet_Address: {address}")
 
-                if df.empty:
-                    self.notify("You have no balance on this exchange.")
-                else:
-                    lines = [
-                        "    " + line for line in df.to_string(index=False).split("\n")
-                    ]
-                    self.notify("\n".join(lines))
+                        if df.empty:
+                            self.notify("You have no balance on this exchange.")
+                        else:
+                            lines = [
+                                "    " + line for line in df.to_string(index=False).split("\n")
+                            ]
+                            self.notify("\n".join(lines))
 
             except asyncio.TimeoutError:
                 self.notify("\nA network error prevented the balances from updating. See logs for more details.")
@@ -671,6 +668,37 @@ class GatewayCommand(GatewayChainApiManager):
                 exchange, client_config_map))
         results = await safe_gather(*tasks)
         return {ex: err_msg for ex, err_msg in zip(exchanges, results)}
+
+    async def update_exch(
+        self,
+        exchange: str,
+        client_config_map: ClientConfigMap,
+        reconnect: bool = False,
+        exchanges: Optional[List[str]] = None
+    ) -> Dict[str, Optional[str]]:
+        exchanges = exchanges or []
+        tasks = []
+        if reconnect:
+            self._market.clear()
+        tasks.append(self.update_exchange_balances(exchange, client_config_map))
+        results = await safe_gather(*tasks)
+        return {ex: err_msg for ex, err_msg in zip(exchanges, results)}
+
+    async def single_balance_exc(self, exchange, client_config_map: ClientConfigMap) -> Dict[str, Dict[str, Decimal]]:
+        # Waits for the update_exchange method to complete with the provided client_config_map
+        await self.update_exch(exchange, client_config_map)
+        # Sorts the items in the self._market dictionary based on keys
+        sorted_market_items = sorted(self._market.items(), key=lambda x: x[0])
+        # Initializes an empty dictionary to store balances
+        balances = {}
+
+        # Iterates through the sorted items and retrieves balances for each item
+        for key, value in sorted_market_items:
+            new_key = key.split("_")[1:]
+            result = "_".join(new_key)
+            balances[result] = value.get_all_balances()
+
+        return balances
 
     async def all_balances_all_exc(self, client_config_map: ClientConfigMap) -> Dict[str, Dict[str, Decimal]]:
         # Waits for the update_exchange method to complete with the provided client_config_map
