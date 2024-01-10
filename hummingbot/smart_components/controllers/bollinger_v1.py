@@ -16,8 +16,8 @@ class BollingerV1Config(DirectionalTradingControllerConfigBase):
     strategy_name = "bollinger_v1"
     bb_length: int = Field(default=100, ge=20, le=400)
     bb_std: float = Field(default=2.0, ge=2.0, le=3.0)
-    bb_long_threshold: float = Field(default=0.0, ge=-1.0, le=0.2)
-    bb_short_threshold: float = Field(default=1.0, ge=0.8, le=2.0)
+    bb_long_threshold: float = Field(default=0.0, ge=-2.0, le=0.5)
+    bb_short_threshold: float = Field(default=1.0, ge=0.5, le=3.0)
 
 
 class BollingerV1(DirectionalTradingControllerBase):
