@@ -5,6 +5,7 @@ import inspect
 import os
 import shutil
 import sys
+from collections import OrderedDict
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional
 
@@ -34,6 +35,10 @@ from hummingbot.exceptions import InvalidScriptModule
 
 if TYPE_CHECKING:
     from hummingbot.client.hummingbot_application import HummingbotApplication  # noqa: F401
+
+
+class OrderedDumper(yaml.SafeDumper):
+    pass
 
 
 class CreateCommand:
@@ -70,18 +75,29 @@ class CreateCommand:
         except StopIteration:
             raise InvalidScriptModule(f"The module {script_to_config} does not contain any subclass of BaseModel")
 
-    async def save_config_strategy_v2(self,  # type: HummingbotApplication
-                                      strategy_name: str, config_instance: BaseClientModel):
+    async def save_config_strategy_v2(self, strategy_name: str, config_instance: BaseClientModel):
         file_name = await self.prompt_new_file_name(strategy_name, True)
         if self.app.to_stop_config:
             self.app.set_text("")
             return
+
         strategy_path = Path(SCRIPT_STRATEGY_CONFIG_PATH) / file_name
-        # Convert the Pydantic model instance to a dictionary
-        config_data = config_instance.dict()
+        # Extract the ordered field names from the Pydantic model
+        field_order = list(config_instance.__fields__.keys())
+
+        # Use ordered field names to create an ordered dictionary
+        ordered_config_data = OrderedDict((field, getattr(config_instance, field)) for field in field_order)
+
+        # Add a representer to use the ordered dictionary and dump the YAML file
+        def _dict_representer(dumper, data):
+            return dumper.represent_dict(data.items())
+
+        OrderedDumper.add_representer(OrderedDict, _dict_representer)
+
         # Write the configuration data to the YAML file
         with open(strategy_path, 'w') as file:
-            yaml.safe_dump(config_data, file)
+            yaml.dump(ordered_config_data, file, Dumper=OrderedDumper, default_flow_style=False)
+
         return file_name
 
     async def prompt_for_configuration(
