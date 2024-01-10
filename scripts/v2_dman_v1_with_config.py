@@ -112,8 +112,6 @@ class DManV1MultiplePairs(ScriptStrategyBase):
     def on_stop(self):
         if self.is_perpetual:
             self.close_open_positions()
-        for executor_handler in self.executor_handlers.values():
-            executor_handler.stop()
 
     def close_open_positions(self):
         # we are going to close all the open positions when the bot stops
