@@ -195,22 +195,11 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
 
         return result
 
-    async def get_tx_by_hash(self, tx_hash: str) -> Dict[str, Any]:  # pragma: no cover
-        try:
-            transaction_response = await self._sdk_client.fetch_tx_by_tx_hash(tx_hash=tx_hash)
-        except RpcError as rpc_exception:
-            if "object not found" in str(rpc_exception):
-                raise ValueError(f"The transaction with hash {tx_hash} was not found")
-            else:
-                raise
-
-        return transaction_response
-
     async def get_tx(self, tx_hash: str) -> Dict[str, Any]:  # pragma: no cover
         try:
             transaction_response = await self._sdk_client.fetch_tx(hash=tx_hash)
         except RpcError as rpc_exception:
-            if "object not found" in str(rpc_exception):
+            if "tx not found" in str(rpc_exception):
                 raise ValueError(f"The transaction with hash {tx_hash} was not found")
             else:
                 raise
