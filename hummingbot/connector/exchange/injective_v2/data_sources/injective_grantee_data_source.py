@@ -1,4 +1,5 @@
 import asyncio
+import json
 from typing import Any, Dict, List, Mapping, Optional
 
 from google.protobuf import any_pb2
@@ -264,13 +265,39 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         transaction_orders = spot_orders + perpetual_orders
 
         order_updates = []
+        # Market orders are not sent in MsgBatchUpdateOrders, but in their own order creation message
+        # If the market order creation message fails, the whole TX containing it will fail
+        spot_orders_by_cid = {order.client_order_id: order for order in spot_orders
+                              if order.order_type != OrderType.MARKET}
+        derivative_orders_by_cid = {order.client_order_id: order for order in perpetual_orders
+                                    if order.order_type != OrderType.MARKET}
 
-        async with self.throttler.execute_task(limit_id=CONSTANTS.GET_TRANSACTION_INDEXER_LIMIT_ID):
-            transaction_info = await self.query_executor.get_tx_by_hash(tx_hash=transaction_hash)
+        async with self.throttler.execute_task(limit_id=CONSTANTS.GET_TRANSACTION_LIMIT_ID):
+            transaction_info = await self.query_executor.get_tx(tx_hash=transaction_hash)
 
-        if transaction_info["data"].get("errorLog", "") != "":
+        if transaction_info["txResponse"]["code"] != CONSTANTS.TRANSACTION_SUCCEEDED_CODE:
             # The transaction failed. All orders should be marked as failed
             for order in transaction_orders:
+                order_update = OrderUpdate(
+                    trading_pair=order.trading_pair,
+                    update_timestamp=self._time(),
+                    new_state=OrderState.FAILED,
+                    client_order_id=order.client_order_id,
+                )
+                order_updates.append(order_update)
+        else:
+            for log_event in transaction_info["txResponse"].get("events", []):
+                if log_event.get("type") in [CONSTANTS.NEW_SPOT_ORDERS_EVENT_NAME, CONSTANTS.NEW_DERIVATIVE_ORDERS_EVENT_NAME]:
+                    for event_attribute in log_event.get("attributes", []):
+                        if event_attribute["key"] in ["buy_orders", "sell_orders"]:
+                            orders_info = json.loads(event_attribute["value"])
+                            for order_info in orders_info:
+                                order_cid = order_info.get("order_info", {}).get("cid", "")
+                                if order_cid in spot_orders_by_cid:
+                                    del spot_orders_by_cid[order_cid]
+                                if order_cid in derivative_orders_by_cid:
+                                    del derivative_orders_by_cid[order_cid]
+            for order in (list(spot_orders_by_cid.values()) + list(derivative_orders_by_cid.values())):
                 order_update = OrderUpdate(
                     trading_pair=order.trading_pair,
                     update_timestamp=self._time(),
