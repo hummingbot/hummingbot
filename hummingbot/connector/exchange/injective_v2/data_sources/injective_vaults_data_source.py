@@ -265,10 +265,10 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
         perpetual_orders = perpetual_orders or []
         order_updates = []
 
-        async with self.throttler.execute_task(limit_id=CONSTANTS.GET_TRANSACTION_INDEXER_LIMIT_ID):
-            transaction_info = await self.query_executor.get_tx_by_hash(tx_hash=transaction_hash)
+        async with self.throttler.execute_task(limit_id=CONSTANTS.GET_TRANSACTION_LIMIT_ID):
+            transaction_info = await self.query_executor.get_tx(tx_hash=transaction_hash)
 
-        if transaction_info["data"].get("errorLog", "") != "":
+        if transaction_info["txResponse"]["code"] != CONSTANTS.TRANSACTION_SUCCEEDED_CODE:
             # The transaction failed. All orders should be marked as failed
             for order in (spot_orders + perpetual_orders):
                 order_update = OrderUpdate(

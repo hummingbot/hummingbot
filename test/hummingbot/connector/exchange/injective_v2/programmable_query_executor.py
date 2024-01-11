@@ -18,7 +18,7 @@ class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
         self._tokens_responses = asyncio.Queue()
         self._spot_order_book_responses = asyncio.Queue()
         self._derivative_order_book_responses = asyncio.Queue()
-        self._transaction_by_hash_responses = asyncio.Queue()
+        self._get_tx_responses = asyncio.Queue()
         self._account_portfolio_responses = asyncio.Queue()
         self._simulate_transaction_responses = asyncio.Queue()
         self._send_transaction_responses = asyncio.Queue()
@@ -62,8 +62,8 @@ class ProgrammableQueryExecutor(BaseInjectiveQueryExecutor):
         response = await self._derivative_order_book_responses.get()
         return response
 
-    async def get_tx_by_hash(self, tx_hash: str) -> Dict[str, Any]:
-        response = await self._transaction_by_hash_responses.get()
+    async def get_tx(self, tx_hash: str) -> Dict[str, Any]:
+        response = await self._get_tx_responses.get()
         return response
 
     async def account_portfolio(self, account_address: str) -> Dict[str, Any]:
