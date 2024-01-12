@@ -78,19 +78,23 @@ class BinanceSpotCandles(CandlesBase):
         return np.array(candles)[:, [0, 1, 2, 3, 4, 5, 7, 8, 9, 10]].astype(float)
 
     async def fill_historical_candles(self):
-        max_request_needed = (self._candles.maxlen // 1000) + 1
+        batch_size = 999 # binance doc: max limit is 1000
+        max_request_needed = (self._candles.maxlen // batch_size) + 1
         requests_executed = 0
         while not self.is_ready:
             missing_records = self._candles.maxlen - len(self._candles)
             end_timestamp = int(self._candles[0][0])
             try:
                 if requests_executed < max_request_needed:
+                    # if missing_records is very big, fetch_candles has performance issues. So use batch_size.
+                    if missing_records < batch_size:
+                        batch_size = missing_records
                     # we have to add one more since, the last row is not going to be included
-                    candles = await self.fetch_candles(end_time=end_timestamp, limit=missing_records + 1)
+                    candles = await self.fetch_candles(end_time=end_timestamp, limit=batch_size + 1)
                     # we are computing again the quantity of records again since the websocket process is able to
                     # modify the deque and if we extend it, the new observations are going to be dropped.
                     missing_records = self._candles.maxlen - len(self._candles)
-                    self._candles.extendleft(candles[-(missing_records + 1):-1][::-1])
+                    self._candles.extendleft(candles[-(batch_size + 1):-1][::-1])
                     requests_executed += 1
                 else:
                     self.logger().error(f"There is no data available for the quantity of "
