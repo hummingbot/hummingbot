@@ -40,6 +40,10 @@ class CmdlineParser(argparse.ArgumentParser):
                           type=str,
                           required=False,
                           help="Specify a file in `conf/` to load as the strategy config file.")
+        self.add_argument("--script-conf", "-c",
+                          type=str,
+                          required=False,
+                          help="Specify a file in `conf/scripts` to configure a script strategy.")
         self.add_argument("--config-password", "-p",
                           type=str,
                           required=False,
@@ -94,11 +98,13 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
 
     strategy_config = None
     is_script = False
+    script_config = None
     if config_file_name is not None:
         hb.strategy_file_name = config_file_name
         if config_file_name.split(".")[-1] == "py":
             hb.strategy_name = hb.strategy_file_name
             is_script = True
+            script_config = args.script_conf if args.script_conf else None
         else:
             strategy_config = await load_strategy_config_map_from_file(
                 STRATEGIES_CONF_DIR_PATH / config_file_name
@@ -116,7 +122,8 @@ async def quick_start(args: argparse.Namespace, secrets_manager: BaseSecretsMana
 
     # The listener needs to have a named variable for keeping reference, since the event listener system
     # uses weak references to remove unneeded listeners.
-    start_listener: UIStartListener = UIStartListener(hb, is_script=is_script, is_quickstart=True)
+    start_listener: UIStartListener = UIStartListener(hb, is_script=is_script, script_config=script_config,
+                                                      is_quickstart=True)
     hb.app.add_listener(HummingbotUIEvent.Start, start_listener)
 
     tasks: List[Coroutine] = [hb.run()]
@@ -135,6 +142,10 @@ def main():
     # variable.
     if args.config_file_name is None and len(os.environ.get("CONFIG_FILE_NAME", "")) > 0:
         args.config_file_name = os.environ["CONFIG_FILE_NAME"]
+
+    if args.script_conf is None and len(os.environ.get("SCRIPT_CONFIG", "")) > 0:
+        args.script_conf = os.environ["SCRIPT_CONFIG"]
+
     if args.config_password is None and len(os.environ.get("CONFIG_PASSWORD", "")) > 0:
         args.config_password = os.environ["CONFIG_PASSWORD"]
 
