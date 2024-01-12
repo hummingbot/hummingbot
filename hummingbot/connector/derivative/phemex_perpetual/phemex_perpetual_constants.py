@@ -6,6 +6,8 @@ from hummingbot.core.data_type.in_flight_order import OrderState
 EXCHANGE_NAME = "phemex_perpetual"
 MAX_ORDER_ID_LEN = 40
 
+HB_PARTNER_ID = "HBOT"
+
 DEFAULT_DOMAIN = ""
 TESTNET_DOMAIN = "phemex_perpetual_testnet"
 
@@ -15,12 +17,12 @@ BASE_URLS = {
 }
 
 WSS_URLS = {
-    DEFAULT_DOMAIN: "wss://phemex.com",
+    DEFAULT_DOMAIN: "wss://ws.phemex.com",
     TESTNET_DOMAIN: "wss://testnet.phemex.com",
 }
 
-PUBLIC_WS_ENDPOINT = "/ws"
-PRIVATE_WS_ENDPOINT = "/ws"
+PUBLIC_WS_ENDPOINT = ""
+PRIVATE_WS_ENDPOINT = ""
 
 WS_HEARTBEAT = 5  # https://phemex-docs.github.io/#heartbeat
 

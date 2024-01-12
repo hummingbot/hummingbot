@@ -1,5 +1,7 @@
 from decimal import Decimal
 
+import pandas_ta as ta  # noqa: F401
+
 from hummingbot.core.data_type.common import OrderType
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig, CandlesFactory
 from hummingbot.strategy.directional_strategy_base import DirectionalStrategyBase
