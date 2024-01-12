@@ -78,7 +78,7 @@ class BinanceSpotCandles(CandlesBase):
         return np.array(candles)[:, [0, 1, 2, 3, 4, 5, 7, 8, 9, 10]].astype(float)
 
     async def fill_historical_candles(self):
-        batch_size = 999 # binance doc: max limit is 1000
+        batch_size = 999  # binance doc: max limit is 1000
         max_request_needed = (self._candles.maxlen // batch_size) + 1
         requests_executed = 0
         while not self.is_ready:
