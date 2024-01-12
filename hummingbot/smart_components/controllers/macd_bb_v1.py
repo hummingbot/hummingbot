@@ -13,8 +13,8 @@ from hummingbot.smart_components.strategy_frameworks.directional_trading.directi
 
 
 class MACDBBV1Config(DirectionalTradingControllerConfigBase):
-    strategy_name: str = "dman_v1"
-    bb_length: int = Field(default=24, ge=2, le=1000)
+    strategy_name: str = "macd_bb_v1"
+    bb_length: int = Field(default=100, ge=20, le=1000)
     bb_std: float = Field(default=2.0, ge=0.5, le=4.0)
     bb_long_threshold: float = Field(default=0.0, ge=-3.0, le=0.5)
     bb_short_threshold: float = Field(default=1.0, ge=0.5, le=3.0)

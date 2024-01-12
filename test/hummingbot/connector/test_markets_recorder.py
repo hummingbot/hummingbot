@@ -3,7 +3,7 @@ import time
 from decimal import Decimal
 from typing import Awaitable
 from unittest import TestCase
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import numpy as np
 from sqlalchemy import create_engine
@@ -26,9 +26,29 @@ from hummingbot.model.market_data import MarketData
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import SQLConnectionManager, SQLConnectionType
 from hummingbot.model.trade_fill import TradeFill
+from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig
+from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
+from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
 class MarketsRecorderTests(TestCase):
+    @staticmethod
+    def create_mock_strategy():
+        market = MagicMock()
+        market_info = MagicMock()
+        market_info.market = market
+
+        strategy = MagicMock(spec=ScriptStrategyBase)
+        type(strategy).market_info = PropertyMock(return_value=market_info)
+        type(strategy).trading_pair = PropertyMock(return_value="ETH-USDT")
+        strategy.buy.side_effect = ["OID-BUY-1", "OID-BUY-2", "OID-BUY-3"]
+        strategy.sell.side_effect = ["OID-SELL-1", "OID-SELL-2", "OID-SELL-3"]
+        strategy.cancel.return_value = None
+        strategy.connectors = {
+            "binance_perpetual": MagicMock(),
+        }
+        return strategy
+
     @staticmethod
     def async_run_with_timeout(coroutine: Awaitable, timeout: int = 1):
         ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -416,3 +436,59 @@ class MarketsRecorderTests(TestCase):
         self.assertEqual(market_data[0].best_ask, Decimal("101"))
         self.assertEqual(market_data[0].best_bid, Decimal("99"))
         self.assertEqual(market_data[0].mid_price, Decimal("100"))
+
+    def test_store_position_executor(self):
+        recorder = MarketsRecorder(
+            sql=self.manager,
+            markets=[self],
+            config_file_path=self.config_file_path,
+            strategy_name=self.strategy_name,
+            market_data_collection=MarketDataCollectionConfigMap(
+                market_data_collection_enabled=False,
+            ),
+        )
+        position_config = PositionConfig(timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
+                                         side=TradeType.SELL, entry_price=Decimal("100"), amount=Decimal("1"),
+                                         stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
+                                         take_profit_order_type=OrderType.LIMIT,
+                                         stop_loss_order_type=OrderType.MARKET)
+        position_executor = PositionExecutor(self.create_mock_strategy(), position_config)
+        position_executor_json = position_executor.to_json()
+        position_executor_json["order_level"] = 1
+        position_executor_json["controller_name"] = "test_controller"
+        recorder.store_executor(position_executor_json)
+        executors_in_db = recorder.get_position_executors()
+        position_executor_record = executors_in_db[0]
+        self.assertEqual(position_executor_record.timestamp, position_executor.position_config.timestamp)
+
+    def test_store_position_executor_filtered(self):
+        recorder = MarketsRecorder(
+            sql=self.manager,
+            markets=[self],
+            config_file_path=self.config_file_path,
+            strategy_name=self.strategy_name,
+            market_data_collection=MarketDataCollectionConfigMap(
+                market_data_collection_enabled=False,
+            ),
+        )
+        executors_in_db = recorder.get_position_executors(controller_name="test_controller")
+        self.assertEqual(len(executors_in_db), 0)
+
+        position_config = PositionConfig(timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
+                                         side=TradeType.SELL, entry_price=Decimal("100"), amount=Decimal("1"),
+                                         stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
+                                         take_profit_order_type=OrderType.LIMIT,
+                                         stop_loss_order_type=OrderType.MARKET)
+        position_executor = PositionExecutor(self.create_mock_strategy(), position_config)
+        position_executor_json = position_executor.to_json()
+        position_executor_json["order_level"] = 1
+        position_executor_json["controller_name"] = "test_controller"
+        recorder.store_executor(position_executor_json)
+        executors_in_db = recorder.get_position_executors(controller_name="test_controller")
+        self.assertEqual(len(executors_in_db), 1)
+        position_executor_json["controller_name"] = "test_controller_2"
+        recorder.store_executor(position_executor_json)
+        executors_in_db = recorder.get_position_executors(controller_name="test_controller")
+        self.assertEqual(len(executors_in_db), 1)
+        executors_in_db = recorder.get_position_executors(controller_name="test_controller_2")
+        self.assertEqual(len(executors_in_db), 1)

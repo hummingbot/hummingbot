@@ -1,5 +1,6 @@
 import asyncio
 from typing import Any, Callable, Dict
+from unittest.mock import MagicMock
 
 from hummingbot.connector.exchange.polkadex.polkadex_query_executor import BaseQueryExecutor
 
@@ -95,3 +96,6 @@ class ProgrammableQueryExecutor(BaseQueryExecutor):
         while True:
             event = await self._private_events.get()
             events_handler(event=event)
+
+    async def create_ws_session(self):
+        return MagicMock()

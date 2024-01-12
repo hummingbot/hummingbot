@@ -87,12 +87,6 @@ class GateioPerpetualCandles(CandlesBase):
                             limit: Optional[int] = 500):
         rest_assistant = await self._api_factory.get_rest_assistant()
         params = {"contract": self._ex_trading_pair, "interval": self.interval, "limit": limit}
-        if start_time or end_time:
-            del params["limit"]
-        if start_time:
-            params["from"] = str(start_time)
-        if end_time:
-            params["to"] = str(end_time)
 
         candles = await rest_assistant.execute_request(url=self.candles_url,
                                                        throttler_limit_id=CONSTANTS.CANDLES_ENDPOINT,
