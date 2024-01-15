@@ -36,7 +36,7 @@ class DManV2ScriptConfig(BaseClientModel):
     start_spread: float = Field(1.0, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the start spread as a multiple of the NATR (e.g., 1.0 for 1x NATR):"))
     step_between_orders: float = Field(0.8, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Define the step between orders as a multiple of the NATR (e.g., 0.8 for 0.8x NATR):"))
     cooldown_time: int = Field(5, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "Specify the cooldown time in seconds between order placements (e.g., 5):"))
-    order_refresh_time: int = Field(5, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "How often do you want to cancel or replace orders? (in seconds):"))
+    order_refresh_time: int = Field(900, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "How often do you want to cancel or replace orders? (in seconds):"))
 
     # Triple barrier configuration
     stop_loss: Decimal = Field(0.2, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the stop loss percentage (e.g., 0.2 for 20% loss):"))
