@@ -21,8 +21,7 @@ class TestTradingPairFetcher(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
-
-        cls.ev_loop = asyncio.get_event_loop()
+        Security.decrypt_all()
 
     @classmethod
     async def wait_until_trading_pair_fetcher_ready(cls, tpf):
@@ -32,8 +31,20 @@ class TestTradingPairFetcher(unittest.TestCase):
             else:
                 await asyncio.sleep(0)
 
+    def setUp(self) -> None:
+        super().setUp()
+        self._original_async_loop = asyncio.get_event_loop()
+        self.async_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.async_loop)
+
+    def tearDown(self) -> None:
+        super().tearDown()
+        self.async_loop.stop()
+        self.async_loop.close()
+        asyncio.set_event_loop(self._original_async_loop)
+
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
-        ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
+        ret = self.async_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
 
     class MockConnectorSetting(MagicMock):

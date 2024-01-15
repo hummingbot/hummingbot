@@ -1,28 +1,42 @@
 #!/usr/bin/env python
 import asyncio
 import itertools
+import logging
 import time
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from decimal import Decimal
+from functools import lru_cache
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
 
 import pandas as pd
 
 from hummingbot.client.command.gateway_api_manager import GatewayChainApiManager, begin_placeholder_mode
-from hummingbot.client.config.config_helpers import refresh_trade_fees_config
+from hummingbot.client.config.client_config_map import ClientConfigMap
+from hummingbot.client.config.config_helpers import (
+    ReadOnlyClientConfigAdapter,
+    get_connector_class,
+    refresh_trade_fees_config,
+)
 from hummingbot.client.config.security import Security
-from hummingbot.client.settings import AllConnectorSettings, GatewayConnectionSetting
+from hummingbot.client.settings import (
+    AllConnectorSettings,
+    GatewayConnectionSetting,
+    GatewayTokenSetting,
+    gateway_connector_trading_pairs,
+)
 from hummingbot.client.ui.completer import load_completer
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.connector.connector_status import get_connector_status
 from hummingbot.core.gateway import get_gateway_paths
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.gateway.gateway_status_monitor import GatewayStatus
-from hummingbot.core.utils.async_utils import safe_ensure_future
+from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
 from hummingbot.core.utils.gateway_config_utils import (
     build_config_dict_display,
     build_connector_display,
     build_connector_tokens_display,
     build_list_display,
     build_wallet_display,
+    flatten,
     native_tokens,
     search_configs,
 )
@@ -42,6 +56,15 @@ def ensure_gateway_online(func):
 
 
 class GatewayCommand(GatewayChainApiManager):
+    client_config_map: ClientConfigMap
+    _market: Dict[str, Any] = {}
+
+    def __init__(self,  # type: HummingbotApplication
+                 client_config_map: ClientConfigMap
+                 ):
+        super().__init__(client_config_map)
+        self.client_config_map = client_config_map
+
     @ensure_gateway_online
     def gateway_connect(self, connector: str = None):
         safe_ensure_future(self._gateway_connect(connector), loop=self.ev_loop)
@@ -51,18 +74,26 @@ class GatewayCommand(GatewayChainApiManager):
         safe_ensure_future(self._gateway_status(), loop=self.ev_loop)
 
     @ensure_gateway_online
-    def gateway_connector_tokens(self, connector_chain_network: Optional[str], new_tokens: Optional[str]):
-        if connector_chain_network is not None and new_tokens is not None:
-            safe_ensure_future(self._update_gateway_connector_tokens(connector_chain_network, new_tokens), loop=self.ev_loop)
+    def gateway_balance(self):
+        safe_ensure_future(self._get_balances(), loop=self.ev_loop)
+
+    @ensure_gateway_online
+    def gateway_connector_tokens(self, chain_network: Optional[str], new_tokens: Optional[str]):
+        if chain_network is not None and new_tokens is not None:
+            safe_ensure_future(self._update_gateway_connector_tokens(
+                chain_network, new_tokens), loop=self.ev_loop)
         else:
-            safe_ensure_future(self._show_gateway_connector_tokens(connector_chain_network), loop=self.ev_loop)
+            safe_ensure_future(self._show_gateway_connector_tokens(
+                chain_network), loop=self.ev_loop)
 
     @ensure_gateway_online
     def gateway_approve_tokens(self, connector_chain_network: Optional[str], tokens: Optional[str]):
         if connector_chain_network is not None and tokens is not None:
-            safe_ensure_future(self._update_gateway_approve_tokens(connector_chain_network, tokens), loop=self.ev_loop)
+            safe_ensure_future(self._update_gateway_approve_tokens(
+                connector_chain_network, tokens), loop=self.ev_loop)
         else:
-            self.notify("\nPlease specify the connector_chain_network and a token to approve.\n")
+            self.notify(
+                "\nPlease specify the connector_chain_network and a token to approve.\n")
 
     def generate_certs(self):
         safe_ensure_future(self._generate_certs(), loop=self.ev_loop)
@@ -80,9 +111,11 @@ class GatewayCommand(GatewayChainApiManager):
                        key: Optional[str] = None,
                        value: str = None):
         if value:
-            safe_ensure_future(self._update_gateway_configuration(key, value), loop=self.ev_loop)
+            safe_ensure_future(self._update_gateway_configuration(
+                key, value), loop=self.ev_loop)
         else:
-            safe_ensure_future(self._show_gateway_configuration(key), loop=self.ev_loop)
+            safe_ensure_future(
+                self._show_gateway_configuration(key), loop=self.ev_loop)
 
     async def _test_connection(self):
         # test that the gateway is running
@@ -96,7 +129,8 @@ class GatewayCommand(GatewayChainApiManager):
             from_client_password: bool = False,
     ):
 
-        certs_path: str = get_gateway_paths(self.client_config_map).local_certs_path.as_posix()
+        certs_path: str = get_gateway_paths(
+            self.client_config_map).local_certs_path.as_posix()
 
         if not from_client_password:
             with begin_placeholder_mode(self):
@@ -111,7 +145,8 @@ class GatewayCommand(GatewayChainApiManager):
         else:
             pass_phase = Security.secrets_manager.password.get_secret_value()
         create_self_sign_certs(pass_phase, certs_path)
-        self.notify(f"Gateway SSL certification files are created in {certs_path}.")
+        self.notify(
+            f"Gateway SSL certification files are created in {certs_path}.")
         self._get_gateway_instance().reload_certs(self.client_config_map)
 
     async def ping_gateway_api(self, max_wait: int) -> bool:
@@ -139,16 +174,19 @@ class GatewayCommand(GatewayChainApiManager):
                 else:
                     self.notify(pd.DataFrame(status))
             except Exception:
-                self.notify("\nError: Unable to fetch status of connected Gateway server.")
+                self.notify(
+                    "\nError: Unable to fetch status of connected Gateway server.")
         else:
-            self.notify("\nNo connection to Gateway server exists. Ensure Gateway server is running.")
+            self.notify(
+                "\nNo connection to Gateway server exists. Ensure Gateway server is running.")
 
     async def _update_gateway_configuration(self, key: str, value: Any):
         try:
             response = await self._get_gateway_instance().update_config(key, value)
             self.notify(response["message"])
         except Exception:
-            self.notify("\nError: Gateway configuration update failed. See log file for more details.")
+            self.notify(
+                "\nError: Gateway configuration update failed. See log file for more details.")
 
     async def _show_gateway_configuration(
         self,  # type: HummingbotApplication
@@ -176,12 +214,14 @@ class GatewayCommand(GatewayChainApiManager):
             connector: str = None
     ):
         with begin_placeholder_mode(self):
-            gateway_connections_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
+            gateway_connections_conf: List[Dict[str,
+                                                str]] = GatewayConnectionSetting.load()
             if connector is None:
                 if len(gateway_connections_conf) < 1:
                     self.notify("No existing connection.\n")
                 else:
-                    connector_df: pd.DataFrame = build_connector_display(gateway_connections_conf)
+                    connector_df: pd.DataFrame = build_connector_display(
+                        gateway_connections_conf)
                     self.notify(connector_df.to_string(index=False))
             else:
                 # get available networks
@@ -190,15 +230,20 @@ class GatewayCommand(GatewayChainApiManager):
                     d for d in connector_configs["connectors"] if d["name"] == connector
                 ]
                 if len(connector_config) < 1:
-                    self.notify(f"No available blockchain networks available for the connector '{connector}'.")
+                    self.notify(
+                        f"No available blockchain networks available for the connector '{connector}'.")
                     return
-                available_networks: List[Dict[str, Any]] = connector_config[0]["available_networks"]
+                available_networks: List[Dict[str, Any]
+                                         ] = connector_config[0]["available_networks"]
                 trading_type: str = connector_config[0]["trading_type"][0]
                 chain_type: str = connector_config[0]["chain_type"]
-                additional_spenders: List[str] = connector_config[0].get("additional_spenders", [])
+                additional_spenders: List[str] = connector_config[0].get(
+                    "additional_spenders", [])
                 additional_prompts: Dict[str, str] = connector_config[0].get(  # These will be stored locally.
-                    "additional_add_wallet_prompts",  # If Gateway requires additional, prompts with secure info,
-                    {}  # a new attribute must be added (e.g. additional_secure_add_wallet_prompts)
+                    # If Gateway requires additional, prompts with secure info,
+                    "additional_add_wallet_prompts",
+                    # a new attribute must be added (e.g. additional_secure_add_wallet_prompts)
+                    {}
                 )
 
                 # ask user to select a chain. Automatically select if there is only one.
@@ -221,12 +266,14 @@ class GatewayCommand(GatewayChainApiManager):
 
                 # ask user to select a network. Automatically select if there is only one.
                 networks: List[str] = list(
-                    itertools.chain.from_iterable([d['networks'] for d in available_networks if d['chain'] == chain])
+                    itertools.chain.from_iterable(
+                        [d['networks'] for d in available_networks if d['chain'] == chain])
                 )
 
                 network: str
                 while True:
-                    self.app.input_field.completer.set_gateway_networks(networks)
+                    self.app.input_field.completer.set_gateway_networks(
+                        networks)
                     network = await self.app.prompt(
                         prompt=f"Which network do you want {connector} to connect to? ({', '.join(networks)}) >>> "
                     )
@@ -244,7 +291,8 @@ class GatewayCommand(GatewayChainApiManager):
 
                 # get wallets for the selected chain
                 wallets_response: List[Dict[str, Any]] = await self._get_gateway_instance().get_wallets()
-                matching_wallets: List[Dict[str, Any]] = [w for w in wallets_response if w["chain"] == chain]
+                matching_wallets: List[Dict[str, Any]] = [
+                    w for w in wallets_response if w["chain"] == chain]
                 wallets: List[str]
                 if len(matching_wallets) < 1:
                     wallets = []
@@ -269,7 +317,8 @@ class GatewayCommand(GatewayChainApiManager):
                             return
                         if use_existing_wallet in ["Y", "y", "Yes", "yes", "N", "n", "No", "no"]:
                             break
-                        self.notify("Invalid input. Please try again or exit config [CTRL + x].\n")
+                        self.notify(
+                            "Invalid input. Please try again or exit config [CTRL + x].\n")
 
                     self.app.clear_input()
                     # they use an existing wallet
@@ -284,11 +333,14 @@ class GatewayCommand(GatewayChainApiManager):
                                 balances['balances'].get(native_token)
                                 or balances['balances']['total'].get(native_token)
                             )
-                            wallet_table.append({"balance": balance, "address": w})
+                            wallet_table.append(
+                                {"balance": balance, "address": w})
 
-                        wallet_df: pd.DataFrame = build_wallet_display(native_token, wallet_table)
+                        wallet_df: pd.DataFrame = build_wallet_display(
+                            native_token, wallet_table)
                         self.notify(wallet_df.to_string(index=False))
-                        self.app.input_field.completer.set_list_gateway_wallets_parameters(wallets_response, chain)
+                        self.app.input_field.completer.set_list_gateway_wallets_parameters(
+                            wallets_response, chain)
                         additional_prompt_values = {}
 
                         while True:
@@ -296,7 +348,8 @@ class GatewayCommand(GatewayChainApiManager):
                             if self.app.to_stop_config:
                                 return
                             if wallet_address in wallets:
-                                self.notify(f"You have selected {wallet_address}.")
+                                self.notify(
+                                    f"You have selected {wallet_address}.")
                                 break
                             self.notify("Error: Invalid wallet address")
 
@@ -309,15 +362,19 @@ class GatewayCommand(GatewayChainApiManager):
                                 )
                                 break
                             except Exception:
-                                self.notify("Error adding wallet. Check private key.\n")
+                                self.notify(
+                                    "Error adding wallet. Check private key.\n")
 
                         # display wallet balance
                         native_token: str = native_tokens[chain]
                         balances: Dict[str, Any] = await self._get_gateway_instance().get_balances(
-                            chain, network, wallet_address, [native_token], connector
+                            chain, network, wallet_address, [
+                                native_token], connector
                         )
-                        wallet_table: List[Dict[str, Any]] = [{"balance": balances['balances'].get(native_token) or balances['balances']['total'].get(native_token), "address": wallet_address}]
-                        wallet_df: pd.DataFrame = build_wallet_display(native_token, wallet_table)
+                        wallet_table: List[Dict[str, Any]] = [{"balance": balances['balances'].get(
+                            native_token) or balances['balances']['total'].get(native_token), "address": wallet_address}]
+                        wallet_df: pd.DataFrame = build_wallet_display(
+                            native_token, wallet_table)
                         self.notify(wallet_df.to_string(index=False))
 
                 self.app.clear_input()
@@ -333,7 +390,11 @@ class GatewayCommand(GatewayChainApiManager):
                     additional_spenders=additional_spenders,
                     additional_prompt_values=additional_prompt_values,
                 )
-                self.notify(f"The {connector} connector now uses wallet {wallet_address} on {chain}-{network}")
+                chain_network = (f"{chain}_{network}")
+                # write chain to Gateway connectors settings.
+                GatewayTokenSetting.upsert_network_spec(chain_network=chain_network,)
+                self.notify(
+                    f"The {connector} connector now uses wallet {wallet_address} on {chain}-{network}")
 
                 # update AllConnectorSettings and fee overrides.
                 AllConnectorSettings.create_connector_settings()
@@ -362,7 +423,6 @@ class GatewayCommand(GatewayChainApiManager):
             return
 
         additional_prompt_values = {}
-
         if chain == "near":
             wallet_account_id: str = await self.app.prompt(
                 prompt=f"Enter your {chain}-{network} account Id >>> ",
@@ -385,31 +445,221 @@ class GatewayCommand(GatewayChainApiManager):
         wallet_address: str = response["address"]
         return wallet_address, additional_prompt_values
 
+    async def _get_balances(self):
+        network_connections = GatewayConnectionSetting.load()
+
+        self.notify("Updating gateway balances, please wait...")
+        network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
+        try:
+            all_ex_bals = await asyncio.wait_for(
+                self.all_balances_all_exc(self.client_config_map), network_timeout
+            )
+        except asyncio.TimeoutError:
+            self.notify("\nA network error prevented the balances to update. See logs for more details.")
+            raise
+
+        for exchange, bals in all_ex_bals.items():
+            # Flag to check if exchange data has been found
+            exchange_found = False
+
+            for conf in network_connections:
+                if exchange == (f'{conf["chain"]}_{conf["network"]}'):
+                    exchange_found = True
+                    address = conf["wallet_address"]
+                    rows = []
+                    for token, bal in bals.items():
+                        rows.append({
+                            "Symbol": token.upper(),
+                            "Balance": round(bal, 4),
+                        })
+                    df = pd.DataFrame(data=rows, columns=["Symbol", "Balance"])
+                    df.sort_values(by=["Symbol"], inplace=True)
+
+                    self.notify(f"\nChain_network: {exchange}")
+                    self.notify(f"Wallet_Address: {address}")
+
+                    if df.empty:
+                        self.notify("You have no balance on this exchange.")
+                    else:
+                        lines = [
+                            "    " + line for line in df.to_string(index=False).split("\n")
+                        ]
+                        self.notify("\n".join(lines))
+                    # Exit loop once exchange data is found
+                    break
+
+            if not exchange_found:
+                self.notify(f"No configuration found for exchange: {exchange}")
+
+    def connect_markets(exchange, client_config_map: ClientConfigMap, **api_details):
+        connector = None
+        conn_setting = AllConnectorSettings.get_connector_settings()[exchange]
+        if api_details or conn_setting.uses_gateway_generic_connector():
+            connector_class = get_connector_class(exchange)
+            read_only_client_config = ReadOnlyClientConfigAdapter.lock_config(
+                client_config_map)
+            init_params = conn_setting.conn_init_parameters(
+                trading_pairs=gateway_connector_trading_pairs(
+                    conn_setting.name),
+                api_keys=api_details,
+                client_config_map=read_only_client_config,
+            )
+
+            # collect trading pairs from the gateway connector settings
+            trading_pairs: List[str] = gateway_connector_trading_pairs(
+                conn_setting.name)
+
+            # collect unique trading pairs that are for balance reporting only
+            if conn_setting.uses_gateway_generic_connector():
+                config: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(
+                    conn_setting.name)
+                if config is not None:
+                    existing_pairs = set(
+                        flatten([x.split("-") for x in trading_pairs]))
+
+                    other_tokens: Set[str] = set(
+                        config.get("tokens", "").split(","))
+                    other_tokens.discard("")
+                    tokens: List[str] = [
+                        t for t in other_tokens if t not in existing_pairs]
+                    if tokens != [""]:
+                        trading_pairs.append("-".join(tokens))
+
+            connector = connector_class(**init_params)
+        return connector
+
+    @staticmethod
+    async def _update_balances(market) -> Optional[str]:
+        try:
+            await market._update_balances()
+        except Exception as e:
+            logging.getLogger().debug(
+                f"Failed to update balances for {market}", exc_info=True)
+            return str(e)
+        return None
+
+    async def add_gateway_exchange(self, exchange, client_config_map: ClientConfigMap, **api_details) -> Optional[str]:
+        self._market.pop(exchange, None)
+        is_gateway_markets = self.is_gateway_markets(exchange)
+        if is_gateway_markets:
+            market = GatewayCommand.connect_markets(
+                exchange, client_config_map, **api_details)
+            if not market:
+                return "API keys have not been added."
+            err_msg = await GatewayCommand._update_balances(market)
+            if err_msg is None:
+                self._market[exchange] = market
+            return err_msg
+
+    def all_balance(self, exchange) -> Dict[str, Decimal]:
+        if exchange not in self._market:
+            return {}
+        return self._market[exchange].get_all_balances()
+
+    async def update_exchange_balances(self, exchange_name: str, client_config_map: ClientConfigMap) -> Optional[Tuple[Dict[str, Any], Dict[str, Any]]]:
+        is_gateway_markets = self.is_gateway_markets(exchange_name)
+        if is_gateway_markets and exchange_name in self._market:
+            del self._market[exchange_name]
+        if exchange_name in self._market:
+            return await self._update_balances(self._market[exchange_name])
+        else:
+            await Security.wait_til_decryption_done()
+            api_keys = Security.api_keys(
+                exchange_name) if not is_gateway_markets else {}
+            return await self.add_gateway_exchange(exchange_name, client_config_map, **api_keys)
+
+    @staticmethod
+    @lru_cache(maxsize=10)
+    def is_gateway_markets(exchange_name: str) -> bool:
+        return (
+            exchange_name in sorted(
+                AllConnectorSettings.get_gateway_amm_connector_names().union(
+                    AllConnectorSettings.get_gateway_evm_amm_lp_connector_names()
+                ).union(
+                    AllConnectorSettings.get_gateway_clob_connector_names()
+                )
+            )
+        )
+
+    async def update_exchange(
+        self,
+        client_config_map: ClientConfigMap,
+        reconnect: bool = False,
+        exchanges: Optional[List[str]] = None
+    ) -> Dict[str, Optional[str]]:
+        exchanges = exchanges or []
+        tasks = []
+        # Update user balances
+        if len(exchanges) == 0:
+            exchanges = [
+                cs.name for cs in AllConnectorSettings.get_connector_settings().values()]
+        exchanges: List[str] = [
+            cs.name
+            for cs in AllConnectorSettings.get_connector_settings().values()
+            if not cs.use_ethereum_wallet
+            and cs.name in exchanges
+            and not cs.name.endswith("paper_trade")
+        ]
+
+        if reconnect:
+            self._market.clear()
+        for exchange in exchanges:
+            tasks.append(self.update_exchange_balances(
+                exchange, client_config_map))
+        results = await safe_gather(*tasks)
+        return {ex: err_msg for ex, err_msg in zip(exchanges, results)}
+
+    async def all_balances_all_exc(self, client_config_map: ClientConfigMap) -> Dict[str, Dict[str, Decimal]]:
+        # Waits for the update_exchange method to complete with the provided client_config_map
+        await self.update_exchange(client_config_map)
+        # Sorts the items in the self._market dictionary based on keys
+        sorted_market_items = sorted(self._market.items(), key=lambda x: x[0])
+        # Initializes an empty dictionary to store balances
+        balances = {}
+
+        # Iterates through the sorted items and retrieves balances for each item
+        for key, value in sorted_market_items:
+            new_key = key.split("_")[1:]
+            result = "_".join(new_key)
+            balances[result] = value.get_all_balances()
+
+        return balances
+
+    async def balance(self, exchange, client_config_map: ClientConfigMap, *symbols) -> Dict[str, Decimal]:
+        if await self.update_exchange_balance(exchange, client_config_map) is None:
+            results = {}
+            for token, bal in self.all_balances(exchange).items():
+                matches = [s for s in symbols if s.lower() == token.lower()]
+                if matches:
+                    results[matches[0]] = bal
+            return results
+
     async def _show_gateway_connector_tokens(
             self,           # type: HummingbotApplication
-            connector_chain_network: str = None
+            chain_network: str = None
     ):
         """
         Display connector tokens that hummingbot will report balances for
         """
-        if connector_chain_network is None:
-            gateway_connections_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
+        if chain_network is None:
+            gateway_connections_conf: Dict[str, List[str]] = GatewayTokenSetting.load()
             if len(gateway_connections_conf) < 1:
                 self.notify("No existing connection.\n")
             else:
                 connector_df: pd.DataFrame = build_connector_tokens_display(gateway_connections_conf)
                 self.notify(connector_df.to_string(index=False))
         else:
-            conf: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(connector_chain_network)
+            conf: Optional[Dict[str, List[str]]] = GatewayTokenSetting.get_network_spec_from_name(chain_network)
             if conf is not None:
                 connector_df: pd.DataFrame = build_connector_tokens_display([conf])
                 self.notify(connector_df.to_string(index=False))
             else:
-                self.notify(f"There is no gateway connection for {connector_chain_network}.\n")
+                self.notify(
+                    f"There is no gateway connection for {chain_network}.\n")
 
     async def _update_gateway_connector_tokens(
             self,           # type: HummingbotApplication
-            connector_chain_network: str,
+            chain_network: str,
             new_tokens: str,
     ):
         """
@@ -419,13 +669,18 @@ class GatewayCommand(GatewayChainApiManager):
         connector-chain-network and a particular strategy. This is only for
         report balances.
         """
-        conf: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(connector_chain_network)
+        conf: Optional[Dict[str, str]] = GatewayTokenSetting.get_network_spec_from_name(
+            chain_network)
 
         if conf is None:
-            self.notify(f"'{connector_chain_network}' is not available. You can add and review available gateway connectors with the command 'gateway connect'.")
+            self.notify(
+                f"'{chain_network}' is not available. You can add and review available gateway connectors with the command 'gateway connect'.")
         else:
-            GatewayConnectionSetting.upsert_connector_spec_tokens(connector_chain_network, new_tokens)
-            self.notify(f"The 'balance' command will now report token balances {new_tokens} for '{connector_chain_network}'.")
+            GatewayConnectionSetting.upsert_connector_spec_tokens(chain_network, new_tokens)
+            GatewayTokenSetting.upsert_network_spec_tokens(
+                chain_network, new_tokens)
+            self.notify(
+                f"The 'gateway balance' command will now report token balances {new_tokens} for '{chain_network}'.")
 
     async def _gateway_list(
         self           # type: HummingbotApplication
@@ -434,7 +689,8 @@ class GatewayCommand(GatewayChainApiManager):
         connectors_tiers: List[Dict[str, Any]] = []
         for connector in connector_list["connectors"]:
             connector['tier'] = get_connector_status(connector['name'])
-            available_networks: List[Dict[str, Any]] = connector["available_networks"]
+            available_networks: List[Dict[str, Any]
+                                     ] = connector["available_networks"]
             chains: List[str] = [d['chain'] for d in available_networks]
             connector['chains'] = chains
             connectors_tiers.append(connector)
@@ -453,37 +709,49 @@ class GatewayCommand(GatewayChainApiManager):
         Allow the user to approve tokens for spending.
         """
         # get connector specs
-        conf: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(connector_chain_network)
+        conf: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(
+            connector_chain_network)
         if conf is None:
-            self.notify(f"'{connector_chain_network}' is not available. You can add and review available gateway connectors with the command 'gateway connect'.")
+            self.notify(
+                f"'{connector_chain_network}' is not available. You can add and review available gateway connectors with the command 'gateway connect'.")
         else:
-            self.logger().info(f"Connector {conf['connector']} Tokens {tokens} will now be approved for spending for '{connector_chain_network}'.")
+            self.logger().info(
+                f"Connector {conf['connector']} Tokens {tokens} will now be approved for spending for '{connector_chain_network}'.")
             # get wallets for the selected chain
-            gateway_connections_conf: List[Dict[str, str]] = GatewayConnectionSetting.load()
+            gateway_connections_conf: List[Dict[str,
+                                                str]] = GatewayConnectionSetting.load()
             if len(gateway_connections_conf) < 1:
                 self.notify("No existing wallet.\n")
                 return
-            connector_wallet: List[Dict[str, Any]] = [w for w in gateway_connections_conf if w["chain"] == conf['chain'] and w["connector"] == conf['connector'] and w["network"] == conf['network']]
+            connector_wallet: List[Dict[str, Any]] = [w for w in gateway_connections_conf if w["chain"] ==
+                                                      conf['chain'] and w["connector"] == conf['connector'] and w["network"] == conf['network']]
             try:
                 resp: Dict[str, Any] = await self._get_gateway_instance().approve_token(conf['chain'], conf['network'], connector_wallet[0]['wallet_address'], tokens, conf['connector'])
-                transaction_hash: Optional[str] = resp.get("approval", {}).get("hash")
+                transaction_hash: Optional[str] = resp.get(
+                    "approval", {}).get("hash")
                 displayed_pending: bool = False
                 while True:
                     pollResp: Dict[str, Any] = await self._get_gateway_instance().get_transaction_status(conf['chain'], conf['network'], transaction_hash)
-                    transaction_status: Optional[str] = pollResp.get("txStatus")
+                    transaction_status: Optional[str] = pollResp.get(
+                        "txStatus")
                     if transaction_status == 1:
-                        self.logger().info(f"Token {tokens} is approved for spending for '{conf['connector']}' for Wallet: {connector_wallet[0]['wallet_address']}.")
-                        self.notify(f"Token {tokens} is approved for spending for '{conf['connector']}' for Wallet: {connector_wallet[0]['wallet_address']}.")
+                        self.logger().info(
+                            f"Token {tokens} is approved for spending for '{conf['connector']}' for Wallet: {connector_wallet[0]['wallet_address']}.")
+                        self.notify(
+                            f"Token {tokens} is approved for spending for '{conf['connector']}' for Wallet: {connector_wallet[0]['wallet_address']}.")
                         break
                     elif transaction_status == 2:
                         if not displayed_pending:
-                            self.logger().info(f"Token {tokens} approval transaction is pending. Transaction hash: {transaction_hash}")
+                            self.logger().info(
+                                f"Token {tokens} approval transaction is pending. Transaction hash: {transaction_hash}")
                             displayed_pending = True
                             await asyncio.sleep(2)
                         continue
                     else:
-                        self.logger().info(f"Tokens {tokens} is not approved for spending. Please use manual approval.")
-                        self.notify(f"Tokens {tokens} is not approved for spending. Please use manual approval.")
+                        self.logger().info(
+                            f"Tokens {tokens} is not approved for spending. Please use manual approval.")
+                        self.notify(
+                            f"Tokens {tokens} is not approved for spending. Please use manual approval.")
                         break
 
             except Exception as e:
@@ -493,5 +761,6 @@ class GatewayCommand(GatewayChainApiManager):
     def _get_gateway_instance(
         self  # type: HummingbotApplication
     ) -> GatewayHttpClient:
-        gateway_instance = GatewayHttpClient.get_instance(self.client_config_map)
+        gateway_instance = GatewayHttpClient.get_instance(
+            self.client_config_map)
         return gateway_instance

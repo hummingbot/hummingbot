@@ -69,9 +69,9 @@ class TrackedOrder:
         self._order = order
 
     @property
-    def average_executed_price(self):
+    def executed_price(self):
         if self.order:
-            return self.order.average_executed_price
+            return self.order.average_executed_price or self.order.price
         else:
             return None
 
