@@ -5,9 +5,6 @@ from typing import (
 )
 from hummingbot.core.api_throttler.data_types import RateLimit, LinkedLimitWeightPair
 
-DEFAULT_DOMAIN="kraken"
-MAX_ORDER_ID_LEN = 32
-HBOT_ORDER_ID_PREFIX = "HBOT"
 
 class KrakenAPITier(Enum):
     """
@@ -54,10 +51,6 @@ QUERY_ORDERS_PATH_URL = "/0/private/QueryOrders"
 
 WS_URL = "wss://ws.kraken.com"
 WS_AUTH_URL = "wss://ws-auth.kraken.com/"
-
-DIFF_EVENT_TYPE = "book"
-TRADE_EVENT_TYPE = "trade"
-PING_TIMEOUT = 10
 
 PUBLIC_ENDPOINT_LIMIT_ID = "PublicEndpointLimitID"
 PUBLIC_ENDPOINT_LIMIT = 1
