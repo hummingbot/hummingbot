@@ -123,6 +123,13 @@ class InjectiveCustomNetworkMode(InjectiveNetworkMode):
             prompt_on_new=True
         ),
     )
+    chain_stream_endpoint: str = Field(
+        default=...,
+        client_data=ClientFieldData(
+            prompt=lambda cm: ("Enter the network chain_stream_endpoint"),
+            prompt_on_new=True
+        ),
+    )
     chain_id: str = Field(
         default=...,
         client_data=ClientFieldData(
@@ -155,6 +162,7 @@ class InjectiveCustomNetworkMode(InjectiveNetworkMode):
             grpc_endpoint=self.grpc_endpoint,
             grpc_exchange_endpoint=self.grpc_exchange_endpoint,
             grpc_explorer_endpoint=self.grpc_explorer_endpoint,
+            chain_stream_endpoint=self.chain_stream_endpoint,
             chain_id=self.chain_id,
             env=self.env,
         )

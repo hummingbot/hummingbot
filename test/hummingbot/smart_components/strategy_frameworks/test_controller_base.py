@@ -20,6 +20,8 @@ class TestControllerBase(unittest.TestCase):
         # Mocking the ControllerConfigBase
         self.mock_controller_config = ControllerConfigBase(
             strategy_name="dman_strategy",
+            exchange="binance_perpetual",
+            trading_pair="BTC-USDT",
             candles_config=[self.mock_candles_config],
             order_levels=[]
         )
@@ -40,11 +42,12 @@ class TestControllerBase(unittest.TestCase):
     def test_get_close_price(self):
         mock_candle = MagicMock()
         mock_candle.name = "binance_BTC-USDT"
+        mock_candle._trading_pair = "BTC-USDT"
         mock_candle.interval = "1m"
         mock_candle.candles_df = pd.DataFrame({"close": [100.0, 200.0, 300.0],
                                                "open": [100.0, 200.0, 300.0]})
         self.controller.candles = [mock_candle]
-        close_price = self.controller.get_close_price("binance", "BTC-USDT")
+        close_price = self.controller.get_close_price("BTC-USDT")
         self.assertEqual(close_price, 300)
 
     def test_get_candles_by_connector_trading_pair(self):
@@ -86,4 +89,4 @@ class TestControllerBase(unittest.TestCase):
 
     def test_to_format_status(self):
         status = self.controller.to_format_status()
-        self.assertEqual("     strategy_name: dman_strategy", status[1])
+        self.assertEqual("     exchange: binance_perpetual", status[1])

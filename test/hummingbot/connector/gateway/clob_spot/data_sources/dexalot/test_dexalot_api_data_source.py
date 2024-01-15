@@ -602,6 +602,26 @@ class DexalotAPIDataSourceTest(AbstractGatewayCLOBAPIDataSourceTests.GatewayCLOB
         self.assertEqual(in_flight_order.client_order_id, status_update.client_order_id)
         self.assertEqual(self.expected_buy_exchange_order_id, status_update.exchange_order_id)
 
+    def test_get_order_status_update_transaction_not_found_raises(self):
+        creation_transaction_hash = "0x7cb2eafc389349f86da901cdcbfd9119425a2ea84d61c17b6ded778b6fd2g81d"  # noqa: mock
+        in_flight_order = GatewayInFlightOrder(
+            client_order_id=self.expected_sell_client_order_id,
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            creation_timestamp=self.initial_timestamp,
+            price=self.expected_sell_order_price,
+            amount=self.expected_sell_order_size,
+            creation_transaction_hash=creation_transaction_hash,
+        )
+        self.gateway_instance_mock.get_transaction_status.return_value = {"txStatus": -1}
+
+        expected_error = f"No update found for order {in_flight_order.client_order_id}"
+        with self.assertRaisesRegex(expected_exception=ValueError, expected_regex=expected_error):
+            self.async_run_with_timeout(
+                coro=self.data_source.get_order_status_update(in_flight_order=in_flight_order)
+            )
+
     @patch(
         "hummingbot.connector.gateway.clob_spot.data_sources.gateway_clob_api_data_source_base"
         ".GatewayCLOBAPIDataSourceBase._sleep",

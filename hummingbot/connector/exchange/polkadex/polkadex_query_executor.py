@@ -101,6 +101,14 @@ class GrapQLQueryExecutor(BaseQueryExecutor):
         super().__init__()
         self._auth = auth
         self._domain = domain
+        self._client = None
+        self._ws_session = None
+
+    async def create_ws_session(self):
+        url = CONSTANTS.GRAPHQL_ENDPOINTS[self._domain]
+        transport = AppSyncWebsocketsTransport(url=url, auth=self._auth)
+        self._client = Client(transport=transport, fetch_schema_from_transport=False)
+        self._ws_session = await self._client.connect_async(reconnecting=True)
 
     async def all_assets(self):
         query = gql(
@@ -494,12 +502,8 @@ class GrapQLQueryExecutor(BaseQueryExecutor):
         )
         variables = {"name": stream_name}
 
-        url = CONSTANTS.GRAPHQL_ENDPOINTS[self._domain]
-        transport = AppSyncWebsocketsTransport(url=url, auth=self._auth)
-
-        async with Client(transport=transport, fetch_schema_from_transport=False) as session:
-            async for result in session.subscribe(query, variable_values=variables, parse_result=True):
-                yield result
+        async for result in self._ws_session.subscribe(query, variable_values=variables, parse_result=True):
+            yield result
 
     @staticmethod
     def _timestamp_to_aws_datetime_string(timestamp: float) -> str:

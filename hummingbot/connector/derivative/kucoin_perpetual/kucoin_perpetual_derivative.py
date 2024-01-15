@@ -857,28 +857,20 @@ class KucoinPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _set_trading_pair_leverage(self, trading_pair: str, leverage: int) -> Tuple[bool, str]:
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
-
-        data = {
-            "symbol": exchange_symbol,
-            "level": leverage
-        }
-
-        resp: Dict[str, Any] = await self._api_post(
-            path_url=CONSTANTS.SET_LEVERAGE_PATH_URL,
-            data=data,
+        resp: Dict[str, Any] = await self._api_get(
+            path_url=CONSTANTS.GET_RISK_LIMIT_LEVEL_PATH_URL.format(symbol=exchange_symbol),
             is_auth_required=True,
             trading_pair=trading_pair,
+            limit_id=CONSTANTS.GET_RISK_LIMIT_LEVEL_PATH_URL,
         )
-
-        success = False
-        msg = ""
-        if resp["code"] == CONSTANTS.RET_CODE_OK:
-            success = True
-        else:
+        if resp["code"] != CONSTANTS.RET_CODE_OK:
             formatted_ret_code = self._format_ret_code_for_print(resp['code'])
-            msg = f"{formatted_ret_code} - Some problem"
-
-        return success, msg
+            return False, f"{formatted_ret_code} - Some problem"
+        max_leverage = resp['data'][0]['maxLeverage']
+        if leverage > max_leverage:
+            self.logger().error(f"Max leverage for {trading_pair} is {max_leverage}.")
+            return False, f"Max leverage for {trading_pair} is {max_leverage}."
+        return True, ""
 
     async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
