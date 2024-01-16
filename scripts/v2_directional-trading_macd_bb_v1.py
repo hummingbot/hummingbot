@@ -89,11 +89,14 @@ class DirectionalTradingMACDBB(ScriptStrategyBase):
 
         for trading_pair in config.trading_pairs.split(","):
             macd_bb_config = MACDBBV1Config(
-                exchange="binance_perpetual",
+                exchange=config.exchange,
                 trading_pair=trading_pair,
                 order_levels=order_levels,
                 candles_config=[
-                    CandlesConfig(connector="binance_perpetual", trading_pair=trading_pair, interval="3m", max_records=100),
+                    CandlesConfig(connector=config.candles_exchange, trading_pair=trading_pair,
+                                  interval=config.candles_interval,
+                                  max_records=config.bb_length + 200),
+                    # we need more candles to calculate the bollinger bands
                 ],
                 leverage=config.leverage,
                 macd_fast=config.macd_fast, macd_slow=config.macd_slow, macd_signal=config.macd_signal,

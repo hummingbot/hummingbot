@@ -85,14 +85,19 @@ class DirectionalTradingBollinger(ScriptStrategyBase):
 
         for trading_pair in config.trading_pairs.split(","):
             bb_config = BollingerV1Config(
-                exchange="binance_perpetual",
+                exchange=config.exchange,
                 trading_pair=trading_pair,
                 order_levels=order_levels,
                 candles_config=[
-                    CandlesConfig(connector="binance_perpetual", trading_pair=trading_pair, interval="3m", max_records=100),
+                    CandlesConfig(connector=config.candles_exchange, trading_pair=trading_pair,
+                                  interval=config.candles_interval,
+                                  max_records=config.bb_length + 200),  # we need more candles to calculate the bollinger bands
                 ],
                 leverage=config.leverage,
-                bb_length=config.bb_length, bb_std=config.bb_std, bb_long_threshold=config.bb_long_threshold, bb_short_threshold=config.bb_short_threshold,
+                bb_length=config.bb_length,
+                bb_std=config.bb_std,
+                bb_long_threshold=config.bb_long_threshold,
+                bb_short_threshold=config.bb_short_threshold,
             )
             controller = BollingerV1(config=bb_config)
             self.controllers[trading_pair] = controller
