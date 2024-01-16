@@ -8,12 +8,15 @@ from hummingbot.connector.exchange.bybit import bybit_web_utils as web_utils
 from hummingbot.connector.exchange.bybit.bybit_order_book import BybitOrderBook
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.data_type.order_book_message import OrderBookMessage
+from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
+from hummingbot.connector.exchange.bybit.bybit_web_utils import subscribeOrderBook
+
+import traceback
 
 if TYPE_CHECKING:
     from hummingbot.connector.exchange.bybit.bybit_exchange import BybitExchange
@@ -64,6 +67,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :return: the response from the exchange (JSON dictionary)
         """
         params = {
+            "category": "spot",
             "symbol": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
             "limit": "1000"
         }
@@ -74,7 +78,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
-        snapshot_timestamp: float = float(snapshot["time"]) * 1e-3
+        snapshot_timestamp: float = float(snapshot["ts"]) * 1e-3
         snapshot_msg: OrderBookMessage = BybitOrderBook.snapshot_message_from_exchange_rest(
             snapshot,
             snapshot_timestamp,
@@ -90,11 +94,9 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
             message_queue.put_nowait(trade_message)
 
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["symbol"])
-        for diff_message in raw_message["data"]:
-            order_book_message: OrderBookMessage = BybitOrderBook.diff_message_from_exchange(
-                diff_message, diff_message["t"], {"trading_pair": trading_pair})
-            message_queue.put_nowait(order_book_message)
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=str(raw_message["data"]["s"]))
+        order_book_message: OrderBookMessage = BybitOrderBook.diff_message_from_exchange(raw_message, raw_message["ts"], {"trading_pair": trading_pair})
+        message_queue.put_nowait(order_book_message)
 
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         """
@@ -116,6 +118,9 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                 await self._take_full_order_book_snapshot(trading_pairs=self._trading_pairs, snapshot_queue=output)
                 await self._sleep(5.0)
 
+    async def listen_for_order_book_diffs(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
+        await super().listen_for_order_book_diffs(ev_loop, output)
+
     async def listen_for_subscriptions(self):
         """
         Connects to the trade events and order diffs websocket endpoints and listens to the messages sent by the
@@ -125,7 +130,7 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         while True:
             try:
                 ws: WSAssistant = await self._api_factory.get_ws_assistant()
-                await ws.connect(ws_url=CONSTANTS.WSS_V1_PUBLIC_URL[self._domain])
+                await ws.connect(ws_url=CONSTANTS.WSS_V5_PUBLIC_URL[self._domain])
                 await self._subscribe_channels(ws)
                 self._last_ws_message_sent_timestamp = self._time()
 
@@ -161,30 +166,10 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
         try:
             for trading_pair in self._trading_pairs:
                 symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                trade_payload = {
-                    "topic": "trade",
-                    "event": "sub",
-                    "symbol": symbol,
-                    "params": {
-                        "binary": False
-                    }
-                }
-                subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trade_payload)
-
-                depth_payload = {
-                    "topic": "diffDepth",
-                    "event": "sub",
-                    "symbol": symbol,
-                    "params": {
-                        "binary": False
-                    }
-                }
-                subscribe_orderbook_request: WSJSONRequest = WSJSONRequest(payload=depth_payload)
-
-                await ws.send(subscribe_trade_request)
-                await ws.send(subscribe_orderbook_request)
+                await subscribeOrderBook(ws, symbol)
 
                 self.logger().info(f"Subscribed to public order book and trade channels of {trading_pair}...")
+
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -199,14 +184,15 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
             data = ws_response.data
             if data.get("msg") == "Success":
                 continue
-            event_type = data.get("topic")
-            if event_type == CONSTANTS.DIFF_EVENT_TYPE:
-                if data.get("f"):
-                    self._message_queue[CONSTANTS.SNAPSHOT_EVENT_TYPE].put_nowait(data)
-                else:
-                    self._message_queue[CONSTANTS.DIFF_EVENT_TYPE].put_nowait(data)
-            elif event_type == CONSTANTS.TRADE_EVENT_TYPE:
-                self._message_queue[CONSTANTS.TRADE_EVENT_TYPE].put_nowait(data)
+
+            try:
+                data_type = data.get("type")
+                if data_type == "delta":
+                    self._message_queue[self._diff_messages_queue_key].put_nowait(data)
+
+            except Exception as e:
+                self.logger().error(f"Error parsing order book diff message {data}. Skipping.", exc_info=True)
+            
 
     async def _process_ob_snapshot(self, snapshot_queue: asyncio.Queue):
         message_queue = self._message_queue[CONSTANTS.SNAPSHOT_EVENT_TYPE]

@@ -15,27 +15,29 @@ TIME_IN_FORCE_GTC = "GTC"
 REST_URLS = {"bybit_main": "https://api.bybit.com",
              "bybit_testnet": "https://api-testnet.bybit.com"}
 
-WSS_V1_PUBLIC_URL = {"bybit_main": "wss://stream.bybit.com/spot/quote/ws/v1",
-                     "bybit_testnet": "wss://stream-testnet.bybit.com/spot/quote/ws/v1"}
+WSS_V5_PUBLIC_URL = {"bybit_main": "wss://stream.bybit.com/v5/public/spot",
+                     "bybit_testnet": "wss://stream-testnet.bybit.com/v5/public/spot"}
 
-WSS_PRIVATE_URL = {"bybit_main": "wss://stream.bybit.com/spot/ws",
-                   "bybit_testnet": "wss://stream-testnet.bybit.com/spot/ws"}
+WSS_PRIVATE_URL = {"bybit_main": "wss://stream.bybit.com/v5/private",
+                   "bybit_testnet": "wss://stream-testnet.bybit.com/v5/private"}
 
 # Websocket event types
+ORDERBOOK_DIFF_EVENT_TYPE = "delta"
 DIFF_EVENT_TYPE = "diffDepth"
 TRADE_EVENT_TYPE = "trade"
 SNAPSHOT_EVENT_TYPE = "depth"
 
 # Public API endpoints
-LAST_TRADED_PRICE_PATH = "/spot/quote/v1/ticker/price"
-EXCHANGE_INFO_PATH_URL = "/spot/v1/symbols"
-SNAPSHOT_PATH_URL = "/spot/quote/v1/depth"
-SERVER_TIME_PATH_URL = "/spot/v1/time"
+LAST_TRADED_PRICE_PATH = "/v5/market/tickers"
+EXCHANGE_INFO_PATH_URL = "/v5/market/instruments-info"
+SNAPSHOT_PATH_URL = "/v5/market/orderbook"
+SERVER_TIME_PATH_URL = "/v5/market/time"
 
-# Private API endpoints
-ACCOUNTS_PATH_URL = "/spot/v1/account"
-MY_TRADES_PATH_URL = "/spot/v1/myTrades"
-ORDER_PATH_URL = "/spot/v1/order"
+# Private API endpointsç
+ACCOUNT_INFO_PATH_URL = "/v5/account/info"
+BALANCE_PATH_URL = "/v5/account/wallet-balance"
+ORDER_PLACE_PATH_URL = "/v5/order/create"
+ORDER_CANCEL_PATH_URL = "/v5/order/cancel"
 
 # Order States
 ORDER_STATE = {
@@ -94,14 +96,10 @@ RATE_LIMITS = {
     RateLimit(limit_id=SERVER_TIME_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
               linked_limits=[LinkedLimitWeightPair(REQUEST_GET, 1), LinkedLimitWeightPair(REQUEST_GET_BURST, 1),
                              LinkedLimitWeightPair(REQUEST_GET_MIXED, 1)]),
-    RateLimit(limit_id=ORDER_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
+    RateLimit(limit_id=ORDER_PLACE_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
               linked_limits=[LinkedLimitWeightPair(REQUEST_POST, 1), LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
                              LinkedLimitWeightPair(REQUEST_POST_MIXED, 1)]),
-    RateLimit(limit_id=ACCOUNTS_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
+    RateLimit(limit_id=ACCOUNT_INFO_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
               linked_limits=[LinkedLimitWeightPair(REQUEST_POST, 1), LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
                              LinkedLimitWeightPair(REQUEST_POST_MIXED, 1)]),
-    RateLimit(limit_id=MY_TRADES_PATH_URL, limit=MAX_REQUEST_GET, time_interval=TWO_MINUTES,
-              linked_limits=[LinkedLimitWeightPair(REQUEST_POST, 1), LinkedLimitWeightPair(REQUEST_POST_BURST, 1),
-                             LinkedLimitWeightPair(REQUEST_POST_MIXED, 1)]),
-
 }

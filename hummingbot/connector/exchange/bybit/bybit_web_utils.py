@@ -6,7 +6,12 @@ from hummingbot.connector.utils import TimeSynchronizerRESTPreProcessor
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.core.web_assistant.ws_assistant import WSAssistant
+
+from uuid import uuid4
+import json
 
 
 def rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
@@ -119,6 +124,28 @@ async def get_current_server_time(
         throttler=throttler,
         domain=domain,
         method=RESTMethod.GET)
-    server_time = response["result"]["serverTime"]
+    server_time = float(response["result"]["timeNano"])/1000000000
 
     return server_time
+
+async def subscribeOrderBook(
+            ws: WSAssistant,
+            symbol: (str, list) = False):
+
+        def prepare_subscription_args(list_of_symbols):
+            topics = []
+            for single_symbol in list_of_symbols:
+                topics.append('orderbook.50.'+single_symbol)
+            return topics
+
+        if isinstance(symbol, str):
+            symbol = [symbol]
+
+        subscription_args = prepare_subscription_args(symbol)
+  
+        req_id = str(uuid4())
+        subscription_message = WSJSONRequest(
+            payload={"op": "subscribe", "req_id": req_id, "args": subscription_args}
+        )
+        await ws.send(subscription_message)
+        

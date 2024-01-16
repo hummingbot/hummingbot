@@ -21,6 +21,8 @@ from hummingbot.core.data_type.user_stream_tracker_data_source import UserStream
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -40,12 +42,19 @@ class BybitExchange(ExchangePyBase):
                  trading_required: bool = True,
                  domain: str = CONSTANTS.DEFAULT_DOMAIN,
                  ):
+        time_synchronizer = TimeSynchronizer()
+
         self.api_key = bybit_api_key
         self.secret_key = bybit_api_secret
         self._domain = domain
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._last_trades_poll_bybit_timestamp = 1.0
+        self._account_info = None
+        self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
+        self._auth: BybitAuth = BybitAuth(api_key=bybit_api_key, secret_key=bybit_api_secret, time_provider=time_synchronizer)
+        self._api_factory = web_utils.build_api_factory(auth=self._auth)
+        
         super().__init__(client_config_map)
 
     @staticmethod
@@ -179,6 +188,15 @@ class BybitExchange(ExchangePyBase):
         )
         return trade_base_fee
 
+    async def _update_account_info(self):
+        account_info = await self._api_get(
+            path_url=CONSTANTS.ACCOUNT_INFO_PATH_URL,
+            params=None,
+            is_auth_required=True,
+            headers={"referer": CONSTANTS.HBOT_BROKER_ID},
+        )
+        self._account_type = 'SPOT' if account_info["result"]["unifiedMarginStatus"] == 1 else 'UNIFIED'
+
     async def _place_order(self,
                            order_id: str,
                            trading_pair: str,
@@ -192,10 +210,11 @@ class BybitExchange(ExchangePyBase):
 
         side_str = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        api_params = {"symbol": symbol,
+        api_params = {"category": "spot",
+                      "symbol": symbol,
                       "side": side_str,
+                      "orderType": type_str,
                       "qty": amount_str,
-                      "type": type_str,
                       "orderLinkId": order_id}
         if order_type != OrderType.MARKET:
             api_params["price"] = f"{price:f}"
@@ -203,25 +222,33 @@ class BybitExchange(ExchangePyBase):
             api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_GTC
 
         order_result = await self._api_post(
-            path_url=CONSTANTS.ORDER_PATH_URL,
+            path_url=CONSTANTS.ORDER_PLACE_PATH_URL,
             params=api_params,
             is_auth_required=True,
             trading_pair=trading_pair,
             headers={"referer": CONSTANTS.HBOT_BROKER_ID},
         )
 
-        o_id = str(order_result["result"]["orderId"])
-        transact_time = int(order_result["result"]["transactTime"]) * 1e-3
+        try:
+            o_id = str(order_result["result"]["orderId"])
+            transact_time = int(order_result["result"]["transactTime"]) * 1e-3
+        except Exception as e:
+            tracebakc.print_exc()
+            raise e
+            
         return (o_id, transact_time)
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
-        api_params = {}
+        api_params = {
+            "category": "spot", 
+            "symbol": tracked_order.trading_pair
+        }
         if tracked_order.exchange_order_id:
             api_params["orderId"] = tracked_order.exchange_order_id
         else:
             api_params["orderLinkId"] = tracked_order.client_order_id
         cancel_result = await self._api_delete(
-            path_url=CONSTANTS.ORDER_PATH_URL,
+            path_url=CONSTANTS.ORDER_CANCEL_PATH_URL,
             params=api_params,
             is_auth_required=True)
 
@@ -269,16 +296,17 @@ class BybitExchange(ExchangePyBase):
             ]
         }
         """
-        trading_pair_rules = exchange_info_dict.get("result", [])
+        trading_pair_rules = exchange_info_dict.get("result", []).get("list", [])
         retval = []
         for rule in trading_pair_rules:
             try:
-                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule.get("name"))
+                lot_size_filter = rule.get("lotSizeFilter", {})
+                trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=rule.get("symbol"))
 
-                min_order_size = rule.get("minTradeQuantity")
-                min_price_increment = rule.get("minPricePrecision")
-                min_base_amount_increment = rule.get("basePrecision")
-                min_notional_size = rule.get("minTradeAmount")
+                min_order_size = lot_size_filter.get("minOrderQty")
+                min_price_increment = lot_size_filter.get("quotePrecision")
+                min_base_amount_increment = lot_size_filter.get("basePrecision")
+                min_notional_size = lot_size_filter.get("minOrderAmt")
 
                 retval.append(
                     TradingRule(trading_pair,
@@ -413,36 +441,53 @@ class BybitExchange(ExchangePyBase):
         return order_update
 
     async def _update_balances(self):
+        if self._account_info is None:
+            await self._update_account_info()
+
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
 
         account_info = await self._api_request(
             method=RESTMethod.GET,
-            path_url=CONSTANTS.ACCOUNTS_PATH_URL,
+            path_url=CONSTANTS.BALANCE_PATH_URL,
+            params={
+                'accountType': self._account_type
+            },
             is_auth_required=True)
-        balances = account_info["result"]["balances"]
-        for balance_entry in balances:
-            asset_name = balance_entry["coin"]
-            free_balance = Decimal(balance_entry["free"])
-            total_balance = Decimal(balance_entry["total"])
-            self._account_available_balances[asset_name] = free_balance
-            self._account_balances[asset_name] = total_balance
-            remote_asset_names.add(asset_name)
 
-        asset_names_to_remove = local_asset_names.difference(remote_asset_names)
-        for asset_name in asset_names_to_remove:
-            del self._account_available_balances[asset_name]
-            del self._account_balances[asset_name]
+        self._account_available_balances.clear()
+        self._account_balances.clear()
+
+        for coin in account_info["result"]["list"][0]["coin"]:
+            name = coin["coin"]
+            free_balance = Decimal(coin["availableToWithdraw"])
+            balance = Decimal(coin["walletBalance"])
+            self._account_available_balances[name] = free_balance
+            self._account_balances[name] = Decimal(balance)
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
-        for symbol_data in filter(bybit_utils.is_exchange_information_valid, exchange_info["result"]):
-            mapping[symbol_data["name"]] = combine_to_hb_trading_pair(base=symbol_data["baseCurrency"],
-                                                                      quote=symbol_data["quoteCurrency"])
+
+        for symbol_data in exchange_info["result"]['list']:
+            mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(base=symbol_data["baseCoin"],
+                                                                      quote=symbol_data["quoteCoin"])
         self._set_trading_pair_symbol_map(mapping)
+
+    async def _make_trading_rules_request(self) -> Any:
+        exchange_info = await self._api_get(
+            path_url=self.trading_rules_request_path,
+            params={'category': 'spot'})
+        return exchange_info
+
+    async def _make_trading_pairs_request(self) -> Any:
+        exchange_info = await self._api_get(
+            path_url=self.trading_pairs_request_path,
+            params={'category': 'spot'})
+        return exchange_info
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         params = {
+            "category": "spot",
             "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
         }
         resp_json = await self._api_request(
@@ -451,7 +496,7 @@ class BybitExchange(ExchangePyBase):
             params=params,
         )
 
-        return float(resp_json["result"]["price"])
+        return float(resp_json["result"]["list"][0]["lastPrice"])
 
     async def _api_request(self,
                            path_url,
@@ -466,8 +511,7 @@ class BybitExchange(ExchangePyBase):
         last_exception = None
         rest_assistant = await self._web_assistants_factory.get_rest_assistant()
         url = web_utils.rest_url(path_url, domain=self.domain)
-        local_headers = {
-            "Content-Type": "application/x-www-form-urlencoded"}
+        local_headers = {"Content-Type": "application/x-www-form-urlencoded"}
         for _ in range(2):
             try:
                 request_result = await rest_assistant.execute_request(
@@ -478,7 +522,7 @@ class BybitExchange(ExchangePyBase):
                     is_auth_required=is_auth_required,
                     return_err=return_err,
                     headers=local_headers,
-                    throttler_limit_id=limit_id if limit_id else path_url,
+                    throttler_limit_id=limit_id if limit_id else CONSTANTS.REQUEST_GET,
                 )
                 return request_result
             except IOError as request_exception:
@@ -491,3 +535,4 @@ class BybitExchange(ExchangePyBase):
 
         # Failed even after the last retry
         raise last_exception
+

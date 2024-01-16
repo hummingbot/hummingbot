@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import json
 import time
 from collections import OrderedDict
 from typing import Any, Dict, Optional
@@ -9,7 +10,11 @@ import hummingbot.connector.exchange.bybit.bybit_constants as CONSTANTS
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSRequest
+from urllib.parse import urlencode
 
+import traceback
+
+RECV_WINDOW = str(5000)
 
 class BybitAuth(AuthBase):
 
@@ -18,21 +23,16 @@ class BybitAuth(AuthBase):
         self.secret_key = secret_key
         self.time_provider = time_provider
 
-    @staticmethod
-    def keysort(dictionary: Dict[str, str]) -> Dict[str, str]:
-        return OrderedDict(sorted(dictionary.items(), key=lambda t: t[0]))
-
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
         """
         Adds the server time and the signature to the request, required for authenticated interactions. It also adds
         the required parameter in the request header.
         :param request: the request to be configured for authenticated interaction
         """
-        request.params = self.add_auth_to_params(params=request.params)
-        headers = {}
-        if request.headers is not None:
-            headers.update(request.headers)
-        request.headers = headers
+
+        headers = self.add_auth_headers(method=request.method, params=request.params) # I am unsure if params or data is the correct on to use, will come back to this
+        request.headers = {**request.headers, **headers} if request.headers is not None else headers
+
         return request
 
     async def ws_authenticate(self, request: WSRequest) -> WSRequest:
@@ -52,21 +52,28 @@ class BybitAuth(AuthBase):
         }
         return headers
 
-    def add_auth_to_params(self,
-                           params: Optional[Dict[str, Any]]):
-        timestamp = int(self.time_provider.time() * 1e3)
-        request_params = params or {}
-        request_params["timestamp"] = timestamp
-        request_params["api_key"] = self.api_key
-        request_params = self.keysort(request_params)
-        signature = self._generate_signature(params=request_params)
-        request_params["sign"] = signature
-        return request_params
+    def add_auth_headers(self, method:str, params: Optional[Dict[str, Any]]):
+        time_stamp = str(int(time.time() * 10 ** 3))
 
-    def _generate_signature(self, params: Dict[str, Any]) -> str:
-        encoded_params_str = urlencode(params)
-        digest = hmac.new(self.secret_key.encode("utf8"), encoded_params_str.encode("utf8"), hashlib.sha256).hexdigest()
-        return digest
+        headers = {}
+        headers["X-BAPI-TIMESTAMP"] = str(time_stamp)
+        headers["X-BAPI-API-KEY"] = self.api_key
+        
+        signature = self._generate_signature(timestamp=time_stamp, method=method, payload=params)
+
+        headers["X-BAPI-SIGN"] = signature
+        headers["X-BAPI-SIGN-TYPE"] = str(2)
+        headers["X-BAPI-RECV-WINDOW"] = str(RECV_WINDOW)
+        headers["Content-Type"] = 'application/json'
+
+        return headers
+
+    def _generate_signature(self, timestamp, method:str, payload: Optional[Dict[str, Any]]) -> str:
+        if params is None or method != 'GET':
+            params = {}
+
+        param_str = str(timestamp) + self.api_key + RECV_WINDOW + urlencode(payload)
+        return hmac.new(bytes(self.secret_key, "utf-8"), param_str.encode("utf-8"), hashlib.sha256).hexdigest()
 
     def generate_ws_authentication_message(self):
         """

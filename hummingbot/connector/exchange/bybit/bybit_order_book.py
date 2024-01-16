@@ -4,6 +4,7 @@ from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
+import traceback
 
 class BybitOrderBook(OrderBook):
     @classmethod
@@ -42,12 +43,12 @@ class BybitOrderBook(OrderBook):
         """
         if metadata:
             msg.update(metadata)
-        ts = msg["time"]
+        ts = msg["ts"]
         return OrderBookMessage(OrderBookMessageType.SNAPSHOT, {
-            "trading_pair": msg["trading_pair"],
+            "trading_pair": msg["s"],
             "update_id": ts,
-            "bids": msg["bids"],
-            "asks": msg["asks"]
+            "bids": msg["b"],
+            "asks": msg["a"]
         }, timestamp=timestamp)
 
     @classmethod
@@ -62,14 +63,15 @@ class BybitOrderBook(OrderBook):
         :param metadata: a dictionary with extra information to add to the difference data
         :return: a diff message with the changes in the order book notified by the exchange
         """
+        data = msg.get("data")
         if metadata:
             msg.update(metadata)
-        ts = msg["t"]
+        ts = msg.get("ts")
         return OrderBookMessage(OrderBookMessageType.DIFF, {
-            "trading_pair": msg["trading_pair"],
+            "trading_pair": metadata.get("trading_pair"),
             "update_id": ts,
-            "bids": msg["b"],
-            "asks": msg["a"]
+            "bids": data.get("b"),
+            "asks": data.get("a")
         }, timestamp=timestamp)
 
     @classmethod
