@@ -1,3 +1,3 @@
-from hummingbot.data_feed.candles_feed.binance_spot_candles.binance_spot_candles import BinanceSpotCandles
+from hummingbot.data_feed.candles_feed.okx_perpetual_candles.okx_perpetual_candles import OKXPerpetualCandles
 
-__all__ = ["BinanceSpotCandles"]
+__all__ = ["OKXPerpetualCandles"]
