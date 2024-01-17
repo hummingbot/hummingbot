@@ -4,6 +4,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
+from hummingbot.core.data_type.common import PositionMode
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig, CandlesFactory
 from hummingbot.smart_components.strategy_frameworks.data_types import OrderLevel
 
@@ -15,6 +16,8 @@ class ControllerConfigBase(BaseModel):
     candles_config: List[CandlesConfig]
     order_levels: List[OrderLevel]
     close_price_trading_pair: Optional[str]
+    position_mode: PositionMode = PositionMode.HEDGE
+    leverage: int = 1
 
 
 class ControllerBase(ABC):
@@ -48,6 +51,13 @@ class ControllerBase(ABC):
         Get the processed data.
         """
         pass
+
+    @staticmethod
+    def is_perpetual(exchange: str):
+        """
+        Checks if the exchange is a perpetual market.
+        """
+        return "perpetual" in exchange
 
     def filter_executors_df(self, df):
         """

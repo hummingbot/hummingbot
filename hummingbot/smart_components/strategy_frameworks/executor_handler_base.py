@@ -15,7 +15,7 @@ from hummingbot.model.position_executors import PositionExecutors
 from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.smart_components.strategy_frameworks.controller_base import ControllerBase
-from hummingbot.smart_components.strategy_frameworks.data_types import ExecutorHandlerStatus, OrderLevel
+from hummingbot.smart_components.strategy_frameworks.data_types import ExecutorHandlerStatus
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
@@ -42,7 +42,7 @@ class ExecutorHandlerBase:
         self.update_interval = update_interval
         self.executors_update_interval = executors_update_interval
         self.terminated = asyncio.Event()
-        self.level_executors = {level.level_id: None for level in self.controller.config.order_levels}
+        self.level_executors = {}
         self.status = ExecutorHandlerStatus.NOT_STARTED
 
     def start(self):
@@ -75,29 +75,43 @@ class ExecutorHandlerBase:
         today = datetime.datetime.today()
         return Path(data_path()) / f"{self.controller.get_csv_prefix()}_{today.day:02d}-{today.month:02d}-{today.year}.csv"
 
-    def store_executor(self, executor: PositionExecutor, order_level: OrderLevel):
+    def store_executor(self, level_id: str = None):
         """
         Store executor data to CSV.
 
         :param executor: The executor instance.
-        :param order_level: The order level instance.
+        :param level_id: The order level id.
         """
+        executor = self.level_executors[level_id]
         if executor:
             executor_data = executor.to_json()
-            executor_data["order_level"] = order_level.level_id
+            executor_data["order_level"] = level_id
             executor_data["controller_name"] = self.controller.config.strategy_name
             MarketsRecorder.get_instance().store_executor(executor_data)
-            self.level_executors[order_level.level_id] = None
+            self.level_executors[level_id] = None
 
-    def create_executor(self, position_config: PositionConfig, order_level: OrderLevel):
+    def create_executor(self, position_config: PositionConfig, level_id: str = None):
         """
         Create an executor.
 
         :param position_config: The position configuration.
-        :param order_level: The order level instance.
+        :param level_id: The order level id.
         """
+        if level_id in self.level_executors:
+            self.logger().warning(f"Executor for level {level_id} already exists.")
+            return
         executor = PositionExecutor(self.strategy, position_config, update_interval=self.executors_update_interval)
-        self.level_executors[order_level.level_id] = executor
+        self.level_executors[level_id] = executor
+
+    def stop_executor(self, executor_id: str):
+        """
+        Stop an executor.
+
+        :param executor_id: The executor ID.
+        """
+        executor = self.level_executors[executor_id]
+        if executor:
+            executor.early_stop()
 
     async def control_loop(self):
         """Main control loop."""
@@ -157,17 +171,6 @@ class ExecutorHandlerBase:
             return executors_df
         else:
             return pd.DataFrame()
-
-    @staticmethod
-    def get_executors_df(csv_prefix: str) -> pd.DataFrame:
-        """
-        Get executors from CSV.
-
-        :param csv_prefix: The CSV prefix.
-        :return: DataFrame containing executors.
-        """
-        dfs = [pd.read_csv(file) for file in Path(data_path()).glob(f"{csv_prefix}*")]
-        return pd.concat(dfs) if dfs else pd.DataFrame()
 
     @staticmethod
     def summarize_executors_df(executors_df):
