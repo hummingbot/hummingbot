@@ -82,9 +82,9 @@ class KrakenExchange(ExchangePyBase):
     def name(self) -> str:
         return "kraken"
     # todo
-    @property
-    def rate_limits_rules(self):
-        return CONSTANTS.RATE_LIMITS
+    # @property
+    # def rate_limits_rules(self):
+    #     return CONSTANTS.RATE_LIMITS
 
     @property
     def domain(self):
@@ -168,16 +168,13 @@ class KrakenExchange(ExchangePyBase):
         return KrakenAPIOrderBookDataSource(
             trading_pairs=self._trading_pairs,
             connector=self,
-            domain=self.domain,
             api_factory=self._web_assistants_factory)
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
         return KrakenAPIUserStreamDataSource(
             auth=self._auth,
-            trading_pairs=self._trading_pairs,
             connector=self,
             api_factory=self._web_assistants_factory,
-            domain=self.domain,
         )
 
     def _get_fee(self,

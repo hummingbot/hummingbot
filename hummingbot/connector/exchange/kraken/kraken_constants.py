@@ -58,6 +58,8 @@ WS_AUTH_URL = "wss://ws-auth.kraken.com/"
 DIFF_EVENT_TYPE = "book"
 TRADE_EVENT_TYPE = "trade"
 PING_TIMEOUT = 10
+USER_TRADES_ENDPOINT_NAME = "ownTrades"
+USER_ORDERS_ENDPOINT_NAME = "openOrders"
 
 PUBLIC_ENDPOINT_LIMIT_ID = "PublicEndpointLimitID"
 PUBLIC_ENDPOINT_LIMIT = 1
