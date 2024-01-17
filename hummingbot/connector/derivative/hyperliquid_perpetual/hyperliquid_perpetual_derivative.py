@@ -376,7 +376,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 "isBuy": True if trade_type is TradeType.BUY else False,
                 "limitPx": float(price),
                 "sz": float(amount),
-                "reduceOnly": position_action == PositionAction.CLOSE,
+                "reduceOnly": False,
                 "orderType": param_order_type,
                 "cloid": order_id,
             }
