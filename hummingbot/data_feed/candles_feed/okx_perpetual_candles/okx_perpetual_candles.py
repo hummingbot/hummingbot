@@ -21,7 +21,8 @@ class OKXPerpetualCandles(CandlesBase):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, trading_pair: str, interval: str = "1m", max_records: int = 150):
+    def __init__(self, trading_pair: str, interval: str = "1m",
+                 max_records: int = CONSTANTS.MAX_RESULTS_PER_CANDLESTICK_REST_REQUEST):
         super().__init__(trading_pair, interval, max_records)
 
     @property
@@ -64,20 +65,20 @@ class OKXPerpetualCandles(CandlesBase):
     async def fetch_candles(self,
                             start_time: Optional[int] = None,
                             end_time: Optional[int] = None,
-                            limit: Optional[int] = 500):
+                            limit: Optional[int] = 100):
         rest_assistant = await self._api_factory.get_rest_assistant()
         params = {"instId": self._ex_trading_pair, "bar": CONSTANTS.INTERVALS[self.interval], "limit": limit}
-        if start_time:
-            params["before"] = start_time
         if end_time:
             params["after"] = end_time
+        if start_time:
+            params["before"] = start_time
         candles = await rest_assistant.execute_request(url=self.candles_url,
                                                        throttler_limit_id=CONSTANTS.CANDLES_ENDPOINT,
                                                        params=params)
 
         # TODO: order according to base candles structure
         # ts, open, high, low, close, n_contracts, base_volume, quote_volume
-        arr = [[row[0], row[1], row[2], row[3], row[4], row[6], row[7], 0., 0., 0.] for row in candles['data']]
+        arr = [[row[0], row[1], row[2], row[3], row[4], row[6], row[7], 0., 0., 0.] for row in candles]
         return np.array(arr).astype(float)
 
     async def fill_historical_candles(self):
