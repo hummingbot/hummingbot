@@ -4,6 +4,10 @@ from typing import Any, Dict, List, Optional
 from google.protobuf import json_format
 from grpc import RpcError
 from pyinjective.async_client import AsyncClient
+from pyinjective.client.model.pagination import PaginationOption
+from pyinjective.core.market import DerivativeMarket, SpotMarket
+from pyinjective.core.token import Token
+from pyinjective.proto.injective.stream.v1beta1 import query_pb2 as chain_stream_query
 
 
 class BaseInjectiveQueryExecutor(ABC):
@@ -13,11 +17,15 @@ class BaseInjectiveQueryExecutor(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def spot_markets(self, status: str) -> Dict[str, Any]:
+    async def spot_markets(self) -> Dict[str, SpotMarket]:
         raise NotImplementedError
 
     @abstractmethod
-    async def derivative_markets(self, status: str) -> Dict[str, Any]:
+    async def derivative_markets(self) -> Dict[str, DerivativeMarket]:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def tokens(self) -> Dict[str, Token]:
         raise NotImplementedError
 
     @abstractmethod
@@ -34,10 +42,6 @@ class BaseInjectiveQueryExecutor(ABC):
 
     @abstractmethod
     async def get_tx_by_hash(self, tx_hash: str) -> Dict[str, Any]:
-        raise NotImplementedError
-
-    @abstractmethod
-    async def get_tx_block_height(self, tx_hash: str) -> int:
         raise NotImplementedError
 
     @abstractmethod
@@ -117,47 +121,23 @@ class BaseInjectiveQueryExecutor(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def spot_order_book_updates_stream(self, market_ids: List[str]):
-        raise NotImplementedError  # pragma: no cover
-
-    @abstractmethod
-    async def public_spot_trades_stream(self, market_ids: List[str]):
-        raise NotImplementedError  # pragma: no cover
-
-    @abstractmethod
-    async def derivative_order_book_updates_stream(self, market_ids: List[str]):
-        raise NotImplementedError  # pragma: no cover
-
-    @abstractmethod
-    async def public_derivative_trades_stream(self, market_ids: List[str]):
-        raise NotImplementedError  # pragma: no cover
-
-    @abstractmethod
-    async def oracle_prices_stream(self, oracle_base: str, oracle_quote: str, oracle_type: str):
-        raise NotImplementedError  # pragma: no cover
-
-    @abstractmethod
-    async def subaccount_positions_stream(self, subaccount_id: str):
-        raise NotImplementedError  # pragma: no cover
-
-    @abstractmethod
-    async def subaccount_balance_stream(self, subaccount_id: str):
-        raise NotImplementedError  # pragma: no cover
-
-    @abstractmethod
-    async def subaccount_historical_spot_orders_stream(
-        self, market_id: str, subaccount_id: str
-    ):
-        raise NotImplementedError
-
-    @abstractmethod
-    async def subaccount_historical_derivative_orders_stream(
-            self, market_id: str, subaccount_id: str
-    ):
-        raise NotImplementedError
-
-    @abstractmethod
     async def transactions_stream(self):  # pragma: no cover
+        raise NotImplementedError
+
+    @abstractmethod
+    async def chain_stream(
+            self,
+            bank_balances_filter: Optional[chain_stream_query.BankBalancesFilter] = None,
+            subaccount_deposits_filter: Optional[chain_stream_query.SubaccountDepositsFilter] = None,
+            spot_trades_filter: Optional[chain_stream_query.TradesFilter] = None,
+            derivative_trades_filter: Optional[chain_stream_query.TradesFilter] = None,
+            spot_orders_filter: Optional[chain_stream_query.OrdersFilter] = None,
+            derivative_orders_filter: Optional[chain_stream_query.OrdersFilter] = None,
+            spot_orderbooks_filter: Optional[chain_stream_query.OrderbookFilter] = None,
+            derivative_orderbooks_filter: Optional[chain_stream_query.OrderbookFilter] = None,
+            positions_filter: Optional[chain_stream_query.PositionsFilter] = None,
+            oracle_price_filter: Optional[chain_stream_query.OraclePriceFilter] = None,
+    ):
         raise NotImplementedError
 
 
@@ -170,25 +150,16 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
     async def ping(self):  # pragma: no cover
         await self._sdk_client.ping()
 
-    async def spot_markets(self, status: str) -> List[Dict[str, Any]]:  # pragma: no cover
-        response = await self._sdk_client.get_spot_markets(status=status)
-        markets = []
+    async def spot_markets(self) -> Dict[str, SpotMarket]:  # pragma: no cover
+        return await self._sdk_client.all_spot_markets()
 
-        for market_info in response.markets:
-            markets.append(json_format.MessageToDict(market_info))
+    async def derivative_markets(self) -> Dict[str, DerivativeMarket]:  # pragma: no cover
+        return await self._sdk_client.all_derivative_markets()
 
-        return markets
+    async def tokens(self) -> Dict[str, Token]:  # pragma: no cover
+        return await self._sdk_client.all_tokens()
 
-    async def derivative_markets(self, status: str) -> List[Dict[str, Any]]:  # pragma: no cover
-        response = await self._sdk_client.get_derivative_markets(status=status)
-        markets = []
-
-        for market_info in response.markets:
-            markets.append(json_format.MessageToDict(market_info))
-
-        return markets
-
-    async def derivative_market(self, market_id: str) -> List[Dict[str, Any]]:  # pragma: no cover
+    async def derivative_market(self, market_id: str) -> Dict[str, Any]:  # pragma: no cover
         response = await self._sdk_client.get_derivative_market(market_id=market_id)
         market = json_format.MessageToDict(response.market)
 
@@ -230,18 +201,6 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
         result = json_format.MessageToDict(transaction_response)
         return result
 
-    async def get_tx_block_height(self, tx_hash: str) -> int:  # pragma: no cover
-        try:
-            transaction_response = await self._sdk_client.get_tx(tx_hash=tx_hash)
-        except RpcError as rpc_exception:
-            if "StatusCode.NOT_FOUND" in str(rpc_exception):
-                raise ValueError(f"The transaction with hash {tx_hash} was not found")
-            else:
-                raise
-
-        result = transaction_response.tx_response.height
-        return result
-
     async def account_portfolio(self, account_address: str) -> Dict[str, Any]:  # pragma: no cover
         portfolio_response = await self._sdk_client.get_account_portfolio(account_address=account_address)
         result = json_format.MessageToDict(portfolio_response.portfolio)
@@ -267,15 +226,14 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
             skip: Optional[int] = None,
             limit: Optional[int] = None,
     ) -> Dict[str, Any]:  # pragma: no cover
-        response = await self._sdk_client.get_spot_trades(
+        subaccount_ids = [subaccount_id] if subaccount_id is not None else None
+        pagination = PaginationOption(skip=skip, limit=limit, start_time=start_time)
+        response = await self._sdk_client.fetch_spot_trades(
             market_ids=market_ids,
-            subaccount_id=subaccount_id,
-            start_time=start_time,
-            skip=skip,
-            limit=limit,
+            subaccount_ids=subaccount_ids,
+            pagination=pagination,
         )
-        result = json_format.MessageToDict(response)
-        return result
+        return response
 
     async def get_derivative_trades(
             self,
@@ -285,15 +243,14 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
             skip: Optional[int] = None,
             limit: Optional[int] = None,
     ) -> Dict[str, Any]:  # pragma: no cover
-        response = await self._sdk_client.get_derivative_trades(
+        subaccount_ids = [subaccount_id] if subaccount_id is not None else None
+        pagination = PaginationOption(skip=skip, limit=limit, start_time=start_time)
+        response = await self._sdk_client.fetch_derivative_trades(
             market_ids=market_ids,
-            subaccount_id=subaccount_id,
-            start_time=start_time,
-            skip=skip,
-            limit=limit,
+            subaccount_ids=subaccount_ids,
+            pagination=pagination,
         )
-        result = json_format.MessageToDict(response)
-        return result
+        return response
 
     async def get_historical_spot_orders(
             self,
@@ -364,65 +321,35 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
         result = json_format.MessageToDict(response)
         return result
 
-    async def spot_order_book_updates_stream(self, market_ids: List[str]):  # pragma: no cover
-        stream = await self._sdk_client.stream_spot_orderbook_update(market_ids=market_ids)
-        async for update in stream:
-            order_book_update = update.orderbook_level_updates
-            yield json_format.MessageToDict(order_book_update)
-
-    async def public_spot_trades_stream(self, market_ids: List[str]):  # pragma: no cover
-        stream = await self._sdk_client.stream_spot_trades(market_ids=market_ids)
-        async for trade in stream:
-            trade_data = trade.trade
-            yield json_format.MessageToDict(trade_data)
-
-    async def derivative_order_book_updates_stream(self, market_ids: List[str]):  # pragma: no cover
-        stream = await self._sdk_client.stream_derivative_orderbook_update(market_ids=market_ids)
-        async for update in stream:
-            order_book_update = update.orderbook_level_updates
-            yield json_format.MessageToDict(order_book_update)
-
-    async def public_derivative_trades_stream(self, market_ids: List[str]):  # pragma: no cover
-        stream = await self._sdk_client.stream_derivative_trades(market_ids=market_ids)
-        async for trade in stream:
-            trade_data = trade.trade
-            yield json_format.MessageToDict(trade_data)
-
-    async def oracle_prices_stream(self, oracle_base: str, oracle_quote: str, oracle_type: str):  # pragma: no cover
-        stream = await self._sdk_client.stream_oracle_prices(
-            base_symbol=oracle_base, quote_symbol=oracle_quote, oracle_type=oracle_type
-        )
-        async for update in stream:
-            yield json_format.MessageToDict(update)
-
-    async def subaccount_positions_stream(self, subaccount_id: str):  # pragma: no cover
-        stream = await self._sdk_client.stream_derivative_positions(subaccount_id=subaccount_id)
-        async for event in stream:
-            event_data = event.position
-            yield json_format.MessageToDict(event_data)
-
-    async def subaccount_balance_stream(self, subaccount_id: str):  # pragma: no cover
-        stream = await self._sdk_client.stream_subaccount_balance(subaccount_id=subaccount_id)
-        async for event in stream:
-            yield json_format.MessageToDict(event)
-
-    async def subaccount_historical_spot_orders_stream(
-        self, market_id: str, subaccount_id: str
-    ):  # pragma: no cover
-        stream = await self._sdk_client.stream_historical_spot_orders(market_id=market_id, subaccount_id=subaccount_id)
-        async for event in stream:
-            event_data = event.order
-            yield json_format.MessageToDict(event_data)
-
-    async def subaccount_historical_derivative_orders_stream(
-        self, market_id: str, subaccount_id: str
-    ):  # pragma: no cover
-        stream = await self._sdk_client.stream_historical_derivative_orders(market_id=market_id, subaccount_id=subaccount_id)
-        async for event in stream:
-            event_data = event.order
-            yield json_format.MessageToDict(event_data)
-
     async def transactions_stream(self):  # pragma: no cover
         stream = await self._sdk_client.stream_txs()
         async for event in stream:
             yield json_format.MessageToDict(event)
+
+    async def chain_stream(
+        self,
+        bank_balances_filter: Optional[chain_stream_query.BankBalancesFilter] = None,
+        subaccount_deposits_filter: Optional[chain_stream_query.SubaccountDepositsFilter] = None,
+        spot_trades_filter: Optional[chain_stream_query.TradesFilter] = None,
+        derivative_trades_filter: Optional[chain_stream_query.TradesFilter] = None,
+        spot_orders_filter: Optional[chain_stream_query.OrdersFilter] = None,
+        derivative_orders_filter: Optional[chain_stream_query.OrdersFilter] = None,
+        spot_orderbooks_filter: Optional[chain_stream_query.OrderbookFilter] = None,
+        derivative_orderbooks_filter: Optional[chain_stream_query.OrderbookFilter] = None,
+        positions_filter: Optional[chain_stream_query.PositionsFilter] = None,
+        oracle_price_filter: Optional[chain_stream_query.OraclePriceFilter] = None,
+    ):  # pragma: no cover
+        stream = await self._sdk_client.chain_stream(
+            bank_balances_filter=bank_balances_filter,
+            subaccount_deposits_filter=subaccount_deposits_filter,
+            spot_trades_filter=spot_trades_filter,
+            derivative_trades_filter=derivative_trades_filter,
+            spot_orders_filter=spot_orders_filter,
+            derivative_orders_filter=derivative_orders_filter,
+            spot_orderbooks_filter=spot_orderbooks_filter,
+            derivative_orderbooks_filter=derivative_orderbooks_filter,
+            positions_filter=positions_filter,
+            oracle_price_filter=oracle_price_filter,
+        )
+        async for event in stream:
+            yield json_format.MessageToDict(event, including_default_value_fields=True)
