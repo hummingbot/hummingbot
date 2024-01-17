@@ -27,7 +27,7 @@ class OKXPerpetualCandles(CandlesBase):
 
     @property
     def name(self):
-        return f"binance_{self._trading_pair}"
+        return f"okx_perpetual_{self._trading_pair}"
 
     @property
     def rest_url(self):
@@ -76,9 +76,7 @@ class OKXPerpetualCandles(CandlesBase):
                                                        throttler_limit_id=CONSTANTS.CANDLES_ENDPOINT,
                                                        params=params)
 
-        # TODO: order according to base candles structure
-        # ts, open, high, low, close, n_contracts, base_volume, quote_volume
-        arr = [[row[0], row[1], row[2], row[3], row[4], row[6], row[7], 0., 0., 0.] for row in candles]
+        arr = [[row[0], row[1], row[2], row[3], row[4], row[6], row[7], 0., 0., 0.] for row in candles["data"]][::-1]
         return np.array(arr).astype(float)
 
     async def fill_historical_candles(self):
@@ -94,7 +92,7 @@ class OKXPerpetualCandles(CandlesBase):
                     # we are computing again the quantity of records again since the websocket process is able to
                     # modify the deque and if we extend it, the new observations are going to be dropped.
                     missing_records = self._candles.maxlen - len(self._candles)
-                    self._candles.extendleft(candles[-(missing_records + 1):-1][::-1])
+                    self._candles.extendleft(candles[-(missing_records + 1):-1])
                     requests_executed += 1
                 else:
                     self.logger().error(f"There is no data available for the quantity of "
@@ -148,18 +146,15 @@ class OKXPerpetualCandles(CandlesBase):
                 n_trades = 0.
                 taker_buy_base_volume = 0.
                 taker_buy_quote_volume = 0.
+
+                candles_row = np.array([timestamp, open, high, low, close, volume,
+                                        quote_asset_volume, n_trades, taker_buy_base_volume,
+                                        taker_buy_quote_volume]).astype(float)
                 if len(self._candles) == 0:
-                    self._candles.append(np.array([timestamp, open, high, low, close, volume,
-                                                   quote_asset_volume, n_trades, taker_buy_base_volume,
-                                                   taker_buy_quote_volume]))
+                    self._candles.append(candles_row)
                     safe_ensure_future(self.fill_historical_candles())
                 elif int(timestamp) > int(self._candles[-1][0]):
-                    # TODO: validate also that the diff of timestamp == interval (issue with 1M interval).
-                    self._candles.append(np.array([timestamp, open, high, low, close, volume,
-                                                   quote_asset_volume, n_trades, taker_buy_base_volume,
-                                                   taker_buy_quote_volume]))
-                elif timestamp == int(self._candles[-1][0]):
+                    self._candles.append(candles_row)
+                elif int(timestamp) == int(self._candles[-1][0]):
                     self._candles.pop()
-                    self._candles.append(np.array([timestamp, open, high, low, close, volume,
-                                                   quote_asset_volume, n_trades, taker_buy_base_volume,
-                                                   taker_buy_quote_volume]))
+                    self._candles.append(candles_row)
