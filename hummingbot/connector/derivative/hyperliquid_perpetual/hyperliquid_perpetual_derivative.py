@@ -215,6 +215,9 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
     async def _update_order_status(self):
         await self._update_orders()
 
+    async def _update_lost_orders_status(self):
+        await self._update_lost_orders()
+
     def _get_fee(self,
                  base_currency: str,
                  quote_currency: str,
@@ -449,16 +452,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
     async def _handle_update_error_for_active_order(self, order: InFlightOrder, error: Exception):
         try:
             raise error
-        except KeyError:
-            _order_update: OrderUpdate = OrderUpdate(
-                trading_pair=order.trading_pair,
-                update_timestamp=int(time.time()),
-                new_state=OrderState.PENDING_CREATE,
-                client_order_id=order.client_order_id,
-                exchange_order_id=str(order.exchange_order_id),
-            )
-            self._order_tracker.process_order_update(_order_update)
-        except asyncio.TimeoutError:
+        except (asyncio.TimeoutError, KeyError):
             self.logger().debug(
                 f"Tracked order {order.client_order_id} does not have an exchange id. "
                 f"Attempting fetch in next polling interval."
