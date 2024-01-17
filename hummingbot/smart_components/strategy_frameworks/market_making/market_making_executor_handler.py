@@ -25,6 +25,7 @@ class MarketMakingExecutorHandler(ExecutorHandlerBase):
                  update_interval: float = 1.0, executors_update_interval: float = 1.0):
         super().__init__(strategy, controller, update_interval, executors_update_interval)
         self.controller = controller
+        self.level_executors = {level.level_id: None for level in self.controller.config.order_levels}
         self.global_trailing_stop_config = self.controller.config.global_trailing_stop_config
         self._trailing_stop_pnl_by_side: Dict[TradeType, Optional[Decimal]] = {TradeType.BUY: None, TradeType.SELL: None}
 
