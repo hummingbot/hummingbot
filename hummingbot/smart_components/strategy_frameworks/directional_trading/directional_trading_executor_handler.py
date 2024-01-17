@@ -11,6 +11,7 @@ class DirectionalTradingExecutorHandler(ExecutorHandlerBase):
                  update_interval: float = 1.0):
         super().__init__(strategy, controller, update_interval)
         self.controller = controller
+        self.level_executors = {level.level_id: None for level in self.controller.config.order_levels}
 
     def on_stop(self):
         if self.controller.is_perpetual:
