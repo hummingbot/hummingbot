@@ -1,13 +1,13 @@
 import unittest
 
-from hummingbot.connector.exchange.huobi import (
-    huobi_constants as CONSTANTS,
-    huobi_utils as func_utils,
-    huobi_web_utils as web_utils,
+from hummingbot.connector.exchange.htx import (
+    htx_constants as CONSTANTS,
+    htx_utils as func_utils,
+    htx_web_utils as web_utils,
 )
 
 
-class HuobiUtilsTestCases(unittest.TestCase):
+class HtxUtilsTestCases(unittest.TestCase):
 
     def test_public_rest_url(self):
         path_url = CONSTANTS.SERVER_TIME_URL
