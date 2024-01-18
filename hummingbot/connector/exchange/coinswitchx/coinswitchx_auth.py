@@ -7,7 +7,7 @@ from cryptography.hazmat.primitives.asymmetric import ed25519
 
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.auth import AuthBase
-from hummingbot.core.web_assistant.connections.data_types import RESTRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSRequest
 
 
 class CoinswitchxAuth(AuthBase):
@@ -75,9 +75,10 @@ class CoinswitchxAuth(AuthBase):
 
         return request
 
-    # async def ws_authenticate(self,
-    #                           request: WSRequest,
-    #                           ) -> WSRequest:
+    async def ws_authenticate(self,
+                              request: WSRequest,
+                              ) -> WSRequest:
+        pass
     #     """
     #     This method is intended to configure a websocket request to be authenticated.
     #     It should be used with empty requests to send an initial login payload.
