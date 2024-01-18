@@ -1,8 +1,8 @@
 import asyncio
 from typing import TYPE_CHECKING, List, Optional
 
-import hummingbot.connector.exchange.huobi.huobi_constants as CONSTANTS
-from hummingbot.connector.exchange.huobi.huobi_auth import HuobiAuth
+import hummingbot.connector.exchange.htx.htx_constants as CONSTANTS
+from hummingbot.connector.exchange.htx.htx_auth import HtxAuth
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest, WSResponse
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
@@ -10,18 +10,18 @@ from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
 if TYPE_CHECKING:
-    from hummingbot.connector.exchange.huobi.huobi_exchange import HuobiExchange
+    from hummingbot.connector.exchange.htx.htx_exchange import HtxExchange
 
 
-class HuobiAPIUserStreamDataSource(UserStreamTrackerDataSource):
+class HtxAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     _logger: Optional[HummingbotLogger] = None
 
-    def __init__(self, huobi_auth: HuobiAuth,
+    def __init__(self, htx_auth: HtxAuth,
                  trading_pairs: List[str],
-                 connector: 'HuobiExchange',
+                 connector: 'HtxExchange',
                  api_factory: Optional[WebAssistantsFactory]):
-        self._auth: HuobiAuth = huobi_auth
+        self._auth: HtxAuth = htx_auth
         self._connector = connector
         self._api_factory = api_factory
         self._trading_pairs = trading_pairs
@@ -34,7 +34,7 @@ class HuobiAPIUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def _authenticate_client(self, ws: WSAssistant):
         """
-        Sends an Authentication request to Huobi's WebSocket API Server
+        Sends an Authentication request to Htx's WebSocket API Server
         """
         try:
             ws_request: WSJSONRequest = WSJSONRequest(
@@ -84,12 +84,12 @@ class HuobiAPIUserStreamDataSource(UserStreamTrackerDataSource):
         """
         try:
             await self._authenticate_client(websocket_assistant)
-            await self._subscribe_topic(CONSTANTS.HUOBI_ACCOUNT_UPDATE_TOPIC, websocket_assistant)
+            await self._subscribe_topic(CONSTANTS.Htx_ACCOUNT_UPDATE_TOPIC, websocket_assistant)
             for trading_pair in self._trading_pairs:
                 exchange_symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                await self._subscribe_topic(CONSTANTS.HUOBI_TRADE_DETAILS_TOPIC.format(exchange_symbol),
+                await self._subscribe_topic(CONSTANTS.Htx_TRADE_DETAILS_TOPIC.format(exchange_symbol),
                                             websocket_assistant)
-                await self._subscribe_topic(CONSTANTS.HUOBI_ORDER_UPDATE_TOPIC.format(exchange_symbol),
+                await self._subscribe_topic(CONSTANTS.Htx_ORDER_UPDATE_TOPIC.format(exchange_symbol),
                                             websocket_assistant)
         except asyncio.CancelledError:
             raise
