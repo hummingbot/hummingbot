@@ -722,26 +722,6 @@ class GatewayCommand(GatewayChainApiManager):
         results = await safe_gather(*tasks)
         return {ex: err_msg for ex, err_msg in zip(exchanges, results)}
 
-    async def update_exch(
-        self,
-        exchange: str,
-        client_config_map: ClientConfigMap,
-        reconnect: bool = False,
-        exchanges: Optional[List[str]] = None
-    ) -> Dict[str, Optional[str]]:
-        exchanges = exchanges or []
-        tasks = []
-        if reconnect:
-            self._market.clear()
-        tasks.append(self.update_exchange_balances(exchange, client_config_map))
-        results = await safe_gather(*tasks)
-        return {ex: err_msg for ex, err_msg in zip(exchanges, results)}
-
-    async def single_balance_exc(self, exchange, client_config_map: ClientConfigMap) -> Dict[str, Dict[str, Decimal]]:
-        # Waits for the update_exchange method to complete with the provided client_config_map
-        await self.update_exch(exchange, client_config_map)
-        return {k: v.get_all_balances() for k, v in sorted(self._market.items(), key=lambda x: x[0])}
-
     async def all_balances_all_exc(self, client_config_map: ClientConfigMap) -> Dict[str, Dict[str, Decimal]]:
         # Waits for the update_exchange method to complete with the provided client_config_map
         await self.update_exchange(client_config_map)
