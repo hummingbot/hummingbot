@@ -8,7 +8,7 @@ from hummingbot.client.config.config_data_types import BaseClientModel, ClientFi
 from hummingbot.connector.connector_base import ConnectorBase, TradeType
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
-from hummingbot.smart_components.controllers.bollinger_v1 import BollingerV1, BollingerV1Config
+from hummingbot.smart_components.controllers.trend_follower_v1 import TrendFollowerV1, TrendFollowerV1Config
 from hummingbot.smart_components.strategy_frameworks.data_types import (
     ExecutorHandlerStatus,
     OrderLevel,
@@ -20,7 +20,7 @@ from hummingbot.smart_components.strategy_frameworks.directional_trading.directi
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
-class DirectionalTradingBollingerConfig(BaseClientModel):
+class DirectionalTradingTrendFollowerConfig(BaseClientModel):
     script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
 
     # Trading pairs configuration
@@ -46,19 +46,21 @@ class DirectionalTradingBollingerConfig(BaseClientModel):
     candles_exchange: str = Field("binance_perpetual", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the exchange name to fetch candle data from (e.g., binance_perpetual):"))
     candles_interval: str = Field("3m", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the time interval for candles (e.g., 1m, 5m, 1h):"))
 
-    bb_length: int = Field(100, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the Bollinger Bands length (e.g., 100):"))
-    bb_std: float = Field(2.0, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the standard deviation for the Bollinger Bands (e.g., 2.0):"))
-    bb_long_threshold: float = Field(0.3, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Specify the long threshold for Bollinger Bands (e.g., 0.3):"))
-    bb_short_threshold: float = Field(0.7, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Define the short threshold for Bollinger Bands (e.g., 0.7):"))
+    # Controller specific configuration
+    sma_fast: int = Field(20, ge=10, le=150, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the SMA fast length (range 10-150, e.g., 20):"))
+    sma_slow: int = Field(100, ge=50, le=400, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the SMA slow length (range 50-400, e.g., 100):"))
+    bb_length: int = Field(100, ge=50, le=200, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the Bollinger Bands length (range 100-200, e.g., 100):"))
+    bb_std: float = Field(2.0, ge=2.0, le=3.0, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the standard deviation for the Bollinger Bands (range 2.0-3.0, e.g., 2.0):"))
+    bb_threshold: float = Field(0.2, ge=0.1, le=0.5, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Specify the threshold for the Bollinger Bands as a safety mechanism to don't enter in the market (range 0.1-0.5, e.g., 0.2):"))
 
 
-class DirectionalTradingBollinger(ScriptStrategyBase):
+class DirectionalTradingTrendFollower(ScriptStrategyBase):
 
     @classmethod
-    def init_markets(cls, config: DirectionalTradingBollingerConfig):
+    def init_markets(cls, config: DirectionalTradingTrendFollowerConfig):
         cls.markets = {config.exchange: set(config.trading_pairs.split(","))}
 
-    def __init__(self, connectors: Dict[str, ConnectorBase], config: DirectionalTradingBollingerConfig):
+    def __init__(self, connectors: Dict[str, ConnectorBase], config: DirectionalTradingTrendFollowerConfig):
         super().__init__(connectors)
         self.config = config
 
@@ -84,22 +86,21 @@ class DirectionalTradingBollinger(ScriptStrategyBase):
         self.executor_handlers = {}
 
         for trading_pair in config.trading_pairs.split(","):
-            bb_config = BollingerV1Config(
+            trend_follower_config = TrendFollowerV1Config(
                 exchange=config.exchange,
                 trading_pair=trading_pair,
                 order_levels=order_levels,
                 candles_config=[
-                    CandlesConfig(connector=config.candles_exchange, trading_pair=trading_pair,
+                    CandlesConfig(connector=config.candles_exchange,
+                                  trading_pair=trading_pair,
                                   interval=config.candles_interval,
-                                  max_records=config.bb_length + 200),  # we need more candles to calculate the bollinger bands
+                                  max_records=config.bb_length + 200),
                 ],
                 leverage=config.leverage,
-                bb_length=config.bb_length,
-                bb_std=config.bb_std,
-                bb_long_threshold=config.bb_long_threshold,
-                bb_short_threshold=config.bb_short_threshold,
+                sma_fast=config.sma_fast, sma_slow=config.sma_slow,
+                bb_length=config.bb_length, bb_std=config.bb_std, bb_threshold=config.bb_threshold,
             )
-            controller = BollingerV1(config=bb_config)
+            controller = TrendFollowerV1(config=trend_follower_config)
             self.controllers[trading_pair] = controller
             self.executor_handlers[trading_pair] = DirectionalTradingExecutorHandler(strategy=self, controller=controller)
 

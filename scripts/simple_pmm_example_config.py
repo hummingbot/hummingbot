@@ -15,25 +15,27 @@ from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 class SimplePMMConfig(BaseClientModel):
     script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
-    exchange: str = Field("kucoin_paper_trade", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the name of the exchange where the bot will operate (e.g., kucoin_paper_trade):"))
-    trading_pair: str = Field("ETH-USDT", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the trading pair in which the bot will place orders (e.g., ETH-USDT):"))
-    order_amount: str = Field("0.01", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the order amount (e.g., 0.01):"))
+    exchange: str = Field("kucoin_paper_trade", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the exchange where the bot will trade:"))
+    trading_pair: str = Field("ETH-USDT", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the trading pair in which the bot will place orders:"))
+    order_amount: Decimal = Field(0.01, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the order amount (denominated in base asset):"))
+    bid_spread: Decimal = Field(0.001, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the bid order spread (in percent):"))
+    ask_spread: Decimal = Field(0.001, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the ask order spread (in percent):"))
+    order_refresh_time: int = Field(15, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the order refresh time (in seconds):"))
+    price_type: str = Field("mid", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the price type to use (mid or last):"))
 
 
 class SimplePMM(ScriptStrategyBase):
     """
-    Configurable version of the Simple PMM script.
+    Configurable version of the Simple PMM Example script.
     """
 
-    bid_spread = 0.001
-    ask_spread = 0.001
-    order_refresh_time = 15
     create_timestamp = 0
     price_source = PriceType.MidPrice
 
     @classmethod
     def init_markets(cls, config: SimplePMMConfig):
         cls.markets = {config.exchange: {config.trading_pair}}
+        cls.price_source = PriceType.LastTrade if config.price_type == "last" else PriceType.MidPrice
 
     def __init__(self, connectors: Dict[str, ConnectorBase], config: SimplePMMConfig):
         super().__init__(connectors)
@@ -45,12 +47,12 @@ class SimplePMM(ScriptStrategyBase):
             proposal: List[OrderCandidate] = self.create_proposal()
             proposal_adjusted: List[OrderCandidate] = self.adjust_proposal_to_budget(proposal)
             self.place_orders(proposal_adjusted)
-            self.create_timestamp = self.order_refresh_time + self.current_timestamp
+            self.create_timestamp = self.config.order_refresh_time + self.current_timestamp
 
     def create_proposal(self) -> List[OrderCandidate]:
         ref_price = self.connectors[self.config.exchange].get_price_by_type(self.config.trading_pair, self.price_source)
-        buy_price = ref_price * Decimal(1 - self.bid_spread)
-        sell_price = ref_price * Decimal(1 + self.ask_spread)
+        buy_price = ref_price * Decimal(1 - self.config.bid_spread)
+        sell_price = ref_price * Decimal(1 + self.config.ask_spread)
 
         buy_order = OrderCandidate(trading_pair=self.config.trading_pair, is_maker=True, order_type=OrderType.LIMIT,
                                    order_side=TradeType.BUY, amount=Decimal(self.config.order_amount), price=buy_price)
