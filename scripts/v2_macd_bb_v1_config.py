@@ -8,7 +8,7 @@ from hummingbot.client.config.config_data_types import BaseClientModel, ClientFi
 from hummingbot.connector.connector_base import ConnectorBase, TradeType
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
-from hummingbot.smart_components.controllers.bollinger_v1 import BollingerV1, BollingerV1Config
+from hummingbot.smart_components.controllers.macd_bb_v1 import MACDBBV1, MACDBBV1Config
 from hummingbot.smart_components.strategy_frameworks.data_types import (
     ExecutorHandlerStatus,
     OrderLevel,
@@ -20,7 +20,7 @@ from hummingbot.smart_components.strategy_frameworks.directional_trading.directi
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
-class DirectionalTradingBollingerConfig(BaseClientModel):
+class DirectionalTradingMACDBBConfig(BaseClientModel):
     script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
 
     # Trading pairs configuration
@@ -46,19 +46,23 @@ class DirectionalTradingBollingerConfig(BaseClientModel):
     candles_exchange: str = Field("binance_perpetual", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the exchange name to fetch candle data from (e.g., binance_perpetual):"))
     candles_interval: str = Field("3m", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the time interval for candles (e.g., 1m, 5m, 1h):"))
 
+    # MACD and Bollinger Bands configuration
+    macd_fast: int = Field(21, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the MACD fast length (e.g., 21):"))
+    macd_slow: int = Field(42, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Specify the MACD slow length (e.g., 42):"))
+    macd_signal: int = Field(9, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Define the MACD signal length (e.g., 9):"))
     bb_length: int = Field(100, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the Bollinger Bands length (e.g., 100):"))
     bb_std: float = Field(2.0, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the standard deviation for the Bollinger Bands (e.g., 2.0):"))
     bb_long_threshold: float = Field(0.3, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Specify the long threshold for Bollinger Bands (e.g., 0.3):"))
     bb_short_threshold: float = Field(0.7, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Define the short threshold for Bollinger Bands (e.g., 0.7):"))
 
 
-class DirectionalTradingBollinger(ScriptStrategyBase):
+class DirectionalTradingMACDBB(ScriptStrategyBase):
 
     @classmethod
-    def init_markets(cls, config: DirectionalTradingBollingerConfig):
+    def init_markets(cls, config: DirectionalTradingMACDBBConfig):
         cls.markets = {config.exchange: set(config.trading_pairs.split(","))}
 
-    def __init__(self, connectors: Dict[str, ConnectorBase], config: DirectionalTradingBollingerConfig):
+    def __init__(self, connectors: Dict[str, ConnectorBase], config: DirectionalTradingMACDBBConfig):
         super().__init__(connectors)
         self.config = config
 
@@ -84,17 +88,21 @@ class DirectionalTradingBollinger(ScriptStrategyBase):
         self.executor_handlers = {}
 
         for trading_pair in config.trading_pairs.split(","):
-            bb_config = BollingerV1Config(
-                exchange="binance_perpetual",
+            macd_bb_config = MACDBBV1Config(
+                exchange=config.exchange,
                 trading_pair=trading_pair,
                 order_levels=order_levels,
                 candles_config=[
-                    CandlesConfig(connector="binance_perpetual", trading_pair=trading_pair, interval="3m", max_records=100),
+                    CandlesConfig(connector=config.candles_exchange, trading_pair=trading_pair,
+                                  interval=config.candles_interval,
+                                  max_records=config.bb_length + 200),
+                    # we need more candles to calculate the bollinger bands
                 ],
                 leverage=config.leverage,
+                macd_fast=config.macd_fast, macd_slow=config.macd_slow, macd_signal=config.macd_signal,
                 bb_length=config.bb_length, bb_std=config.bb_std, bb_long_threshold=config.bb_long_threshold, bb_short_threshold=config.bb_short_threshold,
             )
-            controller = BollingerV1(config=bb_config)
+            controller = MACDBBV1(config=macd_bb_config)
             self.controllers[trading_pair] = controller
             self.executor_handlers[trading_pair] = DirectionalTradingExecutorHandler(strategy=self, controller=controller)
 
