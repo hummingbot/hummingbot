@@ -924,7 +924,7 @@ class InjectiveV2Exchange(ExchangePyBase):
         return float(last_price)
 
     def _get_poll_interval(self, timestamp: float) -> float:
-        last_recv_diff = timestamp - self.data_source.last_received_message_timestamp
+        last_recv_diff = timestamp - self._data_source.last_received_message_timestamp
         poll_interval = (
             self.SHORT_POLL_INTERVAL
             if last_recv_diff > self.TICK_INTERVAL_LIMIT
