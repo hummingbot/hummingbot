@@ -104,6 +104,11 @@ class InjectiveDataSource(ABC):
     def network_name(self) -> str:
         raise NotImplementedError
 
+    @property
+    @abstractmethod
+    def last_received_message_timestamp(self):
+        raise NotImplementedError
+
     @abstractmethod
     async def composer(self) -> Composer:
         raise NotImplementedError
