@@ -68,7 +68,7 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
             self._vault_subaccount_id = self._vault_contract_address.get_subaccount_id(index=vault_subaccount_index)
 
         self._publisher = PubSub()
-        self._last_received_message_time = 0
+        self._last_received_message_timestamp = 0
         self._throttler = AsyncThrottler(rate_limits=rate_limits)
 
         self._is_timeout_height_initialized = False
@@ -122,6 +122,10 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
     @property
     def network_name(self) -> str:
         return self._network.string()
+
+    @property
+    def last_received_message_timestamp(self) -> float:
+        return self._last_received_message_timestamp
 
     async def composer(self) -> Composer:
         if self._composer is None:
@@ -526,3 +530,16 @@ class InjectiveVaultsDataSource(InjectiveDataSource):
                 }
             }
         }
+
+    async def _process_chain_stream_update(
+            self, chain_stream_update: Dict[str, Any], derivative_markets: List[InjectiveDerivativeMarket],
+    ):
+        self._last_received_message_timestamp = self._time()
+        await super()._process_chain_stream_update(
+            chain_stream_update=chain_stream_update,
+            derivative_markets=derivative_markets,
+        )
+
+    async def _process_transaction_update(self, transaction_event: Dict[str, Any]):
+        self._last_received_message_timestamp = self._time()
+        await super()._process_transaction_update(transaction_event=transaction_event)
