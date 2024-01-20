@@ -495,7 +495,8 @@ class GatewayCommand(GatewayChainApiManager):
                     rows.append({
                         "Symbol": token.upper(),
                         "Balance": PerformanceMetrics.smart_round(Decimal(str(bal)), 4),
-                        "Allowance": allowance,
+                        "Allowance": PerformanceMetrics.smart_round(Decimal(str(allowance)), 4) if float(allowance) < 999999 else "999999+",
+
                     })
 
                 df = pd.DataFrame(data=rows, columns=["Symbol", "Balance", "Allowance"])
@@ -583,7 +584,8 @@ class GatewayCommand(GatewayChainApiManager):
                     rows.append({
                         "Symbol": token,
                         "Balance": PerformanceMetrics.smart_round(Decimal(str(balance)), 4),
-                        "Allowance": allowance,
+                        "Allowance": PerformanceMetrics.smart_round(Decimal(str(allowance)), 4) if float(allowance) < 999999 else "999999+",
+
                     })
 
                 df = pd.DataFrame(data=rows, columns=["Symbol", "Balance", "Allowance"])
