@@ -73,6 +73,7 @@ async def get_current_server_time(throttler: Optional[AsyncThrottler] = None,
     return server_time
 
 
+# TODO: Determine endpoint_from_message usage
 def endpoint_from_message(message: Dict[str, Any]) -> Optional[str]:
     endpoint = None
     if "request" in message:
@@ -85,6 +86,7 @@ def endpoint_from_message(message: Dict[str, Any]) -> Optional[str]:
     return endpoint
 
 
+# TODO: Determine payload_from_message usage
 def payload_from_message(message: Dict[str, Any]) -> List[Dict[str, Any]]:
     payload = message
     if "data" in message:
@@ -117,7 +119,6 @@ def get_rest_api_limit_id_for_endpoint(endpoint: str, trading_pair: Optional[str
     return limit_id
 
 
-# TODO: Check that connector_variant_label is called with DEFAULT_DOMAIN
 def _wss_url(endpoint: Dict[str, str], connector_variant_label: Optional[str]) -> str:
     variant = connector_variant_label if connector_variant_label else CONSTANTS.DEFAULT_DOMAIN
     return endpoint.get(variant)
@@ -192,6 +193,20 @@ def _build_public_rate_limits():
             time_interval=2,
             # TODO: Define server time linked limits
             # linked_limits=[LinkedLimitWeightPair(CONSTANTS.GET_LIMIT_ID)],
+        ),
+        RateLimit(
+            limit_id=CONSTANTS.MARK_PRICE_PATH_URL,
+            limit=10,
+            time_interval=2,
+            # TODO: Define mark price linked limits
+            # linked_limits=[LinkedLimitWeightPair(CONSTANTS.GET_LIMIT_ID)],
+        ),
+        RateLimit(
+            limit_id=CONSTANTS.INDEX_TICKERS_PATH_URL,
+            limit=20,
+            time_interval=2,
+            # TODO: Define index tickers linked limits
+            # linked_limits=[LinkedLimitWeightPair(CONSTANTS.GET_LIMIT_ID)],
         )
     ]
     return public_rate_limits
@@ -208,7 +223,6 @@ def _build_private_pair_specific_rate_limits(trading_pairs: List[str]) -> List[R
     rate_limits = []
     for trading_pair in trading_pairs:
         # TODO: Determine whether to use linear or non-linear rate limits
-        # TODO: Determine whether to use private_bucket_N_limit_id
         trading_pair_rate_limits = [
             RateLimit(
                 limit_id=get_pair_specific_limit_id(
@@ -222,7 +236,7 @@ def _build_private_pair_specific_rate_limits(trading_pairs: List[str]) -> List[R
             ),
             RateLimit(
                 limit_id=get_pair_specific_limit_id(
-                    base_limit_id=CONSTANTS.GET_FUNDING_RATE,
+                    base_limit_id=CONSTANTS.FUNDING_RATE_INFO_PATH_URL,
                     trading_pair=trading_pair,
                 ),
                 limit=20,
