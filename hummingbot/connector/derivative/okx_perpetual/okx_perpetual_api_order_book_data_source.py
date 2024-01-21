@@ -37,7 +37,7 @@ class OKXPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._nonce_provider = NonceCreator.for_microseconds()
 
     async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
-        return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
+        return await self._connector.get_last_traded_prices()
 
     async def get_funding_info(self, trading_pair: str) -> FundingInfo:
         funding_info_response = await self._request_complete_funding_info(trading_pair)

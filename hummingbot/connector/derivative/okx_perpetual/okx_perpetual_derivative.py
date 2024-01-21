@@ -758,6 +758,17 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
         price = float(resp_json["result"][0]["last"])
         return price
 
+    async def get_last_traded_prices(self):
+        params = {"instType": "SWAP"}
+
+        resp_json = await self._api_get(
+            path_url=CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT,
+            params=params,
+        )
+
+        last_traded_prices = {ticker["instId"]: float(ticker["last"]) for ticker in resp_json["data"]}
+        return last_traded_prices
+
     async def _trading_pair_position_mode_set(self, mode: PositionMode, trading_pair: str) -> Tuple[bool, str]:
         msg = ""
         success = True
