@@ -24,7 +24,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -215,6 +215,9 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
     async def _update_order_status(self):
         await self._update_orders()
 
+    async def _update_lost_orders_status(self):
+        await self._update_lost_orders()
+
     def _get_fee(self,
                  base_currency: str,
                  quote_currency: str,
@@ -376,7 +379,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
                 "isBuy": True if trade_type is TradeType.BUY else False,
                 "limitPx": float(price),
                 "sz": float(amount),
-                "reduceOnly": position_action == PositionAction.CLOSE,
+                "reduceOnly": False,
                 "orderType": param_order_type,
                 "cloid": order_id,
             }
@@ -449,16 +452,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
     async def _handle_update_error_for_active_order(self, order: InFlightOrder, error: Exception):
         try:
             raise error
-        except KeyError:
-            _order_update: OrderUpdate = OrderUpdate(
-                trading_pair=order.trading_pair,
-                update_timestamp=int(time.time()),
-                new_state=OrderState.PENDING_CREATE,
-                client_order_id=order.client_order_id,
-                exchange_order_id=str(order.exchange_order_id),
-            )
-            self._order_tracker.process_order_update(_order_update)
-        except asyncio.TimeoutError:
+        except (asyncio.TimeoutError, KeyError):
             self.logger().debug(
                 f"Tracked order {order.client_order_id} does not have an exchange id. "
                 f"Attempting fetch in next polling interval."
