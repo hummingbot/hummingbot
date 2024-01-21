@@ -11,6 +11,9 @@ REST_URLS = {DEFAULT_DOMAIN: "https://www.okx.com",
              AWS_DOMAIN: "https://aws.okx.com",
              DEMO_DOMAIN: "https://www.okx.com"}
 
+# -------------------------------------------
+# WEB SOCKET ENDPOINTS
+# -------------------------------------------
 WSS_PUBLIC_URLS = {DEFAULT_DOMAIN: f"wss://ws.okx.com:8443/ws/{REST_API_VERSION}/public",
                    AWS_DOMAIN: f"wss://wsaws.okx.com:8443/ws/{REST_API_VERSION}/public",
                    DEMO_DOMAIN: f"wss://wspap.okx.com:8443/ws/{REST_API_VERSION}/public?brokerId=9999"}
@@ -23,7 +26,15 @@ WSS_BUSINESS_URLS = {DEFAULT_DOMAIN: f"wss://ws.okx.com:8443/ws/{REST_API_VERSIO
                      AWS_DOMAIN: f"wss://wsaws.okx.com:8443/ws/{REST_API_VERSION}/business",
                      DEMO_DOMAIN: f"wss://wspap.okx.com:8443/ws/{REST_API_VERSION}/business?brokerId=9999"}
 
-
+SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE = 30
+WS_PING_REQUEST = "ping"
+WS_PONG_RESPONSE = "pong"
+WS_TRADES_CHANNEL = "trades"
+WS_TRADES_ALL_CHANNEL = "trades-all"
+WS_ORDER_BOOK_400_DEPTH_100_MS_EVENTS_CHANNEL = "books"
+WS_ORDER_BOOK_5_DEPTH_100_MS_EVENTS_CHANNEL = "books5"
+WS_ORDER_BOOK_1_DEPTH_10_MS_EVENTS_CHANNEL = "bbo-tbt"
+WS_INSTRUMENTS_INFO_CHANNEL = "instruments"
 # -------------------------------------------
 # WEB UTILS ENDPOINTS
 # -------------------------------------------
@@ -33,6 +44,8 @@ LATEST_SYMBOL_INFORMATION_ENDPOINT = f"/api/{REST_API_VERSION}/market/tickers"
 # QUERY_SYMBOL_ENDPOINT = f""
 ORDER_BOOK_ENDPOINT = f"/api/{REST_API_VERSION}/market/books"
 SERVER_TIME_PATH_URL = f"/api/{REST_API_VERSION}/public/time"
+MARK_PRICE_PATH_URL = f"/api/{REST_API_VERSION}/public/mark-price"
+INDEX_TICKERS_PATH_URL = f"/api/{REST_API_VERSION}/public/index-tickers"
 
 # REST API Private General Endpoints
 GET_WALLET_BALANCE_PATH_URL = f"/api/{REST_API_VERSION}/account/balance"
@@ -40,7 +53,7 @@ SET_POSITION_MODE_URL = f"/api/{REST_API_VERSION}/account/set-position-mode"
 
 # REST API Private Pair Specific Endpoints
 SET_LEVERAGE_PATH_URL = f"/api/{REST_API_VERSION}/account/set-leverage"
-GET_FUNDING_RATE = f"/api/{REST_API_VERSION}/public/funding-rate"
+FUNDING_RATE_INFO_PATH_URL = f"/api/{REST_API_VERSION}/public/funding-rate"
 GET_POSITIONS_PATH_URL = f"/api/{REST_API_VERSION}/account/positions"
 PLACE_ACTIVE_ORDER_PATH_URL = f"/api/{REST_API_VERSION}/trade/order"
 CANCEL_ACTIVE_ORDER_PATH_URL = f"/api/{REST_API_VERSION}/trade/cancel-order"
