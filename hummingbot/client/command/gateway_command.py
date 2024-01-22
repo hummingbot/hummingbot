@@ -445,6 +445,7 @@ class GatewayCommand(GatewayChainApiManager):
     async def _get_balance_for_exchange(self, exchange_name: str):
         gateway_connections = GatewayConnectionSetting.load()
         gateway_instance = GatewayHttpClient.get_instance(self.client_config_map)
+        network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
         self.notify("Updating gateway balances, please wait...")
         conf: Optional[Dict[str, str]] = GatewayConnectionSetting.get_connector_spec_from_market_name(
             exchange_name)
@@ -455,10 +456,8 @@ class GatewayCommand(GatewayChainApiManager):
             chain, network, address = (
                 conf["chain"], conf["network"], conf["wallet_address"]
             )
-            native_token: str = native_tokens[chain]
             tokens_str = conf.get("tokens", "")
             tokens = [token.strip() for token in tokens_str.split(',')] if tokens_str else []
-            all_token = tokens + [native_token]
 
             connector_chain_network = [
                 w for w in gateway_connections
@@ -469,11 +468,11 @@ class GatewayCommand(GatewayChainApiManager):
             ]
 
             connector = connector_chain_network[0]['connector']
-            exchange = f"{connector}_{chain}_{network}"
+            exchange_key = f"{connector}_{chain}_{network}"
 
             try:
-                ex_bal = await gateway_instance.get_balances(
-                    chain, network, address, all_token, connector_chain_network[0]["connector"], fail_silently=True
+                single_ex_bal = await asyncio.wait_for(
+                    self.single_balance_exc(exchange_name, self.client_config_map), network_timeout
                 )
 
                 allowance_resp = await gateway_instance.get_allowances(
@@ -481,23 +480,22 @@ class GatewayCommand(GatewayChainApiManager):
                 )
 
                 rows = []
-                for token in all_token:
-                    if ex_bal.get("balances") is None:
-                        bal = Decimal("0")
-                    else:
-                        bal = ex_bal["balances"].get(token, Decimal("0"))
-                    # Handle errors in allowance_responses_list
-                    if allowance_resp.get("approvals") is None:
-                        allowance = Decimal("0")
-                    else:
-                        allowance = allowance_resp["approvals"].get(token, Decimal("0"))
+                for exchange, bals in single_ex_bal.items():
+                    if exchange_key == exchange:
+                        rows = []
+                        for token, bal in bals.items():
+                            # Handle errors in allowance_responses_list
+                            if allowance_resp.get("approvals") is None:
+                                allowance = Decimal("0")
+                            else:
+                                allowance = allowance_resp["approvals"].get(token, Decimal("0"))
 
-                    rows.append({
-                        "Symbol": token.upper(),
-                        "Balance": PerformanceMetrics.smart_round(Decimal(str(bal)), 4),
-                        "Allowance": PerformanceMetrics.smart_round(Decimal(str(allowance)), 4) if float(allowance) < 999999 else "999999+",
+                            rows.append({
+                                "Symbol": token.upper(),
+                                "Balance": PerformanceMetrics.smart_round(Decimal(str(bal)), 4),
+                                "Allowance": PerformanceMetrics.smart_round(Decimal(str(allowance)), 4) if float(allowance) < 999999 else "999999+",
 
-                    })
+                            })
 
                 df = pd.DataFrame(data=rows, columns=["Symbol", "Balance", "Allowance"])
                 df.sort_values(by=["Symbol"], inplace=True)
@@ -520,11 +518,13 @@ class GatewayCommand(GatewayChainApiManager):
     async def _get_balances(self):
         network_connections = GatewayConnectionSetting.load()
         gateway_instance = GatewayHttpClient.get_instance(self.client_config_map)
-
+        network_timeout = float(self.client_config_map.commands_timeout.other_commands_timeout)
         self.notify("Updating gateway balances, please wait...")
 
         try:
-            bal_tasks = []
+            bal_resp = await asyncio.wait_for(
+                self.all_balances_all_exc(self.client_config_map), network_timeout
+            )
             allowance_tasks = []
 
             for conf in network_connections:
@@ -532,10 +532,8 @@ class GatewayCommand(GatewayChainApiManager):
                     conf["chain"], conf["network"], conf["wallet_address"]
                 )
 
-                native_token: str = native_tokens[chain]
                 tokens_str = conf.get("tokens", "")
                 tokens = [token.strip() for token in tokens_str.split(',')] if tokens_str else []
-                all_token = tokens + [native_token]
 
                 connector_chain_network = [
                     w for w in network_connections
@@ -545,62 +543,54 @@ class GatewayCommand(GatewayChainApiManager):
                     w["trading_type"] == conf["trading_type"]
                 ]
 
-                bal_resp = gateway_instance.get_balances(
-                    chain, network, address, all_token, connector_chain_network[0]["connector"], fail_silently=True
-                )
                 allowance_resp = gateway_instance.get_allowances(
                     chain, network, address, tokens, connector_chain_network[0]["connector"], fail_silently=True
                 )
-                bal_tasks.append(bal_resp)
                 allowance_tasks.append(allowance_resp)
 
             # Gather balances and allowance responses asynchronously
-            balances_responses_list = await asyncio.gather(*bal_tasks)
             allowance_responses_list = await asyncio.gather(*allowance_tasks)
 
             for conf in network_connections:
                 index = network_connections.index(conf)
                 chain, network, address, connector = conf["chain"], conf["network"], conf["wallet_address"], conf["connector"]
                 exchange_key = f'{connector}_{chain}_{network}'
-                native_token: str = native_tokens[chain]
-                tokens_str = conf.get("tokens", "")
-                tokens = [token.strip() for token in tokens_str.split(',')] if tokens_str else []
-                all_token = tokens + [native_token]
+                exchange_found = False
+                for exchange, bals in bal_resp.items():
+                    if exchange_key == exchange:
+                        exchange_found = True
+                        rows = []
+                        for token, bal in bals.items():
+                            # Handle errors in allowance_responses_list
+                            if allowance_responses_list[index].get("approvals") is None:
+                                allowance = Decimal("0")
+                            else:
+                                allowance = allowance_responses_list[index]["approvals"].get(token, Decimal("0"))
 
-                rows = []
-                for token in all_token:
-                    # Handle errors in balances_responses_list
-                    if balances_responses_list[index].get("balances") is None:
-                        balance = Decimal("0")
-                    else:
-                        balance = balances_responses_list[index]["balances"].get(token, Decimal("0"))
+                            rows.append({
+                                "Symbol": token.upper(),
+                                "Balance": PerformanceMetrics.smart_round(Decimal(str(bal)), 4),
+                                "Allowance": PerformanceMetrics.smart_round(Decimal(str(allowance)), 4) if float(allowance) < 999999 else "999999+",
 
-                    # Handle errors in allowance_responses_list
-                    if allowance_responses_list[index].get("approvals") is None:
-                        allowance = Decimal("0")
-                    else:
-                        allowance = allowance_responses_list[index]["approvals"].get(token, Decimal("0"))
+                            })
 
-                    rows.append({
-                        "Symbol": token,
-                        "Balance": PerformanceMetrics.smart_round(Decimal(str(balance)), 4),
-                        "Allowance": PerformanceMetrics.smart_round(Decimal(str(allowance)), 4) if float(allowance) < 999999 else "999999+",
+                        df = pd.DataFrame(data=rows, columns=["Symbol", "Balance", "Allowance"])
+                        df.sort_values(by=["Symbol"], inplace=True)
 
-                    })
+                        self.notify(f"\nConnector: {exchange_key}")
+                        self.notify(f"Wallet_Address: {address}")
 
-                df = pd.DataFrame(data=rows, columns=["Symbol", "Balance", "Allowance"])
-                df.sort_values(by=["Symbol"], inplace=True)
-
-                self.notify(f"\nConnector: {exchange_key}")
-                self.notify(f"Wallet_Address: {address}")
-
-                if df.empty:
+                        if df.empty:
+                            self.notify("You have no balance and allowances on this exchange.")
+                        else:
+                            lines = [
+                                "    " + line for line in df.to_string(index=False).split("\n")
+                            ]
+                            self.notify("\n".join(lines))
+                if not exchange_found:
+                    self.notify(f"\nConnector: {exchange_key}")
+                    self.notify(f"Wallet_Address: {address}")
                     self.notify("You have no balance and allowances on this exchange.")
-                else:
-                    lines = [
-                        "    " + line for line in df.to_string(index=False).split("\n")
-                    ]
-                    self.notify("\n".join(lines))
 
         except asyncio.TimeoutError:
             self.notify("\nA network error prevented the balances and allowances from updating. See logs for more details.")
@@ -737,6 +727,26 @@ class GatewayCommand(GatewayChainApiManager):
                 if matches:
                     results[matches[0]] = bal
             return results
+
+    async def update_exch(
+        self,
+        exchange: str,
+        client_config_map: ClientConfigMap,
+        reconnect: bool = False,
+        exchanges: Optional[List[str]] = None
+    ) -> Dict[str, Optional[str]]:
+        exchanges = exchanges or []
+        tasks = []
+        if reconnect:
+            self._market.clear()
+        tasks.append(self.update_exchange_balances(exchange, client_config_map))
+        results = await safe_gather(*tasks)
+        return {ex: err_msg for ex, err_msg in zip(exchanges, results)}
+
+    async def single_balance_exc(self, exchange, client_config_map: ClientConfigMap) -> Dict[str, Dict[str, Decimal]]:
+        # Waits for the update_exchange method to complete with the provided client_config_map
+        await self.update_exch(exchange, client_config_map)
+        return {k: v.get_all_balances() for k, v in sorted(self._market.items(), key=lambda x: x[0])}
 
     async def _show_gateway_connector_tokens(
             self,           # type: HummingbotApplication
