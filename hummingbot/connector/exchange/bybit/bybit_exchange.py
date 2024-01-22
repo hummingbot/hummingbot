@@ -1,18 +1,20 @@
 import asyncio
+import traceback
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from bidict import bidict
 
 import hummingbot.connector.exchange.bybit.bybit_constants as CONSTANTS
-import hummingbot.connector.exchange.bybit.bybit_utils as bybit_utils
 import hummingbot.connector.exchange.bybit.bybit_web_utils as web_utils
 from hummingbot.connector.exchange.bybit.bybit_api_order_book_data_source import BybitAPIOrderBookDataSource
 from hummingbot.connector.exchange.bybit.bybit_api_user_stream_data_source import BybitAPIUserStreamDataSource
 from hummingbot.connector.exchange.bybit.bybit_auth import BybitAuth
 from hummingbot.connector.exchange_py_base import ExchangePyBase
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -21,8 +23,6 @@ from hummingbot.core.data_type.user_stream_tracker_data_source import UserStream
 from hummingbot.core.utils.estimate_fee import build_trade_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
-from hummingbot.connector.time_synchronizer import TimeSynchronizer
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 
 if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
@@ -54,7 +54,7 @@ class BybitExchange(ExchangePyBase):
         self._throttler = AsyncThrottler(CONSTANTS.RATE_LIMITS)
         self._auth: BybitAuth = BybitAuth(api_key=bybit_api_key, secret_key=bybit_api_secret, time_provider=time_synchronizer)
         self._api_factory = web_utils.build_api_factory(auth=self._auth)
-        
+
         super().__init__(client_config_map)
 
     @staticmethod
@@ -233,14 +233,14 @@ class BybitExchange(ExchangePyBase):
             o_id = str(order_result["result"]["orderId"])
             transact_time = int(order_result["result"]["transactTime"]) * 1e-3
         except Exception as e:
-            tracebakc.print_exc()
+            traceback.print_exc()
             raise e
-            
+
         return (o_id, transact_time)
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         api_params = {
-            "category": "spot", 
+            "category": "spot",
             "symbol": tracked_order.trading_pair
         }
         if tracked_order.exchange_order_id:
@@ -444,9 +444,6 @@ class BybitExchange(ExchangePyBase):
         if self._account_info is None:
             await self._update_account_info()
 
-        local_asset_names = set(self._account_balances.keys())
-        remote_asset_names = set()
-
         account_info = await self._api_request(
             method=RESTMethod.GET,
             path_url=CONSTANTS.BALANCE_PATH_URL,
@@ -469,8 +466,7 @@ class BybitExchange(ExchangePyBase):
         mapping = bidict()
 
         for symbol_data in exchange_info["result"]['list']:
-            mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(base=symbol_data["baseCoin"],
-                                                                      quote=symbol_data["quoteCoin"])
+            mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(base=symbol_data["baseCoin"], quote=symbol_data["quoteCoin"])
         self._set_trading_pair_symbol_map(mapping)
 
     async def _make_trading_rules_request(self) -> Any:
@@ -535,4 +531,3 @@ class BybitExchange(ExchangePyBase):
 
         # Failed even after the last retry
         raise last_exception
-
