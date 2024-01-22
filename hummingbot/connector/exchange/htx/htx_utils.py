@@ -28,21 +28,21 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
     return False
 
 
-class HuobiConfigMap(BaseConnectorConfigMap):
-    connector: str = Field(default="huobi", client_data=None)
-    huobi_api_key: SecretStr = Field(
+class HtxConfigMap(BaseConnectorConfigMap):
+    connector: str = Field(default="htx", client_data=None)
+    htx_api_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Huobi API key",
+            prompt=lambda cm: "Enter your HTX API key",
             is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,
         )
     )
-    huobi_secret_key: SecretStr = Field(
+    htx_secret_key: SecretStr = Field(
         default=...,
         client_data=ClientFieldData(
-            prompt=lambda cm: "Enter your Huobi secret key",
+            prompt=lambda cm: "Enter your HTX secret key",
             is_secure=True,
             is_connect_key=True,
             prompt_on_new=True,
@@ -50,7 +50,7 @@ class HuobiConfigMap(BaseConnectorConfigMap):
     )
 
     class Config:
-        title = "huobi"
+        title = "htx"
 
 
-KEYS = HuobiConfigMap.construct()
+KEYS = HtxConfigMap.construct()
