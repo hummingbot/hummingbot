@@ -30,7 +30,7 @@ class HtxAuthTests(unittest.TestCase):
         mock_time_provider = MagicMock()
         mock_time_provider.time.return_value = now
         now = datetime.utcfromtimestamp(now).strftime("%Y-%m-%dT%H:%M:%S")
-        test_url = "https://api.htx.pro/v1/order/openOrders"
+        test_url = "https://api.huobi.pro/v1/order/openOrders"
         params = {
             "order-id": "EO1D1",
         }
@@ -47,7 +47,7 @@ class HtxAuthTests(unittest.TestCase):
                             })
         full_params = HtxAuth.keysort(full_params)
         encoded_params = urlencode(full_params)
-        payload = "\n".join(["GET", "api.htx.pro", "/v1/order/openOrders", encoded_params])
+        payload = "\n".join(["GET", "api.huobi.pro", "/v1/order/openOrders", encoded_params])
         test_digest = hmac.new(
             self._secret.encode("utf8"),
             payload.encode("utf8"),
