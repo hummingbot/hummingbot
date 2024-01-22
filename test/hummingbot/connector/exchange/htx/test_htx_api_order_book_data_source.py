@@ -39,14 +39,13 @@ class HtxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.connector.exchange_symbol_associated_to_pair.return_value = self.ex_trading_pair
         self.connector.trading_pair_associated_to_exchange_symbol.return_value = self.trading_pair
         self.data_source = HtxAPIOrderBookDataSource(
-            trading_pairs=[self.trading_pair], 
-            connector=self.connector, 
+            trading_pairs=[self.trading_pair],
+            connector=self.connector,
             api_factory=build_api_factory()
         )
 
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
-
         self.mocking_assistant = NetworkMockingAssistant()
         self.resume_test_event = asyncio.Event()
         # self.connector._set_trading_pair_symbol_map(bidict({self.ex_trading_pair: self.trading_pair}))
