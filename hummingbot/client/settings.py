@@ -44,6 +44,7 @@ CONF_POSTFIX = "_strategy"
 PMM_SCRIPTS_PATH = root_path() / "pmm_scripts"
 SCRIPT_STRATEGIES_MODULE = "scripts"
 SCRIPT_STRATEGIES_PATH = root_path() / SCRIPT_STRATEGIES_MODULE
+SCRIPT_STRATEGY_CONFIG_PATH = root_path() / "conf" / "scripts"
 DEFAULT_GATEWAY_CERTS_PATH = root_path() / "certs"
 
 GATEWAY_SSL_CONF_FILE = root_path() / "gateway" / "conf" / "ssl.yml"
