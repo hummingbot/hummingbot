@@ -6,17 +6,15 @@ from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional
 import hummingbot.connector.exchange.bybit.bybit_constants as CONSTANTS
 from hummingbot.connector.exchange.bybit import bybit_web_utils as web_utils
 from hummingbot.connector.exchange.bybit.bybit_order_book import BybitOrderBook
+from hummingbot.connector.exchange.bybit.bybit_web_utils import subscribeOrderBook
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
-from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
+from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
-from hummingbot.connector.exchange.bybit.bybit_web_utils import subscribeOrderBook
-
-import traceback
 
 if TYPE_CHECKING:
     from hummingbot.connector.exchange.bybit.bybit_exchange import BybitExchange
@@ -41,7 +39,6 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
                  time_synchronizer: Optional[TimeSynchronizer] = None):
         super().__init__(trading_pairs)
         self._connector = connector
-        self._diff_messages_queue_key = CONSTANTS.DIFF_EVENT_TYPE
         self._domain = domain
         self._time_synchronizer = time_synchronizer
         self._throttler = throttler
@@ -188,11 +185,12 @@ class BybitAPIOrderBookDataSource(OrderBookTrackerDataSource):
             try:
                 data_type = data.get("type")
                 if data_type == "delta":
-                    self._message_queue[self._diff_messages_queue_key].put_nowait(data)
+                    self._message_queue[CONSTANTS.DIFF_EVENT_TYPE].put_nowait(data)
+                elif data_type == "snapshot":
+                    self._message_queue[CONSTANTS.SNAPSHOT_EVENT_TYPE].put_nowait(data)
 
-            except Exception as e:
+            except Exception:
                 self.logger().error(f"Error parsing order book diff message {data}. Skipping.", exc_info=True)
-            
 
     async def _process_ob_snapshot(self, snapshot_queue: asyncio.Queue):
         message_queue = self._message_queue[CONSTANTS.SNAPSHOT_EVENT_TYPE]
