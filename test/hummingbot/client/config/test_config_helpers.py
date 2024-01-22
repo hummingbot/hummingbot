@@ -31,6 +31,11 @@ class ConfigHelpersTest(unittest.TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.ev_loop = asyncio.get_event_loop()
+        self._original_connectors_conf_dir_path = config_helpers.CONNECTORS_CONF_DIR_PATH
+
+    def tearDown(self) -> None:
+        config_helpers.CONNECTORS_CONF_DIR_PATH = self._original_connectors_conf_dir_path
+        super().tearDown()
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
