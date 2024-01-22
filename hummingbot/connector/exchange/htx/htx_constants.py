@@ -9,9 +9,9 @@ DOMAIN = ""
 MAX_CLIENT_ORDER_ID_LENGTH = 64
 
 
-REST_URL = "https://api.htx.pro"
-WS_PUBLIC_URL = "wss://api.htx.pro/ws"
-WS_PRIVATE_URL = "wss://api.htx.pro/ws/v2"
+REST_URL = "https://api.huobi.pro"
+WS_PUBLIC_URL = "wss://api.huobi.pro/ws"
+WS_PRIVATE_URL = "wss://api.huobi.pro/ws/v2"
 
 WS_HEARTBEAT_TIME_INTERVAL = 5  # seconds
 

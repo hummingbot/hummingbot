@@ -10,7 +10,7 @@ from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSJSONRequest
 
-HTX_HOST_NAME = "api.htx.pro"
+HTX_HOST_NAME = "api.huobi.pro"
 
 
 class HtxAuth(AuthBase):
