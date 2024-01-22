@@ -1,6 +1,6 @@
 from typing import Callable, Optional
 
-import hummingbot.connector.exchange.huobi.huobi_constants as CONSTANTS
+import hummingbot.connector.exchange.htx.htx_constants as CONSTANTS
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.connector.utils import GZipCompressionWSPostProcessor, TimeSynchronizerRESTPreProcessor
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler

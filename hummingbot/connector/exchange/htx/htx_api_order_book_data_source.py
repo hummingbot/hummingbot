@@ -2,8 +2,8 @@ import asyncio
 import uuid
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-import hummingbot.connector.exchange.huobi.huobi_constants as CONSTANTS
-from hummingbot.connector.exchange.huobi.huobi_web_utils import public_rest_url
+import hummingbot.connector.exchange.htx.htx_constants as CONSTANTS
+from hummingbot.connector.exchange.htx.htx_web_utils import public_rest_url
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -13,16 +13,16 @@ from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
 
 if TYPE_CHECKING:
-    from hummingbot.connector.exchange.huobi.huobi_exchange import HuobiExchange
+    from hummingbot.connector.exchange.htx.htx_exchange import HtxExchange
 
 
-class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
+class HtxAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     _logger: Optional[HummingbotLogger] = None
 
     def __init__(self,
                  trading_pairs: List[str],
-                 connector: 'HuobiExchange',
+                 connector: 'HtxExchange',
                  api_factory: WebAssistantsFactory,
                  ):
         super().__init__(trading_pairs)
@@ -43,7 +43,7 @@ class HuobiAPIOrderBookDataSource(OrderBookTrackerDataSource):
     async def listen_for_order_book_snapshots(self, ev_loop: asyncio.AbstractEventLoop, output: asyncio.Queue):
         """
         Suppressing call to this function as the orderbook snapshots are handled by
-        listen_for_order_book_diffs() for Huobi
+        listen_for_order_book_diffs() for Htx
         """
         pass
 

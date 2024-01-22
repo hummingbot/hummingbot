@@ -10,8 +10,8 @@ from aioresponses.core import RequestCall
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.exchange.huobi import huobi_constants as CONSTANTS, huobi_web_utils as web_utils
-from hummingbot.connector.exchange.huobi.huobi_exchange import HuobiExchange
+from hummingbot.connector.exchange.htx import htx_constants as CONSTANTS, htx_web_utils as web_utils
+from hummingbot.connector.exchange.htx.htx_exchange import HtxExchange
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, TradeType
@@ -20,7 +20,7 @@ from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, Tok
 from hummingbot.core.event.events import MarketOrderFailureEvent
 
 
-class HuobiExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
+class HtxExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
     @property
     def all_symbols_url(self):
         return web_utils.public_rest_url(path_url=CONSTANTS.TRADE_INFO_URL)
@@ -418,10 +418,10 @@ class HuobiExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests):
 
     def create_exchange_instance(self):
 
-        instance = HuobiExchange(
+        instance = HtxExchange(
             client_config_map=ClientConfigAdapter(ClientConfigMap()),
-            huobi_api_key="testAPIKey",
-            huobi_secret_key="testSecret",
+            htx_api_key="testAPIKey",
+            htx_secret_key="testSecret",
             trading_pairs=[self.trading_pair],
         )
         instance._account_id = self.get_dummy_account_id()
