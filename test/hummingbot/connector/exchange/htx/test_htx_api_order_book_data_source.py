@@ -53,7 +53,7 @@ class HtxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     def tearDown(self) -> None:
         for task in self.async_tasks:
             task.cancel()
-        super().tearDown()
+            super().tearDown()
 
     def handle(self, record):
         self.log_records.append(record)
