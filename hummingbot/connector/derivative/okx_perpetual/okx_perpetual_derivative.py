@@ -831,6 +831,9 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
 
         return success, msg
 
+    def exchange_symbol_associated_to_pair(self, trading_pair: str):
+        return f"{trading_pair}-SWAP"
+
     async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
 
