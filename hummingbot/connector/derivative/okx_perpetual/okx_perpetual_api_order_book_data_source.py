@@ -223,16 +223,15 @@ class OKXPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 channel = self._funding_info_messages_queue_key
         return channel
 
-    # TODO: Continue from here
+    # TODO: Check if diff message needs to update certain parts of the orderbook or just stream
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        event_type = raw_message["type"]
-
-        if event_type == "delta":
-            symbol = raw_message["topic"].split(".")[-1]
+        event_type = raw_message.get("action", None)
+        if event_type == "update":
+            symbol = raw_message["arg"]["instId"]
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
-            timestamp_us = int(raw_message["timestamp_e6"])
+            timestamp_us = int(raw_message["data"][0]["ts"])
             update_id = self._nonce_provider.get_tracking_nonce(timestamp=timestamp_us * 1e-6)
-            diffs_data = raw_message["data"]
+            diffs_data = raw_message["data"][0]
             bids, asks = self._get_bids_and_asks_from_ws_msg_data(diffs_data)
             order_book_message_content = {
                 "trading_pair": trading_pair,
@@ -290,59 +289,10 @@ class OKXPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                     )
                 message_queue.put_nowait(info_update)
 
-    async def _request_complete_funding_info(self, trading_pair: str):
-        tasks = []
-        rest_assistant = await self._api_factory.get_rest_assistant()
-        inst_id = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-
-        params_index_price = {
-            "instId": inst_id
-        }
-        endpoint_index_price = CONSTANTS.INDEX_TICKERS_PATH_URL
-        url_index_price = web_utils.get_rest_url_for_endpoint(endpoint=endpoint_index_price, domain=self._domain)
-        limit_id_index_price = web_utils.get_rest_api_limit_id_for_endpoint(endpoint_index_price)
-        tasks.append(rest_assistant.execute_request(
-            url=url_index_price,
-            throttler_limit_id=limit_id_index_price,
-            params=params_index_price,
-            method=RESTMethod.GET,
-        ))
-
-        params_mark_price = {
-            "instId": inst_id,
-            "instType": "SWAP",
-        }
-        endpoint_mark_price = CONSTANTS.MARK_PRICE_PATH_URL
-        url_predicted = web_utils.get_rest_url_for_endpoint(endpoint=endpoint_mark_price, domain=self._domain)
-        limit_id_mark_price = web_utils.get_rest_api_limit_id_for_endpoint(endpoint_mark_price, trading_pair)
-        tasks.append(rest_assistant.execute_request(
-            url=url_predicted,
-            throttler_limit_id=limit_id_mark_price,
-            params=params_mark_price,
-            method=RESTMethod.GET,
-            is_auth_required=True
-        ))
-
-        params_funding_data = {
-            "instId": inst_id
-        }
-        endpoint_funding_data = CONSTANTS.FUNDING_RATE_INFO_PATH_URL
-        url_funding_data = web_utils.get_rest_url_for_endpoint(endpoint=endpoint_funding_data, domain=self._domain)
-        limit_id_funding_data = web_utils.get_rest_api_limit_id_for_endpoint(endpoint_funding_data)
-        tasks.append(rest_assistant.execute_request(
-            url=url_funding_data,
-            throttler_limit_id=limit_id_funding_data,
-            params=params_funding_data,
-            method=RESTMethod.GET,
-        ))
-
-        responses = await asyncio.gather(*tasks)
-        return responses
-
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
         snapshot_response = await self._request_order_book_snapshot(trading_pair)
-        snapshot_data = snapshot_response["result"]
-        timestamp = float(snapshot_response["time_now"])
+        snapshot_data = snapshot_response["data"][0]
+        timestamp = float(snapshot_data["ts"])
         update_id = self._nonce_provider.get_tracking_nonce(timestamp=timestamp)
 
         bids, asks = self._get_bids_and_asks_from_rest_msg_data(snapshot_data)
@@ -362,12 +312,13 @@ class OKXPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
         params = {
-            "symbol": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
+            "instId": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
+            "sz": "100"
         }
 
         rest_assistant = await self._api_factory.get_rest_assistant()
         endpoint = CONSTANTS.ORDER_BOOK_ENDPOINT
-        url = web_utils.get_rest_url_for_endpoint(endpoint=endpoint, trading_pair=trading_pair, domain=self._domain)
+        url = web_utils.get_rest_url_for_endpoint(endpoint=endpoint, domain=self._domain)
         limit_id = web_utils.get_rest_api_limit_id_for_endpoint(endpoint)
         data = await rest_assistant.execute_request(
             url=url,
@@ -382,39 +333,17 @@ class OKXPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     def _get_bids_and_asks_from_rest_msg_data(
         snapshot: List[Dict[str, Union[str, int, float]]]
     ) -> Tuple[List[Tuple[float, float]], List[Tuple[float, float]]]:
-        bisect_idx = 0
-        for i, row in enumerate(snapshot):
-            if row["side"] == "Sell":
-                bisect_idx = i
-                break
-        bids = [
-            (float(row["price"]), float(row["size"]))
-            for row in snapshot[:bisect_idx]
-        ]
-        asks = [
-            (float(row["price"]), float(row["size"]))
-            for row in snapshot[bisect_idx:]
-        ]
+        # asks: ascending, bids: descending
+        bids = [tuple(map(float, row[:2])) for row in snapshot['bids']]
+        asks = [tuple(map(float, row[:2])) for row in snapshot['asks']]
         return bids, asks
 
     @staticmethod
     def _get_bids_and_asks_from_ws_msg_data(
         snapshot: Dict[str, List[Dict[str, Union[str, int, float]]]]
     ) -> Tuple[List[Tuple[float, float]], List[Tuple[float, float]]]:
-        bids = []
-        asks = []
-        for action, rows_list in snapshot.items():
-            if action not in ["delete", "update", "insert"]:
-                continue
-            is_delete = action == "delete"
-            for row_dict in rows_list:
-                row_price = row_dict["price"]
-                row_size = 0.0 if is_delete else row_dict["size"]
-                row_tuple = (row_price, row_size)
-                if row_dict["side"] == "Buy":
-                    bids.append(row_tuple)
-                else:
-                    asks.append(row_tuple)
+        bids = [tuple(map(float, row[:2])) for row in snapshot['bids']]
+        asks = [tuple(map(float, row[:2])) for row in snapshot['asks']]
         return bids, asks
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
