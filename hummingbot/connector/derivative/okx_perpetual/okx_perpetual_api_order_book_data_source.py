@@ -249,18 +249,17 @@ class OKXPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         trade_updates = raw_message["data"]
-
         for trade_data in trade_updates:
-            symbol = trade_data["symbol"]
+            symbol = trade_data["instId"]
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
-            ts_ms = int(trade_data["trade_time_ms"])
-            trade_type = float(TradeType.BUY.value) if trade_data["side"] == "Buy" else float(TradeType.SELL.value)
+            ts_ms = int(trade_data["ts"])
+            trade_type = float(TradeType.BUY.value) if trade_data["side"] == "buy" else float(TradeType.SELL.value)
             message_content = {
-                "trade_id": trade_data["trade_id"],
+                "trade_id": trade_data["tradeId"],
                 "trading_pair": trading_pair,
                 "trade_type": trade_type,
-                "amount": trade_data["size"],
-                "price": trade_data["price"],
+                "amount": trade_data["sz"],
+                "price": trade_data["px"],
             }
             trade_message = OrderBookMessage(
                 message_type=OrderBookMessageType.TRADE,
