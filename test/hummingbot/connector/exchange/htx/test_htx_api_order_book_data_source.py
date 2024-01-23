@@ -27,16 +27,16 @@ class HtxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         cls.ev_loop = asyncio.get_event_loop()
         cls.base_asset = "COINALPHA"
         cls.quote_asset = "HBOT"
-        cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}" 
+        cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = f"{cls.base_asset}{cls.quote_asset}".lower()
 
     def setUp(self) -> None:
         super().setUp()
         self.log_records = []
-        self.listening_task = None 
+        self.listening_task = None
         self.async_tasks: List[asyncio.Task] = []
         self.connector = AsyncMock()
-        self.connector.exchange_symbol_associated_to_pair.return_value = self.ex_trading_pair 
+        self.connector.exchange_symbol_associated_to_pair.return_value = self.ex_trading_pair
         self.connector.trading_pair_associated_to_exchange_symbol.return_value = self.trading_pair
         self.data_source = HtxAPIOrderBookDataSource(
             trading_pairs=[self.trading_pair],
@@ -76,8 +76,8 @@ class HtxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         snapshot_resp = {
             "id": self.ex_trading_pair,
             "status": "ok",
-            "subbed": f"market.{self.ex_trading_pair}.depth.step0", 
-            "ts": 1637333566824,  
+            "subbed": f"market.{self.ex_trading_pair}.depth.step0",
+            "ts": 1637333566824,
         }
 
         trade_resp = {
