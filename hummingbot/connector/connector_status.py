@@ -63,6 +63,8 @@ connector_status = {
     'traderjoe': 'bronze',
     'uniswap': 'bronze',
     'uniswapLP': 'bronze',
+    'vega_perpetual': 'bronze',
+    'vega_perpetual_testnet': 'bronze',
     'vvs': 'bronze',
     'woo_x': 'bronze',
     'woo_x_testnet': 'bronze',
