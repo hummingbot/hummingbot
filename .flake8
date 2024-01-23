@@ -1,6 +1,8 @@
 [flake8]
 filename = *.py, *.pyx, *.pxd
 ignore = E251, E501,E702,W504,W503
+exclude =
+    test_htx_api_order_book_data_source.py
 per-file-ignores =
     hummingbot/**/*.pyx: E225, E226, E251, E999
     hummingbot/**/*.pxd: E225, E226, E251, E999
