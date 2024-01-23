@@ -53,6 +53,55 @@ class OKXPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         )
         return funding_info
 
+    async def _request_complete_funding_info(self, trading_pair: str):
+        tasks = []
+        rest_assistant = await self._api_factory.get_rest_assistant()
+        inst_id = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+
+        params_index_price = {
+            "instId": inst_id
+        }
+        endpoint_index_price = CONSTANTS.INDEX_TICKERS_PATH_URL
+        url_index_price = web_utils.get_rest_url_for_endpoint(endpoint=endpoint_index_price, domain=self._domain)
+        limit_id_index_price = web_utils.get_rest_api_limit_id_for_endpoint(endpoint_index_price)
+        tasks.append(rest_assistant.execute_request(
+            url=url_index_price,
+            throttler_limit_id=limit_id_index_price,
+            params=params_index_price,
+            method=RESTMethod.GET,
+        ))
+
+        params_mark_price = {
+            "instId": inst_id,
+            "instType": "SWAP",
+        }
+        endpoint_mark_price = CONSTANTS.MARK_PRICE_PATH_URL
+        url_predicted = web_utils.get_rest_url_for_endpoint(endpoint=endpoint_mark_price, domain=self._domain)
+        limit_id_mark_price = web_utils.get_rest_api_limit_id_for_endpoint(endpoint_mark_price, trading_pair)
+        tasks.append(rest_assistant.execute_request(
+            url=url_predicted,
+            throttler_limit_id=limit_id_mark_price,
+            params=params_mark_price,
+            method=RESTMethod.GET,
+            is_auth_required=True
+        ))
+
+        params_funding_data = {
+            "instId": inst_id
+        }
+        endpoint_funding_data = CONSTANTS.FUNDING_RATE_INFO_PATH_URL
+        url_funding_data = web_utils.get_rest_url_for_endpoint(endpoint=endpoint_funding_data, domain=self._domain)
+        limit_id_funding_data = web_utils.get_rest_api_limit_id_for_endpoint(endpoint_funding_data)
+        tasks.append(rest_assistant.execute_request(
+            url=url_funding_data,
+            throttler_limit_id=limit_id_funding_data,
+            params=params_funding_data,
+            method=RESTMethod.GET,
+        ))
+
+        responses = await asyncio.gather(*tasks)
+        return responses
+
     async def listen_for_subscriptions(self):
         """
         Subscribe to all required events and start the listening cycle.
