@@ -82,7 +82,7 @@ class OrderExpirationTest(unittest.TestCase):
     def setUp(self):
         # self.weth_dai_data = DDEXOrderBookLoader("WETH-DAI", "WETH", "DAI")
         self.pair_data = BinanceOrderBookLoaderV2(self.market_name, "ETH", "USDT")
-        # self.pair_data = HtxOrderBookLoader(self.market_name, "", "")
+        # self.pair_data = HuobiOrderBookLoader(self.market_name, "", "")
         self.clock = Clock(ClockMode.BACKTEST, 1.0, self.start.timestamp(), self.end.timestamp())
         self.market = BacktestMarket()
         # self.market.add_data(self.weth_dai_data)
