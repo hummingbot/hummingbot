@@ -26,3 +26,6 @@ min_amount: null
 
 # The minimum profit required before positions can be adjusted
 min_profitability: null
+
+# How often should the bot get market updates from gateway?
+status_report_interval: null

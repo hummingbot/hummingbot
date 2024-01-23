@@ -14,6 +14,7 @@ def start(self):
     min_amount = c_map.get("min_amount").value
     max_amount = c_map.get("max_amount").value
     min_profitability = c_map.get("min_profitability").value
+    status_report_interval = c_map.get("status_report_interval").value
 
     self._initialize_markets([(connector, [pair])])
     base, quote = pair.split("-")
@@ -26,4 +27,5 @@ def start(self):
                                     buffer_spread,
                                     min_amount,
                                     max_amount,
-                                    min_profitability)
+                                    min_profitability,
+                                    status_report_interval)

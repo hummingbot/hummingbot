@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from hummingbot.client.config.config_validators import validate_decimal, validate_market_trading_pair
+from hummingbot.client.config.config_validators import validate_decimal, validate_int, validate_market_trading_pair
 from hummingbot.client.config.config_var import ConfigVar
 from hummingbot.client.settings import (
     AllConnectorSettings,
@@ -86,7 +86,7 @@ amm_v3_lp_config_map = {
         type_str="decimal"),
     "min_amount": ConfigVar(
         key="min_amount",
-        prompt="Enter the minimum value(in terms of base asset) to use for providing liquidity. >>>",
+        prompt="Enter the minimum value (in terms of base asset) to use for providing liquidity. >>>",
         prompt_on_new=True,
         validator=lambda v: validate_decimal(v, Decimal("0"), inclusive=False),
         type_str="decimal"),
@@ -97,4 +97,11 @@ amm_v3_lp_config_map = {
         validator=lambda v: validate_decimal(v, Decimal("0"), inclusive=False),
         default=Decimal("1"),
         type_str="decimal"),
+    "status_report_interval": ConfigVar(
+        key="status_report_interval",
+        prompt="How often should the bot get market updates from gateway? (in seconds) >>>",
+        prompt_on_new=True,
+        validator=lambda v: validate_int(v, 1, inclusive=True),
+        default=10,
+        type_str="int"),
 }
