@@ -150,41 +150,51 @@ class OKXPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _subscribe_to_channels(self, ws: WSAssistant, trading_pairs: List[str]):
         try:
-            # symbols = [
-            #     await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-            #     for trading_pair in trading_pairs
-            # ]
-            # TODO: Determine how to handle single instId API design for trades, order book events and instruments info
-            payload = {
-                "op": "subscribe",
-                "args": [{
-                    # TODO: Determine whether to use trades-all or trades
-                    "channel": f"{CONSTANTS.WS_TRADES_CHANNEL}",
-                    # "instId": trading_pair
-                }],
-            }
-            subscribe_trade_request = WSJSONRequest(payload=payload)
+            ex_trading_pairs = [
+                await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+                for trading_pair in trading_pairs
+            ]
 
-            payload = {
+            trades_args = [
+                {
+                    "channel": CONSTANTS.WS_TRADES_ALL_CHANNEL,
+                    "instId": ex_trading_pair
+                } for ex_trading_pair in ex_trading_pairs
+            ]
+            trades_payload = {
                 "op": "subscribe",
-                "args": [{
-                    "channel": f"{CONSTANTS.WS_ORDER_BOOK_400_DEPTH_100_MS_EVENTS_CHANNEL}",
-                    # "instId": trading_pair
-                }],
+                "args": trades_args,
             }
-            subscribe_orderbook_request = WSJSONRequest(payload=payload)
+            subscribe_trades_request = WSJSONRequest(payload=trades_payload)
 
-            payload = {
+            order_book_args = [
+                {
+                    "channel": CONSTANTS.WS_ORDER_BOOK_400_DEPTH_100_MS_EVENTS_CHANNEL,
+                    "instId": ex_trading_pair
+                } for ex_trading_pair in ex_trading_pairs
+            ]
+            order_book_payload = {
                 "op": "subscribe",
-                "args": [{
-                    "channel": f"{CONSTANTS.WS_INSTRUMENTS_INFO_CHANNEL}",
-                    "instType": "SWAP"}],
+                "args": order_book_args,
             }
-            subscribe_instruments_request = WSJSONRequest(payload=payload)
+            subscribe_orderbook_request = WSJSONRequest(payload=order_book_payload)
 
-            await ws.send(subscribe_trade_request)  # not rate-limited
-            await ws.send(subscribe_orderbook_request)  # not rate-limited
-            await ws.send(subscribe_instruments_request)  # not rate-limited
+            instruments_args = [
+                {
+                    "channel": CONSTANTS.WS_INSTRUMENTS_INFO_CHANNEL,
+                    "instId": ex_trading_pair
+                } for ex_trading_pair in ex_trading_pairs
+            ]
+            instruments_payload = {
+                "op": "subscribe",
+                "args": instruments_args,
+            }
+            subscribe_instruments_request = WSJSONRequest(payload=instruments_payload)
+
+            # TODO: Add 3 rps Rate Limit / 480 prh Rate Limit?
+            await ws.send(subscribe_trades_request)
+            await ws.send(subscribe_orderbook_request)
+            await ws.send(subscribe_instruments_request)
             self.logger().info("Subscribed to public order book, trade and funding info channels...")
         except asyncio.CancelledError:
             raise
