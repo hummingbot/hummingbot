@@ -263,6 +263,8 @@ class OKXPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
             timestamp_us = int(raw_message["data"][0]["ts"])
             update_id = self._nonce_provider.get_tracking_nonce(timestamp=timestamp_us * 1e-6)
+            timestamp_ms = int(raw_message["data"][0]["ts"])
+            update_id = self._nonce_provider.get_tracking_nonce(timestamp=timestamp_ms)
             diffs_data = raw_message["data"][0]
             bids, asks = self._get_bids_and_asks_from_ws_msg_data(diffs_data)
             order_book_message_content = {
@@ -274,7 +276,7 @@ class OKXPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             diff_message = OrderBookMessage(
                 message_type=OrderBookMessageType.DIFF,
                 content=order_book_message_content,
-                timestamp=timestamp_us * 1e-6,
+                timestamp=timestamp_ms,
             )
             message_queue.put_nowait(diff_message)
 
