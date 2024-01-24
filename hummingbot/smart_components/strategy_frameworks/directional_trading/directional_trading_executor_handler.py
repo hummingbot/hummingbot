@@ -37,10 +37,10 @@ class DirectionalTradingExecutorHandler(ExecutorHandlerBase):
                         closed_and_not_in_cooldown = current_executor.is_closed and not self.controller.cooldown_condition(current_executor, order_level)
                         active_and_early_stop_condition = current_executor.executor_status == PositionExecutorStatus.ACTIVE_POSITION and self.controller.early_stop_condition(current_executor, order_level)
                         if closed_and_not_in_cooldown:
-                            self.store_executor(current_executor, order_level)
+                            self.store_position_executor(current_executor, order_level)
                         elif active_and_early_stop_condition:
                             current_executor.early_stop()
                     else:
                         position_config = self.controller.get_position_config(order_level, signal)
                         if position_config:
-                            self.create_executor(position_config, order_level)
+                            self.create_position_executor(position_config, order_level)

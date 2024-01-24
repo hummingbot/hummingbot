@@ -62,7 +62,7 @@ class MarketMakingExecutorHandler(ExecutorHandlerBase):
                     order_placed_and_refresh_condition = current_executor.executor_status == PositionExecutorStatus.NOT_STARTED and self.controller.refresh_order_condition(
                         current_executor, order_level)
                     if closed_and_not_in_cooldown:
-                        self.store_executor(current_executor, order_level)
+                        self.store_position_executor(current_executor, order_level)
                     elif active_and_early_stop_condition or order_placed_and_refresh_condition:
                         current_executor.early_stop()
                     elif current_executor.executor_status == PositionExecutorStatus.ACTIVE_POSITION:
@@ -72,7 +72,7 @@ class MarketMakingExecutorHandler(ExecutorHandlerBase):
                 else:
                     position_config = self.controller.get_position_config(order_level)
                     if position_config:
-                        self.create_executor(position_config, order_level)
+                        self.create_position_executor(position_config, order_level)
             if self.global_trailing_stop_config:
                 for side, global_trailing_stop_conf in self.global_trailing_stop_config.items():
                     if current_metrics[side]["amount"] > 0:
