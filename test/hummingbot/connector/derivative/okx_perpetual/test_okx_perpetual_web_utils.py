@@ -6,7 +6,9 @@ from hummingbot.connector.derivative.okx_perpetual import (
     okx_perpetual_constants as CONSTANTS,
     okx_perpetual_web_utils as web_utils,
 )
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
+from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
 class OKXPerpetualWebUtilsTest(unittest.TestCase):
@@ -62,27 +64,32 @@ class OKXPerpetualWebUtilsTest(unittest.TestCase):
         url = web_utils.wss_linear_private_url("okx_perpetual_demo")
         self.assertEqual(CONSTANTS.WSS_PRIVATE_URLS.get("okx_perpetual_demo"), url)
 
-    # TODO: Check if there is a way to test AsyncThrottler unhashable type: 'dict'
-    # def test_build_api_factory(self):
-    #     api_factory = web_utils.build_api_factory(
-    #         time_synchronizer=TimeSynchronizer(),
-    #         time_provider=lambda: None,
-    #     )
-    #
-    #     self.assertIsInstance(api_factory, WebAssistantsFactory)
-    #     self.assertIsNone(api_factory._auth)
-    #
-    #     self.assertTrue(2, len(api_factory._rest_pre_processors))
-    #
-    # def test_build_api_factory_without_time_synchronizer_pre_processor(self):
-    #     api_factory = web_utils.build_api_factory_without_time_synchronizer_pre_processor(
-    #         throttler=web_utils.create_throttler()
-    #     )
-    #
-    #     self.assertIsInstance(api_factory, WebAssistantsFactory)
-    #     self.assertIsNone(api_factory._auth)
-    #
-    #     self.assertTrue(1, len(api_factory._rest_pre_processors))
+    def test_build_api_factory(self):
+        api_factory = web_utils.build_api_factory(
+            time_synchronizer=TimeSynchronizer(),
+            time_provider=lambda: None,
+        )
+
+        self.assertIsInstance(api_factory, WebAssistantsFactory)
+        self.assertIsNone(api_factory._auth)
+
+        self.assertTrue(2, len(api_factory._rest_pre_processors))
+
+    def test_get_pair_specific_limit_id(self):
+        limit_id = web_utils.get_pair_specific_limit_id("GET",
+                                                        "test/endpoint",
+                                                        "BTC-USDT")
+        self.assertEqual("GET-test/endpoint-BTC-USDT", limit_id)
+
+    def test_build_api_factory_without_time_synchronizer_pre_processor(self):
+        api_factory = web_utils.build_api_factory_without_time_synchronizer_pre_processor(
+            throttler=web_utils.create_throttler()
+        )
+
+        self.assertIsInstance(api_factory, WebAssistantsFactory)
+        self.assertIsNone(api_factory._auth)
+
+        self.assertTrue(1, len(api_factory._rest_pre_processors))
 
     def test_okx_perpetual_rest_pre_processor_get_request(self):
         request: RESTRequest = RESTRequest(
