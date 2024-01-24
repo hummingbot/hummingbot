@@ -60,7 +60,7 @@ class OKXPerpetualCandles(CandlesBase):
         return NetworkStatus.CONNECTED
 
     def get_exchange_trading_pair(self, trading_pair):
-        return trading_pair
+        return f"{trading_pair}-SWAP"
 
     async def fetch_candles(self,
                             start_time: Optional[int] = None,
