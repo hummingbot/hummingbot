@@ -8,7 +8,7 @@ from hummingbot.smart_components.executors.position_executor.data_types import P
 from hummingbot.smart_components.strategy_frameworks.controller_base import ControllerConfigBase
 from hummingbot.smart_components.strategy_frameworks.data_types import (
     BotAction,
-    CreateExecutorAction,
+    CreatePositionExecutorAction,
     ExecutorHandlerReport,
     StopExecutorAction,
 )
@@ -71,20 +71,20 @@ class PairsTrading(GenericController):
         """
         return 1, 0.01
 
-    def create_actions_proposal(self) -> List[CreateExecutorAction]:
+    def create_actions_proposal(self) -> List[CreatePositionExecutorAction]:
         """
         Create a list of actions based on the provided signal and spread multiplier.
         Side = 1 means buy asset 1 and sell asset 2
         Side = -1 means sell asset 1 and buy asset 2
         """
         signal, spread_multiplier = self.compute_signal_and_spread_multiplier()
-        proposal: List[CreateExecutorAction] = []
+        proposal: List[CreatePositionExecutorAction] = []
         trading_pair_1_close_price = self.get_close_price(self.config.trading_pair)
         trading_pair_2_close_price = self.get_close_price(self.config.trading_pair_2)
         if signal == 1:
             tp_1_entry_price = trading_pair_1_close_price * Decimal(1 - self.config.spread_factor * spread_multiplier)
             tp_2_entry_price = trading_pair_2_close_price * Decimal(1 + self.config.spread_factor * spread_multiplier)
-            proposal.append(CreateExecutorAction(
+            proposal.append(CreatePositionExecutorAction(
                 position_config=PositionConfig(
                     timestamp=time.time(),
                     trading_pair=self.config.trading_pair,
@@ -97,7 +97,7 @@ class PairsTrading(GenericController):
                     entry_price=tp_1_entry_price,
                 ),
                 level_id=uuid.uuid4().hex))
-            proposal.append(CreateExecutorAction(
+            proposal.append(CreatePositionExecutorAction(
                 position_config=PositionConfig(
                     timestamp=time.time(),
                     trading_pair=self.config.trading_pair_2,
@@ -113,7 +113,7 @@ class PairsTrading(GenericController):
         elif signal == -1:
             tp_1_entry_price = trading_pair_1_close_price * Decimal(1 + self.config.spread_factor * spread_multiplier)
             tp_2_entry_price = trading_pair_2_close_price * Decimal(1 - self.config.spread_factor * spread_multiplier)
-            proposal.append(CreateExecutorAction(
+            proposal.append(CreatePositionExecutorAction(
                 position_config=PositionConfig(
                     timestamp=time.time(),
                     trading_pair=self.config.trading_pair,
@@ -126,7 +126,7 @@ class PairsTrading(GenericController):
                     entry_price=tp_1_entry_price,
                 ),
                 level_id=uuid.uuid4().hex))
-            proposal.append(CreateExecutorAction(
+            proposal.append(CreatePositionExecutorAction(
                 position_config=PositionConfig(
                     timestamp=time.time(),
                     trading_pair=self.config.trading_pair_2,
@@ -141,7 +141,7 @@ class PairsTrading(GenericController):
                 level_id=uuid.uuid4().hex))
         return proposal
 
-    def filter_actions_proposal(self, actions_proposal: List[CreateExecutorAction],
+    def filter_actions_proposal(self, actions_proposal: List[CreatePositionExecutorAction],
                                 executor_handler_report: ExecutorHandlerReport) -> List[BotAction]:
         """
         Filter the actions proposal based on the provided executor handler report.
