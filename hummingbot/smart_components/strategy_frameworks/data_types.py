@@ -121,7 +121,7 @@ class BotAction(BaseModel):
     pass
 
 
-class CreateExecutorAction(BotAction):
+class CreatePositionExecutorAction(BotAction):
     """
     Action to create an executor.
     """
