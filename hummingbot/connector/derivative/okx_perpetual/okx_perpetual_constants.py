@@ -26,37 +26,57 @@ WSS_BUSINESS_URLS = {DEFAULT_DOMAIN: f"wss://ws.okx.com:8443/ws/{REST_API_VERSIO
                      AWS_DOMAIN: f"wss://wsaws.okx.com:8443/ws/{REST_API_VERSION}/business",
                      DEMO_DOMAIN: f"wss://wspap.okx.com:8443/ws/{REST_API_VERSION}/business?brokerId=9999"}
 
-SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE = 30
+SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE = 25
 WS_PING_REQUEST = "ping"
 WS_PONG_RESPONSE = "pong"
 WS_TRADES_CHANNEL = "trades"
 WS_TRADES_ALL_CHANNEL = "trades-all"
+WS_MARK_PRICE_CHANNEL = "mark-price"
+WS_INDEX_TICKERS_CHANNEL = "index-tickers"
 WS_ORDER_BOOK_400_DEPTH_100_MS_EVENTS_CHANNEL = "books"
 WS_ORDER_BOOK_5_DEPTH_100_MS_EVENTS_CHANNEL = "books5"
 WS_ORDER_BOOK_1_DEPTH_10_MS_EVENTS_CHANNEL = "bbo-tbt"
 WS_INSTRUMENTS_INFO_CHANNEL = "instruments"
 # -------------------------------------------
 # WEB UTILS ENDPOINTS
+# The structure is REST_url = {method: GET/POST, endpoint: /api/v5/...} since for the same endpoint you can have
+# different methods. This is also useful for rate limit ids.
 # -------------------------------------------
+GET = "GET"
+POST = "POST"
+METHOD = "METHOD"
+ENDPOINT = "ENDPOINT"
+
 # REST API Public Endpoints
-LATEST_SYMBOL_INFORMATION_ENDPOINT = f"/api/{REST_API_VERSION}/market/tickers"
-# TODO: Fill QUERY_SYMBOL_ENDPOINT with the correct endpoint, if necessary
-# QUERY_SYMBOL_ENDPOINT = f""
-ORDER_BOOK_ENDPOINT = f"/api/{REST_API_VERSION}/market/books"
-SERVER_TIME_PATH_URL = f"/api/{REST_API_VERSION}/public/time"
-MARK_PRICE_PATH_URL = f"/api/{REST_API_VERSION}/public/mark-price"
-INDEX_TICKERS_PATH_URL = f"/api/{REST_API_VERSION}/public/index-tickers"
+REST_LATEST_SYMBOL_INFORMATION = {METHOD: GET,
+                                  ENDPOINT: f"/api/{REST_API_VERSION}/market/tickers"}
+REST_ORDER_BOOK = {METHOD: GET,
+                   ENDPOINT: f"/api/{REST_API_VERSION}/market/books"}
+REST_SERVER_TIME = {METHOD: GET,
+                    ENDPOINT: f"/api/{REST_API_VERSION}/public/time"}
+REST_MARK_PRICE = {METHOD: GET,
+                   ENDPOINT: f"/api/{REST_API_VERSION}/public/mark-price"}
+REST_INDEX_TICKERS = {METHOD: GET,
+                      ENDPOINT: f"/api/{REST_API_VERSION}/public/index-tickers"}
 
 # REST API Private General Endpoints
-GET_WALLET_BALANCE_PATH_URL = f"/api/{REST_API_VERSION}/account/balance"
-SET_POSITION_MODE_URL = f"/api/{REST_API_VERSION}/account/set-position-mode"
+REST_GET_WALLET_BALANCE = {METHOD: GET,
+                           ENDPOINT: f"/api/{REST_API_VERSION}/account/balance"}
+REST_SET_POSITION_MODE = {METHOD: POST,
+                          ENDPOINT: f"/api/{REST_API_VERSION}/account/set-position-mode"}
 
 # REST API Private Pair Specific Endpoints
-SET_LEVERAGE_PATH_URL = f"/api/{REST_API_VERSION}/account/set-leverage"
-FUNDING_RATE_INFO_PATH_URL = f"/api/{REST_API_VERSION}/public/funding-rate"
-GET_POSITIONS_PATH_URL = f"/api/{REST_API_VERSION}/account/positions"
-PLACE_ACTIVE_ORDER_PATH_URL = f"/api/{REST_API_VERSION}/trade/order"
-CANCEL_ACTIVE_ORDER_PATH_URL = f"/api/{REST_API_VERSION}/trade/cancel-order"
-# TODO: Check if search active order is the same as query active order but switching REST/POST
-QUERY_ACTIVE_ORDER_PATH_URL = PLACE_ACTIVE_ORDER_PATH_URL
-USER_TRADE_RECORDS_PATH_URL = f"/api/{REST_API_VERSION}/trade/fills"
+REST_SET_LEVERAGE = {METHOD: POST,
+                     ENDPOINT: f"/api/{REST_API_VERSION}/account/set-leverage"}
+REST_FUNDING_RATE_INFO = {METHOD: GET,
+                          ENDPOINT: f"/api/{REST_API_VERSION}/public/funding-rate"}
+REST_GET_POSITIONS = {METHOD: GET,
+                      ENDPOINT: f"/api/{REST_API_VERSION}/account/positions"}
+REST_PLACE_ACTIVE_ORDER = {METHOD: POST,
+                           ENDPOINT: f"/api/{REST_API_VERSION}/trade/order"}
+REST_CANCEL_ACTIVE_ORDER = {METHOD: POST,
+                            ENDPOINT: f"/api/{REST_API_VERSION}/trade/cancel-order"}
+REST_QUERY_ACTIVE_ORDER = {METHOD: GET,
+                           ENDPOINT: REST_PLACE_ACTIVE_ORDER[ENDPOINT]}
+REST_USER_TRADE_RECORDS = {METHOD: GET,
+                           ENDPOINT: f"/api/{REST_API_VERSION}/trade/fills"}
