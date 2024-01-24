@@ -107,16 +107,13 @@ def get_rest_url_for_endpoint(
     return CONSTANTS.REST_URLS.get(variant) + endpoint
 
 
-def get_pair_specific_limit_id(base_limit_id: str, trading_pair: str) -> str:
-    limit_id = f"{base_limit_id}-{trading_pair}"
-    return limit_id
+def get_rest_api_limit_id_for_endpoint(method: str, endpoint: str) -> str:
+    return f"{method}-{endpoint}"
 
 
-def get_rest_api_limit_id_for_endpoint(endpoint: str, trading_pair: Optional[str] = None) -> str:
-    limit_id = endpoint
-    if trading_pair is not None:
-        limit_id = get_pair_specific_limit_id(limit_id, trading_pair)
-    return limit_id
+def get_pair_specific_limit_id(method: str, endpoint: str, trading_pair: str) -> str:
+    base_limit_id = get_rest_api_limit_id_for_endpoint(method, endpoint)
+    return f"{base_limit_id}-{trading_pair}"
 
 
 def _wss_url(endpoint: Dict[str, str], connector_variant_label: Optional[str]) -> str:
@@ -135,23 +132,23 @@ def wss_linear_private_url(connector_variant_label: Optional[str]) -> str:
 def build_rate_limits(trading_pairs: Optional[List[str]] = None) -> List[RateLimit]:
     trading_pairs = trading_pairs or []
     rate_limits = []
-
-    rate_limits.extend(_build_websocket_rate_limits())
+    domain = CONSTANTS.DEFAULT_DOMAIN
+    rate_limits.extend(_build_websocket_rate_limits(domain))
     rate_limits.extend(_build_public_rate_limits())
     rate_limits.extend(_build_private_rate_limits(trading_pairs))
 
     return rate_limits
 
 
-def _build_websocket_rate_limits() -> List[RateLimit]:
+def _build_websocket_rate_limits(domain: str) -> List[RateLimit]:
     # TODO: Check with dman how to handle global nested rate limits
     rate_limits = [
         # For connections
-        RateLimit(limit_id=CONSTANTS.WSS_PUBLIC_URLS, limit=3, time_interval=1),
-        RateLimit(limit_id=CONSTANTS.WSS_PRIVATE_URLS, limit=3, time_interval=1),
+        RateLimit(limit_id=CONSTANTS.WSS_PUBLIC_URLS[domain], limit=3, time_interval=1),
+        RateLimit(limit_id=CONSTANTS.WSS_PRIVATE_URLS[domain], limit=3, time_interval=1),
         # For subscriptions/unsubscriptions/logins
-        RateLimit(limit_id=CONSTANTS.WSS_PUBLIC_URLS, limit=480, time_interval=60),
-        RateLimit(limit_id=CONSTANTS.WSS_PRIVATE_URLS, limit=480, time_interval=60),
+        RateLimit(limit_id=CONSTANTS.WSS_PUBLIC_URLS[domain], limit=480, time_interval=60),
+        RateLimit(limit_id=CONSTANTS.WSS_PRIVATE_URLS[domain], limit=480, time_interval=60),
     ]
     # TODO: Include ping-pong feature, merge with rate limits?
     # If there’s a network problem, the system will automatically disable the connection.
@@ -166,47 +163,34 @@ def _build_websocket_rate_limits() -> List[RateLimit]:
 def _build_public_rate_limits():
     public_rate_limits = [
         RateLimit(
-            # TODO: Define whether to use tickers here
-            limit_id=CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT,
+            limit_id=get_rest_api_limit_id_for_endpoint(method=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION[CONSTANTS.METHOD],
+                                                        endpoint=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION[CONSTANTS.ENDPOINT]),
             limit=20,
             time_interval=2,
-            # TODO: Define latest symbol information linked limits
-            # linked_limits=[LinkedLimitWeightPair(CONSTANTS.GET_LIMIT_ID)],
         ),
-        # TODO: Check what is QUERY_SYMBOL_ENDPOINT for, symbol seems deprecated
-        # RateLimit(
-        #     limit_id=CONSTANTS.QUERY_SYMBOL_ENDPOINT,
-        #     limit=1,
-        #     time_interval=1,
-        #     linked_limits=[LinkedLimitWeightPair(CONSTANTS.GET_LIMIT_ID)],
-        # ),
         RateLimit(
-            limit_id=CONSTANTS.ORDER_BOOK_ENDPOINT,
+            limit_id=get_rest_api_limit_id_for_endpoint(method=CONSTANTS.REST_ORDER_BOOK[CONSTANTS.METHOD],
+                                                        endpoint=CONSTANTS.REST_ORDER_BOOK[CONSTANTS.ENDPOINT]),
             limit=40,
             time_interval=2,
-            # TODO: Define order book linked limits
-            # linked_limits=[LinkedLimitWeightPair(CONSTANTS.GET_LIMIT_ID)],
         ),
         RateLimit(
-            limit_id=CONSTANTS.SERVER_TIME_PATH_URL,
+            limit_id=get_rest_api_limit_id_for_endpoint(method=CONSTANTS.REST_SERVER_TIME[CONSTANTS.METHOD],
+                                                        endpoint=CONSTANTS.REST_SERVER_TIME[CONSTANTS.ENDPOINT]),
             limit=10,
             time_interval=2,
-            # TODO: Define server time linked limits
-            # linked_limits=[LinkedLimitWeightPair(CONSTANTS.GET_LIMIT_ID)],
         ),
         RateLimit(
-            limit_id=CONSTANTS.MARK_PRICE_PATH_URL,
+            limit_id=get_rest_api_limit_id_for_endpoint(method=CONSTANTS.REST_MARK_PRICE[CONSTANTS.METHOD],
+                                                        endpoint=CONSTANTS.REST_MARK_PRICE[CONSTANTS.ENDPOINT]),
             limit=10,
-            time_interval=2,
-            # TODO: Define mark price linked limits
-            # linked_limits=[LinkedLimitWeightPair(CONSTANTS.GET_LIMIT_ID)],
+            time_interval=2
         ),
         RateLimit(
-            limit_id=CONSTANTS.INDEX_TICKERS_PATH_URL,
+            limit_id=get_rest_api_limit_id_for_endpoint(method=CONSTANTS.REST_INDEX_TICKERS[CONSTANTS.METHOD],
+                                                        endpoint=CONSTANTS.REST_INDEX_TICKERS[CONSTANTS.ENDPOINT]),
             limit=20,
             time_interval=2,
-            # TODO: Define index tickers linked limits
-            # linked_limits=[LinkedLimitWeightPair(CONSTANTS.GET_LIMIT_ID)],
         )
     ]
     return public_rate_limits
@@ -222,77 +206,55 @@ def _build_private_rate_limits(trading_pairs: List[str]) -> List[RateLimit]:
 def _build_private_pair_specific_rate_limits(trading_pairs: List[str]) -> List[RateLimit]:
     rate_limits = []
     for trading_pair in trading_pairs:
-        # TODO: Determine whether to use linear or non-linear rate limits
         trading_pair_rate_limits = [
             RateLimit(
-                limit_id=get_pair_specific_limit_id(
-                    base_limit_id=CONSTANTS.SET_LEVERAGE_PATH_URL,
-                    trading_pair=trading_pair
-                ),
+                limit_id=get_pair_specific_limit_id(method=CONSTANTS.REST_SET_LEVERAGE[CONSTANTS.METHOD],
+                                                    endpoint=CONSTANTS.REST_SET_LEVERAGE[CONSTANTS.ENDPOINT],
+                                                    trading_pair=trading_pair),
                 limit=20,
                 time_interval=2,
-                # TODO: Define set leverage linked limits
-                # linked_limits=[LinkedLimitWeightPair(CONSTANTS.POST_LIMIT_ID)],
             ),
             RateLimit(
-                limit_id=get_pair_specific_limit_id(
-                    base_limit_id=CONSTANTS.FUNDING_RATE_INFO_PATH_URL,
-                    trading_pair=trading_pair,
-                ),
+                limit_id=get_pair_specific_limit_id(method=CONSTANTS.REST_FUNDING_RATE_INFO[CONSTANTS.METHOD],
+                                                    endpoint=CONSTANTS.REST_FUNDING_RATE_INFO[CONSTANTS.ENDPOINT],
+                                                    trading_pair=trading_pair),
                 limit=20,
                 time_interval=2,
-                # TODO: Define get predicted funding rate linked limits
-                # linked_limits=[LinkedLimitWeightPair(CONSTANTS.GET_LIMIT_ID)],
             ),
             RateLimit(
-                limit_id=get_pair_specific_limit_id(
-                    base_limit_id=CONSTANTS.GET_POSITIONS_PATH_URL,
-                    trading_pair=trading_pair
-                ),
+                limit_id=get_pair_specific_limit_id(CONSTANTS.REST_GET_POSITIONS[CONSTANTS.METHOD],
+                                                    CONSTANTS.REST_GET_POSITIONS[CONSTANTS.ENDPOINT],
+                                                    trading_pair=trading_pair),
                 limit=10,
                 time_interval=2,
-                # TODO: Define get positions linked limits
-                # linked_limits=[LinkedLimitWeightPair(CONSTANTS.GET_LIMIT_ID)],
             ),
             RateLimit(
-                limit_id=get_pair_specific_limit_id(
-                    base_limit_id=CONSTANTS.PLACE_ACTIVE_ORDER_PATH_URL,
-                    trading_pair=trading_pair
-                ),
+                limit_id=get_pair_specific_limit_id(method=CONSTANTS.REST_PLACE_ACTIVE_ORDER[CONSTANTS.METHOD],
+                                                    endpoint=CONSTANTS.REST_PLACE_ACTIVE_ORDER[CONSTANTS.ENDPOINT],
+                                                    trading_pair=trading_pair),
                 limit=60,
                 time_interval=2,
-                # TODO: Define place active order linked limits
-                # linked_limits=[LinkedLimitWeightPair(CONSTANTS.POST_LIMIT_ID)],
             ),
             RateLimit(
-                limit_id=get_pair_specific_limit_id(
-                    base_limit_id=CONSTANTS.CANCEL_ACTIVE_ORDER_PATH_URL,
-                    trading_pair=trading_pair
-                ),
+                limit_id=get_pair_specific_limit_id(method=CONSTANTS.REST_CANCEL_ACTIVE_ORDER[CONSTANTS.METHOD],
+                                                    endpoint=CONSTANTS.REST_CANCEL_ACTIVE_ORDER[CONSTANTS.ENDPOINT],
+                                                    trading_pair=trading_pair),
                 limit=60,
                 time_interval=2,
-                # TODO: Define cancel active order linked limits
-                # linked_limits=[LinkedLimitWeightPair(CONSTANTS.POST_LIMIT_ID)],
             ),
             RateLimit(
-                limit_id=get_pair_specific_limit_id(
-                    base_limit_id=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL,
-                    trading_pair=trading_pair
-                ),
+                limit_id=get_pair_specific_limit_id(method=CONSTANTS.REST_QUERY_ACTIVE_ORDER[CONSTANTS.METHOD],
+                                                    endpoint=CONSTANTS.REST_QUERY_ACTIVE_ORDER[CONSTANTS.ENDPOINT],
+                                                    trading_pair=trading_pair),
                 limit=60,
                 time_interval=2,
-                # TODO: Define query active order linked limits
-                # linked_limits=[LinkedLimitWeightPair(CONSTANTS.GET_LIMIT_ID)],
             ),
             RateLimit(
-                limit_id=get_pair_specific_limit_id(
-                    base_limit_id=CONSTANTS.USER_TRADE_RECORDS_PATH_URL,
-                    trading_pair=trading_pair
-                ),
+                limit_id=get_pair_specific_limit_id(method=CONSTANTS.REST_USER_TRADE_RECORDS[CONSTANTS.METHOD],
+                                                    endpoint=CONSTANTS.REST_USER_TRADE_RECORDS[CONSTANTS.ENDPOINT],
+                                                    trading_pair=trading_pair),
                 limit=120,
                 time_interval=60,
-                # TODO: Define user trade records
-                # linked_limits=[LinkedLimitWeightPair(CONSTANTS.GET_LIMIT_ID)],
             ),
         ]
         rate_limits.extend(trading_pair_rate_limits)
@@ -302,14 +264,14 @@ def _build_private_pair_specific_rate_limits(trading_pairs: List[str]) -> List[R
 def _build_private_general_rate_limits() -> List[RateLimit]:
     rate_limits = [
         RateLimit(
-            limit_id=CONSTANTS.GET_WALLET_BALANCE_PATH_URL,
+            limit_id=get_rest_api_limit_id_for_endpoint(method=CONSTANTS.REST_GET_WALLET_BALANCE[CONSTANTS.METHOD],
+                                                        endpoint=CONSTANTS.REST_GET_WALLET_BALANCE[CONSTANTS.ENDPOINT]),
             limit=10,
             time_interval=2,
-            # TODO: Define balance linked limits
-            # linked_limits=[LinkedLimitWeightPair(CONSTANTS.GET_LIMIT_ID)],
         ),
         RateLimit(
-            limit_id=CONSTANTS.SET_POSITION_MODE_URL,
+            limit_id=get_rest_api_limit_id_for_endpoint(method=CONSTANTS.REST_SET_POSITION_MODE[CONSTANTS.METHOD],
+                                                        endpoint=CONSTANTS.REST_SET_POSITION_MODE[CONSTANTS.ENDPOINT]),
             limit=5,
             time_interval=2,
             # TODO: Define set position mode linked limits
