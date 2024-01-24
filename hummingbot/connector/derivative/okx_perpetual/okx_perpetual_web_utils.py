@@ -274,8 +274,6 @@ def _build_private_general_rate_limits() -> List[RateLimit]:
                                                         endpoint=CONSTANTS.REST_SET_POSITION_MODE[CONSTANTS.ENDPOINT]),
             limit=5,
             time_interval=2,
-            # TODO: Define set position mode linked limits
-            # linked_limits=[LinkedLimitWeightPair(CONSTANTS.GET_LIMIT_ID)],
         ),
     ]
     return rate_limits
