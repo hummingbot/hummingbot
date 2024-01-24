@@ -2,7 +2,7 @@ from typing import List
 
 from hummingbot.smart_components.strategy_frameworks.data_types import (
     BotAction,
-    CreateExecutorAction,
+    CreatePositionExecutorAction,
     ExecutorHandlerReport,
     StopExecutorAction,
     StoreExecutorAction,
@@ -58,12 +58,12 @@ class GenericExecutor(ExecutorHandlerBase):
         Execute the actions and return the status for each action.
         """
         for action in actions:
-            if isinstance(action, CreateExecutorAction):
-                self.create_executor(action.position_config, action.level_id)
+            if isinstance(action, CreatePositionExecutorAction):
+                self.create_position_executor(action.position_config, action.level_id)
             elif isinstance(action, StopExecutorAction):
-                self.stop_executor(action.executor_id)
+                self.stop_position_executor(action.executor_id)
             elif isinstance(action, StoreExecutorAction):
-                self.store_executor(action.executor_id)
+                self.store_position_executor(action.executor_id)
 
     def on_start(self):
         if self.controller.is_perpetual:
