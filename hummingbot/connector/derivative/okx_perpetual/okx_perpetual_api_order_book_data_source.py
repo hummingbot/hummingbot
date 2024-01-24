@@ -31,6 +31,8 @@ class OKXPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         domain: str = CONSTANTS.DEFAULT_DOMAIN
     ):
         super().__init__(trading_pairs)
+        self._mark_price_queue_key = "mark_price"
+        self._index_price_queue_key = "index_price"
         self._connector = connector
         self._api_factory = api_factory
         self._domain = domain
@@ -191,10 +193,36 @@ class OKXPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             }
             subscribe_instruments_request = WSJSONRequest(payload=instruments_payload)
 
+            mark_price_args = [
+                {
+                    "channel": CONSTANTS.WS_MARK_PRICE_CHANNEL,
+                    "instId": ex_trading_pair
+                } for ex_trading_pair in ex_trading_pairs
+            ]
+            mark_price_payload = {
+                "op": "subscribe",
+                "args": mark_price_args,
+            }
+            subscribe_mark_price_request = WSJSONRequest(payload=mark_price_payload)
+
+            index_price_args = [
+                {
+                    "channel": CONSTANTS.WS_INDEX_TICKERS_CHANNEL,
+                    "instId": ex_trading_pair
+                } for ex_trading_pair in ex_trading_pairs
+            ]
+            index_price_payload = {
+                "op": "subscribe",
+                "args": index_price_args,
+            }
+            subscribe_index_price_request = WSJSONRequest(payload=index_price_payload)
+
             # TODO: Add 3 rps Rate Limit / 480 prh Rate Limit?
             await ws.send(subscribe_trades_request)
             await ws.send(subscribe_orderbook_request)
             await ws.send(subscribe_instruments_request)
+            await ws.send(subscribe_mark_price_request)
+            await ws.send(subscribe_index_price_request)
             self.logger().info("Subscribed to public order book, trade and funding info channels...")
         except asyncio.CancelledError:
             raise
@@ -213,14 +241,18 @@ class OKXPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
         channel = ""
         if "success" not in event_message:
-            event_channel = event_message["topic"]
-            event_channel = ".".join(event_channel.split(".")[:-1])
+            event_channel = event_message["arg"]["channel"]
+            # event_channel = ".".join(event_channel.split(".")[:-1])
             if event_channel == CONSTANTS.WS_TRADES_CHANNEL:
                 channel = self._trade_messages_queue_key
             elif event_channel == CONSTANTS.WS_ORDER_BOOK_400_DEPTH_100_MS_EVENTS_CHANNEL:
                 channel = self._diff_messages_queue_key
             elif event_channel == CONSTANTS.WS_INSTRUMENTS_INFO_CHANNEL:
                 channel = self._funding_info_messages_queue_key
+            elif event_channel == CONSTANTS.WS_MARK_PRICE_CHANNEL:
+                channel = self._mark_price_queue_key
+            elif event_channel == CONSTANTS.WS_INDEX_TICKERS_CHANNEL:
+                channel = self._index_price_queue_key
         return channel
 
     # TODO: Check if diff message needs to update certain parts of the orderbook or just stream
@@ -351,3 +383,13 @@ class OKXPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _subscribe_channels(self, ws: WSAssistant):
         pass  # unused
+
+    def _get_messages_queue_keys(self) -> List[str]:
+        return [
+            self._snapshot_messages_queue_key,
+            self._diff_messages_queue_key,
+            self._trade_messages_queue_key,
+            self._funding_info_messages_queue_key,
+            self._mark_price_queue_key,
+            self._index_price_queue_key,
+        ]
