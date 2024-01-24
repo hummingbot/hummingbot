@@ -69,7 +69,10 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def authenticator(self) -> OKXPerpetualAuth:
-        return OKXPerpetualAuth(self.okx_perpetual_api_key, self.okx_perpetual_secret_key, self.okx_perpetual_passphrase)
+        return OKXPerpetualAuth(self.okx_perpetual_api_key,
+                                self.okx_perpetual_secret_key,
+                                self.okx_perpetual_passphrase,
+                                web_utils.get_current_server_time())
 
     @property
     def rate_limits_rules(self) -> List[RateLimit]:
@@ -830,6 +833,9 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
             msg = f"{formatted_ret_code} - {resp['ret_msg']}"
 
         return success, msg
+
+    def trading_pair_associated_to_exchange_symbol(self, symbol: str):
+        return symbol.rstrip("-SWAP")
 
     def exchange_symbol_associated_to_pair(self, trading_pair: str):
         return f"{trading_pair}-SWAP"
