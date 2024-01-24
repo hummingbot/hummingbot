@@ -41,15 +41,10 @@ class TestExecutorHandlerBase(IsolatedAsyncioWrapperTestCase):
         self.executor_handler.on_stop()
         self.mock_controller.stop.assert_called_once()
 
-    def test_get_csv_path(self):
-        path = self.executor_handler.get_csv_path()
-        self.assertEqual(path.suffix, ".csv")
-        self.assertIn("test_strategy", path.name)
-
     @patch("hummingbot.connector.markets_recorder.MarketsRecorder", new_callable=MagicMock)
     @patch("pandas.DataFrame.to_csv", new_callable=MagicMock)
     def test_store_executor_removes_executor(self, _, market_recorder_mock):
-        market_recorder_mock.store_executor = MagicMock()
+        market_recorder_mock.store_position_executor = MagicMock()
         mock_executor = MagicMock()
         mock_executor.to_json = MagicMock(return_value={"timestamp": 123445634,
                                                         "exchange": "binance_perpetual",
@@ -77,7 +72,7 @@ class TestExecutorHandlerBase(IsolatedAsyncioWrapperTestCase):
                                                         })
         mock_order_level = MagicMock()
         mock_order_level.level_id = "BUY_1"
-        self.executor_handler.store_executor(mock_executor, mock_order_level)
+        self.executor_handler.store_position_executor(mock_executor, mock_order_level)
         self.assertIsNone(self.executor_handler.level_executors[mock_order_level.level_id])
 
     @patch.object(ExecutorHandlerBase, "_sleep", new_callable=AsyncMock)
@@ -92,7 +87,7 @@ class TestExecutorHandlerBase(IsolatedAsyncioWrapperTestCase):
     def test_create_executor(self, mock_position_executor):
         mock_position_config = MagicMock()
         mock_order_level = MagicMock()
-        self.executor_handler.create_executor(mock_position_config, mock_order_level)
+        self.executor_handler.create_position_executor(mock_position_config, mock_order_level)
         mock_position_executor.assert_called_once_with(self.mock_strategy, mock_position_config, update_interval=1.0)
         self.assertIsNotNone(self.executor_handler.level_executors[mock_order_level.level_id])
 

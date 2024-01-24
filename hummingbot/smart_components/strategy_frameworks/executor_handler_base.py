@@ -1,17 +1,16 @@
 import asyncio
-import datetime
 import logging
-from pathlib import Path
 
 import pandas as pd
 
-from hummingbot import data_path
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
 from hummingbot.model.position_executors import PositionExecutors
+from hummingbot.smart_components.executors.dca_executor.data_types import DCAConfig
+from hummingbot.smart_components.executors.dca_executor.dca_executor import DCAExecutor
 from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.smart_components.strategy_frameworks.controller_base import ControllerBase
@@ -43,6 +42,7 @@ class ExecutorHandlerBase:
         self.executors_update_interval = executors_update_interval
         self.terminated = asyncio.Event()
         self.level_executors = {}
+        self.dca_executors = {}
         self.status = ExecutorHandlerStatus.NOT_STARTED
 
     def start(self):
@@ -66,16 +66,7 @@ class ExecutorHandlerBase:
         """Control task to be implemented by subclasses."""
         raise NotImplementedError
 
-    def get_csv_path(self) -> Path:
-        """
-        Get the CSV path for storing executor data.
-
-        :return: Path object for the CSV.
-        """
-        today = datetime.datetime.today()
-        return Path(data_path()) / f"{self.controller.get_csv_prefix()}_{today.day:02d}-{today.month:02d}-{today.year}.csv"
-
-    def store_executor(self, level_id: str = None):
+    def store_position_executor(self, level_id: str = None):
         """
         Store executor data to CSV.
 
@@ -90,7 +81,7 @@ class ExecutorHandlerBase:
             MarketsRecorder.get_instance().store_executor(executor_data)
             self.level_executors[level_id] = None
 
-    def create_executor(self, position_config: PositionConfig, level_id: str = None):
+    def create_position_executor(self, position_config: PositionConfig, level_id: str = None):
         """
         Create an executor.
 
@@ -103,13 +94,34 @@ class ExecutorHandlerBase:
         executor = PositionExecutor(self.strategy, position_config, update_interval=self.executors_update_interval)
         self.level_executors[level_id] = executor
 
-    def stop_executor(self, executor_id: str):
+    def stop_position_executor(self, executor_id: str):
         """
         Stop an executor.
 
         :param executor_id: The executor ID.
         """
         executor = self.level_executors[executor_id]
+        if executor:
+            executor.early_stop()
+
+    def create_dca_executor(self, dca_config: DCAConfig, level_id: str = None):
+        """
+        Create an executor.
+
+        :param position_config: The position configuration.
+        :param level_id: The order level id.
+        """
+        if level_id in self.dca_executors:
+            self.logger().warning(f"Executor for level {level_id} already exists.")
+            return
+        executor = DCAExecutor(self.strategy, dca_config, update_interval=self.executors_update_interval)
+        self.dca_executors[level_id] = executor
+
+    def stop_dca_executor(self, level_id: str):
+        """
+        Stop a DCA executor.
+        """
+        executor = self.dca_executors[level_id]
         if executor:
             executor.early_stop()
 
