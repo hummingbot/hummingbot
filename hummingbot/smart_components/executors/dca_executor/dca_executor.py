@@ -139,3 +139,21 @@ class DCAExecutor(SmartComponentBase):
         self.close_type = CloseType.EARLY_STOP
         for executor in self._active_executors:
             executor.early_stop()
+
+    def to_json(self):
+        """
+        Serializes the object to json
+        """
+        return {
+            "initial_price": self._dca_config.reference_price,
+            "timestamp": self._dca_config.timestamp,
+            "status": self.status,
+            "side": self._dca_config.side.name,
+            "close_type": self.close_type.name if self.close_type else None,
+            "close_timestamp": self.close_timestamp,
+            "active_executors": [executor.to_json() for executor in self._active_executors],
+            "amount": sum([executor.amount for executor in self._active_executors]),
+            "trailing_stop_activated": self._trailing_stop_activated,
+            "trailing_stop_pnl": self._trailing_stop_pnl,
+            "current_pnl": self._current_pnl,
+        }
