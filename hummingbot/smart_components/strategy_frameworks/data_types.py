@@ -7,6 +7,7 @@ from pydantic import BaseModel, validator
 
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
+from hummingbot.smart_components.executors.dca_executor.data_types import DCAConfig
 from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig
 
 
@@ -50,11 +51,12 @@ class OrderLevel(BaseModel):
 
 class ExecutorHandlerReport(BaseModel):
     status: ExecutorHandlerStatus
-    active_executors: pd.DataFrame
-    active_executors_info: Dict
-    closed_executors_info: Dict
+    active_position_executors: pd.DataFrame
+    active_position_executors_info: Dict
+    closed_position_executors_info: Dict
+    active_dca_executors: pd.DataFrame
 
-    @validator('active_executors', allow_reuse=True)
+    @validator('active_position_executors', 'active_dca_executors', allow_reuse=True)
     def validate_dataframe(cls, v):
         if not isinstance(v, pd.DataFrame):
             raise ValueError('active_executors must be a pandas DataFrame')
@@ -180,5 +182,86 @@ class StoreExecutorAction(BotAction):
         schema_extra = {
             "example": {
                 "executor_id": "executor_1"
+            }
+        }
+
+
+class CreateDCAExecutorAction(BotAction):
+    """
+    Action to create a DCA executor.
+    """
+    dca_config: DCAConfig
+    dca_id: str
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "dca_config": {
+                    "id": "dca_1",
+                    "timestamp": 0,
+                    "exchange": "binance",
+                    "trading_pair": "BTC-USDT",
+                    "side": "BUY",
+                    "initial_price": 0.0,
+                    "order_levels": [
+                        {
+                            "level": 1,
+                            "side": "BUY",
+                            "order_amount_usd": 100,
+                            "spread_factor": 0.0,
+                            "order_refresh_time": 60,
+                            "cooldown_time": 0,
+                            "triple_barrier_conf": {
+                                "time_limit": 240000,
+                                "open_order_type": "LIMIT",
+                                "take_profit_order_type": "MARKET",
+                                "stop_loss_order_type": "MARKET",
+                                "time_limit_order_type": "MARKET"
+                            }
+                        }
+                    ],
+                    "global_take_profit": 0.05,
+                    "global_stop_loss": 0.05,
+                    "global_trailing_stop": {
+                        "activation_price_delta": 0.025,
+                        "trailing_delta": 0.005
+                    },
+                    "time_limit": 240000,
+                    "activation_threshold": 0.01,
+                    "open_order_type": "LIMIT",
+                    "take_profit_order_type": "MARKET",
+                    "stop_loss_order_type": "MARKET",
+                    "time_limit_order_type": "MARKET",
+                    "leverage": 1
+                },
+                "dca_id": "BUY_1"
+            }
+        }
+
+
+class StopDCAExecutorAction(BotAction):
+    """
+    Action to stop a DCA executor.
+    """
+    dca_id: str
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "dca_id": "dca_1"
+            }
+        }
+
+
+class StoreDCAExecutorAction(BotAction):
+    """
+    Action to store a DCA executor.
+    """
+    dca_id: str
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "dca_id": "dca_1"
             }
         }

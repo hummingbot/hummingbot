@@ -104,26 +104,42 @@ class ExecutorHandlerBase:
         if executor:
             executor.early_stop()
 
-    def create_dca_executor(self, dca_config: DCAConfig, level_id: str = None):
+    def create_dca_executor(self, dca_config: DCAConfig, dca_id: str = None):
         """
         Create an executor.
 
         :param position_config: The position configuration.
         :param level_id: The order level id.
         """
-        if level_id in self.dca_executors:
-            self.logger().warning(f"Executor for level {level_id} already exists.")
+        if dca_id in self.dca_executors:
+            self.logger().warning(f"Executor for level {dca_id} already exists.")
             return
         executor = DCAExecutor(self.strategy, dca_config, update_interval=self.executors_update_interval)
-        self.dca_executors[level_id] = executor
+        self.dca_executors[dca_id] = executor
 
-    def stop_dca_executor(self, level_id: str):
+    def stop_dca_executor(self, dca_id: str):
         """
         Stop a DCA executor.
         """
-        executor = self.dca_executors[level_id]
+        executor = self.dca_executors[dca_id]
         if executor:
             executor.early_stop()
+
+    def store_dca_executor(self, dca_id: str):
+        """
+        Store executor data to CSV.
+
+        :param executor: The executor instance.
+        :param level_id: The order level id.
+        """
+        executor = self.dca_executors[dca_id]
+        if executor:
+            # TODO: store dca executor in database (create model, define variables to store, etc)
+            # executor_data = executor.to_json()
+            # executor_data["dca_id"] = dca_id
+            # executor_data["controller_name"] = self.controller.config.strategy_name
+            # MarketsRecorder.get_instance().store_executor(executor_data)
+            self.dca_executors[dca_id] = None
 
     async def control_loop(self):
         """Main control loop."""
@@ -180,6 +196,24 @@ class ExecutorHandlerBase:
             executors_df = pd.DataFrame(executors_info)
             executors_df.sort_values(by="entry_price", ascending=False, inplace=True)
             executors_df["spread_to_next_level"] = -1 * executors_df["entry_price"].pct_change(periods=1)
+            return executors_df
+        else:
+            return pd.DataFrame()
+
+    def get_active_dca_executors_df(self) -> pd.DataFrame:
+        """
+        Get active dca executors as a DataFrame.
+        """
+        executors_info = []
+        for dca_id, executor in self.dca_executors.items():
+            if executor:
+                executor_info = executor.to_json()
+                executor_info["dca_id"] = dca_id
+                executors_info.append(executor_info)
+        if len(executors_info) > 0:
+            executors_df = pd.DataFrame(executors_info)
+            executors_df.sort_values(by="reference_price", ascending=False, inplace=True)
+            executors_df["distance_to_next_dca"] = -1 * executors_df["reference_price"].pct_change(periods=1)
             return executors_df
         else:
             return pd.DataFrame()

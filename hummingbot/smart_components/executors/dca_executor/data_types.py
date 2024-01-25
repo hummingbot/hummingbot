@@ -14,7 +14,7 @@ class DCAConfig(BaseModel):
     exchange: str
     trading_pair: str
     side: TradeType
-    initial_price: Decimal
+    reference_price: Decimal
     order_levels: List[OrderLevel]
     global_take_profit: Optional[Decimal] = None
     global_stop_loss: Optional[Decimal] = None
