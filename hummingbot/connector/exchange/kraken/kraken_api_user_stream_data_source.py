@@ -18,12 +18,10 @@ class KrakenAPIUserStreamDataSource(UserStreamTrackerDataSource):
     _logger: Optional[HummingbotLogger] = None
 
     def __init__(self,
-                 auth: KrakenAuth,
                  connector: 'KrakenExchange',
                  api_factory: Optional[WebAssistantsFactory] = None):
 
         self._api_factory = api_factory
-        self._kraken_auth: KrakenAuth = auth
         self._connector = connector
         self._current_auth_token: Optional[str] = None
         super().__init__()
