@@ -46,7 +46,7 @@ class OrderLevelBuilder:
     def build_order_levels(self,
                            amounts: Union[Decimal, List[Decimal], Dict[str, Any]],
                            spreads: Union[Decimal, List[Decimal], Dict[str, Any]],
-                           triple_barrier_confs: Union[TripleBarrierConf, List[TripleBarrierConf]],
+                           triple_barrier_confs: Union[TripleBarrierConf, List[TripleBarrierConf]] = TripleBarrierConf(),
                            order_refresh_time: Union[int, List[int], Dict[str, Any]] = 60 * 5,
                            cooldown_time: Union[int, List[int], Dict[str, Any]] = 0,
                            sides: Optional[List[TradeType]] = None) -> List[OrderLevel]:
