@@ -22,6 +22,9 @@ from hummingbot.connector.test_support.network_mocking_assistant import NetworkM
 from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 
+BASE_ASSET = "COINALPHA"
+QUOTE_ASSET = "HBOT"
+
 
 class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
     # logging.Level required to receive logs from the data source logger
@@ -31,11 +34,11 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
     def setUpClass(cls) -> None:
         super().setUpClass()
         cls.ev_loop = asyncio.get_event_loop()
-        cls.base_asset = "COINALPHA"
-        cls.quote_asset = "HBOT"
-        cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
-        cls.ex_trading_pair = f"{cls.base_asset}-{cls.quote_asset}-SWAP"
-        cls.domain = "okx_perpetual_testnet"
+        cls.base_asset = BASE_ASSET
+        cls.quote_asset = QUOTE_ASSET
+        cls.trading_pair = f"{BASE_ASSET}-{QUOTE_ASSET}"
+        cls.ex_trading_pair = f"{BASE_ASSET}-{QUOTE_ASSET}-SWAP"
+        cls.domain = "okx_perpetual"
 
     def setUp(self) -> None:
         super().setUp()
@@ -99,22 +102,12 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
             "data": [
                 {
                     "asks": [
-                        [
-                            "41006.8",
-                            "0.60038921",
-                            "0",
-                            "1"
-                        ]
+                        ["41006.8", "0.60038921", "0", "1"]
                     ],
                     "bids": [
-                        [
-                            "41006.3",
-                            "0.30178218",
-                            "0",
-                            "2"
-                        ]
+                        ["41006.3", "0.30178218", "0", "2"]
                     ],
-                    "ts": "1629966436396"
+                    "ts": "1629966436396",
                 }
             ]
         }
