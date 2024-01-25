@@ -29,6 +29,8 @@ WSS_BUSINESS_URLS = {DEFAULT_DOMAIN: f"wss://ws.okx.com:8443/ws/{REST_API_VERSIO
 SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE = 25
 WS_PING_REQUEST = "ping"
 WS_PONG_RESPONSE = "pong"
+
+# API ORDER BOOK DATA SOURCE CHANNELS
 WS_TRADES_CHANNEL = "trades"
 WS_TRADES_ALL_CHANNEL = "trades-all"
 WS_MARK_PRICE_CHANNEL = "mark-price"
@@ -38,6 +40,11 @@ WS_ORDER_BOOK_400_DEPTH_100_MS_EVENTS_CHANNEL = "books"
 WS_ORDER_BOOK_5_DEPTH_100_MS_EVENTS_CHANNEL = "books5"
 WS_ORDER_BOOK_1_DEPTH_10_MS_EVENTS_CHANNEL = "bbo-tbt"
 WS_INSTRUMENTS_INFO_CHANNEL = "instruments"
+
+# USER STREAM DATA SOURCE CHANNELS
+WS_POSITIONS_CHANNEL = "positions"
+WS_ORDERS_CHANNEL = "orders"
+WS_ACCOUNT_CHANNEL = "account"
 # -------------------------------------------
 # WEB UTILS ENDPOINTS
 # The structure is REST_url = {method: GET/POST, endpoint: /api/v5/...} since for the same endpoint you can have
