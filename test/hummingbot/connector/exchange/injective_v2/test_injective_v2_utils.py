@@ -15,6 +15,7 @@ from hummingbot.connector.exchange.injective_v2.injective_v2_utils import (
     InjectiveCustomNetworkMode,
     InjectiveDelegatedAccountMode,
     InjectiveMainnetNetworkMode,
+    InjectiveSimulatedTransactionFeeCalculatorMode,
     InjectiveTestnetNetworkMode,
     InjectiveVaultAccountMode,
 )
@@ -93,6 +94,7 @@ class InjectiveConfigMapTests(TestCase):
             network=Network.testnet(node="sentry"),
             use_secure_connection=True,
             rate_limits=CONSTANTS.PUBLIC_NODE_RATE_LIMITS,
+            fee_calculator_mode=InjectiveSimulatedTransactionFeeCalculatorMode(),
         )
 
         self.assertEqual(InjectiveGranteeDataSource, type(data_source))
@@ -111,6 +113,7 @@ class InjectiveConfigMapTests(TestCase):
             network=Network.testnet(node="sentry"),
             use_secure_connection=True,
             rate_limits=CONSTANTS.PUBLIC_NODE_RATE_LIMITS,
+            fee_calculator_mode=InjectiveSimulatedTransactionFeeCalculatorMode(),
         )
 
         self.assertEqual(InjectiveVaultsDataSource, type(data_source))

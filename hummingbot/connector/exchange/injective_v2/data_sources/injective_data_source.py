@@ -722,6 +722,10 @@ class InjectiveDataSource(ABC):
     async def _updated_derivative_market_info_for_id(self, market_id: str) -> Dict[str, Any]:
         raise NotImplementedError
 
+    @abstractmethod
+    async def _configure_gas_fee_for_transaction(self, transaction: Transaction):
+        raise NotImplementedError
+
     def _place_order_results(
             self,
             orders_to_create: List[GatewayInFlightOrder],
@@ -981,25 +985,14 @@ class InjectiveDataSource(ABC):
         transaction.with_account_num(await self.trading_account_number())
         transaction.with_chain_id(self.injective_chain_id)
 
-        signed_transaction_data = self._sign_and_encode(transaction=transaction)
-
         async with self.throttler.execute_task(limit_id=CONSTANTS.SIMULATE_TRANSACTION_LIMIT_ID):
             try:
-                simulation_result = await self.query_executor.simulate_tx(tx_byte=signed_transaction_data)
+                await self._configure_gas_fee_for_transaction(transaction=transaction)
             except RuntimeError as simulation_ex:
                 if CONSTANTS.ACCOUNT_SEQUENCE_MISMATCH_ERROR in str(simulation_ex):
                     await self.initialize_trading_account()
                 raise
 
-        composer = await self.composer()
-        gas_limit = int(simulation_result["gasInfo"]["gasUsed"]) + CONSTANTS.EXTRA_TRANSACTION_GAS
-        fee = [composer.Coin(
-            amount=gas_limit * CONSTANTS.DEFAULT_GAS_PRICE,
-            denom=self.fee_denom,
-        )]
-
-        transaction.with_gas(gas_limit)
-        transaction.with_fee(fee)
         transaction.with_memo("")
         transaction.with_timeout_height(await self.timeout_height())
 

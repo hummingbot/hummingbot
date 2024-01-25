@@ -21,6 +21,7 @@ from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.injective_v2.injective_v2_exchange import InjectiveV2Exchange
 from hummingbot.connector.exchange.injective_v2.injective_v2_utils import (
     InjectiveConfigMap,
+    InjectiveMessageBasedTransactionFeeCalculatorMode,
     InjectiveTestnetNetworkMode,
     InjectiveVaultAccountMode,
 )
@@ -428,6 +429,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
         injective_config = InjectiveConfigMap(
             network=network_config,
             account_type=account_config,
+            fee_calculator=InjectiveMessageBasedTransactionFeeCalculatorMode(),
         )
 
         exchange = InjectiveV2Exchange(

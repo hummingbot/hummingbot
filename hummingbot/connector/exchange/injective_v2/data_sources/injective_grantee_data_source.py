@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, Dict, List, Mapping, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional
 
 from google.protobuf import any_pb2
 from pyinjective import Transaction
@@ -26,6 +26,9 @@ from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate
 from hummingbot.core.pubsub import PubSub
 from hummingbot.logger import HummingbotLogger
 
+if TYPE_CHECKING:
+    from hummingbot.connector.exchange.injective_v2.injective_v2_utils import InjectiveFeeCalculatorMode
+
 
 class InjectiveGranteeDataSource(InjectiveDataSource):
     _logger: Optional[HummingbotLogger] = None
@@ -38,7 +41,9 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
             granter_subaccount_index: int,
             network: Network,
             rate_limits: List[RateLimit],
-            use_secure_connection: bool = True):
+            fee_calculator_mode: "InjectiveFeeCalculatorMode",
+            use_secure_connection: bool = True,
+    ):
         self._network = network
         self._client = AsyncClient(
             network=self._network,
@@ -46,6 +51,8 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
         )
         self._composer = None
         self._query_executor = PythonSDKInjectiveQueryExecutor(sdk_client=self._client)
+        self._fee_calculator_mode = fee_calculator_mode
+        self._fee_calculator = None
 
         self._private_key = None
         self._public_key = None
@@ -513,3 +520,16 @@ class InjectiveGranteeDataSource(InjectiveDataSource):
     async def _process_transaction_update(self, transaction_event: Dict[str, Any]):
         self._last_received_message_timestamp = self._time()
         await super()._process_transaction_update(transaction_event=transaction_event)
+
+    async def _configure_gas_fee_for_transaction(self, transaction: Transaction):
+        if self._fee_calculator is None:
+            self._fee_calculator = self._fee_calculator_mode.create_calculator(
+                client=self._client,
+                composer=await self.composer(),
+            )
+
+        await self._fee_calculator.configure_gas_fee_for_transaction(
+            transaction=transaction,
+            private_key=self._private_key,
+            public_key=self._public_key,
+        )

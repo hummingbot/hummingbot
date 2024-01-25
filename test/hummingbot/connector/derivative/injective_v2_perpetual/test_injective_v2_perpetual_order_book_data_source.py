@@ -24,6 +24,7 @@ from hummingbot.connector.derivative.injective_v2_perpetual.injective_v2_perpetu
 from hummingbot.connector.exchange.injective_v2.injective_v2_utils import (
     InjectiveConfigMap,
     InjectiveDelegatedAccountMode,
+    InjectiveMessageBasedTransactionFeeCalculatorMode,
     InjectiveTestnetNetworkMode,
 )
 from hummingbot.core.data_type.common import TradeType
@@ -69,6 +70,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         injective_config = InjectiveConfigMap(
             network=network_config,
             account_type=account_config,
+            fee_calculator=InjectiveMessageBasedTransactionFeeCalculatorMode(),
         )
 
         self.connector = InjectiveV2PerpetualDerivative(

@@ -25,6 +25,7 @@ from hummingbot.connector.derivative.injective_v2_perpetual.injective_v2_perpetu
 from hummingbot.connector.exchange.injective_v2.injective_v2_utils import (
     InjectiveConfigMap,
     InjectiveDelegatedAccountMode,
+    InjectiveMessageBasedTransactionFeeCalculatorMode,
     InjectiveTestnetNetworkMode,
 )
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayPerpetualInFlightOrder
@@ -538,6 +539,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         injective_config = InjectiveConfigMap(
             network=network_config,
             account_type=account_config,
+            fee_calculator=InjectiveMessageBasedTransactionFeeCalculatorMode(),
         )
 
         exchange = InjectiveV2PerpetualDerivative(
@@ -1547,6 +1549,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         injective_config = InjectiveConfigMap(
             network=network_config,
             account_type=account_config,
+            fee_calculator=InjectiveMessageBasedTransactionFeeCalculatorMode(),
         )
 
         exchange_with_non_default_subaccount = InjectiveV2PerpetualDerivative(
