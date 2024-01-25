@@ -7,9 +7,11 @@ from pydantic.class_validators import validator
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.connector.exchange.injective_v2.injective_v2_utils import (
     ACCOUNT_MODES,
+    FEE_CALCULATOR_MODES,
     NETWORK_MODES,
     InjectiveMainnetNetworkMode,
     InjectiveReadOnlyAccountMode,
+    InjectiveSimulatedTransactionFeeCalculatorMode,
 )
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
 
@@ -43,6 +45,13 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
             prompt_on_new=True,
         ),
     )
+    fee_calculator: Union[tuple(FEE_CALCULATOR_MODES.values())] = Field(
+        default=InjectiveSimulatedTransactionFeeCalculatorMode(),
+        client_data=ClientFieldData(
+            prompt=lambda cm: f"Select the fee calculator ({'/'.join(list(FEE_CALCULATOR_MODES.keys()))})",
+            prompt_on_new=True,
+        ),
+    )
 
     class Config:
         title = "injective_v2_perpetual"
@@ -71,11 +80,24 @@ class InjectiveConfigMap(BaseConnectorConfigMap):
             sub_model = ACCOUNT_MODES[v].construct()
         return sub_model
 
+    @validator("fee_calculator", pre=True)
+    def validate_fee_calculator(cls, v: Union[(str, Dict) + tuple(FEE_CALCULATOR_MODES.values())]):
+        if isinstance(v, tuple(FEE_CALCULATOR_MODES.values()) + (Dict,)):
+            sub_model = v
+        elif v not in FEE_CALCULATOR_MODES:
+            raise ValueError(
+                f"Invalid fee calculator, please choose a value from {list(FEE_CALCULATOR_MODES.keys())}."
+            )
+        else:
+            sub_model = FEE_CALCULATOR_MODES[v].construct()
+        return sub_model
+
     def create_data_source(self):
         return self.account_type.create_data_source(
             network=self.network.network(),
             use_secure_connection=self.network.use_secure_connection(),
             rate_limits=self.network.rate_limits(),
+            fee_calculator_mode=self.fee_calculator,
         )
 
 

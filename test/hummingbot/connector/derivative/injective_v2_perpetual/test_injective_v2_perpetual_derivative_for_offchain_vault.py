@@ -23,6 +23,7 @@ from hummingbot.connector.derivative.injective_v2_perpetual.injective_v2_perpetu
 )
 from hummingbot.connector.derivative.injective_v2_perpetual.injective_v2_perpetual_utils import InjectiveConfigMap
 from hummingbot.connector.exchange.injective_v2.injective_v2_utils import (
+    InjectiveMessageBasedTransactionFeeCalculatorMode,
     InjectiveTestnetNetworkMode,
     InjectiveVaultAccountMode,
 )
@@ -525,6 +526,7 @@ class InjectiveV2PerpetualDerivativeForOffChainVaultTests(AbstractPerpetualDeriv
         injective_config = InjectiveConfigMap(
             network=network_config,
             account_type=account_config,
+            fee_calculator=InjectiveMessageBasedTransactionFeeCalculatorMode(),
         )
 
         exchange = InjectiveV2PerpetualDerivative(

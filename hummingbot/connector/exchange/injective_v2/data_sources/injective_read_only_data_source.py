@@ -337,3 +337,6 @@ class InjectiveReadOnlyDataSource(InjectiveDataSource):
     async def _process_transaction_update(self, transaction_event: Dict[str, Any]):
         self._last_received_message_timestamp = self._time()
         await super()._process_transaction_update(transaction_event=transaction_event)
+
+    async def _configure_gas_fee_for_transaction(self, transaction: Transaction):
+        raise NotImplementedError
