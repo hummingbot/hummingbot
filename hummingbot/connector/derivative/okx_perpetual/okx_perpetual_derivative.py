@@ -765,7 +765,7 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
         params = {"instType": "SWAP"}
 
         resp_json = await self._api_get(
-            path_url=CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT,
+            path_url=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION[CONSTANTS.ENDPOINT],
             params=params,
         )
 
