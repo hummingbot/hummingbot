@@ -12,6 +12,7 @@ class MarketMakingControllerConfigBase(ControllerConfigBase):
     exchange: str
     trading_pair: str
     leverage: int = 10
+    order_levels: List[OrderLevel]
     position_mode: PositionMode = PositionMode.HEDGE
     global_trailing_stop_config: Optional[Dict[TradeType, TrailingStop]] = None
 
