@@ -60,7 +60,7 @@ class OKXPerpetualCandles(CandlesBase):
         return NetworkStatus.CONNECTED
 
     def get_exchange_trading_pair(self, trading_pair):
-        return trading_pair
+        return f"{trading_pair}-SWAP"
 
     async def fetch_candles(self,
                             start_time: Optional[int] = None,
@@ -76,7 +76,7 @@ class OKXPerpetualCandles(CandlesBase):
                                                        throttler_limit_id=CONSTANTS.CANDLES_ENDPOINT,
                                                        params=params)
 
-        arr = [[row[0], row[1], row[2], row[3], row[4], row[6], row[7], 0., 0., 0.] for row in candles["data"]][::-1]
+        arr = [[row[0], row[1], row[2], row[3], row[4], row[6], row[7], 0., 0., 0.] for row in candles["data"]]
         return np.array(arr).astype(float)
 
     async def fill_historical_candles(self):

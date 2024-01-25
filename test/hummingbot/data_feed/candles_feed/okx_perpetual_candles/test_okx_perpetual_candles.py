@@ -23,7 +23,7 @@ class TestOKXPerpetualCandles(unittest.TestCase):
         cls.quote_asset = "USDT"
         cls.interval = "1h"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
-        cls.ex_trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
+        cls.ex_trading_pair = f"{cls.base_asset}-{cls.quote_asset}-SWAP"
 
     def setUp(self) -> None:
         super().setUp()
@@ -160,7 +160,7 @@ class TestOKXPerpetualCandles(unittest.TestCase):
             "event": "subscribe",
             "arg": {
                 "channel": "candle1H",
-                "instId": "BTC-USDT"
+                "instId": "BTC-USDT-SWAP"
             },
             "connId": "a4d3ae55"
         }
