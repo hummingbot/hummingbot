@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 from bidict import bidict
 
 from hummingbot.connector.constants import s_decimal_NaN
-from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS, kraken_utils, kraken_web_utils as web_utils
+from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS, kraken_utils, \
+    kraken_web_utils as web_utils
 from hummingbot.connector.exchange.kraken.kraken_utils import (
     build_api_factory,
     build_rate_limits_by_tier,
@@ -81,6 +82,7 @@ class KrakenExchange(ExchangePyBase):
     @property
     def name(self) -> str:
         return "kraken"
+
     # todo
     # @property
     # def rate_limits_rules(self):
@@ -113,6 +115,7 @@ class KrakenExchange(ExchangePyBase):
     @property
     def trading_pairs(self):
         return self._trading_pairs
+
     # todo
     @property
     def is_cancel_request_in_exchange_synchronous(self) -> bool:
@@ -138,6 +141,7 @@ class KrakenExchange(ExchangePyBase):
             )
         throttler = AsyncThrottler(build_rate_limits_by_tier(api_tier))
         return throttler
+
     # todo
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         error_description = str(request_exception)
@@ -172,7 +176,6 @@ class KrakenExchange(ExchangePyBase):
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
         return KrakenAPIUserStreamDataSource(
-            auth=self._auth,
             connector=self,
             api_factory=self._web_assistants_factory,
         )
@@ -187,6 +190,37 @@ class KrakenExchange(ExchangePyBase):
                  is_maker: Optional[bool] = None) -> TradeFeeBase:
         is_maker = order_type is OrderType.LIMIT_MAKER
         return DeductedFromReturnsTradeFee(percent=self.estimate_fee_pct(is_maker))
+
+    async def place_order(self,
+                          userref: int,
+                          trading_pair: str,
+                          amount: Decimal,
+                          order_type: OrderType,
+                          is_buy: bool,
+                          price: Optional[Decimal] = s_decimal_NaN):
+
+        trading_pair = convert_to_exchange_trading_pair(trading_pair)
+        data = {
+            "pair": trading_pair,
+            "type": "buy" if is_buy else "sell",
+            "ordertype": "market" if order_type is OrderType.MARKET else "limit",
+            "volume": str(amount),
+            "userref": userref,
+            "price": str(price)
+        }
+        if order_type is OrderType.LIMIT_MAKER:
+            data["oflags"] = "post"
+        order_result = await self._api_post(path_url=CONSTANTS.ADD_ORDER_PATH_URL,
+                                    data=data,
+                                    is_auth_required=True)
+
+        # todo
+        # o_order_result = order_result['response']["data"]["statuses"][0]
+        # if "error" in o_order_result:
+        #     raise IOError(f"Error submitting order {userref}: {o_order_result['error']}")
+        # o_data = o_order_result.get("resting") or o_order_result.get("filled")
+        o_id = order_result["txid"][0]
+        return (o_id, self.current_timestamp)
 
     async def _place_order(self,
                            order_id: str,
