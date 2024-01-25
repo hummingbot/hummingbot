@@ -87,11 +87,14 @@ class DirectionalTradingTrendFollower(ScriptStrategyBase):
 
         for trading_pair in config.trading_pairs.split(","):
             trend_follower_config = TrendFollowerV1Config(
-                exchange="binance_perpetual",
+                exchange=config.exchange,
                 trading_pair=trading_pair,
                 order_levels=order_levels,
                 candles_config=[
-                    CandlesConfig(connector="binance_perpetual", trading_pair=trading_pair, interval="3m", max_records=100),
+                    CandlesConfig(connector=config.candles_exchange,
+                                  trading_pair=trading_pair,
+                                  interval=config.candles_interval,
+                                  max_records=config.bb_length + 200),
                 ],
                 leverage=config.leverage,
                 sma_fast=config.sma_fast, sma_slow=config.sma_slow,
