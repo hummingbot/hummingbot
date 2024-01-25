@@ -16,6 +16,7 @@ from hummingbot.smart_components.strategy_frameworks.data_types import OrderLeve
 class DirectionalTradingControllerConfigBase(ControllerConfigBase):
     exchange: str = Field(default="binance_perpetual")
     trading_pair: str = Field(default="BTC-USDT")
+    order_levels: List[OrderLevel]
     leverage: int = Field(10, ge=1)
     position_mode: PositionMode = Field(PositionMode.HEDGE)
 
