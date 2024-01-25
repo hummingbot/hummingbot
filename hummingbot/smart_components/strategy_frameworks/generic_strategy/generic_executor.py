@@ -2,9 +2,12 @@ from typing import List
 
 from hummingbot.smart_components.strategy_frameworks.data_types import (
     BotAction,
+    CreateDCAExecutorAction,
     CreatePositionExecutorAction,
     ExecutorHandlerReport,
+    StopDCAExecutorAction,
     StopExecutorAction,
+    StoreDCAExecutorAction,
     StoreExecutorAction,
 )
 from hummingbot.smart_components.strategy_frameworks.executor_handler_base import ExecutorHandlerBase
@@ -47,9 +50,10 @@ class GenericExecutor(ExecutorHandlerBase):
         """
         executor_handler_report = ExecutorHandlerReport(
             status=self.status,
-            active_executors=self.get_active_executors_df(),
-            active_executors_info=self.active_executors_info(),
-            closed_executors_info=self.closed_executors_info()
+            active_position_executors=self.get_active_executors_df(),
+            active_position_executors_info=self.active_executors_info(),
+            closed_position_executors_info=self.closed_executors_info(),
+            active_dca_executors=self.get_active_dca_executors_df(),
         )
         return executor_handler_report
 
@@ -64,6 +68,14 @@ class GenericExecutor(ExecutorHandlerBase):
                 self.stop_position_executor(action.executor_id)
             elif isinstance(action, StoreExecutorAction):
                 self.store_position_executor(action.executor_id)
+            elif isinstance(action, CreateDCAExecutorAction):
+                self.create_dca_executor(action.dca_config, action.dca_id)
+            elif isinstance(action, StopDCAExecutorAction):
+                self.stop_dca_executor(action.dca_id)
+            elif isinstance(action, StoreDCAExecutorAction):
+                self.store_dca_executor(action.dca_id)
+            else:
+                raise ValueError(f"Unknown action type {type(action)}")
 
     def on_start(self):
         if self.controller.is_perpetual:
