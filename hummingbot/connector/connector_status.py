@@ -52,6 +52,7 @@ connector_status = {
     'mad_meerkat': 'bronze',
     'openocean': 'bronze',
     'quickswap': 'bronze',
+    'quipuswap': 'bronze',
     'pancakeswap': 'bronze',
     'pancakeswapLP': 'bronze',
     'pangolin': 'bronze',
