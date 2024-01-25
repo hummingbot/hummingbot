@@ -45,6 +45,24 @@ class OKXPerpetualAuth(AuthBase):
         ok_access_sign = base64.b64encode(signature).decode('utf-8')
         return ok_access_sign
 
+    def generate_signature_for_auth(self, request_path: str) -> str:
+        """
+        The OK-ACCESS-SIGN header is generated as follows:
+
+            - Create a prehash string of timestamp + method + requestPath + body (where + represents String
+            concatenation).
+            - Prepare the SecretKey.
+            - Sign the prehash string with the SecretKey using the HMAC SHA256.
+            - Encode the signature in the Base64 format.
+        """
+        timestamp = int(self._time_provider.time() * 1e3)
+        method = RESTMethod.GET
+        prehash_string = f"{timestamp}{method.value}{request_path}"
+        secret_key_bytes = bytes(self._api_secret, 'utf-8')
+        signature = hmac.new(secret_key_bytes, prehash_string.encode('utf-8'), hashlib.sha256).digest()
+        ok_access_sign = base64.b64encode(signature).decode('utf-8')
+        return ok_access_sign
+
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
         _access_sign = self.generate_signature_from_payload(method=request.method,
                                                             request_path=request.url,
@@ -58,6 +76,22 @@ class OKXPerpetualAuth(AuthBase):
                 "OK-ACCESS-SIGN": access_sign,
                 "OK-ACCESS-TIMESTAMP": self._time_provider.time(),
                 "OK-ACCESS-PASSPHRASE": self._passphrase}
+
+    def get_ws_auth_args(self, request_path) -> Dict[str, str]:
+        _access_sign = self.generate_signature_for_auth(request_path=request_path)
+        return [
+            {
+                "op": "login",
+                "args": [
+                    {
+                        "apiKey": self._api_key,
+                        "passphrase": self._passphrase,
+                        "timestamp": self._time_provider.time(),
+                        "sign": _access_sign
+                    }
+                ]
+            }
+        ]
 
     async def ws_authenticate(self, request: WSRequest) -> WSRequest:
         return request  # pass-through
