@@ -146,10 +146,10 @@ class PairsTrading(GenericController):
         """
         Filter the actions proposal based on the provided executor handler report.
         """
-        if executor_handler_report.active_executors.empty:
+        if executor_handler_report.active_position_executors.empty:
             return actions_proposal
         else:
-            executors_df = executor_handler_report.active_executors
+            executors_df = executor_handler_report.active_position_executors
 
             # Adjust the amount based on side
             executors_df['adjusted_amount'] = executors_df.apply(
