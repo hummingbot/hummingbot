@@ -884,10 +884,10 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
         rest_assistant = await self._web_assistants_factory.get_rest_assistant()
         if limit_id is None:
             limit_id = web_utils.get_rest_api_limit_id_for_endpoint(
+                method=method.value,
                 endpoint=path_url,
-                trading_pair=trading_pair,
             )
-        url = web_utils.get_rest_url_for_endpoint(endpoint=path_url, trading_pair=trading_pair, domain=self._domain)
+        url = web_utils.get_rest_url_for_endpoint(endpoint=path_url, domain=self._domain)
 
         resp = await rest_assistant.execute_request(
             url=url,
