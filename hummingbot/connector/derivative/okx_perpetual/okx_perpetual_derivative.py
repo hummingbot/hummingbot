@@ -698,22 +698,24 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
         """
         trading_rules = {}
         symbol_map = await self.trading_pair_symbol_map()
-        for instrument in instrument_info_dict["result"]:
+        for instrument in instrument_info_dict["data"]:
             try:
-                exchange_symbol = instrument["name"]
+                exchange_symbol = instrument["instId"]
                 if exchange_symbol in symbol_map:
-                    trading_pair = combine_to_hb_trading_pair(instrument['base_currency'], instrument['quote_currency'])
-                    is_linear = okx_utils.is_linear_perpetual(trading_pair)
-                    collateral_token = instrument["quote_currency"] if is_linear else instrument["base_currency"]
-                    trading_rules[trading_pair] = TradingRule(
-                        trading_pair=trading_pair,
-                        min_order_size=Decimal(str(instrument["lot_size_filter"]["min_trading_qty"])),
-                        max_order_size=Decimal(str(instrument["lot_size_filter"]["max_trading_qty"])),
-                        min_price_increment=Decimal(str(instrument["price_filter"]["tick_size"])),
-                        min_base_amount_increment=Decimal(str(instrument["lot_size_filter"]["qty_step"])),
-                        buy_order_collateral_token=collateral_token,
-                        sell_order_collateral_token=collateral_token,
-                    )
+                    trading_pair = combine_to_hb_trading_pair(instrument['settleCcy'], instrument['ctValCcy'])
+                    if instrument["ctType"] == "linear":
+                        collateral_token = instrument["quote_currency"]
+                        trading_rules[trading_pair] = TradingRule(
+                            trading_pair=trading_pair,
+                            min_order_size=Decimal(str(instrument["minSz"])),
+                            max_order_size=Decimal(str(min(instrument["maxLmtSz"], instrument["maxMktSz"]))),
+                            min_price_increment=Decimal(str(instrument["tickSz"])),
+                            min_base_amount_increment=Decimal(str(instrument["lotSz"])),
+                            buy_order_collateral_token=collateral_token,
+                            sell_order_collateral_token=collateral_token,
+                        )
+                    else:
+                        self._log_non_linear_trading_pair_warning()
             except Exception:
                 self.logger().exception(f"Error parsing the trading pair rule: {instrument}. Skipping...")
         return list(trading_rules.values())
@@ -721,9 +723,9 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
         for symbol_data in filter(okx_utils.is_exchange_information_valid, exchange_info["result"]):
-            exchange_symbol = symbol_data["name"]
-            base = symbol_data["base_currency"]
-            quote = symbol_data["quote_currency"]
+            exchange_symbol = symbol_data["instId"]
+            base = symbol_data["settleCcy"]
+            quote = symbol_data["ctValCcy"]
             trading_pair = combine_to_hb_trading_pair(base, quote)
             if trading_pair in mapping.inverse:
                 self._resolve_trading_pair_symbols_duplicate(mapping, exchange_symbol, base, quote)
@@ -737,7 +739,7 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
         If the expected BASEQUOTE combination matches one of the exchange symbols, it is the one taken, otherwise,
         the trading pair is removed from the map and an error is logged.
         """
-        expected_exchange_symbol = f"{base}{quote}"
+        expected_exchange_symbol = f"{base}-{quote}-SWAP"
         trading_pair = combine_to_hb_trading_pair(base, quote)
         current_exchange_symbol = mapping.inverse[trading_pair]
         if current_exchange_symbol == expected_exchange_symbol:
