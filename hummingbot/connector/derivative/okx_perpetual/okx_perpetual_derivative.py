@@ -92,15 +92,15 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def trading_rules_request_path(self) -> str:
-        return CONSTANTS.QUERY_SYMBOL_ENDPOINT
+        return CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.ENDPOINT]
 
     @property
     def trading_pairs_request_path(self) -> str:
-        return CONSTANTS.QUERY_SYMBOL_ENDPOINT
+        return CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.ENDPOINT]
 
     @property
     def check_network_request_path(self) -> str:
-        return CONSTANTS.SERVER_TIME_PATH_URL
+        return CONSTANTS.REST_SERVER_TIME[CONSTANTS.ENDPOINT]
 
     @property
     def trading_pairs(self):

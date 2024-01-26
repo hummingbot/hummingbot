@@ -47,7 +47,7 @@ def is_linear_perpetual(trading_pair: str) -> bool:
     Returns True if trading_pair is in USDT(Linear) Perpetual
     """
     _, quote_asset = split_hb_trading_pair(trading_pair)
-    return quote_asset == "USDT"
+    return quote_asset in ["USDT", "USDC"]
 
 
 def get_next_funding_timestamp(current_timestamp: float) -> float:
