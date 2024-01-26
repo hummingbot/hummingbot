@@ -36,15 +36,16 @@ class GenericExecutor(ExecutorHandlerBase):
         Override the control task to implement the dynamic behavior.
         """
         # Collect data for active executors
-        executor_handler_report: ExecutorHandlerReport = self.compute_metrics()
+        executor_handler_report: ExecutorHandlerReport = self.get_executor_handler_report()
 
         # Determine actions based on the collected data
-        actions = self.controller.determine_actions(executor_handler_report)
+        self.controller.update_executor_handler_report(executor_handler_report)
+        actions = self.controller.determine_actions()
 
         # Execute actions
         await self.execute_actions(actions)
 
-    def compute_metrics(self):
+    def get_executor_handler_report(self):
         """
         Compute information about executors.
         """
@@ -53,7 +54,7 @@ class GenericExecutor(ExecutorHandlerBase):
             active_position_executors=self.get_active_executors_df(),
             active_position_executors_info=self.active_executors_info(),
             closed_position_executors_info=self.closed_executors_info(),
-            active_dca_executors=self.get_active_dca_executors_df(),
+            dca_executors=self.get_dca_executors_df(),
         )
         return executor_handler_report
 

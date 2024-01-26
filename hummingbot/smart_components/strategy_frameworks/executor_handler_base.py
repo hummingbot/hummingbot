@@ -200,21 +200,21 @@ class ExecutorHandlerBase:
         else:
             return pd.DataFrame()
 
-    def get_active_dca_executors_df(self) -> pd.DataFrame:
+    def get_dca_executors_df(self) -> pd.DataFrame:
         """
         Get active dca executors as a DataFrame.
         """
-        executors_info = []
-        for dca_id, executor in self.dca_executors.items():
-            if executor:
-                executor_info = executor.to_json()
-                executor_info["dca_id"] = dca_id
-                executors_info.append(executor_info)
-        if len(executors_info) > 0:
-            executors_df = pd.DataFrame(executors_info)
-            executors_df.sort_values(by="reference_price", ascending=False, inplace=True)
-            executors_df["distance_to_next_dca"] = -1 * executors_df["reference_price"].pct_change(periods=1)
-            return executors_df
+        dca_executors_info = []
+        for dca_id, dca_executor in self.dca_executors.items():
+            if dca_executor:
+                dca_executor_info = dca_executor.to_json()
+                dca_executor_info["dca_id"] = dca_id
+                dca_executors_info.append(dca_executor_info)
+        if len(dca_executors_info) > 0:
+            dca_executors_df = pd.DataFrame(dca_executors_info)
+            dca_executors_df.sort_values(by="current_position_average_price", ascending=False, inplace=True)
+            dca_executors_df["distance_to_next_dca"] = -1 * dca_executors_df["current_position_average_price"].pct_change(periods=1)
+            return dca_executors_df
         else:
             return pd.DataFrame()
 
