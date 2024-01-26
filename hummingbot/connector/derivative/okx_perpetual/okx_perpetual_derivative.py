@@ -839,7 +839,7 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
     def trading_pair_associated_to_exchange_symbol(self, symbol: str):
         return symbol.rstrip("-SWAP")
 
-    def exchange_symbol_associated_to_pair(self, trading_pair: str):
+    async def exchange_symbol_associated_to_pair(self, trading_pair: str):
         return f"{trading_pair}-SWAP"
 
     async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
