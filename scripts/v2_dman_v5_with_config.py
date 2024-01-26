@@ -1,6 +1,6 @@
 import os
 from decimal import Decimal
-from typing import Dict
+from typing import Dict, Optional
 
 from pydantic import Field
 
@@ -36,15 +36,11 @@ class DManV5ScriptConfig(BaseClientModel):
     order_amount: Decimal = Field(10, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the base order amount in quote asset (e.g., 6 USDT):"))
     max_dca_per_side: int = Field(3, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the maximum number of DCA orders per side (e.g., 3):"))
     min_distance_between_dca: float = Field(0.03, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the minimum distance between DCA orders (e.g., 0.03):"))
-    amount_ratio_increase: Decimal = Field(1.5, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the ratio to increase the amount for each subsequent level (e.g., 1.5):"))
+    amount_ratio_increase: float = Field(1.5, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the ratio to increase the amount for each subsequent level (e.g., 1.5):"))
     n_levels: int = Field(5, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Specify the number of order levels (e.g., 5):"))
-    top_order_start_spread: Decimal = Field(0.0002, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "Set the spread for the top order (e.g., 0.0002 for 0.02%):"))
-    start_spread: Decimal = Field(0.03, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "Enter the starting spread for orders (e.g., 0.02 for 2%):"))
-    spread_ratio_increase: Decimal = Field(2.0, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "Define the ratio to increase the spread for each subsequent level (e.g., 2.0):"))
-
-    top_order_refresh_time: int = Field(60, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "Set the refresh time in seconds for the top order (e.g., 60 for 1 minute):"))
-    order_refresh_time: int = Field(60 * 60 * 12, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "Enter the refresh time in seconds for all other orders (e.g., 7200 for 2 hours):"))
-    cooldown_time: int = Field(60, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "Specify the cooldown time in seconds between order placements (e.g., 30):"))
+    top_order_start_spread: float = Field(0.0002, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "Set the spread for the top order (e.g., 0.0002 for 0.02%):"))
+    start_spread: float = Field(0.03, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "Enter the starting spread for orders (e.g., 0.02 for 2%):"))
+    spread_ratio_increase: float = Field(2.0, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "Define the ratio to increase the spread for each subsequent level (e.g., 2.0):"))
 
     # Triple barrier configuration
     global_stop_loss: Decimal = Field(0.5, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the stop loss percentage (e.g., 0.2 for 20%):"))
@@ -54,6 +50,7 @@ class DManV5ScriptConfig(BaseClientModel):
     # Global Trailing Stop configuration
     global_trailing_stop_activation_price_delta: Decimal = Field(0.025, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the activation price delta for the global trailing stop (e.g., 0.01 for 1%):"))
     global_trailing_stop_trailing_delta: Decimal = Field(0.005, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the trailing delta for the global trailing stop (e.g., 0.002 for 0.2%):"))
+    activation_threshold: Optional[Decimal] = Field(None, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "Set the activation threshold for the global trailing stop (e.g., 0.01 for 1%):"))
 
 
 class DManV5MultiplePairs(ScriptStrategyBase):
@@ -95,6 +92,7 @@ class DManV5MultiplePairs(ScriptStrategyBase):
                 global_stop_loss=config.global_stop_loss,
                 global_trailing_stop=TrailingStop(activation_price_delta=config.global_trailing_stop_activation_price_delta,
                                                   trailing_delta=config.global_trailing_stop_trailing_delta),
+                activation_threshold=config.activation_threshold,
                 time_limit=config.time_limit,
                 leverage=self.config.leverage,
             )
@@ -111,8 +109,8 @@ class DManV5MultiplePairs(ScriptStrategyBase):
         return "perpetual" in self.config.exchange
 
     def on_stop(self):
-        if self.is_perpetual:
-            self.close_open_positions()
+        for executor_handler in self.executor_handlers.values():
+            executor_handler.stop()
 
     def close_open_positions(self):
         # we are going to close all the open positions when the bot stops
