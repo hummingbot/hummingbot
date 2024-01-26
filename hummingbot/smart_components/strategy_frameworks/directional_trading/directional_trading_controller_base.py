@@ -9,8 +9,8 @@ from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.core.data_type.common import PositionMode, TradeType
 from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig, TrailingStop
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
+from hummingbot.smart_components.order_level_distributions.order_level_builder import OrderLevel
 from hummingbot.smart_components.strategy_frameworks.controller_base import ControllerBase, ControllerConfigBase
-from hummingbot.smart_components.strategy_frameworks.data_types import OrderLevel
 
 
 class DirectionalTradingControllerConfigBase(ControllerConfigBase):
