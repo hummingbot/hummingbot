@@ -57,7 +57,7 @@ class InjectiveSimulatedTransactionFeeCalculatorMode(InjectiveFeeCalculatorMode)
     name: str = Field(
         default="simulated_transaction_fee_calculator",
         const=True,
-        client_data=None,
+        client_data=ClientFieldData(),
     )
 
     class Config:
@@ -82,7 +82,7 @@ class InjectiveMessageBasedTransactionFeeCalculatorMode(InjectiveFeeCalculatorMo
     name: str = Field(
         default="message_based_transaction_fee_calculator",
         const=True,
-        client_data=None,
+        client_data=ClientFieldData(),
     )
 
     class Config:
