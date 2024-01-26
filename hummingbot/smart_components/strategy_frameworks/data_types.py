@@ -5,7 +5,7 @@ from typing import Dict, Optional
 import pandas as pd
 from pydantic import BaseModel, validator
 
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.common import OrderType
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
 from hummingbot.smart_components.executors.dca_executor.data_types import DCAConfig
 from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig
@@ -31,32 +31,14 @@ class TripleBarrierConf(BaseModel):
     time_limit_order_type: OrderType = OrderType.MARKET
 
 
-class OrderLevel(BaseModel):
-    level: int
-    side: TradeType
-    order_amount_usd: Decimal
-    spread_factor: Decimal = Decimal("0.0")
-    order_refresh_time: int = 60
-    cooldown_time: int = 0
-    triple_barrier_conf: TripleBarrierConf
-
-    @property
-    def level_id(self):
-        return f"{self.side.name}_{self.level}"
-
-    @validator("order_amount_usd", "spread_factor", pre=True, allow_reuse=True)
-    def float_to_decimal(cls, v):
-        return Decimal(v)
-
-
 class ExecutorHandlerReport(BaseModel):
     status: ExecutorHandlerStatus
     active_position_executors: pd.DataFrame
     active_position_executors_info: Dict
     closed_position_executors_info: Dict
-    active_dca_executors: pd.DataFrame
+    dca_executors: pd.DataFrame
 
-    @validator('active_position_executors', 'active_dca_executors', allow_reuse=True)
+    @validator('active_position_executors', 'dca_executors', allow_reuse=True)
     def validate_dataframe(cls, v):
         if not isinstance(v, pd.DataFrame):
             raise ValueError('active_executors must be a pandas DataFrame')
