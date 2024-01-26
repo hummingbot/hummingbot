@@ -34,7 +34,8 @@ class PositionExecutor(SmartComponentBase):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, strategy: ScriptStrategyBase, position_config: PositionConfig, update_interval: float = 1.0):
+    def __init__(self, strategy: ScriptStrategyBase, position_config: PositionConfig, update_interval: float = 1.0,
+                 max_retries: int = 3):
         if not (position_config.take_profit or position_config.stop_loss or position_config.time_limit):
             error = "At least one of take_profit, stop_loss or time_limit must be set"
             self.logger().error(error)
@@ -54,6 +55,8 @@ class PositionExecutor(SmartComponentBase):
         self._take_profit_order: TrackedOrder = TrackedOrder()
         self._trailing_stop_price = Decimal("0")
         self._trailing_stop_activated = False
+        self._max_retries = max_retries
+        self._current_retries = 0
         super().__init__(strategy=strategy, connectors=[position_config.exchange], update_interval=update_interval)
 
     @property
@@ -377,12 +380,19 @@ class PositionExecutor(SmartComponentBase):
                 self.executor_status = PositionExecutorStatus.ACTIVE_POSITION
 
     def process_order_failed_event(self, _, market, event: MarketOrderFailureEvent):
-        if self.open_order.order_id == event.order_id:
-            self.place_open_order()
-        elif self.close_order.order_id == event.order_id:
-            self.place_close_order(self.close_type)
-        elif self.take_profit_order.order_id == event.order_id:
-            self.take_profit_order.order_id = None
+        self._current_retries += 1
+        if self._current_retries <= self._max_retries:
+            self.logger().info(f"Retrying order, attempt {self._current_retries}")
+            if self.open_order.order_id == event.order_id:
+                self.place_open_order()
+            elif self.close_order.order_id == event.order_id:
+                self.place_close_order(self.close_type)
+            elif self.take_profit_order.order_id == event.order_id:
+                self.take_profit_order.order_id = None
+        else:
+            self.logger().info("Max retries reached, terminating position executor")
+            self.close_type = CloseType.FAILED
+            self.terminate_control_loop()
 
     def to_json(self):
         return {

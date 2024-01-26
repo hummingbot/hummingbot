@@ -1,4 +1,5 @@
 import logging
+import math
 from decimal import Decimal
 from typing import List, Optional
 
@@ -37,17 +38,54 @@ class DCAExecutor(SmartComponentBase):
 
         super().__init__(strategy=strategy, connectors=[dca_config.exchange], update_interval=update_interval)
 
+    @property
+    def active_executors(self) -> List[PositionExecutor]:
+        return self._active_executors
+
+    @property
+    def filled_amount(self) -> Decimal:
+        return sum([executor.filled_amount for executor in self.active_executors])
+
+    @property
+    def max_amount(self) -> Decimal:
+        return sum(self._dca_config.amounts_usd)
+
+    @property
+    def min_price(self) -> Decimal:
+        return min(self._dca_config.prices)
+
+    @property
+    def max_price(self) -> Decimal:
+        return max(self._dca_config.prices)
+
+    @property
+    def current_position_average_price(self) -> Decimal:
+        return sum([executor.entry_price * executor.filled_amount for executor in self._active_executors]) / \
+            self.filled_amount if self._active_executors and self.filled_amount > Decimal("0") else None
+
+    @property
+    def target_position_average_price(self) -> Decimal:
+        return sum([price * amount for price, amount in
+                    zip(self._dca_config.prices, self._dca_config.amounts_usd)]) / self.max_amount
+
     async def control_task(self):
         """
         This task is responsible for creating and closing position executors
         """
-        self.control_active_executors()
         if not self.close_type:
+            self.control_active_executors()
+            self.control_opening_process()
+        else:
+            self.control_shutdown_process()
+
+    def control_opening_process(self):
+        """
+        This method is responsible for controlling the opening process
+        """
+        if not any([executor.close_type is CloseType.FAILED for executor in self._active_executors]):
             next_executor: Optional[PositionConfig] = self._get_next_executor()
             if next_executor:
                 self._create_executor(next_executor)
-        else:
-            self.control_shutdown_process()
 
     def control_active_executors(self):
         """
@@ -56,7 +94,7 @@ class DCAExecutor(SmartComponentBase):
         net_pnl = sum([executor.net_pnl for executor in self._active_executors])
         total_amount = sum([executor.amount for executor in self._active_executors])
         current_pnl_pct = net_pnl / total_amount if total_amount else Decimal("0")
-        if current_pnl_pct < self._dca_config.global_stop_loss:
+        if math.isclose(self.max_amount, self.filled_amount) and current_pnl_pct < self._dca_config.global_stop_loss:
             self.close_type = CloseType.STOP_LOSS
             self.logger().info("Global Stop Loss Triggered!")
             for executor in self._active_executors:
@@ -70,6 +108,7 @@ class DCAExecutor(SmartComponentBase):
             self._trailing_stop_pnl = current_pnl_pct - self._dca_config.global_trailing_stop.trailing_delta
         elif self._trailing_stop_pnl:
             if current_pnl_pct < self._trailing_stop_pnl:
+                self.close_type = CloseType.TRAILING_STOP
                 self.logger().info("Global Trailing Stop Triggered!")
                 for executor in self._active_executors:
                     executor.early_stop()
@@ -82,16 +121,15 @@ class DCAExecutor(SmartComponentBase):
         """
         current_executor_level = len(self._active_executors)
         close_price = self.get_price(connector_name=self._dca_config.exchange, trading_pair=self._dca_config.trading_pair)
-        if current_executor_level < len(self._dca_config.order_levels):
-            next_executor_level = self._dca_config.order_levels[current_executor_level]
-            side_multiplier = -1 if next_executor_level.side == TradeType.BUY else 1
-            order_price = close_price * (1 + next_executor_level.spread_factor * side_multiplier)
+        if current_executor_level < len(self._dca_config.amounts_usd):
+            order_price = self._dca_config.prices[current_executor_level]
+            order_amount_usd = self._dca_config.amounts_usd[current_executor_level]
             if self._is_within_activation_threshold(order_price, close_price):
                 return PositionConfig(
                     timestamp=self._strategy.current_timestamp,
                     trading_pair=self._dca_config.trading_pair,
                     exchange=self._dca_config.exchange,
-                    amount=next_executor_level.order_amount_usd,
+                    amount=order_amount_usd,
                     time_limit=self._dca_config.time_limit,
                     entry_price=order_price,
                     open_order_type=self._dca_config.open_order_type,
@@ -105,9 +143,9 @@ class DCAExecutor(SmartComponentBase):
         activation_threshold = self._dca_config.activation_threshold
         if activation_threshold:
             if self._dca_config.side == TradeType.BUY:
-                return order_price < close_price * (1 - activation_threshold)
+                return order_price > close_price * (1 - activation_threshold)
             else:
-                return order_price > close_price * (1 + activation_threshold)
+                return order_price < close_price * (1 + activation_threshold)
         else:
             return True
 
@@ -145,14 +183,25 @@ class DCAExecutor(SmartComponentBase):
         Serializes the object to json
         """
         return {
-            "initial_price": self._dca_config.reference_price,
             "timestamp": self._dca_config.timestamp,
-            "status": self.status,
+            "exchange": self._dca_config.exchange,
+            "trading_pair": self._dca_config.trading_pair,
+            "status": self.status.name,
             "side": self._dca_config.side.name,
+            "leverage": self._dca_config.leverage,
             "close_type": self.close_type.name if self.close_type else None,
             "close_timestamp": self.close_timestamp,
-            "active_executors": [executor.to_json() for executor in self._active_executors],
-            "amount": sum([executor.amount for executor in self._active_executors]),
+            "active_executors": [executor.to_json() for executor in self.active_executors],
+            "filled_amount": self.filled_amount,
+            "max_amount": self.max_amount,
+            "min_price": self.min_price,
+            "max_price": self.max_price,
+            "current_position_average_price": self.current_position_average_price,
+            "target_position_average_price": self.target_position_average_price,
+            "global_stop_loss": self._dca_config.global_stop_loss,
+            "global_take_profit": self._dca_config.global_take_profit,
+            "global_trailing_stop_activation_price": self._dca_config.global_trailing_stop.activation_price_delta,
+            "global_trailing_stop_trailing_delta": self._dca_config.global_trailing_stop.trailing_delta,
             "trailing_stop_activated": self._trailing_stop_activated,
             "trailing_stop_pnl": self._trailing_stop_pnl,
             "current_pnl": self._current_pnl,

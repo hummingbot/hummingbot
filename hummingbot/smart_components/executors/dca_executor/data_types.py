@@ -5,7 +5,6 @@ from pydantic import BaseModel
 
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.smart_components.executors.position_executor.data_types import TrailingStop
-from hummingbot.smart_components.strategy_frameworks.data_types import OrderLevel
 
 
 class DCAConfig(BaseModel):
@@ -14,8 +13,8 @@ class DCAConfig(BaseModel):
     exchange: str
     trading_pair: str
     side: TradeType
-    reference_price: Decimal
-    order_levels: List[OrderLevel]
+    amounts_usd: List[Decimal]
+    prices: List[Decimal]
     global_take_profit: Optional[Decimal] = None
     global_stop_loss: Optional[Decimal] = None
     global_trailing_stop: Optional[TrailingStop] = None
