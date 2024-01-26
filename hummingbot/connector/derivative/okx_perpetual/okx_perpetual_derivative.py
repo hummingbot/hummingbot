@@ -127,15 +127,15 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
     def supported_position_modes(self) -> List[PositionMode]:
         if all(okx_utils.is_linear_perpetual(tp) for tp in self._trading_pairs):
             return [PositionMode.ONEWAY, PositionMode.HEDGE]
-        elif all(not okx_utils.is_linear_perpetual(tp) for tp in self._trading_pairs):
-            # As of ByBit API v2, we only support ONEWAY mode for non-linear perpetuals
-            return [PositionMode.ONEWAY]
         else:
-            self.logger().warning(
-                "Currently there is no support for both linear and non-linear markets concurrently."
-                " Please start another hummingbot instance."
-            )
+            self._log_non_linear_trading_pair_warning()
             return []
+
+    def _log_non_linear_trading_pair_warning(self):
+        self.logger().warning(
+            "Currently there is no support for both linear and non-linear markets concurrently."
+            " Please start another hummingbot instance."
+        )
 
     def get_buy_collateral_token(self, trading_pair: str) -> str:
         trading_rule: TradingRule = self._trading_rules[trading_pair]
