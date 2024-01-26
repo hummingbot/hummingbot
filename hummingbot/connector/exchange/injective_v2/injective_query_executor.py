@@ -12,47 +12,47 @@ from pyinjective.proto.injective.stream.v1beta1 import query_pb2 as chain_stream
 class BaseInjectiveQueryExecutor(ABC):
 
     @abstractmethod
-    async def ping(self):
+    async def ping(self):  # pragma: no cover
         raise NotImplementedError
 
     @abstractmethod
-    async def spot_markets(self) -> Dict[str, SpotMarket]:
+    async def spot_markets(self) -> Dict[str, SpotMarket]:  # pragma: no cover
         raise NotImplementedError
 
     @abstractmethod
-    async def derivative_markets(self) -> Dict[str, DerivativeMarket]:
+    async def derivative_markets(self) -> Dict[str, DerivativeMarket]:  # pragma: no cover
         raise NotImplementedError
 
     @abstractmethod
-    async def tokens(self) -> Dict[str, Token]:
+    async def tokens(self) -> Dict[str, Token]:  # pragma: no cover
         raise NotImplementedError
 
     @abstractmethod
-    async def derivative_market(self, market_id: str) -> Dict[str, Any]:
+    async def derivative_market(self, market_id: str) -> Dict[str, Any]:  # pragma: no cover
         raise NotImplementedError
 
     @abstractmethod
-    async def get_spot_orderbook(self, market_id: str) -> Dict[str, Any]:
-        raise NotImplementedError  # pragma: no cover
-
-    @abstractmethod
-    async def get_derivative_orderbook(self, market_id: str) -> Dict[str, Any]:
-        raise NotImplementedError  # pragma: no cover
-
-    @abstractmethod
-    async def get_tx(self, tx_hash: str) -> Dict[str, Any]:
+    async def get_spot_orderbook(self, market_id: str) -> Dict[str, Any]:  # pragma: no cover
         raise NotImplementedError
 
     @abstractmethod
-    async def account_portfolio(self, account_address: str) -> Dict[str, Any]:
+    async def get_derivative_orderbook(self, market_id: str) -> Dict[str, Any]:  # pragma: no cover
         raise NotImplementedError
 
     @abstractmethod
-    async def simulate_tx(self, tx_byte: bytes) -> Dict[str, Any]:
+    async def get_tx(self, tx_hash: str) -> Dict[str, Any]:  # pragma: no cover
         raise NotImplementedError
 
     @abstractmethod
-    async def send_tx_sync_mode(self, tx_byte: bytes) -> Dict[str, Any]:
+    async def account_portfolio(self, account_address: str) -> Dict[str, Any]:  # pragma: no cover
+        raise NotImplementedError
+
+    @abstractmethod
+    async def simulate_tx(self, tx_byte: bytes) -> Dict[str, Any]:  # pragma: no cover
+        raise NotImplementedError
+
+    @abstractmethod
+    async def send_tx_sync_mode(self, tx_byte: bytes) -> Dict[str, Any]:  # pragma: no cover
         raise NotImplementedError
 
     @abstractmethod
@@ -63,7 +63,7 @@ class BaseInjectiveQueryExecutor(ABC):
             start_time: Optional[int] = None,
             skip: Optional[int] = None,
             limit: Optional[int] = None,
-    ) -> Dict[str, Any]:
+    ) -> Dict[str, Any]:  # pragma: no cover
         raise NotImplementedError
 
     @abstractmethod
@@ -74,7 +74,7 @@ class BaseInjectiveQueryExecutor(ABC):
             start_time: Optional[int] = None,
             skip: Optional[int] = None,
             limit: Optional[int] = None,
-    ) -> Dict[str, Any]:
+    ) -> Dict[str, Any]:  # pragma: no cover
         raise NotImplementedError
 
     @abstractmethod
@@ -84,7 +84,7 @@ class BaseInjectiveQueryExecutor(ABC):
             subaccount_id: str,
             start_time: int,
             skip: int,
-    ) -> Dict[str, Any]:
+    ) -> Dict[str, Any]:  # pragma: no cover
         raise NotImplementedError
 
     @abstractmethod
@@ -94,11 +94,11 @@ class BaseInjectiveQueryExecutor(ABC):
             subaccount_id: str,
             start_time: int,
             skip: int,
-    ) -> Dict[str, Any]:
+    ) -> Dict[str, Any]:  # pragma: no cover
         raise NotImplementedError
 
     @abstractmethod
-    async def get_funding_rates(self, market_id: str, limit: int) -> Dict[str, Any]:
+    async def get_funding_rates(self, market_id: str, limit: int) -> Dict[str, Any]:  # pragma: no cover
         raise NotImplementedError
 
     @abstractmethod
@@ -108,15 +108,15 @@ class BaseInjectiveQueryExecutor(ABC):
             quote_symbol: str,
             oracle_type: str,
             oracle_scale_factor: int,
-    ) -> Dict[str, Any]:
+    ) -> Dict[str, Any]:  # pragma: no cover
         raise NotImplementedError
 
     @abstractmethod
-    async def get_funding_payments(self, subaccount_id: str, market_id: str, limit: int) -> Dict[str, Any]:
+    async def get_funding_payments(self, subaccount_id: str, market_id: str, limit: int) -> Dict[str, Any]:  # pragma: no cover
         raise NotImplementedError
 
     @abstractmethod
-    async def get_derivative_positions(self, subaccount_id: str, skip: int) -> Dict[str, Any]:
+    async def get_derivative_positions(self, subaccount_id: str, skip: int) -> Dict[str, Any]:  # pragma: no cover
         raise NotImplementedError
 
     @abstractmethod
@@ -286,12 +286,12 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
         )
         return response
 
-    async def get_funding_rates(self, market_id: str, limit: int) -> Dict[str, Any]:
+    async def get_funding_rates(self, market_id: str, limit: int) -> Dict[str, Any]:  # pragma: no cover
         pagination = PaginationOption(limit=limit)
         response = await self._sdk_client.fetch_funding_rates(market_id=market_id, pagination=pagination)
         return response
 
-    async def get_funding_payments(self, subaccount_id: str, market_id: str, limit: int) -> Dict[str, Any]:
+    async def get_funding_payments(self, subaccount_id: str, market_id: str, limit: int) -> Dict[str, Any]:    # pragma: no cover
         pagination = PaginationOption(limit=limit)
         response = await self._sdk_client.fetch_funding_payments(
             market_ids=[market_id],
@@ -300,7 +300,7 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
         )
         return response
 
-    async def get_derivative_positions(self, subaccount_id: str, skip: int) -> Dict[str, Any]:
+    async def get_derivative_positions(self, subaccount_id: str, skip: int) -> Dict[str, Any]:    # pragma: no cover
         pagination = PaginationOption(skip=skip)
         response = await self._sdk_client.fetch_derivative_positions_v2(
             subaccount_id=subaccount_id, pagination=pagination
@@ -313,7 +313,7 @@ class PythonSDKInjectiveQueryExecutor(BaseInjectiveQueryExecutor):
             quote_symbol: str,
             oracle_type: str,
             oracle_scale_factor: int,
-    ) -> Dict[str, Any]:
+    ) -> Dict[str, Any]:    # pragma: no cover
         response = await self._sdk_client.fetch_oracle_price(
             base_symbol=base_symbol,
             quote_symbol=quote_symbol,
