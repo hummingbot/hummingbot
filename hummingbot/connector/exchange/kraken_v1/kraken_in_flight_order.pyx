@@ -42,6 +42,7 @@ cdef class KrakenInFlightOrder(InFlightOrderBase):
         self.trade_id_set = set()
         self.userref = userref
 
+    # todo
     @property
     def is_local(self) -> bool:
         return self.last_state in {"local"}

@@ -95,37 +95,28 @@ class KrakenInFlightOrder(InFlightOrder):
             trade_type: TradeType,
             amount: Decimal,
             creation_timestamp: float,
+            userref: int,
             price: Optional[Decimal] = None,
             exchange_order_id: Optional[str] = None,
             initial_state: OrderState = OrderState.PENDING_CREATE,
             leverage: int = 1,
             position: PositionAction = PositionAction.NIL,
+
     ) -> None:
-        self.client_order_id = client_order_id
-        self.creation_timestamp = creation_timestamp
-        self.trading_pair = trading_pair
-        self.order_type = order_type
-        self.trade_type = trade_type
-        self.price = price
-        self.amount = amount
-        self.exchange_order_id = exchange_order_id
-        self.current_state = initial_state
-        self.leverage = leverage
-        self.position = position
-
-        self.executed_amount_base = s_decimal_0
-        self.executed_amount_quote = s_decimal_0
-
-        self.last_update_timestamp: float = creation_timestamp
-
-        self.order_fills: Dict[str, TradeUpdate] = {}  # Dict[trade_id, TradeUpdate]
-
-        self.exchange_order_id_update_event = asyncio.Event()
-        if self.exchange_order_id:
-            self.exchange_order_id_update_event.set()
-        self.completely_filled_event = asyncio.Event()
-        self.processed_by_exchange_event = asyncio.Event()
-        self.check_processed_by_exchange_condition()
+        super().__init__(
+            client_order_id,
+            trading_pair,
+            order_type,
+            trade_type,
+            amount,
+            creation_timestamp,
+            price,
+            exchange_order_id,
+            initial_state,
+            leverage,
+            position,
+        )
+        self.userref = userref
 
     @property
     def attributes(self) -> Tuple[Any]:
@@ -141,76 +132,17 @@ class KrakenInFlightOrder(InFlightOrder):
                 self.current_state,
                 self.leverage,
                 self.position,
+                self.userref,
                 self.executed_amount_base,
                 self.executed_amount_quote,
                 self.creation_timestamp,
                 self.last_update_timestamp,
             )
         )
-
-    def __eq__(self, other: object) -> bool:
-        return type(self) is type(other) and self.attributes == other.attributes
-
+    # todo
     @property
-    def base_asset(self):
-        return self.trading_pair.split("-")[0]
-
-    @property
-    def quote_asset(self):
-        return self.trading_pair.split("-")[1]
-
-    @property
-    def is_pending_create(self) -> bool:
-        return self.current_state == OrderState.PENDING_CREATE
-
-    @property
-    def is_pending_cancel_confirmation(self) -> bool:
-        return self.current_state == OrderState.PENDING_CANCEL
-
-    @property
-    def is_open(self) -> bool:
-        return self.current_state in {
-            OrderState.PENDING_CREATE,
-            OrderState.OPEN,
-            OrderState.PARTIALLY_FILLED,
-            OrderState.PENDING_CANCEL}
-
-    @property
-    def is_done(self) -> bool:
-        return (
-            self.current_state in {OrderState.CANCELED, OrderState.FILLED, OrderState.FAILED}
-            or math.isclose(self.executed_amount_base, self.amount)
-            or self.executed_amount_base >= self.amount
-        )
-
-    @property
-    def is_filled(self) -> bool:
-        return (
-            self.current_state == OrderState.FILLED
-            or (self.amount != s_decimal_0
-                and (math.isclose(self.executed_amount_base, self.amount)
-                     or self.executed_amount_base >= self.amount)
-                )
-        )
-
-    @property
-    def is_failure(self) -> bool:
-        return self.current_state == OrderState.FAILED
-
-    @property
-    def is_cancelled(self) -> bool:
-        return self.current_state == OrderState.CANCELED
-
-    @property
-    def average_executed_price(self) -> Optional[Decimal]:
-        executed_value: Decimal = s_decimal_0
-        total_base_amount: Decimal = s_decimal_0
-        for order_fill in self.order_fills.values():
-            executed_value += order_fill.fill_price * order_fill.fill_base_amount
-            total_base_amount += order_fill.fill_base_amount
-        if executed_value == s_decimal_0 or total_base_amount == s_decimal_0:
-            return None
-        return executed_value / total_base_amount
+    def is_local(self) -> bool:
+        return self.last_state in {"local"}
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> "InFlightOrder":
@@ -219,7 +151,7 @@ class KrakenInFlightOrder(InFlightOrder):
         :param data: JSON data
         :return: Formatted InFlightOrder
         """
-        order = InFlightOrder(
+        order = KrakenInFlightOrder(
             client_order_id=data["client_order_id"],
             trading_pair=data["trading_pair"],
             order_type=getattr(OrderType, data["order_type"]),
@@ -230,7 +162,8 @@ class KrakenInFlightOrder(InFlightOrder):
             initial_state=OrderState(int(data["last_state"])),
             leverage=int(data["leverage"]),
             position=PositionAction(data["position"]),
-            creation_timestamp=data.get("creation_timestamp", -1)
+            creation_timestamp=data.get("creation_timestamp", -1),
+            userref=data.get("userref", 0)
         )
         order.executed_amount_base = Decimal(data["executed_amount_base"])
         order.executed_amount_quote = Decimal(data["executed_amount_quote"])
@@ -262,119 +195,8 @@ class KrakenInFlightOrder(InFlightOrder):
             "last_state": str(self.current_state.value),
             "leverage": str(self.leverage),
             "position": self.position.value,
+            "userref": self.userref,
             "creation_timestamp": self.creation_timestamp,
             "last_update_timestamp": self.last_update_timestamp,
             "order_fills": {key: fill.to_json() for key, fill in self.order_fills.items()}
         }
-
-    def to_limit_order(self) -> LimitOrder:
-        """
-        Returns this InFlightOrder as a LimitOrder object.
-        :return: LimitOrder object.
-        """
-        return LimitOrder(
-            client_order_id=self.client_order_id,
-            trading_pair=self.trading_pair,
-            is_buy=self.trade_type is TradeType.BUY,
-            base_currency=self.base_asset,
-            quote_currency=self.quote_asset,
-            price=self.price,
-            quantity=self.amount,
-            filled_quantity=self.executed_amount_base,
-            creation_timestamp=int(self.creation_timestamp * 1e6)
-        )
-
-    def update_exchange_order_id(self, exchange_order_id: str):
-        self.exchange_order_id = exchange_order_id
-        self.exchange_order_id_update_event.set()
-
-    async def get_exchange_order_id(self):
-        if self.exchange_order_id is None:
-            async with timeout(GET_EX_ORDER_ID_TIMEOUT):
-                await self.exchange_order_id_update_event.wait()
-        return self.exchange_order_id
-
-    def cumulative_fee_paid(self, token: str, exchange: Optional['ExchangeBase'] = None) -> Decimal:
-        """
-        Returns the total amount of fee paid for each traid update, expressed in the specified token
-        :param token: The token all partial fills' fees should be transformed to before summing them
-        :param exchange: The exchange being used. If specified the logic will try to use the order book to get the rate
-        :return: the cumulative fee paid for all partial fills in the specified token
-        """
-        total_fee_in_token = Decimal("0")
-        for trade_update in self.order_fills.values():
-            total_fee_in_token += trade_update.fee.fee_amount_in_token(
-                trading_pair=trade_update.trading_pair,
-                price=trade_update.fill_price,
-                order_amount=trade_update.fill_base_amount,
-                token=token,
-                exchange=exchange
-            )
-
-        return total_fee_in_token
-
-    def update_with_order_update(self, order_update: OrderUpdate) -> bool:
-        """
-        Updates the in flight order with an order update (from REST API or WS API)
-        return: True if the order gets updated otherwise False
-        """
-        if (order_update.client_order_id != self.client_order_id
-                and order_update.exchange_order_id != self.exchange_order_id):
-            return False
-
-        prev_data = (self.exchange_order_id, self.current_state)
-
-        if self.exchange_order_id is None and order_update.exchange_order_id is not None:
-            self.update_exchange_order_id(order_update.exchange_order_id)
-
-        self.current_state = order_update.new_state
-        self.check_processed_by_exchange_condition()
-
-        updated: bool = prev_data != (self.exchange_order_id, self.current_state)
-
-        if updated:
-            self.last_update_timestamp = order_update.update_timestamp
-
-        return updated
-
-    def update_with_trade_update(self, trade_update: TradeUpdate) -> bool:
-        """
-        Updates the in flight order with a trade update (from REST API or WS API)
-        :return: True if the order gets updated otherwise False
-        """
-        trade_id: str = trade_update.trade_id
-
-        if (trade_id in self.order_fills
-                or (self.client_order_id != trade_update.client_order_id
-                    and self.exchange_order_id != trade_update.exchange_order_id)):
-            return False
-
-        self.order_fills[trade_id] = trade_update
-
-        self.executed_amount_base += trade_update.fill_base_amount
-        self.executed_amount_quote += trade_update.fill_quote_amount
-
-        self.last_update_timestamp = trade_update.fill_timestamp
-        self.check_filled_condition()
-
-        return True
-
-    def check_filled_condition(self):
-        if (abs(self.amount) - self.executed_amount_base).quantize(Decimal('1e-8')) <= 0:
-            self.completely_filled_event.set()
-
-    async def wait_until_completely_filled(self):
-        await self.completely_filled_event.wait()
-
-    def check_processed_by_exchange_condition(self):
-        if self.current_state.value > OrderState.PENDING_CREATE.value:
-            self.processed_by_exchange_event.set()
-
-    async def wait_until_processed_by_exchange(self):
-        await self.processed_by_exchange_event.wait()
-
-    def build_order_created_message(self) -> str:
-        return (
-            f"Created {self.order_type.name.upper()} {self.trade_type.name.upper()} order "
-            f"{self.client_order_id} for {self.amount} {self.trading_pair}."
-        )
