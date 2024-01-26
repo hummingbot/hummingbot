@@ -22,7 +22,7 @@ from hummingbot.connector.exchange.kraken.kraken_api_user_stream_data_source imp
 from hummingbot.connector.exchange.kraken.kraken_auth import KrakenAuth
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import TradeFillOrderDetails, combine_to_hb_trading_pair
+from hummingbot.connector.utils import TradeFillOrderDetails, combine_to_hb_trading_pair, get_new_client_order_id
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
@@ -30,7 +30,8 @@ from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTr
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.event.events import MarketEvent, OrderFilledEvent
-from hummingbot.core.utils.async_utils import safe_gather
+from hummingbot.core.utils.async_utils import safe_gather, safe_ensure_future
+from hummingbot.core.utils.tracking_nonce import get_tracking_nonce
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
@@ -62,6 +63,8 @@ class KrakenExchange(ExchangePyBase):
         self._last_trades_poll_kraken_timestamp = 1.0
         self._kraken_api_tier = KrakenAPITier(kraken_api_tier.upper())
         self._throttler = self._build_async_throttler(api_tier=self._kraken_api_tier)
+        self._last_userref = 0
+
         super().__init__(client_config_map)
 
     @staticmethod
@@ -191,36 +194,82 @@ class KrakenExchange(ExchangePyBase):
         is_maker = order_type is OrderType.LIMIT_MAKER
         return DeductedFromReturnsTradeFee(percent=self.estimate_fee_pct(is_maker))
 
-    async def place_order(self,
-                          userref: int,
-                          trading_pair: str,
-                          amount: Decimal,
-                          order_type: OrderType,
-                          is_buy: bool,
-                          price: Optional[Decimal] = s_decimal_NaN):
+    def generate_userref(self):
+        self._last_userref += 1
+        return self._last_userref
 
-        trading_pair = convert_to_exchange_trading_pair(trading_pair)
-        data = {
-            "pair": trading_pair,
-            "type": "buy" if is_buy else "sell",
-            "ordertype": "market" if order_type is OrderType.MARKET else "limit",
-            "volume": str(amount),
-            "userref": userref,
-            "price": str(price)
-        }
-        if order_type is OrderType.LIMIT_MAKER:
-            data["oflags"] = "post"
-        order_result = await self._api_post(path_url=CONSTANTS.ADD_ORDER_PATH_URL,
-                                    data=data,
-                                    is_auth_required=True)
+    # todo 修改KrakenInFlightOrder
+    # def restore_tracking_states(self, saved_states: Dict[str, Any]):
+    #     in_flight_orders: Dict[str, KrakenInFlightOrder] = {}
+    #     for key, value in saved_states.items():
+    #         in_flight_orders[key] = KrakenInFlightOrder.from_json(value)
+    #         self._last_userref = max(int(value["userref"]), self._last_userref)
+    #     self._in_flight_orders.update(in_flight_orders)
+    # === Orders placing ===
 
-        # todo
-        # o_order_result = order_result['response']["data"]["statuses"][0]
-        # if "error" in o_order_result:
-        #     raise IOError(f"Error submitting order {userref}: {o_order_result['error']}")
-        # o_data = o_order_result.get("resting") or o_order_result.get("filled")
-        o_id = order_result["txid"][0]
-        return (o_id, self.current_timestamp)
+    def buy(self,
+            trading_pair: str,
+            amount: Decimal,
+            order_type=OrderType.LIMIT,
+            price: Decimal = s_decimal_NaN,
+            **kwargs) -> str:
+        """
+        Creates a promise to create a buy order using the parameters
+
+        :param trading_pair: the token pair to operate with
+        :param amount: the order amount
+        :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
+        :param price: the order price
+
+        :return: the id assigned by the connector to the order (the client id)
+        """
+        order_id = get_new_client_order_id(
+            is_buy=True,
+            trading_pair=trading_pair,
+            hbot_order_id_prefix=self.client_order_id_prefix,
+            max_id_len=self.client_order_id_max_length
+        )
+        userref =  self.generate_userref()
+        safe_ensure_future(self._create_order(
+            trade_type=TradeType.BUY,
+            order_id=order_id,
+            trading_pair=trading_pair,
+            amount=amount,
+            order_type=order_type,
+            price=price,
+            userref=userref))
+        return order_id
+
+    def sell(self,
+             trading_pair: str,
+             amount: Decimal,
+             order_type: OrderType = OrderType.LIMIT,
+             price: Decimal = s_decimal_NaN,
+             **kwargs) -> str:
+        """
+        Creates a promise to create a sell order using the parameters.
+        :param trading_pair: the token pair to operate with
+        :param amount: the order amount
+        :param order_type: the type of order to create (MARKET, LIMIT, LIMIT_MAKER)
+        :param price: the order price
+        :return: the id assigned by the connector to the order (the client id)
+        """
+        order_id = get_new_client_order_id(
+            is_buy=False,
+            trading_pair=trading_pair,
+            hbot_order_id_prefix=self.client_order_id_prefix,
+            max_id_len=self.client_order_id_max_length
+        )
+        userref =  self.generate_userref()
+        safe_ensure_future(self._create_order(
+            trade_type=TradeType.SELL,
+            order_id=order_id,
+            trading_pair=trading_pair,
+            amount=amount,
+            order_type=order_type,
+            price=price,
+            userref=userref))
+        return order_id
 
     async def _place_order(self,
                            order_id: str,
@@ -230,52 +279,118 @@ class KrakenExchange(ExchangePyBase):
                            order_type: OrderType,
                            price: Decimal,
                            **kwargs) -> Tuple[str, float]:
-        order_result = None
-        amount_str = f"{amount:f}"
-        type_str = KrakenExchange.kraken_order_type(order_type)
-        side_str = CONSTANTS.SIDE_BUY if trade_type is TradeType.BUY else CONSTANTS.SIDE_SELL
-        symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-        api_params = {"symbol": symbol,
-                      "side": side_str,
-                      "quantity": amount_str,
-                      # "quoteOrderQty": amount_str,
-                      "type": type_str,
-                      "newClientOrderId": order_id}
-        if order_type.is_limit_type():
-            price_str = f"{price:f}"
-            api_params["price"] = price_str
-        else:
-            if trade_type.name.lower() == 'buy':
-                if price.is_nan():
-                    price = self.get_price_for_volume(
-                        trading_pair,
-                        True,
-                        amount
-                    )
-                del api_params['quantity']
-                api_params.update({
-                    "quoteOrderQty": f"{price * amount:f}",
-                })
-        if order_type == OrderType.LIMIT:
-            api_params["timeInForce"] = CONSTANTS.TIME_IN_FORCE_GTC
+        userref = kwargs.get("userref", 0)
+        trading_pair = convert_to_exchange_trading_pair(trading_pair)
+        data = {
+            "pair": trading_pair,
+            "type": "buy" if trade_type is TradeType.BUY else "sell",
+            "ordertype": "market" if order_type is OrderType.MARKET else "limit",
+            "volume": str(amount),
+            "userref": userref,
+            "price": str(price)
+        }
+        if order_type is OrderType.LIMIT_MAKER:
+            data["oflags"] = "post"
+        order_result = await self._api_request_with_retry("post",
+                                                  CONSTANTS.ADD_ORDER_PATH_URL,
+                                                  data=data,
+                                                  is_auth_required=True)
 
-        try:
-            order_result = await self._api_post(
-                path_url=CONSTANTS.ORDER_PATH_URL,
-                data=api_params,
-                is_auth_required=True)
-            o_id = str(order_result["orderId"])
-            transact_time = order_result["transactTime"] * 1e-3
-        except IOError as e:
-            error_description = str(e)
-            is_server_overloaded = ("status is 503" in error_description
-                                    and "Unknown error, please check your request or try again later." in error_description)
-            if is_server_overloaded:
-                o_id = "UNKNOWN"
-                transact_time = self._time_synchronizer.time()
-            else:
+
+        # todo
+        # o_order_result = order_result['response']["data"]["statuses"][0]
+        # if "error" in o_order_result:
+        #     raise IOError(f"Error submitting order {userref}: {o_order_result['error']}")
+        # o_data = o_order_result.get("resting") or o_order_result.get("filled")
+        o_id = order_result["txid"][0]
+        return (o_id, self.current_timestamp)
+
+    # todo
+    async def _api_request_with_retry(self,
+                                      method: str,
+                                      endpoint: str,
+                                      params: Optional[Dict[str, Any]] = None,
+                                      data: Optional[Dict[str, Any]] = None,
+                                      is_auth_required: bool = False,
+                                      retry_interval = 2.0) -> Dict[str, Any]:
+        result = None
+        for retry_attempt in range(self.REQUEST_ATTEMPTS):
+            try:
+                result= await self._api_request(method, endpoint, params, data, is_auth_required)
+                break
+            except IOError as e:
+                if self.is_cloudflare_exception(e):
+                    if endpoint == CONSTANTS.ADD_ORDER_PATH_URL:
+                        self.logger().info(f"Retrying {endpoint}")
+                        # Order placement could have been successful despite the IOError, so check for the open order.
+                        response = self.get_open_orders_with_userref(data.get('userref'))
+                        if any(response.get("open").values()):
+                            return response
+                    self.logger().warning(
+                        f"Cloudflare error. Attempt {retry_attempt+1}/{self.REQUEST_ATTEMPTS}"
+                        f" API command {method}: {endpoint}"
+                    )
+                    await asyncio.sleep(retry_interval ** retry_attempt)
+                    continue
+                else:
+                    raise e
+        if result is None:
+            raise IOError(f"Error fetching data from {endpoint}.")
+        return result
+
+    # todo
+    async def _api_request(self,
+                           method: str,
+                           endpoint: str,
+                           params: Optional[Dict[str, Any]] = None,
+                           data: Optional[Dict[str, Any]] = None,
+                           is_auth_required: bool = False) -> Dict[str, Any]:
+        async with self._throttler.execute_task(endpoint):
+            url = f"{CONSTANTS.BASE_URL}{endpoint}"
+            headers = {}
+            data_dict = data if data is not None else {}
+
+            if is_auth_required:
+                auth_dict: Dict[str, Any] = self._kraken_auth.generate_auth_dict(endpoint, data=data)
+                headers.update(auth_dict["headers"])
+                data_dict = auth_dict["postDict"]
+
+            request = RESTRequest(
+                method=RESTMethod[method.upper()],
+                url=url,
+                headers=headers,
+                params=params,
+                data=data_dict
+            )
+            rest_assistant = await self._get_rest_assistant()
+            response = await rest_assistant.call(request=request, timeout=100)
+
+            if response.status != 200:
+                raise IOError(f"Error fetching data from {url}. HTTP status is {response.status}.")
+            try:
+                response_json = await response.json()
+            except Exception:
+                raise IOError(f"Error parsing data from {url}.")
+
+            try:
+                err = response_json["error"]
+                if "EOrder:Unknown order" in err or "EOrder:Invalid order" in err:
+                    return {"error": err}
+                elif "EAPI:Invalid nonce" in err:
+                    self.logger().error(f"Invalid nonce error from {url}. " +
+                                        "Please ensure your Kraken API key nonce window is at least 10, " +
+                                        "and if needed reset your API key.")
+                    raise IOError({"error": response_json})
+            except IOError:
                 raise
-        return o_id, transact_time
+            except Exception:
+                pass
+
+            data = response_json.get("result")
+            if data is None:
+                self.logger().error(f"Error received from {url}. Response is {response_json}.")
+                raise IOError({"error": response_json})
+            return data
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
