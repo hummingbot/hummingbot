@@ -3,9 +3,30 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Union
 
+from pydantic import BaseModel
+from pydantic.class_validators import validator
+
 from hummingbot.core.data_type.common import TradeType
-from hummingbot.smart_components.strategy_frameworks.data_types import OrderLevel, TripleBarrierConf
-from hummingbot.smart_components.utils.distributions import Distributions
+from hummingbot.smart_components.order_level_distributions.distributions import Distributions
+from hummingbot.smart_components.strategy_frameworks.data_types import TripleBarrierConf
+
+
+class OrderLevel(BaseModel):
+    level: int
+    side: TradeType
+    order_amount_usd: Decimal
+    spread_factor: Decimal = Decimal("0.0")
+    order_refresh_time: int = 60
+    cooldown_time: int = 0
+    triple_barrier_conf: TripleBarrierConf
+
+    @property
+    def level_id(self):
+        return f"{self.side.name}_{self.level}"
+
+    @validator("order_amount_usd", "spread_factor", pre=True, allow_reuse=True)
+    def float_to_decimal(cls, v):
+        return Decimal(v)
 
 
 class OrderLevelBuilder:
