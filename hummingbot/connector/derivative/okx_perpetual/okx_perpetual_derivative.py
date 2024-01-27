@@ -134,7 +134,7 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
     def _log_non_linear_trading_pair_warning(self):
         self.logger().warning(
             "Currently there is no support for both linear and non-linear markets concurrently."
-            " Please start another hummingbot instance."
+            " Please start another hummingbot instance with only linear pairs."
         )
 
     def get_buy_collateral_token(self, trading_pair: str) -> str:
