@@ -11,11 +11,11 @@ import pandas as pd
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
 
-import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_constants as CONSTANTS
-import hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_web_utils as web_utils
+import hummingbot.connector.derivative.okx_perpetual.okx_perpetual_constants as CONSTANTS
+import hummingbot.connector.derivative.okx_perpetual.okx_perpetual_web_utils as web_utils
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.derivative.bybit_perpetual.bybit_perpetual_derivative import BybitPerpetualDerivative
+from hummingbot.connector.derivative.okx_perpetual.okx_perpetual_derivative import OKXPerpetualDerivative
 from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.connector.test_support.perpetual_derivative_test import AbstractPerpetualDerivativeTests
 from hummingbot.connector.trading_rule import TradingRule
@@ -25,17 +25,19 @@ from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
 
+BASE_ASSET = "BTC"
+QUOTE_ASSET = "USDT"
 
-class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDerivativeTests):
+
+class OKXPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDerivativeTests):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
         cls.api_key = "someKey"
         cls.api_secret = "someSecret"
-        cls.quote_asset = "USDT"  # linear
-        cls.trading_pair = combine_to_hb_trading_pair(cls.base_asset, cls.quote_asset)
-        cls.non_linear_quote_asset = "USD"
-        cls.non_linear_trading_pair = combine_to_hb_trading_pair(cls.base_asset, cls.non_linear_quote_asset)
+        cls.base_asset = BASE_ASSET
+        cls.quote_asset = QUOTE_ASSET
+        cls.trading_pair = combine_to_hb_trading_pair(BASE_ASSET, QUOTE_ASSET)
 
     @property
     def all_symbols_url(self):
@@ -550,7 +552,7 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
 
     def create_exchange_instance(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
-        exchange = BybitPerpetualDerivative(
+        exchange = OKXPerpetualDerivative(
             client_config_map,
             self.api_key,
             self.api_secret,
@@ -1294,13 +1296,13 @@ class BybitPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDe
             )
         )
 
-    def test_time_synchronizer_related_reqeust_error_detection(self):
-        error_code_str = self.exchange._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_AUTH_TIMESTAMP_ERROR)
+    def test_time_synchronizer_related_request_error_detection(self):
+        error_code_str = self.exchange._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_TIMESTAMP_HEADER_INVALID)
         exception = IOError(f"{error_code_str} - Failed to cancel order for timestamp reason.")
         self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
-        error_code_str = self.exchange._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_ORDER_NOT_EXISTS)
-        exception = IOError(f"{error_code_str} - Failed to cancel order because it was not found.")
+        error_code_str = self.exchange._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_API_KEY_INVALID)
+        exception = IOError(f"{error_code_str} - Invalid OK-ACCESS-KEY.")
         self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
     @aioresponses()
