@@ -22,7 +22,6 @@ INTERVALS = bidict({
     "4h": "240",
     "1d": "1440",
     "1w": "10080",
-    "1M": "1m"
 })
 PUBLIC_ENDPOINT_LIMIT_ID = "PublicPoints"
 RATE_LIMITS = [
