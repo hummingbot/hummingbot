@@ -150,20 +150,6 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
         if self._domain == CONSTANTS.DEFAULT_DOMAIN and self.is_trading_required:
             self.set_position_mode(PositionMode.HEDGE)
 
-    def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
-        ts_missing_target_str = self._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_TIMESTAMP_HEADER_MISSING)
-        ts_invalid_target_str = self._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_TIMESTAMP_HEADER_INVALID)
-        param_error_target_str = (
-            f"{self._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_PARAMS_ERROR)} - invalid timestamp"
-        )
-        error_description = str(request_exception)
-        is_time_synchronizer_related = (
-                ts_missing_target_str in error_description
-                or ts_invalid_target_str in error_description
-                or param_error_target_str in error_description
-        )
-        return is_time_synchronizer_related
-
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
         # TODO: implement this method correctly for the connector
         # The default implementation was added when the functionality to detect not found orders was introduced in the
@@ -211,23 +197,28 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
         position_action: PositionAction = PositionAction.NIL,
         **kwargs,
     ) -> Tuple[str, float]:
-        position_idx = self._get_position_idx(trade_type, position_action)
+        if position_action == PositionAction.NIL:
+            raise NotImplementedError
+
+        open_long = trade_type == TradeType.BUY and position_action == PositionAction.OPEN
+        close_long = trade_type == TradeType.BUY and position_action == PositionAction.CLOSE
+        close_short = trade_type == TradeType.SELL and position_action == PositionAction.CLOSE
+
         data = {
-            "side": "Buy" if trade_type == TradeType.BUY else "Sell",
-            "symbol": await self.exchange_symbol_associated_to_pair(trading_pair),
-            "qty": float(amount),
-            "time_in_force": CONSTANTS.DEFAULT_TIME_IN_FORCE,
-            "close_on_trigger": position_action == PositionAction.CLOSE,
-            "order_link_id": order_id,
-            "reduce_only": position_action == PositionAction.CLOSE,
-            "position_idx": position_idx,
-            "order_type": CONSTANTS.ORDER_TYPE_MAP[order_type],
+            "instId": await self.exchange_symbol_associated_to_pair(trading_pair),
+            "tdMode": "cross",
+            "clOrdId": order_id,
+            "side": "buy" if open_long or close_short else "sell",
+            "posSide": "long" if open_long or close_long else "short",
+            "ordType": CONSTANTS.ORDER_TYPE_MAP[order_type],
+            "sz": float(amount),
+            "reduceOnly": position_action == PositionAction.CLOSE,
         }
         if order_type.is_limit_type():
-            data["price"] = float(price)
+            data["px"] = float(price)
 
         resp = await self._api_post(
-            path_url=CONSTANTS.PLACE_ACTIVE_ORDER_PATH_URL,
+            path_url=CONSTANTS.REST_PLACE_ACTIVE_ORDER[CONSTANTS.ENDPOINT],
             data=data,
             is_auth_required=True,
             trading_pair=trading_pair,
@@ -235,31 +226,11 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
             **kwargs,
         )
 
-        if resp["ret_code"] != CONSTANTS.RET_CODE_OK:
-            formatted_ret_code = self._format_ret_code_for_print(resp['ret_code'])
-            raise IOError(f"Error submitting order {order_id}: {formatted_ret_code} - {resp['ret_msg']}")
+        if resp["code"] != CONSTANTS.RET_CODE_OK:
+            formatted_ret_code = self._format_ret_code_for_print(resp['code'])
+            raise IOError(f"Error submitting order {order_id}: {formatted_ret_code} - {resp['msg']}")
 
-        return str(resp["result"]["order_id"]), self.current_timestamp
-
-    def _get_position_idx(self, trade_type: TradeType, position_action: PositionAction) -> int:
-        if position_action == PositionAction.NIL:
-            raise NotImplementedError
-        if self.position_mode == PositionMode.ONEWAY:
-            position_idx = CONSTANTS.POSITION_IDX_ONEWAY
-        elif trade_type == TradeType.BUY:
-            if position_action == PositionAction.CLOSE:
-                position_idx = CONSTANTS.POSITION_IDX_HEDGE_SELL
-            else:  # position_action == PositionAction.Open
-                position_idx = CONSTANTS.POSITION_IDX_HEDGE_BUY
-        elif trade_type == TradeType.SELL:
-            if position_action == PositionAction.CLOSE:
-                position_idx = CONSTANTS.POSITION_IDX_HEDGE_BUY
-            else:  # position_action == PositionAction.Open
-                position_idx = CONSTANTS.POSITION_IDX_HEDGE_SELL
-        else:  # trade_type == TradeType.RANGE
-            raise NotImplementedError
-
-        return position_idx
+        return str(resp["data"][0]["ordId"]), self.current_timestamp
 
     def _get_fee(self,
                  base_currency: str,
