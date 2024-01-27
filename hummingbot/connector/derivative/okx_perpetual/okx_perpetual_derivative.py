@@ -313,13 +313,15 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
             body_params = {
                 "symbol": exchange_symbol,
                 "limit": 200,
+                "instId": exchange_symbol,
+                "limit": 100,
             }
             if self._last_trade_history_timestamp:
-                body_params["start_time"] = int(int(self._last_trade_history_timestamp) * 1e3)
+                body_params["begin"] = int(int(self._last_trade_history_timestamp) * 1e3)
 
             trade_history_tasks.append(
                 asyncio.create_task(self._api_get(
-                    path_url=CONSTANTS.USER_TRADE_RECORDS_PATH_URL,
+                    path_url=CONSTANTS.REST_USER_TRADE_RECORDS[CONSTANTS.ENDPOINT],
                     params=body_params,
                     is_auth_required=True,
                     trading_pair=trading_pair,
@@ -332,12 +334,11 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
         parsed_history_resps: List[Dict[str, Any]] = []
         for trading_pair, resp in zip(self._trading_pairs, raw_responses):
             if not isinstance(resp, Exception):
-                self._last_trade_history_timestamp = float(resp["time_now"])
-                trade_entries = (resp["result"]["trade_list"]
-                                 if "trade_list" in resp["result"]
-                                 else resp["result"]["data"])
-                if trade_entries:
-                    parsed_history_resps.extend(trade_entries)
+                timestamps = [int(trade["ts"]) for trade in resp["data"]]
+                self._last_trade_history_timestamp = max(timestamps)
+                entries = resp["data"]
+                if entries:
+                    parsed_history_resps.extend(entries)
             else:
                 self.logger().network(
                     f"Error fetching status update for {trading_pair}: {resp}.",
@@ -599,7 +600,7 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
         :param trade_msg: The trade event message payload
         """
 
-        client_order_id = str(trade_msg["order_link_id"])
+        client_order_id = str(trade_msg["clOrdId"])
         fillable_order = self._order_tracker.all_fillable_orders.get(client_order_id)
 
         if fillable_order is not None:
@@ -609,12 +610,12 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
     def _parse_trade_update(self, trade_msg: Dict, tracked_order: InFlightOrder) -> TradeUpdate:
         trade_id: str = str(trade_msg["exec_id"])
 
-        fee_asset = tracked_order.quote_asset
-        fee_amount = Decimal(trade_msg["exec_fee"])
-        position_side = trade_msg["side"]
+        fee_asset = Decimal(str(trade_msg["feeCcy"]))
+        fee_amount = Decimal(str(trade_msg["fee"]))
+        position_side = trade_msg["posSide"]
         position_action = (PositionAction.OPEN
-                           if (tracked_order.trade_type is TradeType.BUY and position_side == "Buy"
-                               or tracked_order.trade_type is TradeType.SELL and position_side == "Sell")
+                           if (tracked_order.trade_type is TradeType.BUY and position_side == "long"
+                               or tracked_order.trade_type is TradeType.SELL and position_side == "short")
                            else PositionAction.CLOSE)
 
         flat_fees = [] if fee_amount == Decimal("0") else [TokenAmount(amount=fee_amount, token=fee_asset)]
@@ -626,22 +627,22 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
             flat_fees=flat_fees,
         )
 
-        exec_price = Decimal(trade_msg["exec_price"]) if "exec_price" in trade_msg else Decimal(trade_msg["price"])
+        exec_price = Decimal(trade_msg["fillIdxPx"]) if "fillIdxPx" in trade_msg else Decimal(trade_msg["fillPx"])
         exec_time = (
-            trade_msg["exec_time"]
-            if "exec_time" in trade_msg
-            else pd.Timestamp(trade_msg["trade_time"]).timestamp()
+            trade_msg["fillTime"]
+            if "fillTime" in trade_msg
+            else pd.Timestamp(trade_msg["ts"]).timestamp()
         )
 
         trade_update: TradeUpdate = TradeUpdate(
             trade_id=trade_id,
             client_order_id=tracked_order.client_order_id,
-            exchange_order_id=str(trade_msg["order_id"]),
+            exchange_order_id=str(trade_msg["ordId"]),
             trading_pair=tracked_order.trading_pair,
             fill_timestamp=exec_time,
             fill_price=exec_price,
-            fill_base_amount=Decimal(trade_msg["exec_qty"]),
-            fill_quote_amount=exec_price * Decimal(trade_msg["exec_qty"]),
+            fill_base_amount=Decimal(trade_msg["fillSz"]),
+            fill_quote_amount=exec_price * Decimal(trade_msg["fillSz"]),
             fee=fee,
         )
 
