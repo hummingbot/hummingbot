@@ -151,13 +151,12 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
             self.set_position_mode(PositionMode.HEDGE)
 
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
-        error_description = str(request_exception)
         ts_missing_target_str = self._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_TIMESTAMP_HEADER_MISSING)
         ts_invalid_target_str = self._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_TIMESTAMP_HEADER_INVALID)
         param_error_target_str = (
             f"{self._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_PARAMS_ERROR)} - invalid timestamp"
         )
-
+        error_description = str(request_exception)
         is_time_synchronizer_related = (
                 ts_missing_target_str in error_description
                 or ts_invalid_target_str in error_description
@@ -180,24 +179,24 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
         return False
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
-        data = {"symbol": await self.exchange_symbol_associated_to_pair(tracked_order.trading_pair)}
+        data = {"instId": await self.exchange_symbol_associated_to_pair(tracked_order.trading_pair)}
         if tracked_order.exchange_order_id:
-            data["order_id"] = tracked_order.exchange_order_id
+            data["ordId"] = tracked_order.exchange_order_id
         else:
-            data["order_link_id"] = tracked_order.client_order_id
+            data["clOrdId"] = tracked_order.client_order_id
         cancel_result = await self._api_post(
-            path_url=CONSTANTS.CANCEL_ACTIVE_ORDER_PATH_URL,
+            path_url=CONSTANTS.REST_CANCEL_ACTIVE_ORDER[CONSTANTS.ENDPOINT],
             data=data,
             is_auth_required=True,
             trading_pair=tracked_order.trading_pair,
         )
-        response_code = cancel_result["ret_code"]
+        response_code = cancel_result["code"]
 
         if response_code != CONSTANTS.RET_CODE_OK:
             if response_code == CONSTANTS.RET_CODE_ORDER_NOT_EXISTS:
                 await self._order_tracker.process_order_not_found(order_id)
             formatted_ret_code = self._format_ret_code_for_print(response_code)
-            raise IOError(f"{formatted_ret_code} - {cancel_result['ret_msg']}")
+            raise IOError(f"{formatted_ret_code} - {cancel_result['msg']}")
 
         return True
 
