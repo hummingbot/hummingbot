@@ -1,8 +1,14 @@
+from hummingbot.core.data_type.common import PositionMode
+
 # Init connector
 EXCHANGE_NAME = "okx_perpetual"
 REST_API_VERSION = "v5"
+HBOT_BROKER_ID = "Hummingbot"
+MAX_ID_LEN = 36
 
-# Initial constants
+# -------------------------------------------
+# BASE URLS
+# -------------------------------------------
 DEFAULT_DOMAIN = EXCHANGE_NAME
 AWS_DOMAIN = "okx_perpetual_aws"
 DEMO_DOMAIN = "okx_perpetual_demo"
@@ -11,6 +17,15 @@ REST_URLS = {DEFAULT_DOMAIN: "https://www.okx.com",
              AWS_DOMAIN: "https://aws.okx.com",
              DEMO_DOMAIN: "https://www.okx.com"}
 
+# -------------------------------------------
+# DATA TYPES
+# -------------------------------------------
+POSITION_MODE_API_ONEWAY = "net_mode"
+POSITION_MODE_API_HEDGE = "long_short_mode"
+POSITION_MODE_MAP = {
+    PositionMode.ONEWAY: POSITION_MODE_API_ONEWAY,
+    PositionMode.HEDGE: POSITION_MODE_API_HEDGE,
+}
 # -------------------------------------------
 # WEB SOCKET ENDPOINTS
 # -------------------------------------------
@@ -66,6 +81,8 @@ REST_MARK_PRICE = {METHOD: GET,
                    ENDPOINT: f"/api/{REST_API_VERSION}/public/mark-price"}
 REST_INDEX_TICKERS = {METHOD: GET,
                       ENDPOINT: f"/api/{REST_API_VERSION}/public/index-tickers"}
+REST_GET_INSTRUMENTS = {METHOD: GET,
+                        ENDPOINT: f"/api/{REST_API_VERSION}/public/instruments"}
 
 # REST API Private General Endpoints
 REST_GET_WALLET_BALANCE = {METHOD: GET,
@@ -88,3 +105,15 @@ REST_QUERY_ACTIVE_ORDER = {METHOD: GET,
                            ENDPOINT: REST_PLACE_ACTIVE_ORDER[ENDPOINT]}
 REST_USER_TRADE_RECORDS = {METHOD: GET,
                            ENDPOINT: f"/api/{REST_API_VERSION}/trade/fills"}
+
+# -------------------------------------------
+# RET CODES
+# -------------------------------------------
+
+RET_CODE_OK = 0
+
+RET_CODE_TIMESTAMP_HEADER_MISSING = 50107
+RET_CODE_TIMESTAMP_HEADER_INVALID = 50112
+RET_CODE_PARAMS_ERROR = 51000
+RET_CODE_API_KEY_INVALID = 50111
+RET_CODE_ORDER_NOT_EXISTS = 51603
