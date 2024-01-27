@@ -1,4 +1,6 @@
-from hummingbot.core.data_type.common import PositionMode
+from hummingbot.core.data_type.common import PositionMode, OrderType
+from hummingbot.core.data_type.in_flight_order import OrderState
+
 
 # Init connector
 EXCHANGE_NAME = "okx_perpetual"
@@ -25,6 +27,20 @@ POSITION_MODE_API_HEDGE = "long_short_mode"
 POSITION_MODE_MAP = {
     PositionMode.ONEWAY: POSITION_MODE_API_ONEWAY,
     PositionMode.HEDGE: POSITION_MODE_API_HEDGE,
+}
+
+ORDER_TYPE_MAP = {
+    OrderType.LIMIT: "limit",
+    OrderType.MARKET: "market",
+}
+
+# Order Statuses
+ORDER_STATE = {
+    "live": OrderState.OPEN,
+    "filled": OrderState.FILLED,
+    "partially_filled": OrderState.PARTIALLY_FILLED,
+    "canceled": OrderState.CANCELED,
+    "mmp_canceled": OrderState.CANCELED,
 }
 # -------------------------------------------
 # WEB SOCKET ENDPOINTS
@@ -104,7 +120,7 @@ REST_CANCEL_ACTIVE_ORDER = {METHOD: POST,
 REST_QUERY_ACTIVE_ORDER = {METHOD: GET,
                            ENDPOINT: REST_PLACE_ACTIVE_ORDER[ENDPOINT]}
 REST_USER_TRADE_RECORDS = {METHOD: GET,
-                           ENDPOINT: f"/api/{REST_API_VERSION}/trade/fills"}
+                           ENDPOINT: f"/api/{REST_API_VERSION}/trade/fills-history"}
 
 # -------------------------------------------
 # RET CODES

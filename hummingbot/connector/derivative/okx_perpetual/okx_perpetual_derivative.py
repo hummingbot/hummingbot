@@ -311,8 +311,6 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
         for trading_pair in self._trading_pairs:
             exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
             body_params = {
-                "symbol": exchange_symbol,
-                "limit": 200,
                 "instId": exchange_symbol,
                 "limit": 100,
             }
@@ -489,13 +487,13 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
         try:
             order_status_data = await self._request_order_status_data(tracked_order=tracked_order)
-            order_msg = order_status_data["result"]
-            client_order_id = str(order_msg["order_link_id"])
+            order_msg = order_status_data["data"][0]
+            client_order_id = str(order_msg["clOrdId"])
 
             order_update: OrderUpdate = OrderUpdate(
                 trading_pair=tracked_order.trading_pair,
                 update_timestamp=self.current_timestamp,
-                new_state=CONSTANTS.ORDER_STATE[order_msg["order_status"]],
+                new_state=CONSTANTS.ORDER_STATE[order_msg["state"]],
                 client_order_id=client_order_id,
                 exchange_order_id=order_msg["order_id"],
             )
@@ -518,14 +516,14 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
     async def _request_order_status_data(self, tracked_order: InFlightOrder) -> Dict:
         exchange_symbol = await self.exchange_symbol_associated_to_pair(tracked_order.trading_pair)
         query_params = {
-            "symbol": exchange_symbol,
-            "order_link_id": tracked_order.client_order_id
+            "instId": exchange_symbol,
+            "clOrdId": tracked_order.client_order_id
         }
         if tracked_order.exchange_order_id is not None:
-            query_params["order_id"] = tracked_order.exchange_order_id
+            query_params["ordId"] = tracked_order.exchange_order_id
 
         resp = await self._api_get(
-            path_url=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL,
+            path_url=CONSTANTS.REST_QUERY_ACTIVE_ORDER[CONSTANTS.ENDPOINT],
             params=query_params,
             is_auth_required=True,
             trading_pair=tracked_order.trading_pair,
@@ -653,8 +651,8 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
         Updates in-flight order and triggers cancellation or failure event if needed.
         :param order_msg: The order event message payload
         """
-        order_status = CONSTANTS.ORDER_STATE[order_msg["order_status"]]
-        client_order_id = str(order_msg["order_link_id"])
+        order_status = CONSTANTS.ORDER_STATE[order_msg["state"]]
+        client_order_id = str(order_msg["clOrdId"])
         updatable_order = self._order_tracker.all_updatable_orders.get(client_order_id)
 
         if updatable_order is not None:
