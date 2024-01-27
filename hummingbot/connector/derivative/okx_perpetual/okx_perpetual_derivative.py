@@ -164,6 +164,19 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
         # dummy implementation
         return False
 
+    def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
+        ts_missing_target_str = self._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_TIMESTAMP_HEADER_MISSING)
+        ts_invalid_target_str = self._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_TIMESTAMP_HEADER_INVALID)
+        param_error_target_str = (
+            f"{self._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_PARAMS_ERROR)} - invalid timestamp")
+        error_description = str(request_exception)
+        is_time_synchronizer_related = (
+                ts_missing_target_str in error_description
+                or ts_invalid_target_str in error_description
+                or param_error_target_str in error_description
+        )
+        return is_time_synchronizer_related
+
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         data = {"instId": await self.exchange_symbol_associated_to_pair(tracked_order.trading_pair)}
         if tracked_order.exchange_order_id:
