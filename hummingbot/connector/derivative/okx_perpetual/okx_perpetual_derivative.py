@@ -27,7 +27,7 @@ from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTr
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
-from hummingbot.core.utils.estimate_fee import build_trade_fee
+from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
@@ -250,17 +250,19 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
                  quote_currency: str,
                  order_type: OrderType,
                  order_side: TradeType,
+                 position_action: PositionAction,
                  amount: Decimal,
                  price: Decimal = s_decimal_NaN,
                  is_maker: Optional[bool] = None) -> TradeFeeBase:
         is_maker = is_maker or False
-        fee = build_trade_fee(
+        fee = build_perpetual_trade_fee(
             self.name,
             is_maker,
             base_currency=base_currency,
             quote_currency=quote_currency,
             order_type=order_type,
             order_side=order_side,
+            position_action=position_action,
             amount=amount,
             price=price,
         )
