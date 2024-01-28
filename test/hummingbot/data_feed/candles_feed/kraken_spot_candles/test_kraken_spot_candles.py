@@ -161,7 +161,7 @@ class TestKrakenSpotCandles(unittest.TestCase):
         expected_kline_subscription = {
             "event": "subscribe",
             "pair": [self.ex_trading_pair],
-            "subscription": {"name": CONSTANTS.WS_CANDLES_ENDPOINT, "interval": self.interval}
+            "subscription": {"name": CONSTANTS.WS_CANDLES_ENDPOINT, "interval": int(CONSTANTS.INTERVALS[self.interval])}
         }
         self.assertEqual(expected_kline_subscription["subscription"], sent_subscription_messages[0]["subscription"])
         self.assertEqual(expected_kline_subscription["pair"], sent_subscription_messages[0]["pair"])
