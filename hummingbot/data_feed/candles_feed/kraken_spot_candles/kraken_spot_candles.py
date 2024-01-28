@@ -84,7 +84,7 @@ class KrakenSpotCandles(CandlesBase):
                             end_time: Optional[int] = None,
                             limit: Optional[int] = 720):
         rest_assistant = await self._api_factory.get_rest_assistant()
-        params = {"pair": self._ex_trading_pair, "interval": self.interval, "since": start_time}
+        params = {"pair": self._ex_trading_pair, "interval": CONSTANTS.INTERVALS[self.interval], "since": start_time}
         candles = await rest_assistant.execute_request(url=self.candles_url,
                                                        throttler_limit_id=CONSTANTS.CANDLES_ENDPOINT,
                                                        params=params)
@@ -146,7 +146,7 @@ class KrakenSpotCandles(CandlesBase):
             payload = {
                 "event": "subscribe",
                 "pair": [self.get_exchange_trading_pair(self._ex_trading_pair, '/')],
-                "subscription": {"name": CONSTANTS.WS_CANDLES_ENDPOINT, "interval": self.interval}
+                "subscription": {"name": CONSTANTS.WS_CANDLES_ENDPOINT, "interval": int(CONSTANTS.INTERVALS[self.interval])}
             }
             subscribe_candles_request: WSJSONRequest = WSJSONRequest(payload=payload)
 

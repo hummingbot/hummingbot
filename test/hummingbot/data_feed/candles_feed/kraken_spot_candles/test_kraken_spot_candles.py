@@ -21,7 +21,7 @@ class TestKrakenSpotCandles(unittest.TestCase):
         cls.ev_loop = asyncio.get_event_loop()
         cls.base_asset = "BTC"
         cls.quote_asset = "USDT"
-        cls.interval = "60"
+        cls.interval = "1h"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = f"XBT{cls.quote_asset}"
 
