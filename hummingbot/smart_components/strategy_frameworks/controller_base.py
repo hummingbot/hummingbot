@@ -22,6 +22,12 @@ class ControllerBase(ABC):
     Abstract base class for controllers.
     """
 
+    def get_balance_required_by_order_levels(self):
+        """
+        Get the balance required by the order levels.
+        """
+        pass
+
     def __init__(self,
                  config: ControllerConfigBase,
                  excluded_parameters: Optional[List[str]] = None):
