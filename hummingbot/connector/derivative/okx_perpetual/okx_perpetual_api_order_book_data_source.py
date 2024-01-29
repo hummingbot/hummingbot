@@ -19,14 +19,14 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 
 if TYPE_CHECKING:
-    from hummingbot.connector.derivative.okx_perpetual.okx_perpetual_derivative import OKXPerpetualDerivative
+    from hummingbot.connector.derivative.okx_perpetual.okx_perpetual_derivative import OkxPerpetualDerivative
 
 
-class OKXPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
+class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     def __init__(
         self,
         trading_pairs: List[str],
-        connector: 'OKXPerpetualDerivative',
+        connector: 'OkxPerpetualDerivative',
         api_factory: WebAssistantsFactory,
         domain: str = CONSTANTS.DEFAULT_DOMAIN
     ):
@@ -63,7 +63,7 @@ class OKXPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
         params = {
-            "instId": self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
+            "instId": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
             "sz": "300"
         }
 
@@ -226,7 +226,7 @@ class OKXPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     async def _subscribe_to_channels(self, ws: WSAssistant, trading_pairs: List[str]):
         try:
             ex_trading_pairs = [
-                self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+                await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
                 for trading_pair in trading_pairs
             ]
 

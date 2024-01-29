@@ -59,7 +59,7 @@ def get_next_funding_timestamp(current_timestamp: float) -> float:
     return float(int_ts - mod + eight_hours)
 
 
-class OKXPerpetualConfigMap(BaseConnectorConfigMap):
+class OkxPerpetualConfigMap(BaseConnectorConfigMap):
     connector: str = Field(default="okx_perpetual", client_data=None)
     okx_perpetual_api_key: SecretStr = Field(
         default=...,
@@ -93,7 +93,7 @@ class OKXPerpetualConfigMap(BaseConnectorConfigMap):
         title = "okx_perpetual"
 
 
-KEYS = OKXPerpetualConfigMap.construct()
+KEYS = OkxPerpetualConfigMap.construct()
 
 # OTHER_DOMAINS = ["okx_perpetual_testnet"]
 # OTHER_DOMAINS_PARAMETER = {"okx_perpetual_testnet": "okx_perpetual_testnet"}
