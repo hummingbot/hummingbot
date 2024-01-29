@@ -102,6 +102,11 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
     def trading_pairs_request_path(self) -> str:
         return CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.ENDPOINT]
 
+    async def _make_trading_pairs_request(self) -> Any:
+        params = {"instType": "SWAP"}
+        exchange_info = await self._api_get(path_url=self.trading_pairs_request_path, params=params)
+        return exchange_info
+
     @property
     def check_network_request_path(self) -> str:
         return CONSTANTS.REST_SERVER_TIME[CONSTANTS.ENDPOINT]
