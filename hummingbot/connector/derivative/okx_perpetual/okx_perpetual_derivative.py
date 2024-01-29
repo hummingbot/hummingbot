@@ -9,11 +9,11 @@ import hummingbot.connector.derivative.okx_perpetual.okx_perpetual_constants as 
 import hummingbot.connector.derivative.okx_perpetual.okx_perpetual_utils as okx_utils
 from hummingbot.connector.derivative.okx_perpetual import okx_perpetual_web_utils as web_utils
 from hummingbot.connector.derivative.okx_perpetual.okx_perpetual_api_order_book_data_source import (
-    OKXPerpetualAPIOrderBookDataSource,
+    OkxPerpetualAPIOrderBookDataSource,
 )
-from hummingbot.connector.derivative.okx_perpetual.okx_perpetual_auth import OKXPerpetualAuth
+from hummingbot.connector.derivative.okx_perpetual.okx_perpetual_auth import OkxPerpetualAuth
 from hummingbot.connector.derivative.okx_perpetual.okx_perpetual_user_stream_data_source import (
-    OKXPerpetualUserStreamDataSource,
+    OkxPerpetualUserStreamDataSource,
 )
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.perpetual_derivative_py_base import PerpetualDerivativePyBase
@@ -38,7 +38,7 @@ s_decimal_NaN = Decimal("nan")
 s_decimal_0 = Decimal(0)
 
 
-class OKXPerpetualDerivative(PerpetualDerivativePyBase):
+class OkxPerpetualDerivative(PerpetualDerivativePyBase):
 
     web_utils = web_utils
 
@@ -68,11 +68,15 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
         return CONSTANTS.EXCHANGE_NAME
 
     @property
-    def authenticator(self) -> OKXPerpetualAuth:
-        return OKXPerpetualAuth(self.okx_perpetual_api_key,
+    def authenticator(self) -> OkxPerpetualAuth:
+        return OkxPerpetualAuth(self.okx_perpetual_api_key,
                                 self.okx_perpetual_secret_key,
                                 self.okx_perpetual_passphrase,
                                 web_utils.get_current_server_time())
+
+    @property
+    def name(self) -> str:
+        return CONSTANTS.EXCHANGE_NAME
 
     @property
     def rate_limits_rules(self) -> List[RateLimit]:
@@ -279,7 +283,7 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
         )
 
     def _create_order_book_data_source(self) -> OrderBookTrackerDataSource:
-        return OKXPerpetualAPIOrderBookDataSource(
+        return OkxPerpetualAPIOrderBookDataSource(
             self.trading_pairs,
             connector=self,
             api_factory=self._web_assistants_factory,
@@ -287,7 +291,7 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
         )
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
-        return OKXPerpetualUserStreamDataSource(
+        return OkxPerpetualUserStreamDataSource(
             auth=self._auth,
             api_factory=self._web_assistants_factory,
             domain=self._domain,
@@ -823,7 +827,7 @@ class OKXPerpetualDerivative(PerpetualDerivativePyBase):
 
         return success, msg
 
-    def trading_pair_associated_to_exchange_symbol(self, symbol: str):
+    async def trading_pair_associated_to_exchange_symbol(self, symbol: str):
         return symbol.rstrip("-SWAP")
 
     async def exchange_symbol_associated_to_pair(self, trading_pair: str):

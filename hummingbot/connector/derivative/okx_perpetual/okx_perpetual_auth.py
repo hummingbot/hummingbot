@@ -8,7 +8,7 @@ from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
 
 
-class OKXPerpetualAuth(AuthBase):
+class OkxPerpetualAuth(AuthBase):
     """
     Auth class required by OKX Perpetual API.
 
