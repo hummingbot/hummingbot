@@ -64,10 +64,6 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         super().__init__(client_config_map)
 
     @property
-    def name(self) -> str:
-        return CONSTANTS.EXCHANGE_NAME
-
-    @property
     def authenticator(self) -> OkxPerpetualAuth:
         return OkxPerpetualAuth(self.okx_perpetual_api_key,
                                 self.okx_perpetual_secret_key,
@@ -115,6 +111,14 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
     def trading_pairs(self):
         return self._trading_pairs
 
+    # How does the exchange process trades, if it's async it's shit to the river and go for it
+    # If it's sync then when you get the results in the response
+
+    # Cancel order returns with sCode equal to 0. It is not strictly considered that the order has been canceled.
+    # It only means that your cancellation request has been accepted by the system server.
+    # The result of the cancellation is subject to the state pushed by the order channel or the get order state.
+
+    # So yes, it isn't synchronous
     @property
     def is_cancel_request_in_exchange_synchronous(self) -> bool:
         return False
@@ -159,6 +163,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         if self._domain == CONSTANTS.DEFAULT_DOMAIN and self.is_trading_required:
             self.set_position_mode(PositionMode.HEDGE)
 
+    # TODO
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
         # TODO: implement this method correctly for the connector
         # The default implementation was added when the functionality to detect not found orders was introduced in the
@@ -166,6 +171,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         # when replacing the dummy implementation
         return False
 
+    # TODO
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
         # TODO: implement this method correctly for the connector
         # The default implementation was added when the functionality to detect not found orders was introduced in the
@@ -173,6 +179,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         # dummy implementation
         return False
 
+    # TODO: Check if this endpoints are enough
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
         ts_missing_target_str = self._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_TIMESTAMP_HEADER_MISSING)
         ts_invalid_target_str = self._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_TIMESTAMP_HEADER_INVALID)
@@ -180,9 +187,9 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             f"{self._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_PARAMS_ERROR)} - invalid timestamp")
         error_description = str(request_exception)
         is_time_synchronizer_related = (
-                ts_missing_target_str in error_description
-                or ts_invalid_target_str in error_description
-                or param_error_target_str in error_description
+            ts_missing_target_str in error_description
+            or ts_invalid_target_str in error_description
+            or param_error_target_str in error_description
         )
         return is_time_synchronizer_related
 
@@ -264,6 +271,8 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
                  price: Decimal = s_decimal_NaN,
                  is_maker: Optional[bool] = None) -> TradeFeeBase:
         is_maker = is_maker or False
+        # TODO: Check if replacing build_trade_fee by build_perpetual_trade_fee is correct. ExchangePyBase has
+        # different signature from PerpetualDerivativePyBase
         fee = build_perpetual_trade_fee(
             self.name,
             is_maker,
@@ -277,6 +286,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         )
         return fee
 
+    # TODO: Pass?
     async def _update_trading_fees(self):
         pass
 
@@ -389,21 +399,21 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         Calls REST API to update total and available balances
         """
         wallet_balance: Dict[str, Dict[str, Any]] = await self._api_get(
-            path_url=CONSTANTS.GET_WALLET_BALANCE_PATH_URL,
+            path_url=CONSTANTS.REST_GET_WALLET_BALANCE[CONSTANTS.ENDPOINT],
             is_auth_required=True,
         )
 
-        if wallet_balance["ret_code"] != CONSTANTS.RET_CODE_OK:
+        if wallet_balance["code"] != CONSTANTS.RET_CODE_OK:
             formatted_ret_code = self._format_ret_code_for_print(wallet_balance['ret_code'])
             raise IOError(f"{formatted_ret_code} - {wallet_balance['ret_msg']}")
 
         self._account_available_balances.clear()
         self._account_balances.clear()
 
-        if wallet_balance["result"] is not None:
-            for asset_name, balance_json in wallet_balance["result"].items():
-                self._account_balances[asset_name] = Decimal(str(balance_json["wallet_balance"]))
-                self._account_available_balances[asset_name] = Decimal(str(balance_json["available_balance"]))
+        if wallet_balance["data"] is not None:
+            for asset_name, balance_json in wallet_balance["data"]["details"].items():
+                self._account_balances[asset_name] = Decimal(str(balance_json["totalEq"]))
+                self._account_available_balances[asset_name] = Decimal(str(balance_json["availBal"]))
 
     async def _update_positions(self):
         """
@@ -549,16 +559,17 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
                 endpoint = web_utils.endpoint_from_message(event_message)
                 payload = web_utils.payload_from_message(event_message)
 
-                if endpoint == CONSTANTS.WS_SUBSCRIPTION_POSITIONS_ENDPOINT_NAME:
+                if endpoint == CONSTANTS.WS_POSITIONS_CHANNEL:
                     for position_msg in payload:
                         await self._process_account_position_event(position_msg)
-                elif endpoint == CONSTANTS.WS_SUBSCRIPTION_ORDERS_ENDPOINT_NAME:
+                elif endpoint == CONSTANTS.WS_ORDERS_CHANNEL:
                     for order_msg in payload:
                         self._process_order_event_message(order_msg)
-                elif endpoint == CONSTANTS.WS_SUBSCRIPTION_EXECUTIONS_ENDPOINT_NAME:
+                elif endpoint == CONSTANTS.WS_BALANCE_AND_POSITIONS_CHANNEL:
                     for trade_msg in payload:
                         self._process_trade_event_message(trade_msg)
-                elif endpoint == CONSTANTS.WS_SUBSCRIPTION_WALLET_ENDPOINT_NAME:
+                # TODO: Check if this 2 endpoints are correct
+                elif endpoint == CONSTANTS.WS_ACCOUNT_CHANNEL:
                     for wallet_msg in payload:
                         self._process_wallet_event_message(wallet_msg)
                 elif endpoint is None:
@@ -706,6 +717,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
                             min_order_size=Decimal(str(instrument["minSz"])),
                             max_order_size=Decimal(str(min(instrument["maxLmtSz"], instrument["maxMktSz"]))),
                             min_price_increment=Decimal(str(instrument["tickSz"])),
+                            # TODO: is lotSz correct?
                             min_base_amount_increment=Decimal(str(instrument["lotSz"])),
                             buy_order_collateral_token=collateral_token,
                             sell_order_collateral_token=collateral_token,
@@ -718,7 +730,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
-        for symbol_data in filter(okx_utils.is_exchange_information_valid, exchange_info["result"]):
+        for symbol_data in filter(okx_utils.is_exchange_information_valid, exchange_info["data"]):
             exchange_symbol = symbol_data["instId"]
             base = symbol_data["settleCcy"]
             quote = symbol_data["ctValCcy"]
@@ -744,7 +756,8 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             mapping.pop(current_exchange_symbol)
             mapping[new_exchange_symbol] = trading_pair
         else:
-            self.logger().error(f"Could not resolve the exchange symbols {new_exchange_symbol} and {current_exchange_symbol}")
+            self.logger().error(
+                f"Could not resolve the exchange symbols {new_exchange_symbol} and {current_exchange_symbol}")
             mapping.pop(current_exchange_symbol)
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
@@ -752,11 +765,11 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         params = {"uly": exchange_symbol}
 
         resp_json = await self._api_get(
-            path_url=CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT,
+            path_url=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION[CONSTANTS.ENDPOINT],
             params=params,
         )
 
-        price = float(resp_json["result"][0]["last"])
+        price = float(resp_json["data"][0]["last"])
         return price
 
     async def get_last_traded_prices(self):
@@ -782,16 +795,16 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             data = {"symbol": exchange_symbol, "mode": api_mode}
 
             response = await self._api_post(
-                path_url=CONSTANTS.SET_POSITION_MODE_URL,
+                path_url=CONSTANTS.REST_SET_POSITION_MODE[CONSTANTS.ENDPOINT],
                 data=data,
                 is_auth_required=True,
             )
 
-            response_code = response["ret_code"]
+            response_code = response["code"]
 
-            if response_code not in [CONSTANTS.RET_CODE_OK, CONSTANTS.RET_CODE_MODE_NOT_MODIFIED]:
+            if response_code != CONSTANTS.RET_CODE_OK:
                 formatted_ret_code = self._format_ret_code_for_print(response_code)
-                msg = f"{formatted_ret_code} - {response['ret_msg']}"
+                msg = f"{formatted_ret_code} - {response['msg']}"
                 success = False
         else:
             #  Inverse Perpetuals don't have set_position_mode()
@@ -802,33 +815,29 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
 
     async def _set_trading_pair_leverage(self, trading_pair: str, leverage: int) -> Tuple[bool, str]:
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
+        success = False
+        msg = ""
 
         if okx_utils.is_linear_perpetual(trading_pair):
             data = {
-                "symbol": exchange_symbol,
-                "buy_leverage": leverage,
-                "sell_leverage": leverage
+                "instId": exchange_symbol,
+                "lever": leverage,
+                "mgnMode": "cross"
             }
-        else:
-            data = {
-                "symbol": exchange_symbol,
-                "leverage": leverage
-            }
+            resp: Dict[str, Any] = await self._api_post(
+                path_url=CONSTANTS.REST_SET_LEVERAGE[CONSTANTS.ENDPOINT],
+                data=data,
+                is_auth_required=True,
+                trading_pair=trading_pair,
+            )
 
-        resp: Dict[str, Any] = await self._api_post(
-            path_url=CONSTANTS.SET_LEVERAGE_PATH_URL,
-            data=data,
-            is_auth_required=True,
-            trading_pair=trading_pair,
-        )
-
-        success = False
-        msg = ""
-        if resp["ret_code"] == CONSTANTS.RET_CODE_OK or (resp["ret_code"] == CONSTANTS.RET_CODE_LEVERAGE_NOT_MODIFIED and resp["ret_msg"] == "leverage not modified"):
-            success = True
+            if resp["code"] == CONSTANTS.RET_CODE_OK:
+                success = True
+            else:
+                formatted_ret_code = self._format_ret_code_for_print(resp['code'])
+                msg = f"{formatted_ret_code} - {resp['msg']}"
         else:
-            formatted_ret_code = self._format_ret_code_for_print(resp['ret_code'])
-            msg = f"{formatted_ret_code} - {resp['ret_msg']}"
+            self._log_non_linear_trading_pair_warning()
 
         return success, msg
 
