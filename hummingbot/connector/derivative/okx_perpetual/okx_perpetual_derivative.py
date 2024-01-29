@@ -67,8 +67,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
     def authenticator(self) -> OkxPerpetualAuth:
         return OkxPerpetualAuth(self.okx_perpetual_api_key,
                                 self.okx_perpetual_secret_key,
-                                self.okx_perpetual_passphrase,
-                                web_utils.get_current_server_time())
+                                self.okx_perpetual_passphrase)
 
     @property
     def name(self) -> str:
@@ -404,16 +403,16 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         )
 
         if wallet_balance["code"] != CONSTANTS.RET_CODE_OK:
-            formatted_ret_code = self._format_ret_code_for_print(wallet_balance['ret_code'])
-            raise IOError(f"{formatted_ret_code} - {wallet_balance['ret_msg']}")
+            formatted_ret_code = self._format_ret_code_for_print(wallet_balance["code"])
+            raise IOError(f"{formatted_ret_code} - {wallet_balance['msg']}")
 
         self._account_available_balances.clear()
         self._account_balances.clear()
 
         if wallet_balance["data"] is not None:
-            for asset_name, balance_json in wallet_balance["data"]["details"].items():
-                self._account_balances[asset_name] = Decimal(str(balance_json["totalEq"]))
-                self._account_available_balances[asset_name] = Decimal(str(balance_json["availBal"]))
+            for balance_detail in wallet_balance["data"][0]["details"]:
+                self._account_balances[balance_detail["ccy"]] = Decimal(str(balance_detail["eq"]))
+                self._account_available_balances[balance_detail["ccy"]] = Decimal(str(balance_detail["availBal"]))
 
     async def _update_positions(self):
         """
