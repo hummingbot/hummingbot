@@ -73,9 +73,11 @@ WS_ORDER_BOOK_1_DEPTH_10_MS_EVENTS_CHANNEL = "bbo-tbt"
 WS_INSTRUMENTS_INFO_CHANNEL = "instruments"
 
 # USER STREAM DATA SOURCE CHANNELS
+WS_ACCOUNT_CHANNEL = "account"
+WS_BALANCE_AND_POSITIONS_CHANNEL = "balance_and_position"
 WS_POSITIONS_CHANNEL = "positions"
 WS_ORDERS_CHANNEL = "orders"
-WS_ACCOUNT_CHANNEL = "account"
+
 # -------------------------------------------
 # WEB UTILS ENDPOINTS
 # The structure is REST_url = {method: GET/POST, endpoint: /api/v5/...} since for the same endpoint you can have
