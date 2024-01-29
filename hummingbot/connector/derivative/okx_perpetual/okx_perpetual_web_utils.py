@@ -60,15 +60,16 @@ async def get_current_server_time(throttler: Optional[AsyncThrottler] = None,
     throttler = throttler or create_throttler()
     api_factory = build_api_factory_without_time_synchronizer_pre_processor(throttler=throttler)
     rest_assistant = await api_factory.get_rest_assistant()
-    endpoint = CONSTANTS.SERVER_TIME_PATH_URL
+    endpoint = CONSTANTS.REST_SERVER_TIME[CONSTANTS.ENDPOINT]
     url = get_rest_url_for_endpoint(endpoint=endpoint, domain=domain)
-    limit_id = get_rest_api_limit_id_for_endpoint(endpoint)
+    limit_id = get_rest_api_limit_id_for_endpoint(method=CONSTANTS.REST_SERVER_TIME[CONSTANTS.METHOD],
+                                                  endpoint=endpoint)
     response = await rest_assistant.execute_request(
         url=url,
         throttler_limit_id=limit_id,
         method=RESTMethod.GET,
     )
-    server_time = float(response["data"]["ts"])
+    server_time = float(response["data"][0]["ts"])
 
     return server_time
 
@@ -189,6 +190,12 @@ def _build_public_rate_limits():
         RateLimit(
             limit_id=get_rest_api_limit_id_for_endpoint(method=CONSTANTS.REST_INDEX_TICKERS[CONSTANTS.METHOD],
                                                         endpoint=CONSTANTS.REST_INDEX_TICKERS[CONSTANTS.ENDPOINT]),
+            limit=20,
+            time_interval=2,
+        ),
+        RateLimit(
+            limit_id=get_rest_api_limit_id_for_endpoint(method=CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.METHOD],
+                                                        endpoint=CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.ENDPOINT]),
             limit=20,
             time_interval=2,
         )
