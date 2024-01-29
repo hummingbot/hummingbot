@@ -78,7 +78,7 @@ class TestKrakenSpotCandles(unittest.TestCase):
                 "last": 1706374800
             }
         }
-        return {"data": data}
+        return data
 
     def get_candles_ws_data_mock_1(self):
         data = [
@@ -122,8 +122,7 @@ class TestKrakenSpotCandles(unittest.TestCase):
     def test_fetch_candles(self, mock_api: aioresponses):
         start_time = 1706371200
         end_time = 1706378401
-        url = f"{CONSTANTS.REST_URL}{CONSTANTS.CANDLES_ENDPOINT}?since={start_time}" \
-              f"&pair={self.ex_trading_pair}&interval={CONSTANTS.INTERVALS[self.interval]}"
+        url = f"{CONSTANTS.REST_URL}{CONSTANTS.CANDLES_ENDPOINT}"
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         data_mock = self.get_candles_rest_data_mock()
         mock_api.get(url=regex_url, body=json.dumps(data_mock))
@@ -131,7 +130,7 @@ class TestKrakenSpotCandles(unittest.TestCase):
         resp = self.async_run_with_timeout(self.data_feed.fetch_candles(start_time=start_time, end_time=end_time))
 
         self.assertEqual(resp.shape[0], len(data_mock["result"]))
-        self.assertEqual(resp.shape[1], 7)
+        self.assertEqual(resp.shape[1], 10)
 
     def test_candles_empty(self):
         self.assertTrue(self.data_feed.candles_df.empty)
