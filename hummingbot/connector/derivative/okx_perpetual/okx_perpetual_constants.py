@@ -1,6 +1,5 @@
-from hummingbot.core.data_type.common import PositionMode, OrderType
+from hummingbot.core.data_type.common import OrderType, PositionMode
 from hummingbot.core.data_type.in_flight_order import OrderState
-
 
 # Init connector
 EXCHANGE_NAME = "okx_perpetual"
@@ -128,10 +127,10 @@ REST_USER_TRADE_RECORDS = {METHOD: GET,
 # RET CODES
 # -------------------------------------------
 
-RET_CODE_OK = 0
+RET_CODE_OK = "0"
 
-RET_CODE_TIMESTAMP_HEADER_MISSING = 50107
-RET_CODE_TIMESTAMP_HEADER_INVALID = 50112
-RET_CODE_PARAMS_ERROR = 51000
-RET_CODE_API_KEY_INVALID = 50111
-RET_CODE_ORDER_NOT_EXISTS = 51603
+RET_CODE_TIMESTAMP_HEADER_MISSING = "50107"
+RET_CODE_TIMESTAMP_HEADER_INVALID = "50112"
+RET_CODE_PARAMS_ERROR = "51000"
+RET_CODE_API_KEY_INVALID = "50111"
+RET_CODE_ORDER_NOT_EXISTS = "51603"

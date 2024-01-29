@@ -26,7 +26,7 @@ def build_api_factory(
 ) -> WebAssistantsFactory:
     throttler = throttler or create_throttler()
     time_synchronizer = time_synchronizer or TimeSynchronizer()
-    time_provider = time_provider or (lambda: get_current_server_time(throttler=throttler))
+    time_provider = time_provider or (lambda: get_current_server_time(throttler=throttler, domain=CONSTANTS.DEFAULT_DOMAIN))
     api_factory = WebAssistantsFactory(
         throttler=throttler,
         auth=auth,
