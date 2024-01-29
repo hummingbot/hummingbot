@@ -74,7 +74,6 @@ async def get_current_server_time(throttler: Optional[AsyncThrottler] = None,
     return server_time
 
 
-# TODO: Determine endpoint_from_message usage
 def endpoint_from_message(message: Dict[str, Any]) -> Optional[str]:
     endpoint = None
     if "request" in message:
