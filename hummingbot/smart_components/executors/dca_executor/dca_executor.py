@@ -34,7 +34,6 @@ class DCAExecutor(SmartComponentBase):
         self._active_executors: List[PositionExecutor] = []
         self._trailing_stop_activated = False
         self._trailing_stop_pnl = None
-        self._current_pnl = Decimal("0")
 
         super().__init__(strategy=strategy, connectors=[dca_config.exchange], update_interval=update_interval)
 
@@ -68,6 +67,18 @@ class DCAExecutor(SmartComponentBase):
         return sum([price * amount for price, amount in
                     zip(self._dca_config.prices, self._dca_config.amounts_usd)]) / self.max_amount
 
+    @property
+    def net_pnl_quote(self) -> Decimal:
+        return sum([executor.net_pnl_quote for executor in self._active_executors])
+
+    @property
+    def net_pnl_pct(self) -> Decimal:
+        return self.net_pnl_quote / self.filled_amount if self.filled_amount else Decimal("0")
+
+    @property
+    def cum_fee_quote(self) -> Decimal:
+        return sum([executor.cum_fee_quote for executor in self._active_executors])
+
     async def control_task(self):
         """
         This task is responsible for creating and closing position executors
@@ -91,29 +102,26 @@ class DCAExecutor(SmartComponentBase):
         """
         This method is responsible for controlling the active executors
         """
-        net_pnl = sum([executor.net_pnl for executor in self._active_executors])
-        total_amount = sum([executor.amount for executor in self._active_executors])
-        current_pnl_pct = net_pnl / total_amount if total_amount else Decimal("0")
-        if math.isclose(self.max_amount, self.filled_amount) and current_pnl_pct < self._dca_config.global_stop_loss:
+        if math.isclose(self.max_amount, self.filled_amount) and self.net_pnl_pct < self._dca_config.global_stop_loss:
             self.close_type = CloseType.STOP_LOSS
             self.logger().info("Global Stop Loss Triggered!")
             for executor in self._active_executors:
                 executor.early_stop()
-        elif current_pnl_pct > self._dca_config.global_take_profit:
+        elif self.net_pnl_pct > self._dca_config.global_take_profit:
             self.close_type = CloseType.TAKE_PROFIT
             self.logger().info("Global Take Profit Triggered!")
             for executor in self._active_executors:
                 executor.early_stop()
-        elif not self._trailing_stop_pnl and current_pnl_pct > self._dca_config.global_trailing_stop.activation_price_delta:
-            self._trailing_stop_pnl = current_pnl_pct - self._dca_config.global_trailing_stop.trailing_delta
+        elif not self._trailing_stop_pnl and self.net_pnl_pct > self._dca_config.global_trailing_stop.activation_price_delta:
+            self._trailing_stop_pnl = self.net_pnl_pct - self._dca_config.global_trailing_stop.trailing_delta
         elif self._trailing_stop_pnl:
-            if current_pnl_pct < self._trailing_stop_pnl:
+            if self.net_pnl_pct < self._trailing_stop_pnl:
                 self.close_type = CloseType.TRAILING_STOP
                 self.logger().info("Global Trailing Stop Triggered!")
                 for executor in self._active_executors:
                     executor.early_stop()
-            elif current_pnl_pct - self._dca_config.global_trailing_stop.trailing_delta > self._trailing_stop_pnl:
-                self._trailing_stop_pnl = current_pnl_pct - self._dca_config.global_trailing_stop.trailing_delta
+            elif self.net_pnl_pct - self._dca_config.global_trailing_stop.trailing_delta > self._trailing_stop_pnl:
+                self._trailing_stop_pnl = self.net_pnl_pct - self._dca_config.global_trailing_stop.trailing_delta
 
     def _get_next_executor(self) -> Optional[PositionConfig]:
         """
@@ -204,5 +212,7 @@ class DCAExecutor(SmartComponentBase):
             "global_trailing_stop_trailing_delta": self._dca_config.global_trailing_stop.trailing_delta,
             "trailing_stop_activated": self._trailing_stop_activated,
             "trailing_stop_pnl": self._trailing_stop_pnl,
-            "current_pnl": self._current_pnl,
+            "net_pnl_quote": self.net_pnl_quote,
+            "cum_fee_quote": self.cum_fee_quote,
+            "net_pnl_pct": self.net_pnl_pct,
         }
