@@ -21,7 +21,7 @@ class KrakenSpotCandles(CandlesBase):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, trading_pair: str, interval: str = "1m", max_records: int = 150):
+    def __init__(self, trading_pair: str, interval: str = "1m", max_records: int = 720):
         super().__init__(trading_pair, interval, max_records)
 
     @property
@@ -93,7 +93,7 @@ class KrakenSpotCandles(CandlesBase):
 
         new_hb_candles = []
         for i in data:
-            timestamp_ms = float(i[0]) * 1e3
+            timestamp= int(float(i[0]))
             open = i[1]
             high = i[2]
             low = i[3]
@@ -105,7 +105,7 @@ class KrakenSpotCandles(CandlesBase):
             n_trades = 0
             taker_buy_base_volume = 0
             taker_buy_quote_volume = 0
-            new_hb_candles.append([timestamp_ms, open, high, low, close, volume,
+            new_hb_candles.append([timestamp, open, high, low, close, volume,
                                    quote_asset_volume, n_trades, taker_buy_base_volume,
                                    taker_buy_quote_volume])
         return np.array(new_hb_candles).astype(float)
@@ -117,7 +117,7 @@ class KrakenSpotCandles(CandlesBase):
             try:
                 if requests_executed < max_request_needed:
                     # we have to add one more since, the last row is not going to be included
-                    end_timestamp = int(self._candles[0][0] + 1)
+                    end_timestamp = int(self._candles[0][0]) + 1
                     start_time = end_timestamp - (720 * self.get_seconds_from_interval(self.interval)) + 1
                     candles = await self.fetch_candles(start_time=start_time, end_time=end_timestamp)
                     # we are computing again the quantity of records again since the websocket process is able to
@@ -145,7 +145,7 @@ class KrakenSpotCandles(CandlesBase):
         try:
             payload = {
                 "event": "subscribe",
-                "pair": [self.get_exchange_trading_pair(self._ex_trading_pair, '/')],
+                "pair": [self.get_exchange_trading_pair(self._trading_pair, '/')],
                 "subscription": {"name": CONSTANTS.WS_CANDLES_ENDPOINT, "interval": int(CONSTANTS.INTERVALS[self.interval])}
             }
             subscribe_candles_request: WSJSONRequest = WSJSONRequest(payload=payload)
@@ -167,7 +167,7 @@ class KrakenSpotCandles(CandlesBase):
             if not (type(data) is dict and "event" in data.keys() and
                     data["event"] in ["heartbeat", "systemStatus", "subscriptionStatus"]):
                 if data[-2][:4] == "ohlc":
-                    timestamp_ms = int(float(data[1][1]) * 1e3)
+                    timestamp = int(float(data[1][1]))
                     open = data[1][2]
                     high = data[1][3]
                     low = data[1][4]
@@ -180,17 +180,17 @@ class KrakenSpotCandles(CandlesBase):
                     taker_buy_base_volume = 0
                     taker_buy_quote_volume = 0
                     if len(self._candles) == 0:
-                        self._candles.append(np.array([timestamp_ms, open, high, low, close, volume,
+                        self._candles.append(np.array([timestamp, open, high, low, close, volume,
                                                        quote_asset_volume, n_trades, taker_buy_base_volume,
                                                        taker_buy_quote_volume]))
                         safe_ensure_future(self.fill_historical_candles())
-                    elif timestamp_ms > int(self._candles[-1][0]):
+                    elif timestamp > int(self._candles[-1][0]):
                         # TODO: validate also that the diff of timestamp == interval (issue with 30d interval).
-                        self._candles.append(np.array([timestamp_ms, open, high, low, close, volume,
+                        self._candles.append(np.array([timestamp, open, high, low, close, volume,
                                                        quote_asset_volume, n_trades, taker_buy_base_volume,
                                                        taker_buy_quote_volume]))
-                    elif timestamp_ms == int(self._candles[-1][0]):
+                    elif timestamp == int(self._candles[-1][0]):
                         self._candles.pop()
-                        self._candles.append(np.array([timestamp_ms, open, high, low, close, volume,
+                        self._candles.append(np.array([timestamp, open, high, low, close, volume,
                                                        quote_asset_volume, n_trades, taker_buy_base_volume,
                                                        taker_buy_quote_volume]))
