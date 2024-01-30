@@ -93,7 +93,7 @@ class KrakenSpotCandles(CandlesBase):
 
         new_hb_candles = []
         for i in data:
-            timestamp= int(float(i[0]))
+            timestamp = int(float(i[0]))
             open = i[1]
             high = i[2]
             low = i[3]
@@ -146,7 +146,8 @@ class KrakenSpotCandles(CandlesBase):
             payload = {
                 "event": "subscribe",
                 "pair": [self.get_exchange_trading_pair(self._trading_pair, '/')],
-                "subscription": {"name": CONSTANTS.WS_CANDLES_ENDPOINT, "interval": int(CONSTANTS.INTERVALS[self.interval])}
+                "subscription": {"name": CONSTANTS.WS_CANDLES_ENDPOINT,
+                                 "interval": int(CONSTANTS.INTERVALS[self.interval])}
             }
             subscribe_candles_request: WSJSONRequest = WSJSONRequest(payload=payload)
 
