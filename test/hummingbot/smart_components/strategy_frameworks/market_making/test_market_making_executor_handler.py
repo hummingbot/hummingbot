@@ -3,9 +3,12 @@ from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCa
 from unittest.mock import MagicMock, patch
 
 from hummingbot.core.data_type.common import TradeType
-from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorStatus, TrailingStop
+from hummingbot.smart_components.executors.position_executor.data_types import (
+    PositionExecutorStatus,
+    TrailingStop,
+    TripleBarrierConf,
+)
 from hummingbot.smart_components.order_level_distributions.order_level_builder import OrderLevel
-from hummingbot.smart_components.strategy_frameworks.data_types import TripleBarrierConf
 from hummingbot.smart_components.strategy_frameworks.market_making import (
     MarketMakingControllerBase,
     MarketMakingControllerConfigBase,
