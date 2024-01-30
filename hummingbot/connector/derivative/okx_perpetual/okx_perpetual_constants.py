@@ -33,7 +33,12 @@ ORDER_TYPE_MAP = {
     OrderType.MARKET: "market",
 }
 
-# Order Statuses
+GET = "GET"
+POST = "POST"
+METHOD = "METHOD"
+ENDPOINT = "ENDPOINT"
+
+# Order Status
 ORDER_STATE = {
     "live": OrderState.OPEN,
     "filled": OrderState.FILLED,
@@ -55,7 +60,8 @@ WSS_PRIVATE_URLS = {DEFAULT_DOMAIN: f"wss://ws.okx.com:8443/ws/{REST_API_VERSION
 WSS_BUSINESS_URLS = {DEFAULT_DOMAIN: f"wss://ws.okx.com:8443/ws/{REST_API_VERSION}/business",
                      AWS_DOMAIN: f"wss://wsaws.okx.com:8443/ws/{REST_API_VERSION}/business",
                      DEMO_DOMAIN: f"wss://wspap.okx.com:8443/ws/{REST_API_VERSION}/business?brokerId=9999"}
-
+WSS_LOGIN_PATH = {METHOD: GET,
+                  ENDPOINT: "/users/self/verify"}
 SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE = 25
 WS_PING_REQUEST = "ping"
 WS_PONG_RESPONSE = "pong"
@@ -82,11 +88,6 @@ WS_ORDERS_CHANNEL = "orders"
 # The structure is REST_url = {method: GET/POST, endpoint: /api/v5/...} since for the same endpoint you can have
 # different methods. This is also useful for rate limit ids.
 # -------------------------------------------
-GET = "GET"
-POST = "POST"
-METHOD = "METHOD"
-ENDPOINT = "ENDPOINT"
-
 # REST API Public Endpoints
 REST_LATEST_SYMBOL_INFORMATION = {METHOD: GET,
                                   ENDPOINT: f"/api/{REST_API_VERSION}/market/tickers"}
