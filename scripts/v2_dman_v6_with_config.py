@@ -7,14 +7,14 @@ from pydantic import Field
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
-from hummingbot.smart_components.controllers.dman_v5 import DManV5, DManV5Config
+from hummingbot.smart_components.controllers.dman_v6 import DManV6, DManV6Config
 from hummingbot.smart_components.executors.position_executor.data_types import TrailingStop
 from hummingbot.smart_components.strategy_frameworks.data_types import ExecutorHandlerStatus
 from hummingbot.smart_components.strategy_frameworks.generic_strategy.generic_executor import GenericExecutor
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
-class DManV5ScriptConfig(BaseClientModel):
+class DManV6ScriptConfig(BaseClientModel):
     script_file_name: str = Field(default_factory=lambda: os.path.basename(__file__))
 
     # Account configuration
@@ -26,15 +26,11 @@ class DManV5ScriptConfig(BaseClientModel):
     candles_exchange: str = Field("binance_perpetual", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the exchange name to fetch candle data from (e.g., binance_perpetual):"))
     candles_interval: str = Field("3m", client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the time interval for candles (e.g., 1m, 5m, 1h):"))
 
-    # Indicators configuration
-    macd_fast: int = Field(12, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the fast period for MACD (e.g., 12):"))
-    macd_slow: int = Field(26, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the slow period for MACD (e.g., 26):"))
-    macd_signal: int = Field(9, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the signal period for MACD (e.g., 9):"))
-
     # Orders configuration
     order_amount: Decimal = Field(10, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the base order amount in quote asset (e.g., 6 USDT):"))
+    dca_refresh_time: int = Field(60, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the refresh time for DCA orders in seconds (e.g., 60):"))
     max_dca_per_side: int = Field(3, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the maximum number of DCA orders per side (e.g., 3):"))
-    min_distance_between_dca: float = Field(0.03, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the minimum distance between DCA orders (e.g., 0.03):"))
+    min_distance_between_dca: float = Field(0.02, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the minimum distance between DCA orders (e.g., 0.03):"))
     amount_ratio_increase: float = Field(1.5, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the ratio to increase the amount for each subsequent level (e.g., 1.5):"))
     n_levels: int = Field(5, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Specify the number of order levels (e.g., 5):"))
     top_order_start_spread: float = Field(0.0002, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "Set the spread for the top order (e.g., 0.0002 for 0.02%):"))
@@ -52,12 +48,12 @@ class DManV5ScriptConfig(BaseClientModel):
     activation_threshold: Optional[Decimal] = Field(None, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "Set the activation threshold for the global trailing stop (e.g., 0.01 for 1%):"))
 
 
-class DManV5MultiplePairs(ScriptStrategyBase):
+class DManV6MultiplePairs(ScriptStrategyBase):
     @classmethod
-    def init_markets(cls, config: DManV5ScriptConfig):
+    def init_markets(cls, config: DManV6ScriptConfig):
         cls.markets = {config.exchange: set(config.trading_pairs.split(","))}
 
-    def __init__(self, connectors: Dict[str, ConnectorBase], config: DManV5ScriptConfig):
+    def __init__(self, connectors: Dict[str, ConnectorBase], config: DManV6ScriptConfig):
         super().__init__(connectors)
         self.config = config
 
@@ -67,21 +63,18 @@ class DManV5MultiplePairs(ScriptStrategyBase):
         self.markets = {}
 
         for trading_pair in config.trading_pairs.split(","):
-            max_candles_records = max(config.macd_slow, config.macd_fast, config.macd_signal) + 100
-            dman_config = DManV5Config(
+            dman_config = DManV6Config(
                 exchange=self.config.exchange,
                 trading_pair=trading_pair,
                 candles_config=[
                     CandlesConfig(connector=self.config.candles_exchange, trading_pair=trading_pair,
                                   interval=self.config.candles_interval,
-                                  max_records=max_candles_records),
+                                  max_records=100),
                 ],
                 max_dca_per_side=config.max_dca_per_side,
                 min_distance_between_dca=config.min_distance_between_dca,
-                macd_slow=config.macd_slow,
-                macd_fast=config.macd_fast,
-                macd_signal=config.macd_signal,
                 order_amount=config.order_amount,
+                dca_refresh_time=config.dca_refresh_time,
                 amount_ratio_increase=config.amount_ratio_increase,
                 n_levels=config.n_levels,
                 top_order_start_spread=config.top_order_start_spread,
@@ -95,7 +88,7 @@ class DManV5MultiplePairs(ScriptStrategyBase):
                 time_limit=config.time_limit,
                 leverage=self.config.leverage,
             )
-            controller = DManV5(config=dman_config)
+            controller = DManV6(config=dman_config)
             self.controllers[trading_pair] = controller
             self.executor_handlers[trading_pair] = GenericExecutor(strategy=self, controller=controller)
             self.markets = controller.update_strategy_markets_dict(self.markets)
