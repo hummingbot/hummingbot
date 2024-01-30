@@ -46,8 +46,12 @@ class DCAExecutor(ExecutorBase):
         return sum([executor.filled_amount for executor in self.active_executors])
 
     @property
-    def max_amount(self) -> Decimal:
-        return sum(self._dca_config.amounts_usd)
+    def filled_amount_quote(self) -> Decimal:
+        return self.filled_amount * self.current_position_average_price
+
+    @property
+    def max_amount_quote(self) -> Decimal:
+        return sum(self._dca_config.amounts_quote)
 
     @property
     def min_price(self) -> Decimal:
@@ -65,7 +69,7 @@ class DCAExecutor(ExecutorBase):
     @property
     def target_position_average_price(self) -> Decimal:
         return sum([price * amount for price, amount in
-                    zip(self._dca_config.prices, self._dca_config.amounts_usd)]) / self.max_amount
+                    zip(self._dca_config.prices, self._dca_config.amounts_quote)]) / self.max_amount_quote
 
     @property
     def net_pnl_quote(self) -> Decimal:
@@ -73,7 +77,7 @@ class DCAExecutor(ExecutorBase):
 
     @property
     def net_pnl_pct(self) -> Decimal:
-        return self.net_pnl_quote / self.filled_amount if self.filled_amount else Decimal("0")
+        return self.net_pnl_quote / self.filled_amount_quote if self.filled_amount_quote else Decimal("0")
 
     @property
     def cum_fee_quote(self) -> Decimal:
@@ -102,7 +106,7 @@ class DCAExecutor(ExecutorBase):
         """
         This method is responsible for controlling the active executors
         """
-        if math.isclose(self.max_amount, self.filled_amount) and self.net_pnl_pct < self._dca_config.global_stop_loss:
+        if math.isclose(self.max_amount_quote, self.filled_amount_quote) and self.net_pnl_pct < self._dca_config.global_stop_loss:
             self.close_type = CloseType.STOP_LOSS
             self.logger().info("Global Stop Loss Triggered!")
             for executor in self._active_executors:
@@ -129,9 +133,9 @@ class DCAExecutor(ExecutorBase):
         """
         current_executor_level = len(self._active_executors)
         close_price = self.get_price(connector_name=self._dca_config.exchange, trading_pair=self._dca_config.trading_pair)
-        if current_executor_level < len(self._dca_config.amounts_usd):
+        if current_executor_level < len(self._dca_config.amounts_quote):
             order_price = self._dca_config.prices[current_executor_level]
-            order_amount_usd = self._dca_config.amounts_usd[current_executor_level]
+            order_amount_usd = self._dca_config.amounts_quote[current_executor_level]
             if self._is_within_activation_threshold(order_price, close_price):
                 return PositionExecutorConfig(
                     timestamp=self._strategy.current_timestamp,
@@ -201,7 +205,8 @@ class DCAExecutor(ExecutorBase):
             "close_timestamp": self.close_timestamp,
             "active_executors": [executor.to_json() for executor in self.active_executors],
             "filled_amount": self.filled_amount,
-            "max_amount": self.max_amount,
+            "filled_amount_quote": self.filled_amount_quote,
+            "max_amount": self.max_amount_quote,
             "min_price": self.min_price,
             "max_price": self.max_price,
             "current_position_average_price": self.current_position_average_price,

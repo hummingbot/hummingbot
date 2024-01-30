@@ -13,7 +13,7 @@ class DCAConfig(BaseModel):
     exchange: str
     trading_pair: str
     side: TradeType
-    amounts_usd: List[Decimal]
+    amounts_quote: List[Decimal]
     prices: List[Decimal]
     global_take_profit: Optional[Decimal] = None
     global_stop_loss: Optional[Decimal] = None

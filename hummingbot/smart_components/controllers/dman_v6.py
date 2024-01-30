@@ -145,7 +145,7 @@ class DManV6(GenericController):
                 exchange=self.config.exchange,
                 trading_pair=self.config.trading_pair,
                 side=trade_type,
-                amounts_usd=amounts_usd,
+                amounts_quote=amounts_usd,
                 prices=prices,
                 global_stop_loss=self.config.global_stop_loss,
                 global_take_profit=self.config.global_take_profit,
