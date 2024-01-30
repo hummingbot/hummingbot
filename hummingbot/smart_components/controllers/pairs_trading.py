@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import List, Set
 
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig
+from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig
 from hummingbot.smart_components.strategy_frameworks.controller_base import ControllerConfigBase
 from hummingbot.smart_components.strategy_frameworks.data_types import (
     BotAction,
@@ -85,7 +85,7 @@ class PairsTrading(GenericController):
             tp_1_entry_price = trading_pair_1_close_price * Decimal(1 - self.config.spread_factor * spread_multiplier)
             tp_2_entry_price = trading_pair_2_close_price * Decimal(1 + self.config.spread_factor * spread_multiplier)
             proposal.append(CreatePositionExecutorAction(
-                position_config=PositionConfig(
+                position_config=PositionExecutorConfig(
                     timestamp=time.time(),
                     trading_pair=self.config.trading_pair,
                     exchange=self.config.exchange,
@@ -98,7 +98,7 @@ class PairsTrading(GenericController):
                 ),
                 level_id=uuid.uuid4().hex))
             proposal.append(CreatePositionExecutorAction(
-                position_config=PositionConfig(
+                position_config=PositionExecutorConfig(
                     timestamp=time.time(),
                     trading_pair=self.config.trading_pair_2,
                     exchange=self.config.exchange,
@@ -114,7 +114,7 @@ class PairsTrading(GenericController):
             tp_1_entry_price = trading_pair_1_close_price * Decimal(1 + self.config.spread_factor * spread_multiplier)
             tp_2_entry_price = trading_pair_2_close_price * Decimal(1 - self.config.spread_factor * spread_multiplier)
             proposal.append(CreatePositionExecutorAction(
-                position_config=PositionConfig(
+                position_config=PositionExecutorConfig(
                     timestamp=time.time(),
                     trading_pair=self.config.trading_pair,
                     exchange=self.config.exchange,
@@ -127,7 +127,7 @@ class PairsTrading(GenericController):
                 ),
                 level_id=uuid.uuid4().hex))
             proposal.append(CreatePositionExecutorAction(
-                position_config=PositionConfig(
+                position_config=PositionExecutorConfig(
                     timestamp=time.time(),
                     trading_pair=self.config.trading_pair_2,
                     exchange=self.config.exchange,

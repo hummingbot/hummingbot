@@ -4,7 +4,7 @@ from decimal import Decimal
 import pandas_ta as ta  # noqa: F401
 
 from hummingbot.core.data_type.common import TradeType
-from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig, TrailingStop
+from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig, TrailingStop
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.smart_components.order_level_distributions.order_level_builder import OrderLevel
 from hummingbot.smart_components.strategy_frameworks.market_making.market_making_controller_base import (
@@ -63,7 +63,7 @@ class DManV1(MarketMakingControllerBase):
         candles_df["price_multiplier"] = 0.0
         return candles_df
 
-    def get_position_config(self, order_level: OrderLevel) -> PositionConfig:
+    def get_position_config(self, order_level: OrderLevel) -> PositionExecutorConfig:
         """
         Creates a PositionConfig object from an OrderLevel object.
         Here you can use technical indicators to determine the parameters of the position config.
@@ -83,7 +83,7 @@ class DManV1(MarketMakingControllerBase):
             )
         else:
             trailing_stop = None
-        position_config = PositionConfig(
+        position_config = PositionExecutorConfig(
             timestamp=time.time(),
             trading_pair=self.config.trading_pair,
             exchange=self.config.exchange,

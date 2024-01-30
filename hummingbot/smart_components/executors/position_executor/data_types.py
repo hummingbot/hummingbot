@@ -13,7 +13,21 @@ class TrailingStop(BaseModel):
     trailing_delta: Decimal
 
 
-class PositionConfig(BaseModel):
+class TripleBarrierConf(BaseModel):
+    # Configure the parameters for the position
+    stop_loss: Optional[Decimal]
+    take_profit: Optional[Decimal]
+    time_limit: Optional[int]
+    trailing_stop_activation_price_delta: Optional[Decimal]
+    trailing_stop_trailing_delta: Optional[Decimal]
+    # Configure the parameters for the order
+    open_order_type: OrderType = OrderType.LIMIT
+    take_profit_order_type: OrderType = OrderType.MARKET
+    stop_loss_order_type: OrderType = OrderType.MARKET
+    time_limit_order_type: OrderType = OrderType.MARKET
+
+
+class PositionExecutorConfig(BaseModel):
     timestamp: float
     trading_pair: str
     exchange: str

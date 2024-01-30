@@ -11,7 +11,7 @@ from hummingbot.logger import HummingbotLogger
 from hummingbot.model.position_executors import PositionExecutors
 from hummingbot.smart_components.executors.dca_executor.data_types import DCAConfig
 from hummingbot.smart_components.executors.dca_executor.dca_executor import DCAExecutor
-from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig
+from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.smart_components.strategy_frameworks.controller_base import ControllerBase
 from hummingbot.smart_components.strategy_frameworks.data_types import ExecutorHandlerStatus
@@ -81,7 +81,7 @@ class ExecutorHandlerBase:
             MarketsRecorder.get_instance().store_executor(executor_data)
             self.position_executors[level_id] = None
 
-    def create_position_executor(self, position_config: PositionConfig, level_id: str = None):
+    def create_position_executor(self, position_config: PositionExecutorConfig, level_id: str = None):
         """
         Create an executor.
 

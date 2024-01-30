@@ -7,8 +7,8 @@ from pydantic import BaseModel
 from pydantic.class_validators import validator
 
 from hummingbot.core.data_type.common import TradeType
+from hummingbot.smart_components.executors.position_executor.data_types import TripleBarrierConf
 from hummingbot.smart_components.order_level_distributions.distributions import Distributions
-from hummingbot.smart_components.strategy_frameworks.data_types import TripleBarrierConf
 
 
 class OrderLevel(BaseModel):
