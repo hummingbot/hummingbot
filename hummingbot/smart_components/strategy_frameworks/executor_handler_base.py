@@ -41,7 +41,7 @@ class ExecutorHandlerBase:
         self.update_interval = update_interval
         self.executors_update_interval = executors_update_interval
         self.terminated = asyncio.Event()
-        self.level_executors = {}
+        self.position_executors = {}
         self.dca_executors = {}
         self.status = ExecutorHandlerStatus.NOT_STARTED
 
@@ -73,13 +73,13 @@ class ExecutorHandlerBase:
         :param executor: The executor instance.
         :param level_id: The order level id.
         """
-        executor = self.level_executors[level_id]
+        executor = self.position_executors[level_id]
         if executor:
             executor_data = executor.to_json()
             executor_data["order_level"] = level_id
             executor_data["controller_name"] = self.controller.config.strategy_name
             MarketsRecorder.get_instance().store_executor(executor_data)
-            self.level_executors[level_id] = None
+            self.position_executors[level_id] = None
 
     def create_position_executor(self, position_config: PositionConfig, level_id: str = None):
         """
@@ -88,11 +88,11 @@ class ExecutorHandlerBase:
         :param position_config: The position configuration.
         :param level_id: The order level id.
         """
-        if level_id in self.level_executors:
+        if level_id in self.position_executors:
             self.logger().warning(f"Executor for level {level_id} already exists.")
             return
         executor = PositionExecutor(self.strategy, position_config, update_interval=self.executors_update_interval)
-        self.level_executors[level_id] = executor
+        self.position_executors[level_id] = executor
 
     def stop_position_executor(self, executor_id: str):
         """
@@ -100,7 +100,7 @@ class ExecutorHandlerBase:
 
         :param executor_id: The executor ID.
         """
-        executor = self.level_executors[executor_id]
+        executor = self.position_executors[executor_id]
         if executor:
             executor.early_stop()
 
@@ -187,7 +187,7 @@ class ExecutorHandlerBase:
         :return: DataFrame containing active executors.
         """
         executors_info = []
-        for level, executor in self.level_executors.items():
+        for level, executor in self.position_executors.items():
             if executor:
                 executor_info = executor.to_json()
                 executor_info["level_id"] = level
