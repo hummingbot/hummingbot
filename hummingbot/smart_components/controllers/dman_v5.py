@@ -100,9 +100,15 @@ class DManV5(GenericController):
             n_short_dcas = len(short_dcas)
             min_long_dca_average_price = long_dcas["current_position_average_price"].min()
             max_short_dca_average_price = short_dcas["current_position_average_price"].max()
-            if 0 < n_long_dcas < self.config.max_dca_per_side and signal > 0 and float(close_price) < float(min_long_dca_average_price) * (1 - self.config.min_distance_between_dca):
+            if n_long_dcas == 0:
                 create_long_dca_flag = True
-            elif 0 < n_short_dcas < self.config.max_dca_per_side and signal < 0 and float(close_price) > float(max_short_dca_average_price) * (1 + self.config.min_distance_between_dca):
+            elif n_long_dcas < self.config.max_dca_per_side and float(close_price) < float(
+                    min_long_dca_average_price) * (1 - self.config.min_distance_between_dca):
+                create_long_dca_flag = True
+            if n_short_dcas == 0:
+                create_short_dca_flag = True
+            elif n_short_dcas < self.config.max_dca_per_side and float(close_price) > float(
+                    max_short_dca_average_price) * (1 + self.config.min_distance_between_dca):
                 create_short_dca_flag = True
 
         proposal = []
