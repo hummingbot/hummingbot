@@ -24,6 +24,8 @@ class GenericExecutor(ExecutorHandlerBase):
         """Actions to perform on stop."""
         for executor in self.position_executors.values():
             executor.early_stop()
+        self.close_open_positions(connector_name=self.controller.config.exchange,
+                                  trading_pair=self.controller.config.trading_pair)
         self.controller.stop()
 
     def __init__(self, strategy: ScriptStrategyBase, controller: GenericController, update_interval: float = 1.0,
