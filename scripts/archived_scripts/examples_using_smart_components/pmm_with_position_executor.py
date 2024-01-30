@@ -12,7 +12,7 @@ from hummingbot.core.data_type.common import OrderType, PositionAction, Position
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig, CandlesFactory
 from hummingbot.smart_components.executors.position_executor.data_types import (
     CloseType,
-    PositionConfig,
+    PositionExecutorConfig,
     PositionExecutorStatus,
     TrailingStop,
 )
@@ -140,7 +140,7 @@ class PMMWithPositionExecutor(ScriptStrategyBase):
         return candles_df
 
     def create_executor(self, side: TradeType, price: Decimal, amount_usd: Decimal):
-        position_config = PositionConfig(
+        position_config = PositionExecutorConfig(
             timestamp=self.current_timestamp,
             trading_pair=self.trading_pair,
             exchange=self.exchange,
