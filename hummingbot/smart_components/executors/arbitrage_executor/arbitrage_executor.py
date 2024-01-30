@@ -11,12 +11,12 @@ from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketOrderFailur
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.logger import HummingbotLogger
 from hummingbot.smart_components.executors.arbitrage_executor.data_types import ArbitrageConfig, ArbitrageExecutorStatus
+from hummingbot.smart_components.executors.executor_base import ExecutorBase
 from hummingbot.smart_components.executors.position_executor.data_types import TrackedOrder
-from hummingbot.smart_components.smart_component_base import SmartComponentBase
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
-class ArbitrageExecutor(SmartComponentBase):
+class ArbitrageExecutor(ExecutorBase):
     _logger = None
 
     @classmethod

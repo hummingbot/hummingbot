@@ -6,13 +6,13 @@ from typing import List, Optional
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.logger import HummingbotLogger
 from hummingbot.smart_components.executors.dca_executor.data_types import DCAConfig
-from hummingbot.smart_components.executors.position_executor.data_types import CloseType, PositionConfig
+from hummingbot.smart_components.executors.executor_base import ExecutorBase
+from hummingbot.smart_components.executors.position_executor.data_types import CloseType, PositionExecutorConfig
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
-from hummingbot.smart_components.smart_component_base import SmartComponentBase
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
-class DCAExecutor(SmartComponentBase):
+class DCAExecutor(ExecutorBase):
     _logger = None
 
     @classmethod
@@ -94,7 +94,7 @@ class DCAExecutor(SmartComponentBase):
         This method is responsible for controlling the opening process
         """
         if not any([executor.close_type is CloseType.FAILED for executor in self._active_executors]):
-            next_executor: Optional[PositionConfig] = self._get_next_executor()
+            next_executor: Optional[PositionExecutorConfig] = self._get_next_executor()
             if next_executor:
                 self._create_executor(next_executor)
 
@@ -123,7 +123,7 @@ class DCAExecutor(SmartComponentBase):
             elif self.net_pnl_pct - self._dca_config.global_trailing_stop.trailing_delta > self._trailing_stop_pnl:
                 self._trailing_stop_pnl = self.net_pnl_pct - self._dca_config.global_trailing_stop.trailing_delta
 
-    def _get_next_executor(self) -> Optional[PositionConfig]:
+    def _get_next_executor(self) -> Optional[PositionExecutorConfig]:
         """
         This method is responsible for getting the next position config
         """
@@ -133,7 +133,7 @@ class DCAExecutor(SmartComponentBase):
             order_price = self._dca_config.prices[current_executor_level]
             order_amount_usd = self._dca_config.amounts_usd[current_executor_level]
             if self._is_within_activation_threshold(order_price, close_price):
-                return PositionConfig(
+                return PositionExecutorConfig(
                     timestamp=self._strategy.current_timestamp,
                     trading_pair=self._dca_config.trading_pair,
                     exchange=self._dca_config.exchange,
@@ -157,7 +157,7 @@ class DCAExecutor(SmartComponentBase):
         else:
             return True
 
-    def _create_executor(self, position_config: PositionConfig):
+    def _create_executor(self, position_config: PositionExecutorConfig):
         """
         This method is responsible for creating a new position executor
         """
