@@ -3,6 +3,7 @@ import logging
 from typing import List, Optional
 
 import numpy as np
+import pandas as pd
 
 from hummingbot.core.network_iterator import NetworkStatus, safe_ensure_future
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
@@ -51,6 +52,12 @@ class KrakenSpotCandles(CandlesBase):
     @property
     def intervals(self):
         return CONSTANTS.INTERVALS
+
+    @property
+    def candles_df(self) -> pd.DataFrame:
+        df = pd.DataFrame(self._candles, columns=self.columns, dtype=float)
+        df["timestamp"] = df["timestamp"] * 1000
+        return df.sort_values(by="timestamp", ascending=True)
 
     async def check_network(self) -> NetworkStatus:
         rest_assistant = await self._api_factory.get_rest_assistant()
