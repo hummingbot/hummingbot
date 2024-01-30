@@ -15,7 +15,7 @@ from hummingbot.core.event.events import (
 from hummingbot.logger import HummingbotLogger
 from hummingbot.smart_components.executors.position_executor.data_types import (
     CloseType,
-    PositionConfig,
+    PositionExecutorConfig,
     PositionExecutorStatus,
     TrailingStop,
 )
@@ -46,36 +46,35 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         return strategy
 
     def get_position_config_trailing_stop(self):
-        return PositionConfig(timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
-                              side=TradeType.BUY, entry_price=Decimal("100"), amount=Decimal("1"),
-                              stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
-                              take_profit_order_type=OrderType.LIMIT, stop_loss_order_type=OrderType.MARKET,
-                              trailing_stop=TrailingStop(
-                                  activation_price_delta=Decimal("0.02"),
-                                  trailing_delta=Decimal("0.01")))
+        return PositionExecutorConfig(timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
+                                      side=TradeType.BUY, entry_price=Decimal("100"), amount=Decimal("1"),
+                                      stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
+                                      take_profit_order_type=OrderType.LIMIT, stop_loss_order_type=OrderType.MARKET,
+                                      trailing_stop=TrailingStop(activation_price_delta=Decimal("0.02"),
+                                                                 trailing_delta=Decimal("0.01")))
 
     def get_position_config_market_long(self):
-        return PositionConfig(timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
-                              side=TradeType.BUY, entry_price=Decimal("100"), amount=Decimal("1"),
-                              stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
-                              take_profit_order_type=OrderType.LIMIT, stop_loss_order_type=OrderType.MARKET,)
+        return PositionExecutorConfig(timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
+                                      side=TradeType.BUY, entry_price=Decimal("100"), amount=Decimal("1"),
+                                      stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
+                                      take_profit_order_type=OrderType.LIMIT, stop_loss_order_type=OrderType.MARKET, )
 
     def get_position_config_market_long_tp_market(self):
-        return PositionConfig(timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
-                              side=TradeType.BUY, entry_price=Decimal("100"), amount=Decimal("1"),
-                              stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
-                              take_profit_order_type=OrderType.MARKET, stop_loss_order_type=OrderType.MARKET,)
+        return PositionExecutorConfig(timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
+                                      side=TradeType.BUY, entry_price=Decimal("100"), amount=Decimal("1"),
+                                      stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
+                                      take_profit_order_type=OrderType.MARKET, stop_loss_order_type=OrderType.MARKET, )
 
     def get_position_config_market_short(self):
-        return PositionConfig(timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
-                              side=TradeType.SELL, entry_price=Decimal("100"), amount=Decimal("1"),
-                              stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
-                              take_profit_order_type=OrderType.LIMIT, stop_loss_order_type=OrderType.MARKET,)
+        return PositionExecutorConfig(timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
+                                      side=TradeType.SELL, entry_price=Decimal("100"), amount=Decimal("1"),
+                                      stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
+                                      take_profit_order_type=OrderType.LIMIT, stop_loss_order_type=OrderType.MARKET, )
 
     def get_incomplete_position_config(self):
-        return PositionConfig(timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
-                              side=TradeType.SELL, entry_price=Decimal("100"), amount=Decimal("1"),
-                              take_profit_order_type=OrderType.LIMIT, stop_loss_order_type=OrderType.MARKET,)
+        return PositionExecutorConfig(timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
+                                      side=TradeType.SELL, entry_price=Decimal("100"), amount=Decimal("1"),
+                                      take_profit_order_type=OrderType.LIMIT, stop_loss_order_type=OrderType.MARKET, )
 
     def test_init_raises_exception(self):
         position_config = self.get_incomplete_position_config()

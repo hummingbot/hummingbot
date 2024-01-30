@@ -15,14 +15,14 @@ from hummingbot.core.event.events import (
     OrderCancelledEvent,
     OrderFilledEvent,
 )
-from hummingbot.smart_components.smart_component_base import SmartComponentBase, SmartComponentStatus
+from hummingbot.smart_components.executors.executor_base import ExecutorBase, ExecutorStatus
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
 class TestSmartComponentBase(unittest.TestCase):
     def setUp(self):
         self.strategy = self.create_mock_strategy
-        self.component = SmartComponentBase(self.strategy, ["connector1"], update_interval=0.5)
+        self.component = ExecutorBase(self.strategy, ["connector1"], update_interval=0.5)
 
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: int = 1):
         ret = asyncio.get_event_loop().run_until_complete(asyncio.wait_for(coroutine, timeout))
@@ -46,11 +46,11 @@ class TestSmartComponentBase(unittest.TestCase):
         return strategy
 
     def test_constructor(self):
-        component = SmartComponentBase(self.strategy, ["connector1"], update_interval=0.5)
+        component = ExecutorBase(self.strategy, ["connector1"], update_interval=0.5)
         self.assertEqual(component._strategy, self.strategy)
         self.assertEqual(component.update_interval, 0.5)
         self.assertEqual(len(component.connectors), 1)
-        self.assertEqual(component._status, SmartComponentStatus.NOT_STARTED)
+        self.assertEqual(component._status, ExecutorStatus.NOT_STARTED)
         self.assertEqual(component._states, [])
         self.assertIsInstance(component._create_buy_order_forwarder, SourceInfoEventForwarder)
 
@@ -58,13 +58,13 @@ class TestSmartComponentBase(unittest.TestCase):
         self.component.control_task = MagicMock()
         self.component.terminated.set()
         self.async_run_with_timeout(self.component.control_loop())
-        self.assertEqual(self.component._status, SmartComponentStatus.TERMINATED)
+        self.assertEqual(self.component._status, ExecutorStatus.TERMINATED)
 
     def test_terminate_control_loop(self):
         self.component.control_task = MagicMock()
         self.component.terminate_control_loop()
         self.async_run_with_timeout(self.component.control_loop())
-        self.assertEqual(self.component.status, SmartComponentStatus.TERMINATED)
+        self.assertEqual(self.component.status, ExecutorStatus.TERMINATED)
 
     def test_process_order_completed_event(self):
         event_tag = 1
