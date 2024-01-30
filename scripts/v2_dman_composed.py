@@ -6,11 +6,9 @@ from hummingbot.core.data_type.common import OrderType, PositionAction, Position
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
 from hummingbot.smart_components.controllers.dman_v1 import DManV1, DManV1Config
 from hummingbot.smart_components.controllers.dman_v2 import DManV2, DManV2Config
-from hummingbot.smart_components.strategy_frameworks.data_types import (
-    ExecutorHandlerStatus,
-    OrderLevel,
-    TripleBarrierConf,
-)
+from hummingbot.smart_components.executors.position_executor.data_types import TripleBarrierConf
+from hummingbot.smart_components.order_level_distributions.order_level_builder import OrderLevel
+from hummingbot.smart_components.strategy_frameworks.data_types import ExecutorHandlerStatus
 from hummingbot.smart_components.strategy_frameworks.market_making.market_making_executor_handler import (
     MarketMakingExecutorHandler,
 )

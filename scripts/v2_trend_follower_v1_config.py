@@ -9,11 +9,9 @@ from hummingbot.connector.connector_base import ConnectorBase, TradeType
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
 from hummingbot.smart_components.controllers.trend_follower_v1 import TrendFollowerV1, TrendFollowerV1Config
-from hummingbot.smart_components.strategy_frameworks.data_types import (
-    ExecutorHandlerStatus,
-    OrderLevel,
-    TripleBarrierConf,
-)
+from hummingbot.smart_components.executors.position_executor.data_types import TripleBarrierConf
+from hummingbot.smart_components.order_level_distributions.order_level_builder import OrderLevel
+from hummingbot.smart_components.strategy_frameworks.data_types import ExecutorHandlerStatus
 from hummingbot.smart_components.strategy_frameworks.directional_trading.directional_trading_executor_handler import (
     DirectionalTradingExecutorHandler,
 )
