@@ -73,7 +73,7 @@ class TestExecutorHandlerBase(IsolatedAsyncioWrapperTestCase):
         mock_order_level = MagicMock()
         mock_order_level.level_id = "BUY_1"
         self.executor_handler.store_position_executor(mock_executor, mock_order_level)
-        self.assertIsNone(self.executor_handler.level_executors[mock_order_level.level_id])
+        self.assertIsNone(self.executor_handler.position_executors[mock_order_level.level_id])
 
     @patch.object(ExecutorHandlerBase, "_sleep", new_callable=AsyncMock)
     @patch.object(ExecutorHandlerBase, "control_task", new_callable=AsyncMock)
@@ -89,7 +89,7 @@ class TestExecutorHandlerBase(IsolatedAsyncioWrapperTestCase):
         mock_order_level = MagicMock()
         self.executor_handler.create_position_executor(mock_position_config, mock_order_level)
         mock_position_executor.assert_called_once_with(self.mock_strategy, mock_position_config, update_interval=1.0)
-        self.assertIsNotNone(self.executor_handler.level_executors[mock_order_level.level_id])
+        self.assertIsNotNone(self.executor_handler.position_executors[mock_order_level.level_id])
 
     def generate_random_data(self, num_rows):
         data = {
@@ -157,7 +157,7 @@ class TestExecutorHandlerBase(IsolatedAsyncioWrapperTestCase):
         position_executor_mock = MagicMock()
         position_executor_mock.to_json = MagicMock(return_value={"entry_price": Decimal("100"),
                                                                  "amount": Decimal("10")})
-        self.executor_handler.level_executors = {
+        self.executor_handler.position_executors = {
             "level1": position_executor_mock,
             "level2": position_executor_mock,
             "level3": position_executor_mock

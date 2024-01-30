@@ -22,7 +22,7 @@ class GenericExecutor(ExecutorHandlerBase):
 
     def on_stop(self):
         """Actions to perform on stop."""
-        for executor in self.level_executors.values():
+        for executor in self.position_executors.values():
             executor.early_stop()
         self.controller.stop()
 

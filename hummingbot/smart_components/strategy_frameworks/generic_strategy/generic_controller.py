@@ -33,7 +33,7 @@ class GenericController(ControllerBase):
         """
         Formats the status of the controller.
         """
-        lines = super().to_format_status()
+        lines = []
         executor_handler_report = self._executor_handler_report
         if executor_handler_report is not None:
             active_position_executors_df = executor_handler_report.active_position_executors
