@@ -24,6 +24,7 @@ class TestKrakenSpotCandles(unittest.TestCase):
         cls.interval = "1h"
         cls.trading_pair = f"{cls.base_asset}-{cls.quote_asset}"
         cls.ex_trading_pair = f"XBT{cls.quote_asset}"
+        cls.ws_ex_trading_pair = f"XBT/{cls.quote_asset}"
 
     def setUp(self) -> None:
         super().setUp()
@@ -159,7 +160,7 @@ class TestKrakenSpotCandles(unittest.TestCase):
 
         expected_kline_subscription = {
             "event": "subscribe",
-            "pair": [self.ex_trading_pair],
+            "pair": [self.ws_ex_trading_pair],
             "subscription": {"name": CONSTANTS.WS_CANDLES_ENDPOINT, "interval": int(CONSTANTS.INTERVALS[self.interval])}
         }
         self.assertEqual(expected_kline_subscription["subscription"], sent_subscription_messages[0]["subscription"])
