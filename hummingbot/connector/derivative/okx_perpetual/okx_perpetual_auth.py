@@ -4,7 +4,6 @@ import re
 from datetime import datetime
 from typing import Dict, Optional
 
-import hummingbot.connector.derivative.okx_perpetual.okx_perpetual_constants as CONSTANTS
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
 
@@ -85,7 +84,7 @@ class OkxPerpetualAuth(AuthBase):
         pattern = re.compile(r'https://www.okx.com')
         return re.sub(pattern, '', url)
 
-    def get_ws_auth_args(self) -> Dict[str, str]:
+    def get_ws_auth_args(self, request_path: str) -> Dict[str, str]:
         """
 
             - api_key: Unique identification for invoking API. Requires user to apply one manually.
@@ -99,7 +98,7 @@ class OkxPerpetualAuth(AuthBase):
         timestamp = self._get_timestamp()
         _access_sign = self.generate_signature_from_payload(timestamp=timestamp,
                                                             method=RESTMethod.GET,
-                                                            request_path=CONSTANTS.WSS_LOGIN_PATH[CONSTANTS.ENDPOINT])
+                                                            request_path=request_path)
         return [
             {
                 "apiKey": self._api_key,
