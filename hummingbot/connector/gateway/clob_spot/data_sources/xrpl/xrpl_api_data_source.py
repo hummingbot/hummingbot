@@ -80,7 +80,7 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
         await super().stop()
 
     def get_supported_order_types(self) -> List[OrderType]:
-        return [OrderType.LIMIT]
+        return [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]
 
     async def batch_order_create(self, orders_to_create: List[GatewayInFlightOrder]) -> List[PlaceOrderResult]:
         place_order_results = []
