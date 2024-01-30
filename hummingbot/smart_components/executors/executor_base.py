@@ -20,19 +20,19 @@ from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
-class SmartComponentStatus(Enum):
+class ExecutorStatus(Enum):
     NOT_STARTED = 1
     ACTIVE = 2
     TERMINATED = 3
 
 
-class SmartComponentBase:
+class ExecutorBase:
     def __init__(self, strategy: ScriptStrategyBase, connectors: List[str], update_interval: float = 0.5):
         self._strategy: ScriptStrategyBase = strategy
         self.update_interval = update_interval
         self.connectors = {connector_name: connector for connector_name, connector in strategy.connectors.items() if
                            connector_name in connectors}
-        self._status: SmartComponentStatus = SmartComponentStatus.NOT_STARTED
+        self._status: ExecutorStatus = ExecutorStatus.NOT_STARTED
         self._states: list = []
 
         self._create_buy_order_forwarder = SourceInfoEventForwarder(self.process_order_created_event)
@@ -67,11 +67,11 @@ class SmartComponentBase:
 
     async def control_loop(self):
         self.on_start()
-        self._status = SmartComponentStatus.ACTIVE
+        self._status = ExecutorStatus.ACTIVE
         while not self.terminated.is_set():
             await self.control_task()
             await asyncio.sleep(self.update_interval)
-        self._status = SmartComponentStatus.TERMINATED
+        self._status = ExecutorStatus.TERMINATED
         self.on_stop()
 
     def on_stop(self):
