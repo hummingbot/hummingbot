@@ -30,7 +30,7 @@ class OkxPerpetualAuth(AuthBase):
     def generate_signature_from_payload(self,
                                         timestamp: str,
                                         method: RESTMethod,
-                                        request_path: str,
+                                        url: str,
                                         body: Optional[str] = None) -> str:
         """
         The OK-ACCESS-SIGN header is generated as follows:
@@ -41,9 +41,10 @@ class OkxPerpetualAuth(AuthBase):
             3) Sign the prehash string with the SecretKey using the HMAC SHA256.
             4) Encode the signature in the Base64 format.
         """
-        if body is None:
-            body = ''
-        message = str(timestamp) + str.upper(method.value) + self.get_path_from_url(request_path) + str(body)
+        str_body = ""
+        if body is not None:
+            str_body = str(body).replace("'", '"')
+        message = str(timestamp) + str.upper(method.value) + self.get_path_from_url(url) + str_body
         mac = hmac.new(bytes(self._api_secret, encoding='utf8'), bytes(message, encoding='utf-8'), digestmod='sha256')
         d = mac.digest()
         return str(base64.b64encode(d), encoding='utf-8')
@@ -61,16 +62,15 @@ class OkxPerpetualAuth(AuthBase):
         """
         timestamp = self._get_timestamp()
 
-        _access_sign = self.generate_signature_from_payload(timestamp=timestamp,
-                                                            method=request.method,
-                                                            request_path=request.url,
-                                                            body=request.params)
-        request.headers = {
+        _access_sign = self.generate_signature_from_payload(timestamp=timestamp, method=request.method, url=request.url,
+                                                            body=request.data)
+        auth_headers = {
             "OK-ACCESS-KEY": self._api_key,
             "OK-ACCESS-SIGN": _access_sign,
             "OK-ACCESS-TIMESTAMP": timestamp,
             "OK-ACCESS-PASSPHRASE": self._passphrase
         }
+        request.headers = {**request.headers, **auth_headers}
         return request
 
     @staticmethod
