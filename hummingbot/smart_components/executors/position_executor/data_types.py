@@ -43,6 +43,7 @@ class PositionExecutorConfig(ExecutorConfigBase):
     stop_loss_order_type: OrderType = OrderType.MARKET
     time_limit_order_type: OrderType = OrderType.MARKET
     leverage: int = 1
+    level_id: Optional[str] = None
 
 
 class PositionExecutorStatus(Enum):
