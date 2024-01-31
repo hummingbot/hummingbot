@@ -213,7 +213,6 @@ class ExecutorHandlerBase:
         if len(dca_executors_info) > 0:
             dca_executors_df = pd.DataFrame(dca_executors_info)
             dca_executors_df.sort_values(by="current_position_average_price", ascending=False, inplace=True)
-            dca_executors_df["distance_to_next_dca"] = -1 * dca_executors_df["current_position_average_price"].pct_change(periods=1)
             return dca_executors_df
         else:
             return pd.DataFrame()

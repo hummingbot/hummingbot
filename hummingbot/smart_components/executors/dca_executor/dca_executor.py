@@ -64,7 +64,7 @@ class DCAExecutor(ExecutorBase):
     @property
     def current_position_average_price(self) -> Decimal:
         return sum([executor.entry_price * executor.filled_amount for executor in self._active_executors]) / \
-            self.filled_amount if self._active_executors and self.filled_amount > Decimal("0") else None
+            self.filled_amount if self._active_executors and self.filled_amount > Decimal("0") else Decimal("0")
 
     @property
     def target_position_average_price(self) -> Decimal:
@@ -206,7 +206,7 @@ class DCAExecutor(ExecutorBase):
             "active_executors": [executor.to_json() for executor in self.active_executors],
             "filled_amount": self.filled_amount,
             "filled_amount_quote": self.filled_amount_quote,
-            "max_amount": self.max_amount_quote,
+            "max_amount_quote": self.max_amount_quote,
             "min_price": self.min_price,
             "max_price": self.max_price,
             "current_position_average_price": self.current_position_average_price,

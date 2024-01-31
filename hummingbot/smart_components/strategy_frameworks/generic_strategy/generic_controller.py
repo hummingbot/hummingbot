@@ -43,6 +43,8 @@ class GenericController(ControllerBase):
                 lines.append(format_df_for_printout(active_position_executors_df, table_format="psql"))
             if not active_dca_executors_df.empty:
                 lines.append("DCA Executors:")
-                dca_columns_to_show = ["status", "trading_pair", "side", "net_pnl_quote", "cum_fee_quote", "net_pnl_pct", "max_amount", "target_position_average_price", "current_position_average_price", "leverage"]
-                lines.append(format_df_for_printout(active_dca_executors_df[dca_columns_to_show], table_format="psql"))
+                dca_cols_to_show = [
+                    "status", "trading_pair", "side", "net_pnl_quote", "cum_fee_quote", "net_pnl_pct",
+                    "max_amount_quote", "target_position_average_price", "current_position_average_price", "leverage"]
+                lines.append(format_df_for_printout(active_dca_executors_df[dca_cols_to_show], table_format="psql"))
         return lines
