@@ -18,6 +18,7 @@ REST_URLS = {DEFAULT_DOMAIN: "https://www.okx.com",
              AWS_DOMAIN: "https://aws.okx.com",
              DEMO_DOMAIN: "https://www.okx.com"}
 
+ACCOUNT_MODE = "Single-currency margin mode"
 # -------------------------------------------
 # DATA TYPES
 # -------------------------------------------
@@ -123,6 +124,8 @@ REST_QUERY_ACTIVE_ORDER = {METHOD: GET,
                            ENDPOINT: REST_PLACE_ACTIVE_ORDER[ENDPOINT]}
 REST_USER_TRADE_RECORDS = {METHOD: GET,
                            ENDPOINT: f"/api/{REST_API_VERSION}/trade/fills-history"}
+REST_BILLS_DETAILS = {METHOD: GET,
+                      ENDPOINT: f"/api/{REST_API_VERSION}/account/bills"}
 
 # -------------------------------------------
 # RET CODES
