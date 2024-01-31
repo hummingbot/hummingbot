@@ -131,7 +131,7 @@ class ArbitrageExecutor(ExecutorBase):
         elif self.arbitrage_status == ArbitrageExecutorStatus.ACTIVE_ARBITRAGE:
             if self._cumulative_failures > self.max_retries:
                 self.arbitrage_status = ArbitrageExecutorStatus.FAILED
-                self.terminate_control_loop()
+                self.stop()
             else:
                 self.check_order_status()
 
@@ -139,7 +139,7 @@ class ArbitrageExecutor(ExecutorBase):
         if self.buy_order.order and self.buy_order.order.is_filled and \
                 self.sell_order.order and self.sell_order.order.is_filled:
             self.arbitrage_status = ArbitrageExecutorStatus.COMPLETED
-            self.terminate_control_loop()
+            self.stop()
 
     async def execute_arbitrage(self):
         self.arbitrage_status = ArbitrageExecutorStatus.ACTIVE_ARBITRAGE

@@ -9,7 +9,7 @@ from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
 from hummingbot.smart_components.controllers.dman_v6 import DManV6, DManV6Config
 from hummingbot.smart_components.executors.position_executor.data_types import TrailingStop
-from hummingbot.smart_components.strategy_frameworks.data_types import ExecutorHandlerStatus
+from hummingbot.smart_components.models.base import SmartComponentStatus
 from hummingbot.smart_components.strategy_frameworks.generic_strategy.generic_executor import GenericExecutor
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
@@ -110,7 +110,7 @@ class DManV6MultiplePairs(ScriptStrategyBase):
         market conditions, you can orchestrate from this script when to stop or start them.
         """
         for executor_handler in self.executor_handlers.values():
-            if executor_handler.status == ExecutorHandlerStatus.NOT_STARTED:
+            if executor_handler.status == SmartComponentStatus.NOT_STARTED:
                 executor_handler.start()
 
     def format_status(self) -> str:

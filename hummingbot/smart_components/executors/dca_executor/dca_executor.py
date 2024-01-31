@@ -179,7 +179,7 @@ class DCAExecutor(ExecutorBase):
         if all_executors_closed:
             self.logger().info("All executors closed")
             self._active_executors = []
-            self.terminate_control_loop()
+            self.stop()
 
     def early_stop(self):
         """

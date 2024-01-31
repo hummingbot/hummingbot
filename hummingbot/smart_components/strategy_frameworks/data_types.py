@@ -1,4 +1,3 @@
-from enum import Enum
 from typing import Dict
 
 import pandas as pd
@@ -6,16 +5,11 @@ from pydantic import BaseModel, validator
 
 from hummingbot.smart_components.executors.dca_executor.data_types import DCAConfig
 from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig
-
-
-class ExecutorHandlerStatus(Enum):
-    NOT_STARTED = 1
-    ACTIVE = 2
-    TERMINATED = 3
+from hummingbot.smart_components.models.base import SmartComponentStatus
 
 
 class ExecutorHandlerReport(BaseModel):
-    status: ExecutorHandlerStatus
+    status: SmartComponentStatus
     active_position_executors: pd.DataFrame
     active_position_executors_info: Dict
     closed_position_executors_info: Dict

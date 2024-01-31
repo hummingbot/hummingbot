@@ -15,7 +15,8 @@ from hummingbot.core.event.events import (
     OrderCancelledEvent,
     OrderFilledEvent,
 )
-from hummingbot.smart_components.executors.executor_base import ExecutorBase, ExecutorStatus
+from hummingbot.smart_components.executors.executor_base import ExecutorBase
+from hummingbot.smart_components.models.base import SmartComponentStatus
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
@@ -50,7 +51,7 @@ class TestSmartComponentBase(unittest.TestCase):
         self.assertEqual(component._strategy, self.strategy)
         self.assertEqual(component.update_interval, 0.5)
         self.assertEqual(len(component.connectors), 1)
-        self.assertEqual(component._status, ExecutorStatus.NOT_STARTED)
+        self.assertEqual(component._status, SmartComponentStatus.NOT_STARTED)
         self.assertEqual(component._states, [])
         self.assertIsInstance(component._create_buy_order_forwarder, SourceInfoEventForwarder)
 
@@ -58,13 +59,13 @@ class TestSmartComponentBase(unittest.TestCase):
         self.component.control_task = MagicMock()
         self.component.terminated.set()
         self.async_run_with_timeout(self.component.control_loop())
-        self.assertEqual(self.component._status, ExecutorStatus.TERMINATED)
+        self.assertEqual(self.component._status, SmartComponentStatus.TERMINATED)
 
     def test_terminate_control_loop(self):
         self.component.control_task = MagicMock()
-        self.component.terminate_control_loop()
+        self.component.stop()
         self.async_run_with_timeout(self.component.control_loop())
-        self.assertEqual(self.component.status, ExecutorStatus.TERMINATED)
+        self.assertEqual(self.component.status, SmartComponentStatus.TERMINATED)
 
     def test_process_order_completed_event(self):
         event_tag = 1
