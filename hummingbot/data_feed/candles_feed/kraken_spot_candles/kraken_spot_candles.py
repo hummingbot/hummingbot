@@ -23,6 +23,7 @@ class KrakenSpotCandles(CandlesBase):
         return cls._logger
 
     def __init__(self, trading_pair: str, interval: str = "1m", max_records: int = 720):
+        max_records = 720 if max_records > 720 else max_records
         super().__init__(trading_pair, interval, max_records)
 
     @property
@@ -118,6 +119,7 @@ class KrakenSpotCandles(CandlesBase):
         return np.array(new_hb_candles).astype(float)
 
     async def fill_historical_candles(self):
+        # Note: the last entry in the OHLC array is for the current, not-yet-committed frame and will always be present, regardless of the value of since.
         max_request_needed = (self._candles.maxlen // 720) + 1
         requests_executed = 0
         while not self.is_ready:
