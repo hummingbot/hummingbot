@@ -13,12 +13,12 @@ from hummingbot.smart_components.executors.dca_executor.data_types import DCACon
 from hummingbot.smart_components.executors.dca_executor.dca_executor import DCAExecutor
 from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
+from hummingbot.smart_components.smart_component_base import SmartComponentBase
 from hummingbot.smart_components.strategy_frameworks.controller_base import ControllerBase
-from hummingbot.smart_components.strategy_frameworks.data_types import ExecutorHandlerStatus
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
-class ExecutorHandlerBase:
+class ExecutorHandlerBase(SmartComponentBase):
     _logger = None
 
     @classmethod
@@ -36,14 +36,14 @@ class ExecutorHandlerBase:
         :param controller: The controller instance.
         :param update_interval: Update interval in seconds.
         """
+        super().__init__(update_interval)
         self.strategy = strategy
         self.controller = controller
         self.update_interval = update_interval
         self.executors_update_interval = executors_update_interval
         self.terminated = asyncio.Event()
         self.position_executors = {}
-        self.dca_executors = {}
-        self.status = ExecutorHandlerStatus.NOT_STARTED
+        self.dca_executors = []
 
     def start(self):
         """Start the executor handler."""
@@ -140,19 +140,6 @@ class ExecutorHandlerBase:
             # executor_data["controller_name"] = self.controller.config.strategy_name
             # MarketsRecorder.get_instance().store_executor(executor_data)
             self.dca_executors[dca_id] = None
-
-    async def control_loop(self):
-        """Main control loop."""
-        self.on_start()
-        self.status = ExecutorHandlerStatus.ACTIVE
-        while not self.terminated.is_set():
-            try:
-                await self.control_task()
-            except Exception as e:
-                self.logger().error(e, exc_info=True)
-            await self._sleep(self.update_interval)
-        self.status = ExecutorHandlerStatus.TERMINATED
-        self.on_stop()
 
     def close_open_positions(self, connector_name: str = None, trading_pair: str = None):
         """

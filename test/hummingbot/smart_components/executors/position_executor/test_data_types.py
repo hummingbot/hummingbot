@@ -13,7 +13,7 @@ from hummingbot.smart_components.executors.position_executor.data_types import (
 
 class TestPositionExecutorDataTypes(TestCase):
     def test_position_config_model(self):
-        config = PositionExecutorConfig(timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
+        config = PositionExecutorConfig(id="test-1", timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
                                         open_order_type=OrderType.LIMIT,
                                         side=TradeType.BUY, entry_price=Decimal("100"), amount=Decimal("1"),
                                         stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60)

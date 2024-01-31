@@ -10,8 +10,8 @@ from hummingbot.core.data_type.common import OrderType, PositionAction, Position
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
 from hummingbot.smart_components.controllers.trend_follower_v1 import TrendFollowerV1, TrendFollowerV1Config
 from hummingbot.smart_components.executors.position_executor.data_types import TripleBarrierConf
+from hummingbot.smart_components.models.base import SmartComponentStatus
 from hummingbot.smart_components.order_level_distributions.order_level_builder import OrderLevel
-from hummingbot.smart_components.strategy_frameworks.data_types import ExecutorHandlerStatus
 from hummingbot.smart_components.strategy_frameworks.directional_trading.directional_trading_executor_handler import (
     DirectionalTradingExecutorHandler,
 )
@@ -139,7 +139,7 @@ class DirectionalTradingTrendFollower(ScriptStrategyBase):
         market conditions, you can orchestrate from this script when to stop or start them.
         """
         for executor_handler in self.executor_handlers.values():
-            if executor_handler.status == ExecutorHandlerStatus.NOT_STARTED:
+            if executor_handler.status == SmartComponentStatus.NOT_STARTED:
                 executor_handler.start()
 
     def format_status(self) -> str:

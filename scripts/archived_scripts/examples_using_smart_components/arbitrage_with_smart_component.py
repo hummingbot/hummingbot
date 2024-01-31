@@ -38,9 +38,9 @@ class ArbitrageWithSmartComponent(ScriptStrategyBase):
 
     def on_stop(self):
         for arbitrage in self.active_buy_arbitrages:
-            arbitrage.terminate_control_loop()
+            arbitrage.stop()
         for arbitrage in self.active_sell_arbitrages:
-            arbitrage.terminate_control_loop()
+            arbitrage.stop()
 
     def create_arbitrage_executor(self, buying_exchange_pair: ExchangePair, selling_exchange_pair: ExchangePair):
         try:

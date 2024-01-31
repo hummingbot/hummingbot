@@ -34,8 +34,8 @@ class PositionExecutor(ExecutorBase):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, strategy: ScriptStrategyBase, position_config: PositionExecutorConfig, update_interval: float = 1.0,
-                 max_retries: int = 3):
+    def __init__(self, strategy: ScriptStrategyBase, position_config: PositionExecutorConfig,
+                 update_interval: float = 1.0, max_retries: int = 3):
         if not (position_config.take_profit or position_config.stop_loss or position_config.time_limit):
             error = "At least one of take_profit, stop_loss or time_limit must be set"
             self.logger().error(error)
@@ -73,7 +73,7 @@ class PositionExecutor(ExecutorBase):
 
     @property
     def is_perpetual(self):
-        return "perpetual" in self.exchange
+        return self.is_perpetual_connector(self.exchange)
 
     @property
     def position_config(self):
@@ -232,7 +232,7 @@ class PositionExecutor(ExecutorBase):
             else:
                 self.executor_status = PositionExecutorStatus.COMPLETED
                 self.close_type = CloseType.EXPIRED
-                self.terminate_control_loop()
+                self.stop()
         else:
             self.control_open_order_expiration()
 
@@ -356,7 +356,7 @@ class PositionExecutor(ExecutorBase):
             self.close_timestamp = event.timestamp
             self.executor_status = PositionExecutorStatus.COMPLETED
             self.logger().info(f"Closed by {self.close_type}")
-            self.terminate_control_loop()
+            self.stop()
         elif self.take_profit_order.order_id == event.order_id:
             self.close_type = CloseType.TAKE_PROFIT
             self.executor_status = PositionExecutorStatus.COMPLETED
@@ -364,7 +364,7 @@ class PositionExecutor(ExecutorBase):
             self.close_order.order_id = event.order_id
             self.close_order.order = self.take_profit_order.order
             self.logger().info(f"Closed by {self.close_type}")
-            self.terminate_control_loop()
+            self.stop()
 
     def process_order_canceled_event(self, _, market, event: OrderCancelledEvent):
         if self.open_order.order_id == event.order_id:
@@ -392,7 +392,7 @@ class PositionExecutor(ExecutorBase):
         else:
             self.logger().info("Max retries reached, terminating position executor")
             self.close_type = CloseType.FAILED
-            self.terminate_control_loop()
+            self.stop()
 
     def to_json(self):
         return {
@@ -523,7 +523,7 @@ class PositionExecutor(ExecutorBase):
             )
         adjusted_order_candidate = self.adjust_order_candidate(order_candidate)
         if not adjusted_order_candidate:
-            self.terminate_control_loop()
+            self.stop()
             self.close_type = CloseType.INSUFFICIENT_BALANCE
             self.executor_status = PositionExecutorStatus.COMPLETED
             error = "Not enough budget to open position."
