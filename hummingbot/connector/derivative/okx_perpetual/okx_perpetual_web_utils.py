@@ -281,5 +281,11 @@ def _build_private_general_rate_limits() -> List[RateLimit]:
             limit=5,
             time_interval=2,
         ),
+        RateLimit(
+            limit_id=get_rest_api_limit_id_for_endpoint(method=CONSTANTS.REST_BILLS_DETAILS[CONSTANTS.METHOD],
+                                                        endpoint=CONSTANTS.REST_BILLS_DETAILS[CONSTANTS.ENDPOINT]),
+            limit=5,
+            time_interval=1,
+        )
     ]
     return rate_limits
