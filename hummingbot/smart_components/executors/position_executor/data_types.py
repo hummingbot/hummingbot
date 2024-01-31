@@ -6,6 +6,7 @@ from pydantic.types import Decimal
 
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
+from hummingbot.smart_components.executors.data_types import ExecutorConfigBase
 
 
 class TrailingStop(BaseModel):
@@ -27,8 +28,7 @@ class TripleBarrierConf(BaseModel):
     time_limit_order_type: OrderType = OrderType.MARKET
 
 
-class PositionExecutorConfig(BaseModel):
-    timestamp: float
+class PositionExecutorConfig(ExecutorConfigBase):
     trading_pair: str
     exchange: str
     side: TradeType
