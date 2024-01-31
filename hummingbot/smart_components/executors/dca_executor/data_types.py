@@ -1,15 +1,12 @@
 from decimal import Decimal
 from typing import List, Optional
 
-from pydantic import BaseModel
-
 from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.smart_components.executors.data_types import ExecutorConfigBase
 from hummingbot.smart_components.executors.position_executor.data_types import TrailingStop
 
 
-class DCAConfig(BaseModel):
-    id: str
-    timestamp: float
+class DCAConfig(ExecutorConfigBase):
     exchange: str
     trading_pair: str
     side: TradeType
