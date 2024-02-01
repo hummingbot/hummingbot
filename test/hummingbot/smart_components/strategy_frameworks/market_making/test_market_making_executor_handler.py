@@ -26,7 +26,7 @@ class TestMarketMakingExecutorHandler(IsolatedAsyncioWrapperTestCase):
         triple_barrier_conf = TripleBarrierConf(
             stop_loss=Decimal("0.03"), take_profit=Decimal("0.02"),
             time_limit=60 * 60 * 24,
-            trailing_stop_activation_price_delta=Decimal("0.002"),
+            trailing_stop_activation_price=Decimal("0.002"),
             trailing_stop_trailing_delta=Decimal("0.0005")
         )
         self.mock_controller.config = MagicMock(spec=MarketMakingControllerConfigBase)
@@ -121,9 +121,9 @@ class TestMarketMakingExecutorHandler(IsolatedAsyncioWrapperTestCase):
         global_trailing_stop_activation_price_delta = Decimal("0.002")
         global_trailing_stop_trailing_delta = Decimal("0.0005")
         self.mock_controller.config.global_trailing_stop_config = {
-            TradeType.BUY: TrailingStop(activation_price_delta=global_trailing_stop_activation_price_delta,
+            TradeType.BUY: TrailingStop(activation_price=global_trailing_stop_activation_price_delta,
                                         trailing_delta=global_trailing_stop_trailing_delta),
-            TradeType.SELL: TrailingStop(activation_price_delta=global_trailing_stop_activation_price_delta,
+            TradeType.SELL: TrailingStop(activation_price=global_trailing_stop_activation_price_delta,
                                          trailing_delta=global_trailing_stop_trailing_delta)
         }
 

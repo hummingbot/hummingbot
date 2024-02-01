@@ -12,7 +12,7 @@ from hummingbot.smart_components.executors.arbitrage_executor.data_types import 
     ArbitrageExecutorStatus,
     ExchangePair,
 )
-from hummingbot.smart_components.executors.position_executor.data_types import TrackedOrder
+from hummingbot.smart_components.models.executors import TrackedOrder
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
