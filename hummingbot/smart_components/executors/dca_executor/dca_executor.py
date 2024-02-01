@@ -385,6 +385,7 @@ class DCAExecutor(ExecutorBase):
             self.place_close_order(close_type=self.close_type)
         self._current_retries += 1
         if self._current_retries >= self._max_retries:
+            self.close_type = CloseType.FAILED
             self.stop()
             self.logger().error("Max retries reached. Stopping DCA executor.")
 
