@@ -2,8 +2,10 @@ import base64
 import hmac
 import re
 from datetime import datetime
+import time
 from typing import Dict, Optional
 
+import hummingbot.connector.derivative.okx_perpetual.okx_perpetual_constants as CONSTANTS
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
 
@@ -84,9 +86,8 @@ class OkxPerpetualAuth(AuthBase):
         pattern = re.compile(r'https://www.okx.com')
         return re.sub(pattern, '', url)
 
-    def get_ws_auth_args(self, request_path: str) -> Dict[str, str]:
+    def get_ws_auth_args(self) -> Dict[str, str]:
         """
-
             - api_key: Unique identification for invoking API. Requires user to apply one manually.
             - passphrase: API Key password
             - timestamp: the Unix Epoch time, the unit is seconds
@@ -95,10 +96,10 @@ class OkxPerpetualAuth(AuthBase):
         First concatenate timestamp, method, requestPath, strings, then use HMAC SHA256 method to encrypt
         the concatenated string with SecretKey, and then perform Base64 encoding.
         """
-        timestamp = self._get_timestamp()
-        _access_sign = self.generate_signature_from_payload(timestamp=timestamp,
-                                                            method=RESTMethod.GET,
-                                                            request_path=request_path)
+        timestamp = int(time.time())
+        _access_sign = self.generate_ws_signature_from_payload(timestamp=timestamp,
+                                                               method=RESTMethod.GET,
+                                                               request_path=CONSTANTS.REST_WS_LOGIN_PATH["ENDPOINT"])
         return [
             {
                 "apiKey": self._api_key,
@@ -107,6 +108,12 @@ class OkxPerpetualAuth(AuthBase):
                 "sign": _access_sign
             }
         ]
+
+    def generate_ws_signature_from_payload(self, timestamp: int, method: RESTMethod, request_path: str) -> str:
+        message = str(timestamp) + str.upper(method.value) + request_path
+        mac = hmac.new(bytes(self._api_secret, encoding='utf8'), bytes(message, encoding='utf-8'), digestmod='sha256')
+        d = mac.digest()
+        return str(base64.b64encode(d), encoding='utf-8')
 
     async def ws_authenticate(self, request: WSRequest) -> WSRequest:
         return request  # pass-through
