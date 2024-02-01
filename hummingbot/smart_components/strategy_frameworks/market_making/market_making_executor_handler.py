@@ -4,7 +4,8 @@ from typing import Dict, Optional
 
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.logger import HummingbotLogger
-from hummingbot.smart_components.executors.position_executor.data_types import CloseType, PositionExecutorStatus
+from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorStatus
+from hummingbot.smart_components.models.executors import CloseType
 from hummingbot.smart_components.strategy_frameworks.executor_handler_base import ExecutorHandlerBase
 from hummingbot.smart_components.strategy_frameworks.market_making.market_making_controller_base import (
     MarketMakingControllerBase,
@@ -78,7 +79,7 @@ class MarketMakingExecutorHandler(ExecutorHandlerBase):
                     if current_metrics[side]["amount"] > 0:
                         current_pnl_pct = current_metrics[side]["net_pnl_quote"] / current_metrics[side]["amount"]
                         trailing_stop_pnl = self._trailing_stop_pnl_by_side[side]
-                        if not trailing_stop_pnl and current_pnl_pct > global_trailing_stop_conf.activation_price_delta:
+                        if not trailing_stop_pnl and current_pnl_pct > global_trailing_stop_conf.activation_price:
                             self._trailing_stop_pnl_by_side[side] = current_pnl_pct - global_trailing_stop_conf.trailing_delta
                             self.logger().info("Global Trailing Stop Activated!")
                         if trailing_stop_pnl:
