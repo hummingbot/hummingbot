@@ -34,7 +34,6 @@ class DCAExecutor(ExecutorBase):
         self._active_executors: List[PositionExecutor] = []
         self._trailing_stop_activated = False
         self._trailing_stop_pnl = None
-
         super().__init__(strategy=strategy, connectors=[dca_config.exchange], update_interval=update_interval)
 
     @property
@@ -60,6 +59,10 @@ class DCAExecutor(ExecutorBase):
     @property
     def max_price(self) -> Decimal:
         return max(self._dca_config.prices)
+
+    @property
+    def max_loss_quote(self) -> Decimal:
+        return self.max_amount_quote * self._dca_config.global_stop_loss
 
     @property
     def current_position_average_price(self) -> Decimal:
@@ -165,7 +168,6 @@ class DCAExecutor(ExecutorBase):
         """
         This method is responsible for creating a new position executor
         """
-        self.logger().info(f"Creating new executor for {position_config}")
         self._active_executors.append(PositionExecutor(
             strategy=self._strategy,
             position_config=position_config,
@@ -178,7 +180,6 @@ class DCAExecutor(ExecutorBase):
         all_executors_closed = all([executor.is_closed for executor in self._active_executors])
         if all_executors_closed:
             self.logger().info("All executors closed")
-            self._active_executors = []
             self.stop()
 
     def early_stop(self):
@@ -220,4 +221,5 @@ class DCAExecutor(ExecutorBase):
             "net_pnl_quote": self.net_pnl_quote,
             "cum_fee_quote": self.cum_fee_quote,
             "net_pnl_pct": self.net_pnl_pct,
+            "max_loss_quote": self.max_loss_quote,
         }

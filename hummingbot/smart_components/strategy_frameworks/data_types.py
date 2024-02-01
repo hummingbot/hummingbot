@@ -13,7 +13,7 @@ class ExecutorHandlerReport(BaseModel):
     active_position_executors: pd.DataFrame
     active_position_executors_info: Dict
     closed_position_executors_info: Dict
-    dca_executors: pd.DataFrame
+    dca_executors: list
 
     @validator('active_position_executors', 'dca_executors', allow_reuse=True)
     def validate_dataframe(cls, v):

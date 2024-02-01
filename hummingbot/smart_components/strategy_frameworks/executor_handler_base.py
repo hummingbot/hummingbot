@@ -104,18 +104,14 @@ class ExecutorHandlerBase(SmartComponentBase):
         if executor:
             executor.early_stop()
 
-    def create_dca_executor(self, dca_config: DCAConfig, dca_id: str = None):
+    def create_dca_executor(self, dca_config: DCAConfig):
         """
         Create an executor.
 
-        :param position_config: The position configuration.
-        :param level_id: The order level id.
+        :param dca_config: The DCA configuration.
         """
-        if dca_id in self.dca_executors:
-            self.logger().warning(f"Executor for level {dca_id} already exists.")
-            return
         executor = DCAExecutor(self.strategy, dca_config, update_interval=self.executors_update_interval)
-        self.dca_executors[dca_id] = executor
+        self.dca_executors.append(executor)
 
     def stop_dca_executor(self, dca_id: str):
         """
@@ -187,22 +183,11 @@ class ExecutorHandlerBase(SmartComponentBase):
         else:
             return pd.DataFrame()
 
-    def get_dca_executors_df(self) -> pd.DataFrame:
+    def get_dca_executors(self) -> list:
         """
         Get active dca executors as a DataFrame.
         """
-        dca_executors_info = []
-        for dca_id, dca_executor in self.dca_executors.items():
-            if dca_executor:
-                dca_executor_info = dca_executor.to_json()
-                dca_executor_info["dca_id"] = dca_id
-                dca_executors_info.append(dca_executor_info)
-        if len(dca_executors_info) > 0:
-            dca_executors_df = pd.DataFrame(dca_executors_info)
-            dca_executors_df.sort_values(by="current_position_average_price", ascending=False, inplace=True)
-            return dca_executors_df
-        else:
-            return pd.DataFrame()
+        return [dca_executor.to_json() for dca_executor in self.dca_executors]
 
     @staticmethod
     def summarize_executors_df(executors_df):
