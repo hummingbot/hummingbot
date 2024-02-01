@@ -1,9 +1,12 @@
 import base64
+import hashlib
 import hmac
+import json
 import re
-from datetime import datetime
 import time
-from typing import Dict, Optional
+from datetime import datetime
+from typing import Dict
+from urllib.parse import urlencode
 
 import hummingbot.connector.derivative.okx_perpetual.okx_perpetual_constants as CONSTANTS
 from hummingbot.core.web_assistant.auth import AuthBase
@@ -29,27 +32,27 @@ class OkxPerpetualAuth(AuthBase):
         self._api_secret: str = api_secret
         self._passphrase: str = passphrase
 
-    def generate_signature_from_payload(self,
-                                        timestamp: str,
-                                        method: RESTMethod,
-                                        url: str,
-                                        body: Optional[str] = None) -> str:
-        """
-        The OK-ACCESS-SIGN header is generated as follows:
+    @staticmethod
+    def pre_hash(timestamp: str, method: str, request_path: str, params: dict) -> str:
+        query_string = ''
+        if method == 'GET' and bool(params):
+            query_string = '?' + urlencode(params)
+        if method == 'POST' and bool(params):
+            query_string = json.dumps(params)
+        return timestamp + method + request_path + query_string
 
-            1) Create a prehash string of timestamp + method + requestPath + body (where + represents String
-            concatenation).
-            2) Prepare the SecretKey.
-            3) Sign the prehash string with the SecretKey using the HMAC SHA256.
-            4) Encode the signature in the Base64 format.
-        """
-        str_body = ""
-        if body is not None:
-            str_body = str(body).replace("'", '"')
-        message = str(timestamp) + str.upper(method.value) + self.get_path_from_url(url) + str_body
-        mac = hmac.new(bytes(self._api_secret, encoding='utf8'), bytes(message, encoding='utf-8'), digestmod='sha256')
+    @staticmethod
+    def sign(message, secret_key):
+        # Sign the pre-signed string using HMAC-SHA256
+        mac = hmac.new(bytes(secret_key, encoding='utf8'), bytes(message, encoding='utf-8'), hashlib.sha256)
         d = mac.digest()
-        return str(base64.b64encode(d), encoding='utf-8')
+        return base64.b64encode(d).decode('utf-8')
+
+    def create_access_sign(self, method, request_path, params):
+        timestamp = self._get_timestamp()
+        message = self.pre_hash(timestamp, method, request_path, params)
+        _access_sign = self.sign(message, self._api_secret)
+        return _access_sign, timestamp
 
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
         """
@@ -62,17 +65,26 @@ class OkxPerpetualAuth(AuthBase):
 
         Request bodies should have content type application/json and be in valid JSON format.
         """
-        timestamp = self._get_timestamp()
-
-        _access_sign = self.generate_signature_from_payload(timestamp=timestamp, method=request.method, url=request.url,
-                                                            body=request.data)
-        auth_headers = {
+        request.headers = {
             "OK-ACCESS-KEY": self._api_key,
-            "OK-ACCESS-SIGN": _access_sign,
-            "OK-ACCESS-TIMESTAMP": timestamp,
+            "OK-ACCESS-SIGN": "",
+            "OK-ACCESS-TIMESTAMP": "",
             "OK-ACCESS-PASSPHRASE": self._passphrase
         }
-        request.headers = {**request.headers, **auth_headers}
+        if request.method == RESTMethod.GET:
+            request.headers["OK-ACCESS-SIGN"], request.headers["OK-ACCESS-TIMESTAMP"] = self.create_access_sign(
+                method=request.method.value,
+                request_path=self.get_path_from_url(request.url),
+                params=request.params if request.params is not None else {}
+            )
+        elif request.method == RESTMethod.POST:
+            request.headers["OK-ACCESS-SIGN"], request.headers["OK-ACCESS-TIMESTAMP"] = self.create_access_sign(
+                method=request.method.value,
+                request_path=self.get_path_from_url(request.url),
+                params=json.loads(request.data) if request.data is not None else {}
+            )
+            request.headers["Content-Type"] = "application/json"
+
         return request
 
     @staticmethod
@@ -119,5 +131,5 @@ class OkxPerpetualAuth(AuthBase):
         return request  # pass-through
 
     @staticmethod
-    def _get_timestamp():
+    def _get_timestamp() -> str:
         return datetime.utcnow().isoformat(timespec='milliseconds') + 'Z'

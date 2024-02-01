@@ -61,8 +61,6 @@ WSS_PRIVATE_URLS = {DEFAULT_DOMAIN: f"wss://ws.okx.com:8443/ws/{REST_API_VERSION
 WSS_BUSINESS_URLS = {DEFAULT_DOMAIN: f"wss://ws.okx.com:8443/ws/{REST_API_VERSION}/business",
                      AWS_DOMAIN: f"wss://wsaws.okx.com:8443/ws/{REST_API_VERSION}/business",
                      DEMO_DOMAIN: f"wss://wspap.okx.com:8443/ws/{REST_API_VERSION}/business?brokerId=9999"}
-WSS_LOGIN_PATH = {METHOD: GET,
-                  ENDPOINT: "/users/self/verify"}
 SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE = 25
 WS_PING_REQUEST = "ping"
 WS_PONG_RESPONSE = "pong"
@@ -99,7 +97,7 @@ REST_SERVER_TIME = {METHOD: GET,
 REST_MARK_PRICE = {METHOD: GET,
                    ENDPOINT: f"/api/{REST_API_VERSION}/public/mark-price"}
 REST_INDEX_TICKERS = {METHOD: GET,
-                      ENDPOINT: f"/api/{REST_API_VERSION}/public/index-tickers"}
+                      ENDPOINT: f"/api/{REST_API_VERSION}/market/index-tickers"}
 REST_GET_INSTRUMENTS = {METHOD: GET,
                         ENDPOINT: f"/api/{REST_API_VERSION}/public/instruments"}
 
@@ -123,9 +121,12 @@ REST_CANCEL_ACTIVE_ORDER = {METHOD: POST,
 REST_QUERY_ACTIVE_ORDER = {METHOD: GET,
                            ENDPOINT: REST_PLACE_ACTIVE_ORDER[ENDPOINT]}
 REST_USER_TRADE_RECORDS = {METHOD: GET,
-                           ENDPOINT: f"/api/{REST_API_VERSION}/trade/fills-history"}
+                           ENDPOINT: f"/api/{REST_API_VERSION}/trade/fills"}
 REST_BILLS_DETAILS = {METHOD: GET,
                       ENDPOINT: f"/api/{REST_API_VERSION}/account/bills"}
+REST_WS_LOGIN_PATH = {METHOD: GET,
+                      ENDPOINT: "/users/self/verify"}
+
 
 # -------------------------------------------
 # RET CODES

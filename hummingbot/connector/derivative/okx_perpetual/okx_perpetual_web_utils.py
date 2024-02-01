@@ -14,7 +14,7 @@ from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFa
 class HeadersContentRESTPreProcessor(RESTPreProcessorBase):
     async def pre_process(self, request: RESTRequest) -> RESTRequest:
         request.headers = request.headers or {}
-        request.headers["Content-Type"] = "application/json"
+        request.headers.update({"Content-Type": "application/json"})
         return request
 
 
@@ -181,18 +181,6 @@ def _build_public_rate_limits():
             time_interval=2,
         ),
         RateLimit(
-            limit_id=get_rest_api_limit_id_for_endpoint(method=CONSTANTS.REST_MARK_PRICE[CONSTANTS.METHOD],
-                                                        endpoint=CONSTANTS.REST_MARK_PRICE[CONSTANTS.ENDPOINT]),
-            limit=10,
-            time_interval=2
-        ),
-        RateLimit(
-            limit_id=get_rest_api_limit_id_for_endpoint(method=CONSTANTS.REST_INDEX_TICKERS[CONSTANTS.METHOD],
-                                                        endpoint=CONSTANTS.REST_INDEX_TICKERS[CONSTANTS.ENDPOINT]),
-            limit=20,
-            time_interval=2,
-        ),
-        RateLimit(
             limit_id=get_rest_api_limit_id_for_endpoint(method=CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.METHOD],
                                                         endpoint=CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.ENDPOINT]),
             limit=20,
@@ -261,6 +249,21 @@ def _build_private_pair_specific_rate_limits(trading_pairs: List[str]) -> List[R
                                                     trading_pair=trading_pair),
                 limit=120,
                 time_interval=60,
+                weight=1
+            ),
+            RateLimit(
+                limit_id=get_pair_specific_limit_id(method=CONSTANTS.REST_MARK_PRICE[CONSTANTS.METHOD],
+                                                    endpoint=CONSTANTS.REST_MARK_PRICE[CONSTANTS.ENDPOINT],
+                                                    trading_pair=trading_pair),
+                limit=10,
+                time_interval=2
+            ),
+            RateLimit(
+                limit_id=get_pair_specific_limit_id(method=CONSTANTS.REST_INDEX_TICKERS[CONSTANTS.METHOD],
+                                                    endpoint=CONSTANTS.REST_INDEX_TICKERS[CONSTANTS.ENDPOINT],
+                                                    trading_pair=trading_pair),
+                limit=20,
+                time_interval=2,
             ),
         ]
         rate_limits.extend(trading_pair_rate_limits)
