@@ -425,7 +425,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             body_params = {"symbol": ex_trading_pair}
             position_tasks.append(
                 asyncio.create_task(self._api_get(
-                    path_url=CONSTANTS.GET_POSITIONS_PATH_URL,
+                    path_url=CONSTANTS.REST_GET_POSITIONS[CONSTANTS.ENDPOINT],
                     params=body_params,
                     is_auth_required=True,
                     trading_pair=trading_pair,
@@ -495,7 +495,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             "symbol": exchange_symbol,
         }
         res = await self._api_get(
-            path_url=CONSTANTS.USER_TRADE_RECORDS_PATH_URL,
+            path_url=CONSTANTS.REST_USER_TRADE_RECORDS[CONSTANTS.ENDPOINT],
             params=body_params,
             is_auth_required=True,
             trading_pair=order.trading_pair,
@@ -853,7 +853,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             "symbol": exchange_symbol
         }
         raw_response: Dict[str, Any] = await self._api_get(
-            path_url=CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL,
+            path_url=CONSTANTS.REST_BILLS_DETAILS[CONSTANTS.ENDPOINT],
             params=params,
             is_auth_required=True,
             trading_pair=trading_pair,

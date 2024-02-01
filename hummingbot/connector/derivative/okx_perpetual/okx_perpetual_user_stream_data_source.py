@@ -93,7 +93,7 @@ class OkxPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         """
         Authenticates user to websocket
         """
-        auth_args: List[str] = self._auth.get_ws_auth_args(request_path=CONSTANTS.WSS_PRIVATE_URLS[self._domain])
+        auth_args: List[str] = self._auth.get_ws_auth_args()
         payload = {"op": "login", "args": auth_args}
         login_request: WSJSONRequest = WSJSONRequest(payload=payload)
         await ws.send(login_request)
