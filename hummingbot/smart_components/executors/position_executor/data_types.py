@@ -5,12 +5,11 @@ from pydantic import BaseModel
 from pydantic.types import Decimal
 
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.smart_components.executors.data_types import ExecutorConfigBase
 
 
 class TrailingStop(BaseModel):
-    activation_price_delta: Decimal
+    activation_price: Decimal
     trailing_delta: Decimal
 
 
@@ -19,7 +18,7 @@ class TripleBarrierConf(BaseModel):
     stop_loss: Optional[Decimal]
     take_profit: Optional[Decimal]
     time_limit: Optional[int]
-    trailing_stop_activation_price_delta: Optional[Decimal]
+    trailing_stop_activation_price: Optional[Decimal]
     trailing_stop_trailing_delta: Optional[Decimal]
     # Configure the parameters for the order
     open_order_type: OrderType = OrderType.LIMIT
@@ -50,57 +49,3 @@ class PositionExecutorStatus(Enum):
     NOT_STARTED = 1
     ACTIVE_POSITION = 2
     COMPLETED = 3
-
-
-class CloseType(Enum):
-    TIME_LIMIT = 1
-    STOP_LOSS = 2
-    TAKE_PROFIT = 3
-    EXPIRED = 4
-    EARLY_STOP = 5
-    TRAILING_STOP = 6
-    INSUFFICIENT_BALANCE = 7
-    FAILED = 8
-
-
-class TrackedOrder:
-    def __init__(self, order_id: Optional[str] = None):
-        self._order_id = order_id
-        self._order = None
-
-    @property
-    def order_id(self):
-        return self._order_id
-
-    @order_id.setter
-    def order_id(self, order_id: str):
-        self._order_id = order_id
-
-    @property
-    def order(self):
-        return self._order
-
-    @order.setter
-    def order(self, order: InFlightOrder):
-        self._order = order
-
-    @property
-    def executed_price(self):
-        if self.order:
-            return self.order.average_executed_price or self.order.price
-        else:
-            return None
-
-    @property
-    def executed_amount_base(self):
-        if self.order:
-            return self.order.executed_amount_base
-        else:
-            return Decimal("0")
-
-    @property
-    def cum_fees(self):
-        if self.order:
-            return self.order.cumulative_fee_paid(token=self.order.quote_asset)
-        else:
-            return Decimal("0")
