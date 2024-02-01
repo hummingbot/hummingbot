@@ -28,7 +28,8 @@ class DCAExecutor(ExecutorBase):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, strategy: ScriptStrategyBase, dca_config: DCAConfig, update_interval: float = 1.0):
+    def __init__(self, strategy: ScriptStrategyBase, dca_config: DCAConfig, update_interval: float = 1.0,
+                 max_retries: int = 5):
         # validate amounts and prices
         if len(dca_config.amounts_quote) != len(dca_config.prices):
             raise ValueError("Amounts and prices lists must have the same length")
@@ -50,6 +51,10 @@ class DCAExecutor(ExecutorBase):
         # used to track the total amount filled that is updated by the event in case that the InFlightOrder is
         # not available
         self._total_executed_amount_backup: Decimal = Decimal("0")
+
+        # add retries
+        self._current_retries = 0
+        self._max_retries = max_retries
         super().__init__(strategy=strategy, connectors=[dca_config.exchange], update_interval=update_interval)
 
     @property
@@ -262,10 +267,34 @@ class DCAExecutor(ExecutorBase):
         minus the trailing delta is higher than the current value of the trailing stop trigger.
         """
         if self._dca_config.trailing_stop:
-            if not self._trailing_stop_trigger_pct and self.net_pnl_pct > self._dca_config.trailing_stop.activation_price:
-                self._trailing_stop_trigger_pct = self.net_pnl_pct - self._dca_config.trailing_stop.trailing_delta
+            if not self._trailing_stop_trigger_pct:
+                if self.net_pnl_pct > self._dca_config.trailing_stop.activation_price:
+                    self._trailing_stop_trigger_pct = self.net_pnl_pct
+            else:
+                if self.net_pnl_pct - self._dca_config.trailing_stop.trailing_delta > self._trailing_stop_trigger_pct:
+                    self._trailing_stop_trigger_pct = self.net_pnl_pct - self._dca_config.trailing_stop.trailing_delta
+                if self.net_pnl_pct < self._trailing_stop_trigger_pct:
+                    self.place_close_order(close_type=CloseType.TRAILING_STOP)
+
+    def control_take_profit(self):
+        """
+        This method is responsible for controlling the take profit. In order to trigger the take profit all the orders must
+        be completed and the net pnl must be higher than the take profit
+        """
+        if self._dca_config.take_profit:
+            if self.net_pnl_pct > self._dca_config.take_profit:
+                self.place_close_order(close_type=CloseType.TAKE_PROFIT)
+
+    def early_stop(self):
+        """
+        This method allows strategy to stop the executor early.
+        """
+        self.place_close_order(close_type=CloseType.EARLY_STOP)
 
     def place_close_order(self, close_type: CloseType, price: Decimal = Decimal("NaN")):
+        """
+        This method is responsible for placing the close order
+        """
         order_id = self.place_order(
             connector_name=self._dca_config.exchange,
             trading_pair=self._dca_config.trading_pair,
@@ -305,9 +334,19 @@ class DCAExecutor(ExecutorBase):
 
     def control_shutdown_process(self):
         """
-        This method is responsible for shutting down the process
+        This method is responsible for shutting down the process, ensuring that all orders are completed.
         """
-        raise NotImplementedError("This method must be implemented by the subclass")
+        active_open_orders = [order for order in self._open_orders if not order.is_done]
+        active_close_orders = [order for order in self._close_orders if not order.is_done]
+        if not active_open_orders and not active_close_orders:
+            self.stop()
+        else:
+            for active_open_order in active_open_orders:
+                self._strategy.cancel(
+                    connector_name=self._dca_config.exchange,
+                    trading_pair=self._dca_config.trading_pair,
+                    order_id=active_open_order.order_id
+                )
 
     def process_order_created_event(self,
                                     event_tag: int,
@@ -333,12 +372,21 @@ class DCAExecutor(ExecutorBase):
         This method is responsible for processing the order failed event. Here we will add the InFlightOrder to the
         failed orders list.
         """
-        all_orders = self._open_orders + self._close_orders
-        active_order = next((order for order in all_orders if order.order_id == event.order_id), None)
-        if active_order:
-            self._failed_orders.append(active_order)
-            self._open_orders.remove(active_order)
+        open_order = next((order for order in self._open_orders if order.order_id == event.order_id), None)
+        if open_order:
+            self._failed_orders.append(open_order)
+            self._open_orders.remove(open_order)
             self.logger().error(f"Order {event.order_id} failed.")
+        close_order = next((order for order in self._close_orders if order.order_id == event.order_id), None)
+        if close_order:
+            self._failed_orders.append(close_order)
+            self._close_orders.remove(close_order)
+            self.logger().error(f"Order {event.order_id} failed.")
+            self.place_close_order(close_type=self.close_type)
+        self._current_retries += 1
+        if self._current_retries >= self._max_retries:
+            self.stop()
+            self.logger().error("Max retries reached. Stopping DCA executor.")
 
     def process_order_filled_event(self, event_tag: int, market: ConnectorBase, event: OrderFilledEvent):
         """
@@ -361,7 +409,6 @@ class DCAExecutor(ExecutorBase):
             "leverage": self._dca_config.leverage,
             "close_type": self.close_type.name if self.close_type else None,
             "close_timestamp": self.close_timestamp,
-            "active_executors": [executor.to_json() for executor in self.active_orders],
             "filled_amount": self.filled_amount,
             "filled_amount_quote": self.filled_amount_quote,
             "max_amount_quote": self.max_amount_quote,
@@ -369,12 +416,11 @@ class DCAExecutor(ExecutorBase):
             "max_price": self.max_price,
             "current_position_average_price": self.current_position_average_price,
             "target_position_average_price": self.target_position_average_price,
-            "global_stop_loss": self._dca_config.stop_loss,
-            "global_take_profit": self._dca_config.take_profit,
-            "global_trailing_stop_activation_price": self._dca_config.trailing_stop.activation_price,
-            "global_trailing_stop_trailing_delta": self._dca_config.trailing_stop.trailing_delta,
-            "trailing_stop_activated": self._trailing_stop_activated,
-            "trailing_stop_pnl": self._trailing_stop_pnl,
+            "stop_loss": self._dca_config.stop_loss,
+            "take_profit": self._dca_config.take_profit,
+            "trailing_stop_activation_price": self._dca_config.trailing_stop.activation_price,
+            "trailing_stop_trailing_delta": self._dca_config.trailing_stop.trailing_delta,
+            "trailing_stop_trigger_pct": self._trailing_stop_trigger_pct,
             "net_pnl_quote": self.net_pnl_quote,
             "cum_fee_quote": self.cum_fee_quote,
             "net_pnl_pct": self.net_pnl_pct,
