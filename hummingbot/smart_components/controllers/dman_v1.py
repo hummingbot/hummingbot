@@ -78,7 +78,7 @@ class DManV1(MarketMakingControllerBase):
 
         if order_level.triple_barrier_conf.trailing_stop_trailing_delta and order_level.triple_barrier_conf.trailing_stop_trailing_delta:
             trailing_stop = TrailingStop(
-                activation_price_delta=order_level.triple_barrier_conf.trailing_stop_activation_price_delta,
+                activation_price=order_level.triple_barrier_conf.trailing_stop_activation_price,
                 trailing_delta=order_level.triple_barrier_conf.trailing_stop_trailing_delta,
             )
         else:
