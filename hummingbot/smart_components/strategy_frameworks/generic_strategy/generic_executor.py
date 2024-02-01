@@ -56,7 +56,7 @@ class GenericExecutor(ExecutorHandlerBase):
             active_position_executors=self.get_active_executors_df(),
             active_position_executors_info=self.active_executors_info(),
             closed_position_executors_info=self.closed_executors_info(),
-            dca_executors=self.get_dca_executors_df(),
+            dca_executors=self.get_dca_executors(),
         )
         return executor_handler_report
 
