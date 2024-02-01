@@ -1,24 +1,27 @@
 from decimal import Decimal
+from enum import Enum
 from typing import List, Optional
 
-from hummingbot.core.data_type.common import OrderType, TradeType
+from hummingbot.core.data_type.common import TradeType
 from hummingbot.smart_components.executors.data_types import ExecutorConfigBase
 from hummingbot.smart_components.executors.position_executor.data_types import TrailingStop
+
+
+class DCAMode(Enum):
+    MAKER = 1
+    TAKER = 2
 
 
 class DCAConfig(ExecutorConfigBase):
     exchange: str
     trading_pair: str
     side: TradeType
+    leverage: int = 1
     amounts_quote: List[Decimal]
     prices: List[Decimal]
-    global_take_profit: Optional[Decimal] = None
-    global_stop_loss: Optional[Decimal] = None
-    global_trailing_stop: Optional[TrailingStop] = None
+    take_profit: Optional[Decimal] = None
+    stop_loss: Optional[Decimal] = None
+    trailing_stop: Optional[TrailingStop] = None
     time_limit: Optional[int] = None
-    activation_threshold: Optional[Decimal] = None
-    open_order_type: OrderType = OrderType.MARKET
-    take_profit_order_type: OrderType = OrderType.MARKET
-    stop_loss_order_type: OrderType = OrderType.MARKET
-    time_limit_order_type: OrderType = OrderType.MARKET
-    leverage: int = 1
+    mode: DCAMode = DCAMode.MAKER
+    activation_bounds: Optional[List[Decimal]] = None
