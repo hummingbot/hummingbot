@@ -12,7 +12,7 @@ from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.logger import HummingbotLogger
 from hummingbot.smart_components.executors.arbitrage_executor.data_types import ArbitrageConfig, ArbitrageExecutorStatus
 from hummingbot.smart_components.executors.executor_base import ExecutorBase
-from hummingbot.smart_components.executors.position_executor.data_types import TrackedOrder
+from hummingbot.smart_components.models.executors import TrackedOrder
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
@@ -87,7 +87,7 @@ class ArbitrageExecutor(ExecutorBase):
         if self.arbitrage_status == ArbitrageExecutorStatus.COMPLETED:
             sell_quote_amount = self.sell_order.order.executed_amount_base * self.sell_order.average_executed_price
             buy_quote_amount = self.buy_order.order.executed_amount_base * self.buy_order.average_executed_price
-            cum_fees = self.buy_order.cum_fees + self.sell_order.cum_fees
+            cum_fees = self.buy_order.cum_fees_quote + self.sell_order.cum_fees_quote
             return sell_quote_amount - buy_quote_amount - cum_fees
         else:
             return Decimal("0")
