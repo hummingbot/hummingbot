@@ -167,7 +167,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
                 price = price * (1 - signal * self.open_order_slippage_buffer)
             if self.trailing_stop_activation_delta and self.trailing_stop_trailing_delta:
                 trailing_stop = TrailingStop(
-                    activation_price_delta=Decimal(self.trailing_stop_activation_delta),
+                    activation_price=Decimal(self.trailing_stop_activation_delta),
                     trailing_delta=Decimal(self.trailing_stop_trailing_delta),
                 )
             else:
@@ -272,7 +272,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
                                 executor.amount,
                                 executor.trade_pnl,
                                 executor.trade_pnl_quote,
-                                executor.cum_fee_quote,
+                                executor.cum_fees_quote,
                                 executor.net_pnl_quote,
                                 executor.net_pnl,
                                 executor.close_timestamp,
