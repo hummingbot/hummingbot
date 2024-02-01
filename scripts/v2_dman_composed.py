@@ -20,13 +20,13 @@ class MarketMakingDmanComposed(ScriptStrategyBase):
     triple_barrier_conf_top = TripleBarrierConf(
         stop_loss=Decimal("0.03"), take_profit=Decimal("0.02"),
         time_limit=60 * 60 * 1,
-        trailing_stop_activation_price_delta=Decimal("0.002"),
+        trailing_stop_activation_price=Decimal("0.002"),
         trailing_stop_trailing_delta=Decimal("0.0005")
     )
     triple_barrier_conf_bottom = TripleBarrierConf(
         stop_loss=Decimal("0.03"), take_profit=Decimal("0.02"),
         time_limit=60 * 60 * 3,
-        trailing_stop_activation_price_delta=Decimal("0.005"),
+        trailing_stop_activation_price=Decimal("0.005"),
         trailing_stop_trailing_delta=Decimal("0.001")
     )
 

@@ -119,10 +119,10 @@ class DManV4MultiplePairs(ScriptStrategyBase):
                 leverage=self.config.leverage,
                 global_trailing_stop_config={
                     TradeType.BUY: TrailingStop(
-                        activation_price_delta=self.config.global_trailing_stop_activation_price_delta,
+                        activation_price=self.config.global_trailing_stop_activation_price_delta,
                         trailing_delta=self.config.global_trailing_stop_trailing_delta),
                     TradeType.SELL: TrailingStop(
-                        activation_price_delta=self.config.global_trailing_stop_activation_price_delta,
+                        activation_price=self.config.global_trailing_stop_activation_price_delta,
                         trailing_delta=self.config.global_trailing_stop_trailing_delta),
                 }
             )
