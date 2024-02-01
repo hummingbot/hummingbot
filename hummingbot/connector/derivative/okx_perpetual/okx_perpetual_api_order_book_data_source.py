@@ -44,7 +44,7 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         snapshot_data = snapshot_response["data"][0]
         timestamp = float(snapshot_data["ts"])
         # TODO: Check if replacing nonce_provider with seqId is correct
-        update_id = int(snapshot_data["seqId"])
+        update_id = self._nonce_provider.get_tracking_nonce(timestamp=timestamp)
 
         bids, asks = self._get_bids_and_asks_from_rest_msg_data(snapshot_data)
         order_book_message_content = {
