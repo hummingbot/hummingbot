@@ -42,7 +42,7 @@ class DManV6Config(ControllerConfigBase):
     time_limit: int = 60 * 60 * 24 * 7
     global_take_profit: Decimal = Decimal("0.02")
     global_stop_loss: Decimal = Decimal("0.1")
-    global_trailing_stop: TrailingStop = TrailingStop(activation_price_delta=Decimal("0.01"),
+    global_trailing_stop: TrailingStop = TrailingStop(activation_price=Decimal("0.01"),
                                                       trailing_delta=Decimal("0.005"))
     activation_threshold: Optional[Decimal] = None
 
@@ -147,13 +147,13 @@ class DManV6(GenericController):
                 side=trade_type,
                 amounts_quote=amounts_usd,
                 prices=prices,
-                global_stop_loss=self.config.global_stop_loss,
-                global_take_profit=self.config.global_take_profit,
-                global_trailing_stop=self.config.global_trailing_stop,
+                stop_loss=self.config.global_stop_loss,
+                take_profit=self.config.global_take_profit,
+                trailing_stop=self.config.global_trailing_stop,
                 time_limit=self.config.time_limit,
                 open_order_type=OrderType.LIMIT,
                 leverage=self.config.leverage,
-                activation_threshold=self.config.activation_threshold,
+                activation_bounds=self.config.activation_threshold,
             ),
             dca_id=dca_id)
 
