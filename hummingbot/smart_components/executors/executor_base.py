@@ -101,6 +101,12 @@ class ExecutorBase(SmartComponentBase):
         """
         pass
 
+    def early_stop(self):
+        """
+        This method allows strategy to stop the executor early.
+        """
+        raise NotImplementedError
+
     def validate_sufficient_balance(self):
         """
         Validates that the executor has sufficient balance to place orders.
