@@ -17,11 +17,10 @@ from hummingbot.core.event.events import (
 from hummingbot.logger import HummingbotLogger
 from hummingbot.smart_components.executors.executor_base import ExecutorBase
 from hummingbot.smart_components.executors.position_executor.data_types import (
-    CloseType,
     PositionExecutorConfig,
     PositionExecutorStatus,
-    TrackedOrder,
 )
+from hummingbot.smart_components.models.executors import CloseType, TrackedOrder
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
@@ -97,8 +96,8 @@ class PositionExecutor(ExecutorBase):
 
     @property
     def entry_price(self):
-        if self.open_order.executed_price:
-            return self.open_order.executed_price
+        if self.open_order.average_executed_price:
+            return self.open_order.average_executed_price
         elif self.position_config.entry_price:
             return self.position_config.entry_price
         else:
@@ -111,9 +110,10 @@ class PositionExecutor(ExecutorBase):
 
     @property
     def close_price(self):
+        # TODO: Evaluate if there is a close order instead of checking the state
         if self.executor_status == PositionExecutorStatus.COMPLETED and self.close_type not in [CloseType.EXPIRED,
                                                                                                 CloseType.INSUFFICIENT_BALANCE]:
-            return self.close_order.executed_price
+            return self.close_order.average_executed_price
         elif self.executor_status == PositionExecutorStatus.ACTIVE_POSITION:
             price_type = PriceType.BestBid if self.side == TradeType.BUY else PriceType.BestAsk
             return self.get_price(self.exchange, self.trading_pair, price_type=price_type)
@@ -133,7 +133,7 @@ class PositionExecutor(ExecutorBase):
 
     @property
     def net_pnl_quote(self):
-        return self.trade_pnl_quote - self.cum_fee_quote
+        return self.trade_pnl_quote - self.cum_fees_quote
 
     @property
     def net_pnl(self):
@@ -143,8 +143,8 @@ class PositionExecutor(ExecutorBase):
             return self.net_pnl_quote / (self.filled_amount * self.entry_price)
 
     @property
-    def cum_fee_quote(self):
-        return self.open_order.cum_fees + self.close_order.cum_fees
+    def cum_fees_quote(self):
+        return self.open_order.cum_fees_quote + self.close_order.cum_fees_quote
 
     @property
     def end_time(self):
@@ -210,9 +210,6 @@ class PositionExecutor(ExecutorBase):
 
     def time_limit_condition(self):
         return self._strategy.current_timestamp >= self.end_time
-
-    def on_start(self):
-        self.check_budget()
 
     def on_stop(self):
         if self.take_profit_order.order and self.take_profit_order.order.is_open:
@@ -403,7 +400,7 @@ class PositionExecutor(ExecutorBase):
             "amount": self.filled_amount,
             "trade_pnl": self.trade_pnl,
             "trade_pnl_quote": self.trade_pnl_quote,
-            "cum_fee_quote": self.cum_fee_quote,
+            "cum_fee_quote": self.cum_fees_quote,
             "net_pnl_quote": self.net_pnl_quote,
             "net_pnl": self.net_pnl,
             "close_timestamp": self.close_timestamp,
@@ -430,14 +427,14 @@ class PositionExecutor(ExecutorBase):
             lines.extend([f"""
 | Trading Pair: {self.trading_pair} | Exchange: {self.exchange} | Side: {self.side}
 | Entry price: {self.entry_price:.6f} | Close price: {self.close_price:.6f} | Amount: {amount_in_quote:.4f} {quote_asset}
-| Realized PNL: {self.trade_pnl_quote:.6f} {quote_asset} | Total Fee: {self.cum_fee_quote:.6f} {quote_asset}
+| Realized PNL: {self.trade_pnl_quote:.6f} {quote_asset} | Total Fee: {self.cum_fees_quote:.6f} {quote_asset}
 | PNL (%): {self.net_pnl * 100:.2f}% | PNL (abs): {self.net_pnl_quote:.6f} {quote_asset} | Close Type: {self.close_type}
 """])
         else:
             lines.extend([f"""
 | Trading Pair: {self.trading_pair} | Exchange: {self.exchange} | Side: {self.side} |
 | Entry price: {self.entry_price:.6f} | Close price: {self.close_price:.6f} | Amount: {amount_in_quote:.4f} {quote_asset}
-| Unrealized PNL: {self.trade_pnl_quote:.6f} {quote_asset} | Total Fee: {self.cum_fee_quote:.6f} {quote_asset}
+| Unrealized PNL: {self.trade_pnl_quote:.6f} {quote_asset} | Total Fee: {self.cum_fees_quote:.6f} {quote_asset}
 | PNL (%): {self.net_pnl * 100:.2f}% | PNL (abs): {self.net_pnl_quote:.6f} {quote_asset} | Close Type: {self.close_type}
         """])
 
@@ -487,7 +484,7 @@ class PositionExecutor(ExecutorBase):
 
     def activation_price_condition(self, price):
         side = 1 if self.side == TradeType.BUY else -1
-        activation_price = self.entry_price * (1 + side * self.trailing_stop_config.activation_price_delta)
+        activation_price = self.entry_price * (1 + side * self.trailing_stop_config.activation_price)
         return price >= activation_price if self.side == TradeType.BUY \
             else price <= activation_price
 
@@ -521,15 +518,9 @@ class PositionExecutor(ExecutorBase):
                 amount=self.amount,
                 price=self.entry_price,
             )
-        adjusted_order_candidate = self.adjust_order_candidate(order_candidate)
-        if not adjusted_order_candidate:
-            self.stop()
+        adjusted_order_candidates = self.adjust_order_candidates([order_candidate])
+        if adjusted_order_candidates[0].amount == Decimal("0"):
             self.close_type = CloseType.INSUFFICIENT_BALANCE
             self.executor_status = PositionExecutorStatus.COMPLETED
-            error = "Not enough budget to open position."
-            self.logger().error(error)
-
-    def adjust_order_candidate(self, order_candidate):
-        adjusted_order_candidate: OrderCandidate = self.connectors[self.exchange].budget_checker.adjust_candidate(order_candidate)
-        if adjusted_order_candidate.amount > Decimal("0"):
-            return adjusted_order_candidate
+            self.logger().error("Not enough budget to open position.")
+            self.stop()

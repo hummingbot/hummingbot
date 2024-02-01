@@ -3,6 +3,7 @@ from typing import List, Tuple, Union
 
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PriceType, TradeType
+from hummingbot.core.data_type.order_candidate import OrderCandidate
 from hummingbot.core.event.event_forwarder import SourceInfoEventForwarder
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -88,6 +89,42 @@ class ExecutorBase(SmartComponentBase):
         super().stop()
         self.unregister_events()
 
+    def on_start(self):
+        """
+        Called when the executor is started.
+        """
+        self.validate_sufficient_balance()
+
+    def on_stop(self):
+        """
+        Called when the executor is stopped.
+        """
+        pass
+
+    def validate_sufficient_balance(self):
+        """
+        Validates that the executor has sufficient balance to place orders.
+        """
+        return NotImplementedError
+
+    def net_pnl_quote(self):
+        """
+        Returns the net profit or loss in quote currency.
+        """
+        return NotImplementedError
+
+    def net_pnl_pct(self):
+        """
+        Returns the net profit or loss in percentage.
+        """
+        return NotImplementedError
+
+    def cum_fees_quote(self):
+        """
+        Returns the cumulative fees in quote currency.
+        """
+        return NotImplementedError
+
     def get_in_flight_order(self, connector_name: str, order_id: str):
         """
         Retrieves an in-flight order from the specified connector using the order ID.
@@ -115,6 +152,12 @@ class ExecutorBase(SmartComponentBase):
         for connector in self.connectors.values():
             for event_pair in self._event_pairs:
                 connector.remove_listener(event_pair[0], event_pair[1])
+
+    def adjust_order_candidates(self, exchange: str, order_candidates: List[OrderCandidate]) -> List[OrderCandidate]:
+        """
+        Adjusts the order candidates based on the budget checker of the specified exchange.
+        """
+        return self.connectors[exchange].budget_checker.adjust_candidates(order_candidates)
 
     def place_order(self,
                     connector_name: str,
