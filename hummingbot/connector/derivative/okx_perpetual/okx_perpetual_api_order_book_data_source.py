@@ -114,7 +114,7 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             index_price=Decimal(str(index_price["idxPx"])),
             mark_price=Decimal(str(mark_price["markPx"])),
             next_funding_utc_timestamp=int(funding_data["nextFundingTime"]),
-            rate=Decimal(str(funding_data["nextFundingRate"])),
+            rate=Decimal(str(funding_data["fundingRate"])),
         )
         return funding_info
 
