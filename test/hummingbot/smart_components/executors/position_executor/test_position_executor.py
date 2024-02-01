@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, PropertyMock, patch
 
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import OrderState, TradeUpdate
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount
 from hummingbot.core.event.events import (
     BuyOrderCompletedEvent,
@@ -14,12 +14,12 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.logger import HummingbotLogger
 from hummingbot.smart_components.executors.position_executor.data_types import (
-    CloseType,
     PositionExecutorConfig,
     PositionExecutorStatus,
     TrailingStop,
 )
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
+from hummingbot.smart_components.models.executors import CloseType
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
@@ -50,7 +50,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
                                       side=TradeType.BUY, entry_price=Decimal("100"), amount=Decimal("1"),
                                       stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
                                       take_profit_order_type=OrderType.LIMIT, stop_loss_order_type=OrderType.MARKET,
-                                      trailing_stop=TrailingStop(activation_price_delta=Decimal("0.02"),
+                                      trailing_stop=TrailingStop(activation_price=Decimal("0.02"),
                                                                  trailing_delta=Decimal("0.01")))
 
     def get_position_config_market_long(self):
@@ -154,7 +154,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         type(self.strategy).current_timestamp = PropertyMock(return_value=1234567890)
         position_executor = PositionExecutor(self.strategy, position_config)
         position_executor.open_order.order_id = "OID-SELL-1"
-        position_executor.open_order.order = InFlightOrder(
+        position_executor.open_order.order = PositionExecutor(
             client_order_id="OID-SELL-1",
             exchange_order_id="EOID4",
             trading_pair=position_config.trading_pair,
@@ -191,7 +191,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         type(self.strategy).current_timestamp = PropertyMock(return_value=1234567890)
         position_executor = PositionExecutor(self.strategy, position_config)
         position_executor.open_order.order_id = "OID-BUY-1"
-        position_executor.open_order.order = InFlightOrder(
+        position_executor.open_order.order = PositionExecutor(
             client_order_id="OID-BUY-1",
             exchange_order_id="EOID4",
             trading_pair=position_config.trading_pair,
@@ -229,7 +229,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         type(self.strategy).current_timestamp = PropertyMock(return_value=1234567890)
         position_executor = PositionExecutor(self.strategy, position_config)
         position_executor.open_order.order_id = "OID-BUY-1"
-        position_executor.open_order.order = InFlightOrder(
+        position_executor.open_order.order = PositionExecutor(
             client_order_id="OID-BUY-1",
             exchange_order_id="EOID4",
             trading_pair=position_config.trading_pair,
@@ -267,7 +267,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         type(self.strategy).current_timestamp = PropertyMock(return_value=1234597890)
         position_executor = PositionExecutor(self.strategy, position_config)
         position_executor.open_order.order_id = "OID-BUY-1"
-        position_executor.open_order.order = InFlightOrder(
+        position_executor.open_order.order = PositionExecutor(
             client_order_id="OID-BUY-1",
             exchange_order_id="EOID4",
             trading_pair=position_config.trading_pair,
@@ -305,7 +305,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         type(self.strategy).current_timestamp = PropertyMock(return_value=1234567890)
         position_executor = PositionExecutor(self.strategy, position_config)
         position_executor.open_order.order_id = "OID-BUY-1"
-        position_executor.open_order.order = InFlightOrder(
+        position_executor.open_order.order = PositionExecutor(
             client_order_id="OID-BUY-1",
             exchange_order_id="EOID4",
             trading_pair=position_config.trading_pair,
@@ -451,7 +451,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         type(self.strategy).current_timestamp = PropertyMock(return_value=1234567890)
         position_executor = PositionExecutor(self.strategy, position_config)
         position_executor.open_order.order_id = "OID-BUY-1"
-        position_executor.open_order.order = InFlightOrder(
+        position_executor.open_order.order = PositionExecutor(
             client_order_id="OID-BUY-1",
             exchange_order_id="EOID4",
             trading_pair=position_config.trading_pair,
@@ -487,7 +487,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         type(self.strategy).current_timestamp = PropertyMock(return_value=1234567890)
         position_executor = PositionExecutor(self.strategy, position_config)
         position_executor.open_order.order_id = "OID-BUY-1"
-        position_executor.open_order.order = InFlightOrder(
+        position_executor.open_order.order = PositionExecutor(
             client_order_id="OID-BUY-1",
             exchange_order_id="EOID4",
             trading_pair=position_config.trading_pair,
