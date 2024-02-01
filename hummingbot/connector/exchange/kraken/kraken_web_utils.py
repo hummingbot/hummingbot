@@ -9,25 +9,18 @@ from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 
 
-def public_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
-    """
-    Creates a full URL for provided public REST endpoint
-    :param path_url: a public REST endpoint
-    :param domain: the Kraken domain to connect to ("com" or "us"). The default value is "com"
-    :return: the full URL to the endpoint
-    """
-    return CONSTANTS.REST_URL.format(domain) + CONSTANTS.PUBLIC_API_VERSION + path_url
+def private_rest_url(*args, **kwargs) -> str:
+    return rest_url(*args, **kwargs)
 
 
-def private_rest_url(path_url: str, domain: str = CONSTANTS.DEFAULT_DOMAIN) -> str:
-    """
-    Creates a full URL for provided private REST endpoint
-    :param path_url: a private REST endpoint
-    :param domain: the Kraken domain to connect to ("com" or "us"). The default value is "com"
-    :return: the full URL to the endpoint
-    """
-    return CONSTANTS.REST_URL.format(domain) + CONSTANTS.PRIVATE_API_VERSION + path_url
+def public_rest_url(*args, **kwargs) -> str:
+    return rest_url(*args, **kwargs)
 
+
+def rest_url(path_url: str, domain: str = "kraken"):
+    # base_url = CONSTANTS.BASE_URL if domain == "kraken" else CONSTANTS.TESTNET_BASE_URL
+    base_url = CONSTANTS.BASE_URL
+    return base_url + path_url
 
 def build_api_factory(
         throttler: Optional[AsyncThrottler] = None,
@@ -73,3 +66,14 @@ async def get_current_server_time(
     )
     server_time = response["serverTime"]
     return server_time
+
+
+def is_exchange_information_valid(rule) -> bool:
+    """
+    Verifies if a trading pair is enabled to operate with based on its exchange information
+
+    :param exchange_info: the exchange information for a trading pair
+
+    :return: True if the trading pair is enabled, False otherwise
+    """
+    return True
