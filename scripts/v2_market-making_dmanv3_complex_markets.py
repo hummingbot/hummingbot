@@ -60,7 +60,7 @@ class DManV3MultiplePairs(ScriptStrategyBase):
         spreads=Distributions.arithmetic(n_levels=n_levels, start=start_spread, step=step_between_orders),
         triple_barrier_confs=TripleBarrierConf(
             stop_loss=stop_loss, take_profit=take_profit, time_limit=time_limit,
-            trailing_stop_activation_price_delta=trailing_stop_activation_price_delta,
+            trailing_stop_activation_price=trailing_stop_activation_price_delta,
             trailing_stop_trailing_delta=trailing_stop_trailing_delta),
     )
     controllers = {}

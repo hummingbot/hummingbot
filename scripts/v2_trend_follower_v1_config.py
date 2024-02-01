@@ -66,7 +66,7 @@ class DirectionalTradingTrendFollower(ScriptStrategyBase):
             stop_loss=config.stop_loss,
             take_profit=config.take_profit,
             time_limit=config.time_limit,
-            trailing_stop_activation_price_delta=config.trailing_stop_activation_price_delta,
+            trailing_stop_activation_price=config.trailing_stop_activation_price_delta,
             trailing_stop_trailing_delta=config.trailing_stop_trailing_delta,
             open_order_type=OrderType.MARKET if config.open_order_type == "MARKET" else OrderType.LIMIT,
         )

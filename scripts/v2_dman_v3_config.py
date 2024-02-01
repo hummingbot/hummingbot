@@ -71,7 +71,7 @@ class DManV3MultiplePairs(ScriptStrategyBase):
                                              step=config.step_between_orders),
             triple_barrier_confs=TripleBarrierConf(
                 stop_loss=config.stop_loss, take_profit=config.take_profit, time_limit=config.time_limit,
-                trailing_stop_activation_price_delta=config.trailing_stop_activation_price_delta,
+                trailing_stop_activation_price=config.trailing_stop_activation_price_delta,
                 trailing_stop_trailing_delta=config.trailing_stop_trailing_delta),
         )
         self.controllers = {}
