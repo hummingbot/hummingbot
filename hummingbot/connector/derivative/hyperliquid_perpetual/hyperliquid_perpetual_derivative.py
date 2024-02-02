@@ -48,12 +48,14 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
             client_config_map: "ClientConfigAdapter",
             hyperliquid_perpetual_api_key: str = None,
             hyperliquid_perpetual_api_secret: str = None,
+            use_vault: bool = False,
             trading_pairs: Optional[List[str]] = None,
             trading_required: bool = True,
             domain: str = CONSTANTS.DOMAIN,
     ):
         self.hyperliquid_perpetual_api_key = hyperliquid_perpetual_api_key
         self.hyperliquid_perpetual_secret_key = hyperliquid_perpetual_api_secret
+        self._use_vault = use_vault
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._domain = domain
