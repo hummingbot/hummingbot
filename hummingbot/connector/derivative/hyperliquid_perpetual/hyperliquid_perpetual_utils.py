@@ -1,8 +1,8 @@
 from decimal import Decimal
+from typing import Optional
 
 from pydantic import Field, SecretStr
 from pydantic.class_validators import validator
-from typing import Optional
 
 from hummingbot.client.config.config_data_types import BaseConnectorConfigMap, ClientFieldData
 from hummingbot.core.data_type.trade_fee import TradeFeeSchema
