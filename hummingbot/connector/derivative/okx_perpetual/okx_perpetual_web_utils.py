@@ -76,22 +76,19 @@ async def get_current_server_time(throttler: Optional[AsyncThrottler] = None,
 
 def endpoint_from_message(message: Dict[str, Any]) -> Optional[str]:
     endpoint = None
-    if "request" in message:
-        message = message["request"]
     if isinstance(message, dict):
-        if "op" in message.keys():
-            endpoint = message["op"]
-        elif endpoint is None and "topic" in message.keys():
-            endpoint = message["topic"]
+        if not message.get("event"):
+            arg = message.get("arg")
+            endpoint = arg.get("channel")
+        else:
+            endpoint = message.get("event")
     return endpoint
 
 
-# TODO: Determine payload_from_message usage
 def payload_from_message(message: Dict[str, Any]) -> List[Dict[str, Any]]:
-    payload = message
-    if "data" in message:
-        payload = message["data"]
-    return payload
+    if message.get("data"):
+        return message["data"]
+    return [message]
 
 
 def build_api_factory_without_time_synchronizer_pre_processor(throttler: AsyncThrottler) -> WebAssistantsFactory:
