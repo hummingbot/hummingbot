@@ -252,11 +252,17 @@ class DCAExecutor(ExecutorBase):
     def control_stop_loss(self):
         """
         This method is responsible for controlling the stop loss. In order to trigger the stop loss all the orders must
-        be completed and the net pnl must be lower than the stop loss
+        be completed and the net pnl must be lower than the stop loss. If it's maker mode, the stop loss will be
+        triggered if the net pnl is lower than the stop loss and all the orders were executed, otherwise the stop loss
+        will be triggered if the net pnl is lower than the stop loss.
         """
         if self._dca_config.stop_loss:
-            if self.all_open_orders_executed and self.net_pnl_pct < self._dca_config.stop_loss:
-                self.place_close_order(close_type=CloseType.STOP_LOSS)
+            if self._dca_config.mode == DCAMode.MAKER:
+                if self.all_open_orders_executed and self.net_pnl_pct < self._dca_config.stop_loss:
+                    self.place_close_order(close_type=CloseType.STOP_LOSS)
+            else:
+                if self.net_pnl_quote < self.max_loss_quote:
+                    self.place_close_order(close_type=CloseType.STOP_LOSS)
 
     def control_trailing_stop(self):
         """

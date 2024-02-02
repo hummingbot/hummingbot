@@ -56,7 +56,6 @@ class ExecutorBase(SmartComponentBase):
             (MarketEvent.SellOrderCompleted, self._complete_sell_order_forwarder),
             (MarketEvent.OrderFailure, self._failed_order_forwarder),
         ]
-        self.register_events()
 
     @property
     def status(self):

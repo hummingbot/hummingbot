@@ -22,7 +22,7 @@ class GenericExecutor(ExecutorHandlerBase):
 
     def on_stop(self):
         """Actions to perform on stop."""
-        for executor in self.position_executors.values():
+        for executor in [*self.position_executors, *self.dca_executors]:
             executor.early_stop()
         self.close_open_positions(connector_name=self.controller.config.exchange,
                                   trading_pair=self.controller.config.trading_pair)
@@ -32,6 +32,8 @@ class GenericExecutor(ExecutorHandlerBase):
                  executors_update_interval: float = 1.0):
         super().__init__(strategy, controller, update_interval, executors_update_interval)
         self.controller = controller
+        self.position_executors = []
+        self.dca_executors = []
 
     async def control_task(self):
         """
