@@ -389,28 +389,42 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             message_queue.put_nowait(snapshot_message)
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        trade_updates = raw_message["data"]
-        for trade_data in trade_updates:
-            symbol = trade_data["instId"]
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
-            ts_ms = int(trade_data["ts"])
-            trade_type = float(TradeType.BUY.value) if trade_data["side"] == "buy" else float(TradeType.SELL.value)
-            message_content = {
-                "trade_id": trade_data["tradeId"],
-                "trading_pair": trading_pair,
-                "trade_type": trade_type,
-                "amount": trade_data["sz"],
-                "price": trade_data["px"],
-            }
-            trade_message = OrderBookMessage(
-                message_type=OrderBookMessageType.TRADE,
-                content=message_content,
-                timestamp=ts_ms * 1e-3,
-            )
-            message_queue.put_nowait(trade_message)
+        # TODO: Check with dman if this handling is ok
+        subscription_event = raw_message.get("event")
+        if subscription_event == "subscribe":
+            pass
+        elif subscription_event == "error":
+            self.logger().error(f"Error in trades subscription: {raw_message}")
+            pass
+        trade_updates = raw_message.get("data")
+        if trade_updates is not None:
+            for trade_data in trade_updates:
+                symbol = trade_data["instId"]
+                trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
+                ts_ms = int(trade_data["ts"])
+                trade_type = float(TradeType.BUY.value) if trade_data["side"] == "buy" else float(TradeType.SELL.value)
+                message_content = {
+                    "trade_id": trade_data["tradeId"],
+                    "trading_pair": trading_pair,
+                    "trade_type": trade_type,
+                    "amount": trade_data["sz"],
+                    "price": trade_data["px"],
+                }
+                trade_message = OrderBookMessage(
+                    message_type=OrderBookMessageType.TRADE,
+                    content=message_content,
+                    timestamp=ts_ms * 1e-3,
+                )
+                message_queue.put_nowait(trade_message)
 
     # TODO: Check if FundingInfoUpdate can be feeded from different parsers, or if it needs to be a single one
     async def _parse_funding_info_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
+        subscription_event = raw_message.get("event")
+        if subscription_event == "subscribe":
+            pass
+        elif subscription_event == "error":
+            self.logger().error(f"Error in funding info subscription: {raw_message}")
+            pass
         funding_rates = raw_message.get("data")
         if funding_rates is not None:
             symbol = raw_message["arg"]["instId"]
@@ -428,6 +442,12 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             message_queue.put_nowait(info_update)
 
     async def _parse_index_price_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
+        subscription_event = raw_message.get("event")
+        if subscription_event == "subscribe":
+            pass
+        elif subscription_event == "error":
+            self.logger().error(f"Error in index price subscription: {raw_message}")
+            pass
         index_price = raw_message.get("data")
         if index_price is not None:
             symbol = raw_message["arg"]["instId"]
@@ -439,6 +459,12 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 message_queue.put_nowait(info_update)
 
     async def _parse_mark_price_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
+        subscription_event = raw_message.get("event")
+        if subscription_event == "subscribe":
+            pass
+        elif subscription_event == "error":
+            self.logger().error(f"Error in mark price subscription: {raw_message}")
+            pass
         mark_price = raw_message.get("data")
         if mark_price is not None:
             symbol = raw_message["arg"]["instId"]
