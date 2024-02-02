@@ -40,9 +40,11 @@ class HyperliquidPerpetualConfigMap(BaseConnectorConfigMap):
         )
     )
     use_vault: bool = Field(
-        default=False,
+        default="no",
         client_data=ClientFieldData(
             prompt=lambda cm: "Do you want to use the vault address?(Yes/No)",
+            is_secure=False,
+            is_connect_key=True,
             prompt_on_new=True,
         ),
     )
@@ -84,9 +86,11 @@ class HyperliquidPerpetualTestnetConfigMap(BaseConnectorConfigMap):
         )
     )
     use_vault: bool = Field(
-        default=False,
+        default="no",
         client_data=ClientFieldData(
             prompt=lambda cm: "Do you want to use the vault address?(Yes/No)",
+            is_secure=False,
+            is_connect_key=True,
             prompt_on_new=True,
         ),
     )

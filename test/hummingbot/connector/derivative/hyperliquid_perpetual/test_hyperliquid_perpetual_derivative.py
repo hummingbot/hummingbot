@@ -36,6 +36,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         super().setUpClass()
         cls.api_key = "someKey"
         cls.api_secret = "13e56ca9cceebf1f33065c2c5376ab38570a114bc1b003b60d838f92be9d7930"  # noqa: mock
+        cls.use_vault = False  # noqa: mock
         cls.user_id = "someUserId"
         cls.base_asset = "BTC"
         cls.quote_asset = "USD"  # linear

@@ -96,7 +96,7 @@ class HyperliquidPerpetualAuth(AuthBase):
             self.wallet,
             signature_types,
             res,
-            ZERO_ADDRESS,
+            ZERO_ADDRESS if not self._use_vault else self._api_key,
             timestamp,
             CONSTANTS.PERPETUAL_BASE_URL in base_url,
         )
@@ -120,7 +120,7 @@ class HyperliquidPerpetualAuth(AuthBase):
             self.wallet,
             signature_types,
             [[res]],
-            ZERO_ADDRESS,
+            ZERO_ADDRESS if not self._use_vault else self._api_key,
             timestamp,
             CONSTANTS.PERPETUAL_BASE_URL in base_url,
         )
@@ -157,7 +157,7 @@ class HyperliquidPerpetualAuth(AuthBase):
             self.wallet,
             signature_types,
             [[res], order_grouping_to_number(grouping)],
-            ZERO_ADDRESS,
+            ZERO_ADDRESS if not self._use_vault else self._api_key,
             timestamp,
             CONSTANTS.PERPETUAL_BASE_URL in base_url,
         )
