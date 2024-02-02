@@ -12,6 +12,7 @@ class ExchangePair(BaseModel):
 
 
 class ArbitrageConfig(ExecutorConfigBase):
+    type = "arbitrage_executor"
     buying_market: ExchangePair
     selling_market: ExchangePair
     order_amount: Decimal
