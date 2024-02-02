@@ -26,7 +26,7 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_ensure_future, safe_gather
+from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.estimate_fee import build_perpetual_trade_fee
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
@@ -588,29 +588,28 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         Updates position
         :param position_msg: The position event message payload
         """
-        ex_trading_pair = position_msg["instId"]
-        trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=ex_trading_pair)
-        position_side = PositionSide.LONG if position_msg["posSide"] == "long" else PositionSide.SHORT
-        entry_price = Decimal(str(position_msg["avgPx"]))
-        amount = Decimal(str(position_msg["notionalUsd"]))
-        leverage = Decimal(str(position_msg["lever"]))
-        unrealized_pnl = Decimal(str(position_msg["upl"]))
-        pos_key = self._perpetual_trading.position_key(trading_pair, position_side)
-        if amount != s_decimal_0:
-            position = Position(
-                trading_pair=trading_pair,
-                position_side=position_side,
-                unrealized_pnl=unrealized_pnl,
-                entry_price=entry_price,
-                amount=amount * (Decimal("-1.0") if position_side == PositionSide.SHORT else Decimal("1.0")),
-                leverage=leverage,
-            )
-            self._perpetual_trading.set_position(pos_key, position)
-        else:
-            self._perpetual_trading.remove_position(pos_key)
-
-        # Trigger balance update because Bybit doesn't have balance updates through the websocket
-        safe_ensure_future(self._update_balances())
+        if bool(position_msg.get("data")):
+            ex_trading_pair = position_msg["instId"]
+            trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=ex_trading_pair)
+            position_side = PositionSide.LONG if position_msg["posSide"] == "long" else PositionSide.SHORT
+            entry_price = Decimal(str(position_msg["avgPx"]))
+            amount = Decimal(str(position_msg["notionalUsd"]))
+            leverage = Decimal(str(position_msg["lever"]))
+            unrealized_pnl = Decimal(str(position_msg["upl"]))
+            pos_key = self._perpetual_trading.position_key(trading_pair, position_side)
+            if amount != s_decimal_0:
+                position = Position(
+                    trading_pair=trading_pair,
+                    position_side=position_side,
+                    unrealized_pnl=unrealized_pnl,
+                    entry_price=entry_price,
+                    amount=amount * (Decimal("-1.0") if position_side == PositionSide.SHORT else Decimal("1.0")),
+                    leverage=leverage,
+                )
+                self._perpetual_trading.set_position(pos_key, position)
+            else:
+                self._perpetual_trading.remove_position(pos_key)
+            # safe_ensure_future(self._update_balances())
 
     def _process_trade_event_message(self, trade_msg: Dict[str, Any]):
         """
