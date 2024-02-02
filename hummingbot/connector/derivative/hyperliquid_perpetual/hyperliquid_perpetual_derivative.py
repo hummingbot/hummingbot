@@ -40,15 +40,12 @@ bpm_logger = None
 
 class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
     web_utils = web_utils
-    SHORT_POLL_INTERVAL = 5.0
-    LONG_POLL_INTERVAL = 12.0
-
     def __init__(
             self,
             client_config_map: "ClientConfigAdapter",
-            hyperliquid_perpetual_api_key: str = None,
             hyperliquid_perpetual_api_secret: str = None,
             use_vault: bool = False,
+            hyperliquid_perpetual_api_key: str = None,
             trading_pairs: Optional[List[str]] = None,
             trading_required: bool = True,
             domain: str = CONSTANTS.DOMAIN,
@@ -63,6 +60,9 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
         self._last_trade_history_timestamp = None
         self.coin_to_asset: Dict[str, int] = {}
         super().__init__(client_config_map)
+    SHORT_POLL_INTERVAL = 5.0
+
+    LONG_POLL_INTERVAL = 12.0
 
     @property
     def name(self) -> str:
@@ -71,7 +71,7 @@ class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def authenticator(self) -> HyperliquidPerpetualAuth:
-        return HyperliquidPerpetualAuth(self.hyperliquid_perpetual_api_key, self.hyperliquid_perpetual_secret_key)
+        return HyperliquidPerpetualAuth(self.hyperliquid_perpetual_api_key, self.hyperliquid_perpetual_secret_key, self._use_vault)
 
     @property
     def rate_limits_rules(self) -> List[RateLimit]:
