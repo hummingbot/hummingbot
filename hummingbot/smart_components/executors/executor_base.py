@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import List, Tuple, Union
+from typing import Dict, List, Tuple, Union
 
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PriceType, TradeType
@@ -15,6 +15,9 @@ from hummingbot.core.event.events import (
     SellOrderCompletedEvent,
     SellOrderCreatedEvent,
 )
+from hummingbot.smart_components.executors.data_types import ExecutorConfigBase
+from hummingbot.smart_components.models.base import SmartComponentStatus
+from hummingbot.smart_components.models.executors_info import ExecutorInfo
 from hummingbot.smart_components.smart_component_base import SmartComponentBase
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
@@ -24,7 +27,7 @@ class ExecutorBase(SmartComponentBase):
     Base class for all executors. Executors are responsible for executing orders based on the strategy.
     """
 
-    def __init__(self, strategy: ScriptStrategyBase, connectors: List[str], update_interval: float = 0.5):
+    def __init__(self, strategy: ScriptStrategyBase, connectors: List[str], config: ExecutorConfigBase, update_interval: float = 0.5):
         """
         Initializes the executor with the given strategy, connectors and update interval.
 
@@ -33,6 +36,7 @@ class ExecutorBase(SmartComponentBase):
         :param update_interval: The update interval for the executor.
         """
         super().__init__(update_interval)
+        self.config = config
         self._strategy: ScriptStrategyBase = strategy
         self.connectors = {connector_name: connector for connector_name, connector in strategy.connectors.items() if
                            connector_name in connectors}
@@ -63,6 +67,51 @@ class ExecutorBase(SmartComponentBase):
         Returns the status of the executor.
         """
         return self._status
+
+    @property
+    def is_trading(self):
+        """
+        Returns whether the executor is trading.
+        """
+        return self.is_active and self.net_pnl_quote != 0
+
+    @property
+    def is_active(self):
+        """
+        Returns whether the executor is open or trading.
+        """
+        return self._status == SmartComponentStatus.RUNNING
+
+    @property
+    def is_closed(self):
+        """
+        Returns whether the executor is closed.
+        """
+        return self._status == SmartComponentStatus.TERMINATED
+
+    @property
+    def executor_info(self) -> ExecutorInfo:
+        """
+        Returns the executor info.
+        """
+        return ExecutorInfo(
+            id=self.config.id,
+            type=self.config.type,
+            status=self.status,
+            config=self.config,
+            net_pnl_pct=self.net_pnl_pct,
+            net_pnl_quote=self.net_pnl_quote,
+            cum_fees_quote=self.cum_fees_quote,
+            is_trading=self.is_trading,
+            custom_info=self.get_custom_info()
+        )
+
+    def get_custom_info(self) -> Dict:
+        """
+        Returns the custom info of the executor. Returns an empty dictionary by default, and can be reimplemented
+        by subclasses.
+        """
+        return {}
 
     @staticmethod
     def is_perpetual_connector(connector_name: str):
@@ -112,23 +161,26 @@ class ExecutorBase(SmartComponentBase):
         """
         return NotImplementedError
 
-    def net_pnl_quote(self):
+    @property
+    def net_pnl_quote(self) -> Decimal:
         """
         Returns the net profit or loss in quote currency.
         """
-        return NotImplementedError
+        raise NotImplementedError
 
-    def net_pnl_pct(self):
+    @property
+    def net_pnl_pct(self) -> Decimal:
         """
         Returns the net profit or loss in percentage.
         """
-        return NotImplementedError
+        raise NotImplementedError
 
-    def cum_fees_quote(self):
+    @property
+    def cum_fees_quote(self) -> Decimal:
         """
         Returns the cumulative fees in quote currency.
         """
-        return NotImplementedError
+        raise NotImplementedError
 
     def get_in_flight_order(self, connector_name: str, order_id: str):
         """
