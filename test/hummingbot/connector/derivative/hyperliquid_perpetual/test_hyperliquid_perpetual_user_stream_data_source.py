@@ -58,6 +58,7 @@ class TestHyperliquidPerpetualAPIUserStreamDataSource(unittest.TestCase):
             client_config_map=client_config_map,
             hyperliquid_perpetual_api_key=self.api_key,
             hyperliquid_perpetual_api_secret=self.api_secret_key,
+            use_vault=self.use_vault,
             trading_pairs=[])
         self.connector._web_assistants_factory._auth = self.auth
 

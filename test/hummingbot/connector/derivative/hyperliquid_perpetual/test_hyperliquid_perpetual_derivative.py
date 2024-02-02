@@ -386,8 +386,9 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         exchange = HyperliquidPerpetualDerivative(
             client_config_map,
-            self.api_key,
             self.api_secret,
+            self.use_vault,
+            self.api_key,
             trading_pairs=[self.trading_pair],
         )
         # exchange._last_trade_history_timestamp = self.latest_trade_hist_timestamp
@@ -778,6 +779,7 @@ class HyperliquidPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
             client_config_map=client_config_map,
             hyperliquid_perpetual_api_key=self.api_key,
             hyperliquid_perpetual_api_secret=self.api_secret,
+            use_vault=self.use_vault,
             trading_pairs=[self.trading_pair],
         )
 
