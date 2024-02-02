@@ -115,7 +115,7 @@ class OkxPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                     }
                 ],
             }
-            subscribe_positions_request = WSJSONRequest(payload)
+            subscribe_positions_request = WSJSONRequest(payload, is_auth_required=True)
             payload = {
                 "op": "subscribe",
                 "args": [
@@ -125,7 +125,7 @@ class OkxPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                     }
                 ],
             }
-            subscribe_executions_request = WSJSONRequest(payload)
+            subscribe_executions_request = WSJSONRequest(payload, is_auth_required=True)
             payload = {
                 "op": "subscribe",
                 "args": [
@@ -134,7 +134,7 @@ class OkxPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                     }
                 ],
             }
-            subscribe_wallet_request = WSJSONRequest(payload)
+            subscribe_wallet_request = WSJSONRequest(payload, is_auth_required=True)
 
             await ws.send(subscribe_positions_request)
             await ws.send(subscribe_executions_request)
