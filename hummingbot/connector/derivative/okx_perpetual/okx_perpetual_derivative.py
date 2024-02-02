@@ -686,12 +686,15 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         Updates account balances.
         :param wallet_msg: The account balance update message payload
         """
-        if "coin" in wallet_msg:  # non-linear
-            symbol = wallet_msg["coin"]
-        else:  # linear
-            symbol = "USDT"
-        self._account_balances[symbol] = Decimal(str(wallet_msg["wallet_balance"]))
-        self._account_available_balances[symbol] = Decimal(str(wallet_msg["available_balance"]))
+        for balance_detail in wallet_msg["details"]:
+            if balance_detail["ccy"] in ["USDT", "USDC"]:
+                self._account_balances[balance_detail["ccy"]] = Decimal(str(balance_detail["eq"]))
+                self._account_available_balances[balance_detail["ccy"]] = Decimal(str(balance_detail["availBal"]))
+
+    async def _make_trading_rules_request(self) -> Any:
+        params = {"instType": "SWAP"}
+        exchange_info = await self._api_get(path_url=self.trading_rules_request_path, params=params)
+        return exchange_info
 
     async def _format_trading_rules(self, instrument_info_dict: Dict[str, Any]) -> List[TradingRule]:
         """
