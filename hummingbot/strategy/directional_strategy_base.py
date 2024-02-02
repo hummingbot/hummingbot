@@ -152,7 +152,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
             if position_config:
                 signal_executor = PositionExecutor(
                     strategy=self,
-                    position_config=position_config,
+                    config=position_config,
                 )
                 self.active_executors.append(signal_executor)
 
