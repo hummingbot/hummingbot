@@ -121,17 +121,18 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
     async def _request_complete_funding_info(self, trading_pair: str):
         tasks = []
         rest_assistant = await self._api_factory.get_rest_assistant()
-        # TODO: Check what happens with str synchronic awaitables
         inst_id = await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
 
+        # TODO: Check what happens with index price in OKX API, only available for spot?
         params_index_price = {
-            "instId": inst_id
+            "instId": trading_pair
         }
         endpoint_index_price = CONSTANTS.REST_INDEX_TICKERS[CONSTANTS.ENDPOINT]
         url_index_price = web_utils.get_rest_url_for_endpoint(endpoint=endpoint_index_price, domain=self._domain)
-        limit_id_index_price = web_utils.get_rest_api_limit_id_for_endpoint(
+        limit_id_index_price = web_utils.get_pair_specific_limit_id(
             method=CONSTANTS.REST_INDEX_TICKERS[CONSTANTS.METHOD],
-            endpoint=endpoint_index_price)
+            endpoint=endpoint_index_price,
+            trading_pair=trading_pair)
         tasks.append(rest_assistant.execute_request(
             url=url_index_price,
             throttler_limit_id=limit_id_index_price,
@@ -144,13 +145,14 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             "instType": "SWAP",
         }
         endpoint_mark_price = CONSTANTS.REST_MARK_PRICE[CONSTANTS.ENDPOINT]
-        url_predicted = web_utils.get_rest_url_for_endpoint(endpoint=endpoint_mark_price, domain=self._domain)
-        limit_id_mark_price = web_utils.get_rest_api_limit_id_for_endpoint(
+        url_mark_price = web_utils.get_rest_url_for_endpoint(endpoint=endpoint_mark_price, domain=self._domain)
+        limit_id_mark_price = web_utils.get_pair_specific_limit_id(
             method=CONSTANTS.REST_MARK_PRICE[CONSTANTS.METHOD],
-            endpoint=endpoint_mark_price
+            endpoint=endpoint_mark_price,
+            trading_pair=trading_pair
         )
         tasks.append(rest_assistant.execute_request(
-            url=url_predicted,
+            url=url_mark_price,
             throttler_limit_id=limit_id_mark_price,
             params=params_mark_price,
             method=RESTMethod.GET,
@@ -162,9 +164,10 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         }
         endpoint_funding_data = CONSTANTS.REST_FUNDING_RATE_INFO[CONSTANTS.ENDPOINT]
         url_funding_data = web_utils.get_rest_url_for_endpoint(endpoint=endpoint_funding_data, domain=self._domain)
-        limit_id_funding_data = web_utils.get_rest_api_limit_id_for_endpoint(
+        limit_id_funding_data = web_utils.get_pair_specific_limit_id(
             method=CONSTANTS.REST_FUNDING_RATE_INFO[CONSTANTS.METHOD],
-            endpoint=endpoint_funding_data
+            endpoint=endpoint_funding_data,
+            trading_pair=trading_pair
         )
         tasks.append(rest_assistant.execute_request(
             url=url_funding_data,
@@ -232,7 +235,7 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
             trades_args = [
                 {
-                    "channel": CONSTANTS.WS_TRADES_ALL_CHANNEL,
+                    "channel": CONSTANTS.WS_TRADES_CHANNEL,
                     "instId": ex_trading_pair
                 } for ex_trading_pair in ex_trading_pairs
             ]
@@ -389,7 +392,7 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         trade_updates = raw_message["data"]
         for trade_data in trade_updates:
             symbol = trade_data["instId"]
-            trading_pair = self._connector.trading_pair_associated_to_exchange_symbol(symbol)
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
             ts_ms = int(trade_data["ts"])
             trade_type = float(TradeType.BUY.value) if trade_data["side"] == "buy" else float(TradeType.SELL.value)
             message_content = {
