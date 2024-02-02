@@ -213,13 +213,6 @@ def _build_private_pair_specific_rate_limits(trading_pairs: List[str]) -> List[R
                 time_interval=2,
             ),
             RateLimit(
-                limit_id=get_pair_specific_limit_id(CONSTANTS.REST_GET_POSITIONS[CONSTANTS.METHOD],
-                                                    CONSTANTS.REST_GET_POSITIONS[CONSTANTS.ENDPOINT],
-                                                    trading_pair=trading_pair),
-                limit=10,
-                time_interval=2,
-            ),
-            RateLimit(
                 limit_id=get_pair_specific_limit_id(method=CONSTANTS.REST_PLACE_ACTIVE_ORDER[CONSTANTS.METHOD],
                                                     endpoint=CONSTANTS.REST_PLACE_ACTIVE_ORDER[CONSTANTS.ENDPOINT],
                                                     trading_pair=trading_pair),
@@ -239,14 +232,6 @@ def _build_private_pair_specific_rate_limits(trading_pairs: List[str]) -> List[R
                                                     trading_pair=trading_pair),
                 limit=60,
                 time_interval=2,
-            ),
-            RateLimit(
-                limit_id=get_pair_specific_limit_id(method=CONSTANTS.REST_USER_TRADE_RECORDS[CONSTANTS.METHOD],
-                                                    endpoint=CONSTANTS.REST_USER_TRADE_RECORDS[CONSTANTS.ENDPOINT],
-                                                    trading_pair=trading_pair),
-                limit=120,
-                time_interval=60,
-                weight=1
             ),
             RateLimit(
                 limit_id=get_pair_specific_limit_id(method=CONSTANTS.REST_MARK_PRICE[CONSTANTS.METHOD],
@@ -269,6 +254,18 @@ def _build_private_pair_specific_rate_limits(trading_pairs: List[str]) -> List[R
 
 def _build_private_general_rate_limits() -> List[RateLimit]:
     rate_limits = [
+        RateLimit(
+            limit_id=get_rest_api_limit_id_for_endpoint(method=CONSTANTS.REST_USER_TRADE_RECORDS[CONSTANTS.METHOD],
+                                                        endpoint=CONSTANTS.REST_USER_TRADE_RECORDS[CONSTANTS.ENDPOINT]),
+            limit=120,
+            time_interval=60,
+        ),
+        RateLimit(
+            limit_id=get_rest_api_limit_id_for_endpoint(CONSTANTS.REST_GET_POSITIONS[CONSTANTS.METHOD],
+                                                        CONSTANTS.REST_GET_POSITIONS[CONSTANTS.ENDPOINT]),
+            limit=10,
+            time_interval=2,
+        ),
         RateLimit(
             limit_id=get_rest_api_limit_id_for_endpoint(method=CONSTANTS.REST_GET_WALLET_BALANCE[CONSTANTS.METHOD],
                                                         endpoint=CONSTANTS.REST_GET_WALLET_BALANCE[CONSTANTS.ENDPOINT]),
