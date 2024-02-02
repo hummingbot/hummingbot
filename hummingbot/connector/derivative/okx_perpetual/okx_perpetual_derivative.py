@@ -712,9 +712,9 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             try:
                 exchange_symbol = instrument["instId"]
                 if exchange_symbol in symbol_map:
-                    trading_pair = combine_to_hb_trading_pair(instrument['settleCcy'], instrument['ctValCcy'])
+                    trading_pair = combine_to_hb_trading_pair(instrument['ctValCcy'], instrument['settleCcy'])
                     if instrument["ctType"] == "linear":
-                        collateral_token = instrument["quote_currency"]
+                        collateral_token = instrument["settleCcy"]
                         trading_rules[trading_pair] = TradingRule(
                             trading_pair=trading_pair,
                             min_order_size=Decimal(str(instrument["minSz"])),
@@ -733,15 +733,17 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
-        for symbol_data in filter(okx_utils.is_exchange_information_valid, exchange_info["data"]):
-            exchange_symbol = symbol_data["instId"]
-            base = symbol_data["settleCcy"]
-            quote = symbol_data["ctValCcy"]
-            trading_pair = combine_to_hb_trading_pair(base, quote)
-            if trading_pair in mapping.inverse:
-                self._resolve_trading_pair_symbols_duplicate(mapping, exchange_symbol, base, quote)
-            else:
-                mapping[exchange_symbol] = trading_pair
+        if bool(exchange_info["data"]):
+            for symbol_data in exchange_info["data"]:
+                if symbol_data["ctType"] == "linear":
+                    exchange_symbol = symbol_data["instId"]
+                    base = symbol_data["settleCcy"]
+                    quote = symbol_data["ctValCcy"]
+                    trading_pair = combine_to_hb_trading_pair(base, quote)
+                    if trading_pair in mapping.inverse:
+                        self._resolve_trading_pair_symbols_duplicate(mapping, exchange_symbol, base, quote)
+                    else:
+                        mapping[exchange_symbol] = trading_pair
         self._set_trading_pair_symbol_map(mapping)
 
     def _resolve_trading_pair_symbols_duplicate(self, mapping: bidict, new_exchange_symbol: str, base: str, quote: str):
