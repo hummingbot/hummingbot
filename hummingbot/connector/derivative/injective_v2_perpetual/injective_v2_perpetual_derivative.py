@@ -68,7 +68,6 @@ class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
         self._configure_event_forwarders()
         self._latest_polled_order_fill_time: float = self._time()
         self._orders_transactions_check_task: Optional[asyncio.Task] = None
-        self._last_received_message_timestamp = 0
         self._orders_queued_to_create: List[GatewayPerpetualInFlightOrder] = []
         self._orders_queued_to_cancel: List[GatewayPerpetualInFlightOrder] = []
 
@@ -926,31 +925,26 @@ class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
         self._data_source.add_listener(event_tag=InjectiveEvent.ChainTransactionEvent, listener=event_forwarder)
 
     def _process_balance_event(self, event: BalanceUpdateEvent):
-        self._last_received_message_timestamp = self._time()
         self._all_trading_events_queue.put_nowait(
             {"channel": "balance", "data": event}
         )
 
     def _process_position_event(self, event: BalanceUpdateEvent):
-        self._last_received_message_timestamp = self._time()
         self._all_trading_events_queue.put_nowait(
             {"channel": "position", "data": event}
         )
 
     def _process_user_order_update(self, order_update: OrderUpdate):
-        self._last_received_message_timestamp = self._time()
         self._all_trading_events_queue.put_nowait(
             {"channel": "order", "data": order_update}
         )
 
     def _process_user_trade_update(self, trade_update: TradeUpdate):
-        self._last_received_message_timestamp = self._time()
         self._all_trading_events_queue.put_nowait(
             {"channel": "trade", "data": trade_update}
         )
 
     def _process_transaction_event(self, transaction_event: Dict[str, Any]):
-        self._last_received_message_timestamp = self._time()
         self._all_trading_events_queue.put_nowait(
             {"channel": "transaction", "data": transaction_event}
         )
@@ -1045,7 +1039,7 @@ class InjectiveV2PerpetualDerivative(PerpetualDerivativePyBase):
         return float(last_price)
 
     def _get_poll_interval(self, timestamp: float) -> float:
-        last_recv_diff = timestamp - self._last_received_message_timestamp
+        last_recv_diff = timestamp - self._data_source.last_received_message_timestamp
         poll_interval = (
             self.SHORT_POLL_INTERVAL
             if last_recv_diff > self.TICK_INTERVAL_LIMIT
