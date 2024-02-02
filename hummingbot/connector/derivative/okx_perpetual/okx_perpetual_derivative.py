@@ -411,8 +411,9 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
 
         if wallet_balance["data"] is not None:
             for balance_detail in wallet_balance["data"][0]["details"]:
-                self._account_balances[balance_detail["ccy"]] = Decimal(str(balance_detail["eq"]))
-                self._account_available_balances[balance_detail["ccy"]] = Decimal(str(balance_detail["availBal"]))
+                if balance_detail["ccy"] in ["USDT", "USDC"]:
+                    self._account_balances[balance_detail["ccy"]] = Decimal(str(balance_detail["eq"]))
+                    self._account_available_balances[balance_detail["ccy"]] = Decimal(str(balance_detail["availBal"]))
 
     async def _update_positions(self):
         """
@@ -567,7 +568,6 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
                 elif endpoint == CONSTANTS.WS_BALANCE_AND_POSITIONS_CHANNEL:
                     for trade_msg in payload:
                         self._process_trade_event_message(trade_msg)
-                # TODO: Check if this 2 endpoints are correct
                 elif endpoint == CONSTANTS.WS_ACCOUNT_CHANNEL:
                     for wallet_msg in payload:
                         self._process_wallet_event_message(wallet_msg)
