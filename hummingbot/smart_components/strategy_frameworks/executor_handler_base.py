@@ -78,7 +78,7 @@ class ExecutorHandlerBase(SmartComponentBase):
             executor_data = executor.to_json()
             executor_data["order_level"] = level_id
             executor_data["controller_name"] = self.controller.config.strategy_name
-            MarketsRecorder.get_instance().store_executor(executor_data)
+            MarketsRecorder.get_instance().store_position_executor(executor_data)
             self.position_executors[level_id] = None
 
     def create_position_executor(self, position_config: PositionExecutorConfig, level_id: str = None):

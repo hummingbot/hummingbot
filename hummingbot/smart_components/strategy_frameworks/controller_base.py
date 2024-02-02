@@ -9,6 +9,7 @@ from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig, Can
 
 
 class ControllerConfigBase(BaseModel):
+    id: str
     exchange: str
     trading_pair: str
     strategy_name: str
