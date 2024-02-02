@@ -475,8 +475,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         if order.exchange_order_id is not None:
             try:
                 all_fills_response = await self._request_order_fills(order=order)
-                trades_list_key = "data" if okx_utils.is_linear_perpetual(order.trading_pair) else "trade_list"
-                fills_data = all_fills_response["result"].get(trades_list_key, [])
+                fills_data = all_fills_response.get("data", [])
 
                 if fills_data is not None:
                     for fill_data in fills_data:
