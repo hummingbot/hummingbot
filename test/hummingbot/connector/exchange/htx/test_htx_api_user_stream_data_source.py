@@ -44,14 +44,16 @@ class HtxAPIUserStreamDataSourceTests(unittest.TestCase):
         self.connector = AsyncMock()
         self.connector.exchange_symbol_associated_to_pair.return_value = self.ex_trading_pair
         self.connector.trading_pair_associated_to_exchange_symbol.return_value = self.trading_pair
-        self.auth = HtxAuth(api_key="somKey",
-                              secret_key="someSecretKey",
-                              time_provider=self.time_synchronizer)
+        self.auth = HtxAuth(
+            api_key="somKey",
+            secret_key="someSecretKey",
+            time_provider=self.time_synchronizer)
         self.api_factory = build_api_factory()
-        self.data_source = HtxAPIUserStreamDataSource(htx_auth=self.auth,
-                                                        trading_pairs=[self.trading_pair],
-                                                        connector=self.connector,
-                                                        api_factory=self.api_factory,)
+        self.data_source = HtxAPIUserStreamDataSource(
+            htx_auth=self.auth,
+            trading_pairs=[self.trading_pair],
+            connector=self.connector,
+            api_factory=self.api_factory)
 
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
