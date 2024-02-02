@@ -75,7 +75,7 @@ class MACDBBDirectionalStrategy(ScriptStrategyBase):
                 MACD: {indicators[2]}
                 """)
                 signal_executor = PositionExecutor(
-                    position_config=PositionExecutorConfig(
+                    config=PositionExecutorConfig(
                         timestamp=self.current_timestamp, trading_pair=self.trading_pair,
                         exchange=self.exchange, order_type=OrderType.MARKET,
                         side=PositionSide.SHORT if signal_value < 0 else PositionSide.LONG,

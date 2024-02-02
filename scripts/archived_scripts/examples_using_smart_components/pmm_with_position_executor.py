@@ -162,7 +162,7 @@ class PMMWithPositionExecutor(ScriptStrategyBase):
         )
         executor = PositionExecutor(
             strategy=self,
-            position_config=position_config,
+            config=position_config,
         )
         return executor
 
