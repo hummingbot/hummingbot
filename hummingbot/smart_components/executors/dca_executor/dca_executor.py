@@ -28,17 +28,20 @@ class DCAExecutor(ExecutorBase):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, strategy: ScriptStrategyBase, dca_config: DCAConfig, update_interval: float = 1.0,
+    def __init__(self, strategy: ScriptStrategyBase, config: DCAConfig, update_interval: float = 1.0,
                  max_retries: int = 5):
         # validate amounts and prices
-        if len(dca_config.amounts_quote) != len(dca_config.prices):
+        if len(config.amounts_quote) != len(config.prices):
             raise ValueError("Amounts and prices lists must have the same length")
-        self._dca_config: DCAConfig = dca_config
-        self.n_levels = len(dca_config.amounts_quote)
 
-        # set default bounds if is taker
-        if self._dca_config.mode == DCAMode.TAKER and not self._dca_config.activation_bounds:
-            self._dca_config.activation_bounds = [Decimal("0.0001"), Decimal("0.005")]  # 0.01% and 0.5%
+        # Initialize super class
+        super().__init__(strategy=strategy, connectors=[config.exchange], config=config, update_interval=update_interval)
+        self.config: DCAConfig = config
+
+        # set default bounds
+        self.n_levels = len(config.amounts_quote)
+        if self.config.mode == DCAMode.TAKER and not self.config.activation_bounds:
+            self.config.activation_bounds = [Decimal("0.0001"), Decimal("0.005")]  # 0.01% and 0.5%
 
         # executors tracking
         self._open_orders: List[TrackedOrder] = []
@@ -55,7 +58,6 @@ class DCAExecutor(ExecutorBase):
         # add retries
         self._current_retries = 0
         self._max_retries = max_retries
-        super().__init__(strategy=strategy, connectors=[dca_config.exchange], update_interval=update_interval)
 
     @property
     def active_orders(self) -> List[TrackedOrder]:
@@ -63,7 +65,7 @@ class DCAExecutor(ExecutorBase):
 
     @property
     def open_order_type(self) -> OrderType:
-        return OrderType.LIMIT if self._dca_config.mode == DCAMode.MAKER else OrderType.MARKET
+        return OrderType.LIMIT if self.config.mode == DCAMode.MAKER else OrderType.MARKET
 
     @property
     def close_order_type(self) -> OrderType:
@@ -79,27 +81,27 @@ class DCAExecutor(ExecutorBase):
 
     @property
     def max_amount_quote(self) -> Decimal:
-        return sum(self._dca_config.amounts_quote)
+        return sum(self.config.amounts_quote)
 
     @property
     def min_price(self) -> Decimal:
-        return min(self._dca_config.prices)
+        return min(self.config.prices)
 
     @property
     def max_price(self) -> Decimal:
-        return max(self._dca_config.prices)
+        return max(self.config.prices)
 
     @property
     def max_loss_quote(self) -> Decimal:
-        return self.max_amount_quote * self._dca_config.stop_loss
+        return self.max_amount_quote * self.config.stop_loss
 
     @property
     def current_market_price(self):
         """
         This method is responsible for getting the current market price to be used as a reference for control barriers
         """
-        price_type = PriceType.BestBid if self._dca_config.side == TradeType.BUY else PriceType.BestAsk
-        return self.get_price(self._dca_config.exchange, self._dca_config.trading_pair, price_type=price_type)
+        price_type = PriceType.BestBid if self.config.side == TradeType.BUY else PriceType.BestAsk
+        return self.get_price(self.config.exchange, self.config.trading_pair, price_type=price_type)
 
     @property
     def close_price(self):
@@ -121,7 +123,7 @@ class DCAExecutor(ExecutorBase):
     @property
     def target_position_average_price(self) -> Decimal:
         return sum([price * amount for price, amount in
-                    zip(self._dca_config.prices, self._dca_config.amounts_quote)]) / self.max_amount_quote
+                    zip(self.config.prices, self.config.amounts_quote)]) / self.max_amount_quote
 
     @property
     def trade_pnl_pct(self):
@@ -129,7 +131,7 @@ class DCAExecutor(ExecutorBase):
         This method is responsible for calculating the trade pnl (Pure pnl without fees)
         """
         if self.current_position_average_price:
-            if self._dca_config.side == TradeType.BUY:
+            if self.config.side == TradeType.BUY:
                 return (self.close_price - self.current_position_average_price) / self.current_position_average_price
             else:
                 return (self.current_position_average_price - self.close_price) / self.current_position_average_price
@@ -177,30 +179,30 @@ class DCAExecutor(ExecutorBase):
         This method is responsible for checking the budget
         """
         order_candidates = []
-        for amount_quote, price in zip(self._dca_config.amounts_quote, self._dca_config.prices):
+        for amount_quote, price in zip(self.config.amounts_quote, self.config.prices):
             amount_base = amount_quote / price
-            is_maker = self._dca_config.mode == DCAMode.MAKER
-            if self.is_perpetual_connector(self._dca_config.exchange):
+            is_maker = self.config.mode == DCAMode.MAKER
+            if self.is_perpetual_connector(self.config.exchange):
                 order_candidate = PerpetualOrderCandidate(
-                    trading_pair=self._dca_config.trading_pair,
+                    trading_pair=self.config.trading_pair,
                     is_maker=is_maker,
                     order_type=self.open_order_type,
-                    order_side=self._dca_config.side,
+                    order_side=self.config.side,
                     amount=amount_base,
                     price=price,
-                    leverage=Decimal(self._dca_config.leverage),
+                    leverage=Decimal(self.config.leverage),
                 )
             else:
                 order_candidate = OrderCandidate(
-                    trading_pair=self._dca_config.trading_pair,
+                    trading_pair=self.config.trading_pair,
                     is_maker=is_maker,
                     order_type=self.open_order_type,
-                    order_side=self._dca_config.side,
+                    order_side=self.config.side,
                     amount=amount_base,
                     price=price,
                 )
             order_candidates.append(order_candidate)
-        adjusted_order_candidates = self.adjust_order_candidates(self._dca_config.exchange, order_candidates)
+        adjusted_order_candidates = self.adjust_order_candidates(self.config.exchange, order_candidates)
         if any([order_candidate.amount == Decimal("0") for order_candidate in adjusted_order_candidates]):
             self.close_type = CloseType.INSUFFICIENT_BALANCE
             self.stop()
@@ -222,9 +224,9 @@ class DCAExecutor(ExecutorBase):
         """
         next_level = len(self._open_orders)
         if next_level < self.n_levels:
-            close_price = self.get_price(connector_name=self._dca_config.exchange,
-                                         trading_pair=self._dca_config.trading_pair)
-            order_price = self._dca_config.prices[next_level]
+            close_price = self.get_price(connector_name=self.config.exchange,
+                                         trading_pair=self.config.trading_pair)
+            order_price = self.config.prices[next_level]
             if self._is_within_activation_bounds(order_price, close_price):
                 self.create_dca_order(level=next_level)
 
@@ -232,11 +234,11 @@ class DCAExecutor(ExecutorBase):
         """
         This method is responsible for creating a new DCA order
         """
-        price = self._dca_config.prices[level]
-        amount = self._dca_config.amounts_quote[level] / price
-        order_id = self.place_order(connector_name=self._dca_config.exchange,
-                                    trading_pair=self._dca_config.trading_pair, order_type=self.open_order_type,
-                                    side=self._dca_config.side, amount=amount, price=price,
+        price = self.config.prices[level]
+        amount = self.config.amounts_quote[level] / price
+        order_id = self.place_order(connector_name=self.config.exchange,
+                                    trading_pair=self.config.trading_pair, order_type=self.open_order_type,
+                                    side=self.config.side, amount=amount, price=price,
                                     position_action=PositionAction.OPEN)
         if order_id:
             self._open_orders.append(TrackedOrder(order_id=order_id))
@@ -256,9 +258,9 @@ class DCAExecutor(ExecutorBase):
         triggered if the net pnl is lower than the stop loss and all the orders were executed, otherwise the stop loss
         will be triggered if the net pnl is lower than the stop loss.
         """
-        if self._dca_config.stop_loss:
-            if self._dca_config.mode == DCAMode.MAKER:
-                if self.all_open_orders_executed and self.net_pnl_pct < self._dca_config.stop_loss:
+        if self.config.stop_loss:
+            if self.config.mode == DCAMode.MAKER:
+                if self.all_open_orders_executed and self.net_pnl_pct < self.config.stop_loss:
                     self.place_close_order(close_type=CloseType.STOP_LOSS)
             else:
                 if self.net_pnl_quote < self.max_loss_quote:
@@ -272,13 +274,13 @@ class DCAExecutor(ExecutorBase):
         is lower than the trailing stop trigger. the value of hte trailing stop trigger will be updated if the net pnl
         minus the trailing delta is higher than the current value of the trailing stop trigger.
         """
-        if self._dca_config.trailing_stop:
+        if self.config.trailing_stop:
             if not self._trailing_stop_trigger_pct:
-                if self.net_pnl_pct > self._dca_config.trailing_stop.activation_price:
+                if self.net_pnl_pct > self.config.trailing_stop.activation_price:
                     self._trailing_stop_trigger_pct = self.net_pnl_pct
             else:
-                if self.net_pnl_pct - self._dca_config.trailing_stop.trailing_delta > self._trailing_stop_trigger_pct:
-                    self._trailing_stop_trigger_pct = self.net_pnl_pct - self._dca_config.trailing_stop.trailing_delta
+                if self.net_pnl_pct - self.config.trailing_stop.trailing_delta > self._trailing_stop_trigger_pct:
+                    self._trailing_stop_trigger_pct = self.net_pnl_pct - self.config.trailing_stop.trailing_delta
                 if self.net_pnl_pct < self._trailing_stop_trigger_pct:
                     self.place_close_order(close_type=CloseType.TRAILING_STOP)
 
@@ -287,8 +289,8 @@ class DCAExecutor(ExecutorBase):
         This method is responsible for controlling the take profit. In order to trigger the take profit all the orders must
         be completed and the net pnl must be higher than the take profit
         """
-        if self._dca_config.take_profit:
-            if self.net_pnl_pct > self._dca_config.take_profit:
+        if self.config.take_profit:
+            if self.net_pnl_pct > self.config.take_profit:
                 self.place_close_order(close_type=CloseType.TAKE_PROFIT)
 
     def early_stop(self):
@@ -302,12 +304,12 @@ class DCAExecutor(ExecutorBase):
         This method is responsible for placing the close order
         """
         order_id = self.place_order(
-            connector_name=self._dca_config.exchange,
-            trading_pair=self._dca_config.trading_pair,
+            connector_name=self.config.exchange,
+            trading_pair=self.config.trading_pair,
             order_type=OrderType.MARKET,
             amount=self.filled_amount,
             price=price,
-            side=TradeType.SELL if self._dca_config.side == TradeType.BUY else TradeType.BUY,
+            side=TradeType.SELL if self.config.side == TradeType.BUY else TradeType.BUY,
             position_action=PositionAction.CLOSE,
         )
         self.close_type = close_type
@@ -318,18 +320,18 @@ class DCAExecutor(ExecutorBase):
         """
         This method is responsible for checking if the order is within the activation bounds
         """
-        activation_bounds = self._dca_config.activation_bounds
-        if self._dca_config.mode == DCAMode.MAKER:
+        activation_bounds = self.config.activation_bounds
+        if self.config.mode == DCAMode.MAKER:
             if activation_bounds:
-                if self._dca_config.side == TradeType.BUY:
+                if self.config.side == TradeType.BUY:
                     return order_price < close_price * (1 + activation_bounds[0])
                 else:
                     return order_price > close_price * (1 - activation_bounds[0])
             else:
                 return True
-        elif self._dca_config.mode == DCAMode.TAKER:
+        elif self.config.mode == DCAMode.TAKER:
             # Taker mode requires activation bounds for safety. Default to 0.01% and 0.5% if not provided.
-            if self._dca_config.side == TradeType.BUY:
+            if self.config.side == TradeType.BUY:
                 min_price_to_buy = order_price * (1 - activation_bounds[0])
                 max_price_to_buy = order_price * (1 + activation_bounds[1])
                 return min_price_to_buy < close_price < max_price_to_buy
@@ -349,8 +351,8 @@ class DCAExecutor(ExecutorBase):
         else:
             for active_open_order in active_open_orders:
                 self._strategy.cancel(
-                    connector_name=self._dca_config.exchange,
-                    trading_pair=self._dca_config.trading_pair,
+                    connector_name=self.config.exchange,
+                    trading_pair=self.config.trading_pair,
                     order_id=active_open_order.order_id
                 )
 
@@ -365,7 +367,7 @@ class DCAExecutor(ExecutorBase):
         all_orders = self._open_orders + self._close_orders
         active_order = next((order for order in all_orders if order.order_id == event.order_id), None)
         if active_order:
-            in_flight_order = self.get_in_flight_order(self._dca_config.exchange, event.order_id)
+            in_flight_order = self.get_in_flight_order(self.config.exchange, event.order_id)
             if in_flight_order:
                 active_order.in_flight_order = in_flight_order
                 self.logger().debug(f"Order {event.order_id} created.")
@@ -408,12 +410,12 @@ class DCAExecutor(ExecutorBase):
         Serializes the object to json
         """
         return {
-            "timestamp": self._dca_config.timestamp,
-            "exchange": self._dca_config.exchange,
-            "trading_pair": self._dca_config.trading_pair,
+            "timestamp": self.config.timestamp,
+            "exchange": self.config.exchange,
+            "trading_pair": self.config.trading_pair,
             "status": self.status.name,
-            "side": self._dca_config.side.name,
-            "leverage": self._dca_config.leverage,
+            "side": self.config.side.name,
+            "leverage": self.config.leverage,
             "close_type": self.close_type.name if self.close_type else None,
             "close_timestamp": self.close_timestamp,
             "filled_amount": self.filled_amount,
@@ -423,10 +425,10 @@ class DCAExecutor(ExecutorBase):
             "max_price": self.max_price,
             "current_position_average_price": self.current_position_average_price,
             "target_position_average_price": self.target_position_average_price,
-            "stop_loss": self._dca_config.stop_loss,
-            "take_profit": self._dca_config.take_profit,
-            "trailing_stop_activation_price": self._dca_config.trailing_stop.activation_price,
-            "trailing_stop_trailing_delta": self._dca_config.trailing_stop.trailing_delta,
+            "stop_loss": self.config.stop_loss,
+            "take_profit": self.config.take_profit,
+            "trailing_stop_activation_price": self.config.trailing_stop.activation_price,
+            "trailing_stop_trailing_delta": self.config.trailing_stop.trailing_delta,
             "trailing_stop_trigger_pct": self._trailing_stop_trigger_pct,
             "net_pnl_quote": self.net_pnl_quote,
             "cum_fee_quote": self.cum_fee_quote,
