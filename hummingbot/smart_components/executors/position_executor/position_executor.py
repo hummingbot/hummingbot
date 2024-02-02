@@ -33,17 +33,18 @@ class PositionExecutor(ExecutorBase):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, strategy: ScriptStrategyBase, position_config: PositionExecutorConfig,
+    def __init__(self, strategy: ScriptStrategyBase, config: PositionExecutorConfig,
                  update_interval: float = 1.0, max_retries: int = 3):
-        if not (position_config.take_profit or position_config.stop_loss or position_config.time_limit):
+        if not (config.take_profit or config.stop_loss or config.time_limit):
             error = "At least one of take_profit, stop_loss or time_limit must be set"
             self.logger().error(error)
             raise ValueError(error)
-        if position_config.time_limit_order_type != OrderType.MARKET or position_config.stop_loss_order_type != OrderType.MARKET:
+        if config.time_limit_order_type != OrderType.MARKET or config.stop_loss_order_type != OrderType.MARKET:
             error = "Only market orders are supported for time_limit and stop_loss"
             self.logger().error(error)
             raise ValueError(error)
-        self._position_config: PositionExecutorConfig = position_config
+        super().__init__(strategy=strategy, connectors=[config.exchange], update_interval=update_interval)
+        self.config: PositionExecutorConfig = config
         self.close_type = None
         self.close_timestamp = None
         self._executor_status: PositionExecutorStatus = PositionExecutorStatus.NOT_STARTED
@@ -56,7 +57,6 @@ class PositionExecutor(ExecutorBase):
         self._trailing_stop_activated = False
         self._max_retries = max_retries
         self._current_retries = 0
-        super().__init__(strategy=strategy, connectors=[position_config.exchange], update_interval=update_interval)
 
     @property
     def executor_status(self):
@@ -76,7 +76,7 @@ class PositionExecutor(ExecutorBase):
 
     @property
     def position_config(self):
-        return self._position_config
+        return self.config
 
     @property
     def exchange(self):
@@ -174,14 +174,14 @@ class PositionExecutor(ExecutorBase):
 
     @property
     def stop_loss_price(self):
-        stop_loss_price = self.entry_price * (1 - self._position_config.stop_loss) if self.side == TradeType.BUY else \
-            self.entry_price * (1 + self._position_config.stop_loss)
+        stop_loss_price = self.entry_price * (1 - self.config.stop_loss) if self.side == TradeType.BUY else \
+            self.entry_price * (1 + self.config.stop_loss)
         return stop_loss_price
 
     @property
     def take_profit_price(self):
-        take_profit_price = self.entry_price * (1 + self._position_config.take_profit) if self.side == TradeType.BUY else \
-            self.entry_price * (1 - self._position_config.take_profit)
+        take_profit_price = self.entry_price * (1 + self.config.take_profit) if self.side == TradeType.BUY else \
+            self.entry_price * (1 - self.config.take_profit)
         return take_profit_price
 
     @property
@@ -300,8 +300,8 @@ class PositionExecutor(ExecutorBase):
 
     def place_take_profit_limit_order(self):
         order_id = self.place_order(
-            connector_name=self._position_config.exchange,
-            trading_pair=self._position_config.trading_pair,
+            connector_name=self.config.exchange,
+            trading_pair=self.config.trading_pair,
             amount=self.filled_amount,
             price=self.take_profit_price,
             order_type=self.take_profit_order_type,
