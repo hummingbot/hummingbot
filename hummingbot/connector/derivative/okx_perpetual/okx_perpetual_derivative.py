@@ -490,8 +490,8 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
     async def _request_order_fills(self, order: InFlightOrder) -> Dict[str, Any]:
         exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
         body_params = {
-            "order_id": order.exchange_order_id,
-            "symbol": exchange_symbol,
+            "ordId": order.exchange_order_id,
+            "instId": exchange_symbol,
         }
         res = await self._api_get(
             path_url=CONSTANTS.REST_USER_TRADE_RECORDS[CONSTANTS.ENDPOINT],
