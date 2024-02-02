@@ -556,7 +556,12 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             try:
                 endpoint = web_utils.endpoint_from_message(event_message)
                 payload = web_utils.payload_from_message(event_message)
-
+                # TODO: Check with dman if this endpoing handling is ok
+                if endpoint == "subscribe":
+                    continue
+                if endpoint == "error":
+                    self.logger().error(f"Error message received from user stream: {payload}.")
+                    continue
                 if endpoint == CONSTANTS.WS_POSITIONS_CHANNEL:
                     for position_msg in payload:
                         await self._process_account_position_event(position_msg)
