@@ -790,8 +790,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         is_linear = okx_utils.is_linear_perpetual(trading_pair)
 
         if is_linear:
-            exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
-            data = {"symbol": exchange_symbol, "mode": api_mode}
+            data = {"posMode": api_mode}
 
             response = await self._api_post(
                 path_url=CONSTANTS.REST_SET_POSITION_MODE[CONSTANTS.ENDPOINT],
