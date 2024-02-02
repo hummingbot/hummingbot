@@ -106,27 +106,27 @@ class OkxPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
 
     async def _subscribe_to_channels(self, ws: WSAssistant, url: str):
         try:
-            payload = {
+            positions_payload = {
                 "op": "subscribe",
                 "args": [
                     {
                         "channel": f"{CONSTANTS.WS_POSITIONS_CHANNEL}",
-                        "instType:": "SWAP"
+                        "instType": "SWAP"
                     }
                 ],
             }
-            subscribe_positions_request = WSJSONRequest(payload, is_auth_required=True)
-            payload = {
+            subscribe_positions_request = WSJSONRequest(positions_payload)
+            executions_payload = {
                 "op": "subscribe",
                 "args": [
                     {
                         "channel": f"{CONSTANTS.WS_ORDERS_CHANNEL}",
-                        "instType:": "SWAP"
+                        "instType": "SWAP"
                     }
                 ],
             }
-            subscribe_executions_request = WSJSONRequest(payload, is_auth_required=True)
-            payload = {
+            subscribe_executions_request = WSJSONRequest(executions_payload)
+            account_payload = {
                 "op": "subscribe",
                 "args": [
                     {
@@ -134,7 +134,7 @@ class OkxPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                     }
                 ],
             }
-            subscribe_wallet_request = WSJSONRequest(payload, is_auth_required=True)
+            subscribe_wallet_request = WSJSONRequest(account_payload)
 
             await ws.send(subscribe_positions_request)
             await ws.send(subscribe_executions_request)
@@ -147,7 +147,7 @@ class OkxPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             raise
         except Exception:
             self.logger().exception(
-                f"Unexpected error occurred subscribing to order book trading and delta streams {url}..."
+                f"Unexpected error occurred subscribing to private account and orders channels {url}..."
             )
             raise
 
