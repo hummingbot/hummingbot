@@ -584,14 +584,13 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         Updates position
         :param position_msg: The position event message payload
         """
-        ex_trading_pair = position_msg["symbol"]
+        ex_trading_pair = position_msg["instId"]
         trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=ex_trading_pair)
-        position_side = PositionSide.LONG if position_msg["side"] == "Buy" else PositionSide.SHORT
-        position_value = Decimal(str(position_msg["position_value"]))
-        entry_price = Decimal(str(position_msg["entry_price"]))
-        amount = Decimal(str(position_msg["size"]))
-        leverage = Decimal(str(position_msg["leverage"]))
-        unrealized_pnl = position_value - (amount * entry_price * leverage)
+        position_side = PositionSide.LONG if position_msg["posSide"] == "long" else PositionSide.SHORT
+        entry_price = Decimal(str(position_msg["avgPx"]))
+        amount = Decimal(str(position_msg["notionalUsd"]))
+        leverage = Decimal(str(position_msg["lever"]))
+        unrealized_pnl = Decimal(str(position_msg["upl"]))
         pos_key = self._perpetual_trading.position_key(trading_pair, position_side)
         if amount != s_decimal_0:
             position = Position(
