@@ -622,10 +622,10 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             self._order_tracker.process_trade_update(trade_update)
 
     def _parse_trade_update(self, trade_msg: Dict, tracked_order: InFlightOrder) -> TradeUpdate:
-        trade_id: str = str(trade_msg["exec_id"])
+        trade_id: str = str(trade_msg["tradeId"])
 
-        fee_asset = Decimal(str(trade_msg["feeCcy"]))
-        fee_amount = Decimal(str(trade_msg["fee"]))
+        fee_asset = Decimal(trade_msg.get("feeCcy", "0")) if trade_msg.get("feeCcy") is not None else None
+        fee_amount = Decimal(trade_msg.get("fee", "0")) if trade_msg.get("fee") is not None else Decimal(0)
         position_side = trade_msg["posSide"]
         position_action = (PositionAction.OPEN
                            if (tracked_order.trade_type is TradeType.BUY and position_side == "long"
