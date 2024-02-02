@@ -439,7 +439,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         parsed_resps: List[Dict[str, Any]] = []
         for resp, trading_pair in zip(raw_responses, self._trading_pairs):
             if not isinstance(resp, Exception):
-                result = resp["result"]
+                result = resp["data"]
                 if result:
                     position_entries = result if isinstance(result, list) else [result]
                     parsed_resps.extend(position_entries)
@@ -450,12 +450,11 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             data = position
             ex_trading_pair = data.get("symbol")
             hb_trading_pair = await self.trading_pair_associated_to_exchange_symbol(ex_trading_pair)
-            position_side = PositionSide.LONG if data["side"] == "Buy" else PositionSide.SHORT
-            unrealized_pnl = Decimal(str(data["unrealised_pnl"]))
-            entry_price = Decimal(str(data["entry_price"]))
-            amount = Decimal(str(data["size"]))
-            leverage = Decimal(str(data["leverage"])) if okx_utils.is_linear_perpetual(hb_trading_pair) \
-                else Decimal(str(data["effective_leverage"]))
+            position_side = PositionSide.LONG if data["posSide"] == "long" else PositionSide.SHORT
+            unrealized_pnl = Decimal(str(data["upl"]))
+            entry_price = Decimal(str(data["avgPx"]))
+            amount = Decimal(str(data["notionalUsd"]))
+            leverage = Decimal(str(data["lever"]))
             pos_key = self._perpetual_trading.position_key(hb_trading_pair, position_side)
             if amount != s_decimal_0:
                 position = Position(
