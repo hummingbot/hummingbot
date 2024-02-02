@@ -19,6 +19,8 @@ CENTRALIZED = True
 EXAMPLE_PAIR = "BTC-USD"
 
 BROKER_ID = "HBOT"
+
+
 def validate_bool(value: str) -> Optional[str]:
     """
     Permissively interpret a string as a boolean
@@ -66,6 +68,8 @@ class HyperliquidPerpetualConfigMap(BaseConnectorConfigMap):
             if ret is not None:
                 raise ValueError(ret)
         return v
+
+
 KEYS = HyperliquidPerpetualConfigMap.construct()
 
 OTHER_DOMAINS = ["hyperliquid_perpetual_testnet"]
@@ -115,5 +119,6 @@ class HyperliquidPerpetualTestnetConfigMap(BaseConnectorConfigMap):
             if ret is not None:
                 raise ValueError(ret)
         return v
+
 
 OTHER_DOMAINS_KEYS = {"hyperliquid_perpetual_testnet": HyperliquidPerpetualTestnetConfigMap.construct()}

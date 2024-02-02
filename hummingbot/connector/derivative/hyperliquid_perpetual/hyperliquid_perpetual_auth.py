@@ -26,7 +26,7 @@ class HyperliquidPerpetualAuth(AuthBase):
     Auth class required by Hyperliquid Perpetual API
     """
 
-    def __init__(self, api_key: str, api_secret: str, use_vault:bool):
+    def __init__(self, api_key: str, api_secret: str, use_vault: bool):
         self._api_key: str = api_key
         self._api_secret: str = api_secret
         self._use_vault: bool = use_vault
