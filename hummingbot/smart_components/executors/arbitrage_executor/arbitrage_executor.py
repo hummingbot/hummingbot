@@ -54,16 +54,17 @@ class ArbitrageExecutor(ExecutorBase):
         stable_coins_condition = "USD" in first_token and "USD" in second_token
         return same_token_condition or tokens_interchangeable_condition or stable_coins_condition
 
-    def __init__(self, strategy: ScriptStrategyBase, arbitrage_config: ArbitrageConfig, update_interval: float = 1.0):
-        if not self.is_arbitrage_valid(pair1=arbitrage_config.buying_market.trading_pair,
-                                       pair2=arbitrage_config.selling_market.trading_pair):
+    def __init__(self, strategy: ScriptStrategyBase, config: ArbitrageConfig, update_interval: float = 1.0):
+        if not self.is_arbitrage_valid(pair1=config.buying_market.trading_pair,
+                                       pair2=config.selling_market.trading_pair):
             raise Exception("Arbitrage is not valid since the trading pairs are not interchangeable.")
-        connectors = [arbitrage_config.buying_market.exchange, arbitrage_config.selling_market.exchange]
-        self.buying_market = arbitrage_config.buying_market
-        self.selling_market = arbitrage_config.selling_market
-        self.min_profitability = arbitrage_config.min_profitability
-        self.order_amount = arbitrage_config.order_amount
-        self.max_retries = arbitrage_config.max_retries
+        super().__init__(strategy=strategy, connectors=[config.buying_market.exchange, config.selling_market.exchange],
+                         config=config, update_interval=update_interval)
+        self.buying_market = config.buying_market
+        self.selling_market = config.selling_market
+        self.min_profitability = config.min_profitability
+        self.order_amount = config.order_amount
+        self.max_retries = config.max_retries
         self.arbitrage_status = ArbitrageExecutorStatus.NOT_STARTED
 
         # Order tracking
@@ -74,7 +75,6 @@ class ArbitrageExecutor(ExecutorBase):
         self._last_sell_price = Decimal("1")
         self._last_tx_cost = Decimal("1")
         self._cumulative_failures = 0
-        super().__init__(strategy, list(connectors), update_interval)
 
     def is_arbitrage_valid(self, pair1, pair2):
         base_asset1, quote_asset1 = split_hb_trading_pair(pair1)
