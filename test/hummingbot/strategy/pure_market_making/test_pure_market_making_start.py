@@ -75,7 +75,7 @@ class PureMarketMakingStartTest(unittest.TestCase):
 
     def test_strategy_creation(self):
         strategy_start.start(self)
-        self.assertEqual(self.strategy.order_amount, Decimal("1"))
+        self.assertEqual(self.strategy.order_amount_quote, Decimal("1"))
         self.assertEqual(self.strategy.order_refresh_time, 60.)
         self.assertEqual(self.strategy.max_order_age, 300.)
         self.assertEqual(self.strategy.bid_spread, Decimal("0.01"))

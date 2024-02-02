@@ -56,5 +56,5 @@ class XEMMStartTest(unittest.TestCase):
 
     def test_strategy_creation(self):
         strategy_start.start(self)
-        self.assertEqual(self.strategy.order_amount, Decimal("1"))
+        self.assertEqual(self.strategy.order_amount_quote, Decimal("1"))
         self.assertEqual(self.strategy.min_profitability, Decimal("0.02"))

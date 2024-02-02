@@ -456,7 +456,7 @@ class MarketsRecorderTests(TestCase):
         position_executor_json = position_executor.to_json()
         position_executor_json["order_level"] = 1
         position_executor_json["controller_name"] = "test_controller"
-        recorder.store_executor(position_executor_json)
+        recorder.store_position_executor(position_executor_json)
         executors_in_db = recorder.get_position_executors()
         position_executor_record = executors_in_db[0]
         self.assertEqual(position_executor_record.timestamp, position_executor.position_config.timestamp)
@@ -483,11 +483,11 @@ class MarketsRecorderTests(TestCase):
         position_executor_json = position_executor.to_json()
         position_executor_json["order_level"] = 1
         position_executor_json["controller_name"] = "test_controller"
-        recorder.store_executor(position_executor_json)
+        recorder.store_position_executor(position_executor_json)
         executors_in_db = recorder.get_position_executors(controller_name="test_controller")
         self.assertEqual(len(executors_in_db), 1)
         position_executor_json["controller_name"] = "test_controller_2"
-        recorder.store_executor(position_executor_json)
+        recorder.store_position_executor(position_executor_json)
         executors_in_db = recorder.get_position_executors(controller_name="test_controller")
         self.assertEqual(len(executors_in_db), 1)
         executors_in_db = recorder.get_position_executors(controller_name="test_controller_2")
