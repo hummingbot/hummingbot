@@ -40,6 +40,9 @@ bpm_logger = None
 
 class HyperliquidPerpetualDerivative(PerpetualDerivativePyBase):
     web_utils = web_utils
+
+    SHORT_POLL_INTERVAL = 5.0
+    LONG_POLL_INTERVAL = 12.0
     def __init__(
             self,
             client_config_map: "ClientConfigAdapter",
