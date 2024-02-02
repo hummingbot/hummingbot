@@ -847,10 +847,15 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         return f"{trading_pair}-SWAP"
 
     async def _fetch_last_fee_payment(self, trading_pair: str) -> Tuple[int, Decimal, Decimal]:
-        exchange_symbol = await self.exchange_symbol_associated_to_pair(trading_pair)
+        """
+        Fetches the last funding fee/payment for the given trading pair.
 
+        Type 8 represents funding fee/payment. Subtypes 173 and 174 represent funding fee expense and
+        income respectively.
+        """
         params = {
-            "symbol": exchange_symbol
+            "instType": "SWAP",
+            "type": 8
         }
         raw_response: Dict[str, Any] = await self._api_get(
             path_url=CONSTANTS.REST_BILLS_DETAILS[CONSTANTS.ENDPOINT],
@@ -858,19 +863,16 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             is_auth_required=True,
             trading_pair=trading_pair,
         )
-        data: Dict[str, Any] = raw_response["result"]
+        data: Dict[str, Any] = raw_response.get("data")
 
         if not data:
             # An empty funding fee/payment is retrieved.
             timestamp, funding_rate, payment = 0, Decimal("-1"), Decimal("-1")
         else:
-            funding_rate: Decimal = Decimal(str(data["funding_rate"]))
-            position_size: Decimal = Decimal(str(data["size"]))
+            funding_rate: Decimal = Decimal(str(-1))
+            position_size: Decimal = Decimal(str(-1))
             payment: Decimal = funding_rate * position_size
-            if okx_utils.is_linear_perpetual(trading_pair):
-                timestamp: int = int(pd.Timestamp(data["exec_time"], tz="UTC").timestamp())
-            else:
-                timestamp: int = int(data["exec_timestamp"])
+            timestamp: int = int(data[0]["ts"])
 
         return timestamp, funding_rate, payment
 
