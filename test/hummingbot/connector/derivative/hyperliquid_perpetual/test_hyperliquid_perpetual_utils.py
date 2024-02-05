@@ -35,7 +35,7 @@ class HyperliquidPerpetualUtilsTests(TestCase):
         wrong_value = "ye"
         valid_values = ('true', 'yes', 'y', 'false', 'no', 'n')
         with self.assertRaises(ValueError) as exception_context:
-            validation_error = HyperliquidPerpetualConfigMap.validate_bool(wrong_value)
+            HyperliquidPerpetualConfigMap.validate_bool(wrong_value)
         self.assertEqual(str(exception_context.exception), f"Invalid value, please choose value from {valid_values}")
 
     def test_cls_testnet_validate_bool_succeed(self):
@@ -49,5 +49,5 @@ class HyperliquidPerpetualUtilsTests(TestCase):
         wrong_value = "ye"
         valid_values = ('true', 'yes', 'y', 'false', 'no', 'n')
         with self.assertRaises(ValueError) as exception_context:
-            validation_error = HyperliquidPerpetualTestnetConfigMap.validate_bool(wrong_value)
+            HyperliquidPerpetualTestnetConfigMap.validate_bool(wrong_value)
         self.assertEqual(str(exception_context.exception), f"Invalid value, please choose value from {valid_values}")
