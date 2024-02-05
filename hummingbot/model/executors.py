@@ -1,4 +1,4 @@
-from sqlalchemy import JSON, BigInteger, Boolean, Column, Float, Index, Integer, Text
+from sqlalchemy import JSON, BigInteger, Boolean, Column, Float, Index, Text
 
 from hummingbot.model import HummingbotBase
 
@@ -6,16 +6,16 @@ from hummingbot.model import HummingbotBase
 class Executors(HummingbotBase):
     __tablename__ = "Executors"
     __table_args__ = (
-        Index("type", "type"),
-        Index("type_timestamp", "type", "timestamp"),
-        Index("timestamp", "timestamp"),
-        Index("close_timestamp", "close_timestamp"),
-        Index("status", "status"),
-        Index("type_status", "type", "status"),
+        Index("ex_type", "type"),
+        Index("ex_type_timestamp", "type", "timestamp"),
+        Index("ex_timestamp", "timestamp"),
+        Index("ex_close_timestamp", "close_timestamp"),
+        Index("ex_status", "status"),
+        Index("ex_type_status", "type", "status"),
     )
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(Text, primary_key=True)
+    timestamp = Column(Float, nullable=False)
     type = Column(Text, nullable=False)
-    timestamp = Column(BigInteger, nullable=False)
     close_timestamp = Column(BigInteger, nullable=True)
     status = Column(Text, nullable=False)
     config = Column(JSON, nullable=False)
