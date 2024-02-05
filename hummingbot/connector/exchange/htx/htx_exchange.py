@@ -4,13 +4,13 @@ from typing import TYPE_CHECKING, Any, AsyncIterable, Dict, List, Optional
 
 from bidict import bidict
 
-import hummingbot.connector.exchange.huobi.huobi_constants as CONSTANTS
+import hummingbot.connector.exchange.htx.htx_constants as CONSTANTS
 from hummingbot.connector.constants import s_decimal_0, s_decimal_NaN
-from hummingbot.connector.exchange.huobi import huobi_web_utils as web_utils
-from hummingbot.connector.exchange.huobi.huobi_api_order_book_data_source import HuobiAPIOrderBookDataSource
-from hummingbot.connector.exchange.huobi.huobi_api_user_stream_data_source import HuobiAPIUserStreamDataSource
-from hummingbot.connector.exchange.huobi.huobi_auth import HuobiAuth
-from hummingbot.connector.exchange.huobi.huobi_utils import is_exchange_information_valid
+from hummingbot.connector.exchange.htx import htx_web_utils as web_utils
+from hummingbot.connector.exchange.htx.htx_api_order_book_data_source import HtxAPIOrderBookDataSource
+from hummingbot.connector.exchange.htx.htx_api_user_stream_data_source import HtxAPIUserStreamDataSource
+from hummingbot.connector.exchange.htx.htx_auth import HtxAuth
+from hummingbot.connector.exchange.htx.htx_utils import is_exchange_information_valid
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
@@ -26,20 +26,20 @@ if TYPE_CHECKING:
     from hummingbot.client.config.config_helpers import ClientConfigAdapter
 
 
-class HuobiExchange(ExchangePyBase):
+class HtxExchange(ExchangePyBase):
 
     web_utils = web_utils
 
     def __init__(
         self,
         client_config_map: "ClientConfigAdapter",
-        huobi_api_key: str,
-        huobi_secret_key: str,
+        htx_api_key: str,
+        htx_secret_key: str,
         trading_pairs: Optional[List[str]] = None,
         trading_required: bool = True,
     ):
-        self.huobi_api_key = huobi_api_key
-        self.huobi_secret_key = huobi_secret_key
+        self.htx_api_key = htx_api_key
+        self.htx_secret_key = htx_secret_key
         self._trading_pairs = trading_pairs
         self._trading_required = trading_required
         self._account_id = ""
@@ -47,12 +47,12 @@ class HuobiExchange(ExchangePyBase):
 
     @property
     def name(self) -> str:
-        return "huobi"
+        return "htx"
 
     @property
     def authenticator(self):
-        return HuobiAuth(
-            api_key=self.huobi_api_key, secret_key=self.huobi_secret_key, time_provider=self._time_synchronizer
+        return HtxAuth(
+            api_key=self.htx_api_key, secret_key=self.htx_secret_key, time_provider=self._time_synchronizer
         )
 
     @property
@@ -143,13 +143,13 @@ class HuobiExchange(ExchangePyBase):
         )
 
     def _create_order_book_data_source(self):
-        return HuobiAPIOrderBookDataSource(
+        return HtxAPIOrderBookDataSource(
             trading_pairs=self.trading_pairs, connector=self, api_factory=self._web_assistants_factory
         )
 
     def _create_user_stream_data_source(self) -> UserStreamTrackerDataSource:
-        return HuobiAPIUserStreamDataSource(
-            huobi_auth=self._auth,
+        return HtxAPIUserStreamDataSource(
+            htx_auth=self._auth,
             trading_pairs=self._trading_pairs,
             connector=self,
             api_factory=self._web_assistants_factory,
@@ -419,7 +419,7 @@ class HuobiExchange(ExchangePyBase):
             exchange_order_id = str(creation_response["data"])
             return exchange_order_id, self.current_timestamp
         else:
-            raise ValueError(f"Huobi rejected the order {order_id} ({creation_response})")
+            raise ValueError(f"Htx rejected the order {order_id} ({creation_response})")
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         if tracked_order is None:

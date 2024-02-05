@@ -3,7 +3,7 @@
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.in_flight_order import OrderState
 
-EXCHANGE_NAME = "huobi"
+EXCHANGE_NAME = "htx"
 BROKER_ID = "AAc484720a"
 DOMAIN = ""
 MAX_CLIENT_ORDER_ID_LENGTH = 64
@@ -34,11 +34,11 @@ PLACE_ORDER_URL = "/v1/order/orders/place"
 CANCEL_ORDER_URL = "/v1/order/orders/{}/submitcancel"
 BATCH_CANCEL_URL = "/v1/order/orders/batchcancel"
 
-HUOBI_ACCOUNT_UPDATE_TOPIC = "accounts.update#2"
-HUOBI_ORDER_UPDATE_TOPIC = "orders#{}"
-HUOBI_TRADE_DETAILS_TOPIC = "trade.clearing#{}#0"
+HTX_ACCOUNT_UPDATE_TOPIC = "accounts.update#2"
+HTX_ORDER_UPDATE_TOPIC = "orders#{}"
+HTX_TRADE_DETAILS_TOPIC = "trade.clearing#{}#0"
 
-HUOBI_SUBSCRIBE_TOPICS = {HUOBI_ORDER_UPDATE_TOPIC, HUOBI_ACCOUNT_UPDATE_TOPIC, HUOBI_TRADE_DETAILS_TOPIC}
+HTX_SUBSCRIBE_TOPICS = {HTX_ORDER_UPDATE_TOPIC, HTX_ACCOUNT_UPDATE_TOPIC, HTX_TRADE_DETAILS_TOPIC}
 
 WS_CONNECTION_LIMIT_ID = "WSConnection"
 WS_REQUEST_LIMIT_ID = "WSRequest"

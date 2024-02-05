@@ -8,7 +8,7 @@ from hummingbot.connector.utils import GZipCompressionWSPostProcessor
 from hummingbot.core.web_assistant.connections.data_types import WSResponse
 
 
-class HuobiWSPostProcessorTest(unittest.TestCase):
+class HtxWSPostProcessorTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
