@@ -5,17 +5,18 @@ from copy import deepcopy
 from decimal import Decimal
 from itertools import chain, product
 from typing import Any, Callable, List, Optional, Tuple
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import pandas as pd
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
+from bidict import bidict
 
 import hummingbot.connector.derivative.okx_perpetual.okx_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.okx_perpetual.okx_perpetual_web_utils as web_utils
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
-from hummingbot.connector.derivative.okx_perpetual.okx_perpetual_derivative import OKXPerpetualDerivative
+from hummingbot.connector.derivative.okx_perpetual.okx_perpetual_derivative import OkxPerpetualDerivative
 from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.connector.test_support.perpetual_derivative_test import AbstractPerpetualDerivativeTests
 from hummingbot.connector.trading_rule import TradingRule
@@ -29,37 +30,52 @@ BASE_ASSET = "BTC"
 QUOTE_ASSET = "USDT"
 
 
-class OKXPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDerivativeTests):
+class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDerivativeTests):
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
         cls.api_key = "someKey"
         cls.api_secret = "someSecret"
+        cls.passphrase = "somePassphrase"
         cls.base_asset = BASE_ASSET
         cls.quote_asset = QUOTE_ASSET
         cls.trading_pair = combine_to_hb_trading_pair(BASE_ASSET, QUOTE_ASSET)
 
+    def create_exchange_instance(self):
+        client_config_map = ClientConfigAdapter(ClientConfigMap())
+        exchange = OkxPerpetualDerivative(
+            client_config_map,
+            self.api_key,
+            self.api_secret,
+            self.passphrase,
+            trading_pairs=[self.trading_pair],
+        )
+        exchange._last_trade_history_timestamp = self.latest_trade_hist_timestamp
+        return exchange
+
+    # OK
     @property
     def all_symbols_url(self):
-        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.QUERY_SYMBOL_ENDPOINT)
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.ENDPOINT])
         return url
 
+    # OK
     @property
     def latest_prices_url(self):
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT, trading_pair=self.trading_pair
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION[CONSTANTS.ENDPOINT])
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
+    # OK
     @property
     def network_status_url(self):
-        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.SERVER_TIME_PATH_URL)
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_SERVER_TIME[CONSTANTS.ENDPOINT])
         return url
 
+    # OK
     @property
     def trading_rules_url(self):
-        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.QUERY_SYMBOL_ENDPOINT)
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.ENDPOINT])
         return url
 
     @property
@@ -72,14 +88,12 @@ class OKXPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
 
     @property
     def balance_url(self):
-        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.GET_WALLET_BALANCE_PATH_URL)
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_GET_WALLET_BALANCE[CONSTANTS.ENDPOINT])
         return url
 
     @property
     def funding_info_url(self):
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT, trading_pair=self.trading_pair
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_FUNDING_RATE_INFO[CONSTANTS.ENDPOINT])
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
@@ -92,42 +106,18 @@ class OKXPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         return url
 
     @property
-    def all_symbols_request_mock_response(self):
-        mock_response = {
-            "ret_code": 0,
-            "ret_msg": "OK",
-            "ext_code": "",
-            "ext_info": "",
-            "result": [
-                {
-                    "name": self.exchange_trading_pair,
-                    "alias": self.exchange_trading_pair,
-                    "status": "Trading",
-                    "base_currency": self.base_asset,
-                    "quote_currency": self.quote_asset,
-                    "price_scale": 2,
-                    "taker_fee": "0.00075",
-                    "maker_fee": "-0.00025",
-                    "leverage_filter": {
-                        "min_leverage": 1,
-                        "max_leverage": 100,
-                        "leverage_step": "0.01"
-                    },
-                    "price_filter": {
-                        "min_price": "0.5",
-                        "max_price": "999999.5",
-                        "tick_size": "0.5"
-                    },
-                    "lot_size_filter": {
-                        "max_trading_qty": 1000000,
-                        "min_trading_qty": 1,
-                        "qty_step": 1
-                    }
-                },
-            ],
-            "time_now": "1615801223.589808",
-        }
-        return mock_response
+    def trading_pair_symbol_map_mock_response(self):
+        return bidict({'BTC-USDT-SWAP': 'USDT-BTC',
+                       'ETH-USDT-SWAP': 'USDT-ETH',
+                       'MATIC-USDT-SWAP': 'USDT-MATIC',
+                       'XRP-USDT-SWAP': 'USDT-XRP',
+                       'SOL-USDT-SWAP': 'USDT-SOL',
+                       'DOGE-USDT-SWAP': 'USDT-DOGE',
+                       'SATS-USDT-SWAP': 'USDT-SATS',
+                       'ORDI-USDT-SWAP': 'USDT-ORDI',
+                       'SUI-USDT-SWAP': 'USDT-SUI',
+                       'LINK-USDT-SWAP': 'USDT-LINK',
+                       })
 
     @property
     def latest_prices_request_mock_response(self):
@@ -245,6 +235,7 @@ class OKXPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         }
         return mock_response
 
+    # OK
     @property
     def trading_rules_request_mock_response(self):
         return self.all_symbols_request_mock_response
@@ -496,15 +487,16 @@ class OKXPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
     def expected_supported_order_types(self):
         return [OrderType.LIMIT, OrderType.MARKET]
 
+    # OK
     @property
     def expected_trading_rule(self):
         trading_rules_resp = self.trading_rules_request_mock_response["result"][0]
         return TradingRule(
             trading_pair=self.trading_pair,
-            min_order_size=Decimal(str(trading_rules_resp["lot_size_filter"]["min_trading_qty"])),
-            max_order_size=Decimal(str(trading_rules_resp["lot_size_filter"]["max_trading_qty"])),
-            min_price_increment=Decimal(str(trading_rules_resp["price_filter"]["tick_size"])),
-            min_base_amount_increment=Decimal(str(trading_rules_resp["lot_size_filter"]["qty_step"])),
+            min_order_size=Decimal(str(trading_rules_resp["minSz"])),
+            max_order_size=Decimal(str(min(trading_rules_resp["maxLmtSz"], trading_rules_resp["maxMktSz"]))),
+            min_price_increment=Decimal(str(trading_rules_resp["tickSz"])),
+            min_base_amount_increment=Decimal(str(trading_rules_resp["lotSz"])),
         )
 
     @property
@@ -548,18 +540,7 @@ class OKXPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         return 1234
 
     def exchange_symbol_for_tokens(self, base_token: str, quote_token: str) -> str:
-        return f"{base_token}{quote_token}"
-
-    def create_exchange_instance(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
-        exchange = OKXPerpetualDerivative(
-            client_config_map,
-            self.api_key,
-            self.api_secret,
-            trading_pairs=[self.trading_pair],
-        )
-        exchange._last_trade_history_timestamp = self.latest_trade_hist_timestamp
-        return exchange
+        return f"{base_token}-{quote_token}-SWAP"
 
     def validate_auth_credentials_present(self, request_call: RequestCall):
         request_headers = request_call.kwargs["headers"]
@@ -783,22 +764,15 @@ class OKXPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         mock_api: aioresponses,
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ):
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.SET_POSITION_MODE_URL, trading_pair=self.trading_pair
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_SET_POSITION_MODE[CONSTANTS.ENDPOINT])
         response = {
-            "ret_code": 0,
-            "ret_msg": "ok",
-            "ext_code": "",
-            "result": None,
-            "ext_info": None,
-            "time_now": "1577477968.175013",
-            "rate_limit_status": 74,
-            "rate_limit_reset_ms": 1577477968183,
-            "rate_limit": 75
+            "code": "0",
+            "msg": "",
+            "data": [{
+                "posMode": "long_short_mode"
+            }]
         }
         mock_api.post(url, body=json.dumps(response), callback=callback)
-
         return url
 
     def configure_failed_set_position_mode(
@@ -1048,6 +1022,83 @@ class OKXPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             ]
         }
 
+    def all_symbols_request_mock_response(self):
+        pass
+
+    @staticmethod
+    def _get_exchange_info_mock_response():
+        mocked_exchange_info = {
+            "code": "0",
+            "data": [
+                {
+                    "alias": "",
+                    "baseCcy": "",
+                    "category": "1",
+                    "ctMult": "1",
+                    "ctType": "linear",
+                    "ctVal": "0.1",
+                    "ctValCcy": "ETH",
+                    "expTime": "",
+                    "instFamily": "ETH-USDT",
+                    "instId": "ETH-USDT-SWAP",
+                    "instType": "SWAP",
+                    "lever": "100",
+                    "listTime": "1611916828000",
+                    "lotSz": "1",
+                    "maxIcebergSz": "100000000.0000000000000000",
+                    "maxLmtAmt": "20000000",
+                    "maxLmtSz": "100000000",
+                    "maxMktAmt": "",
+                    "maxMktSz": "20000",
+                    "maxStopSz": "20000",
+                    "maxTriggerSz": "100000000.0000000000000000",
+                    "maxTwapSz": "100000000.0000000000000000",
+                    "minSz": "1",
+                    "optType": "",
+                    "quoteCcy": "",
+                    "settleCcy": "USDT",
+                    "state": "live",
+                    "stk": "",
+                    "tickSz": "0.01",
+                    "uly": "ETH-USDT",
+                },
+                {
+                    "alias": "",
+                    "baseCcy": "",
+                    "category": "1",
+                    "ctMult": "1",
+                    "ctType": "inverse",
+                    "ctVal": "10",
+                    "ctValCcy": "USD",
+                    "expTime": "",
+                    "instFamily": "SOL-USD",
+                    "instId": "SOL-USD-SWAP",
+                    "instType": "SWAP",
+                    "lever": "50",
+                    "listTime": "1637833825000",
+                    "lotSz": "1",
+                    "maxIcebergSz": "100000000.0000000000000000",
+                    "maxLmtAmt": "20000000",
+                    "maxLmtSz": "100000000",
+                    "maxMktAmt": "",
+                    "maxMktSz": "12000",
+                    "maxStopSz": "12000",
+                    "maxTriggerSz": "100000000.0000000000000000",
+                    "maxTwapSz": "100000000.0000000000000000",
+                    "minSz": "1",
+                    "optType": "",
+                    "quoteCcy": "",
+                    "settleCcy": "SOL",
+                    "state": "live",
+                    "stk": "",
+                    "tickSz": "0.01",
+                    "uly": "SOL-USD"
+                }
+            ],
+            "msg": ""
+        }
+        return mocked_exchange_info
+
     def funding_info_event_for_websocket_update(self):
         return {
             "topic": f"instrument_info.100ms.{self.exchange_trading_pair}",
@@ -1080,6 +1131,25 @@ class OKXPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             "timestamp_e6": 1578853525691123
         }
 
+    def test_format_trading_rules(self):
+        margin_asset = self.quote_asset
+        min_order_size = 0.1
+        min_price_increment = 0.01
+        min_base_amount_increment = 0.1
+        mocked_response = self._get_exchange_info_mock_response()
+        self._simulate_trading_rules_initialized()
+        trading_rules = self.async_run_with_timeout(self.exchange._format_trading_rules(mocked_response))
+
+        self.assertEqual(1, len(trading_rules))
+
+        trading_rule = trading_rules[0]
+
+        self.assertEqual(min_order_size, trading_rule.min_order_size)
+        self.assertEqual(min_price_increment, trading_rule.min_price_increment)
+        self.assertEqual(min_base_amount_increment, trading_rule.min_base_amount_increment)
+        self.assertEqual(margin_asset, trading_rule.buy_order_collateral_token)
+        self.assertEqual(margin_asset, trading_rule.sell_order_collateral_token)
+
     def test_create_order_with_invalid_position_action_raises_value_error(self):
         self._simulate_trading_rules_initialized()
 
@@ -1101,69 +1171,17 @@ class OKXPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             str(exception_context.exception)
         )
 
-    def test_user_stream_balance_update(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
-        non_linear_connector = BybitPerpetualDerivative(
-            client_config_map=client_config_map,
-            bybit_perpetual_api_key=self.api_key,
-            bybit_perpetual_secret_key=self.api_secret,
-            trading_pairs=[self.non_linear_trading_pair],
-        )
-        non_linear_connector._set_current_timestamp(1640780000)
-
-        balance_event = self.non_linear_balance_event_websocket_update
-
-        mock_queue = AsyncMock()
-        mock_queue.get.side_effect = [balance_event, asyncio.CancelledError]
-        self.exchange._user_stream_tracker._user_stream = mock_queue
-
-        try:
-            self.async_run_with_timeout(self.exchange._user_stream_event_listener())
-        except asyncio.CancelledError:
-            pass
-
-        self.assertEqual(Decimal("10"), self.exchange.available_balances[self.base_asset])
-        self.assertEqual(Decimal("15"), self.exchange.get_balance(self.base_asset))
-        self.assertEqual(Decimal("20"), self.exchange.available_balances[self.non_linear_quote_asset])
-        self.assertEqual(Decimal("25"), self.exchange.get_balance(self.non_linear_quote_asset))
-
     def test_supported_position_modes(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
-        linear_connector = BybitPerpetualDerivative(
+        linear_connector = OkxPerpetualDerivative(
             client_config_map=client_config_map,
-            bybit_perpetual_api_key=self.api_key,
-            bybit_perpetual_secret_key=self.api_secret,
+            okx_perpetual_api_key=self.api_key,
+            okx_perpetual_secret_key=self.api_secret,
             trading_pairs=[self.trading_pair],
-        )
-        non_linear_connector = BybitPerpetualDerivative(
-            client_config_map=client_config_map,
-            bybit_perpetual_api_key=self.api_key,
-            bybit_perpetual_secret_key=self.api_secret,
-            trading_pairs=[self.non_linear_trading_pair],
         )
 
         expected_result = [PositionMode.ONEWAY, PositionMode.HEDGE]
         self.assertEqual(expected_result, linear_connector.supported_position_modes())
-
-        expected_result = [PositionMode.ONEWAY]
-        self.assertEqual(expected_result, non_linear_connector.supported_position_modes())
-
-    def test_set_position_mode_nonlinear(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
-        non_linear_connector = BybitPerpetualDerivative(
-            client_config_map=client_config_map,
-            bybit_perpetual_api_key=self.api_key,
-            bybit_perpetual_secret_key=self.api_secret,
-            trading_pairs=[self.non_linear_trading_pair],
-        )
-        non_linear_connector.set_position_mode(PositionMode.HEDGE)
-
-        self.assertTrue(
-            self.is_logged(
-                log_level="ERROR",
-                message=f"Position mode {PositionMode.HEDGE} is not supported. Mode not set.",
-            )
-        )
 
     def test_get_buy_and_sell_collateral_tokens(self):
         self._simulate_trading_rules_initialized()
@@ -1223,10 +1241,9 @@ class OKXPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
 
         url = self.trading_rules_url
         response = self.trading_rules_request_mock_response
-        results = response["result"]
+        results = response["data"]
         duplicate = deepcopy(results[0])
-        duplicate["name"] = f"{self.exchange_trading_pair}_12345"
-        duplicate["alias"] = f"{self.exchange_trading_pair}_12345"
+        duplicate["instId"] = f"{self.exchange_trading_pair}_12345"
         duplicate["lot_size_filter"]["min_trading_qty"] = duplicate["lot_size_filter"]["min_trading_qty"] + 1
         results.append(duplicate)
         mock_api.get(url, body=json.dumps(response))
@@ -1562,14 +1579,8 @@ class OKXPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         self.exchange._trading_rules = {
             self.trading_pair: TradingRule(
                 trading_pair=self.trading_pair,
-                min_order_size=Decimal(str(0.01)),
-                min_price_increment=Decimal(str(0.0001)),
+                min_order_size=Decimal(str(1)),
+                min_price_increment=Decimal(str(1)),
                 min_base_amount_increment=Decimal(str(0.000001)),
-            ),
-            self.non_linear_trading_pair: TradingRule(  # non-linear
-                trading_pair=self.non_linear_trading_pair,
-                min_order_size=Decimal(str(0.01)),
-                min_price_increment=Decimal(str(0.0001)),
-                min_base_amount_increment=Decimal(str(0.000001)),
-            ),
+            )
         }
