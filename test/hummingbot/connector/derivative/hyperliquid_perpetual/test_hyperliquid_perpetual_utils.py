@@ -1,9 +1,11 @@
 from unittest import TestCase
+
 from hummingbot.connector.derivative.hyperliquid_perpetual.hyperliquid_perpetual_utils import (
     HyperliquidPerpetualConfigMap,
     HyperliquidPerpetualTestnetConfigMap,
-    validate_bool
+    validate_bool,
 )
+
 
 class HyperliquidPerpetualUtilsTests(TestCase):
     pass
