@@ -11,11 +11,11 @@ from urllib.parse import urlencode
 
 from typing_extensions import Awaitable
 
-from hummingbot.connector.exchange.huobi.huobi_auth import HuobiAuth
+from hummingbot.connector.exchange.htx.htx_auth import HtxAuth
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest
 
 
-class HuobiAuthTests(unittest.TestCase):
+class HtxAuthTests(unittest.TestCase):
 
     def setUp(self):
         self._api_key = "testApiKey"
@@ -36,7 +36,7 @@ class HuobiAuthTests(unittest.TestCase):
         }
         full_params = copy(params)
 
-        auth = HuobiAuth(api_key=self._api_key, secret_key=self._secret, time_provider=mock_time_provider)
+        auth = HtxAuth(api_key=self._api_key, secret_key=self._secret, time_provider=mock_time_provider)
         request = RESTRequest(method=RESTMethod.GET, url=test_url, params=params, is_auth_required=True)
         configured_request = self.async_run_with_timeout(auth.rest_authenticate(request))
 
@@ -45,7 +45,7 @@ class HuobiAuthTests(unittest.TestCase):
                             "SignatureMethod": "HmacSHA256",
                             "SignatureVersion": "2"
                             })
-        full_params = HuobiAuth.keysort(full_params)
+        full_params = HtxAuth.keysort(full_params)
         encoded_params = urlencode(full_params)
         payload = "\n".join(["GET", "api.huobi.pro", "/v1/order/openOrders", encoded_params])
         test_digest = hmac.new(

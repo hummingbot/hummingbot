@@ -10,14 +10,14 @@ import aiohttp
 import ujson
 from aioresponses.core import aioresponses
 
-import hummingbot.connector.exchange.huobi.huobi_constants as CONSTANTS
-from hummingbot.connector.exchange.huobi.huobi_api_order_book_data_source import HuobiAPIOrderBookDataSource
-from hummingbot.connector.exchange.huobi.huobi_web_utils import build_api_factory
+import hummingbot.connector.exchange.htx.htx_constants as CONSTANTS
+from hummingbot.connector.exchange.htx.htx_api_order_book_data_source import HtxAPIOrderBookDataSource
+from hummingbot.connector.exchange.htx.htx_web_utils import build_api_factory
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.data_type.order_book import OrderBook
 
 
-class HuobiAPIOrderBookDataSourceUnitTests(unittest.TestCase):
+class HtxAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     # logging.Level required to receive logs from the data source logger
     level = 0
 
@@ -38,13 +38,14 @@ class HuobiAPIOrderBookDataSourceUnitTests(unittest.TestCase):
         self.connector = AsyncMock()
         self.connector.exchange_symbol_associated_to_pair.return_value = self.ex_trading_pair
         self.connector.trading_pair_associated_to_exchange_symbol.return_value = self.trading_pair
-        self.data_source = HuobiAPIOrderBookDataSource(
-            trading_pairs=[self.trading_pair], connector=self.connector, api_factory=build_api_factory()
+        self.data_source = HtxAPIOrderBookDataSource(
+            trading_pairs=[self.trading_pair],
+            connector=self.connector,
+            api_factory=build_api_factory()
         )
 
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
-
         self.mocking_assistant = NetworkMockingAssistant()
         self.resume_test_event = asyncio.Event()
         # self.connector._set_trading_pair_symbol_map(bidict({self.ex_trading_pair: self.trading_pair}))
@@ -52,7 +53,7 @@ class HuobiAPIOrderBookDataSourceUnitTests(unittest.TestCase):
     def tearDown(self) -> None:
         for task in self.async_tasks:
             task.cancel()
-        super().tearDown()
+            super().tearDown()
 
     def handle(self, record):
         self.log_records.append(record)
@@ -163,7 +164,7 @@ class HuobiAPIOrderBookDataSourceUnitTests(unittest.TestCase):
             self.async_run_with_timeout(self.data_source.listen_for_subscriptions())
 
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    @patch("hummingbot.connector.exchange.huobi.huobi_api_order_book_data_source.HuobiAPIOrderBookDataSource._sleep")
+    @patch("hummingbot.connector.exchange.htx.htx_api_order_book_data_source.HtxAPIOrderBookDataSource._sleep")
     def test_listen_for_subscriptions_raises_logs_exception(self, sleep_mock, ws_connect_mock):
         sleep_mock.side_effect = lambda *_: (
             # Allows listen_for_subscriptions to yield control over thread

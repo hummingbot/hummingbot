@@ -10,13 +10,13 @@ from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSJSONRequest
 
-HUOBI_HOST_NAME = "api.huobi.pro"
+HTX_HOST_NAME = "api.huobi.pro"
 
 
-class HuobiAuth(AuthBase):
+class HtxAuth(AuthBase):
     def __init__(self, api_key: str, secret_key: str, time_provider: TimeSynchronizer):
         self.api_key: str = api_key
-        self.hostname: str = HUOBI_HOST_NAME
+        self.hostname: str = HTX_HOST_NAME
         self.secret_key: str = secret_key
         self.time_provider = time_provider
 
