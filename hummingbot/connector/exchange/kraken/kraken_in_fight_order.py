@@ -139,10 +139,6 @@ class KrakenInFlightOrder(InFlightOrder):
                 self.last_update_timestamp,
             )
         )
-    # todo
-    @property
-    def is_local(self) -> bool:
-        return self.last_state in {"local"}
 
     @classmethod
     def from_json(cls, data: Dict[str, Any]) -> "InFlightOrder":

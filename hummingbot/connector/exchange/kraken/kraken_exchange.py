@@ -220,13 +220,7 @@ class KrakenExchange(ExchangePyBase):
                                                   CONSTANTS.OPEN_ORDERS_PATH_URL,
                                                   is_auth_required=True,
                                                   data=data)
-    # todo 修改KrakenInFlightOrder
-    # def restore_tracking_states(self, saved_states: Dict[str, Any]):
-    #     in_flight_orders: Dict[str, KrakenInFlightOrder] = {}
-    #     for key, value in saved_states.items():
-    #         in_flight_orders[key] = KrakenInFlightOrder.from_json(value)
-    #         self._last_userref = max(int(value["userref"]), self._last_userref)
-    #     self._in_flight_orders.update(in_flight_orders)
+
     # === Orders placing ===
 
     def buy(self,
@@ -413,16 +407,16 @@ class KrakenExchange(ExchangePyBase):
         return result
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
-        symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
         api_params = {
-            "symbol": symbol,
-            "origClientOrderId": order_id,
+            "txid": tracked_order.exchange_order_id,
         }
-        cancel_result = await self._api_delete(
-            path_url=CONSTANTS.ORDER_PATH_URL,
-            params=api_params,
+        cancel_result = await self._api_request_with_retry(
+            method=RESTMethod.POST,
+            endpoint=CONSTANTS.CANCEL_ORDER_PATH_URL,
+            data=api_params,
             is_auth_required=True)
-        if cancel_result.get("status") == "NEW":
+        if isinstance(cancel_result, dict) and (
+                cancel_result.get("count") == 1 or cancel_result.get("error") is not None):
             return True
         return False
 
@@ -493,9 +487,6 @@ class KrakenExchange(ExchangePyBase):
                 self.logger().error(f"Error parsing the trading pair rule {rule}. Skipping.", exc_info=True)
         return retval
 
-    async def _status_polling_loop_fetch_updates(self):
-        await self._update_order_fills_from_trades()
-        await super()._status_polling_loop_fetch_updates()
 
     async def _update_trading_fees(self):
         """
@@ -544,26 +535,27 @@ class KrakenExchange(ExchangePyBase):
             self,
             order_fill: Dict[str, Any],
             order: InFlightOrder):
+        fee_asset = order.quote_asset
 
         fee = TradeFeeBase.new_spot_fee(
             fee_schema=self.trade_fee_schema(),
             trade_type=order.trade_type,
-            percent_token=order_fill["N"],
+            percent_token=fee_asset,
             flat_fees=[TokenAmount(
-                amount=Decimal(order_fill["n"]),
-                token=order_fill["N"]
+                amount=Decimal(order_fill["fee"]),
+                token=fee_asset
             )]
         )
         trade_update = TradeUpdate(
-            trade_id=str(order_fill["t"]),
+            trade_id=str(order_fill["trade_id"]),
             client_order_id=order.client_order_id,
             exchange_order_id=order.exchange_order_id,
             trading_pair=order.trading_pair,
             fee=fee,
-            fill_base_amount=Decimal(order_fill["v"]),
-            fill_quote_amount=Decimal(order_fill["a"]),
-            fill_price=Decimal(order_fill["p"]),
-            fill_timestamp=order_fill["T"] * 1e-3,
+            fill_base_amount=Decimal(order_fill["vol"]),
+            fill_quote_amount=Decimal(order_fill["vol"]) * Decimal(order_fill["price"]),
+            fill_price=Decimal(order_fill["price"]),
+            fill_timestamp=order_fill["time"],
         )
         return trade_update
 
@@ -600,157 +592,46 @@ class KrakenExchange(ExchangePyBase):
         order_update = self._create_order_update_with_order_status_data(order_status=raw_msg, order=tracked_order)
         self._order_tracker.process_order_update(order_update=order_update)
 
-    async def _update_order_fills_from_trades(self):
-        """
-        This is intended to be a backup measure to get filled events with trade ID for orders,
-        in case Kraken's user stream events are not working.
-        NOTE: It is not required to copy this functionality in other connectors.
-        This is separated from _update_order_status which only updates the order status without producing filled
-        events, since Kraken's get order endpoint does not return trade IDs.
-        The minimum poll interval for order status is 10 seconds.
-        """
-        small_interval_last_tick = self._last_poll_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
-        small_interval_current_tick = self.current_timestamp / self.UPDATE_ORDER_STATUS_MIN_INTERVAL
-        long_interval_last_tick = self._last_poll_timestamp / self.LONG_POLL_INTERVAL
-        long_interval_current_tick = self.current_timestamp / self.LONG_POLL_INTERVAL
-
-        if (long_interval_current_tick > long_interval_last_tick
-                or (self.in_flight_orders and small_interval_current_tick > small_interval_last_tick)):
-            query_time = int(self._last_trades_poll_kraken_timestamp * 1e3)
-            self._last_trades_poll_kraken_timestamp = self._time_synchronizer.time()
-            order_by_exchange_id_map = {}
-            for order in self._order_tracker.all_fillable_orders.values():
-                order_by_exchange_id_map[order.exchange_order_id] = order
-
-            tasks = []
-            trading_pairs = self.trading_pairs
-            for trading_pair in trading_pairs:
-                params = {
-                    "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                }
-                if self._last_poll_timestamp > 0:
-                    params["startTime"] = query_time
-                tasks.append(self._api_get(
-                    path_url=CONSTANTS.MY_TRADES_PATH_URL,
-                    params=params,
-                    is_auth_required=True))
-
-            self.logger().debug(f"Polling for order fills of {len(tasks)} trading pairs.")
-            results = await safe_gather(*tasks, return_exceptions=True)
-
-            for trades, trading_pair in zip(results, trading_pairs):
-
-                if isinstance(trades, Exception):
-                    self.logger().network(
-                        f"Error fetching trades update for the order {trading_pair}: {trades}.",
-                        app_warning_msg=f"Failed to fetch trade update for {trading_pair}."
-                    )
-                    continue
-                for trade in trades:
-                    exchange_order_id = str(trade["orderId"])
-                    if exchange_order_id in order_by_exchange_id_map:
-                        # This is a fill for a tracked order
-                        tracked_order = order_by_exchange_id_map[exchange_order_id]
-                        fee = TradeFeeBase.new_spot_fee(
-                            fee_schema=self.trade_fee_schema(),
-                            trade_type=tracked_order.trade_type,
-                            percent_token=trade["commissionAsset"],
-                            flat_fees=[TokenAmount(amount=Decimal(trade["commission"]), token=trade["commissionAsset"])]
-                        )
-                        trade_update = TradeUpdate(
-                            trade_id=str(trade["id"]),
-                            client_order_id=tracked_order.client_order_id,
-                            exchange_order_id=exchange_order_id,
-                            trading_pair=trading_pair,
-                            fee=fee,
-                            fill_base_amount=Decimal(trade["qty"]),
-                            fill_quote_amount=Decimal(trade["quoteQty"]),
-                            fill_price=Decimal(trade["price"]),
-                            fill_timestamp=trade["time"] * 1e-3,
-                        )
-                        self._order_tracker.process_trade_update(trade_update)
-                    elif self.is_confirmed_new_order_filled_event(str(trade["id"]), exchange_order_id, trading_pair):
-                        # This is a fill of an order registered in the DB but not tracked any more
-                        self._current_trade_fills.add(TradeFillOrderDetails(
-                            market=self.display_name,
-                            exchange_trade_id=str(trade["id"]),
-                            symbol=trading_pair))
-                        self.trigger_event(
-                            MarketEvent.OrderFilled,
-                            OrderFilledEvent(
-                                timestamp=float(trade["time"]) * 1e-3,
-                                order_id=self._exchange_order_ids.get(str(trade["orderId"]), None),
-                                trading_pair=trading_pair,
-                                trade_type=TradeType.BUY if trade["isBuyer"] else TradeType.SELL,
-                                order_type=OrderType.LIMIT_MAKER if trade["isMaker"] else OrderType.LIMIT,
-                                price=Decimal(trade["price"]),
-                                amount=Decimal(trade["qty"]),
-                                trade_fee=DeductedFromReturnsTradeFee(
-                                    flat_fees=[
-                                        TokenAmount(
-                                            trade["commissionAsset"],
-                                            Decimal(trade["commission"])
-                                        )
-                                    ]
-                                ),
-                                exchange_trade_id=str(trade["id"])
-                            ))
-                        self.logger().info(f"Recreating missing trade in TradeFill: {trade}")
 
     async def _all_trade_updates_for_order(self, order: InFlightOrder) -> List[TradeUpdate]:
         trade_updates = []
 
-        if order.exchange_order_id is not None:
-            exchange_order_id = order.exchange_order_id
-            trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair)
-            all_fills_response = await self._api_get(
-                path_url=CONSTANTS.MY_TRADES_PATH_URL,
-                params={
-                    "symbol": trading_pair,
-                    "orderId": exchange_order_id
-                },
-                is_auth_required=True,
-                limit_id=CONSTANTS.MY_TRADES_PATH_URL)
+        try:
+            exchange_order_id = await order.get_exchange_order_id()
+            all_fills_response = await self._api_request_with_retry(
+                method=RESTMethod.POST,
+                endpoint=CONSTANTS.QUERY_TRADES_PATH_URL,
+                data={"txid": exchange_order_id},
+                is_auth_required=True)
 
-            for trade in all_fills_response:
-                exchange_order_id = str(trade["orderId"])
-                fee = TradeFeeBase.new_spot_fee(
-                    fee_schema=self.trade_fee_schema(),
-                    trade_type=order.trade_type,
-                    percent_token=trade["commissionAsset"],
-                    flat_fees=[TokenAmount(amount=Decimal(trade["commission"]), token=trade["commissionAsset"])]
-                )
-                trade_update = TradeUpdate(
-                    trade_id=str(trade["id"]),
-                    client_order_id=order.client_order_id,
-                    exchange_order_id=exchange_order_id,
-                    trading_pair=trading_pair,
-                    fee=fee,
-                    fill_base_amount=Decimal(trade["qty"]),
-                    fill_quote_amount=Decimal(trade["quoteQty"]),
-                    fill_price=Decimal(trade["price"]),
-                    fill_timestamp=trade["time"] * 1e-3,
-                )
+            for trade_fill in all_fills_response.values():
+                trade_update = self._create_trade_update_with_order_fill_data(
+                    order_fill=trade_fill,
+                    order=order)
                 trade_updates.append(trade_update)
+
+        except asyncio.TimeoutError:
+            raise IOError(f"Skipped order update with order fills for {order.client_order_id} "
+                          "- waiting for exchange order id.")
 
         return trade_updates
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
-        trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
-        updated_order_data = await self._api_get(
-            path_url=CONSTANTS.ORDER_PATH_URL,
-            params={
-                "symbol": trading_pair,
-                "origClientOrderId": tracked_order.client_order_id},
+        updated_order_data = await self._api_request_with_retry(
+            method=RESTMethod.POST,
+            endpoint=CONSTANTS.QUERY_ORDERS_PATH_URL,
+            params={"txid": tracked_order.exchange_order_id},
             is_auth_required=True)
 
-        new_state = CONSTANTS.ORDER_STATE[updated_order_data["status"]]
+        update = updated_order_data.get(tracked_order.exchange_order_id)
+
+        new_state = CONSTANTS.ORDER_STATE[update["status"]]
 
         order_update = OrderUpdate(
             client_order_id=tracked_order.client_order_id,
-            exchange_order_id=str(updated_order_data["orderId"]),
+            exchange_order_id=tracked_order.exchange_order_id,
             trading_pair=tracked_order.trading_pair,
-            update_timestamp=updated_order_data["updateTime"] * 1e-3,
+            update_timestamp=self._current_timestamp,
             new_state=new_state,
         )
 
@@ -801,13 +682,13 @@ class KrakenExchange(ExchangePyBase):
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         params = {
-            "symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
+            "pair": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         }
 
         resp_json = await self._api_request(
             method=RESTMethod.GET,
-            path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL,
+            path_url=CONSTANTS.TICKER_PATH_URL,
             params=params
         )
-
-        return float(resp_json["lastPrice"])
+        record = list(resp_json["result"].values())[0]
+        return float(record["c"][0])
