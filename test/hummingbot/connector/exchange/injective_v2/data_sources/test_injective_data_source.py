@@ -8,7 +8,9 @@ from unittest import TestCase
 from unittest.mock import patch
 
 from pyinjective.composer import Composer
+from pyinjective.core.market import SpotMarket
 from pyinjective.core.network import Network
+from pyinjective.core.token import Token
 from pyinjective.wallet import Address, PrivateKey
 
 from hummingbot.connector.exchange.injective_v2 import injective_constants as CONSTANTS
@@ -19,6 +21,9 @@ from hummingbot.connector.exchange.injective_v2.data_sources.injective_vaults_da
     InjectiveVaultsDataSource,
 )
 from hummingbot.connector.exchange.injective_v2.injective_market import InjectiveSpotMarket
+from hummingbot.connector.exchange.injective_v2.injective_v2_utils import (
+    InjectiveMessageBasedTransactionFeeCalculatorMode,
+)
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.data_type.common import OrderType, TradeType
 
@@ -26,6 +31,8 @@ from hummingbot.core.data_type.common import OrderType, TradeType
 class InjectiveGranteeDataSourceTests(TestCase):
     # the level is required to receive logs from the data source logger
     level = 0
+    usdt_usdc_market_id = "0x8b1a4d3e8f6b559e30e40922ee3662dd78edf7042330d4d620d188699d1a9715"  # noqa: mock
+    inj_usdt_market_id = "0x0611780ba69656949525013d947713300f56c37b6175e02f26bffa495c3208fe"  # noqa: mock
 
     @patch("hummingbot.core.utils.trading_pair_fetcher.TradingPairFetcher.fetch_all")
     def setUp(self, _) -> None:
@@ -45,6 +52,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
             granter_subaccount_index=0,
             network=Network.testnet(node="sentry"),
             rate_limits=CONSTANTS.PUBLIC_NODE_RATE_LIMITS,
+            fee_calculator_mode=InjectiveMessageBasedTransactionFeeCalculatorMode(),
         )
 
         self.query_executor = ProgrammableQueryExecutor()
@@ -103,267 +111,114 @@ class InjectiveGranteeDataSourceTests(TestCase):
     def test_market_and_tokens_construction(self):
         spot_markets_response = self._spot_markets_response()
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
-        self.query_executor._derivative_markets_responses.put_nowait([])
+        self.query_executor._derivative_markets_responses.put_nowait({})
+        tokens = dict()
+        for market in spot_markets_response.values():
+            tokens[market.base_token.denom] = market.base_token
+            tokens[market.quote_token.denom] = market.quote_token
+        self.query_executor._tokens_responses.put_nowait(
+            {token.symbol: token for token in tokens.values()}
+        )
 
         market_info = self._inj_usdt_market_info()
         inj_usdt_market: InjectiveSpotMarket = self.async_run_with_timeout(
-            self.data_source.spot_market_info_for_id(market_info["marketId"])
+            self.data_source.spot_market_info_for_id(market_info.id)
         )
         inj_token = inj_usdt_market.base_token
         usdt_token = inj_usdt_market.quote_token
 
-        self.assertEqual(market_info["marketId"], inj_usdt_market.market_id)
-        self.assertEqual(market_info, inj_usdt_market.market_info)
+        self.assertEqual(market_info.id, inj_usdt_market.market_id)
+        self.assertEqual(market_info, inj_usdt_market.native_market)
         self.assertEqual(f"{inj_token.unique_symbol}-{usdt_token.unique_symbol}", inj_usdt_market.trading_pair())
-        self.assertEqual(market_info["baseDenom"], inj_token.denom)
-        self.assertEqual(market_info["baseTokenMeta"]["symbol"], inj_token.symbol)
+        self.assertEqual(market_info.base_token.denom, inj_token.denom)
+        self.assertEqual(market_info.base_token.symbol, inj_token.symbol)
         self.assertEqual(inj_token.symbol, inj_token.unique_symbol)
-        self.assertEqual(market_info["baseTokenMeta"]["name"], inj_token.name)
-        self.assertEqual(market_info["baseTokenMeta"]["decimals"], inj_token.decimals)
-        self.assertEqual(market_info["quoteDenom"], usdt_token.denom)
-        self.assertEqual(market_info["quoteTokenMeta"]["symbol"], usdt_token.symbol)
+        self.assertEqual(market_info.base_token.name, inj_token.name)
+        self.assertEqual(market_info.base_token.decimals, inj_token.decimals)
+        self.assertEqual(market_info.quote_token.denom, usdt_token.denom)
+        self.assertEqual(market_info.quote_token.symbol, usdt_token.symbol)
         self.assertEqual(usdt_token.symbol, usdt_token.unique_symbol)
-        self.assertEqual(market_info["quoteTokenMeta"]["name"], usdt_token.name)
-        self.assertEqual(market_info["quoteTokenMeta"]["decimals"], usdt_token.decimals)
-
-        market_info = self._usdc_solana_usdc_eth_market_info()
-        usdc_solana_usdc_eth_market: InjectiveSpotMarket = self.async_run_with_timeout(
-            self.data_source.spot_market_info_for_id(market_info["marketId"])
-        )
-        usdc_solana_token = usdc_solana_usdc_eth_market.base_token
-        usdc_eth_token = usdc_solana_usdc_eth_market.quote_token
-
-        self.assertEqual(market_info["marketId"], usdc_solana_usdc_eth_market.market_id)
-        self.assertEqual(market_info, usdc_solana_usdc_eth_market.market_info)
-        self.assertEqual(f"{usdc_solana_token.unique_symbol}-{usdc_eth_token.unique_symbol}", usdc_solana_usdc_eth_market.trading_pair())
-        self.assertEqual(market_info["baseDenom"], usdc_solana_token.denom)
-        self.assertEqual(market_info["baseTokenMeta"]["symbol"], usdc_solana_token.symbol)
-        self.assertEqual(market_info["ticker"].split("/")[0], usdc_solana_token.unique_symbol)
-        self.assertEqual(market_info["baseTokenMeta"]["name"], usdc_solana_token.name)
-        self.assertEqual(market_info["baseTokenMeta"]["decimals"], usdc_solana_token.decimals)
-        self.assertEqual(market_info["quoteDenom"], usdc_eth_token.denom)
-        self.assertEqual(market_info["quoteTokenMeta"]["symbol"], usdc_eth_token.symbol)
-        self.assertEqual(usdc_eth_token.name, usdc_eth_token.unique_symbol)
-        self.assertEqual(market_info["quoteTokenMeta"]["name"], usdc_eth_token.name)
-        self.assertEqual(market_info["quoteTokenMeta"]["decimals"], usdc_eth_token.decimals)
-
-    def test_markets_initialization_generates_unique_trading_pairs_for_tokens_with_same_symbol(self):
-        spot_markets_response = self._spot_markets_response()
-        self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
-        self.query_executor._derivative_markets_responses.put_nowait([])
-
-        inj_usdt_trading_pair = self.async_run_with_timeout(
-            self.data_source.trading_pair_for_market(market_id=self._inj_usdt_market_info()["marketId"])
-        )
-        self.assertEqual("INJ-USDT", inj_usdt_trading_pair)
-        usdt_usdc_trading_pair = self.async_run_with_timeout(
-            self.data_source.trading_pair_for_market(market_id=self._usdt_usdc_market_info()["marketId"])
-        )
-        self.assertEqual("USDT-USDC", usdt_usdc_trading_pair)
-        usdt_usdc_eth_trading_pair = self.async_run_with_timeout(
-            self.data_source.trading_pair_for_market(market_id=self._usdt_usdc_eth_market_info()["marketId"])
-        )
-        self.assertEqual("USDT-USC Coin (Wormhole from Ethereum)", usdt_usdc_eth_trading_pair)
-        usdc_solana_usdc_eth_trading_pair = self.async_run_with_timeout(
-            self.data_source.trading_pair_for_market(market_id=self._usdc_solana_usdc_eth_market_info()["marketId"])
-        )
-        self.assertEqual("USDCso-USC Coin (Wormhole from Ethereum)", usdc_solana_usdc_eth_trading_pair)
-
-    def test_markets_initialization_adds_different_tokens_having_same_symbol(self):
-        spot_markets_response = self._spot_markets_response()
-        self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
-        self.query_executor._derivative_markets_responses.put_nowait([])
-
-        self.async_run_with_timeout(self.data_source.update_markets())
-
-        inj_usdt_market_info = self._inj_usdt_market_info()
-        self.assertIn(inj_usdt_market_info["baseDenom"], self.data_source._tokens_map)
-        self.assertEqual(
-            inj_usdt_market_info["baseDenom"],
-            self.data_source._token_symbol_symbol_and_denom_map[inj_usdt_market_info["baseTokenMeta"]["symbol"]]
-        )
-        self.assertIn(inj_usdt_market_info["quoteDenom"], self.data_source._tokens_map)
-        self.assertEqual(
-            inj_usdt_market_info["quoteDenom"],
-            self.data_source._token_symbol_symbol_and_denom_map[inj_usdt_market_info["quoteTokenMeta"]["symbol"]]
-        )
-
-        usdt_usdc_market_info = self._usdt_usdc_market_info()
-        self.assertIn(usdt_usdc_market_info["quoteDenom"], self.data_source._tokens_map)
-        self.assertEqual(
-            usdt_usdc_market_info["quoteDenom"],
-            self.data_source._token_symbol_symbol_and_denom_map[usdt_usdc_market_info["quoteTokenMeta"]["symbol"]]
-        )
-
-        usdt_usdc_eth_market_info = self._usdt_usdc_eth_market_info()
-        self.assertIn(usdt_usdc_eth_market_info["quoteDenom"], self.data_source._tokens_map)
-        self.assertEqual(
-            usdt_usdc_eth_market_info["quoteDenom"],
-            self.data_source._token_symbol_symbol_and_denom_map[usdt_usdc_eth_market_info["quoteTokenMeta"]["name"]]
-        )
-
-        usdc_solana_usdc_eth_market_info = self._usdc_solana_usdc_eth_market_info()
-        expected_usdc_solana_unique_symbol = usdc_solana_usdc_eth_market_info["ticker"].split("/")[0]
-        self.assertIn(usdc_solana_usdc_eth_market_info["baseDenom"], self.data_source._tokens_map)
-        self.assertEqual(
-            usdc_solana_usdc_eth_market_info["baseDenom"],
-            self.data_source._token_symbol_symbol_and_denom_map[expected_usdc_solana_unique_symbol]
-        )
-
-    def test_markets_initialization_creates_one_instance_per_token(self):
-        spot_markets_response = self._spot_markets_response()
-        self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
-        self.query_executor._derivative_markets_responses.put_nowait([])
-
-        inj_usdt_market: InjectiveSpotMarket = self.async_run_with_timeout(
-            self.data_source.spot_market_info_for_id(self._inj_usdt_market_info()["marketId"])
-        )
-        usdt_usdc_market: InjectiveSpotMarket = self.async_run_with_timeout(
-            self.data_source.spot_market_info_for_id(self._usdt_usdc_market_info()["marketId"])
-        )
-        usdt_usdc_eth_market: InjectiveSpotMarket = self.async_run_with_timeout(
-            self.data_source.spot_market_info_for_id(self._usdt_usdc_eth_market_info()["marketId"])
-        )
-        usdc_solana_usdc_eth_market: InjectiveSpotMarket = self.async_run_with_timeout(
-            self.data_source.spot_market_info_for_id(self._usdc_solana_usdc_eth_market_info()["marketId"])
-        )
-
-        self.assertEqual(inj_usdt_market.quote_token, usdt_usdc_market.base_token)
-        self.assertEqual(inj_usdt_market.quote_token, usdt_usdc_eth_market.base_token)
-
-        self.assertNotEqual(usdt_usdc_market.quote_token, usdt_usdc_eth_market.quote_token)
-        self.assertNotEqual(usdt_usdc_market.quote_token, usdc_solana_usdc_eth_market.base_token)
-
-        self.assertEqual(usdt_usdc_eth_market.quote_token, usdc_solana_usdc_eth_market.quote_token)
-        self.assertNotEqual(usdt_usdc_eth_market.quote_token, usdc_solana_usdc_eth_market.base_token)
+        self.assertEqual(market_info.quote_token.name, usdt_token.name)
+        self.assertEqual(market_info.quote_token.decimals, usdt_token.decimals)
 
     def _spot_markets_response(self):
-        return [
-            self._inj_usdt_market_info(),
-            self._usdt_usdc_market_info(),
-            self._usdt_usdc_eth_market_info(),
-            self._usdc_solana_usdc_eth_market_info()
-        ]
+        inj_usdt_market = self._inj_usdt_market_info()
+        usdt_usdc_market = self._usdt_usdc_market_info()
 
-    def _usdc_solana_usdc_eth_market_info(self):
         return {
-            "marketId": "0xb825e2e4dbe369446e454e21c16e041cbc4d95d73f025c369f92210e82d2106f",  # noqa: mock
-            "marketStatus": "active",
-            "ticker": "USDCso/USDCet",
-            "baseDenom": "factory/inj14ejqjyq8um4p3xfqj74yld5waqljf88f9eneuk/inj12pwnhtv7yat2s30xuf4gdk9qm85v4j3e60dgvu",  # noqa: mock
-            "baseTokenMeta": {
-                "name": "USD Coin (Wormhole from Solana)",
-                "address": "0x0000000000000000000000000000000000000000",
-                "symbol": "USDC",
-                "logo": "https://static.alchemyapi.io/images/assets/3408.png",
-                "decimals": 6,
-                "updatedAt": "1685371052880",
-            },
-            "quoteDenom": "factory/inj14ejqjyq8um4p3xfqj74yld5waqljf88f9eneuk/inj1q6zlut7gtkzknkk773jecujwsdkgq882akqksk",  # noqa: mock
-            "quoteTokenMeta": {
-                "name": "USC Coin (Wormhole from Ethereum)",
-                "address": "0x0000000000000000000000000000000000000000",
-                "symbol": "USDC",
-                "logo": "https://static.alchemyapi.io/images/assets/3408.png",
-                "decimals": 6,
-                "updatedAt": "1685371052880",
-            },
-            "makerFeeRate": "-0.0001",
-            "takerFeeRate": "0.001",
-            "serviceProviderFee": "0.4",
-            "minPriceTickSize": "0.0001",
-            "minQuantityTickSize": "100",
-        }
-
-    def _usdt_usdc_eth_market_info(self):
-        return {
-            "marketId": "0xda0bb7a7d8361d17a9d2327ed161748f33ecbf02738b45a7dd1d812735d1531c",  # noqa: mock
-            "marketStatus": "active",
-            "ticker": "USDT/USDC",
-            "baseDenom": "peggy0xdAC17F958D2ee523a2206206994597C13D831ec7",
-            "baseTokenMeta": {
-                "name": "Tether",
-                "address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
-                "symbol": "USDT",
-                "logo": "https://static.alchemyapi.io/images/assets/825.png",
-                "decimals": 6,
-                "updatedAt": "1685371052879",
-            },
-            "quoteDenom": "factory/inj14ejqjyq8um4p3xfqj74yld5waqljf88f9eneuk/inj1q6zlut7gtkzknkk773jecujwsdkgq882akqksk",  # noqa: mock
-            "quoteTokenMeta": {
-                "name": "USC Coin (Wormhole from Ethereum)",
-                "address": "0x0000000000000000000000000000000000000000",
-                "symbol": "USDC",
-                "logo": "https://static.alchemyapi.io/images/assets/3408.png",
-                "decimals": 6,
-                "updatedAt": "1685371052880"
-            },
-            "makerFeeRate": "-0.0001",
-            "takerFeeRate": "0.001",
-            "serviceProviderFee": "0.4",
-            "minPriceTickSize": "0.0001",
-            "minQuantityTickSize": "100",
+            inj_usdt_market.id: inj_usdt_market,
+            usdt_usdc_market.id: usdt_usdc_market,
         }
 
     def _usdt_usdc_market_info(self):
-        return {
-            "marketId": "0x8b1a4d3e8f6b559e30e40922ee3662dd78edf7042330d4d620d188699d1a9715",  # noqa: mock
-            "marketStatus": "active",
-            "ticker": "USDT/USDC",
-            "baseDenom": "peggy0xdAC17F958D2ee523a2206206994597C13D831ec7",
-            "baseTokenMeta": {
-                "name": "Tether",
-                "address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
-                "symbol": "USDT",
-                "logo": "https://static.alchemyapi.io/images/assets/825.png",
-                "decimals": 6,
-                "updatedAt": "1685371052879"
-            },
-            "quoteDenom": "peggy0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-            "quoteTokenMeta": {
-                "name": "USD Coin",
-                "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-                "symbol": "USDC",
-                "logo": "https://static.alchemyapi.io/images/assets/3408.png",
-                "decimals": 6,
-                "updatedAt": "1685371052879"
-            },
-            "makerFeeRate": "0.001",
-            "takerFeeRate": "0.002",
-            "serviceProviderFee": "0.4",
-            "minPriceTickSize": "0.0001",
-            "minQuantityTickSize": "100",
-        }
+        base_native_token = Token(
+            name="Tether",
+            symbol="USDT",
+            denom="peggy0xdAC17F958D2ee523a2206206994597C13D831ec7",
+            address="0xdAC17F958D2ee523a2206206994597C13D831ec7",  # noqa: mock
+            decimals=6,
+            logo="https://static.alchemyapi.io/images/assets/825.png",
+            updated=1685371052879,
+        )
+        quote_native_token = Token(
+            name="USD Coin",
+            symbol="USDC",
+            denom="peggy0x87aB3B4C8661e07D6372361211B96ed4Dc36B1B5",  # noqa: mock
+            address="0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",  # noqa: mock
+            decimals=6,
+            logo="https://static.alchemyapi.io/images/assets/3408.png",
+            updated=1687190809716,
+        )
+
+        native_market = SpotMarket(
+            id=self.usdt_usdc_market_id,
+            status="active",
+            ticker="USDT/USDC",
+            base_token=base_native_token,
+            quote_token=quote_native_token,
+            maker_fee_rate=Decimal("0.001"),
+            taker_fee_rate=Decimal("0.002"),
+            service_provider_fee=Decimal("0.4"),
+            min_price_tick_size=Decimal("0.0001"),
+            min_quantity_tick_size=Decimal("100"),
+        )
+
+        return native_market
 
     def _inj_usdt_market_info(self):
-        return {
-            "marketId": "0xa508cb32923323679f29a032c70342c147c17d0145625922b0ef22e955c844c0",  # noqa: mock
-            "marketStatus": "active",
-            "ticker": "INJ/USDT",
-            "baseDenom": "inj",
-            "baseTokenMeta": {
-                "name": "Injective Protocol",
-                "address": "0xe28b3B32B6c345A34Ff64674606124Dd5Aceca30",
-                "symbol": "INJ",
-                "logo": "https://static.alchemyapi.io/images/assets/7226.png",
-                "decimals": 18,
-                "updatedAt": "1685371052879"
-            },
-            "quoteDenom": "peggy0xdAC17F958D2ee523a2206206994597C13D831ec7",
-            "quoteTokenMeta": {
-                "name": "Tether",
-                "address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
-                "symbol": "USDT",
-                "logo": "https://static.alchemyapi.io/images/assets/825.png",
-                "decimals": 6,
-                "updatedAt": "1685371052879"
-            },
-            "makerFeeRate": "-0.0001",
-            "takerFeeRate": "0.001",
-            "serviceProviderFee": "0.4",
-            "minPriceTickSize": "0.000000000000001",
-            "minQuantityTickSize": "1000000000000000"
-        }
+        base_native_token = Token(
+            name="Injective Protocol",
+            symbol="INJ",
+            denom="inj",
+            address="0xe28b3B32B6c345A34Ff64674606124Dd5Aceca30",  # noqa: mock
+            decimals=18,
+            logo="https://static.alchemyapi.io/images/assets/7226.png",
+            updated=1687190809715,
+        )
+        quote_native_token = Token(
+            name="Tether",
+            symbol="USDT",
+            denom="peggy0xdAC17F958D2ee523a2206206994597C13D831ec7",
+            address="0xdAC17F958D2ee523a2206206994597C13D831ec7",  # noqa: mock
+            decimals=6,
+            logo="https://static.alchemyapi.io/images/assets/825.png",
+            updated=1685371052879,
+        )
+
+        native_market = SpotMarket(
+            id=self.inj_usdt_market_id,
+            status="active",
+            ticker="INJ/USDT",
+            base_token=base_native_token,
+            quote_token=quote_native_token,
+            maker_fee_rate=Decimal("-0.0001"),
+            taker_fee_rate=Decimal("0.001"),
+            service_provider_fee=Decimal("0.4"),
+            min_price_tick_size=Decimal("0.000000000000001"),
+            min_quantity_tick_size=Decimal("1000000000000000"),
+        )
+
+        return native_market
 
 
 class InjectiveVaultsDataSourceTests(TestCase):
@@ -387,6 +242,7 @@ class InjectiveVaultsDataSourceTests(TestCase):
             network=Network.testnet(node="sentry"),
             use_secure_connection=True,
             rate_limits=CONSTANTS.PUBLIC_NODE_RATE_LIMITS,
+            fee_calculator_mode=InjectiveMessageBasedTransactionFeeCalculatorMode(),
         )
 
         self.query_executor = ProgrammableQueryExecutor()
@@ -417,7 +273,11 @@ class InjectiveVaultsDataSourceTests(TestCase):
     def test_order_creation_message_generation(self):
         spot_markets_response = self._spot_markets_response()
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
-        self.query_executor._derivative_markets_responses.put_nowait([])
+        self.query_executor._derivative_markets_responses.put_nowait({})
+        market = self._inj_usdt_market_info()
+        self.query_executor._tokens_responses.put_nowait(
+            {token.symbol: token for token in [market.base_token, market.quote_token]}
+        )
 
         orders = []
         order = GatewayInFlightOrder(
@@ -431,7 +291,7 @@ class InjectiveVaultsDataSourceTests(TestCase):
         )
         orders.append(order)
 
-        messages, spot_order_hashes, derivative_order_hashes = self.async_run_with_timeout(
+        messages = self.async_run_with_timeout(
             self.data_source._order_creation_messages(
                 spot_orders_to_create=orders,
                 derivative_orders_to_create=[],
@@ -441,13 +301,12 @@ class InjectiveVaultsDataSourceTests(TestCase):
         pub_key = self._grantee_private_key.to_public_key()
         address = pub_key.to_address()
 
-        self.assertEqual(0, len(spot_order_hashes))
         self.assertEqual(address.to_acc_bech32(), messages[0].sender)
         self.assertEqual(self._vault_address, messages[0].contract)
 
         market = self._inj_usdt_market_info()
-        base_token_decimals = market["baseTokenMeta"]["decimals"]
-        quote_token_meta = market["quoteTokenMeta"]["decimals"]
+        base_token_decimals = market.base_token.decimals
+        quote_token_meta = market.quote_token.decimals
         message_data = json.loads(messages[0].msg.decode())
 
         message_price = (order.price * Decimal(f"1e{quote_token_meta-base_token_decimals}")).normalize()
@@ -463,12 +322,13 @@ class InjectiveVaultsDataSourceTests(TestCase):
                                 "sender": self._vault_address,
                                 "spot_orders_to_create": [
                                     {
-                                        "market_id": market["marketId"],
+                                        "market_id": market.id,
                                         "order_info": {
                                             "fee_recipient": self._vault_address,
                                             "subaccount_id": "1",
                                             "price": f"{message_price:f}",
-                                            "quantity": f"{message_quantity:f}"
+                                            "quantity": f"{message_quantity:f}",
+                                            "cid": order.client_order_id,
                                         },
                                         "order_type": 1,
                                         "trigger_price": "0",
@@ -494,14 +354,18 @@ class InjectiveVaultsDataSourceTests(TestCase):
     def test_order_cancel_message_generation(self):
         spot_markets_response = self._spot_markets_response()
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
-        self.query_executor._derivative_markets_responses.put_nowait([])
+        self.query_executor._derivative_markets_responses.put_nowait({})
         market = self._inj_usdt_market_info()
+        self.query_executor._tokens_responses.put_nowait(
+            {token.symbol: token for token in [market.base_token, market.quote_token]}
+        )
 
         orders_data = []
         composer = asyncio.get_event_loop().run_until_complete(self.data_source.composer())
         order_data = composer.OrderData(
-            market_id=market["marketId"],
+            market_id=market.id,
             subaccount_id="1",
+            cid="client order id",
             order_hash="0xba954bc613a81cd712b9ec0a3afbfc94206cf2ff8c60d1868e031d59ea82bf27",  # noqa: mock"
             order_direction="buy",
             order_type="limit",
@@ -536,9 +400,10 @@ class InjectiveVaultsDataSourceTests(TestCase):
                                 "derivative_market_ids_to_cancel_all": [],
                                 "spot_orders_to_cancel": [
                                     {
-                                        "market_id": market["marketId"],
+                                        "market_id": market.id,
                                         "subaccount_id": "1",
                                         "order_hash": "0xba954bc613a81cd712b9ec0a3afbfc94206cf2ff8c60d1868e031d59ea82bf27",  # noqa: mock"
+                                        "cid": "client order id",
                                         "order_mask": 74,
                                     }
                                 ],
@@ -557,36 +422,40 @@ class InjectiveVaultsDataSourceTests(TestCase):
         self.assertEqual(expected_data, message_data)
 
     def _spot_markets_response(self):
-        return [
-            self._inj_usdt_market_info(),
-        ]
+        market = self._inj_usdt_market_info()
+        return {market.id: market}
 
     def _inj_usdt_market_info(self):
-        return {
-            "marketId": "0x0611780ba69656949525013d947713300f56c37b6175e02f26bffa495c3208fe",  # noqa: mock
-            "marketStatus": "active",
-            "ticker": "INJ/USDT",
-            "baseDenom": "inj",
-            "baseTokenMeta": {
-                "name": "Injective Protocol",
-                "address": "0xe28b3B32B6c345A34Ff64674606124Dd5Aceca30",
-                "symbol": "INJ",
-                "logo": "https://static.alchemyapi.io/images/assets/7226.png",
-                "decimals": 18,
-                "updatedAt": "1685371052879"
-            },
-            "quoteDenom": "peggy0xdAC17F958D2ee523a2206206994597C13D831ec7",
-            "quoteTokenMeta": {
-                "name": "Tether",
-                "address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
-                "symbol": "USDT",
-                "logo": "https://static.alchemyapi.io/images/assets/825.png",
-                "decimals": 6,
-                "updatedAt": "1685371052879"
-            },
-            "makerFeeRate": "-0.0001",
-            "takerFeeRate": "0.001",
-            "serviceProviderFee": "0.4",
-            "minPriceTickSize": "0.000000000000001",
-            "minQuantityTickSize": "1000000000000000"
-        }
+        base_native_token = Token(
+            name="Injective Protocol",
+            symbol="INJ",
+            denom="inj",
+            address="0xe28b3B32B6c345A34Ff64674606124Dd5Aceca30",  # noqa: mock
+            decimals=18,
+            logo="https://static.alchemyapi.io/images/assets/7226.png",
+            updated=1687190809715,
+        )
+        quote_native_token = Token(
+            name="Tether",
+            symbol="USDT",
+            denom="peggy0x87aB3B4C8661e07D6372361211B96ed4Dc36B1B5",  # noqa: mock
+            address="0x0000000000000000000000000000000000000000",  # noqa: mock
+            decimals=6,
+            logo="https://static.alchemyapi.io/images/assets/825.png",
+            updated=1687190809716,
+        )
+
+        native_market = SpotMarket(
+            id="0x0611780ba69656949525013d947713300f56c37b6175e02f26bffa495c3208fe",  # noqa: mock
+            status="active",
+            ticker="INJ/USDT",
+            base_token=base_native_token,
+            quote_token=quote_native_token,
+            maker_fee_rate=Decimal("-0.0001"),
+            taker_fee_rate=Decimal("0.001"),
+            service_provider_fee=Decimal("0.4"),
+            min_price_tick_size=Decimal("0.000000000000001"),
+            min_quantity_tick_size=Decimal("1000000000000000"),
+        )
+
+        return native_market

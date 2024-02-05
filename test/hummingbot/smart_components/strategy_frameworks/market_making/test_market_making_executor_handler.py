@@ -3,7 +3,7 @@ from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCa
 from unittest.mock import MagicMock, patch
 
 from hummingbot.core.data_type.common import TradeType
-from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorStatus
+from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorStatus, TrailingStop
 from hummingbot.smart_components.strategy_frameworks.data_types import OrderLevel, TripleBarrierConf
 from hummingbot.smart_components.strategy_frameworks.market_making import (
     MarketMakingControllerBase,
@@ -34,6 +34,7 @@ class TestMarketMakingExecutorHandler(IsolatedAsyncioWrapperTestCase):
             OrderLevel(level=1, side=TradeType.SELL, order_amount_usd=Decimal("100"),
                        spread_factor=Decimal("0.01"), triple_barrier_conf=triple_barrier_conf)
         ]
+        self.mock_controller.config.global_trailing_stop_config = None
 
         # Instantiating the MarketMakingExecutorHandler
         self.handler = MarketMakingExecutorHandler(
@@ -108,3 +109,46 @@ class TestMarketMakingExecutorHandler(IsolatedAsyncioWrapperTestCase):
         self.mock_controller.all_candles_ready = True
         await self.handler.control_task()
         mock_create_executor.assert_called()
+
+    @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.ExecutorHandlerBase.create_executor")
+    async def test_control_task_global_trailing_stop_activated(self, mock_create_executor):
+        self.mock_controller.all_candles_ready = True
+        self.mock_controller.early_stop_condition.return_value = False
+        global_trailing_stop_activation_price_delta = Decimal("0.002")
+        global_trailing_stop_trailing_delta = Decimal("0.0005")
+        self.mock_controller.config.global_trailing_stop_config = {
+            TradeType.BUY: TrailingStop(activation_price_delta=global_trailing_stop_activation_price_delta,
+                                        trailing_delta=global_trailing_stop_trailing_delta),
+            TradeType.SELL: TrailingStop(activation_price_delta=global_trailing_stop_activation_price_delta,
+                                         trailing_delta=global_trailing_stop_trailing_delta)
+        }
+
+        # Mock executors and their metrics
+        mock_executor = MagicMock()
+        mock_executor.side = TradeType.BUY
+        mock_executor.executor_status = PositionExecutorStatus.ACTIVE_POSITION
+        mock_executor.filled_amount = Decimal("10")
+        mock_executor.entry_price = Decimal("500")
+        mock_executor.net_pnl_quote = Decimal("100")  # Adjust these values to simulate different scenarios
+        self.handler = MarketMakingExecutorHandler(
+            strategy=self.mock_strategy,
+            controller=self.mock_controller
+        )
+        self.handler.level_executors["BUY_1"] = mock_executor
+
+        # Call the control_task method
+        await self.handler.control_task()
+
+        # Assert that the global trailing stop is activated and/or triggered as expected
+        # This includes checking for logger messages, early_stop calls, and the state of _trailing_stop_pnl_by_side
+        self.assertEqual(self.handler._trailing_stop_pnl_by_side[TradeType.BUY], Decimal("0.0195"))
+
+        # Update the executor's net_pnl_quote to simulate a decrease in PnL that triggers the early stop
+        mock_executor.net_pnl_quote = Decimal("50")  # Adjust this value to trigger the early stop
+
+        # Call the control_task method again
+        await self.handler.control_task()
+
+        # Assert Early Stop Triggered
+        mock_executor.early_stop.assert_called_once()
+        self.assertIsNone(self.handler._trailing_stop_pnl_by_side[TradeType.BUY])

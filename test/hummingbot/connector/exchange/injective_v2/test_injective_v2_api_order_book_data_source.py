@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import re
 from decimal import Decimal
 from test.hummingbot.connector.exchange.injective_v2.programmable_query_executor import ProgrammableQueryExecutor
@@ -7,6 +8,9 @@ from unittest import TestCase
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from bidict import bidict
+from pyinjective.composer import Composer
+from pyinjective.core.market import SpotMarket
+from pyinjective.core.token import Token
 from pyinjective.wallet import Address, PrivateKey
 
 from hummingbot.client.config.client_config_map import ClientConfigMap
@@ -18,6 +22,7 @@ from hummingbot.connector.exchange.injective_v2.injective_v2_exchange import Inj
 from hummingbot.connector.exchange.injective_v2.injective_v2_utils import (
     InjectiveConfigMap,
     InjectiveDelegatedAccountMode,
+    InjectiveMessageBasedTransactionFeeCalculatorMode,
     InjectiveTestnetNetworkMode,
 )
 from hummingbot.core.data_type.common import TradeType
@@ -62,6 +67,7 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
         injective_config = InjectiveConfigMap(
             network=network_config,
             account_type=account_config,
+            fee_calculator=InjectiveMessageBasedTransactionFeeCalculatorMode(),
         )
 
         self.connector = InjectiveV2Exchange(
@@ -83,6 +89,8 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
 
         self.query_executor = ProgrammableQueryExecutor()
         self.connector._data_source._query_executor = self.query_executor
+
+        self.connector._data_source._composer = Composer(network=self.connector._data_source.network_name)
 
         self.log_records = []
         self._logs_event: Optional[asyncio.Event] = None
@@ -141,10 +149,14 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
 
     def test_get_new_order_book_successful(self):
         spot_markets_response = self._spot_markets_response()
+        market = list(spot_markets_response.values())[0]
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
-        self.query_executor._derivative_markets_responses.put_nowait([])
-        base_decimals = spot_markets_response[0]["baseTokenMeta"]["decimals"]
-        quote_decimals = spot_markets_response[0]["quoteTokenMeta"]["decimals"]
+        self.query_executor._derivative_markets_responses.put_nowait({})
+        self.query_executor._tokens_responses.put_nowait(
+            {token.symbol: token for token in [market.base_token, market.quote_token]}
+        )
+        base_decimals = market.base_token.decimals
+        quote_decimals = market.quote_token.decimals
 
         order_book_snapshot = {
             "buys": [(Decimal("9487") * Decimal(f"1e{quote_decimals-base_decimals}"),
@@ -187,28 +199,45 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
 
     def test_listen_for_trades_logs_exception(self):
         spot_markets_response = self._spot_markets_response()
+        market = list(spot_markets_response.values())[0]
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
-        self.query_executor._derivative_markets_responses.put_nowait([])
+        self.query_executor._derivative_markets_responses.put_nowait({})
+        self.query_executor._tokens_responses.put_nowait(
+            {token.symbol: token for token in [market.base_token, market.quote_token]}
+        )
 
-        self.query_executor._public_spot_trade_updates.put_nowait({})
+        self.query_executor._chain_stream_events.put_nowait({"spotTrades": [{}]})
+
+        order_hash = "0x070e2eb3d361c8b26eae510f481bed513a1fb89c0869463a387cfa7995a27043"  # noqa: mock
         trade_data = {
-            "orderHash": "0x070e2eb3d361c8b26eae510f481bed513a1fb89c0869463a387cfa7995a27043",  # noqa: mock
-            "subaccountId": "0x7998ca45575408f8b4fa354fe615abf3435cf1a7000000000000000000000000",  # noqa: mock
-            "marketId": self.market_id,
-            "tradeExecutionType": "limitMatchRestingOrder",
-            "tradeDirection": "sell",
-            "price": {
-                "price": "0.000000000007701",
-                "quantity": "324600000000000000000",
-                "timestamp": "1687878089569"
-            },
-            "fee": "-249974.46",
-            "executedAt": "1687878089569",
-            "feeRecipient": "inj10xvv532h2sy03d86x487v9dt7dp4eud8fe2qv5",  # noqa: mock
-            "tradeId": "37120120_60_0",
-            "executionSide": "maker"
+            "blockHeight": "20583",
+            "blockTime": "1640001112223",
+            "subaccountDeposits": [],
+            "spotOrderbookUpdates": [],
+            "derivativeOrderbookUpdates": [],
+            "bankBalances": [],
+            "spotTrades": [
+                {
+                    "marketId": self.market_id,
+                    "isBuy": False,
+                    "executionType": "LimitMatchRestingOrder",
+                    "quantity": "324600000000000000000000000000000000000",
+                    "price": "7701000",
+                    "subaccountId": "0x7998ca45575408f8b4fa354fe615abf3435cf1a7000000000000000000000000",  # noqa: mock
+                    "fee": "-249974460000000000000000",
+                    "orderHash": base64.b64encode(bytes.fromhex(order_hash.replace("0x", ""))).decode(),
+                    "feeRecipientAddress": "inj10xvv532h2sy03d86x487v9dt7dp4eud8fe2qv5",  # noqa: mock
+                    "cid": "cid1",
+                    "tradeId": "7959737_3_0",
+                },
+            ],
+            "derivativeTrades": [],
+            "spotOrders": [],
+            "derivativeOrders": [],
+            "positions": [],
+            "oraclePrices": [],
         }
-        self.query_executor._public_spot_trade_updates.put_nowait(trade_data)
+        self.query_executor._chain_stream_events.put_nowait(trade_data)
 
         self.async_run_with_timeout(self.data_source.listen_for_subscriptions(), timeout=2)
 
@@ -218,35 +247,58 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
 
         self.assertTrue(
             self.is_logged(
-                "WARNING", re.compile(r"^Invalid public spot trade event format \(.*")
+                "WARNING", re.compile(r"^Invalid chain stream event format \(.*")
             )
         )
 
-    def test_listen_for_trades_successful(self):
+    @patch("hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source."
+           "InjectiveGranteeDataSource._initialize_timeout_height")
+    @patch("hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source."
+           "InjectiveGranteeDataSource._time")
+    def test_listen_for_trades_successful(self, time_mock, _):
+        time_mock.return_value = 1640001112.223
+
         spot_markets_response = self._spot_markets_response()
+        market = list(spot_markets_response.values())[0]
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
-        self.query_executor._derivative_markets_responses.put_nowait([])
-        base_decimals = spot_markets_response[0]["baseTokenMeta"]["decimals"]
-        quote_decimals = spot_markets_response[0]["quoteTokenMeta"]["decimals"]
+        self.query_executor._derivative_markets_responses.put_nowait({})
+        self.query_executor._tokens_responses.put_nowait(
+            {token.symbol: token for token in [market.base_token, market.quote_token]}
+        )
+        base_decimals = market.base_token.decimals
+        quote_decimals = market.quote_token.decimals
+
+        order_hash = "0x070e2eb3d361c8b26eae510f481bed513a1fb89c0869463a387cfa7995a27043"  # noqa: mock
 
         trade_data = {
-            "orderHash": "0x070e2eb3d361c8b26eae510f481bed513a1fb89c0869463a387cfa7995a27043",  # noqa: mock
-            "subaccountId": "0x7998ca45575408f8b4fa354fe615abf3435cf1a7000000000000000000000000",  # noqa: mock
-            "marketId": self.market_id,
-            "tradeExecutionType": "limitMatchRestingOrder",
-            "tradeDirection": "sell",
-            "price": {
-                "price": "0.000000000007701",
-                "quantity": "324600000000000000000",
-                "timestamp": "1687878089569"
-            },
-            "fee": "-249974.46",
-            "executedAt": "1687878089569",
-            "feeRecipient": "inj10xvv532h2sy03d86x487v9dt7dp4eud8fe2qv5",  # noqa: mock
-            "tradeId": "37120120_60_0",
-            "executionSide": "maker"
+            "blockHeight": "20583",
+            "blockTime": "1640001112223",
+            "subaccountDeposits": [],
+            "spotOrderbookUpdates": [],
+            "derivativeOrderbookUpdates": [],
+            "bankBalances": [],
+            "spotTrades": [
+                {
+                    "marketId": self.market_id,
+                    "isBuy": False,
+                    "executionType": "LimitMatchRestingOrder",
+                    "quantity": "324600000000000000000000000000000000000",
+                    "price": "7701000",
+                    "subaccountId": "0x7998ca45575408f8b4fa354fe615abf3435cf1a7000000000000000000000000",  # noqa: mock
+                    "fee": "-249974460000000000000000",
+                    "orderHash": base64.b64encode(bytes.fromhex(order_hash.replace("0x", ""))).decode(),
+                    "feeRecipientAddress": "inj10xvv532h2sy03d86x487v9dt7dp4eud8fe2qv5",  # noqa: mock
+                    "cid": "cid1",
+                    "tradeId": "7959737_3_0",
+                },
+            ],
+            "derivativeTrades": [],
+            "spotOrders": [],
+            "derivativeOrders": [],
+            "positions": [],
+            "oraclePrices": [],
         }
-        self.query_executor._public_spot_trade_updates.put_nowait(trade_data)
+        self.query_executor._chain_stream_events.put_nowait(trade_data)
 
         self.async_run_with_timeout(self.data_source.listen_for_subscriptions())
 
@@ -255,11 +307,12 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
 
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 
+        expected_price = Decimal(trade_data["spotTrades"][0]["price"]) * Decimal(f"1e{base_decimals-quote_decimals-18}")
+        expected_amount = Decimal(trade_data["spotTrades"][0]["quantity"]) * Decimal(f"1e{-base_decimals-18}")
+        expected_trade_id = trade_data["spotTrades"][0]["tradeId"]
         self.assertEqual(OrderBookMessageType.TRADE, msg.type)
-        self.assertEqual(trade_data["tradeId"], msg.trade_id)
-        self.assertEqual(int(trade_data["executedAt"]) * 1e-3, msg.timestamp)
-        expected_price = Decimal(trade_data["price"]["price"]) * Decimal(f"1e{base_decimals-quote_decimals}")
-        expected_amount = Decimal(trade_data["price"]["quantity"]) * Decimal(f"1e{-base_decimals}")
+        self.assertEqual(expected_trade_id, msg.trade_id)
+        self.assertEqual(time_mock.return_value, msg.timestamp)
         self.assertEqual(expected_amount, msg.content["amount"])
         self.assertEqual(expected_price, msg.content["price"])
         self.assertEqual(self.trading_pair, msg.content["trading_pair"])
@@ -277,38 +330,54 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
 
     def test_listen_for_order_book_diffs_logs_exception(self):
         spot_markets_response = self._spot_markets_response()
+        market = list(spot_markets_response.values())[0]
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
-        self.query_executor._derivative_markets_responses.put_nowait([])
+        self.query_executor._derivative_markets_responses.put_nowait({})
+        self.query_executor._tokens_responses.put_nowait(
+            {token.symbol: token for token in [market.base_token, market.quote_token]}
+        )
 
-        self.query_executor._spot_order_book_updates.put_nowait({})
+        self.query_executor._chain_stream_events.put_nowait({
+            "spotOrderbookUpdates": [{}]
+        })
         order_book_data = {
-            "marketId": self.market_id,
-            "sequence": "7734169",
-            "buys": [
+            "blockHeight": "20583",
+            "blockTime": "1640001112223",
+            "subaccountDeposits": [],
+            "spotOrderbookUpdates": [
                 {
-                    "price": "0.000000000007684",
-                    "quantity": "4578787000000000000000",
-                    "isActive": True,
-                    "timestamp": "1687889315683"
-                },
-                {
-                    "price": "0.000000000007685",
-                    "quantity": "4412340000000000000000",
-                    "isActive": True,
-                    "timestamp": "1687889316000"
+                    "seq": "7734169",
+                    "orderbook": {
+                        "marketId": self.market_id,
+                        "buyLevels": [
+                            {
+                                "p": "7684000",
+                                "q": "4578787000000000000000000000000000000000"
+                            },
+                            {
+                                "p": "7685000",
+                                "q": "4412340000000000000000000000000000000000"
+                            },
+                        ],
+                        "sellLevels": [
+                            {
+                                "p": "7723000",
+                                "q": "3478787000000000000000000000000000000000"
+                            },
+                        ],
+                    }
                 }
             ],
-            "sells": [
-                {
-                    "price": "0.000000000007723",
-                    "quantity": "3478787000000000000000",
-                    "isActive": True,
-                    "timestamp": "1687889315683"
-                }
-            ],
-            "updatedAt": "1687889315683",
+            "derivativeOrderbookUpdates": [],
+            "bankBalances": [],
+            "spotTrades": [],
+            "derivativeTrades": [],
+            "spotOrders": [],
+            "derivativeOrders": [],
+            "positions": [],
+            "oraclePrices": [],
         }
-        self.query_executor._spot_order_book_updates.put_nowait(order_book_data)
+        self.query_executor._chain_stream_events.put_nowait(order_book_data)
 
         self.async_run_with_timeout(self.data_source.listen_for_subscriptions(), timeout=5)
 
@@ -319,101 +388,126 @@ class InjectiveV2APIOrderBookDataSourceTests(TestCase):
 
         self.assertTrue(
             self.is_logged(
-                "WARNING", re.compile(r"^Invalid spot order book event format \(.*")
+                "WARNING", re.compile(r"^Invalid chain stream event format \(.*")
             )
         )
 
-    @patch("hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source.InjectiveGranteeDataSource._initialize_timeout_height")
-    def test_listen_for_order_book_diffs_successful(self, _):
+    @patch("hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source."
+           "InjectiveGranteeDataSource._initialize_timeout_height")
+    @patch("hummingbot.connector.exchange.injective_v2.data_sources.injective_grantee_data_source."
+           "InjectiveGranteeDataSource._time")
+    def test_listen_for_order_book_diffs_successful(self, time_mock, _):
+        time_mock.return_value = 1640001112.223
+
         spot_markets_response = self._spot_markets_response()
+        market = list(spot_markets_response.values())[0]
         self.query_executor._spot_markets_responses.put_nowait(spot_markets_response)
-        self.query_executor._derivative_markets_responses.put_nowait([])
-        base_decimals = spot_markets_response[0]["baseTokenMeta"]["decimals"]
-        quote_decimals = spot_markets_response[0]["quoteTokenMeta"]["decimals"]
+        self.query_executor._derivative_markets_responses.put_nowait({})
+        self.query_executor._tokens_responses.put_nowait(
+            {token.symbol: token for token in [market.base_token, market.quote_token]}
+        )
+        base_decimals = market.base_token.decimals
+        quote_decimals = market.quote_token.decimals
 
         order_book_data = {
-            "marketId": self.market_id,
-            "sequence": "7734169",
-            "buys": [
+            "blockHeight": "20583",
+            "blockTime": "1640001112223",
+            "subaccountDeposits": [],
+            "spotOrderbookUpdates": [
                 {
-                    "price": "0.000000000007684",
-                    "quantity": "4578787000000000000000",
-                    "isActive": True,
-                    "timestamp": "1687889315683"
-                },
-                {
-                    "price": "0.000000000007685",
-                    "quantity": "4412340000000000000000",
-                    "isActive": True,
-                    "timestamp": "1687889316000"
+                    "seq": "7734169",
+                    "orderbook": {
+                        "marketId": self.market_id,
+                        "buyLevels": [
+                            {
+                                "p": "7684000",
+                                "q": "4578787000000000000000000000000000000000"
+                            },
+                            {
+                                "p": "7685000",
+                                "q": "4412340000000000000000000000000000000000"
+                            },
+                        ],
+                        "sellLevels": [
+                            {
+                                "p": "7723000",
+                                "q": "3478787000000000000000000000000000000000"
+                            },
+                        ],
+                    }
                 }
             ],
-            "sells": [
-                {
-                    "price": "0.000000000007723",
-                    "quantity": "3478787000000000000000",
-                    "isActive": True,
-                    "timestamp": "1687889315683"
-                }
-            ],
-            "updatedAt": "1687889315683",
+            "derivativeOrderbookUpdates": [],
+            "bankBalances": [],
+            "spotTrades": [],
+            "derivativeTrades": [],
+            "spotOrders": [],
+            "derivativeOrders": [],
+            "positions": [],
+            "oraclePrices": [],
         }
-        self.query_executor._spot_order_book_updates.put_nowait(order_book_data)
+        self.query_executor._chain_stream_events.put_nowait(order_book_data)
 
         self.async_run_with_timeout(self.data_source.listen_for_subscriptions())
 
         msg_queue: asyncio.Queue = asyncio.Queue()
         self.create_task(self.data_source.listen_for_order_book_diffs(self.async_loop, msg_queue))
 
-        msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
+        msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get(), timeout=10)
 
         self.assertEqual(OrderBookMessageType.DIFF, msg.type)
         self.assertEqual(-1, msg.trade_id)
-        self.assertEqual(int(order_book_data["updatedAt"]) * 1e-3, msg.timestamp)
-        expected_update_id = int(order_book_data["sequence"])
+        self.assertEqual(time_mock.return_value, msg.timestamp)
+        expected_update_id = int(order_book_data["spotOrderbookUpdates"][0]["seq"])
         self.assertEqual(expected_update_id, msg.update_id)
 
         bids = msg.bids
         asks = msg.asks
         self.assertEqual(2, len(bids))
-        first_bid_price = Decimal(order_book_data["buys"][0]["price"]) * Decimal(f"1e{base_decimals-quote_decimals}")
-        first_bid_quantity = Decimal(order_book_data["buys"][0]["quantity"]) * Decimal(f"1e{-base_decimals}")
+
+        first_bid_price = Decimal(order_book_data["spotOrderbookUpdates"][0]["orderbook"]["buyLevels"][1]["p"]) * Decimal(f"1e{base_decimals-quote_decimals-18}")
+        first_bid_quantity = Decimal(order_book_data["spotOrderbookUpdates"][0]["orderbook"]["buyLevels"][1]["q"]) * Decimal(f"1e{-base_decimals-18}")
         self.assertEqual(float(first_bid_price), bids[0].price)
         self.assertEqual(float(first_bid_quantity), bids[0].amount)
         self.assertEqual(expected_update_id, bids[0].update_id)
         self.assertEqual(1, len(asks))
-        first_ask_price = Decimal(order_book_data["sells"][0]["price"]) * Decimal(f"1e{base_decimals - quote_decimals}")
-        first_ask_quantity = Decimal(order_book_data["sells"][0]["quantity"]) * Decimal(f"1e{-base_decimals}")
+        first_ask_price = Decimal(order_book_data["spotOrderbookUpdates"][0]["orderbook"]["sellLevels"][0]["p"]) * Decimal(f"1e{base_decimals-quote_decimals-18}")
+        first_ask_quantity = Decimal(order_book_data["spotOrderbookUpdates"][0]["orderbook"]["sellLevels"][0]["q"]) * Decimal(f"1e{-base_decimals-18}")
         self.assertEqual(float(first_ask_price), asks[0].price)
         self.assertEqual(float(first_ask_quantity), asks[0].amount)
         self.assertEqual(expected_update_id, asks[0].update_id)
 
     def _spot_markets_response(self):
-        return [{
-            "marketId": self.market_id,
-            "marketStatus": "active",
-            "ticker": self.ex_trading_pair,
-            "baseDenom": "inj",
-            "baseTokenMeta": {
-                "name": "Base Asset",
-                "address": "0xe28b3B32B6c345A34Ff64674606124Dd5Aceca30",  # noqa: mock
-                "symbol": self.base_asset,
-                "logo": "https://static.alchemyapi.io/images/assets/7226.png",
-                "decimals": 18,
-                "updatedAt": "1687190809715"
-            },
-            "quoteDenom": "peggy0x87aB3B4C8661e07D6372361211B96ed4Dc36B1B5",  # noqa: mock
-            "quoteTokenMeta": {
-                "name": "Quote Asset",
-                "address": "0x0000000000000000000000000000000000000000",
-                "symbol": self.quote_asset,
-                "logo": "https://static.alchemyapi.io/images/assets/825.png",
-                "decimals": 6,
-                "updatedAt": "1687190809716"
-            },
-            "makerFeeRate": "-0.0001",
-            "takerFeeRate": "0.001",
-            "serviceProviderFee": "0.4",
-            "minPriceTickSize": "0.000000000000001",
-            "minQuantityTickSize": "1000000000000000"
-        }]
+        base_native_token = Token(
+            name="Base Asset",
+            symbol=self.base_asset,
+            denom="inj",
+            address="0xe28b3B32B6c345A34Ff64674606124Dd5Aceca30",  # noqa: mock
+            decimals=18,
+            logo="https://static.alchemyapi.io/images/assets/7226.png",
+            updated=1687190809715,
+        )
+        quote_native_token = Token(
+            name="Quote Asset",
+            symbol=self.quote_asset,
+            denom="peggy0x87aB3B4C8661e07D6372361211B96ed4Dc36B1B5",  # noqa: mock
+            address="0x0000000000000000000000000000000000000000",  # noqa: mock
+            decimals=6,
+            logo="https://static.alchemyapi.io/images/assets/825.png",
+            updated=1687190809716,
+        )
+
+        native_market = SpotMarket(
+            id=self.market_id,
+            status="active",
+            ticker=self.ex_trading_pair,
+            base_token=base_native_token,
+            quote_token=quote_native_token,
+            maker_fee_rate=Decimal("-0.0001"),
+            taker_fee_rate=Decimal("0.001"),
+            service_provider_fee=Decimal("0.4"),
+            min_price_tick_size=Decimal("0.000000000000001"),
+            min_quantity_tick_size=Decimal("1000000000000000"),
+        )
+
+        return {native_market.id: native_market}
