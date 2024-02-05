@@ -26,11 +26,6 @@ class TripleBarrierConf(BaseModel):
     stop_loss_order_type: OrderType = OrderType.MARKET
     time_limit_order_type: OrderType = OrderType.MARKET
 
-    @validator("stop_loss", "take_profit", "trailing_stop_activation_price_delta", "trailing_stop_trailing_delta",
-               pre=True)
-    def float_to_decimal(cls, v):
-        return Decimal(v)
-
 
 class OrderLevel(BaseModel):
     level: int

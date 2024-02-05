@@ -1,15 +1,19 @@
 import asyncio
+import base64
 import logging
 import time
 from abc import ABC, abstractmethod
 from decimal import Decimal
 from enum import Enum
-from functools import partial
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple, Union
 
+from bidict import bidict
 from google.protobuf import any_pb2
+from grpc import RpcError
 from pyinjective import Transaction
 from pyinjective.composer import Composer, injective_exchange_tx_pb
+from pyinjective.core.market import DerivativeMarket, SpotMarket
+from pyinjective.core.token import Token
 
 from hummingbot.connector.derivative.position import Position
 from hummingbot.connector.exchange.injective_v2 import injective_constants as CONSTANTS
@@ -25,7 +29,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.api_throttler.async_throttler_base import AsyncThrottlerBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide, TradeType
 from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
-from hummingbot.core.data_type.in_flight_order import OrderState, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase, TradeFeeSchema
 from hummingbot.core.event.event_listener import EventListener
@@ -44,8 +48,6 @@ from hummingbot.logger import HummingbotLogger
 class InjectiveDataSource(ABC):
     _logger: Optional[HummingbotLogger] = None
 
-    TRANSACTIONS_LOOKUP_TIMEOUT = CONSTANTS.EXPECTED_BLOCK_TIME * 3
-
     @classmethod
     def logger(cls) -> HummingbotLogger:
         if cls._logger is None:
@@ -60,11 +62,6 @@ class InjectiveDataSource(ABC):
     @property
     @abstractmethod
     def query_executor(self):
-        raise NotImplementedError
-
-    @property
-    @abstractmethod
-    def order_creation_lock(self) -> asyncio.Lock:
         raise NotImplementedError
 
     @property
@@ -105,6 +102,11 @@ class InjectiveDataSource(ABC):
     @property
     @abstractmethod
     def network_name(self) -> str:
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def last_received_message_timestamp(self):
         raise NotImplementedError
 
     @abstractmethod
@@ -221,41 +223,26 @@ class InjectiveDataSource(ABC):
         if not self.is_started():
             await self.initialize_trading_account()
             if not self.is_started():
+                spot_market_ids = []
+                derivative_market_ids = []
                 spot_markets = []
                 derivative_markets = []
                 for market_id in market_ids:
                     if market_id in await self.spot_market_and_trading_pair_map():
-                        spot_markets.append(market_id)
+                        market = await self.spot_market_info_for_id(market_id=market_id)
+                        spot_markets.append(market)
+                        spot_market_ids.append(market_id)
                     else:
-                        derivative_markets.append(market_id)
+                        market = await self.derivative_market_info_for_id(market_id=market_id)
+                        derivative_markets.append(market)
+                        derivative_market_ids.append(market_id)
 
-                if len(spot_markets) > 0:
-                    self.add_listening_task(asyncio.create_task(self._listen_to_public_spot_trades(market_ids=spot_markets)))
-                    self.add_listening_task(asyncio.create_task(self._listen_to_spot_order_book_updates(market_ids=spot_markets)))
-                    for market_id in spot_markets:
-                        self.add_listening_task(asyncio.create_task(
-                            self._listen_to_subaccount_spot_order_updates(market_id=market_id))
-                        )
-                        self.add_listening_task(asyncio.create_task(
-                            self._listen_to_subaccount_spot_order_updates(market_id=market_id))
-                        )
-                if len(derivative_markets) > 0:
-                    self.add_listening_task(
-                        asyncio.create_task(self._listen_to_public_derivative_trades(market_ids=derivative_markets)))
-                    self.add_listening_task(
-                        asyncio.create_task(self._listen_to_derivative_order_book_updates(market_ids=derivative_markets)))
-                    self.add_listening_task(
-                        asyncio.create_task(self._listen_to_positions_updates())
-                    )
-                    for market_id in derivative_markets:
-                        self.add_listening_task(asyncio.create_task(
-                            self._listen_to_subaccount_derivative_order_updates(market_id=market_id))
-                        )
-                        self.add_listening_task(
-                            asyncio.create_task(self._listen_to_funding_info_updates(market_id=market_id))
-                        )
-                self.add_listening_task(asyncio.create_task(self._listen_to_account_balance_updates()))
                 self.add_listening_task(asyncio.create_task(self._listen_to_chain_transactions()))
+                self.add_listening_task(asyncio.create_task(self._listen_to_chain_updates(
+                    spot_markets=spot_markets,
+                    derivative_markets=derivative_markets,
+                    subaccount_ids=[self.portfolio_account_subaccount_id]
+                )))
 
                 await self._initialize_timeout_height()
 
@@ -337,8 +324,8 @@ class InjectiveDataSource(ABC):
         async with self.throttler.execute_task(limit_id=CONSTANTS.PORTFOLIO_BALANCES_LIMIT_ID):
             portfolio_response = await self.query_executor.account_portfolio(account_address=account_address)
 
-        bank_balances = portfolio_response["bankBalances"]
-        sub_account_balances = portfolio_response.get("subaccounts", [])
+        bank_balances = portfolio_response["portfolio"]["bankBalances"]
+        sub_account_balances = portfolio_response["portfolio"].get("subaccounts", [])
 
         balances_dict: Dict[str, Dict[str, Decimal]] = {}
 
@@ -420,41 +407,34 @@ class InjectiveDataSource(ABC):
         spot_orders = spot_orders or []
         perpetual_orders = perpetual_orders or []
         results = []
-        if self.order_creation_lock.locked():
-            raise RuntimeError("It is not possible to create new orders because the hash manager is not synchronized")
-
         if len(spot_orders) > 0 or len(perpetual_orders) > 0:
-            async with self.order_creation_lock:
+            order_creation_messages = await self._order_creation_messages(
+                spot_orders_to_create=spot_orders,
+                derivative_orders_to_create=perpetual_orders,
+            )
 
-                order_creation_messages, spot_order_hashes, derivative_order_hashes = await self._order_creation_messages(
-                    spot_orders_to_create=spot_orders,
-                    derivative_orders_to_create=perpetual_orders,
-                )
-
-                try:
-                    result = await self._send_in_transaction(messages=order_creation_messages)
-                    if result["rawLog"] != "[]" or result["txhash"] in [None, ""]:
-                        raise ValueError(f"Error sending the order creation transaction ({result['rawLog']})")
-                    else:
-                        transaction_hash = result["txhash"]
-                        results = self._place_order_results(
-                            orders_to_create=spot_orders + perpetual_orders,
-                            order_hashes=spot_order_hashes + derivative_order_hashes,
-                            misc_updates={
-                                "creation_transaction_hash": transaction_hash,
-                            },
-                        )
-                except asyncio.CancelledError:
-                    raise
-                except Exception as ex:
-                    self.logger().debug(
-                        f"Error broadcasting transaction to create orders (message: {order_creation_messages})")
+            try:
+                result = await self._send_in_transaction(messages=order_creation_messages)
+                if result["rawLog"] != "[]" or result["txhash"] in [None, ""]:
+                    raise ValueError(f"Error sending the order creation transaction ({result['rawLog']})")
+                else:
+                    transaction_hash = result["txhash"]
                     results = self._place_order_results(
                         orders_to_create=spot_orders + perpetual_orders,
-                        order_hashes=spot_order_hashes + derivative_order_hashes,
-                        misc_updates={},
-                        exception=ex,
+                        misc_updates={
+                            "creation_transaction_hash": transaction_hash,
+                        },
                     )
+            except asyncio.CancelledError:
+                raise
+            except Exception as ex:
+                self.logger().debug(
+                    f"Error broadcasting transaction to create orders (message: {order_creation_messages})")
+                results = self._place_order_results(
+                    orders_to_create=spot_orders + perpetual_orders,
+                    misc_updates={},
+                    exception=ex,
+                )
 
         return results
 
@@ -473,30 +453,16 @@ class InjectiveDataSource(ABC):
 
         if len(spot_orders) > 0 or len(perpetual_orders) > 0:
             for order in spot_orders:
-                if order.exchange_order_id is None:
-                    results.append(CancelOrderResult(
-                        client_order_id=order.client_order_id,
-                        trading_pair=order.trading_pair,
-                        not_found=True,
-                    ))
-                else:
-                    market_id = await self.market_id_for_spot_trading_pair(trading_pair=order.trading_pair)
-                    order_data = await self._generate_injective_order_data(order=order, market_id=market_id)
-                    spot_orders_data.append(order_data)
-                    orders_with_hash.append(order)
+                market_id = await self.market_id_for_spot_trading_pair(trading_pair=order.trading_pair)
+                order_data = await self._generate_injective_order_data(order=order, market_id=market_id)
+                spot_orders_data.append(order_data)
+                orders_with_hash.append(order)
 
             for order in perpetual_orders:
-                if order.exchange_order_id is None:
-                    results.append(CancelOrderResult(
-                        client_order_id=order.client_order_id,
-                        trading_pair=order.trading_pair,
-                        not_found=True,
-                    ))
-                else:
-                    market_id = await self.market_id_for_derivative_trading_pair(trading_pair=order.trading_pair)
-                    order_data = await self._generate_injective_order_data(order=order, market_id=market_id)
-                    derivative_orders_data.append(order_data)
-                    orders_with_hash.append(order)
+                market_id = await self.market_id_for_derivative_trading_pair(trading_pair=order.trading_pair)
+                order_data = await self._generate_injective_order_data(order=order, market_id=market_id)
+                derivative_orders_data.append(order_data)
+                orders_with_hash.append(order)
 
             if len(orders_with_hash) > 0:
                 delegated_message = await self._order_cancel_message(
@@ -656,23 +622,6 @@ class InjectiveDataSource(ABC):
 
         return order_updates
 
-    async def reset_order_hash_generator(self, active_orders: List[GatewayInFlightOrder]):
-        if not self.order_creation_lock.locked:
-            raise RuntimeError("The order creation lock should be acquired before resetting the order hash manager")
-        transactions_to_wait_before_reset = set()
-        for order in active_orders:
-            if order.creation_transaction_hash is not None and order.current_state == OrderState.PENDING_CREATE:
-                transactions_to_wait_before_reset.add(order.creation_transaction_hash)
-        transaction_wait_tasks = [
-            asyncio.wait_for(
-                self._transaction_from_chain(tx_hash=transaction_hash, retries=2),
-                timeout=self.TRANSACTIONS_LOOKUP_TIMEOUT
-            )
-            for transaction_hash in transactions_to_wait_before_reset
-        ]
-        await safe_gather(*transaction_wait_tasks, return_exceptions=True)
-        self._reset_order_hash_manager()
-
     async def get_spot_trading_fees(self) -> Dict[str, TradeFeeSchema]:
         markets = await self.spot_markets()
         fees = await self._create_trading_fees(markets=markets)
@@ -695,7 +644,7 @@ class InjectiveDataSource(ABC):
             trading_pair=await self.trading_pair_for_market(market_id=market_id),
             index_price=last_traded_price,  # Use the last traded price as the index_price
             mark_price=oracle_price,
-            next_funding_utc_timestamp=updated_market_info.next_funding_timestamp(),
+            next_funding_utc_timestamp=int(updated_market_info["market"]["perpetualMarketInfo"]["nextFundingTimestamp"]),
             rate=funding_rate,
         )
         return funding_info
@@ -703,7 +652,11 @@ class InjectiveDataSource(ABC):
     async def last_funding_rate(self, market_id: str) -> Decimal:
         async with self.throttler.execute_task(limit_id=CONSTANTS.FUNDING_RATES_LIMIT_ID):
             response = await self.query_executor.get_funding_rates(market_id=market_id, limit=1)
-        rate = Decimal(response["fundingRates"][0]["rate"])
+        funding_rates = response.get("fundingRates", [])
+        if len(funding_rates) == 0:
+            rate = Decimal("0")
+        else:
+            rate = Decimal(response["fundingRates"][0]["rate"])
 
         return rate
 
@@ -738,23 +691,11 @@ class InjectiveDataSource(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def _calculate_order_hashes(
-            self,
-            spot_orders: List[GatewayInFlightOrder],
-            derivative_orders: [GatewayPerpetualInFlightOrder]
-    ) -> Tuple[List[str], List[str]]:
-        raise NotImplementedError
-
-    @abstractmethod
-    def _reset_order_hash_manager(self):
-        raise NotImplementedError
-
-    @abstractmethod
     async def _order_creation_messages(
             self,
             spot_orders_to_create: List[GatewayInFlightOrder],
             derivative_orders_to_create: List[GatewayPerpetualInFlightOrder],
-    ) -> Tuple[List[any_pb2.Any], List[str], List[str]]:
+    ) -> List[any_pb2.Any]:
         raise NotImplementedError
 
     @abstractmethod
@@ -778,18 +719,29 @@ class InjectiveDataSource(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def _updated_derivative_market_info_for_id(self, market_id: str) -> InjectiveDerivativeMarket:
+    async def _updated_derivative_market_info_for_id(self, market_id: str) -> Dict[str, Any]:
         raise NotImplementedError
 
     @abstractmethod
+    async def _configure_gas_fee_for_transaction(self, transaction: Transaction):
+        raise NotImplementedError
+
     def _place_order_results(
             self,
             orders_to_create: List[GatewayInFlightOrder],
-            order_hashes: List[str],
             misc_updates: Dict[str, Any],
             exception: Optional[Exception] = None,
     ) -> List[PlaceOrderResult]:
-        raise NotImplementedError
+        return [
+            PlaceOrderResult(
+                update_timestamp=self._time(),
+                client_order_id=order.client_order_id,
+                exchange_order_id=None,
+                trading_pair=order.trading_pair,
+                misc_updates=misc_updates,
+                exception=exception
+            ) for order in orders_to_create
+        ]
 
     async def _last_traded_price(self, market_id: str) -> Decimal:
         price = Decimal("nan")
@@ -819,28 +771,6 @@ class InjectiveDataSource(ABC):
 
         return price
 
-    async def _transaction_from_chain(self, tx_hash: str, retries: int) -> int:
-        executed_tries = 0
-        found = False
-        block_height = None
-
-        while executed_tries < retries and not found:
-            executed_tries += 1
-            try:
-                async with self.throttler.execute_task(limit_id=CONSTANTS.GET_TRANSACTION_CHAIN_LIMIT_ID):
-                    block_height = await self.query_executor.get_tx_block_height(tx_hash=tx_hash)
-                found = True
-            except ValueError:
-                # No block found containing the transaction, continue the search
-                raise NotImplementedError
-            if executed_tries < retries and not found:
-                await self._sleep(CONSTANTS.EXPECTED_BLOCK_TIME)
-
-        if not found:
-            raise ValueError(f"The transaction {tx_hash} is not included in any mined block")
-
-        return block_height
-
     async def _oracle_price(self, market_id: str) -> Decimal:
         market = await self.derivative_market_info_for_id(market_id=market_id)
         async with self.throttler.execute_task(limit_id=CONSTANTS.ORACLE_PRICES_LIMIT_ID):
@@ -854,63 +784,93 @@ class InjectiveDataSource(ABC):
 
         return price
 
-    def _spot_order_book_updates_stream(self, market_ids: List[str]):
-        stream = self.query_executor.spot_order_book_updates_stream(market_ids=market_ids)
-        return stream
+    async def _listen_chain_stream_updates(
+            self,
+            spot_markets: List[InjectiveSpotMarket],
+            derivative_markets: List[InjectiveDerivativeMarket],
+            subaccount_ids: List[str],
+            composer: Composer,
+            callback: Callable,
+            on_end_callback: Optional[Callable] = None,
+            on_status_callback: Optional[Callable] = None,
+    ):
+        spot_market_ids = [market_info.market_id for market_info in spot_markets]
+        derivative_market_ids = []
+        oracle_price_symbols = set()
 
-    def _public_spot_trades_stream(self, market_ids: List[str]):
-        stream = self.query_executor.public_spot_trades_stream(market_ids=market_ids)
-        return stream
+        for derivative_market_info in derivative_markets:
+            derivative_market_ids.append(derivative_market_info.market_id)
+            oracle_price_symbols.add(derivative_market_info.oracle_base())
+            oracle_price_symbols.add(derivative_market_info.oracle_quote())
 
-    def _derivative_order_book_updates_stream(self, market_ids: List[str]):
-        stream = self.query_executor.derivative_order_book_updates_stream(market_ids=market_ids)
-        return stream
+        subaccount_deposits_filter = composer.chain_stream_subaccount_deposits_filter(subaccount_ids=subaccount_ids)
+        if len(spot_market_ids) > 0:
+            spot_orderbooks_filter = composer.chain_stream_orderbooks_filter(market_ids=spot_market_ids)
+            spot_trades_filter = composer.chain_stream_trades_filter(market_ids=spot_market_ids)
+            spot_orders_filter = composer.chain_stream_orders_filter(
+                subaccount_ids=subaccount_ids, market_ids=spot_market_ids,
+            )
+        else:
+            spot_orderbooks_filter = None
+            spot_trades_filter = None
+            spot_orders_filter = None
 
-    def _public_derivative_trades_stream(self, market_ids: List[str]):
-        stream = self.query_executor.public_derivative_trades_stream(market_ids=market_ids)
-        return stream
+        if len(derivative_market_ids) > 0:
+            derivative_orderbooks_filter = composer.chain_stream_orderbooks_filter(market_ids=derivative_market_ids)
+            derivative_trades_filter = composer.chain_stream_trades_filter(market_ids=derivative_market_ids)
+            derivative_orders_filter = composer.chain_stream_orders_filter(
+                subaccount_ids=subaccount_ids, market_ids=derivative_market_ids
+            )
+            positions_filter = composer.chain_stream_positions_filter(
+                subaccount_ids=subaccount_ids, market_ids=derivative_market_ids
+            )
+            oracle_price_filter = composer.chain_stream_oracle_price_filter(symbols=list(oracle_price_symbols))
+        else:
+            derivative_orderbooks_filter = None
+            derivative_trades_filter = None
+            derivative_orders_filter = None
+            positions_filter = None
+            oracle_price_filter = None
 
-    def _oracle_prices_stream(self, oracle_base: str, oracle_quote: str, oracle_type: str):
-        stream = self.query_executor.oracle_prices_stream(
-            oracle_base=oracle_base, oracle_quote=oracle_quote, oracle_type=oracle_type
+        await self.query_executor.listen_chain_stream_updates(
+            callback=callback,
+            on_end_callback=on_end_callback,
+            on_status_callback=on_status_callback,
+            subaccount_deposits_filter=subaccount_deposits_filter,
+            spot_trades_filter=spot_trades_filter,
+            derivative_trades_filter=derivative_trades_filter,
+            spot_orders_filter=spot_orders_filter,
+            derivative_orders_filter=derivative_orders_filter,
+            spot_orderbooks_filter=spot_orderbooks_filter,
+            derivative_orderbooks_filter=derivative_orderbooks_filter,
+            positions_filter=positions_filter,
+            oracle_price_filter=oracle_price_filter
         )
-        return stream
 
-    def _subaccount_positions_stream(self):
-        stream = self.query_executor.subaccount_positions_stream(subaccount_id=self.portfolio_account_subaccount_id)
-        return stream
-
-    def _subaccount_balance_stream(self):
-        stream = self.query_executor.subaccount_balance_stream(subaccount_id=self.portfolio_account_subaccount_id)
-        return stream
-
-    def _subaccount_spot_orders_stream(self, market_id: str):
-        stream = self.query_executor.subaccount_historical_spot_orders_stream(
-            market_id=market_id, subaccount_id=self.portfolio_account_subaccount_id
+    async def _listen_transactions_updates(
+        self,
+        callback: Callable,
+        on_end_callback: Callable,
+        on_status_callback: Callable,
+    ):
+        await self.query_executor.listen_transactions_updates(
+            callback=callback,
+            on_end_callback=on_end_callback,
+            on_status_callback=on_status_callback,
         )
-        return stream
-
-    def _subaccount_derivative_orders_stream(self, market_id: str):
-        stream = self.query_executor.subaccount_historical_derivative_orders_stream(
-            market_id=market_id, subaccount_id=self.portfolio_account_subaccount_id
-        )
-        return stream
-
-    def _transactions_stream(self):
-        stream = self.query_executor.transactions_stream()
-        return stream
 
     async def _parse_spot_trade_entry(self, trade_info: Dict[str, Any]) -> TradeUpdate:
         exchange_order_id: str = trade_info["orderHash"]
+        client_order_id: str = trade_info.get("cid", "")
         market = await self.spot_market_info_for_id(market_id=trade_info["marketId"])
         trading_pair = await self.trading_pair_for_market(market_id=trade_info["marketId"])
-        trade_id: str = trade_info["tradeId"]
 
         price = market.price_from_chain_format(chain_price=Decimal(trade_info["price"]["price"]))
         size = market.quantity_from_chain_format(chain_quantity=Decimal(trade_info["price"]["quantity"]))
         trade_type = TradeType.BUY if trade_info["tradeDirection"] == "buy" else TradeType.SELL
         is_taker: bool = trade_info["executionSide"] == "taker"
         trade_time = int(trade_info["executedAt"]) * 1e-3
+        trade_id = trade_info["tradeId"]
 
         fee_amount = market.quote_token.value_from_chain_format(chain_value=Decimal(trade_info["fee"]))
         fee = TradeFeeBase.new_spot_fee(
@@ -922,7 +882,7 @@ class InjectiveDataSource(ABC):
 
         trade_update = TradeUpdate(
             trade_id=trade_id,
-            client_order_id=None,
+            client_order_id=client_order_id,
             exchange_order_id=exchange_order_id,
             trading_pair=trading_pair,
             fill_timestamp=trade_time,
@@ -937,14 +897,15 @@ class InjectiveDataSource(ABC):
 
     async def _parse_derivative_trade_entry(self, trade_info: Dict[str, Any]) -> TradeUpdate:
         exchange_order_id: str = trade_info["orderHash"]
+        client_order_id: str = trade_info.get("cid", "")
         market = await self.derivative_market_info_for_id(market_id=trade_info["marketId"])
         trading_pair = await self.trading_pair_for_market(market_id=trade_info["marketId"])
-        trade_id: str = trade_info["tradeId"]
 
         price = market.price_from_chain_format(chain_price=Decimal(trade_info["positionDelta"]["executionPrice"]))
         size = market.quantity_from_chain_format(chain_quantity=Decimal(trade_info["positionDelta"]["executionQuantity"]))
         is_taker: bool = trade_info["executionSide"] == "taker"
         trade_time = int(trade_info["executedAt"]) * 1e-3
+        trade_id = trade_info["tradeId"]
 
         fee_amount = market.quote_token.value_from_chain_format(chain_value=Decimal(trade_info["fee"]))
         fee = TradeFeeBase.new_perpetual_fee(
@@ -956,7 +917,7 @@ class InjectiveDataSource(ABC):
 
         trade_update = TradeUpdate(
             trade_id=trade_id,
-            client_order_id=None,
+            client_order_id=client_order_id,
             exchange_order_id=exchange_order_id,
             trading_pair=trading_pair,
             fill_timestamp=trade_time,
@@ -971,13 +932,14 @@ class InjectiveDataSource(ABC):
 
     async def _parse_order_entry(self, order_info: Dict[str, Any]) -> OrderUpdate:
         exchange_order_id: str = order_info["orderHash"]
+        client_order_id: str = order_info.get("cid", "")
         trading_pair = await self.trading_pair_for_market(market_id=order_info["marketId"])
 
         status_update = OrderUpdate(
             trading_pair=trading_pair,
             update_timestamp=int(order_info["updatedAt"]) * 1e-3,
             new_state=CONSTANTS.ORDER_STATE_MAP[order_info["state"]],
-            client_order_id=None,
+            client_order_id=client_order_id,
             exchange_order_id=exchange_order_id,
         )
 
@@ -1023,25 +985,14 @@ class InjectiveDataSource(ABC):
         transaction.with_account_num(await self.trading_account_number())
         transaction.with_chain_id(self.injective_chain_id)
 
-        signed_transaction_data = self._sign_and_encode(transaction=transaction)
-
         async with self.throttler.execute_task(limit_id=CONSTANTS.SIMULATE_TRANSACTION_LIMIT_ID):
             try:
-                simulation_result = await self.query_executor.simulate_tx(tx_byte=signed_transaction_data)
+                await self._configure_gas_fee_for_transaction(transaction=transaction)
             except RuntimeError as simulation_ex:
                 if CONSTANTS.ACCOUNT_SEQUENCE_MISMATCH_ERROR in str(simulation_ex):
                     await self.initialize_trading_account()
                 raise
 
-        composer = await self.composer()
-        gas_limit = int(simulation_result["gasInfo"]["gasUsed"]) + CONSTANTS.EXTRA_TRANSACTION_GAS
-        fee = [composer.Coin(
-            amount=gas_limit * CONSTANTS.DEFAULT_GAS_PRICE,
-            denom=self.fee_denom,
-        )]
-
-        transaction.with_gas(gas_limit)
-        transaction.with_fee(fee)
         transaction.with_memo("")
         transaction.with_timeout_height(await self.timeout_height())
 
@@ -1055,238 +1006,492 @@ class InjectiveDataSource(ABC):
 
         return result
 
-    async def _listen_to_spot_order_book_updates(self, market_ids: List[str]):
-        await self._listen_stream_events(
-            stream_provider=partial(self._spot_order_book_updates_stream, market_ids=market_ids),
-            event_processor=self._process_order_book_update,
-            event_name_for_errors="spot order book",
-        )
+    def _chain_stream_exception_handler(self, exception: RpcError):
+        self.logger().warning(f"Error while listening to chain stream ({exception})")
 
-    async def _listen_to_public_spot_trades(self, market_ids: List[str]):
-        await self._listen_stream_events(
-            stream_provider=partial(self._public_spot_trades_stream, market_ids=market_ids),
-            event_processor=self._process_public_spot_trade_update,
-            event_name_for_errors="public spot trade",
-        )
+    def _chain_stream_closed_handler(self):
+        self.logger().debug("Reconnecting stream for chain stream")
 
-    async def _listen_to_derivative_order_book_updates(self, market_ids: List[str]):
-        await self._listen_stream_events(
-            stream_provider=partial(self._derivative_order_book_updates_stream, market_ids=market_ids),
-            event_processor=self._process_order_book_update,
-            event_name_for_errors="derivative order book",
-        )
-
-    async def _listen_to_public_derivative_trades(self, market_ids: List[str]):
-        await self._listen_stream_events(
-            stream_provider=partial(self._public_derivative_trades_stream, market_ids=market_ids),
-            event_processor=self._process_public_derivative_trade_update,
-            event_name_for_errors="public derivative trade",
-        )
-
-    async def _listen_to_funding_info_updates(self, market_id: str):
-        market = await self.derivative_market_info_for_id(market_id=market_id)
-        await self._listen_stream_events(
-            stream_provider=partial(
-                self._oracle_prices_stream,
-                oracle_base=market.oracle_base(),
-                oracle_quote=market.oracle_quote(),
-                oracle_type=market.oracle_type()
-            ),
-            event_processor=self._process_oracle_price_update,
-            event_name_for_errors="funding info",
-            market_id=market_id,
-        )
-
-    async def _listen_to_positions_updates(self):
-        await self._listen_stream_events(
-            stream_provider=self._subaccount_positions_stream,
-            event_processor=self._process_position_update,
-            event_name_for_errors="position",
-        )
-
-    async def _listen_to_account_balance_updates(self):
-        await self._listen_stream_events(
-            stream_provider=self._subaccount_balance_stream,
-            event_processor=self._process_subaccount_balance_update,
-            event_name_for_errors="balance",
-        )
-
-    async def _listen_to_subaccount_spot_order_updates(self, market_id: str):
-        await self._listen_stream_events(
-            stream_provider=partial(self._subaccount_spot_orders_stream, market_id=market_id),
-            event_processor=self._process_subaccount_order_update,
-            event_name_for_errors="subaccount spot order",
-        )
-
-    async def _listen_to_subaccount_derivative_order_updates(self, market_id: str):
-        await self._listen_stream_events(
-            stream_provider=partial(self._subaccount_derivative_orders_stream, market_id=market_id),
-            event_processor=self._process_subaccount_order_update,
-            event_name_for_errors="subaccount derivative order",
-        )
-
-    async def _listen_to_chain_transactions(self):
-        await self._listen_stream_events(
-            stream_provider=self._transactions_stream,
-            event_processor=self._process_transaction_update,
-            event_name_for_errors="transaction",
-        )
-
-    async def _listen_stream_events(
+    async def _listen_to_chain_updates(
             self,
-            stream_provider: Callable,
-            event_processor: Callable,
-            event_name_for_errors: str,
-            **kwargs):
-        while True:
-            self.logger().debug(f"Starting stream for {event_name_for_errors}")
+            spot_markets: List[InjectiveSpotMarket],
+            derivative_markets: List[InjectiveDerivativeMarket],
+            subaccount_ids: List[str],
+    ):
+        composer = await self.composer()
+
+        async def _chain_stream_event_handler(event: Dict[str, Any]):
             try:
-                stream = stream_provider()
-                async for event in stream:
-                    try:
-                        await event_processor(event, **kwargs)
-                    except asyncio.CancelledError:
-                        raise
-                    except Exception as ex:
-                        self.logger().warning(f"Invalid {event_name_for_errors} event format ({ex})\n{event}")
+                await self._process_chain_stream_update(
+                    chain_stream_update=event, derivative_markets=derivative_markets,
+                )
             except asyncio.CancelledError:
                 raise
             except Exception as ex:
-                self.logger().error(f"Error while listening to {event_name_for_errors} stream, reconnecting ... ({ex})")
-            self.logger().debug(f"Reconnecting stream for {event_name_for_errors}")
+                self.logger().warning(f"Invalid chain stream event format ({ex})\n{event}")
 
-    async def _process_order_book_update(self, order_book_update: Dict[str, Any]):
-        market_id = order_book_update["marketId"]
-        if market_id in await self.spot_market_and_trading_pair_map():
-            market_info = await self.spot_market_info_for_id(market_id=market_id)
-        else:
-            market_info = await self.derivative_market_info_for_id(market_id=market_id)
+        while True:
+            # Running in a cycle to reconnect to the stream after connection errors
+            await self._listen_chain_stream_updates(
+                spot_markets=spot_markets,
+                derivative_markets=derivative_markets,
+                subaccount_ids=subaccount_ids,
+                composer=composer,
+                callback=_chain_stream_event_handler,
+                on_end_callback=self._chain_stream_closed_handler,
+                on_status_callback=self._chain_stream_exception_handler,
+            )
 
-        trading_pair = await self.trading_pair_for_market(market_id=market_id)
-        bids = [(market_info.price_from_chain_format(chain_price=Decimal(bid["price"])),
-                 market_info.quantity_from_chain_format(chain_quantity=Decimal(bid["quantity"])))
-                for bid in order_book_update.get("buys", [])]
-        asks = [(market_info.price_from_chain_format(chain_price=Decimal(ask["price"])),
-                 market_info.quantity_from_chain_format(chain_quantity=Decimal(ask["quantity"])))
-                for ask in order_book_update.get("sells", [])]
+    def _transaction_stream_exception_handler(self, exception: RpcError):
+        self.logger().warning(f"Error while listening to transaction stream ({exception})")
+
+    def _transaction_stream_closed_handler(self):
+        self.logger().debug("Reconnecting stream for transaction stream")
+
+    async def _listen_to_chain_transactions(self):
+        while True:
+            # Running in a cycle to reconnect to the stream after connection errors
+            await self._listen_transactions_updates(
+                callback=self._process_transaction_update,
+                on_end_callback=self._transaction_stream_closed_handler,
+                on_status_callback=self._transaction_stream_exception_handler,
+            )
+
+    async def _process_chain_stream_update(
+        self, chain_stream_update: Dict[str, Any], derivative_markets: List[InjectiveDerivativeMarket],
+    ):
+        block_height = int(chain_stream_update["blockHeight"])
+        block_timestamp = int(chain_stream_update["blockTime"]) * 1e-3
+        tasks = []
+
+        tasks.append(
+            asyncio.create_task(
+                self._process_subaccount_balance_update(
+                    balance_events=chain_stream_update.get("subaccountDeposits", []),
+                    block_height=block_height,
+                    block_timestamp=block_timestamp,
+                )
+            )
+        )
+        tasks.append(
+            asyncio.create_task(
+                self._process_chain_spot_order_book_update(
+                    order_book_updates=chain_stream_update.get("spotOrderbookUpdates", []),
+                    block_height=block_height,
+                    block_timestamp=block_timestamp,
+                )
+            )
+        )
+        tasks.append(
+            asyncio.create_task(
+                self._process_chain_spot_trade_update(
+                    trade_updates=chain_stream_update.get("spotTrades", []),
+                    block_height=block_height,
+                    block_timestamp=block_timestamp,
+                )
+            )
+        )
+        tasks.append(
+            asyncio.create_task(
+                self._process_chain_derivative_order_book_update(
+                    order_book_updates=chain_stream_update.get("derivativeOrderbookUpdates", []),
+                    block_height=block_height,
+                    block_timestamp=block_timestamp,
+                )
+            )
+        )
+        tasks.append(
+            asyncio.create_task(
+                self._process_chain_derivative_trade_update(
+                    trade_updates=chain_stream_update.get("derivativeTrades", []),
+                    block_height=block_height,
+                    block_timestamp=block_timestamp,
+                )
+            )
+        )
+        tasks.append(
+            asyncio.create_task(
+                self._process_chain_order_update(
+                    order_updates=chain_stream_update.get("spotOrders", []),
+                    block_height = block_height,
+                    block_timestamp = block_timestamp,
+                )
+            )
+        )
+        tasks.append(
+            asyncio.create_task(
+                self._process_chain_order_update(
+                    order_updates=chain_stream_update.get("derivativeOrders", []),
+                    block_height=block_height,
+                    block_timestamp=block_timestamp,
+                )
+            )
+        )
+        tasks.append(
+            asyncio.create_task(
+                self._process_chain_position_updates(
+                    position_updates=chain_stream_update.get("positions", []),
+                    block_height=block_height,
+                    block_timestamp=block_timestamp,
+                )
+            )
+        )
+        tasks.append(
+            asyncio.create_task(
+                self._process_oracle_price_updates(
+                    oracle_price_updates=chain_stream_update.get("oraclePrices", []),
+                    block_height=block_height,
+                    block_timestamp=block_timestamp,
+                    derivative_markets=derivative_markets,
+                )
+            )
+        )
+
+        await safe_gather(*tasks)
+
+    async def _process_chain_spot_order_book_update(
+            self,
+            order_book_updates: List[Dict[str, Any]],
+            block_height: int,
+            block_timestamp: float
+    ):
+        for order_book_update in order_book_updates:
+            try:
+                market_id = order_book_update["orderbook"]["marketId"]
+                market_info = await self.spot_market_info_for_id(market_id=market_id)
+                await self._process_chain_order_book_update(
+                    order_book_update=order_book_update,
+                    block_height=block_height,
+                    block_timestamp=block_timestamp,
+                    market=market_info,
+                )
+            except asyncio.CancelledError:
+                raise
+            except Exception as ex:
+                self.logger().warning(f"Error processing spot orderbook event ({ex})")
+                self.logger().debug(f"Error processing the spot orderbook event {order_book_update}")
+
+    async def _process_chain_derivative_order_book_update(
+            self,
+            order_book_updates: List[Dict[str, Any]],
+            block_height: int,
+            block_timestamp: float
+    ):
+        for order_book_update in order_book_updates:
+            try:
+                market_id = order_book_update["orderbook"]["marketId"]
+                market_info = await self.derivative_market_info_for_id(market_id=market_id)
+                await self._process_chain_order_book_update(
+                    order_book_update=order_book_update,
+                    block_height=block_height,
+                    block_timestamp=block_timestamp,
+                    market=market_info,
+                )
+            except asyncio.CancelledError:
+                raise
+            except Exception as ex:
+                self.logger().warning(f"Error processing derivative orderbook event ({ex})")
+                self.logger().debug(f"Error processing the derivative orderbook event {order_book_update}")
+
+    async def _process_chain_order_book_update(
+        self,
+        order_book_update: Dict[str, Any],
+        block_height: int,
+        block_timestamp: float,
+        market: Union[InjectiveSpotMarket, InjectiveDerivativeMarket],
+    ):
+        trading_pair = await self.trading_pair_for_market(market_id=market.market_id)
+        buy_levels = sorted(
+            order_book_update["orderbook"].get("buyLevels", []),
+            key=lambda bid: int(bid["p"]),
+            reverse=True
+        )
+        bids = [(market.price_from_special_chain_format(chain_price=Decimal(bid["p"])),
+                 market.quantity_from_special_chain_format(chain_quantity=Decimal(bid["q"])))
+                for bid in buy_levels]
+        asks = [(market.price_from_special_chain_format(chain_price=Decimal(ask["p"])),
+                 market.quantity_from_special_chain_format(chain_quantity=Decimal(ask["q"])))
+                for ask in order_book_update["orderbook"].get("sellLevels", [])]
 
         order_book_message_content = {
             "trading_pair": trading_pair,
-            "update_id": int(order_book_update["sequence"]),
+            "update_id": int(order_book_update["seq"]),
             "bids": bids,
             "asks": asks,
         }
         diff_message = OrderBookMessage(
             message_type=OrderBookMessageType.DIFF,
             content=order_book_message_content,
-            timestamp=int(order_book_update["updatedAt"]) * 1e-3,
+            timestamp=block_timestamp,
         )
         self.publisher.trigger_event(
             event_tag=OrderBookDataSourceEvent.DIFF_EVENT, message=diff_message
         )
 
-    async def _process_public_spot_trade_update(self, trade_update: Dict[str, Any]):
-        market_id = trade_update["marketId"]
-        market_info = await self.spot_market_info_for_id(market_id=market_id)
+    async def _process_chain_spot_trade_update(
+        self,
+        trade_updates: List[Dict[str, Any]],
+        block_height: int,
+        block_timestamp: float
+    ):
+        for trade_update in trade_updates:
+            try:
+                market_id = trade_update["marketId"]
+                market_info = await self.spot_market_info_for_id(market_id=market_id)
 
-        trading_pair = await self.trading_pair_for_market(market_id=market_id)
-        timestamp = int(trade_update["executedAt"]) * 1e-3
-        trade_type = float(TradeType.BUY.value) if trade_update["tradeDirection"] == "buy" else float(
-            TradeType.SELL.value)
-        message_content = {
-            "trade_id": trade_update["tradeId"],
-            "trading_pair": trading_pair,
-            "trade_type": trade_type,
-            "amount": market_info.quantity_from_chain_format(
-                chain_quantity=Decimal(str(trade_update["price"]["quantity"]))),
-            "price": market_info.price_from_chain_format(chain_price=Decimal(str(trade_update["price"]["price"]))),
-        }
-        trade_message = OrderBookMessage(
-            message_type=OrderBookMessageType.TRADE,
-            content=message_content,
-            timestamp=timestamp,
-        )
-        self.publisher.trigger_event(
-            event_tag=OrderBookDataSourceEvent.TRADE_EVENT, message=trade_message
-        )
+                trading_pair = await self.trading_pair_for_market(market_id=market_id)
+                timestamp = self._time()
+                trade_type = TradeType.BUY if trade_update.get("isBuy", False) else TradeType.SELL
+                amount = market_info.quantity_from_special_chain_format(
+                    chain_quantity=Decimal(str(trade_update["quantity"]))
+                )
+                price = market_info.price_from_special_chain_format(chain_price=Decimal(str(trade_update["price"])))
+                order_hash = "0x" + base64.b64decode(trade_update["orderHash"]).hex()
+                client_order_id = trade_update.get("cid", "")
+                trade_id = trade_update["tradeId"]
+                message_content = {
+                    "trade_id": trade_id,
+                    "trading_pair": trading_pair,
+                    "trade_type": float(trade_type.value),
+                    "amount": amount,
+                    "price": price,
+                }
+                trade_message = OrderBookMessage(
+                    message_type=OrderBookMessageType.TRADE,
+                    content=message_content,
+                    timestamp=timestamp,
+                )
+                self.publisher.trigger_event(
+                    event_tag=OrderBookDataSourceEvent.TRADE_EVENT, message=trade_message
+                )
 
-        update = await self._parse_spot_trade_entry(trade_info=trade_update)
-        self.publisher.trigger_event(event_tag=MarketEvent.TradeUpdate, message=update)
+                fee_amount = market_info.quote_token.value_from_special_chain_format(chain_value=Decimal(trade_update["fee"]))
+                fee = TradeFeeBase.new_spot_fee(
+                    fee_schema=TradeFeeSchema(),
+                    trade_type=trade_type,
+                    percent_token=market_info.quote_token.symbol,
+                    flat_fees=[TokenAmount(amount=fee_amount, token=market_info.quote_token.symbol)]
+                )
 
-    async def _process_public_derivative_trade_update(self, trade_update: Dict[str, Any]):
-        market_id = trade_update["marketId"]
-        market_info = await self.derivative_market_info_for_id(market_id=market_id)
+                trade_update = TradeUpdate(
+                    trade_id=trade_id,
+                    client_order_id=client_order_id,
+                    exchange_order_id=order_hash,
+                    trading_pair=trading_pair,
+                    fill_timestamp=timestamp,
+                    fill_price=price,
+                    fill_base_amount=amount,
+                    fill_quote_amount=amount * price,
+                    fee=fee,
+                )
+                self.publisher.trigger_event(event_tag=MarketEvent.TradeUpdate, message=trade_update)
+            except asyncio.CancelledError:
+                raise
+            except Exception as ex:
+                self.logger().warning(f"Error processing spot trade event ({ex})")
+                self.logger().debug(f"Error processing the spot trade event {trade_update}")
 
-        trading_pair = await self.trading_pair_for_market(market_id=market_id)
-        timestamp = int(trade_update["executedAt"]) * 1e-3
-        trade_type = (float(TradeType.BUY.value)
-                      if trade_update["positionDelta"]["tradeDirection"] == "buy"
-                      else float(TradeType.SELL.value))
-        message_content = {
-            "trade_id": trade_update["tradeId"],
-            "trading_pair": trading_pair,
-            "trade_type": trade_type,
-            "amount": market_info.quantity_from_chain_format(
-                chain_quantity=Decimal(str(trade_update["positionDelta"]["executionQuantity"]))),
-            "price": market_info.price_from_chain_format(
-                chain_price=Decimal(str(trade_update["positionDelta"]["executionPrice"]))),
-        }
-        trade_message = OrderBookMessage(
-            message_type=OrderBookMessageType.TRADE,
-            content=message_content,
-            timestamp=timestamp,
-        )
-        self.publisher.trigger_event(
-            event_tag=OrderBookDataSourceEvent.TRADE_EVENT, message=trade_message
-        )
+    async def _process_chain_derivative_trade_update(
+        self,
+        trade_updates: List[Dict[str, Any]],
+        block_height: int,
+        block_timestamp: float
+    ):
+        for trade_update in trade_updates:
+            try:
+                market_id = trade_update["marketId"]
+                market_info = await self.derivative_market_info_for_id(market_id=market_id)
 
-        update = await self._parse_derivative_trade_entry(trade_info=trade_update)
-        self.publisher.trigger_event(event_tag=MarketEvent.TradeUpdate, message=update)
+                trading_pair = await self.trading_pair_for_market(market_id=market_id)
+                trade_type = TradeType.BUY if trade_update.get("isBuy", False) else TradeType.SELL
+                amount = market_info.quantity_from_special_chain_format(
+                    chain_quantity=Decimal(str(trade_update["positionDelta"]["executionQuantity"]))
+                )
+                price = market_info.price_from_special_chain_format(
+                    chain_price=Decimal(str(trade_update["positionDelta"]["executionPrice"])))
+                order_hash = "0x" + base64.b64decode(trade_update["orderHash"]).hex()
+                client_order_id = trade_update.get("cid", "")
+                trade_id = trade_update["tradeId"]
 
-    async def _process_oracle_price_update(self, oracle_price_update: Dict[str, Any], market_id: str):
-        trading_pair = await self.trading_pair_for_market(market_id=market_id)
-        funding_info = await self.funding_info(market_id=market_id)
-        funding_info_update = FundingInfoUpdate(
-            trading_pair=trading_pair,
-            index_price=funding_info.index_price,
-            mark_price=funding_info.mark_price,
-            next_funding_utc_timestamp=funding_info.next_funding_utc_timestamp,
-            rate=funding_info.rate,
-        )
-        self.publisher.trigger_event(event_tag=MarketEvent.FundingInfo, message=funding_info_update)
+                message_content = {
+                    "trade_id": trade_id,
+                    "trading_pair": trading_pair,
+                    "trade_type": float(trade_type.value),
+                    "amount": amount,
+                    "price": price,
+                }
+                trade_message = OrderBookMessage(
+                    message_type=OrderBookMessageType.TRADE,
+                    content=message_content,
+                    timestamp=block_timestamp,
+                )
+                self.publisher.trigger_event(
+                    event_tag=OrderBookDataSourceEvent.TRADE_EVENT, message=trade_message
+                )
+
+                fee_amount = market_info.quote_token.value_from_special_chain_format(chain_value=Decimal(trade_update["fee"]))
+                fee = TradeFeeBase.new_perpetual_fee(
+                    fee_schema=TradeFeeSchema(),
+                    position_action=PositionAction.OPEN,  # will be changed by the exchange class
+                    percent_token=market_info.quote_token.symbol,
+                    flat_fees=[TokenAmount(amount=fee_amount, token=market_info.quote_token.symbol)]
+                )
+
+                trade_update = TradeUpdate(
+                    trade_id=trade_id,
+                    client_order_id=client_order_id,
+                    exchange_order_id=order_hash,
+                    trading_pair=trading_pair,
+                    fill_timestamp=block_timestamp,
+                    fill_price=price,
+                    fill_base_amount=amount,
+                    fill_quote_amount=amount * price,
+                    fee=fee,
+                )
+                self.publisher.trigger_event(event_tag=MarketEvent.TradeUpdate, message=trade_update)
+            except asyncio.CancelledError:
+                raise
+            except Exception as ex:
+                self.logger().warning(f"Error processing derivative trade event ({ex})")
+                self.logger().debug(f"Error processing the derivative trade event {trade_update}")
+
+    async def _process_chain_order_update(
+            self,
+            order_updates: List[Dict[str, Any]],
+            block_height: int,
+            block_timestamp: float,
+    ):
+        for order_update in order_updates:
+            try:
+                exchange_order_id = "0x" + base64.b64decode(order_update["orderHash"]).hex()
+                client_order_id = order_update.get("cid", "")
+                trading_pair = await self.trading_pair_for_market(market_id=order_update["order"]["marketId"])
+
+                status_update = OrderUpdate(
+                    trading_pair=trading_pair,
+                    update_timestamp=block_timestamp,
+                    new_state=CONSTANTS.STREAM_ORDER_STATE_MAP[order_update["status"]],
+                    client_order_id=client_order_id,
+                    exchange_order_id=exchange_order_id,
+                )
+
+                self.publisher.trigger_event(event_tag=MarketEvent.OrderUpdate, message=status_update)
+            except asyncio.CancelledError:
+                raise
+            except Exception as ex:
+                self.logger().warning(f"Error processing order event ({ex})")
+                self.logger().debug(f"Error processing the order event {order_update}")
+
+    async def _process_chain_position_updates(
+            self,
+            position_updates: List[Dict[str, Any]],
+            block_height: int,
+            block_timestamp: float,
+    ):
+        for event in position_updates:
+            try:
+                market_id = event["marketId"]
+                market = await self.derivative_market_info_for_id(market_id=market_id)
+                trading_pair = await self.trading_pair_for_market(market_id=market_id)
+
+                position_side = PositionSide.LONG if event["isLong"] else PositionSide.SHORT
+                amount_sign = Decimal(-1) if position_side == PositionSide.SHORT else Decimal(1)
+                entry_price = (market.price_from_special_chain_format(chain_price=Decimal(event["entryPrice"])))
+                amount = (market.quantity_from_special_chain_format(chain_quantity=Decimal(event["quantity"])))
+                margin = (market.price_from_special_chain_format(chain_price=Decimal(event["margin"])))
+                oracle_price = await self._oracle_price(market_id=market_id)
+                leverage = (amount * entry_price) / margin
+                unrealized_pnl = (oracle_price - entry_price) * amount * amount_sign
+
+                parsed_event = PositionUpdateEvent(
+                    timestamp=block_timestamp,
+                    trading_pair=trading_pair,
+                    position_side=position_side,
+                    unrealized_pnl=unrealized_pnl,
+                    entry_price=entry_price,
+                    amount=amount * amount_sign,
+                    leverage=leverage,
+                )
+
+                self.publisher.trigger_event(event_tag=AccountEvent.PositionUpdate, message=parsed_event)
+            except asyncio.CancelledError:
+                raise
+            except Exception as ex:
+                self.logger().warning(f"Error processing position event ({ex})")
+                self.logger().debug(f"Error processing the position event {event}")
+
+    async def _process_oracle_price_updates(
+            self,
+            oracle_price_updates: List[Dict[str, Any]],
+            block_height: int,
+            block_timestamp: float,
+            derivative_markets: List[InjectiveDerivativeMarket],
+    ):
+        updated_symbols = {update["symbol"] for update in oracle_price_updates}
+        for market in derivative_markets:
+            try:
+                if market.oracle_base() in updated_symbols or market.oracle_quote() in updated_symbols:
+                    market_id = market.market_id
+                    trading_pair = await self.trading_pair_for_market(market_id=market_id)
+                    funding_info = await self.funding_info(market_id=market_id)
+                    funding_info_update = FundingInfoUpdate(
+                        trading_pair=trading_pair,
+                        index_price=funding_info.index_price,
+                        mark_price=funding_info.mark_price,
+                        next_funding_utc_timestamp=funding_info.next_funding_utc_timestamp,
+                        rate=funding_info.rate,
+                    )
+                    self.publisher.trigger_event(event_tag=MarketEvent.FundingInfo, message=funding_info_update)
+            except asyncio.CancelledError:
+                raise
+            except Exception as ex:
+                self.logger().warning(
+                    f"Error processing oracle price update for market {market.trading_pair()} ({ex})"
+                )
 
     async def _process_position_update(self, position_event: Dict[str, Any]):
         parsed_event = await self._parse_position_update_event(event=position_event)
         self.publisher.trigger_event(event_tag=AccountEvent.PositionUpdate, message=parsed_event)
 
-    async def _process_subaccount_balance_update(self, balance_event: Dict[str, Any]):
-        updated_token = await self.token(denom=balance_event["balance"]["denom"])
-        if updated_token is not None:
-            if self._uses_default_portfolio_subaccount():
-                token_balances = await self.all_account_balances()
-                total_balance = token_balances[updated_token.unique_symbol]["total_balance"]
-                available_balance = token_balances[updated_token.unique_symbol]["available_balance"]
-            else:
-                updated_total = balance_event["balance"]["deposit"].get("totalBalance")
-                total_balance = (updated_token.value_from_chain_format(chain_value=Decimal(updated_total))
-                                 if updated_total is not None
-                                 else None)
-                updated_available = balance_event["balance"]["deposit"].get("availableBalance")
-                available_balance = (updated_token.value_from_chain_format(chain_value=Decimal(updated_available))
-                                     if updated_available is not None
-                                     else None)
+    async def _process_subaccount_balance_update(
+            self,
+            balance_events: List[Dict[str, Any]],
+            block_height: int,
+            block_timestamp: float
+    ):
+        if self._uses_default_portfolio_subaccount() and len(balance_events) > 0:
+            token_balances = await self.all_account_balances()
 
-            balance_msg = BalanceUpdateEvent(
-                timestamp=int(balance_event["timestamp"]) * 1e3,
-                asset_name=updated_token.unique_symbol,
-                total_balance=total_balance,
-                available_balance=available_balance,
-            )
-            self.publisher.trigger_event(event_tag=AccountEvent.BalanceEvent, message=balance_msg)
+        for balance_event in balance_events:
+            try:
+                for deposit in balance_event["deposits"]:
+                    updated_token = await self.token(denom=deposit["denom"])
+                    if updated_token is not None:
+                        if self._uses_default_portfolio_subaccount():
+                            total_balance = token_balances[updated_token.unique_symbol]["total_balance"]
+                            available_balance = token_balances[updated_token.unique_symbol]["available_balance"]
+                        else:
+                            updated_total = deposit["deposit"].get("totalBalance")
+                            total_balance = (updated_token.value_from_special_chain_format(chain_value=Decimal(updated_total))
+                                             if updated_total is not None
+                                             else None)
+                            updated_available = deposit["deposit"].get("availableBalance")
+                            available_balance = (updated_token.value_from_special_chain_format(chain_value=Decimal(updated_available))
+                                                 if updated_available is not None
+                                                 else None)
 
-    async def _process_subaccount_order_update(self, order_event: Dict[str, Any]):
-        order_update = await self._parse_order_entry(order_info=order_event)
-        self.publisher.trigger_event(event_tag=MarketEvent.OrderUpdate, message=order_update)
+                        balance_msg = BalanceUpdateEvent(
+                            timestamp=self._time(),
+                            asset_name=updated_token.unique_symbol,
+                            total_balance=total_balance,
+                            available_balance=available_balance,
+                        )
+                        self.publisher.trigger_event(event_tag=AccountEvent.BalanceEvent, message=balance_msg)
+            except asyncio.CancelledError:
+                raise
+            except Exception as ex:
+                self.logger().warning(f"Error processing subaccount balance event ({ex})")
+                self.logger().debug(f"Error processing the subaccount balance event {balance_event}")
 
     async def _process_transaction_update(self, transaction_event: Dict[str, Any]):
         self.publisher.trigger_event(event_tag=InjectiveEvent.ChainTransactionEvent, message=transaction_event)
@@ -1300,6 +1505,7 @@ class InjectiveDataSource(ABC):
             fee_recipient=self.portfolio_account_injective_address,
             price=order.price,
             quantity=order.amount,
+            cid=order.client_order_id,
             is_buy=order.trade_type == TradeType.BUY,
             is_po=order.order_type == OrderType.LIMIT_MAKER
         )
@@ -1314,6 +1520,7 @@ class InjectiveDataSource(ABC):
             fee_recipient=self.portfolio_account_injective_address,
             price=order.price,
             quantity=order.amount,
+            cid=order.client_order_id,
             leverage=order.leverage,
             is_buy=order.trade_type == TradeType.BUY,
             is_po=order.order_type == OrderType.LIMIT_MAKER,
@@ -1340,7 +1547,7 @@ class InjectiveDataSource(ABC):
             except asyncio.CancelledError:
                 raise
             except Exception:
-                self.logger().exception(f"Error parsing the trading pair rule: {market.market_info}. Skipping...")
+                self.logger().exception(f"Error parsing the trading pair rule: {market.native_market}. Skipping...")
 
         return trading_rules
 
@@ -1357,6 +1564,82 @@ class InjectiveDataSource(ABC):
             )
 
         return fees
+
+    async def _get_markets_and_tokens(
+        self
+    ) -> Tuple[
+        Dict[str, InjectiveToken],
+        Mapping[str, str],
+        Dict[str, InjectiveSpotMarket],
+        Mapping[str, str],
+        Dict[str, InjectiveDerivativeMarket],
+        Mapping[str, str]
+    ]:
+        tokens_map = {}
+        token_symbol_and_denom_map = bidict()
+        spot_markets_map = {}
+        derivative_markets_map = {}
+        spot_market_id_to_trading_pair = bidict()
+        derivative_market_id_to_trading_pair = bidict()
+
+        async with self.throttler.execute_task(limit_id=CONSTANTS.SPOT_MARKETS_LIMIT_ID):
+            async with self.throttler.execute_task(limit_id=CONSTANTS.DERIVATIVE_MARKETS_LIMIT_ID):
+                spot_markets: Dict[str, SpotMarket] = await self.query_executor.spot_markets()
+                derivative_markets: Dict[str, DerivativeMarket] = await self.query_executor.derivative_markets()
+                tokens: Dict[str, Token] = await self.query_executor.tokens()
+
+        for unique_symbol, injective_native_token in tokens.items():
+            token = InjectiveToken(
+                unique_symbol=unique_symbol,
+                native_token=injective_native_token
+            )
+            tokens_map[token.denom] = token
+            token_symbol_and_denom_map[unique_symbol] = token.denom
+
+        for market in spot_markets.values():
+            try:
+                parsed_market = InjectiveSpotMarket(
+                    market_id=market.id,
+                    base_token=tokens_map[market.base_token.denom],
+                    quote_token=tokens_map[market.quote_token.denom],
+                    native_market=market
+                )
+
+                spot_market_id_to_trading_pair[parsed_market.market_id] = parsed_market.trading_pair()
+                spot_markets_map[parsed_market.market_id] = parsed_market
+            except KeyError:
+                self.logger().debug(f"The spot market {market.id} will be excluded because it could not "
+                                    f"be parsed ({market})")
+                continue
+
+        for market in derivative_markets.values():
+            try:
+                parsed_market = InjectiveDerivativeMarket(
+                    market_id=market.id,
+                    quote_token=tokens_map[market.quote_token.denom],
+                    native_market=market,
+                )
+
+                if parsed_market.trading_pair() in derivative_market_id_to_trading_pair.inverse:
+                    self.logger().debug(
+                        f"The derivative market {market.id} will be excluded because there is other"
+                        f" market with trading pair {parsed_market.trading_pair()} ({market})")
+                    continue
+                derivative_market_id_to_trading_pair[parsed_market.market_id] = parsed_market.trading_pair()
+                derivative_markets_map[parsed_market.market_id] = parsed_market
+            except KeyError:
+                self.logger().debug(f"The derivative market {market.id} will be excluded because it could"
+                                    f" not be parsed ({market})")
+                continue
+
+        return (
+            tokens_map,
+            token_symbol_and_denom_map,
+            spot_markets_map,
+            spot_market_id_to_trading_pair,
+            derivative_markets_map,
+            derivative_market_id_to_trading_pair
+        )
 
     def _time(self):
         return time.time()

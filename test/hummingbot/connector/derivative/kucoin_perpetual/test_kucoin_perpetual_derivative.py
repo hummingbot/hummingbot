@@ -138,7 +138,7 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "nextFundingRateTime": 21031525,
                     "maxLeverage": 100,
                     "sourceExchanges": [
-                        "huobi",
+                        "htx",
                         "Okex",
                         "Binance",
                         "Kucoin",
@@ -207,7 +207,7 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "nextFundingRateTime": 22646889,
                     "maxLeverage": 20,
                     "sourceExchanges": [
-                        "huobi",
+                        "htx",
                         "Okex",
                         "Binance",
                         "Kucoin",
@@ -276,7 +276,7 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "nextFundingRateTime": 21031525,
                     "maxLeverage": 100,
                     "sourceExchanges": [
-                        "huobi",
+                        "htx",
                         "Okex",
                         "Binance",
                         "Kucoin",
@@ -332,7 +332,7 @@ class KucoinPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualD
                     "nextFundingRateTime": 21031525,
                     "maxLeverage": 100,
                     "sourceExchanges": [
-                        "huobi",
+                        "htx",
                         "Okex",
                         "Binance",
                         "Kucoin",

@@ -390,7 +390,9 @@ class ClientOrderTracker:
         )
 
     def _trigger_order_creation(self, tracked_order: InFlightOrder, previous_state: OrderState, new_state: OrderState):
-        if previous_state == OrderState.PENDING_CREATE and new_state == OrderState.OPEN:
+        if (previous_state == OrderState.PENDING_CREATE and
+                previous_state != new_state and
+                new_state not in [OrderState.CANCELED, OrderState.FAILED, OrderState.PENDING_CANCEL]):
             self.logger().info(tracked_order.build_order_created_message())
             self._trigger_created_event(tracked_order)
 

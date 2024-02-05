@@ -67,7 +67,6 @@ class InjectiveV2Exchange(ExchangePyBase):
         self._configure_event_forwarders()
         self._latest_polled_order_fill_time: float = self._time()
         self._orders_transactions_check_task: Optional[asyncio.Task] = None
-        self._last_received_message_timestamp = 0
         self._orders_queued_to_create: List[GatewayInFlightOrder] = []
         self._orders_queued_to_cancel: List[GatewayInFlightOrder] = []
 
@@ -93,11 +92,11 @@ class InjectiveV2Exchange(ExchangePyBase):
 
     @property
     def client_order_id_max_length(self) -> int:
-        return None
+        return CONSTANTS.MAX_ORDER_ID_LEN
 
     @property
     def client_order_id_prefix(self) -> str:
-        return ""
+        return CONSTANTS.HBOT_ORDER_ID_PREFIX
 
     @property
     def trading_rules_request_path(self) -> str:
@@ -636,37 +635,14 @@ class InjectiveV2Exchange(ExchangePyBase):
                     await self._check_created_orders_status_for_transaction(transaction_hash=transaction_hash)
                 elif channel == "trade":
                     trade_update = event_data
-                    tracked_order = self._order_tracker.all_fillable_orders_by_exchange_order_id.get(
-                        trade_update.exchange_order_id
-                    )
-                    if tracked_order is not None:
-                        new_trade_update = TradeUpdate(
-                            trade_id=trade_update.trade_id,
-                            client_order_id=tracked_order.client_order_id,
-                            exchange_order_id=trade_update.exchange_order_id,
-                            trading_pair=trade_update.trading_pair,
-                            fill_timestamp=trade_update.fill_timestamp,
-                            fill_price=trade_update.fill_price,
-                            fill_base_amount=trade_update.fill_base_amount,
-                            fill_quote_amount=trade_update.fill_quote_amount,
-                            fee=trade_update.fee,
-                            is_taker=trade_update.is_taker,
-                        )
-                        self._order_tracker.process_trade_update(new_trade_update)
+                    self._order_tracker.process_trade_update(trade_update)
                 elif channel == "order":
                     order_update = event_data
-                    tracked_order = self._order_tracker.all_updatable_orders_by_exchange_order_id.get(
-                        order_update.exchange_order_id)
+                    tracked_order = self._order_tracker.all_updatable_orders.get(order_update.client_order_id)
                     if tracked_order is not None:
-                        new_order_update = OrderUpdate(
-                            trading_pair=order_update.trading_pair,
-                            update_timestamp=order_update.update_timestamp,
-                            new_state=order_update.new_state,
-                            client_order_id=tracked_order.client_order_id,
-                            exchange_order_id=order_update.exchange_order_id,
-                            misc_updates=order_update.misc_updates,
-                        )
-                        self._order_tracker.process_order_update(order_update=new_order_update)
+                        is_partial_fill = order_update.new_state == OrderState.FILLED and not tracked_order.is_filled
+                        if not is_partial_fill:
+                            self._order_tracker.process_order_update(order_update=order_update)
                 elif channel == "balance":
                     if event_data.total_balance is not None:
                         self._account_balances[event_data.asset_name] = event_data.total_balance
@@ -709,34 +685,17 @@ class InjectiveV2Exchange(ExchangePyBase):
     async def _update_orders_fills(self, orders: List[GatewayInFlightOrder]):
         oldest_order_creation_time = self.current_timestamp
         all_market_ids = set()
-        orders_by_hash = {}
 
         for order in orders:
             oldest_order_creation_time = min(oldest_order_creation_time, order.creation_timestamp)
             all_market_ids.add(await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair))
-            if order.exchange_order_id is not None:
-                orders_by_hash[order.exchange_order_id] = order
 
         try:
             start_time = min(oldest_order_creation_time, self._latest_polled_order_fill_time)
             trade_updates = await self._data_source.spot_trade_updates(market_ids=all_market_ids, start_time=start_time)
             for trade_update in trade_updates:
-                tracked_order = orders_by_hash.get(trade_update.exchange_order_id)
-                if tracked_order is not None:
-                    new_trade_update = TradeUpdate(
-                        trade_id=trade_update.trade_id,
-                        client_order_id=tracked_order.client_order_id,
-                        exchange_order_id=trade_update.exchange_order_id,
-                        trading_pair=trade_update.trading_pair,
-                        fill_timestamp=trade_update.fill_timestamp,
-                        fill_price=trade_update.fill_price,
-                        fill_base_amount=trade_update.fill_base_amount,
-                        fill_quote_amount=trade_update.fill_quote_amount,
-                        fee=trade_update.fee,
-                        is_taker=trade_update.is_taker,
-                    )
-                    self._latest_polled_order_fill_time = max(self._latest_polled_order_fill_time, trade_update.fill_timestamp)
-                    self._order_tracker.process_trade_update(new_trade_update)
+                self._latest_polled_order_fill_time = max(self._latest_polled_order_fill_time, trade_update.fill_timestamp)
+                self._order_tracker.process_trade_update(trade_update)
         except asyncio.CancelledError:
             raise
         except Exception as ex:
@@ -752,13 +711,12 @@ class InjectiveV2Exchange(ExchangePyBase):
     async def _update_orders_with_error_handler(self, orders: List[GatewayInFlightOrder], error_handler: Callable):
         oldest_order_creation_time = self.current_timestamp
         all_market_ids = set()
-        orders_by_hash = {}
+        orders_by_id = {}
 
         for order in orders:
             oldest_order_creation_time = min(oldest_order_creation_time, order.creation_timestamp)
             all_market_ids.add(await self.exchange_symbol_associated_to_pair(trading_pair=order.trading_pair))
-            if order.exchange_order_id is not None:
-                orders_by_hash[order.exchange_order_id] = order
+            orders_by_id[order.client_order_id] = order
 
         try:
             order_updates = await self._data_source.spot_order_updates(
@@ -767,48 +725,37 @@ class InjectiveV2Exchange(ExchangePyBase):
             )
 
             for order_update in order_updates:
-                tracked_order = orders_by_hash.get(order_update.exchange_order_id)
+                tracked_order = orders_by_id.get(order_update.client_order_id)
                 if tracked_order is not None:
                     try:
-                        new_order_update = OrderUpdate(
-                            trading_pair=order_update.trading_pair,
-                            update_timestamp=order_update.update_timestamp,
-                            new_state=order_update.new_state,
-                            client_order_id=tracked_order.client_order_id,
-                            exchange_order_id=order_update.exchange_order_id,
-                            misc_updates=order_update.misc_updates,
-                        )
-
-                        if tracked_order.current_state == OrderState.PENDING_CREATE and new_order_update.new_state != OrderState.OPEN:
+                        if tracked_order.current_state == OrderState.PENDING_CREATE and order_update.new_state != OrderState.OPEN:
                             open_update = OrderUpdate(
                                 trading_pair=order_update.trading_pair,
                                 update_timestamp=order_update.update_timestamp,
                                 new_state=OrderState.OPEN,
-                                client_order_id=tracked_order.client_order_id,
+                                client_order_id=order_update.client_order_id,
                                 exchange_order_id=order_update.exchange_order_id,
                                 misc_updates=order_update.misc_updates,
                             )
                             self._order_tracker.process_order_update(open_update)
 
-                        del orders_by_hash[order_update.exchange_order_id]
-                        self._order_tracker.process_order_update(new_order_update)
+                        del orders_by_id[order_update.client_order_id]
+                        self._order_tracker.process_order_update(order_update)
                     except asyncio.CancelledError:
                         raise
                     except Exception as ex:
                         await error_handler(tracked_order, ex)
 
-            if len(orders_by_hash) > 0:
-                # await self._data_source.check_order_hashes_synchronization(orders=orders_by_hash.values())
-                for order in orders_by_hash.values():
-                    not_found_error = RuntimeError(
-                        f"There was a problem updating order {order.client_order_id} "
-                        f"({CONSTANTS.ORDER_NOT_FOUND_ERROR_MESSAGE})"
-                    )
-                    await error_handler(order, not_found_error)
+            for order in orders_by_id.values():
+                not_found_error = RuntimeError(
+                    f"There was a problem updating order {order.client_order_id} "
+                    f"({CONSTANTS.ORDER_NOT_FOUND_ERROR_MESSAGE})"
+                )
+                await error_handler(order, not_found_error)
         except asyncio.CancelledError:
             raise
         except Exception as request_error:
-            for order in orders_by_hash.values():
+            for order in orders_by_id.values():
                 await error_handler(order, request_error)
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
@@ -873,25 +820,21 @@ class InjectiveV2Exchange(ExchangePyBase):
         self._data_source.add_listener(event_tag=InjectiveEvent.ChainTransactionEvent, listener=event_forwarder)
 
     def _process_balance_event(self, event: BalanceUpdateEvent):
-        self._last_received_message_timestamp = self._time()
         self._all_trading_events_queue.put_nowait(
             {"channel": "balance", "data": event}
         )
 
     def _process_user_order_update(self, order_update: OrderUpdate):
-        self._last_received_message_timestamp = self._time()
         self._all_trading_events_queue.put_nowait(
             {"channel": "order", "data": order_update}
         )
 
     def _process_user_trade_update(self, trade_update: TradeUpdate):
-        self._last_received_message_timestamp = self._time()
         self._all_trading_events_queue.put_nowait(
             {"channel": "trade", "data": trade_update}
         )
 
     def _process_transaction_event(self, transaction_event: Dict[str, Any]):
-        self._last_received_message_timestamp = self._time()
         self._all_trading_events_queue.put_nowait(
             {"channel": "transaction", "data": transaction_event}
         )
@@ -915,45 +858,21 @@ class InjectiveV2Exchange(ExchangePyBase):
     async def _check_orders_creation_transactions(self):
         orders: List[GatewayInFlightOrder] = self._order_tracker.active_orders.values()
         orders_by_creation_tx = defaultdict(list)
-        orders_with_inconsistent_hash = []
 
         for order in orders:
             if order.creation_transaction_hash is not None and order.is_pending_create:
                 orders_by_creation_tx[order.creation_transaction_hash].append(order)
 
         for transaction_hash, orders in orders_by_creation_tx.items():
-            all_orders = orders.copy()
             try:
                 order_updates = await self._data_source.order_updates_for_transaction(
                     transaction_hash=transaction_hash, spot_orders=orders
                 )
-
                 for order_update in order_updates:
-                    tracked_order = self._order_tracker.active_orders.get(order_update.client_order_id)
-                    if tracked_order is not None:
-                        all_orders.remove(tracked_order)
-                        if (tracked_order.exchange_order_id is not None
-                                and tracked_order.exchange_order_id != order_update.exchange_order_id):
-                            tracked_order.update_exchange_order_id(order_update.exchange_order_id)
-                            orders_with_inconsistent_hash.append(tracked_order)
                     self._order_tracker.process_order_update(order_update=order_update)
-
-                for not_found_order in all_orders:
-                    self._update_order_after_failure(
-                        order_id=not_found_order.client_order_id,
-                        trading_pair=not_found_order.trading_pair
-                    )
 
             except ValueError:
                 self.logger().debug(f"Transaction not included in a block yet ({transaction_hash})")
-
-        if len(orders_with_inconsistent_hash) > 0:
-            async with self._data_source.order_creation_lock:
-                active_orders = [
-                    order for order in self._order_tracker.active_orders.values()
-                    if order not in orders_with_inconsistent_hash and order.current_state == OrderState.PENDING_CREATE
-                ]
-                await self._data_source.reset_order_hash_generator(active_orders=active_orders)
 
     async def _check_created_orders_status_for_transaction(self, transaction_hash: str):
         transaction_orders = []
@@ -968,11 +887,6 @@ class InjectiveV2Exchange(ExchangePyBase):
             )
 
             for order_update in order_updates:
-                tracked_order = self._order_tracker.active_orders.get(order_update.client_order_id)
-                if (tracked_order is not None
-                        and tracked_order.exchange_order_id is not None
-                        and tracked_order.exchange_order_id != order_update.exchange_order_id):
-                    tracked_order.update_exchange_order_id(order_update.exchange_order_id)
                 self._order_tracker.process_order_update(order_update=order_update)
 
     async def _process_queued_orders(self):
@@ -1010,7 +924,7 @@ class InjectiveV2Exchange(ExchangePyBase):
         return float(last_price)
 
     def _get_poll_interval(self, timestamp: float) -> float:
-        last_recv_diff = timestamp - self._last_received_message_timestamp
+        last_recv_diff = timestamp - self._data_source.last_received_message_timestamp
         poll_interval = (
             self.SHORT_POLL_INTERVAL
             if last_recv_diff > self.TICK_INTERVAL_LIMIT
