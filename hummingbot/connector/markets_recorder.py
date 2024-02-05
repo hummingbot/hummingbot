@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import os.path
 import threading
@@ -201,8 +202,8 @@ class MarketsRecorder:
         # Here can be implemented the routing of the executor to the right table, for now we use a general table
         with self._sql_manager.get_new_session() as session:
             with session.begin():
-                executor_data = executor.executor_info.dict()
-                session.add(Executors(**executor_data))
+                serialized_config = executor.executor_info.json()
+                session.add(Executors(**json.loads(serialized_config)))
 
     def get_position_executors(self,
                                controller_name: str = None,
