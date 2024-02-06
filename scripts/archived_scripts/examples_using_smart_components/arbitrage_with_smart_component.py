@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.smart_components.executors.arbitrage_executor.arbitrage_executor import ArbitrageExecutor
-from hummingbot.smart_components.executors.arbitrage_executor.data_types import ArbitrageConfig, ExchangePair
+from hummingbot.smart_components.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig, ExchangePair
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
@@ -63,7 +63,7 @@ class ArbitrageWithSmartComponent(ScriptStrategyBase):
                                    f"Actual: {quote_asset_for_buying_exchange} --> Needed: {self.order_amount * price}")
                 return
 
-            arbitrage_config = ArbitrageConfig(
+            arbitrage_config = ArbitrageExecutorConfig(
                 buying_market=buying_exchange_pair,
                 selling_market=selling_exchange_pair,
                 order_amount=self.order_amount,

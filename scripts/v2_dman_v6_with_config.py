@@ -1,6 +1,6 @@
 import os
 from decimal import Decimal
-from typing import Dict, Optional
+from typing import Dict
 
 from pydantic import Field
 
@@ -38,14 +38,14 @@ class DManV6ScriptConfig(BaseClientModel):
     spread_ratio_increase: float = Field(2.0, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "Define the ratio to increase the spread for each subsequent level (e.g., 2.0):"))
 
     # Triple barrier configuration
-    global_stop_loss: Decimal = Field(0.2, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the stop loss percentage (e.g., 0.2 for 20%):"))
-    global_take_profit: Decimal = Field(0.1, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "Enter the take profit percentage (e.g., 0.06 for 6%):"))
+    stop_loss: Decimal = Field(0.2, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the stop loss percentage (e.g., 0.2 for 20%):"))
+    take_profit: Decimal = Field(0.1, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "Enter the take profit percentage (e.g., 0.06 for 6%):"))
     time_limit: int = Field(60 * 60 * 24 * 3, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "Set the time limit in seconds for the triple barrier (e.g., 43200 for 12 hours):"))
 
     # Global Trailing Stop configuration
-    global_trailing_stop_activation_price_delta: Decimal = Field(0.025, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the activation price delta for the global trailing stop (e.g., 0.01 for 1%):"))
-    global_trailing_stop_trailing_delta: Decimal = Field(0.005, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the trailing delta for the global trailing stop (e.g., 0.002 for 0.2%):"))
-    activation_threshold: Optional[Decimal] = Field(None, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "Set the activation threshold for the global trailing stop (e.g., 0.01 for 1%):"))
+    trailing_stop_activation_price_delta: Decimal = Field(0.025, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the activation price delta for the global trailing stop (e.g., 0.01 for 1%):"))
+    trailing_stop_trailing_delta: Decimal = Field(0.005, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the trailing delta for the global trailing stop (e.g., 0.002 for 0.2%):"))
+    activation_bounds: Decimal = Field(0.05, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "Set the activation threshold for the global trailing stop (e.g., 0.01 for 1%):"))
 
 
 class DManV6MultiplePairs(ScriptStrategyBase):
@@ -60,10 +60,10 @@ class DManV6MultiplePairs(ScriptStrategyBase):
         # Initialize controllers and executor handlers
         self.controllers = {}
         self.executor_handlers = {}
-        self.markets = {}
 
         for trading_pair in config.trading_pairs.split(","):
             dman_config = DManV6Config(
+                id="dca_maker_strategy",
                 exchange=self.config.exchange,
                 trading_pair=trading_pair,
                 candles_config=[
@@ -80,18 +80,17 @@ class DManV6MultiplePairs(ScriptStrategyBase):
                 top_order_start_spread=config.top_order_start_spread,
                 start_spread=config.start_spread,
                 spread_ratio_increase=config.spread_ratio_increase,
-                take_profit=config.global_take_profit,
-                stop_loss=config.global_stop_loss,
-                trailing_stop=TrailingStop(activation_price=config.global_trailing_stop_activation_price_delta,
-                                           trailing_delta=config.global_trailing_stop_trailing_delta),
-                activation_threshold=config.activation_threshold,
+                take_profit=config.take_profit,
+                stop_loss=config.stop_loss,
+                trailing_stop=TrailingStop(activation_price=config.trailing_stop_activation_price_delta,
+                                           trailing_delta=config.trailing_stop_trailing_delta),
+                activation_bounds=[config.activation_bounds],
                 time_limit=config.time_limit,
                 leverage=self.config.leverage,
             )
             controller = DManV6(config=dman_config)
             self.controllers[trading_pair] = controller
             self.executor_handlers[trading_pair] = GenericExecutor(strategy=self, controller=controller)
-            self.markets = controller.update_strategy_markets_dict(self.markets)
 
     @property
     def is_perpetual(self):
