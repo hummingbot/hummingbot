@@ -43,7 +43,7 @@ class TrackedOrder:
         if self.order:
             return self.order.average_executed_price or self.order.price
         else:
-            return None
+            return Decimal("0")
 
     @property
     def executed_amount_base(self):
