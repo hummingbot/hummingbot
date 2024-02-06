@@ -800,7 +800,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         url = web_utils.get_rest_url_for_endpoint(
             endpoint=CONSTANTS.REST_CANCEL_ACTIVE_ORDER[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
         )
-        # regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         response = {
             "code": "0",
             "msg": "",
@@ -813,7 +813,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                 }
             ]
         }
-        mock_api.post(url, body=json.dumps(response), callback=callback)
+        mock_api.post(regex_url, body=json.dumps(response), callback=callback)
         return url
 
     def configure_one_successful_one_erroneous_cancel_all_response(

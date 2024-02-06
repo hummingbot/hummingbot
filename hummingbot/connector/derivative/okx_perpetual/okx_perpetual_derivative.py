@@ -280,7 +280,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         data = {"instId": await self.exchange_symbol_associated_to_pair(tracked_order.trading_pair)}
         if tracked_order.exchange_order_id:
             data["ordId"] = tracked_order.exchange_order_id
-        else:
+        if tracked_order.client_order_id:
             data["clOrdId"] = tracked_order.client_order_id
         cancel_result = await self._api_post(
             path_url=CONSTANTS.REST_CANCEL_ACTIVE_ORDER[CONSTANTS.ENDPOINT],
