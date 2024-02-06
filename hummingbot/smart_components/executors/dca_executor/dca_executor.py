@@ -1,6 +1,7 @@
 import logging
+import math
 from decimal import Decimal
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PriceType, TradeType
@@ -12,7 +13,7 @@ from hummingbot.core.event.events import (
     SellOrderCreatedEvent,
 )
 from hummingbot.logger import HummingbotLogger
-from hummingbot.smart_components.executors.dca_executor.data_types import DCAConfig, DCAMode
+from hummingbot.smart_components.executors.dca_executor.data_types import DCAExecutorConfig, DCAMode
 from hummingbot.smart_components.executors.executor_base import ExecutorBase
 from hummingbot.smart_components.models.base import SmartComponentStatus
 from hummingbot.smart_components.models.executors import CloseType, TrackedOrder
@@ -28,7 +29,7 @@ class DCAExecutor(ExecutorBase):
             cls._logger = logging.getLogger(__name__)
         return cls._logger
 
-    def __init__(self, strategy: ScriptStrategyBase, config: DCAConfig, update_interval: float = 1.0,
+    def __init__(self, strategy: ScriptStrategyBase, config: DCAExecutorConfig, update_interval: float = 1.0,
                  max_retries: int = 5):
         # validate amounts and prices
         if len(config.amounts_quote) != len(config.prices):
@@ -36,7 +37,7 @@ class DCAExecutor(ExecutorBase):
 
         # Initialize super class
         super().__init__(strategy=strategy, connectors=[config.exchange], config=config, update_interval=update_interval)
-        self.config: DCAConfig = config
+        self.config: DCAExecutorConfig = config
 
         # set default bounds
         self.n_levels = len(config.amounts_quote)
@@ -48,8 +49,6 @@ class DCAExecutor(ExecutorBase):
         self._close_orders: List[TrackedOrder] = []  # for now will be just one order but we can have multiple
         self._failed_orders: List[TrackedOrder] = []
         self._trailing_stop_trigger_pct: Optional[Decimal] = None
-        self.close_type: Optional[CloseType] = None
-        self.close_timestamp: Optional[int] = None
 
         # used to track the total amount filled that is updated by the event in case that the InFlightOrder is
         # not available
@@ -60,8 +59,12 @@ class DCAExecutor(ExecutorBase):
         self._max_retries = max_retries
 
     @property
-    def active_orders(self) -> List[TrackedOrder]:
+    def active_open_orders(self) -> List[TrackedOrder]:
         return self._open_orders
+
+    @property
+    def active_close_orders(self) -> List[TrackedOrder]:
+        return self._close_orders
 
     @property
     def open_order_type(self) -> OrderType:
@@ -72,12 +75,20 @@ class DCAExecutor(ExecutorBase):
         return OrderType.MARKET
 
     @property
-    def filled_amount(self) -> Decimal:
-        return sum([order.executed_amount_base for order in self.active_orders])
+    def open_filled_amount(self) -> Decimal:
+        return sum([order.executed_amount_base for order in self.active_open_orders])
 
     @property
-    def filled_amount_quote(self) -> Decimal:
-        return self.filled_amount * self.current_position_average_price
+    def open_filled_amount_quote(self) -> Decimal:
+        return self.open_filled_amount * self.current_position_average_price
+
+    @property
+    def close_filled_amount(self) -> Decimal:
+        return sum([order.executed_amount_base for order in self.active_close_orders])
+
+    @property
+    def close_filled_amount_quote(self) -> Decimal:
+        return self.close_filled_amount * self.close_price
 
     @property
     def max_amount_quote(self) -> Decimal:
@@ -93,6 +104,8 @@ class DCAExecutor(ExecutorBase):
 
     @property
     def max_loss_quote(self) -> Decimal:
+        # TODO: refactor the ExecutorBase class to handle max loss in pct and quote asset since some strategies like
+        #  arbitrage and XEMM will need a more complex calculation
         return self.max_amount_quote * self.config.stop_loss
 
     @property
@@ -109,16 +122,16 @@ class DCAExecutor(ExecutorBase):
         This method is responsible for getting the close price, if the executor is active, it will return the current
         market price, otherwise it will return the average price of the closed orders
         """
-        if self.status == SmartComponentStatus.TERMINATED:
-            return sum([order.average_executed_price * order.executed_amount_base for order in self._close_orders]) / \
-                self.filled_amount if self._close_orders and self.filled_amount > Decimal("0") else Decimal("0")
+        if self.status == SmartComponentStatus.TERMINATED and len(self._close_orders) > 0:
+            # for now we will consider just one close order, in the future we can have multiple close orders
+            return self._close_orders[0].average_executed_price
         else:
             return self.current_market_price
 
     @property
     def current_position_average_price(self) -> Decimal:
         return sum([order.average_executed_price * order.executed_amount_base for order in self._open_orders]) / \
-            self.filled_amount if self._open_orders and self.filled_amount > Decimal("0") else Decimal("0")
+            self.open_filled_amount if self._open_orders and self.open_filled_amount > Decimal("0") else Decimal("0")
 
     @property
     def target_position_average_price(self) -> Decimal:
@@ -130,7 +143,7 @@ class DCAExecutor(ExecutorBase):
         """
         This method is responsible for calculating the trade pnl (Pure pnl without fees)
         """
-        if self.current_position_average_price:
+        if self.current_position_average_price != Decimal("0"):
             if self.config.side == TradeType.BUY:
                 return (self.close_price - self.current_position_average_price) / self.current_position_average_price
             else:
@@ -143,24 +156,24 @@ class DCAExecutor(ExecutorBase):
         """
         This method is responsible for calculating the trade pnl in quote asset
         """
-        return self.trade_pnl_pct * self.filled_amount * self.current_position_average_price
+        return self.trade_pnl_pct * self.open_filled_amount_quote
 
     @property
     def net_pnl_quote(self) -> Decimal:
         """
         This method is responsible for calculating the net pnl in quote asset
         """
-        return self.trade_pnl_quote - self.cum_fee_quote
+        return self.trade_pnl_quote - self.cum_fees_quote
 
     @property
     def net_pnl_pct(self) -> Decimal:
         """
         This method is responsible for calculating the net pnl percentage
         """
-        return self.net_pnl_quote / self.filled_amount_quote if self.filled_amount_quote else Decimal("0")
+        return self.net_pnl_quote / self.open_filled_amount_quote if self.open_filled_amount_quote else Decimal("0")
 
     @property
-    def cum_fee_quote(self) -> Decimal:
+    def cum_fees_quote(self) -> Decimal:
         """
         This method is responsible for calculating the cumulative fees in quote asset
         """
@@ -261,10 +274,10 @@ class DCAExecutor(ExecutorBase):
         if self.config.stop_loss:
             if self.config.mode == DCAMode.MAKER:
                 if self.all_open_orders_executed and self.net_pnl_pct < self.config.stop_loss:
-                    self.place_close_order(close_type=CloseType.STOP_LOSS)
+                    self.place_close_order_and_cancel_open_orders(close_type=CloseType.STOP_LOSS)
             else:
                 if self.net_pnl_quote < self.max_loss_quote:
-                    self.place_close_order(close_type=CloseType.STOP_LOSS)
+                    self.place_close_order_and_cancel_open_orders(close_type=CloseType.STOP_LOSS)
 
     def control_trailing_stop(self):
         """
@@ -282,7 +295,7 @@ class DCAExecutor(ExecutorBase):
                 if self.net_pnl_pct - self.config.trailing_stop.trailing_delta > self._trailing_stop_trigger_pct:
                     self._trailing_stop_trigger_pct = self.net_pnl_pct - self.config.trailing_stop.trailing_delta
                 if self.net_pnl_pct < self._trailing_stop_trigger_pct:
-                    self.place_close_order(close_type=CloseType.TRAILING_STOP)
+                    self.place_close_order_and_cancel_open_orders(close_type=CloseType.TRAILING_STOP)
 
     def control_take_profit(self):
         """
@@ -291,30 +304,37 @@ class DCAExecutor(ExecutorBase):
         """
         if self.config.take_profit:
             if self.net_pnl_pct > self.config.take_profit:
-                self.place_close_order(close_type=CloseType.TAKE_PROFIT)
+                self.place_close_order_and_cancel_open_orders(close_type=CloseType.TAKE_PROFIT)
 
     def early_stop(self):
         """
         This method allows strategy to stop the executor early.
         """
-        self.place_close_order(close_type=CloseType.EARLY_STOP)
+        self.place_close_order_and_cancel_open_orders(close_type=CloseType.EARLY_STOP)
 
-    def place_close_order(self, close_type: CloseType, price: Decimal = Decimal("NaN")):
+    def place_close_order_and_cancel_open_orders(self, close_type: CloseType, price: Decimal = Decimal("NaN")):
         """
         This method is responsible for placing the close order
         """
-        order_id = self.place_order(
-            connector_name=self.config.exchange,
-            trading_pair=self.config.trading_pair,
-            order_type=OrderType.MARKET,
-            amount=self.filled_amount,
-            price=price,
-            side=TradeType.SELL if self.config.side == TradeType.BUY else TradeType.BUY,
-            position_action=PositionAction.CLOSE,
-        )
+        for tracked_order in self._open_orders:
+            if tracked_order.order.is_open:
+                self._strategy.cancel(connector_name=self.config.exchange, trading_pair=self.config.trading_pair,
+                                      order_id=tracked_order.order_id)
+        delta_amount_to_close = abs(self.open_filled_amount - self.close_filled_amount)
+        if delta_amount_to_close > self.connectors[self.config.exchange].trading_rules[self.config.trading_pair].min_order_size:
+            order_id = self.place_order(
+                connector_name=self.config.exchange,
+                trading_pair=self.config.trading_pair,
+                order_type=OrderType.MARKET,
+                amount=self.open_filled_amount,
+                price=price,
+                side=TradeType.SELL if self.config.side == TradeType.BUY else TradeType.BUY,
+                position_action=PositionAction.CLOSE,
+            )
+            self._close_orders.append(TrackedOrder(order_id=order_id))
         self.close_type = close_type
+        self.close_timestamp = self._strategy.current_timestamp
         self._status = SmartComponentStatus.SHUTTING_DOWN
-        self._close_orders.append(TrackedOrder(order_id=order_id))
 
     def _is_within_activation_bounds(self, order_price: Decimal, close_price: Decimal) -> bool:
         """
@@ -344,11 +364,12 @@ class DCAExecutor(ExecutorBase):
         """
         This method is responsible for shutting down the process, ensuring that all orders are completed.
         """
-        active_open_orders = [order for order in self._open_orders if not order.is_done]
-        active_close_orders = [order for order in self._close_orders if not order.is_done]
-        if not active_open_orders and not active_close_orders:
+        active_open_orders = [order for order in self._open_orders if order.order.is_open]
+        if math.isclose(self.open_filled_amount, self.close_filled_amount) and len(active_open_orders) == 0:
             self.stop()
         else:
+            self.logger().info(f"Open amount: {self.open_filled_amount}, Close amount: {self.close_filled_amount}")
+            self.logger().info(f"Close orders: {self._close_orders}")
             for active_open_order in active_open_orders:
                 self._strategy.cancel(
                     connector_name=self.config.exchange,
@@ -369,8 +390,7 @@ class DCAExecutor(ExecutorBase):
         if active_order:
             in_flight_order = self.get_in_flight_order(self.config.exchange, event.order_id)
             if in_flight_order:
-                active_order.in_flight_order = in_flight_order
-                self.logger().debug(f"Order {event.order_id} created.")
+                active_order.order = in_flight_order
 
     def process_order_failed_event(self,
                                    event_tag: int,
@@ -390,7 +410,7 @@ class DCAExecutor(ExecutorBase):
             self._failed_orders.append(close_order)
             self._close_orders.remove(close_order)
             self.logger().error(f"Order {event.order_id} failed.")
-            self.place_close_order(close_type=self.close_type)
+            self.place_close_order_and_cancel_open_orders(close_type=self.close_type)
         self._current_retries += 1
         if self._current_retries >= self._max_retries:
             self.close_type = CloseType.FAILED
@@ -405,33 +425,24 @@ class DCAExecutor(ExecutorBase):
         """
         self._total_executed_amount_backup += event.amount
 
-    def to_json(self):
-        """
-        Serializes the object to json
-        """
+    def get_custom_info(self) -> Dict:
         return {
-            "timestamp": self.config.timestamp,
-            "exchange": self.config.exchange,
-            "trading_pair": self.config.trading_pair,
-            "status": self.status.name,
-            "side": self.config.side.name,
-            "leverage": self.config.leverage,
-            "close_type": self.close_type.name if self.close_type else None,
-            "close_timestamp": self.close_timestamp,
-            "filled_amount": self.filled_amount,
-            "filled_amount_quote": self.filled_amount_quote,
+            "side": self.config.side,
+            "current_position_average_price": self.current_position_average_price,
+            "target_position_average_price": self.target_position_average_price,
+            "filled_amount": self.open_filled_amount,
+            "filled_amount_quote": self.open_filled_amount_quote,
             "max_amount_quote": self.max_amount_quote,
             "min_price": self.min_price,
             "max_price": self.max_price,
-            "current_position_average_price": self.current_position_average_price,
-            "target_position_average_price": self.target_position_average_price,
-            "stop_loss": self.config.stop_loss,
-            "take_profit": self.config.take_profit,
-            "trailing_stop_activation_price": self.config.trailing_stop.activation_price,
-            "trailing_stop_trailing_delta": self.config.trailing_stop.trailing_delta,
-            "trailing_stop_trigger_pct": self._trailing_stop_trigger_pct,
-            "net_pnl_quote": self.net_pnl_quote,
-            "cum_fee_quote": self.cum_fee_quote,
-            "net_pnl_pct": self.net_pnl_pct,
             "max_loss_quote": self.max_loss_quote,
+            "current_market_price": self.current_market_price,
+            "close_price": self.close_price,
+            "close_type": self.close_type,
+            "close_timestamp": self.close_timestamp,
+            "n_levels": self.n_levels,
+            "trailing_stop_trigger_pct": self._trailing_stop_trigger_pct,
+            "total_executed_amount_backup": self._total_executed_amount_backup,
+            "current_retries": self._current_retries,
+            "max_retries": self._max_retries
         }

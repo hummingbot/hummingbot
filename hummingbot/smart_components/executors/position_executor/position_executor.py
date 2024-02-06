@@ -45,8 +45,6 @@ class PositionExecutor(ExecutorBase):
             raise ValueError(error)
         super().__init__(strategy=strategy, connectors=[config.exchange], update_interval=update_interval)
         self.config: PositionExecutorConfig = config
-        self.close_type = None
-        self.close_timestamp = None
         self._executor_status: PositionExecutorStatus = PositionExecutorStatus.NOT_STARTED
 
         # Order tracking

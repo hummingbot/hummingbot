@@ -11,7 +11,7 @@ class ExchangePair(BaseModel):
     trading_pair: str
 
 
-class ArbitrageConfig(ExecutorConfigBase):
+class ArbitrageExecutorConfig(ExecutorConfigBase):
     type = "arbitrage_executor"
     buying_market: ExchangePair
     selling_market: ExchangePair
