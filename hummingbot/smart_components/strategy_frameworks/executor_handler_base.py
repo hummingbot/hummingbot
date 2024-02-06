@@ -9,7 +9,7 @@ from hummingbot.core.data_type.common import OrderType, PositionAction, Position
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
 from hummingbot.model.position_executors import PositionExecutors
-from hummingbot.smart_components.executors.dca_executor.data_types import DCAConfig
+from hummingbot.smart_components.executors.dca_executor.data_types import DCAExecutorConfig
 from hummingbot.smart_components.executors.dca_executor.dca_executor import DCAExecutor
 from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
@@ -104,7 +104,7 @@ class ExecutorHandlerBase(SmartComponentBase):
         if executor:
             executor.early_stop()
 
-    def create_dca_executor(self, dca_config: DCAConfig):
+    def create_dca_executor(self, dca_config: DCAExecutorConfig):
         """
         Create an executor.
 
