@@ -1,7 +1,7 @@
 import time
 import uuid
 from decimal import Decimal
-from typing import List, Optional, Set
+from typing import List, Optional
 
 import pandas as pd
 import pandas_ta as ta  # noqa: F401
@@ -60,13 +60,6 @@ class DManV6(GenericController):
             ratio=self.config.spread_ratio_increase)
         # TODO: Evaluate to use this set to store all the executors related but in the generic controller
         self.stored_dcas = set()
-
-    def update_strategy_markets_dict(self, markets_dict: dict[str, Set] = {}):
-        if self.config.exchange not in markets_dict:
-            markets_dict[self.config.exchange] = {self.config.trading_pair}
-        else:
-            markets_dict[self.config.exchange].add(self.config.trading_pair)
-        return markets_dict
 
     async def determine_actions(self) -> List[ExecutorAction]:
         """

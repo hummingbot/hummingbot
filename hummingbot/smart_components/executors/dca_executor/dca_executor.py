@@ -344,9 +344,9 @@ class DCAExecutor(ExecutorBase):
         if self.config.mode == DCAMode.MAKER:
             if activation_bounds:
                 if self.config.side == TradeType.BUY:
-                    return order_price < close_price * (1 + activation_bounds[0])
-                else:
                     return order_price > close_price * (1 - activation_bounds[0])
+                else:
+                    return order_price < close_price * (1 + activation_bounds[0])
             else:
                 return True
         elif self.config.mode == DCAMode.TAKER:
