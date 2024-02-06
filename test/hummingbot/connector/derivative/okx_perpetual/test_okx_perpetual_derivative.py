@@ -10,7 +10,6 @@ from unittest.mock import patch
 import pandas as pd
 from aioresponses import aioresponses
 from aioresponses.core import RequestCall
-from bidict import bidict
 
 import hummingbot.connector.derivative.okx_perpetual.okx_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.okx_perpetual.okx_perpetual_web_utils as web_utils
@@ -20,11 +19,11 @@ from hummingbot.connector.derivative.okx_perpetual.okx_perpetual_derivative impo
 from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.connector.test_support.perpetual_derivative_test import AbstractPerpetualDerivativeTests
 from hummingbot.connector.trading_rule import TradingRule
-from hummingbot.connector.utils import combine_to_hb_trading_pair, get_new_client_order_id
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.event.events import OrderCancelledEvent
 
 BASE_ASSET = "BTC"
 QUOTE_ASSET = "USDT"
@@ -37,32 +36,16 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         cls.api_key = "someKey"
         cls.api_secret = "someSecret"
         cls.passphrase = "somePassphrase"
-        cls.base_asset = BASE_ASSET
-        cls.quote_asset = QUOTE_ASSET
-        cls.trading_pair = combine_to_hb_trading_pair(BASE_ASSET, QUOTE_ASSET)
 
     def _is_logged(self, log_level: str, message: str) -> bool:
         return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
 
-    def create_exchange_instance(self):
-        client_config_map = ClientConfigAdapter(ClientConfigMap())
-        exchange = OkxPerpetualDerivative(
-            client_config_map,
-            self.api_key,
-            self.api_secret,
-            self.passphrase,
-            trading_pairs=[self.trading_pair],
-        )
-        exchange._last_trade_history_timestamp = self.latest_trade_hist_timestamp
-        return exchange
-
-    # OK
     @property
     def all_symbols_url(self):
         url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.ENDPOINT])
+        url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
-    # OK
     @property
     def latest_prices_url(self):
         url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_LATEST_SYMBOL_INFORMATION[CONSTANTS.ENDPOINT])
@@ -75,16 +58,10 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_SERVER_TIME[CONSTANTS.ENDPOINT])
         return url
 
-    # OK
-    @property
-    def trading_rules_url(self):
-        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.ENDPOINT])
-        return url
-
     @property
     def order_creation_url(self):
         url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.PLACE_ACTIVE_ORDER_PATH_URL, trading_pair=self.trading_pair
+            endpoint=CONSTANTS.REST_PLACE_ACTIVE_ORDER[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
         )
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
@@ -109,143 +86,8 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         return url
 
     @property
-    def trading_pair_symbol_map_mock_response(self):
-        return bidict({'BTC-USDT-SWAP': 'USDT-BTC',
-                       'ETH-USDT-SWAP': 'USDT-ETH',
-                       'MATIC-USDT-SWAP': 'USDT-MATIC',
-                       'XRP-USDT-SWAP': 'USDT-XRP',
-                       'SOL-USDT-SWAP': 'USDT-SOL',
-                       'DOGE-USDT-SWAP': 'USDT-DOGE',
-                       'SATS-USDT-SWAP': 'USDT-SATS',
-                       'ORDI-USDT-SWAP': 'USDT-ORDI',
-                       'SUI-USDT-SWAP': 'USDT-SUI',
-                       'LINK-USDT-SWAP': 'USDT-LINK',
-                       })
-
-    @property
-    def latest_prices_request_mock_response(self):
-        mock_response = {
-            "ret_code": 0,
-            "ret_msg": "OK",
-            "ext_code": "",
-            "ext_info": "",
-            "result": [
-                {
-                    "symbol": self.exchange_trading_pair,
-                    "bid_price": "7230",
-                    "ask_price": "7230.5",
-                    "last_price": str(self.expected_latest_price),
-                    "last_tick_direction": "ZeroMinusTick",
-                    "prev_price_24h": "7163.00",
-                    "price_24h_pcnt": "0.009353",
-                    "high_price_24h": "7267.50",
-                    "low_price_24h": "7067.00",
-                    "prev_price_1h": "7209.50",
-                    "price_1h_pcnt": "0.002843",
-                    "mark_price": "7230.31",
-                    "index_price": "7230.14",
-                    "open_interest": 117860186,
-                    "open_value": "16157.26",
-                    "total_turnover": "3412874.21",
-                    "turnover_24h": "10864.63",
-                    "total_volume": 28291403954,
-                    "volume_24h": 78053288,
-                    "funding_rate": "0.0001",
-                    "predicted_funding_rate": "0.0001",
-                    "next_funding_time": "2019-12-28T00:00:00Z",
-                    "countdown_hour": 2,
-                    "delivery_fee_rate": "0",
-                    "predicted_delivery_price": "0.00",
-                    "delivery_time": ""
-                }
-            ],
-            "time_now": "1577484619.817968"
-        }
-        return mock_response
-
-    @property
-    def all_symbols_including_invalid_pair_mock_response(self) -> Tuple[str, Any]:
-        mock_response = {
-            "ret_code": 0,
-            "ret_msg": "OK",
-            "ext_code": "",
-            "ext_info": "",
-            "result": [
-                {
-                    "name": self.exchange_trading_pair,
-                    "alias": self.exchange_trading_pair,
-                    "status": "Trading",
-                    "base_currency": self.base_asset,
-                    "quote_currency": self.quote_asset,
-                    "price_scale": 2,
-                    "taker_fee": "0.00075",
-                    "maker_fee": "-0.00025",
-                    "leverage_filter": {
-                        "min_leverage": 1,
-                        "max_leverage": 100,
-                        "leverage_step": "0.01"
-                    },
-                    "price_filter": {
-                        "min_price": "0.5",
-                        "max_price": "999999.5",
-                        "tick_size": "0.5"
-                    },
-                    "lot_size_filter": {
-                        "max_trading_qty": 1000000,
-                        "min_trading_qty": 1,
-                        "qty_step": 1
-                    }
-                },
-                {
-                    "name": self.exchange_symbol_for_tokens("INVALID", "PAIR"),
-                    "alias": self.exchange_symbol_for_tokens("INVALID", "PAIR"),
-                    "status": "Closed",
-                    "base_currency": "INVALID",
-                    "quote_currency": "PAIR",
-                    "price_scale": 2,
-                    "taker_fee": "0.00075",
-                    "maker_fee": "-0.00025",
-                    "leverage_filter": {
-                        "min_leverage": 1,
-                        "max_leverage": 100,
-                        "leverage_step": "0.01"
-                    },
-                    "price_filter": {
-                        "min_price": "0.5",
-                        "max_price": "999999.5",
-                        "tick_size": "0.5"
-                    },
-                    "lot_size_filter": {
-                        "max_trading_qty": 1000000,
-                        "min_trading_qty": 1,
-                        "qty_step": 1
-                    }
-                },
-            ],
-            "time_now": "1615801223.589808"
-        }
-        return "INVALID-PAIR", mock_response
-
-    @property
-    def network_status_request_successful_mock_response(self):
-        mock_response = {
-            "ret_code": 0,
-            "ret_msg": "OK",
-            "ext_code": "",
-            "ext_info": "",
-            "result": {},
-            "time_now": "1577444332.192859"
-        }
-        return mock_response
-
-    # OK
-    @property
-    def trading_rules_request_mock_response(self):
-        return self.all_symbols_request_mock_response
-
-    @property
-    def trading_rules_request_erroneous_mock_response(self):
-        mock_response = {
+    def all_symbols_request_mock_response(self):
+        return {
             "code": "0",
             "data": [
                 {
@@ -254,21 +96,21 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "category": "1",
                     "ctMult": "1",
                     "ctType": "linear",
-                    "ctVal": "0.1",
+                    "ctVal": "1",
                     "ctValCcy": self.base_asset,
                     "expTime": "",
-                    "instFamily": f"{self.base_asset}-{self.quote_asset}",
-                    "instId": f"{self.base_asset}-{self.quote_asset}-SWAP",
+                    "instFamily": "LTC-USDT",
+                    "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
                     "instType": "SWAP",
-                    "lever": "100",
+                    "lever": "50",
                     "listTime": "1611916828000",
                     "lotSz": "1",
                     "maxIcebergSz": "100000000.0000000000000000",
                     "maxLmtAmt": "20000000",
                     "maxLmtSz": "100000000",
                     "maxMktAmt": "",
-                    "maxMktSz": "20000",
-                    "maxStopSz": "20000",
+                    "maxMktSz": "10000",
+                    "maxStopSz": "10000",
                     "maxTriggerSz": "100000000.0000000000000000",
                     "maxTwapSz": "100000000.0000000000000000",
                     "minSz": "1",
@@ -277,143 +119,526 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "settleCcy": self.quote_asset,
                     "state": "live",
                     "stk": "",
-                    "tickSz": "invalid",
-                    "uly": f"{self.base_asset}-{self.quote_asset}",
+                    "tickSz": "0.01",
+                    "uly": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
                 }
             ],
             "msg": ""
         }
-        return mock_response
+
+    @property
+    def all_symbols_including_invalid_pair_mock_response(self) -> Tuple[str, Any]:
+        response = {
+            "code": "0",
+            "data": [
+                {
+                    "alias": "",
+                    "baseCcy": "INVALID",
+                    "category": "1",
+                    "ctMult": "",
+                    "ctType": "",
+                    "ctVal": "",
+                    "ctValCcy": "",
+                    "expTime": "",
+                    "instId": self.exchange_symbol_for_tokens("INVALID", "PAIR"),
+                    "instType": "OPTION",
+                    "lever": "10",
+                    "listTime": "1548133413000",
+                    "lotSz": "0.000001",
+                    "minSz": "0.1",
+                    "optType": "",
+                    "quoteCcy": "PAIR",
+                    "settleCcy": "",
+                    "state": "live",
+                    "stk": "",
+                    "tickSz": "0.001",
+                    "uly": ""
+                },
+            ]
+        }
+
+        return "INVALID-PAIR", response
+
+    # -------------------------------------------------------
+    # TRADING RULES PROPERTIES, MOCKS AND TESTS
+    # -------------------------------------------------------
+
+    @property
+    def trading_rules_url(self):
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.ENDPOINT])
+        return url
+
+    @property
+    def trading_rules_request_mock_response(self):
+        response = {
+            "code": "0",
+            "data": [
+                {
+                    "alias": "",
+                    "baseCcy": "",
+                    "category": "1",
+                    "ctMult": "1",
+                    "ctType": "linear",
+                    "ctVal": "1",
+                    "ctValCcy": self.base_asset,
+                    "expTime": "",
+                    "instFamily": "LTC-USDT",
+                    "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                    "instType": "SWAP",
+                    "lever": "50",
+                    "listTime": "1611916828000",
+                    "lotSz": "1",
+                    "maxIcebergSz": "100000000.0000000000000000",
+                    "maxLmtAmt": "20000000",
+                    "maxLmtSz": "100000000",
+                    "maxMktAmt": "",
+                    "maxMktSz": "10000",
+                    "maxStopSz": "10000",
+                    "maxTriggerSz": "100000000.0000000000000000",
+                    "maxTwapSz": "100000000.0000000000000000",
+                    "minSz": "1",
+                    "optType": "",
+                    "quoteCcy": "",
+                    "settleCcy": self.quote_asset,
+                    "state": "live",
+                    "stk": "",
+                    "tickSz": "0.01",
+                    "uly": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                }
+            ],
+            "msg": ""
+        }
+        return response
+
+    @property
+    def trading_rules_request_erroneous_mock_response(self):
+        response = {
+            "code": "0",
+            "msg": "",
+            "data": [
+                {
+                    "instType": "SWAP",
+                    "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                    "uly": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                    "category": "1",
+                    "ctValCcy": self.base_asset,
+                    "settleCcy": self.quote_asset,
+                }
+            ]
+        }
+        return response
+
+    def _simulate_trading_rules_initialized(self):
+        min_order_size = Decimal(str(0.1))
+        min_price_increment = Decimal(str(0.01))
+        min_base_amount_increment = Decimal(str(0.1))
+        self.exchange._trading_rules = {
+            self.trading_pair: TradingRule(
+                trading_pair=self.trading_pair,
+                min_order_size=min_order_size,
+                min_price_increment=min_price_increment,
+                min_base_amount_increment=min_base_amount_increment,
+            )
+        }
+
+    def test_format_trading_rules(self):
+        margin_asset = self.quote_asset
+        min_order_size = Decimal(str(0.1))
+        min_price_increment = Decimal(str(0.01))
+        min_base_amount_increment = Decimal(str(0.1))
+        mocked_response = self.trading_rules_request_mock_response()
+        self._simulate_trading_rules_initialized()
+        trading_rules = self.async_run_with_timeout(self.exchange._format_trading_rules(mocked_response))
+
+        self.assertEqual(1, len(trading_rules))
+
+        trading_rule = trading_rules[0]
+
+        self.assertEqual(min_order_size, trading_rule.min_order_size)
+        self.assertEqual(min_price_increment, trading_rule.min_price_increment)
+        self.assertEqual(min_base_amount_increment, trading_rule.min_base_amount_increment)
+        self.assertEqual(margin_asset, trading_rule.buy_order_collateral_token)
+        self.assertEqual(margin_asset, trading_rule.sell_order_collateral_token)
+
+    def test_format_trading_rules_exception(self):
+        mocked_response = self.trading_rules_request_erroneous_mock_response
+        self._simulate_trading_rules_initialized()
+        self.async_run_with_timeout(self.exchange._format_trading_rules(mocked_response))
+
+        self.assertTrue(self._is_logged(
+            "ERROR",
+            f"Error parsing the trading pair rule: {mocked_response['data'][0]}. Skipping..."
+        ))
+
+    @aioresponses()
+    def test_resolving_trading_pair_symbol_duplicates_on_trading_rules_update_first_is_good(self, mock_api):
+        self.exchange._set_current_timestamp(1000)
+
+        url = self.trading_rules_url
+        response = self.trading_rules_request_mock_response
+        results = response["data"]
+        duplicate = deepcopy(results[0])
+        duplicate["instId"] = f"{self.exchange_trading_pair}_12345"
+        duplicate["lot_size_filter"]["min_trading_qty"] = duplicate["lot_size_filter"]["min_trading_qty"] + 1
+        results.append(duplicate)
+        mock_api.get(url, body=json.dumps(response))
+
+        self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
+
+        self.assertEqual(1, len(self.exchange.trading_rules))
+        self.assertIn(self.trading_pair, self.exchange.trading_rules)
+        self.assertEqual(repr(self.expected_trading_rule), repr(self.exchange.trading_rules[self.trading_pair]))
+
+    @aioresponses()
+    def test_resolving_trading_pair_symbol_duplicates_on_trading_rules_update_second_is_good(self, mock_api):
+        self.exchange._set_current_timestamp(1000)
+
+        url = self.trading_rules_url
+        response = self.trading_rules_request_mock_response
+        results = response["result"]
+        duplicate = deepcopy(results[0])
+        duplicate["name"] = f"{self.exchange_trading_pair}_12345"
+        duplicate["alias"] = f"{self.exchange_trading_pair}_12345"
+        duplicate["lot_size_filter"]["min_trading_qty"] = duplicate["lot_size_filter"]["min_trading_qty"] + 1
+        results.insert(0, duplicate)
+        mock_api.get(url, body=json.dumps(response))
+
+        self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
+
+        self.assertEqual(1, len(self.exchange.trading_rules))
+        self.assertIn(self.trading_pair, self.exchange.trading_rules)
+        self.assertEqual(repr(self.expected_trading_rule), repr(self.exchange.trading_rules[self.trading_pair]))
+
+    @aioresponses()
+    def test_resolving_trading_pair_symbol_duplicates_on_trading_rules_update_cannot_resolve(self, mock_api):
+        self.exchange._set_current_timestamp(1000)
+
+        url = self.trading_rules_url
+        response = self.trading_rules_request_mock_response
+        results = response["result"]
+        first_duplicate = deepcopy(results[0])
+        first_duplicate["name"] = f"{self.exchange_trading_pair}_12345"
+        first_duplicate["alias"] = f"{self.exchange_trading_pair}_12345"
+        first_duplicate["lot_size_filter"]["min_trading_qty"] = (
+            first_duplicate["lot_size_filter"]["min_trading_qty"] + 1
+        )
+        second_duplicate = deepcopy(results[0])
+        second_duplicate["name"] = f"{self.exchange_trading_pair}_67890"
+        second_duplicate["alias"] = f"{self.exchange_trading_pair}_67890"
+        second_duplicate["lot_size_filter"]["min_trading_qty"] = (
+            second_duplicate["lot_size_filter"]["min_trading_qty"] + 2
+        )
+        results.pop(0)
+        results.append(first_duplicate)
+        results.append(second_duplicate)
+        mock_api.get(url, body=json.dumps(response))
+
+        self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
+
+        self.assertEqual(0, len(self.exchange.trading_rules))
+        self.assertNotIn(self.trading_pair, self.exchange.trading_rules)
+        self.assertTrue(
+            self.is_logged(
+                log_level="ERROR",
+                message=(
+                    f"Could not resolve the exchange symbols"
+                    f" {self.exchange_trading_pair}_67890"
+                    f" and {self.exchange_trading_pair}_12345"
+                ),
+            )
+        )
+
+    # -------------------------------------------------------
+    # xxx ? TESTS AND MOCKS
+    # -------------------------------------------------------
+    @property
+    def latest_prices_request_mock_response(self):
+        return {
+            "code": "0",
+            "msg": "",
+            "data": [
+                {
+                    "instType": "SPOT",
+                    "instId": self.trading_pair,
+                    "last": str(self.expected_latest_price),
+                    "lastSz": "0.1",
+                    "askPx": "9999.99",
+                    "askSz": "11",
+                    "bidPx": "8888.88",
+                    "bidSz": "5",
+                    "open24h": "9000",
+                    "high24h": "10000",
+                    "low24h": "8888.88",
+                    "volCcy24h": "2222",
+                    "vol24h": "2222",
+                    "sodUtc0": "2222",
+                    "sodUtc8": "2222",
+                    "ts": "1597026383085"
+                }
+            ]
+        }
+
+    @property
+    def network_status_request_successful_mock_response(self):
+        return {
+            "code": "0",
+            "msg": "",
+            "data": [
+                {
+                    "ts": "1597026383085"
+                }
+            ]
+        }
 
     @property
     def order_creation_request_successful_mock_response(self):
-        mock_response = {
-            "ret_code": 0,
-            "ret_msg": "OK",
-            "ext_code": "",
-            "ext_info": "",
-            "result": {
-                "user_id": 1,
-                "order_id": "335fd977-e5a5-4781-b6d0-c772d5bfb95b",
-                "symbol": self.exchange_trading_pair,
-                "side": "Buy",
-                "order_type": "Limit",
-                "price": 46000,
-                "qty": 1,
-                "time_in_force": "GoodTillCancel",
-                "order_status": "Created",
-                "last_exec_time": 0,
-                "last_exec_price": 0,
-                "leaves_qty": 1,
-                "cum_exec_qty": 0,
-                "cum_exec_value": 0,
-                "cum_exec_fee": 0,
-                "reject_reason": "",
-                "order_link_id": get_new_client_order_id(
-                    is_buy=True,
-                    trading_pair=self.trading_pair,
-                    hbot_order_id_prefix=CONSTANTS.HBOT_BROKER_ID,
-                    max_id_len=CONSTANTS.MAX_ID_LEN,
-                ),
-                "created_at": "2019-11-30T11:03:43.452Z",
-                "updated_at": "2019-11-30T11:03:43.455Z"
-            },
-            "time_now": "1575111823.458705",
-            "rate_limit_status": 98,
-            "rate_limit_reset_ms": 1580885703683,
-            "rate_limit": 100
+        return {
+            "code": "0",
+            "msg": "",
+            "data": [
+                {
+                    "clOrdId": "oktswap6",
+                    "ordId": self.expected_exchange_order_id,
+                    "tag": "",
+                    "sCode": "0",
+                    "sMsg": ""
+                }
+            ]
         }
-        return mock_response
 
     @property
     def balance_request_mock_response_for_base_and_quote(self):
-        mock_response = {
-            "ret_code": 0,
-            "ret_msg": "OK",
-            "ext_code": "",
-            "ext_info": "",
-            "result": {
-                self.base_asset: {
-                    "equity": 15,
-                    "available_balance": 10,
-                    "used_margin": 0.00012529,
-                    "order_margin": 0.00012529,
-                    "position_margin": 0,
-                    "occ_closing_fee": 0,
-                    "occ_funding_fee": 0,
-                    "wallet_balance": 15,
-                    "realised_pnl": 0,
-                    "unrealised_pnl": 2,
-                    "cum_realised_pnl": 0,
-                    "given_cash": 0,
-                    "service_cash": 0
-                },
-                self.quote_asset: {
-                    "equity": 2000,
-                    "available_balance": 2000,
-                    "used_margin": 49500,
-                    "order_margin": 49500,
-                    "position_margin": 0,
-                    "occ_closing_fee": 0,
-                    "occ_funding_fee": 0,
-                    "wallet_balance": 2000,
-                    "realised_pnl": 0,
-                    "unrealised_pnl": 0,
-                    "cum_realised_pnl": 0,
-                    "given_cash": 0,
-                    "service_cash": 0
+        return {
+            "code": "0",
+            "data": [
+                {
+                    "adjEq": "10679688.0460531643092577",
+                    "details": [
+                        {
+                            "availBal": "10",
+                            "availEq": "",
+                            "cashBal": "",
+                            "ccy": self.base_asset,
+                            "crossLiab": "0",
+                            "disEq": "9439737.0772999514",
+                            "eq": "",
+                            "eqUsd": "9933041.196999946",
+                            "frozenBal": "5",
+                            "interest": "0",
+                            "isoEq": "0",
+                            "isoLiab": "0",
+                            "isoUpl": "0",
+                            "liab": "0",
+                            "maxLoan": "10000",
+                            "mgnRatio": "",
+                            "notionalLever": "",
+                            "ordFrozen": "0",
+                            "twap": "0",
+                            "uTime": "1620722938250",
+                            "upl": "0",
+                            "uplLiab": "0",
+                            "stgyEq": "0"
+                        },
+                        {
+                            "availBal": "",
+                            "availEq": "2000",
+                            "cashBal": "",
+                            "ccy": self.quote_asset,
+                            "crossLiab": "0",
+                            "disEq": "1239950.9687532129092577",
+                            "eq": "2000",
+                            "eqUsd": "1239950.9687532129092577",
+                            "frozenBal": "0.0918492093160816",
+                            "interest": "0",
+                            "isoEq": "0",
+                            "isoLiab": "0",
+                            "isoUpl": "0",
+                            "liab": "0",
+                            "maxLoan": "1453.92289531493594",
+                            "mgnRatio": "",
+                            "notionalLever": "",
+                            "ordFrozen": "0",
+                            "twap": "0",
+                            "uTime": "1620722938250",
+                            "upl": "0.570822125136023",
+                            "uplLiab": "0",
+                            "stgyEq": "0"
+                        }
+                    ],
+                    "imr": "3372.2942371050594217",
+                    "isoEq": "0",
+                    "mgnRatio": "70375.35408747017",
+                    "mmr": "134.8917694842024",
+                    "notionalUsd": "33722.9423710505978888",
+                    "ordFroz": "0",
+                    "totalEq": "11172992.1657531589092577",
+                    "uTime": "1623392334718"
                 }
-            },
-            "time_now": "1578284274.816029",
-            "rate_limit_status": 98,
-            "rate_limit_reset_ms": 1580885703683,
-            "rate_limit": 100
+            ]
         }
-        return mock_response
 
     @property
     def balance_request_mock_response_only_base(self):
-        mock_response = self.balance_request_mock_response_for_base_and_quote
-        del mock_response["result"][self.quote_asset]
-        return mock_response
+        return {
+            "code": "0",
+            "data": [
+                {
+                    "adjEq": "10679688.0460531643092577",
+                    "details": [
+                        {
+                            "availBal": "10",
+                            "availEq": "",
+                            "cashBal": "",
+                            "ccy": self.base_asset,
+                            "crossLiab": "0",
+                            "disEq": "9439737.0772999514",
+                            "eq": "",
+                            "eqUsd": "9933041.196999946",
+                            "frozenBal": "5",
+                            "interest": "0",
+                            "isoEq": "0",
+                            "isoLiab": "0",
+                            "isoUpl": "0",
+                            "liab": "0",
+                            "maxLoan": "10000",
+                            "mgnRatio": "",
+                            "notionalLever": "",
+                            "ordFrozen": "0",
+                            "twap": "0",
+                            "uTime": "1620722938250",
+                            "upl": "0",
+                            "uplLiab": "0",
+                            "stgyEq": "0"
+                        },
+                    ],
+                    "imr": "3372.2942371050594217",
+                    "isoEq": "0",
+                    "mgnRatio": "70375.35408747017",
+                    "mmr": "134.8917694842024",
+                    "notionalUsd": "33722.9423710505978888",
+                    "ordFroz": "0",
+                    "totalEq": "11172992.1657531589092577",
+                    "uTime": "1623392334718"
+                }
+            ],
+            "msg": ""
+        }
 
     @property
     def balance_event_websocket_update(self):
-        mock_response = {
-            "topic": "wallet",
+        return {
+            "arg": {
+                "channel": "account",
+                "ccy": "BTC"
+            },
             "data": [
                 {
-                    "available_balance": "10",
-                    "wallet_balance": "15"
+                    "uTime": "1597026383085",
+                    "totalEq": "41624.32",
+                    "isoEq": "3624.32",
+                    "adjEq": "41624.32",
+                    "ordFroz": "0",
+                    "imr": "4162.33",
+                    "mmr": "4",
+                    "notionalUsd": "",
+                    "mgnRatio": "41624.32",
+                    "details": [
+                        {
+                            "availBal": "10",
+                            "availEq": "",
+                            "ccy": self.base_asset,
+                            "cashBal": "",
+                            "uTime": "1617279471503",
+                            "disEq": "50559.01",
+                            "eq": "",
+                            "eqUsd": "45078.3790756226851775",
+                            "frozenBal": "5",
+                            "interest": "0",
+                            "isoEq": "0",
+                            "liab": "0",
+                            "maxLoan": "",
+                            "mgnRatio": "",
+                            "notionalLever": "0.0022195262185864",
+                            "ordFrozen": "0",
+                            "upl": "0",
+                            "uplLiab": "0",
+                            "crossLiab": "0",
+                            "isoLiab": "0",
+                            "coinUsdPrice": "60000",
+                            "stgyEq": "0",
+                            "isoUpl": ""
+                        }
+                    ]
                 }
             ]
         }
-        return mock_response
-
-    @property
-    def non_linear_balance_event_websocket_update(self):
-        mock_response = {
-            "topic": "wallet",
-            "data": [
-                {
-                    "user_id": 738713,
-                    "coin": self.base_asset,
-                    "available_balance": "10",
-                    "wallet_balance": "15"
-                },
-                {
-                    "user_id": 738713,
-                    "coin": self.non_linear_quote_asset,
-                    "available_balance": "20",
-                    "wallet_balance": "25"
-                },
-            ]
-        }
-        return mock_response
 
     @property
     def expected_latest_price(self):
         return 9999.9
+
+    @property
+    def expected_supported_order_types(self):
+        return [OrderType.LIMIT, OrderType.MARKET]
+
+    @property
+    def expected_trading_rule(self):
+        return TradingRule(
+            trading_pair=self.trading_pair,
+            min_order_size=Decimal(self.trading_rules_request_mock_response["data"][0]["minSz"]),
+            min_price_increment=Decimal(self.trading_rules_request_mock_response["data"][0]["tickSz"]),
+            min_base_amount_increment=Decimal(self.trading_rules_request_mock_response["data"][0]["lotSz"]),
+        )
+
+    @property
+    def expected_logged_error_for_erroneous_trading_rule(self):
+        erroneous_rule = self.trading_rules_request_erroneous_mock_response["data"][0]
+        return f"Error parsing the trading pair rule: {erroneous_rule}. Skipping..."
+
+    @property
+    def expected_exchange_order_id(self):
+        return "312269865356374016"
+
+    @property
+    def expected_partial_fill_price(self) -> Decimal:
+        return Decimal(10500)
+
+    @property
+    def expected_partial_fill_amount(self) -> Decimal:
+        return Decimal("0.5")
+
+    @property
+    def expected_fill_fee(self) -> TradeFeeBase:
+        return AddedToCostTradeFee(
+            percent_token=self.quote_asset,
+            flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("30"))])
+
+    @property
+    def expected_fill_trade_id(self) -> str:
+        return "TrID1"
+
+    @property
+    def is_order_fill_http_update_included_in_status_update(self) -> bool:
+        return True
+
+    @property
+    def is_order_fill_http_update_executed_during_websocket_order_event_processing(self) -> bool:
+        return False
+
+    def exchange_symbol_for_tokens(self, base_token: str, quote_token: str) -> str:
+        return f"{base_token}-{quote_token}-SWAP"
+
+    def create_exchange_instance(self):
+        client_config_map = ClientConfigAdapter(ClientConfigMap())
+        exchange = OkxPerpetualDerivative(
+            client_config_map,
+            self.api_key,
+            self.api_secret,
+            self.passphrase,
+            trading_pairs=[self.trading_pair],
+        )
+        exchange._last_trade_history_timestamp = self.latest_trade_hist_timestamp
+        return exchange
 
     @property
     def empty_funding_payment_mock_response(self):
@@ -506,119 +731,63 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         }
 
     @property
-    def expected_supported_order_types(self):
-        return [OrderType.LIMIT, OrderType.MARKET]
-
-    # OK
-    @property
-    def expected_trading_rule(self):
-        trading_rules_resp = self.trading_rules_request_mock_response["result"][0]
-        return TradingRule(
-            trading_pair=self.trading_pair,
-            min_order_size=Decimal(str(trading_rules_resp["minSz"])),
-            max_order_size=Decimal(str(min(trading_rules_resp["maxLmtSz"], trading_rules_resp["maxMktSz"]))),
-            min_price_increment=Decimal(str(trading_rules_resp["tickSz"])),
-            min_base_amount_increment=Decimal(str(trading_rules_resp["lotSz"])),
-        )
-
-    @property
-    def expected_logged_error_for_erroneous_trading_rule(self):
-        erroneous_rule = self.trading_rules_request_erroneous_mock_response["data"][0]
-        return f"Error parsing the trading pair rule: {erroneous_rule}. Skipping..."
-
-    @property
-    def expected_exchange_order_id(self):
-        return "335fd977-e5a5-4781-b6d0-c772d5bfb95b"
-
-    @property
-    def is_order_fill_http_update_included_in_status_update(self) -> bool:
-        return False
-
-    @property
-    def is_order_fill_http_update_executed_during_websocket_order_event_processing(self) -> bool:
-        return False
-
-    @property
-    def expected_partial_fill_price(self) -> Decimal:
-        return Decimal("100")
-
-    @property
-    def expected_partial_fill_amount(self) -> Decimal:
-        return Decimal("10")
-
-    @property
-    def expected_fill_fee(self) -> TradeFeeBase:
-        return AddedToCostTradeFee(
-            percent_token=self.quote_asset,
-            flat_fees=[TokenAmount(token=self.quote_asset, amount=Decimal("0.1"))],
-        )
-
-    @property
-    def expected_fill_trade_id(self) -> str:
-        return "xxxxxxxx-xxxx-xxxx-8b66-c3d2fcd352f6"
-
-    @property
     def latest_trade_hist_timestamp(self) -> int:
         return 1234
 
-    def exchange_symbol_for_tokens(self, base_token: str, quote_token: str) -> str:
-        return f"{base_token}-{quote_token}-SWAP"
-
     def validate_auth_credentials_present(self, request_call: RequestCall):
         request_headers = request_call.kwargs["headers"]
-        self.assertEqual("application/json", request_headers["Content-Type"])
-
-        request_data = request_call.kwargs["params"]
-        if request_data is None:
-            request_data = json.loads(request_call.kwargs["data"])
-
-        self.assertIn("timestamp", request_data)
-        self.assertIn("api_key", request_data)
-        self.assertEqual(self.api_key, request_data["api_key"])
-        self.assertIn("sign", request_data)
+        self.assertIn("OK-ACCESS-KEY", request_headers)
+        self.assertEqual(self.api_key, request_headers["OK-ACCESS-KEY"])
+        self.assertIn("OK-ACCESS-TIMESTAMP", request_headers)
+        self.assertIn("OK-ACCESS-SIGN", request_headers)
+        self.assertIn("OK-ACCESS-PASSPHRASE", request_headers)
+        self.assertEqual(self.passphrase, request_headers["OK-ACCESS-PASSPHRASE"])
 
     def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = json.loads(request_call.kwargs["data"])
-        self.assertEqual(order.trade_type.name.capitalize(), request_data["side"])
-        self.assertEqual(self.exchange_trading_pair, request_data["symbol"])
-        self.assertEqual(order.amount, request_data["qty"])
-        self.assertEqual(CONSTANTS.DEFAULT_TIME_IN_FORCE, request_data["time_in_force"])
-        self.assertEqual(order.position == PositionAction.CLOSE, request_data["close_on_trigger"])
-        self.assertEqual(order.client_order_id, request_data["order_link_id"])
-        self.assertEqual(order.position == PositionAction.CLOSE, request_data["reduce_only"])
-        self.assertIn("position_idx", request_data)
-        self.assertEqual(order.order_type.name.capitalize(), request_data["order_type"])
+        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                         request_data["instId"])
+        self.assertEqual("cash", request_data["tdMode"])
+        self.assertEqual(order.trade_type.name.lower(), request_data["side"])
+        self.assertEqual(order.order_type.name.lower(), request_data["ordType"])
+        self.assertEqual(Decimal("100"), Decimal(request_data["sz"]))
+        self.assertEqual(Decimal("10000"), Decimal(request_data["px"]))
+        self.assertEqual(order.client_order_id, request_data["clOrdId"])
 
     def validate_order_cancelation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = json.loads(request_call.kwargs["data"])
-        self.assertEqual(self.exchange_trading_pair, request_data["symbol"])
-        self.assertEqual(order.exchange_order_id, request_data["order_id"])
+        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                         request_data["instId"])
+        self.assertEqual(order.client_order_id, request_data["clOrdId"])
 
     def validate_order_status_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
-        self.assertEqual(self.exchange_trading_pair, request_params["symbol"])
-        self.assertEqual(order.client_order_id, request_params["order_link_id"])
-        self.assertEqual(order.exchange_order_id, request_params["order_id"])
+        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                         request_params["instId"])
+        self.assertEqual(order.client_order_id, request_params["clOrdId"])
 
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
-        self.assertEqual(self.exchange_trading_pair, request_params["symbol"])
-        self.assertEqual(self.latest_trade_hist_timestamp * 1e3, request_params["start_time"])
+        self.assertEqual("SWAT", request_params["instType"])
+        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                         request_params["instId"])
+        self.assertEqual(order.exchange_order_id, request_params["ordId"])
 
     def configure_successful_cancelation_response(
         self,
         order: InFlightOrder,
         mock_api: aioresponses,
+        response_scode: int = 0,
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         """
         :return: the URL configured for the cancelation
         """
         url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.CANCEL_ACTIVE_ORDER_PATH_URL, trading_pair=order.trading_pair
+            endpoint=CONSTANTS.REST_CANCEL_ACTIVE_ORDER[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
         )
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
-        response = self._order_cancelation_request_successful_mock_response(order=order)
+        response = self._order_cancelation_request_successful_mock_response(order=order, response_scode=response_scode)
         mock_api.post(regex_url, body=json.dumps(response), callback=callback)
         return url
 
@@ -629,14 +798,22 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.CANCEL_ACTIVE_ORDER_PATH_URL, trading_pair=order.trading_pair
+            endpoint=CONSTANTS.REST_CANCEL_ACTIVE_ORDER[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
         )
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        # regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         response = {
-            "ret_code": 20000,
-            "ret_msg": "Could not find order",
+            "code": "0",
+            "msg": "",
+            "data": [
+                {
+                    "clOrdId": order.client_order_id,
+                    "ordId": order.exchange_order_id or "dummyExchangeOrderId",
+                    "sCode": "1",
+                    "sMsg": "Error"
+                }
+            ]
         }
-        mock_api.post(regex_url, body=json.dumps(response), callback=callback)
+        mock_api.post(url, body=json.dumps(response), callback=callback)
         return url
 
     def configure_one_successful_one_erroneous_cancel_all_response(
@@ -677,7 +854,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
         url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL, trading_pair=order.trading_pair
+            endpoint=CONSTANTS.REST_QUERY_ACTIVE_ORDER[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
         )
         regex_url = re.compile(url + r"\?.*")
         response = self._order_status_request_completely_filled_mock_response(order=order)
@@ -691,7 +868,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL, trading_pair=order.trading_pair
+            endpoint=CONSTANTS.REST_QUERY_ACTIVE_ORDER[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
         )
         regex_url = re.compile(url + r"\?.*")
         response = self._order_status_request_canceled_mock_response(order=order)
@@ -705,7 +882,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL, trading_pair=order.trading_pair
+            endpoint=CONSTANTS.REST_QUERY_ACTIVE_ORDER[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
         )
         regex_url = re.compile(url + r"\?.*")
         response = self._order_status_request_open_mock_response(order=order)
@@ -719,7 +896,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL, trading_pair=order.trading_pair
+            endpoint=CONSTANTS.REST_QUERY_ACTIVE_ORDER[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
         )
         regex_url = re.compile(url + r"\?.*")
         mock_api.get(regex_url, status=404, callback=callback)
@@ -732,7 +909,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL, trading_pair=order.trading_pair
+            endpoint=CONSTANTS.REST_QUERY_ACTIVE_ORDER[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
         )
         regex_url = re.compile(url + r"\?.*")
         response = self._order_status_request_partially_filled_mock_response(order=order)
@@ -746,7 +923,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL, trading_pair=order.trading_pair
+            endpoint=CONSTANTS.REST_USER_TRADE_RECORDS[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
         )
         regex_url = re.compile(url + r"\?.*")
         response = self._order_fills_request_partial_fill_mock_response(order=order)
@@ -760,7 +937,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.USER_TRADE_RECORDS_PATH_URL, trading_pair=order.trading_pair
+            endpoint=CONSTANTS.REST_USER_TRADE_RECORDS[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
         )
         regex_url = re.compile(url + r"\?.*")
         response = self._order_fills_request_full_fill_mock_response(order=order)
@@ -774,7 +951,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> str:
         url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.QUERY_ACTIVE_ORDER_PATH_URL, trading_pair=order.trading_pair
+            endpoint=CONSTANTS.REST_USER_TRADE_RECORDS[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
         )
         regex_url = re.compile(url + r"\?.*")
         mock_api.get(regex_url, status=400, callback=callback)
@@ -803,9 +980,8 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         mock_api: aioresponses,
         callback: Optional[Callable] = lambda *args, **kwargs: None
     ):
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.SET_POSITION_MODE_URL, trading_pair=self.trading_pair
-        )
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_SET_POSITION_MODE[CONSTANTS.ENDPOINT],
+                                                  domain=CONSTANTS.DEFAULT_DOMAIN)
         regex_url = re.compile(f"^{url}")
 
         error_code = 1_000
@@ -882,124 +1058,186 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
 
     def order_event_for_new_order_websocket_update(self, order: InFlightOrder):
         return {
-            "topic": "order",
+            "arg": {
+                "channel": "orders",
+                "uid": "77982378738415879",
+                "instType": "SWAP",
+                "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset)
+            },
             "data": [
                 {
-                    "order_id": order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
-                    "order_link_id": order.client_order_id or "",
-                    "symbol": self.exchange_trading_pair,
-                    "side": order.trade_type.name.capitalize(),
-                    "order_type": order.order_type.name.capitalize(),
-                    "price": str(order.price),
-                    "qty": float(order.amount),
-                    "time_in_force": "GoodTillCancel",
-                    "create_type": "CreateByUser",
-                    "cancel_type": "",
-                    "order_status": "New",
-                    "leaves_qty": 0,
-                    "cum_exec_qty": 0,
-                    "cum_exec_value": "0",
-                    "cum_exec_fee": "0",
-                    "timestamp": "2022-06-21T07:35:56.505Z",
-                    "take_profit": "18500",
-                    "tp_trigger_by": "LastPrice",
-                    "stop_loss": "22000",
-                    "sl_trigger_by": "LastPrice",
-                    "trailing_stop": "0",
-                    "last_exec_price": "21196.5",
-                    "reduce_only": order.position == PositionAction.CLOSE,
-                    "close_on_trigger": order.position == PositionAction.CLOSE,
+                    "instType": "SWAP",
+                    "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
+                    "ccy": "BTC",
+                    "ordId": order.exchange_order_id or "EOID1",
+                    "clOrdId": order.client_order_id,
+                    "tag": "",
+                    "px": str(order.price),
+                    "sz": str(order.amount),
+                    "notionalUsd": "",
+                    "ordType": "limit",
+                    "side": order.trade_type.name.lower(),
+                    "posSide": "long",
+                    "tdMode": "cross",
+                    "tgtCcy": "",
+                    "fillSz": "0",
+                    "fillPx": "0",
+                    "tradeId": "0",
+                    "accFillSz": "323",
+                    "fillNotionalUsd": "",
+                    "fillTime": "0",
+                    "fillFee": "0",
+                    "fillFeeCcy": "",
+                    "execType": "T",
+                    "state": "live",
+                    "avgPx": "0",
+                    "lever": "20",
+                    "tpTriggerPx": "0",
+                    "tpTriggerPxType": "last",
+                    "tpOrdPx": "20",
+                    "slTriggerPx": "0",
+                    "slTriggerPxType": "last",
+                    "slOrdPx": "20",
+                    "feeCcy": "",
+                    "fee": "",
+                    "rebateCcy": "",
+                    "rebate": "",
+                    "tgtCcy": "",
+                    "source": "",
+                    "pnl": "",
+                    "category": "",
+                    "uTime": "1597026383085",
+                    "cTime": "1597026383085",
+                    "reqId": "",
+                    "amendResult": "",
+                    "code": "0",
+                    "msg": ""
                 }
             ]
         }
 
     def order_event_for_canceled_order_websocket_update(self, order: InFlightOrder):
         return {
-            "topic": "order",
+            "arg": {
+                "channel": "orders",
+                "uid": "77982378738415879",
+                "instType": "SWAP",
+                "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset)
+            },
             "data": [
                 {
-                    "order_id": order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
-                    "order_link_id": order.client_order_id or "",
-                    "symbol": self.exchange_trading_pair,
-                    "side": order.trade_type.name.capitalize(),
-                    "order_type": order.order_type.name.capitalize(),
-                    "price": str(order.price),
-                    "qty": float(order.amount),
-                    "time_in_force": "GoodTillCancel",
-                    "create_type": "CreateByUser",
-                    "cancel_type": "",
-                    "order_status": "Cancelled",
-                    "leaves_qty": 0,
-                    "cum_exec_qty": 0,
-                    "cum_exec_value": "0",
-                    "cum_exec_fee": "0.00000567",
-                    "timestamp": "2022-06-21T07:35:56.505Z",
-                    "take_profit": "18500",
-                    "tp_trigger_by": "LastPrice",
-                    "stop_loss": "22000",
-                    "sl_trigger_by": "LastPrice",
-                    "trailing_stop": "0",
-                    "last_exec_price": "21196.5",
-                    "reduce_only": order.position == PositionAction.CLOSE,
-                    "close_on_trigger": order.position == PositionAction.CLOSE,
+                    "instType": "SWAP",
+                    "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
+                    "ccy": "BTC",
+                    "ordId": order.exchange_order_id or "EOID1",
+                    "clOrdId": order.client_order_id,
+                    "tag": "",
+                    "px": str(order.price),
+                    "sz": str(order.amount),
+                    "notionalUsd": "",
+                    "ordType": "limit",
+                    "side": order.trade_type.name.lower(),
+                    "posSide": "long",
+                    "tdMode": "cross",
+                    "tgtCcy": "",
+                    "fillSz": "0",
+                    "fillPx": "0",
+                    "tradeId": "0",
+                    "accFillSz": "323",
+                    "fillNotionalUsd": "",
+                    "fillTime": "0",
+                    "fillFee": "0",
+                    "fillFeeCcy": "",
+                    "execType": "T",
+                    "state": "canceled",
+                    "avgPx": "0",
+                    "lever": "20",
+                    "tpTriggerPx": "0",
+                    "tpTriggerPxType": "last",
+                    "tpOrdPx": "20",
+                    "slTriggerPx": "0",
+                    "slTriggerPxType": "last",
+                    "slOrdPx": "20",
+                    "feeCcy": "",
+                    "fee": "",
+                    "rebateCcy": "",
+                    "rebate": "",
+                    "tgtCcy": "",
+                    "source": "",
+                    "pnl": "",
+                    "category": "",
+                    "uTime": "1597026383085",
+                    "cTime": "1597026383085",
+                    "reqId": "",
+                    "amendResult": "",
+                    "code": "0",
+                    "msg": ""
                 }
             ]
         }
 
     def order_event_for_full_fill_websocket_update(self, order: InFlightOrder):
         return {
-            "topic": "order",
+            "arg": {
+                "channel": "orders",
+                "uid": "77982378738415879",
+                "instType": "SPOT",
+                "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset)
+            },
             "data": [
                 {
-                    "order_id": order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
-                    "order_link_id": order.client_order_id or "",
-                    "symbol": self.exchange_trading_pair,
-                    "side": order.trade_type.name.capitalize(),
-                    "order_type": order.order_type.name.capitalize(),
-                    "price": str(order.price),
-                    "qty": float(order.amount),
-                    "time_in_force": "GoodTillCancel",
-                    "create_type": "CreateByUser",
-                    "cancel_type": "",
-                    "order_status": "Filled",
-                    "leaves_qty": 0,
-                    "cum_exec_qty": float(order.amount),
-                    "cum_exec_value": str(order.price),
-                    "cum_exec_fee": str(self.expected_fill_fee.flat_fees[0].amount),
-                    "timestamp": "2022-06-21T07:35:56.505Z",
-                    "take_profit": "18500",
-                    "tp_trigger_by": "LastPrice",
-                    "stop_loss": "22000",
-                    "sl_trigger_by": "LastPrice",
-                    "trailing_stop": "0",
-                    "last_exec_price": "21196.5",
-                    "reduce_only": order.position == PositionAction.CLOSE,
-                    "close_on_trigger": order.position == PositionAction.CLOSE,
+                    "instType": "SPOT",
+                    "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
+                    "ccy": "BTC",
+                    "ordId": order.exchange_order_id or "EOID1",
+                    "clOrdId": order.client_order_id,
+                    "tag": "",
+                    "px": str(order.price),
+                    "sz": str(order.amount),
+                    "notionalUsd": "",
+                    "ordType": "limit",
+                    "side": order.trade_type.name.lower(),
+                    "posSide": "long",
+                    "tdMode": "cross",
+                    "tgtCcy": "",
+                    "fillSz": str(order.amount),
+                    "fillPx": str(order.price),
+                    "tradeId": self.expected_fill_trade_id,
+                    "accFillSz": "323",
+                    "fillNotionalUsd": "",
+                    "fillTime": "0",
+                    "fillFee": str(self.expected_fill_fee.flat_fees[0].amount),
+                    "fillFeeCcy": self.expected_fill_fee.flat_fees[0].token,
+                    "execType": "T",
+                    "state": "filled",
+                    "avgPx": "0",
+                    "lever": "20",
+                    "tpTriggerPx": "0",
+                    "tpTriggerPxType": "last",
+                    "tpOrdPx": "20",
+                    "slTriggerPx": "0",
+                    "slTriggerPxType": "last",
+                    "slOrdPx": "20",
+                    "feeCcy": "",
+                    "fee": "",
+                    "rebateCcy": "",
+                    "rebate": "",
+                    "tgtCcy": "",
+                    "source": "",
+                    "pnl": "",
+                    "category": "",
+                    "uTime": "1597026383085",
+                    "cTime": "1597026383085",
+                    "reqId": "",
+                    "amendResult": "",
+                    "code": "0",
+                    "msg": ""
                 }
             ]
         }
 
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
-        return {
-            "topic": "execution",
-            "data": [
-                {
-                    "symbol": self.exchange_trading_pair,
-                    "side": order.trade_type.name.capitalize(),
-                    "order_id": order.exchange_order_id or "1640b725-75e9-407d-bea9-aae4fc666d33",
-                    "exec_id": self.expected_fill_trade_id,
-                    "order_link_id": order.client_order_id or "",
-                    "price": str(order.price),
-                    "order_qty": float(order.amount),
-                    "exec_type": "Trade",
-                    "exec_qty": float(order.amount),
-                    "exec_fee": str(self.expected_fill_fee.flat_fees[0].amount),
-                    "leaves_qty": 0,
-                    "is_maker": False,
-                    "trade_time": "2020-01-14T14:07:23.629Z"
-                }
-            ]
-        }
+        return {}
 
     def position_event_for_full_fill_websocket_update(self, order: InFlightOrder, unrealized_pnl: float):
         position_value = unrealized_pnl + order.amount * order.price * order.leverage
@@ -1044,79 +1282,6 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             ]
         }
 
-    def all_symbols_request_mock_response(self):
-        mocked_response = {
-            "code": "0",
-            "data": [
-                {
-                    "alias": "",
-                    "baseCcy": "",
-                    "category": "1",
-                    "ctMult": "1",
-                    "ctType": "linear",
-                    "ctVal": "0.1",
-                    "ctValCcy": self.base_asset,
-                    "expTime": "",
-                    "instFamily": f"{self.base_asset}-{self.quote_asset}",
-                    "instId": f"{self.base_asset}-{self.quote_asset}-SWAP",
-                    "instType": "SWAP",
-                    "lever": "100",
-                    "listTime": "1611916828000",
-                    "lotSz": "1",
-                    "maxIcebergSz": "100000000.0000000000000000",
-                    "maxLmtAmt": "20000000",
-                    "maxLmtSz": "100000000",
-                    "maxMktAmt": "",
-                    "maxMktSz": "20000",
-                    "maxStopSz": "20000",
-                    "maxTriggerSz": "100000000.0000000000000000",
-                    "maxTwapSz": "100000000.0000000000000000",
-                    "minSz": "1",
-                    "optType": "",
-                    "quoteCcy": "",
-                    "settleCcy": self.quote_asset,
-                    "state": "live",
-                    "stk": "",
-                    "tickSz": "0.01",
-                    "uly": f"{self.base_asset}-{self.quote_asset}",
-                },
-                {
-                    "alias": "",
-                    "baseCcy": "",
-                    "category": "1",
-                    "ctMult": "1",
-                    "ctType": "inverse",
-                    "ctVal": "10",
-                    "ctValCcy": "USD",
-                    "expTime": "",
-                    "instFamily": f"{self.base_asset}-OTHER",
-                    "instId": f"{self.base_asset}-OTHER-SWAP",
-                    "instType": "SWAP",
-                    "lever": "50",
-                    "listTime": "1637833825000",
-                    "lotSz": "1",
-                    "maxIcebergSz": "100000000.0000000000000000",
-                    "maxLmtAmt": "20000000",
-                    "maxLmtSz": "100000000",
-                    "maxMktAmt": "",
-                    "maxMktSz": "12000",
-                    "maxStopSz": "12000",
-                    "maxTriggerSz": "100000000.0000000000000000",
-                    "maxTwapSz": "100000000.0000000000000000",
-                    "minSz": "1",
-                    "optType": "",
-                    "quoteCcy": "",
-                    "settleCcy": self.base_asset,
-                    "state": "live",
-                    "stk": "",
-                    "tickSz": "0.01",
-                    "uly": f"{self.base_asset}-OTHER"
-                }
-            ],
-            "msg": ""
-        }
-        return mocked_response
-
     def funding_info_event_for_websocket_update(self):
         return {
             "topic": f"instrument_info.100ms.{self.exchange_trading_pair}",
@@ -1148,35 +1313,6 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             "cross_seq": 1053192657,
             "timestamp_e6": 1578853525691123
         }
-
-    def test_format_trading_rules(self):
-        margin_asset = self.quote_asset
-        min_order_size = Decimal(str(0.1))
-        min_price_increment = Decimal(str(0.01))
-        min_base_amount_increment = Decimal(str(0.1))
-        mocked_response = self.trading_rules_request_mock_response()
-        self._simulate_trading_rules_initialized()
-        trading_rules = self.async_run_with_timeout(self.exchange._format_trading_rules(mocked_response))
-
-        self.assertEqual(1, len(trading_rules))
-
-        trading_rule = trading_rules[0]
-
-        self.assertEqual(min_order_size, trading_rule.min_order_size)
-        self.assertEqual(min_price_increment, trading_rule.min_price_increment)
-        self.assertEqual(min_base_amount_increment, trading_rule.min_base_amount_increment)
-        self.assertEqual(margin_asset, trading_rule.buy_order_collateral_token)
-        self.assertEqual(margin_asset, trading_rule.sell_order_collateral_token)
-
-    def test_format_trading_rules_exception(self):
-        mocked_response = self.trading_rules_request_erroneous_mock_response
-        self._simulate_trading_rules_initialized()
-        self.async_run_with_timeout(self.exchange._format_trading_rules(mocked_response))
-
-        self.assertTrue(self._is_logged(
-            "ERROR",
-            f"Error parsing the trading pair rule: {mocked_response['data'][0]}. Skipping..."
-        ))
 
     def test_create_order_with_invalid_position_action_raises_value_error(self):
         self._simulate_trading_rules_initialized()
@@ -1220,12 +1356,6 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         self.assertEqual(self.quote_asset, linear_buy_collateral_token)
         self.assertEqual(self.quote_asset, linear_sell_collateral_token)
 
-        non_linear_buy_collateral_token = self.exchange.get_buy_collateral_token(self.non_linear_trading_pair)
-        non_linear_sell_collateral_token = self.exchange.get_sell_collateral_token(self.non_linear_trading_pair)
-
-        self.assertEqual(self.non_linear_quote_asset, non_linear_buy_collateral_token)
-        self.assertEqual(self.non_linear_quote_asset, non_linear_sell_collateral_token)
-
     def test_get_position_index(self):
         perpetual_trading: PerpetualTrading = self.exchange._perpetual_trading
         perpetual_trading.set_position_mode(value=PositionMode.ONEWAY)
@@ -1263,91 +1393,13 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             with self.assertRaises(NotImplementedError, msg=f"Failed on {trade_type} and {position_action}."):
                 self.exchange._get_position_idx(trade_type=trade_type, position_action=position_action)
 
-    @aioresponses()
-    def test_resolving_trading_pair_symbol_duplicates_on_trading_rules_update_first_is_good(self, mock_api):
-        self.exchange._set_current_timestamp(1000)
-
-        url = self.trading_rules_url
-        response = self.trading_rules_request_mock_response
-        results = response["data"]
-        duplicate = deepcopy(results[0])
-        duplicate["instId"] = f"{self.exchange_trading_pair}_12345"
-        duplicate["lot_size_filter"]["min_trading_qty"] = duplicate["lot_size_filter"]["min_trading_qty"] + 1
-        results.append(duplicate)
-        mock_api.get(url, body=json.dumps(response))
-
-        self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
-
-        self.assertEqual(1, len(self.exchange.trading_rules))
-        self.assertIn(self.trading_pair, self.exchange.trading_rules)
-        self.assertEqual(repr(self.expected_trading_rule), repr(self.exchange.trading_rules[self.trading_pair]))
-
-    @aioresponses()
-    def test_resolving_trading_pair_symbol_duplicates_on_trading_rules_update_second_is_good(self, mock_api):
-        self.exchange._set_current_timestamp(1000)
-
-        url = self.trading_rules_url
-        response = self.trading_rules_request_mock_response
-        results = response["result"]
-        duplicate = deepcopy(results[0])
-        duplicate["name"] = f"{self.exchange_trading_pair}_12345"
-        duplicate["alias"] = f"{self.exchange_trading_pair}_12345"
-        duplicate["lot_size_filter"]["min_trading_qty"] = duplicate["lot_size_filter"]["min_trading_qty"] + 1
-        results.insert(0, duplicate)
-        mock_api.get(url, body=json.dumps(response))
-
-        self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
-
-        self.assertEqual(1, len(self.exchange.trading_rules))
-        self.assertIn(self.trading_pair, self.exchange.trading_rules)
-        self.assertEqual(repr(self.expected_trading_rule), repr(self.exchange.trading_rules[self.trading_pair]))
-
-    @aioresponses()
-    def test_resolving_trading_pair_symbol_duplicates_on_trading_rules_update_cannot_resolve(self, mock_api):
-        self.exchange._set_current_timestamp(1000)
-
-        url = self.trading_rules_url
-        response = self.trading_rules_request_mock_response
-        results = response["result"]
-        first_duplicate = deepcopy(results[0])
-        first_duplicate["name"] = f"{self.exchange_trading_pair}_12345"
-        first_duplicate["alias"] = f"{self.exchange_trading_pair}_12345"
-        first_duplicate["lot_size_filter"]["min_trading_qty"] = (
-            first_duplicate["lot_size_filter"]["min_trading_qty"] + 1
-        )
-        second_duplicate = deepcopy(results[0])
-        second_duplicate["name"] = f"{self.exchange_trading_pair}_67890"
-        second_duplicate["alias"] = f"{self.exchange_trading_pair}_67890"
-        second_duplicate["lot_size_filter"]["min_trading_qty"] = (
-            second_duplicate["lot_size_filter"]["min_trading_qty"] + 2
-        )
-        results.pop(0)
-        results.append(first_duplicate)
-        results.append(second_duplicate)
-        mock_api.get(url, body=json.dumps(response))
-
-        self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
-
-        self.assertEqual(0, len(self.exchange.trading_rules))
-        self.assertNotIn(self.trading_pair, self.exchange.trading_rules)
-        self.assertTrue(
-            self.is_logged(
-                log_level="ERROR",
-                message=(
-                    f"Could not resolve the exchange symbols"
-                    f" {self.exchange_trading_pair}_67890"
-                    f" and {self.exchange_trading_pair}_12345"
-                ),
-            )
-        )
-
     def test_time_synchronizer_related_request_error_detection(self):
-        error_code_str = self.exchange._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_TIMESTAMP_HEADER_INVALID)
-        exception = IOError(f"{error_code_str} - Failed to cancel order for timestamp reason.")
+        exception = IOError("Error executing request POST https://okx.com/api/v5/order. HTTP status is 401. "
+                            'Error: {"code":"50113","msg":"message"}')
         self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
-        error_code_str = self.exchange._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_API_KEY_INVALID)
-        exception = IOError(f"{error_code_str} - Invalid OK-ACCESS-KEY.")
+        exception = IOError("Error executing request POST https://okx.com/api/v5/order. HTTP status is 401. "
+                            'Error: {"code":"50114","msg":"message"}')
         self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
 
     @aioresponses()
@@ -1421,197 +1473,298 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         # order not found during status update (check _is_order_not_found_during_status_update_error)
         pass
 
-    def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
+    @staticmethod
+    def _order_cancelation_request_successful_mock_response(response_scode: int, order: InFlightOrder) -> Any:
         return {
-            "ret_code": 0,
-            "ret_msg": "OK",
-            "ext_code": "",
-            "ext_info": "",
-            "result": {
-                "user_id": 533285,
-                "order_id": order.exchange_order_id,
-                "symbol": self.exchange_trading_pair,
-                "side": order.trade_type.name.capitalize(),
-                "order_type": order.order_type.name.capitalize(),
-                "price": float(order.price),
-                "qty": float(order.amount),
-                "time_in_force": "GoodTillCancel",
-                "order_status": "PendingCancel",
-                "last_exec_time": 1655711524.37661,
-                "last_exec_price": 0,
-                "leaves_qty": float(order.amount),
-                "cum_exec_qty": 0,
-                "cum_exec_value": 0,
-                "cum_exec_fee": 0,
-                "reject_reason": "EC_NoError",
-                "order_link_id": "IPBTC00001",
-                "created_at": "2022-06-20T07:52:04.376Z",
-                "updated_at": "2022-06-20T07:54:35.339Z",
-                "take_profit": "",
-                "stop_loss": "",
-                "tp_trigger_by": "",
-                "sl_trigger_by": ""
-            },
-            "time_now": "1655711675.340162",
-            "rate_limit_status": 99,
-            "rate_limit_reset_ms": 1655711675338,
-            "rate_limit": 100
+            "code": "0",
+            "msg": "",
+            "data": [
+                {
+                    "clOrdId": order.client_order_id,
+                    "ordId": order.exchange_order_id or "dummyOrdId",
+                    "sCode": str(response_scode),
+                    "sMsg": ""
+                }
+            ]
         }
 
     def _order_status_request_completely_filled_mock_response(self, order: InFlightOrder) -> Any:
         return {
-            "ret_code": 0,
-            "ret_msg": "OK",
-            "ext_code": "",
-            "ext_info": "",
-            "result": {
-                "user_id": 533285,
-                "position_idx": 0,
-                "symbol": self.exchange_trading_pair,
-                "side": order.trade_type.name.capitalize(),
-                "order_type": order.order_type.name.capitalize(),
-                "price": str(order.price),
-                "qty": float(order.amount),
-                "time_in_force": "GoodTillCancel",
-                "order_status": "Filled",
-                "ext_fields": {
-                    "o_req_num": 1240101436
-                },
-                "last_exec_time": "1655716503.5852108",
-                "leaves_qty": 0,
-                "leaves_value": "0.01",
-                "cum_exec_qty": float(order.amount),
-                "cum_exec_value": float(order.price + 2),
-                "cum_exec_fee": "0.01",
-                "reject_reason": "EC_NoError",
-                "cancel_type": "UNKNOWN",
-                "order_link_id": order.client_order_id or "",
-                "created_at": "2022-06-20T09:15:03.585128212Z",
-                "updated_at": "2022-06-20T09:15:03.590398174Z",
-                "order_id": order.exchange_order_id or "2b1d811c-8ff0-4ef0-92ed-b4ed5fd6de34",
-                "take_profit": "23000.00",
-                "stop_loss": "18000.00",
-                "tp_trigger_by": "MarkPrice",
-                "sl_trigger_by": "MarkPrice"
-            },
-            "time_now": "1655718311.123686",
-            "rate_limit_status": 597,
-            "rate_limit_reset_ms": 1655718311122,
-            "rate_limit": 600
+            "code": "0",
+            "msg": "",
+            "data": [
+                {
+                    "instType": "SWAP",
+                    "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                    "ccy": "",
+                    "ordId": order.exchange_order_id or "EOID1",
+                    "clOrdId": order.client_order_id,
+                    "tag": "",
+                    "px": str(order.price),
+                    "sz": str(order.amount),
+                    "pnl": "5",
+                    "ordType": "limit",
+                    "side": order.trade_type.name.lower(),
+                    "posSide": "long",
+                    "tdMode": "isolated",
+                    "accFillSz": "0",
+                    "fillPx": "0",
+                    "tradeId": "1",
+                    "fillSz": str(order.amount),
+                    "fillTime": "0",
+                    "state": "filled",
+                    "avgPx": str(order.price + Decimal(2)),
+                    "lever": "20",
+                    "tpTriggerPx": "",
+                    "tpTriggerPxType": "last",
+                    "tpOrdPx": "",
+                    "slTriggerPx": "",
+                    "slTriggerPxType": "last",
+                    "slOrdPx": "",
+                    "feeCcy": "",
+                    "fee": "",
+                    "rebateCcy": "",
+                    "rebate": "",
+                    "tgtCcy": "",
+                    "category": "",
+                    "uTime": "1597026383085",
+                    "cTime": "1597026383085"
+                }
+            ]
         }
 
     def _order_status_request_canceled_mock_response(self, order: InFlightOrder) -> Any:
-        resp = self._order_status_request_completely_filled_mock_response(order)
-        resp["result"]["order_status"] = "Cancelled"
-        resp["result"]["cum_exec_qty"] = 0
-        resp["result"]["cum_exec_value"] = 0
-        return resp
+        return {
+            "code": "0",
+            "msg": "",
+            "data": [
+                {
+                    "instType": "SWAP",
+                    "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                    "ccy": "",
+                    "ordId": order.exchange_order_id or "EOID1",
+                    "clOrdId": order.client_order_id,
+                    "tag": "",
+                    "px": str(order.price),
+                    "sz": str(order.amount),
+                    "pnl": "5",
+                    "ordType": "limit",
+                    "side": order.order_type.name.lower(),
+                    "posSide": "long",
+                    "tdMode": "isolated",
+                    "accFillSz": "0",
+                    "fillPx": "0",
+                    "tradeId": "1",
+                    "fillSz": "0",
+                    "fillTime": "0",
+                    "state": "canceled",
+                    "avgPx": "0",
+                    "lever": "20",
+                    "tpTriggerPx": "",
+                    "tpTriggerPxType": "last",
+                    "tpOrdPx": "",
+                    "slTriggerPx": "",
+                    "slTriggerPxType": "last",
+                    "slOrdPx": "",
+                    "feeCcy": "",
+                    "fee": "",
+                    "rebateCcy": "",
+                    "rebate": "",
+                    "tgtCcy": "",
+                    "category": "",
+                    "uTime": "1597026383085",
+                    "cTime": "1597026383085"
+                }
+            ]
+        }
 
     def _order_status_request_open_mock_response(self, order: InFlightOrder) -> Any:
-        resp = self._order_status_request_completely_filled_mock_response(order)
-        resp["result"]["order_status"] = "New"
-        resp["result"]["cum_exec_qty"] = 0
-        resp["result"]["cum_exec_value"] = 0
-        return resp
+        return {
+            "code": "0",
+            "msg": "",
+            "data": [
+                {
+                    "instType": "SWAP",
+                    "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                    "ccy": "",
+                    "ordId": order.exchange_order_id or "EOID1",
+                    "clOrdId": order.client_order_id,
+                    "tag": "",
+                    "px": str(order.price),
+                    "sz": str(order.amount),
+                    "pnl": "5",
+                    "ordType": "limit",
+                    "side": order.order_type.name.lower(),
+                    "posSide": "long",
+                    "tdMode": "isolated",
+                    "accFillSz": "0",
+                    "fillPx": "0",
+                    "tradeId": "1",
+                    "fillSz": "0",
+                    "fillTime": "0",
+                    "state": "live",
+                    "avgPx": "0",
+                    "lever": "20",
+                    "tpTriggerPx": "",
+                    "tpTriggerPxType": "last",
+                    "tpOrdPx": "",
+                    "slTriggerPx": "",
+                    "slTriggerPxType": "last",
+                    "slOrdPx": "",
+                    "feeCcy": "",
+                    "fee": "",
+                    "rebateCcy": "",
+                    "rebate": "",
+                    "tgtCcy": "",
+                    "category": "",
+                    "uTime": "1597026383085",
+                    "cTime": "1597026383085"
+                }
+            ]
+        }
 
     def _order_status_request_partially_filled_mock_response(self, order: InFlightOrder) -> Any:
-        resp = self._order_status_request_completely_filled_mock_response(order)
-        resp["result"]["order_status"] = "PartiallyFilled"
-        resp["result"]["cum_exec_qty"] = float(self.expected_partial_fill_amount)
-        resp["result"]["cum_exec_value"] = float(self.expected_partial_fill_price)
-        return resp
+        return {
+            "code": "0",
+            "msg": "",
+            "data": [
+                {
+                    "instType": "SWAP",
+                    "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                    "ccy": "",
+                    "ordId": order.exchange_order_id or "EOID1",
+                    "clOrdId": order.client_order_id,
+                    "tag": "",
+                    "px": str(order.price),
+                    "sz": str(order.amount),
+                    "pnl": "5",
+                    "ordType": "limit",
+                    "side": order.trade_type.name.lower(),
+                    "posSide": "long",
+                    "tdMode": "isolated",
+                    "accFillSz": "0",
+                    "fillPx": str(self.expected_partial_fill_price),
+                    "tradeId": "1",
+                    "fillSz": str(self.expected_partial_fill_amount),
+                    "fillTime": "0",
+                    "state": "partially_filled",
+                    "avgPx": str(order.price + Decimal(2)),
+                    "lever": "20",
+                    "tpTriggerPx": "",
+                    "tpTriggerPxType": "last",
+                    "tpOrdPx": "",
+                    "slTriggerPx": "",
+                    "slTriggerPxType": "last",
+                    "slOrdPx": "",
+                    "feeCcy": self.expected_fill_fee.flat_fees[0].token,
+                    "fee": str(self.expected_fill_fee.flat_fees[0].amount),
+                    "rebateCcy": "",
+                    "rebate": "",
+                    "tgtCcy": "",
+                    "category": "",
+                    "uTime": "1597026383085",
+                    "cTime": "1597026383085"
+                }
+            ]
+        }
 
     def _order_fills_request_partial_fill_mock_response(self, order: InFlightOrder):
         return {
-            "ret_code": 0,
-            "ret_msg": "OK",
-            "ext_code": "",
-            "ext_info": "",
-            "result": {
-                "order_id": "Abandoned!!",
-                "data": [
-                    {
-                        "closed_size": 0,
-                        "cross_seq": 277136382,
-                        "exec_fee": str(self.expected_fill_fee.flat_fees[0].amount),
-                        "exec_id": self.expected_fill_trade_id,
-                        "exec_price": str(self.expected_partial_fill_price),
-                        "exec_qty": float(self.expected_partial_fill_amount),
-                        "exec_time": "1571676941.70682",
-                        "exec_type": "Trade",
-                        "exec_value": "0.00012227",
-                        "fee_rate": "0.00075",
-                        "last_liquidity_ind": "RemovedLiquidity",
-                        "leaves_qty": 0,
-                        "nth_fill": 2,
-                        "order_id": order.exchange_order_id,
-                        "order_link_id": order.client_order_id,
-                        "order_price": str(order.price),
-                        "order_qty": float(order.amount),
-                        "order_type": order.order_type.name.capitalize(),
-                        "side": order.trade_type.name.capitalize(),
-                        "symbol": self.exchange_trading_pair,
-                        "user_id": 1,
-                        "trade_time_ms": 1577480599000
-                    }
-                ]
-            },
-            "time_now": "1577483699.281488",
-            "rate_limit_status": 118,
-            "rate_limit_reset_ms": 1577483699244737,
-            "rate_limit": 120
+            "code": "0",
+            "msg": "",
+            "data": [
+                {
+                    "instType": "SWAP",
+                    "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
+                    "tradeId": self.expected_fill_trade_id,
+                    "ordId": order.exchange_order_id,
+                    "clOrdId": order.client_order_id,
+                    "billId": "1111",
+                    "tag": "",
+                    "fillPx": str(self.expected_partial_fill_price),
+                    "fillSz": str(self.expected_partial_fill_amount),
+                    "side": order.order_type.name.lower(),
+                    "posSide": "long",
+                    "execType": "M",
+                    "feeCcy": self.expected_fill_fee.flat_fees[0].token,
+                    "fee": str(self.expected_fill_fee.flat_fees[0].amount),
+                    "ts": "1597026383085"
+                },
+            ]
         }
 
     def _order_fills_request_full_fill_mock_response(self, order: InFlightOrder):
         return {
-            "ret_code": 0,
-            "ret_msg": "OK",
-            "ext_code": "",
-            "ext_info": "",
-            "result": {
-                "order_id": "Abandoned!!",
-                "data": [
-                    {
-                        "closed_size": 0,
-                        "cross_seq": 277136382,
-                        "exec_fee": str(self.expected_fill_fee.flat_fees[0].amount),
-                        "exec_id": self.expected_fill_trade_id,
-                        "exec_price": str(order.price),
-                        "exec_qty": float(order.amount),
-                        "exec_time": "1571676941.70682",
-                        "exec_type": "Trade",
-                        "exec_value": "0.00012227",
-                        "fee_rate": "0.00075",
-                        "last_liquidity_ind": "RemovedLiquidity",
-                        "leaves_qty": 0,
-                        "nth_fill": 2,
-                        "order_id": order.exchange_order_id,
-                        "order_link_id": order.client_order_id,
-                        "order_price": str(order.price),
-                        "order_qty": float(order.amount),
-                        "order_type": order.order_type.name.capitalize(),
-                        "side": order.trade_type.name.capitalize(),
-                        "symbol": self.exchange_trading_pair,
-                        "user_id": 1,
-                        "trade_time_ms": 1577480599000
-                    }
-                ]
-            },
-            "time_now": "1577483699.281488",
-            "rate_limit_status": 118,
-            "rate_limit_reset_ms": 1577483699244737,
-            "rate_limit": 120
+            "code": "0",
+            "msg": "",
+            "data": [
+                {
+                    "instType": "SWAP",
+                    "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
+                    "tradeId": self.expected_fill_trade_id,
+                    "ordId": order.exchange_order_id,
+                    "clOrdId": order.client_order_id,
+                    "billId": "1111",
+                    "tag": "",
+                    "fillPx": str(order.price),
+                    "fillSz": str(order.amount),
+                    "side": order.order_type.name.lower(),
+                    "posSide": "long",
+                    "execType": "M",
+                    "feeCcy": self.expected_fill_fee.flat_fees[0].token,
+                    "fee": str(self.expected_fill_fee.flat_fees[0].amount),
+                    "ts": "1597026383085"
+                },
+            ]
         }
 
-    def _simulate_trading_rules_initialized(self):
-        min_order_size = Decimal(str(0.1))
-        min_price_increment = Decimal(str(0.01))
-        min_base_amount_increment = Decimal(str(0.1))
-        self.exchange._trading_rules = {
-            self.trading_pair: TradingRule(
-                trading_pair=self.trading_pair,
-                min_order_size=min_order_size,
-                min_price_increment=min_price_increment,
-                min_base_amount_increment=min_base_amount_increment,
-            )
-        }
+    @aioresponses()
+    def test_cancel_order_successfully(self, mock_api):
+        request_sent_event = asyncio.Event()
+        self.exchange._set_current_timestamp(1640780000)
+
+        self.exchange.start_tracking_order(
+            order_id="11",
+            exchange_order_id="4",
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("100"),
+            order_type=OrderType.LIMIT,
+        )
+
+        self.assertIn("11", self.exchange.in_flight_orders)
+        order: InFlightOrder = self.exchange.in_flight_orders["11"]
+
+        for response_scode in (0, 51400, 51401):
+            url = self.configure_successful_cancelation_response(
+                order=order,
+                mock_api=mock_api,
+                response_scode=response_scode,
+                callback=lambda *args, **kwargs: request_sent_event.set())
+
+            self.exchange.cancel(trading_pair=order.trading_pair, client_order_id=order.client_order_id)
+            self.async_run_with_timeout(request_sent_event.wait())
+
+            cancel_request = self._all_executed_requests(mock_api, url)[0]
+            self.validate_auth_credentials_present(cancel_request)
+            self.validate_order_cancelation_request(
+                order=order,
+                request_call=cancel_request)
+
+            if self.exchange.is_cancel_request_in_exchange_synchronous:
+                self.assertNotIn(order.client_order_id, self.exchange.in_flight_orders)
+                self.assertTrue(order.is_cancelled)
+                cancel_event: OrderCancelledEvent = self.order_cancelled_logger.event_log[0]
+                self.assertEqual(self.exchange.current_timestamp, cancel_event.timestamp)
+                self.assertEqual(order.client_order_id, cancel_event.order_id)
+
+                self.assertTrue(
+                    self.is_logged(
+                        "INFO",
+                        f"Successfully canceled order {order.client_order_id}."
+                    )
+                )
+            else:
+                self.assertIn(order.client_order_id, self.exchange.in_flight_orders)
+                self.assertTrue(order.is_pending_cancel_confirmation)
