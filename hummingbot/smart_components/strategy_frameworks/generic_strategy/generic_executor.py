@@ -1,9 +1,10 @@
+import time
 from typing import List, Optional
 
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.smart_components.executors.arbitrage_executor.arbitrage_executor import ArbitrageExecutor
-from hummingbot.smart_components.executors.arbitrage_executor.data_types import ArbitrageConfig
-from hummingbot.smart_components.executors.dca_executor.data_types import DCAConfig
+from hummingbot.smart_components.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig
+from hummingbot.smart_components.executors.dca_executor.data_types import DCAExecutorConfig
 from hummingbot.smart_components.executors.dca_executor.dca_executor import DCAExecutor
 from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
@@ -23,19 +24,19 @@ class GenericExecutor(ExecutorHandlerBase):
     """
     Generic executor handler for a strategy.
     """
-    config_type_to_executor_map = {
-        PositionExecutorConfig: PositionExecutor,
-        DCAConfig: DCAExecutor,
-        ArbitrageConfig: ArbitrageExecutor,
-    }
 
     def on_stop(self):
         """Actions to perform on stop."""
-        for executor in [*self.position_executors, *self.dca_executors]:
-            executor.early_stop()
         self.close_open_positions(connector_name=self.controller.config.exchange,
                                   trading_pair=self.controller.config.trading_pair)
+
+    def stop(self):
         self.controller.stop()
+        self.stop_all_executors()
+
+    def stop_all_executors(self):
+        for executor in self.position_executors + self.dca_executors + self.arbitrage_executors:
+            executor.early_stop()
 
     def __init__(self, strategy: ScriptStrategyBase, controller: GenericController, update_interval: float = 1.0,
                  executors_update_interval: float = 1.0):
@@ -101,6 +102,7 @@ class GenericExecutor(ExecutorHandlerBase):
         """
         executor_handler_report = ExecutorHandlerInfo(
             controller_id=self.controller.config.id,  # TODO: placeholder to refactor using async.Queue to communicate with the controller
+            timestamp=time.time(),
             status=self.status,
             active_position_executors=self.get_active_position_executors(),
             closed_position_executors=self.get_closed_position_executors(),
@@ -129,6 +131,7 @@ class GenericExecutor(ExecutorHandlerBase):
                 executor = self.get_executor_by_id(action.executor_id)
                 if executor and executor.is_closed:
                     MarketsRecorder.get_instance().store_executor(executor)
+                    self.dca_executors.remove(executor)
             else:
                 raise ValueError(f"Unknown action type {type(action)}")
 
@@ -137,15 +140,21 @@ class GenericExecutor(ExecutorHandlerBase):
         Create an executor.
         """
         # TODO: refactor to use a factory
-        executor_class = self.config_type_to_executor_map.get(type(executor_config))
-        if executor_class:
-            executor = executor_class(self.strategy, executor_config, self.executors_update_interval)
-            if isinstance(executor, PositionExecutor):
-                self.position_executors.append(executor)
-            elif isinstance(executor, DCAExecutor):
-                self.dca_executors.append(executor)
-            elif isinstance(executor, ArbitrageExecutor):
-                self.arbitrage_executors.append(executor)
+        if isinstance(executor_config, PositionExecutorConfig):
+            executor = PositionExecutor(self.strategy, executor_config, self.executors_update_interval)
+            executor.start()
+            self.position_executors.append(executor)
+            self.logger().debug(f"Created position executor {executor_config.id}")
+        elif isinstance(executor_config, DCAExecutorConfig):
+            executor = DCAExecutor(self.strategy, executor_config, self.executors_update_interval)
+            executor.start()
+            self.dca_executors.append(executor)
+            self.logger().debug(f"Created DCA executor {executor_config.id}")
+        elif isinstance(executor_config, ArbitrageExecutorConfig):
+            executor = ArbitrageExecutor(self.strategy, executor_config, self.executors_update_interval)
+            executor.start()
+            self.arbitrage_executors.append(executor)
+            self.logger().debug(f"Created arbitrage executor {executor_config.id}")
 
     def get_executor_by_id(self, executor_id: str):
         """
@@ -163,3 +172,11 @@ class GenericExecutor(ExecutorHandlerBase):
         connector = self.strategy.connectors[self.controller.config.exchange]
         connector.set_position_mode(self.controller.config.position_mode)
         connector.set_leverage(trading_pair=self.controller.config.trading_pair, leverage=self.controller.config.leverage)
+
+    def to_format_status(self) -> str:
+        """
+        Base status for executor handler.
+        """
+        lines = []
+        lines.extend(self.controller.to_format_status())
+        return "\n".join(lines)
