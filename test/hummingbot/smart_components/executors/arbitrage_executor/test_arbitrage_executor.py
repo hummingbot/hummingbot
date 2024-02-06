@@ -8,7 +8,7 @@ from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.event.events import MarketOrderFailureEvent
 from hummingbot.smart_components.executors.arbitrage_executor.arbitrage_executor import ArbitrageExecutor
 from hummingbot.smart_components.executors.arbitrage_executor.data_types import (
-    ArbitrageConfig,
+    ArbitrageExecutorConfig,
     ArbitrageExecutorStatus,
     ExchangePair,
 )
@@ -20,7 +20,7 @@ class TestArbitrageExecutor(IsolatedAsyncioWrapperTestCase, LoggerMixinForTest):
     def setUp(self):
         super().setUp()
         self.strategy = self.create_mock_strategy()
-        self.arbitrage_config = MagicMock(spec=ArbitrageConfig)
+        self.arbitrage_config = MagicMock(spec=ArbitrageExecutorConfig)
         self.arbitrage_config.buying_market = ExchangePair(exchange='binance', trading_pair='MATIC-USDT')
         self.arbitrage_config.selling_market = ExchangePair(exchange='uniswap_polygon_mainnet', trading_pair='WMATIC-USDT')
         self.arbitrage_config.min_profitability = Decimal('0.01')

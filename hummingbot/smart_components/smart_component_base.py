@@ -53,7 +53,7 @@ class SmartComponentBase(ABC):
         Stop the control loop of the smart component.
         If the component is active or not started, it will stop the control loop.
         """
-        if self._status in [SmartComponentStatus.RUNNING, SmartComponentStatus.NOT_STARTED]:
+        if self._status != SmartComponentStatus.TERMINATED:
             self.terminated.set()
 
     async def control_loop(self):
