@@ -2,6 +2,7 @@ import asyncio
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
+import numpy as np
 import pandas as pd
 from bidict import bidict
 
@@ -707,28 +708,35 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         :returns: A dictionary of trading pair to its respective TradingRule.
         """
         trading_rules = {}
-        symbol_map = await self.trading_pair_symbol_map()
-        for instrument in instrument_info_dict["data"]:
+        for rule in instrument_info_dict["data"]:
             try:
-                exchange_symbol = instrument["instId"]
-                if exchange_symbol in symbol_map:
-                    trading_pair = combine_to_hb_trading_pair(instrument['ctValCcy'], instrument['settleCcy'])
-                    if instrument["ctType"] == "linear":
-                        collateral_token = instrument["settleCcy"]
-                        trading_rules[trading_pair] = TradingRule(
-                            trading_pair=trading_pair,
-                            min_order_size=Decimal(str(instrument["minSz"])),
-                            max_order_size=Decimal(str(min(instrument["maxLmtSz"], instrument["maxMktSz"]))),
-                            min_price_increment=Decimal(str(instrument["tickSz"])),
-                            # TODO: is lotSz correct?
-                            min_base_amount_increment=Decimal(str(instrument["lotSz"])),
-                            buy_order_collateral_token=collateral_token,
-                            sell_order_collateral_token=collateral_token,
-                        )
-                    else:
-                        self._log_non_linear_trading_pair_warning()
+                if okx_utils.is_exchange_information_valid(rule):
+                    trading_pair = combine_to_hb_trading_pair(rule['ctValCcy'], rule['settleCcy'])
+                    contract_size = float(rule["ctVal"])
+                    minimum_order_quantity = float(rule["minSz"])
+                    min_order_size = minimum_order_quantity * contract_size
+
+                    max_order_limit_size = float(rule["maxLmtSz"]) if bool(rule["maxLmtSz"]) else np.nan
+                    max_order_market_size = float(rule["maxMktSz"]) if bool(rule["maxMktSz"]) else np.nan
+                    max_order_size = min(max_order_limit_size, max_order_market_size) * contract_size
+
+                    min_price_increment = float(rule["tickSz"])
+
+                    lot_size = float(rule["lotSz"])
+                    min_base_amount_increment = lot_size * contract_size
+
+                    collateral_token = rule["settleCcy"]
+                    trading_rules[trading_pair] = TradingRule(
+                        trading_pair=trading_pair,
+                        min_order_size=Decimal(str(min_order_size)),
+                        max_order_size=Decimal(str(max_order_size)),
+                        min_price_increment=Decimal(str(min_price_increment)),
+                        min_base_amount_increment=Decimal(str(min_base_amount_increment)),
+                        buy_order_collateral_token=collateral_token,
+                        sell_order_collateral_token=collateral_token,
+                    )
             except Exception:
-                self.logger().exception(f"Error parsing the trading pair rule: {instrument}. Skipping...")
+                self.logger().exception(f"Error parsing the trading pair rule: {rule}. Skipping...")
         return list(trading_rules.values())
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
