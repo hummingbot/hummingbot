@@ -27,8 +27,7 @@ class GenericExecutor(ExecutorHandlerBase):
 
     def on_stop(self):
         """Actions to perform on stop."""
-        self.close_open_positions(connector_name=self.controller.config.exchange,
-                                  trading_pair=self.controller.config.trading_pair)
+        pass
 
     def stop(self):
         self.controller.stop()

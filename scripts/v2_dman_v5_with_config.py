@@ -42,13 +42,13 @@ class DManV5ScriptConfig(BaseClientModel):
     spread_ratio_increase: float = Field(2.0, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "Define the ratio to increase the spread for each subsequent level (e.g., 2.0):"))
 
     # Triple barrier configuration
-    global_stop_loss: Decimal = Field(0.2, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the stop loss percentage (e.g., 0.2 for 20%):"))
-    global_take_profit: Decimal = Field(0.1, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "Enter the take profit percentage (e.g., 0.06 for 6%):"))
+    stop_loss: Decimal = Field(0.2, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the stop loss percentage (e.g., 0.2 for 20%):"))
+    take_profit: Decimal = Field(0.1, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "Enter the take profit percentage (e.g., 0.06 for 6%):"))
     time_limit: int = Field(60 * 60 * 24 * 3, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "Set the time limit in seconds for the triple barrier (e.g., 43200 for 12 hours):"))
 
     # Global Trailing Stop configuration
-    global_trailing_stop_activation_price_delta: Decimal = Field(0.025, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the activation price delta for the global trailing stop (e.g., 0.01 for 1%):"))
-    global_trailing_stop_trailing_delta: Decimal = Field(0.005, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the trailing delta for the global trailing stop (e.g., 0.002 for 0.2%):"))
+    trailing_stop_activation_price_delta: Decimal = Field(0.025, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Enter the activation price delta for the global trailing stop (e.g., 0.01 for 1%):"))
+    trailing_stop_trailing_delta: Decimal = Field(0.005, client_data=ClientFieldData(prompt_on_new=True, prompt=lambda mi: "Set the trailing delta for the global trailing stop (e.g., 0.002 for 0.2%):"))
     activation_threshold: Optional[Decimal] = Field(None, client_data=ClientFieldData(prompt_on_new=False, prompt=lambda mi: "Set the activation threshold for the global trailing stop (e.g., 0.01 for 1%):"))
 
 
@@ -87,10 +87,10 @@ class DManV5MultiplePairs(ScriptStrategyBase):
                 top_order_start_spread=config.top_order_start_spread,
                 start_spread=config.start_spread,
                 spread_ratio_increase=config.spread_ratio_increase,
-                take_profit=config.global_take_profit,
-                stop_loss=config.global_stop_loss,
-                trailing_stop=TrailingStop(activation_price=config.global_trailing_stop_activation_price_delta,
-                                           trailing_delta=config.global_trailing_stop_trailing_delta),
+                take_profit=config.take_profit,
+                stop_loss=config.stop_loss,
+                trailing_stop=TrailingStop(activation_price=config.trailing_stop_activation_price_delta,
+                                           trailing_delta=config.trailing_stop_trailing_delta),
                 activation_bounds=config.activation_threshold,
                 time_limit=config.time_limit,
                 leverage=self.config.leverage,
