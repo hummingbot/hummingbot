@@ -8,11 +8,11 @@ from hummingbot.smart_components.executors.position_executor.data_types import T
 
 
 class DCAMode(Enum):
-    MAKER = 1
-    TAKER = 2
+    MAKER = "MAKER"
+    TAKER = "TAKER"
 
 
-class DCAConfig(ExecutorConfigBase):
+class DCAExecutorConfig(ExecutorConfigBase):
     type = "dca_executor"
     exchange: str
     trading_pair: str

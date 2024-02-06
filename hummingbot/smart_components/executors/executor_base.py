@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PriceType, TradeType
@@ -17,6 +17,7 @@ from hummingbot.core.event.events import (
 )
 from hummingbot.smart_components.executors.data_types import ExecutorConfigBase
 from hummingbot.smart_components.models.base import SmartComponentStatus
+from hummingbot.smart_components.models.executors import CloseType
 from hummingbot.smart_components.models.executors_info import ExecutorInfo
 from hummingbot.smart_components.smart_component_base import SmartComponentBase
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
@@ -37,6 +38,8 @@ class ExecutorBase(SmartComponentBase):
         """
         super().__init__(update_interval)
         self.config = config
+        self.close_type: Optional[CloseType] = None
+        self.close_timestamp: Optional[float] = None
         self._strategy: ScriptStrategyBase = strategy
         self.connectors = {connector_name: connector for connector_name, connector in strategy.connectors.items() if
                            connector_name in connectors}
@@ -96,8 +99,11 @@ class ExecutorBase(SmartComponentBase):
         """
         return ExecutorInfo(
             id=self.config.id,
+            timestamp=self.config.timestamp,
             type=self.config.type,
             status=self.status,
+            close_type=self.close_type,
+            close_timestamp=self.close_timestamp,
             config=self.config,
             net_pnl_pct=self.net_pnl_pct,
             net_pnl_quote=self.net_pnl_quote,

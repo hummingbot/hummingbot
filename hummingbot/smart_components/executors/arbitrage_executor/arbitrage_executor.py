@@ -10,7 +10,10 @@ from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.event.events import BuyOrderCreatedEvent, MarketOrderFailureEvent, SellOrderCreatedEvent
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.logger import HummingbotLogger
-from hummingbot.smart_components.executors.arbitrage_executor.data_types import ArbitrageConfig, ArbitrageExecutorStatus
+from hummingbot.smart_components.executors.arbitrage_executor.data_types import (
+    ArbitrageExecutorConfig,
+    ArbitrageExecutorStatus,
+)
 from hummingbot.smart_components.executors.executor_base import ExecutorBase
 from hummingbot.smart_components.models.executors import TrackedOrder
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
@@ -54,7 +57,7 @@ class ArbitrageExecutor(ExecutorBase):
         stable_coins_condition = "USD" in first_token and "USD" in second_token
         return same_token_condition or tokens_interchangeable_condition or stable_coins_condition
 
-    def __init__(self, strategy: ScriptStrategyBase, config: ArbitrageConfig, update_interval: float = 1.0):
+    def __init__(self, strategy: ScriptStrategyBase, config: ArbitrageExecutorConfig, update_interval: float = 1.0):
         if not self.is_arbitrage_valid(pair1=config.buying_market.trading_pair,
                                        pair2=config.selling_market.trading_pair):
             raise Exception("Arbitrage is not valid since the trading pairs are not interchangeable.")
