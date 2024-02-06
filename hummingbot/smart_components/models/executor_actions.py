@@ -2,8 +2,8 @@ from typing import Union
 
 from pydantic import BaseModel
 
-from hummingbot.smart_components.executors.arbitrage_executor.data_types import ArbitrageConfig
-from hummingbot.smart_components.executors.dca_executor.data_types import DCAConfig
+from hummingbot.smart_components.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig
+from hummingbot.smart_components.executors.dca_executor.data_types import DCAExecutorConfig
 from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig
 
 
@@ -19,7 +19,7 @@ class CreateExecutorAction(ExecutorAction):
     Action to create an executor.
     """
     controller_id: str
-    executor_config: Union[PositionExecutorConfig, DCAConfig, ArbitrageConfig]
+    executor_config: Union[PositionExecutorConfig, DCAExecutorConfig, ArbitrageExecutorConfig]
 
 
 class StopExecutorAction(ExecutorAction):
