@@ -91,7 +91,7 @@ class DManV5MultiplePairs(ScriptStrategyBase):
                 stop_loss=config.global_stop_loss,
                 trailing_stop=TrailingStop(activation_price=config.global_trailing_stop_activation_price_delta,
                                            trailing_delta=config.global_trailing_stop_trailing_delta),
-                activation_threshold=config.activation_threshold,
+                activation_bounds=config.activation_threshold,
                 time_limit=config.time_limit,
                 leverage=self.config.leverage,
             )
