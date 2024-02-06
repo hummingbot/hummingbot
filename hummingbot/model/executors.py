@@ -16,6 +16,7 @@ class Executors(HummingbotBase):
     id = Column(Text, primary_key=True)
     timestamp = Column(Float, nullable=False)
     type = Column(Text, nullable=False)
+    close_type = Column(Text, nullable=True)
     close_timestamp = Column(BigInteger, nullable=True)
     status = Column(Text, nullable=False)
     config = Column(JSON, nullable=False)
