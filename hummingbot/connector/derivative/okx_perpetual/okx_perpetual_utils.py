@@ -26,9 +26,8 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
 
     :return: True if the trading pair is enabled, False otherwise
     """
-    status = exchange_info.get("status")
-    valid = status is not None and status in ["Trading", "Settling"]
-    return valid
+    return (exchange_info.get("instType", None) == "SWAP" and exchange_info.get("ctType", None) == "linear"
+            and exchange_info.get("state", None) == "live")
 
 
 def get_linear_non_linear_split(trading_pairs: List[str]) -> Tuple[List[str], List[str]]:

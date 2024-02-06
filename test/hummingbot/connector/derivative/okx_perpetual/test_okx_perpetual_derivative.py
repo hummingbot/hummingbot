@@ -41,6 +41,9 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         cls.quote_asset = QUOTE_ASSET
         cls.trading_pair = combine_to_hb_trading_pair(BASE_ASSET, QUOTE_ASSET)
 
+    def _is_logged(self, log_level: str, message: str) -> bool:
+        return any(record.levelname == log_level and record.getMessage() == message for record in self.log_records)
+
     def create_exchange_instance(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
         exchange = OkxPerpetualDerivative(
@@ -243,23 +246,42 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
     @property
     def trading_rules_request_erroneous_mock_response(self):
         mock_response = {
-            "ret_code": 0,
-            "ret_msg": "OK",
-            "ext_code": "",
-            "ext_info": "",
-            "result": [
+            "code": "0",
+            "data": [
                 {
-                    "name": self.exchange_trading_pair,
-                    "alias": self.exchange_trading_pair,
-                    "status": "Trading",
-                    "base_currency": self.base_asset,
-                    "quote_currency": self.quote_asset,
-                    "price_scale": 2,
-                    "taker_fee": "0.00075",
-                    "maker_fee": "-0.00025",
-                },
+                    "alias": "",
+                    "baseCcy": "",
+                    "category": "1",
+                    "ctMult": "1",
+                    "ctType": "linear",
+                    "ctVal": "0.1",
+                    "ctValCcy": self.base_asset,
+                    "expTime": "",
+                    "instFamily": f"{self.base_asset}-{self.quote_asset}",
+                    "instId": f"{self.base_asset}-{self.quote_asset}-SWAP",
+                    "instType": "SWAP",
+                    "lever": "100",
+                    "listTime": "1611916828000",
+                    "lotSz": "1",
+                    "maxIcebergSz": "100000000.0000000000000000",
+                    "maxLmtAmt": "20000000",
+                    "maxLmtSz": "100000000",
+                    "maxMktAmt": "",
+                    "maxMktSz": "20000",
+                    "maxStopSz": "20000",
+                    "maxTriggerSz": "100000000.0000000000000000",
+                    "maxTwapSz": "100000000.0000000000000000",
+                    "minSz": "1",
+                    "optType": "",
+                    "quoteCcy": "",
+                    "settleCcy": self.quote_asset,
+                    "state": "live",
+                    "stk": "",
+                    "tickSz": "invalid",
+                    "uly": f"{self.base_asset}-{self.quote_asset}",
+                }
             ],
-            "time_now": "1615801223.589808",
+            "msg": ""
         }
         return mock_response
 
@@ -501,7 +523,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
 
     @property
     def expected_logged_error_for_erroneous_trading_rule(self):
-        erroneous_rule = self.trading_rules_request_erroneous_mock_response["result"][0]
+        erroneous_rule = self.trading_rules_request_erroneous_mock_response["data"][0]
         return f"Error parsing the trading pair rule: {erroneous_rule}. Skipping..."
 
     @property
@@ -1023,11 +1045,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         }
 
     def all_symbols_request_mock_response(self):
-        pass
-
-    @staticmethod
-    def _get_exchange_info_mock_response():
-        mocked_exchange_info = {
+        mocked_response = {
             "code": "0",
             "data": [
                 {
@@ -1037,10 +1055,10 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "ctMult": "1",
                     "ctType": "linear",
                     "ctVal": "0.1",
-                    "ctValCcy": "ETH",
+                    "ctValCcy": self.base_asset,
                     "expTime": "",
-                    "instFamily": "ETH-USDT",
-                    "instId": "ETH-USDT-SWAP",
+                    "instFamily": f"{self.base_asset}-{self.quote_asset}",
+                    "instId": f"{self.base_asset}-{self.quote_asset}-SWAP",
                     "instType": "SWAP",
                     "lever": "100",
                     "listTime": "1611916828000",
@@ -1056,11 +1074,11 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "minSz": "1",
                     "optType": "",
                     "quoteCcy": "",
-                    "settleCcy": "USDT",
+                    "settleCcy": self.quote_asset,
                     "state": "live",
                     "stk": "",
                     "tickSz": "0.01",
-                    "uly": "ETH-USDT",
+                    "uly": f"{self.base_asset}-{self.quote_asset}",
                 },
                 {
                     "alias": "",
@@ -1071,8 +1089,8 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "ctVal": "10",
                     "ctValCcy": "USD",
                     "expTime": "",
-                    "instFamily": "SOL-USD",
-                    "instId": "SOL-USD-SWAP",
+                    "instFamily": f"{self.base_asset}-OTHER",
+                    "instId": f"{self.base_asset}-OTHER-SWAP",
                     "instType": "SWAP",
                     "lever": "50",
                     "listTime": "1637833825000",
@@ -1088,16 +1106,16 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "minSz": "1",
                     "optType": "",
                     "quoteCcy": "",
-                    "settleCcy": "SOL",
+                    "settleCcy": self.base_asset,
                     "state": "live",
                     "stk": "",
                     "tickSz": "0.01",
-                    "uly": "SOL-USD"
+                    "uly": f"{self.base_asset}-OTHER"
                 }
             ],
             "msg": ""
         }
-        return mocked_exchange_info
+        return mocked_response
 
     def funding_info_event_for_websocket_update(self):
         return {
@@ -1133,10 +1151,10 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
 
     def test_format_trading_rules(self):
         margin_asset = self.quote_asset
-        min_order_size = 0.1
-        min_price_increment = 0.01
-        min_base_amount_increment = 0.1
-        mocked_response = self._get_exchange_info_mock_response()
+        min_order_size = Decimal(str(0.1))
+        min_price_increment = Decimal(str(0.01))
+        min_base_amount_increment = Decimal(str(0.1))
+        mocked_response = self.trading_rules_request_mock_response()
         self._simulate_trading_rules_initialized()
         trading_rules = self.async_run_with_timeout(self.exchange._format_trading_rules(mocked_response))
 
@@ -1149,6 +1167,16 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         self.assertEqual(min_base_amount_increment, trading_rule.min_base_amount_increment)
         self.assertEqual(margin_asset, trading_rule.buy_order_collateral_token)
         self.assertEqual(margin_asset, trading_rule.sell_order_collateral_token)
+
+    def test_format_trading_rules_exception(self):
+        mocked_response = self.trading_rules_request_erroneous_mock_response
+        self._simulate_trading_rules_initialized()
+        self.async_run_with_timeout(self.exchange._format_trading_rules(mocked_response))
+
+        self.assertTrue(self._is_logged(
+            "ERROR",
+            f"Error parsing the trading pair rule: {mocked_response['data'][0]}. Skipping..."
+        ))
 
     def test_create_order_with_invalid_position_action_raises_value_error(self):
         self._simulate_trading_rules_initialized()
@@ -1576,11 +1604,14 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         }
 
     def _simulate_trading_rules_initialized(self):
+        min_order_size = Decimal(str(0.1))
+        min_price_increment = Decimal(str(0.01))
+        min_base_amount_increment = Decimal(str(0.1))
         self.exchange._trading_rules = {
             self.trading_pair: TradingRule(
                 trading_pair=self.trading_pair,
-                min_order_size=Decimal(str(1)),
-                min_price_increment=Decimal(str(1)),
-                min_base_amount_increment=Decimal(str(0.000001)),
+                min_order_size=min_order_size,
+                min_price_increment=min_price_increment,
+                min_base_amount_increment=min_base_amount_increment,
             )
         }
