@@ -4,7 +4,7 @@ import pandas as pd
 
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.smart_components.models.executor_actions import ExecutorAction
-from hummingbot.smart_components.models.executors_info import ExecutorHandlerInfo
+from hummingbot.smart_components.models.executors_info import ExecutorHandlerInfo, ExecutorInfo
 from hummingbot.smart_components.strategy_frameworks.controller_base import ControllerBase, ControllerConfigBase
 
 
@@ -42,13 +42,34 @@ class GenericController(ControllerBase):
             active_position_executors = executor_handler_report.active_position_executors
             active_dca_executors = executor_handler_report.active_dca_executors
             active_arbitrage_executors = executor_handler_report.active_arbitrage_executors
+            closed_position_executors = executor_handler_report.closed_position_executors
+            closed_dca_executors = executor_handler_report.closed_dca_executors
+            closed_arbitrage_executors = executor_handler_report.closed_arbitrage_executors
+
             if len(active_position_executors) > 0:
                 lines.append("Active Position Executors:")
-                lines.extend(format_df_for_printout(pd.DataFrame(active_position_executors)))
+                lines.extend([format_df_for_printout(self.executors_info_to_df(active_position_executors), table_format="psql")])
             if len(active_dca_executors) > 0:
                 lines.append("Active DCA Executors:")
-                lines.extend(format_df_for_printout(pd.DataFrame(active_dca_executors)))
+                lines.extend([format_df_for_printout(self.executors_info_to_df(active_dca_executors), table_format="psql")])
             if len(active_arbitrage_executors) > 0:
                 lines.append("Active Arbitrage Executors:")
-                lines.extend(format_df_for_printout(pd.DataFrame(active_arbitrage_executors)))
+                lines.extend([format_df_for_printout(self.executors_info_to_df(active_arbitrage_executors), table_format="psql")])
+            if len(closed_position_executors) > 0:
+                lines.append("Closed Position Executors:")
+                lines.extend([format_df_for_printout(self.executors_info_to_df(closed_position_executors), table_format="psql")])
+            if len(closed_dca_executors) > 0:
+                lines.append("Closed DCA Executors:")
+                lines.extend([format_df_for_printout(self.executors_info_to_df(closed_dca_executors), table_format="psql")])
+            if len(closed_arbitrage_executors) > 0:
+                lines.append("Closed Arbitrage Executors:")
+                lines.extend([format_df_for_printout(self.executors_info_to_df(closed_arbitrage_executors), table_format="psql")])
         return lines
+
+    @staticmethod
+    def executors_info_to_df(executors_info: List[ExecutorInfo]) -> pd.DataFrame:
+        """
+        Convert a list of executor handler info to a dataframe.
+        """
+        df = pd.DataFrame([ei.dict() for ei in executors_info])
+        return df[["id", "timestamp", "type", "status", "net_pnl_pct", "net_pnl_quote", "cum_fees_quote", "is_trading", "close_type"]]
