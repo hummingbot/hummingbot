@@ -1,4 +1,5 @@
 import asyncio
+from copy import deepcopy
 import logging
 from typing import List, Optional
 
@@ -196,12 +197,12 @@ class KrakenSpotCandles(CandlesBase):
                         safe_ensure_future(self.fill_historical_candles())
                     elif timestamp > int(self._candles[-1][0]):
                         # TODO: validate also that the diff of timestamp == interval (issue with 30d interval).
-                        interval = int(CONSTANTS.INTERVALS[self.interval])
+                        interval = int(CONSTANTS.INTERVALS[self.interval]) * 60
                         total_interval_time = timestamp - int(self._candles[-1][0])
                         the_number_of_interval = total_interval_time // interval
-                        if the_number_of_interval > 1:
+                        if the_number_of_interval >= 2 :
                             for i in range(1, the_number_of_interval):
-                                old_data = self._candles[-1]
+                                old_data = deepcopy(self._candles[-1])
                                 new_timestamp = int(self._candles[-1][0]) + i * interval
                                 old_data[0] = new_timestamp
                                 self._candles.append(old_data)
