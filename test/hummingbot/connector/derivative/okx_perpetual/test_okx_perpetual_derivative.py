@@ -219,7 +219,9 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "uly": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
                     "category": "1",
                     "ctValCcy": self.base_asset,
-                    "settleCcy": self.quote_asset,
+                    "settleCcy": "",
+                    "ctType": "linear",
+                    "state": "live"
                 }
             ]
         }
@@ -227,9 +229,9 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
 
     def test_format_trading_rules(self):
         margin_asset = self.quote_asset
-        min_order_size = Decimal(str(0.1))
+        min_order_size = Decimal(str(1))
         min_price_increment = Decimal(str(0.01))
-        min_base_amount_increment = Decimal(str(0.1))
+        min_base_amount_increment = Decimal(str(1))
         mocked_response = self.trading_rules_request_mock_response
         self._simulate_trading_rules_initialized()
         trading_rules = self.async_run_with_timeout(self.exchange._format_trading_rules(mocked_response))
