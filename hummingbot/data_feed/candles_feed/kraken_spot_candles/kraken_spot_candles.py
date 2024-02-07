@@ -1,6 +1,6 @@
 import asyncio
-from copy import deepcopy
 import logging
+from copy import deepcopy
 from typing import List, Optional
 
 import numpy as np
@@ -202,7 +202,7 @@ class KrakenSpotCandles(CandlesBase):
                         interval = int(CONSTANTS.INTERVALS[self.interval]) * 60
                         total_interval_time = timestamp - int(self._candles[-1][0])
                         the_number_of_interval = total_interval_time // interval
-                        if the_number_of_interval >= 2 :
+                        if the_number_of_interval >= 2:
                             for i in range(1, the_number_of_interval):
                                 old_data = deepcopy(self._candles[-1])
                                 new_timestamp = int(self._candles[-1][0]) + i * interval
