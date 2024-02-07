@@ -196,6 +196,13 @@ class KrakenSpotCandles(CandlesBase):
                         safe_ensure_future(self.fill_historical_candles())
                     elif timestamp > int(self._candles[-1][0]):
                         # TODO: validate also that the diff of timestamp == interval (issue with 30d interval).
+                        interval = int(CONSTANTS.INTERVALS[self.interval])
+                        total_interval_time = timestamp - int(self._candles[-1][0])
+                        the_number_of_interval = total_interval_time // interval
+                        if the_number_of_interval > 1:
+                            for i in range(1, the_number_of_interval):
+                                self._candles.append(self._candles[-1])
+
                         self._candles.append(np.array([timestamp, open, high, low, close, volume,
                                                        quote_asset_volume, n_trades, taker_buy_base_volume,
                                                        taker_buy_quote_volume]))
