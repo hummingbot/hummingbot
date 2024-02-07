@@ -85,22 +85,22 @@ class ArbitrageExecutor(ExecutorBase):
         return self._are_tokens_interchangeable(base_asset1, base_asset2) and \
             self._are_tokens_interchangeable(quote_asset1, quote_asset2)
 
-    @property
-    def net_pnl(self) -> Decimal:
+    def get_net_pnl_quote(self) -> Decimal:
         if self.arbitrage_status == ArbitrageExecutorStatus.COMPLETED:
             sell_quote_amount = self.sell_order.order.executed_amount_base * self.sell_order.average_executed_price
             buy_quote_amount = self.buy_order.order.executed_amount_base * self.buy_order.average_executed_price
-            cum_fees = self.buy_order.cum_fees_quote + self.sell_order.cum_fees_quote
-            return sell_quote_amount - buy_quote_amount - cum_fees
+            return sell_quote_amount - buy_quote_amount - self.cum_fees_quote
         else:
             return Decimal("0")
 
-    @property
-    def net_pnl_pct(self) -> Decimal:
+    def get_net_pnl_pct(self) -> Decimal:
         if self.arbitrage_status == ArbitrageExecutorStatus.COMPLETED:
-            return self.net_pnl / self.buy_order.order.executed_amount_base
+            return self.net_pnl_quote / self.buy_order.order.executed_amount_base
         else:
             return Decimal("0")
+
+    def get_cum_fees_quote(self) -> Decimal:
+        return self.buy_order.cum_fees_quote + self.sell_order.cum_fees_quote
 
     @property
     def buy_order(self) -> TrackedOrder:
@@ -264,7 +264,7 @@ class ArbitrageExecutor(ExecutorBase):
     -------------------------------------------------------------------------------
     """])
             if self.arbitrage_status == ArbitrageExecutorStatus.COMPLETED:
-                lines.extend([f"Total Profit (%): {self.net_pnl_pct * 100:.2f} | Total Profit ({quote}): {self.net_pnl:.4f}"])
+                lines.extend([f"Total Profit (%): {self.net_pnl_pct * 100:.2f} | Total Profit ({quote}): {self.net_pnl_quote:.4f}"])
             return lines
         else:
             msg = ["There was an error while formatting the status for the executor."]

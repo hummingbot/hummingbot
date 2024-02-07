@@ -46,6 +46,7 @@ class SmartComponentBase(ABC):
         """
         if self._status == SmartComponentStatus.NOT_STARTED:
             self.terminated.clear()
+            self._status = SmartComponentStatus.RUNNING
             safe_ensure_future(self.control_loop())
 
     def stop(self):
@@ -54,6 +55,7 @@ class SmartComponentBase(ABC):
         If the component is active or not started, it will stop the control loop.
         """
         if self._status != SmartComponentStatus.TERMINATED:
+            self._status = SmartComponentStatus.TERMINATED
             self.terminated.set()
 
     async def control_loop(self):
@@ -62,7 +64,6 @@ class SmartComponentBase(ABC):
         This method is responsible for executing the control task at the specified interval.
         """
         self.on_start()
-        self._status = SmartComponentStatus.RUNNING
         while not self.terminated.is_set():
             try:
                 await self.control_task()
@@ -70,7 +71,6 @@ class SmartComponentBase(ABC):
                 self.logger().error(e, exc_info=True)
             finally:
                 await asyncio.sleep(self.update_interval)
-        self._status = SmartComponentStatus.TERMINATED
         self.on_stop()
 
     def on_stop(self):

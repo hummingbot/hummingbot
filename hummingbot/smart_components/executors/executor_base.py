@@ -165,24 +165,42 @@ class ExecutorBase(SmartComponentBase):
         """
         Validates that the executor has sufficient balance to place orders.
         """
-        return NotImplementedError
+        raise NotImplementedError
 
     @property
     def net_pnl_quote(self) -> Decimal:
         """
         Returns the net profit or loss in quote currency.
         """
-        raise NotImplementedError
+        return self.get_net_pnl_quote()
 
     @property
     def net_pnl_pct(self) -> Decimal:
         """
         Returns the net profit or loss in percentage.
         """
-        raise NotImplementedError
+        return self.get_net_pnl_pct()
 
     @property
     def cum_fees_quote(self) -> Decimal:
+        """
+        Returns the cumulative fees in quote currency.
+        """
+        return self.get_cum_fees_quote()
+
+    def get_net_pnl_quote(self) -> Decimal:
+        """
+        Returns the net profit or loss in quote currency.
+        """
+        raise NotImplementedError
+
+    def get_net_pnl_pct(self) -> Decimal:
+        """
+        Returns the net profit or loss in percentage.
+        """
+        raise NotImplementedError
+
+    def get_cum_fees_quote(self) -> Decimal:
         """
         Returns the cumulative fees in quote currency.
         """

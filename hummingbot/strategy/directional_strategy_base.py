@@ -274,7 +274,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
                                 executor.trade_pnl_quote,
                                 executor.cum_fees_quote,
                                 executor.net_pnl_quote,
-                                executor.net_pnl,
+                                executor.net_pnl_pct,
                                 executor.close_timestamp,
                                 executor.executor_status,
                                 executor.close_type,

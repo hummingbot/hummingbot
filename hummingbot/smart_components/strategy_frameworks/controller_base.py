@@ -1,15 +1,19 @@
+import hashlib
+import random
+import time
 from abc import ABC
 from decimal import Decimal
 from typing import List, Optional
 
-from pydantic import BaseModel
+import base58
+from pydantic import BaseModel, validator
 
 from hummingbot.core.data_type.common import PositionMode
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig, CandlesFactory
 
 
 class ControllerConfigBase(BaseModel):
-    id: str
+    id: str = None
     exchange: str
     trading_pair: str
     strategy_name: str
@@ -17,6 +21,17 @@ class ControllerConfigBase(BaseModel):
     close_price_trading_pair: Optional[str]
     position_mode: PositionMode = PositionMode.HEDGE
     leverage: int = 1
+
+    @validator('id', pre=True, always=True)
+    def set_id(cls, v, values):
+        if v is None:
+            # Use timestamp from values if available, else current time
+            timestamp = values.get('timestamp', time.time())
+            unique_component = random.randint(0, 99999)
+            raw_id = f"{timestamp}-{unique_component}"
+            hashed_id = hashlib.sha256(raw_id.encode()).digest()  # Get bytes
+            return base58.b58encode(hashed_id).decode()  # Base58 encode
+        return v
 
 
 class ControllerBase(ABC):

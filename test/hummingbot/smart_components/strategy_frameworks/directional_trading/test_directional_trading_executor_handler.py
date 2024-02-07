@@ -69,31 +69,31 @@ class TestDirectionalTradingExecutorHandler(IsolatedAsyncioWrapperTestCase):
         self.handler.on_start()
         mock_set_leverage.assert_not_called()
 
-    @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.ExecutorHandlerBase.create_executor")
+    @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.ExecutorHandlerBase.create_position_executor")
     async def test_control_task_all_candles_ready(self, mock_create_executor):
         self.mock_controller.all_candles_ready = True
         await self.handler.control_task()
         mock_create_executor.assert_called()
 
-    @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.ExecutorHandlerBase.create_executor")
+    @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.ExecutorHandlerBase.create_position_executor")
     async def test_control_task_candles_not_ready(self, mock_create_executor):
         self.mock_controller.all_candles_ready = False
         await self.handler.control_task()
         mock_create_executor.assert_not_called()
 
-    @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.ExecutorHandlerBase.store_executor")
+    @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.ExecutorHandlerBase.store_position_executor")
     async def test_control_task_executor_closed_not_in_cooldown(self, mock_store_executor):
         self.mock_controller.all_candles_ready = True
         mock_executor = MagicMock()
         mock_executor.is_closed = True
         mock_executor.executor_status = PositionExecutorStatus.COMPLETED
-        self.handler.level_executors["BUY_1"] = mock_executor
-        self.handler.level_executors["SELL_1"] = mock_executor
+        self.handler.position_executors["BUY_1"] = mock_executor
+        self.handler.position_executors["SELL_1"] = mock_executor
         self.mock_controller.cooldown_condition.return_value = False
         await self.handler.control_task()
         mock_store_executor.assert_called()
 
-    @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.ExecutorHandlerBase.create_executor")
+    @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.ExecutorHandlerBase.create_position_executor")
     async def test_control_task_no_executor(self, mock_create_executor):
         self.mock_controller.all_candles_ready = True
         await self.handler.control_task()
