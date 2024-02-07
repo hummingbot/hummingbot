@@ -1,6 +1,5 @@
 import asyncio
 from copy import deepcopy
-from decimal import Decimal
 import logging
 from typing import List, Optional
 
@@ -25,7 +24,8 @@ class KrakenSpotCandles(CandlesBase):
         return cls._logger
 
     def __init__(self, trading_pair: str, interval: str = "1m", max_records: int = 720):
-        max_records = 720 if max_records > 720 else max_records
+        if max_records > 720:
+            raise Exception("Kraken only supports a maximum of 720 records.")
         super().__init__(trading_pair, interval, max_records)
 
     @property
