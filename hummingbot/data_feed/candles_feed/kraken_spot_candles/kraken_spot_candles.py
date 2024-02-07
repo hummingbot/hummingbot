@@ -1,5 +1,6 @@
 import asyncio
 from copy import deepcopy
+from decimal import Decimal
 import logging
 from typing import List, Optional
 
@@ -58,7 +59,7 @@ class KrakenSpotCandles(CandlesBase):
     @property
     def candles_df(self) -> pd.DataFrame:
         df = pd.DataFrame(self._candles, columns=self.columns, dtype=float)
-        interval = int(CONSTANTS.INTERVALS[self.interval]) * 60
+        interval = int(Decimal(CONSTANTS.INTERVALS[self.interval]) * Decimal("60"))
         df["timestamp"] = df["timestamp"] * 1000 - interval
         return df.sort_values(by="timestamp", ascending=True)
 
