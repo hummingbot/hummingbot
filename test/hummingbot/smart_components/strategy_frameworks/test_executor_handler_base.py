@@ -1,7 +1,7 @@
 import random
 from decimal import Decimal
 from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCase
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 
@@ -42,8 +42,7 @@ class TestExecutorHandlerBase(IsolatedAsyncioWrapperTestCase):
         self.mock_controller.stop.assert_called_once()
 
     @patch("hummingbot.connector.markets_recorder.MarketsRecorder", new_callable=MagicMock)
-    @patch("pandas.DataFrame.to_csv", new_callable=MagicMock)
-    def test_store_executor_removes_executor(self, _, market_recorder_mock):
+    def test_store_executor_removes_executor(self, market_recorder_mock):
         market_recorder_mock.store_position_executor = MagicMock()
         mock_executor = MagicMock()
         mock_executor.to_json = MagicMock(return_value={"timestamp": 123445634,
@@ -70,26 +69,18 @@ class TestExecutorHandlerBase(IsolatedAsyncioWrapperTestCase):
                                                         "time_limit_order_type": "MARKET",
                                                         "leverage": 10,
                                                         })
-        mock_order_level = MagicMock()
-        mock_order_level.level_id = "BUY_1"
-        self.executor_handler.store_position_executor(mock_executor, mock_order_level)
-        self.assertIsNone(self.executor_handler.position_executors[mock_order_level.level_id])
-
-    @patch.object(ExecutorHandlerBase, "_sleep", new_callable=AsyncMock)
-    @patch.object(ExecutorHandlerBase, "control_task", new_callable=AsyncMock)
-    async def test_control_loop(self, mock_control_task, mock_sleep):
-        mock_sleep.side_effect = [None, Exception]
-        with self.assertRaises(Exception):
-            await self.executor_handler.control_loop()
-        mock_control_task.assert_called()
+        level_id = "BUY_1"
+        self.executor_handler.position_executors[level_id] = mock_executor
+        self.executor_handler.store_position_executor(level_id)
+        self.assertIsNone(self.executor_handler.position_executors[level_id])
 
     @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.PositionExecutor")
-    def test_create_executor(self, mock_position_executor):
+    def test_create_position_executor(self, mock_position_executor):
         mock_position_config = MagicMock()
         mock_order_level = MagicMock()
         self.executor_handler.create_position_executor(mock_position_config, mock_order_level)
         mock_position_executor.assert_called_once_with(self.mock_strategy, mock_position_config, update_interval=1.0)
-        self.assertIsNotNone(self.executor_handler.position_executors[mock_order_level.level_id])
+        self.assertIsNotNone(self.executor_handler.position_executors[mock_order_level])
 
     def generate_random_data(self, num_rows):
         data = {
