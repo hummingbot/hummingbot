@@ -58,7 +58,8 @@ class KrakenSpotCandles(CandlesBase):
     @property
     def candles_df(self) -> pd.DataFrame:
         df = pd.DataFrame(self._candles, columns=self.columns, dtype=float)
-        df["timestamp"] = df["timestamp"] * 1000
+        interval = int(CONSTANTS.INTERVALS[self.interval]) * 60
+        df["timestamp"] = df["timestamp"] * 1000 - interval
         return df.sort_values(by="timestamp", ascending=True)
 
     async def check_network(self) -> NetworkStatus:
