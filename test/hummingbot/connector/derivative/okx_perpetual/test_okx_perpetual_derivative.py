@@ -1,9 +1,7 @@
 import asyncio
 import json
 import re
-from copy import deepcopy
 from decimal import Decimal
-from itertools import chain, product
 from typing import Any, Callable, List, Optional, Tuple
 from unittest.mock import patch
 
@@ -16,7 +14,6 @@ import hummingbot.connector.derivative.okx_perpetual.okx_perpetual_web_utils as 
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.okx_perpetual.okx_perpetual_derivative import OkxPerpetualDerivative
-from hummingbot.connector.perpetual_trading import PerpetualTrading
 from hummingbot.connector.test_support.perpetual_derivative_test import AbstractPerpetualDerivativeTests
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, TradeType
@@ -80,7 +77,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
     @property
     def funding_payment_url(self):
         url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.GET_LAST_FUNDING_RATE_PATH_URL, trading_pair=self.trading_pair
+            endpoint=CONSTANTS.REST_FUNDING_RATE_INFO[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
         )
         url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
@@ -99,7 +96,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "ctVal": "1",
                     "ctValCcy": self.base_asset,
                     "expTime": "",
-                    "instFamily": "LTC-USDT",
+                    "instFamily": self.exchange_trading_pair,
                     "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
                     "instType": "SWAP",
                     "lever": "50",
@@ -119,7 +116,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "settleCcy": self.quote_asset,
                     "state": "live",
                     "stk": "",
-                    "tickSz": "0.01",
+                    "tickSz": "0.1",
                     "uly": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
                 }
             ],
@@ -228,25 +225,12 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         }
         return response
 
-    def _simulate_trading_rules_initialized(self):
-        min_order_size = Decimal(str(0.1))
-        min_price_increment = Decimal(str(0.01))
-        min_base_amount_increment = Decimal(str(0.1))
-        self.exchange._trading_rules = {
-            self.trading_pair: TradingRule(
-                trading_pair=self.trading_pair,
-                min_order_size=min_order_size,
-                min_price_increment=min_price_increment,
-                min_base_amount_increment=min_base_amount_increment,
-            )
-        }
-
     def test_format_trading_rules(self):
         margin_asset = self.quote_asset
         min_order_size = Decimal(str(0.1))
         min_price_increment = Decimal(str(0.01))
         min_base_amount_increment = Decimal(str(0.1))
-        mocked_response = self.trading_rules_request_mock_response()
+        mocked_response = self.trading_rules_request_mock_response
         self._simulate_trading_rules_initialized()
         trading_rules = self.async_run_with_timeout(self.exchange._format_trading_rules(mocked_response))
 
@@ -269,84 +253,6 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             "ERROR",
             f"Error parsing the trading pair rule: {mocked_response['data'][0]}. Skipping..."
         ))
-
-    @aioresponses()
-    def test_resolving_trading_pair_symbol_duplicates_on_trading_rules_update_first_is_good(self, mock_api):
-        self.exchange._set_current_timestamp(1000)
-
-        url = self.trading_rules_url
-        response = self.trading_rules_request_mock_response
-        results = response["data"]
-        duplicate = deepcopy(results[0])
-        duplicate["instId"] = f"{self.exchange_trading_pair}_12345"
-        duplicate["lot_size_filter"]["min_trading_qty"] = duplicate["lot_size_filter"]["min_trading_qty"] + 1
-        results.append(duplicate)
-        mock_api.get(url, body=json.dumps(response))
-
-        self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
-
-        self.assertEqual(1, len(self.exchange.trading_rules))
-        self.assertIn(self.trading_pair, self.exchange.trading_rules)
-        self.assertEqual(repr(self.expected_trading_rule), repr(self.exchange.trading_rules[self.trading_pair]))
-
-    @aioresponses()
-    def test_resolving_trading_pair_symbol_duplicates_on_trading_rules_update_second_is_good(self, mock_api):
-        self.exchange._set_current_timestamp(1000)
-
-        url = self.trading_rules_url
-        response = self.trading_rules_request_mock_response
-        results = response["result"]
-        duplicate = deepcopy(results[0])
-        duplicate["name"] = f"{self.exchange_trading_pair}_12345"
-        duplicate["alias"] = f"{self.exchange_trading_pair}_12345"
-        duplicate["lot_size_filter"]["min_trading_qty"] = duplicate["lot_size_filter"]["min_trading_qty"] + 1
-        results.insert(0, duplicate)
-        mock_api.get(url, body=json.dumps(response))
-
-        self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
-
-        self.assertEqual(1, len(self.exchange.trading_rules))
-        self.assertIn(self.trading_pair, self.exchange.trading_rules)
-        self.assertEqual(repr(self.expected_trading_rule), repr(self.exchange.trading_rules[self.trading_pair]))
-
-    @aioresponses()
-    def test_resolving_trading_pair_symbol_duplicates_on_trading_rules_update_cannot_resolve(self, mock_api):
-        self.exchange._set_current_timestamp(1000)
-
-        url = self.trading_rules_url
-        response = self.trading_rules_request_mock_response
-        results = response["result"]
-        first_duplicate = deepcopy(results[0])
-        first_duplicate["name"] = f"{self.exchange_trading_pair}_12345"
-        first_duplicate["alias"] = f"{self.exchange_trading_pair}_12345"
-        first_duplicate["lot_size_filter"]["min_trading_qty"] = (
-            first_duplicate["lot_size_filter"]["min_trading_qty"] + 1
-        )
-        second_duplicate = deepcopy(results[0])
-        second_duplicate["name"] = f"{self.exchange_trading_pair}_67890"
-        second_duplicate["alias"] = f"{self.exchange_trading_pair}_67890"
-        second_duplicate["lot_size_filter"]["min_trading_qty"] = (
-            second_duplicate["lot_size_filter"]["min_trading_qty"] + 2
-        )
-        results.pop(0)
-        results.append(first_duplicate)
-        results.append(second_duplicate)
-        mock_api.get(url, body=json.dumps(response))
-
-        self.async_run_with_timeout(coroutine=self.exchange._update_trading_rules())
-
-        self.assertEqual(0, len(self.exchange.trading_rules))
-        self.assertNotIn(self.trading_pair, self.exchange.trading_rules)
-        self.assertTrue(
-            self.is_logged(
-                log_level="ERROR",
-                message=(
-                    f"Could not resolve the exchange symbols"
-                    f" {self.exchange_trading_pair}_67890"
-                    f" and {self.exchange_trading_pair}_12345"
-                ),
-            )
-        )
 
     # -------------------------------------------------------
     # xxx ? TESTS AND MOCKS
@@ -747,7 +653,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         request_data = json.loads(request_call.kwargs["data"])
         self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
                          request_data["instId"])
-        self.assertEqual("cash", request_data["tdMode"])
+        self.assertEqual("cross", request_data["tdMode"])
         self.assertEqual(order.trade_type.name.lower(), request_data["side"])
         self.assertEqual(order.order_type.name.lower(), request_data["ordType"])
         self.assertEqual(Decimal("100"), Decimal(request_data["sz"]))
@@ -1008,7 +914,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ) -> Tuple[str, str]:
         url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.SET_LEVERAGE_PATH_URL, trading_pair=self.trading_pair
+            endpoint=CONSTANTS.REST_SET_LEVERAGE[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
         )
         regex_url = re.compile(f"^{url}")
 
@@ -1036,7 +942,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         callback: Optional[Callable] = lambda *args, **kwargs: None,
     ):
         url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.SET_LEVERAGE_PATH_URL, trading_pair=self.trading_pair
+            endpoint=CONSTANTS.REST_SET_LEVERAGE[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
         )
         regex_url = re.compile(f"^{url}")
 
@@ -1079,7 +985,6 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "side": order.trade_type.name.lower(),
                     "posSide": "long",
                     "tdMode": "cross",
-                    "tgtCcy": "",
                     "fillSz": "0",
                     "fillPx": "0",
                     "tradeId": "0",
@@ -1139,7 +1044,6 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "side": order.trade_type.name.lower(),
                     "posSide": "long",
                     "tdMode": "cross",
-                    "tgtCcy": "",
                     "fillSz": "0",
                     "fillPx": "0",
                     "tradeId": "0",
@@ -1162,7 +1066,6 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "fee": "",
                     "rebateCcy": "",
                     "rebate": "",
-                    "tgtCcy": "",
                     "source": "",
                     "pnl": "",
                     "category": "",
@@ -1199,7 +1102,6 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "side": order.trade_type.name.lower(),
                     "posSide": "long",
                     "tdMode": "cross",
-                    "tgtCcy": "",
                     "fillSz": str(order.amount),
                     "fillPx": str(order.price),
                     "tradeId": self.expected_fill_trade_id,
@@ -1222,7 +1124,6 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "fee": "",
                     "rebateCcy": "",
                     "rebate": "",
-                    "tgtCcy": "",
                     "source": "",
                     "pnl": "",
                     "category": "",
@@ -1355,43 +1256,6 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
 
         self.assertEqual(self.quote_asset, linear_buy_collateral_token)
         self.assertEqual(self.quote_asset, linear_sell_collateral_token)
-
-    def test_get_position_index(self):
-        perpetual_trading: PerpetualTrading = self.exchange._perpetual_trading
-        perpetual_trading.set_position_mode(value=PositionMode.ONEWAY)
-
-        for trade_type, position_action in product(
-            [TradeType.BUY, TradeType.SELL], [PositionAction.OPEN, PositionAction.CLOSE]
-        ):
-            position_idx = self.exchange._get_position_idx(trade_type=trade_type, position_action=position_action)
-            self.assertEqual(
-                CONSTANTS.POSITION_IDX_ONEWAY, position_idx, msg=f"Failed on {trade_type} and {position_action}."
-            )
-
-        perpetual_trading.set_position_mode(value=PositionMode.HEDGE)
-
-        for trade_type, position_action in zip(
-            [TradeType.BUY, TradeType.SELL], [PositionAction.OPEN, PositionAction.CLOSE]
-        ):
-            position_idx = self.exchange._get_position_idx(trade_type=trade_type, position_action=position_action)
-            self.assertEqual(
-                CONSTANTS.POSITION_IDX_HEDGE_BUY, position_idx, msg=f"Failed on {trade_type} and {position_action}."
-            )
-
-        for trade_type, position_action in zip(
-            [TradeType.BUY, TradeType.SELL], [PositionAction.CLOSE, PositionAction.OPEN]
-        ):
-            position_idx = self.exchange._get_position_idx(trade_type=trade_type, position_action=position_action)
-            self.assertEqual(
-                CONSTANTS.POSITION_IDX_HEDGE_SELL, position_idx, msg=f"Failed on {trade_type} and {position_action}."
-            )
-
-        for trade_type, position_action in chain(
-            product([TradeType.RANGE], [PositionAction.CLOSE, PositionAction.OPEN]),
-            product([TradeType.BUY, TradeType.SELL], [PositionAction.NIL]),
-        ):
-            with self.assertRaises(NotImplementedError, msg=f"Failed on {trade_type} and {position_action}."):
-                self.exchange._get_position_idx(trade_type=trade_type, position_action=position_action)
 
     def test_time_synchronizer_related_request_error_detection(self):
         exception = IOError("Error executing request POST https://okx.com/api/v5/order. HTTP status is 401. "
