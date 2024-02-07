@@ -26,7 +26,7 @@ class MarketMakingExecutorHandler(ExecutorHandlerBase):
                  update_interval: float = 1.0, executors_update_interval: float = 1.0):
         super().__init__(strategy, controller, update_interval, executors_update_interval)
         self.controller = controller
-        self.level_executors = {level.level_id: None for level in self.controller.config.order_levels}
+        self.position_executors = {level.level_id: None for level in self.controller.config.order_levels}
         self.global_trailing_stop_config = self.controller.config.global_trailing_stop_config
         self._trailing_stop_pnl_by_side: Dict[TradeType, Optional[Decimal]] = {TradeType.BUY: None, TradeType.SELL: None}
 
@@ -54,7 +54,7 @@ class MarketMakingExecutorHandler(ExecutorHandlerBase):
                 TradeType.BUY: self.empty_metrics_dict(),
                 TradeType.SELL: self.empty_metrics_dict()}
             for order_level in self.controller.config.order_levels:
-                current_executor = self.level_executors[order_level.level_id]
+                current_executor = self.position_executors[order_level.level_id]
                 if current_executor:
                     closed_and_not_in_cooldown = current_executor.is_closed and not self.controller.cooldown_condition(
                         current_executor, order_level) or current_executor.close_type == CloseType.EXPIRED
@@ -63,7 +63,7 @@ class MarketMakingExecutorHandler(ExecutorHandlerBase):
                     order_placed_and_refresh_condition = current_executor.executor_status == PositionExecutorStatus.NOT_STARTED and self.controller.refresh_order_condition(
                         current_executor, order_level)
                     if closed_and_not_in_cooldown:
-                        self.store_position_executor(current_executor, order_level)
+                        self.store_position_executor(order_level.level_id)
                     elif active_and_early_stop_condition or order_placed_and_refresh_condition:
                         current_executor.early_stop()
                     elif current_executor.executor_status == PositionExecutorStatus.ACTIVE_POSITION:
@@ -73,7 +73,7 @@ class MarketMakingExecutorHandler(ExecutorHandlerBase):
                 else:
                     position_config = self.controller.get_position_config(order_level)
                     if position_config:
-                        self.create_position_executor(position_config, order_level)
+                        self.create_position_executor(position_config, order_level.level_id)
             if self.global_trailing_stop_config:
                 for side, global_trailing_stop_conf in self.global_trailing_stop_config.items():
                     if current_metrics[side]["amount"] > 0:

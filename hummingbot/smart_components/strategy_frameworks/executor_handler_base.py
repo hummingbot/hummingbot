@@ -73,7 +73,7 @@ class ExecutorHandlerBase(SmartComponentBase):
         :param executor: The executor instance.
         :param level_id: The order level id.
         """
-        executor = self.position_executors[level_id]
+        executor = self.position_executors.get(level_id)
         if executor:
             executor_data = executor.to_json()
             executor_data["order_level"] = level_id
@@ -88,10 +88,12 @@ class ExecutorHandlerBase(SmartComponentBase):
         :param position_config: The position configuration.
         :param level_id: The order level id.
         """
-        if level_id in self.position_executors:
+        current_executor = self.position_executors.get(level_id)
+        if current_executor:
             self.logger().warning(f"Executor for level {level_id} already exists.")
             return
         executor = PositionExecutor(self.strategy, position_config, update_interval=self.executors_update_interval)
+        executor.start()
         self.position_executors[level_id] = executor
 
     def stop_position_executor(self, executor_id: str):

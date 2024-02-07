@@ -43,7 +43,7 @@ class PositionExecutor(ExecutorBase):
             error = "Only market orders are supported for time_limit and stop_loss"
             self.logger().error(error)
             raise ValueError(error)
-        super().__init__(strategy=strategy, connectors=[config.exchange], update_interval=update_interval)
+        super().__init__(strategy=strategy, config=config, connectors=[config.exchange], update_interval=update_interval)
         self.config: PositionExecutorConfig = config
         self._executor_status: PositionExecutorStatus = PositionExecutorStatus.NOT_STARTED
 
@@ -129,20 +129,17 @@ class PositionExecutor(ExecutorBase):
     def trade_pnl_quote(self):
         return self.trade_pnl * self.filled_amount * self.entry_price
 
-    @property
-    def net_pnl_quote(self):
+    def get_net_pnl_quote(self):
         return self.trade_pnl_quote - self.cum_fees_quote
 
-    @property
-    def net_pnl(self):
+    def get_cum_fees_quote(self):
+        return self.open_order.cum_fees_quote + self.close_order.cum_fees_quote
+
+    def get_net_pnl_pct(self):
         if self.filled_amount == Decimal("0"):
             return Decimal("0")
         else:
             return self.net_pnl_quote / (self.filled_amount * self.entry_price)
-
-    @property
-    def cum_fees_quote(self):
-        return self.open_order.cum_fees_quote + self.close_order.cum_fees_quote
 
     @property
     def end_time(self):
@@ -400,7 +397,7 @@ class PositionExecutor(ExecutorBase):
             "trade_pnl_quote": self.trade_pnl_quote,
             "cum_fee_quote": self.cum_fees_quote,
             "net_pnl_quote": self.net_pnl_quote,
-            "net_pnl": self.net_pnl,
+            "net_pnl": self.net_pnl_pct,
             "close_timestamp": self.close_timestamp,
             "executor_status": self.executor_status.name,
             "close_type": self.close_type.name if self.close_type else None,
@@ -426,14 +423,14 @@ class PositionExecutor(ExecutorBase):
 | Trading Pair: {self.trading_pair} | Exchange: {self.exchange} | Side: {self.side}
 | Entry price: {self.entry_price:.6f} | Close price: {self.close_price:.6f} | Amount: {amount_in_quote:.4f} {quote_asset}
 | Realized PNL: {self.trade_pnl_quote:.6f} {quote_asset} | Total Fee: {self.cum_fees_quote:.6f} {quote_asset}
-| PNL (%): {self.net_pnl * 100:.2f}% | PNL (abs): {self.net_pnl_quote:.6f} {quote_asset} | Close Type: {self.close_type}
+| PNL (%): {self.net_pnl_pct * 100:.2f}% | PNL (abs): {self.net_pnl_quote:.6f} {quote_asset} | Close Type: {self.close_type}
 """])
         else:
             lines.extend([f"""
 | Trading Pair: {self.trading_pair} | Exchange: {self.exchange} | Side: {self.side} |
 | Entry price: {self.entry_price:.6f} | Close price: {self.close_price:.6f} | Amount: {amount_in_quote:.4f} {quote_asset}
 | Unrealized PNL: {self.trade_pnl_quote:.6f} {quote_asset} | Total Fee: {self.cum_fees_quote:.6f} {quote_asset}
-| PNL (%): {self.net_pnl * 100:.2f}% | PNL (abs): {self.net_pnl_quote:.6f} {quote_asset} | Close Type: {self.close_type}
+| PNL (%): {self.net_pnl_pct * 100:.2f}% | PNL (abs): {self.net_pnl_quote:.6f} {quote_asset} | Close Type: {self.close_type}
         """])
 
         if self.executor_status == PositionExecutorStatus.ACTIVE_POSITION:

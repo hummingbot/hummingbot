@@ -158,22 +158,19 @@ class DCAExecutor(ExecutorBase):
         """
         return self.trade_pnl_pct * self.open_filled_amount_quote
 
-    @property
-    def net_pnl_quote(self) -> Decimal:
+    def get_net_pnl_quote(self) -> Decimal:
         """
         This method is responsible for calculating the net pnl in quote asset
         """
         return self.trade_pnl_quote - self.cum_fees_quote
 
-    @property
-    def net_pnl_pct(self) -> Decimal:
+    def get_net_pnl_pct(self) -> Decimal:
         """
         This method is responsible for calculating the net pnl percentage
         """
         return self.net_pnl_quote / self.open_filled_amount_quote if self.open_filled_amount_quote else Decimal("0")
 
-    @property
-    def cum_fees_quote(self) -> Decimal:
+    def get_cum_fees_quote(self) -> Decimal:
         """
         This method is responsible for calculating the cumulative fees in quote asset
         """
@@ -370,12 +367,7 @@ class DCAExecutor(ExecutorBase):
         else:
             self.logger().info(f"Open amount: {self.open_filled_amount}, Close amount: {self.close_filled_amount}")
             self.logger().info(f"Close orders: {self._close_orders}")
-            for active_open_order in active_open_orders:
-                self._strategy.cancel(
-                    connector_name=self.config.exchange,
-                    trading_pair=self.config.trading_pair,
-                    order_id=active_open_order.order_id
-                )
+            self.place_close_order_and_cancel_open_orders(close_type=self.close_type)
 
     def process_order_created_event(self,
                                     event_tag: int,
@@ -410,10 +402,10 @@ class DCAExecutor(ExecutorBase):
             self._failed_orders.append(close_order)
             self._close_orders.remove(close_order)
             self.logger().error(f"Order {event.order_id} failed.")
-            self.place_close_order_and_cancel_open_orders(close_type=self.close_type)
-        self._current_retries += 1
+            self._current_retries += 1
         if self._current_retries >= self._max_retries:
             self.close_type = CloseType.FAILED
+            self.close_timestamp = self._strategy.current_timestamp
             self.stop()
             self.logger().error("Max retries reached. Stopping DCA executor.")
 
