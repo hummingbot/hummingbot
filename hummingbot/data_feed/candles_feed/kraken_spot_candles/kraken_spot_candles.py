@@ -59,8 +59,7 @@ class KrakenSpotCandles(CandlesBase):
     @property
     def candles_df(self) -> pd.DataFrame:
         df = pd.DataFrame(self._candles, columns=self.columns, dtype=float)
-        interval = int(Decimal(CONSTANTS.INTERVALS[self.interval]) * Decimal("60"))
-        df["timestamp"] = df["timestamp"] * 1000 - interval
+        df["timestamp"] = df["timestamp"] * 1000
         return df.sort_values(by="timestamp", ascending=True)
 
     async def check_network(self) -> NetworkStatus:
@@ -135,7 +134,8 @@ class KrakenSpotCandles(CandlesBase):
                     # we are computing again the quantity of records again since the websocket process is able to
                     # modify the deque and if we extend it, the new observations are going to be dropped.
                     missing_records = self._candles.maxlen - len(self._candles)
-                    self._candles.extendleft(candles[::-1][-(missing_records + 1):-1])
+                    # self._candles.extendleft(candles[::-1][-(missing_records + 1):-1])
+                    self._candles.extendleft(candles[-(missing_records + 1):-1][::-1])
                     requests_executed += 1
                 else:
                     self.logger().error(f"There is no data available for the quantity of "
@@ -180,7 +180,7 @@ class KrakenSpotCandles(CandlesBase):
             if not (type(data) is dict and "event" in data.keys() and
                     data["event"] in ["heartbeat", "systemStatus", "subscriptionStatus"]):
                 if data[-2][:4] == "ohlc":
-                    timestamp = int(float(data[1][1]))
+                    timestamp = int(float(data[1][1])) - int(CONSTANTS.INTERVALS[self.interval]) * 60
                     open = data[1][2]
                     high = data[1][3]
                     low = data[1][4]
