@@ -6,9 +6,10 @@ from typing import (
 from hummingbot.core.api_throttler.data_types import RateLimit, LinkedLimitWeightPair
 from hummingbot.core.data_type.in_flight_order import OrderState
 
-DEFAULT_DOMAIN="kraken"
+DEFAULT_DOMAIN = "kraken"
 MAX_ORDER_ID_LEN = 32
 HBOT_ORDER_ID_PREFIX = "HBOT"
+
 
 class KrakenAPITier(Enum):
     """
@@ -54,7 +55,6 @@ OPEN_ORDERS_PATH_URL = "/0/private/OpenOrders"
 QUERY_ORDERS_PATH_URL = "/0/private/QueryOrders"
 QUERY_TRADES_PATH_URL = "/0/private/QueryTrades"
 
-
 # Order States
 ORDER_STATE = {
     "pending": OrderState.PENDING_CREATE,
@@ -62,14 +62,8 @@ ORDER_STATE = {
     "closed": OrderState.COMPLETED,
     "canceled": OrderState.CANCELED,
     "expired": OrderState.FAILED,
-
-    "FILLED": OrderState.FILLED,
-    "PARTIALLY_FILLED": OrderState.PARTIALLY_FILLED,
-    "PENDING_CANCEL": OrderState.OPEN,
-    "PARTIALLY_CANCELED": OrderState.CANCELED,
-    "REJECTED": OrderState.FAILED,
-    "EXPIRED": OrderState.FAILED,
 }
+ORDER_NOT_EXIST_ERROR_CODE = "Error fetching status update for the order"
 
 WS_URL = "wss://ws.kraken.com"
 WS_AUTH_URL = "wss://ws-auth.kraken.com/"

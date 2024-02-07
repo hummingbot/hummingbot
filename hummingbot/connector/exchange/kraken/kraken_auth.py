@@ -10,10 +10,7 @@ import time
 
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.auth import AuthBase
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
-
-
-
+from hummingbot.core.web_assistant.connections.data_types import RESTRequest, WSRequest
 
 
 class KrakenAuth(AuthBase):
@@ -39,7 +36,7 @@ class KrakenAuth(AuthBase):
         request.headers = headers
         request.data = auth_dict["postDict"]
         return request
-    #todo
+
     async def ws_authenticate(self, request: WSRequest) -> WSRequest:
         """
         This method is intended to configure a websocket request to be authenticated. Mexc does not use this
