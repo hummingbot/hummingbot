@@ -95,25 +95,34 @@ class DManV6(GenericController):
         close_price = self.get_close_price(self.config.trading_pair)
 
         # compute number of DCAs per side
-        n_long_dcas = len([executor for executor in active_dca_executors if executor.config.side == TradeType.BUY])
-        n_short_dcas = len([executor for executor in active_dca_executors if executor.config.side == TradeType.SELL])
+        long_dcas = [executor for executor in active_dca_executors if executor.config.side == TradeType.BUY]
+        short_dcas = [executor for executor in active_dca_executors if executor.config.side == TradeType.SELL]
+        n_long_dcas = len(long_dcas)
+        n_short_dcas = len(short_dcas)
 
         # evaluate long dca conditions
         if n_long_dcas == 0:
             proposal.append(self.create_dca_action(TradeType.BUY, close_price))
         elif n_long_dcas < self.config.max_dca_per_side:
-            min_long_dca_average_price = min([executor.custom_info["current_position_average_price"] for executor in
-                                              active_dca_executors if executor.config.side == TradeType.BUY])
-            if min_long_dca_average_price != Decimal("0") and float(close_price) < float(min_long_dca_average_price) * (1 - self.config.min_distance_between_dca):
+            # evaluate if all the DCAs are active to create a new one
+            all_dca_trading_condition = all([executor.is_trading for executor in long_dcas])
+            # compute the min price of all the DCA open prices to see if we should create another DCA
+            min_long_dca_average_price = min([executor.custom_info["max_price"] for executor in long_dcas])
+            min_price_distance_condition = float(close_price) < float(min_long_dca_average_price) * (1 - self.config.min_distance_between_dca)
+
+            if all_dca_trading_condition and min_price_distance_condition:
                 proposal.append(self.create_dca_action(TradeType.BUY, close_price))
 
         # evaluate short dca conditions
         if n_short_dcas == 0:
             proposal.append(self.create_dca_action(TradeType.SELL, close_price))
         elif n_short_dcas < self.config.max_dca_per_side:
-            max_short_dca_average_price = max([executor.custom_info["current_position_average_price"] for executor in
-                                               active_dca_executors if executor.config.side == TradeType.SELL])
-            if max_short_dca_average_price != Decimal("0") and float(close_price) > float(max_short_dca_average_price) * (1 + self.config.min_distance_between_dca):
+            # evaluate if all the DCAs are active to create a new one
+            all_dca_trading_condition = all([executor.is_trading for executor in long_dcas])
+            # compute the max price of all the DCA open prices to see if we should create another DCAa
+            max_short_dca_open_price = max([executor.custom_info["min_price"] for executor in short_dcas])
+            max_price_distance_condition = float(close_price) > float(max_short_dca_open_price) * (1 + self.config.min_distance_between_dca)
+            if all_dca_trading_condition and max_price_distance_condition:
                 proposal.append(self.create_dca_action(TradeType.SELL, close_price))
         return proposal
 
