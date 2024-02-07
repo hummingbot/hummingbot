@@ -37,6 +37,10 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         self._api_factory = api_factory
         self._domain = domain
         self._nonce_provider = NonceCreator.for_microseconds()
+        self._last_index_price = None
+        self._last_mark_price = None
+        self._last_next_funding_utc_timestamp = None
+        self._last_rate = None
 
     # 1 - Order Book Snapshot REST
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
@@ -419,60 +423,54 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     # TODO: Check if FundingInfoUpdate can be feeded from different parsers, or if it needs to be a single one
     async def _parse_funding_info_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        subscription_event = raw_message.get("event")
-        if subscription_event == "subscribe":
-            pass
-        elif subscription_event == "error":
-            self.logger().error(f"Error in funding info subscription: {raw_message}")
-            pass
         funding_rates = raw_message.get("data")
         if funding_rates is not None:
             symbol = raw_message["arg"]["instId"]
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
             funding_data = raw_message["data"][0]
-            info_update = FundingInfoUpdate(trading_pair)
             if "nextFundingTime" in funding_data:
-                info_update.next_funding_utc_timestamp = int(
+                self._last_next_funding_utc_timestamp = int(
                     pd.Timestamp(str(funding_data["nextFundingTime"]), tz="UTC").timestamp()
                 )
             if "nextFundingRate" in funding_data:
-                info_update.rate = (
+                self._last_rate = (
                     Decimal(str(funding_data["nextFundingRate"]))
                 )
+            info_update = FundingInfoUpdate(trading_pair=trading_pair,
+                                            index_price=self._last_index_price,
+                                            mark_price=self._last_mark_price,
+                                            next_funding_utc_timestamp=self._last_next_funding_utc_timestamp,
+                                            rate=self._last_rate)
             message_queue.put_nowait(info_update)
 
     async def _parse_index_price_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        subscription_event = raw_message.get("event")
-        if subscription_event == "subscribe":
-            pass
-        elif subscription_event == "error":
-            self.logger().error(f"Error in index price subscription: {raw_message}")
-            pass
         index_price = raw_message.get("data")
         if index_price is not None:
             symbol = raw_message["arg"]["instId"]
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
             index_price_data = raw_message["data"][0]
-            info_update = FundingInfoUpdate(trading_pair)
             if "markPx" in index_price_data:
-                info_update.index_price = Decimal(str(index_price_data["mark_price"]))
+                self._last_index_price = Decimal(str(index_price_data["mark_price"]))
+                info_update = FundingInfoUpdate(trading_pair=trading_pair,
+                                                index_price=self._last_index_price,
+                                                mark_price=self._last_mark_price,
+                                                next_funding_utc_timestamp=self._last_next_funding_utc_timestamp,
+                                                rate=self._last_rate)
                 message_queue.put_nowait(info_update)
 
     async def _parse_mark_price_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        subscription_event = raw_message.get("event")
-        if subscription_event == "subscribe":
-            pass
-        elif subscription_event == "error":
-            self.logger().error(f"Error in mark price subscription: {raw_message}")
-            pass
         mark_price = raw_message.get("data")
         if mark_price is not None:
             symbol = raw_message["arg"]["instId"]
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
             mark_price_data = raw_message["data"][0]
-            info_update = FundingInfoUpdate(trading_pair)
             if "markPx" in mark_price_data:
-                info_update.mark_price = Decimal(str(mark_price_data["mark_price"]))
+                self._last_mark_price = Decimal(str(mark_price_data["mark_price"]))
+                info_update = FundingInfoUpdate(trading_pair=trading_pair,
+                                                index_price=self._last_index_price,
+                                                mark_price=self._last_mark_price,
+                                                next_funding_utc_timestamp=self._last_next_funding_utc_timestamp,
+                                                rate=self._last_rate)
                 message_queue.put_nowait(info_update)
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
@@ -498,7 +496,6 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
         if channel_value is not None:
             event_channel = event_message["arg"]["channel"]
-            # event_channel = ".".join(event_channel.split(".")[:-1])
             if event_channel == CONSTANTS.WS_TRADES_CHANNEL:
                 channel = self._trade_messages_queue_key
             elif event_channel == CONSTANTS.WS_ORDER_BOOK_400_DEPTH_100_MS_EVENTS_CHANNEL:
