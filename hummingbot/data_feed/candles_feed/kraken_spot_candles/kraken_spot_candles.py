@@ -202,7 +202,7 @@ class KrakenSpotCandles(CandlesBase):
                         if the_number_of_interval > 1:
                             for i in range(1, the_number_of_interval):
                                 old_data = self._candles[-1]
-                                new_timestamp = int(self._candles[-1][0]) + interval
+                                new_timestamp = int(self._candles[-1][0]) + i * interval
                                 old_data[0] = new_timestamp
                                 self._candles.append(old_data)
                         self._candles.append(np.array([timestamp, open, high, low, close, volume,
