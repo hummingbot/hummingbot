@@ -245,22 +245,22 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         if position_action == PositionAction.NIL:
             raise NotImplementedError
 
-        open_long = trade_type == TradeType.BUY and position_action == PositionAction.OPEN
-        close_long = trade_type == TradeType.BUY and position_action == PositionAction.CLOSE
-        close_short = trade_type == TradeType.SELL and position_action == PositionAction.CLOSE
-
         data = {
             "clOrdId": order_id,
             "tdMode": "cross",
             "ordType": CONSTANTS.ORDER_TYPE_MAP[order_type],
             "instId": await self.exchange_symbol_associated_to_pair(trading_pair),
-            "side": "buy" if open_long or close_short else "sell",
-            "posSide": "long" if open_long or close_long else "short",
-            "sz": float(amount),
+            "side": "buy" if trade_type.name == "BUY" else "sell",
+            "sz": str(amount),
             "reduceOnly": position_action == PositionAction.CLOSE,
         }
         if order_type.is_limit_type():
-            data["px"] = float(price)
+            data["px"] = str(price)
+        if self.position_mode == PositionMode.HEDGE:
+            if position_action == PositionAction.OPEN:
+                data["posSide"] = "LONG" if trade_type is TradeType.BUY else "SHORT"
+            else:
+                data["posSide"] = "SHORT" if trade_type is TradeType.BUY else "LONG"
 
         exchange_order_id = await self._api_post(
             path_url=CONSTANTS.REST_PLACE_ACTIVE_ORDER[CONSTANTS.ENDPOINT],
@@ -722,7 +722,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
                 update_timestamp=self.current_timestamp,
                 new_state=order_status,
                 client_order_id=client_order_id,
-                exchange_order_id=order_msg["order_id"],
+                exchange_order_id=order_msg["ordId"],
             )
             self._order_tracker.process_order_update(new_order_update)
 
