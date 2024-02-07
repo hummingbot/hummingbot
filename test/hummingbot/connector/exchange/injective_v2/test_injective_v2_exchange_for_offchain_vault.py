@@ -1,6 +1,5 @@
 import asyncio
 import base64
-import json
 from collections import OrderedDict
 from decimal import Decimal
 from functools import partial
@@ -22,6 +21,7 @@ from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.injective_v2.injective_v2_exchange import InjectiveV2Exchange
 from hummingbot.connector.exchange.injective_v2.injective_v2_utils import (
     InjectiveConfigMap,
+    InjectiveMessageBasedTransactionFeeCalculatorMode,
     InjectiveTestnetNetworkMode,
     InjectiveVaultAccountMode,
 )
@@ -235,52 +235,56 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
     @property
     def balance_request_mock_response_for_base_and_quote(self):
         return {
-            "accountAddress": self.vault_contract_address,
-            "bankBalances": [
-                {
-                    "denom": self.base_asset_denom,
-                    "amount": str(Decimal(5) * Decimal(1e18))
-                },
-                {
-                    "denom": self.quote_asset_denom,
-                    "amount": str(Decimal(1000) * Decimal(1e6))
-                }
-            ],
-            "subaccounts": [
-                {
-                    "subaccountId": self.vault_contract_subaccount_id,
-                    "denom": self.quote_asset_denom,
-                    "deposit": {
-                        "totalBalance": str(Decimal(2000) * Decimal(1e6)),
-                        "availableBalance": str(Decimal(2000) * Decimal(1e6))
+            "portfolio": {
+                "accountAddress": self.vault_contract_address,
+                "bankBalances": [
+                    {
+                        "denom": self.base_asset_denom,
+                        "amount": str(Decimal(5) * Decimal(1e18))
+                    },
+                    {
+                        "denom": self.quote_asset_denom,
+                        "amount": str(Decimal(1000) * Decimal(1e6))
                     }
-                },
-                {
-                    "subaccountId": self.vault_contract_subaccount_id,
-                    "denom": self.base_asset_denom,
-                    "deposit": {
-                        "totalBalance": str(Decimal(15) * Decimal(1e18)),
-                        "availableBalance": str(Decimal(10) * Decimal(1e18))
-                    }
-                },
-            ]
+                ],
+                "subaccounts": [
+                    {
+                        "subaccountId": self.vault_contract_subaccount_id,
+                        "denom": self.quote_asset_denom,
+                        "deposit": {
+                            "totalBalance": str(Decimal(2000) * Decimal(1e6)),
+                            "availableBalance": str(Decimal(2000) * Decimal(1e6))
+                        }
+                    },
+                    {
+                        "subaccountId": self.vault_contract_subaccount_id,
+                        "denom": self.base_asset_denom,
+                        "deposit": {
+                            "totalBalance": str(Decimal(15) * Decimal(1e18)),
+                            "availableBalance": str(Decimal(10) * Decimal(1e18))
+                        }
+                    },
+                ],
+            }
         }
 
     @property
     def balance_request_mock_response_only_base(self):
         return {
-            "accountAddress": self.vault_contract_address,
-            "bankBalances": [],
-            "subaccounts": [
-                {
-                    "subaccountId": self.vault_contract_subaccount_id,
-                    "denom": self.base_asset_denom,
-                    "deposit": {
-                        "totalBalance": str(Decimal(15) * Decimal(1e18)),
-                        "availableBalance": str(Decimal(10) * Decimal(1e18))
-                    }
-                },
-            ]
+            "portfolio": {
+                "accountAddress": self.vault_contract_address,
+                "bankBalances": [],
+                "subaccounts": [
+                    {
+                        "subaccountId": self.vault_contract_subaccount_id,
+                        "denom": self.base_asset_denom,
+                        "deposit": {
+                            "totalBalance": str(Decimal(15) * Decimal(1e18)),
+                            "availableBalance": str(Decimal(10) * Decimal(1e18))
+                        }
+                    },
+                ],
+            }
         }
 
     @property
@@ -425,6 +429,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
         injective_config = InjectiveConfigMap(
             network=network_config,
             account_type=account_config,
+            fee_calculator=InjectiveMessageBasedTransactionFeeCalculatorMode(),
         )
 
         exchange = InjectiveV2Exchange(
@@ -897,7 +902,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
             callback=lambda args, kwargs: request_sent_event.set(),
             response=full_transaction_response
         )
-        self.exchange._data_source._query_executor._transaction_by_hash_responses = mock_queue
+        self.exchange._data_source._query_executor._get_tx_responses = mock_queue
 
         transaction_event = self._orders_creation_transaction_event()
         self.exchange._data_source._query_executor._transaction_events.put_nowait(transaction_event)
@@ -964,7 +969,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
             callback=lambda args, kwargs: request_sent_event.set(),
             response=full_transaction_response
         )
-        self.exchange._data_source._query_executor._transaction_by_hash_responses = mock_queue
+        self.exchange._data_source._query_executor._get_tx_responses = mock_queue
 
         transaction_event = self._orders_creation_transaction_event()
         self.exchange._data_source._query_executor._transaction_events.put_nowait(transaction_event)
@@ -1026,7 +1031,7 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
             callback=lambda args, kwargs: request_sent_event.set(),
             response=full_transaction_response
         )
-        self.exchange._data_source._query_executor._transaction_by_hash_responses = mock_queue
+        self.exchange._data_source._query_executor._get_tx_responses = mock_queue
 
         transaction_event = self._orders_creation_transaction_event()
         self.exchange._data_source._query_executor._transaction_events.put_nowait(transaction_event)
@@ -1702,6 +1707,77 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
         self.assertNotIn(self.client_order_id_prefix + "3", self.exchange.in_flight_orders)
         self.assertNotIn(self.client_order_id_prefix + "4", self.exchange.in_flight_orders)
 
+    @patch("hummingbot.connector.exchange.injective_v2.data_sources.injective_data_source.InjectiveDataSource._time")
+    def test_order_in_failed_transaction_marked_as_failed_during_order_creation_check(self, time_mock):
+        self.configure_all_symbols_response(mock_api=None)
+        self.exchange._set_current_timestamp(1640780000.0)
+        time_mock.return_value = 1640780000.0
+
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id="0x9f94598b4842ab66037eaa7c64ec10ae16dcf196e61db8522921628522c0f62e",  # noqa: mock
+            trading_pair=self.trading_pair,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("100"),
+            order_type=OrderType.LIMIT,
+        )
+
+        self.assertIn(self.client_order_id_prefix + "1", self.exchange.in_flight_orders)
+        order: GatewayInFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+        order.update_creation_transaction_hash(
+            creation_transaction_hash="66A360DA2FD6884B53B5C019F1A2B5BED7C7C8FC07E83A9C36AD3362EDE096AE")  # noqa: mock
+
+        transaction_response = {
+            "tx": {
+                "body": {
+                    "messages": [],
+                    "timeoutHeight": "20557725",
+                    "memo": "",
+                    "extensionOptions": [],
+                    "nonCriticalExtensionOptions": []
+                },
+                "authInfo": {},
+                "signatures": [
+                    "/xSRaq4l5D6DZI5syfAOI5ITongbgJnN97sxCBLXsnFqXLbc4ztEOdQJeIZUuQM+EoqMxUjUyP1S5hg8lM+00w=="
+                ]
+            },
+            "txResponse": {
+                "height": "20557627",
+                "txhash": "7CC335E98486A7C13133E04561A61930F9F7AD34E6A14A72BC25956F2495CE33",  # noqa: mock"
+                "data": "",
+                "rawLog": "",
+                "logs": [],
+                "gasWanted": "209850",
+                "gasUsed": "93963",
+                "tx": {},
+                "timestamp": "2024-01-10T13:23:29Z",
+                "events": [],
+                "codespace": "",
+                "code": 5,
+                "info": ""
+            }
+        }
+
+        self.exchange._data_source._query_executor._get_tx_responses.put_nowait(transaction_response)
+
+        self.async_run_with_timeout(self.exchange._check_orders_creation_transactions())
+
+        self.assertEquals(0, len(self.buy_order_created_logger.event_log))
+        failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
+        self.assertEqual(OrderType.LIMIT, failure_event.order_type)
+        self.assertEqual(order.client_order_id, failure_event.order_id)
+
+        self.assertTrue(
+            self.is_logged(
+                "INFO",
+                f"Order {order.client_order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
+                f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
+                f"client_order_id='{order.client_order_id}', exchange_order_id=None, misc_updates=None)"
+            )
+        )
+
     def _expected_initial_status_dict(self) -> Dict[str, bool]:
         status_dict = super()._expected_initial_status_dict()
         status_dict["data_source_initialized"] = False
@@ -1941,107 +2017,351 @@ class InjectiveV2ExchangeForOffChainVaultTests(AbstractExchangeConnectorTests.Ex
         }
 
     def _orders_creation_transaction_response(self, orders: List[GatewayInFlightOrder], order_hashes: List[str]):
-        spot_orders = []
-        for order in orders:
-            order_creation_message = {
-                "market_id": self.market_id,
-                "order_info": {
-                    "subaccount_id": str(self.vault_contract_subaccount_index),
-                    "price": str(order.price * Decimal(f"1e{self.quote_decimals - self.base_decimals}")),
-                    "quantity": str(order.amount * Decimal(f"1e{self.base_decimals}"))
-                },
-                "order_type": 1 if order.trade_type == TradeType.BUY else 2,
-                "trigger_price": "0"
-            }
-            spot_orders.append(order_creation_message)
-        messages = [
-            {
-                "type": "/cosmwasm.wasm.v1.MsgExecuteContract",
-                "value": {
-                    "sender": self.trading_account_public_key,
-                    "contract": self.vault_contract_address,
-                    "msg": {
-                        "admin_execute_message": {
-                            "injective_message": {
-                                "custom": {
-                                    "route": "exchange",
-                                    "msg_data": {
-                                        "batch_update_orders": {
-                                            "sender": self.vault_contract_address,
-                                            "spot_orders_to_create": spot_orders,
-                                            "spot_market_ids_to_cancel_all": [],
-                                            "derivative_market_ids_to_cancel_all": [],
-                                            "spot_orders_to_cancel": [],
-                                            "derivative_orders_to_cancel": [],
-                                            "derivative_orders_to_create": []}}}}}},
-                    "funds": []}}]
-
-        logs = [{
-            "msg_index": 0,
-            "events": [
-                {
-                    "type": "message",
-                    "attributes": [{"key": "action", "value": "/cosmwasm.wasm.v1.MsgExecuteContract"},
-                                   {"key": "sender", "value": "inj15uad884tqeq9r76x3fvktmjge2r6kek55c2zpa"},  # noqa: mock"
-                                   {"key": "module", "value": "wasm"}]},
-                {
-                    "type": "execute",
-                    "attributes": [
-                        {"key": "_contract_address", "value": "inj1zlwdkv49rmsug0pnwu6fmwnl267lfr34yvhwgp"}]},  # noqa: mock"
-                {
-                    "type": "reply",
-                    "attributes": [
-                        {"key": "_contract_address", "value": "inj1zlwdkv49rmsug0pnwu6fmwnl267lfr34yvhwgp"}]},  # noqa: mock"
-                {
-                    "type": "wasm",
-                    "attributes": [
-                        {
-                            "key": "_contract_address",
-                            "value": "inj1zlwdkv49rmsug0pnwu6fmwnl267lfr34yvhwgp"},  # noqa: mock"
-                        {
-                            "key": "method",
-                            "value": "instantiate"},
-                        {
-                            "key": "reply_id",
-                            "value": "1"},
-                        {
-                            "key": "batch_update_orders_response",
-                            "value": f'MsgBatchUpdateOrdersResponse {{ spot_cancel_success: [], derivative_cancel_success: [], spot_order_hashes: {order_hashes}}}, derivative_order_hashes: [], binary_options_cancel_success: [], binary_options_order_hashes: [], unknown_fields: UnknownFields {{ fields: None }}, cached_size: CachedSize {{ size: 0 }} }}'
-                        }
-                    ]
-                }
-            ]
-        }]
-
         transaction_response = {
-            "s": "ok",
-            "data": {
-                "blockNumber": "30159",
-                "blockTimestamp": "2023-07-19 15:39:21.798 +0000 UTC",
-                "hash": self._transaction_hash,
-                "data": "Ei4KLC9jb3Ntd2FzbS53YXNtLnYxLk1zZ0V4ZWN1dGVDb250cmFjdFJlc3BvbnNl",  # noqa: mock"
-                "gasWanted": "163571",
-                "gasUsed": "162984",
-                "gasFee": {
-                    "amount": [
+            "tx": {
+                "body": {
+                    "messages": [
                         {
-                            "denom": "inj",
-                            "amount": "81785500000000"}], "gasLimit": "163571",
-                    "payer": "inj15uad884tqeq9r76x3fvktmjge2r6kek55c2zpa"  # noqa: mock"
+                            "@type": "/cosmwasm.wasm.v1.MsgExecuteContract",
+                            "sender": "inj15uad884tqeq9r76x3fvktmjge2r6kek55c2zpa",
+                            "contract": "inj1ckmdhdz7r8glfurckgtg0rt7x9uvner4ygqhlv",
+                            "msg": "",
+                            "funds": [
+
+                            ]
+                        }
+                    ],
+                    "timeoutHeight": "19010332",
+                    "memo": "",
+                    "extensionOptions": [
+
+                    ],
+                    "nonCriticalExtensionOptions": [
+
+                    ]
                 },
-                "txType": "injective",
-                "messages": base64.b64encode(json.dumps(messages).encode()).decode(),
+                "authInfo": {
+                    "signerInfos": [
+                        {
+                            "publicKey": {
+                                "@type": "/injective.crypto.v1beta1.ethsecp256k1.PubKey",
+                                "key": "A4LgO/SwrXe+9fdWpxehpU08REslC0zgl6y1eKqA9Yqr"
+                            },
+                            "modeInfo": {
+                                "single": {
+                                    "mode": "SIGN_MODE_DIRECT"
+                                }
+                            },
+                            "sequence": "1021788"
+                        }
+                    ],
+                    "fee": {
+                        "amount": [
+                            {
+                                "denom": "inj",
+                                "amount": "86795000000000"
+                            }
+                        ],
+                        "gasLimit": "173590",
+                        "payer": "",
+                        "granter": ""
+                    }
+                },
                 "signatures": [
+                    "6QpPAjh7xX2CWKMWIMwFKvCr5dzDFiagEgffEAwLUg8Lp0cxg7AMsnA3Eei8gZj29weHKSaxLKLjoMXBzjFBYw=="
+                ]
+            },
+            "txResponse": {
+                "height": "19010312",
+                "txhash": "CDDD43848280E5F167578A57C1B3F3927AFC5BB6B3F4DA7CEB7E0370E4963326",  # noqa: mock"
+                "data": "",
+                "rawLog": "[]",
+                "logs": [
                     {
-                        "pubkey": "0382e03bf4b0ad77bef5f756a717a1a54d3c444b250b4ce097acb578aa80f58aab",  # noqa: mock"
-                        "address": "inj15uad884tqeq9r76x3fvktmjge2r6kek55c2zpa",  # noqa: mock"
-                        "sequence": "2",
-                        "signature": "mF+KepSndvbu5UznsqfSl3rS9HkQQkDIcwBM3UIEzlF/SORCoI2fLue5okALWX5ZzfZXmwJGdjLqfjHDcJ3uEg=="
+                        "events": [
+                            {
+                                "type": "message",
+                                "attributes": [
+                                    {
+                                        "key": "action",
+                                        "value": "/cosmwasm.wasm.v1.MsgExecuteContract"
+                                    },
+                                    {
+                                        "key": "sender",
+                                        "value": "inj15uad884tqeq9r76x3fvktmjge2r6kek55c2zpa"
+                                    },
+                                    {
+                                        "key": "module",
+                                        "value": "wasm"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "execute",
+                                "attributes": [
+                                    {
+                                        "key": "_contract_address",
+                                        "value": "inj1ckmdhdz7r8glfurckgtg0rt7x9uvner4ygqhlv"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "reply",
+                                "attributes": [
+                                    {
+                                        "key": "_contract_address",
+                                        "value": "inj1ckmdhdz7r8glfurckgtg0rt7x9uvner4ygqhlv"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "wasm",
+                                "attributes": [
+                                    {
+                                        "key": "_contract_address",
+                                        "value": "inj1ckmdhdz7r8glfurckgtg0rt7x9uvner4ygqhlv"
+                                    },
+                                    {
+                                        "key": "method",
+                                        "value": "instantiate"
+                                    },
+                                    {
+                                        "key": "reply_id",
+                                        "value": "1"
+                                    },
+                                    {
+                                        "key": "batch_update_orders_response",
+                                        "value": "MsgBatchUpdateOrdersResponse { spot_cancel_success: [], derivative_cancel_success: [], spot_order_hashes: [\"0x9d1451e24ef9aec103ae47342e7b492acf161a0f07d29779229b3a287ba2beb7\"], derivative_order_hashes: [], binary_options_cancel_success: [], binary_options_order_hashes: [], unknown_fields: UnknownFields { fields: None }, cached_size: CachedSize { size: 0 } }"  # noqa: mock"
+                                    }
+                                ]
+                            }
+                        ],
+                        "msgIndex": 0,
+                        "log": ""
                     }
                 ],
-                "txNumber": "5",
-                "blockUnixTimestamp": "1689781161798",
-                "logs": base64.b64encode(json.dumps(logs).encode()).decode(),
+                "gasWanted": "173590",
+                "gasUsed": "168094",
+                "tx": {
+                    "@type": "/cosmos.tx.v1beta1.Tx",
+                    "body": {
+                        "messages": [
+                            {
+                                "@type": "/cosmwasm.wasm.v1.MsgExecuteContract",
+                                "sender": "inj15uad884tqeq9r76x3fvktmjge2r6kek55c2zpa",
+                                "contract": "inj1ckmdhdz7r8glfurckgtg0rt7x9uvner4ygqhlv",
+                                "msg": "eyJhZG1pbl9leGVjdXRlX21lc3NhZ2UiOiB7ImluamVjdGl2ZV9tZXNzYWdlIjogeyJjdXN0b20iOiB7InJvdXRlIjogImV4Y2hhbmdlIiwgIm1zZ19kYXRhIjogeyJiYXRjaF91cGRhdGVfb3JkZXJzIjogeyJzZW5kZXIiOiAiaW5qMWNrbWRoZHo3cjhnbGZ1cmNrZ3RnMHJ0N3g5dXZuZXI0eWdxaGx2IiwgInNwb3Rfb3JkZXJzX3RvX2NyZWF0ZSI6IFt7Im1hcmtldF9pZCI6ICIweDA2MTE3ODBiYTY5NjU2OTQ5NTI1MDEzZDk0NzcxMzMwMGY1NmMzN2I2MTc1ZTAyZjI2YmZmYTQ5NWMzMjA4ZmUiLCAib3JkZXJfaW5mbyI6IHsic3ViYWNjb3VudF9pZCI6ICIxIiwgImZlZV9yZWNpcGllbnQiOiAiaW5qMWNrbWRoZHo3cjhnbGZ1cmNrZ3RnMHJ0N3g5dXZuZXI0eWdxaGx2IiwgInByaWNlIjogIjAuMDAwMDAwMDAwMDE2NTg2IiwgInF1YW50aXR5IjogIjEwMDAwMDAwMDAwMDAwMDAiLCAiY2lkIjogIkhCT1RTSUpVVDYwYjQ0NmI1OWVmNWVkN2JmNzAwMzEwZTdjZCJ9LCAib3JkZXJfdHlwZSI6IDIsICJ0cmlnZ2VyX3ByaWNlIjogIjAifV0sICJzcG90X21hcmtldF9pZHNfdG9fY2FuY2VsX2FsbCI6IFtdLCAiZGVyaXZhdGl2ZV9tYXJrZXRfaWRzX3RvX2NhbmNlbF9hbGwiOiBbXSwgInNwb3Rfb3JkZXJzX3RvX2NhbmNlbCI6IFtdLCAiZGVyaXZhdGl2ZV9vcmRlcnNfdG9fY2FuY2VsIjogW10sICJkZXJpdmF0aXZlX29yZGVyc190b19jcmVhdGUiOiBbXSwgImJpbmFyeV9vcHRpb25zX29yZGVyc190b19jYW5jZWwiOiBbXSwgImJpbmFyeV9vcHRpb25zX21hcmtldF9pZHNfdG9fY2FuY2VsX2FsbCI6IFtdLCAiYmluYXJ5X29wdGlvbnNfb3JkZXJzX3RvX2NyZWF0ZSI6IFtdfX19fX19",
+                                "funds": [
+
+                                ]
+                            }
+                        ],
+                        "timeoutHeight": "19010332",
+                        "memo": "",
+                        "extensionOptions": [
+
+                        ],
+                        "nonCriticalExtensionOptions": [
+
+                        ]
+                    },
+                    "authInfo": {
+                        "signerInfos": [
+                            {
+                                "publicKey": {
+                                    "@type": "/injective.crypto.v1beta1.ethsecp256k1.PubKey",
+                                    "key": "A4LgO/SwrXe+9fdWpxehpU08REslC0zgl6y1eKqA9Yqr"
+                                },
+                                "modeInfo": {
+                                    "single": {
+                                        "mode": "SIGN_MODE_DIRECT"
+                                    }
+                                },
+                                "sequence": "1021788"
+                            }
+                        ],
+                        "fee": {
+                            "amount": [
+                                {
+                                    "denom": "inj",
+                                    "amount": "86795000000000"
+                                }
+                            ],
+                            "gasLimit": "173590",
+                            "payer": "",
+                            "granter": ""
+                        }
+                    },
+                    "signatures": [
+                        "6QpPAjh7xX2CWKMWIMwFKvCr5dzDFiagEgffEAwLUg8Lp0cxg7AMsnA3Eei8gZj29weHKSaxLKLjoMXBzjFBYw=="
+                    ]
+                },
+                "timestamp": "2023-11-29T06:12:26Z",
+                "events": [
+                    {
+                        "type": "coin_spent",
+                        "attributes": [
+                            {
+                                "key": "spender",
+                                "value": "inj15uad884tqeq9r76x3fvktmjge2r6kek55c2zpa",
+                                "index": True
+                            },
+                            {
+                                "key": "amount",
+                                "value": "86795000000000inj",
+                                "index": True
+                            }
+                        ]
+                    },
+                    {
+                        "type": "coin_received",
+                        "attributes": [
+                            {
+                                "key": "receiver",
+                                "value": "inj17xpfvakm2amg962yls6f84z3kell8c5l6s5ye9",
+                                "index": True
+                            },
+                            {
+                                "key": "amount",
+                                "value": "86795000000000inj",
+                                "index": True
+                            }
+                        ]
+                    },
+                    {
+                        "type": "transfer",
+                        "attributes": [
+                            {
+                                "key": "recipient",
+                                "value": "inj17xpfvakm2amg962yls6f84z3kell8c5l6s5ye9",
+                                "index": True
+                            },
+                            {
+                                "key": "sender",
+                                "value": "inj15uad884tqeq9r76x3fvktmjge2r6kek55c2zpa",
+                                "index": True
+                            },
+                            {
+                                "key": "amount",
+                                "value": "86795000000000inj",
+                                "index": True
+                            }
+                        ]
+                    },
+                    {
+                        "type": "message",
+                        "attributes": [
+                            {
+                                "key": "sender",
+                                "value": "inj15uad884tqeq9r76x3fvktmjge2r6kek55c2zpa",
+                                "index": True
+                            }
+                        ]
+                    },
+                    {
+                        "type": "tx",
+                        "attributes": [
+                            {
+                                "key": "fee",
+                                "value": "86795000000000inj",
+                                "index": True
+                            },
+                            {
+                                "key": "fee_payer",
+                                "value": "inj15uad884tqeq9r76x3fvktmjge2r6kek55c2zpa",
+                                "index": True
+                            }
+                        ]
+                    },
+                    {
+                        "type": "tx",
+                        "attributes": [
+                            {
+                                "key": "acc_seq",
+                                "value": "inj15uad884tqeq9r76x3fvktmjge2r6kek55c2zpa/1021788",
+                                "index": True
+                            }
+                        ]
+                    },
+                    {
+                        "type": "tx",
+                        "attributes": [
+                            {
+                                "key": "signature",
+                                "value": "6QpPAjh7xX2CWKMWIMwFKvCr5dzDFiagEgffEAwLUg8Lp0cxg7AMsnA3Eei8gZj29weHKSaxLKLjoMXBzjFBYw==",
+                                "index": True
+                            }
+                        ]
+                    },
+                    {
+                        "type": "message",
+                        "attributes": [
+                            {
+                                "key": "action",
+                                "value": "/cosmwasm.wasm.v1.MsgExecuteContract",
+                                "index": True
+                            },
+                            {
+                                "key": "sender",
+                                "value": "inj15uad884tqeq9r76x3fvktmjge2r6kek55c2zpa",
+                                "index": True
+                            },
+                            {
+                                "key": "module",
+                                "value": "wasm",
+                                "index": True
+                            }
+                        ]
+                    },
+                    {
+                        "type": "execute",
+                        "attributes": [
+                            {
+                                "key": "_contract_address",
+                                "value": "inj1ckmdhdz7r8glfurckgtg0rt7x9uvner4ygqhlv",
+                                "index": True
+                            }
+                        ]
+                    },
+                    {
+                        "type": "reply",
+                        "attributes": [
+                            {
+                                "key": "_contract_address",
+                                "value": "inj1ckmdhdz7r8glfurckgtg0rt7x9uvner4ygqhlv",
+                                "index": True
+                            }
+                        ]
+                    },
+                    {
+                        "type": "wasm",
+                        "attributes": [
+                            {
+                                "key": "_contract_address",
+                                "value": "inj1ckmdhdz7r8glfurckgtg0rt7x9uvner4ygqhlv",
+                                "index": True
+                            },
+                            {
+                                "key": "method",
+                                "value": "instantiate",
+                                "index": True
+                            },
+                            {
+                                "key": "reply_id",
+                                "value": "1",
+                                "index": True
+                            },
+                            {
+                                "key": "batch_update_orders_response",
+                                "value": "MsgBatchUpdateOrdersResponse { spot_cancel_success: [], derivative_cancel_success: [], spot_order_hashes: [\"0x9d1451e24ef9aec103ae47342e7b492acf161a0f07d29779229b3a287ba2beb7\"], derivative_order_hashes: [], binary_options_cancel_success: [], binary_options_order_hashes: [], unknown_fields: UnknownFields { fields: None }, cached_size: CachedSize { size: 0 } }",  # noqa: mock"
+                                "index": True
+                            }
+                        ]
+                    }
+                ],
+                "codespace": "",
+                "code": 0,
+                "info": ""
             }
         }
 
