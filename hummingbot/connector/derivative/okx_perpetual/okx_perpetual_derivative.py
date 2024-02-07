@@ -87,7 +87,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
 
     @property
     def client_order_id_prefix(self) -> str:
-        return CONSTANTS.HBOT_BROKER_ID
+        return CONSTANTS.CLIENT_ID_PREFIX
 
     @property
     def trading_rules_request_path(self) -> str:
@@ -258,9 +258,9 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             data["px"] = str(price)
         if self.position_mode == PositionMode.HEDGE:
             if position_action == PositionAction.OPEN:
-                data["posSide"] = "LONG" if trade_type is TradeType.BUY else "SHORT"
+                data["posSide"] = "long" if trade_type is TradeType.BUY else "short"
             else:
-                data["posSide"] = "SHORT" if trade_type is TradeType.BUY else "LONG"
+                data["posSide"] = "short" if trade_type is TradeType.BUY else "long"
 
         exchange_order_id = await self._api_post(
             path_url=CONSTANTS.REST_PLACE_ACTIVE_ORDER[CONSTANTS.ENDPOINT],
