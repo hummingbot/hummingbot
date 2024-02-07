@@ -2,13 +2,11 @@ import asyncio
 from typing import Any, Dict, Optional, TYPE_CHECKING
 
 from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS
-from hummingbot.connector.exchange.kraken.kraken_auth import KrakenAuth
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.logger import HummingbotLogger
-
 
 if TYPE_CHECKING:
     from hummingbot.connector.exchange.kraken.kraken_exchange import KrakenExchange
@@ -31,7 +29,6 @@ class KrakenAPIUserStreamDataSource(UserStreamTrackerDataSource):
         await ws.connect(ws_url=CONSTANTS.WS_AUTH_URL, ping_timeout=CONSTANTS.PING_TIMEOUT)
         return ws
 
-
     @property
     def last_recv_time(self):
         if self._ws_assistant is None:
@@ -39,11 +36,10 @@ class KrakenAPIUserStreamDataSource(UserStreamTrackerDataSource):
         else:
             return self._ws_assistant.last_recv_time
 
-
     async def get_auth_token(self) -> str:
         try:
             response_json = await self._connector._api_post(path_url=CONSTANTS.GET_TOKEN_PATH_URL, params={},
-                                                  is_auth_required=True)
+                                                            is_auth_required=True)
         except Exception:
             raise IOError(f"Error parsing data from {CONSTANTS.GET_TOKEN_PATH_URL}.")
 
@@ -55,7 +51,6 @@ class KrakenAPIUserStreamDataSource(UserStreamTrackerDataSource):
             raise IOError({"error": response_json})
 
         return response_json["result"]["token"]
-
 
     async def _subscribe_channels(self, websocket_assistant: WSAssistant):
         """

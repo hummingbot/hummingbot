@@ -1,26 +1,17 @@
 import asyncio
-import logging
 import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-import pandas as pd
-
-from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS
 from hummingbot.connector.exchange.kraken.kraken_order_book import KrakenOrderBook
 from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS, kraken_web_utils as web_utils
-
 from hummingbot.connector.exchange.kraken.kraken_utils import (
-    build_api_factory,
-    build_rate_limits_by_tier,
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,
 )
-from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.order_book import OrderBook
 from hummingbot.core.data_type.order_book_message import OrderBookMessage
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.utils.async_utils import safe_gather
-from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSJSONRequest
+from hummingbot.core.web_assistant.connections.data_types import RESTMethod, WSJSONRequest
 from hummingbot.core.web_assistant.rest_assistant import RESTAssistant
 from hummingbot.core.web_assistant.web_assistants_factory import WebAssistantsFactory
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
@@ -32,6 +23,7 @@ if TYPE_CHECKING:
 
 class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
     MESSAGE_TIMEOUT = 30.0
+
     # PING_TIMEOUT = 10.0
 
     def __init__(self,
@@ -42,8 +34,6 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                  ):
         super().__init__(trading_pairs)
         self._connector = connector
-        # self._throttler = throttler or self._get_throttler_instance()
-        # self._api_factory = api_factory or build_api_factory(throttler=throttler)
         self._api_factory = api_factory
         self._rest_assistant = None
         self._ws_assistant = None
@@ -51,49 +41,15 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
 
     _kraobds_logger: Optional[HummingbotLogger] = None
 
-    # @classmethod
-    # def _get_throttler_instance(cls) -> AsyncThrottler:
-    #     throttler = AsyncThrottler(build_rate_limits_by_tier())
-    #     return throttler
     async def _get_rest_assistant(self) -> RESTAssistant:
         if self._rest_assistant is None:
             self._rest_assistant = await self._api_factory.get_rest_assistant()
         return self._rest_assistant
 
-    # todo
     async def get_last_traded_prices(self,
                                      trading_pairs: List[str],
                                      domain: Optional[str] = None) -> Dict[str, float]:
         return await self._connector.get_last_traded_prices(trading_pairs=trading_pairs)
-
-    #
-    # @classmethod
-    # async def get_last_traded_prices(
-    #         cls, trading_pairs: List[str], throttler: Optional[AsyncThrottler] = None
-    # ) -> Dict[str, float]:
-    #     throttler = throttler or cls._get_throttler_instance()
-    #     tasks = [cls._get_last_traded_price(t_pair, throttler) for t_pair in trading_pairs]
-    #     results = await safe_gather(*tasks)
-    #     return {t_pair: result for t_pair, result in zip(trading_pairs, results)}
-    #
-    # @classmethod
-    # async def _get_last_traded_price(cls, trading_pair: str, throttler: AsyncThrottler) -> float:
-    #     url = (
-    #         f"{CONSTANTS.BASE_URL}{CONSTANTS.TICKER_PATH_URL}"
-    #         f"?pair={convert_to_exchange_trading_pair(trading_pair)}"
-    #     )
-    #
-    #     request = RESTRequest(
-    #         method=RESTMethod.GET,
-    #         url=url
-    #     )
-    #     rest_assistant = await build_api_factory(throttler=throttler).get_rest_assistant()
-    #
-    #     async with throttler.execute_task(CONSTANTS.TICKER_PATH_URL):
-    #         resp = await rest_assistant.call(request)
-    #     resp_json = await resp.json()
-    #     record = list(resp_json["result"].values())[0]
-    #     return float(record["c"][0])
 
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBook:
         snapshot: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
@@ -114,7 +70,7 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
         :return: the response from the exchange (JSON dictionary)
         """
         params = {
-            "pair": convert_to_exchange_trading_pair(trading_pair)
+            "pair": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
         }
 
         rest_assistant = await self._api_factory.get_rest_assistant()
@@ -132,36 +88,6 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
         data["latest_update"] = max([*map(lambda x: x[2], data["bids"] + data["asks"])], default=0.)
         return data
 
-    # @classmethod
-    # async def fetch_trading_pairs(cls, throttler: Optional[AsyncThrottler] = None) -> List[str]:
-    #     throttler = throttler or cls._get_throttler_instance()
-    #     try:
-    #         async with throttler.execute_task(CONSTANTS.ASSET_PAIRS_PATH_URL):
-    #             url = f"{CONSTANTS.BASE_URL}{CONSTANTS.ASSET_PAIRS_PATH_URL}"
-    #             request = RESTRequest(
-    #                 method=RESTMethod.GET,
-    #                 url=url
-    #             )
-    #             rest_assistant = await build_api_factory(throttler=throttler).get_rest_assistant()
-    #             response = await rest_assistant.call(request, timeout=5)
-    #
-    #             if response.status == 200:
-    #                 data: Dict[str, Any] = await response.json()
-    #                 raw_pairs = data.get("result", [])
-    #                 converted_pairs: List[str] = []
-    #                 for pair, details in raw_pairs.items():
-    #                     if "." not in pair:
-    #                         try:
-    #                             wsname = details["wsname"]  # pair in format BASE/QUOTE
-    #                             converted_pairs.append(convert_from_exchange_trading_pair(wsname))
-    #                         except IOError:
-    #                             pass
-    #                 return [item for item in converted_pairs]
-    #     except Exception:
-    #         pass
-    #         # Do nothing if the request fails -- there will be no autocomplete for kraken trading pairs
-    #     return []
-
     async def _subscribe_channels(self, ws: WSAssistant):
         """
         Subscribes to the trade events and diff orders events through the provided websocket connection.
@@ -172,7 +98,7 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
             trading_pairs: List[str] = []
             for tp in self._trading_pairs:
                 # trading_pairs.append(convert_to_exchange_trading_pair(tp, '/'))
-                symbol = await self._connector.exchange_symbol_associated_to_pair(trading_pair=tp)
+                symbol = convert_to_exchange_trading_pair(tp, '/')
                 trading_pairs.append(symbol)
             trades_payload = {
                 "event": "subscribe",
@@ -215,22 +141,18 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
                          ping_timeout=CONSTANTS.PING_TIMEOUT)
         return ws
 
-    # todo 把convert_from_exchange_trading_pair改掉
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
 
         trades = [
-            # {"pair": convert_from_exchange_trading_pair(raw_message[-1]), "trade": trade}
-            {"pair": await self._connector.exchange_symbol_associated_to_pair(raw_message[-1]), "trade": trade}
+            {"pair": convert_from_exchange_trading_pair(raw_message[-1]), "trade": trade}
             for trade in raw_message[1]
         ]
         for trade in trades:
             trade_msg: OrderBookMessage = KrakenOrderBook.trade_message_from_exchange(trade)
             message_queue.put_nowait(trade_msg)
 
-
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        # msg_dict = {"trading_pair": convert_from_exchange_trading_pair(raw_message[-1]),
-        msg_dict = {"trading_pair": await self._connector.exchange_symbol_associated_to_pair(raw_message[-1]),
+        msg_dict = {"trading_pair": convert_from_exchange_trading_pair(raw_message[-1]),
                     "asks": raw_message[1].get("a", []) or raw_message[1].get("as", []) or [],
                     "bids": raw_message[1].get("b", []) or raw_message[1].get("bs", []) or []}
         msg_dict["update_id"] = max(
@@ -244,4 +166,3 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
             order_book_message: OrderBookMessage = KrakenOrderBook.diff_message_from_exchange(
                 msg_dict, time.time())
         message_queue.put_nowait(order_book_message)
-

@@ -1,89 +1,9 @@
-import asyncio
 import copy
-import math
-import typing
 from decimal import Decimal
-from enum import Enum
-from typing import Any, Dict, NamedTuple, Optional, Tuple
-
-from async_timeout import timeout
+from typing import Any, Dict, Optional, Tuple
 
 from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
-from hummingbot.core.data_type.limit_order import LimitOrder
-from hummingbot.core.data_type.trade_fee import TradeFeeBase
-from hummingbot.core.data_type.in_flight_order import InFlightOrder
-if typing.TYPE_CHECKING:  # avoid circular import problems
-    from hummingbot.connector.exchange_base import ExchangeBase
-
-s_decimal_0 = Decimal("0")
-
-GET_EX_ORDER_ID_TIMEOUT = 10  # seconds
-
-# todo
-class OrderState(Enum):
-    PENDING_CREATE = 0
-    OPEN = 1
-    PENDING_CANCEL = 2
-    CANCELED = 3
-    PARTIALLY_FILLED = 4
-    FILLED = 5
-    FAILED = 6
-    PENDING_APPROVAL = 7
-    APPROVED = 8
-    CREATED = 9
-    COMPLETED = 10
-
-
-class OrderUpdate(NamedTuple):
-    trading_pair: str
-    update_timestamp: float  # seconds
-    new_state: OrderState
-    client_order_id: Optional[str] = None
-    exchange_order_id: Optional[str] = None
-    misc_updates: Optional[Dict[str, Any]] = None
-
-
-class TradeUpdate(NamedTuple):
-    trade_id: str
-    client_order_id: str
-    exchange_order_id: str
-    trading_pair: str
-    fill_timestamp: float  # seconds
-    fill_price: Decimal
-    fill_base_amount: Decimal
-    fill_quote_amount: Decimal
-    fee: TradeFeeBase
-    is_taker: bool = True  # CEXs deliver trade events from the taker's perspective
-
-    @property
-    def fee_asset(self):
-        return self.fee.fee_asset
-
-    @classmethod
-    def from_json(cls, data: Dict[str, Any]):
-        instance = TradeUpdate(
-            trade_id=data["trade_id"],
-            client_order_id=data["client_order_id"],
-            exchange_order_id=data["exchange_order_id"],
-            trading_pair=data["trading_pair"],
-            fill_timestamp=data["fill_timestamp"],
-            fill_price=Decimal(data["fill_price"]),
-            fill_base_amount=Decimal(data["fill_base_amount"]),
-            fill_quote_amount=Decimal(data["fill_quote_amount"]),
-            fee=TradeFeeBase.from_json(data["fee"]),
-        )
-
-        return instance
-
-    def to_json(self) -> Dict[str, Any]:
-        json_dict = self._asdict()
-        json_dict.update({
-            "fill_price": str(self.fill_price),
-            "fill_base_amount": str(self.fill_base_amount),
-            "fill_quote_amount": str(self.fill_quote_amount),
-            "fee": self.fee.to_json(),
-        })
-        return json_dict
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, TradeUpdate
 
 
 class KrakenInFlightOrder(InFlightOrder):
