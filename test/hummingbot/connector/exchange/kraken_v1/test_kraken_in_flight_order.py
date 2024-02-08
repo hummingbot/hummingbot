@@ -1,9 +1,8 @@
 from decimal import Decimal
 from unittest import TestCase
 
-from hummingbot.connector.exchange.kraken.kraken_in_fight_order import KrakenInFlightOrder
-from hummingbot.core.data_type.common import OrderType, TradeType, PositionAction
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, TradeUpdate
+from hummingbot.connector.exchange.kraken.kraken_in_flight_order import KrakenInFlightOrder
+from hummingbot.core.data_type.common import OrderType, TradeType
 
 
 class KrakenInFlightOrderTests(TestCase):
@@ -20,7 +19,7 @@ class KrakenInFlightOrderTests(TestCase):
             userref=1,
         )
 
-        self.assertTrue(order.is_pending_create)
+        self.assertTrue(order.is_local)
 
     def test_serialize_order_to_json(self):
         order = KrakenInFlightOrder(
@@ -33,7 +32,7 @@ class KrakenInFlightOrderTests(TestCase):
             amount=Decimal(1),
             creation_timestamp=1640001112.0,
             userref=2,
-            initial_state=OrderState.OPEN,
+            initial_state="OPEN",
         )
 
         expected_json = {
@@ -44,15 +43,13 @@ class KrakenInFlightOrderTests(TestCase):
             "trade_type": order.trade_type.name,
             "price": str(order.price),
             "amount": str(order.amount),
+            "last_state": order.last_state,
             "executed_amount_base": str(order.executed_amount_base),
             "executed_amount_quote": str(order.executed_amount_quote),
-            "last_state": OrderState.OPEN,
-            "leverage": 1,
-            "position": PositionAction.NIL,
-            "userref": 2,
+            "fee_asset": order.fee_asset,
+            "fee_paid": str(order.fee_paid),
             "creation_timestamp": 1640001112.0,
-            "last_update_timestamp": 1640001112.0,
-            "order_fills": {}
+            "userref": order.userref,
         }
 
         self.assertEqual(expected_json, order.to_json())
@@ -86,5 +83,8 @@ class KrakenInFlightOrderTests(TestCase):
         self.assertEqual(Decimal(json["amount"]), order.amount)
         self.assertEqual(Decimal(json["executed_amount_base"]), order.executed_amount_base)
         self.assertEqual(Decimal(json["executed_amount_quote"]), order.executed_amount_quote)
+        self.assertEqual(json["fee_asset"], order.fee_asset)
+        self.assertEqual(Decimal(json["fee_paid"]), order.fee_paid)
+        self.assertEqual(json["last_state"], order.last_state)
         self.assertEqual(json["creation_timestamp"], order.creation_timestamp)
         self.assertEqual(json["userref"], order.userref)

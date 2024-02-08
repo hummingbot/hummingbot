@@ -48,14 +48,14 @@ class KrakenExchange(ExchangePyBase):
     def __init__(self,
                  client_config_map: "ClientConfigAdapter",
                  kraken_api_key: str,
-                 kraken_api_secret: str,
+                 kraken_secret_key: str,
                  trading_pairs: Optional[List[str]] = None,
                  trading_required: bool = True,
                  domain: str = CONSTANTS.DEFAULT_DOMAIN,
                  kraken_api_tier: str = "starter"
                  ):
         self.api_key = kraken_api_key
-        self.secret_key = kraken_api_secret
+        self.secret_key = kraken_secret_key
         self._domain = domain
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
