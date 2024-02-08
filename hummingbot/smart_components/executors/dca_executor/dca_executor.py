@@ -95,6 +95,13 @@ class DCAExecutor(ExecutorBase):
         return sum(self.config.amounts_quote)
 
     @property
+    def unrealized_pnl_when_last_order_filled(self) -> Decimal:
+        last_order_price = self.max_price if self.config.side == TradeType.SELL else self.min_price
+        distance_from_last_order_to_break_even = abs(last_order_price - self.target_position_average_price) / \
+            self.target_position_average_price
+        return self.max_amount_quote * distance_from_last_order_to_break_even
+
+    @property
     def min_price(self) -> Decimal:
         return min(self.config.prices)
 
@@ -184,7 +191,7 @@ class DCAExecutor(ExecutorBase):
         """
         return all([order.is_done for order in self._open_orders]) and len(self._open_orders) == self.n_levels
 
-    def check_budget(self):
+    def validate_sufficient_balance(self):
         """
         This method is responsible for checking the budget
         """

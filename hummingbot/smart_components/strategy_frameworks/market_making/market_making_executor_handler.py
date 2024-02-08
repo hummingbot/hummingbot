@@ -36,6 +36,7 @@ class MarketMakingExecutorHandler(ExecutorHandlerBase):
         super().on_stop()
 
     def on_start(self):
+        super().on_start()
         if self.controller.is_perpetual:
             self.set_leverage_and_position_mode()
 

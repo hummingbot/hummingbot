@@ -6,7 +6,6 @@ import pandas as pd
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide
-from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
 from hummingbot.model.position_executors import PositionExecutors
 from hummingbot.smart_components.executors.dca_executor.data_types import DCAExecutorConfig
@@ -45,22 +44,13 @@ class ExecutorHandlerBase(SmartComponentBase):
         self.position_executors = {}
         self.dca_executors = []
 
-    def start(self):
-        """Start the executor handler."""
-        self.controller.start()
-        safe_ensure_future(self.control_loop())
-
-    def stop(self):
-        """Stop the executor handler."""
-        self.terminated.set()
-
     def on_stop(self):
         """Actions to perform on stop."""
         self.controller.stop()
 
     def on_start(self):
         """Actions to perform on start."""
-        pass
+        self.controller.start()
 
     async def control_task(self):
         """Control task to be implemented by subclasses."""
