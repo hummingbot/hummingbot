@@ -672,6 +672,10 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         raise NotImplementedError  # test is overwritten
 
     @property
+    def target_funding_info_next_funding_utc_timestamp(self):
+        return 1657099053000
+
+    @property
     def target_funding_info_next_funding_utc_str(self):
         datetime_str = str(
             pd.Timestamp.utcfromtimestamp(
@@ -979,15 +983,9 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         err_code = 1
         err_msg = "Some problem"
         mock_response = {
-            "ret_code": err_code,
-            "ret_msg": err_msg,
-            "ext_code": "",
-            "result": leverage,
-            "ext_info": None,
-            "time_now": "1577477968.175013",
-            "rate_limit_status": 74,
-            "rate_limit_reset_ms": 1577477968183,
-            "rate_limit": 75
+            "code": err_code,
+            "data": [],
+            "msg": err_msg
         }
         mock_api.post(regex_url, body=json.dumps(mock_response), callback=callback)
 
@@ -1005,15 +1003,16 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         regex_url = re.compile(f"^{url}")
 
         mock_response = {
-            "ret_code": 0,
-            "ret_msg": "ok",
-            "ext_code": "",
-            "result": leverage,
-            "ext_info": None,
-            "time_now": "1577477968.175013",
-            "rate_limit_status": 74,
-            "rate_limit_reset_ms": 1577477968183,
-            "rate_limit": 75
+            "code": "0",
+            "data": [
+                {
+                    "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                    "lever": "5",
+                    "mgnMode": "isolated",
+                    "posSide": "long"
+                }
+            ],
+            "msg": ""
         }
 
         mock_api.post(regex_url, body=json.dumps(mock_response), callback=callback)
@@ -1287,8 +1286,18 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                 "channel": "index-tickers",
                 "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
             },
-            "cross_seq": 1053192657,
-            "timestamp_e6": 1578853525691123
+            "data": [
+                {
+                    "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                    "idxPx": "0.1",
+                    "high24h": "0.5",
+                    "low24h": "0.1",
+                    "open24h": "0.1",
+                    "sodUtc0": "0.1",
+                    "sodUtc8": "0.1",
+                    "ts": "1597026383085"
+                }
+            ]
         }
 
     def test_create_order_with_invalid_position_action_raises_value_error(self):
