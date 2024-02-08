@@ -2,8 +2,6 @@ import asyncio
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
-import pandas as pd
-
 from hummingbot.connector.derivative.okx_perpetual import (
     okx_perpetual_constants as CONSTANTS,
     okx_perpetual_web_utils as web_utils,
@@ -429,13 +427,9 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
             trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
             funding_data = raw_message["data"][0]
             if "nextFundingTime" in funding_data:
-                self._last_next_funding_utc_timestamp = int(
-                    pd.Timestamp(str(funding_data["nextFundingTime"]), tz="UTC").timestamp()
-                )
+                self._last_next_funding_utc_timestamp = int(funding_data["nextFundingTime"]) * 1e-3
             if "nextFundingRate" in funding_data:
-                self._last_rate = (
-                    Decimal(str(funding_data["nextFundingRate"]))
-                )
+                self._last_rate = (Decimal(str(funding_data["nextFundingRate"])))
             info_update = FundingInfoUpdate(trading_pair=trading_pair,
                                             index_price=self._last_index_price,
                                             mark_price=self._last_mark_price,
