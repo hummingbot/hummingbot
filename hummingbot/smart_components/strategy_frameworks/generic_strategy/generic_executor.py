@@ -24,19 +24,6 @@ class GenericExecutor(ExecutorHandlerBase):
     """
     Generic executor handler for a strategy.
     """
-
-    def on_stop(self):
-        """Actions to perform on stop."""
-        pass
-
-    def stop(self):
-        self.controller.stop()
-        self.stop_all_executors()
-
-    def stop_all_executors(self):
-        for executor in self.position_executors + self.dca_executors + self.arbitrage_executors:
-            executor.early_stop()
-
     def __init__(self, strategy: ScriptStrategyBase, controller: GenericController, update_interval: float = 1.0,
                  executors_update_interval: float = 1.0):
         super().__init__(strategy, controller, update_interval, executors_update_interval)
@@ -44,6 +31,20 @@ class GenericExecutor(ExecutorHandlerBase):
         self.position_executors = []
         self.dca_executors = []
         self.arbitrage_executors = []
+
+    def on_start(self):
+        super().on_start()
+        if self.controller.is_perpetual:
+            self.set_leverage_and_position_mode()
+
+    def on_stop(self):
+        """Actions to perform on stop."""
+        super().on_stop()
+        self.stop_all_executors()
+
+    def stop_all_executors(self):
+        for executor in self.position_executors + self.dca_executors + self.arbitrage_executors:
+            executor.early_stop()
 
     async def control_task(self):
         """
@@ -162,10 +163,6 @@ class GenericExecutor(ExecutorHandlerBase):
         all_executors = self.position_executors + self.dca_executors + self.arbitrage_executors
         executor = next((executor for executor in all_executors if executor.config.id == executor_id), None)
         return executor
-
-    def on_start(self):
-        if self.controller.is_perpetual:
-            self.set_leverage_and_position_mode()
 
     def set_leverage_and_position_mode(self):
         connector = self.strategy.connectors[self.controller.config.exchange]
