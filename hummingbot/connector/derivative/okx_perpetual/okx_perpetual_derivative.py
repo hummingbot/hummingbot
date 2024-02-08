@@ -782,24 +782,23 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         success = False
         msg = ""
 
-        if okx_utils.is_linear_perpetual(trading_pair):
-            data = {
-                "instId": exchange_symbol,
-                "lever": leverage,
-                "mgnMode": "cross"
-            }
-            resp: Dict[str, Any] = await self._api_post(
-                path_url=CONSTANTS.REST_SET_LEVERAGE[CONSTANTS.ENDPOINT],
-                data=data,
-                is_auth_required=True,
-                trading_pair=trading_pair,
-            )
+        data = {
+            "instId": exchange_symbol,
+            "lever": leverage,
+            "mgnMode": "cross"
+        }
+        resp: Dict[str, Any] = await self._api_post(
+            path_url=CONSTANTS.REST_SET_LEVERAGE[CONSTANTS.ENDPOINT],
+            data=data,
+            is_auth_required=True,
+            trading_pair=trading_pair,
+        )
 
-            if resp["code"] == CONSTANTS.RET_CODE_OK:
-                success = True
-            else:
-                formatted_ret_code = self._format_ret_code_for_print(resp['code'])
-                msg = f"{formatted_ret_code} - {resp['msg']}"
+        if resp["code"] == CONSTANTS.RET_CODE_OK:
+            success = True
+        else:
+            formatted_ret_code = self._format_ret_code_for_print(resp['code'])
+            msg = f"{formatted_ret_code} - {resp['msg']}"
 
         return success, msg
 
