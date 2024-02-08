@@ -815,6 +815,10 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
 
         Type 8 represents funding fee/payment. Subtypes 173 and 174 represent funding fee expense and
         income respectively.
+
+        Funding Fee expense (subType = 173)
+
+        You may refer to "pnl" for the fee payment
         """
         params = {
             "instType": "SWAP",
@@ -827,15 +831,18 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             trading_pair=trading_pair,
         )
         data: Dict[str, Any] = raw_response.get("data")
-
+        payment = Decimal("-1")
         if not data:
             # An empty funding fee/payment is retrieved.
-            timestamp, funding_rate, payment = 0, Decimal("-1"), Decimal("-1")
+            timestamp, funding_rate = 0, Decimal("-1")
         else:
-            funding_rate: Decimal = Decimal(str(-1))
-            position_size: Decimal = Decimal(str(-1))
-            payment: Decimal = funding_rate * position_size
             timestamp: int = int(data[0]["ts"])
+            funding_rate: Decimal = self._orderbook_ds._last_rate if self._orderbook_ds._last_rate is not None else Decimal(str(-1))
+            if data[0].get("type") == CONSTANTS.FUNDING_PAYMENT_TYPE:
+                if data[0]["subType"] == CONSTANTS.FUNDING_PAYMENT_EXPENSE_SUBTYPE:
+                    payment: Decimal = Decimal(str(data[0]["pnl"]))
+                else:
+                    payment: Decimal = Decimal(str(data[0]["fee"]))
 
         return timestamp, funding_rate, payment
 

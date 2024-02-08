@@ -48,6 +48,10 @@ ORDER_STATE = {
     "canceled": OrderState.CANCELED,
     "mmp_canceled": OrderState.CANCELED,
 }
+
+FUNDING_PAYMENT_EXPENSE_SUBTYPE = "173"
+FUNDING_PAYMENT_INCOME_SUBTYPE = "174"
+FUNDING_PAYMENT_TYPE = "8"
 # -------------------------------------------
 # WEB SOCKET ENDPOINTS
 # -------------------------------------------

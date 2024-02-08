@@ -20,10 +20,7 @@ from hummingbot.core.data_type.common import OrderType, PositionAction, Position
 from hummingbot.core.data_type.funding_info import FundingInfo
 from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.core.data_type.trade_fee import AddedToCostTradeFee, TokenAmount, TradeFeeBase
-from hummingbot.core.event.events import OrderCancelledEvent
-
-BASE_ASSET = "BTC"
-QUOTE_ASSET = "USDT"
+from hummingbot.core.event.events import FundingPaymentCompletedEvent, OrderCancelledEvent
 
 
 class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDerivativeTests):
@@ -71,16 +68,28 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
     @property
     def funding_info_url(self):
         url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_FUNDING_RATE_INFO[CONSTANTS.ENDPOINT])
-        url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
-        return url
+        url_regex = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        return url_regex
+
+    @property
+    def mark_price_url(self):
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_MARK_PRICE[CONSTANTS.ENDPOINT])
+        url_regex = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        return url_regex
+
+    @property
+    def index_price_url(self):
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_INDEX_TICKERS[CONSTANTS.ENDPOINT])
+        url_regex = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        return url_regex
 
     @property
     def funding_payment_url(self):
         url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.REST_FUNDING_RATE_INFO[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
+            endpoint=CONSTANTS.REST_BILLS_DETAILS[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
         )
-        url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
-        return url
+        url_regex = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        return url_regex
 
     @property
     def all_symbols_request_mock_response(self):
@@ -256,9 +265,6 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             f"Error parsing the trading pair rule: {mocked_response['data'][0]}. Skipping..."
         ))
 
-    # -------------------------------------------------------
-    # xxx ? TESTS AND MOCKS
-    # -------------------------------------------------------
     @property
     def latest_prices_request_mock_response(self):
         return {
@@ -266,7 +272,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             "msg": "",
             "data": [
                 {
-                    "instType": "SPOT",
+                    "instType": "SWAP",
                     "instId": self.trading_pair,
                     "last": str(self.expected_latest_price),
                     "lastSz": "0.1",
@@ -551,36 +557,114 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
     @property
     def empty_funding_payment_mock_response(self):
         return {
-            "ret_code": 0,
-            "ret_msg": "ok",
-            "ext_code": "",
-            "result": None,
-            "ext_info": None,
-            "time_now": "1577446900.717204",
-            "rate_limit_status": 119,
-            "rate_limit_reset_ms": 1577446900724,
-            "rate_limit": 120
+            "code": "0",
+            "msg": "",
+            "data": []
         }
 
     @property
     def funding_payment_mock_response(self):
         return {
-            "ret_code": 0,
-            "ret_msg": "ok",
-            "ext_code": "",
-            "result": {
-                "symbol": self.exchange_trading_pair,
-                "side": "Buy",
-                "size": float(self.target_funding_payment_payment_amount / self.target_funding_payment_funding_rate),
-                "funding_rate": float(self.target_funding_payment_funding_rate),
-                "exec_fee": "0.0001",
-                "exec_time": self.target_funding_payment_timestamp_str,
+            "code": "0",
+            "msg": "",
+            "data": [
+                {
+                    "bal": "8694.2179403378290202",
+                    "balChg": "0.0219338232210000",
+                    "billId": "623950854533513219",
+                    "ccy": self.quote_asset,
+                    "clOrdId": "",
+                    "execType": "T",
+                    "fee": "",
+                    "fillFwdPx": "",
+                    "fillIdxPx": "27104.1",
+                    "fillMarkPx": "",
+                    "fillMarkVol": "",
+                    "fillPxUsd": "",
+                    "fillPxVol": "",
+                    "fillTime": "1695033476166",
+                    "from": "",
+                    "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                    "instType": "SWAP",
+                    "interest": "0",
+                    "mgnMode": "cross",
+                    "notes": "",
+                    "ordId": "623950854525124608",
+                    "pnl": str(self.target_funding_payment_payment_amount),
+                    "posBal": "0",
+                    "posBalChg": "0",
+                    "px": "27105.9",
+                    "subType": CONSTANTS.FUNDING_PAYMENT_EXPENSE_SUBTYPE,
+                    "sz": "0.021955779",
+                    "tag": "",
+                    "to": "",
+                    "tradeId": "586760148",
+                    "ts": str(self.target_funding_payment_timestamp),
+                    "type": CONSTANTS.FUNDING_PAYMENT_TYPE
+                }
+            ]
+        }
+
+    @property
+    def funding_info_mock_response(self):
+        return {
+            "code": "0",
+            "data": [
+                {
+                    "fundingRate": "3",
+                    "fundingTime": "1703088000000",
+                    "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                    "instType": "SWAP",
+                    "method": "next_period",
+                    "maxFundingRate": "0.00375",
+                    "minFundingRate": "-0.00375",
+                    "nextFundingRate": "0.0002061194322149",
+                    "nextFundingTime": "1657099053000",
+                    "settFundingRate": "0.0001418433662153",
+                    "settState": "settled",
+                    # TODO: Check if use with target_funding_info_next_funding_utc_str
+                    "ts": "1703070685309"
+                }
+            ],
+            "msg": ""
+        }
+
+    @property
+    def mark_price_mock_response(self):
+        return {
+            "arg": {
+                "channel": "mark-price",
+                "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset)
             },
-            "ext_info": None,
-            "time_now": "1577446900.717204",
-            "rate_limit_status": 119,
-            "rate_limit_reset_ms": 1577446900724,
-            "rate_limit": 120
+            "data": [
+                {
+                    "instType": "SWAP",
+                    "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                    "markPx": "2",
+                    "ts": "1597026383085"
+                }
+            ]
+        }
+
+    @property
+    def index_price_mock_response(self):
+        return {
+            "arg": {
+                "channel": "index-tickers",
+                "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset)
+            },
+            "data": [
+                {
+                    "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                    "idxPx": "1",
+                    "high24h": "0.5",
+                    "low24h": "0.1",
+                    "open24h": "0.1",
+                    "sodUtc0": "0.1",
+                    "sodUtc8": "0.1",
+                    "ts": "1597026383085"
+                }
+            ]
         }
 
     @property
@@ -605,38 +689,10 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
 
     @property
     def target_funding_payment_timestamp_str(self):
-        datetime_str = str(
-            pd.Timestamp.utcfromtimestamp(
-                self.target_funding_payment_timestamp)
-        ).replace(" ", "T") + "Z"
+        datetime_str = pd.Timestamp.fromtimestamp(
+            self.target_funding_payment_timestamp, tz='UTC'
+        ).strftime('%Y-%m-%dT%H:%M:%SZ')
         return datetime_str
-
-    @property
-    def funding_info_mock_response(self):
-        mock_response = self.latest_prices_request_mock_response
-        funding_info = mock_response["result"][0]
-        funding_info["index_price"] = self.target_funding_info_index_price
-        funding_info["mark_price"] = self.target_funding_info_mark_price
-        funding_info["next_funding_time"] = self.target_funding_info_next_funding_utc_str
-        funding_info["predicted_funding_rate"] = self.target_funding_info_rate
-        return mock_response
-
-    @property
-    def get_predicted_funding_info(self):
-        return {
-            "ret_code": 0,
-            "ret_msg": "ok",
-            "ext_code": "",
-            "result": {
-                "predicted_funding_rate": 3,
-                "predicted_funding_fee": 0
-            },
-            "ext_info": None,
-            "time_now": "1577447415.583259",
-            "rate_limit_status": 118,
-            "rate_limit_reset_ms": 1577447415590,
-            "rate_limit": 120
-        }
 
     @property
     def latest_trade_hist_timestamp(self) -> int:
@@ -1187,31 +1243,49 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
 
     def funding_info_event_for_websocket_update(self):
         return {
-            "topic": f"instrument_info.100ms.{self.exchange_trading_pair}",
-            "type": "delta",
-            "data": {
-                "delete": [],
-                "update": [
-                    {
-                        "id": 1,
-                        "symbol": self.exchange_trading_pair,
-                        "prev_price_24h_e4": 81565000,
-                        "prev_price_24h": "81565000",
-                        "price_24h_pcnt_e6": -4904,
-                        "open_value_e8": 2000479681106,
-                        "total_turnover_e8": 2029370495672976,
-                        "turnover_24h_e8": 9066215468687,
-                        "volume_24h": 735316391,
-                        "cross_seq": 1053192657,
-                        "created_at": "2018-11-14T16:33:26Z",
-                        "updated_at": "2020-01-12T18:25:25Z",
-                        "index_price": self.target_funding_info_index_price_ws_updated,
-                        "mark_price": self.target_funding_info_mark_price_ws_updated,
-                        "next_funding_time": self.target_funding_info_next_funding_utc_str_ws_updated,
-                        "predicted_funding_rate_e6": self.target_funding_info_rate_ws_updated * 1e6,
-                    }
-                ],
-                "insert": []
+            "arg": {
+                "channel": "funding-rate",
+                "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+            },
+            "data": [
+                {
+                    "fundingRate": "0.0001875391284828",
+                    "fundingTime": "1700726400000",
+                    "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                    "instType": "SWAP",
+                    "method": "next_period",
+                    "maxFundingRate": "0.00375",
+                    "minFundingRate": "-0.00375",
+                    "nextFundingRate": "0.0002608059239328",
+                    "nextFundingTime": "1700755200000",
+                    "settFundingRate": "0.0001699799259033",
+                    "settState": "settled",
+                    "ts": "1700724675402"
+                }
+            ]
+        }
+
+    def mark_price_event_for_websocket_update(self):
+        return {
+            "arg": {
+                "channel": "mark-price",
+                "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+            },
+            "data": [
+                {
+                    "instType": "SWAP",
+                    "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                    "markPx": "0.1",
+                    "ts": "1597026383085"
+                }
+            ]
+        }
+
+    def index_price_event_for_websocket_update(self):
+        return {
+            "arg": {
+                "channel": "index-tickers",
+                "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
             },
             "cross_seq": 1053192657,
             "timestamp_e6": 1578853525691123
@@ -1237,6 +1311,49 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             f"Invalid position action {PositionAction.NIL}. Must be one of {[PositionAction.OPEN, PositionAction.CLOSE]}",
             str(exception_context.exception)
         )
+
+    @aioresponses()
+    def test_funding_payment_polling_loop_sends_update_event(self, mock_api):
+        def callback(*args, **kwargs):
+            request_sent_event.set()
+
+        self._simulate_trading_rules_initialized()
+        request_sent_event = asyncio.Event()
+        url = self.funding_payment_url
+        # TODO: Check with dman if this is ok
+        # Since the funding payment is not updated in the order book, we need to set the last rate
+        self.exchange._orderbook_ds._last_rate = self.target_funding_payment_funding_rate
+
+        async def run_test():
+            response = self.empty_funding_payment_mock_response
+            mock_api.get(url, body=json.dumps(response), callback=callback)
+            _ = asyncio.create_task(self.exchange._funding_payment_polling_loop())
+
+            # Allow task to start - on first pass no event is emitted (initialization)
+            await asyncio.sleep(0.1)
+            self.assertEqual(0, len(self.funding_payment_logger.event_log))
+
+            response = self.funding_payment_mock_response
+            mock_api.get(url, body=json.dumps(response), callback=callback, repeat=True)
+
+            request_sent_event.clear()
+            self.exchange._funding_fee_poll_notifier.set()
+            await request_sent_event.wait()
+            self.assertEqual(1, len(self.funding_payment_logger.event_log))
+
+            request_sent_event.clear()
+            self.exchange._funding_fee_poll_notifier.set()
+            await request_sent_event.wait()
+
+        self.async_run_with_timeout(run_test())
+
+        self.assertEqual(1, len(self.funding_payment_logger.event_log))
+        funding_event: FundingPaymentCompletedEvent = self.funding_payment_logger.event_log[0]
+        self.assertEqual(self.target_funding_payment_timestamp, funding_event.timestamp)
+        self.assertEqual(self.exchange.name, funding_event.market)
+        self.assertEqual(self.trading_pair, funding_event.trading_pair)
+        self.assertEqual(self.target_funding_payment_payment_amount, funding_event.amount)
+        self.assertEqual(self.target_funding_payment_funding_rate, funding_event.funding_rate)
 
     def test_supported_position_modes(self):
         client_config_map = ClientConfigAdapter(ClientConfigMap())
@@ -1271,16 +1388,17 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
     @aioresponses()
     @patch("asyncio.Queue.get")
     def test_listen_for_funding_info_update_initializes_funding_info(self, mock_api, mock_queue_get):
-        url = self.funding_info_url
+        funding_info_url = self.funding_info_url
+        mark_price_url = self.mark_price_url
+        index_price_url = self.index_price_url
 
-        response = self.funding_info_mock_response
-        mock_api.get(url, body=json.dumps(response))
+        funding_info_response = self.funding_info_mock_response
+        mark_price_response = self.mark_price_mock_response
+        index_price_response = self.index_price_mock_response
 
-        endpoint = CONSTANTS.GET_PREDICTED_FUNDING_RATE_PATH_URL
-        url = web_utils.get_rest_url_for_endpoint(endpoint, self.trading_pair)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        funding_resp = self.get_predicted_funding_info
-        mock_api.get(regex_url, body=json.dumps(funding_resp))
+        mock_api.get(funding_info_url, body=json.dumps(funding_info_response))
+        mock_api.get(mark_price_url, body=json.dumps(mark_price_response))
+        mock_api.get(index_price_url, body=json.dumps(index_price_response))
 
         event_messages = [asyncio.CancelledError]
         mock_queue_get.side_effect = event_messages
@@ -1303,16 +1421,17 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
     @aioresponses()
     @patch("asyncio.Queue.get")
     def test_listen_for_funding_info_update_updates_funding_info(self, mock_api, mock_queue_get):
-        url = self.funding_info_url
+        funding_info_url = self.funding_info_url
+        mark_price_url = self.mark_price_url
+        index_price_url = self.index_price_url
 
-        response = self.funding_info_mock_response
-        mock_api.get(url, body=json.dumps(response))
+        funding_info_response = self.funding_info_mock_response
+        mark_price_response = self.mark_price_mock_response
+        index_price_response = self.index_price_mock_response
 
-        endpoint = CONSTANTS.GET_PREDICTED_FUNDING_RATE_PATH_URL
-        url = web_utils.get_rest_url_for_endpoint(endpoint, self.trading_pair)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        funding_resp = self.get_predicted_funding_info
-        mock_api.get(regex_url, body=json.dumps(funding_resp))
+        mock_api.get(funding_info_url, body=json.dumps(funding_info_response))
+        mock_api.get(mark_price_url, body=json.dumps(mark_price_response))
+        mock_api.get(index_price_url, body=json.dumps(index_price_response))
 
         funding_info_event = self.funding_info_event_for_websocket_update()
 
