@@ -202,7 +202,6 @@ class KrakenSpotCandles(CandlesBase):
                         the_number_of_interval = total_interval_time // interval
                         if the_number_of_interval >= 2:
                             for i in range(1, the_number_of_interval):
-                                print(self._candles[-1])
                                 old_data = deepcopy(self._candles[-1])
                                 new_timestamp = int(self._candles[-1][0]) + interval
                                 old_data[0] = new_timestamp
