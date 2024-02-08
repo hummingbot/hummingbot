@@ -753,26 +753,20 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         success = True
 
         api_mode = CONSTANTS.POSITION_MODE_MAP[mode]
-        is_linear = okx_utils.is_linear_perpetual(trading_pair)
 
-        if is_linear:
-            data = {"posMode": api_mode}
+        data = {"posMode": api_mode}
 
-            response = await self._api_post(
-                path_url=CONSTANTS.REST_SET_POSITION_MODE[CONSTANTS.ENDPOINT],
-                data=data,
-                is_auth_required=True,
-            )
+        response = await self._api_post(
+            path_url=CONSTANTS.REST_SET_POSITION_MODE[CONSTANTS.ENDPOINT],
+            data=data,
+            is_auth_required=True,
+        )
 
-            response_code = response["code"]
+        response_code = response["code"]
 
-            if response_code != CONSTANTS.RET_CODE_OK:
-                formatted_ret_code = self._format_ret_code_for_print(response_code)
-                msg = f"{formatted_ret_code} - {response['msg']}"
-                success = False
-        else:
-            #  Inverse Perpetuals don't have set_position_mode()
-            msg = "Inverse Perpetuals don't allow for a position mode change."
+        if response_code != CONSTANTS.RET_CODE_OK:
+            formatted_ret_code = self._format_ret_code_for_print(response_code)
+            msg = f"{formatted_ret_code} - {response['msg']}"
             success = False
 
         return success, msg
