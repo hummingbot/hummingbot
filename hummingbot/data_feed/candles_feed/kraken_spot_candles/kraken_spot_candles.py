@@ -6,7 +6,7 @@ from typing import List, Optional
 import numpy as np
 import pandas as pd
 
-from hummingbot.core.network_iterator import NetworkStatus, safe_ensure_future
+from hummingbot.core.network_iterator import NetworkStatus
 from hummingbot.core.web_assistant.connections.data_types import WSJSONRequest
 from hummingbot.core.web_assistant.ws_assistant import WSAssistant
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
@@ -124,30 +124,28 @@ class KrakenSpotCandles(CandlesBase):
         # Note: the last entry in the OHLC array is for the current, not-yet-committed frame and will always be present, regardless of the value of since.
         max_request_needed = (self._candles.maxlen // 720) + 1
         requests_executed = 0
-        while not self.is_ready:
-            try:
-                if requests_executed < max_request_needed:
-                    # we have to add one more since, the last row is not going to be included
-                    end_timestamp = int(self._candles[0][0]) + 1
-                    start_time = end_timestamp - (720 * self.get_seconds_from_interval(self.interval)) + 1
-                    candles = await self.fetch_candles(start_time=start_time, end_time=end_timestamp)
-                    # we are computing again the quantity of records again since the websocket process is able to
-                    # modify the deque and if we extend it, the new observations are going to be dropped.
-                    missing_records = self._candles.maxlen - len(self._candles)
-                    # self._candles.extendleft(candles[::-1][-(missing_records + 1):-1])
-                    self._candles.extendleft(candles[-(missing_records + 1):-1][::-1])
-                    requests_executed += 1
-                else:
-                    self.logger().error(f"There is no data available for the quantity of "
-                                        f"candles requested for {self.name}.")
-                    raise
-            except asyncio.CancelledError:
+        try:
+            if requests_executed < max_request_needed:
+                # we have to add one more since, the last row is not going to be included
+                end_timestamp = int(self._candles[0][0]) + 1
+                start_time = end_timestamp - (720 * self.get_seconds_from_interval(self.interval)) + 1
+                candles = await self.fetch_candles(start_time=start_time, end_time=end_timestamp)
+                # we are computing again the quantity of records again since the websocket process is able to
+                # modify the deque and if we extend it, the new observations are going to be dropped.
+                missing_records = self._candles.maxlen - len(self._candles)
+                # self._candles.extendleft(candles[::-1][-(missing_records + 1):-1])
+                self._candles.extendleft(candles[-(missing_records + 1):-1][::-1])
+                requests_executed += 1
+            else:
+                self.logger().error(f"There is no data available for the quantity of "
+                                    f"candles requested for {self.name}.")
                 raise
-            except Exception:
-                self.logger().exception(
-                    "Unexpected error occurred when getting historical klines. Retrying in 1 seconds...",
-                )
-                await self._sleep(1.0)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            self.logger().exception(
+                "Unexpected error occurred when getting historical klines. Retrying in 1 seconds...",
+            )
 
     async def _subscribe_channels(self, ws: WSAssistant):
         """
@@ -196,7 +194,7 @@ class KrakenSpotCandles(CandlesBase):
                         self._candles.append(np.array([timestamp, open, high, low, close, volume,
                                                        quote_asset_volume, n_trades, taker_buy_base_volume,
                                                        taker_buy_quote_volume]))
-                        safe_ensure_future(self.fill_historical_candles())
+                        await self.fill_historical_candles()
                     elif timestamp > int(self._candles[-1][0]):
                         # TODO: validate also that the diff of timestamp == interval (issue with 30d interval).
                         interval = int(CONSTANTS.INTERVALS[self.interval]) * 60
@@ -204,8 +202,9 @@ class KrakenSpotCandles(CandlesBase):
                         the_number_of_interval = total_interval_time // interval
                         if the_number_of_interval >= 2:
                             for i in range(1, the_number_of_interval):
+                                print(self._candles[-1])
                                 old_data = deepcopy(self._candles[-1])
-                                new_timestamp = int(self._candles[-1][0]) + i * interval
+                                new_timestamp = int(self._candles[-1][0]) + interval
                                 old_data[0] = new_timestamp
                                 self._candles.append(old_data)
                         self._candles.append(np.array([timestamp, open, high, low, close, volume,
