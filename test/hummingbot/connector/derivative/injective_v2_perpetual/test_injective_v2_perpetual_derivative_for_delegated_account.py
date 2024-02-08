@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import json
 from collections import OrderedDict
 from decimal import Decimal
 from functools import partial
@@ -24,6 +25,7 @@ from hummingbot.connector.derivative.injective_v2_perpetual.injective_v2_perpetu
 from hummingbot.connector.exchange.injective_v2.injective_v2_utils import (
     InjectiveConfigMap,
     InjectiveDelegatedAccountMode,
+    InjectiveMessageBasedTransactionFeeCalculatorMode,
     InjectiveTestnetNetworkMode,
 )
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayPerpetualInFlightOrder
@@ -306,57 +308,61 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
     @property
     def balance_request_mock_response_for_base_and_quote(self):
         return {
-            "accountAddress": self.portfolio_account_injective_address,
-            "bankBalances": [
-                {
-                    "denom": self.base_asset_denom,
-                    "amount": str(Decimal(5) * Decimal(1e18))
-                },
-                {
-                    "denom": self.quote_asset_denom,
-                    "amount": str(Decimal(1000) * Decimal(1e6))
-                }
-            ],
-            "subaccounts": [
-                {
-                    "subaccountId": self.portfolio_account_subaccount_id,
-                    "denom": self.quote_asset_denom,
-                    "deposit": {
-                        "totalBalance": str(Decimal(1000) * Decimal(1e6)),
-                        "availableBalance": str(Decimal(1000) * Decimal(1e6))
+            "portfolio": {
+                "accountAddress": self.portfolio_account_injective_address,
+                "bankBalances": [
+                    {
+                        "denom": self.base_asset_denom,
+                        "amount": str(Decimal(5) * Decimal(1e18))
+                    },
+                    {
+                        "denom": self.quote_asset_denom,
+                        "amount": str(Decimal(1000) * Decimal(1e6))
                     }
-                },
-                {
-                    "subaccountId": self.portfolio_account_subaccount_id,
-                    "denom": self.base_asset_denom,
-                    "deposit": {
-                        "totalBalance": str(Decimal(10) * Decimal(1e18)),
-                        "availableBalance": str(Decimal(5) * Decimal(1e18))
-                    }
-                },
-            ]
+                ],
+                "subaccounts": [
+                    {
+                        "subaccountId": self.portfolio_account_subaccount_id,
+                        "denom": self.quote_asset_denom,
+                        "deposit": {
+                            "totalBalance": str(Decimal(1000) * Decimal(1e6)),
+                            "availableBalance": str(Decimal(1000) * Decimal(1e6))
+                        }
+                    },
+                    {
+                        "subaccountId": self.portfolio_account_subaccount_id,
+                        "denom": self.base_asset_denom,
+                        "deposit": {
+                            "totalBalance": str(Decimal(10) * Decimal(1e18)),
+                            "availableBalance": str(Decimal(5) * Decimal(1e18))
+                        }
+                    },
+                ],
+            }
         }
 
     @property
     def balance_request_mock_response_only_base(self):
         return {
-            "accountAddress": self.portfolio_account_injective_address,
-            "bankBalances": [
-                {
-                    "denom": self.base_asset_denom,
-                    "amount": str(Decimal(5) * Decimal(1e18))
-                },
-            ],
-            "subaccounts": [
-                {
-                    "subaccountId": self.portfolio_account_subaccount_id,
-                    "denom": self.base_asset_denom,
-                    "deposit": {
-                        "totalBalance": str(Decimal(10) * Decimal(1e18)),
-                        "availableBalance": str(Decimal(5) * Decimal(1e18))
-                    }
-                },
-            ]
+            "portfolio": {
+                "accountAddress": self.portfolio_account_injective_address,
+                "bankBalances": [
+                    {
+                        "denom": self.base_asset_denom,
+                        "amount": str(Decimal(5) * Decimal(1e18))
+                    },
+                ],
+                "subaccounts": [
+                    {
+                        "subaccountId": self.portfolio_account_subaccount_id,
+                        "denom": self.base_asset_denom,
+                        "deposit": {
+                            "totalBalance": str(Decimal(10) * Decimal(1e18)),
+                            "availableBalance": str(Decimal(5) * Decimal(1e18))
+                        }
+                    },
+                ],
+            }
         }
 
     @property
@@ -533,6 +539,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         injective_config = InjectiveConfigMap(
             network=network_config,
             account_type=account_config,
+            fee_calculator=InjectiveMessageBasedTransactionFeeCalculatorMode(),
         )
 
         exchange = InjectiveV2PerpetualDerivative(
@@ -1542,6 +1549,7 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         injective_config = InjectiveConfigMap(
             network=network_config,
             account_type=account_config,
+            fee_calculator=InjectiveMessageBasedTransactionFeeCalculatorMode(),
         )
 
         exchange_with_non_default_subaccount = InjectiveV2PerpetualDerivative(
@@ -2276,40 +2284,42 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.configure_all_symbols_response(mock_api=None)
         self.exchange._data_source._query_executor._derivative_market_responses.put_nowait(
             {
-                "marketId": self.market_id,
-                "marketStatus": "active",
-                "ticker": f"{self.base_asset}/{self.quote_asset} PERP",
-                "oracleBase": "0x2d9315a88f3019f8efa88dfe9c0f0843712da0bac814461e27733f6b83eb51b3",  # noqa: mock
-                "oracleQuote": "0x1fc18861232290221461220bd4e2acd1dcdfbc89c84092c93c18bdc7756c1588",  # noqa: mock
-                "oracleType": "pyth",
-                "oracleScaleFactor": 6,
-                "initialMarginRatio": "0.195",
-                "maintenanceMarginRatio": "0.05",
-                "quoteDenom": self.quote_asset_denom,
-                "quoteTokenMeta": {
-                    "name": "Testnet Tether USDT",
-                    "address": "0x0000000000000000000000000000000000000000",  # noqa: mock
-                    "symbol": self.quote_asset,
-                    "logo": "https://static.alchemyapi.io/images/assets/825.png",
-                    "decimals": self.quote_decimals,
-                    "updatedAt": "1687190809716"
-                },
-                "makerFeeRate": "-0.0003",
-                "takerFeeRate": "0.003",
-                "serviceProviderFee": "0.4",
-                "isPerpetual": True,
-                "minPriceTickSize": "100",
-                "minQuantityTickSize": "0.0001",
-                "perpetualMarketInfo": {
-                    "hourlyFundingRateCap": "0.000625",
-                    "hourlyInterestRate": "0.00000416666",
-                    "nextFundingTimestamp": str(self.target_funding_info_next_funding_utc_timestamp),
-                    "fundingInterval": "3600"
-                },
-                "perpetualMarketFunding": {
-                    "cumulativeFunding": "81363.592243119007273334",
-                    "cumulativePrice": "1.432536051546776736",
-                    "lastTimestamp": "1689423842"
+                "market": {
+                    "marketId": self.market_id,
+                    "marketStatus": "active",
+                    "ticker": f"{self.base_asset}/{self.quote_asset} PERP",
+                    "oracleBase": "0x2d9315a88f3019f8efa88dfe9c0f0843712da0bac814461e27733f6b83eb51b3",  # noqa: mock
+                    "oracleQuote": "0x1fc18861232290221461220bd4e2acd1dcdfbc89c84092c93c18bdc7756c1588",  # noqa: mock
+                    "oracleType": "pyth",
+                    "oracleScaleFactor": 6,
+                    "initialMarginRatio": "0.195",
+                    "maintenanceMarginRatio": "0.05",
+                    "quoteDenom": self.quote_asset_denom,
+                    "quoteTokenMeta": {
+                        "name": "Testnet Tether USDT",
+                        "address": "0x0000000000000000000000000000000000000000",  # noqa: mock
+                        "symbol": self.quote_asset,
+                        "logo": "https://static.alchemyapi.io/images/assets/825.png",
+                        "decimals": self.quote_decimals,
+                        "updatedAt": "1687190809716"
+                    },
+                    "makerFeeRate": "-0.0003",
+                    "takerFeeRate": "0.003",
+                    "serviceProviderFee": "0.4",
+                    "isPerpetual": True,
+                    "minPriceTickSize": "100",
+                    "minQuantityTickSize": "0.0001",
+                    "perpetualMarketInfo": {
+                        "hourlyFundingRateCap": "0.000625",
+                        "hourlyInterestRate": "0.00000416666",
+                        "nextFundingTimestamp": str(self.target_funding_info_next_funding_utc_timestamp),
+                        "fundingInterval": "3600"
+                    },
+                    "perpetualMarketFunding": {
+                        "cumulativeFunding": "81363.592243119007273334",
+                        "cumulativePrice": "1.432536051546776736",
+                        "lastTimestamp": "1689423842"
+                    },
                 }
             }
         )
@@ -2398,40 +2408,42 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         self.configure_all_symbols_response(mock_api=None)
         self.exchange._data_source._query_executor._derivative_market_responses.put_nowait(
             {
-                "marketId": self.market_id,
-                "marketStatus": "active",
-                "ticker": f"{self.base_asset}/{self.quote_asset} PERP",
-                "oracleBase": "0x2d9315a88f3019f8efa88dfe9c0f0843712da0bac814461e27733f6b83eb51b3",  # noqa: mock
-                "oracleQuote": "0x1fc18861232290221461220bd4e2acd1dcdfbc89c84092c93c18bdc7756c1588",  # noqa: mock
-                "oracleType": "pyth",
-                "oracleScaleFactor": 6,
-                "initialMarginRatio": "0.195",
-                "maintenanceMarginRatio": "0.05",
-                "quoteDenom": self.quote_asset_denom,
-                "quoteTokenMeta": {
-                    "name": "Testnet Tether USDT",
-                    "address": "0x0000000000000000000000000000000000000000",  # noqa: mock
-                    "symbol": self.quote_asset,
-                    "logo": "https://static.alchemyapi.io/images/assets/825.png",
-                    "decimals": self.quote_decimals,
-                    "updatedAt": "1687190809716"
-                },
-                "makerFeeRate": "-0.0003",
-                "takerFeeRate": "0.003",
-                "serviceProviderFee": "0.4",
-                "isPerpetual": True,
-                "minPriceTickSize": "100",
-                "minQuantityTickSize": "0.0001",
-                "perpetualMarketInfo": {
-                    "hourlyFundingRateCap": "0.000625",
-                    "hourlyInterestRate": "0.00000416666",
-                    "nextFundingTimestamp": str(self.target_funding_info_next_funding_utc_timestamp),
-                    "fundingInterval": "3600"
-                },
-                "perpetualMarketFunding": {
-                    "cumulativeFunding": "81363.592243119007273334",
-                    "cumulativePrice": "1.432536051546776736",
-                    "lastTimestamp": "1689423842"
+                "market": {
+                    "marketId": self.market_id,
+                    "marketStatus": "active",
+                    "ticker": f"{self.base_asset}/{self.quote_asset} PERP",
+                    "oracleBase": "0x2d9315a88f3019f8efa88dfe9c0f0843712da0bac814461e27733f6b83eb51b3",  # noqa: mock
+                    "oracleQuote": "0x1fc18861232290221461220bd4e2acd1dcdfbc89c84092c93c18bdc7756c1588",  # noqa: mock
+                    "oracleType": "pyth",
+                    "oracleScaleFactor": 6,
+                    "initialMarginRatio": "0.195",
+                    "maintenanceMarginRatio": "0.05",
+                    "quoteDenom": self.quote_asset_denom,
+                    "quoteTokenMeta": {
+                        "name": "Testnet Tether USDT",
+                        "address": "0x0000000000000000000000000000000000000000",  # noqa: mock
+                        "symbol": self.quote_asset,
+                        "logo": "https://static.alchemyapi.io/images/assets/825.png",
+                        "decimals": self.quote_decimals,
+                        "updatedAt": "1687190809716"
+                    },
+                    "makerFeeRate": "-0.0003",
+                    "takerFeeRate": "0.003",
+                    "serviceProviderFee": "0.4",
+                    "isPerpetual": True,
+                    "minPriceTickSize": "100",
+                    "minQuantityTickSize": "0.0001",
+                    "perpetualMarketInfo": {
+                        "hourlyFundingRateCap": "0.000625",
+                        "hourlyInterestRate": "0.00000416666",
+                        "nextFundingTimestamp": str(self.target_funding_info_next_funding_utc_timestamp),
+                        "fundingInterval": "3600"
+                    },
+                    "perpetualMarketFunding": {
+                        "cumulativeFunding": "81363.592243119007273334",
+                        "cumulativePrice": "1.432536051546776736",
+                        "lastTimestamp": "1689423842"
+                    },
                 }
             }
         )
@@ -2623,6 +2635,546 @@ class InjectiveV2PerpetualDerivativeTests(AbstractPerpetualDerivativeTests.Perpe
         mark_price = Decimal(oracle_price["price"])
         expected_unrealized_pnl = (mark_price - entry_price) * quantity
         self.assertEqual(expected_unrealized_pnl, pos.unrealized_pnl)
+
+    def test_order_found_in_its_creating_transaction_not_marked_as_failed_during_order_creation_check(self):
+        self.configure_all_symbols_response(mock_api=None)
+        self.exchange._set_current_timestamp(1640780000.0)
+
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id="0x9f94598b4842ab66037eaa7c64ec10ae16dcf196e61db8522921628522c0f62e",  # noqa: mock
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("100"),
+            position_action=PositionAction.OPEN,
+        )
+
+        self.assertIn(self.client_order_id_prefix + "1", self.exchange.in_flight_orders)
+        order: GatewayPerpetualInFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+        order.update_creation_transaction_hash(
+            creation_transaction_hash="66A360DA2FD6884B53B5C019F1A2B5BED7C7C8FC07E83A9C36AD3362EDE096AE")  # noqa: mock
+
+        transaction_response = {
+            "tx": {
+                "body": {
+                    "messages": [],
+                    "timeoutHeight": "20557725",
+                    "memo": "",
+                    "extensionOptions": [],
+                    "nonCriticalExtensionOptions": []
+                },
+                "authInfo": {},
+                "signatures": [
+                    "/xSRaq4l5D6DZI5syfAOI5ITongbgJnN97sxCBLXsnFqXLbc4ztEOdQJeIZUuQM+EoqMxUjUyP1S5hg8lM+00w=="
+                ]
+            },
+            "txResponse": {
+                "height": "20557627",
+                "txhash": "7CC335E98486A7C13133E04561A61930F9F7AD34E6A14A72BC25956F2495CE33",  # noqa: mock
+                "data": "",
+                "rawLog": "",
+                "logs": [],
+                "gasWanted": "209850",
+                "gasUsed": "93963",
+                "tx": {},
+                "timestamp": "2024-01-10T13:23:29Z",
+                "events": [
+                    {
+                        "type": "coin_spent",
+                        "attributes": [
+                            {
+                                "key": "spender",
+                                "value": "inj1jtcvrdguuyx6dwz6xszpvkucyplw7z94vxlu07",  # noqa: mock
+                                "index": True
+                            },
+                            {
+                                "key": "amount",
+                                "value": "33576000000000inj",
+                                "index": True
+                            }
+                        ]
+                    },
+                    {
+                        "type": "coin_received",
+                        "attributes": [
+                            {
+                                "key": "receiver",
+                                "value": "inj17xpfvakm2amg962yls6f84z3kell8c5l6s5ye9",  # noqa: mock
+                                "index": True
+                            },
+                            {
+                                "key": "amount",
+                                "value": "33576000000000inj",
+                                "index": True
+                            }
+                        ]
+                    },
+                    {
+                        "type": "transfer",
+                        "attributes": [
+                            {
+                                "key": "recipient",
+                                "value": "inj17xpfvakm2amg962yls6f84z3kell8c5l6s5ye9",  # noqa: mock
+                                "index": True
+                            },
+                            {
+                                "key": "sender",
+                                "value": "inj1jtcvrdguuyx6dwz6xszpvkucyplw7z94vxlu07",  # noqa: mock
+                                "index": True
+                            },
+                            {
+                                "key": "amount",
+                                "value": "33576000000000inj",
+                                "index": True
+                            }
+                        ]
+                    },
+                    {
+                        "type": "message",
+                        "attributes": [
+                            {
+                                "key": "sender",
+                                "value": "inj1jtcvrdguuyx6dwz6xszpvkucyplw7z94vxlu07",  # noqa: mock
+                                "index": True
+                            }
+                        ]
+                    },
+                    {
+                        "type": "tx",
+                        "attributes": [
+                            {
+                                "key": "fee",
+                                "value": "33576000000000inj",
+                                "index": True
+                            },
+                            {
+                                "key": "fee_payer",
+                                "value": "inj1jtcvrdguuyx6dwz6xszpvkucyplw7z94vxlu07",  # noqa: mock
+                                "index": True
+                            }
+                        ]
+                    },
+                    {
+                        "type": "tx",
+                        "attributes": [
+                            {
+                                "key": "acc_seq",
+                                "value": "inj1jtcvrdguuyx6dwz6xszpvkucyplw7z94vxlu07/989",
+                                "index": True
+                            }
+                        ]
+                    },
+                    {
+                        "type": "tx",
+                        "attributes": [
+                            {
+                                "key": "signature",
+                                "value": "/xSRaq4l5D6DZI5syfAOI5ITongbgJnN97sxCBLXsnFqXLbc4ztEOdQJeIZUuQM+EoqMxUjUyP1S5hg8lM+00w==",
+                                "index": True
+                            }
+                        ]
+                    },
+                    {
+                        "type": "message",
+                        "attributes": [
+                            {
+                                "key": "action",
+                                "value": "/injective.exchange.v1beta1.MsgBatchUpdateOrders",
+                                "index": True
+                            },
+                            {
+                                "key": "sender",
+                                "value": "inj1jtcvrdguuyx6dwz6xszpvkucyplw7z94vxlu07",  # noqa: mock
+                                "index": True
+                            },
+                            {
+                                "key": "module",
+                                "value": "exchange",
+                                "index": True
+                            }
+                        ]
+                    },
+                    {
+                        "type": "injective.exchange.v1beta1.EventNewDerivativeOrders",
+                        "attributes": [
+                            {
+                                "key": "buy_orders",
+                                "value": json.dumps(
+                                    [
+                                        {
+                                            "order_info": {
+                                                "subaccount_id": "0xece2f1eea8b02ed71a06c2c9a18e5e56d5e59300000000000000000000000000",  # noqa: mock
+                                                "fee_recipient": "inj1an30rm4gkqhdwxsxcty6rrj72m27tycqh2qy8v",  # noqa: mock
+                                                "price": "50000000000.000000000000000000",
+                                                "quantity": "0.010000000000000000",
+                                                "cid": order.client_order_id
+                                            },
+                                            "order_type": "BUY_PO",
+                                            "margin": "500000000.000000000000000000",
+                                            "fillable": "0.010000000000000000",
+                                            "trigger_price": "0.000000000000000000",
+                                            "order_hash": base64.b64encode(order.exchange_order_id.encode()).decode()
+                                        }
+                                    ]
+                                ),
+                                "index": True
+                            },
+                            {
+                                "key": "market_id",
+                                "value": "\"0x17ef48032cb24375ba7c2e39f384e56433bcab20cbee9a7357e4cba2eb00abe6\"",  # noqa: mock"
+                                "index": True
+                            },
+                            {
+                                "key": "sell_orders",
+                                "value": "[{\"order_info\":{\"subaccount_id\":\"0xece2f1eea8b02ed71a06c2c9a18e5e56d5e59300000000000000000000000000\",\"fee_recipient\":\"inj1an30rm4gkqhdwxsxcty6rrj72m27tycqh2qy8v\",\"price\":\"50000000000.000000000000000000\",\"quantity\":\"0.010000000000000000\",\"cid\":\"d4bfca07-d803-4444-809b-24e2c79d5491\"},\"order_type\":\"SELL_PO\",\"margin\":\"500000000.000000000000000000\",\"fillable\":\"0.010000000000000000\",\"trigger_price\":\"0.000000000000000000\",\"order_hash\":\"b55V8vJGE8L8f5s7iJ1HJV276+V8OsLe3N1NN4ddOWg=\"}]",  # noqa: mock"
+                                "index": True
+                            }
+                        ]
+                    },
+                ],
+                "codespace": "",
+                "code": 0,
+                "info": ""
+            }
+        }
+
+        self.exchange._data_source._query_executor._get_tx_responses.put_nowait(transaction_response)
+
+        self.async_run_with_timeout(self.exchange._check_orders_creation_transactions())
+
+        self.assertEquals(0, len(self.buy_order_created_logger.event_log))
+        self.assertEquals(0, len(self.order_failure_logger.event_log))
+
+        self.assertFalse(
+            self.is_logged(
+                "INFO",
+                f"Order {order.client_order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
+                f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
+                f"client_order_id='{order.client_order_id}', exchange_order_id=None, misc_updates=None)"
+            )
+        )
+
+    # Momentarily disabled
+    # @patch("hummingbot.connector.exchange.injective_v2.data_sources.injective_data_source.InjectiveDataSource._time")
+    # def test_order_not_found_in_its_creating_transaction_marked_as_failed_during_order_creation_check(self, time_mock):
+    #     self.configure_all_symbols_response(mock_api=None)
+    #     self.exchange._set_current_timestamp(1640780000.0)
+    #     time_mock.return_value = 1640780000.0
+    #
+    #     self.exchange.start_tracking_order(
+    #         order_id=self.client_order_id_prefix + "1",
+    #         exchange_order_id="0x9f94598b4842ab66037eaa7c64ec10ae16dcf196e61db8522921628522c0f62e",  # noqa: mock
+    #         trading_pair=self.trading_pair,
+    #         order_type=OrderType.LIMIT,
+    #         trade_type=TradeType.BUY,
+    #         price=Decimal("10000"),
+    #         amount=Decimal("100"),
+    #         position_action=PositionAction.OPEN,
+    #     )
+    #
+    #     self.assertIn(self.client_order_id_prefix + "1", self.exchange.in_flight_orders)
+    #     order: GatewayPerpetualInFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+    #
+    #     order.update_creation_transaction_hash(
+    #         creation_transaction_hash="66A360DA2FD6884B53B5C019F1A2B5BED7C7C8FC07E83A9C36AD3362EDE096AE")  # noqa: mock
+    #
+    #     transaction_response = {
+    #         "tx": {
+    #             "body": {
+    #                 "messages": [],
+    #                 "timeoutHeight": "20557725",
+    #                 "memo": "",
+    #                 "extensionOptions": [],
+    #                 "nonCriticalExtensionOptions": []
+    #             },
+    #             "authInfo": {},
+    #             "signatures": [
+    #                 "/xSRaq4l5D6DZI5syfAOI5ITongbgJnN97sxCBLXsnFqXLbc4ztEOdQJeIZUuQM+EoqMxUjUyP1S5hg8lM+00w=="
+    #             ]
+    #         },
+    #         "txResponse": {
+    #             "height": "20557627",
+    #             "txhash": "7CC335E98486A7C13133E04561A61930F9F7AD34E6A14A72BC25956F2495CE33",  # noqa: mock
+    #             "data": "",
+    #             "rawLog": "",
+    #             "logs": [],
+    #             "gasWanted": "209850",
+    #             "gasUsed": "93963",
+    #             "tx": {},
+    #             "timestamp": "2024-01-10T13:23:29Z",
+    #             "events": [
+    #                 {
+    #                     "type": "coin_spent",
+    #                     "attributes": [
+    #                         {
+    #                             "key": "spender",
+    #                             "value": "inj1jtcvrdguuyx6dwz6xszpvkucyplw7z94vxlu07",  # noqa: mock
+    #                             "index": True
+    #                         },
+    #                         {
+    #                             "key": "amount",
+    #                             "value": "33576000000000inj",
+    #                             "index": True
+    #                         }
+    #                     ]
+    #                 },
+    #                 {
+    #                     "type": "coin_received",
+    #                     "attributes": [
+    #                         {
+    #                             "key": "receiver",
+    #                             "value": "inj17xpfvakm2amg962yls6f84z3kell8c5l6s5ye9",  # noqa: mock
+    #                             "index": True
+    #                         },
+    #                         {
+    #                             "key": "amount",
+    #                             "value": "33576000000000inj",
+    #                             "index": True
+    #                         }
+    #                     ]
+    #                 },
+    #                 {
+    #                     "type": "transfer",
+    #                     "attributes": [
+    #                         {
+    #                             "key": "recipient",
+    #                             "value": "inj17xpfvakm2amg962yls6f84z3kell8c5l6s5ye9",  # noqa: mock
+    #                             "index": True
+    #                         },
+    #                         {
+    #                             "key": "sender",
+    #                             "value": "inj1jtcvrdguuyx6dwz6xszpvkucyplw7z94vxlu07",  # noqa: mock
+    #                             "index": True
+    #                         },
+    #                         {
+    #                             "key": "amount",
+    #                             "value": "33576000000000inj",
+    #                             "index": True
+    #                         }
+    #                     ]
+    #                 },
+    #                 {
+    #                     "type": "message",
+    #                     "attributes": [
+    #                         {
+    #                             "key": "sender",
+    #                             "value": "inj1jtcvrdguuyx6dwz6xszpvkucyplw7z94vxlu07",  # noqa: mock
+    #                             "index": True
+    #                         }
+    #                     ]
+    #                 },
+    #                 {
+    #                     "type": "tx",
+    #                     "attributes": [
+    #                         {
+    #                             "key": "fee",
+    #                             "value": "33576000000000inj",
+    #                             "index": True
+    #                         },
+    #                         {
+    #                             "key": "fee_payer",
+    #                             "value": "inj1jtcvrdguuyx6dwz6xszpvkucyplw7z94vxlu07",  # noqa: mock
+    #                             "index": True
+    #                         }
+    #                     ]
+    #                 },
+    #                 {
+    #                     "type": "tx",
+    #                     "attributes": [
+    #                         {
+    #                             "key": "acc_seq",
+    #                             "value": "inj1jtcvrdguuyx6dwz6xszpvkucyplw7z94vxlu07/989",
+    #                             "index": True
+    #                         }
+    #                     ]
+    #                 },
+    #                 {
+    #                     "type": "tx",
+    #                     "attributes": [
+    #                         {
+    #                             "key": "signature",
+    #                             "value": "/xSRaq4l5D6DZI5syfAOI5ITongbgJnN97sxCBLXsnFqXLbc4ztEOdQJeIZUuQM+EoqMxUjUyP1S5hg8lM+00w==",
+    #                             "index": True
+    #                         }
+    #                     ]
+    #                 },
+    #                 {
+    #                     "type": "message",
+    #                     "attributes": [
+    #                         {
+    #                             "key": "action",
+    #                             "value": "/injective.exchange.v1beta1.MsgBatchUpdateOrders",
+    #                             "index": True
+    #                         },
+    #                         {
+    #                             "key": "sender",
+    #                             "value": "inj1jtcvrdguuyx6dwz6xszpvkucyplw7z94vxlu07",  # noqa: mock
+    #                             "index": True
+    #                         },
+    #                         {
+    #                             "key": "module",
+    #                             "value": "exchange",
+    #                             "index": True
+    #                         }
+    #                     ]
+    #                 },
+    #                 {
+    #                     "type": "injective.exchange.v1beta1.EventNewDerivativeOrders",
+    #                     "attributes": [
+    #                         {
+    #                             "key": "buy_orders",
+    #                             "value": json.dumps(
+    #                                 [
+    #                                     {
+    #                                         "order_info": {
+    #                                             "subaccount_id": "0xece2f1eea8b02ed71a06c2c9a18e5e56d5e59300000000000000000000000000",  # noqa: mock
+    #                                             "fee_recipient": "inj1an30rm4gkqhdwxsxcty6rrj72m27tycqh2qy8v",  # noqa: mock
+    #                                             "price": "50000000000.000000000000000000",
+    #                                             "quantity": "0.010000000000000000",
+    #                                             "cid": "d4bfca07-d803-4444-809b-24e2c79d5491"
+    #                                         },
+    #                                         "order_type": "BUY_PO",
+    #                                         "margin": "500000000.000000000000000000",
+    #                                         "fillable": "0.010000000000000000",
+    #                                         "trigger_price": "0.000000000000000000",
+    #                                         "order_hash": "b55V8vJGE8L8f5s7iJ1HJV276+V8OsLe3N1NN4ddOWg="
+    #                                     }
+    #                                 ]
+    #                             ),
+    #                             "index": True
+    #                         },
+    #                         {
+    #                             "key": "market_id",
+    #                             "value": "\"0x17ef48032cb24375ba7c2e39f384e56433bcab20cbee9a7357e4cba2eb00abe6\"",  # noqa: mock"
+    #                             "index": True
+    #                         },
+    #                         {
+    #                             "key": "sell_orders",
+    #                             "value": "[{\"order_info\":{\"subaccount_id\":\"0xece2f1eea8b02ed71a06c2c9a18e5e56d5e59300000000000000000000000000\",\"fee_recipient\":\"inj1an30rm4gkqhdwxsxcty6rrj72m27tycqh2qy8v\",\"price\":\"50000000000.000000000000000000\",\"quantity\":\"0.010000000000000000\",\"cid\":\"d4bfca07-d803-4444-809b-24e2c79d5491\"},\"order_type\":\"SELL_PO\",\"margin\":\"500000000.000000000000000000\",\"fillable\":\"0.010000000000000000\",\"trigger_price\":\"0.000000000000000000\",\"order_hash\":\"b55V8vJGE8L8f5s7iJ1HJV276+V8OsLe3N1NN4ddOWg=\"}]",  # noqa: mock"
+    #                             "index": True
+    #                         }
+    #                     ]
+    #                 },
+    #                 {
+    #                     "type": "injective.exchange.v1beta1.EventOrderFail",
+    #                     "attributes": [
+    #                         {
+    #                             "key": "account",
+    #                             "value": "\"kvDBtRzhDaa4WjQEFluYIH7vCLU=\"",
+    #                             "index": True
+    #                         },
+    #                         {
+    #                             "key": "flags",
+    #                             "value": "[95]",
+    #                             "index": True
+    #                         },
+    #                         {
+    #                             "key": "hashes",
+    #                             "value": "[\"X7hrvEMpmG7s/sw9q5l1r6dPyHgx5PkH0LPGOs5rTV0=\"]",
+    #                             "index": True,
+    #                         }
+    #                     ]
+    #                 }
+    #             ],
+    #             "codespace": "",
+    #             "code": 0,
+    #             "info": ""
+    #         }
+    #     }
+    #
+    #     self.exchange._data_source._query_executor._get_tx_responses.put_nowait(transaction_response)
+    #
+    #     self.async_run_with_timeout(self.exchange._check_orders_creation_transactions())
+    #
+    #     self.assertEquals(0, len(self.buy_order_created_logger.event_log))
+    #     failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
+    #     self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
+    #     self.assertEqual(OrderType.LIMIT, failure_event.order_type)
+    #     self.assertEqual(order.client_order_id, failure_event.order_id)
+    #
+    #     self.assertTrue(
+    #         self.is_logged(
+    #             "INFO",
+    #             f"Order {order.client_order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
+    #             f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
+    #             f"client_order_id='{order.client_order_id}', exchange_order_id=None, misc_updates=None)"
+    #         )
+    #     )
+
+    @patch("hummingbot.connector.exchange.injective_v2.data_sources.injective_data_source.InjectiveDataSource._time")
+    def test_order_in_failed_transaction_marked_as_failed_during_order_creation_check(self, time_mock):
+        self.configure_all_symbols_response(mock_api=None)
+        self.exchange._set_current_timestamp(1640780000.0)
+        time_mock.return_value = 1640780000.0
+
+        self.exchange.start_tracking_order(
+            order_id=self.client_order_id_prefix + "1",
+            exchange_order_id="0x9f94598b4842ab66037eaa7c64ec10ae16dcf196e61db8522921628522c0f62e",  # noqa: mock
+            trading_pair=self.trading_pair,
+            order_type=OrderType.LIMIT,
+            trade_type=TradeType.BUY,
+            price=Decimal("10000"),
+            amount=Decimal("100"),
+            position_action=PositionAction.OPEN,
+        )
+
+        self.assertIn(self.client_order_id_prefix + "1", self.exchange.in_flight_orders)
+        order: GatewayPerpetualInFlightOrder = self.exchange.in_flight_orders[self.client_order_id_prefix + "1"]
+
+        order.update_creation_transaction_hash(
+            creation_transaction_hash="66A360DA2FD6884B53B5C019F1A2B5BED7C7C8FC07E83A9C36AD3362EDE096AE")  # noqa: mock
+
+        transaction_response = {
+            "tx": {
+                "body": {
+                    "messages": [],
+                    "timeoutHeight": "20557725",
+                    "memo": "",
+                    "extensionOptions": [],
+                    "nonCriticalExtensionOptions": []
+                },
+                "authInfo": {},
+                "signatures": [
+                    "/xSRaq4l5D6DZI5syfAOI5ITongbgJnN97sxCBLXsnFqXLbc4ztEOdQJeIZUuQM+EoqMxUjUyP1S5hg8lM+00w=="
+                ]
+            },
+            "txResponse": {
+                "height": "20557627",
+                "txhash": "7CC335E98486A7C13133E04561A61930F9F7AD34E6A14A72BC25956F2495CE33",  # noqa: mock
+                "data": "",
+                "rawLog": "",
+                "logs": [],
+                "gasWanted": "209850",
+                "gasUsed": "93963",
+                "tx": {},
+                "timestamp": "2024-01-10T13:23:29Z",
+                "events": [],
+                "codespace": "",
+                "code": 5,
+                "info": ""
+            }
+        }
+
+        self.exchange._data_source._query_executor._get_tx_responses.put_nowait(transaction_response)
+
+        self.async_run_with_timeout(self.exchange._check_orders_creation_transactions())
+
+        self.assertEquals(0, len(self.buy_order_created_logger.event_log))
+        failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
+        self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
+        self.assertEqual(OrderType.LIMIT, failure_event.order_type)
+        self.assertEqual(order.client_order_id, failure_event.order_id)
+
+        self.assertTrue(
+            self.is_logged(
+                "INFO",
+                f"Order {order.client_order_id} has failed. Order Update: OrderUpdate(trading_pair='{self.trading_pair}', "
+                f"update_timestamp={self.exchange.current_timestamp}, new_state={repr(OrderState.FAILED)}, "
+                f"client_order_id='{order.client_order_id}', exchange_order_id=None, misc_updates=None)"
+            )
+        )
 
     def _expected_initial_status_dict(self) -> Dict[str, bool]:
         status_dict = super()._expected_initial_status_dict()
