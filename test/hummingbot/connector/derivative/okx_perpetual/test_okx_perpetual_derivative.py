@@ -934,10 +934,12 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_SET_POSITION_MODE[CONSTANTS.ENDPOINT])
         response = {
             "code": "0",
-            "msg": "",
-            "data": [{
-                "posMode": "long_short_mode"
-            }]
+            "data": [
+                {
+                    "posMode": "long_short_mode"
+                }
+            ],
+            "msg": ""
         }
         mock_api.post(url, body=json.dumps(response), callback=callback)
         return url
@@ -955,15 +957,9 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         error_code = 1_000
         error_msg = "Some problem"
         mock_response = {
-            "ret_code": error_code,
-            "ret_msg": error_msg,
-            "ext_code": "",
-            "result": None,
-            "ext_info": None,
-            "time_now": "1577477968.175013",
-            "rate_limit_status": 74,
-            "rate_limit_reset_ms": 1577477968183,
-            "rate_limit": 75
+            "code": str(error_code),
+            "data": [],
+            "msg": error_msg
         }
         mock_api.post(regex_url, body=json.dumps(mock_response), callback=callback)
 
