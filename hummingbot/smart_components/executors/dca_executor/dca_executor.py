@@ -292,13 +292,14 @@ class DCAExecutor(ExecutorBase):
         minus the trailing delta is higher than the current value of the trailing stop trigger.
         """
         if self.config.trailing_stop:
+            net_pnl_pct = self.get_net_pnl_pct()
             if not self._trailing_stop_trigger_pct:
-                if self.net_pnl_pct > self.config.trailing_stop.activation_price:
-                    self._trailing_stop_trigger_pct = self.net_pnl_pct
+                if net_pnl_pct > self.config.trailing_stop.activation_price:
+                    self._trailing_stop_trigger_pct = net_pnl_pct - self.config.trailing_stop.trailing_delta
             else:
-                if self.net_pnl_pct - self.config.trailing_stop.trailing_delta > self._trailing_stop_trigger_pct:
-                    self._trailing_stop_trigger_pct = self.net_pnl_pct - self.config.trailing_stop.trailing_delta
-                if self.net_pnl_pct < self._trailing_stop_trigger_pct:
+                if net_pnl_pct - self.config.trailing_stop.trailing_delta > self._trailing_stop_trigger_pct:
+                    self._trailing_stop_trigger_pct = net_pnl_pct - self.config.trailing_stop.trailing_delta
+                if net_pnl_pct < self._trailing_stop_trigger_pct:
                     self.place_close_order_and_cancel_open_orders(close_type=CloseType.TRAILING_STOP)
 
     def control_take_profit(self):
@@ -376,6 +377,14 @@ class DCAExecutor(ExecutorBase):
             self.logger().info(f"Close orders: {self._close_orders}")
             self.place_close_order_and_cancel_open_orders(close_type=self.close_type)
 
+    def update_tracked_orders_with_order_id(self, order_id: str):
+        all_orders = self._open_orders + self._close_orders
+        active_order = next((order for order in all_orders if order.order_id == order_id), None)
+        if active_order:
+            in_flight_order = self.get_in_flight_order(self.config.exchange, order_id)
+            if in_flight_order:
+                active_order.order = in_flight_order
+
     def process_order_created_event(self,
                                     event_tag: int,
                                     market: ConnectorBase,
@@ -384,12 +393,7 @@ class DCAExecutor(ExecutorBase):
         This method is responsible for processing the order created event. Here we will add the InFlightOrder to the
         active orders list.
         """
-        all_orders = self._open_orders + self._close_orders
-        active_order = next((order for order in all_orders if order.order_id == event.order_id), None)
-        if active_order:
-            in_flight_order = self.get_in_flight_order(self.config.exchange, event.order_id)
-            if in_flight_order:
-                active_order.order = in_flight_order
+        self.update_tracked_orders_with_order_id(event.order_id)
 
     def process_order_failed_event(self,
                                    event_tag: int,
@@ -423,6 +427,7 @@ class DCAExecutor(ExecutorBase):
         is not available.
         """
         self._total_executed_amount_backup += event.amount
+        self.update_tracked_orders_with_order_id(event.order_id)
 
     def get_custom_info(self) -> Dict:
         return {
