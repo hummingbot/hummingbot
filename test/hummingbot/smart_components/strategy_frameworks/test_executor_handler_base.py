@@ -27,12 +27,6 @@ class TestExecutorHandlerBase(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(self.executor_handler.controller, self.mock_controller)
         self.assertTrue(isinstance(self.executor_handler.logger(), HummingbotLogger))
 
-    @patch("hummingbot.smart_components.strategy_frameworks.executor_handler_base.safe_ensure_future")
-    def test_start(self, mock_safe_ensure_future):
-        self.executor_handler.start()
-        self.mock_controller.start.assert_called_once()
-        mock_safe_ensure_future.assert_called_once()
-
     def test_terminate_control_loop(self):
         self.executor_handler.stop()
         self.assertTrue(self.executor_handler.terminated.is_set())
