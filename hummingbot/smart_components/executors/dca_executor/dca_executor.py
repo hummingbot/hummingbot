@@ -305,7 +305,8 @@ class DCAExecutor(ExecutorBase):
     def control_take_profit(self):
         """
         This method is responsible for controlling the take profit. In order to trigger the take profit all the orders must
-        be completed and the net pnl must be higher than the take profit
+        be completed and the net pnl must be higher than the take profit. Take profit order is limit type only, if you
+        want to use market order, you can use trailing stop instead.
         """
         if self.config.take_profit:
             if self.net_pnl_pct > self.config.take_profit:
@@ -375,6 +376,8 @@ class DCAExecutor(ExecutorBase):
         else:
             self.logger().info(f"Open amount: {self.open_filled_amount}, Close amount: {self.close_filled_amount}")
             self.logger().info(f"Close orders: {self._close_orders}")
+            for order in active_open_orders:
+                self.logger().info(f"Open order {order.order_id} status: {order.order.current_state}")
             self.place_close_order_and_cancel_open_orders(close_type=self.close_type)
 
     def update_tracked_orders_with_order_id(self, order_id: str):
