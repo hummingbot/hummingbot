@@ -1,5 +1,5 @@
 import time
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.smart_components.executors.arbitrage_executor.arbitrage_executor import ArbitrageExecutor
@@ -40,6 +40,10 @@ class GenericExecutor(ExecutorHandlerBase):
     def on_stop(self):
         """Actions to perform on stop."""
         super().on_stop()
+
+    def stop(self):
+        """Stop the executor handler."""
+        super().stop()
         self.stop_all_executors()
 
     def stop_all_executors(self):
@@ -131,7 +135,7 @@ class GenericExecutor(ExecutorHandlerBase):
                 executor = self.get_executor_by_id(action.executor_id)
                 if executor and executor.is_closed:
                     MarketsRecorder.get_instance().store_executor(executor)
-                    self.dca_executors.remove(executor)
+                    self.remove_executor(executor)
             else:
                 raise ValueError(f"Unknown action type {type(action)}")
 
@@ -163,6 +167,17 @@ class GenericExecutor(ExecutorHandlerBase):
         all_executors = self.position_executors + self.dca_executors + self.arbitrage_executors
         executor = next((executor for executor in all_executors if executor.config.id == executor_id), None)
         return executor
+
+    def remove_executor(self, executor: Union[PositionExecutor, DCAExecutor, ArbitrageExecutor]):
+        """
+        Remove the executor by id.
+        """
+        if isinstance(executor, PositionExecutor):
+            self.position_executors.remove(executor)
+        elif isinstance(executor, DCAExecutor):
+            self.dca_executors.remove(executor)
+        elif isinstance(executor, ArbitrageExecutor):
+            self.arbitrage_executors.remove(executor)
 
     def set_leverage_and_position_mode(self):
         connector = self.strategy.connectors[self.controller.config.exchange]
