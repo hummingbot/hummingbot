@@ -22,7 +22,7 @@ from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.clock import Clock
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -127,18 +127,9 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
     def supported_position_modes(self) -> List[PositionMode]:
         return [PositionMode.ONEWAY, PositionMode.HEDGE]
 
-    # TODO: Check if this endpoints are enough
     def _is_request_exception_related_to_time_synchronizer(self, request_exception: Exception):
-        ts_missing_target_str = self._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_TIMESTAMP_HEADER_MISSING)
-        ts_invalid_target_str = self._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_TIMESTAMP_HEADER_INVALID)
-        param_error_target_str = (
-            f"{self._format_ret_code_for_print(ret_code=CONSTANTS.RET_CODE_PARAMS_ERROR)} - invalid timestamp")
         error_description = str(request_exception)
-        is_time_synchronizer_related = (
-            ts_missing_target_str in error_description
-            or ts_invalid_target_str in error_description
-            or param_error_target_str in error_description
-        )
+        is_time_synchronizer_related = '"code":"50113"' in error_description
         return is_time_synchronizer_related
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
@@ -715,6 +706,28 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         order_status = CONSTANTS.ORDER_STATE[order_msg["state"]]
         client_order_id = str(order_msg["clOrdId"])
         updatable_order = self._order_tracker.all_updatable_orders.get(client_order_id)
+        fillable_order = self._order_tracker.all_fillable_orders.get(client_order_id)
+
+        if (fillable_order is not None
+                and order_status in [OrderState.PARTIALLY_FILLED, OrderState.FILLED]):
+            fee = TradeFeeBase.new_spot_fee(
+                fee_schema=self.trade_fee_schema(),
+                trade_type=fillable_order.trade_type,
+                percent_token=order_msg["fillFeeCcy"],
+                flat_fees=[TokenAmount(amount=Decimal(order_msg["fillFee"]), token=order_msg["fillFeeCcy"])]
+            )
+            trade_update = TradeUpdate(
+                trade_id=str(order_msg["tradeId"]),
+                client_order_id=fillable_order.client_order_id,
+                exchange_order_id=str(order_msg["ordId"]),
+                trading_pair=fillable_order.trading_pair,
+                fee=fee,
+                fill_base_amount=Decimal(order_msg["fillSz"]),
+                fill_quote_amount=Decimal(order_msg["fillSz"]) * Decimal(order_msg["fillPx"]),
+                fill_price=Decimal(order_msg["fillPx"]),
+                fill_timestamp=int(order_msg["uTime"]) * 1e-3,
+            )
+            self._order_tracker.process_trade_update(trade_update)
 
         if updatable_order is not None:
             new_order_update: OrderUpdate = OrderUpdate(
