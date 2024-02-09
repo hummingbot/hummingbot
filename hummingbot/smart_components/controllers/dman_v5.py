@@ -3,6 +3,7 @@ import uuid
 from decimal import Decimal
 from typing import List, Optional
 
+import pandas as pd
 import pandas_ta as ta  # noqa: F401
 
 from hummingbot.core.data_type.common import TradeType
@@ -14,6 +15,7 @@ from hummingbot.smart_components.models.executor_actions import (
     StopExecutorAction,
     StoreExecutorAction,
 )
+from hummingbot.smart_components.models.executors_info import ExecutorInfo
 from hummingbot.smart_components.order_level_distributions.distributions import Distributions
 from hummingbot.smart_components.strategy_frameworks.controller_base import ControllerConfigBase
 from hummingbot.smart_components.strategy_frameworks.generic_strategy.generic_controller import GenericController
@@ -63,7 +65,7 @@ class DManV5(GenericController):
             ratio=self.config.spread_ratio_increase)
         self.stored_dcas = set()
 
-    def determine_actions(self) -> [List[ExecutorAction]]:
+    async def determine_actions(self) -> [List[ExecutorAction]]:
         """
         Determine actions based on the provided executor handler report.
         """
@@ -88,28 +90,36 @@ class DManV5(GenericController):
         signal = self.get_signal()
 
         # compute number of DCAs per side
-        n_long_dcas = len([executor for executor in active_dca_executors if executor.config.side == TradeType.BUY])
-        n_short_dcas = len([executor for executor in active_dca_executors if executor.config.side == TradeType.SELL])
+        long_dcas = [executor for executor in active_dca_executors if executor.config.side == TradeType.BUY]
+        short_dcas = [executor for executor in active_dca_executors if executor.config.side == TradeType.SELL]
+        n_long_dcas = len(long_dcas)
+        n_short_dcas = len(short_dcas)
 
         # evaluate long dca conditions
         if signal == 1:
             if n_long_dcas == 0:
                 proposal.append(self.create_dca_action(TradeType.BUY, close_price))
             elif n_long_dcas < self.config.max_dca_per_side:
-                min_long_dca_average_price = min([executor.custom_info["current_position_average_price"] for executor in
-                                                  active_dca_executors if executor.config.side == TradeType.BUY])
-                if min_long_dca_average_price != Decimal("0") and float(close_price) < float(min_long_dca_average_price) * (
-                        1 - self.config.min_distance_between_dca):
+                # evaluate if all the DCAs are active to create a new one
+                all_dca_trading_condition = all([executor.is_trading for executor in long_dcas])
+                # compute the min price of all the DCA open prices to see if we should create another DCA
+                min_long_dca_average_price = min([executor.custom_info["max_price"] for executor in long_dcas])
+                min_price_distance_condition = float(close_price) < float(min_long_dca_average_price) * (1 - self.config.min_distance_between_dca)
+
+                if all_dca_trading_condition and min_price_distance_condition:
                     proposal.append(self.create_dca_action(TradeType.BUY, close_price))
+
+        # evaluate short dca conditions
         elif signal == -1:
-            # evaluate short dca conditions
             if n_short_dcas == 0:
                 proposal.append(self.create_dca_action(TradeType.SELL, close_price))
             elif n_short_dcas < self.config.max_dca_per_side:
-                max_short_dca_average_price = max([executor.custom_info["current_position_average_price"] for executor in
-                                                   active_dca_executors if executor.config.side == TradeType.SELL])
-                if max_short_dca_average_price != Decimal("0") and float(close_price) > float(
-                        max_short_dca_average_price) * (1 + self.config.min_distance_between_dca):
+                # evaluate if all the DCAs are active to create a new one
+                all_dca_trading_condition = all([executor.is_trading for executor in long_dcas])
+                # compute the max price of all the DCA open prices to see if we should create another DCAa
+                max_short_dca_open_price = max([executor.custom_info["min_price"] for executor in short_dcas])
+                max_price_distance_condition = float(close_price) > float(max_short_dca_open_price) * (1 + self.config.min_distance_between_dca)
+                if all_dca_trading_condition and max_price_distance_condition:
                     proposal.append(self.create_dca_action(TradeType.SELL, close_price))
         return proposal
 
@@ -170,3 +180,21 @@ class DManV5(GenericController):
                 proposal.append(StoreExecutorAction(executor_id=executor.id, controller_id=self.config.id))
                 self.stored_dcas.add(executor.id)
         return proposal
+
+    @staticmethod
+    def executors_info_to_df(executors_info: List[ExecutorInfo]) -> pd.DataFrame:
+        """
+        Convert a list of executor handler info to a dataframe.
+        """
+        df = pd.DataFrame([ei.dict() for ei in executors_info])
+        # Normalize the desired data
+        keys_to_expand = ['current_position_average_price', 'filled_amount_quote', "side"]
+        expanded_data = df['custom_info'].apply(pd.Series)[keys_to_expand]
+
+        # Concatenate with the original DataFrame
+        df_expanded = pd.concat([df, expanded_data], axis=1).drop('custom_info', axis=1)
+
+        # Rename the columns
+        columns_to_show = ['id', 'timestamp', 'side', 'status', 'net_pnl_pct', 'net_pnl_quote', 'cum_fees_quote',
+                           'close_type', 'current_position_average_price', 'filled_amount_quote']
+        return df_expanded[columns_to_show]
