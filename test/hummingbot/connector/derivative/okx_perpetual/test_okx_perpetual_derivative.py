@@ -533,7 +533,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
 
     @property
     def is_order_fill_http_update_included_in_status_update(self) -> bool:
-        return True
+        return False
 
     @property
     def is_order_fill_http_update_executed_during_websocket_order_event_processing(self) -> bool:
@@ -1496,7 +1496,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "ordType": "limit",
                     "side": order.trade_type.name.lower(),
                     "posSide": "long",
-                    "tdMode": "isolated",
+                    "tdMode": "cross",
                     "accFillSz": "0",
                     "fillPx": "0",
                     "tradeId": "1",
@@ -1524,139 +1524,25 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         }
 
     def _order_status_request_canceled_mock_response(self, order: InFlightOrder) -> Any:
-        return {
-            "code": "0",
-            "msg": "",
-            "data": [
-                {
-                    "instType": "SWAP",
-                    "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                    "ccy": "",
-                    "ordId": order.exchange_order_id or "EOID1",
-                    "clOrdId": order.client_order_id,
-                    "tag": "",
-                    "px": str(order.price),
-                    "sz": str(order.amount),
-                    "pnl": "5",
-                    "ordType": "limit",
-                    "side": order.order_type.name.lower(),
-                    "posSide": "long",
-                    "tdMode": "isolated",
-                    "accFillSz": "0",
-                    "fillPx": "0",
-                    "tradeId": "1",
-                    "fillSz": "0",
-                    "fillTime": "0",
-                    "state": "canceled",
-                    "avgPx": "0",
-                    "lever": "20",
-                    "tpTriggerPx": "",
-                    "tpTriggerPxType": "last",
-                    "tpOrdPx": "",
-                    "slTriggerPx": "",
-                    "slTriggerPxType": "last",
-                    "slOrdPx": "",
-                    "feeCcy": "",
-                    "fee": "",
-                    "rebateCcy": "",
-                    "rebate": "",
-                    "tgtCcy": "",
-                    "category": "",
-                    "uTime": "1597026383085",
-                    "cTime": "1597026383085"
-                }
-            ]
-        }
+        resp = self._order_status_request_completely_filled_mock_response(order)
+        resp["data"][0]["state"] = "canceled"
+        resp["data"][0]["accFillSz"] = 0
+        resp["data"][0]["cum_exec_value"] = 0
+        return resp
 
     def _order_status_request_open_mock_response(self, order: InFlightOrder) -> Any:
-        return {
-            "code": "0",
-            "msg": "",
-            "data": [
-                {
-                    "instType": "SWAP",
-                    "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                    "ccy": "",
-                    "ordId": order.exchange_order_id or "EOID1",
-                    "clOrdId": order.client_order_id,
-                    "tag": "",
-                    "px": str(order.price),
-                    "sz": str(order.amount),
-                    "pnl": "5",
-                    "ordType": "limit",
-                    "side": order.order_type.name.lower(),
-                    "posSide": "long",
-                    "tdMode": "isolated",
-                    "accFillSz": "0",
-                    "fillPx": "0",
-                    "tradeId": "1",
-                    "fillSz": "0",
-                    "fillTime": "0",
-                    "state": "live",
-                    "avgPx": "0",
-                    "lever": "20",
-                    "tpTriggerPx": "",
-                    "tpTriggerPxType": "last",
-                    "tpOrdPx": "",
-                    "slTriggerPx": "",
-                    "slTriggerPxType": "last",
-                    "slOrdPx": "",
-                    "feeCcy": "",
-                    "fee": "",
-                    "rebateCcy": "",
-                    "rebate": "",
-                    "tgtCcy": "",
-                    "category": "",
-                    "uTime": "1597026383085",
-                    "cTime": "1597026383085"
-                }
-            ]
-        }
+        resp = self._order_status_request_completely_filled_mock_response(order)
+        resp["data"][0]["state"] = "live"
+        resp["data"][0]["accFillSz"] = 0
+        resp["data"][0]["cum_exec_value"] = 0
+        return resp
 
     def _order_status_request_partially_filled_mock_response(self, order: InFlightOrder) -> Any:
-        return {
-            "code": "0",
-            "msg": "",
-            "data": [
-                {
-                    "instType": "SWAP",
-                    "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                    "ccy": "",
-                    "ordId": order.exchange_order_id or "EOID1",
-                    "clOrdId": order.client_order_id,
-                    "tag": "",
-                    "px": str(order.price),
-                    "sz": str(order.amount),
-                    "pnl": "5",
-                    "ordType": "limit",
-                    "side": order.trade_type.name.lower(),
-                    "posSide": "long",
-                    "tdMode": "isolated",
-                    "accFillSz": "0",
-                    "fillPx": str(self.expected_partial_fill_price),
-                    "tradeId": "1",
-                    "fillSz": str(self.expected_partial_fill_amount),
-                    "fillTime": "0",
-                    "state": "partially_filled",
-                    "avgPx": str(order.price + Decimal(2)),
-                    "lever": "20",
-                    "tpTriggerPx": "",
-                    "tpTriggerPxType": "last",
-                    "tpOrdPx": "",
-                    "slTriggerPx": "",
-                    "slTriggerPxType": "last",
-                    "slOrdPx": "",
-                    "feeCcy": self.expected_fill_fee.flat_fees[0].token,
-                    "fee": str(self.expected_fill_fee.flat_fees[0].amount),
-                    "rebateCcy": "",
-                    "rebate": "",
-                    "tgtCcy": "",
-                    "category": "",
-                    "uTime": "1597026383085",
-                    "cTime": "1597026383085"
-                }
-            ]
-        }
+        resp = self._order_status_request_completely_filled_mock_response(order)
+        resp["data"][0]["state"] = "partially_filled"
+        resp["data"][0]["accFillSz"] = float(self.expected_partial_fill_amount)
+        resp["data"][0]["cum_exec_value"] = float(self.expected_partial_fill_price)
+        return resp
 
     def _order_fills_request_partial_fill_mock_response(self, order: InFlightOrder):
         return {
