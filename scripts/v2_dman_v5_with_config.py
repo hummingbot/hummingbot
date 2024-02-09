@@ -98,7 +98,6 @@ class DManV5MultiplePairs(ScriptStrategyBase):
             controller = DManV5(config=dman_config)
             self.controllers[trading_pair] = controller
             self.executor_handlers[trading_pair] = GenericExecutor(strategy=self, controller=controller)
-            self.markets = controller.update_strategy_markets_dict(self.markets)
 
     @property
     def is_perpetual(self):
