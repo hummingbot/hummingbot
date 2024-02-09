@@ -79,6 +79,13 @@ class ExecutorBase(SmartComponentBase):
         return self.is_active and self.net_pnl_quote != 0
 
     @property
+    def filled_amount_quote(self):
+        """
+        Returns the filled amount in quote currency.
+        """
+        return Decimal("0")
+
+    @property
     def is_active(self):
         """
         Returns whether the executor is open or trading.
@@ -108,6 +115,7 @@ class ExecutorBase(SmartComponentBase):
             net_pnl_pct=self.net_pnl_pct,
             net_pnl_quote=self.net_pnl_quote,
             cum_fees_quote=self.cum_fees_quote,
+            filled_amount_quote=self.filled_amount_quote,
             is_trading=self.is_trading,
             custom_info=self.get_custom_info()
         )

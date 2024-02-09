@@ -23,5 +23,6 @@ class Executors(HummingbotBase):
     net_pnl_pct = Column(Float, nullable=False)
     net_pnl_quote = Column(Float, nullable=False)
     cum_fees_quote = Column(Float, nullable=False)
+    filled_amount_quote = Column(Float, nullable=False)
     is_trading = Column(Boolean, nullable=False)
     custom_info = Column(JSON, nullable=False)

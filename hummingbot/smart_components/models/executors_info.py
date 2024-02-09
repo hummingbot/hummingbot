@@ -22,6 +22,7 @@ class ExecutorInfo(BaseModel):
     net_pnl_pct: Decimal
     net_pnl_quote: Decimal
     cum_fees_quote: Decimal
+    filled_amount_quote: Decimal
     is_trading: bool
     custom_info: Dict  # TODO: Define the custom info type for each executor
 
