@@ -205,6 +205,11 @@ class MarketsRecorder:
                 serialized_config = executor.executor_info.json()
                 session.add(Executors(**json.loads(serialized_config)))
 
+    def get_executors_by_ids(self, executor_ids: List[str]):
+        with self._sql_manager.get_new_session() as session:
+            executors = session.query(Executors).filter(Executors.id.in_(executor_ids)).all()
+            return executors
+
     def get_position_executors(self,
                                controller_name: str = None,
                                exchange: str = None,

@@ -91,6 +91,14 @@ class DCAExecutor(ExecutorBase):
         return self.close_filled_amount * self.close_price
 
     @property
+    def filled_amount(self) -> Decimal:
+        return self.open_filled_amount + self.close_filled_amount
+
+    @property
+    def filled_amount_quote(self) -> Decimal:
+        return self.open_filled_amount_quote + self.close_filled_amount_quote
+
+    @property
     def max_amount_quote(self) -> Decimal:
         return sum(self.config.amounts_quote)
 
@@ -437,8 +445,8 @@ class DCAExecutor(ExecutorBase):
             "side": self.config.side,
             "current_position_average_price": self.current_position_average_price,
             "target_position_average_price": self.target_position_average_price,
-            "filled_amount": self.open_filled_amount,
-            "filled_amount_quote": self.open_filled_amount_quote,
+            "filled_amount": self.filled_amount,
+            "filled_amount_quote": self.filled_amount_quote,
             "max_amount_quote": self.max_amount_quote,
             "min_price": self.min_price,
             "max_price": self.max_price,

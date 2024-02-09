@@ -31,6 +31,7 @@ class GenericExecutor(ExecutorHandlerBase):
         self.position_executors = []
         self.dca_executors = []
         self.arbitrage_executors = []
+        self.stored_executors_ids = set()
 
     def on_start(self):
         super().on_start()
@@ -136,6 +137,7 @@ class GenericExecutor(ExecutorHandlerBase):
                 if executor and executor.is_closed:
                     MarketsRecorder.get_instance().store_executor(executor)
                     self.remove_executor(executor)
+                    self.stored_executors_ids.add(executor.config.id)
             else:
                 raise ValueError(f"Unknown action type {type(action)}")
 
@@ -184,10 +186,36 @@ class GenericExecutor(ExecutorHandlerBase):
         connector.set_position_mode(self.controller.config.position_mode)
         connector.set_leverage(trading_pair=self.controller.config.trading_pair, leverage=self.controller.config.leverage)
 
+    def get_active_executors_performance_report(self):
+        """
+        Get the performance report for active executors.
+        """
+        all_executors = self.position_executors + self.dca_executors + self.arbitrage_executors
+        net_pnl_pct = sum([executor.net_pnl_pct for executor in all_executors])
+        net_pnl_quote = sum([executor.net_pnl_quote for executor in all_executors])
+        volume_traded = sum([executor.filled_amount_quote for executor in all_executors])
+        return net_pnl_pct, net_pnl_quote, volume_traded
+
+    def get_stored_executors_performance_report(self):
+        """
+        Get the performance report for stored executors.
+        """
+        all_executors = MarketsRecorder.get_instance().get_executors_by_ids(list(self.stored_executors_ids))
+        net_pnl_pct = sum([executor.net_pnl_pct for executor in all_executors])
+        net_pnl_quote = sum([executor.net_pnl_quote for executor in all_executors])
+        volume_traded = sum([executor.filled_amount * 2 for executor in all_executors])
+        return net_pnl_pct, net_pnl_quote, volume_traded
+
     def to_format_status(self) -> str:
         """
         Base status for executor handler.
         """
         lines = []
         lines.extend(self.controller.to_format_status())
+        lines.append("\nActive executors performance report:")
+        net_pnl_pct, net_pnl_quote, volume_traded = self.get_active_executors_performance_report()
+        lines.append(f"Net PnL %: {net_pnl_pct:.2f} | Net PnL Quote: {net_pnl_quote:.2f} | Volume Traded: {volume_traded:.2f}\n")
+        lines.append("Stored executors performance report:")
+        net_pnl_pct, net_pnl_quote, volume_traded = self.get_stored_executors_performance_report()
+        lines.append(f"Net PnL %: {net_pnl_pct:.2f} | Net PnL Quote: {net_pnl_quote:.2f} | Volume Traded: {volume_traded:.2f}\n")
         return "\n".join(lines)

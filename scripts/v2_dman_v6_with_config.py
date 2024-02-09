@@ -119,5 +119,5 @@ class DManV6MultiplePairs(ScriptStrategyBase):
         for trading_pair, executor_handler in self.executor_handlers.items():
             lines.extend(
                 [f"Strategy: {executor_handler.controller.config.strategy_name} | Trading Pair: {trading_pair}",
-                 executor_handler.to_format_status()])
+                 executor_handler.to_format_status(), "-" * 50, ""])
         return "\n".join(lines)
