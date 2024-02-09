@@ -1137,12 +1137,12 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             "arg": {
                 "channel": "orders",
                 "uid": "77982378738415879",
-                "instType": "SPOT",
+                "instType": "SWAP",
                 "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset)
             },
             "data": [
                 {
-                    "instType": "SPOT",
+                    "instType": "SWAP",
                     "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
                     "ccy": "BTC",
                     "ordId": order.exchange_order_id or "EOID1",
@@ -1191,7 +1191,89 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         }
 
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
-        return {}
+        return {
+            "arg": {
+                "channel": "positions",
+                "uid": "77982378738415879",
+                "instType": "SWAP"
+            },
+            "data": [
+                {
+                    "adl": "1",
+                    "availPos": "1",
+                    "avgPx": "2566.31",
+                    "cTime": "1619507758793",
+                    "ccy": "ETH",
+                    "deltaBS": "",
+                    "deltaPA": "",
+                    "gammaBS": "",
+                    "gammaPA": "",
+                    "imr": "",
+                    "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                    "instType": "SWAP",
+                    "interest": "0",
+                    "idxPx": "2566.13",
+                    "last": "2566.22",
+                    "lever": "10",
+                    "liab": "",
+                    "liabCcy": "",
+                    "liqPx": "2352.8496681818233",
+                    "markPx": "2353.849",
+                    "margin": "0.0003896645377994",
+                    "mgnMode": "isolated",
+                    "mgnRatio": "11.731726509588816",
+                    "mmr": "0.0000311811092368",
+                    "notionalUsd": "2276.2546609009605",
+                    "optVal": "",
+                    "pTime": "1619507761462",
+                    "pos": "1",
+                    "baseBorrowed": "",
+                    "baseInterest": "",
+                    "quoteBorrowed": "",
+                    "quoteInterest": "",
+                    "posCcy": "",
+                    "posId": "307173036051017730",
+                    "posSide": "long",
+                    "spotInUseAmt": "",
+                    "bizRefId": "",
+                    "bizRefType": "",
+                    "spotInUseCcy": "",
+                    "thetaBS": "",
+                    "thetaPA": "",
+                    "tradeId": "109844",
+                    "uTime": "1619507761462",
+                    "upl": "-0.0000009932766034",
+                    "uplLastPx": "-0.0000009932766034",
+                    "uplRatio": "-0.0025490556801078",
+                    "uplRatioLastPx": "-0.0025490556801078",
+                    "vegaBS": "",
+                    "vegaPA": "",
+                    "realizedPnl": "0.001",
+                    "pnl": "0.0011",
+                    "fee": "-0.0001",
+                    "fundingFee": "0",
+                    "liqPenalty": "0",
+                    "closeOrderAlgo": [
+                        {
+                            "algoId": "123",
+                            "slTriggerPx": "123",
+                            "slTriggerPxType": "mark",
+                            "tpTriggerPx": "123",
+                            "tpTriggerPxType": "mark",
+                            "closeFraction": "0.6"
+                        },
+                        {
+                            "algoId": "123",
+                            "slTriggerPx": "123",
+                            "slTriggerPxType": "mark",
+                            "tpTriggerPx": "123",
+                            "tpTriggerPxType": "mark",
+                            "closeFraction": "0.4"
+                        }
+                    ]
+                }
+            ]
+        }
 
     def position_event_for_full_fill_websocket_update(self, order: InFlightOrder, unrealized_pnl: float):
         position_value = unrealized_pnl + order.amount * order.price * order.leverage
