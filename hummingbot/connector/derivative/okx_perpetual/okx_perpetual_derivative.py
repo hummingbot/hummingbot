@@ -459,7 +459,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
                 update_timestamp=self.current_timestamp,
                 new_state=CONSTANTS.ORDER_STATE[order_msg["state"]],
                 client_order_id=client_order_id,
-                exchange_order_id=order_msg["order_id"],
+                exchange_order_id=order_msg["ordId"],
             )
 
             return order_update
@@ -600,7 +600,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         parsed_status_responses: List[Dict[str, Any]] = []
         for resp, active_order in zip(raw_responses, active_orders):
             if not isinstance(resp, Exception):
-                parsed_status_responses.append(resp["result"])
+                parsed_status_responses.append(resp["data"][0])
             else:
                 self.logger().network(
                     f"Error fetching status update for the order {active_order.client_order_id}: {resp}.",
