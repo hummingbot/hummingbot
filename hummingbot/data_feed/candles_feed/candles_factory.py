@@ -9,6 +9,7 @@ from hummingbot.data_feed.candles_feed.coinbase_advanced_trade_spot_candles.coin
 from hummingbot.data_feed.candles_feed.gate_io_perpetual_candles import GateioPerpetualCandles
 from hummingbot.data_feed.candles_feed.gate_io_spot_candles import GateioSpotCandles
 from hummingbot.data_feed.candles_feed.kucoin_spot_candles.kucoin_spot_candles import KucoinSpotCandles
+from hummingbot.data_feed.candles_feed.okx_perpetual_candles.okx_perpetual_candles import OKXPerpetualCandles
 
 
 class CandlesConfig(BaseModel):
@@ -58,5 +59,7 @@ class CandlesFactory:
             return AscendExSpotCandles(trading_pair, interval, max_records)
         elif connector == "coinbase_advanced_trade":
             return CoinbaseAdvancedTradeSpotCandles(trading_pair, interval, max_records)
+        elif connector == "okx_perpetual":
+            return OKXPerpetualCandles(trading_pair, interval, max_records)
         else:
             raise Exception(f"The connector {connector} is not available. Please select another one.")
