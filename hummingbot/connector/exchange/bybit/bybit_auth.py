@@ -1,7 +1,6 @@
 import hashlib
 import hmac
 import time
-from collections import OrderedDict
 from typing import Any, Dict, Optional
 from urllib.parse import urlencode
 
@@ -18,22 +17,13 @@ class BybitAuth(AuthBase):
         self.secret_key = secret_key
         self.time_provider = time_provider
 
-    @staticmethod
-    def keysort(dictionary: Dict[str, str]) -> Dict[str, str]:
-        return OrderedDict(sorted(dictionary.items(), key=lambda t: t[0]))
-
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
         """
         Adds the server time and the signature to the request, required for authenticated interactions. It also adds
         the required parameter in the request header.
         :param request: the request to be configured for authenticated interaction
         """
-        request.params = self.add_auth_to_params(params=request.params)
-        headers = {}
-        if request.headers is not None:
-            headers.update(request.headers)
-        request.headers = headers
-        return request
+        request = self.add_auth_headers(method=request.method, request=request)
 
     async def ws_authenticate(self, request: WSRequest) -> WSRequest:
         """
@@ -44,7 +34,7 @@ class BybitAuth(AuthBase):
 
     def get_referral_code_headers(self):
         """
-        Generates authentication headers required by ByBit
+        Generates referral headers
         :return: a dictionary of auth headers
         """
         headers = {
@@ -52,21 +42,36 @@ class BybitAuth(AuthBase):
         }
         return headers
 
-    def add_auth_to_params(self,
-                           params: Optional[Dict[str, Any]]):
-        timestamp = int(self.time_provider.time() * 1e3)
-        request_params = params or {}
-        request_params["timestamp"] = timestamp
-        request_params["api_key"] = self.api_key
-        request_params = self.keysort(request_params)
-        signature = self._generate_signature(params=request_params)
-        request_params["sign"] = signature
-        return request_params
+    def add_auth_headers(self, method: str, request: Optional[Dict[str, Any]]):
+        """
+        Add authentication headers in request object
 
-    def _generate_signature(self, params: Dict[str, Any]) -> str:
-        encoded_params_str = urlencode(params)
-        digest = hmac.new(self.secret_key.encode("utf8"), encoded_params_str.encode("utf8"), hashlib.sha256).hexdigest()
-        return digest
+        :param method: HTTP method (POST, PUT, GET)
+        :param request: The request to be configured for authenticated interaction
+
+        :return: request object updated with xauth headers
+        """
+        ts = str(int(time.time() * 10 ** 3))
+
+        headers = {}
+        headers["X-BAPI-TIMESTAMP"] = str(ts)
+        headers["X-BAPI-API-KEY"] = self.api_key
+
+        signature = self._generate_signature(timestamp=ts, method=method, payload=request.params)
+
+        headers["X-BAPI-SIGN"] = signature
+        headers["X-BAPI-SIGN-TYPE"] = str(2)
+        headers["X-BAPI-RECV-WINDOW"] = str(CONSTANTS.X_API_RECV_WINDOW)
+        headers["Content-Type"] = 'application/json'
+        request.headers = {**request.headers, **headers} if request.headers is not None else headers
+        return request
+
+    def _generate_signature(self, timestamp, method: str, payload: Optional[Dict[str, Any]]) -> str:
+        if payload is None:
+            payload = {}
+
+        param_str = str(timestamp) + self.api_key + CONSTANTS.X_API_RECV_WINDOW + urlencode(payload)
+        return hmac.new(bytes(self.secret_key, "utf-8"), param_str.encode("utf-8"), hashlib.sha256).hexdigest()
 
     def generate_ws_authentication_message(self):
         """
