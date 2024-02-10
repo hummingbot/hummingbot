@@ -100,7 +100,7 @@ class OkxPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
         response: WSResponse = await ws.receive()
         message = response.data
 
-        if message["event"] == "error":
+        if message["event"] != "login":
             self.logger().error("Error authenticating the private websocket connection")
             raise IOError("Private websocket connection authentication failed")
 
@@ -116,7 +116,8 @@ class OkxPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                 ],
             }
             subscribe_positions_request = WSJSONRequest(positions_payload)
-            executions_payload = {
+
+            orders_payload = {
                 "op": "subscribe",
                 "args": [
                     {
@@ -125,7 +126,8 @@ class OkxPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                     }
                 ],
             }
-            subscribe_executions_request = WSJSONRequest(executions_payload)
+            subscribe_orders_request = WSJSONRequest(orders_payload)
+
             account_payload = {
                 "op": "subscribe",
                 "args": [
@@ -137,7 +139,7 @@ class OkxPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
             subscribe_wallet_request = WSJSONRequest(account_payload)
 
             await ws.send(subscribe_positions_request)
-            await ws.send(subscribe_executions_request)
+            await ws.send(subscribe_orders_request)
             await ws.send(subscribe_wallet_request)
 
             self.logger().info(
