@@ -99,7 +99,9 @@ class BybitAPIUserStreamDataSource(UserStreamTrackerDataSource):
         Sends the authentication message.
         :param ws: the websocket assistant used to connect to the exchange
         """
-        auth_message: WSJSONRequest = WSJSONRequest(payload=self._auth.generate_ws_authentication_message())
+        auth_message: WSJSONRequest = WSJSONRequest(
+            payload=self._auth.generate_ws_authentication_message()
+        )
         await ws.send(auth_message)
 
     async def _process_ws_messages(self, ws: WSAssistant, output: asyncio.Queue):

@@ -46,6 +46,7 @@ class BybitExchange(ExchangePyBase):
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._last_trades_poll_bybit_timestamp = 1.0
+        self._account_type = None  # To be update on firtst call to balances
         super().__init__(client_config_map)
 
     @staticmethod
@@ -178,6 +179,26 @@ class BybitExchange(ExchangePyBase):
             quote_currency=quote_currency
         )
         return trade_base_fee
+
+    async def _get_account_info(self):
+        account_info = await self._api_get(
+            path_url=CONSTANTS.ACCOUNT_INFO_PATH_URL,
+            params=None,
+            is_auth_required=True,
+            headers={
+                "referer": CONSTANTS.HBOT_BROKER_ID
+            },
+        )
+        return account_info
+
+    async def _get_account_type(self):
+        account_info = await self._get_account_info()
+        account_type = 'SPOT' if account_info["result"]["unifiedMarginStatus"] \
+            else 'UNIFIED'
+        return account_type
+
+    async def _update_account_type(self):
+        self._account_type = await self._get_account_type()
 
     async def _place_order(self,
                            order_id: str,
@@ -416,15 +437,23 @@ class BybitExchange(ExchangePyBase):
         local_asset_names = set(self._account_balances.keys())
         remote_asset_names = set()
 
-        account_info = await self._api_request(
+        # Update the first time it is called
+        if self._account_type is None:
+            await self._update_account_type()
+
+        balances = await self._api_request(
             method=RESTMethod.GET,
-            path_url=CONSTANTS.ACCOUNTS_PATH_URL,
-            is_auth_required=True)
-        balances = account_info["result"]["balances"]
-        for balance_entry in balances:
+            path_url=CONSTANTS.BALANCE_PATH_URL,
+            params={
+                'accountType': self._account_type
+            },
+            is_auth_required=True
+        )
+
+        for balance_entry in balances["result"]["list"][0]:
             asset_name = balance_entry["coin"]
-            free_balance = Decimal(balance_entry["free"])
-            total_balance = Decimal(balance_entry["total"])
+            free_balance = Decimal(balance_entry["availableToWithdraw"])
+            total_balance = Decimal(balance_entry["walletBalance"])
             self._account_available_balances[asset_name] = free_balance
             self._account_balances[asset_name] = total_balance
             remote_asset_names.add(asset_name)
