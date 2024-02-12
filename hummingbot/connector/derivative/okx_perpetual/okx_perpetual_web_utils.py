@@ -69,7 +69,7 @@ async def get_current_server_time(throttler: Optional[AsyncThrottler] = None,
         throttler_limit_id=limit_id,
         method=RESTMethod.GET,
     )
-    server_time = float(response["data"][0]["ts"])
+    server_time = int(response["data"][0]["ts"])
 
     return server_time
 
@@ -77,18 +77,16 @@ async def get_current_server_time(throttler: Optional[AsyncThrottler] = None,
 def endpoint_from_message(message: Dict[str, Any]) -> Optional[str]:
     endpoint = None
     if isinstance(message, dict):
-        if not message.get("event"):
-            arg = message.get("arg")
-            endpoint = arg.get("channel")
+        event = message.get("event")
+        if event == "error":
+            endpoint = event
         else:
-            endpoint = message.get("event")
+            endpoint = message["arg"].get("channel")
     return endpoint
 
 
 def payload_from_message(message: Dict[str, Any]) -> List[Dict[str, Any]]:
-    if message.get("data"):
-        return message["data"]
-    return [message]
+    return message.get("data", [])
 
 
 def build_api_factory_without_time_synchronizer_pre_processor(throttler: AsyncThrottler) -> WebAssistantsFactory:
@@ -206,13 +204,6 @@ def _build_private_pair_specific_rate_limits(trading_pairs: List[str]) -> List[R
                 time_interval=2,
             ),
             RateLimit(
-                limit_id=get_pair_specific_limit_id(method=CONSTANTS.REST_QUERY_ACTIVE_ORDER[CONSTANTS.METHOD],
-                                                    endpoint=CONSTANTS.REST_QUERY_ACTIVE_ORDER[CONSTANTS.ENDPOINT],
-                                                    trading_pair=trading_pair),
-                limit=60,
-                time_interval=2,
-            ),
-            RateLimit(
                 limit_id=get_pair_specific_limit_id(method=CONSTANTS.REST_MARK_PRICE[CONSTANTS.METHOD],
                                                     endpoint=CONSTANTS.REST_MARK_PRICE[CONSTANTS.ENDPOINT],
                                                     trading_pair=trading_pair),
@@ -233,6 +224,12 @@ def _build_private_pair_specific_rate_limits(trading_pairs: List[str]) -> List[R
 
 def _build_private_general_rate_limits() -> List[RateLimit]:
     rate_limits = [
+        RateLimit(
+            limit_id=get_rest_api_limit_id_for_endpoint(method=CONSTANTS.REST_QUERY_ACTIVE_ORDER[CONSTANTS.METHOD],
+                                                        endpoint=CONSTANTS.REST_QUERY_ACTIVE_ORDER[CONSTANTS.ENDPOINT]),
+            limit=60,
+            time_interval=2,
+        ),
         RateLimit(
             limit_id=get_rest_api_limit_id_for_endpoint(method=CONSTANTS.REST_PLACE_ACTIVE_ORDER[CONSTANTS.METHOD],
                                                         endpoint=CONSTANTS.REST_PLACE_ACTIVE_ORDER[CONSTANTS.ENDPOINT]),
