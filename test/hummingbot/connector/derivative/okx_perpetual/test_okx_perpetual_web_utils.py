@@ -1,6 +1,10 @@
 import asyncio
+import json
+import re
 import unittest
 from typing import Awaitable
+
+from aioresponses import aioresponses
 
 from hummingbot.connector.derivative.okx_perpetual import (
     okx_perpetual_constants as CONSTANTS,
@@ -64,6 +68,66 @@ class OKXPerpetualWebUtilsTest(unittest.TestCase):
         url = web_utils.wss_linear_private_url("okx_perpetual_demo")
         self.assertEqual(CONSTANTS.WSS_PRIVATE_URLS.get("okx_perpetual_demo"), url)
 
+    def test_rest_private_pair_specific_rate_limits(self):
+        trading_pairs = ["COINALPHA-HBOT"]
+        rate_limits = web_utils._build_private_pair_specific_rate_limits(trading_pairs)
+        self.assertEqual(3, len(rate_limits))
+
+    @staticmethod
+    def push_data_mock_message():
+        return {
+            "arg": {
+                "channel": "some-channel",
+                "instId": "COINALPHA-HBOT-SWAP"
+            },
+            "data": [
+                {
+                    "instType": "SWAP",
+                    "instId": "COINALPHA-HBOT-SWAP",
+                    "someParam": "someValue"
+                }
+            ]
+        }
+
+    @staticmethod
+    def failure_response_example_mock_message():
+        return {
+            "event": "error",
+            "code": "9999",
+            "msg": "Some error message",
+            "connId": "a4d3ae55"
+        }
+
+    @staticmethod
+    def successful_response_mock_message():
+        return {
+            "event": "subscribe",
+            "arg": {
+                "channel": "some-channel",
+                "instId": "COINALPHA-HBOT-SWAP"
+            },
+            "connId": "a4d3ae55"
+        }
+
+    def test_payload_from_message(self):
+        payload = web_utils.payload_from_message(self.push_data_mock_message())
+        self.assertEqual(payload, [
+            {
+                "instType": "SWAP",
+                "instId": "COINALPHA-HBOT-SWAP",
+                "someParam": "someValue"
+            }
+        ])
+        self.assertIsInstance(payload, list)
+
+    def test_endpoint_from_message(self):
+        successful_subscription_endpoint = web_utils.endpoint_from_message(self.push_data_mock_message())
+        self.assertEqual(successful_subscription_endpoint, "some-channel")
+        failure_response_endpoint = web_utils.endpoint_from_message(self.failure_response_example_mock_message())
+        self.assertEqual(failure_response_endpoint, "error")
+        other_response = "non-dict-response"
+        self.assertIsNone(web_utils.endpoint_from_message(other_response))
+
     def test_build_api_factory(self):
         api_factory = web_utils.build_api_factory(
             time_synchronizer=TimeSynchronizer(),
@@ -110,3 +174,23 @@ class OKXPerpetualWebUtilsTest(unittest.TestCase):
 
         self.assertIn("Content-Type", result_request.headers)
         self.assertEqual(result_request.headers["Content-Type"], "application/json")
+
+    @aioresponses()
+    def test_get_current_server_time(self, mock_api):
+        response = {
+            "code": "0",
+            "msg": "",
+            "data": [
+                {
+                    "ts": "1597026383085"
+                }
+            ]
+        }
+        url = web_utils.get_rest_url_for_endpoint(
+            endpoint=CONSTANTS.REST_SERVER_TIME[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
+        )
+        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
+        mock_api.get(regex_url, body=json.dumps(response))
+
+        response = self.async_run_with_timeout(web_utils.get_current_server_time())
+        self.assertEqual(response, 1597026383085)
