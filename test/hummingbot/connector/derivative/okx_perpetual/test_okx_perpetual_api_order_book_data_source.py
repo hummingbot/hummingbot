@@ -6,7 +6,6 @@ from typing import Awaitable, Dict
 from unittest import TestCase
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pandas as pd
 from aioresponses import aioresponses
 from bidict import bidict
 
@@ -15,9 +14,9 @@ from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.derivative.okx_perpetual import okx_perpetual_constants as CONSTANTS
 from hummingbot.connector.derivative.okx_perpetual.okx_perpetual_api_order_book_data_source import (
-    OKXPerpetualAPIOrderBookDataSource,
+    OkxPerpetualAPIOrderBookDataSource,
 )
-from hummingbot.connector.derivative.okx_perpetual.okx_perpetual_derivative import OKXPerpetualDerivative
+from hummingbot.connector.derivative.okx_perpetual.okx_perpetual_derivative import OkxPerpetualDerivative
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.data_type.funding_info import FundingInfo, FundingInfoUpdate
 from hummingbot.core.data_type.order_book_message import OrderBookMessage, OrderBookMessageType
@@ -47,7 +46,7 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.mocking_assistant = NetworkMockingAssistant()
 
         client_config_map = ClientConfigAdapter(ClientConfigMap())
-        self.connector = OKXPerpetualDerivative(
+        self.connector = OkxPerpetualDerivative(
             client_config_map,
             okx_perpetual_api_key="",
             okx_perpetual_secret_key="",
@@ -56,7 +55,7 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
             trading_required=False,
             domain=self.domain,
         )
-        self.data_source = OKXPerpetualAPIOrderBookDataSource(
+        self.data_source = OkxPerpetualAPIOrderBookDataSource(
             trading_pairs=[self.trading_pair],
             connector=self.connector,
             api_factory=self.connector._web_assistants_factory,
@@ -112,7 +111,31 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
             ]
         }
 
-    def get_ws_snapshot_msg(self) -> Dict:
+    def get_ws_trade_msg(self) -> Dict:
+        return {
+            "code": "0",
+            "msg": "",
+            "data": [
+                {
+                    "instId": self.ex_trading_pair,
+                    "side": "sell",
+                    "sz": "0.00001",
+                    "px": "29963.2",
+                    "tradeId": "242720720",
+                    "ts": "1654161646974"
+                },
+                {
+                    "instId": self.ex_trading_pair,
+                    "side": "sell",
+                    "sz": "0.00001",
+                    "px": "29964.1",
+                    "tradeId": "242720719",
+                    "ts": "1654161641568"
+                }
+            ]
+        }
+
+    def get_ws_order_book_snapshot_msg(self) -> Dict:
         return {
             "arg": {
                 "channel": "books",
@@ -149,7 +172,7 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
             ]
         }
 
-    def get_ws_diff_msg(self) -> Dict:
+    def get_ws_order_book_diff_msg(self) -> Dict:
         return {
             "arg": {
                 "channel": "books",
@@ -180,151 +203,175 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
                     ],
                     "ts": "1597026383085",
                     "checksum": -855196043,
-                    "prevSeqId": -1,
+                    "prevSeqId": 123455,
                     "seqId": 123456
                 }
             ]
         }
 
-    def get_funding_info_msg(self) -> Dict:
+    def get_ws_funding_info_msg(self) -> Dict:
         return {
-            "topic": f"instrument_info.100ms.{self.ex_trading_pair}",
-            "type": "snapshot",
-            "data": {
-                "id": 1,
-                "symbol": self.ex_trading_pair,
-                "last_price_e4": 81165000,
-                "last_price": "81165000",
-                "bid1_price_e4": 400025000,
-                "bid1_price": "400025000",
-                "ask1_price_e4": 475450000,
-                "ask1_price": "475450000",
-                "last_tick_direction": "ZeroPlusTick",
-                "prev_price_24h_e4": 81585000,
-                "prev_price_24h": "81585000",
-                "price_24h_pcnt_e6": -5148,
-                "high_price_24h_e4": 82900000,
-                "high_price_24h": "82900000",
-                "low_price_24h_e4": 79655000,
-                "low_price_24h": "79655000",
-                "prev_price_1h_e4": 81395000,
-                "prev_price_1h": "81395000",
-                "price_1h_pcnt_e6": -2825,
-                "mark_price_e4": 81178500,
-                "mark_price": "81178500",
-                "index_price_e4": 81172800,
-                "index_price": "81172800",
-                "open_interest": 154418471,
-                "open_value_e8": 1997561103030,
-                "total_turnover_e8": 2029370141961401,
-                "turnover_24h_e8": 9072939873591,
-                "total_volume": 175654418740,
-                "volume_24h": 735865248,
-                "funding_rate_e6": 100,
-                "predicted_funding_rate_e6": 100,
-                "cross_seq": 1053192577,
-                "created_at": "2018-11-14T16:33:26Z",
-                "updated_at": "2020-01-12T18:25:16Z",
-                "next_funding_time": "2020-01-13T00:00:00Z",
-
-                "countdown_hour": 6,
-                "funding_rate_interval": 8
+            "arg": {
+                "channel": "funding-rate",
+                "instId": self.ex_trading_pair
             },
-            "cross_seq": 9267002,
-            "timestamp_e6": 1615794861826248
-        }
-
-    def get_funding_info_event(self):
-        return {
-            "topic": f"instrument_info.100ms.{self.ex_trading_pair}",
-            "type": "delta",
-            "data": {
-                "delete": [],
-                "update": [
-                    {
-                        "id": 1,
-                        "symbol": self.ex_trading_pair,
-                        "prev_price_24h_e4": 81565000,
-                        "prev_price_24h": "81565000",
-                        "price_24h_pcnt_e6": -4904,
-                        "open_value_e8": 2000479681106,
-                        "total_turnover_e8": 2029370495672976,
-                        "turnover_24h_e8": 9066215468687,
-                        "volume_24h": 735316391,
-                        "cross_seq": 1053192657,
-                        "created_at": "2018-11-14T16:33:26Z",
-                        "updated_at": "2020-01-12T18:25:25Z",
-                        "index_price": 123,
-                        "mark_price": 234,
-                        "next_funding_time": "2020-01-12T18:25:25Z",
-                        "predicted_funding_rate_e6": 456,
-                    }
-                ],
-                "insert": []
-            },
-            "cross_seq": 1053192657,
-            "timestamp_e6": 1578853525691123
-        }
-
-    def get_general_info_rest_msg(self):
-        return {
-            "ret_code": 0,
-            "ret_msg": "OK",
-            "ext_code": "",
-            "ext_info": "",
-            "result": [
+            "data": [
                 {
-                    "symbol": self.ex_trading_pair,
-                    "bid_price": "7230",
-                    "ask_price": "7230.5",
-                    "last_price": "7230.00",
-                    "last_tick_direction": "ZeroMinusTick",
-                    "prev_price_24h": "7163.00",
-                    "price_24h_pcnt": "0.009353",
-                    "high_price_24h": "7267.50",
-                    "low_price_24h": "7067.00",
-                    "prev_price_1h": "7209.50",
-                    "price_1h_pcnt": "0.002843",
-                    "mark_price": "7230.31",
-                    "index_price": "7230.14",
-                    "open_interest": 117860186,
-                    "open_value": "16157.26",
-                    "total_turnover": "3412874.21",
-                    "turnover_24h": "10864.63",
-                    "total_volume": 28291403954,
-                    "volume_24h": 78053288,
-                    "funding_rate": "0.0001",
-                    "predicted_funding_rate": "0.0001",
-                    "next_funding_time": "2019-12-28T00:00:00Z",
-                    "countdown_hour": 2,
-                    "delivery_fee_rate": "0",
-                    "predicted_delivery_price": "0.00",
-                    "delivery_time": ""
-                },
-            ],
-            "time_now": "1577484619.817968",
+                    "fundingRate": "0.0000691810863830",
+                    "fundingTime": "1706169600000",
+                    "instId": self.ex_trading_pair,
+                    "instType": "SWAP",
+                    "maxFundingRate": "0.00375",
+                    "method": "next_period",
+                    "minFundingRate": "-0.00375",
+                    "nextFundingRate": "0.0000188847902064",
+                    "nextFundingTime": "1706198400000",
+                    "settFundingRate": "-0.0000126482926462",
+                    "settState": "settled",
+                    "ts": "1706148300320"
+                }
+            ]
         }
 
-    def get_predicted_funding_info(self):
+    def get_ws_mark_price_info_msg(self) -> Dict:
         return {
-            "ret_code": 0,
-            "ret_msg": "ok",
-            "ext_code": "",
-            "result": {
-                "predicted_funding_rate": 0.0001,
-                "predicted_funding_fee": 0
+            "arg": {
+                "channel": "mark-price",
+                "instId": self.ex_trading_pair
             },
-            "ext_info": None,
-            "time_now": "1577447415.583259",
-            "rate_limit_status": 118,
-            "rate_limit_reset_ms": 1577447415590,
-            "rate_limit": 120
+            "data": [
+                {
+                    "instType": "SWAP",
+                    "instId": self.ex_trading_pair,
+                    "markPx": "0.1",
+                    "ts": "1597026383085"
+                }
+            ]
         }
 
+    def get_ws_index_price_info_msg(self) -> Dict:
+        return {
+            "arg": {
+                "channel": "index-tickers",
+                "instId": self.ex_trading_pair
+            },
+            "data": [
+                {
+                    "instId": self.ex_trading_pair,
+                    "idxPx": "0.1",
+                    "high24h": "0.5",
+                    "low24h": "0.1",
+                    "open24h": "0.1",
+                    "sodUtc0": "0.1",
+                    "sodUtc8": "0.1",
+                    "ts": "1597026383085"
+                }
+            ]
+        }
+
+    def get_index_price_info_rest_msg(self):
+        return {
+            "code": "0",
+            "msg": "",
+            "data": [
+                {
+                    "instId": self.ex_trading_pair,
+                    "idxPx": "43350",
+                    "high24h": "43649.7",
+                    "sodUtc0": "43444.1",
+                    "open24h": "43640.8",
+                    "low24h": "43261.9",
+                    "sodUtc8": "43328.7",
+                    "ts": "1649419644492"
+                }
+            ]
+        }
+
+    def get_mark_price_info_rest_msg(self):
+        return {
+            "code": "0",
+            "msg": "",
+            "data": [
+                {
+                    "instType": "SWAP",
+                    "instId": self.ex_trading_pair,
+                    "markPx": "200",
+                    "ts": "1597026383085"
+                }
+            ]
+        }
+
+    def get_funding_info_rest_msg(self):
+        return {
+            "code": "0",
+            "data": [
+                {
+                    "fundingRate": "0.0000792386885340",
+                    "fundingTime": "1703088000000",
+                    "instId": self.ex_trading_pair,
+                    "instType": "SWAP",
+                    "method": "next_period",
+                    "maxFundingRate": "0.00375",
+                    "minFundingRate": "-0.00375",
+                    "nextFundingRate": "0.0002061194322149",
+                    "nextFundingTime": "1703116800000",
+                    "settFundingRate": "0.0001418433662153",
+                    "settState": "settled",
+                    "ts": "1703070685309"
+                }
+            ],
+            "msg": ""
+        }
+
+    def get_last_traded_prices_rest_msg(self):
+        return {
+            "code": "0",
+            "msg": "",
+            "data": [
+                {
+                    "instType": "SWAP",
+                    "instId": self.ex_trading_pair,
+                    "last": "9999.99",
+                    "lastSz": "1",
+                    "askPx": "9999.99",
+                    "askSz": "11",
+                    "bidPx": "8888.88",
+                    "bidSz": "5",
+                    "open24h": "9000",
+                    "high24h": "10000",
+                    "low24h": "8888.88",
+                    "volCcy24h": "2222",
+                    "vol24h": "2222",
+                    "sodUtc0": "0.1",
+                    "sodUtc8": "0.1",
+                    "ts": "1597026383085"
+                },
+                {
+                    "instType": "SWAP",
+                    "instId": "BTC-USD-SWAP",
+                    "last": "9999.99",
+                    "lastSz": "1",
+                    "askPx": "9999.99",
+                    "askSz": "11",
+                    "bidPx": "8888.88",
+                    "bidSz": "5",
+                    "open24h": "9000",
+                    "high24h": "10000",
+                    "low24h": "8888.88",
+                    "volCcy24h": "2222",
+                    "vol24h": "2222",
+                    "sodUtc0": "0.1",
+                    "sodUtc8": "0.1",
+                    "ts": "1597026383085"
+                }
+            ]
+        }
+
+    # TODO: Check if unclosed client session should remain after test run
     @aioresponses()
     def test_get_new_order_book_successful(self, mock_api):
-        endpoint = CONSTANTS.ORDER_BOOK_ENDPOINT
-        url = web_utils.get_rest_url_for_endpoint(endpoint, self.trading_pair, self.domain)
+        endpoint = CONSTANTS.REST_ORDER_BOOK[CONSTANTS.ENDPOINT]
+        url = web_utils.get_rest_url_for_endpoint(endpoint, self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         resp = self.get_rest_snapshot_msg()
         mock_api.get(regex_url, body=json.dumps(resp))
@@ -333,24 +380,24 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
             self.data_source.get_new_order_book(self.trading_pair)
         )
 
-        expected_update_id = int(float(resp["time_now"]) * 1e6)
+        expected_update_id = int(float(resp["data"][0]["ts"]) * 1e6)
 
         self.assertEqual(expected_update_id, order_book.snapshot_uid)
         bids = list(order_book.bid_entries())
         asks = list(order_book.ask_entries())
         self.assertEqual(1, len(bids))
-        self.assertEqual(9487, bids[0].price)
-        self.assertEqual(336241, bids[0].amount)
+        self.assertEqual(41006.3, bids[0].price)
+        self.assertEqual(0.30178218, bids[0].amount)
         self.assertEqual(expected_update_id, bids[0].update_id)
         self.assertEqual(1, len(asks))
-        self.assertEqual(9487.5, asks[0].price)
-        self.assertEqual(522147, asks[0].amount)
+        self.assertEqual(41006.8, asks[0].price)
+        self.assertEqual(0.60038921, asks[0].amount)
         self.assertEqual(expected_update_id, asks[0].update_id)
 
     @aioresponses()
     def test_get_new_order_book_raises_exception(self, mock_api):
-        endpoint = CONSTANTS.ORDER_BOOK_ENDPOINT
-        url = web_utils.get_rest_url_for_endpoint(endpoint, self.trading_pair, self.domain)
+        endpoint = CONSTANTS.REST_ORDER_BOOK[CONSTANTS.ENDPOINT]
+        url = web_utils.get_rest_url_for_endpoint(endpoint, self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, status=400)
@@ -359,16 +406,72 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
                 self.data_source.get_new_order_book(self.trading_pair)
             )
 
+    @aioresponses()
+    def test_get_last_traded_prices(self, mock_api):
+        url = web_utils.get_rest_url_for_endpoint(CONSTANTS.REST_LATEST_SYMBOL_INFORMATION[CONSTANTS.ENDPOINT], self.domain)
+        url_regex = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
+        mock_api.get(url_regex, body=json.dumps(self.get_last_traded_prices_rest_msg()))
+        last_traded_prices = self.async_run_with_timeout(
+            self.data_source.get_last_traded_prices([self.trading_pair])
+        )
+        self.assertEqual(2, len(last_traded_prices))
+        self.assertEqual(9999.99, last_traded_prices[self.ex_trading_pair])
+
+    @aioresponses()
+    def test_get_funding_info(self, mock_api):
+        funding_endpoint = CONSTANTS.REST_FUNDING_RATE_INFO[CONSTANTS.ENDPOINT]
+        funding_url = web_utils.get_rest_url_for_endpoint(funding_endpoint, self.domain)
+        funding_regex_url = re.compile(f"^{funding_url}".replace(".", r"\.").replace("?", r"\?"))
+        funding_info_resp = self.get_funding_info_rest_msg()
+        mock_api.get(funding_regex_url, body=json.dumps(funding_info_resp))
+
+        index_price_endpoint = CONSTANTS.REST_INDEX_TICKERS[CONSTANTS.ENDPOINT]
+        index_price_url = web_utils.get_rest_url_for_endpoint(index_price_endpoint, self.domain)
+        index_price_regex_url = re.compile(f"^{index_price_url}".replace(".", r"\.").replace("?", r"\?"))
+        index_price_resp = self.get_index_price_info_rest_msg()
+        mock_api.get(index_price_regex_url, body=json.dumps(index_price_resp))
+
+        mark_price_endpoint = CONSTANTS.REST_MARK_PRICE[CONSTANTS.ENDPOINT]
+        mark_price_url = web_utils.get_rest_url_for_endpoint(mark_price_endpoint, self.domain)
+        mark_price_regex_url = re.compile(f"^{mark_price_url}".replace(".", r"\.").replace("?", r"\?"))
+        mark_price_resp = self.get_mark_price_info_rest_msg()
+        mock_api.get(mark_price_regex_url, body=json.dumps(mark_price_resp))
+
+        funding_info: FundingInfo = self.async_run_with_timeout(
+            self.data_source.get_funding_info(self.trading_pair)
+        )
+
+        self.assertEqual(self.trading_pair, funding_info.trading_pair)
+        self.assertEqual(Decimal(index_price_resp["data"][0]["idxPx"]), funding_info.index_price)
+        self.assertEqual(Decimal(mark_price_resp["data"][0]["markPx"]), funding_info.mark_price)
+        self.assertEqual(int(funding_info_resp["data"][0]["nextFundingTime"]), funding_info.next_funding_utc_timestamp)
+        self.assertEqual(Decimal(funding_info_resp["data"][0]["fundingRate"]), funding_info.rate)
+
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_subscriptions_subscribes_to_trades_diffs_and_funding_info(self, ws_connect_mock):
+    def test_subscribe_channels_successful(self, ws_connect_mock):
         ws_connect_mock.return_value = self.mocking_assistant.create_websocket_mock()
 
-        result_subscribe_diffs = self.get_ws_snapshot_msg()
-        result_subscribe_funding_info = self.get_funding_info_msg()
+        result_subscribe_trade = self.get_ws_trade_msg()
+        result_subscribe_order_book_snapshot = self.get_ws_order_book_snapshot_msg()
+        result_subscribe_index_price_info = self.get_ws_index_price_info_msg()
+        result_subscribe_mark_price_info = self.get_ws_mark_price_info_msg()
+        result_subscribe_funding_info = self.get_ws_funding_info_msg()
 
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=ws_connect_mock.return_value,
-            message=json.dumps(result_subscribe_diffs),
+            message=json.dumps(result_subscribe_trade),
+        )
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(result_subscribe_order_book_snapshot),
+        )
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(result_subscribe_index_price_info),
+        )
+        self.mocking_assistant.add_websocket_aiohttp_message(
+            websocket_mock=ws_connect_mock.return_value,
+            message=json.dumps(result_subscribe_mark_price_info),
         )
         self.mocking_assistant.add_websocket_aiohttp_message(
             websocket_mock=ws_connect_mock.return_value,
@@ -383,71 +486,84 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
             websocket_mock=ws_connect_mock.return_value
         )
 
-        self.assertEqual(3, len(sent_subscription_messages))
+        self.assertEqual(5, len(sent_subscription_messages))
+
         expected_trade_subscription = {
             "op": "subscribe",
-            "args": [f"trade.{self.ex_trading_pair}"],
+            "args": [
+                {
+                    "channel": "trades",
+                    "instId": self.ex_trading_pair
+                }
+            ],
         }
         self.assertEqual(expected_trade_subscription, sent_subscription_messages[0])
-        expected_diff_subscription = {
+
+        expected_order_book_subscription = {
             "op": "subscribe",
-            "args": [f"orderBook_200.100ms.{self.ex_trading_pair}"],
+            "args": [
+                {
+                    "channel": "books",
+                    "instId": self.ex_trading_pair
+                }
+            ],
         }
-        self.assertEqual(expected_diff_subscription, sent_subscription_messages[1])
+        self.assertEqual(expected_order_book_subscription, sent_subscription_messages[1])
+
         expected_funding_info_subscription = {
             "op": "subscribe",
-            "args": [f"instrument_info.100ms.{self.ex_trading_pair}"],
+            "args": [
+                {
+                    "channel": "funding-rate",
+                    "instId": self.ex_trading_pair
+                }
+            ],
         }
         self.assertEqual(expected_funding_info_subscription, sent_subscription_messages[2])
+
+        expected_mark_price_subscription = {
+            "op": "subscribe",
+            "args": [
+                {
+                    "channel": "mark-price",
+                    "instId": self.ex_trading_pair
+                }
+            ],
+        }
+        self.assertEqual(expected_mark_price_subscription, sent_subscription_messages[3])
+
+        expected_index_price_subscription = {
+            "op": "subscribe",
+            "args": [
+                {
+                    "channel": "index-tickers",
+                    "instId": self.ex_trading_pair
+                }
+            ],
+        }
+        self.assertEqual(expected_index_price_subscription, sent_subscription_messages[4])
 
         self.assertTrue(
             self._is_logged("INFO", "Subscribed to public order book, trade and funding info channels...")
         )
 
-    @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
-    @patch("aiohttp.ClientSession.ws_connect")
-    def test_listen_for_subscriptions_raises_cancel_exception(self, mock_ws, _: AsyncMock):
-        mock_ws.side_effect = asyncio.CancelledError
-
-        with self.assertRaises(asyncio.CancelledError):
-            self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
-            self.async_run_with_timeout(self.listening_task)
-
-    @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
-    @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)
-    def test_listen_for_subscriptions_logs_exception_details(self, mock_ws, sleep_mock):
-        mock_ws.side_effect = Exception("TEST ERROR.")
-        sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(asyncio.CancelledError())
-
-        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_subscriptions())
-
-        self.async_run_with_timeout(self.resume_test_event.wait())
-
-        self.assertTrue(
-            self._is_logged(
-                "ERROR",
-                "Unexpected error occurred when listening to order book streams"
-                " wss://stream-testnet.bybit.com/realtime. Retrying in 5 seconds...",
-            )
-        )
-
-    def test_subscribe_to_channels_raises_cancel_exception(self):
+    def test_subscribe_channels_raises_cancel_exception(self):
         mock_ws = MagicMock()
         mock_ws.send.side_effect = asyncio.CancelledError
 
         with self.assertRaises(asyncio.CancelledError):
             self.listening_task = self.ev_loop.create_task(
-                self.data_source._subscribe_to_channels(mock_ws, [self.trading_pair])
+                self.data_source._subscribe_channels(mock_ws)
             )
             self.async_run_with_timeout(self.listening_task)
 
-    def test_subscribe_to_channels_raises_exception_and_logs_error(self):
+    def test_subscribe_channels_raises_exception_and_logs_error(self):
         mock_ws = MagicMock()
         mock_ws.send.side_effect = Exception("Test Error")
 
         with self.assertRaises(Exception):
             self.listening_task = self.ev_loop.create_task(
-                self.data_source._subscribe_to_channels(mock_ws, [self.trading_pair])
+                self.data_source._subscribe_channels(mock_ws)
             )
             self.async_run_with_timeout(self.listening_task)
 
@@ -468,22 +584,10 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
             )
             self.async_run_with_timeout(self.listening_task)
 
+    # TODO: Check if raises tests should print exceptions during test run
     def test_listen_for_trades_logs_exception(self):
-        incomplete_resp = {
-            "topic": f"trade.{self.ex_trading_pair}",
-            "data": [
-                {
-                    "timestamp": "2020-01-12T16:59:59.000Z",
-                    "symbol": self.ex_trading_pair,
-                    "side": "Sell",
-                    "size": 328,
-                    "price": 8098,
-                    "tick_direction": "MinusTick",
-                    "trade_id": "00c706e1-ba52-5bb0-98d0-bf694bdc69f7",
-                    "cross_seq": 1052816407
-                }
-            ]
-        }
+        incomplete_resp = self.get_ws_trade_msg()
+        del incomplete_resp["data"][0]["tradeId"]
 
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [incomplete_resp, asyncio.CancelledError()]
@@ -505,22 +609,8 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
 
     def test_listen_for_trades_successful(self):
         mock_queue = AsyncMock()
-        trade_event = {
-            "topic": f"trade.{self.ex_trading_pair}",
-            "data": [
-                {
-                    "timestamp": "2020-01-12T16:59:59.000Z",
-                    "trade_time_ms": 1582793344685,
-                    "symbol": self.ex_trading_pair,
-                    "side": "Sell",
-                    "size": 328,
-                    "price": 8098,
-                    "tick_direction": "MinusTick",
-                    "trade_id": "00c706e1-ba52-5bb0-98d0-bf694bdc69f7",
-                    "cross_seq": 1052816407
-                }
-            ]
-        }
+        trade_event = self.get_ws_trade_msg()
+
         mock_queue.get.side_effect = [trade_event, asyncio.CancelledError()]
         self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue
 
@@ -532,8 +622,8 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 
         self.assertEqual(OrderBookMessageType.TRADE, msg.type)
-        self.assertEqual(trade_event["data"][0]["trade_id"], msg.trade_id)
-        self.assertEqual(trade_event["data"][0]["trade_time_ms"] * 1e-3, msg.timestamp)
+        self.assertEqual(trade_event["data"][0]["tradeId"], msg.trade_id)
+        self.assertEqual(int(trade_event["data"][0]["ts"]) * 1e-3, msg.timestamp)
 
     def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
@@ -549,8 +639,8 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
             self.async_run_with_timeout(self.listening_task)
 
     def test_listen_for_order_book_diffs_logs_exception(self):
-        incomplete_resp = self.get_ws_diff_msg()
-        del incomplete_resp["timestamp_e6"]
+        incomplete_resp = self.get_ws_order_book_diff_msg()
+        del incomplete_resp["data"][0]["ts"]
 
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [incomplete_resp, asyncio.CancelledError()]
@@ -572,7 +662,7 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
 
     def test_listen_for_order_book_diffs_successful(self):
         mock_queue = AsyncMock()
-        diff_event = self.get_ws_diff_msg()
+        diff_event = self.get_ws_order_book_diff_msg()
         mock_queue.get.side_effect = [diff_event, asyncio.CancelledError()]
         self.data_source._message_queue[self.data_source._diff_messages_queue_key] = mock_queue
 
@@ -582,30 +672,37 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
             self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue))
 
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
-
         self.assertEqual(OrderBookMessageType.DIFF, msg.type)
         self.assertEqual(-1, msg.trade_id)
-        self.assertEqual(diff_event["timestamp_e6"] * 1e-6, msg.timestamp)
-        expected_update_id = int(diff_event["timestamp_e6"])
+        self.assertEqual(int(diff_event["data"][0]["ts"]), msg.timestamp)
+        expected_update_id = diff_event["data"][0]["prevSeqId"] + 1
         self.assertEqual(expected_update_id, msg.update_id)
 
         bids = msg.bids
         asks = msg.asks
-        self.assertEqual(2, len(bids))
-        self.assertEqual(2999.0, bids[0].price)
-        self.assertEqual(8, bids[0].amount)
-        self.assertEqual(expected_update_id, bids[0].update_id)
-        self.assertEqual(1, len(asks))
-        self.assertEqual(3001, asks[0].price)
-        self.assertEqual(0, asks[0].amount)
-        self.assertEqual(expected_update_id, asks[0].update_id)
+        self.assertEqual(8, len(bids))
+        self.assertEqual(8476.97, bids[0].price)
+        self.assertEqual(256, bids[0].amount)
+        self.assertEqual(8, len(asks))
+        self.assertEqual(8476.98, asks[0].price)
+        self.assertEqual(415, asks[0].amount)
+
+        diff_event["event"] = "no-update"
+        mock_queue.get.side_effect = [diff_event, asyncio.CancelledError()]
+        self.data_source._message_queue[self.data_source._diff_messages_queue_key] = mock_queue
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        self.listening_task = self.ev_loop.create_task(
+            self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue))
+
+        msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
+        assert True
 
     @aioresponses()
     def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
-        endpoint = CONSTANTS.ORDER_BOOK_ENDPOINT
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=endpoint, trading_pair=self.trading_pair, domain=self.domain
-        )
+        endpoint = CONSTANTS.REST_ORDER_BOOK[CONSTANTS.ENDPOINT]
+        url = web_utils.get_rest_url_for_endpoint(endpoint=endpoint, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, exception=asyncio.CancelledError)
@@ -615,16 +712,15 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
                 self.data_source.listen_for_order_book_snapshots(self.ev_loop, asyncio.Queue())
             )
 
+    # TODO: Check if unclosed client session should remain after test run
     @aioresponses()
     @patch("hummingbot.core.data_type.order_book_tracker_data_source.OrderBookTrackerDataSource._sleep")
     def test_listen_for_order_book_snapshots_log_exception(self, mock_api, sleep_mock):
         msg_queue: asyncio.Queue = asyncio.Queue()
         sleep_mock.side_effect = lambda _: self._create_exception_and_unlock_test_with_event(asyncio.CancelledError())
 
-        endpoint = CONSTANTS.ORDER_BOOK_ENDPOINT
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=endpoint, trading_pair=self.trading_pair, domain=self.domain
-        )
+        endpoint = CONSTANTS.REST_ORDER_BOOK[CONSTANTS.ENDPOINT]
+        url = web_utils.get_rest_url_for_endpoint(endpoint=endpoint, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         mock_api.get(regex_url, exception=Exception)
@@ -638,13 +734,12 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
             self._is_logged("ERROR", f"Unexpected error fetching order book snapshot for {self.trading_pair}.")
         )
 
+    # TODO
     @aioresponses()
     def test_listen_for_order_book_snapshots_successful(self, mock_api):
         msg_queue: asyncio.Queue = asyncio.Queue()
-        endpoint = CONSTANTS.ORDER_BOOK_ENDPOINT
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=endpoint, trading_pair=self.trading_pair, domain=self.domain
-        )
+        endpoint = CONSTANTS.REST_ORDER_BOOK[CONSTANTS.ENDPOINT]
+        url = web_utils.get_rest_url_for_endpoint(endpoint=endpoint, domain=self.domain)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         resp = self.get_rest_snapshot_msg()
@@ -674,6 +769,125 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(522147, asks[0].amount)
         self.assertEqual(expected_update_id, asks[0].update_id)
 
+    def test_listen_for_mark_price_cancelled_when_listening(self):
+        mock_queue = MagicMock()
+        mock_queue.get.side_effect = asyncio.CancelledError()
+        self.data_source._message_queue[self.data_source._mark_price_queue_key] = mock_queue
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        with self.assertRaises(asyncio.CancelledError):
+            self.listening_task = self.ev_loop.create_task(
+                self.data_source.listen_for_mark_price_info(msg_queue)
+            )
+            self.async_run_with_timeout(self.listening_task)
+
+    def test_listen_for_mark_price_logs_exception(self):
+        incomplete_resp = self.get_ws_mark_price_info_msg()
+        del incomplete_resp["arg"]["instId"]
+
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [incomplete_resp, asyncio.CancelledError()]
+        self.data_source._message_queue[self.data_source._mark_price_queue_key] = mock_queue
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_mark_price_info(msg_queue))
+
+        try:
+            self.async_run_with_timeout(self.listening_task)
+        except asyncio.CancelledError:
+            pass
+
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error when processing public mark price updates from exchange"))
+
+    def test_listen_for_mark_price_successful(self):
+        mark_price_event = self.get_ws_mark_price_info_msg()
+
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [mark_price_event, asyncio.CancelledError()]
+        self.data_source._message_queue[self.data_source._mark_price_queue_key] = mock_queue
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_mark_price_info(msg_queue))
+
+        mark_price_update = Decimal(mark_price_event["data"][0]["markPx"])
+        expected_last_index_price = -1
+        expected_last_next_funding_utc_timestamp = -1
+        expected_last_rate = -1
+        self.data_source._last_index_price = expected_last_index_price
+        self.data_source._last_next_funding_utc_timestamp = expected_last_next_funding_utc_timestamp
+        self.data_source._last_rate = expected_last_rate
+        msg: FundingInfoUpdate = self.async_run_with_timeout(msg_queue.get())
+
+        self.assertEqual(self.trading_pair, msg.trading_pair)
+        self.assertEqual(mark_price_update, msg.mark_price)
+        self.assertEqual(expected_last_next_funding_utc_timestamp, msg.next_funding_utc_timestamp)
+        self.assertEqual(expected_last_rate, msg.rate)
+        self.assertEqual(expected_last_index_price, msg.index_price)
+
+    def test_listen_for_index_price_cancelled_when_listening(self):
+        mock_queue = MagicMock()
+        mock_queue.get.side_effect = asyncio.CancelledError()
+        self.data_source._message_queue[self.data_source._index_price_queue_key] = mock_queue
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        with self.assertRaises(asyncio.CancelledError):
+            self.listening_task = self.ev_loop.create_task(
+                self.data_source.listen_for_index_price_info(msg_queue)
+            )
+            self.async_run_with_timeout(self.listening_task)
+
+    def test_listen_for_index_price_logs_exception(self):
+        incomplete_resp = self.get_ws_index_price_info_msg()
+        del incomplete_resp["arg"]["instId"]
+
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [incomplete_resp, asyncio.CancelledError()]
+        self.data_source._message_queue[self.data_source._index_price_queue_key] = mock_queue
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_index_price_info(msg_queue))
+
+        try:
+            self.async_run_with_timeout(self.listening_task)
+        except asyncio.CancelledError:
+            pass
+
+        self.assertTrue(
+            self._is_logged("ERROR", "Unexpected error when processing public index price updates from exchange"))
+
+    def test_listen_for_index_price_successful(self):
+        index_price_event = self.get_ws_index_price_info_msg()
+
+        mock_queue = AsyncMock()
+        mock_queue.get.side_effect = [index_price_event, asyncio.CancelledError()]
+        self.data_source._message_queue[self.data_source._index_price_queue_key] = mock_queue
+
+        msg_queue: asyncio.Queue = asyncio.Queue()
+
+        self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_index_price_info(msg_queue))
+
+        index_price_update = Decimal(index_price_event["data"][0]["idxPx"])
+        expected_last_mark_price = -2
+        expected_last_next_funding_utc_timestamp = -2
+        expected_last_rate = -2
+
+        self.data_source._last_mark_price = expected_last_mark_price
+        self.data_source._last_next_funding_utc_timestamp = expected_last_next_funding_utc_timestamp
+        self.data_source._last_rate = expected_last_rate
+        msg: FundingInfoUpdate = self.async_run_with_timeout(msg_queue.get())
+
+        self.assertEqual(self.trading_pair, msg.trading_pair)
+        self.assertEqual(index_price_update, msg.index_price)
+        self.assertEqual(expected_last_next_funding_utc_timestamp, msg.next_funding_utc_timestamp)
+        self.assertEqual(expected_last_rate, msg.rate)
+        self.assertEqual(expected_last_mark_price, msg.mark_price)
+
     def test_listen_for_funding_info_cancelled_when_listening(self):
         mock_queue = MagicMock()
         mock_queue.get.side_effect = asyncio.CancelledError()
@@ -688,8 +902,8 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
             self.async_run_with_timeout(self.listening_task)
 
     def test_listen_for_funding_info_logs_exception(self):
-        incomplete_resp = self.get_funding_info_event()
-        del incomplete_resp["type"]
+        incomplete_resp = self.get_ws_funding_info_msg()
+        del incomplete_resp["arg"]["instId"]
 
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [incomplete_resp, asyncio.CancelledError()]
@@ -705,56 +919,30 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
             pass
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public funding info updates from exchange"))
+            self._is_logged("ERROR", "Unexpected error when processing public index price updates from exchange"))
 
     def test_listen_for_funding_info_successful(self):
-        funding_info_event = self.get_funding_info_event()
+        index_price_event = self.get_ws_funding_info_msg()
 
         mock_queue = AsyncMock()
-        mock_queue.get.side_effect = [funding_info_event, asyncio.CancelledError()]
+        mock_queue.get.side_effect = [index_price_event, asyncio.CancelledError()]
         self.data_source._message_queue[self.data_source._funding_info_messages_queue_key] = mock_queue
 
         msg_queue: asyncio.Queue = asyncio.Queue()
 
         self.listening_task = self.ev_loop.create_task(self.data_source.listen_for_funding_info(msg_queue))
 
+        expected_last_index_price = -3
+        expected_last_mark_price = -3
+        update_next_funding_utc_timestamp = int(index_price_event["data"][0]["nextFundingTime"])
+        update_rate = Decimal(index_price_event["data"][0]["fundingRate"])
+
+        self.data_source._last_mark_price = expected_last_mark_price
+        self.data_source._last_index_price = expected_last_index_price
         msg: FundingInfoUpdate = self.async_run_with_timeout(msg_queue.get())
-        funding_update = funding_info_event["data"]["update"][0]
 
         self.assertEqual(self.trading_pair, msg.trading_pair)
-        expected_index_price = Decimal(str(funding_update["index_price"]))
-        self.assertEqual(expected_index_price, msg.index_price)
-        expected_mark_price = Decimal(str(funding_update["mark_price"]))
-        self.assertEqual(expected_mark_price, msg.mark_price)
-        expected_funding_time = int(
-            pd.Timestamp(str(funding_update["next_funding_time"]), tz="UTC").timestamp()
-        )
-        self.assertEqual(expected_funding_time, msg.next_funding_utc_timestamp)
-        expected_rate = Decimal(str(funding_update["predicted_funding_rate_e6"])) * Decimal(1e-6)
-        self.assertEqual(expected_rate, msg.rate)
-
-    @aioresponses()
-    def test_get_funding_info(self, mock_api):
-        endpoint = CONSTANTS.LATEST_SYMBOL_INFORMATION_ENDPOINT
-        url = web_utils.get_rest_url_for_endpoint(endpoint, self.trading_pair, self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        general_resp = self.get_general_info_rest_msg()
-        mock_api.get(regex_url, body=json.dumps(general_resp))
-
-        endpoint = CONSTANTS.GET_PREDICTED_FUNDING_RATE_PATH_URL
-        url = web_utils.get_rest_url_for_endpoint(endpoint, self.trading_pair, self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        funding_resp = self.get_predicted_funding_info()
-        mock_api.get(regex_url, body=json.dumps(funding_resp))
-
-        funding_info: FundingInfo = self.async_run_with_timeout(
-            self.data_source.get_funding_info(self.trading_pair)
-        )
-        general_info_result = general_resp["result"][0]
-
-        self.assertEqual(self.trading_pair, funding_info.trading_pair)
-        self.assertEqual(Decimal(str(general_info_result["index_price"])), funding_info.index_price)
-        self.assertEqual(Decimal(str(general_info_result["mark_price"])), funding_info.mark_price)
-        expected_utc_timestamp = int(pd.Timestamp(general_info_result["next_funding_time"]).timestamp())
-        self.assertEqual(expected_utc_timestamp, funding_info.next_funding_utc_timestamp)
-        self.assertEqual(Decimal(str(funding_resp["result"]["predicted_funding_rate"])), funding_info.rate)
+        self.assertEqual(expected_last_index_price, msg.index_price)
+        self.assertEqual(update_next_funding_utc_timestamp, msg.next_funding_utc_timestamp)
+        self.assertEqual(update_rate, msg.rate)
+        self.assertEqual(expected_last_mark_price, msg.mark_price)
