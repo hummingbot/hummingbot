@@ -203,7 +203,7 @@ class GenericExecutor(ExecutorHandlerBase):
         all_executors = MarketsRecorder.get_instance().get_executors_by_ids(list(self.stored_executors_ids))
         net_pnl_pct = sum([executor.net_pnl_pct for executor in all_executors])
         net_pnl_quote = sum([executor.net_pnl_quote for executor in all_executors])
-        volume_traded = sum([executor.filled_amount * 2 for executor in all_executors])
+        volume_traded = sum([executor.filled_amount_quote * 2 for executor in all_executors])
         return net_pnl_pct, net_pnl_quote, volume_traded
 
     def to_format_status(self) -> str:
