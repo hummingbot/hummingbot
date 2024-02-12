@@ -45,7 +45,6 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         snapshot_response = await self._request_order_book_snapshot(trading_pair)
         snapshot_data = snapshot_response["data"][0]
         timestamp = float(snapshot_data["ts"])
-        # TODO: Check if replacing nonce_provider with seqId is correct
         update_id = self._nonce_provider.get_tracking_nonce(timestamp=timestamp)
 
         bids, asks = self._get_bids_and_asks_from_rest_msg_data(snapshot_data)
@@ -181,58 +180,20 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         responses = await asyncio.gather(*tasks)
         return responses
 
-    # 4 - Listen for Subscriptions
-    async def listen_for_subscriptions(self):
-        """
-        Subscribe to all required events and start the listening cycle.
-        """
-        tasks_future = None
-        try:
-            tasks = [self._listen_for_subscriptions_on_url(url=web_utils.wss_linear_public_url(self._domain),
-                                                           trading_pairs=self._trading_pairs)]
-            if tasks:
-                tasks_future = asyncio.gather(*tasks)
-                await tasks_future
-
-        except asyncio.CancelledError:
-            tasks_future and tasks_future.cancel()
-            raise
-
-    async def _listen_for_subscriptions_on_url(self, url: str, trading_pairs: List[str]):
-        """
-        Subscribe to all required events and start the listening cycle.
-        :param url: the wss url to connect to
-        :param trading_pairs: the trading pairs for which the function should listen events
-        """
-
-        ws: Optional[WSAssistant] = None
-        while True:
-            try:
-                ws = await self._get_connected_websocket_assistant(url)
-                await self._subscribe_to_channels(ws, trading_pairs)
-                await self._process_websocket_messages(ws)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger().exception(
-                    f"Unexpected error occurred when listening to order book streams {url}. Retrying in 5 seconds..."
-                )
-                await self._sleep(5.0)
-            finally:
-                ws and await ws.disconnect()
-
-    async def _get_connected_websocket_assistant(self, ws_url: str) -> WSAssistant:
+    # 4 - Websocket Connection
+    async def _connected_websocket_assistant(self) -> WSAssistant:
         ws: WSAssistant = await self._api_factory.get_ws_assistant()
         await ws.connect(
-            ws_url=ws_url, message_timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE
+            ws_url=CONSTANTS.WSS_PUBLIC_URLS[CONSTANTS.DEFAULT_DOMAIN],
+            message_timeout=CONSTANTS.SECONDS_TO_WAIT_TO_RECEIVE_MESSAGE
         )
         return ws
 
-    async def _subscribe_to_channels(self, ws: WSAssistant, trading_pairs: List[str]):
+    async def _subscribe_channels(self, ws: WSAssistant):
         try:
             ex_trading_pairs = [
                 await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-                for trading_pair in trading_pairs
+                for trading_pair in self._trading_pairs
             ]
 
             trades_args = [
@@ -325,7 +286,7 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         while True:
             try:
                 funding_info_event = await message_queue.get()
-                await self._parse_funding_info_message(raw_message=funding_info_event, message_queue=output)
+                await self._parse_mark_price_message(raw_message=funding_info_event, message_queue=output)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -339,7 +300,7 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         while True:
             try:
                 funding_info_event = await message_queue.get()
-                await self._parse_funding_info_message(raw_message=funding_info_event, message_queue=output)
+                await self._parse_index_price_message(raw_message=funding_info_event, message_queue=output)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -347,7 +308,7 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     # 6 - Parsers
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        event_type = raw_message.get("action")
+        event_type = raw_message["action"]
         if event_type == "update":
             symbol = raw_message["arg"]["instId"]
             trading_pair = self._connector.trading_pair_associated_to_exchange_symbol(symbol)
@@ -372,7 +333,7 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         event_type = raw_message.get("action", None)
         if event_type == "snapshot":
             symbol = raw_message["arg"]["instId"]
-            trading_pair = self._connector.trading_pair_associated_to_exchange_symbol(symbol)
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
             timestamp_ms = int(raw_message["data"][0]["ts"])
             update_id = int(raw_message["data"][0]["seqId"])
             diffs_data = raw_message["data"][0]
@@ -419,59 +380,42 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
                 )
                 message_queue.put_nowait(trade_message)
 
-    # TODO: Check if FundingInfoUpdate can be feeded from different parsers, or if it needs to be a single one
     async def _parse_funding_info_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        funding_rates = raw_message.get("data")
-        if funding_rates is not None:
-            symbol = raw_message["arg"]["instId"]
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
-            funding_data = raw_message["data"][0]
-            if "nextFundingTime" in funding_data:
-                self._last_next_funding_utc_timestamp = int(funding_data["nextFundingTime"]) * 1e-3
-            if "nextFundingRate" in funding_data:
-                self._last_rate = (Decimal(str(funding_data["nextFundingRate"])))
-            info_update = FundingInfoUpdate(trading_pair=trading_pair,
-                                            index_price=self._last_index_price,
-                                            mark_price=self._last_mark_price,
-                                            next_funding_utc_timestamp=self._last_next_funding_utc_timestamp,
-                                            rate=self._last_rate)
-            message_queue.put_nowait(info_update)
+        symbol = raw_message["arg"]["instId"]
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
+        funding_data = raw_message["data"][0]
+        self._last_next_funding_utc_timestamp = int(funding_data["nextFundingTime"])
+        self._last_rate = (Decimal(str(funding_data["fundingRate"])))
+        info_update = FundingInfoUpdate(trading_pair=trading_pair,
+                                        index_price=self._last_index_price,
+                                        mark_price=self._last_mark_price,
+                                        next_funding_utc_timestamp=self._last_next_funding_utc_timestamp,
+                                        rate=self._last_rate)
+        message_queue.put_nowait(info_update)
 
     async def _parse_index_price_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        index_price = raw_message.get("data")
-        if index_price is not None:
-            symbol = raw_message["arg"]["instId"]
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
-            index_price_data = raw_message["data"][0]
-            if "markPx" in index_price_data:
-                self._last_index_price = Decimal(str(index_price_data["mark_price"]))
-                info_update = FundingInfoUpdate(trading_pair=trading_pair,
-                                                index_price=self._last_index_price,
-                                                mark_price=self._last_mark_price,
-                                                next_funding_utc_timestamp=self._last_next_funding_utc_timestamp,
-                                                rate=self._last_rate)
-                message_queue.put_nowait(info_update)
+        symbol = raw_message["arg"]["instId"]
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
+        index_price_data = raw_message["data"][0]
+        self._last_index_price = Decimal(str(index_price_data["idxPx"]))
+        info_update = FundingInfoUpdate(trading_pair=trading_pair,
+                                        index_price=self._last_index_price,
+                                        mark_price=self._last_mark_price,
+                                        next_funding_utc_timestamp=self._last_next_funding_utc_timestamp,
+                                        rate=self._last_rate)
+        message_queue.put_nowait(info_update)
 
     async def _parse_mark_price_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        mark_price = raw_message.get("data")
-        if mark_price is not None:
-            symbol = raw_message["arg"]["instId"]
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
-            mark_price_data = raw_message["data"][0]
-            if "markPx" in mark_price_data:
-                self._last_mark_price = Decimal(str(mark_price_data["mark_price"]))
-                info_update = FundingInfoUpdate(trading_pair=trading_pair,
-                                                index_price=self._last_index_price,
-                                                mark_price=self._last_mark_price,
-                                                next_funding_utc_timestamp=self._last_next_funding_utc_timestamp,
-                                                rate=self._last_rate)
-                message_queue.put_nowait(info_update)
-
-    async def _connected_websocket_assistant(self) -> WSAssistant:
-        pass  # unused
-
-    async def _subscribe_channels(self, ws: WSAssistant):
-        pass  # unused
+        symbol = raw_message["arg"]["instId"]
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
+        mark_price_data = raw_message["data"][0]
+        self._last_mark_price = Decimal(str(mark_price_data["markPx"]))
+        info_update = FundingInfoUpdate(trading_pair=trading_pair,
+                                        index_price=self._last_index_price,
+                                        mark_price=self._last_mark_price,
+                                        next_funding_utc_timestamp=self._last_next_funding_utc_timestamp,
+                                        rate=self._last_rate)
+        message_queue.put_nowait(info_update)
 
     def _get_messages_queue_keys(self) -> List[str]:
         return [
