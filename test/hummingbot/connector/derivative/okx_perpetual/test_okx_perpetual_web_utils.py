@@ -36,12 +36,6 @@ class OKXPerpetualWebUtilsTest(unittest.TestCase):
         url = web_utils.get_rest_url_for_endpoint(endpoint, domain="okx_perpetual_aws")
         self.assertEqual("https://aws.okx.com/testEndpoint", url)
 
-        # url = web_utils.get_rest_url_for_endpoint(endpoint, domain="okx_perpetual_demo")
-        # expected_start = "https://www.okx.com/testEndpoint"
-        # expected_end = "?brokerId=9999"
-        # regex_pattern = f"{re.escape(expected_start)}.*{re.escape(expected_end)}$"
-        # self.assertRegex(regex_pattern, url)
-
     def test_wss_linear_public_url(self):
         url = web_utils.wss_linear_public_url(None)
         self.assertEqual(CONSTANTS.WSS_PUBLIC_URLS.get("okx_perpetual"), url)
