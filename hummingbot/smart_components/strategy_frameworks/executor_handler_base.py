@@ -8,8 +8,6 @@ from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide
 from hummingbot.logger import HummingbotLogger
 from hummingbot.model.position_executors import PositionExecutors
-from hummingbot.smart_components.executors.dca_executor.data_types import DCAExecutorConfig
-from hummingbot.smart_components.executors.dca_executor.dca_executor import DCAExecutor
 from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.smart_components.smart_component_base import SmartComponentBase
@@ -95,39 +93,6 @@ class ExecutorHandlerBase(SmartComponentBase):
         executor = self.position_executors[executor_id]
         if executor:
             executor.early_stop()
-
-    def create_dca_executor(self, dca_config: DCAExecutorConfig):
-        """
-        Create an executor.
-
-        :param dca_config: The DCA configuration.
-        """
-        executor = DCAExecutor(self.strategy, dca_config, update_interval=self.executors_update_interval)
-        self.dca_executors.append(executor)
-
-    def stop_dca_executor(self, dca_id: str):
-        """
-        Stop a DCA executor.
-        """
-        executor = self.dca_executors[dca_id]
-        if executor:
-            executor.early_stop()
-
-    def store_dca_executor(self, dca_id: str):
-        """
-        Store executor data to CSV.
-
-        :param executor: The executor instance.
-        :param level_id: The order level id.
-        """
-        executor = self.dca_executors[dca_id]
-        if executor:
-            # TODO: store dca executor in database (create model, define variables to store, etc)
-            # executor_data = executor.to_json()
-            # executor_data["dca_id"] = dca_id
-            # executor_data["controller_name"] = self.controller.config.strategy_name
-            # MarketsRecorder.get_instance().store_executor(executor_data)
-            self.dca_executors[dca_id] = None
 
     def close_open_positions(self, connector_name: str = None, trading_pair: str = None):
         """
