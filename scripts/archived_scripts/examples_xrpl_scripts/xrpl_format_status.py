@@ -7,7 +7,7 @@ class FormatStatusExample(ScriptStrategyBase):
     Run the command status --live, once the strategy starts.
     """
     markets = {
-        "xrpl_xrpl_mainnet": {"XRP-USDC", "XRP-USD", "SOLO-USD"},
+        "xrpl_xrpl_mainnet": {"XRP-USDC", "XRP-USDT", "SOLO-USD.b"},
         "gate_io_paper_trade": {"XRP-USDC", "XRP-USDT", "SOLO-USDT"},
     }
 
