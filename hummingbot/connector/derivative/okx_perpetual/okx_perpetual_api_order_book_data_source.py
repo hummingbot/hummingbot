@@ -1,6 +1,6 @@
 import asyncio
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from hummingbot.connector.derivative.okx_perpetual import (
     okx_perpetual_constants as CONSTANTS,
@@ -42,30 +42,28 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     # 1 - Order Book Snapshot REST
     async def _order_book_snapshot(self, trading_pair: str) -> OrderBookMessage:
-        snapshot_response = await self._request_order_book_snapshot(trading_pair)
-        snapshot_data = snapshot_response["data"][0]
-        timestamp = float(snapshot_data["ts"])
-        update_id = self._nonce_provider.get_tracking_nonce(timestamp=timestamp)
+        snapshot_response: Dict[str, Any] = await self._request_order_book_snapshot(trading_pair)
+        snapshot_data: Dict[str, Any] = snapshot_response['data'][0]
+        snapshot_timestamp: float = int(snapshot_data["ts"])
+        update_id: int = int(snapshot_timestamp)
 
-        bids, asks = self._get_bids_and_asks_from_rest_msg_data(snapshot_data)
         order_book_message_content = {
             "trading_pair": trading_pair,
             "update_id": update_id,
-            "bids": bids,
-            "asks": asks,
+            "bids": [(bid[0], bid[1]) for bid in snapshot_data["bids"]],
+            "asks": [(ask[0], ask[1]) for ask in snapshot_data["asks"]],
         }
         snapshot_msg: OrderBookMessage = OrderBookMessage(
-            message_type=OrderBookMessageType.SNAPSHOT,
-            content=order_book_message_content,
-            timestamp=timestamp,
-        )
+            OrderBookMessageType.SNAPSHOT,
+            order_book_message_content,
+            snapshot_timestamp)
 
         return snapshot_msg
 
     async def _request_order_book_snapshot(self, trading_pair: str) -> Dict[str, Any]:
         params = {
             "instId": await self._connector.exchange_symbol_associated_to_pair(trading_pair=trading_pair),
-            "sz": "300"
+            "sz": "400"
         }
 
         rest_assistant = await self._api_factory.get_rest_assistant()
@@ -82,23 +80,6 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
         )
 
         return data
-
-    @staticmethod
-    def _get_bids_and_asks_from_rest_msg_data(
-        snapshot: List[Dict[str, Union[str, int, float]]]
-    ) -> Tuple[List[Tuple[float, float]], List[Tuple[float, float]]]:
-        # asks: ascending, bids: descending
-        bids = [tuple(map(float, row[:2])) for row in snapshot['bids']]
-        asks = [tuple(map(float, row[:2])) for row in snapshot['asks']]
-        return bids, asks
-
-    @staticmethod
-    def _get_bids_and_asks_from_ws_msg_data(
-        snapshot: Dict[str, List[Dict[str, Union[str, int, float]]]]
-    ) -> Tuple[List[Tuple[float, float]], List[Tuple[float, float]]]:
-        bids = [tuple(map(float, row[:2])) for row in snapshot['bids']]
-        asks = [tuple(map(float, row[:2])) for row in snapshot['asks']]
-        return bids, asks
 
     # 2 - Get Last Traded Prices REST
     async def get_last_traded_prices(self, trading_pairs: List[str], domain: Optional[str] = None) -> Dict[str, float]:
@@ -308,77 +289,65 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     # 6 - Parsers
     async def _parse_order_book_diff_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        event_type = raw_message["action"]
-        if event_type == "update":
-            symbol = raw_message["arg"]["instId"]
-            trading_pair = self._connector.trading_pair_associated_to_exchange_symbol(symbol)
-            timestamp_ms = int(raw_message["data"][0]["ts"])
-            update_id = int(raw_message["data"][0]["seqId"])
-            diffs_data = raw_message["data"][0]
-            bids, asks = self._get_bids_and_asks_from_ws_msg_data(diffs_data)
+        diff_updates: Dict[str, Any] = raw_message["data"]
+
+        for diff_data in diff_updates:
+            timestamp: float = int(diff_data["ts"])
+            update_id: int = int(timestamp)
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(
+                symbol=raw_message["arg"]["instId"])
+
             order_book_message_content = {
                 "trading_pair": trading_pair,
                 "update_id": update_id,
-                "bids": bids,
-                "asks": asks,
+                "bids": [(bid[0], bid[1]) for bid in diff_data["bids"]],
+                "asks": [(ask[0], ask[1]) for ask in diff_data["asks"]],
             }
-            diff_message = OrderBookMessage(
-                message_type=OrderBookMessageType.DIFF,
-                content=order_book_message_content,
-                timestamp=timestamp_ms,
-            )
+            diff_message: OrderBookMessage = OrderBookMessage(
+                OrderBookMessageType.DIFF,
+                order_book_message_content,
+                timestamp)
+
             message_queue.put_nowait(diff_message)
 
     async def _parse_order_book_snapshot_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        event_type = raw_message.get("action", None)
-        if event_type == "snapshot":
-            symbol = raw_message["arg"]["instId"]
-            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
-            timestamp_ms = int(raw_message["data"][0]["ts"])
-            update_id = int(raw_message["data"][0]["seqId"])
-            diffs_data = raw_message["data"][0]
-            bids, asks = self._get_bids_and_asks_from_ws_msg_data(diffs_data)
-            order_book_message_content = {
-                "trading_pair": trading_pair,
-                "update_id": update_id,
-                "bids": bids,
-                "asks": asks,
-            }
-            snapshot_message = OrderBookMessage(
-                message_type=OrderBookMessageType.SNAPSHOT,
-                content=order_book_message_content,
-                timestamp=timestamp_ms,
-            )
-            message_queue.put_nowait(snapshot_message)
+        trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=raw_message["arg"]["instId"])
+        snapshot_data = raw_message["data"][0]
+        snapshot_timestamp: float = int(snapshot_data["ts"])
+        update_id: int = int(snapshot_timestamp)
+
+        order_book_message_content = {
+            "trading_pair": trading_pair,
+            "update_id": update_id,
+            "bids": [(bid[0], bid[1]) for bid in snapshot_data["bids"]],
+            "asks": [(ask[0], ask[1]) for ask in snapshot_data["asks"]],
+        }
+        snapshot_msg: OrderBookMessage = OrderBookMessage(
+            OrderBookMessageType.SNAPSHOT,
+            order_book_message_content,
+            snapshot_timestamp)
+
+        message_queue.put_nowait(snapshot_msg)
 
     async def _parse_trade_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
-        # TODO: Check with dman if this handling is ok
-        subscription_event = raw_message.get("event")
-        if subscription_event == "subscribe":
-            pass
-        elif subscription_event == "error":
-            self.logger().error(f"Error in trades subscription: {raw_message}")
-            pass
-        trade_updates = raw_message.get("data")
-        if trade_updates is not None:
-            for trade_data in trade_updates:
-                symbol = trade_data["instId"]
-                trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol)
-                ts_ms = int(trade_data["ts"])
-                trade_type = float(TradeType.BUY.value) if trade_data["side"] == "buy" else float(TradeType.SELL.value)
-                message_content = {
-                    "trade_id": trade_data["tradeId"],
-                    "trading_pair": trading_pair,
-                    "trade_type": trade_type,
-                    "amount": trade_data["sz"],
-                    "price": trade_data["px"],
-                }
-                trade_message = OrderBookMessage(
-                    message_type=OrderBookMessageType.TRADE,
-                    content=message_content,
-                    timestamp=ts_ms * 1e-3,
-                )
-                message_queue.put_nowait(trade_message)
+        trade_updates = raw_message["data"]
+
+        for trade_data in trade_updates:
+            trading_pair = await self._connector.trading_pair_associated_to_exchange_symbol(symbol=trade_data["instId"])
+            message_content = {
+                "trade_id": trade_data["tradeId"],
+                "trading_pair": trading_pair,
+                "trade_type": float(TradeType.BUY.value) if trade_data["side"] == "buy" else float(
+                    TradeType.SELL.value),
+                "amount": trade_data["sz"],
+                "price": trade_data["px"]
+            }
+            trade_message: Optional[OrderBookMessage] = OrderBookMessage(
+                message_type=OrderBookMessageType.TRADE,
+                content=message_content,
+                timestamp=(int(trade_data["ts"])))
+
+            message_queue.put_nowait(trade_message)
 
     async def _parse_funding_info_message(self, raw_message: Dict[str, Any], message_queue: asyncio.Queue):
         symbol = raw_message["arg"]["instId"]
@@ -429,15 +398,16 @@ class OkxPerpetualAPIOrderBookDataSource(PerpetualAPIOrderBookDataSource):
 
     def _channel_originating_message(self, event_message: Dict[str, Any]) -> str:
         channel = ""
-        arg_dict = event_message.get("arg", {})
-        channel_value = arg_dict.get("channel")
-
-        if channel_value is not None:
+        if "data" in event_message:
             event_channel = event_message["arg"]["channel"]
             if event_channel == CONSTANTS.WS_TRADES_CHANNEL:
                 channel = self._trade_messages_queue_key
-            elif event_channel == CONSTANTS.WS_ORDER_BOOK_400_DEPTH_100_MS_EVENTS_CHANNEL:
+            elif (event_channel == CONSTANTS.WS_ORDER_BOOK_400_DEPTH_100_MS_EVENTS_CHANNEL
+                  and event_message["action"] == "update"):
                 channel = self._diff_messages_queue_key
+            elif (event_channel == CONSTANTS.WS_ORDER_BOOK_400_DEPTH_100_MS_EVENTS_CHANNEL
+                  and event_message["action"] == "snapshot"):
+                channel = self._snapshot_messages_queue_key
             elif event_channel == CONSTANTS.WS_INSTRUMENTS_INFO_CHANNEL:
                 channel = self._funding_info_messages_queue_key
             elif event_channel == CONSTANTS.WS_MARK_PRICE_CHANNEL:

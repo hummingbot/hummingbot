@@ -113,24 +113,18 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
 
     def get_ws_trade_msg(self) -> Dict:
         return {
-            "code": "0",
-            "msg": "",
+            "arg": {
+                "channel": "trades",
+                "instId": self.trading_pair
+            },
             "data": [
                 {
-                    "instId": self.ex_trading_pair,
-                    "side": "sell",
-                    "sz": "0.00001",
-                    "px": "29963.2",
-                    "tradeId": "242720720",
-                    "ts": "1654161646974"
-                },
-                {
-                    "instId": self.ex_trading_pair,
-                    "side": "sell",
-                    "sz": "0.00001",
-                    "px": "29964.1",
-                    "tradeId": "242720719",
-                    "ts": "1654161641568"
+                    "instId": self.trading_pair,
+                    "tradeId": "130639474",
+                    "px": "42219.9",
+                    "sz": "0.12060306",
+                    "side": "buy",
+                    "ts": "1630048897897"
                 }
             ]
         }
@@ -176,7 +170,7 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
         return {
             "arg": {
                 "channel": "books",
-                "instId": self.ex_trading_pair
+                "instId": self.trading_pair
             },
             "action": "update",
             "data": [
@@ -185,26 +179,13 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
                         ["8476.98", "415", "0", "13"],
                         ["8477", "7", "0", "2"],
                         ["8477.34", "85", "0", "1"],
-                        ["8477.56", "1", "0", "1"],
-                        ["8505.84", "8", "0", "1"],
-                        ["8506.37", "85", "0", "1"],
-                        ["8506.49", "2", "0", "1"],
-                        ["8506.96", "100", "0", "2"]
                     ],
                     "bids": [
                         ["8476.97", "256", "0", "12"],
                         ["8475.55", "101", "0", "1"],
-                        ["8475.54", "100", "0", "1"],
-                        ["8475.3", "1", "0", "1"],
-                        ["8447.32", "6", "0", "1"],
-                        ["8447.02", "246", "0", "1"],
-                        ["8446.83", "24", "0", "1"],
-                        ["8446", "95", "0", "3"]
                     ],
                     "ts": "1597026383085",
-                    "checksum": -855196043,
-                    "prevSeqId": 123455,
-                    "seqId": 123456
+                    "checksum": -855196043
                 }
             ]
         }
@@ -380,7 +361,7 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
             self.data_source.get_new_order_book(self.trading_pair)
         )
 
-        expected_update_id = int(float(resp["data"][0]["ts"]) * 1e6)
+        expected_update_id = int(float(resp["data"][0]["ts"]))
 
         self.assertEqual(expected_update_id, order_book.snapshot_uid)
         bids = list(order_book.bid_entries())
@@ -609,8 +590,22 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
 
     def test_listen_for_trades_successful(self):
         mock_queue = AsyncMock()
-        trade_event = self.get_ws_trade_msg()
-
+        trade_event = {
+            "arg": {
+                "channel": "trades",
+                "instId": self.trading_pair
+            },
+            "data": [
+                {
+                    "instId": self.trading_pair,
+                    "tradeId": "130639474",
+                    "px": "42219.9",
+                    "sz": "0.12060306",
+                    "side": "buy",
+                    "ts": "1630048897897"
+                }
+            ]
+        }
         mock_queue.get.side_effect = [trade_event, asyncio.CancelledError()]
         self.data_source._message_queue[self.data_source._trade_messages_queue_key] = mock_queue
 
@@ -623,7 +618,7 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
 
         self.assertEqual(OrderBookMessageType.TRADE, msg.type)
         self.assertEqual(trade_event["data"][0]["tradeId"], msg.trade_id)
-        self.assertEqual(int(trade_event["data"][0]["ts"]) * 1e-3, msg.timestamp)
+        self.assertEqual(int(trade_event["data"][0]["ts"]), msg.timestamp)
 
     def test_listen_for_order_book_diffs_cancelled(self):
         mock_queue = AsyncMock()
@@ -639,8 +634,13 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
             self.async_run_with_timeout(self.listening_task)
 
     def test_listen_for_order_book_diffs_logs_exception(self):
-        incomplete_resp = self.get_ws_order_book_diff_msg()
-        del incomplete_resp["data"][0]["ts"]
+        incomplete_resp = {
+            "arg": {
+                "channel": "books",
+                "instId": self.trading_pair
+            },
+            "action": "update",
+        }
 
         mock_queue = AsyncMock()
         mock_queue.get.side_effect = [incomplete_resp, asyncio.CancelledError()]
@@ -672,32 +672,23 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
             self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue))
 
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
+
         self.assertEqual(OrderBookMessageType.DIFF, msg.type)
         self.assertEqual(-1, msg.trade_id)
         self.assertEqual(int(diff_event["data"][0]["ts"]), msg.timestamp)
-        expected_update_id = diff_event["data"][0]["prevSeqId"] + 1
+        expected_update_id = int(int(diff_event["data"][0]["ts"]))
         self.assertEqual(expected_update_id, msg.update_id)
 
         bids = msg.bids
         asks = msg.asks
-        self.assertEqual(8, len(bids))
+        self.assertEqual(2, len(bids))
         self.assertEqual(8476.97, bids[0].price)
         self.assertEqual(256, bids[0].amount)
-        self.assertEqual(8, len(asks))
+        self.assertEqual(expected_update_id, bids[0].update_id)
+        self.assertEqual(3, len(asks))
         self.assertEqual(8476.98, asks[0].price)
         self.assertEqual(415, asks[0].amount)
-
-        diff_event["event"] = "no-update"
-        mock_queue.get.side_effect = [diff_event, asyncio.CancelledError()]
-        self.data_source._message_queue[self.data_source._diff_messages_queue_key] = mock_queue
-
-        msg_queue: asyncio.Queue = asyncio.Queue()
-
-        self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_order_book_diffs(self.ev_loop, msg_queue))
-
-        msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
-        assert True
+        self.assertEqual(expected_update_id, asks[0].update_id)
 
     @aioresponses()
     def test_listen_for_order_book_snapshots_cancelled_when_fetching_snapshot(self, mock_api):
@@ -737,36 +728,55 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
     # TODO
     @aioresponses()
     def test_listen_for_order_book_snapshots_successful(self, mock_api):
+        self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = 1
+        mock_queue = AsyncMock()
+        snapshot_event = {
+            "arg": {
+                "channel": "books",
+                "instId": self.trading_pair
+            },
+            "action": "snapshot",
+            "data": [
+                {
+                    "asks": [
+                        ["8476.98", "415", "0", "13"],
+                        ["8477", "7", "0", "2"],
+                        ["8477.34", "85", "0", "1"],
+                    ],
+                    "bids": [
+                        ["8476.97", "256", "0", "12"],
+                        ["8475.55", "101", "0", "1"],
+                    ],
+                    "ts": "1597026383085",
+                    "checksum": -855196043
+                }
+            ]
+        }
+        mock_queue.get.side_effect = [snapshot_event, asyncio.CancelledError()]
+        self.data_source._message_queue[self.data_source._snapshot_messages_queue_key] = mock_queue
+
         msg_queue: asyncio.Queue = asyncio.Queue()
-        endpoint = CONSTANTS.REST_ORDER_BOOK[CONSTANTS.ENDPOINT]
-        url = web_utils.get_rest_url_for_endpoint(endpoint=endpoint, domain=self.domain)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        resp = self.get_rest_snapshot_msg()
-
-        mock_api.get(regex_url, body=json.dumps(resp))
 
         self.listening_task = self.ev_loop.create_task(
-            self.data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue)
-        )
+            self.data_source.listen_for_order_book_snapshots(self.ev_loop, msg_queue))
 
         msg: OrderBookMessage = self.async_run_with_timeout(msg_queue.get())
 
         self.assertEqual(OrderBookMessageType.SNAPSHOT, msg.type)
         self.assertEqual(-1, msg.trade_id)
-        self.assertEqual(float(resp["time_now"]), msg.timestamp)
-        expected_update_id = int(float(resp["time_now"]) * 1e6)
+        self.assertEqual(int(snapshot_event["data"][0]["ts"]), msg.timestamp)
+        expected_update_id = int(int(snapshot_event["data"][0]["ts"]))
         self.assertEqual(expected_update_id, msg.update_id)
 
         bids = msg.bids
         asks = msg.asks
-        self.assertEqual(1, len(bids))
-        self.assertEqual(9487, bids[0].price)
-        self.assertEqual(336241, bids[0].amount)
+        self.assertEqual(2, len(bids))
+        self.assertEqual(8476.97, bids[0].price)
+        self.assertEqual(256, bids[0].amount)
         self.assertEqual(expected_update_id, bids[0].update_id)
-        self.assertEqual(1, len(asks))
-        self.assertEqual(9487.5, asks[0].price)
-        self.assertEqual(522147, asks[0].amount)
+        self.assertEqual(3, len(asks))
+        self.assertEqual(8476.98, asks[0].price)
+        self.assertEqual(415, asks[0].amount)
         self.assertEqual(expected_update_id, asks[0].update_id)
 
     def test_listen_for_mark_price_cancelled_when_listening(self):
@@ -919,7 +929,7 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
             pass
 
         self.assertTrue(
-            self._is_logged("ERROR", "Unexpected error when processing public index price updates from exchange"))
+            self._is_logged("ERROR", "Unexpected error when processing public funding info updates from exchange"))
 
     def test_listen_for_funding_info_successful(self):
         index_price_event = self.get_ws_funding_info_msg()
@@ -946,3 +956,18 @@ class OKXPerpetualAPIOrderBookDataSourceTests(TestCase):
         self.assertEqual(update_next_funding_utc_timestamp, msg.next_funding_utc_timestamp)
         self.assertEqual(update_rate, msg.rate)
         self.assertEqual(expected_last_mark_price, msg.mark_price)
+
+    def test_channel_originating_message_snapshot_queue(self):
+        event_message = self.get_ws_order_book_snapshot_msg()
+        channel_result = self.data_source._channel_originating_message(event_message)
+        self.assertEqual(channel_result, self.data_source._snapshot_messages_queue_key)
+
+    def test_channel_originating_message_diff_queue(self):
+        event_message = self.get_ws_order_book_diff_msg()
+        channel_result = self.data_source._channel_originating_message(event_message)
+        self.assertEqual(channel_result, self.data_source._diff_messages_queue_key)
+
+    def test_channel_originating_message_trade_queue(self):
+        event_message = self.get_ws_trade_msg()
+        channel_result = self.data_source._channel_originating_message(event_message)
+        self.assertEqual(channel_result, self.data_source._trade_messages_queue_key)
