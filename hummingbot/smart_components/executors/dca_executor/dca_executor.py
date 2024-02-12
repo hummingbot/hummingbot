@@ -388,7 +388,7 @@ class DCAExecutor(ExecutorBase):
             for order in active_open_orders:
                 stored_in_flight_order = self.get_in_flight_order(self.config.exchange, order.order_id)
                 self.logger().info(f"Open order {order.order_id} status: {order.order.current_state}")
-                self.logger().info(f"Stored in flight order {order.order_id} status: {stored_in_flight_order.status}")
+                self.logger().info(f"Stored in flight order {order.order_id} status: {stored_in_flight_order.current_state}")
             self.place_close_order_and_cancel_open_orders(close_type=self.close_type)
             self._current_retries += 1
 
