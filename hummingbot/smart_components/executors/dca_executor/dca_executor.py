@@ -390,7 +390,7 @@ class DCAExecutor(ExecutorBase):
                 self.logger().info(f"Open order {order.order_id} status: {order.order.current_state}")
                 self.logger().info(f"Stored in flight order {order.order_id} status: {stored_in_flight_order.status}")
             self.place_close_order_and_cancel_open_orders(close_type=self.close_type)
-            self._max_retries += 1
+            self._current_retries += 1
 
     def update_tracked_orders_with_order_id(self, order_id: str):
         all_orders = self._open_orders + self._close_orders
