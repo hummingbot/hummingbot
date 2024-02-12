@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict
 
 from pydantic import Field, SecretStr
 
@@ -26,19 +26,9 @@ def is_exchange_information_valid(exchange_info: Dict[str, Any]) -> bool:
 
     :return: True if the trading pair is enabled, False otherwise
     """
-    return (exchange_info.get("instType", None) == "SWAP" and exchange_info.get("ctType", None) == "linear"
-            and exchange_info.get("state", None) == "live")
-
-
-def get_linear_non_linear_split(trading_pairs: List[str]) -> Tuple[List[str], List[str]]:
-    linear_trading_pairs = []
-    non_linear_trading_pairs = []
-    for trading_pair in trading_pairs:
-        if is_linear_perpetual(trading_pair):
-            linear_trading_pairs.append(trading_pair)
-        else:
-            non_linear_trading_pairs.append(trading_pair)
-    return linear_trading_pairs, non_linear_trading_pairs
+    return (exchange_info.get("instType") == "SWAP"
+            and exchange_info.get("ctType") == "linear"
+            and exchange_info.get("state") == "live")
 
 
 def is_linear_perpetual(trading_pair: str) -> bool:
@@ -93,43 +83,3 @@ class OkxPerpetualConfigMap(BaseConnectorConfigMap):
 
 
 KEYS = OkxPerpetualConfigMap.construct()
-
-# OTHER_DOMAINS = ["okx_perpetual_testnet"]
-# OTHER_DOMAINS_PARAMETER = {"okx_perpetual_testnet": "okx_perpetual_testnet"}
-# OTHER_DOMAINS_EXAMPLE_PAIR = {"okx_perpetual_testnet": "BTC-USDT"}
-# OTHER_DOMAINS_DEFAULT_FEES = {
-#     "okx_perpetual_testnet": TradeFeeSchema(
-#         maker_percent_fee_decimal=Decimal("-0.00025"),
-#         taker_percent_fee_decimal=Decimal("0.00075"),
-#     )
-# }
-
-
-# class OKXPerpetualTestnetConfigMap(BaseConnectorConfigMap):
-#     connector: str = Field(default="okx_perpetual_testnet", client_data=None)
-#     okx_perpetual_testnet_api_key: SecretStr = Field(
-#         default=...,
-#         client_data=ClientFieldData(
-#             prompt=lambda cm: "Enter your Okx Perpetual Testnet API key",
-#             is_secure=True,
-#             is_connect_key=True,
-#             prompt_on_new=True,
-#         )
-#     )
-#     okx_perpetual_testnet_secret_key: SecretStr = Field(
-#         default=...,
-#         client_data=ClientFieldData(
-#             prompt=lambda cm: "Enter your Okx Perpetual Testnet secret key",
-#             is_secure=True,
-#             is_connect_key=True,
-#             prompt_on_new=True,
-#         )
-#     )
-#
-#     class Config:
-#         title = "okx_perpetual_testnet"
-#
-#
-# OTHER_DOMAINS_KEYS = {
-#     "okx_perpetual_testnet": OKXPerpetualTestnetConfigMap.construct()
-# }
