@@ -2,7 +2,7 @@ import asyncio
 import json
 from typing import Awaitable
 from unittest import TestCase
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import hummingbot.connector.derivative.okx_perpetual.okx_perpetual_constants as CONSTANTS
 import hummingbot.connector.derivative.okx_perpetual.okx_perpetual_web_utils as web_utils
@@ -33,7 +33,13 @@ class OkxPerpetualUserStreamDataSourceTests(TestCase):
         self.listening_task = None
         self.mocking_assistant = NetworkMockingAssistant()
 
-        auth = OkxPerpetualAuth(api_key="TEST_API_KEY", api_secret="TEST_SECRET", passphrase="TEST_PASSPHRASE")
+        self.mock_time_provider = MagicMock()
+        self.mock_time_provider.time.return_value = 1000
+
+        self.time_synchronizer = MagicMock()
+        self.time_synchronizer.time.return_value = 1640001112.223
+
+        auth = OkxPerpetualAuth(api_key="TEST_API_KEY", api_secret="TEST_SECRET", passphrase="TEST_PASSPHRASE", time_provider=self.time_synchronizer)
         api_factory = web_utils.build_api_factory(auth=auth)
         self.data_source = OkxPerpetualUserStreamDataSource(
             auth=auth, api_factory=api_factory, domain=self.domain
@@ -124,7 +130,7 @@ class OkxPerpetualUserStreamDataSourceTests(TestCase):
         subscription_orders_request = sent_messages[2]
         subscription_wallet_request = sent_messages[3]
 
-        self.assertIsNone(web_utils.endpoint_from_message(authentication_request))
+        self.assertEqual(web_utils.endpoint_from_message(authentication_request), "login")
 
         expected_payload = {"op": "subscribe",
                             "args": [
