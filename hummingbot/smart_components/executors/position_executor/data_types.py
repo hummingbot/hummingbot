@@ -18,8 +18,7 @@ class TripleBarrierConf(BaseModel):
     stop_loss: Optional[Decimal]
     take_profit: Optional[Decimal]
     time_limit: Optional[int]
-    trailing_stop_activation_price: Optional[Decimal]
-    trailing_stop_trailing_delta: Optional[Decimal]
+    trailing_stop: Optional[TrailingStop]
     # Configure the parameters for the order
     open_order_type: OrderType = OrderType.LIMIT
     take_profit_order_type: OrderType = OrderType.MARKET
@@ -32,12 +31,12 @@ class PositionExecutorConfig(ExecutorConfigBase):
     trading_pair: str
     exchange: str
     side: TradeType
+    entry_price: Optional[Decimal] = None
     amount: Decimal
     take_profit: Optional[Decimal] = None
     stop_loss: Optional[Decimal] = None
     trailing_stop: Optional[TrailingStop] = None
     time_limit: Optional[int] = None
-    entry_price: Optional[Decimal] = None
     open_order_type: OrderType = OrderType.MARKET
     take_profit_order_type: OrderType = OrderType.MARKET
     stop_loss_order_type: OrderType = OrderType.MARKET

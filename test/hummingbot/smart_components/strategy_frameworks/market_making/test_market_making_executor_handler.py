@@ -26,8 +26,8 @@ class TestMarketMakingExecutorHandler(IsolatedAsyncioWrapperTestCase):
         triple_barrier_conf = TripleBarrierConf(
             stop_loss=Decimal("0.03"), take_profit=Decimal("0.02"),
             time_limit=60 * 60 * 24,
-            trailing_stop_activation_price=Decimal("0.002"),
-            trailing_stop_trailing_delta=Decimal("0.0005")
+            trailing_stop=TrailingStop(activation_price=Decimal("0.002"),
+                                       trailing_delta=Decimal("0.0005")),
         )
         self.mock_controller.config = MagicMock(spec=MarketMakingControllerConfigBase)
         self.mock_controller.config.exchange = "binance"

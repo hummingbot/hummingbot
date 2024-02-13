@@ -3,7 +3,11 @@ from test.isolated_asyncio_wrapper_test_case import IsolatedAsyncioWrapperTestCa
 from unittest.mock import MagicMock, patch
 
 from hummingbot.core.data_type.common import TradeType
-from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorStatus, TripleBarrierConf
+from hummingbot.smart_components.executors.position_executor.data_types import (
+    PositionExecutorStatus,
+    TrailingStop,
+    TripleBarrierConf,
+)
 from hummingbot.smart_components.order_level_distributions.order_level_builder import OrderLevel
 from hummingbot.smart_components.strategy_frameworks.directional_trading import (
     DirectionalTradingControllerBase,
@@ -22,8 +26,8 @@ class TestDirectionalTradingExecutorHandler(IsolatedAsyncioWrapperTestCase):
         triple_barrier_conf = TripleBarrierConf(
             stop_loss=Decimal("0.03"), take_profit=Decimal("0.02"),
             time_limit=60 * 60 * 24,
-            trailing_stop_activation_price=Decimal("0.002"),
-            trailing_stop_trailing_delta=Decimal("0.0005")
+            trailing_stop=TrailingStop(activation_price=Decimal("0.002"),
+                                       trailing_delta=Decimal("0.0005")),
         )
         self.mock_controller.config = MagicMock(spec=DirectionalTradingControllerConfigBase)
         self.mock_controller.config.exchange = "binance"

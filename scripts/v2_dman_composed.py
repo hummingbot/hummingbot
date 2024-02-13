@@ -6,7 +6,7 @@ from hummingbot.core.data_type.common import OrderType, PositionAction, Position
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
 from hummingbot.smart_components.controllers.dman_v1 import DManV1, DManV1Config
 from hummingbot.smart_components.controllers.dman_v2 import DManV2, DManV2Config
-from hummingbot.smart_components.executors.position_executor.data_types import TripleBarrierConf
+from hummingbot.smart_components.executors.position_executor.data_types import TrailingStop, TripleBarrierConf
 from hummingbot.smart_components.models.base import SmartComponentStatus
 from hummingbot.smart_components.order_level_distributions.order_level_builder import OrderLevel
 from hummingbot.smart_components.strategy_frameworks.market_making.market_making_executor_handler import (
@@ -20,15 +20,13 @@ class MarketMakingDmanComposed(ScriptStrategyBase):
     triple_barrier_conf_top = TripleBarrierConf(
         stop_loss=Decimal("0.03"), take_profit=Decimal("0.02"),
         time_limit=60 * 60 * 1,
-        trailing_stop_activation_price=Decimal("0.002"),
-        trailing_stop_trailing_delta=Decimal("0.0005")
-    )
+        trailing_stop=TrailingStop(activation_price=Decimal("0.002"),
+                                   trailing_delta=Decimal("0.0005")))
     triple_barrier_conf_bottom = TripleBarrierConf(
         stop_loss=Decimal("0.03"), take_profit=Decimal("0.02"),
         time_limit=60 * 60 * 3,
-        trailing_stop_activation_price=Decimal("0.005"),
-        trailing_stop_trailing_delta=Decimal("0.001")
-    )
+        trailing_stop=TrailingStop(activation_price=Decimal("0.005"),
+                                   trailing_delta=Decimal("0.001")))
 
     config_v1 = DManV1Config(
         exchange="binance_perpetual",
