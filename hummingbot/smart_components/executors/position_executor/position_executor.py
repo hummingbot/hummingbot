@@ -493,7 +493,7 @@ class PositionExecutor(ExecutorBase):
             if trailing_stop_price < self._trailing_stop_price:
                 self._trailing_stop_price = trailing_stop_price
 
-    def check_budget(self):
+    def validate_sufficient_balance(self):
         if self.is_perpetual:
             order_candidate = PerpetualOrderCandidate(
                 trading_pair=self.trading_pair,
