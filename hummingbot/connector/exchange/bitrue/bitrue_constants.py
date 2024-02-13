@@ -30,7 +30,7 @@ SERVER_TIME_PATH_URL = "/time"
 
 # Private API endpoints
 ACCOUNTS_PATH_URL = "/account"
-MY_TRADES_PATH_URL = "/v2/myTrades"
+MY_TRADES_PATH_URL = "v2/myTrades"
 ORDER_PATH_URL = "/order"
 ALL_ORDERS_PATH_URL = "/allOrders"
 OPEN_ORDERS_PATH_URL = "/openOrders"
