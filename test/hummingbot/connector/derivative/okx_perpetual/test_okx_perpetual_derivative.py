@@ -171,7 +171,9 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
 
     @property
     def trading_rules_url(self):
-        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.ENDPOINT])
+        url = web_utils.get_rest_url_for_endpoint(endpoint=CONSTANTS.REST_GET_INSTRUMENTS[CONSTANTS.ENDPOINT],
+                                                  domain=CONSTANTS.DEFAULT_DOMAIN)
+        url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?") + ".*")
         return url
 
     @property
@@ -533,7 +535,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
 
     @property
     def is_order_fill_http_update_included_in_status_update(self) -> bool:
-        return False
+        return True
 
     @property
     def is_order_fill_http_update_executed_during_websocket_order_event_processing(self) -> bool:
@@ -735,11 +737,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         self.assertEqual(order.client_order_id, request_params["clOrdId"])
 
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
-        request_params = request_call.kwargs["params"]
-        self.assertEqual("SWAT", request_params["instType"])
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                         request_params["instId"])
-        self.assertEqual(order.exchange_order_id, request_params["ordId"])
+        self.validate_order_status_request(order, request_call)
 
     def configure_successful_cancelation_response(
         self,
@@ -816,14 +814,12 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         raise NotImplementedError
 
     def configure_completely_filled_order_status_response(
-        self,
-        order: InFlightOrder,
-        mock_api: aioresponses,
-        callback: Optional[Callable] = lambda *args, **kwargs: None
-    ) -> str:
-        url = web_utils.get_rest_url_for_endpoint(
-            endpoint=CONSTANTS.REST_QUERY_ACTIVE_ORDER[CONSTANTS.ENDPOINT], domain=CONSTANTS.DEFAULT_DOMAIN
-        )
+            self,
+            order: InFlightOrder,
+            mock_api: aioresponses,
+            callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
+        url = web_utils.get_rest_url_for_endpoint(CONSTANTS.REST_QUERY_ACTIVE_ORDER[CONSTANTS.ENDPOINT],
+                                                  domain=CONSTANTS.DEFAULT_DOMAIN)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_status_request_completely_filled_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
@@ -1153,8 +1149,10 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "notionalUsd": "",
                     "ordType": "limit",
                     "side": order.trade_type.name.lower(),
-                    "posSide": "long",
+                    "posSide": "short" if (order.trade_type == TradeType.SELL and order.position == PositionAction.OPEN)
+                    or (order.trade_type == TradeType.BUY and order.position == PositionAction.CLOSE) else "long",
                     "tdMode": "cross",
+                    "tgtCcy": "",
                     "fillSz": str(order.amount),
                     "fillPx": str(order.price),
                     "tradeId": self.expected_fill_trade_id,
@@ -1191,17 +1189,21 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         }
 
     def trade_event_for_full_fill_websocket_update(self, order: InFlightOrder):
+        return {}
+
+    def position_event_for_full_fill_websocket_update(self, order: InFlightOrder, unrealized_pnl: float):
+        # position_value = unrealized_pnl + order.amount * order.price * order.leverage
         return {
             "arg": {
                 "channel": "positions",
-                "uid": "77982378738415879",
+                "uid": order.exchange_order_id,
                 "instType": "SWAP"
             },
             "data": [
                 {
                     "adl": "1",
                     "availPos": "1",
-                    "avgPx": "2566.31",
+                    "avgPx": f"{order.price}",
                     "cTime": "1619507758793",
                     "ccy": "ETH",
                     "deltaBS": "",
@@ -1209,12 +1211,12 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "gammaBS": "",
                     "gammaPA": "",
                     "imr": "",
-                    "instId": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                    "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
                     "instType": "SWAP",
                     "interest": "0",
                     "idxPx": "2566.13",
                     "last": "2566.22",
-                    "lever": "10",
+                    "lever": f"{order.leverage}",
                     "liab": "",
                     "liabCcy": "",
                     "liqPx": "2352.8496681818233",
@@ -1223,7 +1225,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "mgnMode": "isolated",
                     "mgnRatio": "11.731726509588816",
                     "mmr": "0.0000311811092368",
-                    "notionalUsd": "2276.2546609009605",
+                    "notionalUsd": f"{order.amount}",
                     "optVal": "",
                     "pTime": "1619507761462",
                     "pos": "1",
@@ -1233,7 +1235,8 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "quoteInterest": "",
                     "posCcy": "",
                     "posId": "307173036051017730",
-                    "posSide": "long",
+                    "posSide": "short" if (order.trade_type == TradeType.SELL and order.position == PositionAction.OPEN)
+                    or (order.trade_type == TradeType.BUY and order.position == PositionAction.CLOSE) else "long",
                     "spotInUseAmt": "",
                     "bizRefId": "",
                     "bizRefType": "",
@@ -1242,7 +1245,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "thetaPA": "",
                     "tradeId": "109844",
                     "uTime": "1619507761462",
-                    "upl": "-0.0000009932766034",
+                    "upl": f"{unrealized_pnl}",
                     "uplLastPx": "-0.0000009932766034",
                     "uplRatio": "-0.0025490556801078",
                     "uplRatioLastPx": "-0.0025490556801078",
@@ -1271,49 +1274,6 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                             "closeFraction": "0.4"
                         }
                     ]
-                }
-            ]
-        }
-
-    def position_event_for_full_fill_websocket_update(self, order: InFlightOrder, unrealized_pnl: float):
-        position_value = unrealized_pnl + order.amount * order.price * order.leverage
-        return {
-            "topic": "position",
-            "data": [
-                {
-                    "user_id": 533285,
-                    "symbol": self.exchange_trading_pair,
-                    "size": float(order.amount),
-                    "side": order.trade_type.name.capitalize(),
-                    "position_value": str(position_value),
-                    "entry_price": str(order.price),
-                    "liq_price": "489",
-                    "bust_price": "489",
-                    "leverage": str(order.leverage),
-                    "order_margin": "0",
-                    "position_margin": "0.39929535",
-                    "available_balance": "0.39753405",
-                    "take_profit": "0",
-                    "stop_loss": "0",
-                    "realised_pnl": "0.00055631",
-                    "trailing_stop": "0",
-                    "trailing_active": "0",
-                    "wallet_balance": "0.40053971",
-                    "risk_id": 1,
-                    "occ_closing_fee": "0.0002454",
-                    "occ_funding_fee": "0",
-                    "auto_add_margin": 1,
-                    "cum_realised_pnl": "0.00055105",
-                    "position_status": "Normal",
-                    "position_seq": 0,
-                    "Isolated": False,
-                    "mode": 0,
-                    "position_idx": 0,
-                    "tp_sl_mode": "Partial",
-                    "tp_order_num": 0,
-                    "sl_order_num": 0,
-                    "tp_free_size_x": 200,
-                    "sl_free_size_x": 200
                 }
             ]
         }
@@ -1577,7 +1537,8 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "pnl": "5",
                     "ordType": "limit",
                     "side": order.trade_type.name.lower(),
-                    "posSide": "long",
+                    "posSide": "short" if (order.trade_type == TradeType.SELL and order.position == PositionAction.OPEN)
+                    or (order.trade_type == TradeType.BUY and order.position == PositionAction.CLOSE) else "long",
                     "tdMode": "cross",
                     "accFillSz": "0",
                     "fillPx": "0",
@@ -1594,7 +1555,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "slTriggerPxType": "last",
                     "slOrdPx": "",
                     "feeCcy": "",
-                    "fee": "",
+                    "fee": str(self.expected_fill_fee.flat_fees[0].amount),
                     "rebateCcy": "",
                     "rebate": "",
                     "tgtCcy": "",
@@ -1616,14 +1577,14 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         resp = self._order_status_request_completely_filled_mock_response(order)
         resp["data"][0]["state"] = "live"
         resp["data"][0]["accFillSz"] = 0
-        resp["data"][0]["cum_exec_value"] = 0
+        resp["data"][0]["fillPx"] = 0
         return resp
 
     def _order_status_request_partially_filled_mock_response(self, order: InFlightOrder) -> Any:
         resp = self._order_status_request_completely_filled_mock_response(order)
         resp["data"][0]["state"] = "partially_filled"
         resp["data"][0]["accFillSz"] = float(self.expected_partial_fill_amount)
-        resp["data"][0]["cum_exec_value"] = float(self.expected_partial_fill_price)
+        resp["data"][0]["fillPx"] = float(self.expected_partial_fill_price)
         return resp
 
     def _order_fills_request_partial_fill_mock_response(self, order: InFlightOrder):
@@ -1642,7 +1603,8 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "fillPx": str(self.expected_partial_fill_price),
                     "fillSz": str(self.expected_partial_fill_amount),
                     "side": order.order_type.name.lower(),
-                    "posSide": "long",
+                    "posSide": "short" if (order.trade_type == TradeType.SELL and order.position == PositionAction.OPEN)
+                    or (order.trade_type == TradeType.BUY and order.position == PositionAction.CLOSE) else "long",
                     "execType": "M",
                     "feeCcy": self.expected_fill_fee.flat_fees[0].token,
                     "fee": str(self.expected_fill_fee.flat_fees[0].amount),
@@ -1657,7 +1619,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
             "msg": "",
             "data": [
                 {
-                    "instType": "SWAP",
+                    "instType": "SPOT",
                     "instId": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
                     "tradeId": self.expected_fill_trade_id,
                     "ordId": order.exchange_order_id,
@@ -1667,7 +1629,8 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "fillPx": str(order.price),
                     "fillSz": str(order.amount),
                     "side": order.order_type.name.lower(),
-                    "posSide": "long",
+                    "posSide": "short" if (order.trade_type == TradeType.SELL and order.position == PositionAction.OPEN)
+                    or (order.trade_type == TradeType.BUY and order.position == PositionAction.CLOSE) else "long",
                     "execType": "M",
                     "feeCcy": self.expected_fill_fee.flat_fees[0].token,
                     "fee": str(self.expected_fill_fee.flat_fees[0].amount),
