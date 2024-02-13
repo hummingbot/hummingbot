@@ -32,7 +32,6 @@ class BitrueAPIOrderBookDataSource(OrderBookTrackerDataSource):
     ):
         super().__init__(trading_pairs=trading_pairs)
         self._connector = connector
-        self._diff_messages_queue_key = CONSTANTS.DIFF_EVENT_TYPE
         self._domain = domain
         self._api_factory = api_factory
         self._message_id_generator = NonceCreator.for_microseconds()
