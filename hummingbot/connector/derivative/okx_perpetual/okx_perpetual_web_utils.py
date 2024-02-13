@@ -78,8 +78,11 @@ def endpoint_from_message(message: Dict[str, Any]) -> Optional[str]:
     endpoint = None
     if isinstance(message, dict):
         event = message.get("event")
-        if event == "error":
+        op = message.get("op")
+        if event is not None:
             endpoint = event
+        elif op is not None:
+            endpoint = op
         else:
             endpoint = message["arg"].get("channel")
     return endpoint
