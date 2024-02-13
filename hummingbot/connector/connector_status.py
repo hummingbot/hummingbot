@@ -39,6 +39,7 @@ connector_status = {
     'ndax': 'bronze',
     'ndax_testnet': 'bronze',
     'okx': 'bronze',
+    'okx_perpetual': 'bronze',
     'phemex_perpetual': 'bronze',
     'phemex_perpetual_testnet': 'bronze',
     'polkadex': 'silver',
