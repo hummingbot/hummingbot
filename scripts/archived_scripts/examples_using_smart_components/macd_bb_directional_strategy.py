@@ -9,9 +9,9 @@ import pandas_ta as ta  # noqa: F401
 
 from hummingbot import data_path
 from hummingbot.connector.connector_base import ConnectorBase
-from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide
+from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig, CandlesFactory
-from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig
+from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig, TripleBarrierConf
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
@@ -77,13 +77,12 @@ class MACDBBDirectionalStrategy(ScriptStrategyBase):
                 signal_executor = PositionExecutor(
                     config=PositionExecutorConfig(
                         timestamp=self.current_timestamp, trading_pair=self.trading_pair,
-                        exchange=self.exchange, order_type=OrderType.MARKET,
-                        side=PositionSide.SHORT if signal_value < 0 else PositionSide.LONG,
+                        exchange=self.exchange,
+                        side=TradeType.SELL if signal_value < 0 else TradeType.BUY,
                         entry_price=price,
                         amount=self.order_amount_usd / price,
-                        stop_loss=stop_loss,
-                        take_profit=take_profit,
-                        time_limit=self.time_limit),
+                        triple_barrier_conf=TripleBarrierConf(stop_loss=stop_loss, take_profit=take_profit,
+                                                              time_limit=self.time_limit)),
                     strategy=self,
                 )
                 self.active_executors.append(signal_executor)

@@ -10,7 +10,11 @@ from hummingbot import data_path
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
-from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig, TrailingStop
+from hummingbot.smart_components.executors.position_executor.data_types import (
+    PositionExecutorConfig,
+    TrailingStop,
+    TripleBarrierConf,
+)
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
@@ -107,6 +111,18 @@ class DirectionalStrategyBase(ScriptStrategyBase):
     def __init__(self, connectors: Dict[str, ConnectorBase]):
         # Is necessary to start the Candles Feed.
         super().__init__(connectors)
+        self.triple_barrier_conf = TripleBarrierConf(
+            stop_loss=Decimal(self.stop_loss),
+            take_profit=Decimal(self.take_profit),
+            time_limit=self.time_limit,
+            trailing_stop=TrailingStop(
+                activation_price=Decimal(self.trailing_stop_activation_delta),
+                trailing_delta=Decimal(self.trailing_stop_trailing_delta)),
+            open_order_type=self.open_order_type,
+            take_profit_order_type=self.take_profit_order_type,
+            stop_loss_order_type=self.stop_loss_order_type,
+            time_limit_order_type=self.time_limit_order_type
+        )
         for candle in self.candles:
             candle.start()
 
@@ -165,28 +181,14 @@ class DirectionalStrategyBase(ScriptStrategyBase):
             side = TradeType.BUY if signal == 1 else TradeType.SELL
             if self.open_order_type.is_limit_type():
                 price = price * (1 - signal * self.open_order_slippage_buffer)
-            if self.trailing_stop_activation_delta and self.trailing_stop_trailing_delta:
-                trailing_stop = TrailingStop(
-                    activation_price=Decimal(self.trailing_stop_activation_delta),
-                    trailing_delta=Decimal(self.trailing_stop_trailing_delta),
-                )
-            else:
-                trailing_stop = None
             position_config = PositionExecutorConfig(
                 timestamp=self.current_timestamp,
                 trading_pair=self.trading_pair,
                 exchange=self.exchange,
                 side=side,
                 amount=self.order_amount_usd / price,
-                take_profit=Decimal(self.take_profit),
-                stop_loss=Decimal(self.stop_loss),
-                time_limit=self.time_limit,
                 entry_price=price,
-                open_order_type=self.open_order_type,
-                take_profit_order_type=self.take_profit_order_type,
-                stop_loss_order_type=self.stop_loss_order_type,
-                time_limit_order_type=self.time_limit_order_type,
-                trailing_stop=trailing_stop,
+                triple_barrier_conf=self.triple_barrier_conf,
                 leverage=self.leverage,
             )
             return position_config

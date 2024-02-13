@@ -35,11 +35,8 @@ class PositionExecutor(ExecutorBase):
 
     def __init__(self, strategy: ScriptStrategyBase, config: PositionExecutorConfig,
                  update_interval: float = 1.0, max_retries: int = 3):
-        if not (config.take_profit or config.stop_loss or config.time_limit):
-            error = "At least one of take_profit, stop_loss or time_limit must be set"
-            self.logger().error(error)
-            raise ValueError(error)
-        if config.time_limit_order_type != OrderType.MARKET or config.stop_loss_order_type != OrderType.MARKET:
+        if config.triple_barrier_conf.time_limit_order_type != OrderType.MARKET or \
+                config.triple_barrier_conf.stop_loss_order_type != OrderType.MARKET:
             error = "Only market orders are supported for time_limit and stop_loss"
             self.logger().error(error)
             raise ValueError(error)

@@ -6,7 +6,7 @@ from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.smart_components.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig, ExchangePair
 from hummingbot.smart_components.executors.dca_executor.data_types import DCAExecutorConfig
-from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig
+from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig, TripleBarrierConf
 from hummingbot.smart_components.models.base import SmartComponentStatus
 from hummingbot.smart_components.models.executor_actions import (
     CreateExecutorAction,
@@ -49,8 +49,10 @@ class TestGenericExecutor(IsolatedAsyncioWrapperTestCase):
                 controller_id="test-controller",
                 executor_config=PositionExecutorConfig(
                     id="test-1", timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
-                    open_order_type=OrderType.LIMIT, side=TradeType.BUY, entry_price=Decimal("100"),
-                    amount=Decimal("1"), stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60)),
+                    side=TradeType.BUY, entry_price=Decimal("100"),
+                    amount=Decimal("1"), triple_barrier_conf=TripleBarrierConf(
+                        stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
+                        open_order_type=OrderType.LIMIT))),
             CreateExecutorAction(
                 controller_id="test-controller",
                 executor_config=DCAExecutorConfig(
