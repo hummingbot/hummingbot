@@ -26,7 +26,7 @@ from hummingbot.model.market_data import MarketData
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import SQLConnectionManager, SQLConnectionType
 from hummingbot.model.trade_fill import TradeFill
-from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig
+from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig, TripleBarrierConf
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
@@ -449,9 +449,10 @@ class MarketsRecorderTests(TestCase):
         )
         position_config = PositionExecutorConfig(timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
                                                  side=TradeType.SELL, entry_price=Decimal("100"), amount=Decimal("1"),
-                                                 stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
-                                                 take_profit_order_type=OrderType.LIMIT,
-                                                 stop_loss_order_type=OrderType.MARKET)
+                                                 triple_barrier_conf=TripleBarrierConf(
+                                                     stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"),
+                                                     time_limit=60, take_profit_order_type=OrderType.LIMIT,
+                                                     stop_loss_order_type=OrderType.MARKET))
         position_executor = PositionExecutor(self.create_mock_strategy(), position_config)
         position_executor_json = position_executor.to_json()
         position_executor_json["order_level"] = 1
@@ -476,9 +477,10 @@ class MarketsRecorderTests(TestCase):
 
         position_config = PositionExecutorConfig(timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
                                                  side=TradeType.SELL, entry_price=Decimal("100"), amount=Decimal("1"),
-                                                 stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
-                                                 take_profit_order_type=OrderType.LIMIT,
-                                                 stop_loss_order_type=OrderType.MARKET)
+                                                 triple_barrier_conf=TripleBarrierConf(
+                                                     stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"),
+                                                     time_limit=60, take_profit_order_type=OrderType.LIMIT,
+                                                     stop_loss_order_type=OrderType.MARKET))
         position_executor = PositionExecutor(self.create_mock_strategy(), position_config)
         position_executor_json = position_executor.to_json()
         position_executor_json["order_level"] = 1

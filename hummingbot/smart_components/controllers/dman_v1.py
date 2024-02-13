@@ -4,7 +4,7 @@ from decimal import Decimal
 import pandas_ta as ta  # noqa: F401
 
 from hummingbot.core.data_type.common import TradeType
-from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig, TrailingStop
+from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.smart_components.order_level_distributions.order_level_builder import OrderLevel
 from hummingbot.smart_components.strategy_frameworks.market_making.market_making_controller_base import (
@@ -76,26 +76,14 @@ class DManV1(MarketMakingControllerBase):
         order_price = price_adjusted * (1 + order_level.spread_factor * spread_multiplier * side_multiplier)
         amount = order_level.order_amount_usd / order_price
 
-        if order_level.triple_barrier_conf.trailing_stop_trailing_delta and order_level.triple_barrier_conf.trailing_stop_trailing_delta:
-            trailing_stop = TrailingStop(
-                activation_price=order_level.triple_barrier_conf.trailing_stop_activation_price,
-                trailing_delta=order_level.triple_barrier_conf.trailing_stop_trailing_delta,
-            )
-        else:
-            trailing_stop = None
         position_config = PositionExecutorConfig(
             timestamp=time.time(),
             trading_pair=self.config.trading_pair,
             exchange=self.config.exchange,
             side=order_level.side,
             amount=amount,
-            take_profit=order_level.triple_barrier_conf.take_profit,
-            stop_loss=order_level.triple_barrier_conf.stop_loss,
-            time_limit=order_level.triple_barrier_conf.time_limit,
             entry_price=Decimal(order_price),
-            open_order_type=order_level.triple_barrier_conf.open_order_type,
-            take_profit_order_type=order_level.triple_barrier_conf.take_profit_order_type,
-            trailing_stop=trailing_stop,
+            triple_barrier_conf=order_level.triple_barrier_conf,
             leverage=self.config.leverage
         )
         return position_config
