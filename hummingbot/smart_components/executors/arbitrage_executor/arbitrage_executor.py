@@ -79,6 +79,10 @@ class ArbitrageExecutor(ExecutorBase):
         self._last_tx_cost = Decimal("1")
         self._cumulative_failures = 0
 
+    def validate_sufficient_balance(self):
+        # TODO: Implement this method checking balances in the two exchanges
+        pass
+
     def is_arbitrage_valid(self, pair1, pair2):
         base_asset1, quote_asset1 = split_hb_trading_pair(pair1)
         base_asset2, quote_asset2 = split_hb_trading_pair(pair2)
