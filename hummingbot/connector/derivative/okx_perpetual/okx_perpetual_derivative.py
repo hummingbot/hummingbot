@@ -458,7 +458,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             fill_base_amount=Decimal(trade_msg["fillSz"]),
             fill_quote_amount=Decimal(trade_msg["fillPx"]) * Decimal(trade_msg["fillSz"]),
             fill_price=Decimal(trade_msg["fillPx"]),
-            fill_timestamp=int(trade_msg["uTime"]) * 1e-3,
+            fill_timestamp=int(trade_msg["uTime"]),
         )
         return trade_update
 
