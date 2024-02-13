@@ -379,16 +379,11 @@ class DCAExecutor(ExecutorBase):
         """
         This method is responsible for shutting down the process, ensuring that all orders are completed.
         """
-        active_open_orders = [order for order in self._open_orders if order.order.is_open]
-        if math.isclose(self.open_filled_amount, self.close_filled_amount) and len(active_open_orders) == 0:
+        if math.isclose(self.open_filled_amount, self.close_filled_amount):
             self.stop()
         else:
             self.logger().info(f"Open amount: {self.open_filled_amount}, Close amount: {self.close_filled_amount}")
             self.logger().info(f"Close orders: {self._close_orders}")
-            for order in active_open_orders:
-                stored_in_flight_order = self.get_in_flight_order(self.config.exchange, order.order_id)
-                self.logger().info(f"Open order {order.order_id} status: {order.order.current_state}")
-                self.logger().info(f"Stored in flight order {order.order_id} status: {stored_in_flight_order.current_state}")
             self.place_close_order_and_cancel_open_orders(close_type=self.close_type)
             self._current_retries += 1
 
