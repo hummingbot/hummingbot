@@ -21,7 +21,7 @@ from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
 from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, TradeType
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
+from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
 from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
@@ -359,7 +359,7 @@ class BitrueExchange(ExchangePyBase):
                         order_update = OrderUpdate(
                             trading_pair=tracked_order.trading_pair,
                             update_timestamp=event_message["E"] * 1e-3,
-                            new_state=CONSTANTS.WS_ORDER_STATE[event_message["X"]],
+                            new_state=CONSTANTS.WS_ORDER_STATE.get(event_message["X"], OrderState.FAILED),
                             client_order_id=client_order_id,
                             exchange_order_id=str(event_message["i"]),
                         )
@@ -380,14 +380,15 @@ class BitrueExchange(ExchangePyBase):
                         if event_ts < max(self._ws_trades_event_ids_by_token[asset_name].values(), default=0):
                             continue
                         self._ws_trades_event_ids_by_token[asset_name][event_ts] = event_ts
-                        locked = self._account_balances[asset_name] - self._account_available_balances[asset_name]
-                        if "L" in balance_entry:
-                            locked = Decimal(balance_entry["L"])
-                        free = self._account_available_balances[asset_name]
+
+                        # free = self._account_available_balances[asset_name]
                         if "F" in balance_entry:
                             free = Decimal(balance_entry["F"])
-                        self._account_available_balances[asset_name] = free
-                        self._account_balances[asset_name] = free + locked
+                            self._account_available_balances[asset_name] = free
+                            # locked = self._account_balances[asset_name] - self._account_available_balances[asset_name]
+                            if "L" in balance_entry:
+                                locked = Decimal(balance_entry["L"])
+                                self._account_balances[asset_name] = free + locked
 
             except asyncio.CancelledError:
                 raise
@@ -435,9 +436,9 @@ class BitrueExchange(ExchangePyBase):
                 )
 
                 for trade_data in result:
-                    if trade_data["clientOrderId"] in orders_to_process:
-                        order = orders_to_process[trade_data["clientOrderId"]]
-                        fee_token = trade_data["commissionAssert"].upper()  # typo in the json by the exchange
+                    if str(trade_data["orderId"]) in orders_to_process:
+                        order = orders_to_process[str(trade_data["orderId"])]
+                        fee_token = trade_data["commissionAsset"].upper()  # typo in the json by the exchange
                         fee = TradeFeeBase.new_spot_fee(
                             fee_schema=bitrue_utils.DEFAULT_FEES,
                             trade_type=order.trade_type,
@@ -447,7 +448,7 @@ class BitrueExchange(ExchangePyBase):
                         trade_update = TradeUpdate(
                             trade_id=str(trade_data["tradeId"]),
                             client_order_id=order.client_order_id,
-                            exchange_order_id=str(trade_data["orderId"]),
+                            exchange_order_id=str(trade_data["id"]),
                             trading_pair=order.trading_pair,
                             fee=fee,
                             fill_base_amount=Decimal(trade_data["qty"]),
