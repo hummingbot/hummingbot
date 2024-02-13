@@ -178,7 +178,6 @@ class BitrueAPIOrderBookDataSource(OrderBookTrackerDataSource):
         )
         if "ping" in event_message:
             # For Bitrue we consider receiving the ping message as indication the websocket is still healthy
-            self._connection_check_response_event.set()
             pong_request = WSJSONRequest(payload={"pong": event_message["ping"]})
             await websocket_assistant.send(request=pong_request)
 

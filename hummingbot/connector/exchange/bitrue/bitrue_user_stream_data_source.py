@@ -148,18 +148,22 @@ class BitrueUserStreamDataSource(UserStreamTrackerDataSource):
         self._current_listen_key = None
         self._listen_key_initialized_event.clear()
 
-    async def _send_connection_check_message(self, websocket_assistant: WSAssistant):
-        self._connection_check_response_event.set()
-
     def _is_message_response_to_connection_check(self, event_message: Dict[str, Any]) -> bool:
         return False
+
+    async def _process_websocket_messages(self, websocket_assistant: WSAssistant, queue: asyncio.Queue):
+        async for ws_response in websocket_assistant.iter_messages():
+            data = ws_response.data
+            if data is not None:  # data will be None when the websocket is disconnected
+                await self._process_event_message(
+                    event_message=data, queue=queue, websocket_assistant=websocket_assistant
+                )
 
     async def _process_event_message(
         self, event_message: Dict[str, Any], queue: asyncio.Queue, websocket_assistant: WSAssistant
     ):
         if event_message.get("event", "") == "ping":
             # For Bitrue we consider receiving the ping message as indication the websocket is still healthy
-            self._connection_check_response_event.set()
             pong_request = WSJSONRequest(payload={"pong": event_message["ts"]})
             await websocket_assistant.send(request=pong_request)
         elif event_message.get("event_rep", "") == "subed":
