@@ -1,14 +1,14 @@
 import base64
 import hashlib
 import hmac
-import json
 import re
 import time
 from datetime import datetime
-from typing import Dict
+from typing import Any, Dict, Optional
 from urllib.parse import urlencode
 
 import hummingbot.connector.derivative.okx_perpetual.okx_perpetual_constants as CONSTANTS
+from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.auth import AuthBase
 from hummingbot.core.web_assistant.connections.data_types import RESTMethod, RESTRequest, WSRequest
 
@@ -27,32 +27,40 @@ class OkxPerpetualAuth(AuthBase):
         Request bodies should have content type application/json and be in valid JSON format.
     """
 
-    def __init__(self, api_key: str, api_secret: str, passphrase: str):
+    def __init__(self, api_key: str, api_secret: str, passphrase: str, time_provider: TimeSynchronizer):
         self._api_key: str = api_key
         self._api_secret: str = api_secret
         self._passphrase: str = passphrase
+        self.time_provider: TimeSynchronizer = time_provider
 
-    @staticmethod
-    def pre_hash(timestamp: str, method: str, request_path: str, params: dict) -> str:
-        query_string = ''
-        if method == 'GET' and bool(params):
-            query_string = '?' + urlencode(params)
-        if method == 'POST' and bool(params):
-            query_string = json.dumps(params)
-        return timestamp + method + request_path + query_string
+    def _generate_signature(self, timestamp: str, method: str, path_url: str, body: Optional[str] = None) -> str:
+        unsigned_signature = timestamp + method + path_url
+        if body is not None:
+            unsigned_signature += body
 
-    @staticmethod
-    def sign(message, secret_key):
-        # Sign the pre-signed string using HMAC-SHA256
-        mac = hmac.new(bytes(secret_key, encoding='utf8'), bytes(message, encoding='utf-8'), hashlib.sha256)
-        d = mac.digest()
-        return base64.b64encode(d).decode('utf-8')
+        signature = base64.b64encode(
+            hmac.new(
+                self._api_secret.encode("utf-8"),
+                unsigned_signature.encode("utf-8"),
+                hashlib.sha256).digest()).decode()
+        return signature
 
-    def create_access_sign(self, method, request_path, params):
-        timestamp = self._get_timestamp()
-        message = self.pre_hash(timestamp, method, request_path, params)
-        _access_sign = self.sign(message, self._api_secret)
-        return _access_sign, timestamp
+    def authentication_headers(self, request: RESTRequest) -> Dict[str, Any]:
+        timestamp = datetime.utcfromtimestamp(self.time_provider.time()).isoformat(timespec="milliseconds") + "Z"
+
+        path_url = f"/api{request.url.split('/api')[-1]}"
+        if request.params:
+            query_string_components = urlencode(request.params)
+            path_url = f"{path_url}?{query_string_components}"
+
+        header = {
+            "OK-ACCESS-KEY": self._api_key,
+            "OK-ACCESS-SIGN": self._generate_signature(timestamp, request.method.value.upper(), path_url, request.data),
+            "OK-ACCESS-TIMESTAMP": timestamp,
+            "OK-ACCESS-PASSPHRASE": self._passphrase,
+        }
+
+        return header
 
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
         """
@@ -65,25 +73,12 @@ class OkxPerpetualAuth(AuthBase):
 
         Request bodies should have content type application/json and be in valid JSON format.
         """
-        request.headers = {
-            "OK-ACCESS-KEY": self._api_key,
-            "OK-ACCESS-SIGN": "",
-            "OK-ACCESS-TIMESTAMP": "",
-            "OK-ACCESS-PASSPHRASE": self._passphrase
-        }
-        if request.method == RESTMethod.GET:
-            request.headers["OK-ACCESS-SIGN"], request.headers["OK-ACCESS-TIMESTAMP"] = self.create_access_sign(
-                method=request.method.value,
-                request_path=self.get_path_from_url(request.url),
-                params=request.params if request.params is not None else {}
-            )
-        elif request.method == RESTMethod.POST:
-            request.headers["OK-ACCESS-SIGN"], request.headers["OK-ACCESS-TIMESTAMP"] = self.create_access_sign(
-                method=request.method.value,
-                request_path=self.get_path_from_url(request.url),
-                params=json.loads(request.data) if request.data is not None else {}
-            )
-            request.headers["Content-Type"] = "application/json"
+
+        headers = {}
+        if request.headers is not None:
+            headers.update(request.headers)
+        headers.update(self.authentication_headers(request=request))
+        request.headers = headers
 
         return request
 
