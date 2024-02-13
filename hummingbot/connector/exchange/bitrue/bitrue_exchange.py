@@ -1,6 +1,7 @@
 import asyncio
 import sys
 from collections import defaultdict
+from copy import deepcopy
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
@@ -19,6 +20,7 @@ from hummingbot.connector.exchange.bitrue.bitrue_user_stream_data_source import 
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import combine_to_hb_trading_pair
+from hummingbot.core.api_throttler.data_types import RateLimit
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
@@ -195,7 +197,7 @@ class BitrueExchange(ExchangePyBase):
         is_maker: Optional[bool] = None,
     ) -> TradeFeeBase:
         is_maker = True if is_maker is None else is_maker
-        return DeductedFromReturnsTradeFee(percent_fee_as_ratio=self.estimate_fee_ratio(is_maker))
+        return DeductedFromReturnsTradeFee(percent=self.estimate_fee_pct(is_maker))
 
     async def _place_order(self,
                            order_id: str,
@@ -325,7 +327,6 @@ class BitrueExchange(ExchangePyBase):
         """
         async for event_message in self._iter_user_event_queue():
             try:
-                self.logger().info(f"user data msg: {event_message=}")
                 event_type = event_message.get("e")
                 # Refer to https://github.com/Bitrue-exchange/Spot-official-api-docs in websocket section
                 if event_type in ("executionReport", "ORDER"):
@@ -351,19 +352,17 @@ class BitrueExchange(ExchangePyBase):
                                 fill_quote_amount=Decimal(event_message["l"]) * Decimal(event_message["L"]),
                                 fill_price=Decimal(event_message["L"]),
                                 fill_timestamp=event_message["T"] * 1e-3,
-                                order_tags=tracked_order.tags,
                             )
                             self._order_tracker.process_trade_update(trade_update)
 
                     tracked_order = self._order_tracker.all_updatable_orders.get(client_order_id)
-                    if tracked_order is not None:
+                    if tracked_order is not None and event_message["X"] != 0:
                         order_update = OrderUpdate(
                             trading_pair=tracked_order.trading_pair,
                             update_timestamp=event_message["E"] * 1e-3,
                             new_state=CONSTANTS.WS_ORDER_STATE[event_message["X"]],
                             client_order_id=client_order_id,
                             exchange_order_id=str(event_message["i"]),
-                            order_tags=tracked_order.tags,
                         )
                         self._order_tracker.process_order_update(order_update=order_update)
 
@@ -456,7 +455,6 @@ class BitrueExchange(ExchangePyBase):
                             fill_quote_amount=Decimal(trade_data["qty"]) * Decimal(trade_data["price"]),
                             fill_price=Decimal(trade_data["price"]),
                             fill_timestamp=trade_data["time"] * 1e-3,
-                            order_tags=order.tags,
                         )
                         trade_updates.append(trade_update)
                 if len(result) > 0:
@@ -483,7 +481,6 @@ class BitrueExchange(ExchangePyBase):
             trading_pair=tracked_order.trading_pair,
             update_timestamp=updated_order_data["updateTime"] * 1e-3,
             new_state=new_state,
-            order_tags=tracked_order.tags,
         )
 
         return order_update
@@ -527,7 +524,6 @@ class BitrueExchange(ExchangePyBase):
                                 trading_pair=trading_pair,
                                 update_timestamp=update_ts,
                                 new_state=new_state,
-                                order_tags=tracked_order.tags,
                             )
                             final_order_updates.append(order_update)
 
@@ -614,6 +610,7 @@ class BitrueExchange(ExchangePyBase):
 
     def _initialize_rate_limits_from_exchange_info(self, exchange_info: Dict[str, Any]):
         # Update rate limits
+        rate_limits_copy = deepcopy(self._throttler._rate_limits)
         for rate_limit in exchange_info["rateLimits"]:
             limit_id = None
             if rate_limit["prefix"] == CONSTANTS.GENERAL:
@@ -636,9 +633,17 @@ class BitrueExchange(ExchangePyBase):
             limit = rate_limit["burstCapacity"]
 
             if limit_id is not None and interval is not None:
-                self._throttler.update_rate_limit(limit_id=limit_id, limit=limit, time_interval=interval)
-            else:
-                self.logger().warning(f"Unknown or corrupted rate limit received from the exchange: {rate_limit}.")
+                for r_l in rate_limits_copy:
+                    if r_l.limit_id == limit_id:
+                        rate_limits_copy.remove(r_l)
+                rate_limits_copy.append(RateLimit(
+                    limit_id=limit_id,
+                    limit=limit,
+                    time_interval=interval,
+                ))
+        self._throttler.set_rate_limits(
+            rate_limits_copy
+        )
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
         params = {"symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)}
