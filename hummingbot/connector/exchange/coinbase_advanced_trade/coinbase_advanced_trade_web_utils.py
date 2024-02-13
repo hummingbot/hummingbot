@@ -99,7 +99,7 @@ async def get_current_server_time_s(
     api_factory = build_api_factory_without_time_synchronizer_pre_processor(throttler=throttler)
     rest_assistant = await api_factory.get_rest_assistant()
     response: Dict = await rest_assistant.execute_request(
-        url=public_rest_url(path_url=constants.SERVER_TIME_EP, domain=domain),
+        url=private_rest_url(path_url=constants.SERVER_TIME_EP, domain=domain),
         method=RESTMethod.GET,
         throttler_limit_id=constants.SERVER_TIME_EP,
     )

@@ -50,7 +50,7 @@ class PipesPipeFitting(Generic[FromDataT, ToDataT]):
             destination = Pipe[ToDataT]()
         self.destination: DestinationT = destination
 
-        self._pipe_blocks: Tuple[PipePipeFitting[FromDataT, ToDataT], ...] = tuple(
+        self._pipe_pipe: Tuple[PipePipeFitting[FromDataT, ToDataT], ...] = tuple(
             PipePipeFitting[FromDataT, ToDataT](
                 source=s,
                 handler=handler,
@@ -63,32 +63,36 @@ class PipesPipeFitting(Generic[FromDataT, ToDataT]):
 
     async def start_all_tasks(self) -> None:
         """Start all the collecting tasks."""
-        await asyncio.gather(*[p.start_task() for p in self._pipe_blocks if not p.is_running()])
+        await asyncio.gather(*[p.start_task() for p in self._pipe_pipe if not p.is_running()])
 
     async def stop_all_tasks(self) -> None:
         """Stop all the collecting tasks."""
-        await asyncio.gather(*[p.stop_task() for p in self._pipe_blocks if p.is_running()])
+        await asyncio.gather(*[p.stop_task() for p in self._pipe_pipe if p.is_running()])
+
+    def stop_all_tasks_nowait(self) -> None:
+        """Stop all the collecting tasks."""
+        [p.stop_task_nowait() for p in self._pipe_pipe if p.is_running()]
 
     async def stop_task(self, pipe: PipePipeFitting[FromDataT, ToDataT]) -> None:
         """Stop the task associated with a pipe."""
-        if pipe in self._pipe_blocks and pipe.is_running:
+        if pipe in self._pipe_pipe and pipe.is_running:
             await pipe.stop_task()
 
     async def remove_source(self, source: PipePipeFitting[FromDataT, ToDataT]) -> None:
         """Stop the task."""
-        if source in self._pipe_blocks:
+        if source in self._pipe_pipe:
             if source.is_running:
                 await source.stop_task()
             async with self._update_lock:
-                self._pipe_blocks = tuple(p for p in self._pipe_blocks if p != source)
+                self._pipe_pipe = tuple(p for p in self._pipe_pipe if p != source)
 
     def are_running(self) -> Tuple[bool, ...]:
         """Tuple of running status of each pipe block."""
-        return tuple(p.is_running() for p in self._pipe_blocks)
+        return tuple(p.is_running() for p in self._pipe_pipe)
 
     def all_running(self) -> bool:
         """Tuple of running status of each pipe block."""
-        return all(p.is_running() for p in self._pipe_blocks)
+        return all(p.is_running() for p in self._pipe_pipe)
 
     def task_exception_callback(self, ex: Exception) -> None:
         """Handle an exception raised during the execution of the task."""

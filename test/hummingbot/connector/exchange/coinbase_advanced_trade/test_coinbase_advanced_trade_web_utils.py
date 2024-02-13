@@ -147,7 +147,7 @@ class CoinbaseAdvancedTradeUtilTestCases(IsolatedAsyncioWrapperTestCase):
         '.build_api_factory_without_time_synchronizer_pre_processor',
         new_callable=Mock)
     @patch('hummingbot.connector.exchange.coinbase_advanced_trade.coinbase_advanced_trade_web_utils'
-           '.public_rest_url')
+           '.private_rest_url')
     async def test_get_current_server_time_s(self, mock_public_rest_url, mock_api_factory):
         # Prepare Mocks
         mock_public_rest_url.return_value = 'mock_url'

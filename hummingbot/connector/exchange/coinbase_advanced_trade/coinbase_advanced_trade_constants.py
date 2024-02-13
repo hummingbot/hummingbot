@@ -26,7 +26,6 @@ REST_URL = "https://api.coinbase.{domain}/api/v3"
 WSS_URL = "wss://advanced-trade-ws.coinbase.{domain}"
 
 # Coinbase Signin API endpoints
-SERVER_TIME_EP = "/time"
 EXCHANGE_RATES_USD_EP = "/exchange-rates"
 EXCHANGE_RATES_QUOTE_EP = "/exchange-rates?currency={quote_token}"
 EXCHANGE_RATES_QUOTE_LIMIT_ID = "ExchangeRatesQuote"
@@ -34,7 +33,6 @@ CURRENCIES_EP = "/currencies"
 CRYPTO_CURRENCIES_EP = "/currencies/crypto"
 
 SIGNIN_ENDPOINTS = {
-    SERVER_TIME_EP,
     EXCHANGE_RATES_USD_EP,
     EXCHANGE_RATES_QUOTE_LIMIT_ID,
     CURRENCIES_EP,
@@ -42,6 +40,7 @@ SIGNIN_ENDPOINTS = {
 }
 
 # Private API endpoints
+SERVER_TIME_EP = "/brokerage/time"
 ALL_PAIRS_EP = "/brokerage/products"
 PAIR_TICKER_EP = "/brokerage/products/{product_id}"
 PAIR_TICKER_RATE_LIMIT_ID = "PairTicker"
@@ -60,6 +59,7 @@ ACCOUNT_RATE_LIMIT_ID = "Account"
 SNAPSHOT_EP = "/brokerage/product_book"
 
 REST_ENDPOINTS = {
+    SERVER_TIME_EP,
     ALL_PAIRS_EP,
     PAIR_TICKER_RATE_LIMIT_ID,
     PAIR_TICKER_24HR_RATE_LIMIT_ID,

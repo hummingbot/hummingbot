@@ -19,26 +19,26 @@ class TestPipesPipeFitting(IsolatedAsyncioWrapperTestCase):
 
     async def test_start_task(self) -> None:
         # Mock the start_all_tasks method of the PipePipeFitting instances
-        for pipe_block in self.pipes_collector._pipe_blocks:
+        for pipe_block in self.pipes_collector._pipe_pipe:
             pipe_block.start_task = MagicMock()
             pipe_block.is_running = MagicMock(return_value=False)
 
         await self.pipes_collector.start_all_tasks()
 
         # Assert that start_all_tasks was called on each PipePipeFitting instance
-        for pipe_block in self.pipes_collector._pipe_blocks:
+        for pipe_block in self.pipes_collector._pipe_pipe:
             pipe_block.start_task.assert_called_once()
 
     async def test_stop_task(self) -> None:
         # Mock the stop_all_tasks method of the PipePipeFitting instances
-        for pipe_block in self.pipes_collector._pipe_blocks:
+        for pipe_block in self.pipes_collector._pipe_pipe:
             pipe_block.stop_task = AsyncMock()
             pipe_block.is_running = MagicMock(return_value=True)
 
         await self.pipes_collector.stop_all_tasks()
 
         # Assert that stop_all_tasks was called on each PipePipeFitting instance
-        for pipe_block in self.pipes_collector._pipe_blocks:
+        for pipe_block in self.pipes_collector._pipe_pipe:
             pipe_block.stop_task.assert_called_once()
 
     async def test_integration(self) -> None:

@@ -38,7 +38,7 @@ class CoinbaseAdvancedTradeAuthTests(IsolatedAsyncioWrapperTestCase):
                     "epoch": 1683658050
                 }
             }
-            mocked.get("https://api.coinbase.com/v2/time", payload=mock_response, status=200)
+            mocked.get("https://api.coinbase.com/api/v3/brokerage/time", payload=mock_response, status=200)
 
             current_server_time_s = await get_current_server_time_s()
 
