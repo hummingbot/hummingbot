@@ -513,7 +513,7 @@ class PositionExecutor(ExecutorBase):
                 amount=self.amount,
                 price=self.entry_price,
             )
-        adjusted_order_candidates = self.adjust_order_candidates([order_candidate])
+        adjusted_order_candidates = self.adjust_order_candidates(self.config.exchange, [order_candidate])
         if adjusted_order_candidates[0].amount == Decimal("0"):
             self.close_type = CloseType.INSUFFICIENT_BALANCE
             self.executor_status = PositionExecutorStatus.COMPLETED
