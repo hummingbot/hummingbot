@@ -1,5 +1,4 @@
 import asyncio
-from collections import defaultdict
 from copy import deepcopy
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
@@ -149,9 +148,6 @@ class BitrueExchange(ExchangePyBase):
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
         return str(CONSTANTS.ORDER_NOT_FOUND_ERROR_CODE) in str(cancelation_exception)
-
-    def _use_batch_order_creation(self, in_flight_orders_to_create: List[InFlightOrder]) -> bool:
-        return False
 
     def _create_web_assistants_factory(self) -> WebAssistantsFactory:
         return web_utils.build_api_factory(
@@ -484,94 +480,6 @@ class BitrueExchange(ExchangePyBase):
         )
 
         return order_update
-
-    async def _request_batch_orders_by_pair(self, trading_pair: str, orders: List[InFlightOrder]) -> List[OrderUpdate]:
-        order_updates: List[OrderUpdate] = []
-        min_exchange_id = min([int(o.exchange_order_id) for o in orders if o.exchange_order_id is not None], default=0)
-        min_ts = min([o.creation_timestamp for o in orders], default=0)
-        is_batch_update_beneficial = self._should_use_batch_order_status_update(orders=orders)
-        if is_batch_update_beneficial and min_exchange_id > 0:
-            symbol = await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)
-            response = await self._api_get(
-                path_url=CONSTANTS.ALL_ORDERS_PATH_URL,
-                params={
-                    "symbol": symbol,
-                    "startTime": int(min_ts * 1e3),
-                    "limit": CONSTANTS.MAX_BATCH_ORDER_STATUS_ENTRY_LIMIT,
-                },
-                is_auth_required=True,
-            )
-            order_updates.extend(self.order_response_to_order_udpate(response, orders))
-        return order_updates
-
-    def order_response_to_order_udpate(self, response, orders: List[InFlightOrder]) -> List[OrderUpdate]:
-        order_updates: List[OrderUpdate] = []
-        for order_data in response:
-            client_order_id = order_data["clientOrderId"]
-            tracked_order = next((o for o in orders if o.client_order_id == client_order_id), None)
-            if tracked_order is not None:
-                new_state = CONSTANTS.ORDER_STATE[order_data["status"]]
-                update_ts = order_data["updateTime"] * 1e-3
-                order_update = OrderUpdate(
-                    client_order_id=client_order_id,
-                    exchange_order_id=str(order_data["orderId"]),
-                    trading_pair=tracked_order.trading_pair,
-                    update_timestamp=update_ts,
-                    new_state=new_state,
-                    order_tags=tracked_order.tags,
-                )
-                order_updates.append(order_update)
-        return order_updates
-
-    async def _request_batch_order_status(self, orders: List[InFlightOrder]) -> List[OrderUpdate]:
-        all_order_updates = []
-        try:
-            orders_by_pair = defaultdict(list)
-
-            for order in orders:
-                orders_by_pair[order.trading_pair].append(order)
-
-            for trading_pair, trading_pair_orders in orders_by_pair.items():
-                order_updates_client_ids = []
-                if any(o.is_open for o in trading_pair_orders):
-                    response = await self._api_get(
-                        path_url=CONSTANTS.OPEN_ORDERS_PATH_URL,
-                        params={"symbol": await self.exchange_symbol_associated_to_pair(trading_pair=trading_pair)},
-                        is_auth_required=True,
-                    )
-
-                    order_updates = self.order_response_to_order_udpate(response, trading_pair_orders)
-                    order_updates_client_ids = [o.client_order_id for o in order_updates]
-                    all_order_updates.extend(order_updates)
-                not_open_orders = [o for o in trading_pair_orders if o.client_order_id not in order_updates_client_ids]
-                if len(not_open_orders) > 0:
-                    order_updates = await self._request_batch_orders_by_pair(trading_pair, not_open_orders)
-                    all_order_updates.extend(order_updates)
-
-        except asyncio.CancelledError:
-            raise
-        except Exception as request_error:
-            self.logger().error(f"Error requesting batch order status from Bitrue ({request_error})", exc_info=True)
-
-        return all_order_updates
-
-    def _should_use_batch_order_status_update(self, orders: List[InFlightOrder]) -> bool:
-        """
-        Determines if it is more economical to use a batch request over single order status update request per order.
-        Returns True if it is determined that using batch order status update consumes less API limits.
-
-        :param orders: List of InFlightOrders of which we need to query for status updates in this cycle.
-            It should be orders for the same trading pair
-        :return: bool
-        """
-        single_rate_limit, _ = self._throttler.get_related_limits(limit_id=CONSTANTS.ORDER_STATUS_RATE_LIMIT_ID)
-        batch_rate_limit, _ = self._throttler.get_related_limits(limit_id=CONSTANTS.ALL_ORDERS_PATH_URL)
-
-        total_single_weight = single_rate_limit.linked_limits[0].weight * len(orders)
-
-        total_batch_weight = batch_rate_limit.linked_limits[0].weight
-
-        return total_batch_weight <= total_single_weight
 
     async def _update_balances(self):
         local_asset_names = set(self._account_balances.keys())
