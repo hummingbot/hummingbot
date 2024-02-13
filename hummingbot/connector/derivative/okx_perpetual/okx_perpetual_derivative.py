@@ -2,7 +2,6 @@ import asyncio
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
-import numpy as np
 from bidict import bidict
 
 import hummingbot.connector.derivative.okx_perpetual.okx_perpetual_constants as CONSTANTS
@@ -302,7 +301,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         price = float(resp_json["data"][0]["last"])
         return price
 
-    async def get_last_traded_prices(self):
+    async def get_last_traded_prices(self, trading_pairs: List[str] = None) -> Dict[str, float]:
         params = {"instType": "SWAP"}
 
         resp_json = await self._api_get(
@@ -320,6 +319,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         wallet_balance: Dict[str, Dict[str, Any]] = await self._api_get(
             path_url=CONSTANTS.REST_GET_WALLET_BALANCE[CONSTANTS.ENDPOINT],
             is_auth_required=True,
+            params={"ccy": "USDT,USDC"},
         )
 
         if wallet_balance['code'] == CONSTANTS.RET_CODE_OK:
@@ -334,23 +334,23 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             self._update_balance_from_details(balance_details=balance)
 
     def _update_balance_from_details(self, balance_details: Dict[str, Any]):
-        if balance_details["ccy"] in ["USDT", "USDC"]:
-            equity_text = balance_details["eq"]
-            available_equity_text = balance_details["availEq"]
+        equity_text = balance_details["eq"]
+        available_equity_text = balance_details["availEq"]
 
-            if equity_text and available_equity_text:
-                total = Decimal(equity_text)
-                available = Decimal(available_equity_text)
-            else:
-                available = Decimal(balance_details["availBal"])
-                total = available + Decimal(balance_details["frozenBal"])
-            self._account_balances[balance_details["ccy"]] = total
-            self._account_available_balances[balance_details["ccy"]] = available
+        if equity_text and available_equity_text:
+            total = Decimal(equity_text)
+            available = Decimal(available_equity_text)
+        else:
+            available = Decimal(balance_details["availBal"])
+            total = available + Decimal(balance_details["frozenBal"])
+        self._account_balances[balance_details["ccy"]] = total
+        self._account_available_balances[balance_details["ccy"]] = available
 
     async def _update_trading_rules(self):
         # This has to be reimplemented because the request requires an extra parameter
         exchange_info = await self._api_get(
             path_url=self.trading_rules_request_path,
+            is_auth_required=False,
             params={"instType": "SWAP"},
         )
         trading_rules_list = await self._format_trading_rules(exchange_info)
@@ -371,24 +371,19 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             try:
                 if okx_utils.is_exchange_information_valid(rule):
                     trading_pair = combine_to_hb_trading_pair(rule['ctValCcy'], rule['settleCcy'])
-                    contract_size = float(rule["ctVal"])
-                    minimum_order_quantity = float(rule["minSz"])
+                    contract_size = Decimal(rule["ctVal"])
+                    minimum_order_quantity = Decimal(rule["minSz"])
                     min_order_size = minimum_order_quantity * contract_size
 
-                    max_order_limit_size = float(rule["maxLmtSz"]) if bool(rule["maxLmtSz"]) else np.nan
-                    max_order_market_size = float(rule["maxMktSz"]) if bool(rule["maxMktSz"]) else np.nan
-                    max_order_size = min(max_order_limit_size, max_order_market_size) * contract_size
+                    min_price_increment = Decimal(rule["tickSz"])
 
-                    min_price_increment = float(rule["tickSz"])
-
-                    lot_size = float(rule["lotSz"])
+                    lot_size = Decimal(rule["lotSz"])
                     min_base_amount_increment = lot_size * contract_size
 
                     collateral_token = rule["settleCcy"]
                     trading_rules[trading_pair] = TradingRule(
                         trading_pair=trading_pair,
                         min_order_size=Decimal(str(min_order_size)),
-                        max_order_size=Decimal(str(max_order_size)),
                         min_price_increment=Decimal(str(min_price_increment)),
                         min_base_amount_increment=Decimal(str(min_base_amount_increment)),
                         buy_order_collateral_token=collateral_token,
@@ -406,6 +401,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         body_params = {
             "instType": "SWAP",
             "ordId": order.exchange_order_id,
+            "clOrdId": order.client_order_id,
             "instId": exchange_symbol,
         }
         res = await self._api_get(
@@ -422,12 +418,27 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         if order.exchange_order_id is not None:
             try:
                 all_fills_response = await self._request_order_fills(order=order)
-                fills_data = all_fills_response.get("data", [])
+                fills_data = all_fills_response["data"]
 
-                if fills_data is not None:
-                    for fill_data in fills_data:
-                        trade_update = self._parse_trade_update(trade_msg=fill_data, tracked_order=order)
-                        trade_updates.append(trade_update)
+                for fill_data in fills_data:
+                    fee = TradeFeeBase.new_spot_fee(
+                        fee_schema=self.trade_fee_schema(),
+                        trade_type=order.trade_type,
+                        percent_token=fill_data["feeCcy"],
+                        flat_fees=[TokenAmount(amount=Decimal(fill_data["fee"]), token=fill_data["feeCcy"])]
+                    )
+                    trade_update = TradeUpdate(
+                        trade_id=str(fill_data["tradeId"]),
+                        client_order_id=order.client_order_id,
+                        exchange_order_id=str(fill_data["ordId"]),
+                        trading_pair=order.trading_pair,
+                        fee=fee,
+                        fill_base_amount=Decimal(fill_data["fillSz"]),
+                        fill_quote_amount=Decimal(fill_data["fillSz"]) * Decimal(fill_data["fillPx"]),
+                        fill_price=Decimal(fill_data["fillPx"]),
+                        fill_timestamp=int(fill_data["ts"]),
+                    )
+                    trade_updates.append(trade_update)
             except IOError as ex:
                 if not self._is_request_exception_related_to_time_synchronizer(request_exception=ex):
                     raise
@@ -458,56 +469,33 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             fill_base_amount=Decimal(trade_msg["fillSz"]),
             fill_quote_amount=Decimal(trade_msg["fillPx"]) * Decimal(trade_msg["fillSz"]),
             fill_price=Decimal(trade_msg["fillPx"]),
-            fill_timestamp=int(trade_msg["uTime"]),
+            fill_timestamp=int(trade_msg["ts"]),
         )
         return trade_update
 
     async def _request_order_status(self, tracked_order: InFlightOrder) -> OrderUpdate:
-        try:
-            order_status_data = await self._request_order_status_data(tracked_order=tracked_order)
-            order_msg = order_status_data["data"][0]
-            client_order_id = str(order_msg["clOrdId"])
+        updated_order_data = await self._request_order_update(order=tracked_order)
 
-            order_update: OrderUpdate = OrderUpdate(
-                trading_pair=tracked_order.trading_pair,
-                update_timestamp=self.current_timestamp,
-                new_state=CONSTANTS.ORDER_STATE[order_msg["state"]],
-                client_order_id=client_order_id,
-                exchange_order_id=order_msg["ordId"],
-            )
+        order_data = updated_order_data["data"][0]
+        new_state = CONSTANTS.ORDER_STATE[order_data["state"]]
 
-            return order_update
-
-        except IOError as ex:
-            if self._is_request_exception_related_to_time_synchronizer(request_exception=ex):
-                order_update = OrderUpdate(
-                    client_order_id=tracked_order.client_order_id,
-                    trading_pair=tracked_order.trading_pair,
-                    update_timestamp=self.current_timestamp,
-                    new_state=tracked_order.current_state,
-                )
-            else:
-                raise
-
+        order_update = OrderUpdate(
+            client_order_id=tracked_order.client_order_id,
+            exchange_order_id=str(order_data["ordId"]),
+            trading_pair=tracked_order.trading_pair,
+            update_timestamp=int(order_data["uTime"]),
+            new_state=new_state,
+        )
         return order_update
 
-    async def _request_order_status_data(self, tracked_order: InFlightOrder) -> Dict:
-        exchange_symbol = await self.exchange_symbol_associated_to_pair(tracked_order.trading_pair)
-        query_params = {
-            "instId": exchange_symbol,
-            "clOrdId": tracked_order.client_order_id
-        }
-        if tracked_order.exchange_order_id is not None:
-            query_params["ordId"] = tracked_order.exchange_order_id
-
-        resp = await self._api_get(
+    async def _request_order_update(self, order: InFlightOrder) -> Dict[str, Any]:
+        return await self._api_request(
+            method=RESTMethod.GET,
             path_url=CONSTANTS.REST_QUERY_ACTIVE_ORDER[CONSTANTS.ENDPOINT],
-            params=query_params,
-            is_auth_required=True,
-            trading_pair=tracked_order.trading_pair,
-        )
-
-        return resp
+            params={
+                "instId": await self.exchange_symbol_associated_to_pair(order.trading_pair),
+                "clOrdId": order.client_order_id},
+            is_auth_required=True)
 
     async def _user_stream_event_listener(self):
         """
@@ -593,34 +581,6 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         # Trade updates must be handled before any order status updates.
         for trade in parsed_history_resps:
             self._process_trade_event_message(trade)
-
-    async def _update_order_status(self):
-        """
-        Calls REST API to get order status
-        """
-
-        active_orders: List[InFlightOrder] = list(self.in_flight_orders.values())
-
-        tasks = []
-        for active_order in active_orders:
-            tasks.append(asyncio.create_task(self._request_order_status_data(tracked_order=active_order)))
-
-        raw_responses: List[Dict[str, Any]] = await safe_gather(*tasks, return_exceptions=True)
-
-        # Initial parsing of responses. Removes Exceptions.
-        parsed_status_responses: List[Dict[str, Any]] = []
-        for resp, active_order in zip(raw_responses, active_orders):
-            if not isinstance(resp, Exception):
-                parsed_status_responses.append(resp["data"][0])
-            else:
-                self.logger().network(
-                    f"Error fetching status update for the order {active_order.client_order_id}: {resp}.",
-                    app_warning_msg=f"Failed to fetch status update for the order {active_order.client_order_id}."
-                )
-                await self._order_tracker.process_order_not_found(active_order.client_order_id)
-
-        for order_status in parsed_status_responses:
-            self._process_order_event_message(order_status)
 
     async def _update_positions(self):
         """
@@ -771,9 +731,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         :param wallet_msg: The account balance update message payload
         """
         for balance_detail in wallet_msg["details"]:
-            if balance_detail["ccy"] in ["USDT", "USDC"]:
-                self._account_balances[balance_detail["ccy"]] = Decimal(str(balance_detail["eq"]))
-                self._account_available_balances[balance_detail["ccy"]] = Decimal(str(balance_detail["availBal"]))
+            self._update_balance_from_details(balance_details=balance_detail)
 
     async def _make_trading_rules_request(self) -> Any:
         params = {"instType": "SWAP"}
