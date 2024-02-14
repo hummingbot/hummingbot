@@ -5,12 +5,13 @@ from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
 from hummingbot.smart_components.controllers.dman_v1 import DManV1, DManV1Config
-from hummingbot.smart_components.strategy_frameworks.data_types import ExecutorHandlerStatus, TripleBarrierConf
+from hummingbot.smart_components.executors.position_executor.data_types import TripleBarrierConf
+from hummingbot.smart_components.models.base import SmartComponentStatus
+from hummingbot.smart_components.order_level_distributions.distributions import Distributions
+from hummingbot.smart_components.order_level_distributions.order_level_builder import OrderLevelBuilder
 from hummingbot.smart_components.strategy_frameworks.market_making.market_making_executor_handler import (
     MarketMakingExecutorHandler,
 )
-from hummingbot.smart_components.utils.distributions import Distributions
-from hummingbot.smart_components.utils.order_level_builder import OrderLevelBuilder
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
@@ -50,7 +51,7 @@ class DManV1MultiplePairs(ScriptStrategyBase):
         spreads=Distributions.arithmetic(n_levels=n_levels, start=start_spread, step=step_between_orders),
         triple_barrier_confs=TripleBarrierConf(
             stop_loss=stop_loss, take_profit=take_profit, time_limit=time_limit,
-            trailing_stop_activation_price_delta=trailing_stop_activation_price_delta,
+            trailing_stop_activation_price=trailing_stop_activation_price_delta,
             trailing_stop_trailing_delta=trailing_stop_trailing_delta),
         order_refresh_time=order_refresh_time,
         cooldown_time=cooldown_time,
@@ -119,7 +120,7 @@ class DManV1MultiplePairs(ScriptStrategyBase):
         market conditions, you can orchestrate from this script when to stop or start them.
         """
         for executor_handler in self.executor_handlers.values():
-            if executor_handler.status == ExecutorHandlerStatus.NOT_STARTED:
+            if executor_handler.status == SmartComponentStatus.NOT_STARTED:
                 executor_handler.start()
 
     def format_status(self) -> str:
