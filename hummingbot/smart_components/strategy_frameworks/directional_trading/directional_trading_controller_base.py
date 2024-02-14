@@ -7,15 +7,16 @@ from pydantic import Field
 
 from hummingbot.client.ui.interface_utils import format_df_for_printout
 from hummingbot.core.data_type.common import PositionMode, TradeType
-from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig, TrailingStop
+from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig, TrailingStop
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
+from hummingbot.smart_components.order_level_distributions.order_level_builder import OrderLevel
 from hummingbot.smart_components.strategy_frameworks.controller_base import ControllerBase, ControllerConfigBase
-from hummingbot.smart_components.strategy_frameworks.data_types import OrderLevel
 
 
 class DirectionalTradingControllerConfigBase(ControllerConfigBase):
     exchange: str = Field(default="binance_perpetual")
     trading_pair: str = Field(default="BTC-USDT")
+    order_levels: List[OrderLevel]
     leverage: int = Field(10, ge=1)
     position_mode: PositionMode = Field(PositionMode.HEDGE)
 
@@ -63,7 +64,7 @@ class DirectionalTradingControllerBase(ControllerBase):
     def cooldown_condition(self, executor: PositionExecutor, order_level: OrderLevel) -> bool:
         raise NotImplementedError
 
-    def get_position_config(self, order_level: OrderLevel, signal: int) -> PositionConfig:
+    def get_position_config(self, order_level: OrderLevel, signal: int) -> PositionExecutorConfig:
         """
         Creates a PositionConfig object from an OrderLevel object.
         Here you can use technical indicators to determine the parameters of the position config.
@@ -76,12 +77,12 @@ class DirectionalTradingControllerBase(ControllerBase):
             order_price = close_price * (1 + order_level.spread_factor * spread_multiplier * signal)
             if order_level.triple_barrier_conf.trailing_stop_trailing_delta and order_level.triple_barrier_conf.trailing_stop_trailing_delta:
                 trailing_stop = TrailingStop(
-                    activation_price_delta=order_level.triple_barrier_conf.trailing_stop_activation_price_delta,
+                    activation_price=order_level.triple_barrier_conf.trailing_stop_activation_price,
                     trailing_delta=order_level.triple_barrier_conf.trailing_stop_trailing_delta,
                 )
             else:
                 trailing_stop = None
-            position_config = PositionConfig(
+            position_config = PositionExecutorConfig(
                 timestamp=time.time(),
                 trading_pair=self.config.trading_pair,
                 exchange=self.config.exchange,
