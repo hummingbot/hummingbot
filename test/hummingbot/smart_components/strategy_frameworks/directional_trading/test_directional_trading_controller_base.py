@@ -6,7 +6,8 @@ import pandas as pd
 
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
-from hummingbot.smart_components.strategy_frameworks.data_types import OrderLevel, TripleBarrierConf
+from hummingbot.smart_components.executors.position_executor.data_types import TripleBarrierConf
+from hummingbot.smart_components.order_level_distributions.order_level_builder import OrderLevel
 from hummingbot.smart_components.strategy_frameworks.directional_trading import (
     DirectionalTradingControllerBase,
     DirectionalTradingControllerConfigBase,
