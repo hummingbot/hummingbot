@@ -4,9 +4,9 @@ from decimal import Decimal
 import pandas_ta as ta  # noqa: F401
 
 from hummingbot.core.data_type.common import TradeType
-from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig, TrailingStop
+from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig, TrailingStop
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
-from hummingbot.smart_components.strategy_frameworks.data_types import OrderLevel
+from hummingbot.smart_components.order_level_distributions.order_level_builder import OrderLevel
 from hummingbot.smart_components.strategy_frameworks.market_making.market_making_controller_base import (
     MarketMakingControllerBase,
     MarketMakingControllerConfigBase,
@@ -70,7 +70,7 @@ class DManV3(MarketMakingControllerBase):
         candles_df["spread_multiplier"] = bbp[f"BBB_{self.config.bb_length}_{self.config.bb_std}"] / 200
         return candles_df
 
-    def get_position_config(self, order_level: OrderLevel) -> PositionConfig:
+    def get_position_config(self, order_level: OrderLevel) -> PositionExecutorConfig:
         """
         Creates a PositionConfig object from an OrderLevel object.
         Here you can use technical indicators to determine the parameters of the position config.
@@ -100,14 +100,14 @@ class DManV3(MarketMakingControllerBase):
             return
 
         target_spread = spread_multiplier if self.config.dynamic_target_spread else 1
-        if order_level.triple_barrier_conf.trailing_stop_activation_price_delta and order_level.triple_barrier_conf.trailing_stop_trailing_delta:
+        if order_level.triple_barrier_conf.trailing_stop_activation_price and order_level.triple_barrier_conf.trailing_stop_trailing_delta:
             trailing_stop = TrailingStop(
-                activation_price_delta=order_level.triple_barrier_conf.trailing_stop_activation_price_delta * target_spread,
+                activation_price=order_level.triple_barrier_conf.trailing_stop_activation_price * target_spread,
                 trailing_delta=order_level.triple_barrier_conf.trailing_stop_trailing_delta * target_spread,
             )
         else:
             trailing_stop = None
-        position_config = PositionConfig(
+        position_config = PositionExecutorConfig(
             timestamp=time.time(),
             trading_pair=self.config.trading_pair,
             exchange=self.config.exchange,
