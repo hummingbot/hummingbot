@@ -4,7 +4,8 @@ from typing import Dict, Optional
 
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.logger import HummingbotLogger
-from hummingbot.smart_components.executors.position_executor.data_types import CloseType, PositionExecutorStatus
+from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorStatus
+from hummingbot.smart_components.models.executors import CloseType
 from hummingbot.smart_components.strategy_frameworks.executor_handler_base import ExecutorHandlerBase
 from hummingbot.smart_components.strategy_frameworks.market_making.market_making_controller_base import (
     MarketMakingControllerBase,
@@ -25,6 +26,7 @@ class MarketMakingExecutorHandler(ExecutorHandlerBase):
                  update_interval: float = 1.0, executors_update_interval: float = 1.0):
         super().__init__(strategy, controller, update_interval, executors_update_interval)
         self.controller = controller
+        self.position_executors = {level.level_id: None for level in self.controller.config.order_levels}
         self.global_trailing_stop_config = self.controller.config.global_trailing_stop_config
         self._trailing_stop_pnl_by_side: Dict[TradeType, Optional[Decimal]] = {TradeType.BUY: None, TradeType.SELL: None}
 
@@ -34,6 +36,7 @@ class MarketMakingExecutorHandler(ExecutorHandlerBase):
         super().on_stop()
 
     def on_start(self):
+        super().on_start()
         if self.controller.is_perpetual:
             self.set_leverage_and_position_mode()
 
@@ -52,7 +55,7 @@ class MarketMakingExecutorHandler(ExecutorHandlerBase):
                 TradeType.BUY: self.empty_metrics_dict(),
                 TradeType.SELL: self.empty_metrics_dict()}
             for order_level in self.controller.config.order_levels:
-                current_executor = self.level_executors[order_level.level_id]
+                current_executor = self.position_executors[order_level.level_id]
                 if current_executor:
                     closed_and_not_in_cooldown = current_executor.is_closed and not self.controller.cooldown_condition(
                         current_executor, order_level) or current_executor.close_type == CloseType.EXPIRED
@@ -61,7 +64,7 @@ class MarketMakingExecutorHandler(ExecutorHandlerBase):
                     order_placed_and_refresh_condition = current_executor.executor_status == PositionExecutorStatus.NOT_STARTED and self.controller.refresh_order_condition(
                         current_executor, order_level)
                     if closed_and_not_in_cooldown:
-                        self.store_executor(current_executor, order_level)
+                        self.store_position_executor(order_level.level_id)
                     elif active_and_early_stop_condition or order_placed_and_refresh_condition:
                         current_executor.early_stop()
                     elif current_executor.executor_status == PositionExecutorStatus.ACTIVE_POSITION:
@@ -71,13 +74,13 @@ class MarketMakingExecutorHandler(ExecutorHandlerBase):
                 else:
                     position_config = self.controller.get_position_config(order_level)
                     if position_config:
-                        self.create_executor(position_config, order_level)
+                        self.create_position_executor(position_config, order_level.level_id)
             if self.global_trailing_stop_config:
                 for side, global_trailing_stop_conf in self.global_trailing_stop_config.items():
                     if current_metrics[side]["amount"] > 0:
                         current_pnl_pct = current_metrics[side]["net_pnl_quote"] / current_metrics[side]["amount"]
                         trailing_stop_pnl = self._trailing_stop_pnl_by_side[side]
-                        if not trailing_stop_pnl and current_pnl_pct > global_trailing_stop_conf.activation_price_delta:
+                        if not trailing_stop_pnl and current_pnl_pct > global_trailing_stop_conf.activation_price:
                             self._trailing_stop_pnl_by_side[side] = current_pnl_pct - global_trailing_stop_conf.trailing_delta
                             self.logger().info("Global Trailing Stop Activated!")
                         if trailing_stop_pnl:
