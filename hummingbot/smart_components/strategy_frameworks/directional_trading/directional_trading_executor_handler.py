@@ -11,6 +11,7 @@ class DirectionalTradingExecutorHandler(ExecutorHandlerBase):
                  update_interval: float = 1.0):
         super().__init__(strategy, controller, update_interval)
         self.controller = controller
+        self.position_executors = {level.level_id: None for level in self.controller.config.order_levels}
 
     def on_stop(self):
         if self.controller.is_perpetual:
@@ -31,15 +32,15 @@ class DirectionalTradingExecutorHandler(ExecutorHandlerBase):
             signal = self.controller.get_signal()
             if signal != 0:
                 for order_level in self.controller.config.order_levels:
-                    current_executor = self.level_executors[order_level.level_id]
+                    current_executor = self.position_executors[order_level.level_id]
                     if current_executor:
                         closed_and_not_in_cooldown = current_executor.is_closed and not self.controller.cooldown_condition(current_executor, order_level)
                         active_and_early_stop_condition = current_executor.executor_status == PositionExecutorStatus.ACTIVE_POSITION and self.controller.early_stop_condition(current_executor, order_level)
                         if closed_and_not_in_cooldown:
-                            self.store_executor(current_executor, order_level)
+                            self.store_position_executor(order_level.level_id)
                         elif active_and_early_stop_condition:
                             current_executor.early_stop()
                     else:
                         position_config = self.controller.get_position_config(order_level, signal)
                         if position_config:
-                            self.create_executor(position_config, order_level)
+                            self.create_position_executor(position_config, order_level.level_id)

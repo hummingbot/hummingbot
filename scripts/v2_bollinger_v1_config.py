@@ -9,11 +9,9 @@ from hummingbot.connector.connector_base import ConnectorBase, TradeType
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
 from hummingbot.smart_components.controllers.bollinger_v1 import BollingerV1, BollingerV1Config
-from hummingbot.smart_components.strategy_frameworks.data_types import (
-    ExecutorHandlerStatus,
-    OrderLevel,
-    TripleBarrierConf,
-)
+from hummingbot.smart_components.executors.position_executor.data_types import TripleBarrierConf
+from hummingbot.smart_components.models.base import SmartComponentStatus
+from hummingbot.smart_components.order_level_distributions.order_level_builder import OrderLevel
 from hummingbot.smart_components.strategy_frameworks.directional_trading.directional_trading_executor_handler import (
     DirectionalTradingExecutorHandler,
 )
@@ -66,7 +64,7 @@ class DirectionalTradingBollinger(ScriptStrategyBase):
             stop_loss=config.stop_loss,
             take_profit=config.take_profit,
             time_limit=config.time_limit,
-            trailing_stop_activation_price_delta=config.trailing_stop_activation_price_delta,
+            trailing_stop_activation_price=config.trailing_stop_activation_price_delta,
             trailing_stop_trailing_delta=config.trailing_stop_trailing_delta,
             open_order_type=OrderType.MARKET if config.open_order_type == "MARKET" else OrderType.LIMIT,
         )
@@ -140,7 +138,7 @@ class DirectionalTradingBollinger(ScriptStrategyBase):
         market conditions, you can orchestrate from this script when to stop or start them.
         """
         for executor_handler in self.executor_handlers.values():
-            if executor_handler.status == ExecutorHandlerStatus.NOT_STARTED:
+            if executor_handler.status == SmartComponentStatus.NOT_STARTED:
                 executor_handler.start()
 
     def format_status(self) -> str:
