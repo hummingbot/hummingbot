@@ -1022,6 +1022,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         return url
 
     def order_event_for_new_order_websocket_update(self, order: InFlightOrder):
+        self._simulate_trading_rules_initialized()
         return {
             "arg": {
                 "channel": "orders",
