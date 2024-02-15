@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from enum import Enum
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel
 
@@ -54,10 +53,5 @@ class PositionExecutorConfig(ExecutorConfigBase):
     amount: Decimal
     triple_barrier_conf: TripleBarrierConf = TripleBarrierConf()
     leverage: int = 1
+    activation_bounds: Optional[List[Decimal]] = None
     level_id: Optional[str] = None
-
-
-class PositionExecutorStatus(Enum):
-    NOT_STARTED = 1
-    ACTIVE_POSITION = 2
-    COMPLETED = 3

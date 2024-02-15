@@ -186,20 +186,20 @@ class MACDBBDirectionalStrategy(ScriptStrategyBase):
             df_header.to_csv(self.csv_path, mode='a', header=False, index=False)
         for executor in executors_to_store:
             self.stored_executors.append(executor)
-            df = pd.DataFrame([(executor.timestamp,
-                                executor.exchange,
-                                executor.trading_pair,
-                                executor.side,
-                                executor.amount,
-                                executor.trade_pnl,
+            df = pd.DataFrame([(executor.config.timestamp,
+                                executor.config.exchange,
+                                executor.config.trading_pair,
+                                executor.config.side,
+                                executor.config.amount,
+                                executor.trade_pnl_pct,
                                 executor.close_timestamp,
                                 executor.entry_price,
                                 executor.close_price,
                                 executor.status,
-                                executor.position_config.stop_loss,
-                                executor.position_config.take_profit,
-                                executor.position_config.time_limit,
-                                executor.open_order_type,
+                                executor.config.triple_barrier_conf.stop_loss,
+                                executor.config.triple_barrier_conf.take_profit,
+                                executor.config.triple_barrier_conf.time_limit,
+                                executor.config.triple_barrier_conf.open_order_type,
                                 self.leverage)])
             df.to_csv(self.csv_path, mode='a', header=False, index=False)
         self.active_executors = [executor for executor in self.active_executors if not executor.is_closed]
