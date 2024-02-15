@@ -31,9 +31,9 @@ class PositionExecutor(ExecutorBase):
         return cls._logger
 
     def __init__(self, strategy: ScriptStrategyBase, config: PositionExecutorConfig,
-                 update_interval: float = 1.0, max_retries: int = 3):
-        if config.triple_barrier_conf.time_limit_order_type != OrderType.MARKET or \
-                config.triple_barrier_conf.stop_loss_order_type != OrderType.MARKET:
+                 update_interval: float = 1.0, max_retries: int = 5):
+        if config.triple_barrier_config.time_limit_order_type != OrderType.MARKET or \
+                config.triple_barrier_config.stop_loss_order_type != OrderType.MARKET:
             error = "Only market orders are supported for time_limit and stop_loss"
             self.logger().error(error)
             raise ValueError(error)
@@ -81,7 +81,7 @@ class PositionExecutor(ExecutorBase):
 
     @property
     def entry_price(self):
-        if self._open_order.average_executed_price:
+        if self._open_order and self._open_order.is_done:
             return self._open_order.average_executed_price
         elif self.config.entry_price:
             return self.config.entry_price
@@ -126,7 +126,8 @@ class PositionExecutor(ExecutorBase):
         """
         This method is responsible for calculating the cumulative fees in quote asset
         """
-        return self._open_order.cum_fees_quote + self._close_order.cum_fees_quote
+        orders = [self._open_order, self._close_order]
+        return sum([order.cum_fees_quote for order in orders if order])
 
     def get_net_pnl_pct(self):
         """
@@ -139,17 +140,17 @@ class PositionExecutor(ExecutorBase):
         """
         This method is responsible for calculating the end time of the position based on the time limit
         """
-        if not self.config.triple_barrier_conf.time_limit:
+        if not self.config.triple_barrier_config.time_limit:
             return None
-        return self.config.timestamp + self.config.triple_barrier_conf.time_limit
+        return self.config.timestamp + self.config.triple_barrier_config.time_limit
 
     @property
     def take_profit_price(self):
         """
         This method is responsible for calculating the take profit price to place the take profit limit order
         """
-        take_profit_price = self.entry_price * (1 + self.config.triple_barrier_conf.take_profit) \
-            if self.config.side == TradeType.BUY else self.entry_price * (1 - self.config.triple_barrier_conf.take_profit)
+        take_profit_price = self.entry_price * (1 + self.config.triple_barrier_config.take_profit) \
+            if self.config.side == TradeType.BUY else self.entry_price * (1 - self.config.triple_barrier_config.take_profit)
         return take_profit_price
 
     async def control_task(self):
@@ -203,7 +204,7 @@ class PositionExecutor(ExecutorBase):
         activation_bounds = self.config.activation_bounds
         order_price = self.config.entry_price
         if activation_bounds:
-            if self.config.triple_barrier_conf.open_order_type == OrderType.LIMIT:
+            if self.config.triple_barrier_config.open_order_type == OrderType.LIMIT:
                 if self.config.side == TradeType.BUY:
                     return order_price > close_price * (1 - activation_bounds[0])
                 else:
@@ -223,7 +224,7 @@ class PositionExecutor(ExecutorBase):
         order_id = self.place_order(
             connector_name=self.config.exchange,
             trading_pair=self.config.trading_pair,
-            order_type=self.config.triple_barrier_conf.open_order_type,
+            order_type=self.config.triple_barrier_config.open_order_type,
             amount=self.config.amount,
             price=self.entry_price,
             side=self.config.side,
@@ -264,18 +265,20 @@ class PositionExecutor(ExecutorBase):
             self.cancel_take_profit()
 
     def control_stop_loss(self):
-        if self.config.triple_barrier_conf.stop_loss:
-            if self.net_pnl_pct <= self.config.triple_barrier_conf.stop_loss:
+        if self.config.triple_barrier_config.stop_loss:
+            if self.net_pnl_pct <= -self.config.triple_barrier_config.stop_loss:
                 self.place_close_order_and_cancel_open_orders(close_type=CloseType.STOP_LOSS)
 
     def control_take_profit(self):
-        if self.config.triple_barrier_conf.take_profit_order_type.is_limit_type():
-            if not self._take_profit_limit_order and self.open_filled_amount > Decimal("0"):
-                self.place_take_profit_limit_order()
-            elif not math.isclose(self._take_profit_limit_order.order.amount, self._open_order.executed_amount_base):
-                self.renew_take_profit_order()
-        elif self.net_pnl_pct >= self.config.triple_barrier_conf.take_profit:
-            self.place_close_order_and_cancel_open_orders(close_type=CloseType.TAKE_PROFIT)
+        if self.open_filled_amount > Decimal("0") and self.config.triple_barrier_config.take_profit:
+            if self.config.triple_barrier_config.take_profit_order_type.is_limit_type():
+                if not self._take_profit_limit_order:
+                    self.place_take_profit_limit_order()
+                elif self._take_profit_limit_order.order and not math.isclose(self._take_profit_limit_order.order.amount,
+                                                                              self._open_order.executed_amount_base):
+                    self.renew_take_profit_order()
+            elif self.net_pnl_pct >= self.config.triple_barrier_config.take_profit:
+                self.place_close_order_and_cancel_open_orders(close_type=CloseType.TAKE_PROFIT)
 
     def control_time_limit(self):
         if self.is_expired:
@@ -287,7 +290,7 @@ class PositionExecutor(ExecutorBase):
             trading_pair=self.config.trading_pair,
             amount=self.open_filled_amount,
             price=self.take_profit_price,
-            order_type=self.config.triple_barrier_conf.take_profit_order_type,
+            order_type=self.config.triple_barrier_config.take_profit_order_type,
             position_action=PositionAction.CLOSE,
             side=TradeType.BUY if self.config.side == TradeType.SELL else TradeType.SELL,
         )
@@ -333,9 +336,9 @@ class PositionExecutor(ExecutorBase):
         self.update_tracked_orders_with_order_id(event.order_id)
 
     def process_order_completed_event(self, _, market, event: Union[BuyOrderCompletedEvent, SellOrderCompletedEvent]):
-        if self._close_order.order_id == event.order_id:
+        if self._close_order and self._close_order.order_id == event.order_id:
             self.close_timestamp = event.timestamp
-        elif self._take_profit_limit_order.order_id == event.order_id:
+        elif self._take_profit_limit_order and self._take_profit_limit_order.order_id == event.order_id:
             self.close_type = CloseType.TAKE_PROFIT
             self.close_timestamp = event.timestamp
             self._close_order = self._take_profit_limit_order
@@ -357,15 +360,15 @@ class PositionExecutor(ExecutorBase):
         failed orders list.
         """
         self._current_retries += 1
-        if event.order_id == self._open_order.order_id:
+        if self._open_order and event.order_id == self._open_order.order_id:
             self._failed_orders.append(self._open_order)
             self._open_order = None
             self.logger().error(f"Open order failed. Retrying {self._current_retries}/{self._max_retries}")
-        elif event.order_id == self._close_order.order_id:
+        elif self._close_order and event.order_id == self._close_order.order_id:
             self._failed_orders.append(self._close_order)
             self._close_order = None
             self.logger().error(f"Close order failed. Retrying {self._current_retries}/{self._max_retries}")
-        elif event.order_id == self._take_profit_limit_order.order_id:
+        elif self._take_profit_limit_order and event.order_id == self._take_profit_limit_order.order_id:
             self._failed_orders.append(self._take_profit_limit_order)
             self._take_profit_limit_order = None
             self.logger().error(f"Take profit order failed. Retrying {self._current_retries}/{self._max_retries}")
@@ -386,13 +389,13 @@ class PositionExecutor(ExecutorBase):
             "close_type": self.close_type.name if self.close_type else None,
             "entry_price": self.entry_price,
             "close_price": self.close_price,
-            "sl": self.config.triple_barrier_conf.stop_loss,
-            "tp": self.config.triple_barrier_conf.take_profit,
-            "tl": self.config.triple_barrier_conf.time_limit,
-            "open_order_type": self.config.triple_barrier_conf.open_order_type.name,
-            "take_profit_order_type": self.config.triple_barrier_conf.take_profit_order_type.name,
-            "stop_loss_order_type": self.config.triple_barrier_conf.stop_loss_order_type.name,
-            "time_limit_order_type": self.config.triple_barrier_conf.time_limit_order_type.name,
+            "sl": self.config.triple_barrier_config.stop_loss,
+            "tp": self.config.triple_barrier_config.take_profit,
+            "tl": self.config.triple_barrier_config.time_limit,
+            "open_order_type": self.config.triple_barrier_config.open_order_type.name,
+            "take_profit_order_type": self.config.triple_barrier_config.take_profit_order_type.name,
+            "stop_loss_order_type": self.config.triple_barrier_config.stop_loss_order_type.name,
+            "time_limit_order_type": self.config.triple_barrier_config.time_limit_order_type.name,
             "leverage": self.config.leverage,
         }
 
@@ -418,19 +421,19 @@ class PositionExecutor(ExecutorBase):
 
         if self.is_trading:
             progress = 0
-            if self.config.triple_barrier_conf.time_limit:
+            if self.config.triple_barrier_config.time_limit:
                 time_scale = int(scale * 60)
                 seconds_remaining = (self.end_time - self._strategy.current_timestamp)
-                time_progress = (self.config.triple_barrier_conf.time_limit - seconds_remaining) / self.config.triple_barrier_conf.time_limit
+                time_progress = (self.config.triple_barrier_config.time_limit - seconds_remaining) / self.config.triple_barrier_config.time_limit
                 time_bar = "".join(['*' if i < time_scale * time_progress else '-' for i in range(time_scale)])
                 lines.extend([f"Time limit: {time_bar}"])
 
-            if self.config.triple_barrier_conf.take_profit and self.config.triple_barrier_conf.stop_loss:
+            if self.config.triple_barrier_config.take_profit and self.config.triple_barrier_config.stop_loss:
                 price_scale = int(scale * 60)
-                stop_loss_price = self.entry_price * (1 - self.config.triple_barrier_conf.stop_loss) if self.config.side == TradeType.BUY \
-                    else self.entry_price * (1 + self.config.triple_barrier_conf.stop_loss)
-                take_profit_price = self.entry_price * (1 + self.config.triple_barrier_conf.take_profit) if self.config.side == TradeType.BUY \
-                    else self.entry_price * (1 - self.config.triple_barrier_conf.take_profit)
+                stop_loss_price = self.entry_price * (1 - self.config.triple_barrier_config.stop_loss) if self.config.side == TradeType.BUY \
+                    else self.entry_price * (1 + self.config.triple_barrier_config.stop_loss)
+                take_profit_price = self.entry_price * (1 + self.config.triple_barrier_config.take_profit) if self.config.side == TradeType.BUY \
+                    else self.entry_price * (1 - self.config.triple_barrier_config.take_profit)
                 if self.config.side == TradeType.BUY:
                     price_range = take_profit_price - stop_loss_price
                     progress = (current_price - stop_loss_price) / price_range
@@ -441,29 +444,29 @@ class PositionExecutor(ExecutorBase):
                 price_bar.insert(0, f"SL:{stop_loss_price:.5f}")
                 price_bar.append(f"TP:{take_profit_price:.5f}")
                 lines.extend(["".join(price_bar)])
-            if self.config.triple_barrier_conf.trailing_stop:
+            if self.config.triple_barrier_config.trailing_stop:
                 lines.extend([f"Trailing stop pnl trigger: {self._trailing_stop_trigger_pct:.5f}"])
             lines.extend(["-----------------------------------------------------------------------------------------------------------"])
         return lines
 
     def control_trailing_stop(self):
-        if self.config.triple_barrier_conf.trailing_stop:
+        if self.config.triple_barrier_config.trailing_stop:
             net_pnl_pct = self.get_net_pnl_pct()
             if not self._trailing_stop_trigger_pct:
-                if net_pnl_pct > self.config.triple_barrier_conf.trailing_stop.activation_price:
-                    self._trailing_stop_trigger_pct = net_pnl_pct - self.config.triple_barrier_conf.trailing_stop.trailing_delta
+                if net_pnl_pct > self.config.triple_barrier_config.trailing_stop.activation_price:
+                    self._trailing_stop_trigger_pct = net_pnl_pct - self.config.triple_barrier_config.trailing_stop.trailing_delta
             else:
                 if net_pnl_pct < self._trailing_stop_trigger_pct:
                     self.place_close_order_and_cancel_open_orders(close_type=CloseType.TRAILING_STOP)
-                if net_pnl_pct - self.config.triple_barrier_conf.trailing_stop.trailing_delta > self._trailing_stop_trigger_pct:
-                    self._trailing_stop_trigger_pct = net_pnl_pct - self.config.triple_barrier_conf.trailing_stop.trailing_delta
+                if net_pnl_pct - self.config.triple_barrier_config.trailing_stop.trailing_delta > self._trailing_stop_trigger_pct:
+                    self._trailing_stop_trigger_pct = net_pnl_pct - self.config.triple_barrier_config.trailing_stop.trailing_delta
 
     def validate_sufficient_balance(self):
         if self.is_perpetual:
             order_candidate = PerpetualOrderCandidate(
                 trading_pair=self.config.trading_pair,
-                is_maker=self.config.triple_barrier_conf.open_order_type.is_limit_type(),
-                order_type=self.config.triple_barrier_conf.open_order_type,
+                is_maker=self.config.triple_barrier_config.open_order_type.is_limit_type(),
+                order_type=self.config.triple_barrier_config.open_order_type,
                 order_side=self.config.side,
                 amount=self.config.amount,
                 price=self.entry_price,
@@ -472,8 +475,8 @@ class PositionExecutor(ExecutorBase):
         else:
             order_candidate = OrderCandidate(
                 trading_pair=self.config.trading_pair,
-                is_maker=self.config.triple_barrier_conf.open_order_type.is_limit_type(),
-                order_type=self.config.triple_barrier_conf.open_order_type,
+                is_maker=self.config.triple_barrier_config.open_order_type.is_limit_type(),
+                order_type=self.config.triple_barrier_config.open_order_type,
                 order_side=self.config.side,
                 amount=self.config.amount,
                 price=self.entry_price,
