@@ -117,6 +117,18 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
     def funding_fee_poll_interval(self) -> int:
         return 120
 
+    def _format_amount_to_size(self, trading_pair, amount: Decimal) -> Decimal:
+        trading_rule = self._trading_rules[trading_pair]
+        quanto_multiplier = Decimal(trading_rule.min_base_amount_increment)
+        size = amount / quanto_multiplier
+        return size
+
+    def _format_size_to_amount(self, trading_pair, size: Decimal) -> Decimal:
+        trading_rule = self._trading_rules[trading_pair]
+        quanto_multiplier = Decimal(trading_rule.min_base_amount_increment)
+        amount = size * quanto_multiplier
+        return amount
+
     def supported_order_types(self) -> List[OrderType]:
         """
         :return a list of OrderType supported by this connector
@@ -236,14 +248,13 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         if position_action == PositionAction.NIL:
             raise NotImplementedError
         ex_trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair)
-        amount_in_contracts = amount / self._trading_rules[trading_pair].min_base_amount_increment
         data = {
             "clOrdId": order_id,
             "tdMode": "cross",
             "ordType": CONSTANTS.ORDER_TYPE_MAP[order_type],
             "instId": ex_trading_pair,
             "side": "buy" if trade_type.name == "BUY" else "sell",
-            "sz": str(amount_in_contracts),
+            "sz": str(self._format_amount_to_size(trading_pair, amount)),
         }
         if order_type.is_limit_type():
             data["px"] = str(price)
@@ -421,23 +432,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
                 fills_data = all_fills_response["data"]
 
                 for fill_data in fills_data:
-                    fee = TradeFeeBase.new_spot_fee(
-                        fee_schema=self.trade_fee_schema(),
-                        trade_type=order.trade_type,
-                        percent_token=fill_data["feeCcy"],
-                        flat_fees=[TokenAmount(amount=Decimal(fill_data["fee"]), token=fill_data["feeCcy"])]
-                    )
-                    trade_update = TradeUpdate(
-                        trade_id=str(fill_data["tradeId"]),
-                        client_order_id=order.client_order_id,
-                        exchange_order_id=str(fill_data["ordId"]),
-                        trading_pair=order.trading_pair,
-                        fee=fee,
-                        fill_base_amount=Decimal(fill_data["fillSz"]),
-                        fill_quote_amount=Decimal(fill_data["fillSz"]) * Decimal(fill_data["fillPx"]),
-                        fill_price=Decimal(fill_data["fillPx"]),
-                        fill_timestamp=int(fill_data["ts"]) * 1e-3,
-                    )
+                    trade_update = self._parse_trade_update(trade_msg=fill_data, tracked_order=order)
                     trade_updates.append(trade_update)
             except IOError as ex:
                 if not self._is_request_exception_related_to_time_synchronizer(request_exception=ex):
@@ -452,6 +447,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
                            if (tracked_order.trade_type is TradeType.BUY and position_side == "long"
                                or tracked_order.trade_type is TradeType.SELL and position_side == "short")
                            else PositionAction.CLOSE)
+        fill_base_amount = abs(self._format_size_to_amount(tracked_order.trading_pair, (Decimal(str(trade_msg["fillSz"])))))
 
         fee = TradeFeeBase.new_perpetual_fee(
             fee_schema=self.trade_fee_schema(),
@@ -466,8 +462,8 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             exchange_order_id=str(trade_msg["ordId"]),
             trading_pair=tracked_order.trading_pair,
             fee=fee,
-            fill_base_amount=Decimal(trade_msg["fillSz"]),
-            fill_quote_amount=Decimal(trade_msg["fillPx"]) * Decimal(trade_msg["fillSz"]),
+            fill_base_amount=fill_base_amount,
+            fill_quote_amount=Decimal(trade_msg["fillPx"]) * fill_base_amount,
             fill_price=Decimal(trade_msg["fillPx"]),
             fill_timestamp=int(trade_msg["ts"]) * 1e-3,
         )
@@ -706,6 +702,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
 
         fillable_order = self._order_tracker.all_fillable_orders.get(client_order_id)
         if fillable_order is not None and order_status in [OrderState.PARTIALLY_FILLED, OrderState.FILLED]:
+            fill_base_amount = abs(self._format_size_to_amount(fillable_order.trading_pair, (Decimal(str(order_msg["fillSz"])))))
             fee = TradeFeeBase.new_perpetual_fee(
                 fee_schema=self.trade_fee_schema(),
                 position_action=position_action,
@@ -718,9 +715,8 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
                 exchange_order_id=str(order_msg["ordId"]),
                 trading_pair=fillable_order.trading_pair,
                 fee=fee,
-                fill_base_amount=Decimal(order_msg["fillSz"]) * Decimal(
-                    self.trading_rules[fillable_order.trading_pair].min_base_amount_increment),
-                fill_quote_amount=Decimal(order_msg["fillNotionalUsd"]),
+                fill_base_amount=fill_base_amount,
+                fill_quote_amount=fill_base_amount * Decimal(order_msg["fillPx"]),
                 fill_price=Decimal(order_msg["fillPx"]),
                 fill_timestamp=int(order_msg["uTime"]),
             )
