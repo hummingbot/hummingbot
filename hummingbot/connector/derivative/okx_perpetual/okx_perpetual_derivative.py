@@ -235,15 +235,15 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
     ) -> Tuple[str, float]:
         if position_action == PositionAction.NIL:
             raise NotImplementedError
-
+        ex_trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair)
+        amount_in_contracts = amount / self._trading_rules[trading_pair].min_base_amount_increment
         data = {
             "clOrdId": order_id,
             "tdMode": "cross",
             "ordType": CONSTANTS.ORDER_TYPE_MAP[order_type],
-            "instId": await self.exchange_symbol_associated_to_pair(trading_pair),
+            "instId": ex_trading_pair,
             "side": "buy" if trade_type.name == "BUY" else "sell",
-            "sz": str(amount),
-            "reduceOnly": position_action == PositionAction.CLOSE,
+            "sz": str(amount_in_contracts),
         }
         if order_type.is_limit_type():
             data["px"] = str(price)
@@ -257,7 +257,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             path_url=CONSTANTS.REST_PLACE_ACTIVE_ORDER[CONSTANTS.ENDPOINT],
             data=data,
             is_auth_required=True,
-            trading_pair=trading_pair,
+            trading_pair=ex_trading_pair,
             headers={"referer": CONSTANTS.HBOT_BROKER_ID},
             **kwargs,
         )
@@ -436,7 +436,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
                         fill_base_amount=Decimal(fill_data["fillSz"]),
                         fill_quote_amount=Decimal(fill_data["fillSz"]) * Decimal(fill_data["fillPx"]),
                         fill_price=Decimal(fill_data["fillPx"]),
-                        fill_timestamp=int(fill_data["ts"]),
+                        fill_timestamp=int(fill_data["ts"]) * 1e-3,
                     )
                     trade_updates.append(trade_update)
             except IOError as ex:
@@ -469,7 +469,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             fill_base_amount=Decimal(trade_msg["fillSz"]),
             fill_quote_amount=Decimal(trade_msg["fillPx"]) * Decimal(trade_msg["fillSz"]),
             fill_price=Decimal(trade_msg["fillPx"]),
-            fill_timestamp=int(trade_msg["ts"]),
+            fill_timestamp=int(trade_msg["ts"]) * 1e-3,
         )
         return trade_update
 
@@ -567,7 +567,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
         parsed_history_resps: List[Dict[str, Any]] = []
         for trading_pair, resp in zip(self._trading_pairs, raw_responses):
             if not isinstance(resp, Exception):
-                timestamps = [int(trade["ts"]) for trade in resp["data"]]
+                timestamps = [int(trade["ts"]) * 1e-3 for trade in resp["data"]]
                 self._last_trade_history_timestamp = max(timestamps) if timestamps else None
                 entries = resp["data"]
                 if entries:
@@ -644,10 +644,10 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             ex_trading_pair = position_msg["instId"]
             trading_pair = await self.trading_pair_associated_to_exchange_symbol(symbol=ex_trading_pair)
             position_side = PositionSide.LONG if position_msg["posSide"] == "long" else PositionSide.SHORT
-            entry_price = Decimal(str(position_msg["avgPx"]))
-            amount = Decimal(str(position_msg["notionalUsd"]))
-            leverage = Decimal(str(position_msg["lever"]))
-            unrealized_pnl = Decimal(str(position_msg["upl"]))
+            entry_price = Decimal(position_msg["avgPx"]) if bool(position_msg["avgPx"]) else Decimal("0")
+            amount = Decimal(position_msg["notionalUsd"]) if bool(position_msg["notionalUsd"]) else Decimal("0")
+            leverage = Decimal(position_msg["lever"]) if bool(position_msg["lever"]) else Decimal("0")
+            unrealized_pnl = Decimal(position_msg["upl"]) if bool(position_msg["upl"]) else Decimal("0")
             pos_key = self._perpetual_trading.position_key(trading_pair, position_side)
             if amount != s_decimal_0:
                 position = Position(
@@ -718,8 +718,9 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
                 exchange_order_id=str(order_msg["ordId"]),
                 trading_pair=fillable_order.trading_pair,
                 fee=fee,
-                fill_base_amount=Decimal(order_msg["fillSz"]),
-                fill_quote_amount=Decimal(order_msg["fillSz"]) * Decimal(order_msg["fillPx"]),
+                fill_base_amount=Decimal(order_msg["fillSz"]) * Decimal(
+                    self.trading_rules[fillable_order.trading_pair].min_base_amount_increment),
+                fill_quote_amount=Decimal(order_msg["fillNotionalUsd"]),
                 fill_price=Decimal(order_msg["fillPx"]),
                 fill_timestamp=int(order_msg["uTime"]),
             )
@@ -829,10 +830,7 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             timestamp: int = int(data[0]["ts"])
             funding_rate: Decimal = self._orderbook_ds._last_rate if self._orderbook_ds._last_rate is not None else Decimal(str(-1))
             if data[0].get("type") == CONSTANTS.FUNDING_PAYMENT_TYPE:
-                if data[0]["subType"] == CONSTANTS.FUNDING_PAYMENT_EXPENSE_SUBTYPE:
-                    payment: Decimal = Decimal(str(data[0]["pnl"]))
-                else:
-                    payment: Decimal = Decimal(str(data[0]["fee"]))
+                payment: Decimal = Decimal(str(data[0]["pnl"]))
 
         return timestamp, funding_rate, payment
 
