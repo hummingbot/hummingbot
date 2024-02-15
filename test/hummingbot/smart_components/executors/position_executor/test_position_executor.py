@@ -106,7 +106,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         self.assertEqual(position_executor.take_profit_order_type, OrderType.LIMIT)
         self.assertEqual(position_executor.stop_loss_order_type, OrderType.MARKET)
         self.assertEqual(position_executor.time_limit_order_type, OrderType.MARKET)
-        self.assertEqual(position_executor.filled_amount, Decimal("0"))
+        self.assertEqual(position_executor.open_filled_amount, Decimal("0"))
         self.assertEqual(position_executor.trailing_stop_config, None)
         self.assertEqual(position_executor.close_price, Decimal("0"))
         self.assertIsInstance(position_executor.logger(), HummingbotLogger)
@@ -128,7 +128,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         self.assertIsNone(position_executor.open_order.order_id)
         self.assertEqual(position_executor.executor_status, PositionExecutorStatus.COMPLETED)
         self.assertEqual(position_executor.close_type, CloseType.EXPIRED)
-        self.assertEqual(position_executor.trade_pnl, Decimal("0"))
+        self.assertEqual(position_executor.trade_pnl_pct, Decimal("0"))
         position_executor.stop()
 
     async def test_control_open_order_expiration(self):
@@ -142,7 +142,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
             trading_pair="ETH-USDT",
             order_id="OID-SELL-1")
         self.assertEqual(position_executor.executor_status, PositionExecutorStatus.NOT_STARTED)
-        self.assertEqual(position_executor.trade_pnl, Decimal("0"))
+        self.assertEqual(position_executor.trade_pnl_pct, Decimal("0"))
         position_executor.stop()
 
     async def test_control_position_order_placed_not_cancel_open_order(self):
@@ -187,7 +187,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         position_executor.executor_status = PositionExecutorStatus.ACTIVE_POSITION
         await position_executor.control_task()
         self.assertEqual(position_executor.take_profit_order.order_id, "OID-BUY-1")
-        self.assertEqual(position_executor.trade_pnl, Decimal("-0.01"))
+        self.assertEqual(position_executor.trade_pnl_pct, Decimal("-0.01"))
         position_executor.stop()
 
     @patch("hummingbot.smart_components.executors.position_executor.position_executor.PositionExecutor.get_price",
@@ -226,7 +226,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         await position_executor.control_task()
         self.assertEqual(position_executor.close_order.order_id, "OID-SELL-1")
         self.assertEqual(position_executor.close_type, CloseType.TAKE_PROFIT)
-        self.assertEqual(position_executor.trade_pnl, Decimal("0.2"))
+        self.assertEqual(position_executor.trade_pnl_pct, Decimal("0.2"))
         position_executor.stop()
 
     @patch("hummingbot.smart_components.executors.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("70"))
@@ -264,7 +264,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         await position_executor.control_task()
         self.assertEqual(position_executor.close_order.order_id, "OID-SELL-1")
         self.assertEqual(position_executor.close_type, CloseType.STOP_LOSS)
-        self.assertEqual(position_executor.trade_pnl, Decimal("-0.3"))
+        self.assertEqual(position_executor.trade_pnl_pct, Decimal("-0.3"))
         position_executor.stop()
 
     @patch("hummingbot.smart_components.executors.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("100"))
@@ -302,7 +302,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
         await position_executor.control_task()
         self.assertEqual(position_executor.close_order.order_id, "OID-SELL-2")
         self.assertEqual(position_executor.close_type, CloseType.TIME_LIMIT)
-        self.assertEqual(position_executor.trade_pnl, Decimal("0.0"))
+        self.assertEqual(position_executor.trade_pnl_pct, Decimal("0.0"))
         position_executor.stop()
 
     @patch("hummingbot.smart_components.executors.position_executor.position_executor.PositionExecutor.get_price", return_value=Decimal("70"))
