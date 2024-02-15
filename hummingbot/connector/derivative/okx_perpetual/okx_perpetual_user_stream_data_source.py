@@ -160,7 +160,7 @@ class OkxPerpetualUserStreamDataSource(UserStreamTrackerDataSource):
                     websocket_assistant=websocket_assistant,
                     queue=queue)
             except asyncio.TimeoutError:
-                ping_request = WSJSONRequest(payload={"op": "ping"})
+                ping_request = WSJSONRequest(payload={"ping"})
                 await websocket_assistant.send(ping_request)
 
     async def _subscribe_channels(self, websocket_assistant: WSAssistant):
