@@ -32,6 +32,14 @@ class PositionExecutor(ExecutorBase):
 
     def __init__(self, strategy: ScriptStrategyBase, config: PositionExecutorConfig,
                  update_interval: float = 1.0, max_retries: int = 5):
+        """
+        Initialize the PositionExecutor instance.
+
+        :param strategy: The strategy to be used by the PositionExecutor.
+        :param config: The configuration for the PositionExecutor, subclass of PositionExecutoConfig.
+        :param update_interval: The interval at which the PositionExecutor should be updated, defaults to 1.0.
+        :param max_retries: The maximum number of retries for the PositionExecutor, defaults to 5.
+        """
         if config.triple_barrier_config.time_limit_order_type != OrderType.MARKET or \
                 config.triple_barrier_config.stop_loss_order_type != OrderType.MARKET:
             error = "Only market orders are supported for time_limit and stop_loss"
@@ -52,35 +60,69 @@ class PositionExecutor(ExecutorBase):
         self._max_retries = max_retries
 
     @property
-    def is_perpetual(self):
+    def is_perpetual(self) -> bool:
+        """
+        Check if the exchange connector is perpetual.
+
+        :return: True if the exchange connector is perpetual, False otherwise.
+        """
         return self.is_perpetual_connector(self.config.exchange)
 
     @property
-    def open_filled_amount(self):
+    def open_filled_amount(self) -> Decimal:
+        """
+        Get the filled amount of the open order.
+
+        :return: The filled amount of the open order if it exists, otherwise 0.
+        """
         return self._open_order.executed_amount_base if self._open_order else Decimal("0")
 
     @property
-    def open_filled_amount_quote(self):
+    def open_filled_amount_quote(self) -> Decimal:
+        """
+        Get the filled amount of the open order in quote currency.
+
+        :return: The filled amount of the open order in quote currency.
+        """
         return self.open_filled_amount * self.entry_price
 
     @property
-    def close_filled_amount(self):
+    def close_filled_amount(self) -> Decimal:
+        """
+        Get the filled amount of the close order.
+
+        :return: The filled amount of the close order if it exists, otherwise 0.
+        """
         return self._close_order.executed_amount_base if self._close_order else Decimal("0")
 
     @property
-    def is_expired(self):
+    def is_expired(self) -> bool:
+        """
+        Check if the position is expired.
+
+        :return: True if the position is expired, False otherwise.
+        """
         return self.end_time and self.end_time <= self._strategy.current_timestamp
 
     @property
-    def current_market_price(self):
+    def current_market_price(self) -> Decimal:
         """
-        This method is responsible for getting the current market price to be used as a reference for control barriers
+        This method is responsible for getting the current market price to be used as a reference for control barriers.
+
+        :return: The current market price.
         """
         price_type = PriceType.BestBid if self.config.side == TradeType.BUY else PriceType.BestAsk
         return self.get_price(self.config.exchange, self.config.trading_pair, price_type=price_type)
 
     @property
-    def entry_price(self):
+    def entry_price(self) -> Decimal:
+        """
+        This method is responsible for getting the entry price. If the open order is done, it returns the average executed price.
+        If the entry price is set in the configuration, it returns the entry price from the configuration.
+        Otherwise, it returns the best ask price for buy orders and the best bid price for sell orders.
+
+        :return: The entry price.
+        """
         if self._open_order and self._open_order.is_done:
             return self._open_order.average_executed_price
         elif self.config.entry_price:
@@ -90,16 +132,23 @@ class PositionExecutor(ExecutorBase):
             return self.get_price(self.config.exchange, self.config.trading_pair, price_type=price_type)
 
     @property
-    def close_price(self):
+    def close_price(self) -> Decimal:
+        """
+        This method is responsible for getting the close price. If the close order is done, it returns the average executed price.
+        Otherwise, it returns the current market price.
+
+        :return: The close price.
+        """
         if self._close_order and self._close_order.is_done:
             return self._close_order.average_executed_price
         else:
             return self.current_market_price
 
-    @property
-    def trade_pnl_pct(self):
+    def trade_pnl_pct(self) -> Decimal:
         """
-        This method is responsible for calculating the trade pnl (Pure pnl without fees)
+        Calculate the trade pnl (Pure pnl without fees)
+
+        :return: The trade pnl percentage.
         """
         if self.open_filled_amount != Decimal("0"):
             if self.config.side == TradeType.BUY:
@@ -110,35 +159,45 @@ class PositionExecutor(ExecutorBase):
             return Decimal("0")
 
     @property
-    def trade_pnl_quote(self):
+    def trade_pnl_quote(self) -> Decimal:
         """
-        This method is responsible for calculating the trade pnl in quote asset
+        Calculate the trade pnl in quote asset
+
+        :return: The trade pnl in quote asset.
         """
         return self.trade_pnl_pct * self.open_filled_amount * self.entry_price
 
-    def get_net_pnl_quote(self):
+    def get_net_pnl_quote(self) -> Decimal:
         """
-        This method is responsible for calculating the net pnl in quote asset
+        Calculate the net pnl in quote asset
+
+        :return: The net pnl in quote asset.
         """
         return self.trade_pnl_quote - self.cum_fees_quote
 
-    def get_cum_fees_quote(self):
+    def get_cum_fees_quote(self) -> Decimal:
         """
-        This method is responsible for calculating the cumulative fees in quote asset
+        Calculate the cumulative fees in quote asset
+
+        :return: The cumulative fees in quote asset.
         """
         orders = [self._open_order, self._close_order]
         return sum([order.cum_fees_quote for order in orders if order])
 
-    def get_net_pnl_pct(self):
+    def get_net_pnl_pct(self) -> Decimal:
         """
-        This method is responsible for calculating the net pnl percentage
+        Calculate the net pnl percentage
+
+        :return: The net pnl percentage.
         """
         return self.net_pnl_quote / self.open_filled_amount_quote if self.open_filled_amount_quote != Decimal("0") else Decimal("0")
 
     @property
-    def end_time(self):
+    def end_time(self) -> Optional[float]:
         """
-        This method is responsible for calculating the end time of the position based on the time limit
+        Calculate the end time of the position based on the time limit
+
+        :return: The end time of the position.
         """
         if not self.config.triple_barrier_config.time_limit:
             return None
@@ -147,13 +206,20 @@ class PositionExecutor(ExecutorBase):
     @property
     def take_profit_price(self):
         """
-        This method is responsible for calculating the take profit price to place the take profit limit order
+        This method is responsible for calculating the take profit price to place the take profit limit order.
+
+        :return: The take profit price.
         """
         take_profit_price = self.entry_price * (1 + self.config.triple_barrier_config.take_profit) \
             if self.config.side == TradeType.BUY else self.entry_price * (1 - self.config.triple_barrier_config.take_profit)
         return take_profit_price
 
     async def control_task(self):
+        """
+        This method is responsible for controlling the task based on the status of the executor.
+
+        :return: None
+        """
         if self.status == SmartComponentStatus.RUNNING:
             self.control_open_order()
             self.control_barriers()
@@ -162,6 +228,11 @@ class PositionExecutor(ExecutorBase):
         self.evaluate_max_retries()
 
     def control_shutdown_process(self):
+        """
+        This method is responsible for controlling the shutdown process of the executor.
+
+        :return: None
+        """
         if math.isclose(self.open_filled_amount, self.close_filled_amount):
             self.stop()
         else:
@@ -173,6 +244,8 @@ class PositionExecutor(ExecutorBase):
         """
         This method is responsible for evaluating the maximum number of retries to place an order and stop the executor
         if the maximum number of retries is reached.
+
+        :return: None
         """
         if self._current_retries > self._max_retries:
             self.close_type = CloseType.FAILED
@@ -182,6 +255,8 @@ class PositionExecutor(ExecutorBase):
         """
         This method is responsible for starting the executor and validating if the position is expired. The base method
         validates if there is enough balance to place the open order.
+
+        :return: None
         """
         super().on_start()
         if self.is_expired:
@@ -192,6 +267,8 @@ class PositionExecutor(ExecutorBase):
         """
         This method is responsible for controlling the open order. It checks if the open order is not placed and if the
         close price is within the activation bounds to place the open order.
+
+        :return: None
         """
         if not self._open_order and self._is_within_activation_bounds(self.close_price):
             self.place_open_order()
@@ -200,6 +277,9 @@ class PositionExecutor(ExecutorBase):
         """
         This method is responsible for checking if the close price is within the activation bounds to place the open
         order. If the activation bounds are not set, it returns True. This makes the executor more capital efficient.
+
+        :param close_price: The close price to be checked.
+        :return: True if the close price is within the activation bounds, False otherwise.
         """
         activation_bounds = self.config.activation_bounds
         order_price = self.config.entry_price
@@ -220,6 +300,8 @@ class PositionExecutor(ExecutorBase):
     def place_open_order(self):
         """
         This method is responsible for placing the open order.
+
+        :return: None
         """
         order_id = self.place_order(
             connector_name=self.config.exchange,
@@ -234,12 +316,27 @@ class PositionExecutor(ExecutorBase):
         self.logger().debug("Placing open order")
 
     def control_barriers(self):
+        """
+        This method is responsible for controlling the barriers. It controls the stop loss, take profit, time limit and
+        trailing stop.
+
+        :return: None
+        """
         self.control_stop_loss()
         self.control_trailing_stop()
         self.control_take_profit()
         self.control_time_limit()
 
     def place_close_order_and_cancel_open_orders(self, close_type: CloseType, price: Decimal = Decimal("NaN")):
+        """
+        This method is responsible for placing the close order and canceling the open orders. If the difference between
+        the open filled amount and the close filled amount is greater than the minimum order size, it places the close
+        order. It also cancels the open orders.
+
+        :param close_type: The type of the close order.
+        :param price: The price to be used in the close order.
+        :return: None
+        """
         delta_amount_to_close = abs(self.open_filled_amount - self.close_filled_amount)
         if delta_amount_to_close > self.connectors[self.config.exchange].trading_rules[self.config.trading_pair].min_order_size:
             order_id = self.place_order(
@@ -259,17 +356,36 @@ class PositionExecutor(ExecutorBase):
         self._status = SmartComponentStatus.SHUTTING_DOWN
 
     def cancel_open_orders(self):
+        """
+        This method is responsible for canceling the open orders.
+
+        :return: None
+        """
         if self._open_order:
             self.cancel_open_order()
         if self._take_profit_limit_order:
             self.cancel_take_profit()
 
     def control_stop_loss(self):
+        """
+        This method is responsible for controlling the stop loss. If the net pnl percentage is less than the stop loss
+        percentage, it places the close order and cancels the open orders.
+
+        :return: None
+        """
         if self.config.triple_barrier_config.stop_loss:
             if self.net_pnl_pct <= -self.config.triple_barrier_config.stop_loss:
                 self.place_close_order_and_cancel_open_orders(close_type=CloseType.STOP_LOSS)
 
     def control_take_profit(self):
+        """
+        This method is responsible for controlling the take profit. If the net pnl percentage is greater than the take
+        profit percentage, it places the close order and cancels the open orders. If the take profit order type is limit,
+        it places the take profit limit order. If the amount of the take profit order is different than the total amount
+        executed in the open order, it renews the take profit order (can happen with partial fills).
+
+        :return: None
+        """
         if self.open_filled_amount > Decimal("0") and self.config.triple_barrier_config.take_profit:
             if self.config.triple_barrier_config.take_profit_order_type.is_limit_type():
                 if not self._take_profit_limit_order:
@@ -281,10 +397,21 @@ class PositionExecutor(ExecutorBase):
                 self.place_close_order_and_cancel_open_orders(close_type=CloseType.TAKE_PROFIT)
 
     def control_time_limit(self):
+        """
+        This method is responsible for controlling the time limit. If the position is expired, it places the close order
+        and cancels the open orders.
+
+        :return: None
+        """
         if self.is_expired:
             self.place_close_order_and_cancel_open_orders(close_type=CloseType.TIME_LIMIT)
 
     def place_take_profit_limit_order(self):
+        """
+        This method is responsible for placing the take profit limit order.
+
+        :return: None
+        """
         order_id = self.place_order(
             connector_name=self.config.exchange,
             trading_pair=self.config.trading_pair,
@@ -298,11 +425,21 @@ class PositionExecutor(ExecutorBase):
         self.logger().debug("Placing take profit order")
 
     def renew_take_profit_order(self):
+        """
+        This method is responsible for renewing the take profit order.
+
+        :return: None
+        """
         self.cancel_take_profit()
         self.place_take_profit_limit_order()
         self.logger().debug("Renewing take profit order")
 
     def cancel_take_profit(self):
+        """
+        This method is responsible for canceling the take profit order.
+
+        :return: None
+        """
         self._strategy.cancel(
             connector_name=self.config.exchange,
             trading_pair=self.config.trading_pair,
@@ -311,6 +448,11 @@ class PositionExecutor(ExecutorBase):
         self.logger().debug("Removing take profit")
 
     def cancel_open_order(self):
+        """
+        This method is responsible for canceling the open order.
+
+        :return: None
+        """
         self._strategy.cancel(
             connector_name=self.config.exchange,
             trading_pair=self.config.trading_pair,
@@ -321,10 +463,19 @@ class PositionExecutor(ExecutorBase):
     def early_stop(self):
         """
         This method allows strategy to stop the executor early.
+
+        :return: None
         """
         self.place_close_order_and_cancel_open_orders(close_type=CloseType.EARLY_STOP)
 
     def update_tracked_orders_with_order_id(self, order_id: str):
+        """
+        This method is responsible for updating the tracked orders with the information from the InFlightOrder, using
+        the order_id as a reference.
+
+        :param order_id: The order_id to be used as a reference.
+        :return: None
+        """
         if self._open_order and self._open_order.order_id == order_id:
             self._open_order.order = self.get_in_flight_order(self.config.exchange, order_id)
         elif self._close_order and self._close_order.order_id == order_id:
@@ -333,9 +484,17 @@ class PositionExecutor(ExecutorBase):
             self._take_profit_limit_order.order = self.get_in_flight_order(self.config.exchange, order_id)
 
     def process_order_created_event(self, _, market, event: Union[BuyOrderCreatedEvent, SellOrderCreatedEvent]):
+        """
+        This method is responsible for processing the order created event. Here we will update the TrackedOrder with the
+        order_id.
+        """
         self.update_tracked_orders_with_order_id(event.order_id)
 
     def process_order_completed_event(self, _, market, event: Union[BuyOrderCompletedEvent, SellOrderCompletedEvent]):
+        """
+        This method is responsible for processing the order completed event. Here we will check if the id is one of the
+        tracked orders and update the state
+        """
         if self._close_order and self._close_order.order_id == event.order_id:
             self.close_timestamp = event.timestamp
         elif self._take_profit_limit_order and self._take_profit_limit_order.order_id == event.order_id:
