@@ -6,7 +6,10 @@ from hummingbot.connector.markets_recorder import MarketsRecorder
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.smart_components.executors.arbitrage_executor.data_types import ArbitrageExecutorConfig, ExchangePair
 from hummingbot.smart_components.executors.dca_executor.data_types import DCAExecutorConfig
-from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig, TripleBarrierConf
+from hummingbot.smart_components.executors.position_executor.data_types import (
+    PositionExecutorConfig,
+    TripleBarrierConfig,
+)
 from hummingbot.smart_components.models.base import SmartComponentStatus
 from hummingbot.smart_components.models.executor_actions import (
     CreateExecutorAction,
@@ -15,7 +18,9 @@ from hummingbot.smart_components.models.executor_actions import (
 )
 from hummingbot.smart_components.strategy_frameworks.controller_base import ControllerConfigBase
 from hummingbot.smart_components.strategy_frameworks.generic_strategy.generic_controller import GenericController
-from hummingbot.smart_components.strategy_frameworks.generic_strategy.generic_executor import GenericExecutor
+from hummingbot.smart_components.strategy_frameworks.generic_strategy.generic_executor_handler import (
+    GenericExecutorHandler,
+)
 
 
 class TestGenericExecutor(IsolatedAsyncioWrapperTestCase):
@@ -30,9 +35,9 @@ class TestGenericExecutor(IsolatedAsyncioWrapperTestCase):
             candles_config=[],
         ))
         type(self.controller).is_perpetual = MagicMock(return_value=True)
-        self.generic_executor = GenericExecutor(self.strategy, self.controller)
+        self.generic_executor = GenericExecutorHandler(self.strategy, self.controller)
 
-    @patch.object(GenericExecutor, "set_leverage_and_position_mode")
+    @patch.object(GenericExecutorHandler, "set_leverage_and_position_mode")
     async def test_on_start(self, mock_set_leverage_and_position_mode):
         self.generic_executor.on_start()
         mock_set_leverage_and_position_mode.assert_called()
@@ -50,7 +55,7 @@ class TestGenericExecutor(IsolatedAsyncioWrapperTestCase):
                 executor_config=PositionExecutorConfig(
                     id="test-1", timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
                     side=TradeType.BUY, entry_price=Decimal("100"),
-                    amount=Decimal("1"), triple_barrier_conf=TripleBarrierConf(
+                    amount=Decimal("1"), triple_barrier_config=TripleBarrierConfig(
                         stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
                         open_order_type=OrderType.LIMIT))),
             CreateExecutorAction(

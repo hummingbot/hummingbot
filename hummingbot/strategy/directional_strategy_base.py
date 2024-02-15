@@ -13,7 +13,7 @@ from hummingbot.data_feed.candles_feed.candles_base import CandlesBase
 from hummingbot.smart_components.executors.position_executor.data_types import (
     PositionExecutorConfig,
     TrailingStop,
-    TripleBarrierConf,
+    TripleBarrierConfig,
 )
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
@@ -111,7 +111,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
     def __init__(self, connectors: Dict[str, ConnectorBase]):
         # Is necessary to start the Candles Feed.
         super().__init__(connectors)
-        self.triple_barrier_conf = TripleBarrierConf(
+        self.triple_barrier_conf = TripleBarrierConfig(
             stop_loss=Decimal(self.stop_loss),
             take_profit=Decimal(self.take_profit),
             time_limit=self.time_limit,
@@ -188,7 +188,7 @@ class DirectionalStrategyBase(ScriptStrategyBase):
                 side=side,
                 amount=self.order_amount_usd / price,
                 entry_price=price,
-                triple_barrier_conf=self.triple_barrier_conf,
+                triple_barrier_config=self.triple_barrier_conf,
                 leverage=self.leverage,
             )
             return position_config
@@ -280,13 +280,13 @@ class DirectionalStrategyBase(ScriptStrategyBase):
                                 executor.close_type,
                                 executor.entry_price,
                                 executor.close_price,
-                                executor.config.triple_barrier_conf.stop_loss,
-                                executor.config.triple_barrier_conf.take_profit,
-                                executor.config.triple_barrier_conf.time_limit,
-                                executor.config.triple_barrier_conf.open_order_type,
-                                executor.config.triple_barrier_conf.take_profit_order_type,
-                                executor.config.triple_barrier_conf.stop_loss_order_type,
-                                executor.config.triple_barrier_conf.time_limit_order_type,
+                                executor.config.triple_barrier_config.stop_loss,
+                                executor.config.triple_barrier_config.take_profit,
+                                executor.config.triple_barrier_config.time_limit,
+                                executor.config.triple_barrier_config.open_order_type,
+                                executor.config.triple_barrier_config.take_profit_order_type,
+                                executor.config.triple_barrier_config.stop_loss_order_type,
+                                executor.config.triple_barrier_config.time_limit_order_type,
                                 self.leverage)])
             df.to_csv(self.get_csv_path(), mode='a', header=False, index=False)
         self.active_executors = [executor for executor in self.active_executors if not executor.is_closed]
