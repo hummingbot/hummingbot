@@ -6,7 +6,7 @@ from hummingbot.core.data_type.common import TradeType
 from hummingbot.smart_components.executors.position_executor.data_types import (
     PositionExecutorStatus,
     TrailingStop,
-    TripleBarrierConf,
+    TripleBarrierConfig,
 )
 from hummingbot.smart_components.order_level_distributions.order_level_builder import OrderLevel
 from hummingbot.smart_components.strategy_frameworks.market_making import (
@@ -23,7 +23,7 @@ class TestMarketMakingExecutorHandler(IsolatedAsyncioWrapperTestCase):
         # Mocking the necessary components
         self.mock_strategy = MagicMock(spec=ScriptStrategyBase)
         self.mock_controller = MagicMock(spec=MarketMakingControllerBase)
-        triple_barrier_conf = TripleBarrierConf(
+        triple_barrier_conf = TripleBarrierConfig(
             stop_loss=Decimal("0.03"), take_profit=Decimal("0.02"),
             time_limit=60 * 60 * 24,
             trailing_stop=TrailingStop(activation_price=Decimal("0.002"),

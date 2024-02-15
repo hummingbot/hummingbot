@@ -6,7 +6,7 @@ from unittest.mock import Mock
 import pandas as pd
 
 from hummingbot.core.data_type.common import TradeType
-from hummingbot.smart_components.executors.position_executor.data_types import TripleBarrierConf
+from hummingbot.smart_components.executors.position_executor.data_types import TripleBarrierConfig
 from hummingbot.smart_components.order_level_distributions.order_level_builder import OrderLevel
 from hummingbot.smart_components.strategy_frameworks.directional_trading.directional_trading_backtesting_engine import (
     DirectionalTradingBacktestingEngine,
@@ -18,13 +18,13 @@ class TestDirectionalTradingBacktestingEngine(unittest.TestCase):
         controller_base_mock = Mock()
         controller_base_mock.config.order_levels = [
             OrderLevel(level=1, side=TradeType.BUY, order_amount_usd=Decimal("10"),
-                       triple_barrier_conf=TripleBarrierConf(take_profit=Decimal("0.2"),
-                                                             stop_loss=Decimal("0.1"),
-                                                             time_limit=360)),
+                       triple_barrier_conf=TripleBarrierConfig(take_profit=Decimal("0.2"),
+                                                               stop_loss=Decimal("0.1"),
+                                                               time_limit=360)),
             OrderLevel(level=1, side=TradeType.SELL, order_amount_usd=Decimal("10"),
-                       triple_barrier_conf=TripleBarrierConf(take_profit=Decimal("0.2"),
-                                                             stop_loss=Decimal("0.1"),
-                                                             time_limit=360))
+                       triple_barrier_conf=TripleBarrierConfig(take_profit=Decimal("0.2"),
+                                                               stop_loss=Decimal("0.1"),
+                                                               time_limit=360))
         ]
         initial_date = datetime(2023, 3, 16, 0, 0, tzinfo=timezone.utc)
         initial_timestamp = int(initial_date.timestamp())
@@ -49,15 +49,15 @@ class TestDirectionalTradingBacktestingEngine(unittest.TestCase):
         controller_base_mock.config.order_levels = [
             OrderLevel(level=1, side=TradeType.BUY, order_amount_usd=Decimal("10"),
                        cooldown_time=60,
-                       triple_barrier_conf=TripleBarrierConf(take_profit=Decimal("0.2"),
-                                                             stop_loss=Decimal("0.1"),
-                                                             time_limit=360)
+                       triple_barrier_conf=TripleBarrierConfig(take_profit=Decimal("0.2"),
+                                                               stop_loss=Decimal("0.1"),
+                                                               time_limit=360)
                        ),
             OrderLevel(level=1, side=TradeType.SELL, order_amount_usd=Decimal("10"),
                        cooldown_time=60,
-                       triple_barrier_conf=TripleBarrierConf(take_profit=Decimal("0.2"),
-                                                             stop_loss=Decimal("0.1"),
-                                                             time_limit=360))
+                       triple_barrier_conf=TripleBarrierConfig(take_profit=Decimal("0.2"),
+                                                               stop_loss=Decimal("0.1"),
+                                                               time_limit=360))
         ]
         initial_date = datetime(2023, 3, 16, 0, 0, tzinfo=timezone.utc)
         initial_timestamp = int(initial_date.timestamp())

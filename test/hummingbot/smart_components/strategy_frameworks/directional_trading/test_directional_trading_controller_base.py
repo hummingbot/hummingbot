@@ -6,7 +6,7 @@ import pandas as pd
 
 from hummingbot.core.data_type.common import TradeType
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
-from hummingbot.smart_components.executors.position_executor.data_types import TripleBarrierConf
+from hummingbot.smart_components.executors.position_executor.data_types import TripleBarrierConfig
 from hummingbot.smart_components.order_level_distributions.order_level_builder import OrderLevel
 from hummingbot.smart_components.strategy_frameworks.directional_trading import (
     DirectionalTradingControllerBase,
@@ -99,7 +99,7 @@ class TestDirectionalTradingControllerBase(unittest.TestCase):
     def test_get_position_config(self, mock_get_closest_price):
         order_level = OrderLevel(
             level=1, side=TradeType.BUY, order_amount_usd=Decimal("10"),
-            triple_barrier_conf=TripleBarrierConf(
+            triple_barrier_conf=TripleBarrierConfig(
                 stop_loss=Decimal("0.03"), take_profit=Decimal("0.02"),
                 time_limit=60 * 2,
             ))
