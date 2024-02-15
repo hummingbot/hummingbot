@@ -11,7 +11,10 @@ from hummingbot import data_path
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionMode, PositionSide, TradeType
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig, CandlesFactory
-from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig, TripleBarrierConf
+from hummingbot.smart_components.executors.position_executor.data_types import (
+    PositionExecutorConfig,
+    TripleBarrierConfig,
+)
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
@@ -81,8 +84,8 @@ class MACDBBDirectionalStrategy(ScriptStrategyBase):
                         side=TradeType.SELL if signal_value < 0 else TradeType.BUY,
                         entry_price=price,
                         amount=self.order_amount_usd / price,
-                        triple_barrier_conf=TripleBarrierConf(stop_loss=stop_loss, take_profit=take_profit,
-                                                              time_limit=self.time_limit)),
+                        triple_barrier_config=TripleBarrierConfig(stop_loss=stop_loss, take_profit=take_profit,
+                                                                  time_limit=self.time_limit)),
                     strategy=self,
                 )
                 self.active_executors.append(signal_executor)
@@ -196,10 +199,10 @@ class MACDBBDirectionalStrategy(ScriptStrategyBase):
                                 executor.entry_price,
                                 executor.close_price,
                                 executor.status,
-                                executor.config.triple_barrier_conf.stop_loss,
-                                executor.config.triple_barrier_conf.take_profit,
-                                executor.config.triple_barrier_conf.time_limit,
-                                executor.config.triple_barrier_conf.open_order_type,
+                                executor.config.triple_barrier_config.stop_loss,
+                                executor.config.triple_barrier_config.take_profit,
+                                executor.config.triple_barrier_config.time_limit,
+                                executor.config.triple_barrier_config.open_order_type,
                                 self.leverage)])
             df.to_csv(self.csv_path, mode='a', header=False, index=False)
         self.active_executors = [executor for executor in self.active_executors if not executor.is_closed]

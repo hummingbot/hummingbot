@@ -9,7 +9,7 @@ from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide, TradeType
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
 from hummingbot.smart_components.controllers.dman_v4 import DManV4, DManV4Config
-from hummingbot.smart_components.executors.position_executor.data_types import TrailingStop, TripleBarrierConf
+from hummingbot.smart_components.executors.position_executor.data_types import TrailingStop, TripleBarrierConfig
 from hummingbot.smart_components.models.base import SmartComponentStatus
 from hummingbot.smart_components.order_level_distributions.distributions import Distributions
 from hummingbot.smart_components.order_level_distributions.order_level_builder import OrderLevelBuilder
@@ -85,7 +85,7 @@ class DManV4MultiplePairs(ScriptStrategyBase):
             spreads=[Decimal(self.config.top_order_start_spread)] + Distributions.geometric(
                 n_levels=self.config.n_levels - 1, start=float(self.config.start_spread),
                 ratio=float(self.config.spread_ratio_increase)),
-            triple_barrier_confs=TripleBarrierConf(
+            triple_barrier_confs=TripleBarrierConfig(
                 stop_loss=self.config.stop_loss, take_profit=self.config.take_profit, time_limit=self.config.time_limit,
             ),
             order_refresh_time=[self.config.top_order_refresh_time] + [self.config.order_refresh_time] * (self.config.n_levels - 1),

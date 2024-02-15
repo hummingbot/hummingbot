@@ -109,7 +109,7 @@ class DManV3(MarketMakingControllerBase):
             side=order_level.side,
             amount=amount,
             entry_price=Decimal(order_price),
-            triple_barrier_conf=triple_barrier_conf,
+            triple_barrier_config=triple_barrier_conf,
             leverage=self.config.leverage
         )
         return position_config

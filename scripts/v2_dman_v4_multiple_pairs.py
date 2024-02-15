@@ -6,7 +6,7 @@ from hummingbot.core.data_type.common import OrderType, PositionAction, Position
 from hummingbot.core.event.events import BuyOrderCompletedEvent, SellOrderCompletedEvent
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
 from hummingbot.smart_components.controllers.dman_v4 import DManV4, DManV4Config
-from hummingbot.smart_components.executors.position_executor.data_types import TrailingStop, TripleBarrierConf
+from hummingbot.smart_components.executors.position_executor.data_types import TrailingStop, TripleBarrierConfig
 from hummingbot.smart_components.models.base import SmartComponentStatus
 from hummingbot.smart_components.order_level_distributions.distributions import Distributions
 from hummingbot.smart_components.order_level_distributions.order_level_builder import OrderLevelBuilder
@@ -68,7 +68,7 @@ class DManV4MultiplePairs(ScriptStrategyBase):
     order_levels = order_level_builder.build_order_levels(
         amounts=Distributions.geometric(n_levels=n_levels, start=float(order_amount), ratio=amount_ratio_increase),
         spreads=[Decimal(top_order_start_spread)] + Distributions.geometric(n_levels=n_levels - 1, start=start_spread, ratio=spread_ratio_increase),
-        triple_barrier_confs=TripleBarrierConf(
+        triple_barrier_confs=TripleBarrierConfig(
             stop_loss=stop_loss, take_profit=take_profit, time_limit=time_limit,
         ),
         order_refresh_time=[top_order_refresh_time] + [order_refresh_time] * (n_levels - 1),
