@@ -817,16 +817,18 @@ class OkxPerpetualDerivative(PerpetualDerivativePyBase):
             is_auth_required=True,
             trading_pair=trading_pair,
         )
-        data: Dict[str, Any] = raw_response.get("data")
+        data: List[Dict[str, Any]] = raw_response.get("data")
+        ex_trading_pair = await self.exchange_symbol_associated_to_pair(trading_pair)
+        trading_pair_data = [bill for bill in data if bill["instId"] == ex_trading_pair]
         payment = Decimal("-1")
-        if not data:
+        if not trading_pair_data:
             # An empty funding fee/payment is retrieved.
             timestamp, funding_rate = 0, Decimal("-1")
         else:
-            timestamp: int = int(data[0]["ts"])
+            timestamp: int = int(trading_pair_data[0]["ts"])
             funding_rate: Decimal = self._orderbook_ds._last_rate if self._orderbook_ds._last_rate is not None else Decimal(str(-1))
-            if data[0].get("type") == CONSTANTS.FUNDING_PAYMENT_TYPE:
-                payment: Decimal = Decimal(str(data[0]["pnl"]))
+            if trading_pair_data[0].get("type") == CONSTANTS.FUNDING_PAYMENT_TYPE:
+                payment: Decimal = Decimal(str(trading_pair_data[0]["pnl"]))
 
         return timestamp, funding_rate, payment
 
