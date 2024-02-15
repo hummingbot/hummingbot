@@ -51,7 +51,8 @@ class OkxPerpetualAuth(AuthBase):
         path_url = f"/api{request.url.split('/api')[-1]}"
         if request.params:
             query_string_components = urlencode(request.params)
-            path_url = f"{path_url}?{query_string_components}"
+            query_string_components_with_comma = query_string_components.replace("%2C", ",")
+            path_url = f"{path_url}?{query_string_components_with_comma}"
 
         header = {
             "OK-ACCESS-KEY": self._api_key,
