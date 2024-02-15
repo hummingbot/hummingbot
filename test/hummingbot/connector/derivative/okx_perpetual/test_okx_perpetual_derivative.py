@@ -1038,7 +1038,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "clOrdId": order.client_order_id,
                     "tag": "",
                     "px": str(order.price),
-                    "sz": str(order.amount),
+                    "sz": str(self._format_amount_to_size(Decimal(order.amount))),
                     "notionalUsd": "",
                     "ordType": "limit",
                     "side": order.trade_type.name.lower(),
@@ -1081,6 +1081,7 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
         }
 
     def order_event_for_canceled_order_websocket_update(self, order: InFlightOrder):
+        self._simulate_trading_rules_initialized()
         return {
             "arg": {
                 "channel": "orders",
@@ -1097,13 +1098,13 @@ class OkxPerpetualDerivativeTests(AbstractPerpetualDerivativeTests.PerpetualDeri
                     "clOrdId": order.client_order_id,
                     "tag": "",
                     "px": str(order.price),
-                    "sz": str(order.amount),
+                    "sz": str(self._format_amount_to_size(Decimal(order.amount))),
                     "notionalUsd": "",
                     "ordType": "limit",
                     "side": order.trade_type.name.lower(),
                     "posSide": "long",
                     "tdMode": "cross",
-                    "fillSz": "0",
+                    "fillSz": str(self._format_amount_to_size(Decimal(order.amount))),
                     "fillPx": "0",
                     "tradeId": "0",
                     "accFillSz": "323",
