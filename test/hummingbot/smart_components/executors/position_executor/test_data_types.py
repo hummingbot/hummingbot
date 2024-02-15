@@ -6,7 +6,7 @@ from hummingbot.core.data_type.in_flight_order import InFlightOrder
 from hummingbot.smart_components.executors.position_executor.data_types import (
     PositionExecutorConfig,
     PositionExecutorStatus,
-    TripleBarrierConf,
+    TripleBarrierConfig,
 )
 from hummingbot.smart_components.models.executors import CloseType, TrackedOrder
 
@@ -15,7 +15,7 @@ class TestPositionExecutorDataTypes(TestCase):
     def test_position_config_model(self):
         config = PositionExecutorConfig(id="test-1", timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
                                         side=TradeType.BUY, entry_price=Decimal("100"), amount=Decimal("1"),
-                                        triple_barrier_conf=TripleBarrierConf(
+                                        triple_barrier_config=TripleBarrierConfig(
                                             open_order_type=OrderType.LIMIT,
                                             stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60))
         self.assertEqual(config.trading_pair, "ETH-USDT")

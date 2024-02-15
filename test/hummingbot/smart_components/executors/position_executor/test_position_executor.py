@@ -17,7 +17,7 @@ from hummingbot.smart_components.executors.position_executor.data_types import (
     PositionExecutorConfig,
     PositionExecutorStatus,
     TrailingStop,
-    TripleBarrierConf,
+    TripleBarrierConfig,
 )
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.smart_components.models.executors import CloseType
@@ -49,7 +49,7 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
     def get_position_config_trailing_stop(self):
         return PositionExecutorConfig(id="test", timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
                                       side=TradeType.BUY, entry_price=Decimal("100"), amount=Decimal("1"),
-                                      triple_barrier_conf=TripleBarrierConf(
+                                      triple_barrier_config=TripleBarrierConfig(
                                           stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
                                           take_profit_order_type=OrderType.LIMIT, stop_loss_order_type=OrderType.MARKET,
                                           trailing_stop=TrailingStop(activation_price=Decimal("0.02"),
@@ -58,28 +58,28 @@ class TestPositionExecutor(IsolatedAsyncioWrapperTestCase):
     def get_position_config_market_long(self):
         return PositionExecutorConfig(id="test", timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
                                       side=TradeType.BUY, entry_price=Decimal("100"), amount=Decimal("1"),
-                                      triple_barrier_conf=TripleBarrierConf(
+                                      triple_barrier_config=TripleBarrierConfig(
                                           stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
                                           take_profit_order_type=OrderType.LIMIT, stop_loss_order_type=OrderType.MARKET))
 
     def get_position_config_market_long_tp_market(self):
         return PositionExecutorConfig(id="test-1", timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
                                       side=TradeType.BUY, entry_price=Decimal("100"), amount=Decimal("1"),
-                                      triple_barrier_conf=TripleBarrierConf(
+                                      triple_barrier_config=TripleBarrierConfig(
                                           stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
                                           take_profit_order_type=OrderType.MARKET, stop_loss_order_type=OrderType.MARKET))
 
     def get_position_config_market_short(self):
         return PositionExecutorConfig(id="test-2", timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
                                       side=TradeType.SELL, entry_price=Decimal("100"), amount=Decimal("1"),
-                                      triple_barrier_conf=TripleBarrierConf(
+                                      triple_barrier_config=TripleBarrierConfig(
                                           stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
                                           take_profit_order_type=OrderType.LIMIT, stop_loss_order_type=OrderType.MARKET))
 
     def get_incomplete_position_config(self):
         return PositionExecutorConfig(id="test-3", timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
                                       side=TradeType.SELL, entry_price=Decimal("100"), amount=Decimal("1"),
-                                      triple_barrier_conf=TripleBarrierConf(
+                                      triple_barrier_config=TripleBarrierConfig(
                                           take_profit_order_type=OrderType.LIMIT, stop_loss_order_type=OrderType.MARKET))
 
     def test_init_raises_exception(self):
