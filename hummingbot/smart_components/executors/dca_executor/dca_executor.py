@@ -110,6 +110,16 @@ class DCAExecutor(ExecutorBase):
         return self.max_amount_quote * distance_from_last_order_to_break_even
 
     @property
+    def end_time(self):
+        if not self.config.time_limit:
+            return None
+        return self.config.timestamp + self.config.time_limit
+
+    @property
+    def is_expired(self):
+        return self.end_time and self.end_time <= self._strategy.current_timestamp
+
+    @property
     def min_price(self) -> Decimal:
         return min(self.config.prices)
 
@@ -183,7 +193,7 @@ class DCAExecutor(ExecutorBase):
         """
         This method is responsible for calculating the net pnl percentage
         """
-        return self.net_pnl_quote / self.open_filled_amount_quote if self.open_filled_amount_quote else Decimal("0")
+        return self.net_pnl_quote / self.open_filled_amount_quote if self.open_filled_amount_quote > Decimal("0") else Decimal("0")
 
     def get_cum_fees_quote(self) -> Decimal:
         """
@@ -191,6 +201,12 @@ class DCAExecutor(ExecutorBase):
         """
         all_orders = self._open_orders + self._close_orders
         return sum([order.cum_fees_quote for order in all_orders])
+
+    def on_start(self):
+        super().on_start()
+        if self.is_expired:
+            self.close_type = CloseType.EXPIRED
+            self.stop()
 
     @property
     def all_open_orders_executed(self) -> bool:
@@ -253,7 +269,7 @@ class DCAExecutor(ExecutorBase):
             close_price = self.get_price(connector_name=self.config.exchange,
                                          trading_pair=self.config.trading_pair)
             order_price = self.config.prices[next_level]
-            if self._is_within_activation_bounds(order_price, close_price):
+            if self._is_within_activation_bounds(order_price, close_price) and not self.is_expired:
                 self.create_dca_order(level=next_level)
 
     def create_dca_order(self, level: int):
@@ -276,6 +292,11 @@ class DCAExecutor(ExecutorBase):
         self.control_stop_loss()
         self.control_trailing_stop()
         self.control_take_profit()
+        self.control_time_limit()
+
+    def control_time_limit(self):
+        if self.is_expired:
+            self.place_close_order_and_cancel_open_orders(close_type=CloseType.TIME_LIMIT)
 
     def control_stop_loss(self):
         """
@@ -286,10 +307,10 @@ class DCAExecutor(ExecutorBase):
         """
         if self.config.stop_loss:
             if self.config.mode == DCAMode.MAKER:
-                if self.all_open_orders_executed and self.net_pnl_pct < self.config.stop_loss:
+                if self.all_open_orders_executed and self.net_pnl_pct <= -self.config.stop_loss:
                     self.place_close_order_and_cancel_open_orders(close_type=CloseType.STOP_LOSS)
             else:
-                if self.net_pnl_quote < self.max_loss_quote:
+                if self.net_pnl_quote <= -self.max_loss_quote:
                     self.place_close_order_and_cancel_open_orders(close_type=CloseType.STOP_LOSS)
 
     def control_trailing_stop(self):
@@ -306,10 +327,10 @@ class DCAExecutor(ExecutorBase):
                 if net_pnl_pct > self.config.trailing_stop.activation_price:
                     self._trailing_stop_trigger_pct = net_pnl_pct - self.config.trailing_stop.trailing_delta
             else:
-                if net_pnl_pct - self.config.trailing_stop.trailing_delta > self._trailing_stop_trigger_pct:
-                    self._trailing_stop_trigger_pct = net_pnl_pct - self.config.trailing_stop.trailing_delta
                 if net_pnl_pct < self._trailing_stop_trigger_pct:
                     self.place_close_order_and_cancel_open_orders(close_type=CloseType.TRAILING_STOP)
+                if net_pnl_pct - self.config.trailing_stop.trailing_delta > self._trailing_stop_trigger_pct:
+                    self._trailing_stop_trigger_pct = net_pnl_pct - self.config.trailing_stop.trailing_delta
 
     def control_take_profit(self):
         """
@@ -426,6 +447,10 @@ class DCAExecutor(ExecutorBase):
             self._current_retries += 1
 
     def evaluate_max_retries(self):
+        """
+        This method is responsible for evaluating the max retries. If the max retries is reached, the executor will be
+        stopped.
+        """
         if self._current_retries >= self._max_retries:
             self.close_type = CloseType.FAILED
             self.close_timestamp = self._strategy.current_timestamp
