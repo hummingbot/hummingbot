@@ -9,13 +9,13 @@ from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide, TradeType
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
 from hummingbot.smart_components.controllers.dman_v4 import DManV4, DManV4Config
-from hummingbot.smart_components.executors.position_executor.data_types import TrailingStop
-from hummingbot.smart_components.strategy_frameworks.data_types import ExecutorHandlerStatus, TripleBarrierConf
+from hummingbot.smart_components.executors.position_executor.data_types import TrailingStop, TripleBarrierConf
+from hummingbot.smart_components.models.base import SmartComponentStatus
+from hummingbot.smart_components.order_level_distributions.distributions import Distributions
+from hummingbot.smart_components.order_level_distributions.order_level_builder import OrderLevelBuilder
 from hummingbot.smart_components.strategy_frameworks.market_making.market_making_executor_handler import (
     MarketMakingExecutorHandler,
 )
-from hummingbot.smart_components.utils.distributions import Distributions
-from hummingbot.smart_components.utils.order_level_builder import OrderLevelBuilder
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
@@ -119,10 +119,10 @@ class DManV4MultiplePairs(ScriptStrategyBase):
                 leverage=self.config.leverage,
                 global_trailing_stop_config={
                     TradeType.BUY: TrailingStop(
-                        activation_price_delta=self.config.global_trailing_stop_activation_price_delta,
+                        activation_price=self.config.global_trailing_stop_activation_price_delta,
                         trailing_delta=self.config.global_trailing_stop_trailing_delta),
                     TradeType.SELL: TrailingStop(
-                        activation_price_delta=self.config.global_trailing_stop_activation_price_delta,
+                        activation_price=self.config.global_trailing_stop_activation_price_delta,
                         trailing_delta=self.config.global_trailing_stop_trailing_delta),
                 }
             )
@@ -168,7 +168,7 @@ class DManV4MultiplePairs(ScriptStrategyBase):
         market conditions, you can orchestrate from this script when to stop or start them.
         """
         for executor_handler in self.executor_handlers.values():
-            if executor_handler.status == ExecutorHandlerStatus.NOT_STARTED:
+            if executor_handler.status == SmartComponentStatus.NOT_STARTED:
                 executor_handler.start()
 
     def format_status(self) -> str:
