@@ -20,7 +20,7 @@ from hummingbot.smart_components.strategy_frameworks.generic_strategy.generic_co
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
-class GenericExecutor(ExecutorHandlerBase):
+class GenericExecutorHandler(ExecutorHandlerBase):
     """
     Generic executor handler for a strategy.
     """

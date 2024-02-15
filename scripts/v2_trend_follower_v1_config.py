@@ -9,7 +9,7 @@ from hummingbot.connector.connector_base import ConnectorBase, TradeType
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
 from hummingbot.smart_components.controllers.trend_follower_v1 import TrendFollowerV1, TrendFollowerV1Config
-from hummingbot.smart_components.executors.position_executor.data_types import TrailingStop, TripleBarrierConf
+from hummingbot.smart_components.executors.position_executor.data_types import TrailingStop, TripleBarrierConfig
 from hummingbot.smart_components.models.base import SmartComponentStatus
 from hummingbot.smart_components.order_level_distributions.order_level_builder import OrderLevel
 from hummingbot.smart_components.strategy_frameworks.directional_trading.directional_trading_executor_handler import (
@@ -62,7 +62,7 @@ class DirectionalTradingTrendFollower(ScriptStrategyBase):
         super().__init__(connectors)
         self.config = config
 
-        triple_barrier_conf = TripleBarrierConf(
+        triple_barrier_conf = TripleBarrierConfig(
             stop_loss=config.stop_loss,
             take_profit=config.take_profit,
             time_limit=config.time_limit,

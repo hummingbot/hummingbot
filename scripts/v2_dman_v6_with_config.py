@@ -10,7 +10,9 @@ from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
 from hummingbot.smart_components.controllers.dman_v6 import DManV6, DManV6Config
 from hummingbot.smart_components.executors.position_executor.data_types import TrailingStop
 from hummingbot.smart_components.models.base import SmartComponentStatus
-from hummingbot.smart_components.strategy_frameworks.generic_strategy.generic_executor import GenericExecutor
+from hummingbot.smart_components.strategy_frameworks.generic_strategy.generic_executor_handler import (
+    GenericExecutorHandler,
+)
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
 
@@ -90,7 +92,7 @@ class DManV6MultiplePairs(ScriptStrategyBase):
             )
             controller = DManV6(config=dman_config)
             self.controllers[trading_pair] = controller
-            self.executor_handlers[trading_pair] = GenericExecutor(strategy=self, controller=controller)
+            self.executor_handlers[trading_pair] = GenericExecutorHandler(strategy=self, controller=controller)
 
     @property
     def is_perpetual(self):

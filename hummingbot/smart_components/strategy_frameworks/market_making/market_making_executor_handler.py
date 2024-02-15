@@ -68,7 +68,7 @@ class MarketMakingExecutorHandler(ExecutorHandlerBase):
                     elif active_and_early_stop_condition or order_placed_and_refresh_condition:
                         current_executor.early_stop()
                     elif current_executor.executor_status == PositionExecutorStatus.ACTIVE_POSITION:
-                        current_metrics[current_executor.side]["amount"] += current_executor.filled_amount * current_executor.entry_price
+                        current_metrics[current_executor.side]["amount"] += current_executor.open_filled_amount * current_executor.entry_price
                         current_metrics[current_executor.side]["net_pnl_quote"] += current_executor.net_pnl_quote
                         current_metrics[current_executor.side]["executors"].append(current_executor)
                 else:
