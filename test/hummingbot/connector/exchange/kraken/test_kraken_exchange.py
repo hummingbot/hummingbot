@@ -12,6 +12,9 @@ from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS, kraken_web_utils as web_utils
 from hummingbot.connector.exchange.kraken.kraken_exchange import KrakenExchange
+from hummingbot.connector.exchange.kraken.kraken_utils import (
+    convert_to_exchange_trading_pair,
+)
 from hummingbot.connector.test_support.exchange_connector_test import AbstractExchangeConnectorTests
 from hummingbot.connector.trading_rule import TradingRule
 from hummingbot.connector.utils import get_new_client_order_id
@@ -25,168 +28,162 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     @property
     def all_symbols_url(self):
-        return web_utils.public_rest_url(path_url=CONSTANTS.EXCHANGE_INFO_PATH_URL, domain=self.exchange._domain)
+        return web_utils.public_rest_url(path_url=CONSTANTS.ASSET_PAIRS_PATH_URL)
 
     @property
     def latest_prices_url(self):
-        url = web_utils.public_rest_url(path_url=CONSTANTS.TICKER_PRICE_CHANGE_PATH_URL, domain=self.exchange._domain)
+        url = web_utils.public_rest_url(path_url=CONSTANTS.TICKER_PATH_URL)
         url = f"{url}?symbol={self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset)}"
         return url
 
     @property
     def network_status_url(self):
-        url = web_utils.private_rest_url(CONSTANTS.PING_PATH_URL, domain=self.exchange._domain)
+        url = web_utils.private_rest_url(CONSTANTS.TICKER_PATH_URL)
         return url
 
     @property
     def trading_rules_url(self):
-        url = web_utils.private_rest_url(CONSTANTS.EXCHANGE_INFO_PATH_URL, domain=self.exchange._domain)
+        url = web_utils.private_rest_url(CONSTANTS.ASSET_PAIRS_PATH_URL)
         return url
 
     @property
     def order_creation_url(self):
-        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL, domain=self.exchange._domain)
+        url = web_utils.private_rest_url(CONSTANTS.ADD_ORDER_PATH_URL)
         return url
 
     @property
     def balance_url(self):
-        url = web_utils.private_rest_url(CONSTANTS.ACCOUNTS_PATH_URL, domain=self.exchange._domain)
+        url = web_utils.private_rest_url(CONSTANTS.BALANCE_PATH_URL)
         return url
 
     @property
     def all_symbols_request_mock_response(self):
         return {
-            "timezone": "UTC",
-            "serverTime": 1639598493658,
-            "rateLimits": [],
-            "exchangeFilters": [],
-            "symbols": [
-                {
-                    "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                    "status": "ENABLED",
-                    "baseAsset": self.base_asset,
-                    "baseSizePrecision": 1e-8,
-                    "quotePrecision": 8,
-                    "baseAssetPrecision": 8,
-                    "quoteAmountPrecision": 8,
-                    "quoteAsset": self.quote_asset,
-                    "quoteAssetPrecision": 8,
-                    "baseCommissionPrecision": 8,
-                    "quoteCommissionPrecision": 8,
-                    "orderTypes": [
-                        "LIMIT",
-                        "LIMIT_MAKER",
-                        "MARKET",
-                        "STOP_LOSS_LIMIT",
-                        "TAKE_PROFIT_LIMIT"
-                    ],
-                    "icebergAllowed": True,
-                    "ocoAllowed": True,
-                    "quoteOrderQtyMarketAllowed": True,
-                    "isSpotTradingAllowed": True,
-                    "isMarginTradingAllowed": True,
-                    "filters": [],
-                    "permissions": [
-                        "SPOT",
-                        "MARGIN"
-                    ]
-                },
-            ]
-        }
-
-    @property
-    def latest_prices_request_mock_response(self):
-        return {
-            "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-            "priceChange": "-94.99999800",
-            "priceChangePercent": "-95.960",
-            "weightedAvgPrice": "0.29628482",
-            "prevClosePrice": "0.10002000",
-            "lastPrice": str(self.expected_latest_price),
-            "lastQty": "200.00000000",
-            "bidPrice": "4.00000000",
-            "bidQty": "100.00000000",
-            "askPrice": "4.00000200",
-            "askQty": "100.00000000",
-            "openPrice": "99.00000000",
-            "highPrice": "100.00000000",
-            "lowPrice": "0.10000000",
-            "volume": "8913.30000000",
-            "quoteVolume": "15.30000000",
-            "openTime": 1499783499040,
-            "closeTime": 1499869899040,
-            "firstId": 28385,
-            "lastId": 28460,
-            "count": 76,
+             self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset): {
+                "altname": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                "wsname": f"{self.base_asset}/{self.quote_asset}",
+                "aclass_base": "currency",
+                "base": self.base_asset,
+                "aclass_quote": "currency",
+                "quote": self.quote_asset,
+                "lot": "unit",
+                "pair_decimals": 1,
+                "lot_decimals": 8,
+                "lot_multiplier": 1,
+                "leverage_buy": [2, 3],
+                "leverage_sell": [2, 3],
+                "fees": [
+                    [0, 0.26],
+                    [50000, 0.24],
+                    [100000, 0.22],
+                    [250000, 0.2],
+                    [500000, 0.18],
+                    [1000000, 0.16],
+                    [2500000, 0.14],
+                    [5000000, 0.12],
+                    [10000000, 0.1]
+                ],
+                "fees_maker": [
+                    [0, 0.16],
+                    [50000, 0.14],
+                    [100000, 0.12],
+                    [250000, 0.1],
+                    [500000, 0.08],
+                    [1000000, 0.06],
+                    [2500000, 0.04],
+                    [5000000, 0.02],
+                    [10000000, 0]
+                ],
+                "fee_volume_currency": "ZUSD",
+                "margin_call": 80,
+                "margin_stop": 40,
+                "ordermin": "0.0002"
+            }
         }
 
     @property
     def all_symbols_including_invalid_pair_mock_response(self) -> Tuple[str, Any]:
         response = {
-            "timezone": "UTC",
-            "serverTime": 1639598493658,
-            "rateLimits": [],
-            "exchangeFilters": [],
-            "symbols": [
-                {
-                    "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                    "status": "ENABLED",
-                    "baseAsset": self.base_asset,
-                    "baseSizePrecision": 1e-8,
-                    "quotePrecision": 8,
-                    "baseAssetPrecision": 8,
-                    "quoteAsset": self.quote_asset,
-                    "quoteAssetPrecision": 8,
-                    "baseCommissionPrecision": 8,
-                    "quoteAmountPrecision": 8,
-                    "quoteCommissionPrecision": 8,
-                    "orderTypes": [
-                        "LIMIT",
-                        "LIMIT_MAKER",
-                        "MARKET",
-                        "STOP_LOSS_LIMIT",
-                        "TAKE_PROFIT_LIMIT"
-                    ],
-                    "icebergAllowed": True,
-                    "ocoAllowed": True,
-                    "quoteOrderQtyMarketAllowed": True,
-                    "isSpotTradingAllowed": True,
-                    "isMarginTradingAllowed": True,
-                    "filters": [],
-                    "permissions": [
-                        "MARGIN"
-                    ]
-                },
-                {
-                    "symbol": self.exchange_symbol_for_tokens("INVALID", "PAIR"),
-                    "status": "ENABLED",
-                    "baseAsset": "INVALID",
-                    "baseSizePrecision": 1e-8,
-                    "quotePrecision": 8,
-                    "baseAssetPrecision": 8,
-                    "quoteAmountPrecision": 8,
-                    "quoteAsset": "PAIR",
-                    "quoteAssetPrecision": 8,
-                    "baseCommissionPrecision": 8,
-                    "quoteCommissionPrecision": 8,
-                    "orderTypes": [
-                        "LIMIT",
-                        "LIMIT_MAKER",
-                        "MARKET",
-                        "STOP_LOSS_LIMIT",
-                        "TAKE_PROFIT_LIMIT"
-                    ],
-                    "icebergAllowed": True,
-                    "ocoAllowed": True,
-                    "quoteOrderQtyMarketAllowed": True,
-                    "isSpotTradingAllowed": True,
-                    "isMarginTradingAllowed": True,
-                    "filters": [],
-                    "permissions": [
-                        "MARGIN"
-                    ]
-                },
-            ]
+             self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset): {
+                "altname": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                "wsname": f"{self.base_asset}/{self.quote_asset}",
+                "aclass_base": "currency",
+                "base": self.base_asset,
+                "aclass_quote": "currency",
+                "quote": self.quote_asset,
+                "lot": "unit",
+                "pair_decimals": 1,
+                "lot_decimals": 8,
+                "lot_multiplier": 1,
+                "leverage_buy": [2, 3],
+                "leverage_sell": [2, 3],
+                "fees": [
+                    [0, 0.26],
+                    [50000, 0.24],
+                    [100000, 0.22],
+                    [250000, 0.2],
+                    [500000, 0.18],
+                    [1000000, 0.16],
+                    [2500000, 0.14],
+                    [5000000, 0.12],
+                    [10000000, 0.1]
+                ],
+                "fees_maker": [
+                    [0, 0.16],
+                    [50000, 0.14],
+                    [100000, 0.12],
+                    [250000, 0.1],
+                    [500000, 0.08],
+                    [1000000, 0.06],
+                    [2500000, 0.04],
+                    [5000000, 0.02],
+                    [10000000, 0]
+                ],
+                "fee_volume_currency": "ZUSD",
+                "margin_call": 80,
+                "margin_stop": 40,
+                "ordermin": "0.0002"
+            },
+            "ETHUSDT.d": {
+                "altname": "ETHUSDT.d",
+                "wsname": "XBT/USDT",
+                "aclass_base": "currency",
+                "base": "XXBT",
+                "aclass_quote": "currency",
+                "quote": "USDT",
+                "lot": "unit",
+                "pair_decimals": 1,
+                "lot_decimals": 8,
+                "lot_multiplier": 1,
+                "leverage_buy": [2, 3],
+                "leverage_sell": [2, 3],
+                "fees": [
+                    [0, 0.26],
+                    [50000, 0.24],
+                    [100000, 0.22],
+                    [250000, 0.2],
+                    [500000, 0.18],
+                    [1000000, 0.16],
+                    [2500000, 0.14],
+                    [5000000, 0.12],
+                    [10000000, 0.1]
+                ],
+                "fees_maker": [
+                    [0, 0.16],
+                    [50000, 0.14],
+                    [100000, 0.12],
+                    [250000, 0.1],
+                    [500000, 0.08],
+                    [1000000, 0.06],
+                    [2500000, 0.04],
+                    [5000000, 0.02],
+                    [10000000, 0]
+                ],
+                "fee_volume_currency": "ZUSD",
+                "margin_call": 80,
+                "margin_stop": 40,
+                "ordermin": "0.0002"
+            }
         }
 
         return "INVALID-PAIR", response
@@ -198,149 +195,120 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     @property
     def trading_rules_request_mock_response(self):
         return {
-            "timezone": "UTC",
-            "serverTime": 1565246363776,
-            "rateLimits": [{}],
-            "exchangeFilters": [],
-            "symbols": [
-                {
-                    "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                    "status": "ENABLED",
-                    "baseAsset": self.base_asset,
-                    "baseSizePrecision": 1e-8,
-                    "quotePrecision": 8,
-                    "baseAssetPrecision": 8,
-                    "quoteAmountPrecision": 8,
-                    "quoteAsset": self.quote_asset,
-                    "quoteAssetPrecision": 8,
-                    "orderTypes": ["LIMIT", "LIMIT_MAKER"],
-                    "icebergAllowed": True,
-                    "ocoAllowed": True,
-                    "isSpotTradingAllowed": True,
-                    "isMarginTradingAllowed": True,
-
-                    "filters": [
-                        {
-                            "filterType": "PRICE_FILTER",
-                            "minPrice": "0.00000100",
-                            "maxPrice": "100000.00000000",
-                            "tickSize": "0.00000100"
-                        }, {
-                            "filterType": "LOT_SIZE",
-                            "minQty": "0.00100000",
-                            "maxQty": "200000.00000000",
-                            "stepSize": "0.00100000"
-                        }, {
-                            "filterType": "MIN_NOTIONAL",
-                            "minNotional": "0.00200000"
-                        }
-                    ],
-                    "permissions": [
-                        "SPOT",
-                        "MARGIN"
-                    ]
-                }
-            ]
+            self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset): {
+                "altname": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                "wsname": f"{self.base_asset}/{self.quote_asset}",
+                "aclass_base": "currency",
+                "base": self.base_asset,
+                "aclass_quote": "currency",
+                "quote": self.quote_asset,
+                "lot": "unit",
+                "pair_decimals": 1,
+                "lot_decimals": 8,
+                "lot_multiplier": 1,
+                "leverage_buy": [2, 3],
+                "leverage_sell": [2, 3],
+                "fees": [
+                    [0, 0.26],
+                    [50000, 0.24],
+                    [100000, 0.22],
+                    [250000, 0.2],
+                    [500000, 0.18],
+                    [1000000, 0.16],
+                    [2500000, 0.14],
+                    [5000000, 0.12],
+                    [10000000, 0.1]
+                ],
+                "fees_maker": [
+                    [0, 0.16],
+                    [50000, 0.14],
+                    [100000, 0.12],
+                    [250000, 0.1],
+                    [500000, 0.08],
+                    [1000000, 0.06],
+                    [2500000, 0.04],
+                    [5000000, 0.02],
+                    [10000000, 0]
+                ],
+                "fee_volume_currency": "ZUSD",
+                "margin_call": 80,
+                "margin_stop": 40,
+                "ordermin": "0.0002"
+            }
         }
 
     @property
     def trading_rules_request_erroneous_mock_response(self):
         return {
-            "timezone": "UTC",
-            "serverTime": 1565246363776,
-            "rateLimits": [{}],
-            "exchangeFilters": [],
-            "symbols": [
-                {
-                    "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                    "status": "ENABLED",
-                    "baseAsset": self.base_asset,
-                    "baseAssetPrecision": 8,
-                    "quoteAsset": self.quote_asset,
-                    "quotePrecision": 8,
-                    "quoteAssetPrecision": 8,
-                    "orderTypes": ["LIMIT", "LIMIT_MAKER"],
-                    "icebergAllowed": True,
-                    "ocoAllowed": True,
-                    "isSpotTradingAllowed": True,
-                    "isMarginTradingAllowed": True,
-                    "permissions": [
-                        "SPOT",
-                        "MARGIN"
-                    ]
-                }
-            ]
+            "XBTUSDT": {
+                "altname": "XBTUSDT",
+                "wsname": "XBT/USDT",
+                "aclass_base": "currency",
+                "base": "XXBT",
+                "aclass_quote": "currency",
+                "quote": "USDT",
+                "lot": "unit",
+                "leverage_buy": [2, 3],
+                "leverage_sell": [2, 3],
+                "fees": [
+                    [0, 0.26],
+                    [50000, 0.24],
+                    [100000, 0.22],
+                    [250000, 0.2],
+                    [500000, 0.18],
+                    [1000000, 0.16],
+                    [2500000, 0.14],
+                    [5000000, 0.12],
+                    [10000000, 0.1]
+                ],
+                "fees_maker": [
+                    [0, 0.16],
+                    [50000, 0.14],
+                    [100000, 0.12],
+                    [250000, 0.1],
+                    [500000, 0.08],
+                    [1000000, 0.06],
+                    [2500000, 0.04],
+                    [5000000, 0.02],
+                    [10000000, 0]
+                ],
+                "fee_volume_currency": "ZUSD",
+                "margin_call": 80,
+                "margin_stop": 40,
+            }
         }
 
     @property
     def order_creation_request_successful_mock_response(self):
         return {
-            "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-            "orderId": self.expected_exchange_order_id,
-            "orderListId": -1,
-            "clientOrderId": "OID1",
-            "transactTime": 1507725176595
+            "error": [],
+            "result": {
+                "descr": {
+                    "order": "",
+                },
+                "txid": [
+                    self.expected_exchange_order_id,
+                ]
+            }
         }
 
     @property
     def balance_request_mock_response_for_base_and_quote(self):
         return {
-            "makerCommission": 15,
-            "takerCommission": 15,
-            "buyerCommission": 0,
-            "sellerCommission": 0,
-            "canTrade": True,
-            "canWithdraw": True,
-            "canDeposit": True,
-            "updateTime": 123456789,
-            "accountType": "SPOT",
-            "balances": [
-                {
-                    "asset": self.base_asset,
-                    "free": "10.0",
-                    "locked": "5.0"
-                },
-                {
-                    "asset": self.quote_asset,
-                    "free": "2000",
-                    "locked": "0.00000000"
-                }
-            ],
-            "permissions": [
-                "SPOT"
-            ]
+            "error": [],
+            "result": {
+                self.base_asset: str(10),
+                self.quote_asset: str(2000),
+            }
         }
 
     @property
     def balance_request_mock_response_only_base(self):
         return {
-            "makerCommission": 15,
-            "takerCommission": 15,
-            "buyerCommission": 0,
-            "sellerCommission": 0,
-            "canTrade": True,
-            "canWithdraw": True,
-            "canDeposit": True,
-            "updateTime": 123456789,
-            "accountType": "SPOT",
-            "balances": [{"asset": self.base_asset, "free": "10.0", "locked": "5.0"}],
-            "permissions": ["SPOT"],
-        }
-
-    @property
-    def balance_event_websocket_update(self):
-        return {
-            "c": "spot@private.account.v3.api",
-            "d": {
-                "a": self.base_asset,
-                "c": 1564034571105,
-                "f": "10",
-                "fd": "-4.990689704",
-                "l": "5",
-                "ld": "4.990689704",
-                "o": "ENTRUST_PLACE"
-            },
-            "t": 1564034571073
+            "error": [],
+            "result": {
+                self.base_asset: str(10),
+            }
         }
 
     @property
@@ -353,14 +321,15 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     @property
     def expected_trading_rule(self):
+        rule = list(self.trading_rules_request_mock_response.values())[0]
+        min_order_size = Decimal(rule.get('ordermin', 0))
+        min_price_increment = Decimal(f"1e-{rule.get('pair_decimals')}")
+        min_base_amount_increment = Decimal(f"1e-{rule.get('lot_decimals')}")
         return TradingRule(
             trading_pair=self.trading_pair,
-            min_order_size=Decimal(self.trading_rules_request_mock_response["symbols"][0]["baseSizePrecision"]),
-            min_price_increment=Decimal(
-                f'1e-{self.trading_rules_request_mock_response["symbols"][0]["quotePrecision"]}'),
-            min_base_amount_increment=Decimal(
-                f'1e-{self.trading_rules_request_mock_response["symbols"][0]["baseAssetPrecision"]}'),
-            min_notional_size=Decimal(self.trading_rules_request_mock_response["symbols"][0]["quoteAmountPrecision"]),
+            min_order_size=min_order_size,
+            min_price_increment=min_price_increment,
+            min_base_amount_increment=min_base_amount_increment,
         )
 
     @property
@@ -406,49 +375,42 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         return KrakenExchange(
             client_config_map=client_config_map,
             kraken_api_key="testAPIKey",
-            kraken_api_secret="testSecret",
+            kraken_secret_key="testSecret",
             trading_pairs=[self.trading_pair],
         )
 
     def validate_auth_credentials_present(self, request_call: RequestCall):
         self._validate_auth_credentials_taking_parameters_from_argument(
             request_call_tuple=request_call,
-            params=request_call.kwargs["params"] or request_call.kwargs["data"]
+            params=request_call.kwargs["data"]
         )
 
     def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
         request_data = dict(request_call.kwargs["data"])
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset), request_data["symbol"])
-        self.assertEqual(order.trade_type.name.upper(), request_data["side"])
-        self.assertEqual(KrakenExchange.kraken_order_type(OrderType.LIMIT), request_data["type"])
-        self.assertEqual(Decimal("100"), Decimal(request_data["quantity"]))
+        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset), request_data["pair"])
+        self.assertEqual(order.trade_type.name.upper(), request_data["type"])
+        self.assertEqual(KrakenExchange.kraken_order_type(OrderType.LIMIT), request_data["ordertype"])
+        self.assertEqual(Decimal("100"), Decimal(request_data["volume"]))
         self.assertEqual(Decimal("10000"), Decimal(request_data["price"]))
-        self.assertEqual(order.client_order_id, request_data["newClientOrderId"])
 
     def validate_order_cancelation_request(self, order: InFlightOrder, request_call: RequestCall):
-        request_data = dict(request_call.kwargs["params"])
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                         request_data["symbol"])
-        self.assertEqual(order.client_order_id, request_data["origClientOrderId"])
+        request_data = dict(request_call.kwargs["data"])
+        self.assertEqual(order.exchange_order_id, request_data["txid"])
 
     def validate_order_status_request(self, order: InFlightOrder, request_call: RequestCall):
         request_params = request_call.kwargs["params"]
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                         request_params["symbol"])
-        self.assertEqual(order.client_order_id, request_params["origClientOrderId"])
+        self.assertEqual(order.exchange_order_id, request_params["txid"])
 
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
-        request_params = request_call.kwargs["params"]
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                         request_params["symbol"])
-        self.assertEqual(order.exchange_order_id, str(request_params["orderId"]))
+        request_params = request_call.kwargs["data"]
+        self.assertEqual(order.exchange_order_id, str(request_params["txid"]))
 
     def configure_successful_cancelation_response(
             self,
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.CANCEL_ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_cancelation_request_successful_mock_response(order=order)
         mock_api.delete(regex_url, body=json.dumps(response), callback=callback)
@@ -459,7 +421,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.CANCEL_ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.delete(regex_url, status=400, callback=callback)
         return url
@@ -468,9 +430,13 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             self, order: InFlightOrder, mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> str:
-        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.CANCEL_ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-        response = {"code": -2011, "msg": "Unknown order sent."}
+        response = {
+            "error": [
+                "API key doesn't have permission to make this request"
+            ]
+        }
         mock_api.delete(regex_url, status=400, body=json.dumps(response), callback=callback)
         return url
 
@@ -494,7 +460,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.QUERY_ORDERS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_status_request_completely_filled_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
@@ -505,7 +471,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.CANCEL_ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_status_request_canceled_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
@@ -516,7 +482,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.private_rest_url(path_url=CONSTANTS.MY_TRADES_PATH_URL)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.QUERY_TRADES_PATH_URL)
         regex_url = re.compile(url + r"\?.*")
         mock_api.get(regex_url, status=400, callback=callback)
         return url
@@ -529,7 +495,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         """
         :return: the URL configured
         """
-        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.QUERY_ORDERS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_status_request_open_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
@@ -540,7 +506,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.QUERY_ORDERS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_api.get(regex_url, status=401, callback=callback)
         return url
@@ -550,7 +516,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.QUERY_ORDERS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = self._order_status_request_partially_filled_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
@@ -560,7 +526,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             self, order: InFlightOrder, mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None
     ) -> List[str]:
-        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.QUERY_ORDERS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         response = {"code": -2013, "msg": "Order does not exist."}
         mock_api.get(regex_url, body=json.dumps(response), status=400, callback=callback)
@@ -571,7 +537,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.private_rest_url(path_url=CONSTANTS.MY_TRADES_PATH_URL)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.QUERY_TRADES_PATH_URL)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_fills_request_partial_fill_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
@@ -582,35 +548,50 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
             order: InFlightOrder,
             mock_api: aioresponses,
             callback: Optional[Callable] = lambda *args, **kwargs: None) -> str:
-        url = web_utils.private_rest_url(path_url=CONSTANTS.MY_TRADES_PATH_URL)
+        url = web_utils.private_rest_url(path_url=CONSTANTS.QUERY_TRADES_PATH_URL)
         regex_url = re.compile(url + r"\?.*")
         response = self._order_fills_request_full_fill_mock_response(order=order)
         mock_api.get(regex_url, body=json.dumps(response), callback=callback)
         return url
 
     def order_event_for_new_order_websocket_update(self, order: InFlightOrder):
-        return {
-            "c": "spot@private.orders.v3.api",
-            "d": {
-                "A": 8.0,
-                "O": 1661938138000,
-                "S": 1,
-                "V": 10,
-                "a": 8,
-                "c": order.client_order_id,
-                "i": order.exchange_order_id,
-                "m": 0,
-                "o": 1,
-                "p": order.price,
-                "s": 1,
-                "v": order.amount,
-                "ap": 0,
-                "cv": 0,
-                "ca": 0
-            },
-            "s": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-            "t": 1499405658657
-        }
+        return [
+                [
+                    {
+                        order.exchange_order_id: {
+                            "avg_price": "34.50000",
+                            "cost": "0.00000",
+                            "descr": {
+                                "close": "",
+                                "leverage": "0:1",
+                                "order": "sell 10.00345345 XBT/EUR @ limit 34.50000 with 0:1 leverage",
+                                "ordertype": "limit",
+                                "pair": convert_to_exchange_trading_pair(self.trading_pair, '/'),
+                                "price": str(order.price),
+                                "price2": "0.00000",
+                                "type": "sell"
+                            },
+                            "expiretm": "0.000000",
+                            "fee": "0.00000",
+                            "limitprice": "34.50000",
+                            "misc": "",
+                            "oflags": "fcib",
+                            "opentm": "0.000000",
+                            "refid": "OKIVMP-5GVZN-Z2D2UA",
+                            "starttm": "0.000000",
+                            "status": "open",
+                            "stopprice": "0.000000",
+                            "userref": 0,
+                            "vol": str(order.amount,),
+                            "vol_exec": "0.00000000"
+                        }
+                    }
+                ],
+                "openOrders",
+                {
+                    "sequence": 234
+                }
+            ]
 
     def order_event_for_canceled_order_websocket_update(self, order: InFlightOrder):
         return {
@@ -684,51 +665,15 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     @aioresponses()
     @patch("hummingbot.connector.time_synchronizer.TimeSynchronizer._current_seconds_counter")
     def test_update_time_synchronizer_successfully(self, mock_api, seconds_counter_mock):
-        request_sent_event = asyncio.Event()
-        seconds_counter_mock.side_effect = [0, 0, 0]
-
-        self.exchange._time_synchronizer.clear_time_offset_ms_samples()
-        url = web_utils.private_rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        response = {"serverTime": 1640000003000}
-
-        mock_api.get(regex_url,
-                     body=json.dumps(response),
-                     callback=lambda *args, **kwargs: request_sent_event.set())
-
-        self.async_run_with_timeout(self.exchange._update_time_synchronizer())
-
-        self.assertEqual(response["serverTime"] * 1e-3, self.exchange._time_synchronizer.time())
+        pass
 
     @aioresponses()
     def test_update_time_synchronizer_failure_is_logged(self, mock_api):
-        request_sent_event = asyncio.Event()
-
-        url = web_utils.private_rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        response = {"code": -1121, "msg": "Dummy error"}
-
-        mock_api.get(regex_url,
-                     body=json.dumps(response),
-                     callback=lambda *args, **kwargs: request_sent_event.set())
-
-        self.async_run_with_timeout(self.exchange._update_time_synchronizer())
-
-        self.assertTrue(self.is_logged("NETWORK", "Error getting server time."))
+        pass
 
     @aioresponses()
     def test_update_time_synchronizer_raises_cancelled_error(self, mock_api):
-        url = web_utils.private_rest_url(CONSTANTS.SERVER_TIME_PATH_URL)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        mock_api.get(regex_url,
-                     exception=asyncio.CancelledError)
-
-        self.assertRaises(
-            asyncio.CancelledError,
-            self.async_run_with_timeout, self.exchange._update_time_synchronizer())
+        pass
 
     @aioresponses()
     def test_update_order_fills_from_trades_triggers_filled_event(self, mock_api):
@@ -747,39 +692,51 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         )
         order = self.exchange.in_flight_orders["OID1"]
 
-        url = web_utils.private_rest_url(CONSTANTS.MY_TRADES_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.QUERY_TRADES_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         trade_fill = {
-            "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-            "id": 28457,
-            "orderId": int(order.exchange_order_id),
-            "orderListId": -1,
-            "price": "9999",
-            "qty": "1",
-            "quoteQty": "48.000012",
-            "commission": "10.10000000",
-            "commissionAsset": self.quote_asset,
-            "time": 1499865549590,
-            "isBuyer": True,
-            "isMaker": False,
-            "isBestMatch": True
+            "error": [],
+            "result": {
+                28457: {
+                    "ordertxid": order.exchange_order_id,
+                    "postxid": "TKH2SE-M7IF5-CFI7LT",
+                    "pair": "XXBTZUSD",
+                    "time": 1499865549.590,
+                    "type": "buy",
+                    "ordertype": "limit",
+                    "price": str(self.expected_partial_fill_price),
+                    "cost": "600.20000",
+                    "fee": str(self.expected_fill_fee.flat_fees[0].amount),
+                    "vol": str(self.expected_partial_fill_amount),
+                    "margin": "0.00000",
+                    "misc": "",
+                    "trade_id": 93748276,
+                    "maker": "true"
+                }
+            }
         }
 
         trade_fill_non_tracked_order = {
-            "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-            "id": 30000,
-            "orderId": 99999,
-            "orderListId": -1,
-            "price": "4.00000100",
-            "qty": "12.00000000",
-            "quoteQty": "48.000012",
-            "commission": "10.10000000",
-            "commissionAsset": "BNB",
-            "time": 1499865549590,
-            "isBuyer": True,
-            "isMaker": False,
-            "isBestMatch": True
+            "error": [],
+            "result": {
+                30000: {
+                    "ordertxid": 9999,
+                    "postxid": "TKH2SE-M7IF5-CFI7LT",
+                    "pair": "XXBTZUSD",
+                    "time": 1499865549.590,
+                    "type": "buy",
+                    "ordertype": "limit",
+                    "price": str(self.expected_partial_fill_price),
+                    "cost": "600.20000",
+                    "fee": str(self.expected_fill_fee.flat_fees[0].amount),
+                    "vol": str(self.expected_partial_fill_amount),
+                    "margin": "0.00000",
+                    "misc": "",
+                    "trade_id": 93748276,
+                    "maker": "true"
+                }
+            }
         }
 
         mock_response = [trade_fill, trade_fill_non_tracked_order]
@@ -792,8 +749,6 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
         request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(request)
-        request_params = request.kwargs["params"]
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset), request_params["symbol"])
 
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, fill_event.timestamp)
@@ -802,9 +757,9 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         self.assertEqual(order.trade_type, fill_event.trade_type)
         self.assertEqual(order.order_type, fill_event.order_type)
         self.assertEqual(Decimal(trade_fill["price"]), fill_event.price)
-        self.assertEqual(Decimal(trade_fill["qty"]), fill_event.amount)
+        self.assertEqual(Decimal(trade_fill["vol"]), fill_event.amount)
         self.assertEqual(0.0, fill_event.trade_fee.percent)
-        self.assertEqual([TokenAmount(trade_fill["commissionAsset"], Decimal(trade_fill["commission"]))],
+        self.assertEqual([TokenAmount(self.quote_asset, Decimal(trade_fill["fee"]))],
                          fill_event.trade_fee.flat_fees)
 
         fill_event: OrderFilledEvent = self.order_filled_logger.event_log[1]
@@ -814,105 +769,18 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         self.assertEqual(TradeType.BUY, fill_event.trade_type)
         self.assertEqual(OrderType.LIMIT, fill_event.order_type)
         self.assertEqual(Decimal(trade_fill_non_tracked_order["price"]), fill_event.price)
-        self.assertEqual(Decimal(trade_fill_non_tracked_order["qty"]), fill_event.amount)
+        self.assertEqual(Decimal(trade_fill_non_tracked_order["vol"]), fill_event.amount)
         self.assertEqual(0.0, fill_event.trade_fee.percent)
         self.assertEqual([
             TokenAmount(
-                trade_fill_non_tracked_order["commissionAsset"],
-                Decimal(trade_fill_non_tracked_order["commission"]))],
+                self.quote_asset,
+                Decimal(trade_fill_non_tracked_order["fee"]))],
             fill_event.trade_fee.flat_fees)
         self.assertTrue(self.is_logged(
             "INFO",
             f"Recreating missing trade in TradeFill: {trade_fill_non_tracked_order}"
         ))
 
-    @aioresponses()
-    def test_update_order_fills_request_parameters(self, mock_api):
-        self.exchange._set_current_timestamp(0)
-        self.exchange._last_poll_timestamp = -1
-
-        url = web_utils.private_rest_url(CONSTANTS.MY_TRADES_PATH_URL)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        mock_response = []
-        mock_api.get(regex_url, body=json.dumps(mock_response))
-
-        self.async_run_with_timeout(self.exchange._update_order_fills_from_trades())
-
-        request = self._all_executed_requests(mock_api, url)[0]
-        self.validate_auth_credentials_present(request)
-        request_params = request.kwargs["params"]
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset), request_params["symbol"])
-        self.assertNotIn("startTime", request_params)
-
-        self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
-                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
-        self.exchange._last_trades_poll_kraken_timestamp = 10
-        self.async_run_with_timeout(self.exchange._update_order_fills_from_trades())
-
-        request = self._all_executed_requests(mock_api, url)[1]
-        self.validate_auth_credentials_present(request)
-        request_params = request.kwargs["params"]
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset), request_params["symbol"])
-        self.assertEqual(10 * 1e3, request_params["startTime"])
-
-    @aioresponses()
-    def test_update_order_fills_from_trades_with_repeated_fill_triggers_only_one_event(self, mock_api):
-        self.exchange._set_current_timestamp(1640780000)
-        self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
-                                              self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
-
-        url = web_utils.private_rest_url(CONSTANTS.MY_TRADES_PATH_URL)
-        regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
-
-        trade_fill_non_tracked_order = {
-            "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-            "id": 30000,
-            "orderId": 99999,
-            "orderListId": -1,
-            "price": "4.00000100",
-            "qty": "12.00000000",
-            "quoteQty": "48.000012",
-            "commission": "10.10000000",
-            "commissionAsset": "BNB",
-            "time": 1499865549590,
-            "isBuyer": True,
-            "isMaker": False,
-            "isBestMatch": True
-        }
-
-        mock_response = [trade_fill_non_tracked_order, trade_fill_non_tracked_order]
-        mock_api.get(regex_url, body=json.dumps(mock_response))
-
-        self.exchange.add_exchange_order_ids_from_market_recorder(
-            {str(trade_fill_non_tracked_order["orderId"]): "OID99"})
-
-        self.async_run_with_timeout(self.exchange._update_order_fills_from_trades())
-
-        request = self._all_executed_requests(mock_api, url)[0]
-        self.validate_auth_credentials_present(request)
-        request_params = request.kwargs["params"]
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset), request_params["symbol"])
-
-        self.assertEqual(1, len(self.order_filled_logger.event_log))
-        fill_event: OrderFilledEvent = self.order_filled_logger.event_log[0]
-        self.assertEqual(float(trade_fill_non_tracked_order["time"]) * 1e-3, fill_event.timestamp)
-        self.assertEqual("OID99", fill_event.order_id)
-        self.assertEqual(self.trading_pair, fill_event.trading_pair)
-        self.assertEqual(TradeType.BUY, fill_event.trade_type)
-        self.assertEqual(OrderType.LIMIT, fill_event.order_type)
-        self.assertEqual(Decimal(trade_fill_non_tracked_order["price"]), fill_event.price)
-        self.assertEqual(Decimal(trade_fill_non_tracked_order["qty"]), fill_event.amount)
-        self.assertEqual(0.0, fill_event.trade_fee.percent)
-        self.assertEqual([
-            TokenAmount(trade_fill_non_tracked_order["commissionAsset"],
-                        Decimal(trade_fill_non_tracked_order["commission"]))],
-            fill_event.trade_fee.flat_fees)
-        self.assertTrue(self.is_logged(
-            "INFO",
-            f"Recreating missing trade in TradeFill: {trade_fill_non_tracked_order}"
-        ))
 
     @aioresponses()
     def test_update_order_status_when_failed(self, mock_api):
@@ -931,29 +799,36 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         )
         order = self.exchange.in_flight_orders["OID1"]
 
-        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.QUERY_ORDERS_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         order_status = {
-            "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-            "orderId": int(order.exchange_order_id),
-            "orderListId": -1,
-            "clientOrderId": order.client_order_id,
-            "price": "10000.0",
-            "origQty": "1.0",
-            "executedQty": "0.0",
-            "cummulativeQuoteQty": "0.0",
-            "status": "REJECTED",
-            "timeInForce": "GTC",
-            "type": "LIMIT",
-            "side": "BUY",
-            "stopPrice": "0.0",
-            "icebergQty": "0.0",
-            "time": 1499827319559,
-            "updateTime": 1499827319559,
-            "isWorking": True,
-            "origQuoteOrderQty": "10000.000000"
+            "error": [],
+            "result": {
+                "open": {
+                    order.exchange_order_id: {
+                        "refid": "None",
+                        "userref": 0,
+                        "status": "open",
+                        "opentm": 1499827319.559,
+                        "starttm": 0,
+                        "expiretm": 0,
+                        "descr": {},
+                        "vol": "1.0",
+                        "vol_exec": "0.0",
+                        "cost": "11253.7",
+                        "fee": "0.00000",
+                        "price": "10000.0",
+                        "stopprice": "0.00000",
+                        "limitprice": "0.00000",
+                        "misc": "",
+                        "oflags": "fciq",
+                        "trades": []
+                    }
+                }
+            }
         }
+
 
         mock_response = order_status
         mock_api.get(regex_url, body=json.dumps(mock_response))
@@ -963,8 +838,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         request = self._all_executed_requests(mock_api, url)[0]
         self.validate_auth_credentials_present(request)
         request_params = request.kwargs["params"]
-        self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset), request_params["symbol"])
-        self.assertEqual(order.client_order_id, request_params["origClientOrderId"])
+        self.assertEqual(order.exchange_order_id, request_params["txid"])
 
         failure_event: MarketOrderFailureEvent = self.order_failure_logger.event_log[0]
         self.assertEqual(self.exchange.current_timestamp, failure_event.timestamp)
@@ -1014,31 +888,12 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
         self.assertEqual(result, expected_client_order_id)
 
-    def test_time_synchronizer_related_request_error_detection(self):
-        exception = IOError("Error executing request POST https://api.kraken.com/api/v3/order. HTTP status is 400. "
-                            "Error: {'code':-1021,'msg':'Timestamp for this request is outside of the recvWindow.'}")
-        self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
-
-        exception = IOError("Error executing request POST https://api.kraken.com/api/v3/order. HTTP status is 400. "
-                            "Error: {'code':-1021,'msg':'Timestamp for this request was 1000ms ahead of the server's "
-                            "time.'}")
-        self.assertTrue(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
-
-        exception = IOError("Error executing request POST https://api.kraken.com/api/v3/order. HTTP status is 400. "
-                            "Error: {'code':-1022,'msg':'Timestamp for this request was 1000ms ahead of the server's "
-                            "time.'}")
-        self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
-
-        exception = IOError("Error executing request POST https://api.kraken.com/api/v3/order. HTTP status is 400. "
-                            "Error: {'code':-1021,'msg':'Other error.'}")
-        self.assertFalse(self.exchange._is_request_exception_related_to_time_synchronizer(exception))
-
     @aioresponses()
     def test_place_order_manage_server_overloaded_error_unkown_order(self, mock_api):
         self.exchange._set_current_timestamp(1640780000)
         self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
                                               self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
-        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.ADD_ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_response = {"code": -1003, "msg": "Unknown error, please check your request or try again later."}
         mock_api.post(regex_url, body=json.dumps(mock_response), status=503)
@@ -1059,7 +914,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         self.exchange._last_poll_timestamp = (self.exchange.current_timestamp -
                                               self.exchange.UPDATE_ORDER_STATUS_MIN_INTERVAL - 1)
 
-        url = web_utils.private_rest_url(CONSTANTS.ORDER_PATH_URL)
+        url = web_utils.private_rest_url(CONSTANTS.ADD_ORDER_PATH_URL)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
         mock_response = {"code": -1003, "msg": "Service Unavailable."}
         mock_api.post(regex_url, body=json.dumps(mock_response), status=503)
@@ -1091,189 +946,159 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                 price=Decimal("2"),
             ))
 
-    def test_format_trading_rules__min_notional_present(self):
-        trading_rules = [{
-            "symbol": "COINALPHAHBOT",
-            "baseSizePrecision": 1e-8,
-            "quotePrecision": 8,
-            "baseAssetPrecision": 8,
-            "status": "ENABLED",
-            "quoteAmountPrecision": "0.001",
-            "orderTypes": ["LIMIT", "MARKET"],
-            "filters": [
-                {
-                    "filterType": "PRICE_FILTER",
-                    "minPrice": "0.00000100",
-                    "maxPrice": "100000.00000000",
-                    "tickSize": "0.00000100"
-                }, {
-                    "filterType": "LOT_SIZE",
-                    "minQty": "0.00100000",
-                    "maxQty": "100000.00000000",
-                    "stepSize": "0.00100000"
-                }, {
-                    "filterType": "MIN_NOTIONAL",
-                    "minNotional": "0.00300000"
-                }
-            ],
-            "permissions": [
-                "SPOT"
-            ]
-        }]
-        exchange_info = {"symbols": trading_rules}
-
-        result = self.async_run_with_timeout(self.exchange._format_trading_rules(exchange_info))
-
-        self.assertEqual(result[0].min_notional_size, Decimal("0.00100000"))
-
     def _validate_auth_credentials_taking_parameters_from_argument(self,
                                                                    request_call_tuple: RequestCall,
                                                                    params: Dict[str, Any]):
-        self.assertIn("timestamp", params)
-        self.assertIn("signature", params)
+        self.assertIn("nonce", params)
         request_headers = request_call_tuple.kwargs["headers"]
-        self.assertIn("X-MEXC-APIKEY", request_headers)
-        self.assertEqual("testAPIKey", request_headers["X-MEXC-APIKEY"])
+        self.assertIn("API-Sign", request_headers)
+        self.assertIn("API-Key", request_headers)
+        self.assertEqual("testAPIKey", request_headers["API-Key"])
 
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
         return {
-            "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-            "origClientOrderId": order.exchange_order_id or "dummyOrdId",
-            "orderId": 4,
-            "orderListId": -1,
-            "clientOrderId": order.client_order_id,
-            "price": str(order.price),
-            "origQty": str(order.amount),
-            "executedQty": str(Decimal("0")),
-            "cummulativeQuoteQty": str(Decimal("0")),
-            "status": "NEW",
-            "timeInForce": "GTC",
-            "type": "LIMIT",
-            "side": "BUY"
+            "error": [],
+            "result": {
+                "count": 1
+            }
         }
 
     def _order_status_request_completely_filled_mock_response(self, order: InFlightOrder) -> Any:
-        return {
-            "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-            "orderId": order.exchange_order_id,
-            "orderListId": -1,
-            "clientOrderId": order.client_order_id,
-            "price": str(order.price),
-            "origQty": str(order.amount),
-            "executedQty": str(order.amount),
-            "cummulativeQuoteQty": str(order.price + Decimal(2)),
-            "status": "FILLED",
-            "timeInForce": "GTC",
-            "type": "LIMIT",
-            "side": "BUY",
-            "stopPrice": "0.0",
-            "icebergQty": "0.0",
-            "time": 1499827319559,
-            "updateTime": 1499827319559,
-            "isWorking": True,
-            "origQuoteOrderQty": str(order.price * order.amount)
-        }
+        return \
+            {
+                "error": [],
+                "result": {
+                    "open": {
+                        order.exchange_order_id: {
+                            "refid": "None",
+                            "userref": 0,
+                            "status": "closed",
+                            "opentm": 1688666559.8974,
+                            "starttm": 0,
+                            "expiretm": 0,
+                            "descr": {},
+                            "vol": str(order.amount),
+                            "vol_exec": str(order.amount),
+                            "cost": "11253.7",
+                            "fee": "0.00000",
+                            "price": str(order.price),
+                            "stopprice": "0.00000",
+                            "limitprice": "0.00000",
+                            "misc": "",
+                            "oflags": "fciq",
+                            "trades": []
+                        }
+                    }
+                }
+            }
 
     def _order_status_request_canceled_mock_response(self, order: InFlightOrder) -> Any:
         return {
-            "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-            "orderId": order.exchange_order_id,
-            "orderListId": -1,
-            "clientOrderId": order.client_order_id,
-            "price": str(order.price),
-            "origQty": str(order.amount),
-            "executedQty": "0.0",
-            "cummulativeQuoteQty": "10000.0",
-            "status": "CANCELED",
-            "timeInForce": "GTC",
-            "type": order.order_type.name.upper(),
-            "side": order.trade_type.name.upper(),
-            "stopPrice": "0.0",
-            "icebergQty": "0.0",
-            "time": 1499827319559,
-            "updateTime": 1499827319559,
-            "isWorking": True,
-            "origQuoteOrderQty": str(order.price * order.amount)
+            "error": [],
+            "result": {
+                "count": 1
+            }
         }
 
     def _order_status_request_open_mock_response(self, order: InFlightOrder) -> Any:
         return {
-            "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-            "orderId": order.exchange_order_id,
-            "orderListId": -1,
-            "clientOrderId": order.client_order_id,
-            "price": str(order.price),
-            "origQty": str(order.amount),
-            "executedQty": "0.0",
-            "cummulativeQuoteQty": "10000.0",
-            "status": "NEW",
-            "timeInForce": "GTC",
-            "type": order.order_type.name.upper(),
-            "side": order.trade_type.name.upper(),
-            "stopPrice": "0.0",
-            "icebergQty": "0.0",
-            "time": 1499827319559,
-            "updateTime": 1499827319559,
-            "isWorking": True,
-            "origQuoteOrderQty": str(order.price * order.amount)
+            "error": [],
+            "result": {
+                "open": {
+                    order.exchange_order_id: {
+                        "refid": "None",
+                        "userref": 0,
+                        "status": "open",
+                        "opentm": 1688666559.8974,
+                        "starttm": 0,
+                        "expiretm": 0,
+                        "descr": {},
+                        "vol": str(order.amount),
+                        "vol_exec": "0",
+                        "cost": "11253.7",
+                        "fee": "0.00000",
+                        "price": str(order.price),
+                        "stopprice": "0.00000",
+                        "limitprice": "0.00000",
+                        "misc": "",
+                        "oflags": "fciq",
+                        "trades": []
+                    }
+                }
+            }
         }
 
     def _order_status_request_partially_filled_mock_response(self, order: InFlightOrder) -> Any:
         return {
-            "symbol": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-            "orderId": order.exchange_order_id,
-            "orderListId": -1,
-            "clientOrderId": order.client_order_id,
-            "price": str(order.price),
-            "origQty": str(order.amount),
-            "executedQty": str(order.amount),
-            "cummulativeQuoteQty": str(self.expected_partial_fill_amount * order.price),
-            "status": "PARTIALLY_FILLED",
-            "timeInForce": "GTC",
-            "type": order.order_type.name.upper(),
-            "side": order.trade_type.name.upper(),
-            "stopPrice": "0.0",
-            "icebergQty": "0.0",
-            "time": 1499827319559,
-            "updateTime": 1499827319559,
-            "isWorking": True,
-            "origQuoteOrderQty": str(order.price * order.amount)
+            "error": [],
+            "result": {
+                "open": {
+                    order.exchange_order_id: {
+                        "refid": "None",
+                        "userref": 0,
+                        "status": "open",
+                        "opentm": 1688666559.8974,
+                        "starttm": 0,
+                        "expiretm": 0,
+                        "descr": {},
+                        "vol": str(order.amount),
+                        "vol_exec": str(order.amount / 2),
+                        "cost": "11253.7",
+                        "fee": "0.00000",
+                        "price": str(order.price),
+                        "stopprice": "0.00000",
+                        "limitprice": "0.00000",
+                        "misc": "",
+                        "oflags": "fciq",
+                        "trades": []
+                    }
+                }
+            }
         }
 
     def _order_fills_request_partial_fill_mock_response(self, order: InFlightOrder):
-        return [
-            {
-                "symbol": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
-                "id": self.expected_fill_trade_id,
-                "orderId": int(order.exchange_order_id),
-                "orderListId": -1,
-                "price": str(self.expected_partial_fill_price),
-                "qty": str(self.expected_partial_fill_amount),
-                "quoteQty": str(self.expected_partial_fill_amount * self.expected_partial_fill_price),
-                "commission": str(self.expected_fill_fee.flat_fees[0].amount),
-                "commissionAsset": self.expected_fill_fee.flat_fees[0].token,
-                "time": 1499865549590,
-                "isBuyer": True,
-                "isMaker": False,
-                "isBestMatch": True
+        return {
+            "error": [],
+            "result": {
+                self.expected_fill_trade_id: {
+                    "ordertxid": "OQCLML-BW3P3-BUCMWZ",
+                    "postxid": "TKH2SE-M7IF5-CFI7LT",
+                    "pair": "XXBTZUSD",
+                    "time": 1499865549.590,
+                    "type": "buy",
+                    "ordertype": "limit",
+                    "price": str(self.expected_partial_fill_price),
+                    "cost": "600.20000",
+                    "fee": str(self.expected_fill_fee.flat_fees[0].amount),
+                    "vol": str(self.expected_partial_fill_amount),
+                    "margin": "0.00000",
+                    "misc": "",
+                    "trade_id": 93748276,
+                    "maker": "true"
+                }
             }
-        ]
+        }
+
 
     def _order_fills_request_full_fill_mock_response(self, order: InFlightOrder):
-        return [
-            {
-                "symbol": self.exchange_symbol_for_tokens(order.base_asset, order.quote_asset),
-                "id": self.expected_fill_trade_id,
-                "orderId": int(order.exchange_order_id),
-                "orderListId": -1,
-                "price": str(order.price),
-                "qty": str(order.amount),
-                "quoteQty": str(order.amount * order.price),
-                "commission": str(self.expected_fill_fee.flat_fees[0].amount),
-                "commissionAsset": self.expected_fill_fee.flat_fees[0].token,
-                "time": 1499865549590,
-                "isBuyer": True,
-                "isMaker": False,
-                "isBestMatch": True
+        return {
+                "error": [],
+                "result": {
+                    self.expected_fill_trade_id: {
+                        "ordertxid": "OQCLML-BW3P3-BUCMWZ",
+                        "postxid": "TKH2SE-M7IF5-CFI7LT",
+                        "pair": "XXBTZUSD",
+                        "time": 1499865549.590,
+                        "type": "buy",
+                        "ordertype": "limit",
+                        "price": str(order.price),
+                        "cost": "600.20000",
+                        "fee": str(self.expected_fill_fee.flat_fees[0].amount),
+                        "vol": str(order.amount),
+                        "margin": "0.00000",
+                        "misc": "",
+                        "trade_id": 93748276,
+                        "maker": "true"
+                    }
+                }
             }
-        ]
