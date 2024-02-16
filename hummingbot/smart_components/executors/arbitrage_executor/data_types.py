@@ -3,13 +3,16 @@ from enum import Enum
 
 from pydantic import BaseModel
 
+from hummingbot.smart_components.executors.data_types import ExecutorConfigBase
+
 
 class ExchangePair(BaseModel):
     exchange: str
     trading_pair: str
 
 
-class ArbitrageConfig(BaseModel):
+class ArbitrageExecutorConfig(ExecutorConfigBase):
+    type = "arbitrage_executor"
     buying_market: ExchangePair
     selling_market: ExchangePair
     order_amount: Decimal
