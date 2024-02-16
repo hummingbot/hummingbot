@@ -329,7 +329,7 @@ class BitrueExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     @property
     def expected_supported_order_types(self):
-        return [OrderType.LIMIT]
+        return [OrderType.LIMIT, OrderType.MARKET]
 
     @property
     def expected_trading_rule(self):
@@ -968,8 +968,9 @@ class BitrueExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
         return {
-            "msg": "Success",
-            "data": [order.client_order_id],
+            "symbol": self.trading_pair,
+            "orderId": int(order.exchange_order_id),
+            "clientOrderId": order.client_order_id
         }
 
     def _order_status_request_completely_filled_mock_response(self, order: InFlightOrder) -> Any:
