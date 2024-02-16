@@ -59,8 +59,6 @@ class KrakenExchange(ExchangePyBase):
         self._domain = domain
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
-        # todo
-        self._last_trades_poll_kraken_timestamp = 1.0
         self._kraken_api_tier = KrakenAPITier(kraken_api_tier.upper())
         self._throttler = self._build_async_throttler(api_tier=self._kraken_api_tier)
         self._asset_pairs = {}
@@ -70,7 +68,7 @@ class KrakenExchange(ExchangePyBase):
 
     @staticmethod
     def kraken_order_type(order_type: OrderType) -> str:
-        return order_type.name.upper()
+        return order_type.name.lower()
 
     @staticmethod
     def to_hb_order_type(kraken_type: str) -> OrderType:
