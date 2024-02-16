@@ -113,14 +113,14 @@ class BitrueExchange(ExchangePyBase):
 
     @property
     def is_cancel_request_in_exchange_synchronous(self) -> bool:
-        return True
+        return False
 
     @property
     def is_trading_required(self) -> bool:
         return self._trading_required
 
     def supported_order_types(self):
-        return [OrderType.LIMIT]
+        return [OrderType.LIMIT, OrderType.MARKET]
 
     async def _get_all_pairs_prices(self) -> Dict[str, Any]:
         results = {}
@@ -230,10 +230,11 @@ class BitrueExchange(ExchangePyBase):
 
     async def _place_cancel(self, order_id: str, tracked_order: InFlightOrder):
         symbol = await self.exchange_symbol_associated_to_pair(trading_pair=tracked_order.trading_pair)
+        ex_oid = await tracked_order.get_exchange_order_id()
         api_params = {
             "symbol": symbol,
             # "origClientOrderId": tracked_order.client_order_id,
-            "orderId": await tracked_order.get_exchange_order_id(),
+            "orderId": ex_oid,
         }
         result = await self._api_delete(
             path_url=CONSTANTS.ORDER_PATH_URL,
@@ -241,7 +242,7 @@ class BitrueExchange(ExchangePyBase):
             is_auth_required=True,
             limit_id=CONSTANTS.CANCEL_ORDER_RATE_LIMIT_ID,
         )
-        return result.get("msg") == "Success" and result.get("data", [0])[0] == order_id
+        return str(result.get("orderId")) == ex_oid
 
     async def _format_trading_rules(self, exchange_info_dict: Dict[str, Any]) -> List[TradingRule]:
         """
