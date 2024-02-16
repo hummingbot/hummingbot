@@ -335,8 +335,8 @@ class BitrueExchange(ExchangePyBase):
                             fee = TradeFeeBase.new_spot_fee(
                                 fee_schema=self.trade_fee_schema(),
                                 trade_type=tracked_order.trade_type,
-                                percent_token=event_message["N"],
-                                flat_fees=[TokenAmount(amount=Decimal(event_message["n"]), token=event_message["N"])],
+                                percent_token=event_message["N"].upper(),
+                                flat_fees=[TokenAmount(amount=Decimal(event_message["n"]), token=event_message["N"].upper())],
                             )
                             trade_update = TradeUpdate(
                                 trade_id=str(event_message["t"]),
