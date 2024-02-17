@@ -144,6 +144,7 @@ class PositionExecutor(ExecutorBase):
         else:
             return self.current_market_price
 
+    @property
     def trade_pnl_pct(self) -> Decimal:
         """
         Calculate the trade pnl (Pure pnl without fees)
