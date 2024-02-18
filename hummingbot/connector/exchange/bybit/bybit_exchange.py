@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 from bidict import bidict
 
 import hummingbot.connector.exchange.bybit.bybit_constants as CONSTANTS
-import hummingbot.connector.exchange.bybit.bybit_utils as bybit_utils
 import hummingbot.connector.exchange.bybit.bybit_web_utils as web_utils
 from hummingbot.connector.exchange.bybit.bybit_api_order_book_data_source import BybitAPIOrderBookDataSource
 from hummingbot.connector.exchange.bybit.bybit_api_user_stream_data_source import BybitAPIUserStreamDataSource
@@ -465,9 +464,11 @@ class BybitExchange(ExchangePyBase):
 
     def _initialize_trading_pair_symbols_from_exchange_info(self, exchange_info: Dict[str, Any]):
         mapping = bidict()
-        for symbol_data in filter(bybit_utils.is_exchange_information_valid, exchange_info["result"]):
-            mapping[symbol_data["name"]] = combine_to_hb_trading_pair(base=symbol_data["baseCurrency"],
-                                                                      quote=symbol_data["quoteCurrency"])
+        for symbol_data in exchange_info["result"]['list']:
+            mapping[symbol_data["symbol"]] = combine_to_hb_trading_pair(
+                base=symbol_data["baseCoin"],
+                quote=symbol_data["quoteCoin"]
+            )
         self._set_trading_pair_symbol_map(mapping)
 
     async def _get_last_traded_price(self, trading_pair: str) -> float:
