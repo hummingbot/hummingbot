@@ -21,6 +21,8 @@ from hummingbot.core.data_type.order_book import OrderBook, OrderBookMessage
 
 
 class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
+    level = 0
+
     @classmethod
     def setUpClass(cls) -> None:
         super().setUpClass()
@@ -51,6 +53,8 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
             api_factory=self.connector._web_assistants_factory,
             trading_pairs=[self.trading_pair])
 
+        self._original_full_order_book_reset_time = self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS
+        self.data_source.FULL_ORDER_BOOK_RESET_DELTA_SECONDS = -1
         self.data_source.logger().setLevel(1)
         self.data_source.logger().addHandler(self)
 

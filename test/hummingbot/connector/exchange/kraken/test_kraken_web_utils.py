@@ -28,7 +28,7 @@ class KrakenUtilTestCases(unittest.TestCase):
             }
         }
 
-        self.assertFalse(web_utils.is_exchange_information_valid(invalid_info_1))
+        self.assertFalse(web_utils.is_exchange_information_valid(invalid_info_1["XBTUSDT"]))
         valid_info_1 = {
             "XBTUSDT": {
                 "altname": "XBTUSDT",
@@ -40,4 +40,4 @@ class KrakenUtilTestCases(unittest.TestCase):
             }
         }
 
-        self.assertTrue(web_utils.is_exchange_information_valid(valid_info_1))
+        self.assertTrue(web_utils.is_exchange_information_valid(valid_info_1["XBTUSDT"]))

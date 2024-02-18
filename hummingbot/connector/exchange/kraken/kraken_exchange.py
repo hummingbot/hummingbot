@@ -60,9 +60,10 @@ class KrakenExchange(ExchangePyBase):
         self._trading_required = trading_required
         self._trading_pairs = trading_pairs
         self._kraken_api_tier = KrakenAPITier(kraken_api_tier.upper())
-        self._throttler = self._build_async_throttler(api_tier=self._kraken_api_tier)
         self._asset_pairs = {}
         self._last_userref = 0
+        self._client_config = client_config_map
+        self._throttler = self._build_async_throttler(api_tier=self._kraken_api_tier)
 
         super().__init__(client_config_map)
 

@@ -19,10 +19,10 @@ class KrakenAPIUserStreamDataSource(UserStreamTrackerDataSource):
                  connector: 'KrakenExchange',
                  api_factory: Optional[WebAssistantsFactory] = None):
 
+        super().__init__()
         self._api_factory = api_factory
         self._connector = connector
         self._current_auth_token: Optional[str] = None
-        super().__init__()
 
     async def _connected_websocket_assistant(self) -> WSAssistant:
         ws: WSAssistant = await self._api_factory.get_ws_assistant()

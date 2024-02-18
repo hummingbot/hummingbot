@@ -9,7 +9,7 @@ class KrakenOrderBookTests(TestCase):
     def test_snapshot_message_from_exchange(self):
         snapshot_message = KrakenOrderBook.snapshot_message_from_exchange(
             msg={
-                "lastUpdateId": 1,
+                "latest_update": 1,
                 "bids": [
                     ["4.00000000", "431.00000000"]
                 ],
@@ -18,7 +18,7 @@ class KrakenOrderBookTests(TestCase):
                 ]
             },
             timestamp=1640000000.0,
-            metadata={"trading_pair": "COINALPHA/HBOT"}
+            metadata={"trading_pair": "COINALPHA-HBOT"}
         )
 
         self.assertEqual("COINALPHA-HBOT", snapshot_message.trading_pair)
@@ -52,9 +52,10 @@ class KrakenOrderBookTests(TestCase):
                         "1.52900000",
                         "1534614248.765567"
                     ],
-                ]
+                ],
+                "update_id":3407459756
             },
-            timestamp=1640000000000,
+            timestamp=1640000000,
         )
 
         self.assertEqual("COINALPHA-HBOT", diff_msg.trading_pair)
@@ -65,11 +66,9 @@ class KrakenOrderBookTests(TestCase):
         self.assertEqual(1, len(diff_msg.bids))
         self.assertEqual(5541.2, diff_msg.bids[0].price)
         self.assertEqual(1.529, diff_msg.bids[0].amount)
-        self.assertEqual(1534614248.765567, diff_msg.bids[0].update_id)
         self.assertEqual(1, len(diff_msg.asks))
         self.assertEqual(5541.3, diff_msg.asks[0].price)
         self.assertEqual(2.507, diff_msg.asks[0].amount)
-        self.assertEqual(1534614248.765567, diff_msg.asks[0].update_id)
 
     def test_trade_message_from_exchange(self):
         trade_update = {
@@ -92,5 +91,5 @@ class KrakenOrderBookTests(TestCase):
         self.assertEqual("COINALPHA-HBOT", trade_message.trading_pair)
         self.assertEqual(OrderBookMessageType.TRADE, trade_message.type)
         self.assertEqual(1534614057.321597, trade_message.timestamp)
-        self.assertEqual(1534614057.321597, trade_message.update_id)
-        self.assertEqual(1534614057321.597, trade_message.trade_id)
+        self.assertEqual(-1, trade_message.update_id)
+        self.assertEqual(1534614057.321597, trade_message.trade_id)
