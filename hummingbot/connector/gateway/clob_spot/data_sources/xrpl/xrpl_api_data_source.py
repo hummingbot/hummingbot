@@ -62,8 +62,8 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
         self._client = JsonRpcClient(self._base_url)
         self._client_order_id_nonce_provider = NonceCreator.for_microseconds()
         self._throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
-        self.max_snapshots_update_interval = 10
-        self.min_snapshots_update_interval = 3
+        self.max_snapshots_update_interval = 15
+        self.min_snapshots_update_interval = 5
 
     @property
     def connector_name(self) -> str:
