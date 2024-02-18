@@ -25,7 +25,7 @@ class KrakenOrderBook(OrderBook):
             "update_id": msg["latest_update"],
             "bids": msg["bids"],
             "asks": msg["asks"]
-        }, timestamp=timestamp * 1e-3)
+        }, timestamp=timestamp)
 
     @classmethod
     def diff_message_from_exchange(cls,
@@ -39,7 +39,7 @@ class KrakenOrderBook(OrderBook):
             "update_id": msg["update_id"],
             "bids": msg["bids"],
             "asks": msg["asks"]
-        }, timestamp=timestamp * 1e-3)
+        }, timestamp=timestamp)
 
     @classmethod
     def snapshot_ws_message_from_exchange(cls,
@@ -53,7 +53,7 @@ class KrakenOrderBook(OrderBook):
             "update_id": msg["update_id"],
             "bids": msg["bids"],
             "asks": msg["asks"]
-        }, timestamp=timestamp * 1e-3)
+        }, timestamp=timestamp)
 
     @classmethod
     def trade_message_from_exchange(cls, msg: Dict[str, any], metadata: Optional[Dict] = None):
@@ -67,7 +67,7 @@ class KrakenOrderBook(OrderBook):
             "update_id": ts,
             "price": msg["trade"][0],
             "amount": msg["trade"][1]
-        }, timestamp=ts * 1e-3)
+        }, timestamp=ts)
 
     @classmethod
     def from_snapshot(cls, msg: OrderBookMessage) -> "OrderBook":
