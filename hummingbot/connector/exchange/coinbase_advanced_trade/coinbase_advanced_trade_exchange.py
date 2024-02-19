@@ -394,7 +394,7 @@ class CoinbaseAdvancedTradeExchange(ExchangePyBase):
             exchange_order_id=str(exchange_order_id),
             trading_pair=order.trading_pair,
             update_timestamp=update_timestamp,
-            new_state=OrderState.PENDING_CREATE,
+            new_state=OrderState.PENDING_CREATE if exchange_order_id != "UNKNOWN" else OrderState.FAILED,
         )
         self._order_tracker.process_order_update(order_update)
 
