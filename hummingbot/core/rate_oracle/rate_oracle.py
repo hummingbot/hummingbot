@@ -14,6 +14,7 @@ from hummingbot.core.rate_oracle.sources.coin_gecko_rate_source import CoinGecko
 from hummingbot.core.rate_oracle.sources.gate_io_rate_source import GateIoRateSource
 from hummingbot.core.rate_oracle.sources.kucoin_rate_source import KucoinRateSource
 from hummingbot.core.rate_oracle.sources.rate_source_base import RateSourceBase
+from hummingbot.core.rate_oracle.sources.xrpl_rate_source import XrplRateSource
 from hummingbot.core.rate_oracle.utils import find_rate
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
@@ -25,6 +26,7 @@ RATE_ORACLE_SOURCES = {
     "kucoin": KucoinRateSource,
     "ascend_ex": AscendExRateSource,
     "gate_io": GateIoRateSource,
+    "xrpl": XrplRateSource,
 }
 
 

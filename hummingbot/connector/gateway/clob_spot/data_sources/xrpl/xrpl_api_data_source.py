@@ -30,6 +30,7 @@ from hummingbot.core.data_type.trade_fee import MakerTakerExchangeFeeRates, Toke
 from hummingbot.core.event.events import MarketEvent
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
 from hummingbot.core.rate_oracle.rate_oracle import RateOracle
+from hummingbot.core.rate_oracle.sources.xrpl_rate_source import XrplRateSource
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.tracking_nonce import NonceCreator
 from hummingbot.logger import HummingbotLogger
@@ -392,7 +393,15 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
     def _get_last_trade_price_from_ticker_data(self, ticker_data: Dict[str, Any]) -> Decimal:
         # Get mid-price from order book for now since there is no easy way to get last trade price from ticker data
         # Hack to bypass RateOracle for now
-        RateOracle.get_instance()._prices[ticker_data["marketId"]] = ticker_data["midprice"]
+        if not isinstance(RateOracle.get_instance().source, XrplRateSource):
+            print("Using XrplRateOracle to set prices")
+            xrpl_rate_source = XrplRateSource()
+            RateOracle.get_instance().source = xrpl_rate_source
+            RateOracle.get_instance().source.set_prices({ticker_data["marketId"]: Decimal(ticker_data["midprice"])})
+        else:
+            RateOracle.get_instance().source.set_prices({ticker_data["marketId"]: Decimal(ticker_data["midprice"])})
+
+        print(f"midprice: {ticker_data['midprice']}")
         return ticker_data["midprice"]
 
     @staticmethod
