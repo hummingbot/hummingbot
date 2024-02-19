@@ -1,9 +1,7 @@
 from enum import Enum
-from typing import (
-    Dict,
-    Tuple,
-)
-from hummingbot.core.api_throttler.data_types import RateLimit, LinkedLimitWeightPair
+from typing import Dict, Tuple
+
+from hummingbot.core.api_throttler.data_types import LinkedLimitWeightPair, RateLimit
 from hummingbot.core.data_type.in_flight_order import OrderState
 
 DEFAULT_DOMAIN = "kraken"

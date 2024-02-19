@@ -1,25 +1,22 @@
 import asyncio
+import re
 from collections import defaultdict
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
-import re
 
 from bidict import bidict
 
 from hummingbot.connector.constants import s_decimal_NaN
-from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS, \
-    kraken_web_utils as web_utils
+from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS, kraken_web_utils as web_utils
+from hummingbot.connector.exchange.kraken.kraken_api_order_book_data_source import KrakenAPIOrderBookDataSource
+from hummingbot.connector.exchange.kraken.kraken_api_user_stream_data_source import KrakenAPIUserStreamDataSource
+from hummingbot.connector.exchange.kraken.kraken_auth import KrakenAuth
+from hummingbot.connector.exchange.kraken.kraken_constants import KrakenAPITier
+from hummingbot.connector.exchange.kraken.kraken_in_fight_order import KrakenInFlightOrder
 from hummingbot.connector.exchange.kraken.kraken_utils import (
     build_rate_limits_by_tier,
     convert_from_exchange_symbol,
     convert_from_exchange_trading_pair,
-)
-from hummingbot.connector.exchange.kraken.kraken_constants import KrakenAPITier
-from hummingbot.connector.exchange.kraken.kraken_api_order_book_data_source import KrakenAPIOrderBookDataSource
-from hummingbot.connector.exchange.kraken.kraken_api_user_stream_data_source import KrakenAPIUserStreamDataSource
-from hummingbot.connector.exchange.kraken.kraken_auth import KrakenAuth
-from hummingbot.connector.exchange.kraken.kraken_in_fight_order import (
-    KrakenInFlightOrder,
 )
 from hummingbot.connector.exchange_py_base import ExchangePyBase
 from hummingbot.connector.trading_rule import TradingRule
@@ -28,7 +25,7 @@ from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
 from hummingbot.core.data_type.common import OrderType, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderUpdate, TradeUpdate
 from hummingbot.core.data_type.order_book_tracker_data_source import OrderBookTrackerDataSource
-from hummingbot.core.data_type.trade_fee import DeductedFromReturnsTradeFee, TokenAmount, TradeFeeBase
+from hummingbot.core.data_type.trade_fee import TokenAmount, TradeFeeBase
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.core.utils.estimate_fee import build_trade_fee
@@ -149,7 +146,7 @@ class KrakenExchange(ExchangePyBase):
         return False
 
     def _is_order_not_found_during_status_update_error(self, status_update_exception: Exception) -> bool:
-        return str(CONSTANTS.ORDER_NOT_EXIST_ERROR_CODE) in str(status_update_exception)
+        return False
 
     def _is_order_not_found_during_cancelation_error(self, cancelation_exception: Exception) -> bool:
         return False
@@ -355,15 +352,9 @@ class KrakenExchange(ExchangePyBase):
                                                           data=data,
                                                           is_auth_required=True)
 
-        # todo
-        # o_order_result = order_result['response']["data"]["statuses"][0]
-        # if "error" in o_order_result:
-        #     raise IOError(f"Error submitting order {userref}: {o_order_result['error']}")
-        # o_data = o_order_result.get("resting") or o_order_result.get("filled")
         o_id = order_result["txid"][0]
         return (o_id, self.current_timestamp)
 
-    # todo
     async def _api_request_with_retry(self,
                                       method: RESTMethod,
                                       endpoint: str,
@@ -407,7 +398,8 @@ class KrakenExchange(ExchangePyBase):
             data=api_params,
             is_auth_required=True)
         if isinstance(cancel_result, dict) and (
-                cancel_result.get("result",{}).get("count") == 1 or cancel_result.get("result",{}).get("error") is not None):
+                cancel_result.get("result", {}).get("count") == 1 or cancel_result.get("result", {}).get(
+            "error") is not None):
             return True
         return False
 
@@ -495,12 +487,17 @@ class KrakenExchange(ExchangePyBase):
         ]
         async for event_message in self._iter_user_event_queue():
             try:
-                channel: str = event_message[-2]
-                results: List[Any] = event_message[0]
-                if channel == CONSTANTS.USER_TRADES_ENDPOINT_NAME:
-                    self._process_trade_message(results)
-                elif channel == CONSTANTS.USER_ORDERS_ENDPOINT_NAME:
-                    self._process_order_message(event_message)
+                if isinstance(event_message, list):
+                    channel: str = event_message[-2]
+                    results: List[Any] = event_message[0]
+                    if channel == CONSTANTS.USER_TRADES_ENDPOINT_NAME:
+                        self._process_trade_message(results)
+                    elif channel == CONSTANTS.USER_ORDERS_ENDPOINT_NAME:
+                        self._process_order_message(event_message)
+                elif event_message is asyncio.CancelledError:
+                    raise asyncio.CancelledError
+                else:
+                    raise Exception(event_message)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -542,15 +539,10 @@ class KrakenExchange(ExchangePyBase):
             trade: Dict[str, str] = update[trade_id]
             trade["trade_id"] = trade_id
             exchange_order_id = trade.get("ordertxid")
-            try:
-                client_order_id = next(key for key, value in self.in_flight_orders.items()
-                                       if value.exchange_order_id == exchange_order_id)
-            except StopIteration:
-                continue
 
-            tracked_order = self._order_tracker.all_fillable_orders.get(client_order_id)
+            tracked_order = self._order_tracker.all_fillable_orders_by_exchange_order_id.get(exchange_order_id)
             if tracked_order is None:
-                self.logger().debug(f"Ignoring trade message with id {client_order_id}: not in in_flight_orders.")
+                self.logger().debug(f"Ignoring trade message with id {exchange_order_id}: not in in_flight_orders.")
             else:
                 trade_update = self._create_trade_update_with_order_fill_data(
                     order_fill=trade,
@@ -591,7 +583,7 @@ class KrakenExchange(ExchangePyBase):
                 is_auth_required=True)
 
             for trade_id, trade_fill in all_fills_response["result"].items():
-                trade: Dict[str, str] = all_fills_response[trade_id]
+                trade: Dict[str, str] = all_fills_response["result"][trade_id]
                 trade["trade_id"] = trade_id
                 trade_update = self._create_trade_update_with_order_fill_data(
                     order_fill=trade,

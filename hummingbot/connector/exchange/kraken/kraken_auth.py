@@ -1,13 +1,9 @@
-from typing import (
-    Optional,
-    Dict,
-    Any
-)
 import base64
 import hashlib
 import hmac
-import time
 import json
+import time
+from typing import Any, Dict, Optional
 
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.auth import AuthBase
