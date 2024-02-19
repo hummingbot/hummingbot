@@ -38,7 +38,7 @@ def split_to_base_quote(exchange_trading_pair: str) -> Tuple[Optional[str], Opti
 
 
 def convert_from_exchange_trading_pair(exchange_trading_pair: str, available_trading_pairs: Optional[Tuple] = None) -> \
-Optional[str]:
+        Optional[str]:
     base, quote = "", ""
     if "-" in exchange_trading_pair:
         base, quote = split_to_base_quote(exchange_trading_pair)

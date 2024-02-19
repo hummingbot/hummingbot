@@ -1,10 +1,10 @@
 import copy
+import math
 from decimal import Decimal
 from typing import Any, Dict, Optional, Tuple
 
 from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, TradeUpdate
-import math
 
 
 class KrakenInFlightOrder(InFlightOrder):

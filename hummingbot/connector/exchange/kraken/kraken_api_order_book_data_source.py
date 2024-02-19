@@ -2,8 +2,8 @@ import asyncio
 import time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from hummingbot.connector.exchange.kraken.kraken_order_book import KrakenOrderBook
 from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS, kraken_web_utils as web_utils
+from hummingbot.connector.exchange.kraken.kraken_order_book import KrakenOrderBook
 from hummingbot.connector.exchange.kraken.kraken_utils import (
     convert_from_exchange_trading_pair,
     convert_to_exchange_trading_pair,

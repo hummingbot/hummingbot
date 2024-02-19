@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, Dict, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS
 from hummingbot.core.data_type.user_stream_tracker_data_source import UserStreamTrackerDataSource
