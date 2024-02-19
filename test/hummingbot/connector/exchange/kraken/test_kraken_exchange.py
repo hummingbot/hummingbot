@@ -119,53 +119,52 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     @property
     def all_symbols_request_mock_response(self):
-        return {
+        response = {
             "error": [],
-            "result":
-                {
-                    self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset):
-                        {
-                            "altname": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
-                            "wsname": f"{self.base_asset}/{self.quote_asset}",
-                            "aclass_base": "currency",
-                            "base": self.base_asset,
-                            "aclass_quote": "currency",
-                            "quote": self.quote_asset,
-                            "lot": "unit",
-                            "pair_decimals": 1,
-                            "lot_decimals": 8,
-                            "lot_multiplier": 1,
-                            "leverage_buy": [2, 3],
-                            "leverage_sell": [2, 3],
-                            "fees": [
-                                [0, 0.26],
-                                [50000, 0.24],
-                                [100000, 0.22],
-                                [250000, 0.2],
-                                [500000, 0.18],
-                                [1000000, 0.16],
-                                [2500000, 0.14],
-                                [5000000, 0.12],
-                                [10000000, 0.1]
-                            ],
-                            "fees_maker": [
-                                [0, 0.16],
-                                [50000, 0.14],
-                                [100000, 0.12],
-                                [250000, 0.1],
-                                [500000, 0.08],
-                                [1000000, 0.06],
-                                [2500000, 0.04],
-                                [5000000, 0.02],
-                                [10000000, 0]
-                            ],
-                            "fee_volume_currency": "ZUSD",
-                            "margin_call": 80,
-                            "margin_stop": 40,
-                            "ordermin": "0.0002"
-                        }
+            "result": {
+                self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset): {
+                    "altname": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
+                    "wsname": f"{self.base_asset}/{self.quote_asset}",
+                    "aclass_base": "currency",
+                    "base": self.base_asset,
+                    "aclass_quote": "currency",
+                    "quote": self.quote_asset,
+                    "lot": "unit",
+                    "pair_decimals": 1,
+                    "lot_decimals": 8,
+                    "lot_multiplier": 1,
+                    "leverage_buy": [2, 3],
+                    "leverage_sell": [2, 3],
+                    "fees": [
+                        [0, 0.26],
+                        [50000, 0.24],
+                        [100000, 0.22],
+                        [250000, 0.2],
+                        [500000, 0.18],
+                        [1000000, 0.16],
+                        [2500000, 0.14],
+                        [5000000, 0.12],
+                        [10000000, 0.1]
+                    ],
+                    "fees_maker": [
+                        [0, 0.16],
+                        [50000, 0.14],
+                        [100000, 0.12],
+                        [250000, 0.1],
+                        [500000, 0.08],
+                        [1000000, 0.06],
+                        [2500000, 0.04],
+                        [5000000, 0.02],
+                        [10000000, 0]
+                    ],
+                    "fee_volume_currency": "ZUSD",
+                    "margin_call": 80,
+                    "margin_stop": 40,
+                    "ordermin": "0.0002"
                 }
+            }
         }
+        return response
 
     @property
     def all_symbols_including_invalid_pair_mock_response(self) -> Tuple[str, Any]:
