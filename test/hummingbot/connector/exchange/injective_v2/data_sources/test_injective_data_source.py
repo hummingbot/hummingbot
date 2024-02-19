@@ -21,6 +21,9 @@ from hummingbot.connector.exchange.injective_v2.data_sources.injective_vaults_da
     InjectiveVaultsDataSource,
 )
 from hummingbot.connector.exchange.injective_v2.injective_market import InjectiveSpotMarket
+from hummingbot.connector.exchange.injective_v2.injective_v2_utils import (
+    InjectiveMessageBasedTransactionFeeCalculatorMode,
+)
 from hummingbot.connector.gateway.gateway_in_flight_order import GatewayInFlightOrder
 from hummingbot.core.data_type.common import OrderType, TradeType
 
@@ -49,6 +52,7 @@ class InjectiveGranteeDataSourceTests(TestCase):
             granter_subaccount_index=0,
             network=Network.testnet(node="sentry"),
             rate_limits=CONSTANTS.PUBLIC_NODE_RATE_LIMITS,
+            fee_calculator_mode=InjectiveMessageBasedTransactionFeeCalculatorMode(),
         )
 
         self.query_executor = ProgrammableQueryExecutor()
@@ -238,6 +242,7 @@ class InjectiveVaultsDataSourceTests(TestCase):
             network=Network.testnet(node="sentry"),
             use_secure_connection=True,
             rate_limits=CONSTANTS.PUBLIC_NODE_RATE_LIMITS,
+            fee_calculator_mode=InjectiveMessageBasedTransactionFeeCalculatorMode(),
         )
 
         self.query_executor = ProgrammableQueryExecutor()

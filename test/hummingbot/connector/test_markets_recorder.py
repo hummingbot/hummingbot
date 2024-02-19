@@ -26,7 +26,7 @@ from hummingbot.model.market_data import MarketData
 from hummingbot.model.order import Order
 from hummingbot.model.sql_connection_manager import SQLConnectionManager, SQLConnectionType
 from hummingbot.model.trade_fill import TradeFill
-from hummingbot.smart_components.executors.position_executor.data_types import PositionConfig
+from hummingbot.smart_components.executors.position_executor.data_types import PositionExecutorConfig
 from hummingbot.smart_components.executors.position_executor.position_executor import PositionExecutor
 from hummingbot.strategy.script_strategy_base import ScriptStrategyBase
 
@@ -447,16 +447,16 @@ class MarketsRecorderTests(TestCase):
                 market_data_collection_enabled=False,
             ),
         )
-        position_config = PositionConfig(timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
-                                         side=TradeType.SELL, entry_price=Decimal("100"), amount=Decimal("1"),
-                                         stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
-                                         take_profit_order_type=OrderType.LIMIT,
-                                         stop_loss_order_type=OrderType.MARKET)
+        position_config = PositionExecutorConfig(timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
+                                                 side=TradeType.SELL, entry_price=Decimal("100"), amount=Decimal("1"),
+                                                 stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
+                                                 take_profit_order_type=OrderType.LIMIT,
+                                                 stop_loss_order_type=OrderType.MARKET)
         position_executor = PositionExecutor(self.create_mock_strategy(), position_config)
         position_executor_json = position_executor.to_json()
         position_executor_json["order_level"] = 1
         position_executor_json["controller_name"] = "test_controller"
-        recorder.store_executor(position_executor_json)
+        recorder.store_position_executor(position_executor_json)
         executors_in_db = recorder.get_position_executors()
         position_executor_record = executors_in_db[0]
         self.assertEqual(position_executor_record.timestamp, position_executor.position_config.timestamp)
@@ -474,20 +474,20 @@ class MarketsRecorderTests(TestCase):
         executors_in_db = recorder.get_position_executors(controller_name="test_controller")
         self.assertEqual(len(executors_in_db), 0)
 
-        position_config = PositionConfig(timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
-                                         side=TradeType.SELL, entry_price=Decimal("100"), amount=Decimal("1"),
-                                         stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
-                                         take_profit_order_type=OrderType.LIMIT,
-                                         stop_loss_order_type=OrderType.MARKET)
+        position_config = PositionExecutorConfig(timestamp=1234567890, trading_pair="ETH-USDT", exchange="binance",
+                                                 side=TradeType.SELL, entry_price=Decimal("100"), amount=Decimal("1"),
+                                                 stop_loss=Decimal("0.05"), take_profit=Decimal("0.1"), time_limit=60,
+                                                 take_profit_order_type=OrderType.LIMIT,
+                                                 stop_loss_order_type=OrderType.MARKET)
         position_executor = PositionExecutor(self.create_mock_strategy(), position_config)
         position_executor_json = position_executor.to_json()
         position_executor_json["order_level"] = 1
         position_executor_json["controller_name"] = "test_controller"
-        recorder.store_executor(position_executor_json)
+        recorder.store_position_executor(position_executor_json)
         executors_in_db = recorder.get_position_executors(controller_name="test_controller")
         self.assertEqual(len(executors_in_db), 1)
         position_executor_json["controller_name"] = "test_controller_2"
-        recorder.store_executor(position_executor_json)
+        recorder.store_position_executor(position_executor_json)
         executors_in_db = recorder.get_position_executors(controller_name="test_controller")
         self.assertEqual(len(executors_in_db), 1)
         executors_in_db = recorder.get_position_executors(controller_name="test_controller_2")
