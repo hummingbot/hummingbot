@@ -26,9 +26,10 @@ class HyperliquidPerpetualAuth(AuthBase):
     Auth class required by Hyperliquid Perpetual API
     """
 
-    def __init__(self, api_key: str, api_secret: str):
+    def __init__(self, api_key: str, api_secret: str, use_vault: bool):
         self._api_key: str = api_key
         self._api_secret: str = api_secret
+        self._use_vault: bool = use_vault
         self.wallet = eth_account.Account.from_key(api_secret)
 
     def sign_inner(self, wallet, data):
@@ -95,7 +96,7 @@ class HyperliquidPerpetualAuth(AuthBase):
             self.wallet,
             signature_types,
             res,
-            ZERO_ADDRESS,
+            ZERO_ADDRESS if not self._use_vault else self._api_key,
             timestamp,
             CONSTANTS.PERPETUAL_BASE_URL in base_url,
         )
@@ -103,7 +104,7 @@ class HyperliquidPerpetualAuth(AuthBase):
             "action": params,
             "nonce": timestamp,
             "signature": signature,
-            "vaultAddress": None,
+            "vaultAddress": self._api_key if self._use_vault else None,
         }
         return payload
 
@@ -119,7 +120,7 @@ class HyperliquidPerpetualAuth(AuthBase):
             self.wallet,
             signature_types,
             [[res]],
-            ZERO_ADDRESS,
+            ZERO_ADDRESS if not self._use_vault else self._api_key,
             timestamp,
             CONSTANTS.PERPETUAL_BASE_URL in base_url,
         )
@@ -130,7 +131,8 @@ class HyperliquidPerpetualAuth(AuthBase):
             },
             "nonce": timestamp,
             "signature": signature,
-            "vaultAddress": None,
+            "vaultAddress": self._api_key if self._use_vault else None,
+
         }
         return payload
 
@@ -155,7 +157,7 @@ class HyperliquidPerpetualAuth(AuthBase):
             self.wallet,
             signature_types,
             [[res], order_grouping_to_number(grouping)],
-            ZERO_ADDRESS,
+            ZERO_ADDRESS if not self._use_vault else self._api_key,
             timestamp,
             CONSTANTS.PERPETUAL_BASE_URL in base_url,
         )
@@ -168,7 +170,8 @@ class HyperliquidPerpetualAuth(AuthBase):
             },
             "nonce": timestamp,
             "signature": signature,
-            "vaultAddress": None,
+            "vaultAddress": self._api_key if self._use_vault else None,
+
         }
         return payload
 
