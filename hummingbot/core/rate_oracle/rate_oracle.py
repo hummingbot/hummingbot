@@ -193,9 +193,7 @@ class RateOracle(NetworkBase):
         while True:
             try:
                 new_prices = await self._source.get_prices(quote_token=self._quote_token)
-
-                for pair, price in new_prices.items():
-                    self.set_price(pair, price)
+                self._prices.update(new_prices)
 
                 if self._prices:
                     self._ready_event.set()
