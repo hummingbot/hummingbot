@@ -2,8 +2,8 @@ from decimal import Decimal
 from unittest import TestCase
 
 from hummingbot.connector.exchange.kraken.kraken_in_fight_order import KrakenInFlightOrder
-from hummingbot.core.data_type.common import OrderType, TradeType, PositionAction
-from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, TradeUpdate
+from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
+from hummingbot.core.data_type.in_flight_order import OrderState
 
 
 class KrakenInFlightOrderTests(TestCase):

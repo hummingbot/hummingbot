@@ -53,7 +53,7 @@ class KrakenOrderBookTests(TestCase):
                         "1534614248.765567"
                     ],
                 ],
-                "update_id":3407459756
+                "update_id": 3407459756
             },
             timestamp=1640000000,
         )

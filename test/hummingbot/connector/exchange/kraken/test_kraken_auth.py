@@ -3,9 +3,8 @@ import base64
 import hashlib
 import hmac
 import json
-from copy import copy
 from unittest import TestCase
-from unittest.mock import MagicMock,patch
+from unittest.mock import MagicMock, patch
 
 from typing_extensions import Awaitable
 
