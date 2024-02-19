@@ -401,7 +401,6 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
         else:
             RateOracle.get_instance().source.set_prices({ticker_data["marketId"]: Decimal(ticker_data["midprice"])})
 
-        print(f"midprice: {ticker_data['midprice']}")
         return ticker_data["midprice"]
 
     @staticmethod
