@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from hummingbot.core.data_type.common import OrderType, PositionAction, TradeType
 from hummingbot.core.data_type.in_flight_order import InFlightOrder, OrderState, TradeUpdate
+import math
 
 
 class KrakenInFlightOrder(InFlightOrder):
@@ -37,6 +38,15 @@ class KrakenInFlightOrder(InFlightOrder):
             position,
         )
         self.userref = userref
+
+    @property
+    def is_done(self) -> bool:
+        return (
+                self.current_state in {OrderState.CANCELED, OrderState.FILLED, OrderState.FAILED}
+                or math.isclose(self.executed_amount_base, self.amount)
+                or self.executed_amount_base >= self.amount
+            # or self.
+        )
 
     @property
     def attributes(self) -> Tuple[Any]:
@@ -116,3 +126,8 @@ class KrakenInFlightOrder(InFlightOrder):
             "last_update_timestamp": self.last_update_timestamp,
             "order_fills": {key: fill.to_json() for key, fill in self.order_fills.items()}
         }
+
+    def check_filled_condition(self):
+        if (abs(self.amount) - self.executed_amount_base).quantize(Decimal('1e-8')) <= 0 \
+                or self.current_state == OrderState.FILLED:
+            self.completely_filled_event.set()

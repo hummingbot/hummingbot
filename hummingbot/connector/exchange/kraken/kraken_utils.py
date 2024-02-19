@@ -127,6 +127,13 @@ def _build_private_rate_limits(tier: KrakenAPITier = KrakenAPITier.STARTER) -> L
             weight=2,
             linked_limits=[LinkedLimitWeightPair(CONSTANTS.PRIVATE_ENDPOINT_LIMIT_ID)],
         ),
+        RateLimit(
+            limit_id=CONSTANTS.QUERY_TRADES_PATH_URL,
+            limit=PRIVATE_ENDPOINT_LIMIT,
+            time_interval=CONSTANTS.PRIVATE_ENDPOINT_LIMIT_INTERVAL,
+            weight=2,
+            linked_limits=[LinkedLimitWeightPair(CONSTANTS.PRIVATE_ENDPOINT_LIMIT_ID)],
+        ),
     ])
 
     # Matching Engine Limits
