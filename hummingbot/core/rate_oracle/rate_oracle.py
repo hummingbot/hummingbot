@@ -14,7 +14,6 @@ from hummingbot.core.rate_oracle.sources.coin_gecko_rate_source import CoinGecko
 from hummingbot.core.rate_oracle.sources.gate_io_rate_source import GateIoRateSource
 from hummingbot.core.rate_oracle.sources.kucoin_rate_source import KucoinRateSource
 from hummingbot.core.rate_oracle.sources.rate_source_base import RateSourceBase
-from hummingbot.core.rate_oracle.sources.xrpl_rate_source import XrplRateSource
 from hummingbot.core.rate_oracle.utils import find_rate
 from hummingbot.core.utils.async_utils import safe_ensure_future
 from hummingbot.logger import HummingbotLogger
@@ -26,7 +25,6 @@ RATE_ORACLE_SOURCES = {
     "kucoin": KucoinRateSource,
     "ascend_ex": AscendExRateSource,
     "gate_io": GateIoRateSource,
-    "xrpl": XrplRateSource,
 }
 
 
@@ -185,10 +183,20 @@ class RateOracle(NetworkBase):
         prices = await self._source.get_prices(quote_token=self._quote_token)
         return find_rate(prices, pair)
 
+    def set_price(self, pair: str, price: Decimal):
+        """
+        Update keys in self._prices with new prices
+        """
+        self._prices[pair] = price
+
     async def _fetch_price_loop(self):
         while True:
             try:
-                self._prices = await self._source.get_prices(quote_token=self._quote_token)
+                new_prices = await self._source.get_prices(quote_token=self._quote_token)
+
+                for pair, price in new_prices.items():
+                    self.set_price(pair, price)
+
                 if self._prices:
                     self._ready_event.set()
             except asyncio.CancelledError:
