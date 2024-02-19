@@ -398,8 +398,8 @@ class KrakenExchange(ExchangePyBase):
             data=api_params,
             is_auth_required=True)
         if isinstance(cancel_result, dict) and (
-                cancel_result.get("result", {}).get("count") == 1 or cancel_result.get("result", {}).get(
-            "error") is not None):
+                cancel_result.get("result", {}).get("count") == 1 or
+                cancel_result.get("result", {}).get("error") is not None):
             return True
         return False
 
@@ -481,10 +481,6 @@ class KrakenExchange(ExchangePyBase):
         Listens to messages from _user_stream_tracker.user_stream queue.
         Traders, Orders, and Balance updates from the WS.
         """
-        user_channels = [
-            CONSTANTS.USER_TRADES_ENDPOINT_NAME,
-            CONSTANTS.USER_ORDERS_ENDPOINT_NAME,
-        ]
         async for event_message in self._iter_user_event_queue():
             try:
                 if isinstance(event_message, list):
