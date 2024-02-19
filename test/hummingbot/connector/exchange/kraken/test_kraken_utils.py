@@ -30,11 +30,12 @@ class KrakenUtilTestCases(unittest.TestCase):
         self.assertEqual(self.ex_trading_pair, utils.convert_to_exchange_trading_pair(self.ex_trading_pair))
 
     def test_split_to_base_quote(self):
-        self.assertEqual((self.hb_base_asset,self.quote_asset), utils.split_to_base_quote(self.trading_pair))
+        self.assertEqual((self.hb_base_asset, self.quote_asset), utils.split_to_base_quote(self.trading_pair))
 
     def test_convert_from_exchange_trading_pair(self):
         self.assertEqual(self.trading_pair, utils.convert_from_exchange_trading_pair(self.trading_pair))
-        self.assertEqual(self.trading_pair, utils.convert_from_exchange_trading_pair(self.ex_trading_pair,("BTC-USDT","ETH-USDT")))
+        self.assertEqual(self.trading_pair,
+                         utils.convert_from_exchange_trading_pair(self.ex_trading_pair, ("BTC-USDT", "ETH-USDT")))
         self.assertEqual(self.trading_pair, utils.convert_from_exchange_trading_pair(self.ex_ws_trading_pair))
 
     def test_build_rate_limits_by_tier(self):

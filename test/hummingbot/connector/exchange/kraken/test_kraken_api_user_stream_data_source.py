@@ -3,7 +3,7 @@ import json
 import re
 import unittest
 from typing import Awaitable, Dict, List, Optional
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from aioresponses import aioresponses
 from bidict import bidict
@@ -11,10 +11,10 @@ from bidict import bidict
 from hummingbot.client.config.client_config_map import ClientConfigMap
 from hummingbot.client.config.config_helpers import ClientConfigAdapter
 from hummingbot.connector.exchange.kraken import kraken_constants as CONSTANTS
-from hummingbot.connector.exchange.kraken.kraken_exchange import KrakenExchange
 from hummingbot.connector.exchange.kraken.kraken_api_user_stream_data_source import KrakenAPIUserStreamDataSource
 from hummingbot.connector.exchange.kraken.kraken_auth import KrakenAuth
 from hummingbot.connector.exchange.kraken.kraken_constants import KrakenAPITier
+from hummingbot.connector.exchange.kraken.kraken_exchange import KrakenExchange
 from hummingbot.connector.exchange.kraken.kraken_utils import build_rate_limits_by_tier
 from hummingbot.connector.test_support.network_mocking_assistant import NetworkMockingAssistant
 from hummingbot.core.api_throttler.async_throttler import AsyncThrottler
@@ -65,6 +65,7 @@ class KrakenAPIUserStreamDataSourceTest(unittest.TestCase):
         self.resume_test_event = asyncio.Event()
 
         self.connector._set_trading_pair_symbol_map(bidict({self.ex_trading_pair: self.trading_pair}))
+
     def tearDown(self) -> None:
         self.listening_task and self.listening_task.cancel()
         super().tearDown()
@@ -75,6 +76,7 @@ class KrakenAPIUserStreamDataSourceTest(unittest.TestCase):
     def _is_logged(self, log_level: str, message: str) -> bool:
         return any(record.levelname == log_level and record.getMessage() == message
                    for record in self.log_records)
+
     def async_run_with_timeout(self, coroutine: Awaitable, timeout: float = 1):
         ret = self.ev_loop.run_until_complete(asyncio.wait_for(coroutine, timeout))
         return ret
