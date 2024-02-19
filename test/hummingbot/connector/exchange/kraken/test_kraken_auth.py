@@ -2,6 +2,7 @@ import asyncio
 import base64
 import hashlib
 import hmac
+import json
 from copy import copy
 from unittest import TestCase
 from unittest.mock import MagicMock,patch
@@ -39,7 +40,7 @@ class KrakenAuthTests(TestCase):
         }
 
         auth = KrakenAuth(api_key=self._api_key, secret_key=self._secret, time_provider=mock_time_provider)
-        request = RESTRequest(method=RESTMethod.GET, data=params, is_auth_required=True)
+        request = RESTRequest(method=RESTMethod.GET, data=json.dumps(params), is_auth_required=True)
         request.url = test_url
         configured_request = self.async_run_with_timeout(auth.rest_authenticate(request))
 
