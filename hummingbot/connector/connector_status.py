@@ -66,6 +66,7 @@ connector_status = {
     'vvs': 'bronze',
     'xswap': 'bronze',
     'xrpl': 'silver',
+    'carbonamm': 'bronze',
 }
 
 warning_messages = {
