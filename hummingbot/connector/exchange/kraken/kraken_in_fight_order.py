@@ -41,12 +41,10 @@ class KrakenInFlightOrder(InFlightOrder):
 
     @property
     def is_done(self) -> bool:
-        return (
-                self.current_state in {OrderState.CANCELED, OrderState.FILLED, OrderState.FAILED}
+        return (self.current_state in {OrderState.CANCELED, OrderState.FILLED, OrderState.FAILED}
                 or math.isclose(self.executed_amount_base, self.amount)
                 or self.executed_amount_base >= self.amount
-            # or self.
-        )
+                )
 
     @property
     def attributes(self) -> Tuple[Any]:
