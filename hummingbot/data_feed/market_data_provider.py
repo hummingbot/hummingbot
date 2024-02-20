@@ -1,4 +1,4 @@
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 
 import pandas as pd
 
@@ -20,14 +20,22 @@ class MarketDataProvider:
         all_candles_feeds_running = all(feed.ready for feed in self.candles_feeds.values())
         return all_connectors_running and all_candles_feeds_running
 
-    def initialize_candle_feed(self, config: CandlesConfig):
+    def initialize_candles_feed(self, config: CandlesConfig):
         """
         Initializes a candle feed based on the given configuration.
         :param config: CandlesConfig
         """
-        self.get_candle_feed(config)
+        self.get_candles_feed(config)
 
-    def get_candle_feed(self, config: CandlesConfig):
+    def initialize_candles_feed_list(self, config_list: List[CandlesConfig]):
+        """
+        Initializes a list of candle feeds based on the given configurations.
+        :param config_list: List[CandlesConfig]
+        """
+        for config in config_list:
+            self.get_candles_feed(config)
+
+    def get_candles_feed(self, config: CandlesConfig):
         """
         Retrieves or creates and starts a candle feed based on the given configuration.
         If an existing feed has a higher or equal max_records, it is reused.
@@ -109,7 +117,7 @@ class MarketDataProvider:
         :param max_records: int
         :return: Candles dataframe.
         """
-        candles = self.get_candle_feed(CandlesConfig(
+        candles = self.get_candles_feed(CandlesConfig(
             connector=connector_name,
             trading_pair=trading_pair,
             interval=interval,
