@@ -8,7 +8,7 @@ from hummingbot.client.config.config_data_types import BaseClientModel, ClientFi
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
-from hummingbot.smart_components.controllers.dman_v3 import DManV3, DManV3Config
+from hummingbot.smart_components.controllers.directional_trading.dman_v3 import DManV3, DManV3Config
 from hummingbot.smart_components.executors.position_executor.data_types import TrailingStop, TripleBarrierConfig
 from hummingbot.smart_components.models.base import SmartComponentStatus
 from hummingbot.smart_components.order_level_distributions.distributions import Distributions

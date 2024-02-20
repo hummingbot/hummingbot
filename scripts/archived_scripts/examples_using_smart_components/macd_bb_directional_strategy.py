@@ -66,7 +66,7 @@ class MACDBBDirectionalStrategy(ScriptStrategyBase):
 
     def on_tick(self):
         self.check_and_set_leverage()
-        if len(self.get_active_executors()) < self.max_executors and self.candles.is_ready:
+        if len(self.get_active_executors()) < self.max_executors and self.candles.ready:
             signal_value, take_profit, stop_loss, indicators = self.get_signal_tp_and_sl()
             if self.is_margin_enough() and signal_value != 0:
                 price = self.connectors[self.exchange].get_mid_price(self.trading_pair)
@@ -148,7 +148,7 @@ class MACDBBDirectionalStrategy(ScriptStrategyBase):
         for executor in self.active_executors:
             lines.extend([f"|Signal id: {executor.timestamp}"])
             lines.extend(executor.to_format_status())
-        if self.candles.is_ready:
+        if self.candles.ready:
             lines.extend([
                 "\n############################################ Market Data ############################################\n"])
             signal, take_profit, stop_loss, indicators = self.get_signal_tp_and_sl()
