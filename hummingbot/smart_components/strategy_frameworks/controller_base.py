@@ -119,7 +119,7 @@ class ControllerBase(ABC):
         """
         Checks if the candlesticks are full.
         """
-        return all([candle.is_ready for candle in self.candles])
+        return all([candle.ready for candle in self.candles])
 
     def start(self) -> None:
         """
