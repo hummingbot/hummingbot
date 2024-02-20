@@ -452,11 +452,11 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     def validate_auth_credentials_present(self, request_call: RequestCall):
         self._validate_auth_credentials_taking_parameters_from_argument(
             request_call_tuple=request_call,
-            params=json.loads(request_call.kwargs["data"])
+            params=request_call.kwargs["data"]
         )
 
     def validate_order_creation_request(self, order: InFlightOrder, request_call: RequestCall):
-        request_data = json.loads(request_call.kwargs["data"])
+        request_data = request_call.kwargs["data"]
         self.assertEqual(self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset), request_data["pair"])
         self.assertEqual(order.trade_type.name.lower(), request_data["type"])
         self.assertEqual(KrakenExchange.kraken_order_type(OrderType.LIMIT), request_data["ordertype"])
@@ -464,7 +464,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         self.assertEqual(Decimal("10000"), Decimal(request_data["price"]))
 
     def validate_order_cancelation_request(self, order: InFlightOrder, request_call: RequestCall):
-        request_data = json.loads(request_call.kwargs["data"])
+        request_data = request_call.kwargs["data"]
         self.assertEqual(order.exchange_order_id, request_data["txid"])
 
     def validate_order_status_request(self, order: InFlightOrder, request_call: RequestCall):
@@ -472,7 +472,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         self.assertEqual(order.exchange_order_id, request_params["txid"])
 
     def validate_trades_request(self, order: InFlightOrder, request_call: RequestCall):
-        request_params = json.loads(request_call.kwargs["data"])
+        request_params = request_call.kwargs["data"]
         self.assertEqual(order.exchange_order_id, str(request_params["txid"]))
 
     def configure_order_not_found_error_cancelation_response(
