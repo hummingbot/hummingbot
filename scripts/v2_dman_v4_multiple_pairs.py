@@ -5,7 +5,7 @@ from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.core.data_type.common import OrderType, PositionAction, PositionSide, TradeType
 from hummingbot.core.event.events import BuyOrderCompletedEvent, SellOrderCompletedEvent
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
-from hummingbot.smart_components.controllers.dman_v4 import DManV4, DManV4Config
+from hummingbot.smart_components.controllers.market_making.dman_v4 import DManV4, DManV4Config
 from hummingbot.smart_components.executors.position_executor.data_types import TrailingStop, TripleBarrierConfig
 from hummingbot.smart_components.models.base import SmartComponentStatus
 from hummingbot.smart_components.order_level_distributions.distributions import Distributions

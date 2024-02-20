@@ -7,7 +7,7 @@ from pydantic import Field
 from hummingbot.client.config.config_data_types import BaseClientModel, ClientFieldData
 from hummingbot.connector.connector_base import ConnectorBase
 from hummingbot.data_feed.candles_feed.candles_factory import CandlesConfig
-from hummingbot.smart_components.controllers.dman_v5 import DManV5, DManV5Config
+from hummingbot.smart_components.controllers.directional_trading.dman_v5 import DManV5, DManV5Config
 from hummingbot.smart_components.executors.position_executor.data_types import TrailingStop
 from hummingbot.smart_components.models.base import SmartComponentStatus
 from hummingbot.smart_components.strategy_frameworks.generic_strategy.generic_executor_handler import (

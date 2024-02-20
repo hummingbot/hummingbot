@@ -44,7 +44,7 @@ class BacktestMM(ScriptStrategyBase):
     markets = {f"{execution_exchange}": {trading_pair}}
 
     def on_tick(self):
-        if not self.candle.is_ready:
+        if not self.candle.ready:
             self.logger().info(f"Candles not ready yet for {self.trading_pair}! Missing {self.candle._candles.maxlen - len(self.candle._candles)}")
             pass
         else:
@@ -57,7 +57,7 @@ class BacktestMM(ScriptStrategyBase):
             df['base_delta'] = df['buy_amount'] - df['sell_amount']
             df['quote_delta'] = df['sell_amount'] * df['ask_price'] - df['buy_amount'] * df['bid_price'] - df['fees_paid']
 
-        if self.candle.is_ready and self.results_df is None:
+        if self.candle.ready and self.results_df is None:
             df.to_csv(self.csv_path, index=False)
             self.results_df = df
             msg = "Backtesting complete - run 'status' to see results."
@@ -149,7 +149,7 @@ class BacktestMM(ScriptStrategyBase):
     def format_status(self) -> str:
         if not self.ready_to_trade:
             return "Market connectors are not ready."
-        if not self.candle.is_ready:
+        if not self.candle.ready:
             return (f"Candles not ready yet for {self.trading_pair}! Missing {self.candle._candles.maxlen - len(self.candle._candles)}")
 
         df = self.results_df
