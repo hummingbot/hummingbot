@@ -73,7 +73,7 @@ class CandlesBase(NetworkBase):
             self._listen_candles_task = None
 
     @property
-    def is_ready(self):
+    def ready(self):
         """
         This property returns a boolean indicating whether the _candles deque has reached its maximum length.
         """
