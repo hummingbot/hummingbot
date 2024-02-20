@@ -1,7 +1,7 @@
 import logging
 import math
 from decimal import Decimal
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from hummingbot.core.data_type.common import OrderType, PositionAction, PriceType, TradeType
 from hummingbot.core.data_type.order_candidate import OrderCandidate, PerpetualOrderCandidate
@@ -69,6 +69,15 @@ class PositionExecutor(ExecutorBase):
         return self.is_perpetual_connector(self.config.exchange)
 
     @property
+    def is_trading(self):
+        """
+        Check if the position is trading.
+
+        :return: True if the position is trading, False otherwise.
+        """
+        return self.status == SmartComponentStatus.RUNNING and self.open_filled_amount > Decimal("0")
+
+    @property
     def open_filled_amount(self) -> Decimal:
         """
         Get the filled amount of the open order.
@@ -94,6 +103,29 @@ class PositionExecutor(ExecutorBase):
         :return: The filled amount of the close order if it exists, otherwise 0.
         """
         return self._close_order.executed_amount_base if self._close_order else Decimal("0")
+
+    @property
+    def close_filled_amount_quote(self) -> Decimal:
+        """
+        Get the filled amount of the close order in quote currency.
+
+        :return: The filled amount of the close order in quote currency.
+        """
+        return self.close_filled_amount * self.close_price
+
+    @property
+    def filled_amount(self) -> Decimal:
+        """
+        Get the filled amount of the position.
+        """
+        return self.open_filled_amount + self.close_filled_amount
+
+    @property
+    def filled_amount_quote(self) -> Decimal:
+        """
+        Get the filled amount of the position in quote currency.
+        """
+        return self.open_filled_amount_quote + self.close_filled_amount_quote
 
     @property
     def is_expired(self) -> bool:
@@ -344,7 +376,7 @@ class PositionExecutor(ExecutorBase):
                 connector_name=self.config.exchange,
                 trading_pair=self.config.trading_pair,
                 order_type=OrderType.MARKET,
-                amount=self.open_filled_amount - self._take_profit_limit_order.executed_amount_base,
+                amount=delta_amount_to_close,
                 price=price,
                 side=TradeType.SELL if self.config.side == TradeType.BUY else TradeType.BUY,
                 position_action=PositionAction.CLOSE,
@@ -557,6 +589,14 @@ class PositionExecutor(ExecutorBase):
             "stop_loss_order_type": self.config.triple_barrier_config.stop_loss_order_type.name,
             "time_limit_order_type": self.config.triple_barrier_config.time_limit_order_type.name,
             "leverage": self.config.leverage,
+        }
+
+    def get_custom_info(self) -> Dict:
+        return {
+            "current_position_average_price": self.entry_price,
+            "side": self.config.side,
+            "current_retries": self._current_retries,
+            "max_retries": self._max_retries
         }
 
     def to_format_status(self, scale=1.0):
