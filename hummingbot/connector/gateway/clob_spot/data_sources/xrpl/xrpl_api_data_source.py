@@ -29,6 +29,7 @@ from hummingbot.core.data_type.order_book_message import OrderBookMessage, Order
 from hummingbot.core.data_type.trade_fee import MakerTakerExchangeFeeRates, TokenAmount, TradeFeeBase, TradeFeeSchema
 from hummingbot.core.event.events import MarketEvent
 from hummingbot.core.gateway.gateway_http_client import GatewayHttpClient
+from hummingbot.core.rate_oracle.rate_oracle import RateOracle
 from hummingbot.core.utils.async_utils import safe_gather
 from hummingbot.core.utils.tracking_nonce import NonceCreator
 from hummingbot.logger import HummingbotLogger
@@ -62,8 +63,8 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
         self._client = JsonRpcClient(self._base_url)
         self._client_order_id_nonce_provider = NonceCreator.for_microseconds()
         self._throttler = AsyncThrottler(rate_limits=CONSTANTS.RATE_LIMITS)
-        self.max_snapshots_update_interval = 10
-        self.min_snapshots_update_interval = 3
+        self.max_snapshots_update_interval = 15
+        self.min_snapshots_update_interval = 5
 
     @property
     def connector_name(self) -> str:
@@ -390,6 +391,8 @@ class XrplAPIDataSource(GatewayCLOBAPIDataSourceBase):
 
     def _get_last_trade_price_from_ticker_data(self, ticker_data: Dict[str, Any]) -> Decimal:
         # Get mid-price from order book for now since there is no easy way to get last trade price from ticker data
+        RateOracle.get_instance().set_price(pair=ticker_data["marketId"], price=Decimal(ticker_data["midprice"]))
+
         return ticker_data["midprice"]
 
     @staticmethod
