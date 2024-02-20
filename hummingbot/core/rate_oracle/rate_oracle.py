@@ -183,10 +183,18 @@ class RateOracle(NetworkBase):
         prices = await self._source.get_prices(quote_token=self._quote_token)
         return find_rate(prices, pair)
 
+    def set_price(self, pair: str, price: Decimal):
+        """
+        Update keys in self._prices with new prices
+        """
+        self._prices[pair] = price
+
     async def _fetch_price_loop(self):
         while True:
             try:
-                self._prices = await self._source.get_prices(quote_token=self._quote_token)
+                new_prices = await self._source.get_prices(quote_token=self._quote_token)
+                self._prices.update(new_prices)
+
                 if self._prices:
                     self._ready_event.set()
             except asyncio.CancelledError:
