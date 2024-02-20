@@ -4,6 +4,8 @@ import hmac
 import json
 import time
 from typing import Any, Dict, Optional
+from urllib.parse import urlparse
+
 
 from hummingbot.connector.time_synchronizer import TimeSynchronizer
 from hummingbot.core.web_assistant.auth import AuthBase
@@ -25,16 +27,13 @@ class KrakenAuth(AuthBase):
         return str(self._last_tracking_nonce)
 
     async def rest_authenticate(self, request: RESTRequest) -> RESTRequest:
-        headers = {}
-        if request.headers is not None:
-            headers.update(request.headers)
 
         data = json.loads(request.data) if request.data is not None else {}
+        _path = urlparse(request.url).path
 
-        auth_dict: Dict[str, Any] = self._generate_auth_dict(request.url, data)
-        headers.update(auth_dict["headers"])
-        request.headers = headers
-        request.data = json.dumps(auth_dict["postDict"])
+        auth_dict: Dict[str, Any] = self._generate_auth_dict(_path, data)
+        request.headers = auth_dict["headers"]
+        request.data = auth_dict["postDict"]
         return request
 
     async def ws_authenticate(self, request: WSRequest) -> WSRequest:
