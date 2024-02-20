@@ -26,3 +26,4 @@ class Executors(HummingbotBase):
     filled_amount_quote = Column(Float, nullable=False)
     is_trading = Column(Boolean, nullable=False)
     custom_info = Column(JSON, nullable=False)
+    controller_id = Column(Text, nullable=True)
