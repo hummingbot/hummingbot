@@ -46,6 +46,7 @@ def is_exchange_information_valid(trading_pair_details) -> bool:
         return not trading_pair_details.get('altname').endswith('.d')
     return True
 
+
 async def get_current_server_time(
         throttler,
         domain
