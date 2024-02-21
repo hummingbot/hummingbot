@@ -1,3 +1,4 @@
+import time
 from typing import Optional
 
 import hummingbot.connector.exchange.kraken.kraken_constants as CONSTANTS
@@ -44,3 +45,9 @@ def is_exchange_information_valid(trading_pair_details) -> bool:
     if trading_pair_details.get('altname'):
         return not trading_pair_details.get('altname').endswith('.d')
     return True
+
+async def get_current_server_time(
+        throttler,
+        domain
+) -> float:
+    return time.time()

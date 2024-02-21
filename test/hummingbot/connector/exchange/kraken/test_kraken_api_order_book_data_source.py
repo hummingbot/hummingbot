@@ -220,7 +220,7 @@ class KrakenAPIOrderBookDataSourceTest(unittest.TestCase):
         expected_trade_subscription = {
             "event": "subscribe",
             "pair": [self.ws_ex_trading_pairs],
-            "subscription": {"name": 'trade', "depth": 1000},
+            "subscription": {"name": 'trade'},
         }
         self.assertEqual(expected_trade_subscription, sent_subscription_messages[0])
         expected_diff_subscription = {

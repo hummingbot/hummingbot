@@ -41,16 +41,8 @@ class KrakenAPIUserStreamDataSource(UserStreamTrackerDataSource):
             response_json = await self._connector._api_post(path_url=CONSTANTS.GET_TOKEN_PATH_URL, params={},
                                                             is_auth_required=True)
         except Exception:
-            raise IOError(f"Error parsing data from {CONSTANTS.GET_TOKEN_PATH_URL}.")
-
-        err = response_json["error"]
-        if "EAPI:Invalid nonce" in err:
-            self.logger().error(f"Invalid nonce error from {CONSTANTS.GET_TOKEN_PATH_URL}. " +
-                                "Please ensure your Kraken API key nonce window is at least 10, " +
-                                "and if needed reset your API key.")
-            raise IOError({"error": response_json})
-
-        return response_json["result"]["token"]
+            raise
+        return response_json["token"]
 
     async def _subscribe_channels(self, websocket_assistant: WSAssistant):
         """
