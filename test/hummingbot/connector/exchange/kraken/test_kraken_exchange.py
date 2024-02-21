@@ -71,8 +71,6 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     @property
     def latest_prices_request_mock_response(self):
         return {
-            "error": [],
-            "result": {
                 self.ex_trading_pair: {
                     "a": [
                         "30300.10000",
@@ -111,7 +109,6 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                     "o": "30502.80000"
                 }
             }
-        }
 
     @property
     def balance_event_websocket_update(self):
@@ -120,8 +117,6 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     @property
     def all_symbols_request_mock_response(self):
         response = {
-            "error": [],
-            "result": {
                 self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset): {
                     "altname": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
                     "wsname": f"{self.base_asset}/{self.quote_asset}",
@@ -163,14 +158,11 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                     "ordermin": "0.0002"
                 }
             }
-        }
         return response
 
     @property
     def all_symbols_including_invalid_pair_mock_response(self) -> Tuple[str, Any]:
         response = {
-            "error": [],
-            "result": {
                 self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset): {
                     "altname": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
                     "wsname": f"{self.base_asset}/{self.quote_asset}",
@@ -252,7 +244,6 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                     "ordermin": "0.0002"
                 }
             }
-        }
         return "INVALID-PAIR", response
 
     @property
@@ -262,8 +253,6 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     @property
     def trading_rules_request_mock_response(self):
         return {
-            "error": [],
-            "result": {
                 self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset): {
                     "altname": self.exchange_symbol_for_tokens(self.base_asset, self.quote_asset),
                     "wsname": f"{self.base_asset}/{self.quote_asset}",
@@ -305,13 +294,10 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                     "ordermin": "0.0002"
                 }
             }
-        }
 
     @property
     def trading_rules_request_erroneous_mock_response(self):
         return {
-            "error": [],
-            "result": {
                 "XBTUSDT": {
                     "altname": "XBTUSDT",
                     "wsname": "XBT/USDT",
@@ -349,7 +335,6 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                     "margin_stop": 40,
                 }
             }
-        }
 
     @property
     def order_creation_request_successful_mock_response(self):
@@ -365,21 +350,15 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
     @property
     def balance_request_mock_response_for_base_and_quote(self):
         return {
-            "error": [],
-            "result": {
                 self.base_asset: str(10),
                 self.quote_asset: str(2000),
             }
-        }
 
     @property
     def balance_request_mock_response_only_base(self):
         return {
-            "error": [],
-            "result": {
                 self.base_asset: str(10),
             }
-        }
 
     @property
     def expected_latest_price(self):
@@ -391,7 +370,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     @property
     def expected_trading_rule(self):
-        rule = list(self.trading_rules_request_mock_response["result"].values())[0]
+        rule = list(self.trading_rules_request_mock_response.values())[0]
         min_order_size = Decimal(rule.get('ordermin', 0))
         min_price_increment = Decimal(f"1e-{rule.get('pair_decimals')}")
         min_base_amount_increment = Decimal(f"1e-{rule.get('lot_decimals')}")
@@ -404,7 +383,7 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     @property
     def expected_logged_error_for_erroneous_trading_rule(self):
-        erroneous_rule = list(self.trading_rules_request_erroneous_mock_response["result"].values())[0]
+        erroneous_rule = list(self.trading_rules_request_erroneous_mock_response.values())[0]
         return f"Error parsing the trading pair rule {erroneous_rule}. Skipping."
 
     @property
@@ -813,8 +792,6 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
         regex_url = re.compile(f"^{url}".replace(".", r"\.").replace("?", r"\?"))
 
         order_status = {
-            "error": [],
-            "result": {
                 order.exchange_order_id: {
                     "refid": "None",
                     "userref": 0,
@@ -835,7 +812,6 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                     "trades": []
                 }
             }
-        }
 
         mock_response = order_status
         mock_api.post(regex_url, body=json.dumps(mock_response))
@@ -968,8 +944,6 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     def get_asset_pairs_mock(self) -> Dict:
         asset_pairs = {
-            "error": [],
-            "result": {
                 f"X{self.base_asset}{self.quote_asset}": {
                     "altname": f"{self.base_asset}{self.quote_asset}",
                     "wsname": f"{self.base_asset}/{self.quote_asset}",
@@ -1015,29 +989,22 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                     "ordermin": "0.005"
                 },
             }
-        }
         return asset_pairs
 
     def get_balances_mock(self, base_asset_balance: float, quote_asset_balance: float) -> Dict:
         balances = {
-            "error": [],
-            "result": {
                 self.base_asset: str(base_asset_balance),
                 self.quote_asset: str(quote_asset_balance),
                 "USDT": "171288.6158",
             }
-        }
         return balances
 
     def get_open_orders_mock(self, quantity: float, price: float, order_type: str) -> Dict:
         open_orders = {
-            "error": [],
-            "result": {
                 "open": {
                     "OQCLML-BW3P3-BUCMWZ": self.get_order_status_mock(quantity, price, order_type, status="open"),
                 }
             }
-        }
         return open_orders
 
     def get_order_status_mock(self, quantity: float, price: float, order_type: str, status: str) -> Dict:
@@ -1095,16 +1062,11 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
 
     def _order_cancelation_request_successful_mock_response(self, order: InFlightOrder) -> Any:
         return {
-            "error": [],
-            "result": {
                 "count": 1
             }
-        }
 
     def _order_status_request_completely_filled_mock_response(self, order: InFlightOrder) -> Any:
         return {
-            "error": [],
-            "result": {
                 order.exchange_order_id: {
                     "refid": "None",
                     "userref": 0,
@@ -1125,12 +1087,9 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                     "trades": []
                 }
             }
-        }
 
     def _order_status_request_canceled_mock_response(self, order: InFlightOrder) -> Any:
         return {
-            "error": [],
-            "result": {
                 order.exchange_order_id: {
                     "refid": "None",
                     "userref": 0,
@@ -1151,12 +1110,9 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                     "trades": []
                 }
             }
-        }
 
     def _order_status_request_open_mock_response(self, order: InFlightOrder) -> Any:
         return {
-            "error": [],
-            "result": {
                 order.exchange_order_id: {
                     "refid": "None",
                     "userref": 0,
@@ -1177,12 +1133,9 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                     "trades": []
                 }
             }
-        }
 
     def _order_status_request_partially_filled_mock_response(self, order: InFlightOrder) -> Any:
         return {
-            "error": [],
-            "result": {
                 order.exchange_order_id: {
                     "refid": "None",
                     "userref": 0,
@@ -1203,12 +1156,9 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                     "trades": []
                 }
             }
-        }
 
     def _order_fills_request_partial_fill_mock_response(self, order: InFlightOrder):
         return {
-            "error": [],
-            "result": {
                 self.expected_fill_trade_id: {
                     "ordertxid": order.exchange_order_id,
                     "postxid": "TKH2SE-M7IF5-CFI7LT",
@@ -1226,12 +1176,9 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                     "maker": "true"
                 }
             }
-        }
 
     def _order_fills_request_full_fill_mock_response(self, order: InFlightOrder):
         return {
-            "error": [],
-            "result": {
                 self.expected_fill_trade_id: {
                     "ordertxid": order.exchange_order_id,
                     "postxid": "TKH2SE-M7IF5-CFI7LT",
@@ -1249,4 +1196,3 @@ class KrakenExchangeTests(AbstractExchangeConnectorTests.ExchangeConnectorTests)
                     "maker": "true"
                 }
             }
-        }

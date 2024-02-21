@@ -84,12 +84,9 @@ class KrakenAPIUserStreamDataSourceTest(unittest.TestCase):
     @staticmethod
     def get_auth_response_mock() -> Dict:
         auth_resp = {
-            "error": [],
-            "result": {
                 "token": "1Dwc4lzSwNWOAwkMdqhssNNFhs1ed606d1WcF3XfEMw",
                 "expires": 900
             }
-        }
         return auth_resp
 
     @staticmethod
@@ -150,7 +147,7 @@ class KrakenAPIUserStreamDataSourceTest(unittest.TestCase):
 
         ret = self.async_run_with_timeout(self.data_source.get_auth_token())
 
-        self.assertEqual(ret, resp["result"]["token"])
+        self.assertEqual(ret, resp["token"])
 
     @aioresponses()
     @patch("aiohttp.ClientSession.ws_connect", new_callable=AsyncMock)

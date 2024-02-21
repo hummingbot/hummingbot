@@ -103,7 +103,7 @@ class KrakenAPIOrderBookDataSource(OrderBookTrackerDataSource):
             trades_payload = {
                 "event": "subscribe",
                 "pair": trading_pairs,
-                "subscription": {"name": 'trade', "depth": 1000},
+                "subscription": {"name": 'trade'},
             }
             subscribe_trade_request: WSJSONRequest = WSJSONRequest(payload=trades_payload)
 
